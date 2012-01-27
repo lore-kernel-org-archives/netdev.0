@@ -1,148 +1,277 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH 3/4] SUNRPC: service destruction in network namespace
- context
-Date: Fri, 27 Jan 2012 13:08:06 +0400
-Message-ID: <4F226976.5000605@parallels.com>
-References: <20120125134132.13662.83447.stgit@localhost6.localdomain6> <20120125134726.13662.97179.stgit@localhost6.localdomain6> <20120126211450.GD700@fieldses.org>
+From: "Prashant Batra (prbatra)" <prbatra-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: IP forwarding
+Date: Fri, 27 Jan 2012 15:29:48 +0530
+Message-ID: <B97B134FACB2024DB45F524AB0A7B7F2059F2B31@XMB-BGL-419.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120126211450.GD700@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============9000698790385968585=="
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Return-path: <ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
+	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipsec-tools-devel>
+List-Post: <mailto:ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
+	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-27.01.2012 01:14, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Wed, Jan 25, 2012 at 05:47:26PM +0400, Stanislav Kinsbursky wrote:
->> This patch introduces network namespace filter for service destructi=
-on
->> function.
->> Nothing special here - just do exactly the same operations, but only=
- for
->> tranports in passed networks namespace context.
->> BTW, BUG_ON() checks for empty service transports lists were returne=
-d into
->> svc_destroy() function. This is because of swithing generic svc_clos=
-e_all() to
->> networks namespace dependable svc_close_net().
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>
->> ---
->>   include/linux/sunrpc/svcsock.h |    2 +-
->>   net/sunrpc/svc.c               |    9 +++++++--
->>   net/sunrpc/svc_xprt.c          |   27 +++++++++++++++++----------
->>   3 files changed, 25 insertions(+), 13 deletions(-)
->>
->> diff --git a/include/linux/sunrpc/svcsock.h b/include/linux/sunrpc/s=
-vcsock.h
->> index c84e974..cb4ac69 100644
->> --- a/include/linux/sunrpc/svcsock.h
->> +++ b/include/linux/sunrpc/svcsock.h
->> @@ -34,7 +34,7 @@ struct svc_sock {
->>   /*
->>    * Function prototypes.
->>    */
->> -void		svc_close_all(struct svc_serv *);
->> +void		svc_close_net(struct svc_serv *, struct net *);
->>   int		svc_recv(struct svc_rqst *, long);
->>   int		svc_send(struct svc_rqst *);
->>   void		svc_drop(struct svc_rqst *);
->> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
->> index a8b49a0..279bbd8 100644
->> --- a/net/sunrpc/svc.c
->> +++ b/net/sunrpc/svc.c
->> @@ -517,6 +517,8 @@ EXPORT_SYMBOL_GPL(svc_create_pooled);
->>   void
->>   svc_destroy(struct svc_serv *serv)
->>   {
->> +	struct net *net =3D current->nsproxy->net_ns;
->> +
->>   	dprintk("svc: svc_destroy(%s, %d)\n",
->>   				serv->sv_program->pg_name,
->>   				serv->sv_nrthreads);
->> @@ -539,10 +541,13 @@ svc_destroy(struct svc_serv *serv)
->>   	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
->>   	 * safe to traverse those lists and shut everything down:
->>   	 */
->> -	svc_close_all(serv);
->> +	svc_close_net(serv, net);
->> +
->> +	BUG_ON(!list_empty(&serv->sv_permsocks));
->> +	BUG_ON(!list_empty(&serv->sv_tempsocks));
->
-> I'm confused--what guarantees this is true, at this point?
->
+This is a multi-part message in MIME format.
 
-Hi, Bruce.
-I'm confused with your question. IOW, this must be true, because this c=
-ode is=20
-executed only in case of last service thread is exiting, doesn't it?
+--===============9000698790385968585==
+Content-class: urn:content-classes:message
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01CCDCDA.6843C7FA"
 
-> There are two ways I could imagine containerizing svc_serv: either we
-> create a new one for each namespace, or we share a single global one
-> between them.
->
+This is a multi-part message in MIME format.
 
-This is done for the second one.
+------_=_NextPart_001_01CCDCDA.6843C7FA
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-> If the former, then something that takes a "serv" argument shouldn't
-> also need a "net" argument--the serv should already know which namesp=
-ace
-> it belongs to.
->
-> If the latter, then these lists could have sockets from multiple
-> namespaces, and they aren't guaranteed to be empty here.
->
-> ?
->
+Hi,
 
-I'll explain it on Lockd example (this code is done already - I just ha=
-ven't=20
-sent it yet).
-Lockd is still only one thread and can handle lock requests from differ=
-ent=20
-network namespaces:
-1) Introduced per-net lockd users counter and resources.
-2) nlmsvc_users counter become global one. I.e. it's equal to sum of al=
-l per-net=20
-lockd users counters.
-3) For each lockd_up() call global and current net lockd users counters=
- are=20
-increased by one.
-3) On lockd_up() call: if nlmsvc_users if equal to 0, then lockd thread=
- is started.
-4) On lockd_up() call: if current network context lockd users counter e=
-qual to=20
-0, then resources for Lockd service are allocated in current network co=
-ntext.
-5) On lockd_down() call: if current network context lockd users counter=
- equal to=20
-0, then resources for Lockd service are released in current network con=
-text=20
-(svc_shutdown_net() introduced in this series).
-6) On lockd_down() call: if nlmsvc_users if equal to 0, then lockd thre=
-ad is=20
-stopped and svc_destroy is called. And herewe can expect, that no servi=
-ce=20
-transports left.
+=20
 
-I've just realized, that probably it's possible to implement some more =
-generic=20
-helpers in SUNRPC code to make the code looks clearer.
-I would appreciate for any advices how to do so.
+I am trying to establish an IPSec tunnel to protect a subnet behind a
+linux machine and a subnet behind some other gateway.
 
---=20
-Best regards,
-Stanislav Kinsbursky
+Lefsubnet - 172.17.0.0/16 (behind linux gateway)
+
+Rightsubnet - 172.16.0.0/16
+
+=20
+
+>From a host on left subnet, I am trying to ping to a host on right
+subnet-
+
+ping 172.16.60.1 -I 172.17.70.87
+
+=20
+
+tcpdump capture on linux machine connected to left subnet-
+
+04:27:09.939598 IP 172.17.70.87 > 172.16.60.1: icmp 64: echo request seq
+170
+
+=20
+
+Tcpdump capture on linux machine connected on right subnet-
+
+04:26:32.941624 IP 1.1.0.1 > 192.168.101.101:
+ESP(spi=3D0x020000c3,seq=3D0x16d)                 //Outer IPs
+
+04:26:32.943940 IP 192.168.101.101 > 1.1.0.1:
+ESP(spi=3D0x10000102,seq=3D0x16d)
+
+04:26:32.943940 IP 172.16.60.1 > 172.17.70.87: icmp 64: echo reply seq
+133
+
+=20
+
+So, it's clear that linux gateway is able to protect the data and send
+to the connected gateway (ESP packets to outer IPs).
+
+And the second gateway is responding with ESP packet which is decoded on
+linux gateway and sent to the ip stack again by linux kernel (ICMP
+reply).
+
+But the reply doesn't reach the host on left subnet.
+
+=20
+
+I enabled ip_forwarding through /proc/sys/net/ipv4/ip_forwarding.
+
+=20
+
+Please let me know, if I am missing something.
+
+=20
+
+Any help would be appreciated.
+
+=20
+
+Regards,
+
+Prashant
+
+
+------_=_NextPart_001_01CCDCDA.6843C7FA
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" =
+xmlns:o=3D"urn:schemas-microsoft-com:office:office" =
+xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" =
+xmlns=3D"http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Dus-ascii">
+<meta name=3DGenerator content=3D"Microsoft Word 12 (filtered medium)">
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0in;
+	margin-bottom:.0001pt;
+	font-size:11.0pt;
+	font-family:"Calibri","sans-serif";}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	color:blue;
+	text-decoration:underline;}
+a:visited, span.MsoHyperlinkFollowed
+	{mso-style-priority:99;
+	color:purple;
+	text-decoration:underline;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Calibri","sans-serif";
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.0in 1.0in 1.0in;}
+div.Section1
+	{page:Section1;}
+-->
+</style>
+<!--[if gte mso 9]><xml>
+ <o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <o:shapelayout v:ext=3D"edit">
+  <o:idmap v:ext=3D"edit" data=3D"1" />
+ </o:shapelayout></xml><![endif]-->
+</head>
+
+<body lang=3DEN-US link=3Dblue vlink=3Dpurple>
+
+<div class=3DSection1>
+
+<p class=3DMsoNormal>Hi,<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>I am trying to establish an IPSec tunnel to protect =
+a subnet
+behind a linux machine and a subnet behind some other =
+gateway.<o:p></o:p></p>
+
+<p class=3DMsoNormal>Lefsubnet &#8211; 172.17.0.0/16 (behind linux =
+gateway)<o:p></o:p></p>
+
+<p class=3DMsoNormal>Rightsubnet &#8211; 172.16.0.0/16<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>From a host on left subnet, I am trying to ping to =
+a host on
+right subnet-<o:p></o:p></p>
+
+<p class=3DMsoNormal>ping 172.16.60.1 -I 172.17.70.87<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>tcpdump capture on linux machine connected to left =
+subnet-<o:p></o:p></p>
+
+<p class=3DMsoNormal>04:27:09.939598 IP 172.17.70.87 &gt; 172.16.60.1: =
+icmp 64:
+echo request seq 170<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>Tcpdump capture on linux machine connected on right =
+subnet-<o:p></o:p></p>
+
+<p class=3DMsoNormal>04:26:32.941624 IP 1.1.0.1 &gt; 192.168.101.101:
+ESP(spi=3D0x020000c3,seq=3D0x16d)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+//Outer IPs<o:p></o:p></p>
+
+<p class=3DMsoNormal>04:26:32.943940 IP 192.168.101.101 &gt; 1.1.0.1:
+ESP(spi=3D0x10000102,seq=3D0x16d)<o:p></o:p></p>
+
+<p class=3DMsoNormal>04:26:32.943940 IP 172.16.60.1 &gt; 172.17.70.87: =
+icmp 64:
+echo reply seq 133<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>So, it&#8217;s clear that linux gateway is able to =
+protect
+the data and send to the connected gateway (ESP packets to outer =
+IPs).<o:p></o:p></p>
+
+<p class=3DMsoNormal>And the second gateway is responding with ESP =
+packet which
+is decoded on linux gateway and sent to the ip stack again by linux =
+kernel
+(ICMP reply).<o:p></o:p></p>
+
+<p class=3DMsoNormal>But the reply doesn&#8217;t reach the host on left =
+subnet.<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>I enabled ip_forwarding through
+/proc/sys/net/ipv4/ip_forwarding.<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>Please let me know, if I am missing =
+something.<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>Any help would be appreciated.<o:p></o:p></p>
+
+<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
+
+<p class=3DMsoNormal>Regards,<o:p></o:p></p>
+
+<p class=3DMsoNormal>Prashant<o:p></o:p></p>
+
+</div>
+
+</body>
+
+</html>
+
+------_=_NextPart_001_01CCDCDA.6843C7FA--
+
+
+--===============9000698790385968585==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
+--===============9000698790385968585==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============9000698790385968585==--
