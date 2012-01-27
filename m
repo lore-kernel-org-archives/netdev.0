@@ -1,76 +1,437 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [RFC PATCH V2] New Xen netback implementation
-Date: Fri, 27 Jan 2012 14:22:14 -0500
-Message-ID: <20120127192214.GA14437@phenom.dumpdata.com>
-References: <1326808024-3744-1-git-send-email-wei.liu2@citrix.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net V4 1/2] igb: add PTP Hardware Clock code
+Date: Fri, 27 Jan 2012 19:25:02 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB58042EBC@ORSMSX105.amr.corp.intel.com>
+References: <cover.1327161325.git.richardcochran@gmail.com>
+ <40a74998520e385c2c690b85fd309ca59590ae75.1327161325.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, david.vrabel@citrix.com,
-	paul.durrant@citrix.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:61541 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752852Ab2A0TYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 14:24:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1326808024-3744-1-git-send-email-wei.liu2@citrix.com>
+Received: from mga01.intel.com ([192.55.52.88]:2001 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752695Ab2A0TZD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 14:25:03 -0500
+In-Reply-To: <40a74998520e385c2c690b85fd309ca59590ae75.1327161325.git.richardcochran@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2012 at 01:46:56PM +0000, Wei Liu wrote:
-> A new netback implementation which includes three major features:
-> 
->  - Global page pool support
->  - NAPI + kthread 1:1 model
->  - Netback internal name changes
-> 
-> Changes in V2:
->  - Fix minor bugs in V1
->  - Embed pending_tx_info into page pool
->  - Per-cpu scratch space
->  - Notification code path clean up
-> 
-> This patch series is the foundation of furture work. So it is better
-> to get it right first. Patch 1 and 3 have the real meat.
+Have you tested this with ptp support configured as a module instead of directly compiled into the kernel? My experience in the past has been that the CONFIG_PTP_1588_CLOCK flag is not defined when support is not directly compiled into the kernel. (A different flag, which signifies module vs compiled) is defined. I would like to know the results, Thanks.
 
-I've been playing with these patches and couple of things
-came to my mind: 
- - would it make sense to also register to the shrinker API? This way
-   if the host is running low on memory it can squeeze it out of the
-   pool code. Perhaps a future TODO..
- - I like the pool code. I was thinking that perhaps (in the future)
-   it could be used by blkback as well, as it runs into "not enought
-   request structure" with the default setting. And making this dynamic
-   would be pretty sweet.
- - This patch set solves the CPU banding problem I've seen with the
-   older netback. The older one  I could see X netback threads eating 80%
-   of CPU. With this one, the number is down to 13-14%.
-
-So you can definitly stick 'Tested-by: Konrad.." on them. And definitly
-Reviewed-by on the first two - hadn't had a chance to look at the rest.
-
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Saturday, January 21, 2012 8:04 AM
+> To: netdev@vger.kernel.org
+> Cc: e1000-devel@lists.sourceforge.net; Keller, Jacob E; Kirsher,
+> Jeffrey T; Ronciak, John; John Stultz; Thomas Gleixner
+> Subject: [PATCH net V4 1/2] igb: add PTP Hardware Clock code
 > 
-> The first benifit of 1:1 model will be scheduling fairness.
+> This patch adds a source file implementing a PHC. Only the basic
+> clock operations have been implemented, although the hardware
+> would offer some ancillary functions. The code is fairly self
+> contained and is not yet used in the main igb driver.
 > 
-> The rational behind a global page pool is that we need to limit
-> overall memory consumed by all vifs.
+> Every timestamp and clock read operation must consult the overflow
+> counter to form a correct time value. Access to the counter is
+> protected by a spin lock, and the counter is implemented using the
+> standard cyclecounter/timecounter code.
 > 
-> Utilization of NAPI enables the possibility to mitigate
-> interrupts/events, the code path is cleaned up in a separated patch.
-> 
-> Netback internal changes cleans up the code structure after switching
-> to 1:1 model. It also prepares netback for further code layout
-> changes.
-> 
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 > ---
->  drivers/net/xen-netback/Makefile    |    2 +-
->  drivers/net/xen-netback/common.h    |   78 ++--
->  drivers/net/xen-netback/interface.c |  117 ++++--
->  drivers/net/xen-netback/netback.c   |  836 ++++++++++++++---------------------
->  drivers/net/xen-netback/page_pool.c |  185 ++++++++
->  drivers/net/xen-netback/page_pool.h |   66 +++
->  drivers/net/xen-netback/xenbus.c    |    6 +-
->  7 files changed, 704 insertions(+), 586 deletions(-)
+>  drivers/net/ethernet/intel/igb/igb.h     |    8 +
+>  drivers/net/ethernet/intel/igb/igb_ptp.c |  329
+> ++++++++++++++++++++++++++++++
+>  2 files changed, 337 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/ethernet/intel/igb/igb_ptp.c
 > 
+> diff --git a/drivers/net/ethernet/intel/igb/igb.h
+> b/drivers/net/ethernet/intel/igb/igb.h
+> index 3d12e67..79f354b 100644
+> --- a/drivers/net/ethernet/intel/igb/igb.h
+> +++ b/drivers/net/ethernet/intel/igb/igb.h
+> @@ -37,6 +37,7 @@
+>  #include <linux/clocksource.h>
+>  #include <linux/timecompare.h>
+>  #include <linux/net_tstamp.h>
+> +#include <linux/ptp_clock_kernel.h>
+>  #include <linux/bitops.h>
+>  #include <linux/if_vlan.h>
+> 
+> @@ -364,6 +365,13 @@ struct igb_adapter {
+>  	u32 wvbr;
+>  	int node;
+>  	u32 *shadow_vfta;
+> +
+> +	struct ptp_clock *ptp_clock;
+> +	struct ptp_clock_info caps;
+> +	struct delayed_work overflow_work;
+> +	spinlock_t tmreg_lock;
+> +	struct cyclecounter cc;
+> +	struct timecounter tc;
+>  };
+> 
+>  #define IGB_FLAG_HAS_MSI           (1 << 0)
+> diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c
+> b/drivers/net/ethernet/intel/igb/igb_ptp.c
+> new file mode 100644
+> index 0000000..a8dc3e5
+> --- /dev/null
+> +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+> @@ -0,0 +1,329 @@
+> +/*
+> + * PTP Hardware Clock (PHC) driver for the Intel 82576 and 82580
+> + *
+> + * Copyright (C) 2011 Richard Cochran <richardcochran@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> modify
+> + * it under the terms of the GNU General Public License as published
+> by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> along
+> + * with this program; if not, write to the Free Software Foundation,
+> Inc.,
+> + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+> + */
+> +#include <linux/device.h>
+> +#include <linux/pci.h>
+> +
+> +#include "igb.h"
+> +
+> +#define INCVALUE_MASK		0x7fffffff
+> +#define ISGN			0x80000000
+> +
+> +/*
+> + * Neither the 82576 nor the 82580 offer registers wide enough to hold
+> + * nanoseconds time values for very long. For the 82580, SYSTIM always
+> + * counts nanoseconds, but the upper 24 bits are not availible. The
+> + * frequency is adjusted by changing the 32 bit fractional nanoseconds
+> + * register, TIMINCA.
+> + *
+> + * For the 82576, the SYSTIM register time unit is affect by the
+> + * choice of the 24 bit TININCA:IV (incvalue) field. Five bits of this
+> + * field are needed to provide the nominal 16 nanosecond period,
+> + * leaving 19 bits for fractional nanoseconds.
+> + *
+> + *
+> + *             SYSTIMH            SYSTIML
+> + *        +--------------+   +---+---+------+
+> + *  82576 |      32      |   | 8 | 5 |  19  |
+> + *        +--------------+   +---+---+------+
+> + *         \________ 45 bits _______/  fract
+> + *
+> + *        +----------+---+   +--------------+
+> + *  82580 |    24    | 8 |   |      32      |
+> + *        +----------+---+   +--------------+
+> + *          reserved  \______ 40 bits _____/
+> + *
+> + *
+> + * The 45 bit 82576 SYSTIM overflows every
+> + *   2^45 * 10^-9 / 3600 = 9.77 hours.
+> + *
+> + * The 40 bit 82580 SYSTIM overflows every
+> + *   2^40 * 10^-9 /  60  = 18.3 minutes.
+> + */
+> +
+> +#define IGB_OVERFLOW_PERIOD	(HZ * 60 * 9)
+> +#define INCPERIOD_82576		(1 << E1000_TIMINCA_16NS_SHIFT)
+> +#define INCVALUE_82576_MASK	((1 << E1000_TIMINCA_16NS_SHIFT) - 1)
+> +#define INCVALUE_82576		(16 << IGB_82576_TSYNC_SHIFT)
+> +#define IGB_NBITS_82580		40
+> +
+> +/*
+> + * SYSTIM read access for the 82576
+> + */
+> +
+> +static cycle_t igb_82576_systim_read(const struct cyclecounter *cc)
+> +{
+> +	u64 val;
+> +	u32 lo, hi;
+> +	struct igb_adapter *igb = container_of(cc, struct igb_adapter,
+> cc);
+> +	struct e1000_hw *hw = &igb->hw;
+> +
+> +	lo = rd32(E1000_SYSTIML);
+> +	hi = rd32(E1000_SYSTIMH);
+> +
+> +	val = ((u64) hi) << 32;
+> +	val |= lo;
+> +
+> +	return val;
+> +}
+> +
+> +/*
+> + * SYSTIM read access for the 82580
+> + */
+> +
+> +static cycle_t igb_82580_systim_read(const struct cyclecounter *cc)
+> +{
+> +	u64 val;
+> +	u32 lo, hi, jk;
+> +	struct igb_adapter *igb = container_of(cc, struct igb_adapter,
+> cc);
+> +	struct e1000_hw *hw = &igb->hw;
+> +
+> +	jk = rd32(E1000_SYSTIMR);
+> +	lo = rd32(E1000_SYSTIML);
+> +	hi = rd32(E1000_SYSTIMH);
+> +
+> +	val = ((u64) hi) << 32;
+> +	val |= lo;
+> +
+> +	return val;
+> +}
+> +
+> +/*
+> + * PTP clock operations
+> + */
+> +
+> +static int ptp_82576_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+> +{
+> +	u64 rate;
+> +	u32 incvalue;
+> +	int neg_adj = 0;
+> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> +	struct e1000_hw *hw = &igb->hw;
+> +
+> +	if (ppb < 0) {
+> +		neg_adj = 1;
+> +		ppb = -ppb;
+> +	}
+> +	rate = ppb;
+> +	rate <<= 14;
+> +	rate = div_u64(rate, 1953125);
+> +
+> +	incvalue = 16 << IGB_82576_TSYNC_SHIFT;
+> +
+> +	if (neg_adj)
+> +		incvalue -= rate;
+> +	else
+> +		incvalue += rate;
+> +
+> +	wr32(E1000_TIMINCA, INCPERIOD_82576 | (incvalue &
+> INCVALUE_82576_MASK));
+> +
+> +	return 0;
+> +}
+> +
+> +static int ptp_82580_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+> +{
+> +	u64 rate;
+> +	u32 inca;
+> +	int neg_adj = 0;
+> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> +	struct e1000_hw *hw = &igb->hw;
+> +
+> +	if (ppb < 0) {
+> +		neg_adj = 1;
+> +		ppb = -ppb;
+> +	}
+> +	rate = ppb;
+> +	rate <<= 26;
+> +	rate = div_u64(rate, 1953125);
+> +
+> +	inca = rate & INCVALUE_MASK;
+> +	if (neg_adj)
+> +		inca |= ISGN;
+> +
+> +	wr32(E1000_TIMINCA, inca);
+> +
+> +	return 0;
+> +}
+> +
+> +static int igb_adjtime(struct ptp_clock_info *ptp, s64 delta)
+> +{
+> +	s64 now;
+> +	unsigned long flags;
+> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> +
+> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
+> +
+> +	now = timecounter_read(&igb->tc);
+> +	now += delta;
+> +	timecounter_init(&igb->tc, &igb->cc, now);
+> +
+> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
+> +
+> +	return 0;
+> +}
+> +
+> +static int igb_gettime(struct ptp_clock_info *ptp, struct timespec
+> *ts)
+> +{
+> +	u64 ns;
+> +	u32 remainder;
+> +	unsigned long flags;
+> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> +
+> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
+> +
+> +	ns = timecounter_read(&igb->tc);
+> +
+> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
+> +
+> +	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
+> +	ts->tv_nsec = remainder;
+> +
+> +	return 0;
+> +}
+> +
+> +static int igb_settime(struct ptp_clock_info *ptp, const struct
+> timespec *ts)
+> +{
+> +	u64 ns;
+> +	unsigned long flags;
+> +	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
+> caps);
+> +
+> +	ns = ts->tv_sec * 1000000000ULL;
+> +	ns += ts->tv_nsec;
+> +
+> +	spin_lock_irqsave(&igb->tmreg_lock, flags);
+> +
+> +	timecounter_init(&igb->tc, &igb->cc, ns);
+> +
+> +	spin_unlock_irqrestore(&igb->tmreg_lock, flags);
+> +
+> +	return 0;
+> +}
+> +
+> +static int ptp_82576_enable(struct ptp_clock_info *ptp,
+> +			    struct ptp_clock_request *rq, int on)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
+> +
+> +static int ptp_82580_enable(struct ptp_clock_info *ptp,
+> +			    struct ptp_clock_request *rq, int on)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
+> +
+> +static void igb_overflow_check(struct work_struct *work)
+> +{
+> +	struct timespec ts;
+> +	struct igb_adapter *igb =
+> +		container_of(work, struct igb_adapter, overflow_work.work);
+> +
+> +	igb_gettime(&igb->caps, &ts);
+> +
+> +	pr_debug("igb overflow check at %ld.%09lu\n", ts.tv_sec,
+> ts.tv_nsec);
+> +
+> +	schedule_delayed_work(&igb->overflow_work, IGB_OVERFLOW_PERIOD);
+> +}
+> +
+> +void igb_ptp_init(struct igb_adapter *adapter)
+> +{
+> +	struct e1000_hw *hw = &adapter->hw;
+> +
+> +	switch (hw->mac.type) {
+> +	case e1000_i350:
+> +	case e1000_82580:
+> +		adapter->caps.owner	= THIS_MODULE;
+> +		strcpy(adapter->caps.name, "igb-82580");
+> +		adapter->caps.max_adj	= 62499999;
+> +		adapter->caps.n_ext_ts	= 0;
+> +		adapter->caps.pps	= 0;
+> +		adapter->caps.adjfreq	= ptp_82580_adjfreq;
+> +		adapter->caps.adjtime	= igb_adjtime;
+> +		adapter->caps.gettime	= igb_gettime;
+> +		adapter->caps.settime	= igb_settime;
+> +		adapter->caps.enable	= ptp_82580_enable;
+> +		adapter->cc.read	= igb_82580_systim_read;
+> +		adapter->cc.mask	= CLOCKSOURCE_MASK(IGB_NBITS_82580);
+> +		adapter->cc.mult	= 1;
+> +		adapter->cc.shift	= 0;
+> +		/* Enable the timer functions by clearing bit 31. */
+> +		wr32(E1000_TSAUXC, 0x0);
+> +		break;
+> +
+> +	case e1000_82576:
+> +		adapter->caps.owner	= THIS_MODULE;
+> +		strcpy(adapter->caps.name, "igb-82576");
+> +		adapter->caps.max_adj	= 1000000000;
+> +		adapter->caps.n_ext_ts	= 0;
+> +		adapter->caps.pps	= 0;
+> +		adapter->caps.adjfreq	= ptp_82576_adjfreq;
+> +		adapter->caps.adjtime	= igb_adjtime;
+> +		adapter->caps.gettime	= igb_gettime;
+> +		adapter->caps.settime	= igb_settime;
+> +		adapter->caps.enable	= ptp_82576_enable;
+> +		adapter->cc.read	= igb_82576_systim_read;
+> +		adapter->cc.mask	= CLOCKSOURCE_MASK(64);
+> +		adapter->cc.mult	= 1;
+> +		adapter->cc.shift	= IGB_82576_TSYNC_SHIFT;
+> +		/* Dial the nominal frequency. */
+> +		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
+> +		break;
+> +
+> +	default:
+> +		adapter->ptp_clock = NULL;
+> +		return;
+> +	}
+> +
+> +	wrfl();
+> +
+> +	timecounter_init(&adapter->tc, &adapter->cc,
+> +			 ktime_to_ns(ktime_get_real()));
+> +
+> +	INIT_DELAYED_WORK(&adapter->overflow_work, igb_overflow_check);
+> +
+> +	spin_lock_init(&adapter->tmreg_lock);
+> +
+> +	schedule_delayed_work(&adapter->overflow_work,
+> IGB_OVERFLOW_PERIOD);
+> +
+> +#ifdef CONFIG_PTP_1588_CLOCK
+> +
+> +	adapter->ptp_clock = ptp_clock_register(&adapter->caps);
+> +	if (IS_ERR(adapter->ptp_clock)) {
+> +		adapter->ptp_clock = NULL;
+> +		dev_err(&adapter->pdev->dev, "ptp_clock_register
+> failed\n");
+> +	} else
+> +		dev_info(&adapter->pdev->dev, "added PHC on %s\n",
+> +			 adapter->netdev->name);
+> +
+> +#endif /*CONFIG_PTP_1588_CLOCK*/
+> +}
+> +
+> +void igb_ptp_remove(struct igb_adapter *adapter)
+> +{
+> +	cancel_delayed_work_sync(&adapter->overflow_work);
+> +
+> +#ifdef CONFIG_PTP_1588_CLOCK
+> +
+> +	if (adapter->ptp_clock) {
+> +		ptp_clock_unregister(adapter->ptp_clock);
+> +		dev_info(&adapter->pdev->dev, "removed PHC on %s\n",
+> +			 adapter->netdev->name);
+> +	}
+> +
+> +#endif /*CONFIG_PTP_1588_CLOCK*/
+> +}
+> --
+> 1.7.2.5
