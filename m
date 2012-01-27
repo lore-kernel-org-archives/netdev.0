@@ -1,26 +1,55 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
-Date: Sat, 28 Jan 2012 01:28:35 +0400
-Message-ID: <4F231703.4040803@parallels.com>
-References: <20120127142246.GA22318@elte.hu> <4F22B634.2020007@parallels.com> <4F22D05A.8030604@parallels.com> <20120127.162823.1960229872591588915.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ipv4/ipv6: Prepare for new route gateway semantics.
+Date: Fri, 27 Jan 2012 16:34:00 -0500 (EST)
+Message-ID: <20120127.163400.1656316431173173490.davem@davemloft.net>
+References: <20120126.155544.2054995753871805122.davem@davemloft.net>
+	<201201271259.51534.bcook@breakingpoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <mingo@elte.hu>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120127.162823.1960229872591588915.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: bcook@breakingpoint.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549Ab2A0VeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 16:34:04 -0500
+In-Reply-To: <201201271259.51534.bcook@breakingpoint.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/28/2012 01:28 AM, David Miller wrote:
-> From: Glauber Costa<glommer@parallels.com>
-> Date: Fri, 27 Jan 2012 20:27:06 +0400
->
->> +extern void init_tcp_mem(struct net *net);
->
-> Please name this "tcp_init_mem" or similar, keeping all TCP functions
-> globally exported with a "tcp_*" prefix.
+From: Brent Cook <bcook@breakingpoint.com>
+Date: Fri, 27 Jan 2012 12:59:51 -0600
 
-Ok, will do.
+> On Thursday, January 26, 2012 02:55:44 PM David Miller wrote:
+>> In the future the ipv4/ipv6 route gateway will take on two types
+>> of values:
+>> 
+>> 1) INADDR_ANY/IN6ADDR_ANY, for local network routes, and in this case
+>>    the neighbour must be obtained using the destination address in
+>>    ipv4/ipv6 header as the lookup key.
+>> 
+>> 2) Everything else, the actual nexthop route address.
+>> 
+>> So if the gateway is not inaddr-any we use it, otherwise we must use
+>> the packet's destination address.
+> 
+> Under what cases would this be expected to help keep the # of lookup keys at a 
+> minimum?
+
+The point is to accomodate the future wherein a single route might cover
+an entire subnet's worth of destinations.
+
+I am going to remove the routing cache, and route lookups will use the
+routing table entries directly.
+
+In order to accomodate that two thing have to happen:
+
+1) Neighbour entires cannot be referred to by the routes, they must be
+   looked up as-needed.  This is because a neighbour refers to a specific
+   single nexthop, whereas routes in the future will refer potentially
+   to many nexthops.
+
+2) Routes must also not refer directly to inetpeer entries, this is also
+   because routes will refer to potentially several destinations whereas
+   inetpeer entries only apply to specific destinations.
