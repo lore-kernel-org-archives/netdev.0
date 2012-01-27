@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 25/32] sfc: Remove remnants of on-load self-test
-Date: Fri, 27 Jan 2012 20:50:52 +0000
-Message-ID: <1327697452.2503.32.camel@bwh-desktop>
+Subject: [PATCH net-next 26/32] sfc: Use existing local variables instead of
+ repeated indirect lookups
+Date: Fri, 27 Jan 2012 20:51:10 +0000
+Message-ID: <1327697470.2503.33.camel@bwh-desktop>
 References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,185 +10,41 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:63792 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:63802 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754029Ab2A0Uuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:50:55 -0500
+	by vger.kernel.org with ESMTP id S1751453Ab2A0UvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:51:13 -0500
 In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The out-of-tree version of the sfc driver used to run a self-test on
-each device before registering it.  Although this was never included
-in-tree, some functions have checks for this special case which is not
-really possible.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c      |   34 +++++++++++++---------------------
- drivers/net/ethernet/sfc/nic.c      |    6 ++----
- drivers/net/ethernet/sfc/selftest.c |   12 ++++--------
- drivers/net/ethernet/sfc/tx.c       |    4 +---
- 4 files changed, 20 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/sfc/efx.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 9d4ab5e..4f412fe 100644
+index 4f412fe..c8e1c8a 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -855,10 +855,8 @@ int __efx_reconfigure_port(struct efx_nic *efx)
- 	WARN_ON(!mutex_is_locked(&efx->mac_lock));
+@@ -364,7 +364,7 @@ static int efx_probe_eventq(struct efx_channel *channel)
+ 	struct efx_nic *efx = channel->efx;
+ 	unsigned long entries;
  
- 	/* Serialise the promiscuous flag with efx_set_multicast_list. */
--	if (efx_dev_registered(efx)) {
--		netif_addr_lock_bh(efx->net_dev);
--		netif_addr_unlock_bh(efx->net_dev);
--	}
-+	netif_addr_lock_bh(efx->net_dev);
-+	netif_addr_unlock_bh(efx->net_dev);
+-	netif_dbg(channel->efx, probe, channel->efx->net_dev,
++	netif_dbg(efx, probe, efx->net_dev,
+ 		  "chan %d create event queue\n", channel->channel);
  
- 	/* Disable PHY transmit in mac level loopbacks */
- 	phy_mode = efx->phy_mode;
-@@ -981,10 +979,8 @@ static void efx_stop_port(struct efx_nic *efx)
- 	mutex_unlock(&efx->mac_lock);
- 
- 	/* Serialise against efx_set_multicast_list() */
--	if (efx_dev_registered(efx)) {
--		netif_addr_lock_bh(efx->net_dev);
--		netif_addr_unlock_bh(efx->net_dev);
--	}
-+	netif_addr_lock_bh(efx->net_dev);
-+	netif_addr_unlock_bh(efx->net_dev);
- }
- 
- static void efx_fini_port(struct efx_nic *efx)
-@@ -1394,14 +1390,14 @@ static void efx_start_all(struct efx_nic *efx)
- 		return;
- 	if ((efx->state != STATE_RUNNING) && (efx->state != STATE_INIT))
- 		return;
--	if (efx_dev_registered(efx) && !netif_running(efx->net_dev))
-+	if (!netif_running(efx->net_dev))
- 		return;
- 
- 	/* Mark the port as enabled so port reconfigurations can start, then
- 	 * restart the transmit interface early so the watchdog timer stops */
- 	efx_start_port(efx);
- 
--	if (efx_dev_registered(efx) && netif_device_present(efx->net_dev))
-+	if (netif_device_present(efx->net_dev))
- 		netif_tx_wake_all_queues(efx->net_dev);
- 
- 	efx_for_each_channel(channel, efx)
-@@ -1492,11 +1488,9 @@ static void efx_stop_all(struct efx_nic *efx)
- 
- 	/* Stop the kernel transmit interface late, so the watchdog
- 	 * timer isn't ticking over the flush */
--	if (efx_dev_registered(efx)) {
--		netif_tx_stop_all_queues(efx->net_dev);
--		netif_tx_lock_bh(efx->net_dev);
--		netif_tx_unlock_bh(efx->net_dev);
--	}
-+	netif_tx_stop_all_queues(efx->net_dev);
-+	netif_tx_lock_bh(efx->net_dev);
-+	netif_tx_unlock_bh(efx->net_dev);
- }
- 
- static void efx_remove_all(struct efx_nic *efx)
-@@ -2018,11 +2012,9 @@ static void efx_unregister_netdev(struct efx_nic *efx)
- 			efx_release_tx_buffers(tx_queue);
+ 	/* Build an event queue with room for one event per tx and rx buffer,
+@@ -1971,7 +1971,7 @@ static int efx_register_netdev(struct efx_nic *efx)
  	}
  
--	if (efx_dev_registered(efx)) {
--		strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
--		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
--		unregister_netdev(efx->net_dev);
--	}
-+	strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
-+	unregister_netdev(efx->net_dev);
- }
+ 	/* Always start with carrier off; PHY events will detect the link */
+-	netif_carrier_off(efx->net_dev);
++	netif_carrier_off(net_dev);
  
- /**************************************************************************
-@@ -2438,7 +2430,7 @@ static int efx_pci_probe_main(struct efx_nic *efx)
- /* NIC initialisation
-  *
-  * This is called at module load (or hotplug insertion,
-- * theoretically).  It sets up PCI mappings, tests and resets the NIC,
-+ * theoretically).  It sets up PCI mappings, resets the NIC,
-  * sets up and registers the network devices with the kernel and hooks
-  * the interrupt service routine.  It does not prepare the device for
-  * transmission; this is left to the first time one of the network
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index de7aa1c..cd250f1 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -726,11 +726,9 @@ efx_handle_tx_event(struct efx_channel *channel, efx_qword_t *event)
- 		tx_queue = efx_channel_get_tx_queue(
- 			channel, tx_ev_q_label % EFX_TXQ_TYPES);
+ 	rtnl_unlock();
  
--		if (efx_dev_registered(efx))
--			netif_tx_lock(efx->net_dev);
-+		netif_tx_lock(efx->net_dev);
- 		efx_notify_tx_desc(tx_queue);
--		if (efx_dev_registered(efx))
--			netif_tx_unlock(efx->net_dev);
-+		netif_tx_unlock(efx->net_dev);
- 	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_PKT_ERR) &&
- 		   EFX_WORKAROUND_10727(efx)) {
- 		efx_schedule_reset(efx, RESET_TYPE_TX_DESC_FETCH);
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index 7def480..febe2a9 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -397,11 +397,9 @@ static int efx_begin_loopback(struct efx_tx_queue *tx_queue)
- 		 * interrupt handler. */
- 		smp_wmb();
- 
--		if (efx_dev_registered(efx))
--			netif_tx_lock_bh(efx->net_dev);
-+		netif_tx_lock_bh(efx->net_dev);
- 		rc = efx_enqueue_skb(tx_queue, skb);
--		if (efx_dev_registered(efx))
--			netif_tx_unlock_bh(efx->net_dev);
-+		netif_tx_unlock_bh(efx->net_dev);
- 
- 		if (rc != NETDEV_TX_OK) {
- 			netif_err(efx, drv, efx->net_dev,
-@@ -442,8 +440,7 @@ static int efx_end_loopback(struct efx_tx_queue *tx_queue,
- 	int tx_done = 0, rx_good, rx_bad;
- 	int i, rc = 0;
- 
--	if (efx_dev_registered(efx))
--		netif_tx_lock_bh(efx->net_dev);
-+	netif_tx_lock_bh(efx->net_dev);
- 
- 	/* Count the number of tx completions, and decrement the refcnt. Any
- 	 * skbs not already completed will be free'd when the queue is flushed */
-@@ -454,8 +451,7 @@ static int efx_end_loopback(struct efx_tx_queue *tx_queue,
- 		dev_kfree_skb_any(skb);
- 	}
- 
--	if (efx_dev_registered(efx))
--		netif_tx_unlock_bh(efx->net_dev);
-+	netif_tx_unlock_bh(efx->net_dev);
- 
- 	/* Check TX completion and received packet counts */
- 	rx_good = atomic_read(&state->rx_good);
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 72f0fbc..5cb81fa 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -446,10 +446,8 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
- 	    likely(efx->port_enabled) &&
- 	    likely(netif_device_present(efx->net_dev))) {
- 		fill_level = tx_queue->insert_count - tx_queue->read_count;
--		if (fill_level < EFX_TXQ_THRESHOLD(efx)) {
--			EFX_BUG_ON_PARANOID(!efx_dev_registered(efx));
-+		if (fill_level < EFX_TXQ_THRESHOLD(efx))
- 			netif_tx_wake_queue(tx_queue->core_txq);
--		}
- 	}
- 
- 	/* Check whether the hardware queue is now empty */
 -- 
 1.7.7.5
 
