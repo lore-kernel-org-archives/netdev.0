@@ -1,139 +1,137 @@
-From: Nick Mathewson <nickm@freehaven.net>
-Subject: [BUG] Regression on behavior of EPOLLET | EPOLLIN for AF_UNIX sockets
- in 3.2
-Date: Fri, 27 Jan 2012 12:05:38 -0500
-Message-ID: <CAKDKvuzH14AZjDG3WSdrf5VtmiUgG0Y+EaC83qqSd0VFKzyitg@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 4/3] sha512: reduce stack usage even on i386
+Date: Fri, 27 Jan 2012 20:51:30 +0300
+Message-ID: <20120127175130.GA742@p183.telecom.by>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com>
+ <1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
+ <20120118180210.GA22733@p183.telecom.by>
+ <20120126023502.GA10696@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@aculab.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
+	security@kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42764 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751339Ab2A0Rvn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 12:51:43 -0500
+Content-Disposition: inline
+In-Reply-To: <20120126023502.GA10696@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[1.] One line summary of the problem:
+On Thu, Jan 26, 2012 at 01:35:02PM +1100, Herbert Xu wrote:
+> On Wed, Jan 18, 2012 at 09:02:10PM +0300, Alexey Dobriyan wrote:
+> > Fix still excessive stack usage on i386.
+> > 
+> > There is too much loop unrolling going on, despite W[16] being used,
+> > gcc screws up this for some reason. So, don't be smart, use simple code
+> > from SHA-512 definition, this keeps code size _and_ stack usage back
+> > under control even on i386:
+> > 
+> > 	-14b:   81 ec 9c 03 00 00       sub    $0x39c,%esp
+> > 	+149:   81 ec 64 01 00 00       sub    $0x164,%esp
+> > 
+> > 	$ size ../sha512_generic-i386-00*
+> > 	   text    data     bss     dec     hex filename
+> > 	  15521     712       0   16233    3f69 ../sha512_generic-i386-000.o
+> > 	   4225     712       0    4937    1349 ../sha512_generic-i386-001.o
+> > 
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> > Cc: stable@vger.kernel.org
+> 
+> Hmm, your patch doesn't apply against my crypto tree.  Please
+> regenerate.
 
-EPOLLET doesn't give edge-triggered behavior for AF_UNIX sockets in 3.2
+I think this is because your tree contained "%16" code instead if "&15".
+Now that it contains "&15" it should become applicable.
 
-[2.] Full description of the problem/report:
+Anyway.
+--------------------------------------------------------------------------
+[PATCH] sha512: reduce stack usage even on i386
 
-When epoll is told to listen to a readable socket with the flags
-EPOLLIN|EPOLLET, it is supposed to report the event once, and then
-not report the event again until the socket has first become
-non-readable and then become readable again.  (This behavior is part
-of the definition of edge-triggered events, IIUC.)
+Fix still excessive stack usage on i386.
 
-But with AF_UNIX sockets on Linux 3.2, a call to read() on a socket
-that does not drain the socket's buffer completely can apparently
-cause epoll to think that the socket has generated another event,
-even if no further data has actually arrived at the socket.
+There is too much loop unrolling going on, despite W[16] being used,
+gcc screws up this for some reason. So, don't be smart, use simple code
+from SHA-512 definition, this keeps code size _and_ stack usage back
+under control even on i386:
 
-This behavior did not occur in 3.1, and does not occur in 3.2 with
-AF_INET sockets or with pipes.
+	-14b:   81 ec 9c 03 00 00       sub    $0x39c,%esp
+	+149:   81 ec 64 01 00 00       sub    $0x164,%esp
 
-[3.] Keywords:
+	$ size ../sha512_generic-i386-00*
+	   text    data     bss     dec     hex filename
+	  15521     712       0   16233    3f69 ../sha512_generic-i386-000.o
+	   4225     712       0    4937    1349 ../sha512_generic-i386-001.o
 
-networking, AF_UNIX, epoll, socket
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: stable@vger.kernel.org
+---
 
-[4.] Kernel version (from /proc/version):
+ crypto/sha512_generic.c |   42 ++++++++++++++++++++----------------------
+ 1 file changed, 20 insertions(+), 22 deletions(-)
 
-First found in:
-
-Linux version 3.2.1-3.fc16.x86_64
-(mockbuild@x86-13.phx2.fedoraproject.org) (gcc version 4.6.2 20111027
-(Red Hat 4.6.2-1) (GCC) ) #1 SMP Mon Jan 23 15:36:17 UTC 2012
-
-Another user has reproduced this with:
-
-Linux version 3.2.0-1-686-pae (Debian 3.2.1-1) (ben@decadent.org.uk)
-(gcc version 4.6.2 (Debian 4.6.2-11) ) #1 SMP Thu Jan 19 10:56:51 UTC
-2012
-
-[6.] A small shell script or example program which triggers the
-     problem (if possible)
-
-#include <sys/epoll.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
-int
-main(int argc, const char **argv)
-{
-        int epfd;
-        int pair[2];
-        struct epoll_event epev;
-        int n, r, n_reads;
-
-        if ((epfd = epoll_create(32)) < 0) {
-                perror("epoll_create()");
-                return 2;
-        }
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair) < 0) {
-                perror("socketpair()");
-                return 2;
-        }
-
-        if (fcntl(pair[0], F_SETFL, O_NONBLOCK) < 0) {
-                perror("fcntl()");
-                return 2;
-        }
-
-        memset(&epev, 0, sizeof(epev));
-        epev.events = EPOLLIN | EPOLLET;
-        epev.data.fd = pair[0];
-        if (epoll_ctl(epfd, EPOLL_CTL_ADD, pair[0], &epev) < 0) {
-                perror("epoll_ctl()");
-                return 2;
-        }
-
-        if ((n = write(pair[1], "A 21-character string", 21)) < 0) {
-                perror("write()");
-                return 2;
-        }
-
-        /* pair[0] should now be readable. EPOLLET above has said that we
-         * want edge-triggered behavior, so we should only get a single
-         * EPOLLIN event on the socket.  But on Linux 3.2, for some reason,
-         * reading a single byte from the socket causes us to get another
-         * EPOLLIN event.
-         */
-        n_reads = 0;
-        while ((r = epoll_wait(epfd, &epev, 1, 500)) == 1) {
-                char byte[1];
-                printf("epoll_wait() said: events=%d, fd=%d\n",
-                       epev.events, epev.data.fd);
-                n = read(pair[0], byte, 1);
-                if (n < 0 && errno == EAGAIN) {
-                        puts("read() reported EAGAIN.");
-                } else if (n < 0) {
-                        perror("read()");
-                } else if (n == 0) {
-                        puts("read() reported EOF.");
-                } else {
-                        printf("Read %d byte(s)\n", n);
-                        ++n_reads;
-                }
-        }
-        if (r == 0) {
-                puts("Timeout without event.");
-        } else {
-                perror("epoll_wait()");
-        }
-
-        close(pair[0]);
-        close(pair[1]);
-        close(epfd);
-
-        if (n_reads == 1) {
-                puts("Exactly one read event. Good.");
-        } else {
-                printf("Got %d read events. That's not right!\n", n_reads);
-        }
-        return (n_reads == 1) ? 0 : 1;
-}
+--- a/crypto/sha512_generic.c
++++ b/crypto/sha512_generic.c
+@@ -100,35 +100,33 @@ sha512_transform(u64 *state, const u8 *input)
+ #define SHA512_0_15(i, a, b, c, d, e, f, g, h)			\
+ 	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i];	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+-	d += t1;						\
+-	h = t1 + t2
++	h = g;							\
++	g = f;							\
++	f = e;							\
++	e = d + t1;						\
++	d = c;							\
++	c = b;							\
++	b = a;							\
++	a = t1 + t2
+ 
+ #define SHA512_16_79(i, a, b, c, d, e, f, g, h)			\
+ 	BLEND_OP(i, W);						\
+-	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[(i)&15];	\
++	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i & 15];	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+-	d += t1;						\
+-	h = t1 + t2
+-
+-	for (i = 0; i < 16; i += 8) {
++	h = g;							\
++	g = f;							\
++	f = e;							\
++	e = d + t1;						\
++	d = c;							\
++	c = b;							\
++	b = a;							\
++	a = t1 + t2
++
++	for (i = 0; i < 16; i++) {
+ 		SHA512_0_15(i, a, b, c, d, e, f, g, h);
+-		SHA512_0_15(i + 1, h, a, b, c, d, e, f, g);
+-		SHA512_0_15(i + 2, g, h, a, b, c, d, e, f);
+-		SHA512_0_15(i + 3, f, g, h, a, b, c, d, e);
+-		SHA512_0_15(i + 4, e, f, g, h, a, b, c, d);
+-		SHA512_0_15(i + 5, d, e, f, g, h, a, b, c);
+-		SHA512_0_15(i + 6, c, d, e, f, g, h, a, b);
+-		SHA512_0_15(i + 7, b, c, d, e, f, g, h, a);
+ 	}
+-	for (i = 16; i < 80; i += 8) {
++	for (i = 16; i < 80; i++) {
+ 		SHA512_16_79(i, a, b, c, d, e, f, g, h);
+-		SHA512_16_79(i + 1, h, a, b, c, d, e, f, g);
+-		SHA512_16_79(i + 2, g, h, a, b, c, d, e, f);
+-		SHA512_16_79(i + 3, f, g, h, a, b, c, d, e);
+-		SHA512_16_79(i + 4, e, f, g, h, a, b, c, d);
+-		SHA512_16_79(i + 5, d, e, f, g, h, a, b, c);
+-		SHA512_16_79(i + 6, c, d, e, f, g, h, a, b);
+-		SHA512_16_79(i + 7, b, c, d, e, f, g, h, a);
+ 	}
+ 
+ 	state[0] += a; state[1] += b; state[2] += c; state[3] += d;
