@@ -1,81 +1,153 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
-Date: Fri, 27 Jan 2012 18:35:32 +0400
-Message-ID: <4F22B634.2020007@parallels.com>
-References: <20120127124641.GA30819@elte.hu> <4F229D5C.4040300@parallels.com> <20120127125645.GA28131@elte.hu> <20120127141754.GA30202@elte.hu> <20120127142246.GA22318@elte.hu>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [v8 PATCH 0/3] NETFILTER new target module, HMARK
+Date: Fri, 27 Jan 2012 15:41:40 +0100
+Message-ID: <1327675303-9059-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------040904050405020808000608"
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120127142246.GA22318@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---------------040904050405020808000608
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
+The target allows you to create rules in the "raw" and "mangle" tables
+which alter the netfilter mark (nfmark) field within a given range.
+First a 32 bit hash value is generated then modulus by <limit> and
+finally an offset is added before it's written to nfmark.
+Prior to routing, the nfmark can influence the routing method (see
+"Use netfilter MARK value as routing key") and can also be used by
+other subsystems to change their behavior.
 
-On 01/27/2012 06:22 PM, Ingo Molnar wrote:
->
-> * Ingo Molnar<mingo@elte.hu>  wrote:
->
->> ok, i've bisected it, and the bad commit is:
->>
->> 3dc43e3e4d0b52197d3205214fe8f162f9e0c334 is the first bad commit
->> commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334
->> Author: Glauber Costa<glommer@parallels.com>
->> Date:   Sun Dec 11 21:47:05 2011 +0000
->>
->>      per-netns ipv4 sysctl_tcp_mem
->
-> Might be related to this detail in the .config:
->
->   # CONFIG_PROC_SYSCTL is not set
->
-> So former tcp_init() code does not get run?
->
-> Thanks,
->
-> 	Ingo
+The mark match can also be used to match nfmark produced by this module.
+See the kernel module for more info.
 
-Can you tell me if the following patch fixes your problem?
+REVISION
+Version 8
+        method L3 / L3-4 added i.e. Fragment handling changed to:
+        - don't handle in "method L3-4"
+        Syntax change in user mode to be more NF compatible.
+        Most changes are base on Pablos review.
+
+Version 7
+	ahuum, IPv6 descending into icmp error hdr didn't work as expected
+        with ipv6_find_hdr() Now it works as expected.
+
+Version 6
+        Removed ipv6_find_hdr() wrapper (Pablo)
+	NAT / Conntrack compilation switches.
+
+Version 5
+	Use length of mask an smask and dmask and whole IPv6 addr (Jan E)
+	Modify ipv6_find_hdr() and use it while traversing the IPv6 header.
+        Manual changes.
+	More or less all comments implemented.
+
+Version 4
+	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
+	removed one pskb_may_pull()
+	xtoption parse used in the user space part.
+
+Version 3
+        Handling of SCTP for IPv6 added.
+
+Version 2
+	NAT Added for IPv4
+	IPv6 ICMP handling enhanced.
+	Usage example added
+
+Version 1
+	Initial RFC
 
 
---------------040904050405020808000608
-Content-Type: text/x-patch; name="test.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="test.patch"
+We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
+handles up to 70 ipvs running in parallel in clusters.
+However hmark is not restricted to run in front of IPVS it can also be used as
+"poor mans" load balancer.
+With this version is also NAT supported as an option, with very high flows
+you might not want to use conntrack.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9bcdec3..366834b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3276,9 +3276,23 @@ void __init tcp_init(void)
- 	sysctl_tcp_max_orphans = cnt / 2;
- 	sysctl_max_syn_backlog = max(128, cnt / 256);
- 
-+	/*
-+	 * Despite the sysctl name, those values are always used in the code.
-+	 * CONFIG_PROC_SYSCTL only exposes it as a sysctl, allowing the admin
-+	 * to tweak them. If this is not configured, we need to provide
-+	 * a default value here
-+	 */
-+#ifdef CONFIG_PROC_SYSCTL
- 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
- 	limit = ((unsigned long)init_net.ipv4.sysctl_tcp_mem[1])
- 		<< (PAGE_SHIFT - 7);
-+#else
-+	limit = nr_free_buffer_pages() / 8;
-+	limit = max(limit, 128UL);
-+	init_net.ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-+	init_net.ipv4.sysctl_tcp_mem[1] = limit;
-+	init_net.ipv4.sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
-+#endif
- 	max_share = min(4UL*1024*1024, limit);
- 
- 	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+The idea is to generate a direction independent fw mark range to use as input to
+the routing (i.e. ip rule add fwmark ...).
+Pretty straight forward and simple.
 
---------------040904050405020808000608--
+
+Example:
+                                      App Server (Real Server)
+
+                                           +---------+
+                                        -->| Service |
+     Gateway A                             +---------+
+                          /
+            +----------+ /     +----+      +---------+
+--- if -A---| selector |---->  |ipvs|  --->| Service |
+            +----------+ \     +----+      +---------+
+                          \
+                               +----+      +---------+
+                               |ipvs|   -->| Service |
+                               +----+      +---------+
+      Gateway C
+            +----------+ /     +----+
+--- if-B ---| selector | --->  |ipvs|
+            +----------+ \     +----+      +---------+
+                                           | Service |
+                                           +---------+
+                          /
+            +----------+ /     +----+     ..
+--- if-B ---| selector | --->  |ipvs|      +---------+
+            +----------+ \     +----+      | Service |
+                          \                +---------+
+#
+# Example with four ipvs loadbalancers
+#
+iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
+
+ip rule add fwmark 100 table 100
+ip rule add fwmark 101 table 101
+ip rule add fwmark 102 table 102
+ip rule add fwmark 103 table 103
+
+ip ro ad table 100 default via x.y.z.1 dev bond1
+ip ro ad table 101 default via x.y.z.2 dev bond1
+ip ro ad table 102 default via x.y.z.3 dev bond1
+ip ro ad table 103 default via x.y.z.4 dev bond1
+
+
+If conntrack doesn't handle the return path,
+do the oposite with HMARK and send it back right to ipvs.
+
+Another exmaple of usage could be if you have cluster originated connections
+and want to spread the connections over a number of interfaces
+(NAT will complpicate things for you in this case)
+
+
+
+                     \  Blade 1
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+   +------+
+-- | Gw-A |          \  Blade 2
+   +------+           \ +----------+      +---------+
+   +------+         <-- | selector | <--- | Service |
+-- | Gw-B |           / +----------+      +---------+
+   +------+          /
+   +------+
+-- | Gw-C |          \
+   +------+           \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+                     \  Blande -n
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
+
