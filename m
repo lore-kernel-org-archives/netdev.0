@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 17/32] sfc: Support extraction of CAPABILITIES from
- GET_BOARD_CFG response.
-Date: Fri, 27 Jan 2012 20:47:37 +0000
-Message-ID: <1327697257.2503.24.camel@bwh-desktop>
+Subject: [PATCH net-next 18/32] sfc: Correct interrupt timer quantum for
+ Siena (normal and turbo mode)
+Date: Fri, 27 Jan 2012 20:48:08 +0000
+Message-ID: <1327697288.2503.25.camel@bwh-desktop>
 References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,91 +10,235 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:63667 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751471Ab2A0Urk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:47:40 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:63680 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751471Ab2A0UsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:48:12 -0500
 In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Slattery <mslattery@solarflare.com>
+We currently assume that the timer quantum for Siena is 5 us, the same
+as for Falcon.  This is not correct; timer ticks are generated on a
+rota which takes a minimum of 768 cycles (each event delivery or other
+timer change will delay it by 3 cycles).  The timer quantum should be
+6.144 or 3.072 us depending on whether turbo mode is active.
+
+Replace EFX_IRQ_MOD_RESOLUTION with a timer_quantum_ns field in struct
+efx_nic, initialised by the efx_nic_type::probe function.
+
+While we're at it, replace EFX_IRQ_MOD_MAX with a timer_period_max
+field in struct efx_nic_type.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c  |   10 +++++++++-
- drivers/net/ethernet/sfc/mcdi.h  |    2 +-
- drivers/net/ethernet/sfc/mtd.c   |    2 +-
- drivers/net/ethernet/sfc/siena.c |    2 +-
- 4 files changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |   31 ++++++++++++++++++++++---------
+ drivers/net/ethernet/sfc/falcon.c     |    6 ++++--
+ drivers/net/ethernet/sfc/net_driver.h |    4 ++++
+ drivers/net/ethernet/sfc/nic.h        |    3 ---
+ drivers/net/ethernet/sfc/siena.c      |   13 ++++++++++---
+ 5 files changed, 40 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index e5837a6..f1cad22 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -678,7 +678,7 @@ fail:
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index de16247..9d4ab5e 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1513,13 +1513,13 @@ static void efx_remove_all(struct efx_nic *efx)
+  *
+  **************************************************************************/
+ 
+-static unsigned int irq_mod_ticks(unsigned int usecs, unsigned int resolution)
++static unsigned int irq_mod_ticks(unsigned int usecs, unsigned int quantum_ns)
+ {
+ 	if (usecs == 0)
+ 		return 0;
+-	if (usecs < resolution)
++	if (usecs * 1000 < quantum_ns)
+ 		return 1; /* never round down to 0 */
+-	return usecs / resolution;
++	return usecs * 1000 / quantum_ns;
  }
  
- int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
--			   u16 *fw_subtype_list)
-+			   u16 *fw_subtype_list, u32 *capabilities)
+ /* Set interrupt moderation parameters */
+@@ -1528,14 +1528,20 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
+ 			    bool rx_may_override_tx)
  {
- 	uint8_t outbuf[MC_CMD_GET_BOARD_CFG_OUT_LENMIN];
- 	size_t outlen;
-@@ -708,6 +708,14 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
- 		       outbuf + MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_OFST,
- 		       MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MINNUM *
- 		       sizeof(fw_subtype_list[0]));
-+	if (capabilities) {
-+		if (port_num)
-+			*capabilities = MCDI_DWORD(outbuf,
-+					GET_BOARD_CFG_OUT_CAPABILITIES_PORT1);
-+		else
-+			*capabilities = MCDI_DWORD(outbuf,
-+					GET_BOARD_CFG_OUT_CAPABILITIES_PORT0);
-+	}
+ 	struct efx_channel *channel;
+-	unsigned tx_ticks = irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
+-	unsigned rx_ticks = irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
++	unsigned int irq_mod_max = DIV_ROUND_UP(efx->type->timer_period_max *
++						efx->timer_quantum_ns,
++						1000);
++	unsigned int tx_ticks;
++	unsigned int rx_ticks;
  
- 	return 0;
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
  
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index c59667b..4dd39fc 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -97,7 +97,7 @@ extern void efx_mcdi_print_fwver(struct efx_nic *efx, char *buf, size_t len);
- extern int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
- 			       bool *was_attached_out);
- extern int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
--				  u16 *fw_subtype_list);
-+				  u16 *fw_subtype_list, u32 *capabilities);
- extern int efx_mcdi_log_ctrl(struct efx_nic *efx, bool evq, bool uart,
- 			     u32 dest_evq);
- extern int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out);
-diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
-index b702862..eff49da 100644
---- a/drivers/net/ethernet/sfc/mtd.c
-+++ b/drivers/net/ethernet/sfc/mtd.c
-@@ -631,7 +631,7 @@ static int siena_mtd_get_fw_subtypes(struct efx_nic *efx,
- 	uint16_t fw_subtype_list[MC_CMD_GET_BOARD_CFG_OUT_FW_SUBTYPE_LIST_MINNUM];
- 	int rc;
+-	if (tx_ticks > EFX_IRQ_MOD_MAX || rx_ticks > EFX_IRQ_MOD_MAX)
++	if (tx_usecs > irq_mod_max || rx_usecs > irq_mod_max)
+ 		return -EINVAL;
  
--	rc = efx_mcdi_get_board_cfg(efx, NULL, fw_subtype_list);
-+	rc = efx_mcdi_get_board_cfg(efx, NULL, fw_subtype_list, NULL);
- 	if (rc)
- 		return rc;
++	tx_ticks = irq_mod_ticks(tx_usecs, efx->timer_quantum_ns);
++	rx_ticks = irq_mod_ticks(rx_usecs, efx->timer_quantum_ns);
++
+ 	if (tx_ticks != rx_ticks && efx->tx_channel_offset == 0 &&
+ 	    !rx_may_override_tx) {
+ 		netif_err(efx, drv, efx->net_dev, "Channels are shared. "
+@@ -1558,8 +1564,14 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
+ void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
+ 			    unsigned int *rx_usecs, bool *rx_adaptive)
+ {
++	/* We must round up when converting ticks to microseconds
++	 * because we round down when converting the other way.
++	 */
++
+ 	*rx_adaptive = efx->irq_rx_adaptive;
+-	*rx_usecs = efx->irq_rx_moderation * EFX_IRQ_MOD_RESOLUTION;
++	*rx_usecs = DIV_ROUND_UP(efx->irq_rx_moderation *
++				 efx->timer_quantum_ns,
++				 1000);
  
+ 	/* If channels are shared between RX and TX, so is IRQ
+ 	 * moderation.  Otherwise, IRQ moderation is the same for all
+@@ -1568,9 +1580,10 @@ void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
+ 	if (efx->tx_channel_offset == 0)
+ 		*tx_usecs = *rx_usecs;
+ 	else
+-		*tx_usecs =
++		*tx_usecs = DIV_ROUND_UP(
+ 			efx->channel[efx->tx_channel_offset]->irq_moderation *
+-			EFX_IRQ_MOD_RESOLUTION;
++			efx->timer_quantum_ns,
++			1000);
+ }
+ 
+ /**************************************************************************
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index fe21c7e..0b7880b 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -103,8 +103,6 @@ static void falcon_push_irq_moderation(struct efx_channel *channel)
+ 	efx_dword_t timer_cmd;
+ 	struct efx_nic *efx = channel->efx;
+ 
+-	BUILD_BUG_ON(EFX_IRQ_MOD_MAX > (1 << FRF_AB_TC_TIMER_VAL_WIDTH));
+-
+ 	/* Set timer register */
+ 	if (channel->irq_moderation) {
+ 		EFX_POPULATE_DWORD_2(timer_cmd,
+@@ -1471,6 +1469,8 @@ static int falcon_probe_nic(struct efx_nic *efx)
+ 		goto fail5;
+ 	}
+ 
++	efx->timer_quantum_ns = 4968; /* 621 cycles */
++
+ 	/* Initialise I2C adapter */
+ 	board = falcon_board(efx);
+ 	board->i2c_adap.owner = THIS_MODULE;
+@@ -1785,6 +1785,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.rx_buffer_padding = 0x24,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSI,
+ 	.phys_addr_channels = 4,
++	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
+ 	.offload_features = NETIF_F_IP_CSUM,
+@@ -1836,6 +1837,7 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
+ 				   * interrupt handler only supports 32
+ 				   * channels */
++	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
+ 	.tx_dc_base = 0x130000,
+ 	.rx_dc_base = 0x100000,
+ 	.offload_features = NETIF_F_IP_CSUM | NETIF_F_RXHASH | NETIF_F_NTUPLE,
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 4cbd997..8ce4d06 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -624,6 +624,7 @@ struct efx_filter_state;
+  * @membase_phys: Memory BAR value as physical address
+  * @membase: Memory BAR value
+  * @interrupt_mode: Interrupt mode
++ * @timer_quantum_ns: Interrupt timer quantum, in nanoseconds
+  * @irq_rx_adaptive: Adaptive IRQ moderation enabled for RX event queues
+  * @irq_rx_moderation: IRQ moderation time for RX event queues
+  * @msg_enable: Log message enable flags
+@@ -706,6 +707,7 @@ struct efx_nic {
+ 	void __iomem *membase;
+ 
+ 	enum efx_int_mode interrupt_mode;
++	unsigned int timer_quantum_ns;
+ 	bool irq_rx_adaptive;
+ 	unsigned int irq_rx_moderation;
+ 	u32 msg_enable;
+@@ -845,6 +847,7 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
+  *	from &enum efx_init_mode.
+  * @phys_addr_channels: Number of channels with physically addressed
+  *	descriptors
++ * @timer_period_max: Maximum period of interrupt timer (in ticks)
+  * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
+  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
+  * @offload_features: net_device feature flags for protocol offload
+@@ -889,6 +892,7 @@ struct efx_nic_type {
+ 	unsigned int rx_buffer_padding;
+ 	unsigned int max_interrupt_mode;
+ 	unsigned int phys_addr_channels;
++	unsigned int timer_period_max;
+ 	unsigned int tx_dc_base;
+ 	unsigned int rx_dc_base;
+ 	netdev_features_t offload_features;
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index cfda6de..a3ccd0b 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -205,9 +205,6 @@ extern irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx);
+ extern irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id);
+ extern void falcon_irq_ack_a1(struct efx_nic *efx);
+ 
+-#define EFX_IRQ_MOD_RESOLUTION	5
+-#define EFX_IRQ_MOD_MAX		0x1000
+-
+ /* Global Resources */
+ extern int efx_nic_flush_queues(struct efx_nic *efx);
+ extern void falcon_start_nic_stats(struct efx_nic *efx);
 diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index d681f25..65cb5e4 100644
+index 65cb5e4..f054258 100644
 --- a/drivers/net/ethernet/sfc/siena.c
 +++ b/drivers/net/ethernet/sfc/siena.c
-@@ -216,7 +216,7 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
+@@ -35,8 +35,6 @@ static void siena_push_irq_moderation(struct efx_channel *channel)
+ {
+ 	efx_dword_t timer_cmd;
+ 
+-	BUILD_BUG_ON(EFX_IRQ_MOD_MAX > (1 << FRF_CZ_TC_TIMER_VAL_WIDTH));
+-
+ 	if (channel->irq_moderation)
+ 		EFX_POPULATE_DWORD_2(timer_cmd,
+ 				     FRF_CZ_TC_TIMER_MODE,
+@@ -216,7 +214,15 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
  
  static int siena_probe_nvconfig(struct efx_nic *efx)
  {
--	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL);
-+	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL, NULL);
+-	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL, NULL);
++	u32 caps = 0;
++	int rc;
++
++	rc = efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL, &caps);
++
++	efx->timer_quantum_ns =
++		(caps & (1 << MC_CMD_CAPABILITIES_TURBO_ACTIVE_LBN)) ?
++		3072 : 6144; /* 768 cycles */
++	return rc;
  }
  
  static int siena_probe_nic(struct efx_nic *efx)
+@@ -644,6 +650,7 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
+ 				   * interrupt handler only supports 32
+ 				   * channels */
++	.timer_period_max = 1 << FRF_CZ_TC_TIMER_VAL_WIDTH,
+ 	.tx_dc_base = 0x88000,
+ 	.rx_dc_base = 0x68000,
+ 	.offload_features = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
 -- 
 1.7.7.5
 
