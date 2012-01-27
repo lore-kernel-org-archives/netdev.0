@@ -1,162 +1,81 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 3/4] SUNRPC: service destruction in network namespace
- context
-Date: Fri, 27 Jan 2012 09:33:35 -0500
-Message-ID: <20120127143335.GB9439@fieldses.org>
-References: <20120125134132.13662.83447.stgit@localhost6.localdomain6>
- <20120125134726.13662.97179.stgit@localhost6.localdomain6>
- <20120126211450.GD700@fieldses.org>
- <4F226976.5000605@parallels.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
+Date: Fri, 27 Jan 2012 18:35:32 +0400
+Message-ID: <4F22B634.2020007@parallels.com>
+References: <20120127124641.GA30819@elte.hu> <4F229D5C.4040300@parallels.com> <20120127125645.GA28131@elte.hu> <20120127141754.GA30202@elte.hu> <20120127142246.GA22318@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:45671 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752017Ab2A0Odm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jan 2012 09:33:42 -0500
-Content-Disposition: inline
-In-Reply-To: <4F226976.5000605@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+	boundary="------------040904050405020808000608"
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120127142246.GA22318@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2012 at 01:08:06PM +0400, Stanislav Kinsbursky wrote:
-> 27.01.2012 01:14, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Wed, Jan 25, 2012 at 05:47:26PM +0400, Stanislav Kinsbursky wrote=
-:
-> >>This patch introduces network namespace filter for service destruct=
-ion
-> >>function.
-> >>Nothing special here - just do exactly the same operations, but onl=
-y for
-> >>tranports in passed networks namespace context.
-> >>BTW, BUG_ON() checks for empty service transports lists were return=
-ed into
-> >>svc_destroy() function. This is because of swithing generic svc_clo=
-se_all() to
-> >>networks namespace dependable svc_close_net().
-> >>
-> >>Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
-> >>
-> >>---
-> >>  include/linux/sunrpc/svcsock.h |    2 +-
-> >>  net/sunrpc/svc.c               |    9 +++++++--
-> >>  net/sunrpc/svc_xprt.c          |   27 +++++++++++++++++----------
-> >>  3 files changed, 25 insertions(+), 13 deletions(-)
-> >>
-> >>diff --git a/include/linux/sunrpc/svcsock.h b/include/linux/sunrpc/=
-svcsock.h
-> >>index c84e974..cb4ac69 100644
-> >>--- a/include/linux/sunrpc/svcsock.h
-> >>+++ b/include/linux/sunrpc/svcsock.h
-> >>@@ -34,7 +34,7 @@ struct svc_sock {
-> >>  /*
-> >>   * Function prototypes.
-> >>   */
-> >>-void		svc_close_all(struct svc_serv *);
-> >>+void		svc_close_net(struct svc_serv *, struct net *);
-> >>  int		svc_recv(struct svc_rqst *, long);
-> >>  int		svc_send(struct svc_rqst *);
-> >>  void		svc_drop(struct svc_rqst *);
-> >>diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> >>index a8b49a0..279bbd8 100644
-> >>--- a/net/sunrpc/svc.c
-> >>+++ b/net/sunrpc/svc.c
-> >>@@ -517,6 +517,8 @@ EXPORT_SYMBOL_GPL(svc_create_pooled);
-> >>  void
-> >>  svc_destroy(struct svc_serv *serv)
-> >>  {
-> >>+	struct net *net =3D current->nsproxy->net_ns;
-> >>+
-> >>  	dprintk("svc: svc_destroy(%s, %d)\n",
-> >>  				serv->sv_program->pg_name,
-> >>  				serv->sv_nrthreads);
-> >>@@ -539,10 +541,13 @@ svc_destroy(struct svc_serv *serv)
-> >>  	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
-> >>  	 * safe to traverse those lists and shut everything down:
-> >>  	 */
-> >>-	svc_close_all(serv);
-> >>+	svc_close_net(serv, net);
-> >>+
-> >>+	BUG_ON(!list_empty(&serv->sv_permsocks));
-> >>+	BUG_ON(!list_empty(&serv->sv_tempsocks));
-> >
-> >I'm confused--what guarantees this is true, at this point?
-> >
->=20
-> Hi, Bruce.
-> I'm confused with your question. IOW, this must be true, because
-> this code is executed only in case of last service thread is
-> exiting, doesn't it?
->=20
-> >There are two ways I could imagine containerizing svc_serv: either w=
-e
-> >create a new one for each namespace, or we share a single global one
-> >between them.
-> >
->=20
-> This is done for the second one.
->=20
-> >If the former, then something that takes a "serv" argument shouldn't
-> >also need a "net" argument--the serv should already know which names=
-pace
-> >it belongs to.
-> >
-> >If the latter, then these lists could have sockets from multiple
-> >namespaces, and they aren't guaranteed to be empty here.
-> >
-> >?
-> >
->=20
-> I'll explain it on Lockd example (this code is done already - I just
-> haven't sent it yet).
-> Lockd is still only one thread and can handle lock requests from
-> different network namespaces:
-> 1) Introduced per-net lockd users counter and resources.
-> 2) nlmsvc_users counter become global one. I.e. it's equal to sum of
-> all per-net lockd users counters.
-> 3) For each lockd_up() call global and current net lockd users
-> counters are increased by one.
-> 3) On lockd_up() call: if nlmsvc_users if equal to 0, then lockd thre=
-ad is started.
-> 4) On lockd_up() call: if current network context lockd users
-> counter equal to 0, then resources for Lockd service are allocated
-> in current network context.
-> 5) On lockd_down() call: if current network context lockd users
-> counter equal to 0, then resources for Lockd service are released in
-> current network context (svc_shutdown_net() introduced in this
-> series).
-> 6) On lockd_down() call: if nlmsvc_users if equal to 0, then lockd
-> thread is stopped and svc_destroy is called. And herewe can expect,
-> that no service transports left.
+--------------040904050405020808000608
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-OK, so at this point svc_close_net(serv, current->nsproxy->net_ns) is
-enough to clear out sv_permsocks and sv_temp_socks because we know that
-the only sockets left are in that namespace.  Got it.
+On 01/27/2012 06:22 PM, Ingo Molnar wrote:
+>
+> * Ingo Molnar<mingo@elte.hu>  wrote:
+>
+>> ok, i've bisected it, and the bad commit is:
+>>
+>> 3dc43e3e4d0b52197d3205214fe8f162f9e0c334 is the first bad commit
+>> commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334
+>> Author: Glauber Costa<glommer@parallels.com>
+>> Date:   Sun Dec 11 21:47:05 2011 +0000
+>>
+>>      per-netns ipv4 sysctl_tcp_mem
+>
+> Might be related to this detail in the .config:
+>
+>   # CONFIG_PROC_SYSCTL is not set
+>
+> So former tcp_init() code does not get run?
+>
+> Thanks,
+>
+> 	Ingo
 
-> I've just realized, that probably it's possible to implement some
-> more generic helpers in SUNRPC code to make the code looks clearer.
-> I would appreciate for any advices how to do so.
+Can you tell me if the following patch fixes your problem?
 
-I'm not sure.  The one thing that might have helped mere here would be
-a comment to explain what's going on, maybe something like:
 
-	svc_close_net(serv, net);
+--------------040904050405020808000608
+Content-Type: text/x-patch; name="test.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="test.patch"
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9bcdec3..366834b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3276,9 +3276,23 @@ void __init tcp_init(void)
+ 	sysctl_tcp_max_orphans = cnt / 2;
+ 	sysctl_max_syn_backlog = max(128, cnt / 256);
+ 
 +	/*
-+	 * The last user is gone, so the only sockets left belonged its
-+	 * network namespace:
++	 * Despite the sysctl name, those values are always used in the code.
++	 * CONFIG_PROC_SYSCTL only exposes it as a sysctl, allowing the admin
++	 * to tweak them. If this is not configured, we need to provide
++	 * a default value here
 +	 */
-	BUG_ON(!list_empty(&serv->sv_permsocks));
-	BUG_ON(!list_empty(&serv->sv_tempsocks));
++#ifdef CONFIG_PROC_SYSCTL
+ 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
+ 	limit = ((unsigned long)init_net.ipv4.sysctl_tcp_mem[1])
+ 		<< (PAGE_SHIFT - 7);
++#else
++	limit = nr_free_buffer_pages() / 8;
++	limit = max(limit, 128UL);
++	init_net.ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
++	init_net.ipv4.sysctl_tcp_mem[1] = limit;
++	init_net.ipv4.sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
++#endif
+ 	max_share = min(4UL*1024*1024, limit);
+ 
+ 	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
 
---b.
+--------------040904050405020808000608--
