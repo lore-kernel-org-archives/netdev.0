@@ -1,277 +1,407 @@
-From: "Prashant Batra (prbatra)" <prbatra-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: IP forwarding
-Date: Fri, 27 Jan 2012 15:29:48 +0530
-Message-ID: <B97B134FACB2024DB45F524AB0A7B7F2059F2B31@XMB-BGL-419.cisco.com>
+From: Stefan Gula <steweg@ynet.sk>
+Subject: [patch v5, kernel version 3.2.1] Source mode for macvlan interface
+Date: Fri, 27 Jan 2012 10:58:13 +0100 (CET)
+Message-ID: <21673653.551327658293199.JavaMail.root@5-MeO-DMT.ynet.sk>
+References: <20891438.531327657932719.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============9000698790385968585=="
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Return-path: <ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-class: urn:content-classes:message
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
-	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=ipsec-tools-devel>
-List-Post: <mailto:ipsec-tools-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel>,
-	<mailto:ipsec-tools-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: ipsec-tools-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20891438.531327657932719.JavaMail.root@5-MeO-DMT.ynet.sk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
---===============9000698790385968585==
-Content-class: urn:content-classes:message
-Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01CCDCDA.6843C7FA"
-
-This is a multi-part message in MIME format.
-
-------_=_NextPart_001_01CCDCDA.6843C7FA
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-=20
-
-I am trying to establish an IPSec tunnel to protect a subnet behind a
-linux machine and a subnet behind some other gateway.
-
-Lefsubnet - 172.17.0.0/16 (behind linux gateway)
-
-Rightsubnet - 172.16.0.0/16
-
-=20
-
->From a host on left subnet, I am trying to ping to a host on right
-subnet-
-
-ping 172.16.60.1 -I 172.17.70.87
-
-=20
-
-tcpdump capture on linux machine connected to left subnet-
-
-04:27:09.939598 IP 172.17.70.87 > 172.16.60.1: icmp 64: echo request seq
-170
-
-=20
-
-Tcpdump capture on linux machine connected on right subnet-
-
-04:26:32.941624 IP 1.1.0.1 > 192.168.101.101:
-ESP(spi=3D0x020000c3,seq=3D0x16d)                 //Outer IPs
-
-04:26:32.943940 IP 192.168.101.101 > 1.1.0.1:
-ESP(spi=3D0x10000102,seq=3D0x16d)
-
-04:26:32.943940 IP 172.16.60.1 > 172.17.70.87: icmp 64: echo reply seq
-133
-
-=20
-
-So, it's clear that linux gateway is able to protect the data and send
-to the connected gateway (ESP packets to outer IPs).
-
-And the second gateway is responding with ESP packet which is decoded on
-linux gateway and sent to the ip stack again by linux kernel (ICMP
-reply).
-
-But the reply doesn't reach the host on left subnet.
-
-=20
-
-I enabled ip_forwarding through /proc/sys/net/ipv4/ip_forwarding.
-
-=20
-
-Please let me know, if I am missing something.
-
-=20
-
-Any help would be appreciated.
-
-=20
-
-Regards,
-
-Prashant
-
-
-------_=_NextPart_001_01CCDCDA.6843C7FA
-Content-Type: text/html;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-<html xmlns:v=3D"urn:schemas-microsoft-com:vml" =
-xmlns:o=3D"urn:schemas-microsoft-com:office:office" =
-xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
-xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" =
-xmlns=3D"http://www.w3.org/TR/REC-html40">
-
-<head>
-<meta http-equiv=3DContent-Type content=3D"text/html; =
-charset=3Dus-ascii">
-<meta name=3DGenerator content=3D"Microsoft Word 12 (filtered medium)">
-<style>
-<!--
- /* Font Definitions */
- @font-face
-	{font-family:"Cambria Math";
-	panose-1:2 4 5 3 5 4 6 3 2 4;}
-@font-face
-	{font-family:Calibri;
-	panose-1:2 15 5 2 2 2 4 3 2 4;}
- /* Style Definitions */
- p.MsoNormal, li.MsoNormal, div.MsoNormal
-	{margin:0in;
-	margin-bottom:.0001pt;
-	font-size:11.0pt;
-	font-family:"Calibri","sans-serif";}
-a:link, span.MsoHyperlink
-	{mso-style-priority:99;
-	color:blue;
-	text-decoration:underline;}
-a:visited, span.MsoHyperlinkFollowed
-	{mso-style-priority:99;
-	color:purple;
-	text-decoration:underline;}
-span.EmailStyle17
-	{mso-style-type:personal-compose;
-	font-family:"Calibri","sans-serif";
-	color:windowtext;}
-.MsoChpDefault
-	{mso-style-type:export-only;}
-@page Section1
-	{size:8.5in 11.0in;
-	margin:1.0in 1.0in 1.0in 1.0in;}
-div.Section1
-	{page:Section1;}
--->
-</style>
-<!--[if gte mso 9]><xml>
- <o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
-</xml><![endif]--><!--[if gte mso 9]><xml>
- <o:shapelayout v:ext=3D"edit">
-  <o:idmap v:ext=3D"edit" data=3D"1" />
- </o:shapelayout></xml><![endif]-->
-</head>
-
-<body lang=3DEN-US link=3Dblue vlink=3Dpurple>
-
-<div class=3DSection1>
-
-<p class=3DMsoNormal>Hi,<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>I am trying to establish an IPSec tunnel to protect =
-a subnet
-behind a linux machine and a subnet behind some other =
-gateway.<o:p></o:p></p>
-
-<p class=3DMsoNormal>Lefsubnet &#8211; 172.17.0.0/16 (behind linux =
-gateway)<o:p></o:p></p>
-
-<p class=3DMsoNormal>Rightsubnet &#8211; 172.16.0.0/16<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>From a host on left subnet, I am trying to ping to =
-a host on
-right subnet-<o:p></o:p></p>
-
-<p class=3DMsoNormal>ping 172.16.60.1 -I 172.17.70.87<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>tcpdump capture on linux machine connected to left =
-subnet-<o:p></o:p></p>
-
-<p class=3DMsoNormal>04:27:09.939598 IP 172.17.70.87 &gt; 172.16.60.1: =
-icmp 64:
-echo request seq 170<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Tcpdump capture on linux machine connected on right =
-subnet-<o:p></o:p></p>
-
-<p class=3DMsoNormal>04:26:32.941624 IP 1.1.0.1 &gt; 192.168.101.101:
-ESP(spi=3D0x020000c3,seq=3D0x16d)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-//Outer IPs<o:p></o:p></p>
-
-<p class=3DMsoNormal>04:26:32.943940 IP 192.168.101.101 &gt; 1.1.0.1:
-ESP(spi=3D0x10000102,seq=3D0x16d)<o:p></o:p></p>
-
-<p class=3DMsoNormal>04:26:32.943940 IP 172.16.60.1 &gt; 172.17.70.87: =
-icmp 64:
-echo reply seq 133<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>So, it&#8217;s clear that linux gateway is able to =
-protect
-the data and send to the connected gateway (ESP packets to outer =
-IPs).<o:p></o:p></p>
-
-<p class=3DMsoNormal>And the second gateway is responding with ESP =
-packet which
-is decoded on linux gateway and sent to the ip stack again by linux =
-kernel
-(ICMP reply).<o:p></o:p></p>
-
-<p class=3DMsoNormal>But the reply doesn&#8217;t reach the host on left =
-subnet.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>I enabled ip_forwarding through
-/proc/sys/net/ipv4/ip_forwarding.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Please let me know, if I am missing =
-something.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Any help would be appreciated.<o:p></o:p></p>
-
-<p class=3DMsoNormal><o:p>&nbsp;</o:p></p>
-
-<p class=3DMsoNormal>Regards,<o:p></o:p></p>
-
-<p class=3DMsoNormal>Prashant<o:p></o:p></p>
-
-</div>
-
-</body>
-
-</html>
-
-------_=_NextPart_001_01CCDCDA.6843C7FA--
-
-
---===============9000698790385968585==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Try before you buy = See our experts in action!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-dev2
---===============9000698790385968585==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============9000698790385968585==--
+From: Stefan Gula <steweg@gmail.com>
+
+New mode of macvlan interface called "source" allows one to set a list
+of allowed mac address, which is used to match against source mac
+address from received frames on underlying interface. This allows
+creating mac based VLAN associations, instead of standard port or tag
+based. The feature is useful to deploy 802.1x mac based behavior,
+where drivers of underlying interfaces doesn't allows that.
+Configuration is done through the netlink interface using e.g.:
+ ip link add link eth0 name macvlan0 type macvlan mode source
+ ip link add link eth0 name macvlan1 type macvlan mode source
+ ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
+ ip link set link macvlan0 type macvlan macaddr add 00:22:22:22:22:22
+ ip link set link macvlan0 type macvlan macaddr add 00:33:33:33:33:33
+ ip link set link macvlan1 type macvlan macaddr add 00:33:33:33:33:33
+ ip link set link macvlan1 type macvlan macaddr add 00:44:44:44:44:44
+This allows clients with MAC addresses 00:11:11:11:11:11,
+00:22:22:22:22:22 to be part of only VLAN associated with macvlan0
+interface. Clients with MAC addresses 00:44:44:44:44:44 with only VLAN
+associated with macvlan1 interface. And client with MAC address
+00:33:33:33:33:33 to be associated with both VLANs.
+
+Signed-off-by: Stefan Gula <steweg@gmail.com>
+
+---
+
+V5: alignment changes and helper function added based on David
+    requirements - I hope I fixed all of them
+
+diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff linux-3.2.1-orig/drivers/net/macvlan.c linux-3.2.1-macvlan/drivers/net/macvlan.c
+--- linux-3.2.1-orig/drivers/net/macvlan.c	2012-01-27 09:20:02.000000000 +0100
++++ linux-3.2.1-macvlan/drivers/net/macvlan.c	2012-01-27 10:52:29.000000000 +0100
+@@ -40,6 +40,7 @@ struct macvlan_port {
+ 	struct rcu_head		rcu;
+ 	bool 			passthru;
+ 	int			count;
++	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
+ };
+ 
+ static void macvlan_port_destroy(struct net_device *dev);
+@@ -155,6 +156,114 @@ static void macvlan_broadcast(struct sk_
+ 	}
+ }
+ 
++struct macvlan_source_list {
++	struct hlist_node	hlist;
++	struct macvlan_dev	*vlan;
++	unsigned char		addr[ETH_ALEN];
++	struct rcu_head		rcu;
++};
++
++static struct macvlan_source_list *macvlan_hash_lookup_sources_list(
++	const struct macvlan_dev *vlan,
++	const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++	struct hlist_head *h = &vlan->port->vlan_source_hash[addr[5]];
++
++	hlist_for_each_entry_rcu(list, n, h, hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr) &&
++		    list->vlan == vlan)
++			return list;
++	}
++	return NULL;
++}
++
++static int macvlan_hash_add_sources(struct macvlan_dev *vlan,
++				    const unsigned char *addr)
++{
++	struct macvlan_port *port = vlan->port;
++	struct macvlan_source_list *list;
++	struct hlist_head *h;
++
++	list = macvlan_hash_lookup_sources_list(vlan, addr);
++	if (!list) {
++		list = kmalloc(sizeof(*list), GFP_KERNEL);
++		if (list) {
++			memcpy(list->addr, addr, ETH_ALEN);
++			list->vlan = vlan;
++			h = &port->vlan_source_hash[addr[5]];
++			hlist_add_head_rcu(&list->hlist, h);
++		} else
++			return -ENOMEM;
++	}
++	return 0;
++}
++
++static void macvlan_hash_del_sources(struct macvlan_source_list *list)
++{
++	hlist_del_rcu(&list->hlist);
++	kfree_rcu(list, rcu);
++}
++
++static void macvlan_flush_sources(struct macvlan_port *port,
++				struct macvlan_dev *vlan)
++{
++	int i;
++
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++		struct hlist_node *h, *n;
++
++		hlist_for_each_safe(h, n, &port->vlan_source_hash[i]) {
++			struct macvlan_source_list *list;
++
++			list = hlist_entry(h, struct macvlan_source_list,
++					   hlist);
++			if (list->vlan == vlan)
++				macvlan_hash_del_sources(list);
++		}
++	}
++}
++
++static void macvlan_forward_sources_one(struct sk_buff *skb,
++					struct macvlan_dev *vlan)
++{
++	struct sk_buff *nskb;
++	struct net_device *dev;
++	int len;
++	int ret;
++
++	dev = vlan->dev;
++	if (unlikely(!(dev->flags & IFF_UP)))
++		return;
++
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (!nskb)
++		return;
++
++	len = nskb->len + ETH_HLEN;
++	nskb->dev = dev;
++	nskb->pkt_type = PACKET_HOST;
++	ret = vlan->receive(nskb);
++	macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
++}
++
++static void macvlan_forward_sources(struct sk_buff *skb,
++				    struct macvlan_port *port,
++				    const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++	struct hlist_head *h = &port->vlan_source_hash[addr[5]];
++
++	hlist_for_each_entry_rcu(list, n, h, hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr))
++			if (list->vlan->dev->flags & IFF_UP)
++				macvlan_forward_sources_one(skb, list->vlan);
++	}
++	return;
++}
++
+ /* called under rcu_read_lock() from netif_receive_skb */
+ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+ {
+@@ -172,6 +281,8 @@ static rx_handler_result_t macvlan_handl
+ 		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
+ 		if (!skb)
+ 			return RX_HANDLER_CONSUMED;
++
++		macvlan_forward_sources(skb, port, eth->h_source);
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+ 			/* frame comes from an external address */
+@@ -202,6 +313,7 @@ static rx_handler_result_t macvlan_handl
+ 		return RX_HANDLER_PASS;
+ 	}
+ 
++	macvlan_forward_sources(skb, port, eth->h_source);
+ 	if (port->passthru)
+ 		vlan = list_first_entry(&port->vlans, struct macvlan_dev, list);
+ 	else
+@@ -474,6 +586,7 @@ static void macvlan_uninit(struct net_de
+ 
+ 	free_percpu(vlan->pcpu_stats);
+ 
++	macvlan_flush_sources(port, vlan);
+ 	port->count -= 1;
+ 	if (!port->count)
+ 		macvlan_port_destroy(port->dev);
+@@ -615,7 +728,8 @@ static int macvlan_port_create(struct ne
+ 	INIT_LIST_HEAD(&port->vlans);
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+ 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+-
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
++		INIT_HLIST_HEAD(&port->vlan_source_hash[i]);
+ 	err = netdev_rx_handler_register(dev, macvlan_handle_frame, port);
+ 	if (err)
+ 		kfree(port);
+@@ -648,11 +762,31 @@ static int macvlan_validate(struct nlatt
+ 		case MACVLAN_MODE_VEPA:
+ 		case MACVLAN_MODE_BRIDGE:
+ 		case MACVLAN_MODE_PASSTHRU:
++		case MACVLAN_MODE_SOURCE:
+ 			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
+ 	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
++		switch (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE])) {
++		case MACVLAN_MACADDR_ADD:
++		case MACVLAN_MACADDR_DEL:
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR]) {
++		if (nla_len(data[IFLA_MACVLAN_MACADDR]) != ETH_ALEN)
++			return -EINVAL;
++
++		if (!is_valid_ether_addr(nla_data(data[IFLA_MACVLAN_MACADDR])))
++			return -EADDRNOTAVAIL;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -749,39 +883,141 @@ void macvlan_dellink(struct net_device *
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
++	if (vlan->mode == MACVLAN_MODE_SOURCE)
++		macvlan_flush_sources(vlan->port, vlan);
+ 	list_del(&vlan->list);
+ 	unregister_netdevice_queue(dev, head);
+ }
+ EXPORT_SYMBOL_GPL(macvlan_dellink);
+ 
++static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 mode,
++				      unsigned char *addr)
++{
++	if (mode == MACVLAN_MACADDR_ADD)
++		return macvlan_hash_add_sources(vlan, addr);
++
++	else if (mode == MACVLAN_MACADDR_DEL) {
++		struct macvlan_source_list *list;
++
++		list = macvlan_hash_lookup_sources_list(vlan, addr);
++		if (list)
++			macvlan_hash_del_sources(list);
++	} else
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int macvlan_changelink(struct net_device *dev,
+ 		struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	if (data && data[IFLA_MACVLAN_MODE])
++	u32 mode;
++	unsigned char *addr;
++
++	if (data && data[IFLA_MACVLAN_MODE]) {
++		if (vlan->mode == MACVLAN_MODE_SOURCE &&
++		    vlan->mode != nla_get_u32(data[IFLA_MACVLAN_MODE]))
++			macvlan_flush_sources(vlan->port, vlan);
+ 		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE] &&
++	    data[IFLA_MACVLAN_MACADDR]) {
++		mode = nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]);
++		addr = nla_data(nla_data(data[IFLA_MACVLAN_MACADDR]));
++		if (vlan->mode == MACVLAN_MODE_SOURCE)
++			return macvlan_changelink_sources(vlan, mode, addr);
++		else
++			return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
+ static size_t macvlan_get_size(const struct net_device *dev)
+ {
+-	return nla_total_size(4);
++	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct macvlan_port *port = vlan->port;
++	u16 source_size = 0;
++	int count = 0;
++
++	if (vlan->mode == MACVLAN_MODE_SOURCE) {
++		int i;
++		for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++			struct hlist_node *n;
++			struct hlist_head *h = &port->vlan_source_hash[i];
++			struct macvlan_source_list *list;
++
++			hlist_for_each_entry_rcu(list, n, h, hlist) {
++				if (list->vlan == vlan)
++					count++;
++			}
++		}
++		if (count)
++			source_size = nla_total_size(sizeof(struct nlattr))
++				+ nla_total_size(sizeof(u8) * ETH_ALEN) * count;
++	}
++
++	return nla_total_size(4) + source_size;
++}
++
++static int macvlan_fill_nested(struct sk_buff *skb, const char *addr)
++{
++	NLA_PUT(skb, IFLA_MACVLAN_MACADDR, ETH_ALEN, addr);
++
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
+ }
+ 
+ static int macvlan_fill_info(struct sk_buff *skb,
+ 				const struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct macvlan_port *port = vlan->port;
++	struct nlattr *adt;
+ 
+ 	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);
++
++	if (vlan->mode == MACVLAN_MODE_SOURCE) {
++		int i;
++
++		adt = nla_nest_start(skb, IFLA_MACVLAN_MACADDR_DATA);
++		if (!adt)
++			goto nla_put_failure;
++
++		for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++			struct hlist_node *n;
++			struct hlist_head *h = &port->vlan_source_hash[i];
++			struct macvlan_source_list *list;
++
++			hlist_for_each_entry_rcu(list, n, h, hlist) {
++				if (list->vlan == vlan)
++					if (macvlan_fill_nested(skb,
++								list->addr))
++						goto nla_nested_failure;
++			}
++		}
++		nla_nest_end(skb, adt);
++	}
++
+ 	return 0;
+ 
++nla_nested_failure:
++	nla_nest_end(skb, adt);
++	return -EMSGSIZE;
++
+ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
+ 	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR] = { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
++	[IFLA_MACVLAN_MACADDR_DATA] = { .type = NLA_NESTED },
+ };
+ 
+ int macvlan_link_register(struct rtnl_link_ops *ops)
+diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff linux-3.2.1-orig/include/linux/if_link.h linux-3.2.1-macvlan/include/linux/if_link.h
+--- linux-3.2.1-orig/include/linux/if_link.h	2012-01-27 09:20:24.000000000 +0100
++++ linux-3.2.1-macvlan/include/linux/if_link.h	2012-01-27 09:23:38.000000000 +0100
+@@ -252,6 +252,9 @@ struct ifla_vlan_qos_mapping {
+ enum {
+ 	IFLA_MACVLAN_UNSPEC,
+ 	IFLA_MACVLAN_MODE,
++	IFLA_MACVLAN_MACADDR_MODE,
++	IFLA_MACVLAN_MACADDR,
++	IFLA_MACVLAN_MACADDR_DATA,
+ 	__IFLA_MACVLAN_MAX,
+ };
+ 
+@@ -262,6 +265,12 @@ enum macvlan_mode {
+ 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
+ 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
+ 	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
++	MACVLAN_MODE_SOURCE  = 16,/* use source MAC address list to assign */
++};
++
++enum macvlan_macaddr_mode {
++	MACVLAN_MACADDR_ADD,
++	MACVLAN_MACADDR_DEL,
+ };
+ 
+ /* SR-IOV virtual function management section */
