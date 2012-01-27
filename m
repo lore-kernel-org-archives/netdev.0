@@ -1,42 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Fri, 27 Jan 2012 06:59:44 +0100
-Message-ID: <1327643984.2919.6.camel@edumazet-laptop>
-References: <CAGsizzJnRy74ni-HH=5q1VR4g6sfDPg9SFw4UKgSjJjkSR8OJA@mail.gmail.com>
-	 <20120125.203746.1977019610549185259.davem@davemloft.net>
-	 <CAGsizzLYxsc2MGxF7yK_QzS+3bexHa1F_6+NE87u3F18m7=R1g@mail.gmail.com>
-	 <20120126.133033.964571202129052712.davem@davemloft.net>
-	 <CAOzFzEj-UCXwhw0NA=Y=qExG=RdVJB3RAdqU0HrsMo7V+4eGcQ@mail.gmail.com>
+Subject: Re: [PATCH] netns: fix net_alloc_generic()
+Date: Fri, 27 Jan 2012 07:09:07 +0100
+Message-ID: <1327644547.2919.11.camel@edumazet-laptop>
+References: <CA+1xoqe+Qa1OByj7z7XzAPG_g9+BmNj9NPZR=_5b_MTEmc9Chw@mail.gmail.com>
+	 <1327523631-3480-1-git-send-email-sjur.brandeland@stericsson.com>
+	 <1327574498.2500.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F212E7E.2040801@parallels.com>
+	 <1327575108.2500.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <m1zkdacbsx.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, steweg@ynet.sk,
-	jesse@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joseph Glanville <joseph.glanville@orionvm.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:58166 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313Ab2A0F7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 00:59:49 -0500
-In-Reply-To: <CAOzFzEj-UCXwhw0NA=Y=qExG=RdVJB3RAdqU0HrsMo7V+4eGcQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Sjur =?ISO-8859-1?Q?Br=E6ndeland?=
+	<sjur.brandeland@stericsson.com>,
+	"levinsasha928@gmail.com" <levinsasha928@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davej@redhat.com" <davej@redhat.com>,
+	"sjurbren@gmail.com" <sjurbren@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1zkdacbsx.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 27 janvier 2012 =C3=A0 09:24 +1100, Joseph Glanville a =C3=A9=
+Le jeudi 26 janvier 2012 =C3=A0 14:57 -0800, Eric W. Biederman a =C3=A9=
 crit :
-> David is correct, the forwarding speed of Open vSwitch is at parity
-> with the Linux Bridging module and its tunneling speed is actually
-> slightly faster than the in kernel GRE implementation. I have tested
-> this across a variety of configurations.
 
-Thanks for this input ! When was this tested exactly, and do you have
-some "perf tool" reports to provide ?
+> It is not a chicken and egg problem.  It is a bug in caif.
+> caif is claiming to be a network device when it is acting as a subsyt=
+em.
+> That means it is being initialized too late.
+>=20
 
-GRE is lockless since one year or so (modulo how is setup the tunnel as
-discovered recently)
+Ah ok !
 
-Also please note that openvSwitch is said to be fast path only on
-established flows.
+> Untested but this should trivially fix the problem, and a bunch
+> of others of the same ilk.
+>=20
+
+Hmm, please refrain from using "trivially" or "trivial", you're not
+fooling anyone.
+
+Truth is this netns layer is horribly complex, since this CAIF bug
+needed no more than four patch attempts and lastly your own work before
+finding the root cause.
+
+Thanks
