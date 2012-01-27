@@ -1,39 +1,122 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netfront: correct MAX_TX_TARGET calculation.
-Date: Fri, 27 Jan 2012 10:36:29 +0000
-Message-ID: <1327660589.2585.14.camel@leeni.uk.xensource.com>
-References: <1327598603-16398-1-git-send-email-wei.liu2@citrix.com>
-	 <20120126181900.GB25572@phenom.dumpdata.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch v5, kernel version 3.2.1] Source mode for macvlan
+ interface
+Date: Fri, 27 Jan 2012 11:38:41 +0100
+Message-ID: <1327660721.2220.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <21673653.551327658293199.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeremy@goop.org" <jeremy@goop.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:32562 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758Ab2A0Kgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 05:36:31 -0500
-In-Reply-To: <20120126181900.GB25572@phenom.dumpdata.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Gula <steweg@ynet.sk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <21673653.551327658293199.JavaMail.root@5-MeO-DMT.ynet.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-01-26 at 18:19 +0000, Konrad Rzeszutek Wilk wrote:
-> On Thu, Jan 26, 2012 at 05:23:23PM +0000, Wei Liu wrote:
-> 
-> Can you give some more details please? What is the impact of
-> not having this? Should it be backported to stable?
-> 
+Le vendredi 27 janvier 2012 =C3=A0 10:58 +0100, Stefan Gula a =C3=A9cri=
+t :
+> From: Stefan Gula <steweg@gmail.com>
+>=20
 
-I think it will not cause crash, only the scratch space size is
-affected, thus impacting tx batching a bit.
+=2E..
 
-As the tx structure is bigger than rx structure. I think scratch space
-size is likely to shrink after correction.
+> +static struct macvlan_source_list *macvlan_hash_lookup_sources_list(
+> +	const struct macvlan_dev *vlan,
+> +	const unsigned char *addr)
+> +{
+> +	struct macvlan_source_list *list;
+> +	struct hlist_node *n;
+> +	struct hlist_head *h =3D &vlan->port->vlan_source_hash[addr[5]];
+> +
+> +	hlist_for_each_entry_rcu(list, n, h, hlist) {
+
+You dont hold rcu_read_lock() here, and dont need to, since you are in
+the controler path, rtnl is locked :
+
+	hlist_for_each_entry(...)
+
+> +		if (!compare_ether_addr_64bits(list->addr, addr) &&
+> +		    list->vlan =3D=3D vlan)
+> +			return list;
+> +	}
+> +	return NULL;
+> +}
+> +
+> +static int macvlan_hash_add_sources(struct macvlan_dev *vlan,
+> +				    const unsigned char *addr)
+> +{
+> +	struct macvlan_port *port =3D vlan->port;
+> +	struct macvlan_source_list *list;
+> +	struct hlist_head *h;
+> +
+> +	list =3D macvlan_hash_lookup_sources_list(vlan, addr);
+> +	if (!list) {
+> +		list =3D kmalloc(sizeof(*list), GFP_KERNEL);
+
+By the way, use of GFP_KERNEL here is a proof you dont hold
+rcu_read_lock().
+
+(If you were, you would not be allowed to sleep in kmalloc())
+
+> +		if (list) {
+> +			memcpy(list->addr, addr, ETH_ALEN);
+> +			list->vlan =3D vlan;
+> +			h =3D &port->vlan_source_hash[addr[5]];
+> +			hlist_add_head_rcu(&list->hlist, h);
+> +		} else
+> +			return -ENOMEM;
+
+	if (cond) {
+		foo;
+		bar;
+	} else {
+		blip;
+	}
 
 
-Wei.
+> +	}
+> +	return 0;
+> +}
+> +
+> +static void macvlan_hash_del_sources(struct macvlan_source_list *lis=
+t)
+> +{
+> +	hlist_del_rcu(&list->hlist);
+> +	kfree_rcu(list, rcu);
+> +}
+> +
+
+=2E..
+
+> +static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 =
+mode,
+> +				      unsigned char *addr)
+> +{
+> +	if (mode =3D=3D MACVLAN_MACADDR_ADD)
+> +		return macvlan_hash_add_sources(vlan, addr);
+> +
+
+Same codestyle here...
+
+	if (cond) {
+		foo;
+	} else if (cond2) {
+	} else {
+		blip;
+	}
+
+
+> +	else if (mode =3D=3D MACVLAN_MACADDR_DEL) {
+> +		struct macvlan_source_list *list;
+> +
+> +		list =3D macvlan_hash_lookup_sources_list(vlan, addr);
+> +		if (list)
+> +			macvlan_hash_del_sources(list);
+> +	} else
+> +		return -EINVAL;
+> +
+> +	return 0;
+> +}
+> +
