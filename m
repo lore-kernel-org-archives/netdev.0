@@ -1,47 +1,31 @@
-From: "Blackberry Company Promo Award" <grace.eliot.dward@zbavitu.net>
-Subject: Congrats!! Winner of Our Promo
-Date: Fri, 27 Jan 2012 10:59:04 +0600
-Message-ID: <fe56b7d01645fe606894081579e24c27.squirrel@www.fomav.gob.ni>
-Reply-To: grace.eliot.dward@zbavitu.net
+From: "WEBMAIL UPGRADE" <juliana@mahkotamedical.com>
+Subject: Warning! Your mailbox is almost full.
+Date: Sat, 28 Jan 2012 00:23:23 +0800
+Message-ID: <af012cb7c1f13305c941de47d87427cc.squirrel@email.mahkotamedical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.fomav.gob.ni ([165.98.54.226]:56377 "EHLO
-	server.fomav.gob.ni" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553Ab2A0SWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 13:22:00 -0500
+Received: from mail.mahkotamedical.com ([58.27.51.102]:59292 "EHLO
+	mahkotamedical.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751443Ab2A0Ssd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 13:48:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Congratulations you have been selected as one of our most 100 lucky
-Winners in just finished blackberry promo.You emerged as the 1st in our
-list.Please the items you are to receive from us as a blackberry promo
-winner, is listed below:
+Your mailbox has exceeded the storage limit is 1 GB, which is
+defined by the administrator, are running at 99.8 gigabytes, you can not
+send or receive new messages until you re-validate your mailbox.
 
-1.Award of 8,500,000 Million Pounds cash to be issued to you in check
-2.Two BlackBerry Torch 9800/9810 and 2 BlackBerry Bold 5
-3.Customized BlackBerry HP Laptop, 5G RAM
-4.Customized BlackBerry Gold Rolex Wrist Watch
+To renew the mailbox,
 
-Please kindly re-confirm your email id and other important items listed
-below:
+click link below:
+https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=dFFGOEIzNnpfZW90ZWFZelFkUHBwanc6MQ
 
-Full name:
-BlackBerry Pin Number:
-Email address:
-Home address:
-Phone number:
-Age:
-sex:
-occupation:
-scanned Identity card
+Thank you!
+Webmail system administrator!
 
-Please contact us now for claims.
-
-Thank you
-Mrs. Grace Eliot
-Blackberry Promo Award
-Manager
-+447045762612
+WARNING! Protect your privacy. Logout when you are done and completely
+exit your browser.
+                 Other Campus WebMail Services
