@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] e1000e: concatenate long debug strings which span multiple lines
-Date: Thu, 26 Jan 2012 19:08:44 -0800
-Message-ID: <1327633729-14086-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/11] e1000e: call er16flash() instead of __er16flash()
+Date: Thu, 26 Jan 2012 19:08:47 -0800
+Message-ID: <1327633729-14086-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327633729-14086-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64222 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:12673 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754742Ab2A0DI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754754Ab2A0DI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Jan 2012 22:08:56 -0500
 In-Reply-To: <1327633729-14086-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,172 +18,27 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-To ease searching for debug message strings, concatenate strings that span
-multiple lines even if the resulting line exceeds 80 columns; these will
-not cause checkpatch warnings.
-
-Also, add '\n' and remove unnecessary '\r' from a few debug strings.
+__er16flash() is not meant to be called directly.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    3 +--
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |   15 +++++----------
- drivers/net/ethernet/intel/e1000e/lib.c         |   20 ++++++++------------
- drivers/net/ethernet/intel/e1000e/phy.c         |    3 +--
- 4 files changed, 15 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index b3a235c..f323ce5 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -667,8 +667,7 @@ static s32 e1000_phy_force_speed_duplex_80003es2lan(struct e1000_hw *hw)
- 	udelay(1);
- 
- 	if (hw->phy.autoneg_wait_to_complete) {
--		e_dbg("Waiting for forced speed/duplex link "
--			 "on GG82563 phy.\n");
-+		e_dbg("Waiting for forced speed/duplex link on GG82563 phy.\n");
- 
- 		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
- 						     100000, &link);
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 6a6e6f6..53e5447 100644
+index 53e5447..070a90f 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -902,8 +902,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	}
- 
- 	if (!timeout) {
--		e_dbg("Failed to acquire the semaphore, FW or HW has it: "
--		      "FWSM=0x%8.8x EXTCNF_CTRL=0x%8.8x)\n",
-+		e_dbg("Failed to acquire the semaphore, FW or HW has it: FWSM=0x%8.8x EXTCNF_CTRL=0x%8.8x)\n",
- 		      er32(FWSM), extcnf_ctrl);
- 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
- 		ew32(EXTCNF_CTRL, extcnf_ctrl);
-@@ -2132,8 +2131,7 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
- 
- 			return 0;
- 		}
--		e_dbg("Unable to determine valid NVM bank via EEC - "
--		       "reading flash signature\n");
-+		e_dbg("Unable to determine valid NVM bank via EEC - reading flash signature\n");
- 		/* fall-thru */
- 	default:
- 		/* set bank to 0 in case flash read fails */
-@@ -2245,8 +2243,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 
- 	/* Check if the flash descriptor is valid */
- 	if (hsfsts.hsf_status.fldesvalid == 0) {
--		e_dbg("Flash descriptor invalid.  "
--			 "SW Sequencing must be used.\n");
-+		e_dbg("Flash descriptor invalid.  SW Sequencing must be used.\n");
- 		return -E1000_ERR_NVM;
- 	}
- 
-@@ -2446,8 +2443,7 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 				/* Repeat for some time before giving up. */
- 				continue;
- 			} else if (hsfsts.hsf_status.flcdone == 0) {
--				e_dbg("Timeout error - flash cycle "
--					 "did not complete.\n");
-+				e_dbg("Timeout error - flash cycle did not complete.\n");
+@@ -2279,7 +2279,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
+ 		 * cycle has a chance to end before giving up.
+ 		 */
+ 		for (i = 0; i < ICH_FLASH_READ_COMMAND_TIMEOUT; i++) {
+-			hsfsts.regval = __er16flash(hw, ICH_FLASH_HSFSTS);
++			hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
+ 			if (hsfsts.hsf_status.flcinprog == 0) {
+ 				ret_val = 0;
  				break;
- 			}
- 		}
-@@ -2798,8 +2794,7 @@ static s32 e1000_write_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 			/* Repeat for some time before giving up. */
- 			continue;
- 		if (hsfsts.hsf_status.flcdone == 0) {
--			e_dbg("Timeout error - flash cycle "
--				 "did not complete.");
-+			e_dbg("Timeout error - flash cycle did not complete.\n");
- 			break;
- 		}
- 	} while (count++ < ICH_FLASH_CYCLE_REPEAT_COUNT);
-diff --git a/drivers/net/ethernet/intel/e1000e/lib.c b/drivers/net/ethernet/intel/e1000e/lib.c
-index 78e3f4c..e2678bd 100644
---- a/drivers/net/ethernet/intel/e1000e/lib.c
-+++ b/drivers/net/ethernet/intel/e1000e/lib.c
-@@ -653,12 +653,10 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 			if (rxcw & E1000_RXCW_SYNCH) {
- 				if (!(rxcw & E1000_RXCW_IV)) {
- 					mac->serdes_has_link = true;
--					e_dbg("SERDES: Link up - autoneg "
--					   "completed successfully.\n");
-+					e_dbg("SERDES: Link up - autoneg completed successfully.\n");
- 				} else {
- 					mac->serdes_has_link = false;
--					e_dbg("SERDES: Link down - invalid"
--					   "codewords detected in autoneg.\n");
-+					e_dbg("SERDES: Link down - invalid codewords detected in autoneg.\n");
- 				}
- 			} else {
- 				mac->serdes_has_link = false;
-@@ -1118,8 +1116,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			return ret_val;
- 
- 		if (!(mii_status_reg & MII_SR_AUTONEG_COMPLETE)) {
--			e_dbg("Copper PHY and Auto Neg "
--				 "has not completed.\n");
-+			e_dbg("Copper PHY and Auto Neg has not completed.\n");
- 			return ret_val;
- 		}
- 
-@@ -1183,11 +1180,10 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			 */
- 			if (hw->fc.requested_mode == e1000_fc_full) {
- 				hw->fc.current_mode = e1000_fc_full;
--				e_dbg("Flow Control = FULL.\r\n");
-+				e_dbg("Flow Control = FULL.\n");
- 			} else {
- 				hw->fc.current_mode = e1000_fc_rx_pause;
--				e_dbg("Flow Control = "
--				      "Rx PAUSE frames only.\r\n");
-+				e_dbg("Flow Control = Rx PAUSE frames only.\n");
- 			}
- 		}
- 		/*
-@@ -1203,7 +1199,7 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_tx_pause;
--			e_dbg("Flow Control = Tx PAUSE frames only.\r\n");
-+			e_dbg("Flow Control = Tx PAUSE frames only.\n");
- 		}
- 		/*
- 		 * For transmitting PAUSE frames ONLY.
-@@ -1218,14 +1214,14 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 			 !(mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_rx_pause;
--			e_dbg("Flow Control = Rx PAUSE frames only.\r\n");
-+			e_dbg("Flow Control = Rx PAUSE frames only.\n");
- 		} else {
- 			/*
- 			 * Per the IEEE spec, at this point flow control
- 			 * should be disabled.
- 			 */
- 			hw->fc.current_mode = e1000_fc_none;
--			e_dbg("Flow Control = NONE.\r\n");
-+			e_dbg("Flow Control = NONE.\n");
- 		}
- 
- 		/*
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 8666476..ed70d08 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -1136,8 +1136,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
- 	if (phy->autoneg_wait_to_complete) {
- 		ret_val = e1000_wait_autoneg(hw);
- 		if (ret_val) {
--			e_dbg("Error while waiting for "
--				 "autoneg to complete\n");
-+			e_dbg("Error while waiting for autoneg to complete\n");
- 			return ret_val;
- 		}
- 	}
 -- 
 1.7.7.6
