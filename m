@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 18/32] sfc: Correct interrupt timer quantum for
- Siena (normal and turbo mode)
-Date: Fri, 27 Jan 2012 20:48:08 +0000
-Message-ID: <1327697288.2503.25.camel@bwh-desktop>
+Subject: [PATCH net-next 19/32] sfc: Remove dependence on NAPI polling in
+ efx_test_eventq_irq()
+Date: Fri, 27 Jan 2012 20:48:37 +0000
+Message-ID: <1327697317.2503.26.camel@bwh-desktop>
 References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,235 +10,162 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:63680 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:63696 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751471Ab2A0UsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:48:12 -0500
+	by vger.kernel.org with ESMTP id S1752836Ab2A0Usl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:48:41 -0500
 In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently assume that the timer quantum for Siena is 5 us, the same
-as for Falcon.  This is not correct; timer ticks are generated on a
-rota which takes a minimum of 768 cycles (each event delivery or other
-timer change will delay it by 3 cycles).  The timer quantum should be
-6.144 or 3.072 us depending on whether turbo mode is active.
+We cannot safely assume that the NAPI handler will complete within the
+20 ms that we allow for the event self-test.  The handler may be
+deferred for longer than this, particularly on realtime kernels.
 
-Replace EFX_IRQ_MOD_RESOLUTION with a timer_quantum_ns field in struct
-efx_nic, initialised by the efx_nic_type::probe function.
+Instead, check whether either an event has been handled or (as in the
+old failure path) whether an interrupt has been received and an event
+has been delivered but not yet handled.  Use napi_disable() to
+synchronize with the NAPI handler before checking, since it will
+clear events before updating eventq_read_ptr.
 
-While we're at it, replace EFX_IRQ_MOD_MAX with a timer_period_max
-field in struct efx_nic_type.
+Remove the test result chan.N.eventq.poll, since it is not an error
+if the NAPI handler does not run during the test.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |   31 ++++++++++++++++++++++---------
- drivers/net/ethernet/sfc/falcon.c     |    6 ++++--
- drivers/net/ethernet/sfc/net_driver.h |    4 ++++
- drivers/net/ethernet/sfc/nic.h        |    3 ---
- drivers/net/ethernet/sfc/siena.c      |   13 ++++++++++---
- 5 files changed, 40 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/sfc/ethtool.c  |    4 --
+ drivers/net/ethernet/sfc/selftest.c |   79 ++++++++++++++++++-----------------
+ drivers/net/ethernet/sfc/selftest.h |    1 -
+ 3 files changed, 40 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index de16247..9d4ab5e 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1513,13 +1513,13 @@ static void efx_remove_all(struct efx_nic *efx)
-  *
-  **************************************************************************/
- 
--static unsigned int irq_mod_ticks(unsigned int usecs, unsigned int resolution)
-+static unsigned int irq_mod_ticks(unsigned int usecs, unsigned int quantum_ns)
- {
- 	if (usecs == 0)
- 		return 0;
--	if (usecs < resolution)
-+	if (usecs * 1000 < quantum_ns)
- 		return 1; /* never round down to 0 */
--	return usecs / resolution;
-+	return usecs * 1000 / quantum_ns;
- }
- 
- /* Set interrupt moderation parameters */
-@@ -1528,14 +1528,20 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
- 			    bool rx_may_override_tx)
- {
- 	struct efx_channel *channel;
--	unsigned tx_ticks = irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
--	unsigned rx_ticks = irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
-+	unsigned int irq_mod_max = DIV_ROUND_UP(efx->type->timer_period_max *
-+						efx->timer_quantum_ns,
-+						1000);
-+	unsigned int tx_ticks;
-+	unsigned int rx_ticks;
- 
- 	EFX_ASSERT_RESET_SERIALISED(efx);
- 
--	if (tx_ticks > EFX_IRQ_MOD_MAX || rx_ticks > EFX_IRQ_MOD_MAX)
-+	if (tx_usecs > irq_mod_max || rx_usecs > irq_mod_max)
- 		return -EINVAL;
- 
-+	tx_ticks = irq_mod_ticks(tx_usecs, efx->timer_quantum_ns);
-+	rx_ticks = irq_mod_ticks(rx_usecs, efx->timer_quantum_ns);
-+
- 	if (tx_ticks != rx_ticks && efx->tx_channel_offset == 0 &&
- 	    !rx_may_override_tx) {
- 		netif_err(efx, drv, efx->net_dev, "Channels are shared. "
-@@ -1558,8 +1564,14 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
- void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
- 			    unsigned int *rx_usecs, bool *rx_adaptive)
- {
-+	/* We must round up when converting ticks to microseconds
-+	 * because we round down when converting the other way.
-+	 */
-+
- 	*rx_adaptive = efx->irq_rx_adaptive;
--	*rx_usecs = efx->irq_rx_moderation * EFX_IRQ_MOD_RESOLUTION;
-+	*rx_usecs = DIV_ROUND_UP(efx->irq_rx_moderation *
-+				 efx->timer_quantum_ns,
-+				 1000);
- 
- 	/* If channels are shared between RX and TX, so is IRQ
- 	 * moderation.  Otherwise, IRQ moderation is the same for all
-@@ -1568,9 +1580,10 @@ void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
- 	if (efx->tx_channel_offset == 0)
- 		*tx_usecs = *rx_usecs;
- 	else
--		*tx_usecs =
-+		*tx_usecs = DIV_ROUND_UP(
- 			efx->channel[efx->tx_channel_offset]->irq_moderation *
--			EFX_IRQ_MOD_RESOLUTION;
-+			efx->timer_quantum_ns,
-+			1000);
- }
- 
- /**************************************************************************
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index fe21c7e..0b7880b 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -103,8 +103,6 @@ static void falcon_push_irq_moderation(struct efx_channel *channel)
- 	efx_dword_t timer_cmd;
- 	struct efx_nic *efx = channel->efx;
- 
--	BUILD_BUG_ON(EFX_IRQ_MOD_MAX > (1 << FRF_AB_TC_TIMER_VAL_WIDTH));
--
- 	/* Set timer register */
- 	if (channel->irq_moderation) {
- 		EFX_POPULATE_DWORD_2(timer_cmd,
-@@ -1471,6 +1469,8 @@ static int falcon_probe_nic(struct efx_nic *efx)
- 		goto fail5;
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 1a7f7ba..ba90116 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -404,10 +404,6 @@ static int efx_ethtool_fill_self_tests(struct efx_nic *efx,
+ 			      &tests->eventq_int[channel->channel],
+ 			      EFX_CHANNEL_NAME(channel),
+ 			      "eventq.int", NULL);
+-		efx_fill_test(n++, strings, data,
+-			      &tests->eventq_poll[channel->channel],
+-			      EFX_CHANNEL_NAME(channel),
+-			      "eventq.poll", NULL);
  	}
  
-+	efx->timer_quantum_ns = 4968; /* 621 cycles */
-+
- 	/* Initialise I2C adapter */
- 	board = falcon_board(efx);
- 	board->i2c_adap.owner = THIS_MODULE;
-@@ -1785,6 +1785,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
- 	.rx_buffer_padding = 0x24,
- 	.max_interrupt_mode = EFX_INT_MODE_MSI,
- 	.phys_addr_channels = 4,
-+	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
- 	.tx_dc_base = 0x130000,
- 	.rx_dc_base = 0x100000,
- 	.offload_features = NETIF_F_IP_CSUM,
-@@ -1836,6 +1837,7 @@ const struct efx_nic_type falcon_b0_nic_type = {
- 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
- 				   * interrupt handler only supports 32
- 				   * channels */
-+	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
- 	.tx_dc_base = 0x130000,
- 	.rx_dc_base = 0x100000,
- 	.offload_features = NETIF_F_IP_CSUM | NETIF_F_RXHASH | NETIF_F_NTUPLE,
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 4cbd997..8ce4d06 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -624,6 +624,7 @@ struct efx_filter_state;
-  * @membase_phys: Memory BAR value as physical address
-  * @membase: Memory BAR value
-  * @interrupt_mode: Interrupt mode
-+ * @timer_quantum_ns: Interrupt timer quantum, in nanoseconds
-  * @irq_rx_adaptive: Adaptive IRQ moderation enabled for RX event queues
-  * @irq_rx_moderation: IRQ moderation time for RX event queues
-  * @msg_enable: Log message enable flags
-@@ -706,6 +707,7 @@ struct efx_nic {
- 	void __iomem *membase;
- 
- 	enum efx_int_mode interrupt_mode;
-+	unsigned int timer_quantum_ns;
- 	bool irq_rx_adaptive;
- 	unsigned int irq_rx_moderation;
- 	u32 msg_enable;
-@@ -845,6 +847,7 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
-  *	from &enum efx_init_mode.
-  * @phys_addr_channels: Number of channels with physically addressed
-  *	descriptors
-+ * @timer_period_max: Maximum period of interrupt timer (in ticks)
-  * @tx_dc_base: Base address in SRAM of TX queue descriptor caches
-  * @rx_dc_base: Base address in SRAM of RX queue descriptor caches
-  * @offload_features: net_device feature flags for protocol offload
-@@ -889,6 +892,7 @@ struct efx_nic_type {
- 	unsigned int rx_buffer_padding;
- 	unsigned int max_interrupt_mode;
- 	unsigned int phys_addr_channels;
-+	unsigned int timer_period_max;
- 	unsigned int tx_dc_base;
- 	unsigned int rx_dc_base;
- 	netdev_features_t offload_features;
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index cfda6de..a3ccd0b 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -205,9 +205,6 @@ extern irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx);
- extern irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id);
- extern void falcon_irq_ack_a1(struct efx_nic *efx);
- 
--#define EFX_IRQ_MOD_RESOLUTION	5
--#define EFX_IRQ_MOD_MAX		0x1000
--
- /* Global Resources */
- extern int efx_nic_flush_queues(struct efx_nic *efx);
- extern void falcon_start_nic_stats(struct efx_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 65cb5e4..f054258 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -35,8 +35,6 @@ static void siena_push_irq_moderation(struct efx_channel *channel)
+ 	efx_fill_test(n++, strings, data, &tests->registers,
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index 7718287..0f84789 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -161,11 +161,8 @@ static int efx_test_eventq_irq(struct efx_channel *channel,
+ 			       struct efx_self_tests *tests)
  {
- 	efx_dword_t timer_cmd;
- 
--	BUILD_BUG_ON(EFX_IRQ_MOD_MAX > (1 << FRF_CZ_TC_TIMER_VAL_WIDTH));
+ 	struct efx_nic *efx = channel->efx;
+-	unsigned int read_ptr, count;
 -
- 	if (channel->irq_moderation)
- 		EFX_POPULATE_DWORD_2(timer_cmd,
- 				     FRF_CZ_TC_TIMER_MODE,
-@@ -216,7 +214,15 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
+-	tests->eventq_dma[channel->channel] = -1;
+-	tests->eventq_int[channel->channel] = -1;
+-	tests->eventq_poll[channel->channel] = -1;
++	unsigned int read_ptr;
++	bool napi_ran, dma_seen, int_seen;
  
- static int siena_probe_nvconfig(struct efx_nic *efx)
- {
--	return efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL, NULL);
-+	u32 caps = 0;
-+	int rc;
+ 	read_ptr = channel->eventq_read_ptr;
+ 	channel->efx->last_irq_cpu = -1;
+@@ -173,44 +170,48 @@ static int efx_test_eventq_irq(struct efx_channel *channel,
+ 
+ 	efx_nic_generate_test_event(channel);
+ 
+-	/* Wait for arrival of interrupt */
+-	count = 0;
+-	do {
+-		schedule_timeout_uninterruptible(HZ / 100);
+-
+-		if (ACCESS_ONCE(channel->eventq_read_ptr) != read_ptr)
+-			goto eventq_ok;
+-	} while (++count < 2);
+-
+-	netif_err(efx, drv, efx->net_dev,
+-		  "channel %d timed out waiting for event queue\n",
+-		  channel->channel);
+-
+-	/* See if interrupt arrived */
+-	if (channel->efx->last_irq_cpu >= 0) {
+-		netif_err(efx, drv, efx->net_dev,
+-			  "channel %d saw interrupt on CPU%d "
+-			  "during event queue test\n", channel->channel,
+-			  raw_smp_processor_id());
+-		tests->eventq_int[channel->channel] = 1;
++	/* Wait for arrival of interrupt.  NAPI processing may or may
++	 * not complete in time, but we can cope in any case.
++	 */
++	msleep(10);
++	napi_disable(&channel->napi_str);
++	if (channel->eventq_read_ptr != read_ptr) {
++		napi_ran = true;
++		dma_seen = true;
++		int_seen = true;
++	} else {
++		napi_ran = false;
++		dma_seen = efx_nic_event_present(channel);
++		int_seen = efx->last_irq_cpu >= 0;
+ 	}
++	napi_enable(&channel->napi_str);
++	efx_nic_eventq_read_ack(channel);
 +
-+	rc = efx_mcdi_get_board_cfg(efx, efx->net_dev->perm_addr, NULL, &caps);
-+
-+	efx->timer_quantum_ns =
-+		(caps & (1 << MC_CMD_CAPABILITIES_TURBO_ACTIVE_LBN)) ?
-+		3072 : 6144; /* 768 cycles */
-+	return rc;
++	tests->eventq_dma[channel->channel] = dma_seen ? 1 : -1;
++	tests->eventq_int[channel->channel] = int_seen ? 1 : -1;
+ 
+-	/* Check to see if event was received even if interrupt wasn't */
+-	if (efx_nic_event_present(channel)) {
++	if (dma_seen && int_seen) {
++		netif_dbg(efx, drv, efx->net_dev,
++			  "channel %d event queue passed (with%s NAPI)\n",
++			  channel->channel, napi_ran ? "" : "out");
++		return 0;
++	} else {
++		/* Report failure and whether either interrupt or DMA worked */
+ 		netif_err(efx, drv, efx->net_dev,
+-			  "channel %d event was generated, but "
+-			  "failed to trigger an interrupt\n", channel->channel);
+-		tests->eventq_dma[channel->channel] = 1;
++			  "channel %d timed out waiting for event queue\n",
++			  channel->channel);
++		if (int_seen)
++			netif_err(efx, drv, efx->net_dev,
++				  "channel %d saw interrupt "
++				  "during event queue test\n",
++				  channel->channel);
++		if (dma_seen)
++			netif_err(efx, drv, efx->net_dev,
++				  "channel %d event was generated, but "
++				  "failed to trigger an interrupt\n",
++				  channel->channel);
++		return -ETIMEDOUT;
+ 	}
+-
+-	return -ETIMEDOUT;
+- eventq_ok:
+-	netif_dbg(efx, drv, efx->net_dev, "channel %d event queue passed\n",
+-		  channel->channel);
+-	tests->eventq_dma[channel->channel] = 1;
+-	tests->eventq_int[channel->channel] = 1;
+-	tests->eventq_poll[channel->channel] = 1;
+-	return 0;
  }
  
- static int siena_probe_nic(struct efx_nic *efx)
-@@ -644,6 +650,7 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
- 				   * interrupt handler only supports 32
- 				   * channels */
-+	.timer_period_max = 1 << FRF_CZ_TC_TIMER_VAL_WIDTH,
- 	.tx_dc_base = 0x88000,
- 	.rx_dc_base = 0x68000,
- 	.offload_features = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ static int efx_test_phy(struct efx_nic *efx, struct efx_self_tests *tests,
+diff --git a/drivers/net/ethernet/sfc/selftest.h b/drivers/net/ethernet/sfc/selftest.h
+index dba5456..87abe2a 100644
+--- a/drivers/net/ethernet/sfc/selftest.h
++++ b/drivers/net/ethernet/sfc/selftest.h
+@@ -37,7 +37,6 @@ struct efx_self_tests {
+ 	int interrupt;
+ 	int eventq_dma[EFX_MAX_CHANNELS];
+ 	int eventq_int[EFX_MAX_CHANNELS];
+-	int eventq_poll[EFX_MAX_CHANNELS];
+ 	/* offline tests */
+ 	int registers;
+ 	int phy_ext[EFX_MAX_PHY_TESTS];
 -- 
 1.7.7.5
 
