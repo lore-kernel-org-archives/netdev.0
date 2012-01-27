@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 12/29] sysctl: Improve the sysctl sanity checks
-Date: Thu, 26 Jan 2012 20:51:48 -0800
-Message-ID: <1327639925-12920-12-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 11/29] sysctl: register only tables of sysctl files
+Date: Thu, 26 Jan 2012 20:51:47 -0800
+Message-ID: <1327639925-12920-11-git-send-email-ebiederm@xmission.com>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
@@ -13,353 +13,283 @@ In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Stop validating subdirectories now that we only register leaf tables
+Split the registration of a complex ctl_table array which may have
+arbitrary numbers of directories (->child != NULL) and tables of files
+into a series of simpler registrations that only register tables of files.
 
-- Cleanup and improve the duplicate filename check.
-  * Run the duplicate filename check under the sysctl_lock to guarantee
-    we never add duplicate names.
-  * Reduce the duplicate filename check to nearly O(M*N) where M is the
-    number of entries in tthe table we are registering and N is the
-    number of entries in the directory before we got there.
+Graphically:
 
-- Move the duplicate filename check into it's own function and call
-  it directtly from __register_sysctl_table
+   register('dir', { + file-a
+                     + file-b
+                     + subdir1
+                       + file-c
+                     + subdir2
+                       + file-d
+                       + file-e })
 
-- Kill the config option as the sanity checks are now cheap enough
-  the config option is unnecessary. The original reason for the config
-  option was because we had a huge table used to verify the proc filename
-  to binary sysctl mapping.  That table has now evolved into the binary_sysctl
-  translation layer and is no longer part of the sysctl_check code.
+is transformed into:
+   wrapper->subheaders[0] = register('dir', {file1-a, file1-b})
+   wrapper->subheaders[1] = register('dir/subdir1', {file-c})
+   wrapper->subheaders[2] = register('dir/subdir2', {file-d, file-e})
+   return wrapper
 
-- Tighten up the permission checks.  Guarnateeing that files only have read
-  or write permissions.
+This guarantees that __register_sysctl_table will only see a simple
+ctl_table array with all entries having (->child == NULL).
 
-- Removed redudant check for parents having a procname as now everything has
-  a procname.
+Care was taken to pass the original simple ctl_table arrays to
+__register_sysctl_table whenever possible.
 
-- Generalize the backtrace logic so that we print a backtrace from
-  any failure of __register_sysctl_table that was not caused by
-  a memmory allocation failure.  The backtrace allows us to track
-  down who erroneously registered a sysctl table.
+This change is derived from a similar patch written
+by Lucrian Grijincu.
 
-Bechmark before (CONFIG_SYSCTL_CHECK=y):
-    make-dummies 0 999 -> 12s
-    rmmod dummy        -> 0.08s
-
-Bechmark before (CONFIG_SYSCTL_CHECK=n):
-    make-dummies 0 999 -> 0.7s
-    rmmod dummy        -> 0.06s
-    make-dummies 0 99999 -> 1m13s
-    rmmod dummy          -> 0.38s
-
-Benchmark after:
-    make-dummies 0 999 -> 0.65s
-    rmmod dummy        -> 0.055s
-    make-dummies 0 9999 -> 1m10s
-    rmmod dummy         -> 0.39s
-
-The sysctl sanity checks now impose no measurable cost.
-
+Inspired-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |  222 +++++++++++++++++++------------------------------
- lib/Kconfig.debug     |    8 --
- 2 files changed, 86 insertions(+), 144 deletions(-)
+ fs/proc/proc_sysctl.c  |  165 ++++++++++++++++++++++++++++++++++++++++++-----
+ include/linux/sysctl.h |    2 +-
+ 2 files changed, 148 insertions(+), 19 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 6bab2ae..a492ff6 100644
+index 9b91dee..6bab2ae 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -726,160 +726,106 @@ static void try_attach(struct ctl_table_header *p, struct ctl_table_header *q)
- 	}
- }
- 
--#ifdef CONFIG_SYSCTL_SYSCALL_CHECK
--static int sysctl_depth(struct ctl_table *table)
-+static int sysctl_check_table_dups(const char *path, struct ctl_table *old,
-+	struct ctl_table *table)
- {
--	struct ctl_table *tmp;
--	int depth;
--
--	depth = 0;
--	for (tmp = table; tmp->parent; tmp = tmp->parent)
--		depth++;
-+	struct ctl_table *entry, *test;
-+	int error = 0;
- 
--	return depth;
-+	for (entry = old; entry->procname; entry++) {
-+		for (test = table; test->procname; test++) {
-+			if (strcmp(entry->procname, test->procname) == 0) {
-+				printk(KERN_ERR "sysctl duplicate entry: %s/%s\n",
-+					path, test->procname);
-+				error = -EEXIST;
-+			}
-+		}
-+	}
-+	return error;
- }
- 
--static struct ctl_table *sysctl_parent(struct ctl_table *table, int n)
-+static int sysctl_check_dups(struct nsproxy *namespaces,
-+	struct ctl_table_header *header,
-+	const char *path, struct ctl_table *table)
- {
--	int i;
-+	struct ctl_table_root *root;
-+	struct ctl_table_set *set;
-+	struct ctl_table_header *dir_head, *head;
-+	struct ctl_table *dir_table;
-+	int error = 0;
- 
--	for (i = 0; table && i < n; i++)
--		table = table->parent;
-+	/* No dups if we are the only member of our directory */
-+	if (header->attached_by != table)
-+		return 0;
- 
--	return table;
--}
-+	dir_head = header->parent;
-+	dir_table = header->attached_to;
- 
-+	error = sysctl_check_table_dups(path, dir_table, table);
- 
--static void sysctl_print_path(struct ctl_table *table)
--{
--	struct ctl_table *tmp;
--	int depth, i;
--	depth = sysctl_depth(table);
--	if (table->procname) {
--		for (i = depth; i >= 0; i--) {
--			tmp = sysctl_parent(table, i);
--			printk("/%s", tmp->procname?tmp->procname:"");
--		}
--	}
--	printk(" ");
--}
-+	root = &sysctl_table_root;
-+	do {
-+		set = lookup_header_set(root, namespaces);
- 
--static struct ctl_table *sysctl_check_lookup(struct nsproxy *namespaces,
--						struct ctl_table *table)
--{
--	struct ctl_table_header *head;
--	struct ctl_table *ref, *test;
--	int depth, cur_depth;
--
--	depth = sysctl_depth(table);
--
--	for (head = __sysctl_head_next(namespaces, NULL); head;
--	     head = __sysctl_head_next(namespaces, head)) {
--		cur_depth = depth;
--		ref = head->ctl_table;
--repeat:
--		test = sysctl_parent(table, cur_depth);
--		for (; ref->procname; ref++) {
--			int match = 0;
--			if (cur_depth && !ref->child)
-+		list_for_each_entry(head, &set->list, ctl_entry) {
-+			if (head->unregistering)
- 				continue;
--
--			if (test->procname && ref->procname &&
--			    (strcmp(test->procname, ref->procname) == 0))
--					match++;
--
--			if (match) {
--				if (cur_depth != 0) {
--					cur_depth--;
--					ref = ref->child;
--					goto repeat;
--				}
--				goto out;
--			}
-+			if (head->attached_to != dir_table)
-+				continue;
-+			error = sysctl_check_table_dups(path, head->attached_by,
-+							table);
- 		}
--	}
--	ref = NULL;
--out:
--	sysctl_head_finish(head);
--	return ref;
-+		root = list_entry(root->root_list.next,
-+				  struct ctl_table_root, root_list);
-+	} while (root != &sysctl_table_root);
-+	return error;
- }
- 
--static void set_fail(const char **fail, struct ctl_table *table, const char *str)
-+static int sysctl_err(const char *path, struct ctl_table *table, char *fmt, ...)
- {
--	if (*fail) {
--		printk(KERN_ERR "sysctl table check failed: ");
--		sysctl_print_path(table);
--		printk(" %s\n", *fail);
--		dump_stack();
--	}
--	*fail = str;
--}
-+	struct va_format vaf;
-+	va_list args;
- 
--static void sysctl_check_leaf(struct nsproxy *namespaces,
--				struct ctl_table *table, const char **fail)
--{
--	struct ctl_table *ref;
-+	va_start(args, fmt);
-+	vaf.fmt = fmt;
-+	vaf.va = &args;
-+
-+	printk(KERN_ERR "sysctl table check failed: %s/%s %pV\n",
-+		path, table->procname, &vaf);
- 
--	ref = sysctl_check_lookup(namespaces, table);
--	if (ref && (ref != table))
--		set_fail(fail, table, "Sysctl already exists");
-+	va_end(args);
-+	return -EINVAL;
- }
- 
--static int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
-+static int sysctl_check_table(const char *path, struct ctl_table *table)
- {
--	int error = 0;
-+	int err = 0;
- 	for (; table->procname; table++) {
--		const char *fail = NULL;
--
--		if (table->parent) {
--			if (!table->parent->procname)
--				set_fail(&fail, table, "Parent without procname");
--		}
--		if (table->child) {
--			if (table->data)
--				set_fail(&fail, table, "Directory with data?");
--			if (table->maxlen)
--				set_fail(&fail, table, "Directory with maxlen?");
--			if ((table->mode & (S_IRUGO|S_IXUGO)) != table->mode)
--				set_fail(&fail, table, "Writable sysctl directory");
--			if (table->proc_handler)
--				set_fail(&fail, table, "Directory with proc_handler");
--			if (table->extra1)
--				set_fail(&fail, table, "Directory with extra1");
--			if (table->extra2)
--				set_fail(&fail, table, "Directory with extra2");
--		} else {
--			if ((table->proc_handler == proc_dostring) ||
--			    (table->proc_handler == proc_dointvec) ||
--			    (table->proc_handler == proc_dointvec_minmax) ||
--			    (table->proc_handler == proc_dointvec_jiffies) ||
--			    (table->proc_handler == proc_dointvec_userhz_jiffies) ||
--			    (table->proc_handler == proc_dointvec_ms_jiffies) ||
--			    (table->proc_handler == proc_doulongvec_minmax) ||
--			    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
--				if (!table->data)
--					set_fail(&fail, table, "No data");
--				if (!table->maxlen)
--					set_fail(&fail, table, "No maxlen");
--			}
--#ifdef CONFIG_PROC_SYSCTL
--			if (!table->proc_handler)
--				set_fail(&fail, table, "No proc_handler");
--#endif
--			sysctl_check_leaf(namespaces, table, &fail);
--		}
--		if (table->mode > 0777)
--			set_fail(&fail, table, "bogus .mode");
--		if (fail) {
--			set_fail(&fail, table, NULL);
--			error = -EINVAL;
--		}
- 		if (table->child)
--			error |= sysctl_check_table(namespaces, table->child);
-+			err = sysctl_err(path, table, "Not a file");
-+
-+		if ((table->proc_handler == proc_dostring) ||
-+		    (table->proc_handler == proc_dointvec) ||
-+		    (table->proc_handler == proc_dointvec_minmax) ||
-+		    (table->proc_handler == proc_dointvec_jiffies) ||
-+		    (table->proc_handler == proc_dointvec_userhz_jiffies) ||
-+		    (table->proc_handler == proc_dointvec_ms_jiffies) ||
-+		    (table->proc_handler == proc_doulongvec_minmax) ||
-+		    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
-+			if (!table->data)
-+				err = sysctl_err(path, table, "No data");
-+			if (!table->maxlen)
-+				err = sysctl_err(path, table, "No maxlen");
-+		}
-+		if (!table->proc_handler)
-+			err = sysctl_err(path, table, "No proc_handler");
-+
-+		if ((table->mode & (S_IRUGO|S_IWUGO)) != table->mode)
-+			err = sysctl_err(path, table, "bogus .mode 0%o",
-+				table->mode);
- 	}
--	return error;
-+	return err;
- }
--#endif /* CONFIG_SYSCTL_SYSCALL_CHECK */
+@@ -882,7 +882,7 @@ static int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *tabl
+ #endif /* CONFIG_SYSCTL_SYSCALL_CHECK */
  
  /**
-  * __register_sysctl_table - register a leaf sysctl table
-@@ -1003,12 +949,8 @@ struct ctl_table_header *__register_sysctl_table(
- 	header->root = root;
- 	sysctl_set_parent(NULL, header->ctl_table);
- 	header->count = 1;
--#ifdef CONFIG_SYSCTL_SYSCALL_CHECK
--	if (sysctl_check_table(namespaces, header->ctl_table)) {
--		kfree(header);
--		return NULL;
--	}
--#endif
-+	if (sysctl_check_table(path, table))
-+		goto fail;
- 	spin_lock(&sysctl_lock);
- 	header->set = lookup_header_set(root, namespaces);
- 	header->attached_by = header->ctl_table;
-@@ -1029,11 +971,19 @@ struct ctl_table_header *__register_sysctl_table(
- 				  struct ctl_table_root, root_list);
- 		set = lookup_header_set(root, namespaces);
- 	}
-+	if (sysctl_check_dups(namespaces, header, path, table))
-+		goto fail_locked;
- 	header->parent->count++;
- 	list_add_tail(&header->ctl_entry, &header->set->list);
- 	spin_unlock(&sysctl_lock);
- 
- 	return header;
-+fail_locked:
-+	spin_unlock(&sysctl_lock);
-+fail:
-+	kfree(header);
-+	dump_stack();
-+	return NULL;
+- * __register_sysctl_table - register a sysctl table
++ * __register_sysctl_table - register a leaf sysctl table
+  * @root: List of sysctl headers to register on
+  * @namespaces: Data to compute which lists of sysctl entries are visible
+  * @path: The path to the directory the sysctl table is in.
+@@ -900,29 +900,19 @@ static int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *tabl
+  *
+  * maxlen - the maximum size in bytes of the data
+  *
+- * mode - the file permissions for the /proc/sys file, and for sysctl(2)
++ * mode - the file permissions for the /proc/sys file
+  *
+- * child - a pointer to the child sysctl table if this entry is a directory, or
+- *         %NULL.
++ * child - must be %NULL.
+  *
+  * proc_handler - the text handler routine (described below)
+  *
+- * de - for internal use by the sysctl routines
+- *
+  * extra1, extra2 - extra pointers usable by the proc handler routines
+  *
+  * Leaf nodes in the sysctl tree will be represented by a single file
+  * under /proc; non-leaf nodes will be represented by directories.
+  *
+- * sysctl(2) can automatically manage read and write requests through
+- * the sysctl table.  The data and maxlen fields of the ctl_table
+- * struct enable minimal validation of the values being written to be
+- * performed, and the mode field allows minimal authentication.
+- *
+- * There must be a proc_handler routine for any terminal nodes
+- * mirrored under /proc/sys (non-terminals are handled by a built-in
+- * directory handler).  Several default handlers are available to
+- * cover common cases -
++ * There must be a proc_handler routine for any terminal nodes.
++ * Several default handlers are available to cover common cases -
+  *
+  * proc_dostring(), proc_dointvec(), proc_dointvec_jiffies(),
+  * proc_dointvec_userhz_jiffies(), proc_dointvec_minmax(),
+@@ -1059,6 +1049,100 @@ static char *append_path(const char *path, char *pos, const char *name)
+ 	return pos;
  }
  
- static char *append_path(const char *path, char *pos, const char *name)
-diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 8745ac7..943a618 100644
---- a/lib/Kconfig.debug
-+++ b/lib/Kconfig.debug
-@@ -1113,14 +1113,6 @@ config LATENCYTOP
- 	  Enable this option if you want to use the LatencyTOP tool
- 	  to find out which userspace is blocking on what kernel operations.
++static int count_subheaders(struct ctl_table *table)
++{
++	int has_files = 0;
++	int nr_subheaders = 0;
++	struct ctl_table *entry;
++
++	/* special case: no directory and empty directory */
++	if (!table || !table->procname)
++		return 1;
++
++	for (entry = table; entry->procname; entry++) {
++		if (entry->child)
++			nr_subheaders += count_subheaders(entry->child);
++		else
++			has_files = 1;
++	}
++	return nr_subheaders + has_files;
++}
++
++static int register_leaf_sysctl_tables(const char *path, char *pos,
++	struct ctl_table_header ***subheader,
++	struct ctl_table_root *root, struct nsproxy *namespaces,
++	struct ctl_table *table)
++{
++	struct ctl_table *ctl_table_arg = NULL;
++	struct ctl_table *entry, *files;
++	int nr_files = 0;
++	int nr_dirs = 0;
++	int err = -ENOMEM;
++
++	for (entry = table; entry->procname; entry++) {
++		if (entry->child)
++			nr_dirs++;
++		else
++			nr_files++;
++	}
++
++	files = table;
++	/* If there are mixed files and directories we need a new table */
++	if (nr_dirs && nr_files) {
++		struct ctl_table *new;
++		files = kzalloc(sizeof(struct ctl_table) * (nr_files + 1),
++				GFP_KERNEL);
++		if (!files)
++			goto out;
++
++		ctl_table_arg = files;
++		for (new = files, entry = table; entry->procname; entry++) {
++			if (entry->child)
++				continue;
++			*new = *entry;
++			new++;
++		}
++	}
++
++	/* Register everything except a directory full of subdirectories */
++	if (nr_files || !nr_dirs) {
++		struct ctl_table_header *header;
++		header = __register_sysctl_table(root, namespaces, path, files);
++		if (!header) {
++			kfree(ctl_table_arg);
++			goto out;
++		}
++
++		/* Remember if we need to free the file table */
++		header->ctl_table_arg = ctl_table_arg;
++		**subheader = header;
++		(*subheader)++;
++	}
++
++	/* Recurse into the subdirectories. */
++	for (entry = table; entry->procname; entry++) {
++		char *child_pos;
++
++		if (!entry->child)
++			continue;
++
++		err = -ENAMETOOLONG;
++		child_pos = append_path(path, pos, entry->procname);
++		if (!child_pos)
++			goto out;
++
++		err = register_leaf_sysctl_tables(path, child_pos, subheader,
++						  root, namespaces, entry->child);
++		pos[0] = '\0';
++		if (err)
++			goto out;
++	}
++	err = 0;
++out:
++	/* On failure our caller will unregister all registered subheaders */
++	return err;
++}
++
+ /**
+  * __register_sysctl_paths - register a sysctl table hierarchy
+  * @root: List of sysctl headers to register on
+@@ -1077,7 +1161,8 @@ struct ctl_table_header *__register_sysctl_paths(
+ 	const struct ctl_path *path, struct ctl_table *table)
+ {
+ 	struct ctl_table *ctl_table_arg = table;
+-	struct ctl_table_header *header = NULL;
++	int nr_subheaders = count_subheaders(table);
++	struct ctl_table_header *header = NULL, **subheaders, **subheader;
+ 	const struct ctl_path *component;
+ 	char *new_path, *pos;
  
--config SYSCTL_SYSCALL_CHECK
--	bool "Sysctl checks"
--	depends on SYSCTL
--	---help---
--	  sys_sysctl uses binary paths that have been found challenging
--	  to properly maintain and use. This enables checks that help
--	  you to keep things correct.
--
- source mm/Kconfig.debug
- source kernel/trace/Kconfig
+@@ -1097,12 +1182,39 @@ struct ctl_table_header *__register_sysctl_paths(
+ 			goto out;
+ 		table = table->child;
+ 	}
+-	header = __register_sysctl_table(root, namespaces, new_path, table);
+-	if (header)
++	if (nr_subheaders == 1) {
++		header = __register_sysctl_table(root, namespaces, new_path, table);
++		if (header)
++			header->ctl_table_arg = ctl_table_arg;
++	} else {
++		header = kzalloc(sizeof(*header) +
++				 sizeof(*subheaders)*nr_subheaders, GFP_KERNEL);
++		if (!header)
++			goto out;
++
++		subheaders = (struct ctl_table_header **) (header + 1);
++		subheader = subheaders;
+ 		header->ctl_table_arg = ctl_table_arg;
++
++		if (register_leaf_sysctl_tables(new_path, pos, &subheader,
++						root, namespaces, table))
++			goto err_register_leaves;
++	}
++
+ out:
+ 	kfree(new_path);
+ 	return header;
++
++err_register_leaves:
++	while (subheader > subheaders) {
++		struct ctl_table_header *subh = *(--subheader);
++		struct ctl_table *table = subh->ctl_table_arg;
++		unregister_sysctl_table(subh);
++		kfree(table);
++	}
++	kfree(header);
++	header = NULL;
++	goto out;
+ }
  
+ /**
+@@ -1149,11 +1261,28 @@ EXPORT_SYMBOL(register_sysctl_table);
+  */
+ void unregister_sysctl_table(struct ctl_table_header * header)
+ {
++	int nr_subheaders;
+ 	might_sleep();
+ 
+ 	if (header == NULL)
+ 		return;
+ 
++	nr_subheaders = count_subheaders(header->ctl_table_arg);
++	if (unlikely(nr_subheaders > 1)) {
++		struct ctl_table_header **subheaders;
++		int i;
++
++		subheaders = (struct ctl_table_header **)(header + 1);
++		for (i = nr_subheaders -1; i >= 0; i--) {
++			struct ctl_table_header *subh = subheaders[i];
++			struct ctl_table *table = subh->ctl_table_arg;
++			unregister_sysctl_table(subh);
++			kfree(table);
++		}
++		kfree(header);
++		return;
++	}
++
+ 	spin_lock(&sysctl_lock);
+ 	start_unregistering(header);
+ 	if (!--header->parent->count) {
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index a514e0f..25c7dfe 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -1015,7 +1015,7 @@ struct ctl_table
+ 	void *data;
+ 	int maxlen;
+ 	umode_t mode;
+-	struct ctl_table *child;
++	struct ctl_table *child;	/* Deprecated */
+ 	struct ctl_table *parent;	/* Automatically set */
+ 	proc_handler *proc_handler;	/* Callback for text formatting */
+ 	struct ctl_table_poll *poll;
 -- 
 1.7.2.5
