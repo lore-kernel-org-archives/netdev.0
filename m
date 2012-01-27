@@ -1,62 +1,183 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/11] e1000e: convert final strncpy() to strlcpy()
-Date: Thu, 26 Jan 2012 19:08:45 -0800
-Message-ID: <1327633729-14086-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] e1000e: update workaround for 82579 intermittently disabled during S0->Sx
+Date: Thu, 26 Jan 2012 19:08:40 -0800
+Message-ID: <1327633729-14086-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1327633729-14086-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12673 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35567 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752361Ab2A0DI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jan 2012 22:08:56 -0500
+	id S1753440Ab2A0DIy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jan 2012 22:08:54 -0500
 In-Reply-To: <1327633729-14086-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Convert the last instances of strncpy() to the preferred strlcpy().
+The workaround which toggles the LANPHYPC (LAN PHY Power Control) value bit
+to force the MAC-Phy interconnect into PCIe mode from SMBus mode during
+driver load and resume should always be done except if PHY resets are
+blocked by the Manageability Engine (ME).  Previously, the toggle was done
+only if PHY resets are blocked and the ME was disabled.
+
+The rest of the patch is just indentation changes as a consequence of the
+updated workaround.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |  103 +++++++++++++--------------
+ 1 files changed, 49 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 49b5ded..d6b451f 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5947,7 +5947,7 @@ static void e1000_print_device_info(struct e1000_adapter *adapter)
- 	ret_val = e1000_read_pba_string_generic(hw, pba_str,
- 						E1000_PBANUM_LENGTH);
- 	if (ret_val)
--		strncpy((char *)pba_str, "Unknown", sizeof(pba_str) - 1);
-+		strlcpy((char *)pba_str, "Unknown", sizeof(pba_str));
- 	e_info("MAC: %d, PHY: %d, PBA No: %s\n",
- 	       hw->mac.type, hw->phy.type, pba_str);
- }
-@@ -6139,7 +6139,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	e1000e_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo		= 5 * HZ;
- 	netif_napi_add(netdev, &adapter->napi, e1000_clean, 64);
--	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
-+	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name));
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index e446e05..50a61fc 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -306,7 +306,6 @@ static void e1000_toggle_lanphypc_value_ich8lan(struct e1000_hw *hw)
+ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ {
+ 	struct e1000_phy_info *phy = &hw->phy;
+-	u32 fwsm;
+ 	s32 ret_val = 0;
  
- 	netdev->mem_start = mmio_start;
- 	netdev->mem_end = mmio_start + mmio_len;
-@@ -6321,7 +6321,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	if (!(adapter->flags & FLAG_HAS_AMT))
- 		e1000e_get_hw_control(adapter);
+ 	phy->addr                     = 1;
+@@ -325,14 +324,14 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
  
--	strncpy(netdev->name, "eth%d", sizeof(netdev->name) - 1);
-+	strlcpy(netdev->name, "eth%d", sizeof(netdev->name));
- 	err = register_netdev(netdev);
- 	if (err)
- 		goto err_register;
+-	/*
+-	 * The MAC-PHY interconnect may still be in SMBus mode
+-	 * after Sx->S0.  If the manageability engine (ME) is
+-	 * disabled, then toggle the LANPHYPC Value bit to force
+-	 * the interconnect to PCIe mode.
+-	 */
+-	fwsm = er32(FWSM);
+-	if (!(fwsm & E1000_ICH_FWSM_FW_VALID) && !e1000_check_reset_block(hw)) {
++	if (!e1000_check_reset_block(hw)) {
++		u32 fwsm = er32(FWSM);
++
++		/*
++		 * The MAC-PHY interconnect may still be in SMBus mode after
++		 * Sx->S0.  If resetting the PHY is not blocked, toggle the
++		 * LANPHYPC Value bit to force the interconnect to PCIe mode.
++		 */
+ 		e1000_toggle_lanphypc_value_ich8lan(hw);
+ 		msleep(50);
+ 
+@@ -340,25 +339,26 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		 * Gate automatic PHY configuration by hardware on
+ 		 * non-managed 82579
+ 		 */
+-		if (hw->mac.type == e1000_pch2lan)
++		if ((hw->mac.type == e1000_pch2lan) &&
++		    !(fwsm & E1000_ICH_FWSM_FW_VALID))
+ 			e1000_gate_hw_phy_config_ich8lan(hw, true);
+-	}
+ 
+-	/*
+-	 * Reset the PHY before any access to it.  Doing so, ensures that
+-	 * the PHY is in a known good state before we read/write PHY registers.
+-	 * The generic reset is sufficient here, because we haven't determined
+-	 * the PHY type yet.
+-	 */
+-	ret_val = e1000e_phy_hw_reset_generic(hw);
+-	if (ret_val)
+-		goto out;
++		/*
++		 * Reset the PHY before any access to it.  Doing so, ensures
++		 * that the PHY is in a known good state before we read/write
++		 * PHY registers.  The generic reset is sufficient here,
++		 * because we haven't determined the PHY type yet.
++		 */
++		ret_val = e1000e_phy_hw_reset_generic(hw);
++		if (ret_val)
++			goto out;
+ 
+-	/* Ungate automatic PHY configuration on non-managed 82579 */
+-	if ((hw->mac.type == e1000_pch2lan) &&
+-	    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
+-		usleep_range(10000, 20000);
+-		e1000_gate_hw_phy_config_ich8lan(hw, false);
++		/* Ungate automatic PHY configuration on non-managed 82579 */
++		if ((hw->mac.type == e1000_pch2lan) &&
++		    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
++			usleep_range(10000, 20000);
++			e1000_gate_hw_phy_config_ich8lan(hw, false);
++		}
+ 	}
+ 
+ 	phy->id = e1000_phy_unknown;
+@@ -3736,42 +3736,37 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+  **/
+ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ {
+-	u32 fwsm;
++	u16 phy_id1, phy_id2;
++	s32 ret_val;
+ 
+-	if (hw->mac.type != e1000_pch2lan)
++	if ((hw->mac.type != e1000_pch2lan) || e1000_check_reset_block(hw))
+ 		return;
+ 
+-	fwsm = er32(FWSM);
+-	if (!(fwsm & E1000_ICH_FWSM_FW_VALID) || !e1000_check_reset_block(hw)) {
+-		u16 phy_id1, phy_id2;
+-		s32 ret_val;
+-
+-		ret_val = hw->phy.ops.acquire(hw);
+-		if (ret_val) {
+-			e_dbg("Failed to acquire PHY semaphore in resume\n");
+-			return;
+-		}
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val) {
++		e_dbg("Failed to acquire PHY semaphore in resume\n");
++		return;
++	}
+ 
+-		/* Test access to the PHY registers by reading the ID regs */
+-		ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_id1);
+-		if (ret_val)
+-			goto release;
+-		ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_id2);
+-		if (ret_val)
+-			goto release;
++	/* Test access to the PHY registers by reading the ID regs */
++	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_id1);
++	if (ret_val)
++		goto release;
++	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_id2);
++	if (ret_val)
++		goto release;
+ 
+-		if (hw->phy.id == ((u32)(phy_id1 << 16) |
+-				   (u32)(phy_id2 & PHY_REVISION_MASK)))
+-			goto release;
++	if (hw->phy.id == ((u32)(phy_id1 << 16) |
++			   (u32)(phy_id2 & PHY_REVISION_MASK)))
++		goto release;
+ 
+-		e1000_toggle_lanphypc_value_ich8lan(hw);
++	e1000_toggle_lanphypc_value_ich8lan(hw);
+ 
+-		hw->phy.ops.release(hw);
+-		msleep(50);
+-		e1000_phy_hw_reset(hw);
+-		msleep(50);
+-		return;
+-	}
++	hw->phy.ops.release(hw);
++	msleep(50);
++	e1000_phy_hw_reset(hw);
++	msleep(50);
++	return;
+ 
+ release:
+ 	hw->phy.ops.release(hw);
 -- 
 1.7.7.6
