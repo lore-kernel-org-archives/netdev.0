@@ -1,124 +1,137 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] Regression on behavior of EPOLLET | EPOLLIN for AF_UNIX
- sockets in 3.2
-Date: Fri, 27 Jan 2012 20:44:55 +0100
-Message-ID: <1327693495.3159.10.camel@edumazet-laptop>
-References: <CAKDKvuzH14AZjDG3WSdrf5VtmiUgG0Y+EaC83qqSd0VFKzyitg@mail.gmail.com>
-	 <1327686822.3159.3.camel@edumazet-laptop> <4F22EA24.3030901@parallels.com>
-	 <1327690506.3159.7.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2012-01-27
+Date: Fri, 27 Jan 2012 15:10:23 -0500
+Message-ID: <20120127201023.GC2510@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Mathewson <nickm@freehaven.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Moiseytsev <himeraster@gmail.com>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327690506.3159.7.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41925 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753674Ab2A0UQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:16:20 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 27 janvier 2012 =C3=A0 19:55 +0100, Eric Dumazet a =C3=A9cr=
-it :
-> Le vendredi 27 janvier 2012 =C3=A0 22:17 +0400, Glauber Costa a =C3=A9=
-crit :
-> > On 01/27/2012 09:53 PM, Eric Dumazet wrote:
-> > > Le vendredi 27 janvier 2012 =C3=A0 12:05 -0500, Nick Mathewson a =
-=C3=A9crit :
-> > >> [1.] One line summary of the problem:
-> > >>
-> > >
-> > > Hi
-> > >
-> > > Probably coming from commit 0884d7aa24e15e72b3c07f7da910a13bb7df3=
-592
-> > > (AF_UNIX: Fix poll blocking problem when reading from a stream so=
-cket)
-> > >
-> > > When we requeue skb because not completely eaten, we call again
-> > >
-> > > sk->sk_data_ready(sk, skb->len);
-> > >
-> > For the record, I just confirmed this to be the case.
->=20
-> A fix would be to change unix_poll() and not call sk_data_ready() whe=
-n
-> skb is requeued.
->=20
-> if (!skb_queue_empty(&sk->sk_receive_queue))
-> 	mask |=3D POLLIN | POLLRDNORM;
->=20
-> Might be tricky if we want to keep unix_poll() lockless, but quite
-> possible.
->=20
-> Or... not dequeue skb from sk_received_queue unless fully consumed.
->=20
 
-I am testing following patch :
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
- net/unix/af_unix.c |   18 ++++--------------
- 1 file changed, 4 insertions(+), 14 deletions(-)
+commit b49ba04a3a0382e7314d990707c21094c410425a
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index aad8fb6..6eca195 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1918,7 +1918,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb=
-, struct socket *sock,
- 		struct sk_buff *skb;
+Dave,
+
+Here are a couple of "one-liner" fixes intended for 3.3.
+
+A mac80211 fix from Eliad Peller fixes a regression from an earlier
+patche that accidentally removed a necessary line of code.  The other
+one from Eliad adds an overlooked assignment necessary for proper
+management of some state information.  Finally, the fix from Johannes
+moves an unlock to include an additional operation within the critical
+section.
+
+Pleae let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+The following changes since commit 9018e93948c6f8f95fbcc9fa05f6c403d6adb406:
+
+  net: explicitly add jump_label.h header to sock.h (2012-01-26 17:13:26 -0=
+500)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git master
+
+Eliad Peller (2):
+      mac80211: update oper_channel on ibss join
+      mac80211: set bss_conf.idle when vif is connected
+
+Johannes Berg (1):
+      iwlwifi: fix PCI-E transport "inta" race
+
+ drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c |    4 ++--
+ net/mac80211/ibss.c                              |    1 +
+ net/mac80211/iface.c                             |    1 +
+ 3 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c b/drivers/net=
+/wireless/iwlwifi/iwl-trans-pcie-rx.c
+index 752493f..65d1f05 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c
+@@ -972,11 +972,11 @@ void iwl_irq_tasklet(struct iwl_trans *trans)
+ 	}
+ #endif
 =20
- 		unix_state_lock(sk);
--		skb =3D skb_dequeue(&sk->sk_receive_queue);
-+		skb =3D skb_peek(&sk->sk_receive_queue);
- 		if (skb =3D=3D NULL) {
- 			unix_sk(sk)->recursion_level =3D 0;
- 			if (copied >=3D target)
-@@ -1959,8 +1959,6 @@ static int unix_stream_recvmsg(struct kiocb *iocb=
-, struct socket *sock,
- 			/* Never glue messages from different writers */
- 			if ((UNIXCB(skb).pid  !=3D siocb->scm->pid) ||
- 			    (UNIXCB(skb).cred !=3D siocb->scm->cred)) {
--				skb_queue_head(&sk->sk_receive_queue, skb);
--				sk->sk_data_ready(sk, skb->len);
- 				break;
- 			}
- 		} else {
-@@ -1977,8 +1975,6 @@ static int unix_stream_recvmsg(struct kiocb *iocb=
-, struct socket *sock,
-=20
- 		chunk =3D min_t(unsigned int, skb->len, size);
- 		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
--			skb_queue_head(&sk->sk_receive_queue, skb);
--			sk->sk_data_ready(sk, skb->len);
- 			if (copied =3D=3D 0)
- 				copied =3D -EFAULT;
- 			break;
-@@ -1993,13 +1989,10 @@ static int unix_stream_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
- 			if (UNIXCB(skb).fp)
- 				unix_detach_fds(siocb->scm, skb);
-=20
--			/* put the skb back if we didn't use it up.. */
--			if (skb->len) {
--				skb_queue_head(&sk->sk_receive_queue, skb);
--				sk->sk_data_ready(sk, skb->len);
-+			if (skb->len)
- 				break;
--			}
+-	spin_unlock_irqrestore(&trans->shrd->lock, flags);
 -
-+		=09
-+			skb_unlink(skb, &sk->sk_receive_queue);
- 			consume_skb(skb);
+ 	/* saved interrupt in inta variable now we can reset trans_pcie->inta */
+ 	trans_pcie->inta =3D 0;
 =20
- 			if (siocb->scm->fp)
-@@ -2010,9 +2003,6 @@ static int unix_stream_recvmsg(struct kiocb *iocb=
-, struct socket *sock,
- 			if (UNIXCB(skb).fp)
- 				siocb->scm->fp =3D scm_fp_dup(UNIXCB(skb).fp);
++	spin_unlock_irqrestore(&trans->shrd->lock, flags);
++
+ 	/* Now service all interrupt bits discovered above. */
+ 	if (inta & CSR_INT_BIT_HW_ERR) {
+ 		IWL_ERR(trans, "Hardware error detected.  Restarting.\n");
+diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
+index b3d76b7..a464396 100644
+--- a/net/mac80211/ibss.c
++++ b/net/mac80211/ibss.c
+@@ -106,6 +106,7 @@ static void __ieee80211_sta_join_ibss(struct ieee80211_=
+sub_if_data *sdata,
 =20
--			/* put message back and return */
--			skb_queue_head(&sk->sk_receive_queue, skb);
--			sk->sk_data_ready(sk, skb->len);
- 			break;
+ 	sdata->drop_unencrypted =3D capability & WLAN_CAPABILITY_PRIVACY ? 1 : 0;
+=20
++	local->oper_channel =3D chan;
+ 	channel_type =3D ifibss->channel_type;
+ 	if (channel_type > NL80211_CHAN_HT20 &&
+ 	    !cfg80211_can_beacon_sec_chan(local->hw.wiphy, chan, channel_type))
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index e47768c..01a21c2 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1314,6 +1314,7 @@ u32 __ieee80211_recalc_idle(struct ieee80211_local *l=
+ocal)
+ 			continue;
  		}
- 	} while (size);
+ 		/* count everything else */
++		sdata->vif.bss_conf.idle =3D false;
+ 		count++;
+ 	}
+=20
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--ZGiS0Q5IWpPtfppv
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPIwSuAAoJEJctW/TcYTgGFd0P/AsF8ClttEp6UKmWw/OAaK6O
+QvV173K+6pdr76gdRb6au5e+VptkdECY1DrE6S9jBQXS+XP5ba7+6DMXVlf2zeFY
+R1wJTOb7Ur6pCZW8idd0T+StAP/VWx39FfN09IQ6rb7kW9LFUYCSwn7aEqUXNhA8
+Cxf7mAG2CE2R2NxnOmy8JbBiGIrjDeLcnFdZ8Cf7esprftJaNrzab1COW/gKyEbl
+uSxJueGs+3qrKcBU7ElOkLgKS9KaJbnaDOsuvR3EBg4ghuVz4TxUmMftGICtO0I+
+P/Y5wj2eRURQHYgv+xAXcQn7Z3t5oUjQQ02kAQcBn03Cf81YM7xLj7IihquYGdde
+by+OYTlCd9SxAUNDAq6KNzFtGaMUZzHkYqDYydfGb63V+kuXZ695yDGjhuSAkc9i
+W8ZcMiKZbgulnvBN2b8SNfYzUVEJoCN+/ZDamZb0cZeRL5IceqhZ3ns3cm7tCB0g
+32IdF3aeFT6NmSdzn7RQtyon6zF43yugLOlbow97nFyIO0MVMUU/SqOLXeRvliOE
+iozqb+ZEX+zzPGr8iEiQdw5NhurPH/DAv88WlEjsz6v/OY21hE+eK1FmpLnR3uCC
+yORmvEDgMR4hnbkSw9922MOn5EtxVYnQToliKhcTm0LF92wcw/4CRLvn/oWawkZS
+bIA0yGYPck4TFhmZx6/p
+=Vb+7
+-----END PGP SIGNATURE-----
+
+--ZGiS0Q5IWpPtfppv--
