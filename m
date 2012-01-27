@@ -1,10 +1,11 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 17/29] sysctl: Factor out insert_header and erase_header
-Date: Thu, 26 Jan 2012 20:49:58 -0800
-Message-ID: <1327639810-12760-17-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 01/29] sysctl: remove impossible condition check
+Date: Thu, 26 Jan 2012 20:49:42 -0800
+Message-ID: <1327639810-12760-1-git-send-email-ebiederm@xmission.com>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Damien Millescamps <damien.millescamps@6wind.com>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,51 +13,56 @@ In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Lucas De Marchi <lucas.demarchi@profusion.mobi>
+
+Remove checks for conditions that will never happen. If procname is NULL
+the loop would already had bailed out, so there's no need to check it
+again.
+
+At the same time this also compacts the function find_in_table() by
+refactoring it to be easier to read.
+
+Signed-off-by: Lucas De Marchi <lucas.demarchi@profusion.mobi>
+Reviewed-by: Jesper Juhl <jj@chaosbits.net>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
+ fs/proc/proc_sysctl.c |   14 ++------------
+ 1 files changed, 2 insertions(+), 12 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 4979925..7e96a26 100644
+index a6b6217..d82f4a8 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -57,6 +57,17 @@ static void init_header(struct ctl_table_header *head,
- 	head->parent = NULL;
- }
+@@ -59,17 +59,11 @@ out:
  
-+static void erase_header(struct ctl_table_header *head)
-+{
-+	list_del_init(&head->ctl_entry);
-+}
-+
-+static void insert_header(struct ctl_table_header *header)
-+{
-+	header->parent->count++;
-+	list_add_tail(&header->ctl_entry, &header->set->list);
-+}
-+
- /* called under sysctl_lock */
- static int use_table(struct ctl_table_header *p)
+ static struct ctl_table *find_in_table(struct ctl_table *p, struct qstr *name)
  {
-@@ -96,7 +107,7 @@ static void start_unregistering(struct ctl_table_header *p)
- 	 * do not remove from the list until nobody holds it; walking the
- 	 * list in do_sysctl() relies on that.
- 	 */
--	list_del_init(&p->ctl_entry);
-+	erase_header(p);
- }
+-	int len;
+ 	for ( ; p->procname; p++) {
+-
+-		if (!p->procname)
+-			continue;
+-
+-		len = strlen(p->procname);
+-		if (len != name->len)
++		if (strlen(p->procname) != name->len)
+ 			continue;
  
- static void sysctl_head_get(struct ctl_table_header *head)
-@@ -974,8 +985,7 @@ struct ctl_table_header *__register_sysctl_table(
- 	}
- 	if (sysctl_check_dups(namespaces, header, path, table))
- 		goto fail_locked;
--	header->parent->count++;
--	list_add_tail(&header->ctl_entry, &header->set->list);
-+	insert_header(header);
- 	spin_unlock(&sysctl_lock);
+-		if (memcmp(p->procname, name->name, len) != 0)
++		if (memcmp(p->procname, name->name, name->len) != 0)
+ 			continue;
  
- 	return header;
+ 		/* I have a match */
+@@ -266,10 +260,6 @@ static int scan(struct ctl_table_header *head, ctl_table *table,
+ 	for (; table->procname; table++, (*pos)++) {
+ 		int res;
+ 
+-		/* Can't do anything without a proc name */
+-		if (!table->procname)
+-			continue;
+-
+ 		if (*pos < file->f_pos)
+ 			continue;
+ 
 -- 
 1.7.2.5
