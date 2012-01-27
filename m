@@ -1,50 +1,43 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH 2/2] net caif:  Register properly as a pernet subsystem.
-Date: Fri, 27 Jan 2012 08:24:28 -0500
-Message-ID: <1327670668.14789.4.camel@lappy>
-References: <4F212E7E.2040801@parallels.com>
-	 <1327575108.2500.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <m1zkdacbsx.fsf@fess.ebiederm.org>
-	 <20120126.180754.679593869814492219.davem@davemloft.net>
-	 <m1ehumc8r4.fsf_-_@fess.ebiederm.org> <m1aa5ac8nu.fsf_-_@fess.ebiederm.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
+Date: Fri, 27 Jan 2012 15:17:54 +0100
+Message-ID: <20120127141754.GA30202@elte.hu>
+References: <20120127124641.GA30819@elte.hu>
+ <4F229D5C.4040300@parallels.com>
+ <20120127125645.GA28131@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	xemul@parallels.com, sjur.brandeland@stericsson.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com, sjurbren@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Glauber Costa <glommer@parallels.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1aa5ac8nu.fsf_-_@fess.ebiederm.org>
+Content-Disposition: inline
+In-Reply-To: <20120127125645.GA28131@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-01-26 at 16:04 -0800, Eric W. Biederman wrote:
-> caif is a subsystem and as such it needs to register with
-> register_pernet_subsys instead of register_pernet_device.
-> 
-> Among other problems using register_pernet_device was resulting in
-> net_generic being called before the caif_net structure was allocated.
-> Which has been causing net_generic to fail with either BUG_ON's or by
-> return NULL pointers.
-> 
-> A more ugly problem that could be caused is packets in flight why the
-> subsystem is shutting down.
-> 
-> To remove confusion also remove the cruft cause by inappropriately
-> trying to fix this bug.
-> 
-> With the aid of the previous patch I have tested this patch and
-> confirmed that using register_pernet_subsys makes the failure go away
-> as it should.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com> 
 
-I've tested these two patches as well, and they also work for me.
+ok, i've bisected it, and the bad commit is:
 
-	Tested-by: Sasha Levin <levinsasha928@gmail.com>
+3dc43e3e4d0b52197d3205214fe8f162f9e0c334 is the first bad commit
+commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334
+Author: Glauber Costa <glommer@parallels.com>
+Date:   Sun Dec 11 21:47:05 2011 +0000
 
--- 
+    per-netns ipv4 sysctl_tcp_mem
+    
+    This patch allows each namespace to independently set up
+    its levels for tcp memory pressure thresholds. This patch
+    alone does not buy much: we need to make this values
+    per group of process somehow. This is achieved in the
+    patches that follows in this patchset.
+    
+    Signed-off-by: Glauber Costa <glommer@parallels.com>
+    Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+    CC: David S. Miller <davem@davemloft.net>
+    CC: Eric W. Biederman <ebiederm@xmission.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Sasha.
+Thanks,
+
+	Ingo
