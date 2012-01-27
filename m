@@ -1,57 +1,290 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [PATCH net V4 0/2] igb: ptp hardware clock
-Date: Fri, 27 Jan 2012 20:42:20 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B2E07B8F1@ORSMSX101.amr.corp.intel.com>
-References: <cover.1327161325.git.richardcochran@gmail.com>
- <1327638293.2729.43.camel@jtkirshe-mobl>
- <20120127101119.GA6690@netboy.at.omicron.at>
- <1327659327.2729.55.camel@jtkirshe-mobl>
- <1327659761.2220.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1327661789.2729.57.camel@jtkirshe-mobl>
- <20120127121155.GA5380@cherladcori01>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 01/32] sfc: Fix some formatting errors reported by
+ checkpatch
+Date: Fri, 27 Jan 2012 20:42:22 +0000
+Message-ID: <1327696942.2503.8.camel@bwh-desktop>
+References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:32037 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754641Ab2A0UmX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:42:23 -0500
-In-Reply-To: <20120127121155.GA5380@cherladcori01>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:63463 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754700Ab2A0UmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 15:42:25 -0500
+In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Friday, January 27, 2012 4:12 AM
-> To: Kirsher, Jeffrey T
-> Cc: Eric Dumazet; Brown, Aaron F; netdev@vger.kernel.org; e1000-
-> devel@lists.sourceforge.net; Keller, Jacob E; Ronciak, John; John Stultz;
-> Thomas Gleixner
-> Subject: Re: [PATCH net V4 0/2] igb: ptp hardware clock
-> 
-> On Fri, Jan 27, 2012 at 02:56:29AM -0800, Jeff Kirsher wrote:
-> > Eric was correct.  I added #include <linux/mdoule.h> to the igb_ptp.c
-> > file and the error goes away.
-> >
-> > Richard are you fine with me adding that change to your first patch of
-> > the series?  That way I can have the validation team finish up testing
-> > your patches.
-> 
-> By all means, please go right ahead.
-> 
-> Thanks,
-> Richard
-> 
+Fix the following errors and warnings:
 
-Yes, that does indeed resolve the compilation issue I was seeing in the lab, thanks...  I'm assuming a set of .config files that were failing is no longer necessary.
+ERROR: trailing whitespace
+ERROR: spaces required around that '=' (ctx:VxV)
+WARNING: please, no space before tabs
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/bitfield.h    |   18 +++++++++---------
+ drivers/net/ethernet/sfc/efx.c         |   16 ++++++++--------
+ drivers/net/ethernet/sfc/ethtool.c     |    4 ++--
+ drivers/net/ethernet/sfc/falcon_xmac.c |    2 +-
+ drivers/net/ethernet/sfc/mcdi_mac.c    |    2 +-
+ drivers/net/ethernet/sfc/mcdi_phy.c    |    2 +-
+ drivers/net/ethernet/sfc/mdio_10g.c    |    2 +-
+ drivers/net/ethernet/sfc/nic.c         |    2 +-
+ drivers/net/ethernet/sfc/qt202x_phy.c  |    6 +++---
+ drivers/net/ethernet/sfc/selftest.c    |    2 +-
+ drivers/net/ethernet/sfc/spi.h         |    2 +-
+ drivers/net/ethernet/sfc/tenxpress.c   |    2 +-
+ 12 files changed, 30 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/bitfield.h b/drivers/net/ethernet/sfc/bitfield.h
+index 098ac2a..a2a9f40 100644
+--- a/drivers/net/ethernet/sfc/bitfield.h
++++ b/drivers/net/ethernet/sfc/bitfield.h
+@@ -448,40 +448,40 @@ typedef union efx_oword {
+ 	EFX_INSERT32(min, max, low, high, EFX_MASK32(high + 1 - low))
+ 
+ #define EFX_SET_OWORD64(oword, low, high, value) do {			\
+-	(oword).u64[0] = (((oword).u64[0] 				\
++	(oword).u64[0] = (((oword).u64[0]				\
+ 			   & ~EFX_INPLACE_MASK64(0,  63, low, high))	\
+ 			  | EFX_INSERT64(0,  63, low, high, value));	\
+-	(oword).u64[1] = (((oword).u64[1] 				\
++	(oword).u64[1] = (((oword).u64[1]				\
+ 			   & ~EFX_INPLACE_MASK64(64, 127, low, high))	\
+ 			  | EFX_INSERT64(64, 127, low, high, value));	\
+ 	} while (0)
+ 
+ #define EFX_SET_QWORD64(qword, low, high, value) do {			\
+-	(qword).u64[0] = (((qword).u64[0] 				\
++	(qword).u64[0] = (((qword).u64[0]				\
+ 			   & ~EFX_INPLACE_MASK64(0, 63, low, high))	\
+ 			  | EFX_INSERT64(0, 63, low, high, value));	\
+ 	} while (0)
+ 
+ #define EFX_SET_OWORD32(oword, low, high, value) do {			\
+-	(oword).u32[0] = (((oword).u32[0] 				\
++	(oword).u32[0] = (((oword).u32[0]				\
+ 			   & ~EFX_INPLACE_MASK32(0, 31, low, high))	\
+ 			  | EFX_INSERT32(0, 31, low, high, value));	\
+-	(oword).u32[1] = (((oword).u32[1] 				\
++	(oword).u32[1] = (((oword).u32[1]				\
+ 			   & ~EFX_INPLACE_MASK32(32, 63, low, high))	\
+ 			  | EFX_INSERT32(32, 63, low, high, value));	\
+-	(oword).u32[2] = (((oword).u32[2] 				\
++	(oword).u32[2] = (((oword).u32[2]				\
+ 			   & ~EFX_INPLACE_MASK32(64, 95, low, high))	\
+ 			  | EFX_INSERT32(64, 95, low, high, value));	\
+-	(oword).u32[3] = (((oword).u32[3] 				\
++	(oword).u32[3] = (((oword).u32[3]				\
+ 			   & ~EFX_INPLACE_MASK32(96, 127, low, high))	\
+ 			  | EFX_INSERT32(96, 127, low, high, value));	\
+ 	} while (0)
+ 
+ #define EFX_SET_QWORD32(qword, low, high, value) do {			\
+-	(qword).u32[0] = (((qword).u32[0] 				\
++	(qword).u32[0] = (((qword).u32[0]				\
+ 			   & ~EFX_INPLACE_MASK32(0, 31, low, high))	\
+ 			  | EFX_INSERT32(0, 31, low, high, value));	\
+-	(qword).u32[1] = (((qword).u32[1] 				\
++	(qword).u32[1] = (((qword).u32[1]				\
+ 			   & ~EFX_INPLACE_MASK32(32, 63, low, high))	\
+ 			  | EFX_INSERT32(32, 63, low, high, value));	\
+ 	} while (0)
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index e43702f..11cc585 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -44,9 +44,9 @@ const char *efx_loopback_mode_names[] = {
+ 	[LOOPBACK_GMAC]		= "GMAC",
+ 	[LOOPBACK_XGMII]	= "XGMII",
+ 	[LOOPBACK_XGXS]		= "XGXS",
+-	[LOOPBACK_XAUI]  	= "XAUI",
+-	[LOOPBACK_GMII] 	= "GMII",
+-	[LOOPBACK_SGMII] 	= "SGMII",
++	[LOOPBACK_XAUI]		= "XAUI",
++	[LOOPBACK_GMII]		= "GMII",
++	[LOOPBACK_SGMII]	= "SGMII",
+ 	[LOOPBACK_XGBR]		= "XGBR",
+ 	[LOOPBACK_XFI]		= "XFI",
+ 	[LOOPBACK_XAUI_FAR]	= "XAUI_FAR",
+@@ -55,17 +55,17 @@ const char *efx_loopback_mode_names[] = {
+ 	[LOOPBACK_XFI_FAR]	= "XFI_FAR",
+ 	[LOOPBACK_GPHY]		= "GPHY",
+ 	[LOOPBACK_PHYXS]	= "PHYXS",
+-	[LOOPBACK_PCS]	 	= "PCS",
+-	[LOOPBACK_PMAPMD] 	= "PMA/PMD",
++	[LOOPBACK_PCS]		= "PCS",
++	[LOOPBACK_PMAPMD]	= "PMA/PMD",
+ 	[LOOPBACK_XPORT]	= "XPORT",
+ 	[LOOPBACK_XGMII_WS]	= "XGMII_WS",
+-	[LOOPBACK_XAUI_WS]  	= "XAUI_WS",
++	[LOOPBACK_XAUI_WS]	= "XAUI_WS",
+ 	[LOOPBACK_XAUI_WS_FAR]  = "XAUI_WS_FAR",
+ 	[LOOPBACK_XAUI_WS_NEAR] = "XAUI_WS_NEAR",
+-	[LOOPBACK_GMII_WS] 	= "GMII_WS",
++	[LOOPBACK_GMII_WS]	= "GMII_WS",
+ 	[LOOPBACK_XFI_WS]	= "XFI_WS",
+ 	[LOOPBACK_XFI_WS_FAR]	= "XFI_WS_FAR",
+-	[LOOPBACK_PHYXS_WS]  	= "PHYXS_WS",
++	[LOOPBACK_PHYXS_WS]	= "PHYXS_WS",
+ };
+ 
+ const unsigned int efx_reset_type_max = RESET_TYPE_MAX;
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 29b2ebf..c090de4 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -68,11 +68,11 @@ static u64 efx_get_atomic_stat(void *field)
+ }
+ 
+ #define EFX_ETHTOOL_ULONG_MAC_STAT(field)			\
+-	EFX_ETHTOOL_STAT(field, mac_stats, field, 		\
++	EFX_ETHTOOL_STAT(field, mac_stats, field,		\
+ 			  unsigned long, efx_get_ulong_stat)
+ 
+ #define EFX_ETHTOOL_U64_MAC_STAT(field)				\
+-	EFX_ETHTOOL_STAT(field, mac_stats, field, 		\
++	EFX_ETHTOOL_STAT(field, mac_stats, field,		\
+ 			  u64, efx_get_u64_stat)
+ 
+ #define EFX_ETHTOOL_UINT_NIC_STAT(name)				\
+diff --git a/drivers/net/ethernet/sfc/falcon_xmac.c b/drivers/net/ethernet/sfc/falcon_xmac.c
+index 9516452..5743459 100644
+--- a/drivers/net/ethernet/sfc/falcon_xmac.c
++++ b/drivers/net/ethernet/sfc/falcon_xmac.c
+@@ -139,7 +139,7 @@ static bool falcon_xmac_link_ok(struct efx_nic *efx)
+ 	return (efx->loopback_mode == LOOPBACK_XGMII ||
+ 		falcon_xgxs_link_ok(efx)) &&
+ 		(!(efx->mdio.mmds & (1 << MDIO_MMD_PHYXS)) ||
+-		 LOOPBACK_INTERNAL(efx) || 
++		 LOOPBACK_INTERNAL(efx) ||
+ 		 efx_mdio_phyxgxs_lane_sync(efx));
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/mcdi_mac.c b/drivers/net/ethernet/sfc/mcdi_mac.c
+index 50c2077..aa4052c 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mac.c
++++ b/drivers/net/ethernet/sfc/mcdi_mac.c
+@@ -141,5 +141,5 @@ static bool efx_mcdi_mac_check_fault(struct efx_nic *efx)
+ const struct efx_mac_operations efx_mcdi_mac_operations = {
+ 	.reconfigure	= efx_mcdi_mac_reconfigure,
+ 	.update_stats	= efx_port_dummy_op_void,
+-	.check_fault 	= efx_mcdi_mac_check_fault,
++	.check_fault	= efx_mcdi_mac_check_fault,
+ };
+diff --git a/drivers/net/ethernet/sfc/mcdi_phy.c b/drivers/net/ethernet/sfc/mcdi_phy.c
+index 6c63ab0..3077bf1 100644
+--- a/drivers/net/ethernet/sfc/mcdi_phy.c
++++ b/drivers/net/ethernet/sfc/mcdi_phy.c
+@@ -741,7 +741,7 @@ static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
+ 
+ const struct efx_phy_operations efx_mcdi_phy_ops = {
+ 	.probe		= efx_mcdi_phy_probe,
+-	.init 	 	= efx_port_dummy_op_int,
++	.init		= efx_port_dummy_op_int,
+ 	.reconfigure	= efx_mcdi_phy_reconfigure,
+ 	.poll		= efx_mcdi_phy_poll,
+ 	.fini		= efx_port_dummy_op_void,
+diff --git a/drivers/net/ethernet/sfc/mdio_10g.c b/drivers/net/ethernet/sfc/mdio_10g.c
+index 7ab385c..9acfd66 100644
+--- a/drivers/net/ethernet/sfc/mdio_10g.c
++++ b/drivers/net/ethernet/sfc/mdio_10g.c
+@@ -228,7 +228,7 @@ void efx_mdio_set_mmds_lpower(struct efx_nic *efx,
+ /**
+  * efx_mdio_set_settings - Set (some of) the PHY settings over MDIO.
+  * @efx:		Efx NIC
+- * @ecmd: 		New settings
++ * @ecmd:		New settings
+  */
+ int efx_mdio_set_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
+ {
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 3edfbaf..b1df2f3 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -1837,7 +1837,7 @@ struct efx_nic_reg_table {
+ 	REGISTER_REVISION_ ## min_rev, REGISTER_REVISION_ ## max_rev,	\
+ 	step, rows							\
+ }
+-#define REGISTER_TABLE(name, min_rev, max_rev) 				\
++#define REGISTER_TABLE(name, min_rev, max_rev)				\
+ 	REGISTER_TABLE_DIMENSIONS(					\
+ 		name, FR_ ## min_rev ## max_rev ## _ ## name,		\
+ 		min_rev, max_rev,					\
+diff --git a/drivers/net/ethernet/sfc/qt202x_phy.c b/drivers/net/ethernet/sfc/qt202x_phy.c
+index 7ad97e3..8a7caf88 100644
+--- a/drivers/net/ethernet/sfc/qt202x_phy.c
++++ b/drivers/net/ethernet/sfc/qt202x_phy.c
+@@ -47,7 +47,7 @@
+ #define PMA_PMD_FTX_STATIC_LBN	13
+ #define PMA_PMD_VEND1_REG	0xc001
+ #define PMA_PMD_VEND1_LBTXD_LBN	15
+-#define PCS_VEND1_REG	   	0xc000
++#define PCS_VEND1_REG		0xc000
+ #define PCS_VEND1_LBTXD_LBN	5
+ 
+ void falcon_qt202x_set_led(struct efx_nic *p, int led, int mode)
+@@ -453,9 +453,9 @@ const struct efx_phy_operations falcon_qt202x_phy_ops = {
+ 	.probe		 = qt202x_phy_probe,
+ 	.init		 = qt202x_phy_init,
+ 	.reconfigure	 = qt202x_phy_reconfigure,
+-	.poll	     	 = qt202x_phy_poll,
++	.poll		 = qt202x_phy_poll,
+ 	.fini		 = efx_port_dummy_op_void,
+-	.remove	  	 = qt202x_phy_remove,
++	.remove		 = qt202x_phy_remove,
+ 	.get_settings	 = qt202x_phy_get_settings,
+ 	.set_settings	 = efx_mdio_set_settings,
+ 	.test_alive	 = efx_mdio_test_alive,
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index 52edd24..fc62fe2 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -445,7 +445,7 @@ static int efx_end_loopback(struct efx_tx_queue *tx_queue,
+ 
+ 	/* Count the number of tx completions, and decrement the refcnt. Any
+ 	 * skbs not already completed will be free'd when the queue is flushed */
+-	for (i=0; i < state->packet_count; i++) {
++	for (i = 0; i < state->packet_count; i++) {
+ 		skb = state->skbs[i];
+ 		if (skb && !skb_shared(skb))
+ 			++tx_done;
+diff --git a/drivers/net/ethernet/sfc/spi.h b/drivers/net/ethernet/sfc/spi.h
+index 71f2e3e..5431a1b 100644
+--- a/drivers/net/ethernet/sfc/spi.h
++++ b/drivers/net/ethernet/sfc/spi.h
+@@ -68,7 +68,7 @@ static inline bool efx_spi_present(const struct efx_spi_device *spi)
+ 
+ int falcon_spi_cmd(struct efx_nic *efx,
+ 		   const struct efx_spi_device *spi, unsigned int command,
+-		   int address, const void* in, void *out, size_t len);
++		   int address, const void *in, void *out, size_t len);
+ int falcon_spi_wait_write(struct efx_nic *efx,
+ 			  const struct efx_spi_device *spi);
+ int falcon_spi_read(struct efx_nic *efx,
+diff --git a/drivers/net/ethernet/sfc/tenxpress.c b/drivers/net/ethernet/sfc/tenxpress.c
+index 7b0fd89..d37cb50 100644
+--- a/drivers/net/ethernet/sfc/tenxpress.c
++++ b/drivers/net/ethernet/sfc/tenxpress.c
+@@ -121,7 +121,7 @@
+ #define GPHY_XCONTROL_REG	49152
+ #define GPHY_ISOLATE_LBN	10
+ #define GPHY_ISOLATE_WIDTH	1
+-#define GPHY_DUPLEX_LBN	  	8
++#define GPHY_DUPLEX_LBN		8
+ #define GPHY_DUPLEX_WIDTH	1
+ #define GPHY_LOOPBACK_NEAR_LBN	14
+ #define GPHY_LOOPBACK_NEAR_WIDTH 1
+-- 
+1.7.7.5
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
