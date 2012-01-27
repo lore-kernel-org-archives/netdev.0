@@ -1,79 +1,123 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [Review][PATCH][0/29] sysctl rewrite for speed and clarity
-Date: Thu, 26 Jan 2012 20:45:20 -0800
-Message-ID: <m1pqe5ah3z.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH 03/29] sysctl: Register the base sysctl table like any other sysctl table.
+Date: Thu, 26 Jan 2012 20:49:44 -0800
+Message-ID: <1327639810-12760-3-git-send-email-ebiederm@xmission.com>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Damien Millescamps <damien.millescamps@6wind.com>
+	Damien Millescamps <damien.millescamps@6wind.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Simplify the code by treating the base sysctl table like any other
+sysctl table and register it with register_sysctl_table.
 
-The problem:
+To ensure this table is registered early enough to avoid problems
+call sysctl_init from proc_sys_init.
 
-   The current implementation of sysctl has data structures and semantics
-   that are hard to understand, and causes sysctl to run slowly.
-   Sysctl running slowly is a scaling problem in general and the network
-   stack in particular.
+Rename sysctl_net.c:sysctl_init() to net_sysctl_init() to avoid
+name conflicts now that kernel/sysctl.c:sysctl_init() is no longer
+static.
 
-After some heavy testing and way way too much patch rewriting I believe I
-have a patchset that seems sane and reasonable and gets to what looks to
-my weary eyes a sane result.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ fs/proc/proc_sysctl.c  |    3 ++-
+ include/linux/sysctl.h |    1 +
+ kernel/sysctl.c        |   13 ++++---------
+ net/sysctl_net.c       |    4 ++--
+ 4 files changed, 9 insertions(+), 12 deletions(-)
 
-My patchset was heavily inspired by the previous work done by Lucian
-Grinjincu.  Lucian kept the need for this work alive, and did a much
-better job than I ever though he did.  Unfortunately I missed a lot
-of the good things Lucian did my rushed attempts at code review.
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+index d82f4a8..9d29d28 100644
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -468,5 +468,6 @@ int __init proc_sys_init(void)
+ 	proc_sys_root->proc_iops = &proc_sys_dir_operations;
+ 	proc_sys_root->proc_fops = &proc_sys_dir_file_operations;
+ 	proc_sys_root->nlink = 0;
+-	return 0;
++
++	return sysctl_init();
+ }
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index cf3ee7f..5e3532e 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -1095,6 +1095,7 @@ struct ctl_table_header *register_sysctl_paths(const struct ctl_path *path,
+ void unregister_sysctl_table(struct ctl_table_header * table);
+ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table);
+ 
++extern int sysctl_init(void);
+ #else /* CONFIG_SYSCTL */
+ static inline struct ctl_table_header *register_sysctl_table(struct ctl_table * table)
+ {
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index d5bbddd..ad46024 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -192,7 +192,7 @@ static int sysrq_sysctl_handler(ctl_table *table, int write,
+ 
+ #endif
+ 
+-static struct ctl_table root_table[];
++static struct ctl_table root_table[1];
+ static struct ctl_table_root sysctl_table_root;
+ static struct ctl_table_header root_table_header = {
+ 	{{.count = 1,
+@@ -222,7 +222,7 @@ int sysctl_legacy_va_layout;
+ 
+ /* The default sysctl tables: */
+ 
+-static struct ctl_table root_table[] = {
++static struct ctl_table sysctl_base_table[] = {
+ 	{
+ 		.procname	= "kernel",
+ 		.mode		= 0555,
+@@ -1747,17 +1747,12 @@ static void sysctl_set_parent(struct ctl_table *parent, struct ctl_table *table)
+ 	}
+ }
+ 
+-static __init int sysctl_init(void)
++int __init sysctl_init(void)
+ {
+-	sysctl_set_parent(NULL, root_table);
+-#ifdef CONFIG_SYSCTL_SYSCALL_CHECK
+-	sysctl_check_table(current->nsproxy, root_table);
+-#endif
++	register_sysctl_table(sysctl_base_table);
+ 	return 0;
+ }
+ 
+-core_initcall(sysctl_init);
+-
+ static struct ctl_table *is_branch_in(struct ctl_table *branch,
+ 				      struct ctl_table *table)
+ {
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index e758139..a6bbee2 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -90,7 +90,7 @@ static struct pernet_operations sysctl_pernet_ops = {
+ 	.exit = sysctl_net_exit,
+ };
+ 
+-static __init int sysctl_init(void)
++static __init int net_sysctl_init(void)
+ {
+ 	int ret;
+ 	ret = register_pernet_subsys(&sysctl_pernet_ops);
+@@ -102,7 +102,7 @@ static __init int sysctl_init(void)
+ out:
+ 	return ret;
+ }
+-subsys_initcall(sysctl_init);
++subsys_initcall(net_sysctl_init);
+ 
+ struct ctl_table_header *register_net_sysctl_table(struct net *net,
+ 	const struct ctl_path *path, struct ctl_table *table)
+-- 
+1.7.2.5
 
-This code is also available at:
-kernel.org/pub/scm/linux/kernel/git/ebiederm/sysctl.git
-
-Eric W. Biederman (28):
-      sysctl: Consolidate !CONFIG_SYSCTL handling
-      sysctl: Register the base sysctl table like any other sysctl table.
-      sysctl: Move the implementation into fs/proc/proc_sysctl.c
-      sysctl: Make the directories have nlink == 1
-      sysctl: Implement retire_sysctl_set
-      sysctl: Remove the unnecessary sysctl_set parent concept.
-      sysctl: Create local copies of directory names used in paths
-      sysctl: Add support for register sysctl tables with a normal cstring path.
-      sysctl: Add ctl_table chains into cstring paths
-      sysctl: register only tables of sysctl files
-      sysctl: Improve the sysctl sanity checks
-      sysctl: Remove the now unused ctl_table parent field.
-      sysctl: A more obvious version of grab_header.
-      sysctl: Initial support for auto-unregistering sysctl tables.
-      sysctl: Factor out init_header from __register_sysctl_paths
-      sysctl: Factor out insert_header and erase_header
-      sysctl: Normalize the root_table data structure.
-      sysctl: Rewrite proc_sys_lookup introducing find_entry and lookup_entry.
-      sysctl: Rewrite proc_sys_readdir in terms of first_entry and next_entry
-      sysctl: Add a root pointer to ctl_table_set
-      sysctl: Stop requiring explicit management of sysctl directories
-      sysctl: Add sysctl_print_dir and use it in get_subdir
-      sysctl: Replace root_list with links between sysctl_table_sets.
-      sysctl: Modify __register_sysctl_paths to take a set instead of a root and an nsproxy
-      sysctl: Move sysctl_check_dups into insert_header
-      sysctl: Make the header lists per directory.
-      sysctl: Index sysctl directories with rbtrees.
-      sysctl: Add register_sysctl for normal sysctl users
-
-Lucas De Marchi (1):
-      sysctl: remove impossible condition check
-
- fs/proc/internal.h     |    3 +
- fs/proc/proc_sysctl.c  | 1240 +++++++++++++++++++++++++++++++++++++++++++++---
- include/linux/sysctl.h |  106 +++--
- kernel/Makefile        |    1 -
- kernel/sysctl.c        |  501 +-------------------
- kernel/sysctl_check.c  |  160 -------
- lib/Kconfig.debug      |    8 -
- net/sysctl_net.c       |   24 +-
- 8 files changed, 1247 insertions(+), 796 deletions(-)
-
-
-Eric
