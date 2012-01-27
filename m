@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 23/29] sysctl: Add sysctl_print_dir and use it in get_subdir
-Date: Thu, 26 Jan 2012 20:50:04 -0800
-Message-ID: <1327639810-12760-23-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 18/29] sysctl: Normalize the root_table data structure.
+Date: Thu, 26 Jan 2012 20:49:59 -0800
+Message-ID: <1327639810-12760-18-git-send-email-ebiederm@xmission.com>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Damien Millescamps <damien.millescamps@6wind.com>,
@@ -12,43 +12,60 @@ In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When there are errors it is very nice to know the full sysctl path.
-Add a simple function that computes the sysctl path and prints it
-out.
+Every other directory has a .child member and we look at the .child
+for our entries.  Do the same for the root_table.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ fs/proc/proc_sysctl.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 3c0767d..a785565 100644
+index 7e96a26..88d1b06 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -53,6 +53,13 @@ static DEFINE_SPINLOCK(sysctl_lock);
+@@ -25,7 +25,14 @@ void proc_sys_poll_notify(struct ctl_table_poll *poll)
+ 	wake_up_interruptible(&poll->wait);
+ }
  
- static void drop_sysctl_table(struct ctl_table_header *header);
- 
-+static void sysctl_print_dir(struct ctl_dir *dir)
-+{
-+	if (dir->header.parent)
-+		sysctl_print_dir(dir->header.parent);
-+	printk(KERN_CONT "%s/", dir->header.ctl_table[0].procname);
-+}
-+
- static int namecmp(const char *name1, int len1, const char *name2, int len2)
- {
- 	int minlen;
-@@ -822,7 +829,9 @@ found:
- 	subdir->header.nreg++;
- failed:
- 	if (unlikely(IS_ERR(subdir))) {
--		printk(KERN_ERR "sysctl could not get directory: %*.*s %ld\n",
-+		printk(KERN_ERR "sysctl could not get directory: ");
-+		sysctl_print_dir(dir);
-+		printk(KERN_CONT "/%*.*s %ld\n",
- 			namelen, namelen, name, PTR_ERR(subdir));
+-static struct ctl_table root_table[1];
++static struct ctl_table root_table[] = {
++	{
++		.procname = "",
++		.mode = S_IRUGO|S_IXUGO,
++		.child = &root_table[1],
++	},
++	{ }
++};
+ static struct ctl_table_root sysctl_table_root;
+ static struct ctl_table_header root_table_header = {
+ 	{{.count = 1,
+@@ -319,7 +326,7 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
+ 		goto out;
  	}
- 	drop_sysctl_table(&dir->header);
+ 
+-	table = table ? table->child : head->ctl_table;
++	table = table ? table->child : &head->ctl_table[1];
+ 
+ 	p = find_in_table(table, name);
+ 	if (!p) {
+@@ -510,7 +517,7 @@ static int proc_sys_readdir(struct file *filp, void *dirent, filldir_t filldir)
+ 		goto out;
+ 	}
+ 
+-	table = table ? table->child : head->ctl_table;
++	table = table ? table->child : &head->ctl_table[1];
+ 
+ 	ret = 0;
+ 	/* Avoid a switch here: arm builds fail with missing __cmpdi2 */
+@@ -966,7 +973,7 @@ struct ctl_table_header *__register_sysctl_table(
+ 	spin_lock(&sysctl_lock);
+ 	header->set = lookup_header_set(root, namespaces);
+ 	header->attached_by = header->ctl_table;
+-	header->attached_to = root_table;
++	header->attached_to = &root_table[1];
+ 	header->parent = &root_table_header;
+ 	set = header->set;
+ 	root = header->root;
 -- 
 1.7.2.5
