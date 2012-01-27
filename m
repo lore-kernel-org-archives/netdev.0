@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 20/29] sysctl: Rewrite proc_sys_readdir in terms of first_entry and next_entry
-Date: Thu, 26 Jan 2012 20:50:01 -0800
-Message-ID: <1327639810-12760-20-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 19/29] sysctl: Rewrite proc_sys_lookup introducing find_entry and lookup_entry.
+Date: Thu, 26 Jan 2012 20:50:00 -0800
+Message-ID: <1327639810-12760-19-git-send-email-ebiederm@xmission.com>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
 	Damien Millescamps <damien.millescamps@6wind.com>,
@@ -12,174 +12,157 @@ In-Reply-To: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace sysctl_head_next with first_entry and next_entry.  These new
-iterators operate at the level of sysctl table entries and filter
-out any sysctl tables that should not be shown.
+Replace the helpers that proc_sys_lookup uses with helpers that work
+in terms of an entire sysctl directory.  This is worse for sysctl_lock
+hold times but it is much better for code clarity and the code cleanups
+to come.
 
-Utilizing two specialized functions instead of a single function removes
-conditionals for handling awkward special cases that only come up
-at the beginning of iteration, making the iterators easier to read
-and understand.
+find_in_table is no longer needed so it is removed.
+
+find_entry a general helper to find entries in a directory is added.
+
+lookup_entry is a simple wrapper around find_entry that takes the
+sysctl_lock increases the use count if an entry is found and drops
+the sysctl_lock.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |   98 +++++++++++++++++++++++++++++++------------------
- 1 files changed, 62 insertions(+), 36 deletions(-)
+ fs/proc/proc_sysctl.c |  102 ++++++++++++++++++++++++++++++++++++------------
+ 1 files changed, 76 insertions(+), 26 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 3b63f29..d9c3ae6 100644
+index 88d1b06..3b63f29 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -243,31 +243,25 @@ static struct ctl_table *lookup_entry(struct ctl_table_header **phead,
- 	return entry;
- }
+@@ -49,6 +49,55 @@ static struct ctl_table_root sysctl_table_root = {
  
--static struct ctl_table_header *__sysctl_head_next(struct nsproxy *namespaces,
--						struct ctl_table_header *prev)
-+static struct ctl_table_header *next_usable_entry(struct ctl_table *dir,
-+	struct ctl_table_root *root, struct list_head *tmp)
- {
--	struct ctl_table_root *root;
-+	struct nsproxy *namespaces = current->nsproxy;
- 	struct list_head *header_list;
- 	struct ctl_table_header *head;
--	struct list_head *tmp;
+ static DEFINE_SPINLOCK(sysctl_lock);
  
--	spin_lock(&sysctl_lock);
--	if (prev) {
--		head = prev;
--		tmp = &prev->ctl_entry;
--		unuse_table(prev);
--		goto next;
--	}
--	tmp = &root_table_header.ctl_entry;
-+	goto next;
- 	for (;;) {
- 		head = list_entry(tmp, struct ctl_table_header, ctl_entry);
-+		root = head->root;
- 
--		if (!use_table(head))
-+		if (head->attached_to != dir ||
-+		    !head->attached_by->procname ||
-+		    !use_table(head))
- 			goto next;
--		spin_unlock(&sysctl_lock);
++static int namecmp(const char *name1, int len1, const char *name2, int len2)
++{
++	int minlen;
++	int cmp;
 +
- 		return head;
- 	next:
--		root = head->root;
- 		tmp = tmp->next;
- 		header_list = lookup_header_list(root, namespaces);
- 		if (tmp != header_list)
-@@ -283,13 +277,53 @@ static struct ctl_table_header *__sysctl_head_next(struct nsproxy *namespaces,
- 		tmp = header_list->next;
- 	}
- out:
--	spin_unlock(&sysctl_lock);
- 	return NULL;
- }
- 
--static struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev)
-+static void first_entry(
-+	struct ctl_table_header *dir_head, struct ctl_table *dir,
-+	struct ctl_table_header **phead, struct ctl_table **pentry)
- {
--	return __sysctl_head_next(current->nsproxy, prev);
-+	struct ctl_table_header *head = dir_head;
-+	struct ctl_table *entry = dir;
++	minlen = len1;
++	if (minlen > len2)
++		minlen = len2;
 +
-+	spin_lock(&sysctl_lock);
-+	if (entry->procname) {
-+		use_table(head);
-+	} else {
-+		head = next_usable_entry(dir, &sysctl_table_root,
-+					 &sysctl_table_root.default_set.list);
-+		if (head)
-+			entry = head->attached_by;
-+	}
-+	spin_unlock(&sysctl_lock);
-+	*phead = head;
-+	*pentry = entry;
++	cmp = memcmp(name1, name2, minlen);
++	if (cmp == 0)
++		cmp = len1 - len2;
++	return cmp;
 +}
 +
-+static void next_entry(struct ctl_table *dir,
-+	struct ctl_table_header **phead, struct ctl_table **pentry)
++static struct ctl_table *find_entry(struct ctl_table_header **phead,
++	struct ctl_table_set *set,
++	struct ctl_table_header *dir_head, struct ctl_table *dir,
++	const char *name, int namelen)
 +{
-+	struct ctl_table_header *head = *phead;
-+	struct ctl_table *entry = *pentry;
-+
-+	entry++;
-+	if (!entry->procname) {
-+		struct ctl_table_root *root = head->root;
-+		struct list_head *tmp = &head->ctl_entry;
-+		if (head->attached_to != dir) {
-+			root = &sysctl_table_root;
-+			tmp = &sysctl_table_root.default_set.list;
-+		}
-+		spin_lock(&sysctl_lock);
-+		unuse_table(head);
-+		head = next_usable_entry(dir, root, tmp);
-+		spin_unlock(&sysctl_lock);
-+		if (head)
-+			entry = head->attached_by;
-+	}
-+	*phead = head;
-+	*pentry = entry;
- }
- 
- void register_sysctl_root(struct ctl_table_root *root)
-@@ -533,20 +567,17 @@ static int scan(struct ctl_table_header *head, ctl_table *table,
- 		unsigned long *pos, struct file *file,
- 		void *dirent, filldir_t filldir)
- {
-+	int res;
- 
--	for (; table->procname; table++, (*pos)++) {
--		int res;
-+	if ((*pos)++ < file->f_pos)
-+		return 0;
- 
--		if (*pos < file->f_pos)
--			continue;
-+	res = proc_sys_fill_cache(file, dirent, filldir, head, table);
- 
--		res = proc_sys_fill_cache(file, dirent, filldir, head, table);
--		if (res)
--			return res;
-+	if (res == 0)
-+		file->f_pos = *pos;
- 
--		file->f_pos = *pos + 1;
--	}
--	return 0;
-+	return res;
- }
- 
- static int proc_sys_readdir(struct file *filp, void *dirent, filldir_t filldir)
-@@ -556,6 +587,7 @@ static int proc_sys_readdir(struct file *filp, void *dirent, filldir_t filldir)
- 	struct ctl_table_header *head = grab_header(inode);
- 	struct ctl_table *table = PROC_I(inode)->sysctl_entry;
- 	struct ctl_table_header *h = NULL;
++	struct ctl_table_header *head;
 +	struct ctl_table *entry;
- 	unsigned long pos;
- 	int ret = -EINVAL;
++
++	if (dir_head->set == set) {
++		for (entry = dir; entry->procname; entry++) {
++			const char *procname = entry->procname;
++			if (namecmp(procname, strlen(procname), name, namelen) == 0) {
++				*phead = dir_head;
++				return entry;
++			}
++		}
++	}
++
++	list_for_each_entry(head, &set->list, ctl_entry) {
++		if (head->unregistering)
++			continue;
++		if (head->attached_to != dir)
++			continue;
++		for (entry = head->attached_by; entry->procname; entry++) {
++			const char *procname = entry->procname;
++			if (namecmp(procname, strlen(procname), name, namelen) == 0) {
++				*phead = head;
++				return entry;
++			}
++		}
++	}
++	return NULL;
++}
++
+ static void init_header(struct ctl_table_header *head,
+ 	struct ctl_table_root *root, struct ctl_table_set *set,
+ 	struct ctl_table *table)
+@@ -168,6 +217,32 @@ lookup_header_list(struct ctl_table_root *root, struct nsproxy *namespaces)
+ 	return &set->list;
+ }
  
-@@ -585,14 +617,8 @@ static int proc_sys_readdir(struct file *filp, void *dirent, filldir_t filldir)
- 	}
- 	pos = 2;
++static struct ctl_table *lookup_entry(struct ctl_table_header **phead,
++				      struct ctl_table_header *dir_head,
++				      struct ctl_table *dir,
++				      const char *name, int namelen)
++{
++	struct ctl_table_header *head;
++	struct ctl_table *entry;
++	struct ctl_table_root *root;
++	struct ctl_table_set *set;
++
++	spin_lock(&sysctl_lock);
++	root = &sysctl_table_root;
++	do {
++		set = lookup_header_set(root, current->nsproxy);
++		entry = find_entry(&head, set, dir_head, dir, name, namelen);
++		if (entry && use_table(head))
++			*phead = head;
++		else
++			entry = NULL;
++		root = list_entry(root->root_list.next,
++				  struct ctl_table_root, root_list);
++	} while (!entry && root != &sysctl_table_root);
++	spin_unlock(&sysctl_lock);
++	return entry;
++}
++
+ static struct ctl_table_header *__sysctl_head_next(struct nsproxy *namespaces,
+ 						struct ctl_table_header *prev)
+ {
+@@ -284,21 +359,6 @@ out:
+ 	return inode;
+ }
  
--	ret = scan(head, table, &pos, filp, dirent, filldir);
--	if (ret)
--		goto out;
--
--	for (h = sysctl_head_next(NULL); h; h = sysctl_head_next(h)) {
--		if (h->attached_to != table)
+-static struct ctl_table *find_in_table(struct ctl_table *p, struct qstr *name)
+-{
+-	for ( ; p->procname; p++) {
+-		if (strlen(p->procname) != name->len)
 -			continue;
--		ret = scan(h, h->attached_by, &pos, filp, dirent, filldir);
-+	for (first_entry(head, table, &h, &entry); h; next_entry(table, &h, &entry)) {
-+		ret = scan(h, entry, &pos, filp, dirent, filldir);
- 		if (ret) {
- 			sysctl_head_finish(h);
- 			break;
+-
+-		if (memcmp(p->procname, name->name, name->len) != 0)
+-			continue;
+-
+-		/* I have a match */
+-		return p;
+-	}
+-	return NULL;
+-}
+-
+ static struct ctl_table_header *grab_header(struct inode *inode)
+ {
+ 	struct ctl_table_header *head = PROC_I(inode)->sysctl;
+@@ -328,17 +388,7 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
+ 
+ 	table = table ? table->child : &head->ctl_table[1];
+ 
+-	p = find_in_table(table, name);
+-	if (!p) {
+-		for (h = sysctl_head_next(NULL); h; h = sysctl_head_next(h)) {
+-			if (h->attached_to != table)
+-				continue;
+-			p = find_in_table(h->attached_by, name);
+-			if (p)
+-				break;
+-		}
+-	}
+-
++	p = lookup_entry(&h, head, table, name->name, name->len);
+ 	if (!p)
+ 		goto out;
+ 
 -- 
 1.7.2.5
