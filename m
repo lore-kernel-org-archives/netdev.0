@@ -1,69 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression: "rtnetlink: Compute and store minimum ifinfo dump
- size" breaks glibc's getifaddrs()
-Date: Fri, 27 Jan 2012 16:53:57 -0500 (EST)
-Message-ID: <20120127.165357.462031319592012792.davem@davemloft.net>
-References: <4F229A5F.4050600@citrix.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [patch v4, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Fri, 27 Jan 2012 13:55:14 -0800
+Message-ID: <CAEP_g=_NBunt-ZPdN2Uj+GKWn1GRE4Rwis20YRMXtKofJavysQ@mail.gmail.com>
+References: <CAGsizzJnRy74ni-HH=5q1VR4g6sfDPg9SFw4UKgSjJjkSR8OJA@mail.gmail.com>
+ <20120125.203746.1977019610549185259.davem@davemloft.net> <CAGsizzLYxsc2MGxF7yK_QzS+3bexHa1F_6+NE87u3F18m7=R1g@mail.gmail.com>
+ <20120126.133033.964571202129052712.davem@davemloft.net> <CAOzFzEj-UCXwhw0NA=Y=qExG=RdVJB3RAdqU0HrsMo7V+4eGcQ@mail.gmail.com>
+ <1327643984.2919.6.camel@edumazet-laptop> <CAOzFzEjqy8G1khxxwKt=hJydz=gUAh8viahA0aVavtyBv7+MXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregory.v.rose@intel.com, steweg@gmail.com
-To: david.vrabel@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46180 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab2A0VyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 16:54:02 -0500
-In-Reply-To: <4F229A5F.4050600@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, steweg@ynet.sk,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joseph Glanville <joseph.glanville@orionvm.com.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOzFzEjqy8G1khxxwKt=hJydz=gUAh8viahA0aVavtyBv7+MXA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Fri, 27 Jan 2012 12:36:47 +0000
+On Fri, Jan 27, 2012 at 2:54 AM, Joseph Glanville
+<joseph.glanville@orionvm.com.au> wrote:
+> Under pathological load OVS suffers in benchmarks, continual
+> establishment of new flows is really not good for it - I haven't
+> observed this personally though.
+> It does however worry me that this could be used as a viable DoS.. I
+> don't really know what could be done to mitigate this however.
 
-> Changeset c7ac8679bec9397afe8918f788cbcef88c38da54 (rtnetlink: Compute
-> and store minimum ifinfo dump size) applied to 3.1 increased the maximum
-> size of the RTM_GETLINK message response.
-> 
-> glibc's getifaddrs() function uses a page sized (4 KiB) buffer for the
-> RTM_GETLINK response and returns a failure if the message is truncated.
-> This buffer is not large enough if there is a network card with many
-> virtual functions.
-> 
-> What do you recommend to resolve this regression?
-
-Actually, glibc technically uses the CPP define value "PAGE_SIZE" if
-available, which is potentially different from the system page size.
-
-Using a statically defined PAGE_SIZE is wrong if the program is
-subsequently executed on a system with a different page size.
-
-On sparc, and powerpc I believe, this happens commonly.  A 32-bit
-executable will see a PAGE_SIZE value of 4K, but when executed on a
-64-bit system the page size is actually 8K or larger.  That's why
-__getpagesize() should always be used.
-
-Anyways, if the page sizes are correct we're in a bit of a pickle.
-
-Do you have any idea what the computed value of min_ifinfo_dump_size
-is at the time of the failure?
-
-Greg, I think we're kind of screwed.  The defined minimum appropriate
-buffer size for a recvmsg() call on a netlink socket is defined as:
-
-	getpagesize() < 8192 ? getpagesize() : 8192
-
-and glibc essentially abides by this by unconditionally using page
-size, and therefore if an interface with many virtual interfaces takes
-us over this limit, we break basically every properly written piece of
-netlink code out there.
-
-iproute2 is funny, it uses a static 16K buffer size for netlink
-message reception, which tends to paper over this problem :-/
-
-Stefan, this plays into your work too, we're starting to create
-situations which are going to cause very serious problems.  Imagine
-an interface with lots of these new macvlan source rules, it would
-potentially exceed the limit in the above equation as well.
-
-Thanks.
+OVS allows each input port to have a separate genl socket associated
+with it for the purpose of sending flow misses to userspace.
+Currently userspace uses this to round-robin around these sockets when
+handling flow setup requests in order to prevent one port from DoSing
+the others.
