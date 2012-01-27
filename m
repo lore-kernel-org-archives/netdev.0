@@ -1,42 +1,24 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 3/7] r8169: stop delaying workqueue.
-Date: Fri, 27 Jan 2012 13:20:13 -0800
-Message-ID: <1327699213.19848.5.camel@joe2Laptop>
-References: <20120127205412.GA24152@electric-eye.fr.zoreil.com>
-	 <20120127205632.GC24507@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v3.3-rc1 regression] TCP: too many of orphaned sockets
+Date: Fri, 27 Jan 2012 16:28:23 -0500 (EST)
+Message-ID: <20120127.162823.1960229872591588915.davem@davemloft.net>
+References: <20120127142246.GA22318@elte.hu>
+	<4F22B634.2020007@parallels.com>
+	<4F22D05A.8030604@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:54031 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753724Ab2A0VUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jan 2012 16:20:30 -0500
-In-Reply-To: <20120127205632.GC24507@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo@elte.hu, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: glommer@parallels.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F22D05A.8030604@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-01-27 at 21:56 +0100, Francois Romieu wrote:
-> Though motivated by the move of the driver to a single work queue of
-> sequential events and removal of hard irq processing, it looks safe as
-> a standalone change.
-[]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-[]
-> @@ -714,7 +714,11 @@ struct rtl8169_private {
->  	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
->  	unsigned int (*link_ok)(void __iomem *);
->  	int (*do_ioctl)(struct rtl8169_private *tp, struct mii_ioctl_data *data, int cmd);
-> -	struct delayed_work task;
-> +
-> +	struct {
-> +		struct work_struct work;
-> +	} wk;
+From: Glauber Costa <glommer@parallels.com>
+Date: Fri, 27 Jan 2012 20:27:06 +0400
 
-This struct is usefully expanded in patch 7/7.
+> +extern void init_tcp_mem(struct net *net);
 
-Perhaps this should be mentioned in the changelog
-otherwise the change looks rather suspect.
+Please name this "tcp_init_mem" or similar, keeping all TCP functions
+globally exported with a "tcp_*" prefix.
