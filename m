@@ -1,58 +1,28 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFC PATCH] ethtool: implement [GS]FEATURES handling
-Date: Sat, 28 Jan 2012 09:30:14 +0100 (CET)
-Message-ID: <e16a98ed4f9d1f0dece8bdae3ebccb7222047671.1327739037.git.mirq-linux@rere.qmqm.pl>
+Subject: [RFC PATCH v2] ethtool: implement [GS]FEATURES handling
+Date: Sat, 28 Jan 2012 09:37:14 +0100 (CET)
+Message-ID: <08e06fc4d7b6e4dba466422a7cc93b2e2630c978.1327739670.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
 	<9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
 	<1297107597.4077.8.camel@bwh-desktop>
 	<1327413243.7231.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	<1327419002.5400.27.camel@deadeye>
 	<20120124190513.GC19993@rere.qmqm.pl>
+	<e16a98ed4f9d1f0dece8bdae3ebccb7222047671.1327739037.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:54537 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:43477 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751530Ab2A1IaS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Jan 2012 03:30:18 -0500
+	id S1752025Ab2A1IhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Jan 2012 03:37:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2012 at 08:05:13PM +0100, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> On Tue, Jan 24, 2012 at 03:30:02PM +0000, Ben Hutchings wrote:
-> > I have some unfinished changes to support this.  What I don't want =
-to do
-> > is to add an entirely separate set of options; I want -k/-K to work=
- with
-> > old and new kernel versions, supporting named features as an extens=
-ion
-> > where available.
->
-> Ben, what are your patches like?  I mean their state?  I'm asking, be=
-cause I
-> found a bit of time and rebased my earlier patch to current ethtool 3=
-=2E2
-> this weekend.  Haven't sent them yet, because I'm seeing -EOPNOTSUPP =
-from
-> kernel on x86_64 for GFEATURES and I'm trying to figure out where's t=
-he bug.
-
-Turned out it was a typo in userspace code. Resulting patch below.
-
-The more I look at this the more I think that never_changed field was a=
- mistake
-and it would be better to include vlan_features there instead. What do =
-you
-think? Can we change it (it's not widely used, yet)? That would include=
- changing
-GFEATURES command number of course.
-
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+v2: fix missing change CMDL_FLAG -> CMDL_BOOL for old offloads parsing
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
@@ -61,7 +31,7 @@ Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
  1 files changed, 490 insertions(+), 123 deletions(-)
 
 diff --git a/ethtool.c b/ethtool.c
-index d0cc7d4..b2ce7f2 100644
+index d0cc7d4..8df2ce8 100644
 --- a/ethtool.c
 +++ b/ethtool.c
 @@ -1036,9 +1036,15 @@ static int dump_coalesce(const struct ethtool_co=
@@ -502,12 +472,12 @@ an,
 +		{ "tso", CMDL_BOOL, &offload->tso, NULL },
 +		{ "ufo", CMDL_BOOL, &offload->ufo, NULL },
 +		{ "gso", CMDL_BOOL, &offload->gso, NULL },
-+		{ "lro", CMDL_FLAG, &offload->lro, NULL },
-+		{ "gro", CMDL_FLAG, &offload->gro, NULL },
-+		{ "rxvlan", CMDL_FLAG, &offload->rxvlan, NULL },
-+		{ "txvlan", CMDL_FLAG, &offload->txvlan, NULL },
-+		{ "ntuple", CMDL_FLAG, &offload->ntuple, NULL },
-+		{ "rxhash", CMDL_FLAG, &offload->rxhash, NULL },
++		{ "lro", CMDL_BOOL, &offload->lro, NULL },
++		{ "gro", CMDL_BOOL, &offload->gro, NULL },
++		{ "rxvlan", CMDL_BOOL, &offload->rxvlan, NULL },
++		{ "txvlan", CMDL_BOOL, &offload->txvlan, NULL },
++		{ "ntuple", CMDL_BOOL, &offload->ntuple, NULL },
++		{ "rxhash", CMDL_BOOL, &offload->rxhash, NULL },
 +	};
 +
 +	for (i =3D 0; i < ARRAY_SIZE(old_feature_names); ++i)
