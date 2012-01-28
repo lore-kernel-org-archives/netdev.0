@@ -1,123 +1,94 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [PATCH] net/tcp: Fix tcp memory limits initialization when
- !CONFIG_SYSCTL
-Date: Sat, 28 Jan 2012 12:50:28 +0100
-Message-ID: <20120128115028.GA14020@elte.hu>
-References: <20120127142246.GA22318@elte.hu>
- <4F22B634.2020007@parallels.com>
- <4F22D05A.8030604@parallels.com>
- <20120127.162823.1960229872591588915.davem@davemloft.net>
- <4F231703.4040803@parallels.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH net-next 7/7] r8169: remove work from irq handler.
+Date: Sat, 28 Jan 2012 13:12:38 +0100
+Message-ID: <CAHXqBFJOR1U91B72K1SgPTwXVPO1ZuYdJmi_HDMvW5_3Kw5NQA@mail.gmail.com>
+References: <20120127205412.GA24152@electric-eye.fr.zoreil.com>
+ <20120127205903.GG24507@electric-eye.fr.zoreil.com> <CAHXqBFJLFYBUnSRbSYyuS5MeuR_vQ_DN0emdwsnGjuz9Xt0BHw@mail.gmail.com>
+ <20120128111121.GA32163@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F231703.4040803@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:48238 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752504Ab2A1MM6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 07:12:58 -0500
+Received: by iacb35 with SMTP id b35so3122500iac.19
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2012 04:12:58 -0800 (PST)
+In-Reply-To: <20120128111121.GA32163@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+W dniu 28 stycznia 2012 12:11 u=BFytkownik Francois Romieu
+<romieu@fr.zoreil.com> napisa=B3:
+> Micha=B3 Miros=B3aw <mirqus@gmail.com> :
+>> 2012/1/27 Francois Romieu <romieu@fr.zoreil.com>:
+> [...]
+>> > +static void rtl_schedule_task(struct rtl8169_private *tp, enum rt=
+l_flag flag)
+>> > +{
+>> > + =A0 =A0 =A0 spin_lock(&tp->lock);
+>> > + =A0 =A0 =A0 if (!test_and_set_bit(flag, tp->wk.flags))
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 schedule_work(&tp->wk.work);
+>> > + =A0 =A0 =A0 spin_unlock(&tp->lock);
+>> > +}
+>> > +
+>> > +static void rtl_schedule_task_bh(struct rtl8169_private *tp, enum=
+ rtl_flag flag)
+>> > +{
+>> > + =A0 =A0 =A0 local_bh_disable();
+>> > + =A0 =A0 =A0 rtl_schedule_task(tp, flag);
+>> > + =A0 =A0 =A0 local_bh_enable();
+>> > +}
+>> > +
+>>
+>> It might be enough to do:
+>>
+>> rtl_schedule_task():
+>>
+>> set_bit(flag, tp->wk.flags);
+>> schedule_work(&tp->wk.work);
+>>
+>> This will guarantee that the work is done at least once (twice in
+>> unlikely case that it was being executed just before schedule_work()=
+).
+>
+> If I understand correctly this remark and the following ones, you are
+> suggesting to completely avoid the lock to access the bitfield ?
 
-ok, the patch works fine - in the tested version i've renamed 
-the function and cleaned up the changelog a bit, see the final 
-patch below.
+Yes. In case of clearing the enable flag (regardless if you move it
+from separate bool to the bitmap) mutex needed though.
 
-Thanks,
+BTW, on resume, are the flags always cleared?
 
-	Ingo
+> [...]
+>> > +/*
+>> > + * Workqueue context.
+>> > + */
+>> > +static void rtl_slow_event_work(struct rtl8169_private *tp)
+>> > +{
+> [...]
+>> > + =A0 =A0 =A0 if (unlikely(status & RxFIFOOver)) {
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (tp->mac_version) {
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Work around for rx fifo overflow =
+*/
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case RTL_GIGA_MAC_VER_11:
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_stop_queue(dev=
+);
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rtl_schedule_task_bh=
+(tp, RTL_FLAG_TASK_RESET_PENDING);
+>>
+>> Since this is running from the same task it schedules, it should be
+>> enough to set_bit() and ensure that rtl_slow_event_work() is first o=
+n
+>> the list in rtl_task().
+> I saw "first in list" as mildly maintenable. Ok, I buy it if nobody c=
+omplains.
 
--------------------->
->From c5b258533cb5f6f216522163a9aa7ff029dc390f Mon Sep 17 00:00:00 2001
-From: Glauber Costa <glommer@parallels.com>
-Date: Fri, 27 Jan 2012 20:27:06 +0400
-Subject: [PATCH] net/tcp: Fix tcp memory limits initialization when !CONFIG_SYSCTL
+You should add a comment here and in rtl_task(), of course.
 
-sysctl_tcp_mem() initialization was moved to sysctl_tcp_ipv4.c 
-in commit 3dc43e3e4d0b52197d3205214fe8f162f9e0c334, since it 
-became a per-ns value.
-
-That code, however, will never run when CONFIG_SYSCTL is 
-disabled, leading to bogus values on those fields - causing hung 
-TCP sockets.
-
-This patch fixes it by keeping an initialization code in 
-tcp_init(). It will be overwritten by the first net namespace 
-init if CONFIG_SYSCTL is compiled in, and do the right thing if 
-it is compiled out.
-
-It is also named properly as tcp_init_mem(), to properly signal 
-its non-sysctl side effect on TCP limits.
-
-Reported-by: Ingo Molnar <mingo@elte.hu>
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-Cc: David S. Miller <davem@davemloft.net>
-Link: http://lkml.kernel.org/r/4F22D05A.8030604@parallels.com
-[ renamed the function, tidied up the changelog a bit ]
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- include/net/tcp.h          |    2 ++
- net/ipv4/sysctl_net_ipv4.c |    1 +
- net/ipv4/tcp.c             |   16 +++++++++++++---
- 3 files changed, 16 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 0118ea9..d49db01 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -311,6 +311,8 @@ extern struct proto tcp_prot;
- #define TCP_ADD_STATS_USER(net, field, val) SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val)
- #define TCP_ADD_STATS(net, field, val)	SNMP_ADD_STATS((net)->mib.tcp_statistics, field, val)
- 
-+extern void tcp_init_mem(struct net *net);
-+
- extern void tcp_v4_err(struct sk_buff *skb, u32);
- 
- extern void tcp_shutdown (struct sock *sk, int how);
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 4aa7e9d..4cb9cd2 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -814,6 +814,7 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 
- 	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
- 
-+	tcp_init_mem(net);
- 	limit = nr_free_buffer_pages() / 8;
- 	limit = max(limit, 128UL);
- 	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9bcdec3..06373b4 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3216,6 +3216,16 @@ static int __init set_thash_entries(char *str)
- }
- __setup("thash_entries=", set_thash_entries);
- 
-+void tcp_init_mem(struct net *net)
-+{
-+	/* Set per-socket limits to no more than 1/128 the pressure threshold */
-+	unsigned long limit = nr_free_buffer_pages() / 8;
-+	limit = max(limit, 128UL);
-+	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-+	net->ipv4.sysctl_tcp_mem[1] = limit;
-+	net->ipv4.sysctl_tcp_mem[2] = net->ipv4.sysctl_tcp_mem[0] * 2;
-+}
-+
- void __init tcp_init(void)
- {
- 	struct sk_buff *skb = NULL;
-@@ -3276,9 +3286,9 @@ void __init tcp_init(void)
- 	sysctl_tcp_max_orphans = cnt / 2;
- 	sysctl_max_syn_backlog = max(128, cnt / 256);
- 
--	/* Set per-socket limits to no more than 1/128 the pressure threshold */
--	limit = ((unsigned long)init_net.ipv4.sysctl_tcp_mem[1])
--		<< (PAGE_SHIFT - 7);
-+	tcp_init_mem(&init_net);
-+	limit = nr_free_buffer_pages() / 8;
-+	limit = max(limit, 128UL);
- 	max_share = min(4UL*1024*1024, limit);
- 
- 	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+Best Regards,
+Micha=B3 Miros=B3aw
