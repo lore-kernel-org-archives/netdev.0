@@ -1,33 +1,66 @@
-From: NandaKumar <heramba85@gmail.com>
-Subject: Re: Default TCP Options creating problems
-Date: Sat, 28 Jan 2012 08:11:19 +0530
-Message-ID: <4F23604F.90402@gmail.com>
-References: <4F22B17A.2080809@gmail.com>  <1327675774.2220.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4F22C81A.8090800@gmail.com> <1327677618.32615.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 1/5] ipv4: ip_gre: Convert to dst_neigh_lookup()
+Date: Fri, 27 Jan 2012 21:03:30 -0500 (EST)
+Message-ID: <20120127.210330.2099432961070702736.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:49936 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351Ab2A1CAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 21:00:43 -0500
-Received: by pbaa10 with SMTP id a10so2115475pba.19
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2012 18:00:42 -0800 (PST)
-In-Reply-To: <1327677618.32615.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751339Ab2A1CDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2012 21:03:32 -0500
+Received: from localhost (cpe-66-65-56-15.nyc.res.rr.com [66.65.56.15])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q0S23Vmv009876
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 27 Jan 2012 18:03:31 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/2012 8:50 PM, Eric Dumazet wrote:
-> If you disable all options but tcp timestamps, what happens ? 
 
-No, it doesn't work. I disabled SACK and window scaling. The connection 
-gets established immediately once I disable tcp_timestamps. It may be 
-problem with ISP. I am still awaiting their response. Not sure what sort 
-of filtering they use for TCP Timestamps.
+The conversion is very similar to that made to ipv6's SIT code.
 
-Thank you for your time.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ip_gre.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-Regards,
-Nandakumar
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 05f7419..bf95416 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -730,10 +730,12 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 		}
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		else if (skb->protocol == htons(ETH_P_IPV6)) {
+-			struct neighbour *neigh = dst_get_neighbour_noref(skb_dst(skb));
+ 			const struct in6_addr *addr6;
++			struct neighbour *neigh;
++			bool do_tx_error_icmp;
+ 			int addr_type;
+ 
++			neigh = dst_neigh_lookup(skb_dst(skb), &ipv6_hdr(skb)->daddr);
+ 			if (neigh == NULL)
+ 				goto tx_error;
+ 
+@@ -746,9 +748,14 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 			}
+ 
+ 			if ((addr_type & IPV6_ADDR_COMPATv4) == 0)
++				do_tx_error_icmp = true;
++			else {
++				do_tx_error_icmp = false;
++				dst = addr6->s6_addr32[3];
++			}
++			neigh_release(neigh);
++			if (do_tx_error_icmp)
+ 				goto tx_error_icmp;
+-
+-			dst = addr6->s6_addr32[3];
+ 		}
+ #endif
+ 		else
+-- 
+1.7.7.5
