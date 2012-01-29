@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: increase the number of routing tables
-Date: Sun, 29 Jan 2012 16:02:50 -0500 (EST)
-Message-ID: <20120129.160250.471951331979463712.davem@davemloft.net>
-References: <1327804887.2805.20.camel@edumazet-laptop>
-	<4F24B2E9.3010600@candelatech.com>
-	<CANj2EbdFc33ciZ02ZCF7=3sY1XTbCLrdfu4Mp_vLp4N94xu5Cw@mail.gmail.com>
+Subject: Re: pull request: sfc-next 2012-01-27
+Date: Sun, 29 Jan 2012 16:18:20 -0500 (EST)
+Message-ID: <20120129.161820.1090236443384833933.davem@davemloft.net>
+References: <1327696858.2503.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: simonchennj@gmail.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59769 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59852 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752674Ab2A2VCx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 16:02:53 -0500
-In-Reply-To: <CANj2EbdFc33ciZ02ZCF7=3sY1XTbCLrdfu4Mp_vLp4N94xu5Cw@mail.gmail.com>
+	with ESMTP id S1752255Ab2A2VSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 16:18:24 -0500
+In-Reply-To: <1327696858.2503.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Chen <simonchennj@gmail.com>
-Date: Sat, 28 Jan 2012 23:20:33 -0500
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 27 Jan 2012 20:40:58 +0000
 
-> I wonder if we can use a trie-tree for "ip rule" - linear evaluation
-> does not sound too good. But I'll be using a ton of iptables rules as
-> well, and I believe those are linear evaluation too :-(
+> The following changes since commit 9b28ecd66b391349d3492574500f978566195454:
+> 
+>   net: usb: qmi_wwan: New driver for Huawei QMI based WWAN devices (2012-01-25 16:59:47 -0500)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+> 
+> (commit db3395697cad6e9dff8d21249e0b59dc9bb83b48)
+> 
+> This is a mixture of cleanup, minor bug fixes, and a few features:
+> 
+> - Increase default number of queues to 1 per core
+> - Add hardware monitor driver for Siena
 
-You cannot use a trie because the rules are defined to be evaluated
-in the order they were added to the kernel, it is the same problem
-that basic firewall rule tables have.
+Pulled, but two things:
+
+1) Please address Joe Perches's feedback, with follow-on patches
+   if necessary.
+
+2) That DEBUG undef for the sake of mtd.h has to go, I see no use
+   nor even a reference to DEBUG in that header file in the current
+   sources.
+
+Thanks.
