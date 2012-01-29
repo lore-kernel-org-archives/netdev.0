@@ -1,132 +1,148 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH 21/29] sysctl: Add a root pointer to ctl_table_set
-Date: Sun, 29 Jan 2012 19:19:29 +0200
-Message-ID: <CAPLs8y-+kg9TvjwjQgOU0_2Fqr+2dAhE0fO3cB7e_wpH1jHeBA@mail.gmail.com>
-References: <m1pqe5ah3z.fsf@fess.ebiederm.org> <1327639925-12920-21-git-send-email-ebiederm@xmission.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH V2] net/sched: sch_plug - Queue traffic until an explicit
+ release command
+Date: Sun, 29 Jan 2012 18:25:08 +0100
+Message-ID: <20120129172508.GA14897@hell>
+References: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Damien Millescamps <damien.millescamps@6wind.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1327639925-12920-21-git-send-email-ebiederm@xmission.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
+	Brendan Cully <brendan@cs.ubc.ca>
+To: Shriram Rajagopalan <rshriram@cs.ubc.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:36740 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753162Ab2A2RZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 12:25:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2012 at 6:51 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Add a ctl_table_root pointer to ctl_table set so it is easy to
+* Shriram Rajagopalan | 2012-01-28 23:53:39 [-0800]:
 
-"ctl_table set" -> "ctl_table_set"
+>diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
+>new file mode 100644
+>index 0000000..d194cd2
+>--- /dev/null
+>+++ b/net/sched/sch_plug.c
+>@@ -0,0 +1,161 @@
+>+/*
+>+ * sch_plug.c Queue traffic until an explicit release command
+>+ *
+>+ *             This program is free software; you can redistribute it and/or
+>+ *             modify it under the terms of the GNU General Public License
+>+ *             as published by the Free Software Foundation; either version
+>+ *             2 of the License, or (at your option) any later version.
+>+ *
+>+ * The operation of the buffer is as follows:
+>+ * When a checkpoint begins, a plug is inserted into the
+>+ *   network queue by a netlink request (it operates by storing
+>+ *   a pointer to the next packet which arrives and blocking dequeue
+>+ *   when that packet is at the head of the queue).
+>+ * When a checkpoint completes (the backup acknowledges receipt),
+>+ *   currently-queued packets are released.
+>+ * So it supports two operations, plug and unplug.
+>+ */
+>+
+>+#include <linux/module.h>
+>+#include <linux/types.h>
+>+#include <linux/kernel.h>
+>+#include <linux/errno.h>
+>+#include <linux/netdevice.h>
+>+#include <linux/skbuff.h>
+>+#include <net/pkt_sched.h>
+>+
+>+struct plug_sched_data {
+>+	u32 limit;
+>+	/*
+>+	 * stop points to the first packet which should not be
+>+	 * delivered.  If it is NULL, plug_enqueue will set it to the
+>+	 * next packet it sees.
+>+	 *
+>+	 * release is the last packet in the fifo that can be
+>+	 * released.
+>+	 */
+>+	struct sk_buff *stop, *release;
+>+};
+>+
+>+static int plug_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>+{
+>+	struct plug_sched_data *q = qdisc_priv(sch);
+>+
+>+	if (likely(sch->qstats.backlog + skb->len <= q->limit)) {
+>+		if (!q->stop)
+>+			q->stop = skb;
+>+		return qdisc_enqueue_tail(skb, sch);
+>+	}
+>+	printk(KERN_WARNING "queue reported full: %u,%u (limit=%u)\n",
+>+	       sch->qstats.backlog, skb->len, q->limit);
 
-> go from a ctl_table_set to a ctl_table_root.
->
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
-> =C2=A0fs/proc/proc_sysctl.c =C2=A0| =C2=A0 =C2=A03 +++
-> =C2=A0include/linux/sysctl.h | =C2=A0 =C2=A03 +++
-> =C2=A0net/sysctl_net.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A05 ++---
-> =C2=A03 files changed, 8 insertions(+), 3 deletions(-)
->
-> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-> index d9c3ae6..65c13dd 100644
-> --- a/fs/proc/proc_sysctl.c
-> +++ b/fs/proc/proc_sysctl.c
-> @@ -45,6 +45,7 @@ static struct ctl_table_header root_table_header =3D=
- {
-> =C2=A0static struct ctl_table_root sysctl_table_root =3D {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.root_list =3D LIST_HEAD_INIT(sysctl_table=
-_root.root_list),
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.default_set.list =3D LIST_HEAD_INIT(root_=
-table_header.ctl_entry),
-> + =C2=A0 =C2=A0 =C2=A0 .default_set.root =3D &sysctl_table_root,
-> =C2=A0};
->
-> =C2=A0static DEFINE_SPINLOCK(sysctl_lock);
-> @@ -1348,9 +1349,11 @@ void unregister_sysctl_table(struct ctl_table_=
-header * header)
-> =C2=A0EXPORT_SYMBOL(unregister_sysctl_table);
->
-> =C2=A0void setup_sysctl_set(struct ctl_table_set *p,
-> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *))
-> =C2=A0{
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_LIST_HEAD(&p->list);
-> + =C2=A0 =C2=A0 =C2=A0 p->root =3D root;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0p->is_seen =3D is_seen;
-> =C2=A0}
->
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index e40b8f6..e73ba33 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -1047,6 +1047,7 @@ struct ctl_table_header
->
-> =C2=A0struct ctl_table_set {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct list_head list;
-> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *);
-> =C2=A0};
->
-> @@ -1069,6 +1070,7 @@ struct ctl_path {
-> =C2=A0void proc_sys_poll_notify(struct ctl_table_poll *poll);
->
-> =C2=A0extern void setup_sysctl_set(struct ctl_table_set *p,
-> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *));
-> =C2=A0extern void retire_sysctl_set(struct ctl_table_set *set);
->
-> @@ -1103,6 +1105,7 @@ static inline void unregister_sysctl_table(stru=
-ct ctl_table_header * table)
-> =C2=A0}
->
-> =C2=A0static inline void setup_sysctl_set(struct ctl_table_set *p,
-> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *))
-> =C2=A0{
-> =C2=A0}
-> diff --git a/net/sysctl_net.c b/net/sysctl_net.c
-> index 07c6b87..e998c64 100644
-> --- a/net/sysctl_net.c
-> +++ b/net/sysctl_net.c
-> @@ -74,8 +74,7 @@ static struct ctl_table_root net_sysctl_ro_root =3D=
- {
->
-> =C2=A0static int __net_init sysctl_net_init(struct net *net)
-> =C2=A0{
-> - =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net->sysctls,
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0is_seen);
-> + =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net->sysctls, &net_sysctl_ro=
-ot, is_seen);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
-> =C2=A0}
->
-> @@ -95,7 +94,7 @@ static __init int net_sysctl_init(void)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D register_pernet_subsys(&sysctl_per=
-net_ops);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ret)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;
-> - =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net_sysctl_ro_root.default_s=
-et, NULL);
-> + =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net_sysctl_ro_root.default_s=
-et, &net_sysctl_ro_root, NULL);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0register_sysctl_root(&net_sysctl_ro_root);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0register_sysctl_root(&net_sysctl_root);
-> =C2=A0out:
-> --
-> 1.7.2.5
->
+This is not required, tc -s show will print overflows. KERN_WARNING will flood
+the log.
 
+>+	return qdisc_reshape_fail(skb, sch);
+>+}
+>+
+>+/* dequeue doesn't actually dequeue until the release command is
+>+ * received. */
+>+static struct sk_buff *plug_dequeue(struct Qdisc *sch)
+>+{
+>+	struct plug_sched_data *q = qdisc_priv(sch);
+>+	struct sk_buff *peek;
+>+
+>+	if (qdisc_is_throttled(sch))
+>+		return NULL;
+>+
+>+	peek = (struct sk_buff *)((sch->q).next);
+>+
+>+	if (peek == q->release) {
+>+		/*
+>+		 * This is the tail of the last round. Release it and
+>+		 * block the queue
+>+		 */
+>+		qdisc_throttled(sch);
+>+		return NULL;
+>+	}
+>+
+>+	return qdisc_dequeue_head(sch);
+>+}
+>+
+>+static int plug_init(struct Qdisc *sch, struct nlattr *opt)
+>+{
+>+	struct plug_sched_data *q = qdisc_priv(sch);
+>+
+>+	if (opt == NULL) {
+>+		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 1;
 
+1? A little bit small default value?
 
---=20
-=C2=A0.
-=2E.: Lucian
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>+		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
+>+	} else {
+>+		struct tc_plug_qopt *ctl = nla_data(opt);
+>+
+>+		if (nla_len(opt) < sizeof(*ctl))
+>+			return -EINVAL;
+>+
+>+		q->limit = ctl->limit;
+>+	}
+>+
+>+	printk(KERN_DEBUG "sch_plug queue loaded with limit %u\n", q->limit);
+>+	qdisc_throttled(sch);
+>+	return 0;
+>+}
+>+
+>+/* Receives 3 types of messages:
+>+ * TCQ_PLUG_BUFFER: Inset a plug into the queue and
+>+ *  buffer any incoming packets
+>+ * TCQ_PLUG_RELEASE: Dequeue packets from queue head
+>+ *   to beginning of the next plug.
+>+ * TCQ_PLUG_LIMIT: Increase/decrease queue size
+
+Why not an additional, unlimited state? TCQ_PLUG_RELEASE dequeue packets until
+stop pointer, but why not a complete message driven mode without the stop (e.g.
+send until TCQ_PLUG_BUFFER message is received?
+
+This would make the qdisc more generic and useable for other users.
+
+Hagen
