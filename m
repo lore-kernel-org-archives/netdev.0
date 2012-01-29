@@ -1,65 +1,76 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH] tcp: fix tcp_trim_head() to adjust segment count with skb MSS
-Date: Sat, 28 Jan 2012 22:29:46 -0500
-Message-ID: <1327807786-27185-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: increase the number of routing tables
+Date: Sat, 28 Jan 2012 23:20:33 -0500
+Message-ID: <CANj2EbdFc33ciZ02ZCF7=3sY1XTbCLrdfu4Mp_vLp4N94xu5Cw@mail.gmail.com>
+References: <CANj2EbfR0cBaBd+t1yCZyErRpVzSC00DZohvtyazK8_9bv2aEQ@mail.gmail.com>
+	<1327804887.2805.20.camel@edumazet-laptop>
+	<4F24B2E9.3010600@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f202.google.com ([209.85.216.202]:34352 "EHLO
-	mail-qy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669Ab2A2DaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 22:30:00 -0500
-Received: by qcsd17 with SMTP id d17so287024qcs.1
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2012 19:29:59 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41774 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752928Ab2A2EUe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 23:20:34 -0500
+Received: by wgbed3 with SMTP id ed3so3383313wgb.1
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2012 20:20:33 -0800 (PST)
+In-Reply-To: <4F24B2E9.3010600@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit fixes tcp_trim_head() to recalculate the number of
-segments in the skb with the skb's existing MSS, so trimming the head
-causes the skb segment count to be monotonically non-increasing - it
-should stay the same or go down, but not increase.
+Thanks...
 
-Previously tcp_trim_head() used the current MSS of the connection. But
-if there was a decrease in MSS between original transmission and ACK
-(e.g. due to PMTUD), this could cause tcp_trim_head() to
-counter-intuitively increase the segment count when trimming bytes off
-the head of an skb. This violated assumptions in tcp_tso_acked() that
-tcp_trim_head() only decreases the packet count, so that packets_acked
-in tcp_tso_acked() could underflow, leading tcp_clean_rtx_queue() to
-pass u32 pkts_acked values as large as 0xffffffff to
-ca_ops->pkts_acked().
+Here says 252 routing tables top... maybe that's too old:
+http://linux-ip.net/html/routing-tables.html
 
-As an aside, if tcp_trim_head() had really wanted the skb to reflect
-the current MSS, it should have called tcp_set_skb_tso_segs()
-unconditionally, since a decrease in MSS would mean that a
-single-packet skb should now be sliced into multiple segments.
+I wonder if we can use a trie-tree for "ip rule" - linear evaluation
+does not sound too good. But I'll be using a ton of iptables rules as
+well, and I believe those are linear evaluation too :-(
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_output.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8c8de27..4ff3b6d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1141,11 +1141,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
- 	sk_mem_uncharge(sk, len);
- 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
- 
--	/* Any change of skb->len requires recalculation of tso
--	 * factor and mss.
--	 */
-+	/* Any change of skb->len requires recalculation of tso factor. */
- 	if (tcp_skb_pcount(skb) > 1)
--		tcp_set_skb_tso_segs(sk, skb, tcp_current_mss(sk));
-+		tcp_set_skb_tso_segs(sk, skb, tcp_skb_mss(skb));
- 
- 	return 0;
- }
--- 
-1.7.7.3
+On Sat, Jan 28, 2012 at 9:46 PM, Ben Greear <greearb@candelatech.com> w=
+rote:
+> On 01/28/2012 06:41 PM, Eric Dumazet wrote:
+>>
+>> Le samedi 28 janvier 2012 =E0 21:20 -0500, Simon Chen a =E9crit :
+>>>
+>>> Hey folks,
+>>>
+>>> To my limited knowledge, Linux currently supports 256 (255?) routin=
+g
+>>> tables defined in /etc/iproute2/rt_tables.
+>>>
+>>> Is there a way to increase this number to something much larger? Ar=
+e
+>>> there performance/scalability concerns there? I am trying to have
+>>> customized routing table for each IP address (using "ip rule add fr=
+om
+>>> xxx table yyy"). I am not sure exactly how many IPs I'll handle, bu=
+t
+>>> certainly more than 255...
+>>>
+>>
+>> Its is possible, but probably not scalable.
+>
+>
+> I've run with a few thousand routing tables and probably 5000 or so
+> rules. =A0It seems to run OK....
+>
+>
+>> You really should not have too many "ip rule" entries, since they ar=
+e
+>> evaluated linearly.
+>
+>
+> For every packet, or maybe just until conn-track gets an entry
+> for the connection?
+>
+> Thanks,
+> Ben
+>
+>
+> --
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc =A0http://www.candelatech.com
