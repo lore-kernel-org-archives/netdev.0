@@ -1,133 +1,132 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH 19/29] sysctl: Rewrite proc_sys_lookup introducing
- find_entry and lookup_entry.
-Date: Sun, 29 Jan 2012 17:49:38 +0200
-Message-ID: <CAPLs8y837kTX0DzQi9NdNoAeYfx3EPDGKGdG=XUY=Ec3dx958w@mail.gmail.com>
-References: <m1pqe5ah3z.fsf@fess.ebiederm.org> <1327639925-12920-19-git-send-email-ebiederm@xmission.com>
+Subject: Re: [PATCH 21/29] sysctl: Add a root pointer to ctl_table_set
+Date: Sun, 29 Jan 2012 19:19:29 +0200
+Message-ID: <CAPLs8y-+kg9TvjwjQgOU0_2Fqr+2dAhE0fO3cB7e_wpH1jHeBA@mail.gmail.com>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org> <1327639925-12920-21-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	netdev@vger.kernel.org,
 	Damien Millescamps <damien.millescamps@6wind.com>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1327639925-12920-19-git-send-email-ebiederm@xmission.com>
+In-Reply-To: <1327639925-12920-21-git-send-email-ebiederm@xmission.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBKYW4gMjcsIDIwMTIgYXQgNjo1MSBBTSwgRXJpYyBXLiBCaWVkZXJtYW4KPGViaWVk
-ZXJtQHhtaXNzaW9uLmNvbT4gd3JvdGU6Cj4gUmVwbGFjZSB0aGUgaGVscGVycyB0aGF0IHByb2Nf
-c3lzX2xvb2t1cCB1c2VzIHdpdGggaGVscGVycyB0aGF0IHdvcmsKPiBpbiB0ZXJtcyBvZiBhbiBl
-bnRpcmUgc3lzY3RsIGRpcmVjdG9yeS4gwqBUaGlzIGlzIHdvcnNlIGZvciBzeXNjdGxfbG9jawo+
-IGhvbGQgdGltZXMgYnV0IGl0IGlzIG11Y2ggYmV0dGVyIGZvciBjb2RlIGNsYXJpdHkgYW5kIHRo
-ZSBjb2RlIGNsZWFudXBzCj4gdG8gY29tZS4KPgo+IGZpbmRfaW5fdGFibGUgaXMgbm8gbG9uZ2Vy
-IG5lZWRlZCBzbyBpdCBpcyByZW1vdmVkLgo+Cj4gZmluZF9lbnRyeSBhIGdlbmVyYWwgaGVscGVy
-IHRvIGZpbmQgZW50cmllcyBpbiBhIGRpcmVjdG9yeSBpcyBhZGRlZC4KPgo+IGxvb2t1cF9lbnRy
-eSBpcyBhIHNpbXBsZSB3cmFwcGVyIGFyb3VuZCBmaW5kX2VudHJ5IHRoYXQgdGFrZXMgdGhlCj4g
-c3lzY3RsX2xvY2sgaW5jcmVhc2VzIHRoZSB1c2UgY291bnQgaWYgYW4gZW50cnkgaXMgZm91bmQg
-YW5kIGRyb3BzCj4gdGhlIHN5c2N0bF9sb2NrLgo+Cj4gU2lnbmVkLW9mZi1ieTogRXJpYyBXLiBC
-aWVkZXJtYW4gPGViaWVkZXJtQHhtaXNzaW9uLmNvbT4KPiAtLS0KPiDCoGZzL3Byb2MvcHJvY19z
-eXNjdGwuYyB8IMKgMTAyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0t
-LS0tLS0tLQo+IMKgMSBmaWxlcyBjaGFuZ2VkLCA3NiBpbnNlcnRpb25zKCspLCAyNiBkZWxldGlv
-bnMoLSkKPgo+IGRpZmYgLS1naXQgYS9mcy9wcm9jL3Byb2Nfc3lzY3RsLmMgYi9mcy9wcm9jL3By
-b2Nfc3lzY3RsLmMKPiBpbmRleCA4OGQxYjA2Li4zYjYzZjI5IDEwMDY0NAo+IC0tLSBhL2ZzL3By
-b2MvcHJvY19zeXNjdGwuYwo+ICsrKyBiL2ZzL3Byb2MvcHJvY19zeXNjdGwuYwo+IEBAIC00OSw2
-ICs0OSw1NSBAQCBzdGF0aWMgc3RydWN0IGN0bF90YWJsZV9yb290IHN5c2N0bF90YWJsZV9yb290
-ID0gewo+Cj4gwqBzdGF0aWMgREVGSU5FX1NQSU5MT0NLKHN5c2N0bF9sb2NrKTsKPgo+ICtzdGF0
-aWMgaW50IG5hbWVjbXAoY29uc3QgY2hhciAqbmFtZTEsIGludCBsZW4xLCBjb25zdCBjaGFyICpu
-YW1lMiwgaW50IGxlbjIpCj4gK3sKPiArIMKgIMKgIMKgIGludCBtaW5sZW47Cj4gKyDCoCDCoCDC
-oCBpbnQgY21wOwo+ICsKPiArIMKgIMKgIMKgIG1pbmxlbiA9IGxlbjE7Cj4gKyDCoCDCoCDCoCBp
-ZiAobWlubGVuID4gbGVuMikKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG1pbmxlbiA9IGxlbjI7
-Cj4gKwo+ICsgwqAgwqAgwqAgY21wID0gbWVtY21wKG5hbWUxLCBuYW1lMiwgbWlubGVuKTsKPiAr
-IMKgIMKgIMKgIGlmIChjbXAgPT0gMCkKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGNtcCA9IGxl
-bjEgLSBsZW4yOwo+ICsgwqAgwqAgwqAgcmV0dXJuIGNtcDsKPiArfQo+ICsKCgpJIHdvdWxkIGFk
-ZCBhIG5vdGUgdGhhdCB0aGlzIG5lZWRzIHN5c2N0bF9sb2NrIGFzIHRoaXMgcmVxdWlyZW1lbnQK
-cmVtYWlucyB2YWxpZCBpbiB0aGUgZmluYWwgdmVyc2lvbiBvZiB0aGUgY29kZSB0b286CgovKiBj
-YWxsZWQgdW5kZXIgc3lzY3RsX2xvY2sgKi8KCj4gK3N0YXRpYyBzdHJ1Y3QgY3RsX3RhYmxlICpm
-aW5kX2VudHJ5KHN0cnVjdCBjdGxfdGFibGVfaGVhZGVyICoqcGhlYWQsCj4gKyDCoCDCoCDCoCBz
-dHJ1Y3QgY3RsX3RhYmxlX3NldCAqc2V0LAo+ICsgwqAgwqAgwqAgc3RydWN0IGN0bF90YWJsZV9o
-ZWFkZXIgKmRpcl9oZWFkLCBzdHJ1Y3QgY3RsX3RhYmxlICpkaXIsCj4gKyDCoCDCoCDCoCBjb25z
-dCBjaGFyICpuYW1lLCBpbnQgbmFtZWxlbikKPiArewo+ICsgwqAgwqAgwqAgc3RydWN0IGN0bF90
-YWJsZV9oZWFkZXIgKmhlYWQ7Cj4gKyDCoCDCoCDCoCBzdHJ1Y3QgY3RsX3RhYmxlICplbnRyeTsK
-PiArCj4gKyDCoCDCoCDCoCBpZiAoZGlyX2hlYWQtPnNldCA9PSBzZXQpIHsKPiArIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIGZvciAoZW50cnkgPSBkaXI7IGVudHJ5LT5wcm9jbmFtZTsgZW50cnkrKykg
-ewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgY29uc3QgY2hhciAqcHJvY25h
-bWUgPSBlbnRyeS0+cHJvY25hbWU7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBpZiAobmFtZWNtcChwcm9jbmFtZSwgc3RybGVuKHByb2NuYW1lKSwgbmFtZSwgbmFtZWxlbikg
-PT0gMCkgewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-KnBoZWFkID0gZGlyX2hlYWQ7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCByZXR1cm4gZW50cnk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCB9Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9Cj4gKyDCoCDCoCDCoCB9Cj4gKwo+ICsg
-wqAgwqAgwqAgbGlzdF9mb3JfZWFjaF9lbnRyeShoZWFkLCAmc2V0LT5saXN0LCBjdGxfZW50cnkp
-IHsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChoZWFkLT51bnJlZ2lzdGVyaW5nKQo+ICsg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgY29udGludWU7Cj4gKyDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCBpZiAoaGVhZC0+YXR0YWNoZWRfdG8gIT0gZGlyKQo+ICsgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgY29udGludWU7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBm
-b3IgKGVudHJ5ID0gaGVhZC0+YXR0YWNoZWRfYnk7IGVudHJ5LT5wcm9jbmFtZTsgZW50cnkrKykg
-ewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgY29uc3QgY2hhciAqcHJvY25h
-bWUgPSBlbnRyeS0+cHJvY25hbWU7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBpZiAobmFtZWNtcChwcm9jbmFtZSwgc3RybGVuKHByb2NuYW1lKSwgbmFtZSwgbmFtZWxlbikg
-PT0gMCkgewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-KnBoZWFkID0gaGVhZDsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIHJldHVybiBlbnRyeTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IH0KPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIH0KPiArIMKgIMKgIMKgIH0KPiArIMKgIMKgIMKg
-IHJldHVybiBOVUxMOwo+ICt9Cj4gKwo+IMKgc3RhdGljIHZvaWQgaW5pdF9oZWFkZXIoc3RydWN0
-IGN0bF90YWJsZV9oZWFkZXIgKmhlYWQsCj4gwqAgwqAgwqAgwqBzdHJ1Y3QgY3RsX3RhYmxlX3Jv
-b3QgKnJvb3QsIHN0cnVjdCBjdGxfdGFibGVfc2V0ICpzZXQsCj4gwqAgwqAgwqAgwqBzdHJ1Y3Qg
-Y3RsX3RhYmxlICp0YWJsZSkKPiBAQCAtMTY4LDYgKzIxNywzMiBAQCBsb29rdXBfaGVhZGVyX2xp
-c3Qoc3RydWN0IGN0bF90YWJsZV9yb290ICpyb290LCBzdHJ1Y3QgbnNwcm94eSAqbmFtZXNwYWNl
-cykKPiDCoCDCoCDCoCDCoHJldHVybiAmc2V0LT5saXN0Owo+IMKgfQo+Cj4gK3N0YXRpYyBzdHJ1
-Y3QgY3RsX3RhYmxlICpsb29rdXBfZW50cnkoc3RydWN0IGN0bF90YWJsZV9oZWFkZXIgKipwaGVh
-ZCwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIHN0cnVjdCBjdGxfdGFibGVfaGVhZGVyICpkaXJfaGVhZCwKPiArIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHN0cnVjdCBjdGxfdGFibGUg
-KmRpciwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIGNvbnN0IGNoYXIgKm5hbWUsIGludCBuYW1lbGVuKQo+ICt7Cj4gKyDCoCDCoCDCoCBz
-dHJ1Y3QgY3RsX3RhYmxlX2hlYWRlciAqaGVhZDsKPiArIMKgIMKgIMKgIHN0cnVjdCBjdGxfdGFi
-bGUgKmVudHJ5Owo+ICsgwqAgwqAgwqAgc3RydWN0IGN0bF90YWJsZV9yb290ICpyb290Owo+ICsg
-wqAgwqAgwqAgc3RydWN0IGN0bF90YWJsZV9zZXQgKnNldDsKPiArCj4gKyDCoCDCoCDCoCBzcGlu
-X2xvY2soJnN5c2N0bF9sb2NrKTsKPiArIMKgIMKgIMKgIHJvb3QgPSAmc3lzY3RsX3RhYmxlX3Jv
-b3Q7Cj4gKyDCoCDCoCDCoCBkbyB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzZXQgPSBsb29r
-dXBfaGVhZGVyX3NldChyb290LCBjdXJyZW50LT5uc3Byb3h5KTsKPiArIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIGVudHJ5ID0gZmluZF9lbnRyeSgmaGVhZCwgc2V0LCBkaXJfaGVhZCwgZGlyLCBuYW1l
-LCBuYW1lbGVuKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChlbnRyeSAmJiB1c2VfdGFi
-bGUoaGVhZCkpCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAqcGhlYWQgPSBo
-ZWFkOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZWxzZQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgZW50cnkgPSBOVUxMOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcm9v
-dCA9IGxpc3RfZW50cnkocm9vdC0+cm9vdF9saXN0Lm5leHQsCj4gKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdHJ1Y3QgY3RsX3RhYmxlX3Jvb3QsIHJv
-b3RfbGlzdCk7Cj4gKyDCoCDCoCDCoCB9IHdoaWxlICghZW50cnkgJiYgcm9vdCAhPSAmc3lzY3Rs
-X3RhYmxlX3Jvb3QpOwo+ICsgwqAgwqAgwqAgc3Bpbl91bmxvY2soJnN5c2N0bF9sb2NrKTsKPiAr
-IMKgIMKgIMKgIHJldHVybiBlbnRyeTsKPiArfQo+ICsKPiDCoHN0YXRpYyBzdHJ1Y3QgY3RsX3Rh
-YmxlX2hlYWRlciAqX19zeXNjdGxfaGVhZF9uZXh0KHN0cnVjdCBuc3Byb3h5ICpuYW1lc3BhY2Vz
-LAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgc3RydWN0IGN0bF90YWJsZV9oZWFkZXIgKnByZXYpCj4gwqB7Cj4g
-QEAgLTI4NCwyMSArMzU5LDYgQEAgb3V0Ogo+IMKgIMKgIMKgIMKgcmV0dXJuIGlub2RlOwo+IMKg
-fQo+Cj4gLXN0YXRpYyBzdHJ1Y3QgY3RsX3RhYmxlICpmaW5kX2luX3RhYmxlKHN0cnVjdCBjdGxf
-dGFibGUgKnAsIHN0cnVjdCBxc3RyICpuYW1lKQo+IC17Cj4gLSDCoCDCoCDCoCBmb3IgKCA7IHAt
-PnByb2NuYW1lOyBwKyspIHsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChzdHJsZW4ocC0+
-cHJvY25hbWUpICE9IG5hbWUtPmxlbikKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIGNvbnRpbnVlOwo+IC0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChtZW1jbXAocC0+
-cHJvY25hbWUsIG5hbWUtPm5hbWUsIG5hbWUtPmxlbikgIT0gMCkKPiAtIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIGNvbnRpbnVlOwo+IC0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IC8qIEkgaGF2ZSBhIG1hdGNoICovCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZXR1cm4gcDsK
-PiAtIMKgIMKgIMKgIH0KPiAtIMKgIMKgIMKgIHJldHVybiBOVUxMOwo+IC19Cj4gLQo+IMKgc3Rh
-dGljIHN0cnVjdCBjdGxfdGFibGVfaGVhZGVyICpncmFiX2hlYWRlcihzdHJ1Y3QgaW5vZGUgKmlu
-b2RlKQo+IMKgewo+IMKgIMKgIMKgIMKgc3RydWN0IGN0bF90YWJsZV9oZWFkZXIgKmhlYWQgPSBQ
-Uk9DX0koaW5vZGUpLT5zeXNjdGw7Cj4gQEAgLTMyOCwxNyArMzg4LDcgQEAgc3RhdGljIHN0cnVj
-dCBkZW50cnkgKnByb2Nfc3lzX2xvb2t1cChzdHJ1Y3QgaW5vZGUgKmRpciwgc3RydWN0IGRlbnRy
-eSAqZGVudHJ5LAo+Cj4gwqAgwqAgwqAgwqB0YWJsZSA9IHRhYmxlID8gdGFibGUtPmNoaWxkIDog
-JmhlYWQtPmN0bF90YWJsZVsxXTsKPgo+IC0gwqAgwqAgwqAgcCA9IGZpbmRfaW5fdGFibGUodGFi
-bGUsIG5hbWUpOwo+IC0gwqAgwqAgwqAgaWYgKCFwKSB7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBmb3IgKGggPSBzeXNjdGxfaGVhZF9uZXh0KE5VTEwpOyBoOyBoID0gc3lzY3RsX2hlYWRfbmV4
-dChoKSkgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKGgtPmF0dGFj
-aGVkX3RvICE9IHRhYmxlKQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgY29udGludWU7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBw
-ID0gZmluZF9pbl90YWJsZShoLT5hdHRhY2hlZF9ieSwgbmFtZSk7Cj4gLSDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAocCkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIGJyZWFrOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQo+IC0g
-wqAgwqAgwqAgfQo+IC0KPiArIMKgIMKgIMKgIHAgPSBsb29rdXBfZW50cnkoJmgsIGhlYWQsIHRh
-YmxlLCBuYW1lLT5uYW1lLCBuYW1lLT5sZW4pOwo+IMKgIMKgIMKgIMKgaWYgKCFwKQo+IMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgZ290byBvdXQ7Cj4KPiAtLQo+IDEuNy4yLjUKPgoKCgotLSAKwqAu
-Ci4uOiBMdWNpYW4K
+On Fri, Jan 27, 2012 at 6:51 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Add a ctl_table_root pointer to ctl_table set so it is easy to
+
+"ctl_table set" -> "ctl_table_set"
+
+> go from a ctl_table_set to a ctl_table_root.
+>
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+> =C2=A0fs/proc/proc_sysctl.c =C2=A0| =C2=A0 =C2=A03 +++
+> =C2=A0include/linux/sysctl.h | =C2=A0 =C2=A03 +++
+> =C2=A0net/sysctl_net.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A05 ++---
+> =C2=A03 files changed, 8 insertions(+), 3 deletions(-)
+>
+> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+> index d9c3ae6..65c13dd 100644
+> --- a/fs/proc/proc_sysctl.c
+> +++ b/fs/proc/proc_sysctl.c
+> @@ -45,6 +45,7 @@ static struct ctl_table_header root_table_header =3D=
+ {
+> =C2=A0static struct ctl_table_root sysctl_table_root =3D {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.root_list =3D LIST_HEAD_INIT(sysctl_table=
+_root.root_list),
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0.default_set.list =3D LIST_HEAD_INIT(root_=
+table_header.ctl_entry),
+> + =C2=A0 =C2=A0 =C2=A0 .default_set.root =3D &sysctl_table_root,
+> =C2=A0};
+>
+> =C2=A0static DEFINE_SPINLOCK(sysctl_lock);
+> @@ -1348,9 +1349,11 @@ void unregister_sysctl_table(struct ctl_table_=
+header * header)
+> =C2=A0EXPORT_SYMBOL(unregister_sysctl_table);
+>
+> =C2=A0void setup_sysctl_set(struct ctl_table_set *p,
+> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *))
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_LIST_HEAD(&p->list);
+> + =C2=A0 =C2=A0 =C2=A0 p->root =3D root;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0p->is_seen =3D is_seen;
+> =C2=A0}
+>
+> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+> index e40b8f6..e73ba33 100644
+> --- a/include/linux/sysctl.h
+> +++ b/include/linux/sysctl.h
+> @@ -1047,6 +1047,7 @@ struct ctl_table_header
+>
+> =C2=A0struct ctl_table_set {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct list_head list;
+> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *);
+> =C2=A0};
+>
+> @@ -1069,6 +1070,7 @@ struct ctl_path {
+> =C2=A0void proc_sys_poll_notify(struct ctl_table_poll *poll);
+>
+> =C2=A0extern void setup_sysctl_set(struct ctl_table_set *p,
+> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *));
+> =C2=A0extern void retire_sysctl_set(struct ctl_table_set *set);
+>
+> @@ -1103,6 +1105,7 @@ static inline void unregister_sysctl_table(stru=
+ct ctl_table_header * table)
+> =C2=A0}
+>
+> =C2=A0static inline void setup_sysctl_set(struct ctl_table_set *p,
+> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_root *root,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int (*is_seen)(struct ctl_table_set *))
+> =C2=A0{
+> =C2=A0}
+> diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+> index 07c6b87..e998c64 100644
+> --- a/net/sysctl_net.c
+> +++ b/net/sysctl_net.c
+> @@ -74,8 +74,7 @@ static struct ctl_table_root net_sysctl_ro_root =3D=
+ {
+>
+> =C2=A0static int __net_init sysctl_net_init(struct net *net)
+> =C2=A0{
+> - =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net->sysctls,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0is_seen);
+> + =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net->sysctls, &net_sysctl_ro=
+ot, is_seen);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
+> =C2=A0}
+>
+> @@ -95,7 +94,7 @@ static __init int net_sysctl_init(void)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D register_pernet_subsys(&sysctl_per=
+net_ops);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ret)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;
+> - =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net_sysctl_ro_root.default_s=
+et, NULL);
+> + =C2=A0 =C2=A0 =C2=A0 setup_sysctl_set(&net_sysctl_ro_root.default_s=
+et, &net_sysctl_ro_root, NULL);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0register_sysctl_root(&net_sysctl_ro_root);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0register_sysctl_root(&net_sysctl_root);
+> =C2=A0out:
+> --
+> 1.7.2.5
+>
+
+
+
+--=20
+=C2=A0.
+=2E.: Lucian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
