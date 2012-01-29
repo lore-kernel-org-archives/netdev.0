@@ -1,69 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 001/001] net: Add tx_queue/rx_queue info to
- /proc/net/unix
-Date: Sun, 29 Jan 2012 03:57:45 +0100
-Message-ID: <1327805865.2805.23.camel@edumazet-laptop>
-References: <CAB0C5qK1FGc5xhGxGzpmELbWfC6GVVxEB9Zan_nU9cC_MxMzew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ryan Hajdaj <rhajdaj@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB0C5qK1FGc5xhGxGzpmELbWfC6GVVxEB9Zan_nU9cC_MxMzew@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: fix tcp_trim_head() to adjust segment count with skb MSS
+Date: Sat, 28 Jan 2012 22:29:46 -0500
+Message-ID: <1327807786-27185-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f202.google.com ([209.85.216.202]:34352 "EHLO
+	mail-qy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669Ab2A2DaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 22:30:00 -0500
+Received: by qcsd17 with SMTP id d17so287024qcs.1
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2012 19:29:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 28 janvier 2012 =C3=A0 21:37 -0500, Ryan Hajdaj a =C3=A9crit =
-:
-> From: Ryan Hajdaj <rhajdaj@gmail.com>
->=20
-> Add tx_queue/rx_queue info to /proc/net/unix (unix_seq_show)
->=20
-> Signed-off-by: Ryan Hajdaj <rhajdaj@gmail.com>
-> Tested-by: Ryan Hajdaj <rhajdaj@gmail.com>
-> ---
-> tx_queue/rx_queue info is useful in systems with multiple processes
-> using Unix Domain sockets to communicate, as it can be used to check
-> process health "at a glance".
-> Unit tested on Unix stream and datagram sockets.
-> --- linux-3.3-rc1/net/unix/af_unix.c.orig	2012-01-28 20:36:33.0000000=
-00 +0000
-> +++ linux-3.3-rc1/net/unix/af_unix.c	2012-01-28 19:09:18.000000000 +0=
-000
-> @@ -2286,13 +2286,14 @@ static int unix_seq_show(struct seq_file
->=20
->  	if (v =3D=3D SEQ_START_TOKEN)
->  		seq_puts(seq, "Num       RefCount Protocol Flags    Type St "
-> -			 "Inode Path\n");
-> +			 "tx_queue rx_queue Inode Path\n");
->  	else {
->  		struct sock *s =3D v;
->  		struct unix_sock *u =3D unix_sk(s);
->  		unix_state_lock(s);
->=20
-> -		seq_printf(seq, "%pK: %08X %08X %08X %04X %02X %5lu",
-> +		seq_printf(seq,
-> +			"%pK: %08X %08X %08X %04X %02X %08lX %08lX %5lu",
->  			s,
->  			atomic_read(&s->sk_refcnt),
->  			0,
-> @@ -2301,6 +2302,8 @@ static int unix_seq_show(struct seq_file
->  			s->sk_socket ?
->  			(s->sk_state =3D=3D TCP_ESTABLISHED ? SS_CONNECTED : SS_UNCONNECT=
-ED) :
->  			(s->sk_state =3D=3D TCP_ESTABLISHED ? SS_CONNECTING : SS_DISCONNE=
-CTING),
-> +			unix_outq_len(s),
-> +			(unix_inq_len(s) < 0 ? 0 : unix_inq_len(s)),
->  			sock_i_ino(s));
->=20
->  		if (u->addr) {
+This commit fixes tcp_trim_head() to recalculate the number of
+segments in the skb with the skb's existing MSS, so trimming the head
+causes the skb segment count to be monotonically non-increasing - it
+should stay the same or go down, but not increase.
 
-You missed some discussion on netdev about this kind of patches.
+Previously tcp_trim_head() used the current MSS of the connection. But
+if there was a decrease in MSS between original transmission and ACK
+(e.g. due to PMTUD), this could cause tcp_trim_head() to
+counter-intuitively increase the segment count when trimming bytes off
+the head of an skb. This violated assumptions in tcp_tso_acked() that
+tcp_trim_head() only decreases the packet count, so that packets_acked
+in tcp_tso_acked() could underflow, leading tcp_clean_rtx_queue() to
+pass u32 pkts_acked values as large as 0xffffffff to
+ca_ops->pkts_acked().
 
-/proc/net/unix format is frozen.
+As an aside, if tcp_trim_head() had really wanted the skb to reflect
+the current MSS, it should have called tcp_set_skb_tso_segs()
+unconditionally, since a decrease in MSS would mean that a
+single-packet skb should now be sliced into multiple segments.
 
-Pavel Emelyanov did the work to support unix_diag, where you can find
-all you need.
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_output.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8c8de27..4ff3b6d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1141,11 +1141,9 @@ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
+ 	sk_mem_uncharge(sk, len);
+ 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+ 
+-	/* Any change of skb->len requires recalculation of tso
+-	 * factor and mss.
+-	 */
++	/* Any change of skb->len requires recalculation of tso factor. */
+ 	if (tcp_skb_pcount(skb) > 1)
+-		tcp_set_skb_tso_segs(sk, skb, tcp_current_mss(sk));
++		tcp_set_skb_tso_segs(sk, skb, tcp_skb_mss(skb));
+ 
+ 	return 0;
+ }
+-- 
+1.7.7.3
