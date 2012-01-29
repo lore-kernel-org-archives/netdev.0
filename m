@@ -1,288 +1,68 @@
-From: Shriram Rajagopalan <rshriram@cs.ubc.ca>
-Subject: [PATCH V2] net/sched: sch_plug - Queue traffic until an explicit release command
-Date: Sat, 28 Jan 2012 23:53:39 -0800
-Message-ID: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
-Cc: Shriram Rajagopalan <rshriram@cs.ubc.ca>,
-	Brendan Cully <brendan@cs.ubc.ca>
-To: jhs@mojatatu.com, netdev@vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH V2] New Xen netback implementation
+Date: Sun, 29 Jan 2012 13:42:41 +0000
+Message-ID: <1327844561.2911.5.camel@leeds.uk.xensource.com>
+References: <1326808024-3744-1-git-send-email-wei.liu2@citrix.com>
+	 <20120127192214.GA14437@phenom.dumpdata.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"David Vrabel" <david.vrabel@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.162.52.240] ([198.162.52.240]:36437 "EHLO
-	athos.nss.cs.ubc.ca" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418Ab2A2IBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 03:01:17 -0500
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:36142 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753086Ab2A2Nxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 08:53:38 -0500
+In-Reply-To: <20120127192214.GA14437@phenom.dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This qdisc can be used to implement output buffering, an essential
-functionality required for consistent recovery in checkpoint based
-fault tolerance systems. The qdisc supports two operations - plug and
-unplug. When the qdisc receives a plug command via netlink request,
-packets arriving henceforth are buffered until a corresponding unplug
-command is received.
+On Fri, 2012-01-27 at 19:22 +0000, Konrad Rzeszutek Wilk wrote:
+> On Tue, Jan 17, 2012 at 01:46:56PM +0000, Wei Liu wrote:
+> > A new netback implementation which includes three major features:
+> > 
+> >  - Global page pool support
+> >  - NAPI + kthread 1:1 model
+> >  - Netback internal name changes
+> > 
+> > Changes in V2:
+> >  - Fix minor bugs in V1
+> >  - Embed pending_tx_info into page pool
+> >  - Per-cpu scratch space
+> >  - Notification code path clean up
+> > 
+> > This patch series is the foundation of furture work. So it is better
+> > to get it right first. Patch 1 and 3 have the real meat.
+> 
+> I've been playing with these patches and couple of things
+> came to my mind: 
+>  - would it make sense to also register to the shrinker API? This way
+>    if the host is running low on memory it can squeeze it out of the
+>    pool code. Perhaps a future TODO..
+>  - I like the pool code. I was thinking that perhaps (in the future)
+>    it could be used by blkback as well, as it runs into "not enought
+>    request structure" with the default setting. And making this dynamic
+>    would be pretty sweet.
 
-Its intention is to support speculative execution by allowing generated
-network traffic to be rolled back. It is used to provide network
-protection for domUs in the Remus high availability project, available as
-part of Xen. This module is generic enough to be used by any other
-system that wishes to add speculative execution and output buffering to
-its applications.
+Interesting thoughts worth adding to TODO list. But I'm focusing on
+multi-page ring support and split event channel at the moment, which
+should help improve performance on 10G network. Hopefully I can submit
+RFC patch V3 in a few days. ;-)
 
-This module was originally available in the linux 2.6.32 PV-OPS tree,
-used as dom0 for Xen.
+>  - This patch set solves the CPU banding problem I've seen with the
+>    older netback. The older one  I could see X netback threads eating 80%
+>    of CPU. With this one, the number is down to 13-14%.
+> 
+> So you can definitly stick 'Tested-by: Konrad.." on them. And definitly
+> Reviewed-by on the first two - hadn't had a chance to look at the rest.
+> 
 
-For more information, please refer to http://nss.cs.ubc.ca/remus/
-and http://wiki.xensource.com/xenwiki/Remus
+Thanks for your extensive test and review.
 
-Changes since previous version:
- * Removed the hardcoded queue size
- * Removed special code to deal with fragmented skbs.
 
-Signed-off-by: Brendan Cully <brendan@cs.ubc.ca>
-Signed-off-by: Shriram Rajagopalan <rshriram@cs.ubc.ca>
-[shriram - ported the code from older 2.6.32 to current tree]
----
- include/linux/pkt_sched.h |   16 +++++
- net/sched/Kconfig         |   19 +++++
- net/sched/Makefile        |    1 +
- net/sched/sch_plug.c      |  161 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 197 insertions(+), 0 deletions(-)
- create mode 100644 net/sched/sch_plug.c
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 0d5b793..14ad024 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -127,6 +127,22 @@ struct tc_multiq_qopt {
- 	__u16	max_bands;		/* Maximum number of queues */
- };
- 
-+/* PLUG section */
-+
-+#define TCQ_PLUG_BUFFER   0
-+#define TCQ_PLUG_RELEASE  1
-+#define TCQ_PLUG_LIMIT    2
-+struct tc_plug_qopt {
-+	/* TCQ_PLUG_BUFFER: Inset a plug into the queue and
-+	 *  buffer any incoming packets
-+	 * TCQ_PLUG_RELEASE: Dequeue packets from queue head
-+	 *   to beginning of the next plug.
-+	 * TCQ_PLUG_LIMIT: Increase/decrease queue size
-+	 */
-+	int             action;
-+	__u32           limit;
-+};
-+
- /* TBF section */
- 
- struct tc_tbf_qopt {
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 2590e91..d763112 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -260,6 +260,25 @@ config NET_SCH_INGRESS
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_ingress.
- 
-+config NET_SCH_PLUG
-+	tristate "Plug network traffic until release (PLUG)"
-+	---help---
-+	  Say Y here if you are using this kernel for Xen dom0 and
-+	  want to protect Xen guests with Remus.
-+
-+	  This queueing discipline is controlled by netlink. When it receives an
-+	  enqueue command it inserts a plug into the outbound queue that causes
-+	  following packets to enqueue until a dequeue command arrives over
-+	  netlink, releasing packets up to the plug for delivery.
-+
-+	  This module provides "output buffering" functionality in the Remus HA
-+	  project. It enables speculative execution of virtual machines by allowing
-+	  the generated network output to be rolled back if needed. For more
-+	  information, please refer to http://wiki.xensource.com/xenwiki/Remus
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_plug.
-+
- comment "Classification"
- 
- config NET_CLS
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index dc5889c..8cdf4e2 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -33,6 +33,7 @@ obj-$(CONFIG_NET_SCH_MULTIQ)	+= sch_multiq.o
- obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
- obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
- obj-$(CONFIG_NET_SCH_DRR)	+= sch_drr.o
-+obj-$(CONFIG_NET_SCH_PLUG)	+= sch_plug.o
- obj-$(CONFIG_NET_SCH_MQPRIO)	+= sch_mqprio.o
- obj-$(CONFIG_NET_SCH_CHOKE)	+= sch_choke.o
- obj-$(CONFIG_NET_SCH_QFQ)	+= sch_qfq.o
-diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
-new file mode 100644
-index 0000000..d194cd2
---- /dev/null
-+++ b/net/sched/sch_plug.c
-@@ -0,0 +1,161 @@
-+/*
-+ * sch_plug.c Queue traffic until an explicit release command
-+ *
-+ *             This program is free software; you can redistribute it and/or
-+ *             modify it under the terms of the GNU General Public License
-+ *             as published by the Free Software Foundation; either version
-+ *             2 of the License, or (at your option) any later version.
-+ *
-+ * The operation of the buffer is as follows:
-+ * When a checkpoint begins, a plug is inserted into the
-+ *   network queue by a netlink request (it operates by storing
-+ *   a pointer to the next packet which arrives and blocking dequeue
-+ *   when that packet is at the head of the queue).
-+ * When a checkpoint completes (the backup acknowledges receipt),
-+ *   currently-queued packets are released.
-+ * So it supports two operations, plug and unplug.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <net/pkt_sched.h>
-+
-+struct plug_sched_data {
-+	u32 limit;
-+	/*
-+	 * stop points to the first packet which should not be
-+	 * delivered.  If it is NULL, plug_enqueue will set it to the
-+	 * next packet it sees.
-+	 *
-+	 * release is the last packet in the fifo that can be
-+	 * released.
-+	 */
-+	struct sk_buff *stop, *release;
-+};
-+
-+static int plug_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+
-+	if (likely(sch->qstats.backlog + skb->len <= q->limit)) {
-+		if (!q->stop)
-+			q->stop = skb;
-+		return qdisc_enqueue_tail(skb, sch);
-+	}
-+	printk(KERN_WARNING "queue reported full: %u,%u (limit=%u)\n",
-+	       sch->qstats.backlog, skb->len, q->limit);
-+
-+	return qdisc_reshape_fail(skb, sch);
-+}
-+
-+/* dequeue doesn't actually dequeue until the release command is
-+ * received. */
-+static struct sk_buff *plug_dequeue(struct Qdisc *sch)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+	struct sk_buff *peek;
-+
-+	if (qdisc_is_throttled(sch))
-+		return NULL;
-+
-+	peek = (struct sk_buff *)((sch->q).next);
-+
-+	if (peek == q->release) {
-+		/*
-+		 * This is the tail of the last round. Release it and
-+		 * block the queue
-+		 */
-+		qdisc_throttled(sch);
-+		return NULL;
-+	}
-+
-+	return qdisc_dequeue_head(sch);
-+}
-+
-+static int plug_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+
-+	if (opt == NULL) {
-+		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 1;
-+		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
-+	} else {
-+		struct tc_plug_qopt *ctl = nla_data(opt);
-+
-+		if (nla_len(opt) < sizeof(*ctl))
-+			return -EINVAL;
-+
-+		q->limit = ctl->limit;
-+	}
-+
-+	printk(KERN_DEBUG "sch_plug queue loaded with limit %u\n", q->limit);
-+	qdisc_throttled(sch);
-+	return 0;
-+}
-+
-+/* Receives 3 types of messages:
-+ * TCQ_PLUG_BUFFER: Inset a plug into the queue and
-+ *  buffer any incoming packets
-+ * TCQ_PLUG_RELEASE: Dequeue packets from queue head
-+ *   to beginning of the next plug.
-+ * TCQ_PLUG_LIMIT: Increase/decrease queue size
-+ */
-+static int plug_change(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+	struct tc_plug_qopt *msg;
-+
-+	if (opt == NULL)
-+		return -EINVAL;
-+
-+	msg = nla_data(opt);
-+	if (nla_len(opt) < sizeof(*msg))
-+		return -EINVAL;
-+
-+	if (msg->action == TCQ_PLUG_BUFFER) {
-+		/* reset stop, so that we can start buffering
-+		 * from the next incoming packet.
-+		 */
-+		q->stop = NULL;
-+	} else if (msg->action == TCQ_PLUG_RELEASE) {
-+		/* Dequeue from queue head until the stop pointer */
-+		q->release = q->stop;
-+		qdisc_unthrottled(sch);
-+		netif_schedule_queue(sch->dev_queue);
-+	} else if (msg->action == TCQ_PLUG_LIMIT) {
-+		/* Limit is supplied in bytes */
-+		q->limit = msg->limit;
-+	} else {
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+struct Qdisc_ops plug_qdisc_ops = {
-+	.id          =       "plug",
-+	.priv_size   =       sizeof(struct plug_sched_data),
-+	.enqueue     =       plug_enqueue,
-+	.dequeue     =       plug_dequeue,
-+	.peek        =       qdisc_peek_head,
-+	.init        =       plug_init,
-+	.change      =       plug_change,
-+	.owner       =       THIS_MODULE,
-+};
-+
-+static int __init plug_module_init(void)
-+{
-+	return register_qdisc(&plug_qdisc_ops);
-+}
-+
-+static void __exit plug_module_exit(void)
-+{
-+	unregister_qdisc(&plug_qdisc_ops);
-+}
-+module_init(plug_module_init)
-+module_exit(plug_module_exit)
-+MODULE_LICENSE("GPL");
--- 
-1.7.0.4
+Wei.
