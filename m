@@ -1,136 +1,220 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH 18/29] sysctl: Normalize the root_table data structure.
-Date: Sun, 29 Jan 2012 19:36:06 +0200
-Message-ID: <CAPLs8y9-nA7gZymMkFzOdB6zh0h2hS+dhWu42ciOaHzJ++Z+gg@mail.gmail.com>
-References: <m1pqe5ah3z.fsf@fess.ebiederm.org> <1327639925-12920-18-git-send-email-ebiederm@xmission.com>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH] Deinline __nlmsg_put and genlmsg_put. -7k code on i386 defconfig
+Date: Sun, 29 Jan 2012 20:02:43 +0100
+Message-ID: <4F2597D3.6050606@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Damien Millescamps <damien.millescamps@6wind.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1327639925-12920-18-git-send-email-ebiederm@xmission.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, "David Miller davem"@davemloft.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2012 at 6:51 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Every other directory has a .child member and we look at the .child
-> for our entries. =C2=A0Do the same for the root_table.
->
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
-> =C2=A0fs/proc/proc_sysctl.c | =C2=A0 15 +++++++++++----
-> =C2=A01 files changed, 11 insertions(+), 4 deletions(-)
->
-> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-> index 7e96a26..88d1b06 100644
-> --- a/fs/proc/proc_sysctl.c
-> +++ b/fs/proc/proc_sysctl.c
-> @@ -25,7 +25,14 @@ void proc_sys_poll_notify(struct ctl_table_poll *p=
-oll)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0wake_up_interruptible(&poll->wait);
-> =C2=A0}
->
-> -static struct ctl_table root_table[1];
-> +static struct ctl_table root_table[] =3D {
-> + =C2=A0 =C2=A0 =C2=A0 {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .procname =3D "",
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .mode =3D S_IRUGO|=
-S_IXUGO,
+This change also removes commented-out copy of __nlmsg_put
+which was last touched in 2005 with "Enable once all users
+have been converted" comment on top.
 
-Why not: .mode =3D S_IFDIR|S_IRUGO|S_IXUGO ?
+    text	   data	    bss	    dec	    hex	filename
+8453183	 533115	1810804	10797102 a4c02e	vmlinux.o.before
+8446103	 533115	1810804	10790022 a4a486	vmlinux.o
 
-You change it later and add IFDIR in patch 22/29 because of this
-change (from 22/29):
--	if (!table->child) {
-+	if (!S_ISDIR(table->mode)) {
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+  include/linux/netlink.h  |   18 ++----------------
+  include/net/genetlink.h  |   32 ++------------------------------
+  include/net/netlink.h    |   35 -----------------------------------
+  net/netlink/af_netlink.c |   17 +++++++++++++++++
+  net/netlink/genetlink.c  |   31 +++++++++++++++++++++++++++++++
+  5 files changed, 52 insertions(+), 81 deletions(-)
 
-but if might as well be done here.
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 52e4895..a390e9d 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -237,22 +237,8 @@ struct netlink_notify {
+  	int protocol;
+  };
 
+-static __inline__ struct nlmsghdr *
+-__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+-{
+-	struct nlmsghdr *nlh;
+-	int size = NLMSG_LENGTH(len);
+-
+-	nlh = (struct nlmsghdr*)skb_put(skb, NLMSG_ALIGN(size));
+-	nlh->nlmsg_type = type;
+-	nlh->nlmsg_len = size;
+-	nlh->nlmsg_flags = flags;
+-	nlh->nlmsg_pid = pid;
+-	nlh->nlmsg_seq = seq;
+-	if (!__builtin_constant_p(size) || NLMSG_ALIGN(size) - size != 0)
+-		memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
+-	return nlh;
+-}
++struct nlmsghdr *
++__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags);
 
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .child =3D &root_t=
-able[1],
-> + =C2=A0 =C2=A0 =C2=A0 },
-> + =C2=A0 =C2=A0 =C2=A0 { }
-> +};
-> =C2=A0static struct ctl_table_root sysctl_table_root;
-> =C2=A0static struct ctl_table_header root_table_header =3D {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0{{.count =3D 1,
-> @@ -319,7 +326,7 @@ static struct dentry *proc_sys_lookup(struct inod=
-e *dir, struct dentry *dentry,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+  #define NLMSG_NEW(skb, pid, seq, type, len, flags) \
+  ({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 7db3299..d514c59 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -130,36 +130,8 @@ extern void genl_unregister_mc_group(struct genl_family *family,
+  				     struct genl_multicast_group *grp);
+  extern void genl_notify(struct sk_buff *skb, struct net *net, u32 pid,
+  			u32 group, struct nlmsghdr *nlh, gfp_t flags);
+-
+-/**
+- * genlmsg_put - Add generic netlink header to netlink message
+- * @skb: socket buffer holding the message
+- * @pid: netlink pid the message is addressed to
+- * @seq: sequence number (usually the one of the sender)
+- * @family: generic netlink family
+- * @flags netlink message flags
+- * @cmd: generic netlink command
+- *
+- * Returns pointer to user specific header
+- */
+-static inline void *genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
+-				struct genl_family *family, int flags, u8 cmd)
+-{
+-	struct nlmsghdr *nlh;
+-	struct genlmsghdr *hdr;
+-
+-	nlh = nlmsg_put(skb, pid, seq, family->id, GENL_HDRLEN +
+-			family->hdrsize, flags);
+-	if (nlh == NULL)
+-		return NULL;
+-
+-	hdr = nlmsg_data(nlh);
+-	hdr->cmd = cmd;
+-	hdr->version = family->version;
+-	hdr->reserved = 0;
+-
+-	return (char *) hdr + GENL_HDRLEN;
+-}
++extern void *genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
++			 struct genl_family *family, int flags, u8 cmd);
 
-Somewhere above we have
-  struct ctl_table *table =3D PROC_I(inode)->sysctl_entry;
-and sysctl_entry can take two values:
-   - NULL: fs/proc/inode.c:proc_alloc_inode()
-   - a non-NULL table in: proc_sys_make_inode()
+  /**
+   * genlmsg_nlhdr - Obtain netlink header from user specified header
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index cb1f350..f394fe5 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -441,41 +441,6 @@ static inline int nlmsg_report(const struct nlmsghdr *nlh)
+  	nla_for_each_attr(pos, nlmsg_attrdata(nlh, hdrlen), \
+  			  nlmsg_attrlen(nlh, hdrlen), rem)
 
-The only inode that can be passed to proc_sys_lookup that can have
-table=3DNULL is the root inode.
-In that case head will be &root_table_header.
+-#if 0
+-/* FIXME: Enable once all users have been converted */
+-
+-/**
+- * __nlmsg_put - Add a new netlink message to an skb
+- * @skb: socket buffer to store message in
+- * @pid: netlink process id
+- * @seq: sequence number of message
+- * @type: message type
+- * @payload: length of message payload
+- * @flags: message flags
+- *
+- * The caller is responsible to ensure that the skb provides enough
+- * tailroom for both the netlink header and payload.
+- */
+-static inline struct nlmsghdr *__nlmsg_put(struct sk_buff *skb, u32 pid,
+-					   u32 seq, int type, int payload,
+-					   int flags)
+-{
+-	struct nlmsghdr *nlh;
+-
+-	nlh = (struct nlmsghdr *) skb_put(skb, nlmsg_total_size(payload));
+-	nlh->nlmsg_type = type;
+-	nlh->nlmsg_len = nlmsg_msg_size(payload);
+-	nlh->nlmsg_flags = flags;
+-	nlh->nlmsg_pid = pid;
+-	nlh->nlmsg_seq = seq;
+-
+-	memset((unsigned char *) nlmsg_data(nlh) + payload, 0,
+-	       nlmsg_padlen(payload));
+-
+-	return nlh;
+-}
+-#endif
+-
+  /**
+   * nlmsg_put - Add a new netlink message to an skb
+   * @skb: socket buffer to store message in
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 629b061..7e2c35f 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1645,6 +1645,23 @@ static void netlink_destroy_callback(struct netlink_callback *cb)
+  	kfree(cb);
+  }
 
++struct nlmsghdr *
++__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
++{
++	struct nlmsghdr *nlh;
++	int size = NLMSG_LENGTH(len);
++
++	nlh = (struct nlmsghdr*)skb_put(skb, NLMSG_ALIGN(size));
++	nlh->nlmsg_type = type;
++	nlh->nlmsg_len = size;
++	nlh->nlmsg_flags = flags;
++	nlh->nlmsg_pid = pid;
++	nlh->nlmsg_seq = seq;
++	memset(NLMSG_DATA(nlh) + len, 0, NLMSG_ALIGN(size) - size);
++	return nlh;
++}
++EXPORT_SYMBOL(__nlmsg_put);
++
+  /*
+   * It looks a bit ugly.
+   * It would be better to create kernel thread.
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index c29d256..a115471 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -498,6 +498,37 @@ int genl_unregister_family(struct genl_family *family)
+  }
+  EXPORT_SYMBOL(genl_unregister_family);
 
-So head->ctl_table[1] =3D=3D root_table_header.ctl_table[1] =3D=3D root=
-_table[1].
-
-
->
-> - =C2=A0 =C2=A0 =C2=A0 table =3D table ? table->child : head->ctl_tab=
-le;
-> + =C2=A0 =C2=A0 =C2=A0 table =3D table ? table->child : &head->ctl_ta=
-ble[1];
-
-I think this could be improved to something like this:
-/* table =3D=3D NULL only for the procfs root directory */
-table =3D table ? table->child : &root_table[1];
-
-
-It's not that important, as this code will go away in a few patches.
-
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0p =3D find_in_table(table, name);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!p) {
-> @@ -510,7 +517,7 @@ static int proc_sys_readdir(struct file *filp, vo=
-id *dirent, filldir_t filldir)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> - =C2=A0 =C2=A0 =C2=A0 table =3D table ? table->child : head->ctl_tab=
-le;
-> + =C2=A0 =C2=A0 =C2=A0 table =3D table ? table->child : &head->ctl_ta=
-ble[1];
-
-Similar.
-
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D 0;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Avoid a switch here: arm builds fail wi=
-th missing __cmpdi2 */
-> @@ -966,7 +973,7 @@ struct ctl_table_header *__register_sysctl_table(
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock(&sysctl_lock);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0header->set =3D lookup_header_set(root, na=
-mespaces);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0header->attached_by =3D header->ctl_table;
-> - =C2=A0 =C2=A0 =C2=A0 header->attached_to =3D root_table;
-> + =C2=A0 =C2=A0 =C2=A0 header->attached_to =3D &root_table[1];
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0header->parent =3D &root_table_header;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0set =3D header->set;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0root =3D header->root;
-> --
-> 1.7.2.5
->
-
-
-
---=20
-=C2=A0.
-=2E.: Lucian
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++/**
++ * genlmsg_put - Add generic netlink header to netlink message
++ * @skb: socket buffer holding the message
++ * @pid: netlink pid the message is addressed to
++ * @seq: sequence number (usually the one of the sender)
++ * @family: generic netlink family
++ * @flags netlink message flags
++ * @cmd: generic netlink command
++ *
++ * Returns pointer to user specific header
++ */
++void *genlmsg_put(struct sk_buff *skb, u32 pid, u32 seq,
++				struct genl_family *family, int flags, u8 cmd)
++{
++	struct nlmsghdr *nlh;
++	struct genlmsghdr *hdr;
++
++	nlh = nlmsg_put(skb, pid, seq, family->id, GENL_HDRLEN +
++			family->hdrsize, flags);
++	if (nlh == NULL)
++		return NULL;
++
++	hdr = nlmsg_data(nlh);
++	hdr->cmd = cmd;
++	hdr->version = family->version;
++	hdr->reserved = 0;
++
++	return (char *) hdr + GENL_HDRLEN;
++}
++EXPORT_SYMBOL(genlmsg_put);
++
+  static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+  {
+  	struct genl_ops *ops;
+-- 
+1.7.7.6
