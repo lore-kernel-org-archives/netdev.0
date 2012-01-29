@@ -1,32 +1,34 @@
 From: Ben Hutchings <ben@decadent.org.uk>
 Subject: Sundance network driver (D-Link DFE-580TX) timeouts rendering
  interface unusable
-Date: Sun, 29 Jan 2012 04:23:09 +0000
-Message-ID: <1327810989.5400.290.camel@deadeye>
+Date: Sun, 29 Jan 2012 04:32:26 +0000
+Message-ID: <1327811546.5400.291.camel@deadeye>
 References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
-	,<1327205171.8004.96.camel@deadeye>
-	,<SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
-	,<20120126220640.GO12704@decadent.org.uk>
+	 ,<1327205171.8004.96.camel@deadeye>
+	 ,<SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
+	 ,<20120126220640.GO12704@decadent.org.uk>
 	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xoD8hCNqPntjDnO3iOLz"
+	protocol="application/pgp-signature"; boundary="=-pOgEdzPTYZvHRM8zgoD6"
 Cc: "Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
 	netdev <netdev@vger.kernel.org>
-To: Denis Kirjanov <dkirjanov@kernel.org>
+To: Denis Kirjanov <kirjanov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37827 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37901 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752954Ab2A2EXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 23:23:19 -0500
+	by vger.kernel.org with ESMTP id S1752928Ab2A2Ece (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 23:32:34 -0500
 In-Reply-To: <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-xoD8hCNqPntjDnO3iOLz
+--=-pOgEdzPTYZvHRM8zgoD6
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
+
+[Trying a different address.]
 
 Denis,
 
@@ -164,26 +166,27 @@ Ben.
 Ben Hutchings
 If you seem to know what you are doing, you'll be given more to do.
 
---=-xoD8hCNqPntjDnO3iOLz
+
+--=-pOgEdzPTYZvHRM8zgoD6
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATyTJree/yOyVhhEJAQoXzxAAmGYJs7MzCgNNz316Te6I8saSGZWF0Gtd
-HLfAtZPNW5ipQ+Ho+SvWvq6T6lOUnGYsZkfKd1G+1j6x6TuxlfgjgJxiYyRgI6dT
-/RZirHBrCJxfU3/K2PoWev73tm6Ju4jYUmQgWHgXEdYnAtCKbscHEC4IoQjoIoY+
-CyVCMShYpe4c5JpKDwIXhTKKIztI8Ls7VmmT0lGq0AeCNMOPSyW/X5Y9uU/tStDs
-ik/lgoLFcioXksYs/SNUjNCTAbUezKj3dn+YuS8dHIrWFJpS/VtjBAERU34L4sWR
-63tRC4qaCEo8vcSX71jZ4xrwVzq+jW2mbVzy2PqhAwqhqRxPZZN5z6sEGuY4qFnP
-vi9CXvdHHaDVFQsaHuK4DRhnIwi9mwrwYoFAS0xNToIPTcjzcF6y/9DcwNgk3+Vs
-NYJgaiBx6XzyEsJ3BUbCu+Rd/hw9XkQyxJ7Wq9+FXwo0hGh5qwrjDXQCt3HeF4Sh
-UIHmVAG4NGblZp0/PvvlSyKWF2/rnGZK/joGviPf3PrYRx1wsEFjUpehd634CfV2
-3TpfotX21Wg5h3usUIs2HFZv0Ki6GmE4U0ced7fSowkGejdr0C2k1pHiYxj1B4Ra
-Y7gyryRjAQcoXzPDtz2jd/KOJ2iAv1NvsIp/BV2EgBHNtOHVDa2ZhPJLJaCE+Q/j
-HU38QhH7j1g=
-=H84E
+iQIVAwUATyTL2+e/yOyVhhEJAQr4/w/+P9Z5uyw+KVvDn/KAkmyL1ARlNZqv11Am
+GDo6s2LYbUpfKLITVSL48lIPYz82Qe+LUBaazATYdFCkO/5METAgEFpleHsDZYG7
+hT4pSLBgWbNxcgXfjQPYJrropEXVBx33BOCI2JSjuz5UF3pUeko/IpIcYBM8pV4L
+q/VyYVBbpKlONXNmoKA3LyzdvaFQXM8fHysBEeA24kuoZ3If+pQD+OG8WiFwt98x
+p0oCmmckufj9ve4Vr/rrfD9QyafljmIlIKVnADjaFGsmqv+WPdVNmdQheDh0SXhX
+h5D3kF8NhLZiDowarJHWmbx600PT9fHD5zvApNs8zqNuNBcLHuxg8ZlmutGT5q7W
+pi5SE6UStj2x/mRgsyJf+fYnYarPEFS98UNazOeAncTVV+6ZzTDi//8Fhi4W00//
++UJEqCRIli4WozAXvl/mZLAGzbnwB8/etqep4SKoARVvGX7zysV0wIbqvW6Mh4Ee
+XLW0MN8/VLuFmTg3CnVDVe4MmCtD5iGGKLrVF/Gk9Ph7pTFGd3EcMIIn7q3ADDr7
+q+LWVIRtUmgwDshSk/yoqf8zEzRb9NnIAZMor30aDNg9yBD1M8wjzoOp4GXxK+h0
+3JOXTqs9nn6n/+6iuzkYkSMz7T0xI7sZ09pQxc90y0Os1vObWRvd5VSU8tr9KfVB
+9GasM342ceE=
+=gBzo
 -----END PGP SIGNATURE-----
 
---=-xoD8hCNqPntjDnO3iOLz--
+--=-pOgEdzPTYZvHRM8zgoD6--
