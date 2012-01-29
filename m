@@ -1,192 +1,288 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Sundance network driver (D-Link DFE-580TX) timeouts rendering
- interface unusable
-Date: Sun, 29 Jan 2012 04:32:26 +0000
-Message-ID: <1327811546.5400.291.camel@deadeye>
-References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
-	 ,<1327205171.8004.96.camel@deadeye>
-	 ,<SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
-	 ,<20120126220640.GO12704@decadent.org.uk>
-	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-pOgEdzPTYZvHRM8zgoD6"
-Cc: "Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
-	netdev <netdev@vger.kernel.org>
-To: Denis Kirjanov <kirjanov@gmail.com>
+From: Shriram Rajagopalan <rshriram@cs.ubc.ca>
+Subject: [PATCH V2] net/sched: sch_plug - Queue traffic until an explicit release command
+Date: Sat, 28 Jan 2012 23:53:39 -0800
+Message-ID: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
+Cc: Shriram Rajagopalan <rshriram@cs.ubc.ca>,
+	Brendan Cully <brendan@cs.ubc.ca>
+To: jhs@mojatatu.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37901 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752928Ab2A2Ece (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2012 23:32:34 -0500
-In-Reply-To: <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
+Received: from [198.162.52.240] ([198.162.52.240]:36437 "EHLO
+	athos.nss.cs.ubc.ca" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751418Ab2A2IBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 03:01:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This qdisc can be used to implement output buffering, an essential
+functionality required for consistent recovery in checkpoint based
+fault tolerance systems. The qdisc supports two operations - plug and
+unplug. When the qdisc receives a plug command via netlink request,
+packets arriving henceforth are buffered until a corresponding unplug
+command is received.
 
---=-pOgEdzPTYZvHRM8zgoD6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Its intention is to support speculative execution by allowing generated
+network traffic to be rolled back. It is used to provide network
+protection for domUs in the Remus high availability project, available as
+part of Xen. This module is generic enough to be used by any other
+system that wishes to add speculative execution and output buffering to
+its applications.
 
-[Trying a different address.]
+This module was originally available in the linux 2.6.32 PV-OPS tree,
+used as dom0 for Xen.
 
-Denis,
+For more information, please refer to http://nss.cs.ubc.ca/remus/
+and http://wiki.xensource.com/xenwiki/Remus
 
-It looks like you were working on sundance for a while; are you still
-interested in it?
+Changes since previous version:
+ * Removed the hardcoded queue size
+ * Removed special code to deal with fragmented skbs.
 
-Mike reported that:
-> Network traffic on my D-Link DFE-580TX card results in a transmit
-> queue timeout and gives endless resets after that untill the interface
-> is brought down.
->=20
-> The amount of traffic required to generate the error seems to vary but
-> sooner rather then later it will occur.
+Signed-off-by: Brendan Cully <brendan@cs.ubc.ca>
+Signed-off-by: Shriram Rajagopalan <rshriram@cs.ubc.ca>
+[shriram - ported the code from older 2.6.32 to current tree]
+---
+ include/linux/pkt_sched.h |   16 +++++
+ net/sched/Kconfig         |   19 +++++
+ net/sched/Makefile        |    1 +
+ net/sched/sch_plug.c      |  161 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 197 insertions(+), 0 deletions(-)
+ create mode 100644 net/sched/sch_plug.c
 
-and the messages logged under Linux 3.2.1 are:
-
-> [  430.008026] ------------[ cut here ]------------
-> [  430.008100] WARNING:
-> at /build/buildd-linux-2.6_3.2.1-2-i386-4wAPNj/linux-2.6-3.2.1/debian/bui=
-ld/source_i386_none/net/sched/sch_generic.c:255 dev_watchdog+0xb1/0x104()
-> [  430.008200] Hardware name:
-> [  430.008251] NETDEV WATCHDOG: eth1 (sundance): transmit queue 0
-> timed out
-> [  430.008307] Modules linked in: p4_clockmod cpufreq_powersave
-> cpufreq_userspace cpufreq_conservative cpufreq_stats speedstep_lib
-> mperf fuse w83627ehf hwmon_vid coretemp loop snd_intel8x0
-> snd_ac97_codec ac97_bus snd_pcm snd_seq snd_time
-> r snd_seq_device ohci_hcd ehci_hcd tpm_tis sis900 sundance tpm usbcore
-> tpm_bios pcspkr psmouse snd parport_pc evdev serio_raw parport mii
-> button usb_common soundcore processor shpchp pci_hotplug thermal_sys
-> snd_page_alloc ext3 jbd mbcach
-> e sd_mod crc_t10dif sata_sis ata_generic pata_sis libata scsi_mod
-> [  430.010093] Pid: 0, comm: swapper/0 Not tainted 3.2.0-1-686-pae #1
-> [  430.010149] Call Trace:
-> [  430.010203]  [<c1038280>] ? warn_slowpath_common+0x68/0x79
-> [  430.010260]  [<c1229e38>] ? dev_watchdog+0xb1/0x104
-> [  430.010314]  [<c10382f9>] ? warn_slowpath_fmt+0x29/0x2d
-> [  430.010370]  [<c1229e38>] ? dev_watchdog+0xb1/0x104
-> [  430.010428]  [<c103ccb5>] ? local_bh_enable+0x2/0x2
-> [  430.010484]  [<c1041e78>] ? run_timer_softirq+0x150/0x1f3
-> [  430.010539]  [<c1229d87>] ? netif_tx_unlock+0x3a/0x3a
-> [  430.010595]  [<c103ccb5>] ? local_bh_enable+0x2/0x2
-> [  430.010649]  [<c103cd49>] ? __do_softirq+0x94/0x12f
-> [  430.010704]  [<c103ccb5>] ? local_bh_enable+0x2/0x2
-> [  430.010757]  <IRQ>  [<c103cf3a>] ? irq_exit+0x32/0x80
-> [  430.010847]  [<c101e6f4>] ? smp_apic_timer_interrupt+0x5b/0x65
-> [  430.010906]  [<c12b9b11>] ? apic_timer_interrupt+0x31/0x38
-> [  430.010963]  [<c120007b>] ? rtc_proc_show+0x15e/0x22d
-> [  430.011020]  [<c1010e5a>] ? mwait_idle+0x65/0x8b
-> [  430.011076]  [<c100b234>] ? cpu_idle+0x95/0xaf
-> [  430.011132]  [<c1412708>] ? start_kernel+0x32a/0x32f
-> [  430.011185] ---[ end trace 4f9c55881a85ddc2 ]---
-> [  430.011244] eth1: Transmit timed out, TxStatus 00 TxFrameId 1a,
-> resetting...
-> [  430.011302] 00 35afc000 35afc010 00008001(00) 34c2d802 800005ea
-> [  430.011307] 01 35afc010 35afc020 00000005(01) 34cfc802 800005ea
-> [  430.011311] 02 35afc020 35afc030 00008009(02) 357ca802 800005ea
-> [  430.011316] 03 35afc030 35afc040 0000000d(03) 34d01802 800005ea
-> [  430.011320] 04 35afc040 35afc050 00008011(04) 34d00002 800005ea
-> [  430.011324] 05 35afc050 35afc060 00000015(05) 35a9f802 800005ea
-> [  430.011328] 06 35afc060 35afc070 00008019(06) 34c75002 800005ea
-> [  430.011333] 07 35afc070 35afc080 0000001d(07) 35ac0002 800005ea
-> [  430.011337] 08 35afc080 35afc090 00008021(08) 34d4e802 800005ea
-> [  430.011341] 09 35afc090 35afc0a0 00000025(09) 357b0002 800005ea
-> [  430.011346] 0a 35afc0a0 35afc0b0 00008029(0a) 34d66802 800005ea
-> [  430.011350] 0b 35afc0b0 35afc0c0 0000002d(0b) 354f2802 800005ea
-> [  430.011354] 0c 35afc0c0 35afc0d0 00008031(0c) 34d04802 800005ea
-> [  430.011359] 0d 35afc0d0 35afc0e0 00000035(0d) 34cd1002 800005ea
-> [  430.011363] 0e 35afc0e0 35afc0f0 00008039(0e) 34cc9802 800005ea
-> [  430.011367] 0f 35afc0f0 35afc100 0000003d(0f) 34d3d002 800005ea
-> [  430.011371] 10 35afc100 35afc110 00008041(10) 355d3002 800005ea
-> [  430.011376] 11 35afc110 35afc120 00000045(11) 34d02802 800005ea
-> [  430.011380] 12 35afc120 35afc130 00008049(12) 34d8b002 800005ea
-> [  430.011384] 13 35afc130 35afc140 0000004d(13) 34cc9002 800005ea
-> [  430.011389] 14 35afc140 35afc150 00008051(14) 34d51002 800005ea
-> [  430.011393] 15 35afc150 35afc160 00000055(15) 357c7802 800005ea
-> [  430.011397] 16 35afc160 00000000 00008059(16) 34d4f002 800005ea
-> [  430.011401] 17 35afc170 35afc180 0001805d(17) 00000000 00000000
-> [  430.011406] 18 35afc180 35afc190 00018061(18) 00000000 00000000
-> [  430.011410] 19 35afc190 35afc1a0 00018065(19) 00000000 00000000
-> [  430.011414] 1a 35afc1a0 35afc1b0 00018069(1a) 00000000 00000000
-> [  430.011419] 1b 35afc1b0 35afc1c0 0000806d(1b) 34eea002 800005ea
-> [  430.011423] 1c 35afc1c0 35afc1d0 00008071(1c) 355d9802 800005ea
-> [  430.011427] 1d 35afc1d0 35afc1e0 00008075(1d) 34d19002 800005ea
-> [  430.011431] 1e 35afc1e0 35afc1f0 00008079(1e) 354e4002 800005ea
-> [  430.011436] 1f 35afc1f0 35afc000 0000007d(1f) 354ea002 800005ea
-> [  430.011440] TxListPtr=3D35afc1b0 netif_queue_stopped=3D1
-> [  430.011444] cur_tx=3D154807(17) dirty_tx=3D154779(1b)
-> [  430.011447] cur_rx=3D0 dirty_rx=3D0
-> [  430.011449] cur_task=3D154807
-> [  438.008046] eth1: Transmit timed out, TxStatus 00 TxFrameId 00,
-> resetting...
-> [  438.008115] 00 35afc000 35afc010 00010001(00) 00000000 00000000
-> [  438.008120] 01 35afc010 35afc020 00008005(01) 34cd3802 800005ea
-> [  438.008124] 02 35afc020 35afc030 00000009(02) 34cce802 800005ea
-> [  438.008129] 03 35afc030 35afc040 0000800d(03) 34f2b802 800005ea
-> [  438.008133] 04 35afc040 35afc050 00000011(04) 34d40002 800005ea
-> [  438.008137] 05 35afc050 35afc060 00008015(05) 34eff002 800005ea
-> [  438.008142] 06 35afc060 35afc070 00000019(06) 34d5e002 800005ea
-> [  438.008146] 07 35afc070 35afc080 0000801d(07) 357c4802 800005ea
-> [  438.008150] 08 35afc080 35afc090 00000021(08) 34d8f802 800005ea
-> [  438.008155] 09 35afc090 35afc0a0 00000025(09) 34d57802 800005ea
-> [  438.008159] 0a 35afc0a0 35afc0b0 00000029(0a) 34ca7802 800005ea
-> [  438.008163] 0b 35afc0b0 35afc0c0 0000002d(0b) 34c21802 800005ea
-> [  438.008168] 0c 35afc0c0 35afc0d0 00000031(0c) 34d41802 800005ea
-> [  438.008172] 0d 35afc0d0 35afc0e0 00000035(0d) 35406402 800001ad
-> [  438.008176] 0e 35afc0e0 35afc0f0 00000039(0e) 34d14802 800005ea
-> [  438.008181] 0f 35afc0f0 35afc100 0000003d(0f) 34e34002 800005ea
-> [  438.008185] 10 35afc100 35afc110 00000041(10) 34cd1802 800005ea
-> [  438.008189] 11 35afc110 35afc120 00000045(11) 355db802 800005ea
-> [  438.008193] 12 35afc120 35afc130 00000049(12) 3541c802 800005ea
-> [  438.008198] 13 35afc130 35afc140 0000004d(13) 34ca5802 800005ea
-> [  438.008202] 14 35afc140 35afc150 00000051(14) 34ccb002 800005ea
-> [  438.008206] 15 35afc150 35afc160 00000055(15) 34ef4002 800005ea
-> [  438.008210] 16 35afc160 35afc170 00000059(16) 34c1a802 800005ea
-> [  438.008215] 17 35afc170 35afc180 0000005d(17) 34ef4802 800005ea
-> [  438.008219] 18 35afc180 35afc190 00000061(18) 34e25002 800005ea
-> [  438.008223] 19 35afc190 35afc1a0 00000065(19) 34d4e002 800005ea
-> [  438.008228] 1a 35afc1a0 35afc1b0 00000069(1a) 357b5002 800005ea
-> [  438.008232] 1b 35afc1b0 35afc1c0 0000006d(1b) 34ce1002 800005ea
-> [  438.008236] 1c 35afc1c0 35afc1d0 00000071(1c) 357bc002 800005ea
-> [  438.008241] 1d 35afc1d0 00000000 00008075(1d) 34c73002 800005ea
-> [  438.008245] 1e 35afc1e0 00000000 00008079(1e) 354e4002 800005ea
-> [  438.008249] 1f 35afc1f0 00000000 0000007d(1f) 354ea002 800005ea
-> [  438.008254] TxListPtr=3D35afc010 netif_queue_stopped=3D1
-> [  438.008257] cur_tx=3D30(1e) dirty_tx=3D1(01)
-> [  438.008260] cur_rx=3D5 dirty_rx=3D5
-> [  438.008263] cur_task=3D30
-
-Some more details are at <http://bugs.debian.org/656476>.
-
-Ben.
-
---=20
-Ben Hutchings
-If you seem to know what you are doing, you'll be given more to do.
-
-
---=-pOgEdzPTYZvHRM8zgoD6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATyTL2+e/yOyVhhEJAQr4/w/+P9Z5uyw+KVvDn/KAkmyL1ARlNZqv11Am
-GDo6s2LYbUpfKLITVSL48lIPYz82Qe+LUBaazATYdFCkO/5METAgEFpleHsDZYG7
-hT4pSLBgWbNxcgXfjQPYJrropEXVBx33BOCI2JSjuz5UF3pUeko/IpIcYBM8pV4L
-q/VyYVBbpKlONXNmoKA3LyzdvaFQXM8fHysBEeA24kuoZ3If+pQD+OG8WiFwt98x
-p0oCmmckufj9ve4Vr/rrfD9QyafljmIlIKVnADjaFGsmqv+WPdVNmdQheDh0SXhX
-h5D3kF8NhLZiDowarJHWmbx600PT9fHD5zvApNs8zqNuNBcLHuxg8ZlmutGT5q7W
-pi5SE6UStj2x/mRgsyJf+fYnYarPEFS98UNazOeAncTVV+6ZzTDi//8Fhi4W00//
-+UJEqCRIli4WozAXvl/mZLAGzbnwB8/etqep4SKoARVvGX7zysV0wIbqvW6Mh4Ee
-XLW0MN8/VLuFmTg3CnVDVe4MmCtD5iGGKLrVF/Gk9Ph7pTFGd3EcMIIn7q3ADDr7
-q+LWVIRtUmgwDshSk/yoqf8zEzRb9NnIAZMor30aDNg9yBD1M8wjzoOp4GXxK+h0
-3JOXTqs9nn6n/+6iuzkYkSMz7T0xI7sZ09pQxc90y0Os1vObWRvd5VSU8tr9KfVB
-9GasM342ceE=
-=gBzo
------END PGP SIGNATURE-----
-
---=-pOgEdzPTYZvHRM8zgoD6--
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 0d5b793..14ad024 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -127,6 +127,22 @@ struct tc_multiq_qopt {
+ 	__u16	max_bands;		/* Maximum number of queues */
+ };
+ 
++/* PLUG section */
++
++#define TCQ_PLUG_BUFFER   0
++#define TCQ_PLUG_RELEASE  1
++#define TCQ_PLUG_LIMIT    2
++struct tc_plug_qopt {
++	/* TCQ_PLUG_BUFFER: Inset a plug into the queue and
++	 *  buffer any incoming packets
++	 * TCQ_PLUG_RELEASE: Dequeue packets from queue head
++	 *   to beginning of the next plug.
++	 * TCQ_PLUG_LIMIT: Increase/decrease queue size
++	 */
++	int             action;
++	__u32           limit;
++};
++
+ /* TBF section */
+ 
+ struct tc_tbf_qopt {
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 2590e91..d763112 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -260,6 +260,25 @@ config NET_SCH_INGRESS
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_ingress.
+ 
++config NET_SCH_PLUG
++	tristate "Plug network traffic until release (PLUG)"
++	---help---
++	  Say Y here if you are using this kernel for Xen dom0 and
++	  want to protect Xen guests with Remus.
++
++	  This queueing discipline is controlled by netlink. When it receives an
++	  enqueue command it inserts a plug into the outbound queue that causes
++	  following packets to enqueue until a dequeue command arrives over
++	  netlink, releasing packets up to the plug for delivery.
++
++	  This module provides "output buffering" functionality in the Remus HA
++	  project. It enables speculative execution of virtual machines by allowing
++	  the generated network output to be rolled back if needed. For more
++	  information, please refer to http://wiki.xensource.com/xenwiki/Remus
++
++	  To compile this code as a module, choose M here: the
++	  module will be called sch_plug.
++
+ comment "Classification"
+ 
+ config NET_CLS
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index dc5889c..8cdf4e2 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -33,6 +33,7 @@ obj-$(CONFIG_NET_SCH_MULTIQ)	+= sch_multiq.o
+ obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
+ obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
+ obj-$(CONFIG_NET_SCH_DRR)	+= sch_drr.o
++obj-$(CONFIG_NET_SCH_PLUG)	+= sch_plug.o
+ obj-$(CONFIG_NET_SCH_MQPRIO)	+= sch_mqprio.o
+ obj-$(CONFIG_NET_SCH_CHOKE)	+= sch_choke.o
+ obj-$(CONFIG_NET_SCH_QFQ)	+= sch_qfq.o
+diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
+new file mode 100644
+index 0000000..d194cd2
+--- /dev/null
++++ b/net/sched/sch_plug.c
+@@ -0,0 +1,161 @@
++/*
++ * sch_plug.c Queue traffic until an explicit release command
++ *
++ *             This program is free software; you can redistribute it and/or
++ *             modify it under the terms of the GNU General Public License
++ *             as published by the Free Software Foundation; either version
++ *             2 of the License, or (at your option) any later version.
++ *
++ * The operation of the buffer is as follows:
++ * When a checkpoint begins, a plug is inserted into the
++ *   network queue by a netlink request (it operates by storing
++ *   a pointer to the next packet which arrives and blocking dequeue
++ *   when that packet is at the head of the queue).
++ * When a checkpoint completes (the backup acknowledges receipt),
++ *   currently-queued packets are released.
++ * So it supports two operations, plug and unplug.
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <net/pkt_sched.h>
++
++struct plug_sched_data {
++	u32 limit;
++	/*
++	 * stop points to the first packet which should not be
++	 * delivered.  If it is NULL, plug_enqueue will set it to the
++	 * next packet it sees.
++	 *
++	 * release is the last packet in the fifo that can be
++	 * released.
++	 */
++	struct sk_buff *stop, *release;
++};
++
++static int plug_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct plug_sched_data *q = qdisc_priv(sch);
++
++	if (likely(sch->qstats.backlog + skb->len <= q->limit)) {
++		if (!q->stop)
++			q->stop = skb;
++		return qdisc_enqueue_tail(skb, sch);
++	}
++	printk(KERN_WARNING "queue reported full: %u,%u (limit=%u)\n",
++	       sch->qstats.backlog, skb->len, q->limit);
++
++	return qdisc_reshape_fail(skb, sch);
++}
++
++/* dequeue doesn't actually dequeue until the release command is
++ * received. */
++static struct sk_buff *plug_dequeue(struct Qdisc *sch)
++{
++	struct plug_sched_data *q = qdisc_priv(sch);
++	struct sk_buff *peek;
++
++	if (qdisc_is_throttled(sch))
++		return NULL;
++
++	peek = (struct sk_buff *)((sch->q).next);
++
++	if (peek == q->release) {
++		/*
++		 * This is the tail of the last round. Release it and
++		 * block the queue
++		 */
++		qdisc_throttled(sch);
++		return NULL;
++	}
++
++	return qdisc_dequeue_head(sch);
++}
++
++static int plug_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct plug_sched_data *q = qdisc_priv(sch);
++
++	if (opt == NULL) {
++		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 1;
++		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
++	} else {
++		struct tc_plug_qopt *ctl = nla_data(opt);
++
++		if (nla_len(opt) < sizeof(*ctl))
++			return -EINVAL;
++
++		q->limit = ctl->limit;
++	}
++
++	printk(KERN_DEBUG "sch_plug queue loaded with limit %u\n", q->limit);
++	qdisc_throttled(sch);
++	return 0;
++}
++
++/* Receives 3 types of messages:
++ * TCQ_PLUG_BUFFER: Inset a plug into the queue and
++ *  buffer any incoming packets
++ * TCQ_PLUG_RELEASE: Dequeue packets from queue head
++ *   to beginning of the next plug.
++ * TCQ_PLUG_LIMIT: Increase/decrease queue size
++ */
++static int plug_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct plug_sched_data *q = qdisc_priv(sch);
++	struct tc_plug_qopt *msg;
++
++	if (opt == NULL)
++		return -EINVAL;
++
++	msg = nla_data(opt);
++	if (nla_len(opt) < sizeof(*msg))
++		return -EINVAL;
++
++	if (msg->action == TCQ_PLUG_BUFFER) {
++		/* reset stop, so that we can start buffering
++		 * from the next incoming packet.
++		 */
++		q->stop = NULL;
++	} else if (msg->action == TCQ_PLUG_RELEASE) {
++		/* Dequeue from queue head until the stop pointer */
++		q->release = q->stop;
++		qdisc_unthrottled(sch);
++		netif_schedule_queue(sch->dev_queue);
++	} else if (msg->action == TCQ_PLUG_LIMIT) {
++		/* Limit is supplied in bytes */
++		q->limit = msg->limit;
++	} else {
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++struct Qdisc_ops plug_qdisc_ops = {
++	.id          =       "plug",
++	.priv_size   =       sizeof(struct plug_sched_data),
++	.enqueue     =       plug_enqueue,
++	.dequeue     =       plug_dequeue,
++	.peek        =       qdisc_peek_head,
++	.init        =       plug_init,
++	.change      =       plug_change,
++	.owner       =       THIS_MODULE,
++};
++
++static int __init plug_module_init(void)
++{
++	return register_qdisc(&plug_qdisc_ops);
++}
++
++static void __exit plug_module_exit(void)
++{
++	unregister_qdisc(&plug_qdisc_ops);
++}
++module_init(plug_module_init)
++module_exit(plug_module_exit)
++MODULE_LICENSE("GPL");
+-- 
+1.7.0.4
