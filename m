@@ -1,51 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Mon, 30 Jan 2012 12:21:09 -0500 (EST)
-Message-ID: <20120130.122109.1568339621591026233.davem@davemloft.net>
-References: <4EE32076.2020706@profihost.ag>
-	<4F26571E.1010002@profihost.ag>
-	<20120130171215.GA11508@kroah.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: increase the number of routing tables
+Date: Mon, 30 Jan 2012 09:26:25 -0800
+Message-ID: <4F26D2C1.7030108@candelatech.com>
+References: <CANj2EbfR0cBaBd+t1yCZyErRpVzSC00DZohvtyazK8_9bv2aEQ@mail.gmail.com> <1327804887.2805.20.camel@edumazet-laptop> <4F24B2E9.3010600@candelatech.com> <20120129.160152.1463516627658543873.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: s.priebe@profihost.ag, eric.dumazet@gmail.com, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: greg@kroah.com
+Cc: eric.dumazet@gmail.com, simonchennj@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752246Ab2A3RWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:22:44 -0500
-In-Reply-To: <20120130171215.GA11508@kroah.com>
+Received: from mail.candelatech.com ([208.74.158.172]:40452 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813Ab2A3R0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:26:32 -0500
+In-Reply-To: <20120129.160152.1463516627658543873.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Mon, 30 Jan 2012 09:12:15 -0800
+On 01/29/2012 01:01 PM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Sat, 28 Jan 2012 18:46:01 -0800
+>
+>> On 01/28/2012 06:41 PM, Eric Dumazet wrote:
+>>> Its is possible, but probably not scalable.
+>>
+>> I've run with a few thousand routing tables and probably 5000 or so
+>> rules.  It seems to run OK....
+>>
+>>> You really should not have too many "ip rule" entries, since they are
+>>> evaluated linearly.
+>>
+>> For every packet, or maybe just until conn-track gets an entry
+>> for the connection?
+>
+> When the routing cache is removed, using a huge number of rules is not
+> going to be something you want to do any more because the rule table
+> will be inspected on every route lookup.
 
-> On Mon, Jan 30, 2012 at 09:38:54AM +0100, Stefan Priebe - Profihost AG wrote:
->> Hi David, Hi Greg, Hi List,
->> 
->> Am 10.12.2011 10:03, schrieb Stefan Priebe:
->> > Am 09.12.2011 20:21, schrieb David Miller:
->> >> From: Stefan Priebe<s.priebe@profihost.ag>
->> >> Date: Fri, 09 Dec 2011 20:01:26 +0100
->> >>
->> >>> any news on that? Systems still crashing every now and then. 3.0.13
->> >>> was released today but i haven't seen any of them.
->> >>
->> >> I only had time to submit these fixes for 3.1.x-stable, you'll just
->> >> have to be incredibly patient.
->> 
->> this bug sadly still makes the actual STABLE tree of the kernel
->> unusable. I mean nearly everbody uses TCP/IP.
-> 
-> "this bug"?
-> 
-> Please be more specific, as I have no idea what you are referring to.
-> Especially when you reference an email from 4 months ago, my brain's
-> stack size is 4 hours tops...
+Well, that sounds like a reason to keep the routing cache around,
+even if it isn't used by default, perhaps.
 
-Greg, I'll take care of this, don't worry about it.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
