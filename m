@@ -1,80 +1,67 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Sundance network driver (D-Link DFE-580TX) timeouts rendering
- interface unusable
-Date: Mon, 30 Jan 2012 14:41:17 +0000
-Message-ID: <1327934477.5400.448.camel@deadeye>
-References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
-	 <1327205171.8004.96.camel@deadeye>
-	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
-	 <20120126220640.GO12704@decadent.org.uk>
-	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
-	 <1327811546.5400.291.camel@deadeye>
-	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
-	 <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1327932311.5400.429.camel@deadeye>
-	 <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] ipv6: fix RFC5722 comment
+Date: Mon, 30 Jan 2012 15:42:25 +0100
+Message-ID: <4F26AC51.8080108@6wind.com>
+References: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-es1ZdJ5QjOgqSjOkOV9v"
-Cc: Denis Kirjanov <kirjanov@gmail.com>,
-	"Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51220 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753298Ab2A3Old (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:41:33 -0500
-In-Reply-To: <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51962 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752605Ab2A3Om2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:42:28 -0500
+Received: by wgbed3 with SMTP id ed3so4704450wgb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:42:27 -0800 (PST)
+In-Reply-To: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 30/01/2012 15:29, Eric Dumazet a =C3=A9crit :
+> RFC5722 Section 4 was amended by Errata 3089
+>
+> Our implementation did the right thing anyway...
+>
+> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> Cc: Nicolas Dichtel<nicolas.dichtel@6wind.com>
 
---=-es1ZdJ5QjOgqSjOkOV9v
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>   net/ipv6/reassembly.c |    7 +++----
+>   1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+> index b69fae7..9447bd6 100644
+> --- a/net/ipv6/reassembly.c
+> +++ b/net/ipv6/reassembly.c
+> @@ -336,12 +336,11 @@ static int ip6_frag_queue(struct frag_queue *fq=
+, struct sk_buff *skb,
+>   	}
+>
+>   found:
+> -	/* RFC5722, Section 4:
+> -	 *                                  When reassembling an IPv6 datag=
+ram, if
+> +	/* RFC5722, Section 4, amended by Errata ID : 3089
+> +	 *                          When reassembling an IPv6 datagram, if
+Identation was an exact copy of the original rfc (not changed by the er=
+rata),=20
+but it's a detail ;-)
 
-On Mon, 2012-01-30 at 15:28 +0100, Eric Dumazet wrote:
-> Le lundi 30 janvier 2012 =C3=A0 14:05 +0000, Ben Hutchings a =C3=A9crit :
->=20
-> > Yes, I spotted that.  But no descriptors are pushed to the hardware
-> > here; that's done in the driver's TX tasklet.  Although... maybe that
-> > can run immediately when scheduled from here?  I've never had to deal
-> > with tasklets so I really don't know their semantics.
->=20
-> Thats probable on SMP ...
 
-The bug report is for a UP system running a kernel built with
-SMP-alternatives.
+Regards,
+Nicolas
 
-Ben.
-
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-es1ZdJ5QjOgqSjOkOV9v
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATyasDue/yOyVhhEJAQpO/xAAqq8SEN2VWfHZmmeRf7SHXiTlerbJq9c4
-NJQh/FKGGVPkPnw/Xk6WvedcC2xbS1vaLThRU5OTic4O8127qIMbY/v9iYjrABJ2
-7gYu7itmeCfVwS7hSUDWGIVl3eC9imBDqkIfxwie5FuCLV22VjwWuHdQUnlmuLz/
-MBdQoputd1FCcNcpH3PlNHtLjD+EWMq9CPO4I3gU8w+Vgs4qbpOEOL17AXnqOZat
-cZRjN1I1SOY9q/+F1TNGV4grW0Mg5hMBau/J+GXIEskT2qZlVD6kvILLUwAnVGDD
-uACYoAeWpQnmxCrR/s6iY8mbxVhS25VszcaGkzx3mgi5ZJqGQFT0rqlQ6Ov+fO1d
-vyA+wQv7s7bPHOQe+4eqkwxpewkw7OhxMZka1r05WjsbneqMnnU7Vl6dAD8wTYSh
-ntn3ab6oRYbLmOfuxrsQs5Mi3IiuNkjj1cB0iLk9lI5fdNaLHLyQ7LoI9YG44+9Z
-frbYM5wrlX7Iqw2B4B6z8CFN+tTnZK75/ATv+PrQNpkiUuJCRJ9mtHboSbp3dzSw
-Gi6CTFmQxHuRnuaOG5x6hERe5h1K4kd+axtFnLNPjWxHrQsGgBLkRLmunDmbrnhe
-UEgC+J02efTAIGcpzRgcRXPuH3GojQvt5sOFdkepiXJV/eCHBckuAgnWRkxtcbww
-cxe5gsO3Qk8=
-=EXAf
------END PGP SIGNATURE-----
-
---=-es1ZdJ5QjOgqSjOkOV9v--
+>   	 *   one or more its constituent fragments is determined to be an
+>   	 *   overlapping fragment, the entire datagram (and any constituen=
+t
+> -	 *   fragments, including those not yet received) MUST be silently
+> -	 *   discarded.
+> +	 *   fragments) MUST be silently discarded.
+>   	 */
+>
+>   	/* Check for overlap with preceding fragment. */
