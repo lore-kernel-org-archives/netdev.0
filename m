@@ -1,35 +1,60 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
- originated TCP streams
-Date: Mon, 30 Jan 2012 11:43:33 -0500 (EST)
-Message-ID: <20120130.114333.298582192453706008.davem@davemloft.net>
-References: <20120130081849.GA7848@gondor.apana.org.au>
-	<1327913583.2288.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120130085742.GA8262@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 03/32] sfc: Remove parentheses around return
+ expressions, reported by checkpatch
+Date: Mon, 30 Jan 2012 16:45:49 +0000
+Message-ID: <1327941949.2595.0.camel@bwh-desktop>
+References: <1327696858.2503.7.camel@bwh-desktop>
+	 <1327696976.2503.10.camel@bwh-desktop>
+	 <1327698066.18858.3.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120130085742.GA8262-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:60328 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753861Ab2A3QqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 11:46:09 -0500
+In-Reply-To: <1327698066.18858.3.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org>
-Date: Mon, 30 Jan 2012 19:57:42 +1100
-
-> On Mon, Jan 30, 2012 at 09:53:03AM +0100, Eric Dumazet wrote:
->>
->> If this is an attack, TCP will merge the frames anyway on the same
->> socket.
+On Fri, 2012-01-27 at 13:01 -0800, Joe Perches wrote:
+> On Fri, 2012-01-27 at 20:42 +0000, Ben Hutchings wrote:
+> > Fix the following error:
+> > ERROR: return is not a function, parentheses are not required
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 > 
-> Not if we have a MAC-level filter in place or VLANs.
+> trivia:
+> 
+> > diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> []
+> > @@ -98,8 +98,8 @@ static inline unsigned int efx_rx_buf_offset(struct efx_nic *efx,
+> >  	/* Offset is always within one page, so we don't need to consider
+> >  	 * the page order.
+> >  	 */
+> > -	return (((__force unsigned long) buf->dma_addr & (PAGE_SIZE - 1)) +
+> > -		efx->type->rx_buffer_hash_size);
+> > +	return ((__force unsigned long) buf->dma_addr & (PAGE_SIZE - 1)) +
+> > +		efx->type->rx_buffer_hash_size;
+> >  }
+> 
+> The function returns unsigned int, perhaps the
+> cast should be (__force unsigned int) or the
+> function should return unsigned long or maybe
+> size_t?
 
-Right.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's a page offset, so I believe unsigned int is correct.  This function
+used to use the virtual address, and the compiler will warn about
+casting a pointer to an integer of smaller size.  Now that it's using
+the DMA address, this no longer applies (and __force is not necessary
+either).
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
