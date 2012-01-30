@@ -1,38 +1,51 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 01/16] eicon: fix -Warray-bounds warning
-Date: Mon, 30 Jan 2012 23:00:05 +0100
-Message-ID: <1327960820-11867-2-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 14/16] hamradio: fix incompatible pointer in module parameter
+Date: Mon, 30 Jan 2012 23:00:18 +0100
+Message-ID: <1327960820-11867-15-git-send-email-danny.kukawka@bisect.de>
 References: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>
-To: Armin Schindler <mac@melware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Thomas Sailer <t.sailer@alumni.ethz.ch>
+Return-path: <linux-hams-owner@vger.kernel.org>
 In-Reply-To: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix for a -Warray-bounds warning. mixer_notify_update() tries to
-write to ((CAPI_MSG *) msg)->info.facility_req.structs[3] while
-structs is defined as byte structs[1], define structs[1] as
-structs[4].
+Fixed 'warning: return from incompatible pointer type' related
+to module parameters.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/isdn/hardware/eicon/capi20.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/hamradio/baycom_epp.c |    2 +-
+ drivers/net/hamradio/baycom_par.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/hardware/eicon/capi20.h b/drivers/isdn/hardware/eicon/capi20.h
-index 7ebcccd..f9170ad 100644
---- a/drivers/isdn/hardware/eicon/capi20.h
-+++ b/drivers/isdn/hardware/eicon/capi20.h
-@@ -226,7 +226,7 @@ typedef struct {
-         /* FACILITY-REQUEST */
- typedef struct {
-   word Selector;
--  byte structs[1];      /* Facility parameters */
-+  byte structs[4];      /* Facility parameters */
- } _FAC_REQP;
-         /* FACILITY-CONFIRM STRUCT FOR SUPPLEMENT. SERVICES */
- typedef struct {
+diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+index 9537aaa..49b8b58 100644
+--- a/drivers/net/hamradio/baycom_epp.c
++++ b/drivers/net/hamradio/baycom_epp.c
+@@ -1162,7 +1162,7 @@ static void baycom_probe(struct net_device *dev)
+ /*
+  * command line settable parameters
+  */
+-static const char *mode[NR_PORTS] = { "", };
++static char *mode[NR_PORTS] = { "", };
+ static int iobase[NR_PORTS] = { 0x378, };
+ 
+ module_param_array(mode, charp, NULL, 0);
+diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
+index 279d229..f1aea0c 100644
+--- a/drivers/net/hamradio/baycom_par.c
++++ b/drivers/net/hamradio/baycom_par.c
+@@ -477,7 +477,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
+ /*
+  * command line settable parameters
+  */
+-static const char *mode[NR_PORTS] = { "picpar", };
++static char *mode[NR_PORTS] = { "picpar", };
+ static int iobase[NR_PORTS] = { 0x378, };
+ 
+ module_param_array(mode, charp, NULL, 0);
 -- 
 1.7.7.3
+
