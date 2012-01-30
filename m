@@ -1,68 +1,67 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: Regression: "rtnetlink: Compute and store minimum ifinfo dump
- size" breaks glibc's getifaddrs()
-Date: Mon, 30 Jan 2012 17:02:51 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07012CCFA5@ORSMSX106.amr.corp.intel.com>
-References: <4F229A5F.4050600@citrix.com>
-	<20120127.165357.462031319592012792.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A07012CCF52@ORSMSX106.amr.corp.intel.com>
- <20120130.115800.2216939902996648062.davem@davemloft.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH V3 04/16] netback: switch to per-cpu scratch space.
+Date: Mon, 30 Jan 2012 17:05:00 +0000
+Message-ID: <1327943100.5553.33.camel@leeds.uk.xensource.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+	 <1327934734-8908-5-git-send-email-wei.liu2@citrix.com>
+	 <CANX6Dak_1VQ1J8hRK+yd1-FmGOnd75BkNm2uUVKd_TNTiNLtxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"steweg@gmail.com" <steweg@gmail.com>
-To: David Miller <davem@davemloft.net>
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"Ian Campbell" <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Viral Mehta <viral.vkm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46124 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752028Ab2A3RDp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:03:45 -0500
-In-Reply-To: <20120130.115800.2216939902996648062.davem@davemloft.net>
-Content-Language: en-US
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:34333 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752524Ab2A3REu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:04:50 -0500
+In-Reply-To: <CANX6Dak_1VQ1J8hRK+yd1-FmGOnd75BkNm2uUVKd_TNTiNLtxg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, January 30, 2012 8:58 AM
-> To: Rose, Gregory V
-> Cc: david.vrabel@citrix.com; netdev@vger.kernel.org; steweg@gmail.com
-> Subject: Re: Regression: "rtnetlink: Compute and store minimum ifinfo dump
-> size" breaks glibc's getifaddrs()
+On Mon, 2012-01-30 at 16:49 +0000, Viral Mehta wrote:
+> Hi,
 > 
-> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-> Date: Mon, 30 Jan 2012 16:50:58 +0000
-> 
-> > Maybe we should have 'ip link show' just display the number of VFs
-> > and then have a new 'ip' tool syntax along the lines of 'ip link
-> > show eth(x) vf (n)' where eth(x) is the PF and n is the number of
-> > the VF.  Then it could show all relevant information for just that
-> > VF.  Scripts could parse the number of VFs from the first call to
-> > 'ip link show' and then loop to show the details of each VF.
+> On Mon, Jan 30, 2012 at 9:45 AM, Wei Liu <wei.liu2@citrix.com> wrote:
 > >
-> > Just an idea... maybe there are other ones out there but it's just
-> > getting ridiculous how much data has to be transferred back and
-> > forth during the basic 'ip link show' command when the interface as
-> > subordinate VFs now that we're getting to devices with up to 256
-> > VFs.
+> >        skb_queue_head_init(&rxq);
+> > @@ -534,13 +527,16 @@ void xen_netbk_rx_action(struct xen_netbk *netbk)
+> >                        break;
+> >        }
+> >
+> > -       BUG_ON(npo.meta_prod > ARRAY_SIZE(netbk->meta));
+> > +       BUG_ON(npo.meta_prod > MAX_PENDING_REQS);
 > 
-> The fix is almost certainly that we need to require that the application
-> turn on the publishing of features it is interested in.
+> While you are already here,
+> how about having WARN_ON() ?
 > 
-> The inet_diag sockets do something like this, wherein you set bits in
-> some flags of the request saying what attributes you want to see.
+> >
+> > -       if (!npo.copy_prod)
+> > +       if (!npo.copy_prod) {
+> > +               put_cpu_ptr(gco);
+> > +               put_cpu_ptr(m);
+> >                return;
+> > +       }
+> >
+> > -       BUG_ON(npo.copy_prod > ARRAY_SIZE(netbk->grant_copy_op));
+> > -       ret = HYPERVISOR_grant_table_op(GNTTABOP_copy, &netbk->grant_copy_op,
+> > +       BUG_ON(npo.copy_prod > (2 * XEN_NETIF_RX_RING_SIZE));
 > 
-> It seems clear that we must, at this point, turn off VF attributes by
-> default.
+> And may be here, too...
 > 
-> Could you do some work on this?  If you don't have the time I'll look
-> into it, because we'll need to backport this to -stable too.
+> If there is serious bug, may be system will crash at a later point
+> But, IMHO, WARN_ON() is the correct function for drivers at least.
+> 
 
-Yeah, I can push out some other things I'm working on to get on this.
+I don't agree. Here BUG_ON means code logic has defects that we haven't
+discovered. I won't take the risk of any undefined behavior.
 
-- Greg
+Further more, there are a bunch of drivers use BUG_ON. A simple grep
+will show you hundreds (even thousands?) of results.
 
-> 
-> Thanks.
+
+Wei.
