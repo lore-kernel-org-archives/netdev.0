@@ -1,50 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: fix RFC5722 comment
-Date: Mon, 30 Jan 2012 15:29:24 +0100
-Message-ID: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [07/22] Cyclades PC300 driver: ioctl() fixes for mixed
+ 64/32-bit systems
+Date: Mon, 30 Jan 2012 14:37:05 +0000
+Message-ID: <1327934225.5400.443.camel@deadeye>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E3F@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38027 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753167Ab2A3O32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:29:28 -0500
-Received: by mail-bk0-f46.google.com with SMTP id s6so3216331bka.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:29:27 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrea Shepard <andrea@persephoneslair.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<khc@pm.waw.pl>, <davem@davemloft.net>, <mmarek@suse.cz>,
+	<jkosina@suse.cz>, <joe@perches.com>, <justinmattock@gmail.com>,
+	<gregkh@suse.de>, <alan@linux.intel.com>, <jdmason@kudzu.us>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E3F@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC5722 Section 4 was amended by Errata 3089
+On Mon, 2012-01-30 at 11:44 +0000, David Laight wrote:
+> > +struct pc300_net_stats {
+> > +	u64 rx_packets;
+> ...
+> > +	u64 rx_compressed;
+> > +	u64 tx_compressed;
+> > +};
+> > +
+> >  typedef struct pc300stats {
+> >  	int hw_type;
+> >  	u32 line_on;
+> >  	u32 line_off;
+> > -	struct net_device_stats gen_stats;
+> > +	/* Use this instead of net_device_stats, since passing
+> > +	 * net_device_stats breaks 32-bit user processes on 
+> > 64-bit kernels,
+> > +	 * and rtnetlink is unreasonably complicated just to get
+> > +	 * some statistics.
+> > +	 */
+> > +	struct pc300_net_stats net_stats;
+> >  	falc_t te_stats;
+> >  } pc300stats_t;
+> 
+> Since 'struct net_device_stats' looks like a common structure,
+> maybe the 64bit version should be added in the same place??
+[...]
 
-Our implementation did the right thing anyway...
+It's called struct rtnl_link_stats64 and is already defined in
+<linux/rtnetlink.h> (where it must remain).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/reassembly.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+This change doesn't seem to be a proper fix.  If the ioctl interface to
+this driver uses struct net_device_stats (which I didn't realise,
+otherwise I would have left that structure exported from
+<linux/netdevice.h>) then it should continue doing so to maintain
+compatibility.  And the driver will need a compat_ioctl for that.
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index b69fae7..9447bd6 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -336,12 +336,11 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	}
- 
- found:
--	/* RFC5722, Section 4:
--	 *                                  When reassembling an IPv6 datagram, if
-+	/* RFC5722, Section 4, amended by Errata ID : 3089
-+	 *                          When reassembling an IPv6 datagram, if
- 	 *   one or more its constituent fragments is determined to be an
- 	 *   overlapping fragment, the entire datagram (and any constituent
--	 *   fragments, including those not yet received) MUST be silently
--	 *   discarded.
-+	 *   fragments) MUST be silently discarded.
- 	 */
- 
- 	/* Check for overlap with preceding fragment. */
+If backward-compatibility is really not a concern for the driver then
+this ioctl should be completely removed in favour of ethtool extended
+stats.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
