@@ -1,44 +1,64 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 2/5] net/hyperv: Correct the assignment in netvsc_recv_callback()
-Date: Mon, 30 Jan 2012 08:33:35 -0800
-Message-ID: <1327941218-12547-2-git-send-email-haiyangz@microsoft.com>
-References: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCH V3 12/16] netback: multi-page ring
+ support
+Date: Mon, 30 Jan 2012 17:10:36 +0000
+Message-ID: <1327943436.5553.39.camel@leeds.uk.xensource.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+	 <1327934734-8908-13-git-send-email-wei.liu2@citrix.com>
+	 <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:1972 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752570Ab2A3RK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:10:26 -0500
+In-Reply-To: <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The first assignment to variable "net" is wrong, but overridden by the
-latter assignments. So the bug isn't manifested.
+On Mon, 2012-01-30 at 16:35 +0000, Jan Beulich wrote:
+> >>> On 30.01.12 at 15:45, Wei Liu <wei.liu2@citrix.com> wrote:
+> > -int xenvif_map_frontend_rings(struct xenvif *vif,
+> > -			      grant_ref_t tx_ring_ref,
+> > -			      grant_ref_t rx_ring_ref)
+> > +int xenvif_map_frontend_rings(struct xen_comms *comms,
+> > +			      int domid,
+> > +			      unsigned long ring_ref[],
+> > +			      unsigned int  ring_ref_count)
+> >  {
+> > -	void *addr;
+> > -	struct xen_netif_tx_sring *txs;
+> > -	struct xen_netif_rx_sring *rxs;
+> > -
+> > -	int err = -ENOMEM;
+> > +	struct gnttab_map_grant_ref op[NETBK_MAX_RING_PAGES];
+> > +	unsigned int i;
+> > +	int err = 0;
+> >  
+> > -	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
+> > -				     tx_ring_ref, &addr);
+> 
+> Any reason why you don't just extend this function (in a prerequisite
+> patch) rather than open coding a common utility function (twice) here,
+> so that other backends (blkback!) can benefit later as well.
+> 
+> Jan
+> 
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+I'm mainly focusing on netback stuffs, so the code is slightly coupled
+with netback -- NETBK_MAX_RING_PAGES.
 
----
- drivers/net/hyperv/netvsc_drv.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+To extend xenbus_map_ring_valloc and make more generic, it requires
+setting a global maximum page number limits on rings, I think it will
+require further investigation and code refactor -- which I have no time
+to attend to at the moment. :-/
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1a1ca6c..af25771 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -267,13 +267,10 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- int netvsc_recv_callback(struct hv_device *device_obj,
- 				struct hv_netvsc_packet *packet)
- {
--	struct net_device *net = dev_get_drvdata(&device_obj->device);
-+	struct net_device *net;
- 	struct sk_buff *skb;
--	struct netvsc_device *net_device;
--
--	net_device = hv_get_drvdata(device_obj);
--	net = net_device->ndev;
- 
-+	net = ((struct netvsc_device *)hv_get_drvdata(device_obj))->ndev;
- 	if (!net) {
- 		netdev_err(net, "got receive callback but net device"
- 			" not initialized yet\n");
--- 
-1.7.7
+
+Wei.
