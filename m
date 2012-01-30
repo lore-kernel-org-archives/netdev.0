@@ -1,296 +1,507 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC PATCH 4/7] ARM: davinci: net: davinci_emac: add OF support
-Date: Mon, 30 Jan 2012 13:22:08 -0700
-Message-ID: <20120130202208.GW28397@ponder.secretlab.ca>
-References: <1327308967-8092-1-git-send-email-hs@denx.de>
- <1327308967-8092-5-git-send-email-hs@denx.de>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [RFC PATCH V3 15/16] netfront: multi page ring
+ support.
+Date: Mon, 30 Jan 2012 16:39:26 -0500
+Message-ID: <20120130213926.GB16261@phenom.dumpdata.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+ <1327934734-8908-16-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
-	Sekhar Nori <nsekhar@ti.com>, Wolfgang Denk <wd@denx.de>
-To: Heiko Schocher <hs@denx.de>
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	ian.campbell@citrix.com
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:39044 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753789Ab2A3V2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 16:28:52 -0500
-Received: by mail-yw0-f46.google.com with SMTP id o21so2015506yho.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 13:28:52 -0800 (PST)
+Received: from rcsinet15.oracle.com ([148.87.113.117]:36568 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848Ab2A3VmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 16:42:01 -0500
 Content-Disposition: inline
-In-Reply-To: <1327308967-8092-5-git-send-email-hs@denx.de>
+In-Reply-To: <1327934734-8908-16-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2012 at 09:56:04AM +0100, Heiko Schocher wrote:
-> add of support for the davinci_emac driver.
+On Mon, Jan 30, 2012 at 02:45:33PM +0000, Wei Liu wrote:
+> Use DMA API to allocate ring pages, because we need to get machine
+> contiginous memory.
+
 > 
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-> Cc: davinci-linux-open-source@linux.davincidsp.com
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: devicetree-discuss@lists.ozlabs.org
-> Cc: netdev@vger.kernel.org
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: Sekhar Nori <nsekhar@ti.com>
-> Cc: Wolfgang Denk <wd@denx.de>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 > ---
->  .../bindings/arm/davinci/davinci_emac.txt          |   46 ++++++++
->  drivers/net/ethernet/ti/davinci_emac.c             |  111 +++++++++++++++++++-
->  2 files changed, 156 insertions(+), 1 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+>  drivers/net/xen-netfront.c |  258 ++++++++++++++++++++++++++++++++------------
+>  1 files changed, 187 insertions(+), 71 deletions(-)
 > 
-> diff --git a/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
-> new file mode 100644
-> index 0000000..4e5dc8d
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
-> @@ -0,0 +1,46 @@
-> +* Texas Instruments Davinci EMAC
-> +
-> +This file provides information, what the davice node
-> +for the davinci_emac interface contain.
-> +
-> +Required properties:
-> +- compatible: "ti,davinci-emac";
-> +- reg: Offset and length of the register set for the device
-> +- ctrl_reg_offset: offset to control register
-> +- ctrl_mod_reg_offset: offset to control module register
-> +- ctrl_ram_offset: offset to control module ram
-
-Should these be explicit properties, or can they be discerned from the
-compatible string (which should include the hardware version; see
-below).
-
-Also, any custom properties that are specific to a binding really
-should include a vendor prefix ('ti,') to avoid namespace collisions
-with common bindings.
-
-> +- hw_ram_addr: hardware ram addr
-
-Can this be added as a second tuple in the reg property?
-
-> +- ctrl_ram_size: size of control module ram
-> +- version: 1 (EMAC_VERSION_1 for DM644x)
-> +           2 (EMAC_VERSION_2 for DM646x)
-
-Don't use a version property.  Encode it into the compatible property.  ie:
-
-compatible = "ti,davinci-dm6440-emac"; or
-compatible = "ti,davinci-dm6460-emac";
-
-You'll also note that I did not use a 'x' as a wildcard.  It is always
-safer to be explicit about the part number.  And have newer parts
-claim compatibility with older ones like so:
-
-compatible = "ti,davinci-dm6443-emac", "ti,davinci-dm6440-emac"; (I am
-obviously making up numbers here.  Fill in appropriate numbers for
-your device.
-
-
-> +- phy-handle: Contains a phandle to an Ethernet PHY.
-> +              if not, davinci_emac driver defaults to 100/FULL
-> +- interrupts: interrupt mapping for the davinci emac interrupts sources:
-> +              4 sources: <Receive Threshold Interrupt
-> +			  Receive Interrupt
-> +			  Transmit Interrupt
-> +			  Miscellaneous Interrupt>
-> +- pinmux-handle: Contains a handle to configure the pinmux settings.
-> +
-> +Optional properties:
-> +- local-mac-address : 6 bytes, mac address
-> +
-> +Example (enbw_cmc board):
-> +	eth0: emac@1e20000 {
-> +		compatible = "ti,davinci-emac";
-> +		reg = <0x220000 0x4000>;
-> +		ctrl_reg_offset = <0x3000>;
-> +		ctrl_mod_reg_offset = <0x2000>;
-> +		ctrl_ram_offset = <0>;
-> +		hw_ram_addr = <0>;
-> +		ctrl_ram_size = <0x2000>;
-> +		version = <1>;
-> +		local-mac-address = [ 00 00 00 00 00 00 ];
-> +		interrupts = <33
-> +				34
-> +				35
-> +				36
-> +				>;
-> +		interrupt-parent = <&intc>;
-> +		pinmux-handle = <&emac_pins>;
-> +	};
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> index 794ac30..cad7a96 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -58,6 +58,12 @@
->  #include <linux/io.h>
->  #include <linux/uaccess.h>
->  #include <linux/davinci_emac.h>
-> +#include <linux/of.h>
-> +#include <linux/of_address.h>
-> +#include <linux/of_irq.h>
-> +#include <linux/of_net.h>
-> +
-> +#include <mach/mux.h>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 01f589d..32ec212 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -66,9 +66,18 @@ struct netfront_cb {
 >  
->  #include <asm/irq.h>
->  #include <asm/page.h>
-> @@ -339,6 +345,9 @@ struct emac_priv {
->  	u32 rx_addr_type;
->  	atomic_t cur_tx;
->  	const char *phy_id;
-> +#ifdef CONFIG_OF
-> +	struct device_node *phy_node;
-> +#endif
->  	struct phy_device *phydev;
->  	spinlock_t lock;
->  	/*platform specific members*/
-> @@ -1582,6 +1591,7 @@ static int emac_dev_open(struct net_device *ndev)
->  	cpdma_ctlr_start(priv->dma);
+>  #define GRANT_INVALID_REF	0
 >  
->  	priv->phydev = NULL;
+> -#define NET_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+> -#define NET_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
+> -#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE, 256)
+> +#define XENNET_MAX_RING_PAGE_ORDER 2
+> +#define XENNET_MAX_RING_PAGES      (1U << XENNET_MAX_RING_PAGE_ORDER)
 > +
->  	/* use the first phy on the bus if pdata did not give us a phy id */
->  	if (!priv->phy_id) {
->  		struct device *phy;
-> @@ -1759,6 +1769,104 @@ static const struct net_device_ops emac_netdev_ops = {
->  #endif
+> +#define NET_TX_RING_SIZE(_nr_pages)					\
+> +	__CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE * (_nr_pages))
+> +#define NET_RX_RING_SIZE(_nr_pages)					\
+> +	__CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE * (_nr_pages))
+> +
+> +#define XENNET_MAX_TX_RING_SIZE NET_TX_RING_SIZE(XENNET_MAX_RING_PAGES)
+> +#define XENNET_MAX_RX_RING_SIZE NET_RX_RING_SIZE(XENNET_MAX_RING_PAGES)
+> +
+> +#define TX_MAX_TARGET XENNET_MAX_TX_RING_SIZE
+>  
+>  struct netfront_stats {
+>  	u64			rx_packets;
+> @@ -84,12 +93,20 @@ struct netfront_info {
+>  
+>  	struct napi_struct napi;
+>  
+> +	/* Statistics */
+> +	struct netfront_stats __percpu *stats;
+> +
+> +	unsigned long rx_gso_checksum_fixup;
+> +
+>  	unsigned int evtchn;
+>  	struct xenbus_device *xbdev;
+>  
+>  	spinlock_t   tx_lock;
+>  	struct xen_netif_tx_front_ring tx;
+> -	int tx_ring_ref;
+> +	dma_addr_t tx_ring_dma_handle;
+> +	int tx_ring_ref[XENNET_MAX_RING_PAGES];
+> +	int tx_ring_page_order;
+> +	int tx_ring_pages;
+>  
+>  	/*
+>  	 * {tx,rx}_skbs store outstanding skbuffs. Free tx_skb entries
+> @@ -103,36 +120,34 @@ struct netfront_info {
+>  	union skb_entry {
+>  		struct sk_buff *skb;
+>  		unsigned long link;
+> -	} tx_skbs[NET_TX_RING_SIZE];
+> +	} tx_skbs[XENNET_MAX_TX_RING_SIZE];
+>  	grant_ref_t gref_tx_head;
+> -	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
+> +	grant_ref_t grant_tx_ref[XENNET_MAX_TX_RING_SIZE];
+>  	unsigned tx_skb_freelist;
+>  
+>  	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
+>  	struct xen_netif_rx_front_ring rx;
+> -	int rx_ring_ref;
+> +	dma_addr_t rx_ring_dma_handle;
+> +	int rx_ring_ref[XENNET_MAX_RING_PAGES];
+> +	int rx_ring_page_order;
+> +	int rx_ring_pages;
+>  
+>  	/* Receive-ring batched refills. */
+>  #define RX_MIN_TARGET 8
+>  #define RX_DFL_MIN_TARGET 64
+> -#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
+> +#define RX_MAX_TARGET XENNET_MAX_RX_RING_SIZE
+>  	unsigned rx_min_target, rx_max_target, rx_target;
+>  	struct sk_buff_head rx_batch;
+>  
+>  	struct timer_list rx_refill_timer;
+>  
+> -	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
+> +	struct sk_buff *rx_skbs[XENNET_MAX_RX_RING_SIZE];
+>  	grant_ref_t gref_rx_head;
+> -	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
+> -
+> -	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
+> -	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
+> -	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
+> -
+> -	/* Statistics */
+> -	struct netfront_stats __percpu *stats;
+> +	grant_ref_t grant_rx_ref[XENNET_MAX_RX_RING_SIZE];
+>  
+> -	unsigned long rx_gso_checksum_fixup;
+> +	unsigned long rx_pfn_array[XENNET_MAX_RX_RING_SIZE];
+> +	struct multicall_entry rx_mcl[XENNET_MAX_RX_RING_SIZE+1];
+> +	struct mmu_update rx_mmu[XENNET_MAX_RX_RING_SIZE];
 >  };
 >  
-> +#ifdef CONFIG_OF
-> +static struct emac_platform_data
-> +	*davinci_emac_of_get_pdata(struct platform_device *pdev,
-> +	struct emac_priv *priv)
-> +{
-> +	struct device_node *np;
-> +	struct device_node *pinmux_np;
-> +	struct emac_platform_data *pdata = NULL;
-> +	const u8 *mac_addr;
-> +	u32 data;
-> +	int ret;
-> +	struct resource temp_res;
-> +	int irq;
-> +	int index = 0;
+>  struct netfront_rx_info {
+> @@ -170,15 +185,15 @@ static unsigned short get_id_from_freelist(unsigned *head,
+>  	return id;
+>  }
+>  
+> -static int xennet_rxidx(RING_IDX idx)
+> +static int xennet_rxidx(RING_IDX idx, struct netfront_info *info)
+>  {
+> -	return idx & (NET_RX_RING_SIZE - 1);
+> +	return idx & (NET_RX_RING_SIZE(info->rx_ring_pages) - 1);
+>  }
+>  
+>  static struct sk_buff *xennet_get_rx_skb(struct netfront_info *np,
+>  					 RING_IDX ri)
+>  {
+> -	int i = xennet_rxidx(ri);
+> +	int i = xennet_rxidx(ri, np);
+>  	struct sk_buff *skb = np->rx_skbs[i];
+>  	np->rx_skbs[i] = NULL;
+>  	return skb;
+> @@ -187,7 +202,7 @@ static struct sk_buff *xennet_get_rx_skb(struct netfront_info *np,
+>  static grant_ref_t xennet_get_rx_ref(struct netfront_info *np,
+>  					    RING_IDX ri)
+>  {
+> -	int i = xennet_rxidx(ri);
+> +	int i = xennet_rxidx(ri, np);
+>  	grant_ref_t ref = np->grant_rx_ref[i];
+>  	np->grant_rx_ref[i] = GRANT_INVALID_REF;
+>  	return ref;
+> @@ -300,7 +315,7 @@ no_skb:
+>  
+>  		skb->dev = dev;
+>  
+> -		id = xennet_rxidx(req_prod + i);
+> +		id = xennet_rxidx(req_prod + i, np);
+>  
+>  		BUG_ON(np->rx_skbs[id]);
+>  		np->rx_skbs[id] = skb;
+> @@ -596,7 +611,7 @@ static int xennet_close(struct net_device *dev)
+>  static void xennet_move_rx_slot(struct netfront_info *np, struct sk_buff *skb,
+>  				grant_ref_t ref)
+>  {
+> -	int new = xennet_rxidx(np->rx.req_prod_pvt);
+> +	int new = xennet_rxidx(np->rx.req_prod_pvt, np);
+>  
+>  	BUG_ON(np->rx_skbs[new]);
+>  	np->rx_skbs[new] = skb;
+> @@ -1089,7 +1104,7 @@ static void xennet_release_tx_bufs(struct netfront_info *np)
+>  	struct sk_buff *skb;
+>  	int i;
+>  
+> -	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+> +	for (i = 0; i < NET_TX_RING_SIZE(np->tx_ring_pages); i++) {
+>  		/* Skip over entries which are actually freelist references */
+>  		if (skb_entry_is_link(&np->tx_skbs[i]))
+>  			continue;
+> @@ -1123,7 +1138,7 @@ static void xennet_release_rx_bufs(struct netfront_info *np)
+>  
+>  	spin_lock_bh(&np->rx_lock);
+>  
+> -	for (id = 0; id < NET_RX_RING_SIZE; id++) {
+> +	for (id = 0; id < NET_RX_RING_SIZE(np->rx_ring_pages); id++) {
+>  		ref = np->grant_rx_ref[id];
+>  		if (ref == GRANT_INVALID_REF) {
+>  			unused++;
+> @@ -1305,13 +1320,13 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
+>  
+>  	/* Initialise tx_skbs as a free chain containing every entry. */
+>  	np->tx_skb_freelist = 0;
+> -	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+> +	for (i = 0; i < XENNET_MAX_TX_RING_SIZE; i++) {
+>  		skb_entry_set_link(&np->tx_skbs[i], i+1);
+>  		np->grant_tx_ref[i] = GRANT_INVALID_REF;
+>  	}
+>  
+>  	/* Clear out rx_skbs */
+> -	for (i = 0; i < NET_RX_RING_SIZE; i++) {
+> +	for (i = 0; i < XENNET_MAX_RX_RING_SIZE; i++) {
+>  		np->rx_skbs[i] = NULL;
+>  		np->grant_rx_ref[i] = GRANT_INVALID_REF;
+>  	}
+> @@ -1409,15 +1424,11 @@ static int __devinit netfront_probe(struct xenbus_device *dev,
+>  	return err;
+>  }
+>  
+> -static void xennet_end_access(int ref, void *page)
+> -{
+> -	/* This frees the page as a side-effect */
+> -	if (ref != GRANT_INVALID_REF)
+> -		gnttab_end_foreign_access(ref, 0, (unsigned long)page);
+> -}
+> -
+>  static void xennet_disconnect_backend(struct netfront_info *info)
+>  {
+> +	int i;
+> +	struct xenbus_device *dev = info->xbdev;
 > +
-> +	np = of_find_compatible_node(NULL, NULL, "ti,davinci-emac");
-> +	if (!np)
-> +		goto nodata;
-> +
-> +	pdata = pdev->dev.platform_data;
-> +	if (!pdata) {
-> +		pdata = kzalloc(sizeof(struct emac_platform_data), GFP_KERNEL);
-
-devm_kzalloc()
-
-> +		if (!pdata)
-> +			goto nodata;
+>  	/* Stop old i/f to prevent errors whilst we rebuild the state. */
+>  	spin_lock_bh(&info->rx_lock);
+>  	spin_lock_irq(&info->tx_lock);
+> @@ -1429,12 +1440,24 @@ static void xennet_disconnect_backend(struct netfront_info *info)
+>  		unbind_from_irqhandler(info->netdev->irq, info->netdev);
+>  	info->evtchn = info->netdev->irq = 0;
+>  
+> -	/* End access and free the pages */
+> -	xennet_end_access(info->tx_ring_ref, info->tx.sring);
+> -	xennet_end_access(info->rx_ring_ref, info->rx.sring);
+> +	for (i = 0; i < info->tx_ring_pages; i++) {
+> +		int ref = info->tx_ring_ref[i];
+> +		gnttab_end_foreign_access_ref(ref, 0);
+> +		info->tx_ring_ref[i] = GRANT_INVALID_REF;
 > +	}
+> +	dma_free_coherent(NULL, PAGE_SIZE * info->tx_ring_pages,
+> +			  (void *)info->tx.sring,
+> +			  info->tx_ring_dma_handle);
 > +
-> +	mac_addr = of_get_mac_address(np);
-> +	if (mac_addr)
-> +		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
+> +	for (i = 0; i < info->rx_ring_pages; i++) {
+> +		int ref = info->rx_ring_ref[i];
+> +		gnttab_end_foreign_access_ref(ref, 0);
+> +		info->rx_ring_ref[i] = GRANT_INVALID_REF;
+> +	}
+> +	dma_free_coherent(NULL, PAGE_SIZE * info->rx_ring_pages,
+> +			  (void *)info->rx.sring,
+> +			  info->rx_ring_dma_handle);
+>  
+> -	info->tx_ring_ref = GRANT_INVALID_REF;
+> -	info->rx_ring_ref = GRANT_INVALID_REF;
+>  	info->tx.sring = NULL;
+>  	info->rx.sring = NULL;
+>  }
+> @@ -1483,9 +1506,13 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+>  	struct xen_netif_rx_sring *rxs;
+>  	int err;
+>  	struct net_device *netdev = info->netdev;
+> +	unsigned int max_tx_ring_page_order, max_rx_ring_page_order;
+> +	int i, j;
+>  
+> -	info->tx_ring_ref = GRANT_INVALID_REF;
+> -	info->rx_ring_ref = GRANT_INVALID_REF;
+> +	for (i = 0; i < XENNET_MAX_RING_PAGES; i++) {
+> +		info->tx_ring_ref[i] = GRANT_INVALID_REF;
+> +		info->rx_ring_ref[i] = GRANT_INVALID_REF;
+> +	}
+>  	info->rx.sring = NULL;
+>  	info->tx.sring = NULL;
+>  	netdev->irq = 0;
+> @@ -1496,50 +1523,105 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+>  		goto fail;
+>  	}
+>  
+> -	txs = (struct xen_netif_tx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+> +	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
+> +			   "max-tx-ring-page-order", "%u",
+> +			   &max_tx_ring_page_order);
+> +	if (err < 0) {
+> +		info->tx_ring_page_order = 0;
+> +		dev_info(&dev->dev, "single tx ring\n");
+> +	} else {
+> +		info->tx_ring_page_order = max_tx_ring_page_order;
+> +		dev_info(&dev->dev, "multi page tx ring, order = %d\n",
+> +			 max_tx_ring_page_order);
+> +	}
+> +	info->tx_ring_pages = (1U << info->tx_ring_page_order);
 > +
-> +	ret = of_property_read_u32(np, "ctrl_reg_offset", &data);
-> +	if (!ret)
-> +		pdata->ctrl_reg_offset = data;
-> +
-> +	ret = of_property_read_u32(np, "ctrl_mod_reg_offset", &data);
-> +	if (!ret)
-> +		pdata->ctrl_mod_reg_offset = data;
-> +
-> +	ret = of_property_read_u32(np, "ctrl_ram_offset", &data);
-> +	if (!ret)
-> +		pdata->ctrl_ram_offset = data;
-> +
-> +	ret = of_property_read_u32(np, "hw_ram_addr", &data);
-> +	if (!ret)
-> +		pdata->hw_ram_addr = data;
-> +
-> +	ret = of_property_read_u32(np, "ctrl_ram_size", &data);
-> +	if (!ret)
-> +		pdata->ctrl_ram_size = data;
-> +
-> +	ret = of_property_read_u32(np, "rmii_en", &data);
-> +	if (!ret)
-> +		pdata->rmii_en = data;
-> +
-> +	ret = of_property_read_u32(np, "version", &data);
-> +	if (!ret)
-> +		pdata->version = data;
-> +
-> +	ret = of_property_read_u32(np, "no_bd_ram", &data);
-> +	if (!ret)
-> +		pdata->ctrl_mod_reg_offset = data;
+> +	txs = (struct xen_netif_tx_sring *)
+> +		dma_alloc_coherent(NULL, PAGE_SIZE * info->tx_ring_pages,
+> +				   &info->tx_ring_dma_handle,
+> +				   __GFP_ZERO | GFP_NOIO | __GFP_HIGH);
 
-Not all these properties are mentioned in the documentation.
+Hm, so I see you are using 'NULL' which is a big nono (the API docs say that).
+But the other reason why it is a no-no, is b/c this way the generic DMA engine has no
+clue whether you are OK getting pages under 4GB or above it (so 64-bit support).
 
+If you don't supply a 'dev' it will assume 4GB. But when you are run this as a
+pure PV guest that won't matter the slighest b/I there are no DMA code in action
+(well, there is dma_alloc_coherent - which looking at the code would NULL it seems).
+
+Anyhow, if you get to have more than 4GB in the guest or do PCI passthrough and use
+'iommu=soft'- at which point the Xen SWIOTLB will kick and you will end up 'swizzling'
+the pages to be under 4GB. That can be fixed if you declerae a 'fake' device where you set
+the coherent_dma_mask to DMA_BIT_MASK(64).
+
+But if you boot the guest under HVM, then it will use the generic SWIOTLB code, which
+won't guaranteeing the pages to be "machine" contingous but will be "guest machine"
+contingous. Is that sufficient for this?
+
+How did you test this? Did you supply iommu=soft  to your guest or booted it
+with more than 4GB?
+
+
+>  	if (!txs) {
+>  		err = -ENOMEM;
+>  		xenbus_dev_fatal(dev, err, "allocating tx ring page");
+>  		goto fail;
+>  	}
+>  	SHARED_RING_INIT(txs);
+> -	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE);
+> +	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE * info->tx_ring_pages);
 > +
-> +	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
-> +	if (!priv->phy_node)
-> +		pdata->phy_id = "";
+> +	for (i = 0; i < info->tx_ring_pages; i++) {
+> +		void *addr = (void *)((unsigned long)txs + PAGE_SIZE * i);
+> +		err = xenbus_grant_ring(dev, virt_to_mfn(addr));
+> +		if (err < 0)
+> +			goto grant_tx_ring_fail;
+> +		info->tx_ring_ref[i] = err;
+> +	}
+>  
+> -	err = xenbus_grant_ring(dev, virt_to_mfn(txs));
+> +	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
+> +			   "max-rx-ring-page-order", "%u",
+> +			   &max_rx_ring_page_order);
+>  	if (err < 0) {
+> -		free_page((unsigned long)txs);
+> -		goto fail;
+> +		info->rx_ring_page_order = 0;
+> +		dev_info(&dev->dev, "single rx ring\n");
+> +	} else {
+> +		info->rx_ring_page_order = max_rx_ring_page_order;
+> +		dev_info(&dev->dev, "multi page rx ring, order = %d\n",
+> +			 max_rx_ring_page_order);
+>  	}
+> +	info->rx_ring_pages = (1U << info->rx_ring_page_order);
+>  
+> -	info->tx_ring_ref = err;
+> -	rxs = (struct xen_netif_rx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+> +	rxs = (struct xen_netif_rx_sring *)
+> +		dma_alloc_coherent(NULL, PAGE_SIZE * info->rx_ring_pages,
+> +				   &info->rx_ring_dma_handle,
+> +				   __GFP_ZERO | GFP_NOIO | __GFP_HIGH);
+>  	if (!rxs) {
+>  		err = -ENOMEM;
+>  		xenbus_dev_fatal(dev, err, "allocating rx ring page");
+> -		goto fail;
+> +		goto alloc_rx_ring_fail;
+>  	}
+>  	SHARED_RING_INIT(rxs);
+> -	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE);
+> -
+> -	err = xenbus_grant_ring(dev, virt_to_mfn(rxs));
+> -	if (err < 0) {
+> -		free_page((unsigned long)rxs);
+> -		goto fail;
+> +	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE * info->rx_ring_pages);
 > +
-> +	if (!of_address_to_resource(np, 0, &temp_res))
-> +		memcpy(&pdev->resource[0], &temp_res, sizeof(struct resource));
-
-Don't use of_address_to_resource.  The platform device resource table
-will already be populated by the core code so you don't need to call
-it here.  Besides, it is illegal for drivers to overwrite the
-pdev->resource[] table.
-
+> +	for (j = 0; j < info->rx_ring_pages; j++) {
+> +		void *addr = (void *)((unsigned long)rxs + PAGE_SIZE * j);
+> +		err = xenbus_grant_ring(dev, virt_to_mfn(addr));
+> +		if (err < 0)
+> +			goto grant_rx_ring_fail;
+> +		info->rx_ring_ref[j] = err;
+>  	}
+> -	info->rx_ring_ref = err;
+>  
+>  	err = xenbus_alloc_evtchn(dev, &info->evtchn);
+>  	if (err)
+> -		goto fail;
+> +		goto alloc_evtchn_fail;
+>  
+>  	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
+>  					0, netdev->name, netdev);
+>  	if (err < 0)
+> -		goto fail;
+> +		goto bind_fail;
+>  	netdev->irq = err;
 > +
-> +	index = 0;
-> +	while (index < 4) {
-> +		irq = irq_of_parse_and_map(np, index);
-> +		if (irq > 0) {
-> +			temp_res.start = irq;
-> +			temp_res.end = irq;
-> +			temp_res.flags = IORESOURCE_IRQ;
-> +			memcpy(&pdev->resource[index + 1], &temp_res,
-> +				sizeof(struct resource));
-
-Same here, the core code will have already populated the irqs into the
-resource table for you.
-
+>  	return 0;
+>  
+> - fail:
+> +bind_fail:
+> +	xenbus_free_evtchn(dev, info->evtchn);
+> +alloc_evtchn_fail:
+> +	for (; j >= 0; j--) {
+> +		int ref = info->rx_ring_ref[j];
+> +		gnttab_end_foreign_access_ref(ref, 0);
+> +		info->rx_ring_ref[j] = GRANT_INVALID_REF;
+> +	}
+> +grant_rx_ring_fail:
+> +	dma_free_coherent(NULL, PAGE_SIZE * info->rx_ring_pages,
+> +			  (void *)rxs, info->rx_ring_dma_handle);
+> +alloc_rx_ring_fail:
+> +	for (; i >= 0; i--) {
+> +		int ref = info->tx_ring_ref[i];
+> +		gnttab_end_foreign_access_ref(ref, 0);
+> +		info->tx_ring_ref[i] = GRANT_INVALID_REF;
+> +	}
+> +grant_tx_ring_fail:
+> +	dma_free_coherent(NULL, PAGE_SIZE * info->tx_ring_pages,
+> +			  (void *)txs, info->tx_ring_dma_handle);
+> +fail:
+>  	return err;
+>  }
+>  
+> @@ -1550,6 +1632,7 @@ static int talk_to_netback(struct xenbus_device *dev,
+>  	const char *message;
+>  	struct xenbus_transaction xbt;
+>  	int err;
+> +	int i;
+>  
+>  	/* Create shared ring, alloc event channel. */
+>  	err = setup_netfront(dev, info);
+> @@ -1563,18 +1646,50 @@ again:
+>  		goto destroy_ring;
+>  	}
+>  
+> -	err = xenbus_printf(xbt, dev->nodename, "tx-ring-ref", "%u",
+> -			    info->tx_ring_ref);
+> -	if (err) {
+> -		message = "writing tx ring-ref";
+> -		goto abort_transaction;
+> +	if (info->tx_ring_page_order == 0)
+> +		err = xenbus_printf(xbt, dev->nodename, "tx-ring-ref", "%u",
+> +				    info->tx_ring_ref[0]);
+> +	else {
+> +		err = xenbus_printf(xbt, dev->nodename, "tx-ring-order", "%u",
+> +				    info->tx_ring_page_order);
+> +		if (err) {
+> +			message = "writing tx ring-ref";
+> +			goto abort_transaction;
 > +		}
-> +		index++;
-> +	}
+> +		for (i = 0; i < info->tx_ring_pages; i++) {
+> +			char name[sizeof("tx-ring-ref")+2];
+> +			snprintf(name, sizeof(name), "tx-ring-ref%u", i);
+> +			err = xenbus_printf(xbt, dev->nodename, name, "%u",
+> +					    info->tx_ring_ref[i]);
+> +			if (err) {
+> +				message = "writing tx ring-ref";
+> +				goto abort_transaction;
+> +			}
+> +		}
+>  	}
+> -	err = xenbus_printf(xbt, dev->nodename, "rx-ring-ref", "%u",
+> -			    info->rx_ring_ref);
+> -	if (err) {
+> -		message = "writing rx ring-ref";
+> -		goto abort_transaction;
 > +
-> +	pinmux_np = of_parse_phandle(np, "pinmux-handle", 0);
-> +	if (pinmux_np)
-> +		davinci_cfg_reg_of(pinmux_np);
+> +	if (info->rx_ring_page_order == 0)
+> +		err = xenbus_printf(xbt, dev->nodename, "rx-ring-ref", "%u",
+> +				    info->rx_ring_ref[0]);
+> +	else {
+> +		err = xenbus_printf(xbt, dev->nodename, "rx-ring-order", "%u",
+> +				    info->rx_ring_page_order);
+> +		if (err) {
+> +			message = "writing tx ring-ref";
+> +			goto abort_transaction;
+> +		}
+> +		for (i = 0; i < info->rx_ring_pages; i++) {
+> +			char name[sizeof("rx-ring-ref")+2];
+> +			snprintf(name, sizeof(name), "rx-ring-ref%u", i);
+> +			err = xenbus_printf(xbt, dev->nodename, name, "%u",
+> +					    info->rx_ring_ref[i]);
+> +			if (err) {
+> +				message = "writing rx ring-ref";
+> +				goto abort_transaction;
+> +			}
+> +		}
+>  	}
 > +
-> +	pdev->dev.platform_data = pdata;
-> +nodata:
-> +	return  pdata;
-> +}
-> +#else
-> +static struct emac_platform_data
-> +	*davinci_emac_of_get_pdata(struct platform_device *pdev,
-> +	struct emac_priv *priv)
-> +{
-> +	return  pdev->dev.platform_data;
-> +}
-> +#endif
->  /**
->   * davinci_emac_probe: EMAC device probe
->   * @pdev: The DaVinci EMAC device that we are removing
-> @@ -1802,7 +1910,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+>  	err = xenbus_printf(xbt, dev->nodename,
+>  			    "event-channel", "%u", info->evtchn);
+>  	if (err) {
+> @@ -1661,7 +1776,8 @@ static int xennet_connect(struct net_device *dev)
+>  	xennet_release_tx_bufs(np);
 >  
->  	spin_lock_init(&priv->lock);
->  
-> -	pdata = pdev->dev.platform_data;
-> +	pdata = davinci_emac_of_get_pdata(pdev, priv);
->  	if (!pdata) {
->  		dev_err(&pdev->dev, "no platform data\n");
->  		rc = -ENODEV;
-> @@ -1811,6 +1919,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
->  
->  	/* MAC addr and PHY mask , RMII enable info from platform_data */
->  	memcpy(priv->mac_addr, pdata->mac_addr, 6);
-> +
-
-Nit: There are a few instances of unrelated whitespace changes in this
-patch.
-
-g.
+>  	/* Step 2: Rebuild the RX buffer freelist and the RX ring itself. */
+> -	for (requeue_idx = 0, i = 0; i < NET_RX_RING_SIZE; i++) {
+> +	for (requeue_idx = 0, i = 0; i < NET_RX_RING_SIZE(np->rx_ring_pages);
+> +	     i++) {
+>  		skb_frag_t *frag;
+>  		const struct page *page;
+>  		if (!np->rx_skbs[i])
+> -- 
+> 1.7.2.5
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xensource.com
+> http://lists.xensource.com/xen-devel
