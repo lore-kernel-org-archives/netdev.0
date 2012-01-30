@@ -1,79 +1,106 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/1] net: fec: correct phy_name buffer length when init
- phy_name
-Date: Mon, 30 Jan 2012 12:07:00 +0100
-Message-ID: <4F2679D4.5070404@openwrt.org>
-References: <1327910892-11251-1-git-send-email-richard.zhao@linaro.org> <20120130095134.GA11428@S2101-09.ap.freescale.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 4/3] sha512: reduce stack usage even on i386
+Date: Mon, 30 Jan 2012 13:10:48 +0200
+Message-ID: <CACVxJT8phQxQHSBDJ_zOzdO9QVMmVK=v-mFTac2gn9+xZZSQkQ@mail.gmail.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6D8AF43@saturn3.aculab.com>
+	<1326709382.2255.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CACVxJT_cZAdxNOFTpK5seUXFZU+YB3zbe6LF1nnyzo32ae14xw@mail.gmail.com>
+	<20120118180210.GA22733@p183.telecom.by>
+	<20120126023502.GA10696@gondor.apana.org.au>
+	<20120127175130.GA742@p183.telecom.by>
+	<20120127223250.GA9384@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Richard Zhao <richard.zhao@linaro.org>, netdev@vger.kernel.org,
-	davem@davemloft.net, u.kleine-koenig@pengutronix.de,
-	LW@KARO-electronics.de, linux-arm-kernel@lists.infradead.org,
-	patches@linaro.org
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:36942 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794Ab2A3LHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 06:07:23 -0500
-Received: by werb13 with SMTP id b13so3310906wer.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 03:07:22 -0800 (PST)
-In-Reply-To: <20120130095134.GA11428@S2101-09.ap.freescale.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Laight <David.Laight@aculab.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	ken@codelabs.ch, Steffen Klassert <steffen.klassert@secunet.com>,
+	security@kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20120127223250.GA9384@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 01/30/12 10:51, Shawn Guo wrote:
-> On Mon, Jan 30, 2012 at 04:08:12PM +0800, Richard Zhao wrote:
->> Fix the bug that we got wrong phy_name on imx6q sabrelite board.
->> snprintf used wrong length of phy_name.
->> phy_name length is MII_BUS_ID_SIZE + 3 rather not MII_BUS_ID_SIZE.
->> I change it to sizeof(phy_name).
+On 1/28/12, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Fri, Jan 27, 2012 at 08:51:30PM +0300, Alexey Dobriyan wrote:
 >>
->> Signed-off-by: Richard Zhao<richard.zhao@linaro.org>
+>> I think this is because your tree contained "%16" code instead if "&15".
+>> Now that it contains "&15" it should become applicable.
 >
-> Acked-by: Shawn Guo<shawn.guo@linaro.org>
+> OK.
 >
-> Since this patch fixes a regression seen on v3.3-rc1, it may be
-> suitable for -rc series.
+>> --------------------------------------------------------------------------
+>> [PATCH] sha512: reduce stack usage even on i386
 >
-> The offending commit for the regression would be 391420f
-> (fec: use an unique MDIO bus name.) which increases the string
-> length of fep->mii_bus->id consequently mdio_bus_id.
+> Can you try the approach that git takes with using asm to read
+> and write W (see previous email from Linus in respone to my push
+> request)? As it stands your patch is simply relying on gcc's
+> ability to optimise.  At least with asm volatile we know that
+> gcc will leave it alone.
 
-Looks good to me since I introduced that "regression", but you already 
-had a bug before my patch.
+For some reason it doesn't. :-( I've also tried full barriers.
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
+With this patch, stack usage is still ~900 bytes.
 
->
-> Regards,
-> Shawn
->
->> ---
->>   drivers/net/ethernet/freescale/fec.c |    2 +-
->>   1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
->> index 7b25e9c..1c7aad8 100644
->> --- a/drivers/net/ethernet/freescale/fec.c
->> +++ b/drivers/net/ethernet/freescale/fec.c
->> @@ -990,7 +990,7 @@ static int fec_enet_mii_probe(struct net_device *ndev)
->>   		phy_id = 0;
->>   	}
->>
->> -	snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
->> +	snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_bus_id, phy_id);
->>   	phy_dev = phy_connect(ndev, phy_name,&fec_enet_adjust_link, 0,
->>   			      fep->phy_interface);
->>   	if (IS_ERR(phy_dev)) {
->> --
->> 1.7.5.4
->>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/crypto/sha512_generic.c b/crypto/sha512_generic.c
+index dd0439d..35e7ae7 100644
+--- a/crypto/sha512_generic.c
++++ b/crypto/sha512_generic.c
+@@ -66,16 +66,6 @@ static const u64 sha512_K[80] = {
+ #define s0(x)       (ror64(x, 1) ^ ror64(x, 8) ^ (x >> 7))
+ #define s1(x)       (ror64(x,19) ^ ror64(x,61) ^ (x >> 6))
+
+-static inline void LOAD_OP(int I, u64 *W, const u8 *input)
+-{
+-	W[I] = __be64_to_cpu( ((__be64*)(input))[I] );
+-}
+-
+-static inline void BLEND_OP(int I, u64 *W)
+-{
+-	W[I & 15] += s1(W[(I-2) & 15]) + W[(I-7) & 15] + s0(W[(I-15) & 15]);
+-}
+-
+ static void
+ sha512_transform(u64 *state, const u8 *input)
+ {
+@@ -84,26 +74,29 @@ sha512_transform(u64 *state, const u8 *input)
+ 	int i;
+ 	u64 W[16];
+
+-	/* load the input */
+-        for (i = 0; i < 16; i++)
+-                LOAD_OP(i, W, input);
+-
+ 	/* load the state into our registers */
+ 	a=state[0];   b=state[1];   c=state[2];   d=state[3];
+ 	e=state[4];   f=state[5];   g=state[6];   h=state[7];
+
+ #define SHA512_0_15(i, a, b, c, d, e, f, g, h)			\
+-	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[i];	\
++	{							\
++	u64 tmp = be64_to_cpu(*((__be64 *)input + (i)));	\
++	*(volatile u64 *)&W[i] = tmp;				\
++	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + tmp;	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+ 	d += t1;						\
+-	h = t1 + t2
++	h = t1 + t2;						\
++	}
+
+ #define SHA512_16_79(i, a, b, c, d, e, f, g, h)			\
+-	BLEND_OP(i, W);						\
+-	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + W[(i)&15];\
++	{							\
++	u64 tmp = W[(i) & 15] + s1(W[(i-2) & 15]) + W[(i-7) & 15] +
+s0(W[(i-15) & 15]);\
++	*(volatile u64 *)&W[(i) & 15] = tmp;			\
++	t1 = h + e1(e) + Ch(e, f, g) + sha512_K[i] + tmp;	\
+ 	t2 = e0(a) + Maj(a, b, c);				\
+ 	d += t1;						\
+-	h = t1 + t2
++	h = t1 + t2;						\
++	}
+
+ 	for (i = 0; i < 16; i += 8) {
+ 		SHA512_0_15(i, a, b, c, d, e, f, g, h);
