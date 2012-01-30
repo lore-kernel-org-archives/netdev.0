@@ -1,77 +1,54 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169: fix early Tx queue wake-up.
-Date: Tue, 31 Jan 2012 00:16:41 +0100
-Message-ID: <20120130231641.GA5287@electric-eye.fr.zoreil.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/1] wireless: remove return in _rtl_pci_switch_clk_req
+Date: Mon, 30 Jan 2012 17:35:41 -0600
+Message-ID: <4F27294D.30302@lwfinger.net>
+References: <1327927591-28070-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51237 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404Ab2A3X15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 18:27:57 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: chaoming_li@realsil.com.cn, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Devendra.Naga" <devendra.aaru@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327927591-28070-1-git-send-email-devendra.aaru@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With infinite gratitude to Eric Dumazet for allowing me to identify
-the error.
+On 01/30/2012 06:46 AM, Devendra.Naga wrote:
+> From: "Devendra.Naga"<devendra.aaru@gmail.com>
+>
+> the return value from _rtl_pci_switch_clk_req is not used by any of its callers.
+>
+> Signed-off-by: Devendra.Naga<devendra.aaru@gmail.com>
+> ---
+>   drivers/net/wireless/rtlwifi/pci.c |    3 +--
+>   1 files changed, 1 insertions(+), 2 deletions(-)
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Hayes Wang <hayeswang@realtek.com>
----
- I'll address Micha=C5=82's remarks and add unrelated comments after so=
-me sleep.
+The patch is OK, but the patch subject is bad. You should have "[PATCH] 
+rtlwifi:...". Your patch is for rtlwifi, not wireless.
 
- drivers/net/ethernet/realtek/r8169.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+Larry
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index d039d39..f994606 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5559,7 +5559,18 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_=
-buff *skb,
- 	mmiowb();
-=20
- 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
-+		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
-+		 * not miss a ring update when it notices a stopped queue.
-+		 */
-+		smp_wmb();
- 		netif_stop_queue(dev);
-+		/* Sync with rtl_tx:
-+		 * - publish queue status and cur_tx ring index (write barrier)
-+		 * - refresh dirty_tx ring index (read barrier).
-+		 * May the current thread have a pessimistic view of the ring
-+		 * status and forget to wake up queue, a racing rtl_tx thread
-+		 * can't.
-+		 */
- 		smp_mb();
- 		if (TX_BUFFS_AVAIL(tp) >=3D MAX_SKB_FRAGS)
- 			netif_wake_queue(dev);
-@@ -5659,6 +5670,14 @@ static void rtl_tx(struct net_device *dev, struc=
-t rtl8169_private *tp)
-=20
- 	if (tp->dirty_tx !=3D dirty_tx) {
- 		tp->dirty_tx =3D dirty_tx;
-+		/*
-+		 * Sync with rtl8169_start_xmit:
-+		 * - publish dirty_tx ring index (write barrier)
-+		 * - refresh cur_tx ring index and queue status (read barrier)
-+		 * May the current thread miss the stopped queue condition,
-+		 * a racing xmit thread can only have a right view of the
-+		 * ring status.
-+		 */
- 		smp_mb();
- 		if (netif_queue_stopped(dev) &&
- 		    (TX_BUFFS_AVAIL(tp) >=3D MAX_SKB_FRAGS)) {
---=20
-1.7.6.5
+>
+> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+> index 4326fd1..35f4a0d 100644
+> --- a/drivers/net/wireless/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/rtlwifi/pci.c
+> @@ -198,7 +198,7 @@ static bool _rtl_pci_platform_switch_device_pci_aspm(
+>   }
+>
+>   /*When we set 0x01 to enable clk request. Set 0x0 to disable clk req.*/
+> -static bool _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
+> +static void _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
+>   {
+>   	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+>   	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
+> @@ -208,7 +208,6 @@ static bool _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
+>   	if (rtlhal->hw_type == HARDWARE_TYPE_RTL8192SE)
+>   		udelay(100);
+>
+> -	return true;
+>   }
+>
+>   /*Disable RTL8192SE ASPM&  Disable Pci Bridge ASPM*/
