@@ -1,67 +1,44 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH V3 04/16] netback: switch to per-cpu scratch space.
-Date: Mon, 30 Jan 2012 17:05:00 +0000
-Message-ID: <1327943100.5553.33.camel@leeds.uk.xensource.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	 <1327934734-8908-5-git-send-email-wei.liu2@citrix.com>
-	 <CANX6Dak_1VQ1J8hRK+yd1-FmGOnd75BkNm2uUVKd_TNTiNLtxg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"Ian Campbell" <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Viral Mehta <viral.vkm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:34333 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524Ab2A3REu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:04:50 -0500
-In-Reply-To: <CANX6Dak_1VQ1J8hRK+yd1-FmGOnd75BkNm2uUVKd_TNTiNLtxg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH 2/5] net/hyperv: Correct the assignment in netvsc_recv_callback()
+Date: Mon, 30 Jan 2012 08:33:35 -0800
+Message-ID: <1327941218-12547-2-git-send-email-haiyangz@microsoft.com>
+References: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-01-30 at 16:49 +0000, Viral Mehta wrote:
-> Hi,
-> 
-> On Mon, Jan 30, 2012 at 9:45 AM, Wei Liu <wei.liu2@citrix.com> wrote:
-> >
-> >        skb_queue_head_init(&rxq);
-> > @@ -534,13 +527,16 @@ void xen_netbk_rx_action(struct xen_netbk *netbk)
-> >                        break;
-> >        }
-> >
-> > -       BUG_ON(npo.meta_prod > ARRAY_SIZE(netbk->meta));
-> > +       BUG_ON(npo.meta_prod > MAX_PENDING_REQS);
-> 
-> While you are already here,
-> how about having WARN_ON() ?
-> 
-> >
-> > -       if (!npo.copy_prod)
-> > +       if (!npo.copy_prod) {
-> > +               put_cpu_ptr(gco);
-> > +               put_cpu_ptr(m);
-> >                return;
-> > +       }
-> >
-> > -       BUG_ON(npo.copy_prod > ARRAY_SIZE(netbk->grant_copy_op));
-> > -       ret = HYPERVISOR_grant_table_op(GNTTABOP_copy, &netbk->grant_copy_op,
-> > +       BUG_ON(npo.copy_prod > (2 * XEN_NETIF_RX_RING_SIZE));
-> 
-> And may be here, too...
-> 
-> If there is serious bug, may be system will crash at a later point
-> But, IMHO, WARN_ON() is the correct function for drivers at least.
-> 
+The first assignment to variable "net" is wrong, but overridden by the
+latter assignments. So the bug isn't manifested.
 
-I don't agree. Here BUG_ON means code logic has defects that we haven't
-discovered. I won't take the risk of any undefined behavior.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Further more, there are a bunch of drivers use BUG_ON. A simple grep
-will show you hundreds (even thousands?) of results.
+---
+ drivers/net/hyperv/netvsc_drv.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-
-Wei.
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 1a1ca6c..af25771 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -267,13 +267,10 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ int netvsc_recv_callback(struct hv_device *device_obj,
+ 				struct hv_netvsc_packet *packet)
+ {
+-	struct net_device *net = dev_get_drvdata(&device_obj->device);
++	struct net_device *net;
+ 	struct sk_buff *skb;
+-	struct netvsc_device *net_device;
+-
+-	net_device = hv_get_drvdata(device_obj);
+-	net = net_device->ndev;
+ 
++	net = ((struct netvsc_device *)hv_get_drvdata(device_obj))->ndev;
+ 	if (!net) {
+ 		netdev_err(net, "got receive callback but net device"
+ 			" not initialized yet\n");
+-- 
+1.7.7
