@@ -1,66 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Bug#656476: Sundance network driver (D-Link DFE-580TX) timeouts rendering interface unusable
-Date: Mon, 30 Jan 2012 11:14:07 +0100
-Message-ID: <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
-	 <1327205171.8004.96.camel@deadeye>
-	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
-	 <20120126220640.GO12704@decadent.org.uk>
-	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
-	 <1327811546.5400.291.camel@deadeye>
-	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
-Reply-To: Eric Dumazet <eric.dumazet@gmail.com>, 656476@bugs.debian.org
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Improved handling of IPv6 atomic fragments (FO=0, MF=0)
+Date: Mon, 30 Jan 2012 07:24:22 -0300
+Message-ID: <4F266FD6.4070301@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ben Hutchings <ben@decadent.org.uk>, "Mike ."
- <mike-bugreport@hotmail.com>,  656476@bugs.debian.org, netdev
- <netdev@vger.kernel.org>
-To: Denis Kirjanov <kirjanov@gmail.com>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.656476.B656476.13279184631339@bugs.debian.org>
-In-Reply-To: <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: security@kernel.org, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:44745 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576Ab2A3KY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 05:24:26 -0500
+Received: by yhoo21 with SMTP id o21so1650546yho.19
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 02:24:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 30 janvier 2012 =C3=A0 12:51 +0300, Denis Kirjanov a =C3=A9crit =
-:
-> I'll check this out. After kernel.org was cracked I've missed
-> @kernel.org mail account.
+Folks,
 
+FYI. We have published an IETF I-D that proposes an improved handling of
+IPv6 atomic fragments (IPv6 fragments that have an offset of 0, and MF=0).
 
-At first glance, start_tx() is racy against TX completion.
+The I-D is available here:
+<http://tools.ietf.org/id/draft-gont-6man-ipv6-atomic-fragments-00.txt>
 
-It does :
+The aforementioned behaviour eliminates fragmentation-based attacks
+against traffic that employs atomic fragments, and has already been
+implemented by OpenBSD.
 
-        if (np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 1 &&
-            !netif_queue_stopped(dev)) {
-                /* do nothing */
-        } else {
-                netif_stop_queue (dev);
-        }
-
-So it can call netif_stop_queue() while TX completion handler did a
-cleanup of all queued packets right before.
-
-
-Note intr_handler() doesnt hold the queue spinlock when it does :
-
-                if (netif_queue_stopped(dev) &&
-                        np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 4) {
-                        /* The ring is no longer full, clear busy flag. *=
-/
-                        netif_wake_queue (dev);
-                }
-
-
-
-
-
---=20
-To UNSUBSCRIBE, email to debian-bugs-dist-REQUEST@lists.debian.org
-with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian=
-.org
+Thanks,
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
