@@ -1,265 +1,47 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [net-next PATCH] be2net: add descriptions for stat counters reported via ethtool
-Date: Mon, 30 Jan 2012 11:47:39 +0530
-Message-ID: <1327904259-14583-1-git-send-email-sathya.perla@emulex.com>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: Re: [PATCH] tcp: fix tcp_trim_head() to adjust segment count with skb MSS
+Date: Sun, 29 Jan 2012 22:49:40 -0800
+Message-ID: <CAB_+Fg43M7-5=x60KbCK7kOkr5x-EZpuWkN8Zx8jedHHWWE19A@mail.gmail.com>
+References: <1327807786-27185-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:37366 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751993Ab2A3GUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 01:20:30 -0500
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:36543 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750782Ab2A3Gtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 01:49:41 -0500
+Received: by obcva7 with SMTP id va7so3563886obc.19
+        for <netdev@vger.kernel.org>; Sun, 29 Jan 2012 22:49:40 -0800 (PST)
+In-Reply-To: <1327807786-27185-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also rename a few counters appropritely and delete 2 counters that are not
-implemented in HW.
+On Sat, Jan 28, 2012 at 7:29 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>
+> This commit fixes tcp_trim_head() to recalculate the number of
+> segments in the skb with the skb's existing MSS, so trimming the head
+> causes the skb segment count to be monotonically non-increasing - it
+> should stay the same or go down, but not increase.
+>
+> Previously tcp_trim_head() used the current MSS of the connection. But
+> if there was a decrease in MSS between original transmission and ACK
+> (e.g. due to PMTUD), this could cause tcp_trim_head() to
+> counter-intuitively increase the segment count when trimming bytes off
+> the head of an skb. This violated assumptions in tcp_tso_acked() that
+> tcp_trim_head() only decreases the packet count, so that packets_acked
+> in tcp_tso_acked() could underflow, leading tcp_clean_rtx_queue() to
+> pass u32 pkts_acked values as large as 0xffffffff to
+> ca_ops->pkts_acked().
+>
+> As an aside, if tcp_trim_head() had really wanted the skb to reflect
+> the current MSS, it should have called tcp_set_skb_tso_segs()
+> unconditionally, since a decrease in MSS would mean that a
+> single-packet skb should now be sliced into multiple segments.
+>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-vlan_mismatch_drops does not exist in BE3 and is accounted for in
-address_mismatch_drops. Do the same thing for BE2 and Lancer.
-
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h         |    3 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   10 ++--
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   64 ++++++++++++++++++++++-
- drivers/net/ethernet/emulex/benet/be_main.c    |   15 +++---
- 4 files changed, 74 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 453d486..74aa148 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -265,7 +265,6 @@ struct be_drv_stats {
- 	u32 rx_drops_no_erx_descr;
- 	u32 rx_drops_no_tpre_descr;
- 	u32 rx_drops_too_many_frags;
--	u32 rx_drops_invalid_ring;
- 	u32 forwarded_packets;
- 	u32 rx_drops_mtu;
- 	u32 rx_crc_errors;
-@@ -276,7 +275,7 @@ struct be_drv_stats {
- 	u32 rx_in_range_errors;
- 	u32 rx_out_range_errors;
- 	u32 rx_frame_too_long;
--	u32 rx_address_match_errors;
-+	u32 rx_address_mismatch_drops;
- 	u32 rx_dropped_too_small;
- 	u32 rx_dropped_too_short;
- 	u32 rx_dropped_header_too_small;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index dca8924..bbd012b 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -592,8 +592,8 @@ struct be_port_rxf_stats_v0 {
- 	u32 rx_in_range_errors;	/* dword 10*/
- 	u32 rx_out_range_errors;	/* dword 11*/
- 	u32 rx_frame_too_long;	/* dword 12*/
--	u32 rx_address_match_errors;	/* dword 13*/
--	u32 rx_vlan_mismatch;	/* dword 14*/
-+	u32 rx_address_mismatch_drops;	/* dword 13*/
-+	u32 rx_vlan_mismatch_drops;	/* dword 14*/
- 	u32 rx_dropped_too_small;	/* dword 15*/
- 	u32 rx_dropped_too_short;	/* dword 16*/
- 	u32 rx_dropped_header_too_small;	/* dword 17*/
-@@ -799,8 +799,8 @@ struct lancer_pport_stats {
- 	u32 rx_control_frames_unknown_opcode_hi;
- 	u32 rx_in_range_errors;
- 	u32 rx_out_of_range_errors;
--	u32 rx_address_match_errors;
--	u32 rx_vlan_mismatch_errors;
-+	u32 rx_address_mismatch_drops;
-+	u32 rx_vlan_mismatch_drops;
- 	u32 rx_dropped_too_small;
- 	u32 rx_dropped_too_short;
- 	u32 rx_dropped_header_too_small;
-@@ -1384,7 +1384,7 @@ struct be_port_rxf_stats_v1 {
- 	u32 rx_in_range_errors;
- 	u32 rx_out_range_errors;
- 	u32 rx_frame_too_long;
--	u32 rx_address_match_errors;
-+	u32 rx_address_mismatch_drops;
- 	u32 rx_dropped_too_small;
- 	u32 rx_dropped_too_short;
- 	u32 rx_dropped_header_too_small;
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 6db6b6a..0a5ee22 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -42,15 +42,42 @@ static const struct be_ethtool_stat et_stats[] = {
- 	{DRVSTAT_INFO(rx_alignment_symbol_errors)},
- 	{DRVSTAT_INFO(rx_pause_frames)},
- 	{DRVSTAT_INFO(rx_control_frames)},
-+	/* Received packets dropped when the Ethernet length field
-+	 * is not equal to the actual Ethernet data length.
-+	 */
- 	{DRVSTAT_INFO(rx_in_range_errors)},
-+	/* Received packets dropped when their length field is >= 1501 bytes
-+	 * and <= 1535 bytes.
-+	 */
- 	{DRVSTAT_INFO(rx_out_range_errors)},
-+	/* Received packets dropped when they are longer than 9216 bytes */
- 	{DRVSTAT_INFO(rx_frame_too_long)},
--	{DRVSTAT_INFO(rx_address_match_errors)},
-+	/* Received packets dropped when they don't pass the unicast or
-+	 * multicast address filtering.
-+	 */
-+	{DRVSTAT_INFO(rx_address_mismatch_drops)},
-+	/* Received packets dropped when IP packet length field is less than
-+	 * the IP header length field.
-+	 */
- 	{DRVSTAT_INFO(rx_dropped_too_small)},
-+	/* Received packets dropped when IP length field is greater than
-+	 * the actual packet length.
-+	 */
- 	{DRVSTAT_INFO(rx_dropped_too_short)},
-+	/* Received packets dropped when the IP header length field is less
-+	 * than 5.
-+	 */
- 	{DRVSTAT_INFO(rx_dropped_header_too_small)},
-+	/* Received packets dropped when the TCP header length field is less
-+	 * than 5 or the TCP header length + IP header length is more
-+	 * than IP packet length.
-+	 */
- 	{DRVSTAT_INFO(rx_dropped_tcp_length)},
- 	{DRVSTAT_INFO(rx_dropped_runt)},
-+	/* Number of received packets dropped when a fifo for descriptors going
-+	 * into the packet demux block overflows. In normal operation, this
-+	 * fifo must never overflow.
-+	 */
- 	{DRVSTAT_INFO(rxpp_fifo_overflow_drop)},
- 	{DRVSTAT_INFO(rx_input_fifo_overflow_drop)},
- 	{DRVSTAT_INFO(rx_ip_checksum_errs)},
-@@ -59,16 +86,35 @@ static const struct be_ethtool_stat et_stats[] = {
- 	{DRVSTAT_INFO(tx_pauseframes)},
- 	{DRVSTAT_INFO(tx_controlframes)},
- 	{DRVSTAT_INFO(rx_priority_pause_frames)},
-+	/* Received packets dropped when an internal fifo going into
-+	 * main packet buffer tank (PMEM) overflows.
-+	 */
- 	{DRVSTAT_INFO(pmem_fifo_overflow_drop)},
- 	{DRVSTAT_INFO(jabber_events)},
-+	/* Received packets dropped due to lack of available HW packet buffers
-+	 * used to temporarily hold the received packets.
-+	 */
- 	{DRVSTAT_INFO(rx_drops_no_pbuf)},
--	{DRVSTAT_INFO(rx_drops_no_txpb)},
-+	/* Received packets dropped due to input receive buffer
-+	 * descriptor fifo overflowing.
-+	 */
- 	{DRVSTAT_INFO(rx_drops_no_erx_descr)},
-+	/* Packets dropped because the internal FIFO to the offloaded TCP
-+	 * receive processing block is full. This could happen only for
-+	 * offloaded iSCSI or FCoE trarffic.
-+	 */
- 	{DRVSTAT_INFO(rx_drops_no_tpre_descr)},
-+	/* Received packets dropped when they need more than 8
-+	 * receive buffers. This cannot happen as the driver configures
-+	 * 2048 byte receive buffers.
-+	 */
- 	{DRVSTAT_INFO(rx_drops_too_many_frags)},
--	{DRVSTAT_INFO(rx_drops_invalid_ring)},
- 	{DRVSTAT_INFO(forwarded_packets)},
-+	/* Received packets dropped when the frame length
-+	 * is more than 9018 bytes
-+	 */
- 	{DRVSTAT_INFO(rx_drops_mtu)},
-+	/* Number of packets dropped due to random early drop function */
- 	{DRVSTAT_INFO(eth_red_drops)},
- 	{DRVSTAT_INFO(be_on_die_temperature)}
- };
-@@ -84,8 +130,15 @@ static const struct be_ethtool_stat et_rx_stats[] = {
- 	{DRVSTAT_RX_INFO(rx_events)},
- 	{DRVSTAT_RX_INFO(rx_compl)},
- 	{DRVSTAT_RX_INFO(rx_mcast_pkts)},
-+	/* Number of page allocation failures while posting receive buffers
-+	 * to HW.
-+	 */
- 	{DRVSTAT_RX_INFO(rx_post_fail)},
-+	/* Recevied packets dropped due to skb allocation failure */
- 	{DRVSTAT_RX_INFO(rx_drops_no_skbs)},
-+	/* Received packets dropped due to lack of available fetched buffers
-+	 * posted by the driver.
-+	 */
- 	{DRVSTAT_RX_INFO(rx_drops_no_frags)}
- };
- #define ETHTOOL_RXSTATS_NUM (ARRAY_SIZE(et_rx_stats))
-@@ -97,9 +150,14 @@ static const struct be_ethtool_stat et_tx_stats[] = {
- 	{DRVSTAT_TX_INFO(tx_compl)}, /* If moving this member see above note */
- 	{DRVSTAT_TX_INFO(tx_bytes)},
- 	{DRVSTAT_TX_INFO(tx_pkts)},
-+	/* Number of skbs queued for trasmission by the driver */
- 	{DRVSTAT_TX_INFO(tx_reqs)},
-+	/* Number of TX work request blocks DMAed to HW */
- 	{DRVSTAT_TX_INFO(tx_wrbs)},
- 	{DRVSTAT_TX_INFO(tx_compl)},
-+	/* Number of times the TX queue was stopped due to lack
-+	 * of spaces in the TXQ.
-+	 */
- 	{DRVSTAT_TX_INFO(tx_stops)}
- };
- #define ETHTOOL_TXSTATS_NUM (ARRAY_SIZE(et_tx_stats))
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 0fbf365..1395f80 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -286,7 +286,9 @@ static void populate_be2_stats(struct be_adapter *adapter)
- 	drvs->rx_input_fifo_overflow_drop = port_stats->rx_input_fifo_overflow;
- 	drvs->rx_dropped_header_too_small =
- 		port_stats->rx_dropped_header_too_small;
--	drvs->rx_address_match_errors = port_stats->rx_address_match_errors;
-+	drvs->rx_address_mismatch_drops =
-+					port_stats->rx_address_mismatch_drops +
-+					port_stats->rx_vlan_mismatch_drops;
- 	drvs->rx_alignment_symbol_errors =
- 		port_stats->rx_alignment_symbol_errors;
- 
-@@ -298,9 +300,7 @@ static void populate_be2_stats(struct be_adapter *adapter)
- 	else
- 		drvs->jabber_events = rxf_stats->port0_jabber_events;
- 	drvs->rx_drops_no_pbuf = rxf_stats->rx_drops_no_pbuf;
--	drvs->rx_drops_no_txpb = rxf_stats->rx_drops_no_txpb;
- 	drvs->rx_drops_no_erx_descr = rxf_stats->rx_drops_no_erx_descr;
--	drvs->rx_drops_invalid_ring = rxf_stats->rx_drops_invalid_ring;
- 	drvs->forwarded_packets = rxf_stats->forwarded_packets;
- 	drvs->rx_drops_mtu = rxf_stats->rx_drops_mtu;
- 	drvs->rx_drops_no_tpre_descr = rxf_stats->rx_drops_no_tpre_descr;
-@@ -337,7 +337,7 @@ static void populate_be3_stats(struct be_adapter *adapter)
- 		port_stats->rx_dropped_header_too_small;
- 	drvs->rx_input_fifo_overflow_drop =
- 		port_stats->rx_input_fifo_overflow_drop;
--	drvs->rx_address_match_errors = port_stats->rx_address_match_errors;
-+	drvs->rx_address_mismatch_drops = port_stats->rx_address_mismatch_drops;
- 	drvs->rx_alignment_symbol_errors =
- 		port_stats->rx_alignment_symbol_errors;
- 	drvs->rxpp_fifo_overflow_drop = port_stats->rxpp_fifo_overflow_drop;
-@@ -345,9 +345,7 @@ static void populate_be3_stats(struct be_adapter *adapter)
- 	drvs->tx_controlframes = port_stats->tx_controlframes;
- 	drvs->jabber_events = port_stats->jabber_events;
- 	drvs->rx_drops_no_pbuf = rxf_stats->rx_drops_no_pbuf;
--	drvs->rx_drops_no_txpb = rxf_stats->rx_drops_no_txpb;
- 	drvs->rx_drops_no_erx_descr = rxf_stats->rx_drops_no_erx_descr;
--	drvs->rx_drops_invalid_ring = rxf_stats->rx_drops_invalid_ring;
- 	drvs->forwarded_packets = rxf_stats->forwarded_packets;
- 	drvs->rx_drops_mtu = rxf_stats->rx_drops_mtu;
- 	drvs->rx_drops_no_tpre_descr = rxf_stats->rx_drops_no_tpre_descr;
-@@ -380,13 +378,14 @@ static void populate_lancer_stats(struct be_adapter *adapter)
- 	drvs->rx_dropped_header_too_small =
- 				pport_stats->rx_dropped_header_too_small;
- 	drvs->rx_input_fifo_overflow_drop = pport_stats->rx_fifo_overflow;
--	drvs->rx_address_match_errors = pport_stats->rx_address_match_errors;
-+	drvs->rx_address_mismatch_drops =
-+					pport_stats->rx_address_mismatch_drops +
-+					pport_stats->rx_vlan_mismatch_drops;
- 	drvs->rx_alignment_symbol_errors = pport_stats->rx_symbol_errors_lo;
- 	drvs->rxpp_fifo_overflow_drop = pport_stats->rx_fifo_overflow;
- 	drvs->tx_pauseframes = pport_stats->tx_pause_frames_lo;
- 	drvs->tx_controlframes = pport_stats->tx_control_frames_lo;
- 	drvs->jabber_events = pport_stats->rx_jabbers;
--	drvs->rx_drops_invalid_ring = pport_stats->rx_drops_invalid_queue;
- 	drvs->forwarded_packets = pport_stats->num_forwards_lo;
- 	drvs->rx_drops_mtu = pport_stats->rx_drops_mtu_lo;
- 	drvs->rx_drops_too_many_frags =
--- 
-1.7.4
+Acked-by: Nandita Dukkipati <nanditad@google.com>
