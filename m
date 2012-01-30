@@ -1,50 +1,60 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH V2] net/sched: =?UTF-8?Q?sch=5Fplug=20-=20Queue=20traf?=  =?UTF-8?Q?fic=20until=20an=20explicit=20release=20command?=
-Date: Mon, 30 Jan 2012 15:54:52 +0100
-Message-ID: <313929ea4dca3c8fd6948797e03121a8@localhost>
-References: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
- <1327934756.2243.3.camel@mojatatu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Sundance network driver (D-Link DFE-580TX) timeouts rendering
+ interface unusable
+Date: Mon, 30 Jan 2012 15:57:35 +0100
+Message-ID: <1327935455.2297.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
+	 <1327205171.8004.96.camel@deadeye>
+	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
+	 <20120126220640.GO12704@decadent.org.uk>
+	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
+	 <1327811546.5400.291.camel@deadeye>
+	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
+	 <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327932311.5400.429.camel@deadeye>
+	 <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327934477.5400.448.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Shriram Rajagopalan <rshriram@cs.ubc.ca>, <netdev@vger.kernel.org>,
-	Brendan Cully <brendan@cs.ubc.ca>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	"Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:47147 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751742Ab2A3Oyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:54:53 -0500
-In-Reply-To: <1327934756.2243.3.camel@mojatatu>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60696 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753663Ab2A3O5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:57:40 -0500
+Received: by bkas6 with SMTP id s6so3245119bka.19
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:57:39 -0800 (PST)
+In-Reply-To: <1327934477.5400.448.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le lundi 30 janvier 2012 =C3=A0 14:41 +0000, Ben Hutchings a =C3=A9crit=
+ :
+> On Mon, 2012-01-30 at 15:28 +0100, Eric Dumazet wrote:
+> > Le lundi 30 janvier 2012 =C3=A0 14:05 +0000, Ben Hutchings a =C3=A9=
+crit :
+> >=20
+> > > Yes, I spotted that.  But no descriptors are pushed to the hardwa=
+re
+> > > here; that's done in the driver's TX tasklet.  Although... maybe =
+that
+> > > can run immediately when scheduled from here?  I've never had to =
+deal
+> > > with tasklets so I really don't know their semantics.
+> >=20
+> > Thats probable on SMP ...
+>=20
+> The bug report is for a UP system running a kernel built with
+> SMP-alternatives.
 
-On Mon, 30 Jan 2012 09:45:56 -0500, Jamal Hadi Salim wrote:
-
-
-
-> Please address the comment from Hagen on the printk (kill it).
-
-> Other than that i think this simple enough and non-intrusive
-
-> to other users that you can add an Acked-by from me.
-
-> It will be nice to get it to be generic as per Hagen's and my
-
-> earlier comments.
-
-
-
-I thought about sch_plug a second time and I like the idea of a user-space
-
-based flow-controlled queue. But as I wrote in my first email: the current
-
-implementation is a little bit XEN specific. Make it more general
-
-(plug/unplug, plug/packet-based-unplug) and it is a great contribution.
+Hmm, TX _completion_ is not run from tasklet but hardware IRQ, this is
+why I added the spin_lock_irqsave().
 
 
+Tasklet fires the TX, but hardware IRQ does the TX completion part.
 
-Hagen
+This driver is ... interesting :)
