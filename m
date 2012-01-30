@@ -1,34 +1,31 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
- TCP streams
-Date: Mon, 30 Jan 2012 11:00:19 -0800
-Message-ID: <CAL1RGDVcz5N7u2T-4RV4uqbYjq+Q2vKeuW+ha=DN14Rx5QRkQw@mail.gmail.com>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
- <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
- <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>
- <36F7E4A28C18BE4DB7C86058E7B607240BE9687A@MTRDAG01.mtl.com>
- <CAL1RGDXjjQ-PhCv-9WJX45NuovC9XiS=_7507OsyvLW_gBaJ5g@mail.gmail.com> <CAJZOPZLhgDysSASyMLNpOrmGzEyfyHAQjGLVei6ZNSFfb7TM1w@mail.gmail.com>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: Re: [PATCH] Deinline __nlmsg_put and genlmsg_put. -7k code on i386
+ defconfig
+Date: Mon, 30 Jan 2012 20:37:00 +0100
+Message-ID: <4F26F15C.9080808@redhat.com>
+References: <4F2597D3.6050606@redhat.com> <20120130.131104.1782962680660646529.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJZOPZLhgDysSASyMLNpOrmGzEyfyHAQjGLVei6ZNSFfb7TM1w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120130.131104.1782962680660646529.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2012 at 10:16 AM, Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> Realistically if we add this hack to ipoib then we'll have that ugly
->> memset in our fast path forever.
+On 01/30/2012 07:11 PM, David Miller wrote:
+> This doesn't apply to net-next, it appears it was corrupted by your
+> email client:
 >
-> forever, why? once a clever fix is found, we can revert that memset, etc.
+>> -static __inline__ struct nlmsghdr *
+>> -__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len,
+>> -int flags)
+>
+> It appears to have chopped up a long line here, for example.
 
-Because no one is ever going to work on the right fix if we add a
-bandaid to ipoib now.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I rediffed the patch against net-next, compile-tested it and going
+to send it using git-send-email in a minute.
+
+-- 
+vda
