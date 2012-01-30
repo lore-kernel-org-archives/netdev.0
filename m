@@ -1,139 +1,103 @@
-From: Stefan Gula <steweg@ynet.sk>
-Subject: [patch v3, iproute2 version 3.2.0] Source mode for macvlan
- interface
-Date: Mon, 30 Jan 2012 14:14:00 +0100 (CET)
-Message-ID: <10839102.1251327929240954.JavaMail.root@5-MeO-DMT.ynet.sk>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Sundance network driver (D-Link DFE-580TX) timeouts rendering
+ interface unusable
+Date: Mon, 30 Jan 2012 14:05:11 +0000
+Message-ID: <1327932311.5400.429.camel@deadeye>
+References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
+	 <1327205171.8004.96.camel@deadeye>
+	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
+	 <20120126220640.GO12704@decadent.org.uk>
+	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
+	 <1327811546.5400.291.camel@deadeye>
+	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
+	 <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-uAAohAXToUvC0DWtGl6I"
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	"Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:56150 "EHLO
-	5-meo-dmt.ynet.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751733Ab2A3NR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 08:17:29 -0500
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50957 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752495Ab2A3OFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:05:19 -0500
+In-Reply-To: <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Gula <steweg@gmail.com>
 
-Adjusting iproute2 utility to support new macvlan link type mode
-called "source". Example of commands that can be applied:
- ip link add link eth0 name macvlan0 type macvlan mode source
- ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
- ip link set link macvlan0 type macvlan macaddr del 00:11:11:11:11:11
- ip link set link macvlan0 type macvlan macaddr flush
+--=-uAAohAXToUvC0DWtGl6I
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Stefan Gula <steweg@gmail.com>
+On Mon, 2012-01-30 at 11:14 +0100, Eric Dumazet wrote:
+> Le lundi 30 janvier 2012 =C3=A0 12:51 +0300, Denis Kirjanov a =C3=A9crit =
+:
+> > I'll check this out. After kernel.org was cracked I've missed
+> > @kernel.org mail account.
+>=20
+>=20
+> At first glance, start_tx() is racy against TX completion.
+>=20
+> It does :
+>=20
+>         if (np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 1 &&
+>             !netif_queue_stopped(dev)) {
+>                 /* do nothing */
+>         } else {
+>                 netif_stop_queue (dev);
+>         }
+>=20
+> So it can call netif_stop_queue() while TX completion handler did a
+> cleanup of all queued packets right before.
 
----
+Yes, I spotted that.  But no descriptors are pushed to the hardware
+here; that's done in the driver's TX tasklet.  Although... maybe that
+can run immediately when scheduled from here?  I've never had to deal
+with tasklets so I really don't know their semantics.
 
-V2 changes: - removed more bogus lines from if_link.h not related to this patch
+Ben.
 
-diff -uprN iproute2-3.2.0/Config iproute2-3.2.0-my/Config
---- iproute2-3.2.0/Config	1970-01-01 00:00:00.000000000 +0000
-+++ iproute2-3.2.0-my/Config	2012-01-27 14:31:53.000000000 +0000
-@@ -0,0 +1,3 @@
-+# Generated config based on /usr/src/iproute2-3.2.0/include
-+TC_CONFIG_XT_OLD_H:=y
-+IPT_LIB_DIR:=/lib/xtables
-diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-my/include/linux/if_link.h
---- iproute2-3.2.0/include/linux/if_link.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-my/include/linux/if_link.h	2012-01-30 13:15:40.000000000 +0000
-@@ -250,6 +250,9 @@ struct ifla_vlan_qos_mapping {
- enum {
- 	IFLA_MACVLAN_UNSPEC,
- 	IFLA_MACVLAN_MODE,
-+	IFLA_MACVLAN_MACADDR_MODE,
-+	IFLA_MACVLAN_MACADDR,
-+	IFLA_MACVLAN_MACADDR_DATA,
- 	__IFLA_MACVLAN_MAX,
- };
- 
-@@ -260,6 +263,13 @@ enum macvlan_mode {
- 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
- 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
- 	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
-+	MACVLAN_MODE_SOURCE  = 16,/* use source MAC address list to assign */
-+};
-+
-+enum macvlan_macaddr_mode {
-+	MACVLAN_MACADDR_ADD,
-+	MACVLAN_MACADDR_DEL,
-+	MACVLAN_MACADDR_FLUSH,
- };
- 
- /* SR-IOV virtual function management section */
-diff -uprN iproute2-3.2.0/ip/iplink_macvlan.c iproute2-3.2.0-my/ip/iplink_macvlan.c
---- iproute2-3.2.0/ip/iplink_macvlan.c	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-my/ip/iplink_macvlan.c	2012-01-30 12:57:19.000000000 +0000
-@@ -22,15 +22,16 @@
- 
- static void explain(void)
- {
--	fprintf(stderr,
--		"Usage: ... macvlan mode { private | vepa | bridge | passthru }\n"
--	);
-+	fprintf(stderr, "Usage: ... macvlan mode MODE MODE_OPTS\n"
-+		"MODE: private | vepa | bridge | passthru | source\n"
-+		"MODE_OPTS: for mode \"source\":\n"
-+		"\tmacaddr { add <macaddr> | del <macaddr> | flush }\n");
- }
- 
- static int mode_arg(void)
- {
-         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
--		"\"vepa\", \"bridge\" or \"passthru\" \n");
-+		"\"vepa\", \"bridge\", \"passthru\" or \"source\"\n");
-         return -1;
- }
- 
-@@ -50,10 +51,40 @@ static int macvlan_parse_opt(struct link
- 				mode = MACVLAN_MODE_BRIDGE;
- 			else if (strcmp(*argv, "passthru") == 0)
- 				mode = MACVLAN_MODE_PASSTHRU;
-+			else if (strcmp(*argv, "source") == 0)
-+				mode = MACVLAN_MODE_SOURCE;
- 			else
- 				return mode_arg();
- 
- 			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
-+		} else if (matches(*argv, "macaddr") == 0) {
-+			int len;
-+			__u32 mac_mode = 0;
-+			char abuf[32];
-+
-+			NEXT_ARG();
-+
-+			if (strcmp(*argv, "add") == 0) {
-+				mac_mode = MACVLAN_MACADDR_ADD;
-+			} else if (strcmp(*argv, "del") == 0) {
-+				mac_mode = MACVLAN_MACADDR_DEL;
-+			} else if (strcmp(*argv, "flush") == 0) {
-+				mac_mode = MACVLAN_MACADDR_FLUSH;
-+			} else {
-+				explain();
-+				return -1;
-+			}
-+			addattr32(n, 1024, IFLA_MACVLAN_MACADDR_MODE, mac_mode);
-+
-+			if (mac_mode != MACVLAN_MACADDR_FLUSH) {
-+				NEXT_ARG();
-+
-+				len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+				if (len < 0)
-+					return -1;
-+				addattr_l(n, 1024, IFLA_MACVLAN_MACADDR, abuf,
-+					  len);
-+			}
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -85,6 +116,7 @@ static void macvlan_print_opt(struct lin
- 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
- 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
- 		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
-+		: mode == MACVLAN_MODE_SOURCE  ? "source"
- 		:				 "unknown");
- }
- 
+> Note intr_handler() doesnt hold the queue spinlock when it does :
+>=20
+>                 if (netif_queue_stopped(dev) &&
+>                         np->cur_tx - np->dirty_tx < TX_QUEUE_LEN - 4) {
+>                         /* The ring is no longer full, clear busy flag. *=
+/
+>                         netif_wake_queue (dev);
+>                 }
+>=20
+>=20
+>=20
+
+--=20
+Ben Hutchings
+Lowery's Law:
+             If it jams, force it. If it breaks, it needed replacing anyway=
+.
+
+--=-uAAohAXToUvC0DWtGl6I
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATyajl+e/yOyVhhEJAQrccBAAwxXUb4eevylb/PSj1IoP//L7fwS2EjTG
+QVEX8sCIZAyY5X4/tq/V0vOVollOP9vV+AmgulsyFNkEjnA4RLR/FloKAsRkybFq
+iCko5M7LD1eNee8DSunBooefhSeEzoVnTvsmjDYtPmPymm1JyaytKDsYHoklEwkL
+3XVquILC9dgdpW6pIusrfw24EQ/WXXA0PMZTiDkhT35U72VeSLYJrrCO90tpKZ4H
+GpZB7btLBqshwIvl+PEYGLrrS0CuDsbAfJUbhg2dr6sVXVfxtSxTwpI4vL9lgtab
+eDx634augpoiaRQ8PlypUhgK6C1vUTTMSVwxd6W03tuRiXwKpgxWbzcX9Qm6JlNE
+X8UF/zNpa7vSAoko9v81ZFMfFTqV8nJYvQD0nEAzNACVwIu6nG2FiAuhXbp88CO1
+kpolDgL99WNR7H+GvEB8EM1EhoXAsTEFA1k94ZL9Zi0eBiKN46JMEPM1g126gDpb
+osPAxZpxS5lwyVHo3hYTgKSpenEY1/QfmfUgcrSkD2LtFuCvT3SVkh1nZ0bBQdGg
+l0ZAuTmM3xxmNfotm3d8d9IE5wft0UW9wUCuBEPIfD94cISEMhFzfg4YoLdLp7PN
+ulo845i7HBWdIcpytJuh2UOQv6tQrx6ZzVyWNw08rmEFho5jUqlDBChWweARiqtQ
+p2hdA4nAOFM=
+=MIN1
+-----END PGP SIGNATURE-----
+
+--=-uAAohAXToUvC0DWtGl6I--
