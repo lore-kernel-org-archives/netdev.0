@@ -1,27 +1,36 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH 24/29] sysctl: Replace root_list with links between
- sysctl_table_sets.
-Date: Mon, 30 Jan 2012 12:51:13 -0500
-Message-ID: <20120130175112.GA20380@redhat.com>
-References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
- <1327639925-12920-24-git-send-email-ebiederm@xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] ethernet/pch_gbe: Change company name OKI
+ SEMICONDUCTOR to LAPIS Semiconductor
+Date: Mon, 30 Jan 2012 12:52:19 -0500 (EST)
+Message-ID: <20120130.125219.2077768183344205118.davem@davemloft.net>
+References: <1327643159-1302-1-git-send-email-tomoya.rohm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Damien Millescamps <damien.millescamps@6wind.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1327639925-12920-24-git-send-email-ebiederm@xmission.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, qi.wang@intel.com, yong.y.wang@intel.com,
+	joel.clark@intel.com, kok.howg.ewe@intel.com
+To: tomoya.rohm@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327643159-1302-1-git-send-email-tomoya.rohm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 26, 2012 at 08:52:00PM -0800, Eric W. Biederman wrote:
 
- > +	memset(set, sizeof(*set), 0);
+Sorry, we're not going to get into this pattern where we move drivers
+around in the tree every time the company that produces the chip
+changes it's name.
 
-checkpatch should warn you about this mistake.
+If we did this then certain drivers will have moved 5 or more times
+since the beginning of the Linux kernel, and there is nothing to be
+gained from that except confusion.
 
-	Dave
+In fact more valuable thing to do is to refer to both the old and the
+new name, rather than just the new one or just the old one.  Because
+you now have two sets of users, one very large set which is familiar
+with the old name and a smaller set which will only know about the new
+name.
+
+Frankly, I would just leave everything alone except perhaps adding a
+mention of the new name (and not deleting the old name) in the Kconfig
+help text.
