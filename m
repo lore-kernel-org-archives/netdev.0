@@ -1,52 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Mon, 30 Jan 2012 13:07:17 -0500 (EST)
-Message-ID: <20120130.130717.348683183628737352.davem@davemloft.net>
-References: <4EE32076.2020706@profihost.ag>
-	<4F26571E.1010002@profihost.ag>
-	<20120130171215.GA11508@kroah.com>
+Subject: Re: [PATCH v2] Allow ipv6 proxies and arp proxies be shown with
+ iproute2
+Date: Mon, 30 Jan 2012 13:08:41 -0500 (EST)
+Message-ID: <20120130.130841.766082811985560157.davem@davemloft.net>
+References: <1327652938-37078-1-git-send-email-antonz@parallels.com>
+	<20120127103521.GA21240@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: s.priebe@profihost.ag, eric.dumazet@gmail.com, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: greg@kroah.com
+Cc: antonz@parallels.com, xemul@parallels.com, devel@openvz.org,
+	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+To: tgraf@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40368 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40384 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784Ab2A3SIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:08:46 -0500
-In-Reply-To: <20120130171215.GA11508@kroah.com>
+	with ESMTP id S1752055Ab2A3SKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:10:33 -0500
+In-Reply-To: <20120127103521.GA21240@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Mon, 30 Jan 2012 09:12:15 -0800
+From: Thomas Graf <tgraf@infradead.org>
+Date: Fri, 27 Jan 2012 05:35:21 -0500
 
-> On Mon, Jan 30, 2012 at 09:38:54AM +0100, Stefan Priebe - Profihost AG wrote:
->> Hi David, Hi Greg, Hi List,
+> On Fri, Jan 27, 2012 at 12:28:58PM +0400, Tony Zelenoff wrote:
+>> Add ability to return neighbour proxies list to caller if
+>> it sent full ndmsg structure and has NTF_PROXY flag set.
 >> 
->> Am 10.12.2011 10:03, schrieb Stefan Priebe:
->> > Am 09.12.2011 20:21, schrieb David Miller:
->> >> From: Stefan Priebe<s.priebe@profihost.ag>
->> >> Date: Fri, 09 Dec 2011 20:01:26 +0100
->> >>
->> >>> any news on that? Systems still crashing every now and then. 3.0.13
->> >>> was released today but i haven't seen any of them.
->> >>
->> >> I only had time to submit these fixes for 3.1.x-stable, you'll just
->> >> have to be incredibly patient.
+>> Before this patch (and before iproute2 patches):
+>> $ ip neigh add proxy 2001::1 dev eth0
+>> $ ip -6 neigh show
+>> $
 >> 
->> this bug sadly still makes the actual STABLE tree of the kernel
->> unusable. I mean nearly everbody uses TCP/IP.
+>> After it and with applied iproute2 patches:
+>> $ ip neigh add proxy 2001::1 dev eth0
+>> $ ip -6 neigh show
+>> 2001::1 dev eth0  proxy
+>> $
+>> 
+>> Compatibility with old versions of iproute2 is not broken,
+>> kernel checks for incoming structure size and properly
+>> works if old structure is came.
+>> 
+>> [v2]
+>> * changed comments style.
+>> * removed useless line with continue and curly bracket.
+>> * changed incoming message size check from equal to more or
+>>   equal.
+>> 
+>> CC: davem@davemloft.net
+>> CC: kuznet@ms2.inr.ac.ru
+>> CC: netdev@vger.kernel.org
+>> CC: xemul@parallels.com
+>> Signed-off-by: Tony Zelenoff <antonz@parallels.com>
 > 
-> "this bug"?
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-Actually, like Greg, I cannot figure out which fix you are referring
-to.
-
-You haven't provided enough context, and even searching into the
-mailing list archives I cannot find a link into the real history of
-this discussion thread.
+Applied, thanks.
