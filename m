@@ -1,54 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 2/2] sfc: Use a more sensible cast in
- efx_rx_buf_offset()
-Date: Mon, 30 Jan 2012 18:22:19 +0000
-Message-ID: <1327947739.2595.9.camel@bwh-desktop>
-References: <1327947627.2595.7.camel@bwh-desktop>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: Regression in skge that started around acb42a3 (so past v3.3-rc1)
+Date: Mon, 30 Jan 2012 13:22:30 -0500
+Message-ID: <20120130182230.GA4122@phenom.dumpdata.com>
+References: <20120130155816.GA1400@phenom.dumpdata.com>
+ <20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
+ <20120130175738.GA4002@phenom.dumpdata.com>
+ <20120130.130259.1190745234966440677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26056 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753315Ab2A3SWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:22:22 -0500
-In-Reply-To: <1327947627.2595.7.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120130.130259.1190745234966440677.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This function returns the page offset of the buffer, which can be
-calculated based on either its DMA address or its virtual address.  It
-used to use the virtual address and we would cast that to unsigned
-long, as anything smaller would result in a compiler warning.  Now
-that it's using the DMA address we should use unsigned int, matching
-the return type.  It is also unnecessary to use __force.
+On Mon, Jan 30, 2012 at 01:02:59PM -0500, David Miller wrote:
+> From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Date: Mon, 30 Jan 2012 12:57:38 -0500
+> 
+> > Ah, so you are saying that the problem above is already fixed in 3.3-rc1.
+> 
+> No he's not saying that, he says somewhere we probably need a fix
+> "like" the commit he mentioned.
+> 
+> He did not say that commit fixes this bug.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/rx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index a33aef2..1dfda5e 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -98,7 +98,7 @@ static inline unsigned int efx_rx_buf_offset(struct efx_nic *efx,
- 	/* Offset is always within one page, so we don't need to consider
- 	 * the page order.
- 	 */
--	return ((__force unsigned long) buf->dma_addr & (PAGE_SIZE - 1)) +
-+	return ((unsigned int) buf->dma_addr & (PAGE_SIZE - 1)) +
- 		efx->type->rx_buffer_hash_size;
- }
- static inline unsigned int efx_rx_buf_size(struct efx_nic *efx)
--- 
-1.7.7.5
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Ayee. Sounds you guys have an idea about this bug then. If you want me to run
+a test-patch I can certainly do so. Thanks!
