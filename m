@@ -1,29 +1,17 @@
 From: Stefan Gula <steweg@ynet.sk>
-Subject: [patch v1, iproute2 version 3.2.0] Source mode for macvlan
+Subject: [patch v2, iproute2 version 3.2.0] Source mode for macvlan
  interface
-Date: Mon, 30 Jan 2012 14:01:43 +0100 (CET)
-Message-ID: <23306985.1101327928503118.JavaMail.root@5-MeO-DMT.ynet.sk>
-References: <29117495.1081327928442419.JavaMail.root@5-MeO-DMT.ynet.sk>
+Date: Mon, 30 Jan 2012 14:07:39 +0100 (CET)
+Message-ID: <23823448.1181327928859726.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:51922 "EHLO
+Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:43240 "EHLO
 	5-meo-dmt.ynet.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700Ab2A3NFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 08:05:12 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by 5-meo-dmt.ynet.sk (Postfix) with ESMTP id EC29D136012
-	for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 14:01:47 +0100 (CET)
-Received: from 5-meo-dmt.ynet.sk ([127.0.0.1])
-	by localhost (5-meo-dmt.ynet.sk [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id VBeOkNlaxJTH for <netdev@vger.kernel.org>;
-	Mon, 30 Jan 2012 14:01:43 +0100 (CET)
-Received: from 5-meo-dmt.ynet.sk (5-MeO-DMT.ynet.sk [147.175.167.220])
-	by 5-meo-dmt.ynet.sk (Postfix) with ESMTP id 3F075136010
-	for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 14:01:43 +0100 (CET)
-In-Reply-To: <29117495.1081327928442419.JavaMail.root@5-MeO-DMT.ynet.sk>
+	with ESMTP id S1752051Ab2A3NLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 08:11:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -40,6 +28,8 @@ Signed-off-by: Stefan Gula <steweg@gmail.com>
 
 ---
 
+V2 changes: - removed bogus lines from if_link.h not related to this patch
+
 diff -uprN iproute2-3.2.0/Config iproute2-3.2.0-my/Config
 --- iproute2-3.2.0/Config	1970-01-01 00:00:00.000000000 +0000
 +++ iproute2-3.2.0-my/Config	2012-01-27 14:31:53.000000000 +0000
@@ -49,7 +39,7 @@ diff -uprN iproute2-3.2.0/Config iproute2-3.2.0-my/Config
 +IPT_LIB_DIR:=/lib/xtables
 diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-my/include/linux/if_link.h
 --- iproute2-3.2.0/include/linux/if_link.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-my/include/linux/if_link.h	2012-01-30 09:44:39.000000000 +0000
++++ iproute2-3.2.0-my/include/linux/if_link.h	2012-01-30 13:08:22.000000000 +0000
 @@ -144,8 +144,10 @@ enum {
  #define IFLA_MAX (__IFLA_MAX - 1)
  
@@ -85,25 +75,6 @@ diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-my/include/linu
  };
  
  /* SR-IOV virtual function management section */
-@@ -303,6 +315,18 @@ struct ifla_vf_spoofchk {
- 	__u32 vf;
- 	__u32 setting;
- };
-+#ifdef __KERNEL__
-+
-+/* We don't want this structure exposed to user space */
-+struct ifla_vf_info {
-+	__u32 vf;
-+	__u8 mac[32];
-+	__u32 vlan;
-+	__u32 qos;
-+	__u32 tx_rate;
-+	__u32 spoofchk;
-+};
-+#endif
- 
- /* VF ports management section
-  *
 diff -uprN iproute2-3.2.0/ip/iplink_macvlan.c iproute2-3.2.0-my/ip/iplink_macvlan.c
 --- iproute2-3.2.0/ip/iplink_macvlan.c	2012-01-05 16:34:31.000000000 +0000
 +++ iproute2-3.2.0-my/ip/iplink_macvlan.c	2012-01-30 12:57:19.000000000 +0000
