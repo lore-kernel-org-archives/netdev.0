@@ -1,79 +1,36 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] net/hyperv: fix the issue that large packets be dropped by bridge
-Date: Mon, 30 Jan 2012 16:12:45 +0800
-Message-ID: <CAPgLHd-Z2B88ZxCKmKuRTcndJXt2y3N00MazBxD7aXKUVhywqg@mail.gmail.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
+ TCP streams
+Date: Mon, 30 Jan 2012 10:11:00 +0200
+Message-ID: <4F265094.1010004@mellanox.com>
+References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>  <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>  <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>  <4F264A6C.3070706@mellanox.com> <1327910672.2891.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: haiyangz@microsoft.com, kys@microsoft.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:58559 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642Ab2A3IMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 03:12:46 -0500
-Received: by qcsg15 with SMTP id g15so2065938qcs.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 00:12:45 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1327910672.2891.12.camel@edumazet-laptop>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 1/30/2012 10:04 AM, Eric Dumazet wrote:
+> Hmm, do we really need to compare ether header, thats the question. 
+> IMHO, GRO could avoid this check, as legal trafic could be never 
+> merged (eg multipath) 
 
-The packets with size larger than 1452 will be dropped by bridge
-which with two hyperv netdevice ports. This cause by hyperv netvsc
-driver always copy the trailer padding to the data packet, and then
-the skb received from netdevice may include wrong skb->len (20 bytes
-larger than the real size normally). The captured packet may like
-this:
+Yep, basically I tend to agree that GRO could do very well with L3 and 
+L4 checks, the multipath comment is interesting use case to show why the 
+ethernet header comparison might be too strict here.
 
-  Ethernet II, Src: Microsof_00:00:07 (00:15:5d:00:00:07),
-               Dst: HewlettP_00:00:4e (00:1f:29:00:00:4e)
-    Destination: HewlettP_e6:00:4e (00:1f:29:00:00:4e)
-    Source: Microsof_f6:6d:07 (00:15:5d:f6:6d:07)
-    Type: IP (0x0800)
-    Trailer: 1415161718191A1B1C1D1E1F20212223
-    Frame check sequence: 0x24252627 [incorrect, should be 0x7c2e5a5e]
 
-The following command help to reproduction it, and the ping ICMP
-packets will be dropped by bridge.
-  $ ping ip -s 1453
+Or.
 
-This patch fixed it by removing the trailer padding from the data
-packet.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/hyperv/rndis_filter.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index da181f9..7568984 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -321,6 +321,25 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 	data_offset = RNDIS_HEADER_SIZE + rndis_pkt->data_offset;
- 
- 	pkt->total_data_buflen -= data_offset;
-+
-+	/*
-+	 * Make sure we got a valid packet message, now total_data_buflen
-+	 * should be the data packet size plus the trailer padding size
-+	 */
-+	if (pkt->total_data_buflen < rndis_pkt->data_len) {
-+		netdev_err(dev->net_dev->ndev, "incoming packet message "
-+			   "buffer overflow detected (got %u, min %u)"
-+			   "...dropping this message!\n",
-+			   pkt->total_data_buflen, rndis_pkt->data_len);
-+		return;
-+	}
-+
-+	/*
-+	 * Remove the rndis trailer padding from packet message
-+	 * rndis_pkt->data_len tell us the real data length, we only copy
-+	 * the data packet to the stack, without the rndis trailer padding
-+	 */
-+	pkt->total_data_buflen = rndis_pkt->data_len;
- 	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
- 
- 	pkt->is_data_pkt = true;
--- 
-1.7.1
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
