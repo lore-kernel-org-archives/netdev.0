@@ -1,828 +1,702 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [RFC PATCH V3 07/16] netback: alter internal function/structure names.
-Date: Mon, 30 Jan 2012 14:45:25 +0000
-Message-ID: <1327934734-8908-8-git-send-email-wei.liu2@citrix.com>
+Subject: [RFC PATCH V3 01/16] netback: page pool version 1
+Date: Mon, 30 Jan 2012 14:45:19 +0000
+Message-ID: <1327934734-8908-2-git-send-email-wei.liu2@citrix.com>
 References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com,
-	Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, ian.campbell@citrix.com,
+	konrad.wilk@oracle.com
 To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:32427 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753372Ab2A3Opn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jan 2012 09:45:43 -0500
+Return-path: <xen-devel-bounces@lists.xensource.com>
 In-Reply-To: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.xensource.com/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
-Since we've melted xen_netbk into xenvif, so it is better to give
-functions clearer names.
+A global page pool. Since we are moving to 1:1 model netback, it is
+better to limit total RAM consumed by all the vifs.
 
-Also alter napi poll handler function prototypes a bit.
+With this patch, each vif gets page from the pool and puts the page
+back when it is finished with the page.
 
+This pool is only meant to access via exported interfaces. Internals
+are subject to change when we discover new requirements for the pool.
+
+Current exported interfaces include:
+
+page_pool_init: pool init
+page_pool_destroy: pool destruction
+page_pool_get: get a page from pool
+page_pool_put: put page back to pool
+is_in_pool: tell whether a page belongs to the pool
+
+Current implementation has following defects:
+ - Global locking
+ - No starve prevention mechanism / reservation logic
+
+Global locking tends to cause contention on the pool. No reservation
+logic may cause vif to starve. A possible solution to these two
+problems will be each vif maintains its local cache and claims a
+portion of the pool. However the implementation will be tricky when
+coming to pool management, so let's worry about that later.
+
+Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |   26 ++--
- drivers/net/xen-netback/interface.c |   20 ++--
- drivers/net/xen-netback/netback.c   |  231 ++++++++++++++++++-----------------
- 3 files changed, 142 insertions(+), 135 deletions(-)
+ drivers/net/xen-netback/Makefile    |    2 +-
+ drivers/net/xen-netback/common.h    |    6 +
+ drivers/net/xen-netback/netback.c   |  158 ++++++++++++------------------
+ drivers/net/xen-netback/page_pool.c |  185 +++++++++++++++++++++++++++++++++++
+ drivers/net/xen-netback/page_pool.h |   63 ++++++++++++
+ 5 files changed, 317 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/net/xen-netback/page_pool.c
+ create mode 100644 drivers/net/xen-netback/page_pool.h
 
+diff --git a/drivers/net/xen-netback/Makefile b/drivers/net/xen-netback/Makefile
+index e346e81..dc4b8b1 100644
+--- a/drivers/net/xen-netback/Makefile
++++ b/drivers/net/xen-netback/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_XEN_NETDEV_BACKEND) := xen-netback.o
+ 
+-xen-netback-y := netback.o xenbus.o interface.o
++xen-netback-y := netback.o xenbus.o interface.o page_pool.o
 diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 17d4e1a..53141c7 100644
+index 94b79c3..288b2f3 100644
 --- a/drivers/net/xen-netback/common.h
 +++ b/drivers/net/xen-netback/common.h
-@@ -47,7 +47,7 @@
+@@ -45,6 +45,12 @@
+ #include <xen/grant_table.h>
+ #include <xen/xenbus.h>
  
- #include "page_pool.h"
++struct pending_tx_info {
++	struct xen_netif_tx_request req;
++	struct xenvif *vif;
++};
++typedef unsigned int pending_ring_idx_t;
++
+ struct xen_netbk;
  
--struct netbk_rx_meta {
-+struct xenvif_rx_meta {
- 	int id;
- 	int size;
- 	int gso_size;
-@@ -140,32 +140,32 @@ void xenvif_xenbus_exit(void);
- 
- int xenvif_schedulable(struct xenvif *vif);
- 
--int xen_netbk_rx_ring_full(struct xenvif *vif);
-+int xenvif_rx_ring_full(struct xenvif *vif);
- 
--int xen_netbk_must_stop_queue(struct xenvif *vif);
-+int xenvif_must_stop_queue(struct xenvif *vif);
- 
- /* (Un)Map communication rings. */
--void xen_netbk_unmap_frontend_rings(struct xenvif *vif);
--int xen_netbk_map_frontend_rings(struct xenvif *vif,
--				 grant_ref_t tx_ring_ref,
--				 grant_ref_t rx_ring_ref);
-+void xenvif_unmap_frontend_rings(struct xenvif *vif);
-+int xenvif_map_frontend_rings(struct xenvif *vif,
-+			      grant_ref_t tx_ring_ref,
-+			      grant_ref_t rx_ring_ref);
- 
- /* Check for SKBs from frontend and schedule backend processing */
--void xen_netbk_check_rx_xenvif(struct xenvif *vif);
-+void xenvif_check_rx_xenvif(struct xenvif *vif);
- /* Receive an SKB from the frontend */
- void xenvif_receive_skb(struct xenvif *vif, struct sk_buff *skb);
- 
- /* Queue an SKB for transmission to the frontend */
--void xen_netbk_queue_tx_skb(struct xenvif *vif, struct sk_buff *skb);
-+void xenvif_queue_tx_skb(struct xenvif *vif, struct sk_buff *skb);
- /* Notify xenvif that ring now has space to send an skb to the frontend */
- void xenvif_notify_tx_completion(struct xenvif *vif);
- 
- /* Returns number of ring slots required to send an skb to the frontend */
--unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb);
-+unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb);
- 
--void xen_netbk_tx_action(struct xenvif *vif, int *work_done, int budget);
--void xen_netbk_rx_action(struct xenvif *vif);
-+int xenvif_tx_action(struct xenvif *vif, int budget);
-+void xenvif_rx_action(struct xenvif *vif);
- 
--int xen_netbk_kthread(void *data);
-+int xenvif_kthread(void *data);
- 
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 3c004fa..ebed26a 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -48,7 +48,7 @@ int xenvif_schedulable(struct xenvif *vif)
- 
- static int xenvif_rx_schedulable(struct xenvif *vif)
- {
--	return xenvif_schedulable(vif) && !xen_netbk_rx_ring_full(vif);
-+	return xenvif_schedulable(vif) && !xenvif_rx_ring_full(vif);
- }
- 
- static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
-@@ -69,7 +69,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
- 	struct xenvif *vif = container_of(napi, struct xenvif, napi);
- 	int work_done = 0;
- 
--	xen_netbk_tx_action(vif, &work_done, budget);
-+	work_done = xenvif_tx_action(vif, budget);
- 
- 	if (work_done < budget) {
- 		int more_to_do = 0;
-@@ -101,12 +101,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto drop;
- 
- 	/* Reserve ring slots for the worst-case number of fragments. */
--	vif->rx_req_cons_peek += xen_netbk_count_skb_slots(vif, skb);
-+	vif->rx_req_cons_peek += xenvif_count_skb_slots(vif, skb);
- 
--	if (vif->can_queue && xen_netbk_must_stop_queue(vif))
-+	if (vif->can_queue && xenvif_must_stop_queue(vif))
- 		netif_stop_queue(dev);
- 
--	xen_netbk_queue_tx_skb(vif, skb);
-+	xenvif_queue_tx_skb(vif, skb);
- 
- 	return NETDEV_TX_OK;
- 
-@@ -137,7 +137,7 @@ static void xenvif_up(struct xenvif *vif)
- {
- 	napi_enable(&vif->napi);
- 	enable_irq(vif->irq);
--	xen_netbk_check_rx_xenvif(vif);
-+	xenvif_check_rx_xenvif(vif);
- }
- 
- static void xenvif_down(struct xenvif *vif)
-@@ -334,7 +334,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 
- 	__module_get(THIS_MODULE);
- 
--	err = xen_netbk_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
-+	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
- 	if (err < 0)
- 		goto err;
- 
-@@ -347,7 +347,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	disable_irq(vif->irq);
- 
- 	init_waitqueue_head(&vif->wq);
--	vif->task = kthread_create(xen_netbk_kthread,
-+	vif->task = kthread_create(xenvif_kthread,
- 				   (void *)vif,
- 				   "vif%d.%d", vif->domid, vif->handle);
- 	if (IS_ERR(vif->task)) {
-@@ -371,7 +371,7 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- err_unbind:
- 	unbind_from_irqhandler(vif->irq, vif);
- err_unmap:
--	xen_netbk_unmap_frontend_rings(vif);
-+	xenvif_unmap_frontend_rings(vif);
- err:
- 	module_put(THIS_MODULE);
- 	return err;
-@@ -404,7 +404,7 @@ void xenvif_disconnect(struct xenvif *vif)
- 
- 	unregister_netdev(vif->dev);
- 
--	xen_netbk_unmap_frontend_rings(vif);
-+	xenvif_unmap_frontend_rings(vif);
- 
- 	free_netdev(vif->dev);
- 
+ struct xenvif {
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 0a52bb1..2a2835e 100644
+index 59effac..d11205f 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -57,9 +57,9 @@ struct gnttab_copy *tx_copy_ops;
-  * straddles two buffers in the frontend.
+@@ -33,6 +33,7 @@
   */
- struct gnttab_copy *grant_copy_op;
--struct netbk_rx_meta *meta;
-+struct xenvif_rx_meta *meta;
  
--static void xen_netbk_idx_release(struct xenvif *vif, u16 pending_idx);
-+static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx);
- static void make_tx_response(struct xenvif *vif,
- 			     struct xen_netif_tx_request *txp,
- 			     s8       st);
-@@ -127,7 +127,7 @@ static int max_required_rx_slots(struct xenvif *vif)
- 	return max;
- }
+ #include "common.h"
++#include "page_pool.h"
  
--int xen_netbk_rx_ring_full(struct xenvif *vif)
-+int xenvif_rx_ring_full(struct xenvif *vif)
+ #include <linux/kthread.h>
+ #include <linux/if_vlan.h>
+@@ -46,12 +47,6 @@
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/page.h>
+ 
+-struct pending_tx_info {
+-	struct xen_netif_tx_request req;
+-	struct xenvif *vif;
+-};
+-typedef unsigned int pending_ring_idx_t;
+-
+ struct netbk_rx_meta {
+ 	int id;
+ 	int size;
+@@ -65,21 +60,6 @@ struct netbk_rx_meta {
+ 
+ #define MAX_BUFFER_OFFSET PAGE_SIZE
+ 
+-/* extra field used in struct page */
+-union page_ext {
+-	struct {
+-#if BITS_PER_LONG < 64
+-#define IDX_WIDTH   8
+-#define GROUP_WIDTH (BITS_PER_LONG - IDX_WIDTH)
+-		unsigned int group:GROUP_WIDTH;
+-		unsigned int idx:IDX_WIDTH;
+-#else
+-		unsigned int group, idx;
+-#endif
+-	} e;
+-	void *mapping;
+-};
+-
+ struct xen_netbk {
+ 	wait_queue_head_t wq;
+ 	struct task_struct *task;
+@@ -89,7 +69,7 @@ struct xen_netbk {
+ 
+ 	struct timer_list net_timer;
+ 
+-	struct page *mmap_pages[MAX_PENDING_REQS];
++	idx_t mmap_pages[MAX_PENDING_REQS];
+ 
+ 	pending_ring_idx_t pending_prod;
+ 	pending_ring_idx_t pending_cons;
+@@ -100,7 +80,6 @@ struct xen_netbk {
+ 
+ 	atomic_t netfront_count;
+ 
+-	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+ 	struct gnttab_copy tx_copy_ops[MAX_PENDING_REQS];
+ 
+ 	u16 pending_ring[MAX_PENDING_REQS];
+@@ -160,7 +139,7 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif *vif,
+ static inline unsigned long idx_to_pfn(struct xen_netbk *netbk,
+ 				       u16 idx)
  {
- 	RING_IDX peek   = vif->rx_req_cons_peek;
- 	RING_IDX needed = max_required_rx_slots(vif);
-@@ -136,16 +136,16 @@ int xen_netbk_rx_ring_full(struct xenvif *vif)
- 	       ((vif->rx.rsp_prod_pvt + XEN_NETIF_RX_RING_SIZE - peek) < needed);
+-	return page_to_pfn(netbk->mmap_pages[idx]);
++	return page_to_pfn(to_page(netbk->mmap_pages[idx]));
  }
  
--int xen_netbk_must_stop_queue(struct xenvif *vif)
-+int xenvif_must_stop_queue(struct xenvif *vif)
- {
--	if (!xen_netbk_rx_ring_full(vif))
-+	if (!xenvif_rx_ring_full(vif))
- 		return 0;
- 
- 	vif->rx.sring->req_event = vif->rx_req_cons_peek +
- 		max_required_rx_slots(vif);
- 	mb(); /* request notification /then/ check the queue */
- 
--	return xen_netbk_rx_ring_full(vif);
-+	return xenvif_rx_ring_full(vif);
+ static inline unsigned long idx_to_kaddr(struct xen_netbk *netbk,
+@@ -169,45 +148,6 @@ static inline unsigned long idx_to_kaddr(struct xen_netbk *netbk,
+ 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(netbk, idx));
  }
  
+-/* extra field used in struct page */
+-static inline void set_page_ext(struct page *pg, struct xen_netbk *netbk,
+-				unsigned int idx)
+-{
+-	unsigned int group = netbk - xen_netbk;
+-	union page_ext ext = { .e = { .group = group + 1, .idx = idx } };
+-
+-	BUILD_BUG_ON(sizeof(ext) > sizeof(ext.mapping));
+-	pg->mapping = ext.mapping;
+-}
+-
+-static int get_page_ext(struct page *pg,
+-			unsigned int *pgroup, unsigned int *pidx)
+-{
+-	union page_ext ext = { .mapping = pg->mapping };
+-	struct xen_netbk *netbk;
+-	unsigned int group, idx;
+-
+-	group = ext.e.group - 1;
+-
+-	if (group < 0 || group >= xen_netbk_group_nr)
+-		return 0;
+-
+-	netbk = &xen_netbk[group];
+-
+-	idx = ext.e.idx;
+-
+-	if ((idx < 0) || (idx >= MAX_PENDING_REQS))
+-		return 0;
+-
+-	if (netbk->mmap_pages[idx] != pg)
+-		return 0;
+-
+-	*pgroup = group;
+-	*pidx = idx;
+-
+-	return 1;
+-}
+-
  /*
-@@ -191,9 +191,9 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
- /*
-  * Figure out how many ring slots we're going to need to send @skb to
-  * the guest. This function is essentially a dry run of
-- * netbk_gop_frag_copy.
-+ * xenvif_gop_frag_copy.
-  */
--unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
-+unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
- {
- 	unsigned int count;
- 	int i, copy_off;
-@@ -232,15 +232,15 @@ struct netrx_pending_operations {
- 	unsigned copy_prod, copy_cons;
- 	unsigned meta_prod, meta_cons;
- 	struct gnttab_copy *copy;
--	struct netbk_rx_meta *meta;
-+	struct xenvif_rx_meta *meta;
- 	int copy_off;
- 	grant_ref_t copy_gref;
- };
- 
--static struct netbk_rx_meta *get_next_rx_buffer(struct xenvif *vif,
--						struct netrx_pending_operations *npo)
-+static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
-+					struct netrx_pending_operations *npo)
- {
--	struct netbk_rx_meta *meta;
-+	struct xenvif_rx_meta *meta;
- 	struct xen_netif_rx_request *req;
- 
- 	req = RING_GET_REQUEST(&vif->rx, vif->rx.req_cons++);
-@@ -260,13 +260,13 @@ static struct netbk_rx_meta *get_next_rx_buffer(struct xenvif *vif,
-  * Set up the grant operations for this fragment. If it's a flipping
-  * interface, we also set up the unmap request from here.
-  */
--static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
--				struct netrx_pending_operations *npo,
--				struct page *page, unsigned long size,
--				unsigned long offset, int *head)
-+static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
-+				 struct netrx_pending_operations *npo,
-+				 struct page *page, unsigned long size,
-+				 unsigned long offset, int *head)
- {
- 	struct gnttab_copy *copy_gop;
--	struct netbk_rx_meta *meta;
-+	struct xenvif_rx_meta *meta;
- 	/*
+  * This is the amount of packet we copy rather than map, so that the
+  * guest can't fiddle with the contents of the headers while we do
+@@ -398,8 +338,8 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
  	 * These variables are used iff get_page_ext returns true,
  	 * in which case they are guaranteed to be initialized.
-@@ -345,14 +345,14 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
-  * zero GSO descriptors (for non-GSO packets) or one descriptor (for
-  * frontend-side LRO).
-  */
--static int netbk_gop_skb(struct sk_buff *skb,
--			 struct netrx_pending_operations *npo)
-+static int xenvif_gop_skb(struct sk_buff *skb,
-+			  struct netrx_pending_operations *npo)
- {
- 	struct xenvif *vif = netdev_priv(skb->dev);
- 	int nr_frags = skb_shinfo(skb)->nr_frags;
- 	int i;
- 	struct xen_netif_rx_request *req;
--	struct netbk_rx_meta *meta;
-+	struct xenvif_rx_meta *meta;
- 	unsigned char *data;
- 	int head = 1;
- 	int old_meta_prod;
-@@ -389,30 +389,30 @@ static int netbk_gop_skb(struct sk_buff *skb,
- 		if (data + len > skb_tail_pointer(skb))
- 			len = skb_tail_pointer(skb) - data;
+ 	 */
+-	unsigned int uninitialized_var(group), uninitialized_var(idx);
+-	int foreign = get_page_ext(page, &group, &idx);
++	unsigned int uninitialized_var(idx);
++	int foreign = is_in_pool(page, &idx);
+ 	unsigned long bytes;
  
--		netbk_gop_frag_copy(vif, skb, npo,
--				    virt_to_page(data), len, offset, &head);
-+		xenvif_gop_frag_copy(vif, skb, npo,
-+				     virt_to_page(data), len, offset, &head);
- 		data += len;
- 	}
+ 	/* Data must not cross a page boundary. */
+@@ -427,10 +367,7 @@ static void netbk_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		copy_gop = npo->copy + npo->copy_prod++;
+ 		copy_gop->flags = GNTCOPY_dest_gref;
+ 		if (foreign) {
+-			struct xen_netbk *netbk = &xen_netbk[group];
+-			struct pending_tx_info *src_pend;
+-
+-			src_pend = &netbk->pending_tx_info[idx];
++			struct pending_tx_info *src_pend = to_txinfo(idx);
  
- 	for (i = 0; i < nr_frags; i++) {
--		netbk_gop_frag_copy(vif, skb, npo,
--				    skb_frag_page(&skb_shinfo(skb)->frags[i]),
--				    skb_frag_size(&skb_shinfo(skb)->frags[i]),
--				    skb_shinfo(skb)->frags[i].page_offset,
--				    &head);
-+		xenvif_gop_frag_copy(vif, skb, npo,
-+				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
-+				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
-+				     skb_shinfo(skb)->frags[i].page_offset,
-+				     &head);
- 	}
- 
- 	return npo->meta_prod - old_meta_prod;
- }
- 
- /*
-- * This is a twin to netbk_gop_skb.  Assume that netbk_gop_skb was
-+ * This is a twin to xenvif_gop_skb.  Assume that xenvif_gop_skb was
-  * used to set up the operations on the top of
-  * netrx_pending_operations, which have since been done.  Check that
-  * they didn't give any errors and advance over them.
-  */
--static int netbk_check_gop(struct xenvif *vif, int nr_meta_slots,
--			   struct netrx_pending_operations *npo)
-+static int xenvif_check_gop(struct xenvif *vif, int nr_meta_slots,
-+			    struct netrx_pending_operations *npo)
- {
- 	struct gnttab_copy     *copy_op;
- 	int status = XEN_NETIF_RSP_OKAY;
-@@ -431,9 +431,9 @@ static int netbk_check_gop(struct xenvif *vif, int nr_meta_slots,
- 	return status;
- }
- 
--static void netbk_add_frag_responses(struct xenvif *vif, int status,
--				     struct netbk_rx_meta *meta,
--				     int nr_meta_slots)
-+static void xenvif_add_frag_responses(struct xenvif *vif, int status,
-+				      struct xenvif_rx_meta *meta,
-+				      int nr_meta_slots)
- {
- 	int i;
- 	unsigned long offset;
-@@ -461,12 +461,12 @@ struct skb_cb_overlay {
- 	int meta_slots_used;
- };
- 
--static void xen_netbk_kick_thread(struct xenvif *vif)
-+static void xenvif_kick_thread(struct xenvif *vif)
- {
- 	wake_up(&vif->wq);
- }
- 
--void xen_netbk_rx_action(struct xenvif *vif)
-+void xenvif_rx_action(struct xenvif *vif)
- {
- 	s8 status;
- 	u16 flags;
-@@ -482,7 +482,7 @@ void xen_netbk_rx_action(struct xenvif *vif)
- 	int need_to_notify = 0;
- 
- 	struct gnttab_copy *gco = get_cpu_ptr(grant_copy_op);
--	struct netbk_rx_meta *m = get_cpu_ptr(meta);
-+	struct xenvif_rx_meta *m = get_cpu_ptr(meta);
- 
- 	struct netrx_pending_operations npo = {
- 		.copy  = gco,
-@@ -498,7 +498,7 @@ void xen_netbk_rx_action(struct xenvif *vif)
- 		nr_frags = skb_shinfo(skb)->nr_frags;
- 
- 		sco = (struct skb_cb_overlay *)skb->cb;
--		sco->meta_slots_used = netbk_gop_skb(skb, &npo);
-+		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
- 
- 		count += nr_frags + 1;
- 
-@@ -543,7 +543,7 @@ void xen_netbk_rx_action(struct xenvif *vif)
- 		vif->dev->stats.tx_bytes += skb->len;
- 		vif->dev->stats.tx_packets++;
- 
--		status = netbk_check_gop(vif, sco->meta_slots_used, &npo);
-+		status = xenvif_check_gop(vif, sco->meta_slots_used, &npo);
- 
- 		if (sco->meta_slots_used == 1)
- 			flags = 0;
-@@ -579,9 +579,9 @@ void xen_netbk_rx_action(struct xenvif *vif)
- 			gso->flags = 0;
- 		}
- 
--		netbk_add_frag_responses(vif, status,
--					 m + npo.meta_cons + 1,
--					 sco->meta_slots_used);
-+		xenvif_add_frag_responses(vif, status,
-+					  m + npo.meta_cons + 1,
-+					  sco->meta_slots_used);
- 
- 		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&vif->rx, ret);
- 		if (ret)
-@@ -597,20 +597,20 @@ void xen_netbk_rx_action(struct xenvif *vif)
- 		notify_remote_via_irq(vif->irq);
- 
- 	if (!skb_queue_empty(&vif->rx_queue))
--		xen_netbk_kick_thread(vif);
-+		xenvif_kick_thread(vif);
- 
- 	put_cpu_ptr(gco);
- 	put_cpu_ptr(m);
- }
- 
--void xen_netbk_queue_tx_skb(struct xenvif *vif, struct sk_buff *skb)
-+void xenvif_queue_tx_skb(struct xenvif *vif, struct sk_buff *skb)
- {
- 	skb_queue_tail(&vif->rx_queue, skb);
- 
--	xen_netbk_kick_thread(vif);
-+	xenvif_kick_thread(vif);
- }
- 
--void xen_netbk_check_rx_xenvif(struct xenvif *vif)
-+void xenvif_check_rx_xenvif(struct xenvif *vif)
- {
- 	int more_to_do;
- 
-@@ -647,11 +647,11 @@ static void tx_credit_callback(unsigned long data)
- {
- 	struct xenvif *vif = (struct xenvif *)data;
- 	tx_add_credit(vif);
--	xen_netbk_check_rx_xenvif(vif);
-+	xenvif_check_rx_xenvif(vif);
- }
- 
--static void netbk_tx_err(struct xenvif *vif,
--			 struct xen_netif_tx_request *txp, RING_IDX end)
-+static void xenvif_tx_err(struct xenvif *vif,
-+			  struct xen_netif_tx_request *txp, RING_IDX end)
- {
- 	RING_IDX cons = vif->tx.req_cons;
- 
-@@ -662,10 +662,10 @@ static void netbk_tx_err(struct xenvif *vif,
- 		txp = RING_GET_REQUEST(&vif->tx, cons++);
- 	} while (1);
- 	vif->tx.req_cons = cons;
--	xen_netbk_check_rx_xenvif(vif);
-+	xenvif_check_rx_xenvif(vif);
- }
- 
--static int netbk_count_requests(struct xenvif *vif,
-+static int xenvif_count_requests(struct xenvif *vif,
- 				struct xen_netif_tx_request *first,
- 				struct xen_netif_tx_request *txp,
- 				int work_to_do)
-@@ -706,9 +706,9 @@ static int netbk_count_requests(struct xenvif *vif,
- 	return frags;
- }
- 
--static struct page *xen_netbk_alloc_page(struct xenvif *vif,
--					 struct sk_buff *skb,
--					 u16 pending_idx)
-+static struct page *xenvif_alloc_page(struct xenvif *vif,
-+				      struct sk_buff *skb,
-+				      u16 pending_idx)
+ 			copy_gop->source.domid = src_pend->vif->domid;
+ 			copy_gop->source.u.ref = src_pend->req.gref;
+@@ -906,11 +843,11 @@ static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
+ 					 u16 pending_idx)
  {
  	struct page *page;
- 	int idx;
-@@ -719,10 +719,10 @@ static struct page *xen_netbk_alloc_page(struct xenvif *vif,
+-	page = alloc_page(GFP_KERNEL|__GFP_COLD);
++	int idx;
++	page = page_pool_get(netbk, &idx);
+ 	if (!page)
+ 		return NULL;
+-	set_page_ext(page, netbk, pending_idx);
+-	netbk->mmap_pages[pending_idx] = page;
++	netbk->mmap_pages[pending_idx] = idx;
  	return page;
  }
  
--static struct gnttab_copy *xen_netbk_get_requests(struct xenvif *vif,
--						  struct sk_buff *skb,
--						  struct xen_netif_tx_request *txp,
--						  struct gnttab_copy *gop)
-+static struct gnttab_copy *xenvif_get_requests(struct xenvif *vif,
-+					       struct sk_buff *skb,
-+					       struct xen_netif_tx_request *txp,
-+					       struct gnttab_copy *gop)
- {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
-@@ -740,7 +740,7 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xenvif *vif,
+@@ -931,8 +868,8 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
+ 	for (i = start; i < shinfo->nr_frags; i++, txp++) {
+ 		struct page *page;
+ 		pending_ring_idx_t index;
+-		struct pending_tx_info *pending_tx_info =
+-			netbk->pending_tx_info;
++		int idx;
++		struct pending_tx_info *pending_tx_info;
  
- 		index = pending_index(vif->pending_cons++);
- 		pending_idx = vif->pending_ring[index];
--		page = xen_netbk_alloc_page(vif, skb, pending_idx);
-+		page = xenvif_alloc_page(vif, skb, pending_idx);
+ 		index = pending_index(netbk->pending_cons++);
+ 		pending_idx = netbk->pending_ring[index];
+@@ -940,6 +877,9 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
  		if (!page)
  			return NULL;
  
-@@ -768,9 +768,9 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xenvif *vif,
- 	return gop;
- }
++		idx = netbk->mmap_pages[pending_idx];
++		pending_tx_info = to_txinfo(idx);
++
+ 		gop->source.u.ref = txp->gref;
+ 		gop->source.domid = vif->domid;
+ 		gop->source.offset = txp->offset;
+@@ -953,9 +893,9 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
  
--static int xen_netbk_tx_check_gop(struct xenvif *vif,
--				  struct sk_buff *skb,
--				  struct gnttab_copy **gopp)
-+static int xenvif_tx_check_gop(struct xenvif *vif,
-+			       struct sk_buff *skb,
-+			       struct gnttab_copy **gopp)
+ 		gop++;
+ 
+-		memcpy(&pending_tx_info[pending_idx].req, txp, sizeof(*txp));
++		memcpy(&pending_tx_info->req, txp, sizeof(*txp));
+ 		xenvif_get(vif);
+-		pending_tx_info[pending_idx].vif = vif;
++		pending_tx_info->vif = vif;
+ 		frag_set_pending_idx(&frags[i], pending_idx);
+ 	}
+ 
+@@ -968,8 +908,9 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
  {
  	struct gnttab_copy *gop = *gopp;
  	u16 pending_idx = *((u16 *)skb->data);
-@@ -807,7 +807,7 @@ static int xen_netbk_tx_check_gop(struct xenvif *vif,
- 		if (likely(!newerr)) {
- 			/* Had a previous error? Invalidate this fragment. */
- 			if (unlikely(err))
--				xen_netbk_idx_release(vif, pending_idx);
-+				xenvif_idx_release(vif, pending_idx);
- 			continue;
- 		}
- 
-@@ -824,10 +824,10 @@ static int xen_netbk_tx_check_gop(struct xenvif *vif,
- 
- 		/* First error: invalidate header and preceding fragments. */
- 		pending_idx = *((u16 *)skb->data);
--		xen_netbk_idx_release(vif, pending_idx);
-+		xenvif_idx_release(vif, pending_idx);
- 		for (j = start; j < i; j++) {
- 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
--			xen_netbk_idx_release(vif, pending_idx);
-+			xenvif_idx_release(vif, pending_idx);
- 		}
- 
- 		/* Remember the error: invalidate all subsequent fragments. */
-@@ -838,7 +838,7 @@ static int xen_netbk_tx_check_gop(struct xenvif *vif,
- 	return err;
- }
- 
--static void xen_netbk_fill_frags(struct xenvif *vif, struct sk_buff *skb)
-+static void xenvif_fill_frags(struct xenvif *vif, struct sk_buff *skb)
- {
+-	struct pending_tx_info *pending_tx_info = netbk->pending_tx_info;
+-	struct xenvif *vif = pending_tx_info[pending_idx].vif;
++	struct pending_tx_info *pending_tx_info;
++	int idx;
++	struct xenvif *vif = NULL;
+ 	struct xen_netif_tx_request *txp;
  	struct skb_shared_info *shinfo = skb_shinfo(skb);
  	int nr_frags = shinfo->nr_frags;
-@@ -864,15 +864,15 @@ static void xen_netbk_fill_frags(struct xenvif *vif, struct sk_buff *skb)
- 		skb->data_len += txp->size;
+@@ -980,7 +921,10 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
+ 	if (unlikely(err)) {
+ 		pending_ring_idx_t index;
+ 		index = pending_index(netbk->pending_prod++);
+-		txp = &pending_tx_info[pending_idx].req;
++		idx = netbk->mmap_pages[index];
++		pending_tx_info = to_txinfo(idx);
++		txp = &pending_tx_info->req;
++		vif = pending_tx_info->vif;
+ 		make_tx_response(vif, txp, XEN_NETIF_RSP_ERROR);
+ 		netbk->pending_ring[index] = pending_idx;
+ 		xenvif_put(vif);
+@@ -1005,7 +949,9 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
+ 		}
+ 
+ 		/* Error on this fragment: respond to client with an error. */
+-		txp = &netbk->pending_tx_info[pending_idx].req;
++		idx = netbk->mmap_pages[pending_idx];
++		txp = &to_txinfo(idx)->req;
++		vif = to_txinfo(idx)->vif;
+ 		make_tx_response(vif, txp, XEN_NETIF_RSP_ERROR);
+ 		index = pending_index(netbk->pending_prod++);
+ 		netbk->pending_ring[index] = pending_idx;
+@@ -1042,10 +988,15 @@ static void xen_netbk_fill_frags(struct xen_netbk *netbk, struct sk_buff *skb)
+ 		struct xen_netif_tx_request *txp;
+ 		struct page *page;
+ 		u16 pending_idx;
++		int idx;
++		struct pending_tx_info *pending_tx_info;
+ 
+ 		pending_idx = frag_get_pending_idx(frag);
+ 
+-		txp = &netbk->pending_tx_info[pending_idx].req;
++		idx = netbk->mmap_pages[pending_idx];
++		pending_tx_info = to_txinfo(idx);
++
++		txp = &pending_tx_info->req;
+ 		page = virt_to_page(idx_to_kaddr(netbk, pending_idx));
+ 		__skb_fill_page_desc(skb, i, page, txp->offset, txp->size);
+ 		skb->len += txp->size;
+@@ -1053,7 +1004,7 @@ static void xen_netbk_fill_frags(struct xen_netbk *netbk, struct sk_buff *skb)
  		skb->truesize += txp->size;
  
--		/* Take an extra reference to offset xen_netbk_idx_release */
-+		/* Take an extra reference to offset xenvif_idx_release */
- 		get_page(page);
--		xen_netbk_idx_release(vif, pending_idx);
-+		xenvif_idx_release(vif, pending_idx);
+ 		/* Take an extra reference to offset xen_netbk_idx_release */
+-		get_page(netbk->mmap_pages[pending_idx]);
++		get_page(page);
+ 		xen_netbk_idx_release(netbk, pending_idx);
  	}
  }
+@@ -1233,6 +1184,8 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 		int work_to_do;
+ 		unsigned int data_len;
+ 		pending_ring_idx_t index;
++		int pool_idx;
++		struct pending_tx_info *pending_tx_info;
  
--static int xen_netbk_get_extras(struct xenvif *vif,
--				struct xen_netif_extra_info *extras,
--				int work_to_do)
-+static int xenvif_get_extras(struct xenvif *vif,
-+			     struct xen_netif_extra_info *extras,
-+			     int work_to_do)
- {
- 	struct xen_netif_extra_info extra;
- 	RING_IDX cons = vif->tx.req_cons;
-@@ -900,9 +900,9 @@ static int xen_netbk_get_extras(struct xenvif *vif,
- 	return work_to_do;
- }
+ 		/* Get a netif from the list with work to do. */
+ 		vif = poll_net_schedule_list(netbk);
+@@ -1347,9 +1300,12 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
  
--static int netbk_set_skb_gso(struct xenvif *vif,
--			     struct sk_buff *skb,
--			     struct xen_netif_extra_info *gso)
-+static int xenvif_set_skb_gso(struct xenvif *vif,
-+			      struct sk_buff *skb,
-+			      struct xen_netif_extra_info *gso)
- {
- 	if (!gso->u.gso.size) {
- 		netdev_dbg(vif->dev, "GSO size must not be zero.\n");
-@@ -1027,8 +1027,8 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
- 	return false;
- }
+ 		gop++;
  
--static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
--					struct gnttab_copy *tco)
-+static unsigned xenvif_tx_build_gops(struct xenvif *vif,
-+				     struct gnttab_copy *tco)
- {
- 	struct gnttab_copy *gop = tco, *request_gop;
- 	struct sk_buff *skb;
-@@ -1069,18 +1069,18 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
+-		memcpy(&netbk->pending_tx_info[pending_idx].req,
++		pool_idx = netbk->mmap_pages[pending_idx];
++		pending_tx_info = to_txinfo(pool_idx);
++
++		memcpy(&pending_tx_info->req,
+ 		       &txreq, sizeof(txreq));
+-		netbk->pending_tx_info[pending_idx].vif = vif;
++		pending_tx_info->vif = vif;
+ 		*((u16 *)skb->data) = pending_idx;
  
- 		memset(extras, 0, sizeof(extras));
- 		if (txreq.flags & XEN_NETTXF_extra_info) {
--			work_to_do = xen_netbk_get_extras(vif, extras,
-+			work_to_do = xenvif_get_extras(vif, extras,
- 							  work_to_do);
- 			idx = vif->tx.req_cons;
- 			if (unlikely(work_to_do < 0)) {
--				netbk_tx_err(vif, &txreq, idx);
-+				xenvif_tx_err(vif, &txreq, idx);
- 				break;
- 			}
- 		}
- 
--		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
-+		ret = xenvif_count_requests(vif, &txreq, txfrags, work_to_do);
- 		if (unlikely(ret < 0)) {
--			netbk_tx_err(vif, &txreq, idx - ret);
-+			xenvif_tx_err(vif, &txreq, idx - ret);
- 			break;
- 		}
- 		idx += ret;
-@@ -1088,7 +1088,7 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 		if (unlikely(txreq.size < ETH_HLEN)) {
- 			netdev_dbg(vif->dev,
- 				   "Bad packet size: %d\n", txreq.size);
--			netbk_tx_err(vif, &txreq, idx);
-+			xenvif_tx_err(vif, &txreq, idx);
- 			break;
- 		}
- 
-@@ -1098,7 +1098,7 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 				   "txreq.offset: %x, size: %u, end: %lu\n",
- 				   txreq.offset, txreq.size,
- 				   (txreq.offset&~PAGE_MASK) + txreq.size);
--			netbk_tx_err(vif, &txreq, idx);
-+			xenvif_tx_err(vif, &txreq, idx);
- 			break;
- 		}
- 
-@@ -1114,7 +1114,7 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 		if (unlikely(skb == NULL)) {
- 			netdev_dbg(vif->dev,
- 				   "Can't allocate a skb in start_xmit.\n");
--			netbk_tx_err(vif, &txreq, idx);
-+			xenvif_tx_err(vif, &txreq, idx);
- 			break;
- 		}
- 
-@@ -1125,18 +1125,18 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 			struct xen_netif_extra_info *gso;
- 			gso = &extras[XEN_NETIF_EXTRA_TYPE_GSO - 1];
- 
--			if (netbk_set_skb_gso(vif, skb, gso)) {
-+			if (xenvif_set_skb_gso(vif, skb, gso)) {
- 				kfree_skb(skb);
--				netbk_tx_err(vif, &txreq, idx);
-+				xenvif_tx_err(vif, &txreq, idx);
- 				break;
- 			}
- 		}
- 
- 		/* XXX could copy straight to head */
--		page = xen_netbk_alloc_page(vif, skb, pending_idx);
-+		page = xenvif_alloc_page(vif, skb, pending_idx);
- 		if (!page) {
- 			kfree_skb(skb);
--			netbk_tx_err(vif, &txreq, idx);
-+			xenvif_tx_err(vif, &txreq, idx);
- 			break;
- 		}
- 
-@@ -1177,17 +1177,17 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 
- 		vif->pending_cons++;
- 
--		request_gop = xen_netbk_get_requests(vif,
-+		request_gop = xenvif_get_requests(vif,
- 						     skb, txfrags, gop);
- 		if (request_gop == NULL) {
- 			kfree_skb(skb);
--			netbk_tx_err(vif, &txreq, idx);
-+			xenvif_tx_err(vif, &txreq, idx);
- 			break;
- 		}
- 		gop = request_gop;
- 
- 		vif->tx.req_cons = idx;
--		xen_netbk_check_rx_xenvif(vif);
-+		xenvif_check_rx_xenvif(vif);
- 
- 		if ((gop - tco) >= MAX_PENDING_REQS)
- 			break;
-@@ -1196,14 +1196,15 @@ static unsigned xen_netbk_tx_build_gops(struct xenvif *vif,
- 	return gop - tco;
- }
- 
--static void xen_netbk_tx_submit(struct xenvif *vif,
--				struct gnttab_copy *tco,
--				int *work_done, int budget)
-+static int xenvif_tx_submit(struct xenvif *vif,
-+			    struct gnttab_copy *tco,
-+			    int budget)
- {
- 	struct gnttab_copy *gop = tco;
- 	struct sk_buff *skb;
-+	int work_done = 0;
- 
--	while ((*work_done < budget) &&
-+	while ((work_done < budget) &&
- 	       (skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
- 		struct xen_netif_tx_request *txp;
+ 		__skb_put(skb, data_len);
+@@ -1397,10 +1353,16 @@ static void xen_netbk_tx_submit(struct xen_netbk *netbk)
+ 		struct xenvif *vif;
  		u16 pending_idx;
-@@ -1219,7 +1220,7 @@ static void xen_netbk_tx_submit(struct xenvif *vif,
- 		txp = &pending_tx_info->req;
+ 		unsigned data_len;
++		int idx;
++		struct pending_tx_info *pending_tx_info;
+ 
+ 		pending_idx = *((u16 *)skb->data);
+-		vif = netbk->pending_tx_info[pending_idx].vif;
+-		txp = &netbk->pending_tx_info[pending_idx].req;
++
++		idx = netbk->mmap_pages[pending_idx];
++		pending_tx_info = to_txinfo(idx);
++
++		vif = pending_tx_info->vif;
++		txp = &pending_tx_info->req;
  
  		/* Check the remap error code. */
--		if (unlikely(xen_netbk_tx_check_gop(vif, skb, &gop))) {
-+		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop))) {
- 			netdev_dbg(vif->dev, "netback grant failed.\n");
- 			skb_shinfo(skb)->nr_frags = 0;
- 			kfree_skb(skb);
-@@ -1236,7 +1237,7 @@ static void xen_netbk_tx_submit(struct xenvif *vif,
- 			txp->size -= data_len;
- 		} else {
- 			/* Schedule a response immediately. */
--			xen_netbk_idx_release(vif, pending_idx);
-+			xenvif_idx_release(vif, pending_idx);
- 		}
- 
- 		if (txp->flags & XEN_NETTXF_csum_blank)
-@@ -1244,7 +1245,7 @@ static void xen_netbk_tx_submit(struct xenvif *vif,
- 		else if (txp->flags & XEN_NETTXF_data_validated)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--		xen_netbk_fill_frags(vif, skb);
-+		xenvif_fill_frags(vif, skb);
- 
- 		/*
- 		 * If the initial fragment was < PKT_PROT_LEN then
-@@ -1269,39 +1270,45 @@ static void xen_netbk_tx_submit(struct xenvif *vif,
- 		vif->dev->stats.rx_bytes += skb->len;
- 		vif->dev->stats.rx_packets++;
- 
--		(*work_done)++;
-+		work_done++;
- 
- 		xenvif_receive_skb(vif, skb);
- 	}
-+
-+	return work_done;
- }
- 
- /* Called after netfront has transmitted */
--void xen_netbk_tx_action(struct xenvif *vif, int *work_done, int budget)
-+int xenvif_tx_action(struct xenvif *vif, int budget)
- {
- 	unsigned nr_gops;
- 	int ret;
- 	struct gnttab_copy *tco;
-+	int work_done;
- 
- 	if (unlikely(!tx_work_todo(vif)))
--		return;
-+		return 0;
- 
- 	tco = get_cpu_ptr(tx_copy_ops);
- 
--	nr_gops = xen_netbk_tx_build_gops(vif, tco);
-+	nr_gops = xenvif_tx_build_gops(vif, tco);
- 
- 	if (nr_gops == 0) {
- 		put_cpu_ptr(tco);
--		return;
-+		return 0;
- 	}
- 
- 	ret = HYPERVISOR_grant_table_op(GNTTABOP_copy, tco, nr_gops);
- 	BUG_ON(ret);
- 
--	xen_netbk_tx_submit(vif, tco, work_done, budget);
-+	work_done = xenvif_tx_submit(vif, tco, budget);
-+
- 	put_cpu_ptr(tco);
-+
-+	return work_done;
- }
- 
--static void xen_netbk_idx_release(struct xenvif *vif, u16 pending_idx)
-+static void xenvif_idx_release(struct xenvif *vif, u16 pending_idx)
- {
+ 		if (unlikely(xen_netbk_tx_check_gop(netbk, skb, &gop))) {
+@@ -1480,12 +1442,14 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx)
+ 	struct xenvif *vif;
  	struct pending_tx_info *pending_tx_info;
  	pending_ring_idx_t index;
-@@ -1382,7 +1389,7 @@ static inline int tx_work_todo(struct xenvif *vif)
- 	return 0;
++	int idx;
+ 
+ 	/* Already complete? */
+-	if (netbk->mmap_pages[pending_idx] == NULL)
++	if (netbk->mmap_pages[pending_idx] == INVALID_ENTRY)
+ 		return;
+ 
+-	pending_tx_info = &netbk->pending_tx_info[pending_idx];
++	idx = netbk->mmap_pages[pending_idx];
++	pending_tx_info = to_txinfo(idx);
+ 
+ 	vif = pending_tx_info->vif;
+ 
+@@ -1496,9 +1460,9 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx)
+ 
+ 	xenvif_put(vif);
+ 
+-	netbk->mmap_pages[pending_idx]->mapping = 0;
+-	put_page(netbk->mmap_pages[pending_idx]);
+-	netbk->mmap_pages[pending_idx] = NULL;
++	page_pool_put(netbk->mmap_pages[pending_idx]);
++
++	netbk->mmap_pages[pending_idx] = INVALID_ENTRY;
  }
  
--void xen_netbk_unmap_frontend_rings(struct xenvif *vif)
-+void xenvif_unmap_frontend_rings(struct xenvif *vif)
- {
- 	if (vif->tx.sring)
- 		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
-@@ -1392,9 +1399,9 @@ void xen_netbk_unmap_frontend_rings(struct xenvif *vif)
- 					vif->rx.sring);
- }
- 
--int xen_netbk_map_frontend_rings(struct xenvif *vif,
--				 grant_ref_t tx_ring_ref,
--				 grant_ref_t rx_ring_ref)
-+int xenvif_map_frontend_rings(struct xenvif *vif,
-+			      grant_ref_t tx_ring_ref,
-+			      grant_ref_t rx_ring_ref)
- {
- 	void *addr;
- 	struct xen_netif_tx_sring *txs;
-@@ -1423,11 +1430,11 @@ int xen_netbk_map_frontend_rings(struct xenvif *vif,
- 	return 0;
- 
- err:
--	xen_netbk_unmap_frontend_rings(vif);
-+	xenvif_unmap_frontend_rings(vif);
- 	return err;
- }
- 
--int xen_netbk_kthread(void *data)
-+int xenvif_kthread(void *data)
- {
- 	struct xenvif *vif = data;
- 
-@@ -1441,7 +1448,7 @@ int xen_netbk_kthread(void *data)
- 			break;
- 
- 		if (rx_work_todo(vif))
--			xen_netbk_rx_action(vif);
-+			xenvif_rx_action(vif);
+ static void make_tx_response(struct xenvif *vif,
+@@ -1681,19 +1645,21 @@ static int __init netback_init(void)
+ 		wake_up_process(netbk->task);
  	}
  
+-	rc = xenvif_xenbus_init();
++	rc = page_pool_init();
+ 	if (rc)
+ 		goto failed_init;
+ 
++	rc = xenvif_xenbus_init();
++	if (rc)
++		goto pool_failed_init;
++
  	return 0;
-@@ -1467,9 +1474,9 @@ static int __init netback_init(void)
- 	if (!grant_copy_op)
- 		goto failed_init_gco;
  
--	meta = __alloc_percpu(sizeof(struct netbk_rx_meta)
-+	meta = __alloc_percpu(sizeof(struct xenvif_rx_meta)
- 			      * 2 * XEN_NETIF_RX_RING_SIZE,
--			      __alignof__(struct netbk_rx_meta));
-+			      __alignof__(struct xenvif_rx_meta));
- 	if (!meta)
- 		goto failed_init_meta;
- 
++pool_failed_init:
++	page_pool_destroy();
+ failed_init:
+ 	while (--group >= 0) {
+ 		struct xen_netbk *netbk = &xen_netbk[group];
+-		for (i = 0; i < MAX_PENDING_REQS; i++) {
+-			if (netbk->mmap_pages[i])
+-				__free_page(netbk->mmap_pages[i]);
+-		}
+ 		del_timer(&netbk->net_timer);
+ 		kthread_stop(netbk->task);
+ 	}
+diff --git a/drivers/net/xen-netback/page_pool.c b/drivers/net/xen-netback/page_pool.c
+new file mode 100644
+index 0000000..294f48b
+--- /dev/null
++++ b/drivers/net/xen-netback/page_pool.c
+@@ -0,0 +1,185 @@
++/*
++ * Global page pool for netback.
++ *
++ * Wei Liu <wei.liu2@citrix.com>
++ * Copyright (c) Citrix Systems
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#include "common.h"
++#include "page_pool.h"
++#include <asm/xen/page.h>
++
++static idx_t free_head;
++static int free_count;
++static unsigned long pool_size;
++static DEFINE_SPINLOCK(pool_lock);
++static struct page_pool_entry *pool;
++
++static int get_free_entry(void)
++{
++	int idx;
++
++	spin_lock(&pool_lock);
++
++	if (free_count == 0) {
++		spin_unlock(&pool_lock);
++		return -ENOSPC;
++	}
++
++	idx = free_head;
++	free_count--;
++	free_head = pool[idx].u.fl;
++	pool[idx].u.fl = INVALID_ENTRY;
++
++	spin_unlock(&pool_lock);
++
++	return idx;
++}
++
++static void put_free_entry(idx_t idx)
++{
++	spin_lock(&pool_lock);
++
++	pool[idx].u.fl = free_head;
++	free_head = idx;
++	free_count++;
++
++	spin_unlock(&pool_lock);
++}
++
++static inline void set_page_ext(struct page *pg, unsigned int idx)
++{
++	union page_ext ext = { .idx = idx };
++
++	BUILD_BUG_ON(sizeof(ext) > sizeof(ext.mapping));
++	pg->mapping = ext.mapping;
++}
++
++static int get_page_ext(struct page *pg, unsigned int *pidx)
++{
++	union page_ext ext = { .mapping = pg->mapping };
++	int idx;
++
++	idx = ext.idx;
++
++	if ((idx < 0) || (idx >= pool_size))
++		return 0;
++
++	if (pool[idx].page != pg)
++		return 0;
++
++	*pidx = idx;
++
++	return 1;
++}
++
++int is_in_pool(struct page *page, int *pidx)
++{
++	return get_page_ext(page, pidx);
++}
++
++struct page *page_pool_get(struct xen_netbk *netbk, int *pidx)
++{
++	int idx;
++	struct page *page;
++
++	idx = get_free_entry();
++	if (idx < 0)
++		return NULL;
++	page = alloc_page(GFP_ATOMIC);
++
++	if (page == NULL) {
++		put_free_entry(idx);
++		return NULL;
++	}
++
++	set_page_ext(page, idx);
++	pool[idx].u.netbk = netbk;
++	pool[idx].page = page;
++
++	*pidx = idx;
++
++	return page;
++}
++
++void page_pool_put(int idx)
++{
++	struct page *page = pool[idx].page;
++
++	pool[idx].page = NULL;
++	pool[idx].u.netbk = NULL;
++	page->mapping = 0;
++	put_page(page);
++	put_free_entry(idx);
++}
++
++int page_pool_init()
++{
++	int cpus = 0;
++	int i;
++
++	cpus = num_online_cpus();
++	pool_size = cpus * ENTRIES_PER_CPU;
++
++	pool = vzalloc(sizeof(struct page_pool_entry) * pool_size);
++
++	if (!pool)
++		return -ENOMEM;
++
++	for (i = 0; i < pool_size - 1; i++)
++		pool[i].u.fl = i+1;
++	pool[pool_size-1].u.fl = INVALID_ENTRY;
++	free_count = pool_size;
++	free_head = 0;
++
++	return 0;
++}
++
++void page_pool_destroy()
++{
++	int i;
++	for (i = 0; i < pool_size; i++)
++		if (pool[i].page)
++			put_page(pool[i].page);
++
++	vfree(pool);
++}
++
++struct page *to_page(int idx)
++{
++	return pool[idx].page;
++}
++
++struct xen_netbk *to_netbk(int idx)
++{
++	return pool[idx].u.netbk;
++}
++
++struct pending_tx_info *to_txinfo(int idx)
++{
++	return &pool[idx].tx_info;
++}
+diff --git a/drivers/net/xen-netback/page_pool.h b/drivers/net/xen-netback/page_pool.h
+new file mode 100644
+index 0000000..572b037
+--- /dev/null
++++ b/drivers/net/xen-netback/page_pool.h
+@@ -0,0 +1,63 @@
++/*
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#ifndef __PAGE_POOL_H__
++#define __PAGE_POOL_H__
++
++#include "common.h"
++
++typedef uint32_t idx_t;
++
++#define ENTRIES_PER_CPU (1024)
++#define INVALID_ENTRY 0xffffffff
++
++struct page_pool_entry {
++	struct page *page;
++	struct pending_tx_info tx_info;
++	union {
++		struct xen_netbk *netbk;
++		idx_t             fl;
++	} u;
++};
++
++union page_ext {
++	idx_t idx;
++	void *mapping;
++};
++
++int  page_pool_init(void);
++void page_pool_destroy(void);
++
++
++struct page *page_pool_get(struct xen_netbk *netbk, int *pidx);
++void         page_pool_put(int idx);
++int          is_in_pool(struct page *page, int *pidx);
++
++struct page            *to_page(int idx);
++struct xen_netbk       *to_netbk(int idx);
++struct pending_tx_info *to_txinfo(int idx);
++
++#endif /* __PAGE_POOL_H__ */
 -- 
 1.7.2.5
