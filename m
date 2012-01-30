@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] ethernet/pch_gbe: Change company name OKI
- SEMICONDUCTOR to LAPIS Semiconductor
-Date: Mon, 30 Jan 2012 12:52:19 -0500 (EST)
-Message-ID: <20120130.125219.2077768183344205118.davem@davemloft.net>
-References: <1327643159-1302-1-git-send-email-tomoya.rohm@gmail.com>
+Subject: Re: [PATCH net-next] drivers/net: fix up stale paths from driver
+ reorg
+Date: Mon, 30 Jan 2012 12:55:30 -0500 (EST)
+Message-ID: <20120130.125530.1128002667645019844.davem@davemloft.net>
+References: <1327707361-30274-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, qi.wang@intel.com, yong.y.wang@intel.com,
-	joel.clark@intel.com, kok.howg.ewe@intel.com
-To: tomoya.rohm@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327643159-1302-1-git-send-email-tomoya.rohm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40189 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752382Ab2A3Rzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:55:37 -0500
+In-Reply-To: <1327707361-30274-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri, 27 Jan 2012 18:36:01 -0500
 
-Sorry, we're not going to get into this pattern where we move drivers
-around in the tree every time the company that produces the chip
-changes it's name.
+> The reorganization of the driver layout in drivers/net
+> left behind some stale paths in comments and in Kconfig
+> help text.  Bring them up to date.  No actual change to
+> any code takes place here.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-If we did this then certain drivers will have moved 5 or more times
-since the beginning of the Linux kernel, and there is nothing to be
-gained from that except confusion.
-
-In fact more valuable thing to do is to refer to both the old and the
-new name, rather than just the new one or just the old one.  Because
-you now have two sets of users, one very large set which is familiar
-with the old name and a smaller set which will only know about the new
-name.
-
-Frankly, I would just leave everything alone except perhaps adding a
-mention of the new name (and not deleting the old name) in the Kconfig
-help text.
+Applied.
