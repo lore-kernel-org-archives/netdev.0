@@ -1,63 +1,77 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH V2] New Xen netback implementation
-Date: Mon, 30 Jan 2012 18:30:41 +0000
-Message-ID: <1327948241.5553.44.camel@leeds.uk.xensource.com>
-References: <1326808024-3744-1-git-send-email-wei.liu2@citrix.com>
-	 <20120127192214.GA14437@phenom.dumpdata.com>
-	 <1327844561.2911.5.camel@leeds.uk.xensource.com>
-	 <20120129213746.GA7164@phenom.dumpdata.com>
-	 <1327948024.5553.43.camel@leeds.uk.xensource.com>
+From: Stefan Priebe <s.priebe@profihost.ag>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
+Date: Mon, 30 Jan 2012 19:53:34 +0100
+Message-ID: <4F26E72E.2020007@profihost.ag>
+References: <4EE32076.2020706@profihost.ag> <4F26571E.1010002@profihost.ag> <20120130171215.GA11508@kroah.com> <20120130.130717.348683183628737352.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: greg@kroah.com, eric.dumazet@gmail.com, jwboyer@gmail.com,
+	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
+	stable@vger.kernel.org, gregkh@suse.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:32158 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001Ab2A3Saa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:30:30 -0500
-In-Reply-To: <1327948024.5553.43.camel@leeds.uk.xensource.com>
+Received: from mail.profihost.ag ([85.158.179.208]:54703 "EHLO
+	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752505Ab2A3Sxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:53:38 -0500
+In-Reply-To: <20120130.130717.348683183628737352.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-01-30 at 18:27 +0000, Wei Liu (Intern) wrote:
-> On Sun, 2012-01-29 at 21:37 +0000, Konrad Rzeszutek Wilk wrote:
-> > 
-> > Sure. I also did some testing with limiting the amount of CPUs and found
-> > that 'xl vcpu-set 0 N' make netback not work anymore :-( 
-> > > 
-> > > 
-> 
-> I just played with vcpu-set a bit, and I can reproduced this problem.
-> That's a race condition.
-> 
-> One possible fix is remove cond_resched() in the kernel thread. After
-> removing that, it fixes the problem (at least for me).
-> 
-> 
-> Wei.
-> 
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -994,7 +994,7 @@ int xenvif_kthread(void *data)
->                 wait_event_interruptible(vif->wq,
->                                          rx_work_todo(vif) ||
->                                          kthread_should_stop());
-> -               cond_resched();
-> +               /* cond_resched(); */
->  
->                 if (kthread_should_stop())
->                         break;
-> 
-> 
+Hi David, Hi Greg,
 
-Hmm... Here it comes again. Ignore this fix. It's more complicated than
-I thought.
+>>> Am 10.12.2011 10:03, schrieb Stefan Priebe:
+>>>> Am 09.12.2011 20:21, schrieb David Miller:
+>>>>> From: Stefan Priebe<s.priebe@profihost.ag>
+>>>>> Date: Fri, 09 Dec 2011 20:01:26 +0100
+>>>>>
+>>>>>> any news on that? Systems still crashing every now and then. 3.0.13
+>>>>>> was released today but i haven't seen any of them.
+>>>>>
+>>>>> I only had time to submit these fixes for 3.1.x-stable, you'll just
+>>>>> have to be incredibly patient.
+>>>
+>>> this bug sadly still makes the actual STABLE tree of the kernel
+>>> unusable. I mean nearly everbody uses TCP/IP.
+>>
+>> "this bug"?
+>
+> Actually, like Greg, I cannot figure out which fix you are referring
+> to.
+>
+> You haven't provided enough context, and even searching into the
+> mailing list archives I cannot find a link into the real history of
+> this discussion thread.
 
+sorry about beeing so unspecific.
 
-Wei.
+I'm talking about:
+[171464.091567] BUG: unable to handle kernel NULL pointer dereference at 
+000000000000002c
+[171464.092073] IP: [<ffffffff815494f6>] ipv4_dst_check+0xb6/0x190
+[171464.092073] PGD 15344e067 PUD 14c821067 PMD 0
+[171464.092073] Oops: 0002 [#1] SMP
+
+Which is caused by: ipv4: fix lockdep splat in rt_cache_seq_show
+	
+This is the patchset you made for 3.1:
+http://www.spinics.net/lists/netdev/msg182508.html
+
+So we're talking AT LEAST about these ones:
+ >Linus tree :
+ >
+ >commit 580da35a31f91a594f3090b7a2c39b85cb051a12
+ >IB: Fix RCU lockdep splats
+ >
+ >David tree :
+ >
+ >commit 218fa90f072e4aeff9003d57e390857f4f35513e
+ >ipv4: fix lockdep splat in rt_cache_seq_show
+ >
+ >commit f7e57044eeb1841847c24aa06766c8290c202583
+ >sch_teql: fix lockdep splat
+
+Greets and thanks!
+
+Stefan
