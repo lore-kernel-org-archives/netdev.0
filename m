@@ -1,17 +1,17 @@
 From: Stefan Gula <steweg@ynet.sk>
-Subject: [patch v2, iproute2 version 3.2.0] Source mode for macvlan
+Subject: [patch v3, iproute2 version 3.2.0] Source mode for macvlan
  interface
-Date: Mon, 30 Jan 2012 14:07:39 +0100 (CET)
-Message-ID: <23823448.1181327928859726.JavaMail.root@5-MeO-DMT.ynet.sk>
+Date: Mon, 30 Jan 2012 14:14:00 +0100 (CET)
+Message-ID: <10839102.1251327929240954.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:43240 "EHLO
+Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:56150 "EHLO
 	5-meo-dmt.ynet.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051Ab2A3NLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 08:11:07 -0500
+	with ESMTP id S1751733Ab2A3NR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 08:17:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -28,7 +28,7 @@ Signed-off-by: Stefan Gula <steweg@gmail.com>
 
 ---
 
-V2 changes: - removed bogus lines from if_link.h not related to this patch
+V2 changes: - removed more bogus lines from if_link.h not related to this patch
 
 diff -uprN iproute2-3.2.0/Config iproute2-3.2.0-my/Config
 --- iproute2-3.2.0/Config	1970-01-01 00:00:00.000000000 +0000
@@ -39,19 +39,8 @@ diff -uprN iproute2-3.2.0/Config iproute2-3.2.0-my/Config
 +IPT_LIB_DIR:=/lib/xtables
 diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-my/include/linux/if_link.h
 --- iproute2-3.2.0/include/linux/if_link.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-my/include/linux/if_link.h	2012-01-30 13:08:22.000000000 +0000
-@@ -144,8 +144,10 @@ enum {
- #define IFLA_MAX (__IFLA_MAX - 1)
- 
- /* backwards compatibility for userspace */
-+#ifndef __KERNEL__
- #define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
- #define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-+#endif
- 
- enum {
- 	IFLA_INET_UNSPEC,
-@@ -250,6 +252,9 @@ struct ifla_vlan_qos_mapping {
++++ iproute2-3.2.0-my/include/linux/if_link.h	2012-01-30 13:15:40.000000000 +0000
+@@ -250,6 +250,9 @@ struct ifla_vlan_qos_mapping {
  enum {
  	IFLA_MACVLAN_UNSPEC,
  	IFLA_MACVLAN_MODE,
@@ -61,7 +50,7 @@ diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-my/include/linu
  	__IFLA_MACVLAN_MAX,
  };
  
-@@ -260,6 +265,13 @@ enum macvlan_mode {
+@@ -260,6 +263,13 @@ enum macvlan_mode {
  	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
  	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
  	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
