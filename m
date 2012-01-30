@@ -1,51 +1,41 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 14/16] hamradio: fix incompatible pointer in module parameter
-Date: Mon, 30 Jan 2012 23:00:18 +0100
-Message-ID: <1327960820-11867-15-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 11/16] ath5k: make ath5k_modparam_no_hw_rfkill_switch real
+Date: Mon, 30 Jan 2012 23:00:15 +0100
+Message-ID: <1327960820-11867-12-git-send-email-danny.kukawka@bisect.de>
 References: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Thomas Sailer <t.sailer@alumni.ethz.ch>
-Return-path: <linux-hams-owner@vger.kernel.org>
+To: ath5k-devel@lists.ath5k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-hams-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed 'warning: return from incompatible pointer type' related
-to module parameters.
+Make ath5k_modparam_no_hw_rfkill_switch real bool to fix:
+'warning: return from incompatible pointer type' compiler warning.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/hamradio/baycom_epp.c |    2 +-
- drivers/net/hamradio/baycom_par.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath5k/base.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 9537aaa..49b8b58 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -1162,7 +1162,7 @@ static void baycom_probe(struct net_device *dev)
- /*
-  * command line settable parameters
-  */
--static const char *mode[NR_PORTS] = { "", };
-+static char *mode[NR_PORTS] = { "", };
- static int iobase[NR_PORTS] = { 0x378, };
+diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
+index d366dad..ad2f115 100644
+--- a/drivers/net/wireless/ath/ath5k/base.c
++++ b/drivers/net/wireless/ath/ath5k/base.c
+@@ -80,7 +80,7 @@ static bool modparam_fastchanswitch;
+ module_param_named(fastchanswitch, modparam_fastchanswitch, bool, S_IRUGO);
+ MODULE_PARM_DESC(fastchanswitch, "Enable fast channel switching for AR2413/AR5413 radios.");
  
- module_param_array(mode, charp, NULL, 0);
-diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
-index 279d229..f1aea0c 100644
---- a/drivers/net/hamradio/baycom_par.c
-+++ b/drivers/net/hamradio/baycom_par.c
-@@ -477,7 +477,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
- /*
-  * command line settable parameters
-  */
--static const char *mode[NR_PORTS] = { "picpar", };
-+static char *mode[NR_PORTS] = { "picpar", };
- static int iobase[NR_PORTS] = { 0x378, };
- 
- module_param_array(mode, charp, NULL, 0);
+-static int ath5k_modparam_no_hw_rfkill_switch;
++static bool ath5k_modparam_no_hw_rfkill_switch;
+ module_param_named(no_hw_rfkill_switch, ath5k_modparam_no_hw_rfkill_switch,
+ 								bool, S_IRUGO);
+ MODULE_PARM_DESC(no_hw_rfkill_switch, "Ignore the GPIO RFKill switch state");
 -- 
 1.7.7.3
-
