@@ -1,291 +1,258 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [RFC PATCH V3 16/16] netfront: split event channels
- support.
-Date: Mon, 30 Jan 2012 16:25:15 -0500
-Message-ID: <20120130212515.GA16261@phenom.dumpdata.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
- <1327934734-8908-17-git-send-email-wei.liu2@citrix.com>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [RFC PATCH 7/7] ARM: davinci: add support for the am1808 based
+ enbw_cmc board
+Date: Mon, 30 Jan 2012 13:32:52 -0700
+Message-ID: <20120130203252.GX28397@ponder.secretlab.ca>
+References: <1327308967-8092-1-git-send-email-hs@denx.de>
+ <1327308967-8092-8-git-send-email-hs@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	ian.campbell@citrix.com
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:32952 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752852Ab2A3V1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 16:27:50 -0500
+Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>, Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1327934734-8908-17-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1327308967-8092-8-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2012 at 02:45:34PM +0000, Wei Liu wrote:
-> If this feature is not activated, rx_irq = tx_irq. See corresponding
-> netback change log for details.
+On Mon, Jan 23, 2012 at 09:56:07AM +0100, Heiko Schocher wrote:
+> - AM1808 based board
+> - 64 MiB DDR ram
+> - 2 MiB Nor flash
+> - 128 MiB NAND flash
+> - use internal RTC
+> - I2C support
+> - hwmon lm75 support
+> - UBI/UBIFS support
+> - MMC support
+> - USB OTG support
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+> Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+> Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
+> Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+> Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
+> Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
+> 
 > ---
->  drivers/net/xen-netfront.c |  147 ++++++++++++++++++++++++++++++++++----------
->  1 files changed, 115 insertions(+), 32 deletions(-)
+> - post this board support with USB support, even though
+>   USB is only working with the 10 ms "workaround", posted here:
+>   http://comments.gmane.org/gmane.linux.usb.general/54505
+>   I see this issue also on the AM1808 TMDXEXP1808L evalboard.
+> - MMC and USB are not using OF support yet, ideas how to port
+>   this are welcome. I need for USB and MMC boards board
+>   specific callbacks, how to solve this with OF support?
 > 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 32ec212..72c0429 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -98,7 +98,9 @@ struct netfront_info {
->  
->  	unsigned long rx_gso_checksum_fixup;
->  
-> -	unsigned int evtchn;
-> +	unsigned int split_evtchn;
+>  arch/arm/boot/dts/enbw_cmc.dts                  |  286 +++++++++++++++++
+>  arch/arm/configs/enbw_cmc_defconfig             |  125 ++++++++
+>  arch/arm/mach-davinci/Kconfig                   |    8 +
+>  arch/arm/mach-davinci/Makefile                  |    1 +
+>  arch/arm/mach-davinci/board-enbw-cmc.c          |  384 +++++++++++++++++++++++
+>  arch/arm/mach-davinci/include/mach/uncompress.h |    1 +
+>  6 files changed, 805 insertions(+), 0 deletions(-)
+>  create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
+>  create mode 100644 arch/arm/configs/enbw_cmc_defconfig
+>  create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
+> 
+> diff --git a/arch/arm/boot/dts/enbw_cmc.dts b/arch/arm/boot/dts/enbw_cmc.dts
+> new file mode 100644
+> index 0000000..e5995ce
+> --- /dev/null
+> +++ b/arch/arm/boot/dts/enbw_cmc.dts
+> @@ -0,0 +1,286 @@
+> +/*
+> + * Device Tree for the EnBW CMC plattform
+> + *
+> + * Copyright 2011 DENX Software Engineering GmbH
+> + * Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+> + *
+> + * This program is free software; you can redistribute  it and/or modify it
+> + * under  the terms of  the GNU General  Public License as published by the
+> + * Free Software Foundation;  either version 2 of the  License, or (at your
+> + * option) any later version.
+> + */
+> +/dts-v1/;
+> +/include/ "skeleton.dtsi"
+> +
+> +/ {
+> +	model = "EnBW CMC";
+> +	compatible = "enbw,cmc";
+> +
+> +	aliases {
+> +		ethernet0 = &eth0;
+> +	};
+> +
+> +	arm {
+> +		#address-cells = <1>;
+> +		#size-cells = <1>;
+> +		ranges = <0 0xfffee000 0x00020000>;
+> +		intc: interrupt-controller@1 {
+> +			compatible = "ti,davinci-intc";
+> +			interrupt-controller;
+> +			#interrupt-cells = <1>;
+> +			ti,intc-size = <101>;
+> +			reg = <0x0 0x2000>;
+> +		};
+> +	};
+> +	soc@1c00000 {
+> +		compatible = "ti,da8xx";
 
-bool?
+As previously mentioned, using wildcard ('x') characters in compatible
+properties is bad practice.  Always be specific and use the compatible
+list to make sure the correct driver gets bound (assuming the device
+is 100% register level compatible with the older one).
 
-> +	unsigned int tx_evtchn, rx_evtchn;
-> +	unsigned int tx_irq, rx_irq;
->  	struct xenbus_device *xbdev;
->  
->  	spinlock_t   tx_lock;
-> @@ -344,7 +346,7 @@ no_skb:
->   push:
->  	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->rx, notify);
->  	if (notify)
-> -		notify_remote_via_irq(np->netdev->irq);
-> +		notify_remote_via_irq(np->rx_irq);
->  }
->  
->  static int xennet_open(struct net_device *dev)
-> @@ -577,7 +579,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->tx, notify);
->  	if (notify)
-> -		notify_remote_via_irq(np->netdev->irq);
-> +		notify_remote_via_irq(np->tx_irq);
->  
->  	u64_stats_update_begin(&stats->syncp);
->  	stats->tx_bytes += skb->len;
-> @@ -1242,22 +1244,35 @@ static int xennet_set_features(struct net_device *dev, u32 features)
->  	return 0;
->  }
->  
-> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-> +static irqreturn_t xennet_tx_interrupt(int irq, void *dev_id)
->  {
-> -	struct net_device *dev = dev_id;
-> -	struct netfront_info *np = netdev_priv(dev);
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
->  	unsigned long flags;
->  
->  	spin_lock_irqsave(&np->tx_lock, flags);
-> +	xennet_tx_buf_gc(dev);
-> +	spin_unlock_irqrestore(&np->tx_lock, flags);
->  
-> -	if (likely(netif_carrier_ok(dev))) {
-> -		xennet_tx_buf_gc(dev);
-> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
-> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
-> -			napi_schedule(&np->napi);
-> -	}
+> +		#address-cells = <1>;
+> +		#size-cells = <1>;
+> +		ranges = <0x0 0x01c00000 0x400000>;
+> +
+> +		serial0: serial@1c42000 {
+> +			cell-index = <2>;
+
+As previously mentioned, don't use cell index.  If you *really* need
+to assign a number to a device, then use a property in the /aliases
+node and make sure pdev->id does *not* get modified.
+
+> +			compatible = "ns16550a";
+
+Should include a string for the specific device.  Something like:
+
+	compatible = "ti,da800", "ns16550a";
+
+> diff --git a/arch/arm/mach-davinci/board-enbw-cmc.c b/arch/arm/mach-davinci/board-enbw-cmc.c
+> new file mode 100644
+> index 0000000..4473c4a
+> --- /dev/null
+> +++ b/arch/arm/mach-davinci/board-enbw-cmc.c
+> @@ -0,0 +1,384 @@
+> +/*
+> + * EnBW Communication Module Compact board
+> + * Copyright 2011 DENX Software Engineering GmbH
+> + * Author: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+> + *
+> + * based on:
+> + * TI DA850/OMAP-L138 EVM board
+> + *
+> + * Copyright (C) 2009 Texas Instruments Incorporated - http://www.ti.com/
+> + *
+> + * Derived from: arch/arm/mach-davinci/board-da850-evm.c
+> + * Original Copyrights follow:
+> + *
+> + * 2007, 2009 (c) MontaVista Software, Inc. This file is licensed under
+> + * the terms of the GNU General Public License version 2. This program
+> + * is licensed "as is" without any warranty of any kind, whether express
+> + * or implied.
+> + */
+> +#include <linux/console.h>
+> +#include <linux/gpio.h>
+> +#include <linux/gpio_keys.h>
+> +#include <linux/i2c.h>
+> +#include <linux/init.h>
+> +#include <linux/kernel.h>
+> +#include <linux/mtd/mtd.h>
+> +#include <linux/mtd/nand.h>
+> +#include <linux/mtd/partitions.h>
+> +#include <linux/mtd/physmap.h>
+> +#include <linux/of.h>
+> +#include <linux/of_net.h>
+> +#include <linux/of_address.h>
+> +#include <linux/of_platform.h>
+> +#include <linux/phy.h>
+> +#include <linux/phy_fixed.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/spi/spi.h>
+> +#include <linux/spi/flash.h>
+> +#include <asm/mach-types.h>
+> +#include <asm/mach/arch.h>
+> +#include <mach/aemif.h>
+> +#include <mach/cp_intc.h>
+> +#include <mach/da8xx.h>
+> +#include <mach/mux.h>
+> +#include <mach/nand.h>
+> +#include <mach/spi.h>
+> +
+> +#define ENBW_CMC_MMCSD_CD_PIN          GPIO_TO_PIN(3, 13)
+> +
+> +/*
+> + * USB1 VBUS is controlled by GPIO7[12], over-current is reported on GPIO7[8].
+> + */
+> +#define DA850_USB_VBUS_PIN	GPIO_TO_PIN(7, 12)
+> +#define ON_BD_USB_OVC		GPIO_TO_PIN(7, 8)
+> +
+> +#if defined(CONFIG_USB_OHCI_HCD)
+> +static irqreturn_t enbw_cmc_usb_ocic_irq(int irq, void *dev_id);
+> +static da8xx_ocic_handler_t enbw_cmc_usb_ocic_handler;
+> +
+> +static int enbw_cmc_usb_set_power(unsigned port, int on)
+> +{
+> +	gpio_set_value(DA850_USB_VBUS_PIN, on);
+> +	return 0;
+> +}
+> +
+> +static int enbw_cmc_usb_get_power(unsigned port)
+> +{
+> +	return gpio_get_value(DA850_USB_VBUS_PIN);
+> +}
+> +
+> +static int enbw_cmc_usb_get_oci(unsigned port)
+> +{
+> +	return !gpio_get_value(ON_BD_USB_OVC);
+> +}
+> +
+> +static irqreturn_t enbw_cmc_usb_ocic_irq(int, void *);
+> +
+> +static int enbw_cmc_usb_ocic_notify(da8xx_ocic_handler_t handler)
+> +{
+> +	int irq         = gpio_to_irq(ON_BD_USB_OVC);
+> +	int error       = 0;
+> +
+> +	if (handler != NULL) {
+> +		enbw_cmc_usb_ocic_handler = handler;
+> +
+> +		error = request_irq(irq, enbw_cmc_usb_ocic_irq,
+> +					IRQF_DISABLED | IRQF_TRIGGER_RISING |
+> +					IRQF_TRIGGER_FALLING,
+> +					"OHCI over-current indicator", NULL);
+> +		if (error)
+> +			pr_err("%s: could not request IRQ to watch "
+> +				"over-current indicator changes\n", __func__);
+> +	} else {
+> +		free_irq(irq, NULL);
+> +	}
+> +	return error;
+> +}
+> +
+> +static struct da8xx_ohci_root_hub enbw_cmc_usb11_pdata = {
+> +	.set_power      = enbw_cmc_usb_set_power,
+> +	.get_power      = enbw_cmc_usb_get_power,
+> +	.get_oci        = enbw_cmc_usb_get_oci,
+> +	.ocic_notify    = enbw_cmc_usb_ocic_notify,
+> +	.potpgt         = (10 + 1) / 2,  /* 10 ms max */
+> +};
+> +
+> +static irqreturn_t enbw_cmc_usb_ocic_irq(int irq, void *dev_id)
+> +{
+> +	enbw_cmc_usb_ocic_handler(&enbw_cmc_usb11_pdata, 1);
 > +	return IRQ_HANDLED;
 > +}
->  
-> -	spin_unlock_irqrestore(&np->tx_lock, flags);
-> +static irqreturn_t xennet_rx_interrupt(int irq, void *dev_id)
-> +{
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
+> +#endif
 > +
-> +	if (likely(netif_carrier_ok(dev)) &&
-> +	    RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
-> +		napi_schedule(&np->napi);
-> +
-> +	return IRQ_HANDLED;
-> +}
-> +static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-> +{
-> +	xennet_tx_interrupt(0, dev_id);
-> +
-> +	xennet_rx_interrupt(0, dev_id);
->  
->  	return IRQ_HANDLED;
->  }
-> @@ -1436,9 +1451,14 @@ static void xennet_disconnect_backend(struct netfront_info *info)
->  	spin_unlock_irq(&info->tx_lock);
->  	spin_unlock_bh(&info->rx_lock);
->  
-> -	if (info->netdev->irq)
-> -		unbind_from_irqhandler(info->netdev->irq, info->netdev);
-> -	info->evtchn = info->netdev->irq = 0;
-> +	if (info->tx_irq && (info->tx_irq == info->rx_irq))
-> +		unbind_from_irqhandler(info->tx_irq, info);
-> +	if (info->tx_irq && (info->tx_irq != info->rx_irq)) {
-> +		unbind_from_irqhandler(info->tx_irq, info);
-> +		unbind_from_irqhandler(info->rx_irq, info);
-> +	}
-> +	info->tx_evtchn = info->tx_irq = 0;
-> +	info->rx_evtchn = info->rx_irq = 0;
->  
->  	for (i = 0; i < info->tx_ring_pages; i++) {
->  		int ref = info->tx_ring_ref[i];
-> @@ -1507,6 +1527,7 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	int err;
->  	struct net_device *netdev = info->netdev;
->  	unsigned int max_tx_ring_page_order, max_rx_ring_page_order;
-> +	unsigned int split_evtchn;
->  	int i, j;
->  
->  	for (i = 0; i < XENNET_MAX_RING_PAGES; i++) {
-> @@ -1515,7 +1536,6 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	}
->  	info->rx.sring = NULL;
->  	info->tx.sring = NULL;
-> -	netdev->irq = 0;
->  
->  	err = xen_net_read_mac(dev, netdev->dev_addr);
->  	if (err) {
-> @@ -1524,6 +1544,12 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	}
->  
->  	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
-> +			   "split-event-channels", "%u",
+> +#if defined(CONFIG_OF)
+> +static __init void enbw_cmc_usb_init(void)
 
-
-We don't want to call them 'feature-split-event-channels' ?
-
-> +			   &split_evtchn);
-> +	if (err < 0)
-> +		split_evtchn = 0;
-> +
-> +	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
->  			   "max-tx-ring-page-order", "%u",
->  			   &max_tx_ring_page_order);
->  	if (err < 0) {
-> @@ -1589,20 +1615,59 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  		info->rx_ring_ref[j] = err;
->  	}
->  
-> -	err = xenbus_alloc_evtchn(dev, &info->evtchn);
-> -	if (err)
-> -		goto alloc_evtchn_fail;
-> +	if (!split_evtchn) {
-
-Why not just move most of the code that deals with this
-allocation in two seperate functions: setup_netfront_split
-and setup_netfront_generic ?
-
-
-> +		err = xenbus_alloc_evtchn(dev, &info->tx_evtchn);
-> +		if (err)
-> +			goto alloc_evtchn_fail;
->  
-> -	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
-> -					0, netdev->name, netdev);
-> -	if (err < 0)
-> -		goto bind_fail;
-> -	netdev->irq = err;
-> +		err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-> +						xennet_interrupt,
-> +						0, netdev->name, info);
-> +		if (err < 0)
-> +			goto bind_fail;
-> +		info->rx_evtchn = info->tx_evtchn;
-> +		info->tx_irq = info->rx_irq = err;
-> +		info->split_evtchn = 0;
-> +		dev_info(&dev->dev, "single event channel, irq = %d\n",
-> +			 info->tx_irq);
-> +	} else {
-> +		err = xenbus_alloc_evtchn(dev, &info->tx_evtchn);
-> +		if (err)
-> +			goto alloc_evtchn_fail;
-> +		err = xenbus_alloc_evtchn(dev, &info->rx_evtchn);
-> +		if (err) {
-> +			xenbus_free_evtchn(dev, info->tx_evtchn);
-> +			goto alloc_evtchn_fail;
-> +		}
-> +		err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-> +						xennet_tx_interrupt,
-> +						0, netdev->name, info);
-> +		if (err < 0)
-> +			goto bind_fail;
-> +		info->tx_irq = err;
-> +		err = bind_evtchn_to_irqhandler(info->rx_evtchn,
-> +						xennet_rx_interrupt,
-> +						0, netdev->name, info);
-> +		if (err < 0) {
-> +			unbind_from_irqhandler(info->tx_irq, info);
-> +			goto bind_fail;
-> +		}
-> +		info->rx_irq = err;
-> +		info->split_evtchn = 1;
-> +		dev_info(&dev->dev, "split event channels,"
-> +			 " tx_irq = %d, rx_irq = %d\n",
-> +			 info->tx_irq, info->rx_irq);
-> +	}
->  
->  	return 0;
->  
->  bind_fail:
-> -	xenbus_free_evtchn(dev, info->evtchn);
-> +	if (!split_evtchn)
-> +		xenbus_free_evtchn(dev, info->tx_evtchn);
-> +	else {
-> +		xenbus_free_evtchn(dev, info->tx_evtchn);
-> +		xenbus_free_evtchn(dev, info->rx_evtchn);
-> +	}
->  alloc_evtchn_fail:
->  	for (; j >= 0; j--) {
->  		int ref = info->rx_ring_ref[j];
-> @@ -1690,11 +1755,27 @@ again:
->  		}
->  	}
->  
-> -	err = xenbus_printf(xbt, dev->nodename,
-> -			    "event-channel", "%u", info->evtchn);
-> -	if (err) {
-> -		message = "writing event-channel";
-> -		goto abort_transaction;
-> +
-> +	if (!info->split_evtchn) {
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel", "%u", info->tx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel";
-> +			goto abort_transaction;
-> +		}
-> +	} else {
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel-tx", "%u", info->tx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel-tx";
-> +			goto abort_transaction;
-> +		}
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel-rx", "%u", info->rx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel-rx";
-> +			goto abort_transaction;
-> +		}
->  	}
->  
->  	err = xenbus_printf(xbt, dev->nodename, "request-rx-copy", "%u",
-> @@ -1808,7 +1889,9 @@ static int xennet_connect(struct net_device *dev)
->  	 * packets.
->  	 */
->  	netif_carrier_on(np->netdev);
-> -	notify_remote_via_irq(np->netdev->irq);
-> +	notify_remote_via_irq(np->tx_irq);
-> +	if (np->split_evtchn)
-> +		notify_remote_via_irq(np->rx_irq);
->  	xennet_tx_buf_gc(dev);
->  	xennet_alloc_rx_buffers(dev);
->  
-> -- 
-> 1.7.2.5
-> 
-> 
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xensource.com
-> http://lists.xensource.com/xen-devel
+All the focus is on DT now.  How about making CONFIG_OF required for
+this board?  Also, this is just another board file.  The focus should
+be on creating a generic board support file for DT platforms.
