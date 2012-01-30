@@ -1,64 +1,54 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH V3 12/16] netback: multi-page ring
- support
-Date: Mon, 30 Jan 2012 17:10:36 +0000
-Message-ID: <1327943436.5553.39.camel@leeds.uk.xensource.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	 <1327934734-8908-13-git-send-email-wei.liu2@citrix.com>
-	 <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Mon, 30 Jan 2012 09:12:15 -0800
+Message-ID: <20120130171215.GA11508@kroah.com>
+References: <1322773527.2750.27.camel@edumazet-laptop>
+ <4ED86B79.4060506@profihost.ag>
+ <4EE25B06.7010907@profihost.ag>
+ <20111209.142117.357254752872525966.davem@davemloft.net>
+ <4EE32076.2020706@profihost.ag>
+ <4F26571E.1010002@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	jwboyer@gmail.com, hch@infradead.org, netdev@vger.kernel.org,
+	david@fromorbit.com, stable@vger.kernel.org, gregkh@suse.de
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:1972 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570Ab2A3RK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:10:26 -0500
-In-Reply-To: <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:41427 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752690Ab2A3RMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:12:38 -0500
+Received: from compute3.internal (compute3.nyi.mail.srv.osa [10.202.2.43])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id E2A6C204A8
+	for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 12:12:37 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <4F26571E.1010002@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-01-30 at 16:35 +0000, Jan Beulich wrote:
-> >>> On 30.01.12 at 15:45, Wei Liu <wei.liu2@citrix.com> wrote:
-> > -int xenvif_map_frontend_rings(struct xenvif *vif,
-> > -			      grant_ref_t tx_ring_ref,
-> > -			      grant_ref_t rx_ring_ref)
-> > +int xenvif_map_frontend_rings(struct xen_comms *comms,
-> > +			      int domid,
-> > +			      unsigned long ring_ref[],
-> > +			      unsigned int  ring_ref_count)
-> >  {
-> > -	void *addr;
-> > -	struct xen_netif_tx_sring *txs;
-> > -	struct xen_netif_rx_sring *rxs;
-> > -
-> > -	int err = -ENOMEM;
-> > +	struct gnttab_map_grant_ref op[NETBK_MAX_RING_PAGES];
-> > +	unsigned int i;
-> > +	int err = 0;
-> >  
-> > -	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-> > -				     tx_ring_ref, &addr);
+On Mon, Jan 30, 2012 at 09:38:54AM +0100, Stefan Priebe - Profihost AG wrote:
+> Hi David, Hi Greg, Hi List,
 > 
-> Any reason why you don't just extend this function (in a prerequisite
-> patch) rather than open coding a common utility function (twice) here,
-> so that other backends (blkback!) can benefit later as well.
+> Am 10.12.2011 10:03, schrieb Stefan Priebe:
+> > Am 09.12.2011 20:21, schrieb David Miller:
+> >> From: Stefan Priebe<s.priebe@profihost.ag>
+> >> Date: Fri, 09 Dec 2011 20:01:26 +0100
+> >>
+> >>> any news on that? Systems still crashing every now and then. 3.0.13
+> >>> was released today but i haven't seen any of them.
+> >>
+> >> I only had time to submit these fixes for 3.1.x-stable, you'll just
+> >> have to be incredibly patient.
 > 
-> Jan
-> 
+> this bug sadly still makes the actual STABLE tree of the kernel
+> unusable. I mean nearly everbody uses TCP/IP.
 
-I'm mainly focusing on netback stuffs, so the code is slightly coupled
-with netback -- NETBK_MAX_RING_PAGES.
+"this bug"?
 
-To extend xenbus_map_ring_valloc and make more generic, it requires
-setting a global maximum page number limits on rings, I think it will
-require further investigation and code refactor -- which I have no time
-to attend to at the moment. :-/
+Please be more specific, as I have no idea what you are referring to.
+Especially when you reference an email from 4 months ago, my brain's
+stack size is 4 hours tops...
 
-
-Wei.
+greg k-h
