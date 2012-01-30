@@ -1,67 +1,69 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] ipv6: fix RFC5722 comment
-Date: Mon, 30 Jan 2012 15:42:25 +0100
-Message-ID: <4F26AC51.8080108@6wind.com>
-References: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: nicolas.dichtel@6wind.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [RFC PATCH V3] Xen netback / netfront improvement
+Date: Mon, 30 Jan 2012 14:45:18 +0000
+Message-ID: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com
+To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51962 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605Ab2A3Om2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:42:28 -0500
-Received: by wgbed3 with SMTP id ed3so4704450wgb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:42:27 -0800 (PST)
-In-Reply-To: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from smtp02.citrix.com ([66.165.176.63]:63150 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753272Ab2A3Opd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:45:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/01/2012 15:29, Eric Dumazet a =C3=A9crit :
-> RFC5722 Section 4 was amended by Errata 3089
->
-> Our implementation did the right thing anyway...
->
-> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-> Cc: Nicolas Dichtel<nicolas.dichtel@6wind.com>
+Since this series includes both netback and netfront changes, the
+whole series is named as "Xen netback / netfront improvement".
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->   net/ipv6/reassembly.c |    7 +++----
->   1 file changed, 3 insertions(+), 4 deletions(-)
->
-> diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-> index b69fae7..9447bd6 100644
-> --- a/net/ipv6/reassembly.c
-> +++ b/net/ipv6/reassembly.c
-> @@ -336,12 +336,11 @@ static int ip6_frag_queue(struct frag_queue *fq=
-, struct sk_buff *skb,
->   	}
->
->   found:
-> -	/* RFC5722, Section 4:
-> -	 *                                  When reassembling an IPv6 datag=
-ram, if
-> +	/* RFC5722, Section 4, amended by Errata ID : 3089
-> +	 *                          When reassembling an IPv6 datagram, if
-Identation was an exact copy of the original rfc (not changed by the er=
-rata),=20
-but it's a detail ;-)
+Changes in V3:
+ - Rework of per-cpu scratch space
+ - Multi page ring support
+ - Split event channels
+ - Rx protocol stub
+ - Fix a minor bug in module_put path
 
+Changes in V2:
+ - Fix minor bugs in V1
+ - Embed pending_tx_info into page pool
+ - Per-cpu scratch space
+ - Notification code path clean up
 
-Regards,
-Nicolas
+This version has been tested by 
+Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
->   	 *   one or more its constituent fragments is determined to be an
->   	 *   overlapping fragment, the entire datagram (and any constituen=
-t
-> -	 *   fragments, including those not yet received) MUST be silently
-> -	 *   discarded.
-> +	 *   fragments) MUST be silently discarded.
->   	 */
->
->   	/* Check for overlap with preceding fragment. */
+V1:
+A new netback implementation which includes three major features:
+
+ - Global page pool support
+ - NAPI + kthread 1:1 model
+ - Netback internal name changes
+
+This patch series is the foundation of furture work. So it is better
+to get it right first. Patch 1 and 3 have the real meat.
+
+The first benifit of 1:1 model will be scheduling fairness.
+
+The rational behind a global page pool is that we need to limit
+overall memory consumed by all vifs.
+
+Utilization of NAPI enables the possibility to mitigate
+interrupts/events, the code path is cleaned up in a separated patch.
+
+Netback internal changes cleans up the code structure after switching
+to 1:1 model. It also prepares netback for further code layout
+changes.
+
+----
+ drivers/net/xen-netback/Makefile              |    2 +-
+ drivers/net/xen-netback/common.h              |  149 ++-
+ drivers/net/xen-netback/interface.c           |  256 ++++--
+ drivers/net/xen-netback/netback.c             | 1344 +++++++------------------
+ drivers/net/xen-netback/page_pool.c           |  185 ++++
+ drivers/net/xen-netback/page_pool.h           |   66 ++
+ drivers/net/xen-netback/xenbus.c              |  185 ++++-
+ drivers/net/xen-netback/xenvif_rx_protocol0.c |  616 +++++++++++
+ drivers/net/xen-netback/xenvif_rx_protocol0.h |   53 +
+ drivers/net/xen-netfront.c                    |  399 ++++++--
+ 10 files changed, 2062 insertions(+), 1193 deletions(-)
