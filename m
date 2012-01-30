@@ -1,43 +1,34 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] net/hyperv: rx_bytes should account the ether header size
-Date: Mon, 30 Jan 2012 16:14:02 +0800
-Message-ID: <CAPgLHd8M7vPra_gTH5J1RmR4nmSeuDEGCjghatd1BsOJEeGKKA@mail.gmail.com>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
+	originated TCP streams
+Date: Mon, 30 Jan 2012 19:18:49 +1100
+Message-ID: <20120130081849.GA7848@gondor.apana.org.au>
+References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com> <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com> <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com> <4F264A6C.3070706@mellanox.com> <1327910672.2891.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: haiyangz@microsoft.com, kys@microsoft.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:39475 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562Ab2A3IOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 03:14:03 -0500
-Received: by qadc10 with SMTP id c10so1933840qad.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 00:14:02 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1327910672.2891.12.camel@edumazet-laptop>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Mon, Jan 30, 2012 at 09:04:32AM +0100, Eric Dumazet wrote:
+>
+> Hmm, do we really need to compare ether header, thats the question.
 
-skb->len after call eth_type_trans() does not include the ether
-header size, but rx_bytes should account it.
+I think we do.  As otherwise macvlan would break.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/hyperv/netvsc_drv.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1a1ca6c..9dccc7a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -298,7 +298,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	net->stats.rx_packets++;
--	net->stats.rx_bytes += skb->len;
-+	net->stats.rx_bytes += packet->total_data_buflen;
- 
- 	/*
- 	 * Pass the skb back up. Network stack will deallocate the skb when it
+Cheers,
 -- 
-1.7.1
+Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
