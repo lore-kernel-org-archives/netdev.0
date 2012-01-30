@@ -1,77 +1,34 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
-Date: Mon, 30 Jan 2012 19:53:34 +0100
-Message-ID: <4F26E72E.2020007@profihost.ag>
-References: <4EE32076.2020706@profihost.ag> <4F26571E.1010002@profihost.ag> <20120130171215.GA11508@kroah.com> <20120130.130717.348683183628737352.davem@davemloft.net>
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
+ TCP streams
+Date: Mon, 30 Jan 2012 11:00:19 -0800
+Message-ID: <CAL1RGDVcz5N7u2T-4RV4uqbYjq+Q2vKeuW+ha=DN14Rx5QRkQw@mail.gmail.com>
+References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
+ <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
+ <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>
+ <36F7E4A28C18BE4DB7C86058E7B607240BE9687A@MTRDAG01.mtl.com>
+ <CAL1RGDXjjQ-PhCv-9WJX45NuovC9XiS=_7507OsyvLW_gBaJ5g@mail.gmail.com> <CAJZOPZLhgDysSASyMLNpOrmGzEyfyHAQjGLVei6ZNSFfb7TM1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, eric.dumazet@gmail.com, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:54703 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505Ab2A3Sxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:53:38 -0500
-In-Reply-To: <20120130.130717.348683183628737352.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJZOPZLhgDysSASyMLNpOrmGzEyfyHAQjGLVei6ZNSFfb7TM1w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David, Hi Greg,
-
->>> Am 10.12.2011 10:03, schrieb Stefan Priebe:
->>>> Am 09.12.2011 20:21, schrieb David Miller:
->>>>> From: Stefan Priebe<s.priebe@profihost.ag>
->>>>> Date: Fri, 09 Dec 2011 20:01:26 +0100
->>>>>
->>>>>> any news on that? Systems still crashing every now and then. 3.0.13
->>>>>> was released today but i haven't seen any of them.
->>>>>
->>>>> I only had time to submit these fixes for 3.1.x-stable, you'll just
->>>>> have to be incredibly patient.
->>>
->>> this bug sadly still makes the actual STABLE tree of the kernel
->>> unusable. I mean nearly everbody uses TCP/IP.
->>
->> "this bug"?
+On Mon, Jan 30, 2012 at 10:16 AM, Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> Realistically if we add this hack to ipoib then we'll have that ugly
+>> memset in our fast path forever.
 >
-> Actually, like Greg, I cannot figure out which fix you are referring
-> to.
->
-> You haven't provided enough context, and even searching into the
-> mailing list archives I cannot find a link into the real history of
-> this discussion thread.
+> forever, why? once a clever fix is found, we can revert that memset, etc.
 
-sorry about beeing so unspecific.
-
-I'm talking about:
-[171464.091567] BUG: unable to handle kernel NULL pointer dereference at 
-000000000000002c
-[171464.092073] IP: [<ffffffff815494f6>] ipv4_dst_check+0xb6/0x190
-[171464.092073] PGD 15344e067 PUD 14c821067 PMD 0
-[171464.092073] Oops: 0002 [#1] SMP
-
-Which is caused by: ipv4: fix lockdep splat in rt_cache_seq_show
-	
-This is the patchset you made for 3.1:
-http://www.spinics.net/lists/netdev/msg182508.html
-
-So we're talking AT LEAST about these ones:
- >Linus tree :
- >
- >commit 580da35a31f91a594f3090b7a2c39b85cb051a12
- >IB: Fix RCU lockdep splats
- >
- >David tree :
- >
- >commit 218fa90f072e4aeff9003d57e390857f4f35513e
- >ipv4: fix lockdep splat in rt_cache_seq_show
- >
- >commit f7e57044eeb1841847c24aa06766c8290c202583
- >sch_teql: fix lockdep splat
-
-Greets and thanks!
-
-Stefan
+Because no one is ever going to work on the right fix if we add a
+bandaid to ipoib now.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
