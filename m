@@ -1,35 +1,33 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Improved handling of IPv6 atomic fragments (FO=0, MF=0)
-Date: Mon, 30 Jan 2012 07:24:22 -0300
-Message-ID: <4F266FD6.4070301@gont.com.ar>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [00/22] Cyclades PC300 driver: summary of patch series
+Date: Mon, 30 Jan 2012 10:28:15 +0000
+Message-ID: <20120130102815.3e01acc4@pyramind.ukuu.org.uk>
+References: <20120130024243.GA10262@cronus.persephoneslair.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: security@kernel.org, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:44745 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576Ab2A3KY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 05:24:26 -0500
-Received: by yhoo21 with SMTP id o21so1650546yho.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 02:24:25 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	khc@pm.waw.pl, davem@davemloft.net, mmarek@suse.cz,
+	jkosina@suse.cz, joe@perches.com, justinmattock@gmail.com,
+	gregkh@suse.de, alan@linux.intel.com, jdmason@kudzu.us
+To: Andrea Shepard <andrea@persephoneslair.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120130024243.GA10262@cronus.persephoneslair.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Folks,
+On Sun, 29 Jan 2012 18:42:43 -0800
+Andrea Shepard <andrea@persephoneslair.org> wrote:
 
-FYI. We have published an IETF I-D that proposes an improved handling of
-IPv6 atomic fragments (IPv6 fragments that have an offset of 0, and MF=0).
+> The Cyclades PC-300 is a line of PCI synchronous serial cards, which was
+> produced in single and dual port models with either T1/E1 or V.35 ports.
+> It used a Hitachi HD64572 (SCA-II) synchronous serial chip, and in the
+> T1/E1 models an Infineon FALC-LH line interface/framing chip.  Copies
+> of the hardware documentation may be found at [1].
 
-The I-D is available here:
-<http://tools.ietf.org/id/draft-gont-6man-ipv6-atomic-fragments-00.txt>
+The cleanup is better than it was but has lots left to sort. I think this
+may actually be a good example of where the staging tree is useful as
+it'll avoid this turning into a hundred cycles of adding another patch to
+the enormous pile and can instead be done in step by step.
 
-The aforementioned behaviour eliminates fragmentation-based attacks
-against traffic that employs atomic fragments, and has already been
-implemented by OpenBSD.
-
-Thanks,
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+Alan
