@@ -1,67 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [07/22] Cyclades PC300 driver: ioctl() fixes for mixed
- 64/32-bit systems
-Date: Mon, 30 Jan 2012 14:37:47 +0000
-Message-ID: <1327934267.5400.445.camel@deadeye>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E3F@saturn3.aculab.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Sundance network driver (D-Link DFE-580TX) timeouts rendering
+ interface unusable
+Date: Mon, 30 Jan 2012 14:41:17 +0000
+Message-ID: <1327934477.5400.448.camel@deadeye>
+References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
+	 <1327205171.8004.96.camel@deadeye>
+	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
+	 <20120126220640.GO12704@decadent.org.uk>
+	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
+	 <1327811546.5400.291.camel@deadeye>
+	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
+	 <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327932311.5400.429.camel@deadeye>
+	 <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-es1ZdJ5QjOgqSjOkOV9v"
+Cc: Denis Kirjanov <kirjanov@gmail.com>,
+	"Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51220 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753298Ab2A3Old (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:41:33 -0500
+In-Reply-To: <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-es1ZdJ5QjOgqSjOkOV9v
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrea Shepard <andrea@persephoneslair.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<khc@pm.waw.pl>, <davem@davemloft.net>, <mmarek@suse.cz>,
-	<jkosina@suse.cz>, <joe@perches.com>, <justinmattock@gmail.com>,
-	<gregkh@suse.de>, <alan@linux.intel.com>, <jdmason@kudzu.us>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E3F@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2012-01-30 at 11:44 +0000, David Laight wrote:
-> > +struct pc300_net_stats {
-> > +	u64 rx_packets;
-> ...
-> > +	u64 rx_compressed;
-> > +	u64 tx_compressed;
-> > +};
-> > +
-> >  typedef struct pc300stats {
-> >  	int hw_type;
-> >  	u32 line_on;
-> >  	u32 line_off;
-> > -	struct net_device_stats gen_stats;
-> > +	/* Use this instead of net_device_stats, since passing
-> > +	 * net_device_stats breaks 32-bit user processes on 
-> > 64-bit kernels,
-> > +	 * and rtnetlink is unreasonably complicated just to get
-> > +	 * some statistics.
-> > +	 */
-> > +	struct pc300_net_stats net_stats;
-> >  	falc_t te_stats;
-> >  } pc300stats_t;
-> 
-> Since 'struct net_device_stats' looks like a common structure,
-> maybe the 64bit version should be added in the same place??
-[...]
+On Mon, 2012-01-30 at 15:28 +0100, Eric Dumazet wrote:
+> Le lundi 30 janvier 2012 =C3=A0 14:05 +0000, Ben Hutchings a =C3=A9crit :
+>=20
+> > Yes, I spotted that.  But no descriptors are pushed to the hardware
+> > here; that's done in the driver's TX tasklet.  Although... maybe that
+> > can run immediately when scheduled from here?  I've never had to deal
+> > with tasklets so I really don't know their semantics.
+>=20
+> Thats probable on SMP ...
 
-It's called struct rtnl_link_stats64 and is already defined in
-<linux/rtnetlink.h> (where it must remain).
-
-This change doesn't seem to be a proper fix.  If the ioctl interface to
-this driver uses struct net_device_stats (which I didn't realise,
-otherwise I would have left that structure exported from
-<linux/netdevice.h>) then it should continue doing so to maintain
-compatibility.  The driver will have to fix up the outgoing structure
-with the aid of is_compat_task().
-
-If backward-compatibility is really not a concern for the driver then
-this ioctl should be completely removed in favour of ethtool extended
-stats.
+The bug report is for a UP system running a kernel built with
+SMP-alternatives.
 
 Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--=20
+Ben Hutchings
+Lowery's Law:
+             If it jams, force it. If it breaks, it needed replacing anyway=
+.
+
+--=-es1ZdJ5QjOgqSjOkOV9v
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATyasDue/yOyVhhEJAQpO/xAAqq8SEN2VWfHZmmeRf7SHXiTlerbJq9c4
+NJQh/FKGGVPkPnw/Xk6WvedcC2xbS1vaLThRU5OTic4O8127qIMbY/v9iYjrABJ2
+7gYu7itmeCfVwS7hSUDWGIVl3eC9imBDqkIfxwie5FuCLV22VjwWuHdQUnlmuLz/
+MBdQoputd1FCcNcpH3PlNHtLjD+EWMq9CPO4I3gU8w+Vgs4qbpOEOL17AXnqOZat
+cZRjN1I1SOY9q/+F1TNGV4grW0Mg5hMBau/J+GXIEskT2qZlVD6kvILLUwAnVGDD
+uACYoAeWpQnmxCrR/s6iY8mbxVhS25VszcaGkzx3mgi5ZJqGQFT0rqlQ6Ov+fO1d
+vyA+wQv7s7bPHOQe+4eqkwxpewkw7OhxMZka1r05WjsbneqMnnU7Vl6dAD8wTYSh
+ntn3ab6oRYbLmOfuxrsQs5Mi3IiuNkjj1cB0iLk9lI5fdNaLHLyQ7LoI9YG44+9Z
+frbYM5wrlX7Iqw2B4B6z8CFN+tTnZK75/ATv+PrQNpkiUuJCRJ9mtHboSbp3dzSw
+Gi6CTFmQxHuRnuaOG5x6hERe5h1K4kd+axtFnLNPjWxHrQsGgBLkRLmunDmbrnhe
+UEgC+J02efTAIGcpzRgcRXPuH3GojQvt5sOFdkepiXJV/eCHBckuAgnWRkxtcbww
+cxe5gsO3Qk8=
+=EXAf
+-----END PGP SIGNATURE-----
+
+--=-es1ZdJ5QjOgqSjOkOV9v--
