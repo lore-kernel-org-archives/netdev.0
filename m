@@ -1,7 +1,7 @@
 From: Andrea Shepard <andrea@persephoneslair.org>
-Subject: [17/22] Cyclades PC300 driver: queue stop/start fix
-Date: Sun, 29 Jan 2012 18:57:24 -0800
-Message-ID: <20120130025724.GR10262@cronus.persephoneslair.org>
+Subject: [18/22] Cyclades PC300 driver: adjust SCA-II DMA buffer parameters
+Date: Sun, 29 Jan 2012 18:57:52 -0800
+Message-ID: <20120130025752.GS10262@cronus.persephoneslair.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: khc@pm.waw.pl, davem@davemloft.net, mmarek@suse.cz,
@@ -13,76 +13,38 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change cpc_queue_xmit() to stop and restart the queue while it does things to
-the DMA buffers and registers.
-
-The Cyclades 4.1.0 release doesn't seem to function reliably without this; I
-suspect it was a race condition bug that was always present.
+The DMA buffer interrupt trigger levels in the original driver do not seem
+suitable and lead to poor performance (around 30 kilobytes/sec on a full T1,
+in my test).  These new values seem to be optimal.
 
 Signed-off-by: Andrea Shepard <andrea@persephoneslair.org>
 
 diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
-index c44c26a..4d81507 100644
+index 4d81507..6cecef5 100644
 --- a/drivers/net/wan/pc300_drv.c
 +++ b/drivers/net/wan/pc300_drv.c
-@@ -2055,20 +2055,15 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (d->trace_on) {
- 		cpc_trace(dev, skb, 'T');
- 	}
--	dev->trans_start = jiffies;
+@@ -3486,7 +3486,8 @@ static int rx_config(pc300dev_t *d)
  
- 	/* Start transmission */
- 	CPC_LOCK(card, flags);
--	/* verify if it has more than one free descriptor */
--	if (card->chan[ch].nfree_tx_bd <= 1) {
- #ifdef PC300_DEBUG_QUEUE
--		printk(KERN_DEBUG
--			"%s: stopping queue for transmission\n",
--			dev->name);
-+	printk(KERN_DEBUG
-+		"%s: stopping queue for transmission\n",
-+		dev->name);
- #endif
--		/* don't have so stop the queue */
--		netif_stop_queue(dev);
--	}
-+	netif_stop_queue(dev);
- 	cpc_writel(card->hw.scabase + DTX_REG(EDAL, ch),
- 		   TX_BD_ADDR(ch, chan->tx_next_bd));
- 	cpc_writeb(card->hw.scabase + M_REG(CMD, ch), CMD_TX_ENA);
-@@ -2078,12 +2073,22 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 			   cpc_readb(card->hw.falcbase + card->hw.cpld_reg2) |
- 			   (CPLD_REG2_FALC_LED1 << (2 * ch)));
- 	}
-+	/* verify if it has more than one free descriptor */
-+	if (card->chan[ch].nfree_tx_bd > 1) {
-+#ifdef PC300_DEBUG_QUEUE
-+		printk(KERN_DEBUG
-+				"%s: restarting queue\n",
-+				dev->name);
-+#endif
-+		netif_wake_queue(dev);
-+	}
- 	CPC_UNLOCK(card, flags);
- 	dev_kfree_skb(skb);
+ 	/* General RX settings */
+ 	cpc_writeb(scabase + M_REG(RRC, ch), 0);
+-	cpc_writeb(scabase + M_REG(RNR, ch), 16);
++	cpc_writeb(scabase + M_REG(RNR, ch), 8);
++	cpc_writeb(scabase + M_REG(RCR, ch), 16);
  
- #ifdef PC300_DEBUG_TX
--	printk(KERN_DEBUG "%s: cpc_queue_xmit returning normally\n",
--	       dev->name);
-+	printk(KERN_DEBUG
-+			"%s: cpc_queue_xmit returning normally\n",
-+			dev->name);
- #endif
+ 	/* Enable reception */
+ 	cpc_writeb(scabase + M_REG(CMD, ch), CMD_RX_CRC_INIT);
+@@ -3517,10 +3518,10 @@ static int tx_config(pc300dev_t *d)
  
- 	return 0;
-@@ -2221,7 +2226,9 @@ static void sca_tx_intr(pc300dev_t *dev)
- #ifdef PC300_DEBUG_QUEUE
- 		printk(KERN_DEBUG "Waking queue on TX interrupt\n");
- #endif
--		netif_wake_queue(dev->netdev);
-+		if (chan->nfree_tx_bd > 1 &&
-+				netif_queue_stopped(dev->netdev))
-+			netif_wake_queue(dev->netdev);
- #ifdef CONFIG_PC300_MLPPP
- 	}
- #endif
+ 	/* General TX settings */
+ 	cpc_writeb(scabase + M_REG(TRC0, ch), 0);
+-	cpc_writeb(scabase + M_REG(TFS, ch), 32);
+-	cpc_writeb(scabase + M_REG(TNR0, ch), 20);
+-	cpc_writeb(scabase + M_REG(TNR1, ch), 48);
+-	cpc_writeb(scabase + M_REG(TCR, ch), 8);
++	cpc_writeb(scabase + M_REG(TFS, ch), 0x3c);
++	cpc_writeb(scabase + M_REG(TNR0, ch), 0x38);
++	cpc_writeb(scabase + M_REG(TNR1, ch), 0x3f);
++	cpc_writeb(scabase + M_REG(TCR, ch), 0x38);
+ 
+ 	/* Enable transmission */
+ 	cpc_writeb(scabase + M_REG(CMD, ch), CMD_TX_CRC_INIT);
