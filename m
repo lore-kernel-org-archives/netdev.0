@@ -1,41 +1,50 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Sundance network driver (D-Link DFE-580TX) timeouts rendering
- interface unusable
-Date: Mon, 30 Jan 2012 15:28:56 +0100
-Message-ID: <1327933736.2288.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <SNT141-W3553B2629FBBC84A5A140596860@phx.gbl>
-	 <1327205171.8004.96.camel@deadeye>
-	 <SNT141-W5087B9A5022955EA5564DB96890@phx.gbl>
-	 <20120126220640.GO12704@decadent.org.uk>
-	 <SNT141-W58AC5ADD0BC9DE29AFA00D968E0@phx.gbl>
-	 <1327811546.5400.291.camel@deadeye>
-	 <CAHj3AVm8cjkj83QHGAqOji6t4uWFr6jAAADu7vLKyfEORk1LoA@mail.gmail.com>
-	 <1327918447.2288.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1327932311.5400.429.camel@deadeye>
+Subject: [PATCH net-next] ipv6: fix RFC5722 comment
+Date: Mon, 30 Jan 2012 15:29:24 +0100
+Message-ID: <1327933764.2288.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Denis Kirjanov <kirjanov@gmail.com>,
-	"Mike ." <mike-bugreport@hotmail.com>, 656476@bugs.debian.org,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bk0-f46.google.com ([209.85.214.46]:38027 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753184Ab2A3O3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:29:00 -0500
-Received: by bkas6 with SMTP id s6so3216331bka.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:28:59 -0800 (PST)
-In-Reply-To: <1327932311.5400.429.camel@deadeye>
+	with ESMTP id S1753167Ab2A3O32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 09:29:28 -0500
+Received: by mail-bk0-f46.google.com with SMTP id s6so3216331bka.19
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 06:29:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 30 janvier 2012 =C3=A0 14:05 +0000, Ben Hutchings a =C3=A9crit=
- :
+RFC5722 Section 4 was amended by Errata 3089
 
-> Yes, I spotted that.  But no descriptors are pushed to the hardware
-> here; that's done in the driver's TX tasklet.  Although... maybe that
-> can run immediately when scheduled from here?  I've never had to deal
-> with tasklets so I really don't know their semantics.
+Our implementation did the right thing anyway...
 
-Thats probable on SMP ...
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/reassembly.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index b69fae7..9447bd6 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -336,12 +336,11 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 	}
+ 
+ found:
+-	/* RFC5722, Section 4:
+-	 *                                  When reassembling an IPv6 datagram, if
++	/* RFC5722, Section 4, amended by Errata ID : 3089
++	 *                          When reassembling an IPv6 datagram, if
+ 	 *   one or more its constituent fragments is determined to be an
+ 	 *   overlapping fragment, the entire datagram (and any constituent
+-	 *   fragments, including those not yet received) MUST be silently
+-	 *   discarded.
++	 *   fragments) MUST be silently discarded.
+ 	 */
+ 
+ 	/* Check for overlap with preceding fragment. */
