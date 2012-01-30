@@ -1,7 +1,7 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [RFC PATCH V3 05/16] netback: add module get/put operations along with vif connect/disconnect.
-Date: Mon, 30 Jan 2012 14:45:23 +0000
-Message-ID: <1327934734-8908-6-git-send-email-wei.liu2@citrix.com>
+Subject: [RFC PATCH V3 08/16] netback: remove unwanted notification generation during NAPI processing.
+Date: Mon, 30 Jan 2012 14:45:26 +0000
+Message-ID: <1327934734-8908-9-git-send-email-wei.liu2@citrix.com>
 References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,75 +9,77 @@ Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com,
 	Wei Liu <wei.liu2@citrix.com>
 To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:5246 "EHLO SMTP02.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:57846 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753058Ab2A3Opj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jan 2012 09:45:39 -0500
+	id S1753365Ab2A3Opo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jan 2012 09:45:44 -0500
 In-Reply-To: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If there is vif running and user unloads netback, it will certainly
-cause problems -- guest's network interface just mysteriously stops
-working.
-
-v2: fix module_put path
-
-disconnect function may get called by the generic framework even
-before vif connects.
+In original implementation, tx_build_gops tends to update req_event
+pointer every time it sees tx error or finish one batch. Remove those
+code to only update req_event pointer when we really want to shut down
+NAPI.
 
 Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/xen-netback/interface.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ drivers/net/xen-netback/interface.c |    5 +++--
+ drivers/net/xen-netback/netback.c   |    4 +---
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index dfc04f8..7914f60 100644
+index ebed26a..fe37143 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -323,6 +323,8 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	if (vif->irq)
- 		return 0;
+@@ -58,8 +58,8 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+ 	if (xenvif_rx_schedulable(vif))
+ 		netif_wake_queue(vif->dev);
  
-+	__module_get(THIS_MODULE);
+-	if (likely(napi_schedule_prep(&vif->napi)))
+-		__napi_schedule(&vif->napi);
++	if (RING_HAS_UNCONSUMED_REQUESTS(&vif->tx))
++		napi_schedule(&vif->napi);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -74,6 +74,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ 	if (work_done < budget) {
+ 		int more_to_do = 0;
+ 		unsigned long flag;
 +
- 	err = xen_netbk_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
- 	if (err < 0)
- 		goto err;
-@@ -372,12 +374,14 @@ err_unbind:
- err_unmap:
- 	xen_netbk_unmap_frontend_rings(vif);
- err:
-+	module_put(THIS_MODULE);
- 	return err;
+ 		local_irq_save(flag);
+ 
+ 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 2a2835e..065cd65 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -662,7 +662,6 @@ static void xenvif_tx_err(struct xenvif *vif,
+ 		txp = RING_GET_REQUEST(&vif->tx, cons++);
+ 	} while (1);
+ 	vif->tx.req_cons = cons;
+-	xenvif_check_rx_xenvif(vif);
  }
  
- void xenvif_disconnect(struct xenvif *vif)
- {
- 	struct net_device *dev = vif->dev;
-+	int need_module_put = 0;
+ static int xenvif_count_requests(struct xenvif *vif,
+@@ -1047,7 +1046,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif,
+ 		int pool_idx;
+ 		struct pending_tx_info *pending_tx_info;
  
- 	if (netif_carrier_ok(dev)) {
- 		rtnl_lock();
-@@ -397,12 +401,17 @@ void xenvif_disconnect(struct xenvif *vif)
+-		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, work_to_do);
++		work_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
+ 		if (!work_to_do) {
+ 			break;
+ 		}
+@@ -1187,7 +1186,6 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif,
+ 		gop = request_gop;
  
- 	del_timer_sync(&vif->credit_timeout);
+ 		vif->tx.req_cons = idx;
+-		xenvif_check_rx_xenvif(vif);
  
--	if (vif->irq)
-+	if (vif->irq) {
- 		unbind_from_irqhandler(vif->irq, vif);
-+		need_module_put = 1;
-+	}
- 
- 	unregister_netdev(vif->dev);
- 
- 	xen_netbk_unmap_frontend_rings(vif);
- 
- 	free_netdev(vif->dev);
-+
-+	if (need_module_put)
-+		module_put(THIS_MODULE);
- }
+ 		if ((gop - tco) >= MAX_PENDING_REQS)
+ 			break;
 -- 
 1.7.2.5
