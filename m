@@ -1,291 +1,115 @@
-From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 6/6] sunrpc: use SKB fragment destructors to delay
- completion until page is released by network stack.
-Date: Mon, 30 Jan 2012 15:51:53 +0000
-Message-ID: <1327938713.26983.248.camel@zakaz.uk.xensource.com>
-References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
-	 <1327494434-21566-6-git-send-email-ian.campbell@citrix.com>
-	 <20120126131136.GA16400@redhat.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Regression in skge that started around acb42a3 (so past v3.3-rc1)
+Date: Mon, 30 Jan 2012 10:58:16 -0500
+Message-ID: <20120130155816.GA1400@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120126131136.GA16400-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com, netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-01-26 at 13:11 +0000, Michael S. Tsirkin wrote:
-> On Wed, Jan 25, 2012 at 12:27:14PM +0000, Ian Campbell wrote:
-> > This prevents an issue where an ACK is delayed, a retransmit is queued (either
-> > at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-> > wire. If this happens to an NFS WRITE RPC then the write() system call
-> > completes and the userspace process can continue, potentially modifying data
-> > referenced by the retransmission before the retransmission occurs.
-> > 
-> > Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-> > Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-> > Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> > Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-> > Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-> > Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> 
-> This doesn't include either of the two options you proposed to address
-> the sender blocked forever by receiver issue with bridged septups and
-> endpoints such a tap device or a socket on the same box,
-> does it?
+I hadn't done any git bisection yet, but with acb42a3 I started getting this:
 
-There was never any response to Bruce's question:
-http://thread.gmane.org/gmane.linux.network/210873/focus=44849
+(and only on i686 - x86_64 does not show these):
 
-        Stupid question: Is it a requirement that you be safe against DOS by a
-        rogue process with a tap device?  (And if so, does current code satisfy
-        that requirement?)
+(This is with Xen, the other one is without)
+[   28.602121] eth2: no IPv6 routers present
+[   70.457712] eth2: hw csum failure.
+[   70.458695] Pid: 0, comm: swapper/0 Not tainted 3.3.0-rc1-00287-gacb42a3 #1
+[   70.
+[   70.458695]  [<c140942b>] __skb_checksum_complete+0xb/0x10
+[   70.458695]  [<c148e3b0>] nf_ip_checksum+0x60/0x120
+[   70.458695]  [<c143ee6b>] udp_error+0xbb/0x1f0
+[   70.458695]  [<c103c1e4>] ? check_events+0x8/0xc
+[   70.458695]  [<c103c1db>] ? xen_restore_fl_direct_reloc+0x4/0x4
+[   70.458695]  [<c11497ee>] ? put_cpu_partial+0x9e/0xb0
+[   70.458695]  [<c143edb0>] ? udp_pkt_to_tuple+0x60/0x60
+[   70.458695]  [<c143a2b6>] nf_conntrack_in+0xc6/0x5c0
+[   70.458695]  [<c14751f8>] ? __udp4_lib_rcv+0x428/0x630
+[   70.458695]  [<c1149dd0>] ? kfree+0xf0/0x120
+[   70.458695]  [<c1405b60>] ? skb_release_data+0x90/0xb0
+[   70.458695]  [<c1405b60>] ? skb_release_data+0x90/0xb0
+[   70.458695]  [<c14057d8>] ? __kfree_skb+0x38/0x90
+[   70.458695]  [<c144d510>] ? inet_del_protocol+0x30/0x30
+[   70.458695]  [<c148f41e>] ipv4_conntrack_in+0x1e/0x30
+[   70.458695]  [<c14360d3>] nf_iterate+0x63/0x90
+[   70.458695]  [<c144d510>] ? inet_del_protocol+0x30/0x30
+[   70.458695]  [<c1436292>] nf_hook_slow+0x62/0x140
+[   70.458695]  [<c144d510>] ? inet_del_protocol+0x30/0x30
+[   70.458695]  [<c144dbb5>] ip_rcv+0x235/0x310
+[   70.458695]  [<c144d510>] ? inet_del_protocol+0x30/0x30
+[   70.458695]  [<c1412c36>] __netif_receive_skb+0x1d6/0x550
+[   70.458695]  [<c147c6a9>] ? inet_gro_receive+0x59/0x1f0
+[   70.458695]  [<c1413312>] netif_receive_skb+0x22/0x90
+[   70.458695]  [<c1413487>] napi_skb_finish+0x37/0x50
+[   70.458695]  [<c14139e3>] napi_gro_receive+0xe3/0xf0
+[   70.458695]  [<c12ff4c0>] ? xen_swiotlb_map_sg+0x20/0x20
+[   70.458695]  [<c12ff4d9>] ? xen_swiotlb_unmap_page+0x19/0x20
+[   70.458695]  [<f7983d6c>] skge_poll+0x34c/0x6f4 [skge]
+[   70.458695]  [<c141431a>] net_rx_action+0xfa/0x2a0
+[   70.458695]  [<c107cecf>] __do_softirq+0x9f/0x210
+[   70.458695]  [<c107ce30>] ? irq_exit+0xd0/0xd0
+[   70.458695]  <IRQ>  [<c107ce15>] ? irq_exit+0xb5/0xd0
+[   70.458695]  [<c12f4ac0>] ? xen_evtchn_do_upcall+0x20/0x30
+[   70.458695]  [<c153b157>] ? xen_do_upcall+0x7/0xc
+[   70.458695]  [<c10023a7>] ? hypercall_page+0x3a7/0x1000
+[   70.458695]  [<c103b802>] ? xen_safe_halt+0x12/0x20
+[   70.458695]  [<c104c53d>] ? default_idle+0xfd/0x200
+[   70.458695]  [<c103c1db>] ? xen_restore_fl_direct_reloc+0x4/0x4
+[   70.458695]  [<c1043fd8>] ? cpu_idle+0xa8/0xf0
+[   70.458695]  [<c151658b>] ? rest_init+0x7b/0x80
+[   70.458695]  [<c16f886d>] ? start_kernel+0x348/0x34e
+[   70.458695]  [<c16f834f>] ? kernel_init+0x149/0x149
+[   70.458695]  [<c16f80ba>] ? i386_start_kernel+0xa9/0xb0
+[   70.458695]  [<c16fb3b1>] ? xen_start_kernel+0x5f2/0x5fa
+[   70.458695]  [<c1409076>] ? memcpy_fromiovecend+0x76/0x80
+^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G^G failed.
+[FAILED]
 
-IMHO the answer to both questions is no, there are plenty of ways a
-rogue process with a tap device can wreak havoc.
+which now look like this:
 
-> How about patching __skb_queue_tail to do a deep copy?
-> That would seem to handle both tap and socket cases -
-> any other ones left?
+[  288.735236] IP: [<c127b1aa>] memcpy+0x1a/0x0a4f001 *pde = 0000000000000000 
+[  288.735236] Oops: 0000 [#1] PREEMPT SMP 
+[  288.751724] Modules linked in: dm_multipath dm_mod iscsi_boot_sysfs iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi libcrc32c crc32c sg sd_mod ata_generic sata_nv nouveau fbcon tileblit font bitblit e1000 softcursor ttm libata skge drm_kms_helper mxm_wmi video wmi scsi_mod [last unloaded: dump_dma]
+[  288.751724] 
+[  288.751724] Pid: 0, comm: swapper/0 Tainted: G           O 3.3.0-rc1-00383-g0a96265 #1 BIOSTAR Group N61PB-M2S/N61PB-M2S
+[  288.751724] EIP: 0060:[<c127b1aa>] EFLAGS: 00010217 CPU: 0
+[  288.751724] EIP is at memcpy+0x1a/0x40
+[  288.751724] EAX: f0a11040 EBX: 00000062 ECX: 00000018 EDX: 00000000
+[  288.751724] ESI: 00000000 EDI: f0a11040 EBP: f100bf2c ESP: f100bf20
+[  288.751724]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+[  288.751724] Process swapper/0 (pid: 0, ti=f100a000 task=c16b1020 task.ti=c16aa000)
+[  288.751724] Stack:
+[  288.751724]  f1297c00 f1086144 f762dd80 f100bf88 f8449ccb 39e70110 00000043 39e70110
+[  288.751724]  00000043 00000000 c176b140 00000002 f100bf98 f0991d80 f1297c00 f11c4060
+[  288.751724]  ffff0000 00000040 f1297c08 f1297800 00000000 00000000 00000062 f1297c08
+[  288.751724] Call Trace:
+[  288.751724]  [<f8449ccb>] skge_poll+0x2ab/0x6f4 [skge]
+[  288.751724]  [<c1413dba>] net_rx_action+0xfa/0x2a0
+[  288.751724]  [<c107cecf>] __do_softirq+0x9f/0x210
+[  288.751724]  [<c107ce30>] ? irq_exit+0xd0/0xd0
+[  288.751724]  <IRQ> 
+[  288.751724]  [<c107ce15>] ? irq_exit+0xb5/0xd0
+[  288.751724]  [<c1045e06>] ? do_IRQ+0x46/0xb0
+[  288.751724]  [<c107cdc1>] ? irq_exit+0x61/0xd0
+[  288.751724]  [<c105fb23>] ? smp_apic_timer_interrupt+0x53/0x90
+[  288.751724]  [<c153abb0>] ? common_interrupt+0x30/0x38
+[  288.751724]  [<c10685f5>] ? native_safe_halt+0x5/0x10
+[  288.751724]  [<c104c53d>] ? default_idle+0xfd/0x200
+[  288.751724]  [<c104c68c>] ? amd_e400_idle+0x4c/0x100
+[  288.751724]  [<c1043fd8>] ? cpu_idle+0xa8/0xf0
+[  288.751724]  [<c151602b>] ? rest_init+0x7b/0x80
+[  288.751724]  [<c16f686d>] ? start_kernel+0x348/0x34e
+[  288.751724]  [<c16f634f>] ? kernel_init+0x149/0x149
+[  288.751724]  [<c16f60ba>] ? i386_start_kernel+0xa9/0xb0
+[  288.751724] Code: c6 43 4c 04 88 43 4d 8b 1c 24 89 ec 5d c3 90 90 90 55 89 e5 83 ec 0c 89 1c 24 89 cb 89 74 24 04 c1 e9 02 89 d6 89 7c 24 08 89 c7 <f3> a5 89 d9 83 e1 03 74 02 f3 a4 8b 1c 24 8b 74 24 04 8b 7c 24 
+[  288.751724] EIP: [<c127b1aa>] memcpy+0x1a/0x40 SS:ESP 0068:f100bf20
+[  288.751724] CR2: 0000000000000000
+[  288.972094] ---[ end trace dca3e5f32515fe5d ]---
+[  288.976724] Kernel panic - not syncing: Fatal exception in interrupt
+[  288.983094] panic occurred, switching back to text console
 
-Wouldn't that mean we were frequently (almost always) copying for lots
-of other cases too? That would rather defeat the purpose of being able
-to hand pages off to the network stack in a zero copy fashion.
-
-> If we do this, I think it would be beneficial to pass a flag
-> to the destructor indicating that a deep copy was done:
-> this would allow senders to detect that and adapt.
-
-If you were doing a deep copy anyway you might as well create a
-completely new skb and release the old one, thereby causing the
-destructors to fire in the normal way for it SKB. The copy wouldn't have
-destructors because the pages would no longer be owned by the sender.
-
-Ian.
-
-> 
-> > ---
-> >  include/linux/sunrpc/xdr.h  |    2 ++
-> >  include/linux/sunrpc/xprt.h |    5 ++++-
-> >  net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
-> >  net/sunrpc/svcsock.c        |    3 ++-
-> >  net/sunrpc/xprt.c           |   12 ++++++++++++
-> >  net/sunrpc/xprtsock.c       |    3 ++-
-> >  6 files changed, 44 insertions(+), 8 deletions(-)
-> > 
-> > diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
-> > index a20970e..172f81e 100644
-> > --- a/include/linux/sunrpc/xdr.h
-> > +++ b/include/linux/sunrpc/xdr.h
-> > @@ -16,6 +16,7 @@
-> >  #include <asm/byteorder.h>
-> >  #include <asm/unaligned.h>
-> >  #include <linux/scatterlist.h>
-> > +#include <linux/skbuff.h>
-> >  
-> >  /*
-> >   * Buffer adjustment
-> > @@ -57,6 +58,7 @@ struct xdr_buf {
-> >  			tail[1];	/* Appended after page data */
-> >  
-> >  	struct page **	pages;		/* Array of contiguous pages */
-> > +	struct skb_frag_destructor *destructor;
-> >  	unsigned int	page_base,	/* Start of page data */
-> >  			page_len,	/* Length of page data */
-> >  			flags;		/* Flags for data disposition */
-> > diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-> > index 15518a1..75131eb 100644
-> > --- a/include/linux/sunrpc/xprt.h
-> > +++ b/include/linux/sunrpc/xprt.h
-> > @@ -92,7 +92,10 @@ struct rpc_rqst {
-> >  						/* A cookie used to track the
-> >  						   state of the transport
-> >  						   connection */
-> > -	
-> > +	struct skb_frag_destructor destructor;	/* SKB paged fragment
-> > +						 * destructor for
-> > +						 * transmitted pages*/
-> > +
-> >  	/*
-> >  	 * Partial send handling
-> >  	 */
-> > diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-> > index f0268ea..06f363f 100644
-> > --- a/net/sunrpc/clnt.c
-> > +++ b/net/sunrpc/clnt.c
-> > @@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
-> >  static void	call_reserveresult(struct rpc_task *task);
-> >  static void	call_allocate(struct rpc_task *task);
-> >  static void	call_decode(struct rpc_task *task);
-> > +static void	call_complete(struct rpc_task *task);
-> >  static void	call_bind(struct rpc_task *task);
-> >  static void	call_bind_status(struct rpc_task *task);
-> >  static void	call_transmit(struct rpc_task *task);
-> > @@ -1115,6 +1116,8 @@ rpc_xdr_encode(struct rpc_task *task)
-> >  			 (char *)req->rq_buffer + req->rq_callsize,
-> >  			 req->rq_rcvsize);
-> >  
-> > +	req->rq_snd_buf.destructor = &req->destructor;
-> > +
-> >  	p = rpc_encode_header(task);
-> >  	if (p == NULL) {
-> >  		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
-> > @@ -1278,6 +1281,7 @@ call_connect_status(struct rpc_task *task)
-> >  static void
-> >  call_transmit(struct rpc_task *task)
-> >  {
-> > +	struct rpc_rqst *req = task->tk_rqstp;
-> >  	dprint_status(task);
-> >  
-> >  	task->tk_action = call_status;
-> > @@ -1311,8 +1315,8 @@ call_transmit(struct rpc_task *task)
-> >  	call_transmit_status(task);
-> >  	if (rpc_reply_expected(task))
-> >  		return;
-> > -	task->tk_action = rpc_exit_task;
-> > -	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
-> > +	task->tk_action = call_complete;
-> > +	skb_frag_destructor_unref(&req->destructor);
-> >  }
-> >  
-> >  /*
-> > @@ -1385,7 +1389,8 @@ call_bc_transmit(struct rpc_task *task)
-> >  		return;
-> >  	}
-> >  
-> > -	task->tk_action = rpc_exit_task;
-> > +	task->tk_action = call_complete;
-> > +	skb_frag_destructor_unref(&req->destructor);
-> >  	if (task->tk_status < 0) {
-> >  		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
-> >  			"error: %d\n", task->tk_status);
-> > @@ -1425,7 +1430,6 @@ call_bc_transmit(struct rpc_task *task)
-> >  			"error: %d\n", task->tk_status);
-> >  		break;
-> >  	}
-> > -	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
-> >  }
-> >  #endif /* CONFIG_SUNRPC_BACKCHANNEL */
-> >  
-> > @@ -1591,12 +1595,14 @@ call_decode(struct rpc_task *task)
-> >  		return;
-> >  	}
-> >  
-> > -	task->tk_action = rpc_exit_task;
-> > +	task->tk_action = call_complete;
-> >  
-> >  	if (decode) {
-> >  		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
-> >  						      task->tk_msg.rpc_resp);
-> >  	}
-> > +	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
-> > +	skb_frag_destructor_unref(&req->destructor);
-> >  	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
-> >  			task->tk_status);
-> >  	return;
-> > @@ -1611,6 +1617,17 @@ out_retry:
-> >  	}
-> >  }
-> >  
-> > +/*
-> > + * 8.	Wait for pages to be released by the network stack.
-> > + */
-> > +static void
-> > +call_complete(struct rpc_task *task)
-> > +{
-> > +	dprintk("RPC: %5u call_complete result %d\n",
-> > +		task->tk_pid, task->tk_status);
-> > +	task->tk_action = rpc_exit_task;
-> > +}
-> > +
-> >  static __be32 *
-> >  rpc_encode_header(struct rpc_task *task)
-> >  {
-> > diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-> > index 0e6b919..aa7f108 100644
-> > --- a/net/sunrpc/svcsock.c
-> > +++ b/net/sunrpc/svcsock.c
-> > @@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
-> >  	while (pglen > 0) {
-> >  		if (slen == size)
-> >  			flags = 0;
-> > -		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
-> > +		result = kernel_sendpage(sock, *ppage, xdr->destructor,
-> > +					 base, size, flags);
-> >  		if (result > 0)
-> >  			len += result;
-> >  		if (result != size)
-> > diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-> > index c64c0ef..2137eb6 100644
-> > --- a/net/sunrpc/xprt.c
-> > +++ b/net/sunrpc/xprt.c
-> > @@ -1101,6 +1101,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
-> >  	xprt->xid = net_random();
-> >  }
-> >  
-> > +static int xprt_complete_skb_pages(struct skb_frag_destructor *destroy)
-> > +{
-> > +	struct rpc_rqst	*req =
-> > +		container_of(destroy, struct rpc_rqst, destructor);
-> > +
-> > +	dprintk("RPC: %5u completing skb pages\n", req->rq_task->tk_pid);
-> > +	rpc_wake_up_queued_task(&req->rq_xprt->pending, req->rq_task);
-> 
-> It seems that at the sunrpc module can get unloaded
-> at this point. The code for 'return 0' can then get
-> overwritten. Right?
-> 
-> Not sure how important making module unloading robust
-> is - if we wanted to fix this we'd need to move
-> the callback code into core (hopefully generalizing
-> it somewhat).
-> 
-> > +	return 0;
-> > +}
-> > +
-> >  static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
-> >  {
-> >  	struct rpc_rqst	*req = task->tk_rqstp;
-> > @@ -1113,6 +1123,8 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
-> >  	req->rq_xid     = xprt_alloc_xid(xprt);
-> >  	req->rq_release_snd_buf = NULL;
-> >  	xprt_reset_majortimeo(req);
-> > +	atomic_set(&req->destructor.ref, 1);
-> > +	req->destructor.destroy = &xprt_complete_skb_pages;
-> >  	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
-> >  			req, ntohl(req->rq_xid));
-> >  }
-> > diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> > index 38b2fec..5406977 100644
-> > --- a/net/sunrpc/xprtsock.c
-> > +++ b/net/sunrpc/xprtsock.c
-> > @@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
-> >  		remainder -= len;
-> >  		if (remainder != 0 || more)
-> >  			flags |= MSG_MORE;
-> > -		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
-> > +		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
-> > +					  base, len, flags);
-> >  		if (remainder == 0 || err != len)
-> >  			break;
-> >  		sent += err;
-> > -- 
-> > 1.7.2.5
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Any thoughts on which patch might be the culprit?
