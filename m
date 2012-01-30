@@ -1,57 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix tcp_trim_head() to adjust segment count with
- skb MSS
-Date: Mon, 30 Jan 2012 12:43:38 -0500 (EST)
-Message-ID: <20120130.124338.2160187165526498508.davem@davemloft.net>
-References: <1327807786-27185-1-git-send-email-ncardwell@google.com>
-	<alpine.DEB.2.00.1201300903040.12992@melkinpaasi.cs.helsinki.fi>
+Subject: Re: [PATCH] af_unix: fix EPOLLET regression for stream sockets
+Date: Mon, 30 Jan 2012 12:45:37 -0500 (EST)
+Message-ID: <20120130.124537.2246327212488304490.davem@davemloft.net>
+References: <CAKDKvuzH14AZjDG3WSdrf5VtmiUgG0Y+EaC83qqSd0VFKzyitg@mail.gmail.com>
+	<1327686822.3159.3.camel@edumazet-laptop>
+	<1327803063.2805.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ncardwell@google.com, netdev@vger.kernel.org, nanditad@google.com,
-	ycheng@google.com, therbert@google.com
-To: ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40009 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935Ab2A3Rnv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 12:43:51 -0500
-In-Reply-To: <alpine.DEB.2.00.1201300903040.12992@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nickm@freehaven.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, himeraster@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327803063.2805.14.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 30 Jan 2012 09:08:51 +0200 (EET)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 29 Jan 2012 03:11:03 +0100
 
-> On Sat, 28 Jan 2012, Neal Cardwell wrote:
->=20
->> This commit fixes tcp_trim_head() to recalculate the number of
->> segments in the skb with the skb's existing MSS, so trimming the hea=
-d
->> causes the skb segment count to be monotonically non-increasing - it
->> should stay the same or go down, but not increase.
->>=20
->> Previously tcp_trim_head() used the current MSS of the connection. B=
-ut
->> if there was a decrease in MSS between original transmission and ACK
->> (e.g. due to PMTUD), this could cause tcp_trim_head() to
->> counter-intuitively increase the segment count when trimming bytes o=
-ff
->> the head of an skb. This violated assumptions in tcp_tso_acked() tha=
-t
->> tcp_trim_head() only decreases the packet count, so that packets_ack=
-ed
->> in tcp_tso_acked() could underflow, leading tcp_clean_rtx_queue() to
->> pass u32 pkts_acked values as large as 0xffffffff to
->> ca_ops->pkts_acked().
->>=20
->> As an aside, if tcp_trim_head() had really wanted the skb to reflect
->> the current MSS, it should have called tcp_set_skb_tso_segs()
->> unconditionally, since a decrease in MSS would mean that a
->> single-packet skb should now be sliced into multiple segments.
->>=20
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
- ...
-> Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Commit 0884d7aa24 (AF_UNIX: Fix poll blocking problem when reading from
+> a stream socket) added a regression for epoll() in Edge Triggered mode
+> (EPOLLET)
+> 
+> Appropriate fix is to use skb_peek()/skb_unlink() instead of
+> skb_dequeue(), and only call skb_unlink() when skb is fully consumed.
+> 
+> This remove the need to requeue a partial skb into sk_receive_queue head
+> and the extra sk->sk_data_ready() calls that added the regression.
+> 
+> This is safe because once skb is given to sk_receive_queue, it is not
+> modified by a writer, and readers are serialized by u->readlock mutex.
+> 
+> This also reduce number of spinlock acquisition for small reads or
+> MSG_PEEK users so should improve overall performance.
+> 
+> Reported-by: Nick Mathewson <nickm@freehaven.net>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Alexey Moiseytsev <himeraster@gmail.com>
 
-Applied, thanks everyone.
+Applied and queued up for -stable, thanks.
