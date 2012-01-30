@@ -1,66 +1,79 @@
-From: Viral Mehta <viral.vkm@gmail.com>
-Subject: Re: [RFC PATCH V3 04/16] netback: switch to per-cpu scratch space.
-Date: Mon, 30 Jan 2012 11:49:11 -0500
-Message-ID: <CANX6Dak_1VQ1J8hRK+yd1-FmGOnd75BkNm2uUVKd_TNTiNLtxg@mail.gmail.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	<1327934734-8908-5-git-send-email-wei.liu2@citrix.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: Regression: "rtnetlink: Compute and store minimum ifinfo dump
+ size" breaks glibc's getifaddrs()
+Date: Mon, 30 Jan 2012 16:50:58 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07012CCF52@ORSMSX106.amr.corp.intel.com>
+References: <4F229A5F.4050600@citrix.com>
+ <20120127.165357.462031319592012792.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	ian.campbell@citrix.com, konrad.wilk@oracle.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"steweg@gmail.com" <steweg@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:47698 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975Ab2A3QtN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 11:49:13 -0500
-Received: by wics10 with SMTP id s10so3605679wic.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 08:49:11 -0800 (PST)
-In-Reply-To: <1327934734-8908-5-git-send-email-wei.liu2@citrix.com>
+Received: from mga11.intel.com ([192.55.52.93]:6378 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751742Ab2A3QvO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 11:51:14 -0500
+In-Reply-To: <20120127.165357.462031319592012792.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, January 27, 2012 1:54 PM
+> To: david.vrabel@citrix.com
+> Cc: netdev@vger.kernel.org; Rose, Gregory V; steweg@gmail.com
+> Subject: Re: Regression: "rtnetlink: Compute and store minimum ifinfo dump
+> size" breaks glibc's getifaddrs()
+> 
+> From: David Vrabel <david.vrabel@citrix.com>
+> Date: Fri, 27 Jan 2012 12:36:47 +0000
+> 
+> > Changeset c7ac8679bec9397afe8918f788cbcef88c38da54 (rtnetlink: Compute
+> > and store minimum ifinfo dump size) applied to 3.1 increased the maximum
+> > size of the RTM_GETLINK message response.
+> >
+> > glibc's getifaddrs() function uses a page sized (4 KiB) buffer for the
+> > RTM_GETLINK response and returns a failure if the message is truncated.
+> > This buffer is not large enough if there is a network card with many
+> > virtual functions.
+> >
+> > What do you recommend to resolve this regression?
+> 
+> Actually, glibc technically uses the CPP define value "PAGE_SIZE" if
+> available, which is potentially different from the system page size.
+> 
+> Using a statically defined PAGE_SIZE is wrong if the program is
+> subsequently executed on a system with a different page size.
+> 
+> On sparc, and powerpc I believe, this happens commonly.  A 32-bit
+> executable will see a PAGE_SIZE value of 4K, but when executed on a
+> 64-bit system the page size is actually 8K or larger.  That's why
+> __getpagesize() should always be used.
+> 
+> Anyways, if the page sizes are correct we're in a bit of a pickle.
+> 
+> Do you have any idea what the computed value of min_ifinfo_dump_size
+> is at the time of the failure?
+> 
+> Greg, I think we're kind of screwed.  The defined minimum appropriate
+> buffer size for a recvmsg() call on a netlink socket is defined as:
+> 
+> 	getpagesize() < 8192 ? getpagesize() : 8192
+> 
+> and glibc essentially abides by this by unconditionally using page
+> size, and therefore if an interface with many virtual interfaces takes
+> us over this limit, we break basically every properly written piece of
+> netlink code out there.
 
-On Mon, Jan 30, 2012 at 9:45 AM, Wei Liu <wei.liu2@citrix.com> wrote:
->
-> =A0 =A0 =A0 =A0skb_queue_head_init(&rxq);
-> @@ -534,13 +527,16 @@ void xen_netbk_rx_action(struct xen_netbk *netb=
-k)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 BUG_ON(npo.meta_prod > ARRAY_SIZE(netbk->meta));
-> + =A0 =A0 =A0 BUG_ON(npo.meta_prod > MAX_PENDING_REQS);
+Yep, we're screwed.  And as more features and capabilities get added to virtual functions that we want to control through netlink it gets even worse.
 
-While you are already here,
-how about having WARN_ON() ?
+Maybe we should have 'ip link show' just display the number of VFs and then have a new 'ip' tool syntax along the lines of 'ip link show eth(x) vf (n)' where eth(x) is the PF and n is the number of the VF.  Then it could show all relevant information for just that VF.  Scripts could parse the number of VFs from the first call to 'ip link show' and then loop to show the details of each VF.
 
->
-> - =A0 =A0 =A0 if (!npo.copy_prod)
-> + =A0 =A0 =A0 if (!npo.copy_prod) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 put_cpu_ptr(gco);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 put_cpu_ptr(m);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
-> + =A0 =A0 =A0 }
->
-> - =A0 =A0 =A0 BUG_ON(npo.copy_prod > ARRAY_SIZE(netbk->grant_copy_op)=
-);
-> - =A0 =A0 =A0 ret =3D HYPERVISOR_grant_table_op(GNTTABOP_copy, &netbk=
-->grant_copy_op,
-> + =A0 =A0 =A0 BUG_ON(npo.copy_prod > (2 * XEN_NETIF_RX_RING_SIZE));
+Just an idea... maybe there are other ones out there but it's just getting ridiculous how much data has to be transferred back and forth during the basic 'ip link show' command when the interface as subordinate VFs now that we're getting to devices with up to 256 VFs.
 
-And may be here, too...
-
-If there is serious bug, may be system will crash at a later point
-But, IMHO, WARN_ON() is the correct function for drivers at least.
-
-> + =A0 =A0 =A0 ret =3D HYPERVISOR_grant_table_op(GNTTABOP_copy, gco,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0npo.copy_prod);
-> =A0 =A0 =A0 =A0BUG_ON(ret !=3D 0);
->
---=20
-Thanks,
-Viral Mehta
+- Greg
