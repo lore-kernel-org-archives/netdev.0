@@ -1,59 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Allow ipv6 proxies and arp proxies be shown with
- iproute2
-Date: Mon, 30 Jan 2012 13:08:41 -0500 (EST)
-Message-ID: <20120130.130841.766082811985560157.davem@davemloft.net>
-References: <1327652938-37078-1-git-send-email-antonz@parallels.com>
-	<20120127103521.GA21240@canuck.infradead.org>
+Subject: Re: [PATCH] Deinline __nlmsg_put and genlmsg_put. -7k code on i386
+ defconfig
+Date: Mon, 30 Jan 2012 13:11:04 -0500 (EST)
+Message-ID: <20120130.131104.1782962680660646529.davem@davemloft.net>
+References: <4F2597D3.6050606@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: antonz@parallels.com, xemul@parallels.com, devel@openvz.org,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: tgraf@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40384 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055Ab2A3SKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:10:33 -0500
-In-Reply-To: <20120127103521.GA21240@canuck.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dvlasenk@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F2597D3.6050606@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@infradead.org>
-Date: Fri, 27 Jan 2012 05:35:21 -0500
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Sun, 29 Jan 2012 20:02:43 +0100
 
-> On Fri, Jan 27, 2012 at 12:28:58PM +0400, Tony Zelenoff wrote:
->> Add ability to return neighbour proxies list to caller if
->> it sent full ndmsg structure and has NTF_PROXY flag set.
->> 
->> Before this patch (and before iproute2 patches):
->> $ ip neigh add proxy 2001::1 dev eth0
->> $ ip -6 neigh show
->> $
->> 
->> After it and with applied iproute2 patches:
->> $ ip neigh add proxy 2001::1 dev eth0
->> $ ip -6 neigh show
->> 2001::1 dev eth0  proxy
->> $
->> 
->> Compatibility with old versions of iproute2 is not broken,
->> kernel checks for incoming structure size and properly
->> works if old structure is came.
->> 
->> [v2]
->> * changed comments style.
->> * removed useless line with continue and curly bracket.
->> * changed incoming message size check from equal to more or
->>   equal.
->> 
->> CC: davem@davemloft.net
->> CC: kuznet@ms2.inr.ac.ru
->> CC: netdev@vger.kernel.org
->> CC: xemul@parallels.com
->> Signed-off-by: Tony Zelenoff <antonz@parallels.com>
+> This change also removes commented-out copy of __nlmsg_put
+> which was last touched in 2005 with "Enable once all users
+> have been converted" comment on top.
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+>    text	   data	    bss	    dec	    hex	filename
+> 8453183	 533115	1810804	10797102 a4c02e	vmlinux.o.before
+> 8446103	 533115	1810804	10790022 a4a486	vmlinux.o
+> 
+> Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
 
-Applied, thanks.
+This doesn't apply to net-next, it appears it was corrupted by your
+email client:
+
+> -static __inline__ struct nlmsghdr *
+> -__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len,
+> -int flags)
+
+It appears to have chopped up a long line here, for example.
