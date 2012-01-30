@@ -1,42 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: fix EPOLLET regression for stream sockets
-Date: Mon, 30 Jan 2012 12:45:37 -0500 (EST)
-Message-ID: <20120130.124537.2246327212488304490.davem@davemloft.net>
-References: <CAKDKvuzH14AZjDG3WSdrf5VtmiUgG0Y+EaC83qqSd0VFKzyitg@mail.gmail.com>
-	<1327686822.3159.3.camel@edumazet-laptop>
-	<1327803063.2805.14.camel@edumazet-laptop>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH 24/29] sysctl: Replace root_list with links between
+ sysctl_table_sets.
+Date: Mon, 30 Jan 2012 12:51:13 -0500
+Message-ID: <20120130175112.GA20380@redhat.com>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
+ <1327639925-12920-24-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nickm@freehaven.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, himeraster@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327803063.2805.14.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Damien Millescamps <damien.millescamps@6wind.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1327639925-12920-24-git-send-email-ebiederm@xmission.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 29 Jan 2012 03:11:03 +0100
+On Thu, Jan 26, 2012 at 08:52:00PM -0800, Eric W. Biederman wrote:
 
-> Commit 0884d7aa24 (AF_UNIX: Fix poll blocking problem when reading from
-> a stream socket) added a regression for epoll() in Edge Triggered mode
-> (EPOLLET)
-> 
-> Appropriate fix is to use skb_peek()/skb_unlink() instead of
-> skb_dequeue(), and only call skb_unlink() when skb is fully consumed.
-> 
-> This remove the need to requeue a partial skb into sk_receive_queue head
-> and the extra sk->sk_data_ready() calls that added the regression.
-> 
-> This is safe because once skb is given to sk_receive_queue, it is not
-> modified by a writer, and readers are serialized by u->readlock mutex.
-> 
-> This also reduce number of spinlock acquisition for small reads or
-> MSG_PEEK users so should improve overall performance.
-> 
-> Reported-by: Nick Mathewson <nickm@freehaven.net>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Alexey Moiseytsev <himeraster@gmail.com>
+ > +	memset(set, sizeof(*set), 0);
 
-Applied and queued up for -stable, thanks.
+checkpatch should warn you about this mistake.
+
+	Dave
