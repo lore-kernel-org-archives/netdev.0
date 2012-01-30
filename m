@@ -1,43 +1,52 @@
-From: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 11/16] ath5k: make
-	ath5k_modparam_no_hw_rfkill_switch real
-Date: Tue, 31 Jan 2012 00:09:04 +0100
-Message-ID: <201201310009.06012.danny.kukawka@bisect.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 01/16] eicon: fix -Warray-bounds warning
+Date: Mon, 30 Jan 2012 23:09:32 +0000
+Message-ID: <1327964972.2595.31.camel@bwh-desktop>
 References: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
-	<1327960820-11867-12-git-send-email-danny.kukawka@bisect.de>
-	<4F2715A7.9030101@gmail.com>
+	 <1327960820-11867-2-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <4F2715A7.9030101-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Cc: Armin Schindler <mac@melware.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Karsten Keil <isdn@linux-pingi.de>
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327960820-11867-2-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Montag, 30. Januar 2012, Jiri Slaby wrote:
-> On 01/30/2012 11:00 PM, Danny Kukawka wrote:
-> > Make ath5k_modparam_no_hw_rfkill_switch real bool to fix:
-> > 'warning: return from incompatible pointer type' compiler warning.
->
-> Hi, I'm afraid you are too late:
-> http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=commitdiff;
->h=11deb53328a06ad4edbf774f5c3b61c6dbb9104c
+On Mon, 2012-01-30 at 23:00 +0100, Danny Kukawka wrote:
+> Fix for a -Warray-bounds warning. mixer_notify_update() tries to
+> write to ((CAPI_MSG *) msg)->info.facility_req.structs[3] while
+> structs is defined as byte structs[1], define structs[1] as
+> structs[4].
 
-Hi,
+I suspect that all the 'byte structs[1];' fields defined in that header
+are actually variable-length arrays.  In that case, there may be no
+reasonable bound you can specify.
 
-no problem. I didn't check against linux-next.
+Ben.
 
-Danny
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> ---
+>  drivers/isdn/hardware/eicon/capi20.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/isdn/hardware/eicon/capi20.h b/drivers/isdn/hardware/eicon/capi20.h
+> index 7ebcccd..f9170ad 100644
+> --- a/drivers/isdn/hardware/eicon/capi20.h
+> +++ b/drivers/isdn/hardware/eicon/capi20.h
+> @@ -226,7 +226,7 @@ typedef struct {
+>          /* FACILITY-REQUEST */
+>  typedef struct {
+>    word Selector;
+> -  byte structs[1];      /* Facility parameters */
+> +  byte structs[4];      /* Facility parameters */
+>  } _FAC_REQP;
+>          /* FACILITY-CONFIRM STRUCT FOR SUPPLEMENT. SERVICES */
+>  typedef struct {
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
