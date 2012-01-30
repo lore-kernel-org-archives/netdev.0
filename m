@@ -1,32 +1,53 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: Regression in skge that started around acb42a3 (so past v3.3-rc1)
-Date: Mon, 30 Jan 2012 13:22:30 -0500
-Message-ID: <20120130182230.GA4122@phenom.dumpdata.com>
-References: <20120130155816.GA1400@phenom.dumpdata.com>
- <20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
- <20120130175738.GA4002@phenom.dumpdata.com>
- <20120130.130259.1190745234966440677.davem@davemloft.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH V2] New Xen netback implementation
+Date: Mon, 30 Jan 2012 18:27:04 +0000
+Message-ID: <1327948024.5553.43.camel@leeds.uk.xensource.com>
+References: <1326808024-3744-1-git-send-email-wei.liu2@citrix.com>
+	 <20120127192214.GA14437@phenom.dumpdata.com>
+	 <1327844561.2911.5.camel@leeds.uk.xensource.com>
+	 <20120129213746.GA7164@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120130.130259.1190745234966440677.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"David Vrabel" <david.vrabel@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:23860 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751794Ab2A3S0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 13:26:53 -0500
+In-Reply-To: <20120129213746.GA7164@phenom.dumpdata.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 30, 2012 at 01:02:59PM -0500, David Miller wrote:
-> From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Date: Mon, 30 Jan 2012 12:57:38 -0500
+On Sun, 2012-01-29 at 21:37 +0000, Konrad Rzeszutek Wilk wrote:
 > 
-> > Ah, so you are saying that the problem above is already fixed in 3.3-rc1.
-> 
-> No he's not saying that, he says somewhere we probably need a fix
-> "like" the commit he mentioned.
-> 
-> He did not say that commit fixes this bug.
+> Sure. I also did some testing with limiting the amount of CPUs and found
+> that 'xl vcpu-set 0 N' make netback not work anymore :-( 
+> > 
+> > 
 
-Ayee. Sounds you guys have an idea about this bug then. If you want me to run
-a test-patch I can certainly do so. Thanks!
+I just played with vcpu-set a bit, and I can reproduced this problem.
+That's a race condition.
+
+One possible fix is remove cond_resched() in the kernel thread. After
+removing that, it fixes the problem (at least for me).
+
+
+Wei.
+
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -994,7 +994,7 @@ int xenvif_kthread(void *data)
+                wait_event_interruptible(vif->wq,
+                                         rx_work_todo(vif) ||
+                                         kthread_should_stop());
+-               cond_resched();
++               /* cond_resched(); */
+ 
+                if (kthread_should_stop())
+                        break;
