@@ -1,22 +1,27 @@
 From: Andrea Shepard <andrea@persephoneslair.org>
-Subject: [21/22] Cyclades PC300 driver: omnibus patch from merge up to cleanup (patches 01 through 16 inclusive)
-Date: Sun, 29 Jan 2012 19:01:15 -0800
-Message-ID: <20120130030115.GV10262@cronus.persephoneslair.org>
+Subject: [22/22] Cyclades PC300 driver: omnibus patch from merge up to final version (patches 01 through 20 inclusive)
+Date: Sun, 29 Jan 2012 19:01:57 -0800
+Message-ID: <20120130030156.GW10262@cronus.persephoneslair.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: khc@pm.waw.pl, davem@davemloft.net, mmarek@suse.cz,
 	jkosina@suse.cz, joe@perches.com, justinmattock@gmail.com,
 	gregkh@suse.de, alan@linux.intel.com, jdmason@kudzu.us
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cronus.persephoneslair.org ([216.254.15.24]:51804 "EHLO
+	cronus.persephoneslair.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754330Ab2A3DCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2012 22:02:39 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an omnibus patch including patches 01 through 16 of this series; one
+This is an omnibus patch including patches 01 through 20 of this series; one
 may readily verify that it passes checkpatch.pl style conformance and that it
-builds cleanly.  The resulting driver will detect hardware but not operate
-reliably or efficiently due to the bugs fixed in patches 17, 18 and 19.
+builds cleanly.  The resulting driver is known to function reliably and
+achieve near theoretical maximum performance with a full T1 circuit and a
+single-port PC-300 T1/E1 card on a Sun Ultra 10.
 
 Signed-off-by: Andrea Shepard <andrea@persephoneslair.org>
 
@@ -364,7 +369,7 @@ index 2e4f84f..b0f3601 100644
  #endif	/* _PC300_H */
 +
 diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
-index 1eeedd6..c44c26a 100644
+index 1eeedd6..bcdf53a 100644
 --- a/drivers/net/wan/pc300_drv.c
 +++ b/drivers/net/wan/pc300_drv.c
 @@ -1,6 +1,6 @@
@@ -384,10 +389,13 @@ index 1eeedd6..c44c26a 100644
   *
   *	This program is free software; you can redistribute it and/or
   *	modify it under the terms of the GNU General Public License
-@@ -16,6 +16,10 @@ static const char rcsid[] =
+@@ -16,6 +16,13 @@ static const char rcsid[] =
   *	2 of the License, or (at your option) any later version.
   *	
   *	Using tabstop = 4.
++ *
++ * Cyclades version 4.1.0 merged in, with new portability fixes,
++ * and ported to recent kernels by Andrea Shepard <andrea@persephoneslair.org>
 + *
 + * Due to changes in certain ioctls necessary for portability, this
 + * version requires a new version of pc300utils, which may be found
@@ -395,7 +403,7 @@ index 1eeedd6..c44c26a 100644
   * 
   * $Log: pc300_drv.c,v $
   * Revision 3.23  2002/03/20 13:58:40  henrique
-@@ -219,6 +223,7 @@ static const char rcsid[] =
+@@ -219,6 +226,7 @@ static const char rcsid[] =
  #include <linux/mm.h>
  #include <linux/ioport.h>
  #include <linux/pci.h>
@@ -403,7 +411,7 @@ index 1eeedd6..c44c26a 100644
  #include <linux/errno.h>
  #include <linux/string.h>
  #include <linux/init.h>
-@@ -238,21 +243,22 @@ static const char rcsid[] =
+@@ -238,21 +246,22 @@ static const char rcsid[] =
  
  #include "pc300.h"
  
@@ -434,7 +442,7 @@ index 1eeedd6..c44c26a 100644
  
  static DEFINE_PCI_DEVICE_TABLE(cpc_pci_dev_id) = {
  	/* PC300/RSV or PC300/X21, 2 chan */
-@@ -279,53 +285,128 @@ MODULE_DEVICE_TABLE(pci, cpc_pci_dev_id);
+@@ -279,53 +288,128 @@ MODULE_DEVICE_TABLE(pci, cpc_pci_dev_id);
  #define	cpc_max(a,b)	(((a)>(b))?(a):(b))
  #endif
  
@@ -587,7 +595,7 @@ index 1eeedd6..c44c26a 100644
  
  	for (i = 0; i < N_DMA_TX_BUF; i++, ptdescr++) {
  		memset_io(ptdescr, 0, sizeof(pcsca_bd_t));
-@@ -335,27 +416,30 @@ static void tx_dma_buf_init(pc300_t * card, int ch)
+@@ -335,27 +419,30 @@ static void tx_dma_buf_init(pc300_t * card, int ch)
  	tx_dma_buf_pt_init(card, ch);
  }
  
@@ -626,7 +634,7 @@ index 1eeedd6..c44c26a 100644
  
  	for (i = 0; i < N_DMA_RX_BUF; i++, ptdescr++) {
  		memset_io(ptdescr, 0, sizeof(pcsca_bd_t));
-@@ -365,88 +449,129 @@ static void rx_dma_buf_init(pc300_t * card, int ch)
+@@ -365,88 +452,129 @@ static void rx_dma_buf_init(pc300_t * card, int ch)
  	rx_dma_buf_pt_init(card, ch);
  }
  
@@ -803,7 +811,7 @@ index 1eeedd6..c44c26a 100644
  	while ((status = cpc_readb(&ptdescr->status)) & DST_OSB) {
  		rcvd += cpc_readw(&ptdescr->len);
  		first_bd = (first_bd + 1) & (N_DMA_RX_BUF - 1);
-@@ -455,8 +580,11 @@ static int dma_get_rx_frame_size(pc300_t * card, int ch)
+@@ -455,8 +583,11 @@ static int dma_get_rx_frame_size(pc300_t * card, int ch)
  			* (dma_buf_read will clean the buffer descriptors in this case). */
  			return rcvd;
  		}
@@ -816,7 +824,7 @@ index 1eeedd6..c44c26a 100644
  	return -1;
  }
  
-@@ -467,7 +595,7 @@ static int dma_get_rx_frame_size(pc300_t * card, int ch)
+@@ -467,7 +598,7 @@ static int dma_get_rx_frame_size(pc300_t * card, int ch)
  static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
  {
  	int i, nchar;
@@ -825,7 +833,7 @@ index 1eeedd6..c44c26a 100644
  	int tosend = len;
  	u8 nbuf = ((len - 1) / BD_DEF_LEN) + 1;
  
-@@ -476,11 +604,12 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
+@@ -476,11 +607,12 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
  	}
  
  	for (i = 0; i < nbuf; i++) {
@@ -840,7 +848,7 @@ index 1eeedd6..c44c26a 100644
  				    &ptdata[len - tosend], nchar);
  			cpc_writew(&ptdescr->len, nchar);
  			card->chan[ch].nfree_tx_bd--;
-@@ -495,7 +624,8 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
+@@ -495,7 +627,8 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
  		}
  		tosend -= nchar;
  		card->chan[ch].tx_next_bd =
@@ -850,7 +858,7 @@ index 1eeedd6..c44c26a 100644
  	}
  	/* If it gets to here, it means we have sent the whole frame */
  	return 0;
-@@ -505,20 +635,22 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
+@@ -505,20 +638,22 @@ static int dma_buf_write(pc300_t *card, int ch, u8 *ptdata, int len)
   * dma_buf_read: reads a frame from the Rx DMA buffers
   * NOTE: this function reads one frame at a time.
   */
@@ -879,7 +887,7 @@ index 1eeedd6..c44c26a 100644
  
  			if (nchar > BD_DEF_LEN)
  				status |= DST_RBIT;
-@@ -529,7 +661,7 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
+@@ -529,7 +664,7 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
  				chan->rx_first_bd = (chan->rx_first_bd+1) & (N_DMA_RX_BUF-1);
  				if (status & DST_EOM)
  					break;
@@ -888,7 +896,7 @@ index 1eeedd6..c44c26a 100644
  							  cpc_readl(&ptdescr->next));
  				status = cpc_readb(&ptdescr->status);
  			}
-@@ -538,23 +670,29 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
+@@ -538,23 +673,29 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
  		if (nchar != 0) {
  			if (skb) {
  				memcpy_fromio(skb_put(skb, nchar),
@@ -922,7 +930,7 @@ index 1eeedd6..c44c26a 100644
  		/* Update EDA */
  		cpc_writel(card->hw.scabase + DRX_REG(EDAL, ch),
  			   RX_BD_ADDR(ch, chan->rx_last_bd));
-@@ -562,9 +700,9 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
+@@ -562,9 +703,9 @@ static int dma_buf_read(pc300_t * card, int ch, struct sk_buff *skb)
  	return rcvd;
  }
  
@@ -934,7 +942,7 @@ index 1eeedd6..c44c26a 100644
  	u8 drr_ena_bit = 1 << (5 + 2 * ch);
  	u8 drr_rst_bit = 1 << (1 + 2 * ch);
  
-@@ -573,9 +711,9 @@ static void tx_dma_stop(pc300_t * card, int ch)
+@@ -573,9 +714,9 @@ static void tx_dma_stop(pc300_t * card, int ch)
  	cpc_writeb(scabase + DRR, drr_rst_bit & ~drr_ena_bit);
  }
  
@@ -946,7 +954,7 @@ index 1eeedd6..c44c26a 100644
  	u8 drr_ena_bit = 1 << (4 + 2 * ch);
  	u8 drr_rst_bit = 1 << (2 * ch);
  
-@@ -584,9 +722,9 @@ static void rx_dma_stop(pc300_t * card, int ch)
+@@ -584,9 +725,9 @@ static void rx_dma_stop(pc300_t * card, int ch)
  	cpc_writeb(scabase + DRR, drr_rst_bit & ~drr_ena_bit);
  }
  
@@ -958,7 +966,7 @@ index 1eeedd6..c44c26a 100644
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	
  	/* Start DMA */
-@@ -602,7 +740,7 @@ static void rx_dma_start(pc300_t * card, int ch)
+@@ -602,7 +743,7 @@ static void rx_dma_start(pc300_t * card, int ch)
  	cpc_writew(scabase + DRX_REG(BFLL, ch), BD_DEF_LEN);
  	cpc_writeb(scabase + DSR_RX(ch), DSR_DE);
  	if (!(cpc_readb(scabase + DSR_RX(ch)) & DSR_DE)) {
@@ -967,7 +975,7 @@ index 1eeedd6..c44c26a 100644
  	}
  }
  
-@@ -611,25 +749,26 @@ static void rx_dma_start(pc300_t * card, int ch)
+@@ -611,25 +752,26 @@ static void rx_dma_start(pc300_t * card, int ch)
  /*************************/
  static void falc_issue_cmd(pc300_t *card, int ch, u8 cmd)
  {
@@ -999,7 +1007,7 @@ index 1eeedd6..c44c26a 100644
  
  	/* Interrupt pins are open-drain */
  	cpc_writeb(falcbase + F_REG(IPC, ch),
-@@ -674,9 +813,9 @@ static void falc_intr_enable(pc300_t * card, int ch)
+@@ -674,9 +816,9 @@ static void falc_intr_enable(pc300_t * card, int ch)
  	}
  }
  
@@ -1011,7 +1019,7 @@ index 1eeedd6..c44c26a 100644
  	u8 tshf = card->chan[ch].falc.offset;
  
  	cpc_writeb(falcbase + F_REG((ICB1 + (timeslot - tshf) / 8), ch),
-@@ -690,9 +829,9 @@ static void falc_open_timeslot(pc300_t * card, int ch, int timeslot)
+@@ -690,9 +832,9 @@ static void falc_open_timeslot(pc300_t * card, int ch, int timeslot)
  			(0x80 >> (timeslot & 0x07)));
  }
  
@@ -1023,7 +1031,7 @@ index 1eeedd6..c44c26a 100644
  	u8 tshf = card->chan[ch].falc.offset;
  
  	cpc_writeb(falcbase + F_REG((ICB1 + (timeslot - tshf) / 8), ch),
-@@ -706,11 +845,11 @@ static void falc_close_timeslot(pc300_t * card, int ch, int timeslot)
+@@ -706,11 +848,11 @@ static void falc_close_timeslot(pc300_t * card, int ch, int timeslot)
  		   ~(0x80 >> (timeslot & 0x07)));
  }
  
@@ -1037,7 +1045,7 @@ index 1eeedd6..c44c26a 100644
  
  	cpc_writeb(falcbase + F_REG(ICB1, ch), 0xff);
  	cpc_writeb(falcbase + F_REG(TTR1, ch), 0);
-@@ -728,11 +867,11 @@ static void falc_close_all_timeslots(pc300_t * card, int ch)
+@@ -728,11 +870,11 @@ static void falc_close_all_timeslots(pc300_t * card, int ch)
  	}
  }
  
@@ -1051,7 +1059,7 @@ index 1eeedd6..c44c26a 100644
  
  	cpc_writeb(falcbase + F_REG(ICB1, ch), 0);
  	if (conf->fr_mode == PC300_FR_UNFRAMED) {
-@@ -760,7 +899,7 @@ static void falc_open_all_timeslots(pc300_t * card, int ch)
+@@ -760,7 +902,7 @@ static void falc_open_all_timeslots(pc300_t * card, int ch)
  	}
  }
  
@@ -1060,7 +1068,7 @@ index 1eeedd6..c44c26a 100644
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	pc300chconf_t *conf = (pc300chconf_t *) & chan->conf;
-@@ -778,7 +917,7 @@ static void falc_init_timeslot(pc300_t * card, int ch)
+@@ -778,7 +920,7 @@ static void falc_init_timeslot(pc300_t * card, int ch)
  	}
  }
  
@@ -1069,7 +1077,7 @@ index 1eeedd6..c44c26a 100644
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	falc_t *pfalc = (falc_t *) & chan->falc;
-@@ -794,7 +933,7 @@ static void falc_enable_comm(pc300_t * card, int ch)
+@@ -794,7 +936,7 @@ static void falc_enable_comm(pc300_t * card, int ch)
  		   ~((CPLD_REG1_FALC_DCD | CPLD_REG1_FALC_CTS) << (2 * ch)));
  }
  
@@ -1078,7 +1086,7 @@ index 1eeedd6..c44c26a 100644
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	falc_t *pfalc = (falc_t *) & chan->falc;
-@@ -808,12 +947,12 @@ static void falc_disable_comm(pc300_t * card, int ch)
+@@ -808,12 +950,12 @@ static void falc_disable_comm(pc300_t * card, int ch)
  		   ((CPLD_REG1_FALC_DCD | CPLD_REG1_FALC_CTS) << (2 * ch)));
  }
  
@@ -1093,7 +1101,7 @@ index 1eeedd6..c44c26a 100644
  	u8 dja = (ch ? (LIM2_DJA2 | LIM2_DJA1) : 0);
  
  	/* Switch to T1 mode (PCM 24) */
-@@ -977,12 +1116,12 @@ static void falc_init_t1(pc300_t * card, int ch)
+@@ -977,12 +1119,12 @@ static void falc_init_t1(pc300_t * card, int ch)
  	falc_close_all_timeslots(card, ch);
  }
  
@@ -1108,7 +1116,7 @@ index 1eeedd6..c44c26a 100644
  	u8 dja = (ch ? (LIM2_DJA2 | LIM2_DJA1) : 0);
  
  	/* Switch to E1 mode (PCM 30) */
-@@ -1157,9 +1296,9 @@ static void falc_init_e1(pc300_t * card, int ch)
+@@ -1157,9 +1299,9 @@ static void falc_init_e1(pc300_t * card, int ch)
  	falc_close_all_timeslots(card, ch);
  }
  
@@ -1120,7 +1128,7 @@ index 1eeedd6..c44c26a 100644
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	pc300chconf_t *conf = (pc300chconf_t *) & chan->conf;
  
-@@ -1183,12 +1322,12 @@ static void falc_init_hdlc(pc300_t * card, int ch)
+@@ -1183,12 +1325,12 @@ static void falc_init_hdlc(pc300_t * card, int ch)
  	falc_intr_enable(card, ch);
  }
  
@@ -1135,7 +1143,7 @@ index 1eeedd6..c44c26a 100644
  	u8 dummy;
  	unsigned long flags;
  
-@@ -1243,12 +1382,12 @@ static void te_config(pc300_t * card, int ch)
+@@ -1243,12 +1385,12 @@ static void te_config(pc300_t * card, int ch)
  	CPC_UNLOCK(card, flags);
  }
  
@@ -1150,7 +1158,7 @@ index 1eeedd6..c44c26a 100644
  
  	/* Verify LOS */
  	if (frs0 & FRS0_LOS) {
-@@ -1399,12 +1538,12 @@ static void falc_check_status(pc300_t * card, int ch, unsigned char frs0)
+@@ -1399,12 +1541,12 @@ static void falc_check_status(pc300_t * card, int ch, unsigned char frs0)
  	}
  }
  
@@ -1165,7 +1173,7 @@ index 1eeedd6..c44c26a 100644
  	u16 counter;
  
  	counter = cpc_readb(falcbase + F_REG(FECL, ch));
-@@ -1451,12 +1590,12 @@ static void falc_update_stats(pc300_t * card, int ch)
+@@ -1451,12 +1593,12 @@ static void falc_update_stats(pc300_t * card, int ch)
   *		the synchronizer and then sent to the system interface.
   *----------------------------------------------------------------------------
   */
@@ -1180,7 +1188,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (loop_on) {
  		// EVENT_FALC_ABNORMAL
-@@ -1496,11 +1635,11 @@ static void falc_remote_loop(pc300_t * card, int ch, int loop_on)
+@@ -1496,11 +1638,11 @@ static void falc_remote_loop(pc300_t * card, int ch, int loop_on)
   *		coding must be identical.
   *----------------------------------------------------------------------------
   */
@@ -1194,7 +1202,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (loop_on) {
  		cpc_writeb(falcbase + F_REG(LIM0, ch),
-@@ -1523,12 +1662,12 @@ static void falc_local_loop(pc300_t * card, int ch, int loop_on)
+@@ -1523,12 +1665,12 @@ static void falc_local_loop(pc300_t * card, int ch, int loop_on)
   *		looped. They are originated by the FALC-LH transmitter.
   *----------------------------------------------------------------------------
   */
@@ -1209,7 +1217,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (loop_on) {
  		// EVENT_FALC_ABNORMAL
-@@ -1577,11 +1716,11 @@ static void falc_payload_loop(pc300_t * card, int ch, int loop_on)
+@@ -1577,11 +1719,11 @@ static void falc_payload_loop(pc300_t * card, int ch, int loop_on)
   * Description:	Turns XLU bit off in the proper register
   *----------------------------------------------------------------------------
   */
@@ -1223,7 +1231,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (conf->media == IF_IFACE_T1) {
  		cpc_writeb(falcbase + F_REG(FMR5, ch),
-@@ -1598,11 +1737,11 @@ static void turn_off_xlu(pc300_t * card, int ch)
+@@ -1598,11 +1740,11 @@ static void turn_off_xlu(pc300_t * card, int ch)
   * Description: Turns XLD bit off in the proper register
   *----------------------------------------------------------------------------
   */
@@ -1237,7 +1245,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (conf->media == IF_IFACE_T1) {
  		cpc_writeb(falcbase + F_REG(FMR5, ch),
-@@ -1620,12 +1759,12 @@ static void turn_off_xld(pc300_t * card, int ch)
+@@ -1620,12 +1762,12 @@ static void turn_off_xld(pc300_t * card, int ch)
   *		to generate a LOOP activation code over a T1/E1 line.
   *----------------------------------------------------------------------------
   */
@@ -1252,7 +1260,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (conf->media == IF_IFACE_T1) {
  		cpc_writeb(falcbase + F_REG(FMR5, ch),
-@@ -1653,12 +1792,12 @@ static void falc_generate_loop_up_code(pc300_t * card, int ch)
+@@ -1653,12 +1795,12 @@ static void falc_generate_loop_up_code(pc300_t * card, int ch)
   *		to generate a LOOP deactivation code over a T1/E1 line.
   *----------------------------------------------------------------------------
   */
@@ -1267,7 +1275,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (conf->media == IF_IFACE_T1) {
  		cpc_writeb(falcbase + F_REG(FMR5, ch),
-@@ -1683,12 +1822,12 @@ static void falc_generate_loop_down_code(pc300_t * card, int ch)
+@@ -1683,12 +1825,12 @@ static void falc_generate_loop_down_code(pc300_t * card, int ch)
   *		it on the reception side.
   *----------------------------------------------------------------------------
   */
@@ -1282,7 +1290,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (activate) {
  		pfalc->prbs = 1;
-@@ -1730,7 +1869,7 @@ static void falc_pattern_test(pc300_t * card, int ch, unsigned int activate)
+@@ -1730,7 +1872,7 @@ static void falc_pattern_test(pc300_t * card, int ch, unsigned int activate)
   * Description:	This routine returns the bit error counter value
   *----------------------------------------------------------------------------
   */
@@ -1291,7 +1299,7 @@ index 1eeedd6..c44c26a 100644
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	falc_t *pfalc = (falc_t *) & chan->falc;
-@@ -1748,7 +1887,9 @@ cpc_trace(struct net_device *dev, struct sk_buff *skb_main, char rx_tx)
+@@ -1748,7 +1890,9 @@ cpc_trace(struct net_device *dev, struct sk_buff *skb_main, char rx_tx)
  	struct sk_buff *skb;
  
  	if ((skb = dev_alloc_skb(10 + skb_main->len)) == NULL) {
@@ -1302,7 +1310,7 @@ index 1eeedd6..c44c26a 100644
  		return;
  	}
  	skb_put(skb, 10 + skb_main->len);
-@@ -1775,15 +1916,24 @@ static void cpc_tx_timeout(struct net_device *dev)
+@@ -1775,15 +1919,24 @@ static void cpc_tx_timeout(struct net_device *dev)
  	pc300dev_t *d = (pc300dev_t *) dev_to_hdlc(dev)->priv;
  	pc300ch_t *chan = (pc300ch_t *) d->chan;
  	pc300_t *card = (pc300_t *) chan->card;
@@ -1330,7 +1338,7 @@ index 1eeedd6..c44c26a 100644
  		cpc_writeb(card->hw.scabase + ILAR, ilar);
  		cpc_writeb(card->hw.scabase + DMER, 0x80);
  	}
-@@ -1792,8 +1942,13 @@ static void cpc_tx_timeout(struct net_device *dev)
+@@ -1792,8 +1945,13 @@ static void cpc_tx_timeout(struct net_device *dev)
  			   cpc_readb(card->hw.falcbase + card->hw.cpld_reg2) &
  			   ~(CPLD_REG2_FALC_LED1 << (2 * ch)));
  	}
@@ -1345,13 +1353,14 @@ index 1eeedd6..c44c26a 100644
  	netif_wake_queue(dev);
  }
  
-@@ -1802,22 +1957,52 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -1802,22 +1960,83 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
  	pc300dev_t *d = (pc300dev_t *) dev_to_hdlc(dev)->priv;
  	pc300ch_t *chan = (pc300ch_t *) d->chan;
  	pc300_t *card = (pc300_t *) chan->card;
 +	struct net_device_stats *stats = &(dev->stats);
  	int ch = chan->channel;
  	unsigned long flags;
++	uintptr_t scabase = (uintptr_t)(card->hw.scabase);
  #ifdef PC300_DEBUG_TX
  	int i;
  #endif
@@ -1362,6 +1371,36 @@ index 1eeedd6..c44c26a 100644
 +			"%s: cpc_queue_xmit called wih %d bytes\n",
 +			dev->name, skb->len);
 +#endif
++	if (cpc_readb(scabase + M_REG(ST3, ch)) & ST3_DCD) {
++		if (netif_carrier_ok(dev)) {
++			printk(KERN_INFO
++					"%s: DCD is OFF. Going administrative down.\n",
++					dev->name);
++#ifdef CONFIG_PC300_MLPPP
++			if (chan->conf.proto != PC300_PROTO_MLPPP)
++				netif_carrier_off(dev);
++#else
++			netif_carrier_off(dev);
++#endif
++			card->chan[ch].d.line_off++;
++		}
++	} else {        /* DCD = 1 */
++		if (!netif_carrier_ok(dev)) {
++			printk(KERN_INFO
++					"%s: DCD is ON. Going administrative up.\n",
++					dev->name);
++#ifdef CONFIG_PC300_MLPPP
++			if (chan->conf.proto != PC300_PROTO_MLPPP) {
++				/* verify if driver is not TTY */
++				netif_carrier_on(dev);
++			}
++#else
++			netif_carrier_on(dev);
++#endif
++			card->chan[ch].d.line_on++;
++		}
++	}
++
 +	if (chan->conf.monitor) {
 +		/* In monitor mode no Tx is done: ignore packet */
 +		dev_kfree_skb(skb);
@@ -1405,7 +1444,7 @@ index 1eeedd6..c44c26a 100644
  		dev_kfree_skb(skb);
  		netif_carrier_off(dev);
  		CPC_LOCK(card, flags);
-@@ -1828,34 +2013,59 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -1828,24 +2047,43 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
  				   			~(CPLD_REG2_FALC_LED1 << (2 * ch)));
  		}
  		CPC_UNLOCK(card, flags);
@@ -1457,35 +1496,50 @@ index 1eeedd6..c44c26a 100644
  #endif
  
  	if (d->trace_on) {
- 		cpc_trace(dev, skb, 'T');
- 	}
-+	dev->trans_start = jiffies;
+@@ -1854,11 +2092,12 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
  
  	/* Start transmission */
  	CPC_LOCK(card, flags);
- 	/* verify if it has more than one free descriptor */
- 	if (card->chan[ch].nfree_tx_bd <= 1) {
+-	/* verify if it has more than one free descriptor */
+-	if (card->chan[ch].nfree_tx_bd <= 1) {
+-		/* don't have so stop the queue */
+-		netif_stop_queue(dev);
+-	}
++#ifdef PC300_DEBUG_QUEUE
++	printk(KERN_DEBUG
++		"%s: stopping queue for transmission\n",
++		dev->name);
++#endif
++	netif_stop_queue(dev);
+ 	cpc_writel(card->hw.scabase + DTX_REG(EDAL, ch),
+ 		   TX_BD_ADDR(ch, chan->tx_next_bd));
+ 	cpc_writeb(card->hw.scabase + M_REG(CMD, ch), CMD_TX_ENA);
+@@ -1868,9 +2107,24 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			   cpc_readb(card->hw.falcbase + card->hw.cpld_reg2) |
+ 			   (CPLD_REG2_FALC_LED1 << (2 * ch)));
+ 	}
++	/* verify if it has more than one free descriptor */
++	if (card->chan[ch].nfree_tx_bd > 1) {
 +#ifdef PC300_DEBUG_QUEUE
 +		printk(KERN_DEBUG
-+			"%s: stopping queue for transmission\n",
-+			dev->name);
++				"%s: restarting queue\n",
++				dev->name);
 +#endif
- 		/* don't have so stop the queue */
- 		netif_stop_queue(dev);
- 	}
-@@ -1871,6 +2081,11 @@ static int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
++		netif_wake_queue(dev);
++	}
  	CPC_UNLOCK(card, flags);
  	dev_kfree_skb(skb);
  
 +#ifdef PC300_DEBUG_TX
-+	printk(KERN_DEBUG "%s: cpc_queue_xmit returning normally\n",
-+	       dev->name);
++	printk(KERN_DEBUG
++			"%s: cpc_queue_xmit returning normally\n",
++			dev->name);
 +#endif
 +
  	return 0;
  }
  
-@@ -1879,6 +2094,7 @@ static void cpc_net_rx(struct net_device *dev)
+@@ -1879,29 +2133,45 @@ static void cpc_net_rx(struct net_device *dev)
  	pc300dev_t *d = (pc300dev_t *) dev_to_hdlc(dev)->priv;
  	pc300ch_t *chan = (pc300ch_t *) d->chan;
  	pc300_t *card = (pc300_t *) chan->card;
@@ -1493,9 +1547,24 @@ index 1eeedd6..c44c26a 100644
  	int ch = chan->channel;
  #ifdef PC300_DEBUG_RX
  	int i;
-@@ -1892,16 +2108,22 @@ static void cpc_net_rx(struct net_device *dev)
+ #endif
+ 	int rxb;
+ 	struct sk_buff *skb;
++	uintptr_t scabase = (uintptr_t)(card->hw.scabase);
+ 
+ 	while (1) {
+ 		if ((rxb = dma_get_rx_frame_size(card, ch)) == -1)
+ 			return;
  
  		if (!netif_carrier_ok(dev)) {
++			if (!(cpc_readb(scabase + M_REG(ST3, ch)) & ST3_DCD)) {
++				printk(KERN_INFO
++						"%s: DCD ON - going up\n",
++						dev->name);
++				netif_carrier_on(dev);
++			}
++		}
++		if (!netif_carrier_ok(dev)) {
  			/* DCD must be OFF: drop packet */
 -		    printk("%s : DCD is OFF - drop %d rx bytes\n", dev->name, rxb); 
 +			printk(KERN_INFO
@@ -1519,7 +1588,7 @@ index 1eeedd6..c44c26a 100644
  					return;
  				}
  				skb->dev = dev;
-@@ -1910,28 +2132,30 @@ static void cpc_net_rx(struct net_device *dev)
+@@ -1910,28 +2180,30 @@ static void cpc_net_rx(struct net_device *dev)
  
  		if (((rxb = dma_buf_read(card, ch, skb)) <= 0) || (skb == NULL)) {
  #ifdef PC300_DEBUG_RX
@@ -1559,7 +1628,7 @@ index 1eeedd6..c44c26a 100644
  				}
  			}
  			if (skb) {
-@@ -1940,18 +2164,19 @@ static void cpc_net_rx(struct net_device *dev)
+@@ -1940,18 +2212,19 @@ static void cpc_net_rx(struct net_device *dev)
  			continue;
  		}
  
@@ -1584,7 +1653,7 @@ index 1eeedd6..c44c26a 100644
  		skb->protocol = hdlc_type_trans(skb, dev);
  		netif_rx(skb);
  	}
-@@ -1964,23 +2189,28 @@ static void sca_tx_intr(pc300dev_t *dev)
+@@ -1964,23 +2237,28 @@ static void sca_tx_intr(pc300dev_t *dev)
  {
  	pc300ch_t *chan = (pc300ch_t *)dev->chan; 
  	pc300_t *card = (pc300_t *)chan->card; 
@@ -1624,7 +1693,7 @@ index 1eeedd6..c44c26a 100644
  
  #ifdef CONFIG_PC300_MLPPP
  	if (chan->conf.proto == PC300_PROTO_MLPPP) {
-@@ -1988,38 +2218,46 @@ static void sca_tx_intr(pc300dev_t *dev)
+@@ -1988,38 +2266,48 @@ static void sca_tx_intr(pc300dev_t *dev)
  	} else {
  #endif
  	/* Tell the upper layer we are ready to transmit more packets */
@@ -1632,7 +1701,9 @@ index 1eeedd6..c44c26a 100644
 +#ifdef PC300_DEBUG_QUEUE
 +		printk(KERN_DEBUG "Waking queue on TX interrupt\n");
 +#endif
-+		netif_wake_queue(dev->netdev);
++		if (chan->nfree_tx_bd > 1 &&
++				netif_queue_stopped(dev->netdev))
++			netif_wake_queue(dev->netdev);
  #ifdef CONFIG_PC300_MLPPP
  	}
  #endif
@@ -1679,7 +1750,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  				if (status & IR0_DRX(IR0_DMIA, ch)) {
  					if (drx_stat & DSR_BOF) {
-@@ -2039,10 +2277,15 @@ static void sca_intr(pc300_t * card)
+@@ -2039,10 +2327,15 @@ static void sca_intr(pc300_t * card)
  							}
  							cpc_net_rx(dev);
  							/* Discard invalid frames */
@@ -1699,7 +1770,7 @@ index 1eeedd6..c44c26a 100644
  							rx_dma_start(card, ch);
  						}
  					}
-@@ -2077,8 +2320,10 @@ static void sca_intr(pc300_t * card)
+@@ -2077,8 +2370,10 @@ static void sca_intr(pc300_t * card)
  				}
  				if (!(dsr_rx = cpc_readb(scabase + DSR_RX(ch)) & DSR_DE)) {
  #ifdef PC300_DEBUG_INTR
@@ -1712,7 +1783,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  					cpc_writeb(scabase + DSR_RX(ch), (dsr_rx | DSR_DE) & 0xfe);
  				}
-@@ -2086,14 +2331,15 @@ static void sca_intr(pc300_t * card)
+@@ -2086,14 +2381,15 @@ static void sca_intr(pc300_t * card)
  
  	    /**** Transmission ****/
  			if (status & IR0_DTX((IR0_EFT | IR0_DMIA | IR0_DMIB), ch)) {
@@ -1731,7 +1802,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  				if (status & IR0_DTX(IR0_EFT, ch)) {
  					if (dtx_stat & DSR_UDRF) {
-@@ -2108,8 +2354,17 @@ static void sca_intr(pc300_t * card)
+@@ -2108,8 +2404,17 @@ static void sca_intr(pc300_t * card)
  						}
  						dev->stats.tx_errors++;
  						dev->stats.tx_fifo_errors++;
@@ -1750,7 +1821,7 @@ index 1eeedd6..c44c26a 100644
  				}
  				if (status & IR0_DTX(IR0_DMIA, ch)) {
  					if (dtx_stat & DSR_BOF) {
-@@ -2123,26 +2378,28 @@ static void sca_intr(pc300_t * card)
+@@ -2123,26 +2428,28 @@ static void sca_intr(pc300_t * card)
  								    			card->hw.cpld_reg2) &
  								   ~ (CPLD_REG2_FALC_LED1 << (2 * ch)));
  						}
@@ -1785,7 +1856,7 @@ index 1eeedd6..c44c26a 100644
  #ifdef CONFIG_PC300_MLPPP
  						if (chan->conf.proto != PC300_PROTO_MLPPP) {
  							netif_carrier_off(dev);
-@@ -2153,8 +2410,9 @@ static void sca_intr(pc300_t * card)
+@@ -2153,8 +2460,9 @@ static void sca_intr(pc300_t * card)
  #endif
  						card->chan[ch].d.line_off++;
  					} else {	/* DCD = 1 */
@@ -1797,7 +1868,7 @@ index 1eeedd6..c44c26a 100644
  #ifdef CONFIG_PC300_MLPPP
  						if (chan->conf.proto != PC300_PROTO_MLPPP)
  							/* verify if driver is not TTY */
-@@ -2176,7 +2434,7 @@ static void falc_t1_loop_detection(pc300_t *card, int ch, u8 frs1)
+@@ -2176,7 +2484,7 @@ static void falc_t1_loop_detection(pc300_t *card, int ch, u8 frs1)
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	falc_t *pfalc = (falc_t *) & chan->falc;
@@ -1806,7 +1877,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (((cpc_readb(falcbase + F_REG(LCR1, ch)) & LCR1_XPRBS) == 0) &&
  	    !pfalc->loop_gen) {
-@@ -2201,7 +2459,7 @@ static void falc_e1_loop_detection(pc300_t *card, int ch, u8 rsp)
+@@ -2201,7 +2509,7 @@ static void falc_e1_loop_detection(pc300_t *card, int ch, u8 rsp)
  {
  	pc300ch_t *chan = (pc300ch_t *) & card->chan[ch];
  	falc_t *pfalc = (falc_t *) & chan->falc;
@@ -1815,7 +1886,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (((cpc_readb(falcbase + F_REG(LCR1, ch)) & LCR1_XPRBS) == 0) &&
  	    !pfalc->loop_gen) {
-@@ -2222,11 +2480,11 @@ static void falc_e1_loop_detection(pc300_t *card, int ch, u8 rsp)
+@@ -2222,11 +2530,11 @@ static void falc_e1_loop_detection(pc300_t *card, int ch, u8 rsp)
  	}
  }
  
@@ -1829,7 +1900,7 @@ index 1eeedd6..c44c26a 100644
  	u8 isr0, isr3, gis;
  	u8 dummy;
  
-@@ -2269,11 +2527,11 @@ static void falc_t1_intr(pc300_t * card, int ch)
+@@ -2269,11 +2577,11 @@ static void falc_t1_intr(pc300_t * card, int ch)
  	}
  }
  
@@ -1843,7 +1914,7 @@ index 1eeedd6..c44c26a 100644
  	u8 isr1, isr2, isr3, gis, rsp;
  	u8 dummy;
  
-@@ -2286,8 +2544,8 @@ static void falc_e1_intr(pc300_t * card, int ch)
+@@ -2286,8 +2594,8 @@ static void falc_e1_intr(pc300_t * card, int ch)
  		if (gis & GIS_ISR1) {
  			isr1 = cpc_readb(falcbase + F_REG(FISR1, ch));
  			if (isr1 & FISR1_XMB) {
@@ -1854,7 +1925,7 @@ index 1eeedd6..c44c26a 100644
  					if (cpc_readb (falcbase + F_REG(FRS0, ch)) & 
  									(FRS0_LOS | FRS0_AIS | FRS0_LFA)) {
  						cpc_writeb(falcbase + F_REG(XSP, ch),
-@@ -2338,7 +2596,7 @@ static void falc_e1_intr(pc300_t * card, int ch)
+@@ -2338,7 +2646,7 @@ static void falc_e1_intr(pc300_t * card, int ch)
  	}
  }
  
@@ -1863,7 +1934,7 @@ index 1eeedd6..c44c26a 100644
  {
  	int ch;
  
-@@ -2356,19 +2614,24 @@ static void falc_intr(pc300_t * card)
+@@ -2356,19 +2664,24 @@ static void falc_intr(pc300_t * card)
  
  static irqreturn_t cpc_intr(int irq, void *dev_id)
  {
@@ -1894,7 +1965,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  		return IRQ_NONE;		/* spurious intr */
  	}
-@@ -2394,89 +2657,137 @@ static irqreturn_t cpc_intr(int irq, void *dev_id)
+@@ -2394,89 +2707,137 @@ static irqreturn_t cpc_intr(int irq, void *dev_id)
  	return IRQ_HANDLED;
  }
  
@@ -2108,7 +2179,7 @@ index 1eeedd6..c44c26a 100644
  
  	if (ilar != 0) {
  		CPC_LOCK(card, flags);
-@@ -2486,73 +2797,157 @@ static void cpc_sca_status(pc300_t * card, int ch)
+@@ -2486,73 +2847,157 @@ static void cpc_sca_status(pc300_t * card, int ch)
  	}
  }
  
@@ -2291,7 +2362,7 @@ index 1eeedd6..c44c26a 100644
  			if (!capable(CAP_NET_ADMIN))
  				return -EPERM;
  			if (!arg || 
-@@ -2577,12 +2972,15 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2577,12 +3022,15 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  					}
  				} else {
  					memcpy(conf, &conf_aux.conf, sizeof(pc300chconf_t));
@@ -2309,7 +2380,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  			return 0;
  		case SIOCGPC300STATUS:
-@@ -2593,28 +2991,45 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2593,28 +3041,45 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  			return 0;
  
  		case SIOCGPC300UTILSTATS:
@@ -2375,7 +2446,7 @@ index 1eeedd6..c44c26a 100644
  
  		case SIOCGPC300UTILSTATUS:
  			{
-@@ -2622,27 +3037,52 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2622,27 +3087,52 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  
  				pc300status.hw_type = card->hw.type;
  				if (card->hw.type == PC300_TE) {
@@ -2440,7 +2511,7 @@ index 1eeedd6..c44c26a 100644
  				return 0;
  			}
  
-@@ -2661,8 +3101,11 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2661,8 +3151,11 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  					return -EINVAL;
  
  				if (!arg || 
@@ -2453,7 +2524,7 @@ index 1eeedd6..c44c26a 100644
  				switch (pc300loop.loop_type) {
  					case PC300LOCLOOP:	/* Turn the local loop on/off */
  						falc_local_loop(card, ch, pc300loop.loop_on);
-@@ -2712,19 +3155,39 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2712,19 +3205,39 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  				}
  
  				if (!arg || 
@@ -2498,7 +2569,7 @@ index 1eeedd6..c44c26a 100644
  				}
  				return 0;
  			}
-@@ -2813,6 +3276,16 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -2813,6 +3326,16 @@ static int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  	}
  }
  
@@ -2515,7 +2586,7 @@ index 1eeedd6..c44c26a 100644
  static int clock_rate_calc(u32 rate, u32 clock, int *br_io)
  {
  	int br, tc;
-@@ -2842,13 +3315,13 @@ static int clock_rate_calc(u32 rate, u32 clock, int *br_io)
+@@ -2842,13 +3365,13 @@ static int clock_rate_calc(u32 rate, u32 clock, int *br_io)
  	}
  }
  
@@ -2532,7 +2603,7 @@ index 1eeedd6..c44c26a 100644
  	int ch = chan->channel;
  	u32 clkrate = chan->conf.phys_settings.clock_rate;
  	u32 clktype = chan->conf.phys_settings.clock_type;
-@@ -2987,17 +3460,19 @@ static int ch_config(pc300dev_t * d)
+@@ -2987,24 +3510,27 @@ static int ch_config(pc300dev_t * d)
  		   IR0_DTX(IR0_EFT | IR0_DMIA | IR0_DMIB, ch));
  	cpc_writeb(scabase + M_REG(IE0, ch),
  		   cpc_readl(scabase + M_REG(IE0, ch)) | IE0_RXINTA);
@@ -2555,7 +2626,16 @@ index 1eeedd6..c44c26a 100644
  	int ch = chan->channel;
  
  	cpc_writeb(scabase + DSR_RX(ch), 0);
-@@ -3024,11 +3499,11 @@ static int rx_config(pc300dev_t * d)
+ 
+ 	/* General RX settings */
+ 	cpc_writeb(scabase + M_REG(RRC, ch), 0);
+-	cpc_writeb(scabase + M_REG(RNR, ch), 16);
++	cpc_writeb(scabase + M_REG(RNR, ch), 8);
++	cpc_writeb(scabase + M_REG(RCR, ch), 16);
+ 
+ 	/* Enable reception */
+ 	cpc_writeb(scabase + M_REG(CMD, ch), CMD_RX_CRC_INIT);
+@@ -3024,21 +3550,21 @@ static int rx_config(pc300dev_t * d)
  	return 0;
  }
  
@@ -2569,7 +2649,21 @@ index 1eeedd6..c44c26a 100644
  	int ch = chan->channel;
  
  	cpc_writeb(scabase + DSR_TX(ch), 0);
-@@ -3056,9 +3531,11 @@ static int tx_config(pc300dev_t * d)
+ 
+ 	/* General TX settings */
+ 	cpc_writeb(scabase + M_REG(TRC0, ch), 0);
+-	cpc_writeb(scabase + M_REG(TFS, ch), 32);
+-	cpc_writeb(scabase + M_REG(TNR0, ch), 20);
+-	cpc_writeb(scabase + M_REG(TNR1, ch), 48);
+-	cpc_writeb(scabase + M_REG(TCR, ch), 8);
++	cpc_writeb(scabase + M_REG(TFS, ch), 0x3c);
++	cpc_writeb(scabase + M_REG(TNR0, ch), 0x38);
++	cpc_writeb(scabase + M_REG(TNR1, ch), 0x3f);
++	cpc_writeb(scabase + M_REG(TCR, ch), 0x38);
+ 
+ 	/* Enable transmission */
+ 	cpc_writeb(scabase + M_REG(CMD, ch), CMD_TX_CRC_INIT);
+@@ -3056,9 +3582,11 @@ static int tx_config(pc300dev_t * d)
  	return 0;
  }
  
@@ -2584,7 +2678,7 @@ index 1eeedd6..c44c26a 100644
  	pc300dev_t *d = (pc300dev_t *)dev_to_hdlc(dev)->priv;
  	pc300ch_t *chan = (pc300ch_t *)d->chan;
  	pc300_t *card = (pc300_t *)chan->card;
-@@ -3087,12 +3564,12 @@ static int cpc_attach(struct net_device *dev, unsigned short encoding,
+@@ -3087,12 +3615,12 @@ static int cpc_attach(struct net_device *dev, unsigned short encoding,
  	return 0;
  }
  
@@ -2599,7 +2693,7 @@ index 1eeedd6..c44c26a 100644
  
  	rc = ch_config(d);
  	if (rc)
-@@ -3109,7 +3586,7 @@ static int cpc_opench(pc300dev_t * d)
+@@ -3109,7 +3637,7 @@ static int cpc_opench(pc300dev_t * d)
  	return 0;
  }
  
@@ -2608,8 +2702,16 @@ index 1eeedd6..c44c26a 100644
  {
  	pc300ch_t *chan = (pc300ch_t *) d->chan;
  	pc300_t *card = (pc300_t *) chan->card;
-@@ -3144,11 +3621,10 @@ int cpc_open(struct net_device *dev)
+@@ -3140,15 +3668,18 @@ static void cpc_closech(pc300dev_t * d)
+ int cpc_open(struct net_device *dev)
+ {
+ 	pc300dev_t *d = (pc300dev_t *) dev_to_hdlc(dev)->priv;
++	pc300ch_t *chan = (pc300ch_t *) d->chan;
++	int ch = chan->channel;
++	pc300_t *card = (pc300_t *) chan->card;
+ 	struct ifreq ifr;
  	int result;
++	uintptr_t scabase = (uintptr_t)(card->hw.scabase);
  
  #ifdef	PC300_DEBUG_OTHER
 -	printk("pc300: cpc_open");
@@ -2621,7 +2723,7 @@ index 1eeedd6..c44c26a 100644
  	if (result)
  		return result;
  
-@@ -3157,6 +3633,9 @@ int cpc_open(struct net_device *dev)
+@@ -3157,7 +3688,15 @@ int cpc_open(struct net_device *dev)
  	if (result)
  		goto err_out;
  
@@ -2629,9 +2731,15 @@ index 1eeedd6..c44c26a 100644
 +	printk(KERN_DEBUG "%s: starting queue for open\n", dev->name);
 +#endif
  	netif_start_queue(dev);
++	if (cpc_readb(scabase + M_REG(ST3, ch)) & ST3_DCD)
++		netif_carrier_off(dev);
++	else
++		netif_carrier_on(dev);
++
  	return 0;
  
-@@ -3173,9 +3652,13 @@ static int cpc_close(struct net_device *dev)
+ err_out:
+@@ -3173,9 +3712,13 @@ static int cpc_close(struct net_device *dev)
  	unsigned long flags;
  
  #ifdef	PC300_DEBUG_OTHER
@@ -2646,7 +2754,7 @@ index 1eeedd6..c44c26a 100644
  	netif_stop_queue(dev);
  
  	CPC_LOCK(card, flags);
-@@ -3183,7 +3666,6 @@ static int cpc_close(struct net_device *dev)
+@@ -3183,7 +3726,6 @@ static int cpc_close(struct net_device *dev)
  	CPC_UNLOCK(card, flags);
  
  	hdlc_close(dev);
@@ -2654,7 +2762,7 @@ index 1eeedd6..c44c26a 100644
  #ifdef CONFIG_PC300_MLPPP
  	if (chan->conf.proto == PC300_PROTO_MLPPP) {
  		cpc_tty_unregister_service(d);
-@@ -3194,11 +3676,11 @@ static int cpc_close(struct net_device *dev)
+@@ -3194,11 +3736,11 @@ static int cpc_close(struct net_device *dev)
  	return 0;
  }
  
@@ -2668,7 +2776,7 @@ index 1eeedd6..c44c26a 100644
  
  	card->hw.ramsize = PC300_RAMSIZE;
  	/* Let's find out how much RAM is present on this board */
-@@ -3212,9 +3694,10 @@ static u32 detect_ram(pc300_t * card)
+@@ -3212,9 +3754,10 @@ static u32 detect_ram(pc300_t * card)
  	return i;
  }
  
@@ -2681,7 +2789,7 @@ index 1eeedd6..c44c26a 100644
  
  	/* Reset PLX */
  	cpc_writel(&plx_ctl->init_ctrl,
-@@ -3244,20 +3727,11 @@ static inline void show_version(void)
+@@ -3244,20 +3787,11 @@ static inline void show_version(void)
  	rcsdate++;
  	tmp = strrchr(rcsdate, ' ');
  	*tmp = '\0';
@@ -2705,7 +2813,7 @@ index 1eeedd6..c44c26a 100644
  {
  	int i, devcount = 0;
  	static int board_nbr = 1;
-@@ -3346,6 +3820,7 @@ static void cpc_init_card(pc300_t * card)
+@@ -3346,6 +3880,7 @@ static void cpc_init_card(pc300_t * card)
  				break;
  		}
  		chan->conf.proto = IF_PROTO_PPP;
@@ -2713,7 +2821,7 @@ index 1eeedd6..c44c26a 100644
  		chan->tx_first_bd = 0;
  		chan->tx_next_bd = 0;
  		chan->rx_first_bd = 0;
-@@ -3353,6 +3828,7 @@ static void cpc_init_card(pc300_t * card)
+@@ -3353,6 +3888,7 @@ static void cpc_init_card(pc300_t * card)
  		chan->nfree_tx_bd = N_DMA_TX_BUF;
  
  		d->chan = chan;
@@ -2721,7 +2829,7 @@ index 1eeedd6..c44c26a 100644
  		d->trace_on = 0;
  		d->line_on = 0;
  		d->line_off = 0;
-@@ -3361,47 +3837,67 @@ static void cpc_init_card(pc300_t * card)
+@@ -3361,47 +3897,67 @@ static void cpc_init_card(pc300_t * card)
  		if (dev == NULL)
  			continue;
  
@@ -2806,7 +2914,7 @@ index 1eeedd6..c44c26a 100644
  			continue;
  		}
  	}
-@@ -3414,7 +3910,10 @@ static int __devinit
+@@ -3414,7 +3970,10 @@ static int __devinit
  cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
  	static int first_time = 1;
@@ -2818,7 +2926,7 @@ index 1eeedd6..c44c26a 100644
  	u16 device_id;
  	pc300_t *card;
  
-@@ -3426,20 +3925,18 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3426,20 +3985,18 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  #endif
  	}
  
@@ -2847,7 +2955,7 @@ index 1eeedd6..c44c26a 100644
  	/* read PCI configuration area */
  	device_id = ent->device;
  	card->hw.irq = pdev->irq;
-@@ -3453,6 +3950,9 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3453,6 +4010,9 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	card->hw.falcsize = pci_resource_len(pdev, 4);
  	card->hw.plxphys = pci_resource_start(pdev, 5);
  	card->hw.plxsize = pci_resource_len(pdev, 5);
@@ -2857,7 +2965,7 @@ index 1eeedd6..c44c26a 100644
  
  	switch (device_id) {
  		case PCI_DEVICE_ID_PC300_RX_1:
-@@ -3469,20 +3969,46 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3469,20 +4029,46 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  			break;
  	}
  #ifdef PC300_DEBUG_PCI
@@ -2912,7 +3020,7 @@ index 1eeedd6..c44c26a 100644
  	}
  
  	if (card->hw.plxphys) {
-@@ -3495,29 +4021,63 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3495,29 +4081,63 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
  	if (!request_mem_region(card->hw.plxphys, card->hw.plxsize,
  				"PLX Registers")) {
@@ -2920,13 +3028,13 @@ index 1eeedd6..c44c26a 100644
 +#ifdef CONFIG_PHYS_ADDR_T_64BIT
 +		printk(KERN_ERR
 +		       "PC300 found at RAM 0x%016lx, "
-+		       "but could not allocate PLX mem region.\n",
+ 		       "but could not allocate PLX mem region.\n",
+-		       card->hw.ramphys);
 +		       (unsigned long)(card->hw.ramphys));
 +#else /* !CONFIG_PHYS_ADDR_T_64BIT */
 +		printk(KERN_ERR
 +		       "PC300 found at RAM 0x%08x, "
- 		       "but could not allocate PLX mem region.\n",
--		       card->hw.ramphys);
++		       "but could not allocate PLX mem region.\n",
 +		       (unsigned int)(card->hw.ramphys));
 +#endif /* CONFIG_PHYS_ADDR_T_64BIT */
 +		err = -ENODEV;
@@ -2957,13 +3065,13 @@ index 1eeedd6..c44c26a 100644
 +#ifdef CONFIG_PHYS_ADDR_T_64BIT
 +		printk(KERN_ERR
 +		       "PC300 found at RAM 0x%016lx, "
- 		       "but could not allocate SCA mem region.\n",
--		       card->hw.ramphys);
++		       "but could not allocate SCA mem region.\n",
 +		       (unsigned long)(card->hw.ramphys));
 +#else /* !CONFIG_PHYS_ADDR_T_64BIT */
 +		printk(KERN_ERR
 +		       "PC300 found at RAM 0x%08x, "
-+		       "but could not allocate SCA mem region.\n",
+ 		       "but could not allocate SCA mem region.\n",
+-		       card->hw.ramphys);
 +		       (unsigned int)(card->hw.ramphys));
 +#endif /* CONFIG_PHYS_ADDR_T_64BIT */
 +		err = -ENODEV;
@@ -2986,7 +3094,7 @@ index 1eeedd6..c44c26a 100644
  	switch (device_id) {
  		case PCI_DEVICE_ID_PC300_TE_1:
  		case PCI_DEVICE_ID_PC300_TE_2:
-@@ -3525,7 +4085,9 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3525,7 +4145,9 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  		case PCI_DEVICE_ID_PC300_TE_M_2:
  			request_mem_region(card->hw.falcphys, card->hw.falcsize,
  					   "FALC Registers");
@@ -2997,7 +3105,7 @@ index 1eeedd6..c44c26a 100644
  			break;
  
  		case PCI_DEVICE_ID_PC300_RX_1:
-@@ -3536,10 +4098,23 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3536,10 +4158,23 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	}
  
  #ifdef PC300_DEBUG_PCI
@@ -3025,7 +3133,7 @@ index 1eeedd6..c44c26a 100644
  #endif
  
  	/* Set PCI drv pointer to the card structure */
-@@ -3584,16 +4159,36 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -3584,16 +4219,36 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	}
  
  	/* Allocate IRQ */
@@ -3066,7 +3174,7 @@ index 1eeedd6..c44c26a 100644
  	return 0;
  
  err_io_unmap:
-@@ -3604,6 +4199,7 @@ err_io_unmap:
+@@ -3604,6 +4259,7 @@ err_io_unmap:
  		iounmap(card->hw.falcbase);
  		release_mem_region(card->hw.falcphys, card->hw.falcsize);
  	}
@@ -3074,7 +3182,7 @@ index 1eeedd6..c44c26a 100644
  	release_mem_region(card->hw.scaphys, card->hw.scasize);
  err_release_ram:
  	release_mem_region(card->hw.ramphys, card->hw.alloc_ramsize);
-@@ -3612,16 +4208,14 @@ err_release_plx:
+@@ -3612,16 +4268,14 @@ err_release_plx:
  err_release_io:
  	release_region(card->hw.iophys, card->hw.iosize);
  	kfree(card);
@@ -3093,7 +3201,7 @@ index 1eeedd6..c44c26a 100644
  		int i;
  
  		/* Disable interrupts on the PCI bridge */
-@@ -3629,7 +4223,8 @@ static void __devexit cpc_remove_one(struct pci_dev *pdev)
+@@ -3629,7 +4283,8 @@ static void __devexit cpc_remove_one(struct pci_dev *pdev)
  			   cpc_readw(card->hw.plxbase + card->hw.intctl_reg) & ~(0x0040));
  
  		for (i = 0; i < card->hw.nchan; i++) {
@@ -3103,7 +3211,7 @@ index 1eeedd6..c44c26a 100644
  		}
  		iounmap(card->hw.plxbase);
  		iounmap(card->hw.scabase);
-@@ -3642,13 +4237,9 @@ static void __devexit cpc_remove_one(struct pci_dev *pdev)
+@@ -3642,13 +4297,9 @@ static void __devexit cpc_remove_one(struct pci_dev *pdev)
  			iounmap(card->hw.falcbase);
  			release_mem_region(card->hw.falcphys, card->hw.falcsize);
  		}
