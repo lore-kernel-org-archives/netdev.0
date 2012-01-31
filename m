@@ -1,136 +1,103 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH V3 13/16] netback: stub for multi
- receive protocol support.
-Date: Tue, 31 Jan 2012 11:03:44 +0000
-Message-ID: <1328007824.5553.70.camel@leeds.uk.xensource.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	 <1327934734-8908-14-git-send-email-wei.liu2@citrix.com>
-	 <20120130214710.GC16261@phenom.dumpdata.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: md5: remove obsolete md5_add() method
+Date: Tue, 31 Jan 2012 12:04:42 +0100
+Message-ID: <1328007882.2297.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"Ian Campbell" <Ian.Campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:65069 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752292Ab2AaLDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 06:03:36 -0500
-In-Reply-To: <20120130214710.GC16261@phenom.dumpdata.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:63772 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753376Ab2AaLEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 06:04:47 -0500
+Received: by lagu2 with SMTP id u2so2776360lag.19
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 03:04:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-01-30 at 21:47 +0000, Konrad Rzeszutek Wilk wrote:
-> On Mon, Jan 30, 2012 at 02:45:31PM +0000, Wei Liu wrote:
-> > Refactor netback, make stub for mutli receive protocols. Also stub
-> 
-> multi.
-> 
+We no longer use md5_add() method from struct tcp_sock_af_ops
 
-Good catch, thanks.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/tcp.h   |    4 ----
+ net/ipv4/tcp_ipv4.c |    8 --------
+ net/ipv6/tcp_ipv6.c |    9 ---------
+ 3 files changed, 21 deletions(-)
 
-> > existing code as protocol 0.
-> 
-> Why not 1?
-> 
-
-We have some existing xenolinux code which has not been upstreamed calls
-this protocol 0, just try to be compatible.
-
-> Why do we need a new rework without anything using it besides
-> the existing framework? OR if you are, you should say which
-> patch is doing it...
-> 
-
-It is not in use at the moment, and will be in use in the future.
-
-> > 
-> > Now the file layout becomes:
-> > 
-> >  - interface.c: xenvif interfaces
-> >  - xenbus.c: xenbus related functions
-> >  - netback.c: common functions for various protocols
-> > 
-> > For different protocols:
-> > 
-> >  - xenvif_rx_protocolX.h: header file for the protocol, including
-> >                           protocol structures and functions
-> >  - xenvif_rx_protocolX.c: implementations
-> > 
-> > To add a new protocol:
-> > 
-> >  - include protocol header in common.h
-> >  - modify XENVIF_MAX_RX_PROTOCOL in common.h
-> >  - add protocol structure in xenvif.rx union
-> >  - stub in xenbus.c
-> >  - modify Makefile
-> > 
-> > A protocol should define five functions:
-> > 
-> >  - setup: setup frontend / backend ring connections
-> >  - teardown: teardown frontend / backend ring connections
-> >  - start_xmit: host start xmit (i.e. guest need to do rx)
-> >  - event: rx completion event
-> >  - action: prepare host side data for guest rx
-> > 
-> .. snip..
-> 
-> > -
-> > -	return resp;
-> > -}
-> > -
-> >  static inline int rx_work_todo(struct xenvif *vif)
-> >  {
-> >  	return !skb_queue_empty(&vif->rx_queue);
-> > @@ -1507,8 +999,8 @@ int xenvif_kthread(void *data)
-> >  		if (kthread_should_stop())
-> >  			break;
-> >  
-> > -		if (rx_work_todo(vif))
-> > -			xenvif_rx_action(vif);
-> > +		if (rx_work_todo(vif) && vif->action)
-> > +			vif->action(vif);
-> >  	}
-> >  
-> >  	return 0;
-> > diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> > index 79499fc..4067286 100644
-> > --- a/drivers/net/xen-netback/xenbus.c
-> > +++ b/drivers/net/xen-netback/xenbus.c
-> > @@ -415,6 +415,7 @@ static int connect_rings(struct backend_info *be)
-> >  	unsigned long rx_ring_ref[NETBK_MAX_RING_PAGES];
-> >  	unsigned int  tx_ring_order;
-> >  	unsigned int  rx_ring_order;
-> > +	unsigned int  rx_protocol;
-> >  
-> >  	err = xenbus_gather(XBT_NIL, dev->otherend,
-> >  			    "event-channel", "%u", &evtchn, NULL);
-> > @@ -510,6 +511,11 @@ static int connect_rings(struct backend_info *be)
-> >  		}
-> >  	}
-> >  
-> > +	err = xenbus_scanf(XBT_NIL, dev->otherend, "rx-protocol",
-> 
-> feature-rx-protocol?
-> 
-
-This is not a feature switch. Does it make sense to add "feature-"
-prefix?
-
-> > +			   "%u", &rx_protocol);
-> > +	if (err < 0)
-> > +		rx_protocol = XENVIF_MIN_RX_PROTOCOL;
-> > +
-> 
-> You should check to see if the protocol is higher than what we can support.
-> The guest could be playing funny games and putting in 39432...
-> 
-> 
-
-Good point.
-
-
-Wei.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0118ea9..3c90346 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1462,10 +1462,6 @@ struct tcp_sock_af_ops {
+ 						  const struct sock *sk,
+ 						  const struct request_sock *req,
+ 						  const struct sk_buff *skb);
+-	int			(*md5_add) (struct sock *sk,
+-					    struct sock *addr_sk,
+-					    u8 *newkey,
+-					    u8 len);
+ 	int			(*md5_parse) (struct sock *sk,
+ 					      char __user *optval,
+ 					      int optlen);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 337ba4c..345e249 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -967,13 +967,6 @@ int tcp_v4_md5_do_add(struct sock *sk, __be32 addr,
+ }
+ EXPORT_SYMBOL(tcp_v4_md5_do_add);
+ 
+-static int tcp_v4_md5_add_func(struct sock *sk, struct sock *addr_sk,
+-			       u8 *newkey, u8 newkeylen)
+-{
+-	return tcp_v4_md5_do_add(sk, inet_sk(addr_sk)->inet_daddr,
+-				 newkey, newkeylen);
+-}
+-
+ int tcp_v4_md5_do_del(struct sock *sk, __be32 addr)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -1853,7 +1846,6 @@ EXPORT_SYMBOL(ipv4_specific);
+ static const struct tcp_sock_af_ops tcp_sock_ipv4_specific = {
+ 	.md5_lookup		= tcp_v4_md5_lookup,
+ 	.calc_md5_hash		= tcp_v4_md5_hash_skb,
+-	.md5_add		= tcp_v4_md5_add_func,
+ 	.md5_parse		= tcp_v4_parse_md5_keys,
+ };
+ #endif
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3edd05a..f37769e 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -626,13 +626,6 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
+ 	return 0;
+ }
+ 
+-static int tcp_v6_md5_add_func(struct sock *sk, struct sock *addr_sk,
+-			       u8 *newkey, __u8 newkeylen)
+-{
+-	return tcp_v6_md5_do_add(sk, &inet6_sk(addr_sk)->daddr,
+-				 newkey, newkeylen);
+-}
+-
+ static int tcp_v6_md5_do_del(struct sock *sk, const struct in6_addr *peer)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -1898,7 +1891,6 @@ static const struct inet_connection_sock_af_ops ipv6_specific = {
+ static const struct tcp_sock_af_ops tcp_sock_ipv6_specific = {
+ 	.md5_lookup	=	tcp_v6_md5_lookup,
+ 	.calc_md5_hash	=	tcp_v6_md5_hash_skb,
+-	.md5_add	=	tcp_v6_md5_add_func,
+ 	.md5_parse	=	tcp_v6_parse_md5_keys,
+ };
+ #endif
+@@ -1930,7 +1922,6 @@ static const struct inet_connection_sock_af_ops ipv6_mapped = {
+ static const struct tcp_sock_af_ops tcp_sock_ipv6_mapped_specific = {
+ 	.md5_lookup	=	tcp_v4_md5_lookup,
+ 	.calc_md5_hash	=	tcp_v4_md5_hash_skb,
+-	.md5_add	=	tcp_v6_md5_add_func,
+ 	.md5_parse	=	tcp_v6_parse_md5_keys,
+ };
+ #endif
