@@ -1,84 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: fix early Tx queue wake-up.
-Date: Tue, 31 Jan 2012 10:42:13 +0100
-Message-ID: <1328002933.2297.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120130231641.GA5287@electric-eye.fr.zoreil.com>
+From: augusto <augusto@proscend.com>
+Subject: Re: Introducing open source MSTP daemon
+Date: Tue, 31 Jan 2012 09:38:33 +0000 (UTC)
+Message-ID: <loom.20120131T103325-267@post.gmane.org>
+References: <201109221727.33010.vitas@nppfactor.kiev.ua> <20110922163939.GB1012103@jupiter.n2.diac24.net> <201109281256.19713.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:64798 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751932Ab2AaJmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 04:42:18 -0500
-Received: by lagu2 with SMTP id u2so2728595lag.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 01:42:17 -0800 (PST)
-In-Reply-To: <20120130231641.GA5287@electric-eye.fr.zoreil.com>
+Received: from plane.gmane.org ([80.91.229.3]:53233 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752635Ab2AaJpP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 04:45:15 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1RsAGu-0005mk-CW
+	for netdev@vger.kernel.org; Tue, 31 Jan 2012 10:45:05 +0100
+Received: from 122-120-37-159.dynamic.hinet.net ([122.120.37.159])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 10:45:04 +0100
+Received: from augusto by 122-120-37-159.dynamic.hinet.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 10:45:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 31 janvier 2012 =C3=A0 00:16 +0100, Francois Romieu a =C3=A9cr=
-it :
-> With infinite gratitude to Eric Dumazet for allowing me to identify
-> the error.
->=20
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Hayes Wang <hayeswang@realtek.com>
-> ---
->  I'll address Micha=C5=82's remarks and add unrelated comments after =
-some sleep.
->=20
->  drivers/net/ethernet/realtek/r8169.c |   19 +++++++++++++++++++
->  1 files changed, 19 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index d039d39..f994606 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -5559,7 +5559,18 @@ static netdev_tx_t rtl8169_start_xmit(struct s=
-k_buff *skb,
->  	mmiowb();
-> =20
->  	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
-> +		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
-> +		 * not miss a ring update when it notices a stopped queue.
-> +		 */
-> +		smp_wmb();
->  		netif_stop_queue(dev);
-> +		/* Sync with rtl_tx:
-> +		 * - publish queue status and cur_tx ring index (write barrier)
-> +		 * - refresh dirty_tx ring index (read barrier).
-> +		 * May the current thread have a pessimistic view of the ring
-> +		 * status and forget to wake up queue, a racing rtl_tx thread
-> +		 * can't.
-> +		 */
->  		smp_mb();
->  		if (TX_BUFFS_AVAIL(tp) >=3D MAX_SKB_FRAGS)
->  			netif_wake_queue(dev);
-> @@ -5659,6 +5670,14 @@ static void rtl_tx(struct net_device *dev, str=
-uct rtl8169_private *tp)
-> =20
->  	if (tp->dirty_tx !=3D dirty_tx) {
->  		tp->dirty_tx =3D dirty_tx;
-> +		/*
-> +		 * Sync with rtl8169_start_xmit:
-> +		 * - publish dirty_tx ring index (write barrier)
-> +		 * - refresh cur_tx ring index and queue status (read barrier)
-> +		 * May the current thread miss the stopped queue condition,
-> +		 * a racing xmit thread can only have a right view of the
-> +		 * ring status.
-> +		 */
->  		smp_mb();
->  		if (netif_queue_stopped(dev) &&
->  		    (TX_BUFFS_AVAIL(tp) >=3D MAX_SKB_FRAGS)) {
+Vitalii Demianets <vitas <at> nppfactor.kiev.ua> writes:
+
+> 
+> On Thursday 22 September 2011 19:39:40 David Lamparter wrote:
+> >
+> > I assume it works with current Linux kernel bridge code on a RSTP level?
+> > The code looks considerably more maintainable than rstpd :) - I will try
+> > running it later!
+> >
+> 
+> Ok, now it works with kernel bridge code and you can evaluate it.
+> 
+> mstpd sends all the state changes in the CIST to the kernel bridge, so it 
+> works for the (R)STP cases as expected. Checked it by connecting two bridges: 
+> one running mstpd and another running rstpd and in-kernel stp. In both cases 
+> mstpd code behaves reasonably. Not checked in more complex setups though.
+> 
+> Also mstpd translates to the bridge code fdb flushing events and changes 
+> ageing time (for the rapid ageing case).
+> 
 
 
-Thanks !
+Hi Vitalii,
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Thanks for your work.
+
+I am trying to implement your solution on an embedded system, but I dont have a 
+clear idea of how to use it.
+
+My scenario is like this:
+
+eth0.2 and eth1.2 belong to br1
+eth0.4 and eth3.4 belong to br2
+eth1.5 and eth3.5 belong to br3
+
+I added br1 br2 and br3 to bridge-stp.
+
+What steps should I take now?
+
+Thanks for your help
+
+Augusto
