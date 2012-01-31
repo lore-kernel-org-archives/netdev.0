@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 1/4] SUNRPC: clear svc pools lists helper introduced
-Date: Tue, 31 Jan 2012 14:09:00 +0400
-Message-ID: <20120131100900.4342.85712.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 2/4] SUNRPC: clear svc transports lists helper introduced
+Date: Tue, 31 Jan 2012 14:09:08 +0400
+Message-ID: <20120131100908.4342.86129.stgit@localhost6.localdomain6>
 References: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,59 +16,55 @@ In-Reply-To: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch moves removing of service transport from it's pools ready lists to
-separated function. Also this clear is now done with list_for_each_entry_safe()
-helper.
+This patch moves service transports deletion from service sockets lists to
+separated function.
 This is a precursor patch, which would be usefull with service shutdown in
 network namespace context, introduced later in the series.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/svc_xprt.c |   19 +++++++++++++------
- 1 files changed, 13 insertions(+), 6 deletions(-)
+ net/sunrpc/svc_xprt.c |   19 +++++++++++--------
+ 1 files changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-index de1e1a8..50bf7c1 100644
+index 50bf7c1..493e70b 100644
 --- a/net/sunrpc/svc_xprt.c
 +++ b/net/sunrpc/svc_xprt.c
-@@ -932,26 +932,33 @@ static void svc_close_list(struct list_head *xprt_list)
+@@ -950,11 +950,19 @@ static void svc_clear_pools(struct svc_serv *serv)
  	}
  }
  
 -void svc_close_all(struct svc_serv *serv)
-+static void svc_clear_pools(struct svc_serv *serv)
++static void svc_clear_list(struct list_head *xprt_list)
  {
- 	struct svc_pool *pool;
  	struct svc_xprt *xprt;
  	struct svc_xprt *tmp;
- 	int i;
  
--	svc_close_list(&serv->sv_tempsocks);
--	svc_close_list(&serv->sv_permsocks);
--
- 	for (i = 0; i < serv->sv_nrpools; i++) {
- 		pool = &serv->sv_pools[i];
- 
- 		spin_lock_bh(&pool->sp_lock);
--		while (!list_empty(&pool->sp_sockets)) {
--			xprt = list_first_entry(&pool->sp_sockets, struct svc_xprt, xpt_ready);
-+		list_for_each_entry_safe(xprt, tmp, &pool->sp_sockets, xpt_ready) {
- 			list_del_init(&xprt->xpt_ready);
- 		}
- 		spin_unlock_bh(&pool->sp_lock);
- 	}
++	list_for_each_entry_safe(xprt, tmp, xprt_list, xpt_list) {
++		svc_delete_xprt(xprt);
++	}
++	BUG_ON(!list_empty(xprt_list));
 +}
 +
 +void svc_close_all(struct svc_serv *serv)
 +{
-+	struct svc_xprt *xprt;
-+	struct svc_xprt *tmp;
-+
-+	svc_close_list(&serv->sv_tempsocks);
-+	svc_close_list(&serv->sv_permsocks);
-+
-+	svc_clear_pools(serv);
- 	/*
- 	 * At this point the sp_sockets lists will stay empty, since
+ 	svc_close_list(&serv->sv_tempsocks);
+ 	svc_close_list(&serv->sv_permsocks);
+ 
+@@ -964,13 +972,8 @@ void svc_close_all(struct svc_serv *serv)
  	 * svc_enqueue will not add new entries without taking the
+ 	 * sp_lock and checking XPT_BUSY.
+ 	 */
+-	list_for_each_entry_safe(xprt, tmp, &serv->sv_tempsocks, xpt_list)
+-		svc_delete_xprt(xprt);
+-	list_for_each_entry_safe(xprt, tmp, &serv->sv_permsocks, xpt_list)
+-		svc_delete_xprt(xprt);
+-
+-	BUG_ON(!list_empty(&serv->sv_permsocks));
+-	BUG_ON(!list_empty(&serv->sv_tempsocks));
++	svc_clear_list(&serv->sv_tempsocks);
++	svc_clear_list(&serv->sv_permsocks);
+ }
+ 
+ /*
