@@ -1,41 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1] wireless: remove return in _rtl_pci_switch_clk_req
-Date: Mon, 30 Jan 2012 15:45:03 -0800
-Message-ID: <1327967103.4230.7.camel@joe2Laptop>
-References: <1327927591-28070-1-git-send-email-devendra.aaru@gmail.com>
-	 <4F27294D.30302@lwfinger.net>
+From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Subject: Re: [PATCH 1/3] ethernet/pch_gbe: Change company name OKI
+ SEMICONDUCTOR to LAPIS Semiconductor
+Date: Tue, 31 Jan 2012 09:35:26 +0900
+Message-ID: <CANKRQniQs95kUhyDeP2V7cyOFE1gyi-ihZufmNoi_SGSXm3MGQ@mail.gmail.com>
+References: <1327643159-1302-1-git-send-email-tomoya.rohm@gmail.com>
+	<20120130.125219.2077768183344205118.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Devendra.Naga" <devendra.aaru@gmail.com>,
-	chaoming_li@realsil.com.cn, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, qi.wang@intel.com, yong.y.wang@intel.com,
+	joel.clark@intel.com, kok.howg.ewe@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F27294D.30302@lwfinger.net>
+In-Reply-To: <20120130.125219.2077768183344205118.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-01-30 at 17:35 -0600, Larry Finger wrote:
-> The patch is OK, but the patch subject is bad. You should have "[PATCH] 
-> rtlwifi:...". Your patch is for rtlwifi, not wireless.
+Hi David
 
-Hi Devendra.
+I can understand your saying.
 
-A reasonable rule of thumb is use the deepest directory
-path basename you can to prefix the patch.
-Something like:
+If I post like below, is this patch acceptable for you ?
++       tristate "OKI/LAPIS SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
 
-[PATCH] $(basename $(dirname $file)): terse description
+BTW, I think need consistency for "Change company/product name" as a
+whole of linux.
+Because other patches for the same series "change company name" I
+posted have already accepted.
+e.g.(GPIO, USB device, DMA, UART, I2C)
 
-If you are patching drivers/net/ethernet/realtek/apt.c
-this becomes:
+thanks,
+tomoya
 
-[PATCH] realtek: terse description
-
-There are some exceptions though.  One of them
-is if the patch is in staging, prefix with
-[PATCH] staging: $(basename $(dirname $file)): description
-
-cheers, Joe
+2012/1/31 David Miller <davem@davemloft.net>:
+>
+> Sorry, we're not going to get into this pattern where we move drivers
+> around in the tree every time the company that produces the chip
+> changes it's name.
+>
+> If we did this then certain drivers will have moved 5 or more times
+> since the beginning of the Linux kernel, and there is nothing to be
+> gained from that except confusion.
+>
+> In fact more valuable thing to do is to refer to both the old and the
+> new name, rather than just the new one or just the old one. =A0Becaus=
+e
+> you now have two sets of users, one very large set which is familiar
+> with the old name and a smaller set which will only know about the ne=
+w
+> name.
+>
+> Frankly, I would just leave everything alone except perhaps adding a
+> mention of the new name (and not deleting the old name) in the Kconfi=
+g
+> help text.
