@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 1/6] Lockd: create permanent lockd sockets in current network
- namespace
-Date: Tue, 31 Jan 2012 15:07:48 +0400
-Message-ID: <20120131110748.14364.28906.stgit@localhost6.localdomain6>
+Subject: [PATCH 3/6] Lockd: per-net up and down routines introduced
+Date: Tue, 31 Jan 2012 15:08:05 +0400
+Message-ID: <20120131110805.14364.95729.stgit@localhost6.localdomain6>
 References: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,96 +16,135 @@ In-Reply-To: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch parametrizes Lockd permanent sockets creation routine by network
-namespace context.
-It also replaces hard-coded init_net with current network namespace context in
-Lockd sockets creation routines.
-This approach looks safe, because Lockd is created during NFS mount (or NFS
-server start) and thus socket is required exactly in current network namespace
-context. But in the same time it means, that Lockd sockets inherits first Lockd
-requester network namespace. This issue will be fixed in further patches of the
-series.
+This patch introduces per-net Lockd initialization and destruction routines.
+The logic is the same as in global Lockd up and down routines. Probably the
+solution is not the best one. But at least it looks clear.
+So per-net "up" routine are called only in case of lockd is running already. If
+per-net resources are not allocated yet, then service is being registered with
+local portmapper and lockd sockets created.
+Per-net "down" routine is called on every lockd_down() call in case of global
+users counter is not zero.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/lockd/svc.c |   23 +++++++++++++----------
- 1 files changed, 13 insertions(+), 10 deletions(-)
+ fs/lockd/svc.c             |   47 ++++++++++++++++++++++++++++++++++++++++++--
+ include/linux/sunrpc/svc.h |    2 ++
+ net/sunrpc/svc.c           |    3 ++-
+ 3 files changed, 49 insertions(+), 3 deletions(-)
 
 diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index 55fea92..26d8b78 100644
+index b461733..86e17e8 100644
 --- a/fs/lockd/svc.c
 +++ b/fs/lockd/svc.c
-@@ -189,27 +189,29 @@ lockd(void *vrqstp)
+@@ -251,6 +251,45 @@ out_err:
+ 	return err;
  }
  
- static int create_lockd_listener(struct svc_serv *serv, const char *name,
--				 const int family, const unsigned short port)
-+				 struct net *net, const int family,
-+				 const unsigned short port)
- {
- 	struct svc_xprt *xprt;
++static int lockd_up_net(struct net *net)
++{
++	struct lockd_net *ln = net_generic(net, lockd_net_id);
++	struct svc_serv *serv = nlmsvc_rqst->rq_server;
++	int error;
++
++	if (ln->nlmsvc_users)
++		return 0;
++
++	error = svc_rpcb_setup(serv, net);
++	if (error)
++		goto err_rpcb;
++
++	error = make_socks(serv, net);
++	if (error < 0)
++		goto err_socks;
++	return 0;
++
++err_socks:
++	svc_rpcb_cleanup(serv, net);
++err_rpcb:
++	return error;
++}
++
++static void lockd_down_net(struct net *net)
++{
++	struct lockd_net *ln = net_generic(net, lockd_net_id);
++	struct svc_serv *serv = nlmsvc_rqst->rq_server;
++
++	if (ln->nlmsvc_users) {
++		if (--ln->nlmsvc_users == 0)
++			svc_shutdown_net(serv, net);
++	} else {
++		printk(KERN_ERR "lockd_down_net: no users! task=%p, net=%p\n",
++				nlmsvc_task, net);
++		BUG();
++	}
++}
++
+ /*
+  * Bring up the lockd process if it's not already up.
+  */
+@@ -264,8 +303,10 @@ int lockd_up(void)
+ 	/*
+ 	 * Check whether we're already up and running.
+ 	 */
+-	if (nlmsvc_rqst)
++	if (nlmsvc_rqst) {
++		error = lockd_up_net(net);
+ 		goto out;
++	}
  
--	xprt = svc_find_xprt(serv, name, &init_net, family, 0);
-+	xprt = svc_find_xprt(serv, name, net, family, 0);
- 	if (xprt == NULL)
--		return svc_create_xprt(serv, name, &init_net, family, port,
-+		return svc_create_xprt(serv, name, net, family, port,
- 						SVC_SOCK_DEFAULTS);
- 	svc_xprt_put(xprt);
+ 	/*
+ 	 * Sanity check: if there's no pid,
+@@ -338,8 +379,10 @@ lockd_down(void)
+ {
+ 	mutex_lock(&nlmsvc_mutex);
+ 	if (nlmsvc_users) {
+-		if (--nlmsvc_users)
++		if (--nlmsvc_users) {
++			lockd_down_net(current->nsproxy->net_ns);
+ 			goto out;
++		}
+ 	} else {
+ 		printk(KERN_ERR "lockd_down: no users! task=%p\n",
+ 			nlmsvc_task);
+diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+index 7b65495..51b29ac 100644
+--- a/include/linux/sunrpc/svc.h
++++ b/include/linux/sunrpc/svc.h
+@@ -414,6 +414,7 @@ struct svc_procedure {
+ /*
+  * Function prototypes.
+  */
++int svc_rpcb_setup(struct svc_serv *serv, struct net *net);
+ void svc_rpcb_cleanup(struct svc_serv *serv, struct net *net);
+ struct svc_serv *svc_create(struct svc_program *, unsigned int,
+ 			    void (*shutdown)(struct svc_serv *, struct net *net));
+@@ -426,6 +427,7 @@ struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
+ int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, int);
+ int		   svc_pool_stats_open(struct svc_serv *serv, struct file *file);
+ void		   svc_destroy(struct svc_serv *);
++void		   svc_shutdown_net(struct svc_serv *, struct net *);
+ int		   svc_process(struct svc_rqst *);
+ int		   bc_svc_process(struct svc_serv *, struct rpc_rqst *,
+ 			struct svc_rqst *);
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 78abac4..4153846 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -369,7 +369,7 @@ svc_pool_for_cpu(struct svc_serv *serv, int cpu)
+ 	return &serv->sv_pools[pidx % serv->sv_nrpools];
+ }
+ 
+-static int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
++int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
+ {
+ 	int err;
+ 
+@@ -381,6 +381,7 @@ static int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
+ 	svc_unregister(serv, net);
  	return 0;
  }
++EXPORT_SYMBOL_GPL(svc_rpcb_setup);
  
--static int create_lockd_family(struct svc_serv *serv, const int family)
-+static int create_lockd_family(struct svc_serv *serv, struct net *net,
-+			       const int family)
+ void svc_rpcb_cleanup(struct svc_serv *serv, struct net *net)
  {
- 	int err;
- 
--	err = create_lockd_listener(serv, "udp", family, nlm_udpport);
-+	err = create_lockd_listener(serv, "udp", net, family, nlm_udpport);
- 	if (err < 0)
- 		return err;
- 
--	return create_lockd_listener(serv, "tcp", family, nlm_tcpport);
-+	return create_lockd_listener(serv, "tcp", net, family, nlm_tcpport);
- }
- 
- /*
-@@ -222,16 +224,16 @@ static int create_lockd_family(struct svc_serv *serv, const int family)
-  * Returns zero if all listeners are available; otherwise a
-  * negative errno value is returned.
-  */
--static int make_socks(struct svc_serv *serv)
-+static int make_socks(struct svc_serv *serv, struct net *net)
- {
- 	static int warned;
- 	int err;
- 
--	err = create_lockd_family(serv, PF_INET);
-+	err = create_lockd_family(serv, net, PF_INET);
- 	if (err < 0)
- 		goto out_err;
- 
--	err = create_lockd_family(serv, PF_INET6);
-+	err = create_lockd_family(serv, net, PF_INET6);
- 	if (err < 0 && err != -EAFNOSUPPORT)
- 		goto out_err;
- 
-@@ -252,6 +254,7 @@ int lockd_up(void)
- {
- 	struct svc_serv *serv;
- 	int		error = 0;
-+	struct net *net = current->nsproxy->net_ns;
- 
- 	mutex_lock(&nlmsvc_mutex);
- 	/*
-@@ -275,7 +278,7 @@ int lockd_up(void)
- 		goto out;
- 	}
- 
--	error = make_socks(serv);
-+	error = make_socks(serv, net);
- 	if (error < 0)
- 		goto destroy_and_out;
- 
