@@ -1,54 +1,31 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/2] Kconfig: add information
-Date: Tue, 31 Jan 2012 23:14:10 +0100
-Message-ID: <4F2867B2.50601@pengutronix.de>
-References: <1327662322-5425-1-git-send-email-tomoya.rohm@gmail.com> <1327662322-5425-2-git-send-email-tomoya.rohm@gmail.com>
+From: Andrew Beverley <andy@andybev.com>
+Subject: RE: IP forwarding on a linux IPSec gateway
+Date: Tue, 31 Jan 2012 22:15:55 +0000
+Message-ID: <1328048155.1630.0.camel@andy-laptop>
+References: <B97B134FACB2024DB45F524AB0A7B7F2059F2B32@XMB-BGL-419.cisco.com>
+	 <1328032051.2018.15.camel@andy-laptop>
+	 <B97B134FACB2024DB45F524AB0A7B7F205B93C54@XMB-BGL-419.cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig900011153DE83CA80EB484F4"
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327662322-5425-2-git-send-email-tomoya.rohm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Prashant Batra (prbatra)" <prbatra@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earth.simplelists.com ([89.16.184.171]:56251 "EHLO
+	earth.simplelists.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753040Ab2AaWQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 17:16:12 -0500
+In-Reply-To: <B97B134FACB2024DB45F524AB0A7B7F205B93C54@XMB-BGL-419.cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig900011153DE83CA80EB484F4
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2012-01-31 at 23:41 +0530, Prashant Batra (prbatra) wrote:
+> Any links to understand the flow in the kernel for this kind of
+> forwarding with IPSec to analyze where the problem could be will be
+> really helpful.
 
-On 01/27/2012 12:05 PM, Tomoya MORINAGA wrote:
-> Current menu description, not easy to understand what the description
-> means.
-> So, add information about the device.
->=20
-> Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Does this excellent diagram from Jan help at all?
 
-Applied to can-next.
-tnx Marc
+http://upload.wikimedia.org/wikipedia/commons/3/37/Netfilter-packet-flow.svg
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig900011153DE83CA80EB484F4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk8oZ7IACgkQjTAFq1RaXHNBAQCfdPxqDKb5bcRrWJ9Knwtu2EcU
-VioAn2RijoeTFnH4VyOzNFea0YTeRtRP
-=v8hP
------END PGP SIGNATURE-----
-
---------------enig900011153DE83CA80EB484F4--
+Andy
