@@ -1,160 +1,49 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 11:47:18 -0800
-Message-ID: <20120131194718.GA9834@dev3310.snc6.facebook.com>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
- <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
- <20120131181554.GA24397@dev3310.snc6.facebook.com>
- <1328035857.6911.8.camel@joe2Laptop>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Tue, 31 Jan 2012 20:49:52 +0100
+Message-ID: <4F2845E0.40907@broadcom.com>
+References: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+ <20120131120846.GA8799@polaris.bitmath.org>
+ <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
+ <4F283C16.5090508@broadcom.com>
+ <20120131193608.GA2138@polaris.bitmath.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arun Sharma <asharma@fb.com>, Bjorn Helgaas <bhelgaas@google.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>, christoph.paasch@uclouvain.be
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1328035857.6911.8.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=iso-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: "Henrik Rydberg" <rydberg@euromail.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1858 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753506Ab2AaTuD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 14:50:03 -0500
+In-Reply-To: <20120131193608.GA2138@polaris.bitmath.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2012 at 10:50:57AM -0800, Joe Perches wrote:
+On 01/31/2012 08:36 PM, Henrik Rydberg wrote:
+>>> So Ack on the patch from me, but it should go through the network
+>>> guys. Arend, John?
+>>>
+>>
+>> The SPROM code in bcma needs some attention, because the availability of
+>> it depends between chipsets. I think in bcma not all variations are
+>> known and thus lacking implementation to handle those. So ultimately
+>> bcma sprom code needs to be extended (looking at brcmsmac code). The
+>> sprom code in brcmsmac can go when that has happened.
+>>
+>> I will dive into that. I have not hit the "Failed to get SPROM" case so
+>> any chipset info would be appreciated (Henrik?).
 > 
-> These 2 blocks emit the messages in different order.
-> 
-> It might be useful to use a generic routine.
+> I guess my first mail never reached the netdev mailinglist. This is
+> also a MacbookAir3,1. Booting from EFI looks like this:
 
-Refactored slightly differently below.
+It may have. I am not on that particular mailing list (maybe should) and
+google did not help me find it. Thanks for the details.
 
-On 1/31/12 11:44 AM, Ingo Molnar wrote:
-
-> A small detail: please don't line break user-visible strings in
-> mid sentence. Just keep the line long. Makes it much easier to
-> search for the source of a kernel message:
-> 
-
-pr_info() on a single line now.
-
->From 08f36b8fd9f2439001a4192c0d1ff390d13e67e0 Mon Sep 17 00:00:00 2001
-From: Arun Sharma <asharma@fb.com>
-Date: Mon, 30 Jan 2012 14:16:06 -0800
-Subject: [PATCH] net: Disambiguate kernel message
-
-Some of our machines were reporting:
-
-TCP: too many of orphaned sockets
-
-even when the number of orphaned sockets was well below the
-limit.
-
-We print a different message depending on whether we're out
-of TCP memory or there are too many orphaned sockets.
-
-Signed-off-by: Arun Sharma <asharma@fb.com>
-Suggested-by: Mohan Srinivasan <mohan@fb.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>
-Cc: Glauber Costa <glommer@parallels.com>
-Cc: Ingo Molnar <mingo@elte.hu>
----
- include/net/tcp.h    |   20 ++++++++++++++++----
- net/ipv4/tcp.c       |   11 +++++++----
- net/ipv4/tcp_timer.c |    9 +++++----
- 3 files changed, 28 insertions(+), 12 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 0118ea9..0dba9d6 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -273,6 +273,14 @@ static inline int between(__u32 seq1, __u32 seq2, __u32 seq3)
- 	return seq3 - seq2 >= seq1 - seq2;
- }
- 
-+static inline bool tcp_out_of_memory(struct sock *sk)
-+{
-+	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
-+	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
-+		return true;
-+	return false;
-+}
-+
- static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
- {
- 	struct percpu_counter *ocp = sk->sk_prot->orphan_count;
-@@ -283,13 +291,17 @@ static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
- 		if (orphans << shift > sysctl_tcp_max_orphans)
- 			return true;
- 	}
--
--	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
--	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
--		return true;
- 	return false;
- }
- 
-+static inline void tcp_log_oom(bool orphans, bool socket_memory)
-+{
-+	if (orphans && net_ratelimit())
-+		pr_info("TCP: too many orphaned sockets\n");
-+	if (socket_memory && net_ratelimit())
-+		pr_info("TCP: out of memory -- consider tuning tcp_mem\n");
-+}
-+
- /* syncookies: remember time of last synqueue overflow */
- static inline void tcp_synq_overflow(struct sock *sk)
- {
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9bcdec3..9c38b3a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2014,11 +2014,14 @@ adjudge_to_death:
- 		}
- 	}
- 	if (sk->sk_state != TCP_CLOSE) {
-+		bool too_many_orphans, out_of_socket_memory;
-+
- 		sk_mem_reclaim(sk);
--		if (tcp_too_many_orphans(sk, 0)) {
--			if (net_ratelimit())
--				printk(KERN_INFO "TCP: too many of orphaned "
--				       "sockets\n");
-+		too_many_orphans = tcp_too_many_orphans(sk, 0);
-+		out_of_socket_memory = tcp_out_of_memory(sk);
-+		tcp_log_oom(too_many_orphans, out_of_socket_memory);
-+
-+		if (too_many_orphans || out_of_socket_memory) {
- 			tcp_set_state(sk, TCP_CLOSE);
- 			tcp_send_active_reset(sk, GFP_ATOMIC);
- 			NET_INC_STATS_BH(sock_net(sk),
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index a516d1e..c47fcb6 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -67,6 +67,7 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int shift = 0;
-+	bool too_many_orphans, out_of_socket_memory;
- 
- 	/* If peer does not open window for long time, or did not transmit
- 	 * anything for long time, penalize it. */
-@@ -77,10 +78,10 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
- 	if (sk->sk_err_soft)
- 		shift++;
- 
--	if (tcp_too_many_orphans(sk, shift)) {
--		if (net_ratelimit())
--			printk(KERN_INFO "Out of socket memory\n");
--
-+	too_many_orphans = tcp_too_many_orphans(sk, shift);
-+	out_of_socket_memory = tcp_out_of_memory(sk);
-+	tcp_log_oom(too_many_orphans, out_of_socket_memory);
-+	if (too_many_orphans || out_of_socket_memory) {
- 		/* Catch exceptional cases, when connection requires reset.
- 		 *      1. Last segment was sent recently. */
- 		if ((s32)(tcp_time_stamp - tp->lsndtime) <= TCP_TIMEWAIT_LEN ||
--- 
-1.7.4
+Gr. AvS
