@@ -1,83 +1,102 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH V3 12/16] netback: multi-page ring
- support
-Date: Tue, 31 Jan 2012 11:12:30 +0000
-Message-ID: <1328008350.26983.355.camel@zakaz.uk.xensource.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	 <1327934734-8908-13-git-send-email-wei.liu2@citrix.com>
-	 <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
-	 <1327943436.5553.39.camel@leeds.uk.xensource.com>
-	 <4F27BC1002000078000700D3@nat28.tlf.novell.com>
-	 <1328008145.5553.74.camel@leeds.uk.xensource.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: network regression: cannot rename netdev twice
+Date: Tue, 31 Jan 2012 12:13:41 +0100
+Message-ID: <CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
+References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
+ <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
+ <4F27C9D4.3040105@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Beulich <JBeulich@suse.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Wei Liu (Intern)" <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:52128 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752695Ab2AaLMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 06:12:31 -0500
-In-Reply-To: <1328008145.5553.74.camel@leeds.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F27C9D4.3040105@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-01-31 at 11:09 +0000, Wei Liu (Intern) wrote:
-> On Tue, 2012-01-31 at 09:01 +0000, Jan Beulich wrote:
-> > >>> On 30.01.12 at 18:10, Wei Liu <wei.liu2@citrix.com> wrote:
-> > > On Mon, 2012-01-30 at 16:35 +0000, Jan Beulich wrote:
-> > >> >>> On 30.01.12 at 15:45, Wei Liu <wei.liu2@citrix.com> wrote:
-> > >> > -int xenvif_map_frontend_rings(struct xenvif *vif,
-> > >> > -			      grant_ref_t tx_ring_ref,
-> > >> > -			      grant_ref_t rx_ring_ref)
-> > >> > +int xenvif_map_frontend_rings(struct xen_comms *comms,
-> > >> > +			      int domid,
-> > >> > +			      unsigned long ring_ref[],
-> > >> > +			      unsigned int  ring_ref_count)
-> > >> >  {
-> > >> > -	void *addr;
-> > >> > -	struct xen_netif_tx_sring *txs;
-> > >> > -	struct xen_netif_rx_sring *rxs;
-> > >> > -
-> > >> > -	int err = -ENOMEM;
-> > >> > +	struct gnttab_map_grant_ref op[NETBK_MAX_RING_PAGES];
-> > >> > +	unsigned int i;
-> > >> > +	int err = 0;
-> > >> >  
-> > >> > -	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-> > >> > -				     tx_ring_ref, &addr);
-> > >> 
-> > >> Any reason why you don't just extend this function (in a prerequisite
-> > >> patch) rather than open coding a common utility function (twice) here,
-> > >> so that other backends (blkback!) can benefit later as well.
-> > >> 
-> > >> Jan
-> > >> 
-> > > 
-> > > I'm mainly focusing on netback stuffs, so the code is slightly coupled
-> > > with netback -- NETBK_MAX_RING_PAGES.
-> > > 
-> > > To extend xenbus_map_ring_valloc and make more generic, it requires
-> > > setting a global maximum page number limits on rings, I think it will
-> > > require further investigation and code refactor -- which I have no time
-> > > to attend to at the moment. :-/
-> > 
-> > Why? You can simply pass in the number of pages, there's no need
-> > for a global maximum.
-> > 
-> 
-> I mean the gnttab_map_gran_ref array, it is statically allocated at the
-> moment. Of course we can make it dynamically allocated, but why bother
-> taking the risk of allocation failure.
+On Tue, Jan 31, 2012 at 12:00, Jiri Slaby <jslaby@suse.cz> wrote:
+> On 01/31/2012 11:52 AM, Kay Sievers wrote:
+>> On Tue, Jan 31, 2012 at 11:41, Jiri Slaby <jslaby@suse.cz> wrote:
+>>> On 01/30/2012 11:52 PM, Kay Sievers wrote:
+>>>> 2012/1/30 Jiri Slaby <jslaby@suse.cz>:
+>>>>> I cannot boot properly with this commit:
+>>>>> commit 524b6c5b39b931311dfe5a2f5abae2f5c9731676
+>>>>> Author: Eric W. Biederman <ebiederm@xmission.com>
+>>>>> Date: =C2=A0 Sun Dec 18 20:09:31 2011 -0800
+>>>>>
+>>>>> =C2=A0 =C2=A0sysfs: Kill nlink counting.
+>>>>>
+>>>>> 1) network systemd rule doesn't start network
+>>>>
+>>>> What does that mean? What's a network systemd rule?
+>>>
+>>> Oh, perhaps you call it a service file, not rule file?
+>>>
+>>> Anyway this is a different bug. Revert of the patch above does not =
+help.
+>>
+>> Ok, fine. I checked too, and systemd does not play any silly games
+>> with link counts.
+>>
+>>> The bug lays in the network layer. udev is unable to perform persis=
+tent
+>>> eth naming:
+>>> # ip link set eth0 name eth1 =C2=A0 =C2=A0-- this one is OK
+>>> # ip link set eth1 name eth0
+>>> RTNETLINK answers: No such file or directory
+>>
+>> Please make sure nothing tries to swap netif names in userspace. We
+>> have given up that approach, because it is far too fragile to
+>> temporary rename devices to be able to swap the names, and race
+>> against the loading of new kernel network drivers at the same time.
+>>
+>> This might be a new kernel problem here, but in general that approac=
+h
+>> is just broken, we have have given up fiddling around here. Udev doe=
+s
+>> not do that anymore, and also the code that currently *can* be used =
+to
+>> do this, will be removed from udev in the future.
+>>
+>> Network devices can only be renamed to a namespace that isn't ethX,
+>> and which does not race against kernel names.
+>
+> I have two eth interfaces. The one on the motherboard is named eth0, =
+an
+> added PCI card is eth1. But kernel enumerates them in the opposite or=
+der.
+>
+> So udev does this sequence:
+> eth1 -> rename3
+> eth0 -> eth1
+> rename3 -> eth0
+>
+> How it can do it differently? (This is openSUSE factory.)
 
-You can do
-	struct gnttab_map_grant_ref op[nr_pages];
-and the compiler will do the right thing with the on-stack data
-structure. In the kernel you'd need to be a bit careful about the size
-of pages first but that should be all.
+A future udev will not help you doing that. We have given up
+supporting this approach. Renaming is done during booting, at the same
+time we load new kernel drivers, and all breaks in non-interesting
+ways. Apart from all the other unsolvable problems with this model.
 
-Ian.
+Pretending we are able to rename netif names in the same namespace the
+kernel is allocating new names is just plain wrong. There are races
+you can't control. The entire approach creates far more problems than
+it solves. We just have to admit it was wrong to do that.
+Custom/to-rename netif names can just not be ethX.
+
+>> Does is work, if you rename the devices to something else than ethX?
+>
+> Negative:
+> # ip link set eth0 name krtek
+> # ip link set krtek name jezek
+> RTNETLINK answers: No such file or directory
+
+This is a command sequence you type manually?
+
+You are sure that userspace is not working in the background,
+triggered by uevents, and comes into your way here?
+
+Kay
