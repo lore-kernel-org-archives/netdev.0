@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 0/4] SUNRPC: service release in network namespace context
-Date: Tue, 31 Jan 2012 14:08:50 +0400
-Message-ID: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 1/4] SUNRPC: clear svc pools lists helper introduced
+Date: Tue, 31 Jan 2012 14:09:00 +0400
+Message-ID: <20120131100900.4342.85712.stgit@localhost6.localdomain6>
+References: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,28 +12,63 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2: Added comment to BUG_ON's in svc_destroy() to make code looks clearer.
+This patch moves removing of service transport from it's pools ready lists to
+separated function. Also this clear is now done with list_for_each_entry_safe()
+helper.
+This is a precursor patch, which would be usefull with service shutdown in
+network namespace context, introduced later in the series.
 
-This patch set is the final step towards to making LockD network namespace
-aware.
-I can't prove, that this patch set is enough for NFSd (just haven't try), by
-Lockd works fine and patches for it will be send soon.
-
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/svc_xprt.c |   19 +++++++++++++------
+ 1 files changed, 13 insertions(+), 6 deletions(-)
 
-Stanislav Kinsbursky (4):
-      SUNRPC: clear svc pools lists helper introduced
-      SUNRPC: clear svc transports lists helper introduced
-      SUNRPC: service destruction in network namespace context
-      SUNRPC: service shutdown function in network namespace context introduced
-
-
- include/linux/sunrpc/svcsock.h |    2 +-
- net/sunrpc/svc.c               |   38 ++++++++++++++++++++++++----------
- net/sunrpc/svc_xprt.c          |   45 ++++++++++++++++++++++++++++------------
- 3 files changed, 59 insertions(+), 26 deletions(-)
+diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+index de1e1a8..50bf7c1 100644
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -932,26 +932,33 @@ static void svc_close_list(struct list_head *xprt_list)
+ 	}
+ }
+ 
+-void svc_close_all(struct svc_serv *serv)
++static void svc_clear_pools(struct svc_serv *serv)
+ {
+ 	struct svc_pool *pool;
+ 	struct svc_xprt *xprt;
+ 	struct svc_xprt *tmp;
+ 	int i;
+ 
+-	svc_close_list(&serv->sv_tempsocks);
+-	svc_close_list(&serv->sv_permsocks);
+-
+ 	for (i = 0; i < serv->sv_nrpools; i++) {
+ 		pool = &serv->sv_pools[i];
+ 
+ 		spin_lock_bh(&pool->sp_lock);
+-		while (!list_empty(&pool->sp_sockets)) {
+-			xprt = list_first_entry(&pool->sp_sockets, struct svc_xprt, xpt_ready);
++		list_for_each_entry_safe(xprt, tmp, &pool->sp_sockets, xpt_ready) {
+ 			list_del_init(&xprt->xpt_ready);
+ 		}
+ 		spin_unlock_bh(&pool->sp_lock);
+ 	}
++}
++
++void svc_close_all(struct svc_serv *serv)
++{
++	struct svc_xprt *xprt;
++	struct svc_xprt *tmp;
++
++	svc_close_list(&serv->sv_tempsocks);
++	svc_close_list(&serv->sv_permsocks);
++
++	svc_clear_pools(serv);
+ 	/*
+ 	 * At this point the sp_sockets lists will stay empty, since
+ 	 * svc_enqueue will not add new entries without taking the
