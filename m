@@ -1,77 +1,100 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 10:50:57 -0800
-Message-ID: <1328035857.6911.8.camel@joe2Laptop>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
-	 <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
-	 <20120131181554.GA24397@dev3310.snc6.facebook.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [03/22] Cyclades PC300 driver: Fix usage of types
+Date: Tue, 31 Jan 2012 19:58:29 +0100
+Message-ID: <m3hazb3dii.fsf@intrepid.localdomain>
+References: <20120130024605.GD10262@cronus.persephoneslair.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>, christoph.paasch@uclouvain.be
-To: Arun Sharma <asharma@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120131181554.GA24397@dev3310.snc6.facebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, mmarek@suse.cz, jkosina@suse.cz,
+	joe@perches.com, justinmattock@gmail.com, gregkh@suse.de,
+	alan@linux.intel.com, jdmason@kudzu.us
+To: Andrea Shepard <andrea@persephoneslair.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inx.pm.waw.pl ([195.116.170.130]:42153 "EHLO inx.pm.waw.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753227Ab2AaS7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 13:59:38 -0500
+In-Reply-To: <20120130024605.GD10262@cronus.persephoneslair.org> (Andrea
+	Shepard's message of "Sun, 29 Jan 2012 18:46:05 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-31 at 10:15 -0800, Arun Sharma wrote:
-> On Mon, Jan 30, 2012 at 08:22:03PM -0800, Bjorn Helgaas wrote:
-> > > We print a different message depending on whether we're out
-> > > of TCP memory or there are too many orphan sockets.
-> > 
-> > This patch mentions pairs of messages that are almost the same, but
-> > not quite.  If they're supposed to be different, I'd suggest making
-> > them clearly different.  As it is, the differences look like careless
-> > mistakes:
-> 
-> Good point. Updated patch changes the existing printks to be
-> the same as well.
-[]
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-[]
-> @@ -2014,11 +2014,24 @@ adjudge_to_death:
-[]
-> +		if (too_many_orphans) {
->  			if (net_ratelimit())
-> -				printk(KERN_INFO "TCP: too many of orphaned "
-> +				printk(KERN_INFO "TCP: too many orphaned "
->  				       "sockets\n");
-> +		}
-> +
-> +		if (out_of_socket_memory) {
-> +			if (net_ratelimit())
-> +				printk(KERN_INFO "TCP: out of memory. "
-> +				       "Consider tuning tcp_mem\n");
-> +		}
-> +
-[]
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-[]
-> @@ -77,9 +78,14 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
-[]
-> +	too_many_orphans = tcp_too_many_orphans(sk, shift);
-> +	out_of_socket_memory = tcp_out_of_memory(sk);
-> +	if (too_many_orphans || out_of_socket_memory) {
-> +		if (out_of_socket_memory && net_ratelimit())
-> +			printk(KERN_INFO "TCP: out of memory. "
-> +					 "Consider tuning tcp_mem\n");
-> +		if (too_many_orphans && net_ratelimit())
-> +			printk(KERN_INFO "TCP: too many orphaned sockets\n");
+Hi,
 
-These 2 blocks emit the messages in different order.
+Andrea Shepard <andrea@persephoneslair.org> writes:
 
-It might be useful to use a generic routine.
+> +++ b/drivers/net/wan/hd64572.h
+> @@ -172,11 +172,11 @@
+>  
+>  /* Block Descriptor Structure */
+>  typedef struct {
+> -	unsigned long	next;		/* pointer to next block descriptor */
+> -	unsigned long	ptbuf;		/* buffer pointer */
+> -	unsigned short	len;		/* data length */
+> -	unsigned char	status;		/* status */
+> -	unsigned char	filler[5];	/* alignment filler (16 bytes) */ 
+> +	u32	next;		/* pointer to next block descriptor */
+> +	u32	ptbuf;		/* buffer pointer */
+> +	u16	len;		/* data length */
+> +	u8	status;		/* status */
+> +	u8	filler[5];	/* alignment filler (16 bytes) */
+>  } pcsca_bd_t;
 
-void tcp_log_oom(bool orphans, bool socket_memory)
-{
-	if (!net_ratelimit())
-		return;
-	if (orphans)
-		pr_info("too many orphaned sockets\n");
-	if (socket_memory)
-		pr_info("out of socket memory - consider tuning tcp_mem\n");
-}
+Perhaps you could just use the following struct which is already in the
+file:
+
+/* Block Descriptor Structure */
+typedef struct {
+        u32 cp;                 /* pointer to next block descriptor */
+        u32 bp;                 /* buffer pointer */
+        u16 len;                /* data length */
+        u8 stat;                /* status */
+        u8 unused;              /* pads to 4-byte boundary */
+}pkt_desc;
+
+The difference is a different alignment (4 bytes vs 16 bytes) but
+I think it's been verified (both docs and real hw) that 32-bit alignment
+is ok with these chips.
+
+> +#define cpc_writeb(port, val)	{writeb((u8)(val), \
+> +				(void __iomem *)(port)); mb(); }
+> +#define cpc_writew(port, val)	{writew((u16)(val), \
+> +				(void __iomem *)(port)); mb(); }
+> +#define cpc_writel(port, val)	{writel((u32)(val), \
+> +				(void __iomem *)(port)); mb(); }
+
+Are these mb() needed? I think write[bwl] and read[bwl] are already
+memory barriers.
+PCI write posting is a different thing of course and you may need e.g.
+a PCI read in some timing-critical parts of the code.
+
+>  #else /* __KERNEL__ */
+> -#define cpc_writeb(port,val)	(*(volatile ucchar *)(port) = (ucchar)(val))
+> -#define cpc_writew(port,val)	(*(volatile ucshort *)(port) = (ucshort)(val))
+> -#define cpc_writel(port,val)	(*(volatile uclong *)(port) = (uclong)(val))
+> +#define cpc_writeb(port, val)	(*(u8 *)(port) = (u8)(val))
+> +#define cpc_writew(port, val)	(*(u16 *)(port) = (u16)(val))
+> +#define cpc_writel(port, val)	(*(u32 *)(port) = (u32)(val))
+>  
+> -#define cpc_readb(port)		(*(volatile ucchar *)(port))
+> -#define cpc_readw(port)		(*(volatile ucshort *)(port))
+> -#define cpc_readl(port)		(*(volatile uclong *)(port))
+> +#define cpc_readb(port)		(*(u8 *)(port))
+> +#define cpc_readw(port)		(*(u16 *)(port))
+> +#define cpc_readl(port)		(*(u32 *)(port))
+
+I'm not sure the kernel headers are a good place for such things.
+
+>  void tx_dma_stop(pc300_t * card, int ch)
+>  {
+> -	uclong scabase = card->hw.scabase;
+> -	ucchar drr_ena_bit = 1 << (5 + 2 * ch);
+> -	ucchar drr_rst_bit = 1 << (1 + 2 * ch);
+> +	uintptr_t scabase = (uintptr_t)(card->hw.scabase);
+> +	u8 drr_ena_bit = 1 << (5 + 2 * ch);
+> +	u8 drr_rst_bit = 1 << (1 + 2 * ch);
+
+uintptr_t? Is it simply an unsigned int *?
+-- 
+Krzysztof Halasa
