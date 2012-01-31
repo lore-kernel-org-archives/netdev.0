@@ -1,54 +1,26 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 12:09:06 -0800
-Message-ID: <1328040546.8012.6.camel@joe2Laptop>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
-	 <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
-	 <20120131181554.GA24397@dev3310.snc6.facebook.com>
-	 <1328035857.6911.8.camel@joe2Laptop>
-	 <20120131194718.GA9834@dev3310.snc6.facebook.com>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [PATCH iproute2] tc-sfq: update man page
+Date: Tue, 31 Jan 2012 21:11:44 +0100
+Message-ID: <4F284B00.3080908@computer.org>
+References: <1327411778.7231.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4F27E0C4.1050609@computer.org> <1328023680.2297.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>, christoph.paasch@uclouvain.be
-To: Arun Sharma <asharma@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120131194718.GA9834@dev3310.snc6.facebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay010.isp.belgacom.be ([195.238.6.177]:1477 "EHLO
+	mailrelay010.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752530Ab2AaUNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 15:13:25 -0500
+In-Reply-To: <1328023680.2297.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-01-31 at 11:47 -0800, Arun Sharma wrote:
-> On Tue, Jan 31, 2012 at 10:50:57AM -0800, Joe Perches wrote:
-> > It might be useful to use a generic routine.
-[]
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-[]
-> @@ -2014,11 +2014,14 @@ adjudge_to_death:
-[]
-> +		too_many_orphans = tcp_too_many_orphans(sk, 0);
-> +		out_of_socket_memory = tcp_out_of_memory(sk);
-> +		tcp_log_oom(too_many_orphans, out_of_socket_memory);
-[]
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-[]
-> @@ -77,10 +78,10 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
-[]
-> +	too_many_orphans = tcp_too_many_orphans(sk, shift);
-> +	out_of_socket_memory = tcp_out_of_memory(sk);
-> +	tcp_log_oom(too_many_orphans, out_of_socket_memory);
-> +	if (too_many_orphans || out_of_socket_memory) {
-
-Perhaps these repeated three lines should be a routine like:
-
-bool tcp_check_oom(struct sock *sk, int shift)
-{
-	bool tcp_orphans = tcp_too_many_orphans(sk, shift);
-	bool tcp_oom = tcp_out_of_memory(sk);
-
-	printks...
-
-	return tcp_orphans || tcp_oom;
-}
+On 01/31/2012 04:28 PM, Eric Dumazet wrote:
+> Packets of other protocol (so not UDP, not TCP...) are hashed based on 
+> their source IP _and_ destination IP Old documentation wrongly stated 
+> the hash was done only based on destination IP. Also we no longer uses 
+> 'local socket' since SFQ uses standard rxhash or flow dissector. 
+Fair enough, thanks
