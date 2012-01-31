@@ -1,172 +1,49 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 10:15:54 -0800
-Message-ID: <20120131181554.GA24397@dev3310.snc6.facebook.com>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
- <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: Re: [PATCH] smsc95xx: add macaddr module parameter
+Date: Tue, 31 Jan 2012 19:17:11 +0100
+Message-ID: <201201311917.12534.danny.kukawka@bisect.de>
+References: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de> <20120131172731.03df5704@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arun Sharma <asharma@fb.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>, christoph.paasch@uclouvain.be
-To: Bjorn Helgaas <bhelgaas@google.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Greg Kroah-Hartman" <gregkh@suse.de>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120131172731.03df5704@pyramind.ukuu.org.uk>
 Content-Disposition: inline
-In-Reply-To: <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2012 at 08:22:03PM -0800, Bjorn Helgaas wrote:
-> > We print a different message depending on whether we're out
-> > of TCP memory or there are too many orphan sockets.
-> 
-> This patch mentions pairs of messages that are almost the same, but
-> not quite.  If they're supposed to be different, I'd suggest making
-> them clearly different.  As it is, the differences look like careless
-> mistakes:
+On Dienstag, 31. Januar 2012, Alan Cox wrote:
+> On Tue, 31 Jan 2012 18:20:33 +0100
+>
+> Danny Kukawka <danny.kukawka@bisect.de> wrote:
+> > Added smsc95xx.macaddr module parameter to allow the user to
+> > change the MAC address on boot if there was no MAC on the EEPROM.
+>
+> NAK. Please see the discussion on this and ifconfig hw for other devices.
+>
+> In summary - make the device refuse to ifconfig up without a valid
+> address, allow it to come into existance without a valid address and then
+> use ifconfig.
+>
+>
+> Your patch also seems to break if there are several attached to a board.
 
-Good point. Updated patch changes the existing printks to be
-the same as well.
+There are already other kernel driver which allow to override the (hw) MAC 
+address via a module parameter (macaddr): 
+- KSZ8841/2 PCI network driver (drivers/net/ethernet/micrel/ksz884x.c)
+- FEC Ethernet driver (drivers/net/ethernet/freescale/fec.c)
+- Sun HappyMealEthernet(HME) 10/100baseT ethernet driver
+  (drivers/net/ethernet/sun/sunhme.c)
 
-On 1/31/12 12:51 AM, Christoph Paasch wrote:
+By default the MAC from the module parameter get only assigned to the first 
+device which got a random MAC (caused by missing EEPROM) before. If you have 
+more than one device you can simply assign the MAC to a specific interface 
+(e.g. use: macaddr=01:23:45:67:89:ab;eth0). If there are only devices with 
+hardware MAC nothing will get changed.
 
->> --- a/net/ipv4/tcp.c
->> +++ b/net/ipv4/tcp.c
->> @@ -2015,10 +2015,22 @@ adjudge_to_death:
->>   	}
->>   	if (sk->sk_state != TCP_CLOSE) {
->>   		sk_mem_reclaim(sk);
->> -		if (tcp_too_many_orphans(sk, 0)) {
->> +		bool too_many_orphans = tcp_too_many_orphans(sk, 0);
->> +		bool out_of_socket_memory = tcp_out_of_memory(sk);
-> 
-> This introduces a compiler warning because you have the declarations
-> after the code (sk_mem_reclaim()):
-> 
-
-Fixed by the patch below.
-
- -Arun
-
->From 505717e51b15304b0bf50fc9dfed43fd06fad09a Mon Sep 17 00:00:00 2001
-From: Arun Sharma <asharma@fb.com>
-Date: Mon, 30 Jan 2012 14:16:06 -0800
-Subject: [PATCH] net: Disambiguate kernel message
-
-Some of our machines were reporting:
-
-TCP: too many of orphaned sockets
-
-even when the number of orphaned sockets was well below the
-limit.
-
-We print a different message depending on whether we're out
-of TCP memory or there are too many orphaned sockets.
-
-Signed-off-by: Arun Sharma <asharma@fb.com>
-Suggested-by: Mohan Srinivasan <mohan@fb.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>
-Cc: Glauber Costa <glommer@parallels.com>
-Cc: Ingo Molnar <mingo@elte.hu>
----
- include/net/tcp.h    |   12 ++++++++----
- net/ipv4/tcp.c       |   17 +++++++++++++++--
- net/ipv4/tcp_timer.c |   12 +++++++++---
- 3 files changed, 32 insertions(+), 9 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 0118ea9..92965dd 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -273,6 +273,14 @@ static inline int between(__u32 seq1, __u32 seq2, __u32 seq3)
- 	return seq3 - seq2 >= seq1 - seq2;
- }
- 
-+static inline bool tcp_out_of_memory(struct sock *sk)
-+{
-+	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
-+	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
-+		return true;
-+	return false;
-+}
-+
- static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
- {
- 	struct percpu_counter *ocp = sk->sk_prot->orphan_count;
-@@ -283,10 +291,6 @@ static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
- 		if (orphans << shift > sysctl_tcp_max_orphans)
- 			return true;
- 	}
--
--	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
--	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
--		return true;
- 	return false;
- }
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9bcdec3..27de5e4 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2014,11 +2014,24 @@ adjudge_to_death:
- 		}
- 	}
- 	if (sk->sk_state != TCP_CLOSE) {
-+		bool too_many_orphans, out_of_socket_memory;
-+
- 		sk_mem_reclaim(sk);
--		if (tcp_too_many_orphans(sk, 0)) {
-+		too_many_orphans = tcp_too_many_orphans(sk, 0);
-+		out_of_socket_memory = tcp_out_of_memory(sk);
-+		if (too_many_orphans) {
- 			if (net_ratelimit())
--				printk(KERN_INFO "TCP: too many of orphaned "
-+				printk(KERN_INFO "TCP: too many orphaned "
- 				       "sockets\n");
-+		}
-+
-+		if (out_of_socket_memory) {
-+			if (net_ratelimit())
-+				printk(KERN_INFO "TCP: out of memory. "
-+				       "Consider tuning tcp_mem\n");
-+		}
-+
-+		if (too_many_orphans || out_of_socket_memory) {
- 			tcp_set_state(sk, TCP_CLOSE);
- 			tcp_send_active_reset(sk, GFP_ATOMIC);
- 			NET_INC_STATS_BH(sock_net(sk),
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index a516d1e..0ac006b 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -67,6 +67,7 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int shift = 0;
-+	bool too_many_orphans, out_of_socket_memory;
- 
- 	/* If peer does not open window for long time, or did not transmit
- 	 * anything for long time, penalize it. */
-@@ -77,9 +78,14 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
- 	if (sk->sk_err_soft)
- 		shift++;
- 
--	if (tcp_too_many_orphans(sk, shift)) {
--		if (net_ratelimit())
--			printk(KERN_INFO "Out of socket memory\n");
-+	too_many_orphans = tcp_too_many_orphans(sk, shift);
-+	out_of_socket_memory = tcp_out_of_memory(sk);
-+	if (too_many_orphans || out_of_socket_memory) {
-+		if (out_of_socket_memory && net_ratelimit())
-+			printk(KERN_INFO "TCP: out of memory. "
-+					 "Consider tuning tcp_mem\n");
-+		if (too_many_orphans && net_ratelimit())
-+			printk(KERN_INFO "TCP: too many orphaned sockets\n");
- 
- 		/* Catch exceptional cases, when connection requires reset.
- 		 *      1. Last segment was sent recently. */
--- 
-1.7.4
+Danny
