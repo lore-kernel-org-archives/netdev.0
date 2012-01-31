@@ -1,94 +1,95 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 4/4] SUNRPC: service shutdown function in network namespace
- context introduced
-Date: Tue, 31 Jan 2012 14:09:25 +0400
-Message-ID: <20120131100925.4342.34740.stgit@localhost6.localdomain6>
-References: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [RFC PATCH V3 05/16] netback: add module get/put operations
+ along with vif connect/disconnect.
+Date: Tue, 31 Jan 2012 10:24:36 +0000
+Message-ID: <1328005476.26983.335.camel@zakaz.uk.xensource.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+	 <1327934734-8908-6-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:21302 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753990Ab2AaKJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jan 2012 05:09:42 -0500
-In-Reply-To: <20120131100625.4342.34539.stgit@localhost6.localdomain6>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:53554 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225Ab2AaKYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 05:24:38 -0500
+In-Reply-To: <1327934734-8908-6-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is enough for releasing resources, allocated for network
-namespace context, in case of sharing service between them.
-IOW, each service "user" (LockD, NFSd, etc), which wants to share service
-between network namespaces, have to release related resources by the function,
-introduced in this patch, instead of performing service shutdown (of course in
-case the service is shared already to the moment of release).
+On Mon, 2012-01-30 at 14:45 +0000, Wei Liu wrote:
+> If there is vif running and user unloads netback, it will certainly
+> cause problems -- guest's network interface just mysteriously stops
+> working.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+This seems like a bug fix for  02/16 "netback: add module unload
+function". Please could you fold back such fixes where appropriate? I
+think there's a handful of these sorts of patches in the series.
 
----
- net/sunrpc/svc.c |   33 ++++++++++++++++++++-------------
- 1 files changed, 20 insertions(+), 13 deletions(-)
+> v2: fix module_put path
+> 
+> disconnect function may get called by the generic framework even
+> before vif connects.
+> 
+> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> ---
+>  drivers/net/xen-netback/interface.c |   11 ++++++++++-
+>  1 files changed, 10 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index dfc04f8..7914f60 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -323,6 +323,8 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+>  	if (vif->irq)
+>  		return 0;
+>  
+> +	__module_get(THIS_MODULE);
+> +
+>  	err = xen_netbk_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
+>  	if (err < 0)
+>  		goto err;
+> @@ -372,12 +374,14 @@ err_unbind:
+>  err_unmap:
+>  	xen_netbk_unmap_frontend_rings(vif);
+>  err:
+> +	module_put(THIS_MODULE);
+>  	return err;
+>  }
+>  
+>  void xenvif_disconnect(struct xenvif *vif)
+>  {
+>  	struct net_device *dev = vif->dev;
+> +	int need_module_put = 0;
+>  
+>  	if (netif_carrier_ok(dev)) {
+>  		rtnl_lock();
+> @@ -397,12 +401,17 @@ void xenvif_disconnect(struct xenvif *vif)
+>  
+>  	del_timer_sync(&vif->credit_timeout);
+>  
+> -	if (vif->irq)
+> +	if (vif->irq) {
+>  		unbind_from_irqhandler(vif->irq, vif);
+> +		need_module_put = 1;
 
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 6cc0ea3..78abac4 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -510,6 +510,24 @@ svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
- }
- EXPORT_SYMBOL_GPL(svc_create_pooled);
- 
-+void svc_shutdown_net(struct svc_serv *serv, struct net *net)
-+{
-+	/*
-+	 * The set of xprts (contained in the sv_tempsocks and
-+	 * sv_permsocks lists) is now constant, since it is modified
-+	 * only by accepting new sockets (done by service threads in
-+	 * svc_recv) or aging old ones (done by sv_temptimer), or
-+	 * configuration changes (excluded by whatever locking the
-+	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
-+	 * safe to traverse those lists and shut everything down:
-+	 */
-+	svc_close_net(serv, net);
-+
-+	if (serv->sv_shutdown)
-+		serv->sv_shutdown(serv, net);
-+}
-+EXPORT_SYMBOL_GPL(svc_shutdown_net);
-+
- /*
-  * Destroy an RPC service. Should be called with appropriate locking to
-  * protect the sv_nrthreads, sv_permsocks and sv_tempsocks.
-@@ -532,16 +550,8 @@ svc_destroy(struct svc_serv *serv)
- 		printk("svc_destroy: no threads for serv=%p!\n", serv);
- 
- 	del_timer_sync(&serv->sv_temptimer);
--	/*
--	 * The set of xprts (contained in the sv_tempsocks and
--	 * sv_permsocks lists) is now constant, since it is modified
--	 * only by accepting new sockets (done by service threads in
--	 * svc_recv) or aging old ones (done by sv_temptimer), or
--	 * configuration changes (excluded by whatever locking the
--	 * caller is using--nfsd_mutex in the case of nfsd).  So it's
--	 * safe to traverse those lists and shut everything down:
--	 */
--	svc_close_net(serv, net);
-+
-+	svc_shutdown_net(serv, net);
- 
- 	/*
- 	 * The last user is gone and thus all sockets have to be destroyed to
-@@ -550,9 +560,6 @@ svc_destroy(struct svc_serv *serv)
- 	BUG_ON(!list_empty(&serv->sv_permsocks));
- 	BUG_ON(!list_empty(&serv->sv_tempsocks));
- 
--	if (serv->sv_shutdown)
--		serv->sv_shutdown(serv, net);
--
- 	cache_clean_deferred(serv);
- 
- 	if (svc_serv_is_pooled(serv))
+This seems like a slightly odd condition. Why is the put not
+unconditional?
+
+
+> +	}
+>  
+>  	unregister_netdev(vif->dev);
+>  
+>  	xen_netbk_unmap_frontend_rings(vif);
+>  
+>  	free_netdev(vif->dev);
+> +
+> +	if (need_module_put)
+> +		module_put(THIS_MODULE);
+>  }
