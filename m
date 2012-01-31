@@ -1,64 +1,176 @@
-From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
-Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Wed, 1 Feb 2012 00:33:49 +0100
-Message-ID: <CAGsizzK+nW=2u89A9wo-q60LstNT_Ujdr511niu9Hv21Uh9+3Q@mail.gmail.com>
-References: <12547555.801328015432974.JavaMail.root@5-MeO-DMT.ynet.sk>
- <4168018.821328016111235.JavaMail.root@5-MeO-DMT.ynet.sk> <20120131085612.3bb50a51@nehalam.linuxnetplumber.net>
+From: Shawn Lu <shawn.lu@ericsson.com>
+Subject: [PATCH] tcp: md5: fix md5 RST when both sides have listener
+Date: Tue, 31 Jan 2012 15:53:18 -0800
+Message-ID: <1328053998-2498-1-git-send-email-shawn.lu@ericsson.com>
+References: <RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xiaoclu@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:34758 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753549Ab2AaXeJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 18:34:09 -0500
-Received: by dadp15 with SMTP id p15so373435dad.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 15:34:09 -0800 (PST)
-In-Reply-To: <20120131085612.3bb50a51@nehalam.linuxnetplumber.net>
+Received: from imr4.ericy.com ([198.24.6.9]:49917 "EHLO imr4.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751874Ab2AaXyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 18:54:05 -0500
+In-Reply-To: <RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/1/31 Stephen Hemminger <shemminger@vyatta.com>:
-> On Tue, 31 Jan 2012 14:21:51 +0100 (CET)
-> Stefan Gula <steweg@ynet.sk> wrote:
->
->> From: Stefan Gula <steweg@gmail.com>
->>
->> This patch is an extension for current Ethernet over GRE
->> implementation, which allows user to create virtual bridge (multipoi=
-nt
->> VPN) and forward traffic based on Ethernet MAC address information i=
-n
->> it. It simulates the Bridge behavior learning mechanism, but instead
->> of learning port ID from which given MAC address comes, it learns IP
->> address of peer which encapsulated given packet. Multicast, Broadcas=
-t
->> and unknown-multicast traffic is send over network as multicast
->> encapsulated GRE packet, so one Ethernet multipoint GRE tunnel can b=
-e
->> represented as one single virtual switch on logical level and be als=
-o
->> represented as one multicast IPv4 address on network level.
->>
->> Signed-off-by: Stefan Gula <steweg@gmail.com>
->
-> Have you looked at the NVGRE standard?
-> =A0http://tools.ietf.org/html/draft-sridharan-virtualization-nvgre-00
-Yes, I did.
-One section from 3.1. NVGRE Endpoint:
-To encapsulate an
-   Ethernet frame, the endpoint needs to know location information for
-   the destination address in the frame. The way to obtain this
-   information is not covered in this document and will be covered in a
-   different draft. Any number of techniques can be used in the control
-   plane to configure, discover and distribute the policy information.
-   For the rest of this document we assume that the location
-   information including TNI is readily available to the NVGRE
-   endpoint.
+TCP RST mechanism is broken in TCP md5(RFC2385). When
+connection is gone, md5 key is lost, sending RST
+without md5 hash is deem to ignored by peer. This can
+be a problem since RST help protocal like bgp to fast
+recove from peer crash.
+
+In most case, users of tcp md5, such as bgp and ldp,
+have listeners on both sides. md5 keys for peers are
+saved in listening socket. When passive side connection
+is gone, we can still get md5 key from listening socket.
+When active side of connection is gone, we can try to
+find listening socket through source port, and then md5
+key.
+we are not loosing sercuriy here:
+packet is valified checked with md5 hash. No RST is generated
+if md5 hash doesn't match or no md5 key can be found.
+
+Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
+---
+ net/ipv4/tcp_ipv4.c |   43 ++++++++++++++++++++++++++++++++++++++++---
+ net/ipv6/tcp_ipv6.c |   40 ++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 78 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index da5d322..adafee8 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -593,6 +593,10 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	struct ip_reply_arg arg;
+ #ifdef CONFIG_TCP_MD5SIG
+ 	struct tcp_md5sig_key *key;
++	const __u8 *hash_location = NULL;
++	unsigned char newhash[16];
++	int genhash;
++	struct sock *sk1 = NULL;
+ #endif
+ 	struct net *net;
+ 
+@@ -623,9 +627,36 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	arg.iov[0].iov_len  = sizeof(rep.th);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+-	key = sk ? tcp_md5_do_lookup(sk,
+-				     (union tcp_md5_addr *)&ip_hdr(skb)->saddr,
+-				     AF_INET) : NULL;
++	hash_location = tcp_parse_md5sig_option(th);
++	if (!sk && hash_location) {
++		/*
++		 * active side is lost. Try to find listening socket through
++		 * source port, and then find md5 key through listening socket.
++		 * we are not loose security here:
++		 * Incoming packet is checked with md5 hash with finding key,
++		 * no RST generated if md5 hash doesn't match.
++		 */
++		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
++					     &tcp_hashinfo, ip_hdr(skb)->daddr,
++					     ntohs(th->source), inet_iif(skb));
++		/* don't send rst if it can't find key */
++		if (!sk1)
++			return;
++
++		key = tcp_md5_do_lookup(sk1, (union tcp_md5_addr *)
++					&ip_hdr(skb)->saddr, AF_INET);
++		if (!key)
++			goto release_sk1;
++
++		genhash = tcp_v4_md5_hash_skb(newhash, key, NULL, NULL, skb);
++		if (genhash || memcmp(hash_location, newhash, 16) != 0)
++			goto release_sk1;
++	} else {
++		key = sk ? tcp_md5_do_lookup(sk, (union tcp_md5_addr *)
++					     &ip_hdr(skb)->saddr,
++					     AF_INET) : NULL;
++	}
++
+ 	if (key) {
+ 		rep.opt[0] = htonl((TCPOPT_NOP << 24) |
+ 				   (TCPOPT_NOP << 16) |
+@@ -653,6 +684,12 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTRSTS);
++
++#ifdef CONFIG_TCP_MD5SIG
++release_sk1:
++	if (sk1)
++		sock_put(sk1);
++#endif
+ }
+ 
+ /* The code following below sending ACKs in SYN-RECV and TIME-WAIT states
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index bec41f9..00da65c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -925,6 +925,13 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	const struct tcphdr *th = tcp_hdr(skb);
+ 	u32 seq = 0, ack_seq = 0;
+ 	struct tcp_md5sig_key *key = NULL;
++#ifdef CONFIG_TCP_MD5SIG
++	const __u8 *hash_location = NULL;
++	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
++	unsigned char newhash[16];
++	int genhash;
++	struct sock *sk1 = NULL;
++#endif
+ 
+ 	if (th->rst)
+ 		return;
+@@ -933,8 +940,31 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		return;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+-	if (sk)
+-		key = tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->saddr);
++	hash_location = tcp_parse_md5sig_option(th);
++	if (!sk && hash_location) {
++		/*
++		 * active side is lost. Try to find listening socket through
++		 * source port, and then find md5 key through listening socket.
++		 * we are not loose security here:
++		 * Incoming packet is checked with md5 hash with finding key,
++		 * no RST generated if md5 hash doesn't match.
++		 */
++		sk1 = inet6_lookup_listener(dev_net(skb_dst(skb)->dev),
++					   &tcp_hashinfo, &ipv6h->daddr,
++					   ntohs(th->source), inet6_iif(skb));
++		if (!sk1)
++			return;
++
++		key = tcp_v6_md5_do_lookup(sk1, &ipv6h->saddr);
++		if (!key)
++			goto release_sk1;
++
++		genhash = tcp_v6_md5_hash_skb(newhash, key, NULL, NULL, skb);
++		if (genhash || memcmp(hash_location, newhash, 16) != 0)
++			goto release_sk1;
++	} else {
++		key = sk ? tcp_v6_md5_do_lookup(sk, &ipv6h->saddr) : NULL;
++	}
+ #endif
+ 
+ 	if (th->ack)
+@@ -944,6 +974,12 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 			  (th->doff << 2);
+ 
+ 	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, key, 1, 0);
++
++#ifdef CONFIG_TCP_MD5SIG
++release_sk1:
++	if (sk1)
++		sock_put(sk1);
++#endif
+ }
+ 
+ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack, u32 win, u32 ts,
+-- 
+1.7.0.4
