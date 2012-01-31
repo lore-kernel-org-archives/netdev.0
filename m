@@ -1,103 +1,70 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 09:51:18 +0100
-Message-ID: <4F27AB86.5080009@uclouvain.be>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
-Reply-To: christoph.paasch@uclouvain.be
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [RFC PATCH V3 12/16] netback: multi-page ring
+ support
+Date: Tue, 31 Jan 2012 09:01:52 +0000
+Message-ID: <4F27BC1002000078000700D3@nat28.tlf.novell.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+ <1327934734-8908-13-git-send-email-wei.liu2@citrix.com>
+ <4F26D4E5020000780006FF41@nat28.tlf.novell.com>
+ <1327943436.5553.39.camel@leeds.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: Arun Sharma <asharma@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327963304-24828-1-git-send-email-asharma@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:51948 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752289Ab2AaJB6 convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Tue, 31 Jan 2012 04:01:58 -0500
+In-Reply-To: <1327943436.5553.39.camel@leeds.uk.xensource.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2012 11:41 PM, Arun Sharma wrote:
-> Some of our machines were reporting:
->=20
-> TCP: too many of orphaned sockets
->=20
-> even when the number of orphaned sockets was well below the
-> limit.
->=20
-> We print a different message depending on whether we're out
-> of TCP memory or there are too many orphan sockets.
->=20
-> Signed-off-by: Arun Sharma <asharma@fb.com>
-> Suggested-by: Mohan Srinivasan <mohan@fb.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Glauber Costa <glommer@parallels.com>
-> Cc: Ingo Molnar <mingo@elte.hu>
-> ---
->  include/net/tcp.h    |   12 ++++++++----
->  net/ipv4/tcp.c       |   14 +++++++++++++-
->  net/ipv4/tcp_timer.c |    9 +++++++--
->  3 files changed, 28 insertions(+), 7 deletions(-)
->=20
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 0118ea9..92965dd 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -273,6 +273,14 @@ static inline int between(__u32 seq1, __u32 seq2=
-, __u32 seq3)
->  	return seq3 - seq2 >=3D seq1 - seq2;
->  }
-> =20
-> +static inline bool tcp_out_of_memory(struct sock *sk)
-> +{
-> +	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
-> +	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
-> +		return true;
-> +	return false;
-> +}
-> +
->  static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
->  {
->  	struct percpu_counter *ocp =3D sk->sk_prot->orphan_count;
-> @@ -283,10 +291,6 @@ static inline bool tcp_too_many_orphans(struct s=
-ock *sk, int shift)
->  		if (orphans << shift > sysctl_tcp_max_orphans)
->  			return true;
->  	}
-> -
-> -	if (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
-> -	    sk_memory_allocated(sk) > sk_prot_mem_limits(sk, 2))
-> -		return true;
->  	return false;
->  }
-> =20
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 9bcdec3..395a4ef 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2015,10 +2015,22 @@ adjudge_to_death:
->  	}
->  	if (sk->sk_state !=3D TCP_CLOSE) {
->  		sk_mem_reclaim(sk);
-> -		if (tcp_too_many_orphans(sk, 0)) {
-> +		bool too_many_orphans =3D tcp_too_many_orphans(sk, 0);
-> +		bool out_of_socket_memory =3D tcp_out_of_memory(sk);
+>>> On 30.01.12 at 18:10, Wei Liu <wei.liu2@citrix.com> wrote:
+> On Mon, 2012-01-30 at 16:35 +0000, Jan Beulich wrote:
+>> >>> On 30.01.12 at 15:45, Wei Liu <wei.liu2@citrix.com> wrote:
+>> > -int xenvif_map_frontend_rings(struct xenvif *vif,
+>> > -			      grant_ref_t tx_ring_ref,
+>> > -			      grant_ref_t rx_ring_ref)
+>> > +int xenvif_map_frontend_rings(struct xen_comms *comms,
+>> > +			      int domid,
+>> > +			      unsigned long ring_ref[],
+>> > +			      unsigned int  ring_ref_count)
+>> >  {
+>> > -	void *addr;
+>> > -	struct xen_netif_tx_sring *txs;
+>> > -	struct xen_netif_rx_sring *rxs;
+>> > -
+>> > -	int err = -ENOMEM;
+>> > +	struct gnttab_map_grant_ref op[NETBK_MAX_RING_PAGES];
+>> > +	unsigned int i;
+>> > +	int err = 0;
+>> >  
+>> > -	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
+>> > -				     tx_ring_ref, &addr);
+>> 
+>> Any reason why you don't just extend this function (in a prerequisite
+>> patch) rather than open coding a common utility function (twice) here,
+>> so that other backends (blkback!) can benefit later as well.
+>> 
+>> Jan
+>> 
+> 
+> I'm mainly focusing on netback stuffs, so the code is slightly coupled
+> with netback -- NETBK_MAX_RING_PAGES.
+> 
+> To extend xenbus_map_ring_valloc and make more generic, it requires
+> setting a global maximum page number limits on rings, I think it will
+> require further investigation and code refactor -- which I have no time
+> to attend to at the moment. :-/
 
-This introduces a compiler warning because you have the declarations
-after the code (sk_mem_reclaim()):
+Why? You can simply pass in the number of pages, there's no need
+for a global maximum.
 
-Cheers,
-Christoph
-
-
-
---=20
-Christoph Paasch
-PhD Student
-
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
-Universit=E9 Catholique de Louvain
---=20
+Jan
