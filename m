@@ -1,52 +1,32 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Mon, 30 Jan 2012 20:22:03 -0800
-Message-ID: <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 22/29] sysctl: Stop requiring explicit management of sysctl directories
+Date: Mon, 30 Jan 2012 20:45:02 -0800
+Message-ID: <m162fsbhv5.fsf@fess.ebiederm.org>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
+	<1327639925-12920-22-git-send-email-ebiederm@xmission.com>
+	<CAPLs8y8smiRj_Xbtme3v165CuyJOnJpA_pJNwdCMLWb2M1-e8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>
-To: Arun Sharma <asharma@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Damien Millescamps <damien.millescamps@6wind.com>
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327963304-24828-1-git-send-email-asharma@fb.com>
+In-Reply-To: <CAPLs8y8smiRj_Xbtme3v165CuyJOnJpA_pJNwdCMLWb2M1-e8A@mail.gmail.com>
+	(Lucian Adrian Grijincu's message of "Sun, 29 Jan 2012 21:31:41
+	+0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2012 at 2:41 PM, Arun Sharma <asharma@fb.com> wrote:
-> Some of our machines were reporting:
+Lucian Adrian Grijincu <lucian.grijincu@gmail.com> writes:
+
 >
-> TCP: too many of orphaned sockets
->
-> even when the number of orphaned sockets was well below the
-> limit.
->
-> We print a different message depending on whether we're out
-> of TCP memory or there are too many orphan sockets.
+> Why do you only check the given @set after creating the new dir. Why
+> not the parent dir too?
 
-This patch mentions pairs of messages that are almost the same, but
-not quite.  If they're supposed to be different, I'd suggest making
-them clearly different.  As it is, the differences look like careless
-mistakes:
+That is a race and a minor bug.  Somehow I had convinced myself that
+either it didn't matter or that it would be hard to deal with, but
+that doesn't hold up.  Oops.  Thankfully the final version using links
+does not have this race/bug. 
 
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk=
-(KERN_INFO "TCP: too many of orphaned "
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 "sockets\n");
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_INFO "TCP: =
-too many orphaned sockets\n");
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(=
-KERN_INFO "TCP: out of memory. "
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0"Consider tuning tcp_mem\n");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_INFO "Out =
-of socket memory\n");
-
-"too many orphaned sockets" is better English usage than "too many of .=
-=2E."
-
-Bjorn
+Eric
