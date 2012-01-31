@@ -1,167 +1,32 @@
-From: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] smsc95xx: add macaddr module parameter
-Date: Tue, 31 Jan 2012 18:20:33 +0100
-Message-ID: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] smsc95xx: add macaddr module parameter
+Date: Tue, 31 Jan 2012 17:27:31 +0000
+Message-ID: <20120131172731.03df5704@pyramind.ukuu.org.uk>
+References: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Danny Kukawka <dkukawka@suse.de>
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Added smsc95xx.macaddr module parameter to allow the user to
-change the MAC address on boot if there was no MAC on the EEPROM.
+On Tue, 31 Jan 2012 18:20:33 +0100
+Danny Kukawka <danny.kukawka@bisect.de> wrote:
 
-The parameter take the MAC address in 01:23:45:67:89:ab format and
-needs to be locally assigned. The MAC get assigned to the first
-smsc95xx device with no MAC on EEPROM (which resulted in a random
-MAC before). If there is more than one device without MAC on
-EEPROM and the user needs set the MAC to a specific device, it
-can be done by attaching the netdev name (e.g. eth0) to the
-smsc95xx.macaddr parameter seperated by a ';' as e.g. in
-'01:23:45:67:89:ab;eth0'
+> Added smsc95xx.macaddr module parameter to allow the user to
+> change the MAC address on boot if there was no MAC on the EEPROM.
 
-This allows e.g. u-boot to pass on PandaBoard or BeagleBoard
-the by u-boot generated static MAC address to the kernel device
-to ensure the MAC stays the same during the whole boot process.
+NAK. Please see the discussion on this and ifconfig hw for other devices.
 
-Signed-off-by: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
----
- drivers/net/usb/smsc95xx.c |   85 ++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 82 insertions(+), 3 deletions(-)
+In summary - make the device refuse to ifconfig up without a valid
+address, allow it to come into existance without a valid address and then
+use ifconfig.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index d45520e..3198c7d 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -52,6 +52,8 @@ struct smsc95xx_priv {
- 	u32 hash_hi;
- 	u32 hash_lo;
- 	spinlock_t mac_cr_lock;
-+	bool mac_set_from_param;
-+	bool mac_is_random;
- };
- 
- struct usb_context {
-@@ -63,6 +65,11 @@ static bool turbo_mode = true;
- module_param(turbo_mode, bool, 0644);
- MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
- 
-+static char *macaddr = ":";
-+static bool set_macaddr = false;
-+module_param(macaddr, charp, 0);
-+MODULE_PARM_DESC(macaddr, " macaddr=macaddr;[tgt-netdevname] (Set MAC only if there is a device without MAC on EEPROM)");
-+
- static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
- {
- 	u32 *buf = kmalloc(4, GFP_KERNEL);
-@@ -601,8 +608,71 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
- 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
- }
- 
-+/* set mac address from the macaddr module parameter */
-+static int smsc95xx_init_mac_address_from_param(struct usbnet *dev)
-+{
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-+	int i, parsed, ret;
-+	u8 mtbl[ETH_ALEN];
-+	char *input = NULL;
-+	char *config_param = NULL;
-+	char *netdev_name = NULL;	
-+
-+	parsed = 0;
-+	ret = 0;
-+
-+	input = kstrdup(macaddr, GFP_KERNEL);
-+
-+	if (!input)
-+		return -ENOMEM;
-+
-+	if (strlen(input) >= 17) {
-+		while ((config_param = strsep(&input, ";"))) {
-+			if (parsed == 0) {
-+				if (!mac_pton(config_param, mtbl)) {
-+					ret = 1;
-+					goto parse_err;
-+				}
-+			} else {
-+				netdev_name = config_param;				
-+			}
-+			parsed ++;
-+		}
-+
-+		if (parsed && is_valid_ether_addr(mtbl)) {
-+			if (netdev_name && strlen(netdev_name)) {
-+				if (strcmp(netdev_name, dev->net->name) != 0) {
-+					netif_dbg(dev, ifup, dev->net, "requested devname (%s) didn't match (%s)\n", netdev_name, dev->net->name);
-+					ret = 1;
-+					goto out;
-+				}
-+			}
-+
-+			for (i = 0; i < ETH_ALEN; i++) {
-+				dev->net->dev_addr[i] = mtbl[i];
-+			}
-+
-+			netif_dbg(dev, ifup, dev->net, "set valid MAC address from smsc95xx.macaddr\n");
-+			set_macaddr = true;
-+			pdata->mac_set_from_param = true;
-+			pdata->mac_is_random = false;
-+			goto out;
-+		}
-+	} 
-+
-+parse_err:
-+	netif_dbg(dev, ifup, dev->net, "failed to parse (valid) MAC from smsc95xx.macaddr\n");
-+	set_macaddr = true;
-+out:
-+	if (input)
-+		kfree(input);
-+	return ret;
-+}
-+
- static void smsc95xx_init_mac_address(struct usbnet *dev)
- {
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);	
-+
- 	/* try reading mac address from EEPROM */
- 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
- 			dev->net->dev_addr) == 0) {
-@@ -615,16 +685,25 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
- 
- 	/* no eeprom, or eeprom values are invalid. generate random MAC */
- 	random_ether_addr(dev->net->dev_addr);
-+	pdata->mac_is_random = true;
- 	netif_dbg(dev, ifup, dev->net, "MAC address set to random_ether_addr\n");
- }
- 
- static int smsc95xx_set_mac_address(struct usbnet *dev)
- {
--	u32 addr_lo = dev->net->dev_addr[0] | dev->net->dev_addr[1] << 8 |
--		dev->net->dev_addr[2] << 16 | dev->net->dev_addr[3] << 24;
--	u32 addr_hi = dev->net->dev_addr[4] | dev->net->dev_addr[5] << 8;
-+	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-+	u32 addr_lo, addr_hi;
- 	int ret;
- 
-+	if (pdata->mac_is_random && !pdata->mac_set_from_param && !set_macaddr) {
-+		netif_dbg(dev, ifup, dev->net, "random MAC address, not yet set from smsc95xx.macaddr, try to set it ...\n");
-+		smsc95xx_init_mac_address_from_param(dev);
-+	}
-+
-+	addr_lo = dev->net->dev_addr[0] | dev->net->dev_addr[1] << 8 |
-+		dev->net->dev_addr[2] << 16 | dev->net->dev_addr[3] << 24;
-+	addr_hi = dev->net->dev_addr[4] | dev->net->dev_addr[5] << 8;
-+
- 	ret = smsc95xx_write_reg(dev, ADDRL, addr_lo);
- 	if (ret < 0) {
- 		netdev_warn(dev->net, "Failed to write ADDRL: %d\n", ret);
--- 
-1.7.7.3
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Your patch also seems to break if there are several attached to a board.
