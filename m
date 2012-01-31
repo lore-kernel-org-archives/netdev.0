@@ -1,60 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: network regression: cannot rename netdev twice
-Date: Tue, 31 Jan 2012 06:18:00 -0800
-Message-ID: <m18vko6jmv.fsf@fess.ebiederm.org>
-References: <4F27120A.4040106@suse.cz>
-	<CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
-	<4F27C54F.1010107@suse.cz>
-	<CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
-	<4F27C9D4.3040105@suse.cz>
-	<CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
-	<4F27CDBC.5020201@suse.cz>
-	<CAPXgP1371fgmaP3ecxsDJ2BmJrOS6kUP95G1BHe6deBPk5FVCQ@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Tue, 31 Jan 2012 14:35:27 +0000
+Message-ID: <1328020528.26983.396.camel@zakaz.uk.xensource.com>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.cz>, Greg KH <greg@kroah.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPXgP1371fgmaP3ecxsDJ2BmJrOS6kUP95G1BHe6deBPk5FVCQ@mail.gmail.com>
-	(Kay Sievers's message of "Tue, 31 Jan 2012 12:58:46 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:14111 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193Ab2AaOf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 09:35:29 -0500
+In-Reply-To: <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kay Sievers <kay.sievers@vrfy.org> writes:
+Hi Eric,
 
-> On Tue, Jan 31, 2012 at 12:17, Jiri Slaby <jslaby@suse.cz> wrote:
->> On 01/31/2012 12:13 PM, Kay Sievers wrote:
->
->>> This is a command sequence you type manually?
->>
->> Yea, and it is working with 3.3.0-rc1-next-20120124_64+. Not with
->> 3.3.0-rc1-next-20120131_64+.
->>
->>> You are sure that userspace is not working in the background,
->>> triggered by uevents, and comes into your way here?
->>
->> Note that krtek exists after the first command. But cannot be renamed
->> further.
->
-> Yeah, I can confirm the problem here. I works fine with earlier
-> kernels and fails with the latest -next:
->
-> # uname -r
-> 3.3.0-rc1-next-20120131+
-> # modprobe dummy
-> # ip link set dummy0 name foo0
-> # ip link set foo0 name bar0
-> RTNETLINK answers: No such file or directory
+On Wed, 2012-01-25 at 13:12 +0000, Eric Dumazet wrote:
+> Le mercredi 25 janvier 2012 =C3=A0 13:09 +0000, Ian Campbell a =C3=A9=
+crit :
+>=20
+> > Can you elaborate on the specific benchmark you used there?
+>=20
+> One machine was sending udp frames on my target (using pktgen)
+>=20
+> Target was running a mono threaded udp receiver (one socket)
 
-There is something weird going on when sysfs directories and symlinks
-are renamed.  My guess is that I fat fingered something with one of my
-last sysfs patches.  I will look more deeply once I have slept some
-more.
+I've been playing with pktgen and I'm seeing more like 81,600-81,800 pp=
+s
+from a UDP transmitter, measuring on the rx side using "bwm-ng -u
+packets" and sinking the traffic with "nc -l -u -p 9 > /dev/null". The
+numbers are the same with or without this series.
 
-The second network device renames fails because the first rename did not
-work properly.  ls -l /sys/class/net/ /sys/virtual/net/ will let you see
-what I mean.
+You mentioned numbers in the 820pps region -- is that really kilo-pps
+(in which case I'm an order of magnitude down) or actually 820pps (in
+which case I'm somehow a couple of orders of magnitude up).
 
-Eric
+I'm using a single NIC transmitter, no delay, 1000000 clones of each sk=
+b
+and I've tried 60 and 1500 byte packets. In the 60 byte case I see more
+like 50k pps
+
+I'm in the process of setting up a receiver with a bnx2 but in the
+meantime I feel like I'm making some obvious or fundamental flaw in my
+method...
+
+Any tips greatly appreciated.
+
+Thanks,
+Ian.
