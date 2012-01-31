@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 3/6] Lockd: per-net up and down routines introduced
-Date: Tue, 31 Jan 2012 15:08:05 +0400
-Message-ID: <20120131110805.14364.95729.stgit@localhost6.localdomain6>
+Subject: [PATCH 2/6] Lockd: pernet usage counter introduced
+Date: Tue, 31 Jan 2012 15:07:57 +0400
+Message-ID: <20120131110757.14364.80893.stgit@localhost6.localdomain6>
 References: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,135 +16,131 @@ In-Reply-To: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces per-net Lockd initialization and destruction routines.
-The logic is the same as in global Lockd up and down routines. Probably the
-solution is not the best one. But at least it looks clear.
-So per-net "up" routine are called only in case of lockd is running already. If
-per-net resources are not allocated yet, then service is being registered with
-local portmapper and lockd sockets created.
-Per-net "down" routine is called on every lockd_down() call in case of global
-users counter is not zero.
+Lockd is going to be shared between network namespaces - i.e. going to be able
+to handle lock requests from different network namespaces. This means, that
+network namespace related resources have to be allocated not once (like now),
+but for every network namespace context, from which service is requested to
+operate.
+This patch implements Lockd per-net users accounting. New per-net counter is
+used to determine, when per-net resources have to be freed.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/lockd/svc.c             |   47 ++++++++++++++++++++++++++++++++++++++++++--
- include/linux/sunrpc/svc.h |    2 ++
- net/sunrpc/svc.c           |    3 ++-
- 3 files changed, 49 insertions(+), 3 deletions(-)
+ fs/lockd/netns.h |   12 ++++++++++++
+ fs/lockd/svc.c   |   45 ++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 54 insertions(+), 3 deletions(-)
+ create mode 100644 fs/lockd/netns.h
 
+diff --git a/fs/lockd/netns.h b/fs/lockd/netns.h
+new file mode 100644
+index 0000000..ce227e0
+--- /dev/null
++++ b/fs/lockd/netns.h
+@@ -0,0 +1,12 @@
++#ifndef __LOCKD_NETNS_H__
++#define __LOCKD_NETNS_H__
++
++#include <net/netns/generic.h>
++
++struct lockd_net {
++	unsigned int nlmsvc_users;
++};
++
++extern int lockd_net_id;
++
++#endif
 diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index b461733..86e17e8 100644
+index 26d8b78..b461733 100644
 --- a/fs/lockd/svc.c
 +++ b/fs/lockd/svc.c
-@@ -251,6 +251,45 @@ out_err:
- 	return err;
- }
+@@ -35,6 +35,8 @@
+ #include <linux/lockd/lockd.h>
+ #include <linux/nfs.h>
  
-+static int lockd_up_net(struct net *net)
++#include "netns.h"
++
+ #define NLMDBG_FACILITY		NLMDBG_SVC
+ #define LOCKD_BUFSIZE		(1024 + NLMSVC_XDRSIZE)
+ #define ALLOWED_SIGS		(sigmask(SIGKILL))
+@@ -50,6 +52,8 @@ static struct task_struct	*nlmsvc_task;
+ static struct svc_rqst		*nlmsvc_rqst;
+ unsigned long			nlmsvc_timeout;
+ 
++int lockd_net_id;
++
+ /*
+  * These can be set at insmod time (useful for NFS as root filesystem),
+  * and also changed through the sysctl interface.  -- Jamie Lokier, Aug 2003
+@@ -315,8 +319,12 @@ int lockd_up(void)
+ destroy_and_out:
+ 	svc_destroy(serv);
+ out:
+-	if (!error)
++	if (!error) {
++		struct lockd_net *ln = net_generic(net, lockd_net_id);
++
++		ln->nlmsvc_users++;
+ 		nlmsvc_users++;
++	}
+ 	mutex_unlock(&nlmsvc_mutex);
+ 	return error;
+ }
+@@ -499,24 +507,55 @@ module_param_call(nlm_tcpport, param_set_port, param_get_int,
+ module_param(nsm_use_hostnames, bool, 0644);
+ module_param(nlm_max_connections, uint, 0644);
+ 
++static int lockd_init_net(struct net *net)
 +{
-+	struct lockd_net *ln = net_generic(net, lockd_net_id);
-+	struct svc_serv *serv = nlmsvc_rqst->rq_server;
-+	int error;
-+
-+	if (ln->nlmsvc_users)
-+		return 0;
-+
-+	error = svc_rpcb_setup(serv, net);
-+	if (error)
-+		goto err_rpcb;
-+
-+	error = make_socks(serv, net);
-+	if (error < 0)
-+		goto err_socks;
 +	return 0;
-+
-+err_socks:
-+	svc_rpcb_cleanup(serv, net);
-+err_rpcb:
-+	return error;
 +}
 +
-+static void lockd_down_net(struct net *net)
++static void lockd_exit_net(struct net *net)
 +{
-+	struct lockd_net *ln = net_generic(net, lockd_net_id);
-+	struct svc_serv *serv = nlmsvc_rqst->rq_server;
-+
-+	if (ln->nlmsvc_users) {
-+		if (--ln->nlmsvc_users == 0)
-+			svc_shutdown_net(serv, net);
-+	} else {
-+		printk(KERN_ERR "lockd_down_net: no users! task=%p, net=%p\n",
-+				nlmsvc_task, net);
-+		BUG();
-+	}
 +}
 +
++static struct pernet_operations lockd_net_ops = {
++	.init = lockd_init_net,
++	.exit = lockd_exit_net,
++	.id = &lockd_net_id,
++	.size = sizeof(struct lockd_net),
++};
++
++
  /*
-  * Bring up the lockd process if it's not already up.
+  * Initialising and terminating the module.
   */
-@@ -264,8 +303,10 @@ int lockd_up(void)
- 	/*
- 	 * Check whether we're already up and running.
- 	 */
--	if (nlmsvc_rqst)
-+	if (nlmsvc_rqst) {
-+		error = lockd_up_net(net);
- 		goto out;
-+	}
  
- 	/*
- 	 * Sanity check: if there's no pid,
-@@ -338,8 +379,10 @@ lockd_down(void)
+ static int __init init_nlm(void)
  {
- 	mutex_lock(&nlmsvc_mutex);
- 	if (nlmsvc_users) {
--		if (--nlmsvc_users)
-+		if (--nlmsvc_users) {
-+			lockd_down_net(current->nsproxy->net_ns);
- 			goto out;
-+		}
- 	} else {
- 		printk(KERN_ERR "lockd_down: no users! task=%p\n",
- 			nlmsvc_task);
-diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-index 7b65495..51b29ac 100644
---- a/include/linux/sunrpc/svc.h
-+++ b/include/linux/sunrpc/svc.h
-@@ -414,6 +414,7 @@ struct svc_procedure {
- /*
-  * Function prototypes.
-  */
-+int svc_rpcb_setup(struct svc_serv *serv, struct net *net);
- void svc_rpcb_cleanup(struct svc_serv *serv, struct net *net);
- struct svc_serv *svc_create(struct svc_program *, unsigned int,
- 			    void (*shutdown)(struct svc_serv *, struct net *net));
-@@ -426,6 +427,7 @@ struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
- int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, int);
- int		   svc_pool_stats_open(struct svc_serv *serv, struct file *file);
- void		   svc_destroy(struct svc_serv *);
-+void		   svc_shutdown_net(struct svc_serv *, struct net *);
- int		   svc_process(struct svc_rqst *);
- int		   bc_svc_process(struct svc_serv *, struct rpc_rqst *,
- 			struct svc_rqst *);
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 78abac4..4153846 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -369,7 +369,7 @@ svc_pool_for_cpu(struct svc_serv *serv, int cpu)
- 	return &serv->sv_pools[pidx % serv->sv_nrpools];
- }
- 
--static int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
-+int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
- {
- 	int err;
- 
-@@ -381,6 +381,7 @@ static int svc_rpcb_setup(struct svc_serv *serv, struct net *net)
- 	svc_unregister(serv, net);
++	int err;
++
+ #ifdef CONFIG_SYSCTL
++	err = -ENOMEM;
+ 	nlm_sysctl_table = register_sysctl_table(nlm_sysctl_root);
+-	return nlm_sysctl_table ? 0 : -ENOMEM;
+-#else
++	if (nlm_sysctl_table == NULL)
++		goto err_sysctl;
++#endif
++	err = register_pernet_subsys(&lockd_net_ops);
++	if (err)
++		goto err_pernet;
  	return 0;
++
++err_pernet:
++#ifdef CONFIG_SYSCTL
++	unregister_sysctl_table(nlm_sysctl_table);
+ #endif
++err_sysctl:
++	return err;
  }
-+EXPORT_SYMBOL_GPL(svc_rpcb_setup);
  
- void svc_rpcb_cleanup(struct svc_serv *serv, struct net *net)
+ static void __exit exit_nlm(void)
  {
+ 	/* FIXME: delete all NLM clients */
+ 	nlm_shutdown_hosts();
++	unregister_pernet_subsys(&lockd_net_ops);
+ #ifdef CONFIG_SYSCTL
+ 	unregister_sysctl_table(nlm_sysctl_table);
+ #endif
