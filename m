@@ -1,62 +1,56 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH V2] net/sched: =?UTF-8?Q?sch=5Fplug=20-=20Queue=20traf?=  =?UTF-8?Q?fic=20until=20an=20explicit=20release=20command?=
-Date: Tue, 31 Jan 2012 16:25:06 +0100
-Message-ID: <6790d1d5d8aa930222bbfc2ef6a9d48e@localhost>
-References: <1327823619-29274-1-git-send-email-rshriram@cs.ubc.ca>
- <1327934756.2243.3.camel@mojatatu>
- <313929ea4dca3c8fd6948797e03121a8@localhost>
- <B99410E5-6E69-425A-913D-272058765A68@cs.ubc.ca>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 01/16] eicon: fix -Warray-bounds warning
+Date: Tue, 31 Jan 2012 16:25:34 +0100
+Message-ID: <20120131152534.GA14825@gw.linux-pingi.de>
+References: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
+ <1327960820-11867-2-git-send-email-danny.kukawka@bisect.de>
+ <1327964972.2595.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, " " <netdev@vger.kernel.org>,
-	Brendan Cully <brendan@cs.ubc.ca>
-To: Shriram Rajagopalan <rshriram@cs.ubc.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:49051 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753506Ab2AaPZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 10:25:09 -0500
-In-Reply-To: <B99410E5-6E69-425A-913D-272058765A68@cs.ubc.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Danny Kukawka <danny.kukawka@bisect.de>,
+	Armin Schindler <mac@melware.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1327964972.2595.31.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Jan 30, 2012 at 11:09:32PM +0000, Ben Hutchings wrote:
+> On Mon, 2012-01-30 at 23:00 +0100, Danny Kukawka wrote:
+> > Fix for a -Warray-bounds warning. mixer_notify_update() tries to
+> > write to ((CAPI_MSG *) msg)->info.facility_req.structs[3] while
+> > structs is defined as byte structs[1], define structs[1] as
+> > structs[4].
+> 
+> I suspect that all the 'byte structs[1];' fields defined in that header
+> are actually variable-length arrays.  In that case, there may be no
+> reasonable bound you can specify.
 
-On Mon, 30 Jan 2012 08:47:45 -0800, Shriram Rajagopalan wrote:
+Yes, exactely, the structs is a ASN1 coded message so it can have any len.
 
-
-
-> Could you elaborate a little on the packet-based-unplug ?
+Karsten
 
 > 
-
-> I got your earlier comment on "indefinite unplug" until an explicit
-
-> plug is received. Is that what you mean by packet-based-unplug ?
-
-
-
-Sure, imagine a multihop MANET network. Sometimes we have high-priority
-
-crosstraffic in the next hop (router). Due to OLSR traffic information we
-
-know in advance that the next hop is not in the ability to forward our low
-
-priority packets. With this knowledge we can stop (unplug) local generated
-
-and forwarded traffic and if the next hop has enough free bandwidth we can
-
-restart (plug) sending already enqueued packets.
-
-
-
-So for us a really simple plug/unplug mechanism is superior. Maybe a
-
-head-drop FIFO based policy for forwarded traffic but I can provide a patch
-
-on top of your patch to implement a head-drop policy.
-
-
-
-Hagen
+> Ben.
+> 
+> > Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> > ---
+> >  drivers/isdn/hardware/eicon/capi20.h |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/isdn/hardware/eicon/capi20.h b/drivers/isdn/hardware/eicon/capi20.h
+> > index 7ebcccd..f9170ad 100644
+> > --- a/drivers/isdn/hardware/eicon/capi20.h
+> > +++ b/drivers/isdn/hardware/eicon/capi20.h
+> > @@ -226,7 +226,7 @@ typedef struct {
+> >          /* FACILITY-REQUEST */
+> >  typedef struct {
+> >    word Selector;
+> > -  byte structs[1];      /* Facility parameters */
+> > +  byte structs[4];      /* Facility parameters */
+> >  } _FAC_REQP;
+> >          /* FACILITY-CONFIRM STRUCT FOR SUPPLEMENT. SERVICES */
+> >  typedef struct {
+> 
