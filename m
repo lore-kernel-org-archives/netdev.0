@@ -1,66 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] tc-sfq: update man page
-Date: Tue, 31 Jan 2012 16:28:00 +0100
-Message-ID: <1328023680.2297.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1327411778.7231.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F27E0C4.1050609@computer.org>
+Subject: Re: [PATCH net-next] tcp: md5: rcu conversion
+Date: Tue, 31 Jan 2012 16:38:37 +0100
+Message-ID: <1328024317.2297.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1327975638-16530-1-git-send-email-shawn.lu@ericsson.com>
+	 <CAL4WiipdO5+1Fi_ig5hB25d2LJvc+cjzyAbo8mxx3e4EiRx9YA@mail.gmail.com>
+	 <62162DF05402B341B3DB59932A1FA992B5B5B929BD@EUSAACMS0702.eamcs.ericsson.se>
+	 <1328000712.2422.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328016828.2297.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328023113.2297.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jan Ceuleers <jan.ceuleers@computer.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
+To: Shawn Lu <shawn.lu@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:53253 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35714 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754772Ab2AaP2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 10:28:04 -0500
-Received: by bkcjm19 with SMTP id jm19so60241bkc.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 07:28:03 -0800 (PST)
-In-Reply-To: <4F27E0C4.1050609@computer.org>
+	with ESMTP id S1753575Ab2AaPil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 10:38:41 -0500
+Received: by bkcjm19 with SMTP id jm19so70685bkc.19
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 07:38:40 -0800 (PST)
+In-Reply-To: <1328023113.2297.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 31 janvier 2012 =C3=A0 13:38 +0100, Jan Ceuleers a =C3=A9crit =
+Le mardi 31 janvier 2012 =C3=A0 16:18 +0100, Eric Dumazet a =C3=A9crit =
 :
-> On 01/24/2012 02:29 PM, Eric Dumazet wrote:
-> > Add documentation about RED mode, and new parameters (flows, depth)
-> > added in linux 3.3
-> >
-> > Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-> > ---
-> >   man/man8/tc-sfq.8 |  127 +++++++++++++++++++++++++++++++++++++---=
-----
-> >   1 file changed, 108 insertions(+), 19 deletions(-)
-> >
-> > diff --git a/man/man8/tc-sfq.8 b/man/man8/tc-sfq.8
-> > index e177f56..5a651ff 100644
-> > --- a/man/man8/tc-sfq.8
-> > +++ b/man/man8/tc-sfq.8
-> ...
-> +Source and Destination port
-> >   .P
-> >   If these are available. SFQ knows about ipv4 and ipv6 and also UD=
-P, TCP and ESP.
-> >   Packets with other protocols are hashed based on the 32bits repre=
-sentation of their
-> > -destination and the socket they belong to. A flow corresponds most=
-ly to a TCP/IP
-> > -connection.
-> > +destination and source. A flow corresponds mostly to a TCP/IP conn=
-ection.
+> In order to be able to support proper RST messages for TCP MD5 flows,=
+ we
+> need to allow access to MD5 keys without locking listener socket.
 >=20
-> Don't understand this. Did you want to replace "connection" by=20
-> "destination and source"? Do you mean that a "connection" is=20
-> characterised by source and destination?
+> This conversion is a nice cleanup, and shrinks size of timewait socke=
+ts
+> by 80 bytes.
 >=20
+> IPv6 code reuses generic code found in IPv4 instead of duplicating it=
+=2E
 >=20
+> Control path uses GFP_KERNEL allocations instead of GFP_ATOMIC.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Shawn Lu <shawn.lu@ericsson.com>
 
-Packets of other protocol (so not UDP, not TCP...) are hashed based on
-their source IP _and_ destination IP
+By the way, we probably need to add a limit on the number of keys a
+socket can store. It seems previous code relied on kmalloc(big_array)
+limits  (~4MB on x86) only.
 
-Old documentation wrongly stated the hash was done only based on
-destination IP.
-
-Also we no longer uses 'local socket' since SFQ uses standard rxhash or
-flow dissector.
+sock_kmalloc() might be the right thing to use instead of kmalloc()
