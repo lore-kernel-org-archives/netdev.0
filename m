@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 5/6] LockD: make NSM network namespace aware
-Date: Tue, 31 Jan 2012 15:08:21 +0400
-Message-ID: <20120131110821.14364.57585.stgit@localhost6.localdomain6>
+Subject: [PATCH 6/6] Lockd: shutdown NLM hosts in network namespace context
+Date: Tue, 31 Jan 2012 15:08:29 +0400
+Message-ID: <20120131110829.14364.32351.stgit@localhost6.localdomain6>
 References: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,75 +11,111 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	jbottomley@parallels.com, bfields@fieldses.org,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:2292 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754319Ab2AaLIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 06:08:45 -0500
 In-Reply-To: <20120131105712.14364.88911.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NLM host is network namespace aware now.
-So NSM have to take it into account.
+Lockd now managed in network namespace context. And this patch introduces
+network namespace related NLM hosts shutdown in case of releasing per-net Lockd
+resources.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/lockd/mon.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ fs/lockd/host.c             |   26 +++++++++++++++++++-------
+ fs/lockd/svc.c              |    4 +++-
+ include/linux/lockd/lockd.h |    1 +
+ 3 files changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/fs/lockd/mon.c b/fs/lockd/mon.c
-index c196030..7ef14b3 100644
---- a/fs/lockd/mon.c
-+++ b/fs/lockd/mon.c
-@@ -62,14 +62,14 @@ static inline struct sockaddr *nsm_addr(const struct nsm_handle *nsm)
- 	return (struct sockaddr *)&nsm->sm_addr;
+diff --git a/fs/lockd/host.c b/fs/lockd/host.c
+index 9ebd91d..eb75ca7 100644
+--- a/fs/lockd/host.c
++++ b/fs/lockd/host.c
+@@ -565,12 +565,8 @@ void nlm_host_rebooted(const struct nlm_reboot *info)
+ 	nsm_release(nsm);
  }
  
--static struct rpc_clnt *nsm_create(void)
-+static struct rpc_clnt *nsm_create(struct net *net)
+-/*
+- * Shut down the hosts module.
+- * Note that this routine is called only at server shutdown time.
+- */
+ void
+-nlm_shutdown_hosts(void)
++nlm_shutdown_hosts_net(struct net *net)
  {
- 	struct sockaddr_in sin = {
- 		.sin_family		= AF_INET,
- 		.sin_addr.s_addr	= htonl(INADDR_LOOPBACK),
- 	};
- 	struct rpc_create_args args = {
--		.net			= &init_net,
-+		.net			= net,
- 		.protocol		= XPRT_TRANSPORT_UDP,
- 		.address		= (struct sockaddr *)&sin,
- 		.addrsize		= sizeof(sin),
-@@ -83,7 +83,8 @@ static struct rpc_clnt *nsm_create(void)
- 	return rpc_create(&args);
+ 	struct hlist_head *chain;
+ 	struct hlist_node *pos;
+@@ -582,6 +578,8 @@ nlm_shutdown_hosts(void)
+ 	/* First, make all hosts eligible for gc */
+ 	dprintk("lockd: nuking all hosts...\n");
+ 	for_each_host(host, pos, chain, nlm_server_hosts) {
++		if (net && host->net != net)
++			continue;
+ 		host->h_expires = jiffies - 1;
+ 		if (host->h_rpcclnt) {
+ 			rpc_shutdown_client(host->h_rpcclnt);
+@@ -592,15 +590,29 @@ nlm_shutdown_hosts(void)
+ 	/* Then, perform a garbage collection pass */
+ 	nlm_gc_hosts();
+ 	mutex_unlock(&nlm_host_mutex);
++}
++
++/*
++ * Shut down the hosts module.
++ * Note that this routine is called only at server shutdown time.
++ */
++void
++nlm_shutdown_hosts(void)
++{
++	struct hlist_head *chain;
++	struct hlist_node *pos;
++	struct nlm_host	*host;
++
++	nlm_shutdown_hosts_net(NULL);
+ 
+ 	/* complain if any hosts are left */
+ 	if (nrhosts != 0) {
+ 		printk(KERN_WARNING "lockd: couldn't shutdown host module!\n");
+ 		dprintk("lockd: %lu hosts left:\n", nrhosts);
+ 		for_each_host(host, pos, chain, nlm_server_hosts) {
+-			dprintk("       %s (cnt %d use %d exp %ld)\n",
++			dprintk("       %s (cnt %d use %d exp %ld net %p)\n",
+ 				host->h_name, atomic_read(&host->h_count),
+-				host->h_inuse, host->h_expires);
++				host->h_inuse, host->h_expires, host->net);
+ 		}
+ 	}
  }
+diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
+index 86e17e8..b34100e 100644
+--- a/fs/lockd/svc.c
++++ b/fs/lockd/svc.c
+@@ -281,8 +281,10 @@ static void lockd_down_net(struct net *net)
+ 	struct svc_serv *serv = nlmsvc_rqst->rq_server;
  
--static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res)
-+static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res,
-+			 struct net *net)
- {
- 	struct rpc_clnt	*clnt;
- 	int		status;
-@@ -99,7 +100,7 @@ static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res)
- 		.rpc_resp	= res,
- 	};
+ 	if (ln->nlmsvc_users) {
+-		if (--ln->nlmsvc_users == 0)
++		if (--ln->nlmsvc_users == 0) {
++			nlm_shutdown_hosts_net(net);
+ 			svc_shutdown_net(serv, net);
++		}
+ 	} else {
+ 		printk(KERN_ERR "lockd_down_net: no users! task=%p, net=%p\n",
+ 				nlmsvc_task, net);
+diff --git a/include/linux/lockd/lockd.h b/include/linux/lockd/lockd.h
+index 94b3d13..f04ce6a 100644
+--- a/include/linux/lockd/lockd.h
++++ b/include/linux/lockd/lockd.h
+@@ -234,6 +234,7 @@ struct rpc_clnt * nlm_bind_host(struct nlm_host *);
+ void		  nlm_rebind_host(struct nlm_host *);
+ struct nlm_host * nlm_get_host(struct nlm_host *);
+ void		  nlm_shutdown_hosts(void);
++void		  nlm_shutdown_hosts_net(struct net *net);
+ void		  nlm_host_rebooted(const struct nlm_reboot *);
  
--	clnt = nsm_create();
-+	clnt = nsm_create(net);
- 	if (IS_ERR(clnt)) {
- 		status = PTR_ERR(clnt);
- 		dprintk("lockd: failed to create NSM upcall transport, "
-@@ -149,7 +150,7 @@ int nsm_monitor(const struct nlm_host *host)
- 	 */
- 	nsm->sm_mon_name = nsm_use_hostnames ? nsm->sm_name : nsm->sm_addrbuf;
- 
--	status = nsm_mon_unmon(nsm, NSMPROC_MON, &res);
-+	status = nsm_mon_unmon(nsm, NSMPROC_MON, &res, host->net);
- 	if (unlikely(res.status != 0))
- 		status = -EIO;
- 	if (unlikely(status < 0)) {
-@@ -183,7 +184,7 @@ void nsm_unmonitor(const struct nlm_host *host)
- 	 && nsm->sm_monitored && !nsm->sm_sticky) {
- 		dprintk("lockd: nsm_unmonitor(%s)\n", nsm->sm_name);
- 
--		status = nsm_mon_unmon(nsm, NSMPROC_UNMON, &res);
-+		status = nsm_mon_unmon(nsm, NSMPROC_UNMON, &res, host->net);
- 		if (res.status != 0)
- 			status = -EIO;
- 		if (status < 0)
+ /*
