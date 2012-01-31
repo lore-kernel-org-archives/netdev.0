@@ -1,7 +1,7 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 2/5] r8169: bh locking redux and task scheduling.
-Date: Tue, 31 Jan 2012 14:55:56 +0100
-Message-ID: <20120131135555.GB18167@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 3/5] r8169: move task enable boolean to bitfield.
+Date: Tue, 31 Jan 2012 14:56:42 +0100
+Message-ID: <20120131135642.GC18167@electric-eye.fr.zoreil.com>
 References: <20120131135322.GA18106@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -11,102 +11,92 @@ Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
 	Hayes Wang <hayeswang@realtek.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52426 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52435 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753780Ab2AaOHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 09:07:16 -0500
+	with ESMTP id S1753094Ab2AaOH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 09:07:56 -0500
 Content-Disposition: inline
 In-Reply-To: <20120131135322.GA18106@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- atomic bit operations are globally visible
-- pending status is always cleared before execution
-- scheduled works are either idempotent or only required to happen once
-  after a series of originating events, say link events for instance
+Simpler, more consistent, with negligible cost in non-critical paths.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Suggested-by: Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>
 Cc: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   20 ++++----------------
- 1 files changed, 4 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
 t/realtek/r8169.c
-index 859554a..118f6f6 100644
+index 118f6f6..679711e 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3273,17 +3273,8 @@ out_mod_timer:
+@@ -668,6 +668,7 @@ struct rtl8169_counters {
+ };
 =20
- static void rtl_schedule_task(struct rtl8169_private *tp, enum rtl_fla=
-g flag)
- {
--	spin_lock(&tp->lock);
- 	if (!test_and_set_bit(flag, tp->wk.flags))
- 		schedule_work(&tp->wk.work);
--	spin_unlock(&tp->lock);
--}
--
--static void rtl_schedule_task_bh(struct rtl8169_private *tp, enum rtl_=
-flag flag)
--{
--	local_bh_disable();
--	rtl_schedule_task(tp, flag);
--	local_bh_enable();
- }
+ enum rtl_flag {
++	RTL_FLAG_TASK_ENABLED,
+ 	RTL_FLAG_TASK_SLOW_PENDING,
+ 	RTL_FLAG_TASK_RESET_PENDING,
+ 	RTL_FLAG_TASK_PHY_PENDING,
+@@ -725,7 +726,6 @@ struct rtl8169_private {
+ 		DECLARE_BITMAP(flags, RTL_FLAG_MAX);
+ 		struct mutex mutex;
+ 		struct work_struct work;
+-		bool enabled;
+ 	} wk;
 =20
- static void rtl8169_phy_timer(unsigned long __opaque)
-@@ -3291,7 +3282,7 @@ static void rtl8169_phy_timer(unsigned long __opa=
-que)
- 	struct net_device *dev =3D (struct net_device *)__opaque;
- 	struct rtl8169_private *tp =3D netdev_priv(dev);
+ 	unsigned features;
+@@ -4352,7 +4352,7 @@ static int rtl8169_open(struct net_device *dev)
 =20
--	rtl_schedule_task_bh(tp, RTL_FLAG_TASK_PHY_PENDING);
-+	rtl_schedule_task(tp, RTL_FLAG_TASK_PHY_PENDING);
- }
+ 	rtl_lock_work(tp);
 =20
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -5635,7 +5626,7 @@ static void rtl8169_pcierr_interrupt(struct net_d=
-evice *dev)
+-	tp->wk.enabled =3D true;
++	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
 =20
- 	rtl8169_hw_reset(tp);
+ 	napi_enable(&tp->napi);
 =20
--	rtl_schedule_task_bh(tp, RTL_FLAG_TASK_RESET_PENDING);
-+	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- }
+@@ -5879,7 +5879,8 @@ static void rtl_task(struct work_struct *work)
 =20
- static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
-@@ -5852,7 +5843,7 @@ static void rtl_slow_event_work(struct rtl8169_pr=
-ivate *tp)
- 		/* Work around for rx fifo overflow */
- 		case RTL_GIGA_MAC_VER_11:
- 			netif_stop_queue(dev);
--			rtl_schedule_task_bh(tp, RTL_FLAG_TASK_RESET_PENDING);
-+			rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- 		default:
- 			break;
- 		}
-@@ -5894,10 +5885,7 @@ static void rtl_task(struct work_struct *work)
+ 	rtl_lock_work(tp);
+=20
+-	if (!netif_running(dev) || !tp->wk.enabled)
++	if (!netif_running(dev) ||
++	    !test_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags))
+ 		goto out_unlock;
+=20
  	for (i =3D 0; i < ARRAY_SIZE(rtl_work); i++) {
- 		bool pending;
+@@ -5977,7 +5978,7 @@ static int rtl8169_close(struct net_device *dev)
+ 	rtl8169_update_counters(dev);
 =20
--		spin_lock_bh(&tp->lock);
- 		pending =3D test_and_clear_bit(rtl_work[i].bitnr, tp->wk.flags);
--		spin_unlock_bh(&tp->lock);
--
- 		if (pending)
- 			rtl_work[i].action(tp);
- 	}
-@@ -6116,7 +6104,7 @@ static void __rtl8169_resume(struct net_device *d=
+ 	rtl_lock_work(tp);
+-	tp->wk.enabled =3D false;
++	clear_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+=20
+ 	rtl8169_down(dev);
+ 	rtl_unlock_work(tp);
+@@ -6076,7 +6077,7 @@ static void rtl8169_net_suspend(struct net_device=
+ *dev)
+=20
+ 	rtl_lock_work(tp);
+ 	napi_disable(&tp->napi);
+-	tp->wk.enabled =3D false;
++	clear_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+ 	rtl_unlock_work(tp);
+=20
+ 	rtl_pll_power_down(tp);
+@@ -6102,7 +6103,7 @@ static void __rtl8169_resume(struct net_device *d=
 ev)
 =20
- 	tp->wk.enabled =3D true;
+ 	rtl_pll_power_up(tp);
 =20
--	rtl_schedule_task_bh(tp, RTL_FLAG_TASK_RESET_PENDING);
-+	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
+-	tp->wk.enabled =3D true;
++	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+=20
+ 	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
  }
-=20
- static int rtl8169_resume(struct device *device)
 --=20
 1.7.6.5
