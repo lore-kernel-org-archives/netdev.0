@@ -1,73 +1,40 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCH V3 15/16] netfront: multi page ring
- support.
-Date: Tue, 31 Jan 2012 11:17:28 +0000
-Message-ID: <1328008648.5553.81.camel@leeds.uk.xensource.com>
-References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
-	 <1327934734-8908-16-git-send-email-wei.liu2@citrix.com>
-	 <20120130213926.GB16261@phenom.dumpdata.com>
-	 <1328001142.26983.289.camel@zakaz.uk.xensource.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: network regression: cannot rename netdev twice
+Date: Tue, 31 Jan 2012 12:17:16 +0100
+Message-ID: <4F27CDBC.5020201@suse.cz>
+References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com> <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com> <4F27C9D4.3040105@suse.cz> <CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:8037 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752695Ab2AaLRQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 06:17:16 -0500
-In-Reply-To: <1328001142.26983.289.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-01-31 at 09:12 +0000, Ian Campbell wrote:
-> On Mon, 2012-01-30 at 21:39 +0000, Konrad Rzeszutek Wilk wrote:
+On 01/31/2012 12:13 PM, Kay Sievers wrote:
+>>> Does is work, if you rename the devices to something else than ethX?
+>>
+>> Negative:
+>> # ip link set eth0 name krtek
+>> # ip link set krtek name jezek
+>> RTNETLINK answers: No such file or directory
 > 
-> [...snip... please do consider trimming unnecessary quotes]
-> 
-> > > @@ -1496,50 +1523,105 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
-> > >               goto fail;
-> > >       }
-> > >
-> > > -     txs = (struct xen_netif_tx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
-> > > +     err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
-> > > +                        "max-tx-ring-page-order", "%u",
-> > > +                        &max_tx_ring_page_order);
-> > > +     if (err < 0) {
-> > > +             info->tx_ring_page_order = 0;
-> > > +             dev_info(&dev->dev, "single tx ring\n");
-> > > +     } else {
-> > > +             info->tx_ring_page_order = max_tx_ring_page_order;
-> > > +             dev_info(&dev->dev, "multi page tx ring, order = %d\n",
-> > > +                      max_tx_ring_page_order);
-> > > +     }
-> > > +     info->tx_ring_pages = (1U << info->tx_ring_page_order);
-> > > +
-> > > +     txs = (struct xen_netif_tx_sring *)
-> > > +             dma_alloc_coherent(NULL, PAGE_SIZE * info->tx_ring_pages,
-> > > +                                &info->tx_ring_dma_handle,
-> > > +                                __GFP_ZERO | GFP_NOIO | __GFP_HIGH);
-> > 
-> > Hm, so I see you are using 'NULL' which is a big nono (the API docs say that).
-> > But the other reason why it is a no-no, is b/c this way the generic DMA engine has no
-> > clue whether you are OK getting pages under 4GB or above it (so 64-bit support).
-> 
-> Does this allocation even need to be physically contiguous? I'd have
-> thought that virtually contiguous would be sufficient, and even then
-> only as a convenience at either end to avoid the need for more
-> complicated ring macros.
-> 
+> This is a command sequence you type manually?
 
-I had a second thought about this, you're right. I just need to make
-sure it is virtually contiguous in both frontend and backend, that's
-sufficient.
+Yea, and it is working with 3.3.0-rc1-next-20120124_64+. Not with
+3.3.0-rc1-next-20120131_64+.
 
-Wei.
+> You are sure that userspace is not working in the background,
+> triggered by uevents, and comes into your way here?
 
-> Ian.
-> 
-> 
+Note that krtek exists after the first command. But cannot be renamed
+further.
+
+thanks,
+-- 
+js
+suse labs
