@@ -1,58 +1,47 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: brcm80211 breakage..
-Date: Tue, 31 Jan 2012 20:08:06 +0100
-Message-ID: <4F283C16.5090508@broadcom.com>
-References: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
- <20120131120846.GA8799@polaris.bitmath.org>
- <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH] linux-next: et131x: Fixups due to merge issues from
+ staging tree
+Date: Tue, 31 Jan 2012 19:09:31 +0000
+Message-ID: <CANK3SE1w5n+t7+pwn6FLLu0py=-z2D=MSpWkg8ePKMdc2DfmrA@mail.gmail.com>
+References: <20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au>
+ <20111025121551.GA2108@marke.airties> <20120131182609.GA12819@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: "Henrik Rydberg" <rydberg@euromail.se>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	"John W. Linville" <linville@redhat.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
-To: "Linus Torvalds" <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3781 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754762Ab2AaTIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jan 2012 14:08:18 -0500
-In-Reply-To: <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: 20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Pirko <jpirko@redhat.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120131182609.GA12819@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/31/2012 06:02 PM, Linus Torvalds wrote:
-> On Tue, Jan 31, 2012 at 4:08 AM, Henrik Rydberg <rydberg@euromail.se> wrote:
+On 31 January 2012 18:26, Greg KH <greg@kroah.com> wrote:
+> On Tue, Oct 25, 2011 at 01:15:52PM +0100, Mark Einon wrote:
 >>
->> probing simply fails on my machine,
+>> Manually merged changes from commits afc4b13df143, bf3f1a6081aa and 5d6bcdfe38ce into et131x.c as identified in email below.
 >>
->> [  882.064120] bcma: Failed to get SPROM: -71
->> [  882.064256] bcma-pci-bridge: probe of 0000:01:00.0 failed with error -2
+>> Also removed dependency on NETDEV_1000 in Kconfig, which no longer exists.
 >>
->> resulting in no wireless. Since the bcma SPROM setup allegedly is
->> unused, simply ignoring the error with this hack
-> 
-> I personally hit the "No SPROM available" case, which is apparently
-> why it works for me.
-> 
-> That said, I obviously agree with your patch: if we don't fail for the
-> "No SPROM available" case, then we damn well shouldn't fail just
-> because it *is* available but we can't read it or whatever.
-> 
-> So Ack on the patch from me, but it should go through the network
-> guys. Arend, John?
-> 
+>> Greg: This patch should also be good for the staging tree.
+>
+> I don't think this is needed anymore, right?
 
-The SPROM code in bcma needs some attention, because the availability of
-it depends between chipsets. I think in bcma not all variations are
-known and thus lacking implementation to handle those. So ultimately
-bcma sprom code needs to be extended (looking at brcmsmac code). The
-sprom code in brcmsmac can go when that has happened.
+Hi Greg,
 
-I will dive into that. I have not hit the "Failed to get SPROM" case so
-any chipset info would be appreciated (Henrik?).
+Correct, this change is in staging-next and does not need to be applied.
+It's since been added by a merge from Linus's tree.
 
-Gr. AvS
+Cheers,
+
+Mark
+
+>
+> If so, please redo it against Linus's tree and send it to me.
+>
+> thanks,
+>
+> greg k-h
