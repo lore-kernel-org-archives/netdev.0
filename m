@@ -1,100 +1,58 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [03/22] Cyclades PC300 driver: Fix usage of types
-Date: Tue, 31 Jan 2012 19:58:29 +0100
-Message-ID: <m3hazb3dii.fsf@intrepid.localdomain>
-References: <20120130024605.GD10262@cronus.persephoneslair.org>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Tue, 31 Jan 2012 20:08:06 +0100
+Message-ID: <4F283C16.5090508@broadcom.com>
+References: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+ <20120131120846.GA8799@polaris.bitmath.org>
+ <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, mmarek@suse.cz, jkosina@suse.cz,
-	joe@perches.com, justinmattock@gmail.com, gregkh@suse.de,
-	alan@linux.intel.com, jdmason@kudzu.us
-To: Andrea Shepard <andrea@persephoneslair.org>
+Content-Type: text/plain;
+ charset=iso-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: "Henrik Rydberg" <rydberg@euromail.se>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
+To: "Linus Torvalds" <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inx.pm.waw.pl ([195.116.170.130]:42153 "EHLO inx.pm.waw.pl"
+Received: from mms3.broadcom.com ([216.31.210.19]:3781 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753227Ab2AaS7i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jan 2012 13:59:38 -0500
-In-Reply-To: <20120130024605.GD10262@cronus.persephoneslair.org> (Andrea
-	Shepard's message of "Sun, 29 Jan 2012 18:46:05 -0800")
+	id S1754762Ab2AaTIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 14:08:18 -0500
+In-Reply-To: <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/31/2012 06:02 PM, Linus Torvalds wrote:
+> On Tue, Jan 31, 2012 at 4:08 AM, Henrik Rydberg <rydberg@euromail.se> wrote:
+>>
+>> probing simply fails on my machine,
+>>
+>> [  882.064120] bcma: Failed to get SPROM: -71
+>> [  882.064256] bcma-pci-bridge: probe of 0000:01:00.0 failed with error -2
+>>
+>> resulting in no wireless. Since the bcma SPROM setup allegedly is
+>> unused, simply ignoring the error with this hack
+> 
+> I personally hit the "No SPROM available" case, which is apparently
+> why it works for me.
+> 
+> That said, I obviously agree with your patch: if we don't fail for the
+> "No SPROM available" case, then we damn well shouldn't fail just
+> because it *is* available but we can't read it or whatever.
+> 
+> So Ack on the patch from me, but it should go through the network
+> guys. Arend, John?
+> 
 
-Andrea Shepard <andrea@persephoneslair.org> writes:
+The SPROM code in bcma needs some attention, because the availability of
+it depends between chipsets. I think in bcma not all variations are
+known and thus lacking implementation to handle those. So ultimately
+bcma sprom code needs to be extended (looking at brcmsmac code). The
+sprom code in brcmsmac can go when that has happened.
 
-> +++ b/drivers/net/wan/hd64572.h
-> @@ -172,11 +172,11 @@
->  
->  /* Block Descriptor Structure */
->  typedef struct {
-> -	unsigned long	next;		/* pointer to next block descriptor */
-> -	unsigned long	ptbuf;		/* buffer pointer */
-> -	unsigned short	len;		/* data length */
-> -	unsigned char	status;		/* status */
-> -	unsigned char	filler[5];	/* alignment filler (16 bytes) */ 
-> +	u32	next;		/* pointer to next block descriptor */
-> +	u32	ptbuf;		/* buffer pointer */
-> +	u16	len;		/* data length */
-> +	u8	status;		/* status */
-> +	u8	filler[5];	/* alignment filler (16 bytes) */
->  } pcsca_bd_t;
+I will dive into that. I have not hit the "Failed to get SPROM" case so
+any chipset info would be appreciated (Henrik?).
 
-Perhaps you could just use the following struct which is already in the
-file:
-
-/* Block Descriptor Structure */
-typedef struct {
-        u32 cp;                 /* pointer to next block descriptor */
-        u32 bp;                 /* buffer pointer */
-        u16 len;                /* data length */
-        u8 stat;                /* status */
-        u8 unused;              /* pads to 4-byte boundary */
-}pkt_desc;
-
-The difference is a different alignment (4 bytes vs 16 bytes) but
-I think it's been verified (both docs and real hw) that 32-bit alignment
-is ok with these chips.
-
-> +#define cpc_writeb(port, val)	{writeb((u8)(val), \
-> +				(void __iomem *)(port)); mb(); }
-> +#define cpc_writew(port, val)	{writew((u16)(val), \
-> +				(void __iomem *)(port)); mb(); }
-> +#define cpc_writel(port, val)	{writel((u32)(val), \
-> +				(void __iomem *)(port)); mb(); }
-
-Are these mb() needed? I think write[bwl] and read[bwl] are already
-memory barriers.
-PCI write posting is a different thing of course and you may need e.g.
-a PCI read in some timing-critical parts of the code.
-
->  #else /* __KERNEL__ */
-> -#define cpc_writeb(port,val)	(*(volatile ucchar *)(port) = (ucchar)(val))
-> -#define cpc_writew(port,val)	(*(volatile ucshort *)(port) = (ucshort)(val))
-> -#define cpc_writel(port,val)	(*(volatile uclong *)(port) = (uclong)(val))
-> +#define cpc_writeb(port, val)	(*(u8 *)(port) = (u8)(val))
-> +#define cpc_writew(port, val)	(*(u16 *)(port) = (u16)(val))
-> +#define cpc_writel(port, val)	(*(u32 *)(port) = (u32)(val))
->  
-> -#define cpc_readb(port)		(*(volatile ucchar *)(port))
-> -#define cpc_readw(port)		(*(volatile ucshort *)(port))
-> -#define cpc_readl(port)		(*(volatile uclong *)(port))
-> +#define cpc_readb(port)		(*(u8 *)(port))
-> +#define cpc_readw(port)		(*(u16 *)(port))
-> +#define cpc_readl(port)		(*(u32 *)(port))
-
-I'm not sure the kernel headers are a good place for such things.
-
->  void tx_dma_stop(pc300_t * card, int ch)
->  {
-> -	uclong scabase = card->hw.scabase;
-> -	ucchar drr_ena_bit = 1 << (5 + 2 * ch);
-> -	ucchar drr_rst_bit = 1 << (1 + 2 * ch);
-> +	uintptr_t scabase = (uintptr_t)(card->hw.scabase);
-> +	u8 drr_ena_bit = 1 << (5 + 2 * ch);
-> +	u8 drr_rst_bit = 1 << (1 + 2 * ch);
-
-uintptr_t? Is it simply an unsigned int *?
--- 
-Krzysztof Halasa
+Gr. AvS
