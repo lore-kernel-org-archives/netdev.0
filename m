@@ -1,49 +1,45 @@
-From: "devendra.aaru" <devendra.aaru@gmail.com>
-Subject: Re: [PATCH 1/1] wireless: remove return in _rtl_pci_switch_clk_req
-Date: Tue, 31 Jan 2012 01:22:22 -0500
-Message-ID: <CAHdPZaPFq0eB2Y7zogr_xh+Ct0Ot4S+sU9RQSDquo5_Z=C+R8Q@mail.gmail.com>
-References: <1327927591-28070-1-git-send-email-devendra.aaru@gmail.com>
-	<4F27294D.30302@lwfinger.net>
-	<1327967103.4230.7.camel@joe2Laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	chaoming_li@realsil.com.cn, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: "Devendra.Naga" <devendra.aaru@gmail.com>
+Subject: [PATCH] rtlwifi: remove return in _rtl_pci_switch_clk_req
+Date: Tue, 31 Jan 2012 01:28:15 -0500
+Message-ID: <1327991295-6258-1-git-send-email-devendra.aaru@gmail.com>
+Cc: "Devendra.Naga" <devendra.aaru@gmail.com>
+To: <Larry.Finger@lwfinger.net>, <chaoming_li@realsil.com.cn>,
+	<linville@tuxdriver.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327967103.4230.7.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2012 at 6:45 PM, Joe Perches <joe@perches.com> wrote:
-> On Mon, 2012-01-30 at 17:35 -0600, Larry Finger wrote:
->> The patch is OK, but the patch subject is bad. You should have "[PAT=
-CH]
->> rtlwifi:...". Your patch is for rtlwifi, not wireless.
->
-Will post a new patch, Thanks !!
-> Hi Devendra.
->
-> A reasonable rule of thumb is use the deepest directory
-> path basename you can to prefix the patch.
-> Something like:
->
-> [PATCH] $(basename $(dirname $file)): terse description
->
-> If you are patching drivers/net/ethernet/realtek/apt.c
-> this becomes:
->
-> [PATCH] realtek: terse description
->
-> There are some exceptions though. =A0One of them
-> is if the patch is in staging, prefix with
-> [PATCH] staging: $(basename $(dirname $file)): description
->
-> cheers, Joe
->
-Thanks a lot Joe, will follow your suggestions :).
+From: "Devendra.Naga" <devendra.aaru@gmail.com>
 
-Devendra.
+the return value from _rtl_pci_switch_clk_req is not used by any of its callers.
+
+Signed-off-by: Devendra.Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/wireless/rtlwifi/pci.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 5cb2199..9a01909 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -198,7 +198,7 @@ static bool _rtl_pci_platform_switch_device_pci_aspm(
+ }
+ 
+ /*When we set 0x01 to enable clk request. Set 0x0 to disable clk req.*/
+-static bool _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
++static void _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
+ {
+ 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
+ 	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
+@@ -207,8 +207,6 @@ static bool _rtl_pci_switch_clk_req(struct ieee80211_hw *hw, u8 value)
+ 
+ 	if (rtlhal->hw_type == HARDWARE_TYPE_RTL8192SE)
+ 		udelay(100);
+-
+-	return true;
+ }
+ 
+ /*Disable RTL8192SE ASPM & Disable Pci Bridge ASPM*/
+-- 
+1.7.5.4
