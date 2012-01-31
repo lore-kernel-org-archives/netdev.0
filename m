@@ -1,32 +1,33 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] smsc95xx: add macaddr module parameter
-Date: Tue, 31 Jan 2012 17:27:31 +0000
-Message-ID: <20120131172731.03df5704@pyramind.ukuu.org.uk>
-References: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de>
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: IP forwarding on a linux IPSec gateway
+Date: Tue, 31 Jan 2012 17:47:31 +0000
+Message-ID: <1328032051.2018.15.camel@andy-laptop>
+References: <B97B134FACB2024DB45F524AB0A7B7F2059F2B32@XMB-BGL-419.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Danny Kukawka <dkukawka@suse.de>
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328030433-12524-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: "Prashant Batra (prbatra)" <prbatra@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earth.simplelists.com ([89.16.184.171]:46549 "EHLO
+	earth.simplelists.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753996Ab2AaR65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 12:58:57 -0500
+In-Reply-To: <B97B134FACB2024DB45F524AB0A7B7F2059F2B32@XMB-BGL-419.cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Jan 2012 18:20:33 +0100
-Danny Kukawka <danny.kukawka@bisect.de> wrote:
+On Fri, 2012-01-27 at 15:31 +0530, Prashant Batra (prbatra) wrote:
+> So, it's clear that linux gateway is able to protect the data and send
+> to the connected gateway (ESP packets to outer IPs). And the second
+> gateway is responding with ESP packet which is decoded on linux gateway
+> and sent to the ip stack again by linux kernel (ICMP reply). But the
+> reply doesn't reach the host on left subnet.
 
-> Added smsc95xx.macaddr module parameter to allow the user to
-> change the MAC address on boot if there was no MAC on the EEPROM.
+Didn't somebody else have a similar problem recently? He found that it
+worked using one internet provider but not another. If you're not seeing
+anything received in tcpdump in the left subnet, then I would suspect
+that the packet is getting lost in the WAN somewhere. What happens when
+you ping in the other direction?
 
-NAK. Please see the discussion on this and ifconfig hw for other devices.
-
-In summary - make the device refuse to ifconfig up without a valid
-address, allow it to come into existance without a valid address and then
-use ifconfig.
-
-
-Your patch also seems to break if there are several attached to a board.
+Andy
