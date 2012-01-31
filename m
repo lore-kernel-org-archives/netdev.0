@@ -1,44 +1,72 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: network regression: cannot rename netdev twice
-Date: Tue, 31 Jan 2012 12:58:46 +0100
-Message-ID: <CAPXgP1371fgmaP3ecxsDJ2BmJrOS6kUP95G1BHe6deBPk5FVCQ@mail.gmail.com>
-References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
- <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
- <4F27C9D4.3040105@suse.cz> <CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
- <4F27CDBC.5020201@suse.cz>
+From: "Henrik Rydberg" <rydberg@euromail.se>
+Subject: Re: brcm80211 breakage..
+Date: Tue, 31 Jan 2012 13:08:46 +0100
+Message-ID: <20120131120846.GA8799@polaris.bitmath.org>
+References: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F27CDBC.5020201@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay-b12.telenor.se ([62.127.194.21]:40528 "EHLO
+	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753031Ab2AaMIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 07:08:07 -0500
+Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
+	by smtprelay-b12.telenor.se (Postfix) with ESMTP id 7D352EB725
+	for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 13:08:04 +0100 (CET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2012 at 12:17, Jiri Slaby <jslaby@suse.cz> wrote:
-> On 01/31/2012 12:13 PM, Kay Sievers wrote:
+Hi Linus,
 
->> This is a command sequence you type manually?
->
-> Yea, and it is working with 3.3.0-rc1-next-20120124_64+. Not with
-> 3.3.0-rc1-next-20120131_64+.
->
->> You are sure that userspace is not working in the background,
->> triggered by uevents, and comes into your way here?
->
-> Note that krtek exists after the first command. But cannot be renamed
-> further.
+Thanks for the MBA31 fixes. Sadly, however, with current git
+(27ba234), after encountering the known problem
 
-Yeah, I can confirm the problem here. I works fine with earlier
-kernels and fails with the latest -next:
+[  882.064120] bcma: Failed to get SPROM: -71
 
-# uname -r
-3.3.0-rc1-next-20120131+
-# modprobe dummy
-# ip link set dummy0 name foo0
-# ip link set foo0 name bar0
-RTNETLINK answers: No such file or directory
+probing simply fails on my machine,
 
-Kay
+[  882.064256] bcma-pci-bridge: probe of 0000:01:00.0 failed with error -2
+
+resulting in no wireless. Since the bcma SPROM setup allegedly is
+unused, simply ignoring the error with this hack
+
+diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
+index febbc0a..cb69fb0 100644
+--- a/drivers/bcma/main.c
++++ b/drivers/bcma/main.c
+@@ -171,7 +171,6 @@ int bcma_bus_register(struct bcma_bus *bus)
+ 		pr_err("No SPROM available\n");
+ 	} else if (err) {
+ 		pr_err("Failed to get SPROM: %d\n", err);
+-		return -ENOENT;
+ 	}
+ 
+ 	/* Register found cores */
+
+makes the device register as
+
+01:00.0 0280: 14e4:4353 (rev 01)
+	Subsystem: 106b:00d1
+	Kernel driver in use: bcma-pci-bridge
+
+which seems to actually work. Instead of the failed probe, the log shows
+
+[ 1168.048571] bcma: Core 0 found: ChipCommon (manuf 0x4BF, id 0x800, rev 0x22, class 0x0)
+[ 1168.048706] bcma: Core 1 found: IEEE 802.11 (manuf 0x4BF, id 0x812, rev 0x17, class 0x0)
+[ 1168.048855] bcma: Core 2 found: PCIe (manuf 0x4BF, id 0x820, rev 0x0F, class 0x0)
+[ 1168.049051] bcma: Found rev 6 PMU (capabilities 0x108C2606)
+[ 1168.120122] bcma: Failed to get SPROM: -71
+[ 1168.120340] bcma: Bus registered
+[ 1168.125167] brcmsmac bcma0:0: mfg 4bf core 812 rev 23 class 0 irq 23
+[ 1168.175670] bcma: Switched to core: 0x812
+[ 1168.182061] brcms_module_init: register returned 0
+
+Given that our machines look the same, this is somewhat odd. Could
+this be a config issue or did I miss something else?
+
+Henrik
