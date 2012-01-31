@@ -1,45 +1,34 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: network regression: cannot rename netdev twice
-Date: Tue, 31 Jan 2012 11:41:19 +0100
-Message-ID: <4F27C54F.1010107@suse.cz>
-References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH V3 10/16] netback: rework of per-cpu scratch space.
+Date: Tue, 31 Jan 2012 10:43:40 +0000
+Message-ID: <1328006620.5553.59.camel@leeds.uk.xensource.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+	 <1327934734-8908-11-git-send-email-wei.liu2@citrix.com>
+	 <CAL4WiirrQ+2PqojQ9dnGRF16cxx-1QNRWqcMkVqqZSZwvWC58Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"Ian Campbell" <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:52616 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752274Ab2AaKns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 05:43:48 -0500
+In-Reply-To: <CAL4WiirrQ+2PqojQ9dnGRF16cxx-1QNRWqcMkVqqZSZwvWC58Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2012 11:52 PM, Kay Sievers wrote:
-> 2012/1/30 Jiri Slaby <jslaby@suse.cz>:
->> I cannot boot properly with this commit:
->> commit 524b6c5b39b931311dfe5a2f5abae2f5c9731676
->> Author: Eric W. Biederman <ebiederm@xmission.com>
->> Date:   Sun Dec 18 20:09:31 2011 -0800
->>
->>    sysfs: Kill nlink counting.
->>
->>
->> 1) network systemd rule doesn't start network
+On Tue, 2012-01-31 at 01:25 +0000, Eric Dumazet wrote:
 > 
-> What does that mean? What's a network systemd rule?
+> Problem is you lost NUMA awareness here.
+> 
+> Please check vzalloc_node()
 
-Oh, perhaps you call it a service file, not rule file?
+Good point, thanks.
 
-Anyway this is a different bug. Revert of the patch above does not help.
-
-The bug lays in the network layer. udev is unable to perform persistent
-eth naming:
-# ip link set eth0 name eth1    -- this one is OK
-# ip link set eth1 name eth0
-RTNETLINK answers: No such file or directory
-
-thanks,
--- 
-js
-suse labs
+Wei.
