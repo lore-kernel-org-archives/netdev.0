@@ -1,60 +1,52 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
- than individually
-Date: Tue, 31 Jan 2012 14:35:27 +0000
-Message-ID: <1328020528.26983.396.camel@zakaz.uk.xensource.com>
-References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
-	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
-	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
-	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] sysfs:  Update the name hash when renaming sysfs entries
+Date: Tue, 31 Jan 2012 06:40:26 -0800
+Message-ID: <m1zkd45411.fsf_-_@fess.ebiederm.org>
+References: <4F27120A.4040106@suse.cz>
+	<CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
+	<4F27C54F.1010107@suse.cz>
+	<CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
+	<4F27C9D4.3040105@suse.cz>
+	<CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com>
+	<4F27CDBC.5020201@suse.cz>
+	<CAPXgP1371fgmaP3ecxsDJ2BmJrOS6kUP95G1BHe6deBPk5FVCQ@mail.gmail.com>
+	<m18vko6jmv.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:14111 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193Ab2AaOf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 09:35:29 -0500
-In-Reply-To: <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Slaby <jslaby@suse.cz>, LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Kay Sievers <kay.sievers@vrfy.org>
+To: Greg KH <greg@kroah.com>, Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m18vko6jmv.fsf@fess.ebiederm.org> (Eric W. Biederman's message
+	of "Tue, 31 Jan 2012 06:18:00 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
 
-On Wed, 2012-01-25 at 13:12 +0000, Eric Dumazet wrote:
-> Le mercredi 25 janvier 2012 =C3=A0 13:09 +0000, Ian Campbell a =C3=A9=
-crit :
->=20
-> > Can you elaborate on the specific benchmark you used there?
->=20
-> One machine was sending udp frames on my target (using pktgen)
->=20
-> Target was running a mono threaded udp receiver (one socket)
+This fixes a bug introduced with sysfs name hashes where renaming a
+network device appears to succeed but silently makes the sysfs files for
+that network device inaccessible.
 
-I've been playing with pktgen and I'm seeing more like 81,600-81,800 pp=
-s
-from a UDP transmitter, measuring on the rx side using "bwm-ng -u
-packets" and sinking the traffic with "nc -l -u -p 9 > /dev/null". The
-numbers are the same with or without this series.
+In at least one configuration this bug has stopped networking from
+coming up during boot.
 
-You mentioned numbers in the 820pps region -- is that really kilo-pps
-(in which case I'm an order of magnitude down) or actually 820pps (in
-which case I'm somehow a couple of orders of magnitude up).
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ fs/sysfs/dir.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I'm using a single NIC transmitter, no delay, 1000000 clones of each sk=
-b
-and I've tried 60 and 1500 byte packets. In the 60 byte case I see more
-like 50k pps
-
-I'm in the process of setting up a receiver with a bnx2 but in the
-meantime I feel like I'm making some obvious or fundamental flaw in my
-method...
-
-Any tips greatly appreciated.
-
-Thanks,
-Ian.
+diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+index ea64d01..dd3779c 100644
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -872,6 +872,7 @@ int sysfs_rename(struct sysfs_dirent *sd,
+ 
+ 		dup_name = sd->s_name;
+ 		sd->s_name = new_name;
++		sd->s_hash = sysfs_name_hash(sd->s_ns, sd->s_name);
+ 	}
+ 
+ 	/* Move to the appropriate place in the appropriate directories rbtree. */
+-- 
+1.7.2.5
