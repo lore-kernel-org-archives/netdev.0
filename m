@@ -1,229 +1,65 @@
-From: Shawn Lu <shawn.lu@ericsson.com>
-Subject: RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener
-Date: Mon, 30 Jan 2012 21:37:12 -0500
-Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5B9294A@EUSAACMS0702.eamcs.ericsson.se>
-References: <1327975638-16530-1-git-send-email-shawn.lu@ericsson.com>
- <CAL4WiipdO5+1Fi_ig5hB25d2LJvc+cjzyAbo8mxx3e4EiRx9YA@mail.gmail.com>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: increase the number of routing tables
+Date: Mon, 30 Jan 2012 22:06:31 -0500
+Message-ID: <CANj2EbfKGL31ztG1UZOApAUHiMznPSYE5w=QWX_NBz-m2Vs=6g@mail.gmail.com>
+References: <CANj2EbfR0cBaBd+t1yCZyErRpVzSC00DZohvtyazK8_9bv2aEQ@mail.gmail.com>
+	<1327804887.2805.20.camel@edumazet-laptop>
+	<4F24B2E9.3010600@candelatech.com>
+	<CANj2EbdFc33ciZ02ZCF7=3sY1XTbCLrdfu4Mp_vLp4N94xu5Cw@mail.gmail.com>
+	<4F259D67.3070603@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr3.ericy.com ([198.24.6.13]:36121 "EHLO imr3.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751003Ab2AaChQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 21:37:16 -0500
-In-Reply-To: <CAL4WiipdO5+1Fi_ig5hB25d2LJvc+cjzyAbo8mxx3e4EiRx9YA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-we0-f174.google.com ([74.125.82.174]:42427 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752384Ab2AaDGe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 22:06:34 -0500
+Received: by werb13 with SMTP id b13so4079941wer.19
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 19:06:33 -0800 (PST)
+In-Reply-To: <4F259D67.3070603@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes. Eric is right.  I will have to fix refcount problem.
-Will send out another patch later on. =20
+Basically I am trying to build a NATter with multiple uplinks...
 
------Original Message-----
-=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-Sent: Monday, January 30, 2012 6:16 PM
-To: Shawn Lu
-Cc: davem@davemloft.net; netdev@vger.kernel.org; xiaoclu@gmail.com
-Subject: Re: [PATCH] tcp: md5: fix md5 RST when both sides have listene=
-r
+I have a ton of private IPs behind the NATter, and I need to NAT a
+private IP into different uplinks based on the destination prefix.
+Think about choosing a specific ISP for a certain destination.
 
-Le 31 janvier 2012 03:07, Shawn Lu <shawn.lu@ericsson.com> a =E9crit :
-> TCP RST mechanism is broken in TCP md5(RFC2385). When connection is=20
-> gone, md5 key is lost, sending RST without
-> md5 hash is deem to ignored by peer. This can be a problem since RST=20
-> help protocal like bgp fast recove from peer crash.
+Therefore I'll need to maintain a per-IP routing table to make sure
+the outgoing packet goes to the right uplink, and then use
+iptables-rules to translate into the proper public IP.
+
+-Simon
+
+On Sun, Jan 29, 2012 at 2:26 PM, Ben Greear <greearb@candelatech.com> w=
+rote:
+> On 01/28/2012 08:20 PM, Simon Chen wrote:
+>>
+>> Thanks...
+>>
+>> Here says 252 routing tables top... maybe that's too old:
+>> http://linux-ip.net/html/routing-tables.html
+>>
+>> I wonder if we can use a trie-tree for "ip rule" - linear evaluation
+>> does not sound too good. But I'll be using a ton of iptables rules a=
+s
+>> well, and I believe those are linear evaluation too :-(
 >
-> In most case, users of tcp md5, such as bgp and ldp, have listeners o=
-n=20
-> both sides. md5 keys for peers are saved in listening socket.
-> When passive side connection is gone, we can still get md5 key from=20
-> listening socket. When active side of connection is gone, we can try=20
-> to find listening socket through source port, and then md5 key.
-> we are not loosing sercuriy here: packet is valified checked with
-> md5 hash. No RST is generated if md5 hash doesn't match or no md5 key=
-=20
-> can be found.
 >
-> Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
-> ---
-> =A0net/ipv4/tcp_ipv4.c | =A0 31 ++++++++++++++++++++++++++++++-
-> =A0net/ipv6/tcp_ipv6.c | =A0 34 ++++++++++++++++++++++++++++++++--
-> =A02 files changed, 62 insertions(+), 3 deletions(-)
+> At least some rules apply only to packets entering certain
+> interfaces. =A0It seems we could have per-interface rule collections
+> in those cases so that only a few rules would be searched each time.
 >
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c index=20
-> 337ba4c..b2358b4 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -601,6 +601,9 @@ static void tcp_v4_send_reset(struct sock *sk,=20
-> struct sk_buff *skb)
-> =A0 =A0 =A0 =A0struct ip_reply_arg arg;
-> =A0#ifdef CONFIG_TCP_MD5SIG
-> =A0 =A0 =A0 =A0struct tcp_md5sig_key *key;
-> + =A0 =A0 =A0 =A0__u8 *hash_location =3D NULL;
-> + =A0 =A0 =A0 unsigned char newhash[16];
-> + =A0 =A0 =A0 int genhash;
-> =A0#endif
-> =A0 =A0 =A0 =A0struct net *net;
+> What type of rules are you planning to use?
 >
-> @@ -631,7 +634,33 @@ static void tcp_v4_send_reset(struct sock *sk,=20
-> struct sk_buff *skb)
-> =A0 =A0 =A0 =A0arg.iov[0].iov_len =A0=3D sizeof(rep.th);
 >
-> =A0#ifdef CONFIG_TCP_MD5SIG
-> - =A0 =A0 =A0 key =3D sk ? tcp_v4_md5_do_lookup(sk, ip_hdr(skb)->sadd=
-r) :=20
-> NULL;
-> + =A0 =A0 =A0 hash_location =3D tcp_parse_md5sig_option(th);
-> + =A0 =A0 =A0 if (!sk && hash_location) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* active side is lost. Try to find l=
-istening socket=20
-> + through
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* source port, and then find md5 key=
- through listening socket.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* we are not loose security here:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Incoming packet is checked with md=
-5 hash with=20
-> + finding key,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* no RST generated if md5 hash doesn=
-'t match.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk =3D=20
-> + __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 &tcp_hashinfo,=20
-> + ip_hdr(skb)->daddr,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 ntohs(th->source),=20
-> + inet_iif(skb));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* don't send rst if it can't find key =
-*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!sk)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-
-Now you have a socket in sk, you also are responsible to release the re=
-fcount taken in __inet_lookup_listener()
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 key =3D tcp_v4_md5_do_lookup(sk, ip_hdr=
-(skb)->saddr);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!key)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-
-leak refcount
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 genhash =3D tcp_v4_md5_hash_skb(newhash=
-, key,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 NULL, NULL, skb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (genhash || memcmp(hash_location, ne=
-whash, 16) !=3D=20
-> + 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-
-same leak
-
-> +
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 key =3D sk ? tcp_v4_md5_do_lookup(sk,=20
-> + ip_hdr(skb)->saddr) : NULL;
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0if (key) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rep.opt[0] =3D htonl((TCPOPT_NOP << 24=
-) |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (=
-TCPOPT_NOP << 16) | diff --git=20
-> a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c index 3edd05a..1da99fd=20
-> 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1074,6 +1074,12 @@ static void tcp_v6_send_reset(struct sock *sk,=
-=20
-> struct sk_buff *skb)
-> =A0 =A0 =A0 =A0const struct tcphdr *th =3D tcp_hdr(skb);
-> =A0 =A0 =A0 =A0u32 seq =3D 0, ack_seq =3D 0;
-> =A0 =A0 =A0 =A0struct tcp_md5sig_key *key =3D NULL;
-> +#ifdef CONFIG_TCP_MD5SIG
-> + =A0 =A0 =A0 __u8 *hash_location =3D NULL;
-> + =A0 =A0 =A0 struct ipv6hdr *ipv6h =3D ipv6_hdr(skb);
-> + =A0 =A0 =A0 unsigned char newhash[16];
-> + =A0 =A0 =A0 int genhash;
-> +#endif
->
-> =A0 =A0 =A0 =A0if (th->rst)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
-> @@ -1082,8 +1088,32 @@ static void tcp_v6_send_reset(struct sock *sk,=
-=20
-> struct sk_buff *skb)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
->
-> =A0#ifdef CONFIG_TCP_MD5SIG
-> - =A0 =A0 =A0 if (sk)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 key =3D tcp_v6_md5_do_lookup(sk, &ipv6_=
-hdr(skb)->saddr);
-> + =A0 =A0 =A0 hash_location =3D tcp_parse_md5sig_option(th);
-> + =A0 =A0 =A0 if (!sk && hash_location) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* active side is lost. Try to find l=
-istening socket=20
-> + through
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* source port, and then find md5 key=
- through listening socket.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* we are not loose security here:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Incoming packet is checked with md=
-5 hash with=20
-> + finding key,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* no RST generated if md5 hash doesn=
-'t match.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk =3D inet6_lookup_listener(dev_net(sk=
-b_dst(skb)->dev),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0&tcp_hashinfo,=20
-> + &ipv6h->daddr,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0ntohs(th->source),=20
-> + inet6_iif(skb));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!sk)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 key =3D tcp_v6_md5_do_lookup(sk, &ipv6h=
-->saddr);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!key)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-
-same leak
-
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 genhash =3D tcp_v6_md5_hash_skb(newhash=
-, key,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 NULL, NULL, skb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (genhash || memcmp(hash_location, ne=
-whash, 16) !=3D=20
-> + 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-
-same leak
-
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 key =3D sk ? tcp_v6_md5_do_lookup(sk, &=
-ipv6h->saddr) :=20
-> + NULL;
-> + =A0 =A0 =A0 }
-> =A0#endif
->
-> =A0 =A0 =A0 =A0if (th->ack)
-> --
-> 1.7.0.4
+> Thanks,
+> Ben
 >
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in=20
-> the body of a message to majordomo@vger.kernel.org More majordomo inf=
-o=20
-> at =A0http://vger.kernel.org/majordomo-info.html
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc =A0http://www.candelatech.com
