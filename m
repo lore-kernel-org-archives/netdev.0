@@ -1,54 +1,76 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] sysfs:  Update the name hash when renaming sysfs entries
-Date: Tue, 31 Jan 2012 15:41:36 +0100
-Message-ID: <4F27FDA0.6090806@suse.cz>
-References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com> <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com> <4F27C9D4.3040105@suse.cz> <CAPXgP12pj6esZVmN-PYTVgJ+_MaAfmpa9hKoKKQZ+Y=Y-Kb4eA@mail.gmail.com> <4F27CDBC.5020201@suse.cz> <CAPXgP1371fgmaP3ecxsDJ2BmJrOS6kUP95G1BHe6deBPk5FVCQ@mail.gmail.com> <m18vko6jmv.fsf@fess.ebiederm.org> <m1zkd45411.fsf_-_@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Tue, 31 Jan 2012 15:45:40 +0100
+Message-ID: <1328021140.2297.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328020528.26983.396.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, Greg Kroah-Hartman <gregkh@suse.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Kay Sievers <kay.sievers@vrfy.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1zkd45411.fsf_-_@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:41348 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753490Ab2AaOpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 09:45:44 -0500
+Received: by bkcjm19 with SMTP id jm19so18455bkc.19
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 06:45:43 -0800 (PST)
+In-Reply-To: <1328020528.26983.396.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2012 03:40 PM, Eric W. Biederman wrote:
-> 
-> This fixes a bug introduced with sysfs name hashes where renaming a
-> network device appears to succeed but silently makes the sysfs files for
-> that network device inaccessible.
-> 
-> In at least one configuration this bug has stopped networking from
-> coming up during boot.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Le mardi 31 janvier 2012 =C3=A0 14:35 +0000, Ian Campbell a =C3=A9crit =
+:
+> Hi Eric,
+>=20
+> On Wed, 2012-01-25 at 13:12 +0000, Eric Dumazet wrote:
+> > Le mercredi 25 janvier 2012 =C3=A0 13:09 +0000, Ian Campbell a =C3=A9=
+crit :
+> >=20
+> > > Can you elaborate on the specific benchmark you used there?
+> >=20
+> > One machine was sending udp frames on my target (using pktgen)
+> >=20
+> > Target was running a mono threaded udp receiver (one socket)
+>=20
+> I've been playing with pktgen and I'm seeing more like 81,600-81,800 =
+pps
+> from a UDP transmitter, measuring on the rx side using "bwm-ng -u
+> packets" and sinking the traffic with "nc -l -u -p 9 > /dev/null". Th=
+e
+> numbers are the same with or without this series.
+>=20
+> You mentioned numbers in the 820pps region -- is that really kilo-pps
+> (in which case I'm an order of magnitude down) or actually 820pps (in
+> which case I'm somehow a couple of orders of magnitude up).
+>=20
+> I'm using a single NIC transmitter, no delay, 1000000 clones of each =
+skb
+> and I've tried 60 and 1500 byte packets. In the 60 byte case I see mo=
+re
+> like 50k pps
+>=20
+> I'm in the process of setting up a receiver with a bnx2 but in the
+> meantime I feel like I'm making some obvious or fundamental flaw in m=
+y
+> method...
+>=20
+> Any tips greatly appreciated.
 
-It works for me. Thanks.
+I confirm I reach 820.000 packets per second, on a Gigabit link.
 
-Tested-by: Jiri Slaby <jslaby@suse.cz>
+Sender can easily reach line rate (more than 1.000.000 packets per
+second)
 
-> ---
->  fs/sysfs/dir.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-> index ea64d01..dd3779c 100644
-> --- a/fs/sysfs/dir.c
-> +++ b/fs/sysfs/dir.c
-> @@ -872,6 +872,7 @@ int sysfs_rename(struct sysfs_dirent *sd,
->  
->  		dup_name = sd->s_name;
->  		sd->s_name = new_name;
-> +		sd->s_hash = sysfs_name_hash(sd->s_ns, sd->s_name);
->  	}
->  
->  	/* Move to the appropriate place in the appropriate directories rbtree. */
+Check how many packet drops you have on receiver ?
 
+ifconfig eth0
 
--- 
-js
-suse labs
+or "ethtool -S eth0"
