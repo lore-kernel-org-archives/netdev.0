@@ -1,65 +1,154 @@
-From: Simon Chen <simonchennj@gmail.com>
-Subject: Re: increase the number of routing tables
-Date: Mon, 30 Jan 2012 22:06:31 -0500
-Message-ID: <CANj2EbfKGL31ztG1UZOApAUHiMznPSYE5w=QWX_NBz-m2Vs=6g@mail.gmail.com>
-References: <CANj2EbfR0cBaBd+t1yCZyErRpVzSC00DZohvtyazK8_9bv2aEQ@mail.gmail.com>
-	<1327804887.2805.20.camel@edumazet-laptop>
-	<4F24B2E9.3010600@candelatech.com>
-	<CANj2EbdFc33ciZ02ZCF7=3sY1XTbCLrdfu4Mp_vLp4N94xu5Cw@mail.gmail.com>
-	<4F259D67.3070603@candelatech.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 24/29] sysctl: Replace root_list with links between sysctl_table_sets.
+Date: Mon, 30 Jan 2012 19:10:04 -0800
+Message-ID: <m1mx94efeb.fsf@fess.ebiederm.org>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
+	<1327639925-12920-24-git-send-email-ebiederm@xmission.com>
+	<CAPLs8y8YV0MiNhR0SnviBHPQb-oMj+_DLvRpJN89Yrbyjsf2xg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:42427 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384Ab2AaDGe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2012 22:06:34 -0500
-Received: by werb13 with SMTP id b13so4079941wer.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2012 19:06:33 -0800 (PST)
-In-Reply-To: <4F259D67.3070603@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Damien Millescamps <damien.millescamps@6wind.com>
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <CAPLs8y8YV0MiNhR0SnviBHPQb-oMj+_DLvRpJN89Yrbyjsf2xg@mail.gmail.com>
+	(Lucian Adrian Grijincu's message of "Mon, 30 Jan 2012 02:01:48
+	+0200")
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Basically I am trying to build a NATter with multiple uplinks...
+Lucian Adrian Grijincu <lucian.grijincu@gmail.com> writes:
 
-I have a ton of private IPs behind the NATter, and I need to NAT a
-private IP into different uplinks based on the destination prefix.
-Think about choosing a specific ISP for a certain destination.
+> Very nice way to handle netns specific files with links between sets!
+>
+> You did a much better job than I did at dealing with them.
+>
+> It took me a while to understand how the code works. I'll try to writ=
+e
+> something for Documentation/ because the inner workings are a bit
+> intertwined.
+>
+> A few comments bellow.
 
-Therefore I'll need to maintain a per-IP routing table to make sure
-the outgoing packet goes to the right uplink, and then use
-iptables-rules to translate into the proper public IP.
+Thank you for your review.
 
--Simon
+I'm going to see how many of your comments I can incorporate into the
+code.
 
-On Sun, Jan 29, 2012 at 2:26 PM, Ben Greear <greearb@candelatech.com> w=
-rote:
-> On 01/28/2012 08:20 PM, Simon Chen wrote:
+Since no significant bugs have been seen my plan is to use incremental
+patches on top of the existing code, to address the small issues that
+have been seen.  That way I don't have to retest yet again.
+
+>> =C2=A0void register_sysctl_root(struct ctl_table_root *root)
+>> =C2=A0{
+>> - =C2=A0 =C2=A0 =C2=A0 spin_lock(&sysctl_lock);
+>> - =C2=A0 =C2=A0 =C2=A0 list_add_tail(&root->root_list, &sysctl_table=
+_root.root_list);
+>> - =C2=A0 =C2=A0 =C2=A0 spin_unlock(&sysctl_lock);
+>> =C2=A0}
+>
+>
+> This function is empty. Can be deleted (there are two callers in
+> net/sysctl_net.c.
+
+Agreed.  There might be something useful by registering roots.  Perhaps
+initialize the default set.  So I have kept the function for the short
+term.  register_sysctl_root makes sense as an interface.  We just don't
+have anything for register_sysctl_root to do right now.
+
+>> @@ -400,6 +373,7 @@ static struct dentry *proc_sys_lookup(struct ino=
+de *dir, struct dentry *dentry,
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct inode *inode;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct dentry *err =3D ERR_PTR(-ENOENT);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ctl_dir *ctl_dir;
+>> + =C2=A0 =C2=A0 =C2=A0 int ret;
 >>
->> Thanks...
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (IS_ERR(head))
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ERR_CA=
+ST(head);
+>> @@ -410,6 +384,11 @@ static struct dentry *proc_sys_lookup(struct in=
+ode *dir, struct dentry *dentry,
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!p)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;
 >>
->> Here says 252 routing tables top... maybe that's too old:
->> http://linux-ip.net/html/routing-tables.html
+>
+>
+> "sysctl_follow_link" implies that it will follow the link. I would
+> pull out the check whether the header is a link or not. This wouldn't
+> save much (a function call), but it would make the code easier to
+> read:
+>
+> 	/* Get out quickly if not a link */
+>         if (S_ISLNK(p->mode)) {
+> 		ret =3D sysctl_follow_link(&h, &p, current->nsproxy);
+> 		err =3D ERR_PTR(ret);
+> 		if (ret)
+> 		        goto out;
+>         }
+
+Good point, and obviousness is part of what I am aiming for.
+
+
+>> =C2=A0{
+>> + =C2=A0 =C2=A0 =C2=A0 struct ctl_table_set *set =3D dir->header.set=
+;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ctl_dir *subdir, *new =3D NULL;
 >>
->> I wonder if we can use a trie-tree for "ip rule" - linear evaluation
->> does not sound too good. But I'll be using a ton of iptables rules a=
-s
->> well, and I believe those are linear evaluation too :-(
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock(&sysctl_lock);
+>> - =C2=A0 =C2=A0 =C2=A0 subdir =3D find_subdir(dir->header.set, dir, =
+name, namelen);
+>> - =C2=A0 =C2=A0 =C2=A0 if (!IS_ERR(subdir))
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto found;
+>> - =C2=A0 =C2=A0 =C2=A0 if ((PTR_ERR(subdir) =3D=3D -ENOENT) && set !=
+=3D dir->header.set)
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 subdir =3D find_s=
+ubdir(set, dir, name, namelen);
+>> + =C2=A0 =C2=A0 =C2=A0 subdir =3D find_subdir(dir, name, namelen);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!IS_ERR(subdir))
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto found;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (PTR_ERR(subdir) !=3D -ENOENT)
+>> @@ -817,13 +815,14 @@ static struct ctl_dir *get_subdir(struct ctl_t=
+able_set *set,
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!new)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto failed;
+>>
+>> - =C2=A0 =C2=A0 =C2=A0 subdir =3D find_subdir(set, dir, name, namele=
+n);
+>> + =C2=A0 =C2=A0 =C2=A0 subdir =3D find_subdir(dir, name, namelen);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!IS_ERR(subdir))
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto found;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (PTR_ERR(subdir) !=3D -ENOENT)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto failed;
+>
+> I think you're returning the wrong error here. If we got to this poin=
+t
+> then subdir =3D=3D ERR_PTR(-ENOENT).
+> We want to create a new dir here even if one doesn't exist.
+> So if we have an error in insert_header() we don't return that error,
+> but ENOENT.
+>
+>>
+>> - =C2=A0 =C2=A0 =C2=A0 insert_header(dir, &new->header);
+>> + =C2=A0 =C2=A0 =C2=A0 if (insert_header(dir, &new->header))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto failed;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0subdir =3D new;
+>
+> Something like this would fix it:
+>
+>         if (subdir =3D insert_header(dir, &new->header))
 >
 >
-> At least some rules apply only to packets entering certain
-> interfaces. =A0It seems we could have per-interface rule collections
-> in those cases so that only a few rules would be searched each time.
 >
-> What type of rules are you planning to use?
->
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc =A0http://www.candelatech.com
+>> =C2=A0found:
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0subdir->header.nreg++;
+>> @@ -841,6 +840,57 @@ failed:
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0return subdir;
+>> =C2=A0}
+>>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
