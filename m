@@ -1,70 +1,89 @@
-From: augusto <augusto@proscend.com>
-Subject: Re: Introducing open source MSTP daemon
-Date: Tue, 31 Jan 2012 09:38:33 +0000 (UTC)
-Message-ID: <loom.20120131T103325-267@post.gmane.org>
-References: <201109221727.33010.vitas@nppfactor.kiev.ua> <20110922163939.GB1012103@jupiter.n2.diac24.net> <201109281256.19713.vitas@nppfactor.kiev.ua>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [RFC PATCH V3 15/16] netfront: multi page ring
+ support.
+Date: Tue, 31 Jan 2012 09:53:24 +0000
+Message-ID: <4F27C8240200007800070110@nat28.tlf.novell.com>
+References: <1327934734-8908-1-git-send-email-wei.liu2@citrix.com>
+ <1327934734-8908-16-git-send-email-wei.liu2@citrix.com>
+ <20120130213926.GB16261@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xensource.com>,
+	<netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:53233 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752635Ab2AaJpP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jan 2012 04:45:15 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1RsAGu-0005mk-CW
-	for netdev@vger.kernel.org; Tue, 31 Jan 2012 10:45:05 +0100
-Received: from 122-120-37-159.dynamic.hinet.net ([122.120.37.159])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 10:45:04 +0100
-Received: from augusto by 122-120-37-159.dynamic.hinet.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 10:45:04 +0100
+Received: from nat28.tlf.novell.com ([130.57.49.28]:59591 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752419Ab2AaJx3 convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Tue, 31 Jan 2012 04:53:29 -0500
+In-Reply-To: <20120130213926.GB16261@phenom.dumpdata.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vitalii Demianets <vitas <at> nppfactor.kiev.ua> writes:
-
+>>> On 30.01.12 at 22:39, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com> wrote:
+> On Mon, Jan 30, 2012 at 02:45:33PM +0000, Wei Liu wrote:
+>> @@ -1496,50 +1523,105 @@ static int setup_netfront(struct xenbus_device *dev, 
+> struct netfront_info *info)
+>>  		goto fail;
+>>  	}
+>>  
+>> -	txs = (struct xen_netif_tx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+>> +	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
+>> +			   "max-tx-ring-page-order", "%u",
+>> +			   &max_tx_ring_page_order);
+>> +	if (err < 0) {
+>> +		info->tx_ring_page_order = 0;
+>> +		dev_info(&dev->dev, "single tx ring\n");
+>> +	} else {
+>> +		info->tx_ring_page_order = max_tx_ring_page_order;
+>> +		dev_info(&dev->dev, "multi page tx ring, order = %d\n",
+>> +			 max_tx_ring_page_order);
+>> +	}
+>> +	info->tx_ring_pages = (1U << info->tx_ring_page_order);
+>> +
+>> +	txs = (struct xen_netif_tx_sring *)
+>> +		dma_alloc_coherent(NULL, PAGE_SIZE * info->tx_ring_pages,
+>> +				   &info->tx_ring_dma_handle,
+>> +				   __GFP_ZERO | GFP_NOIO | __GFP_HIGH);
 > 
-> On Thursday 22 September 2011 19:39:40 David Lamparter wrote:
-> >
-> > I assume it works with current Linux kernel bridge code on a RSTP level?
-> > The code looks considerably more maintainable than rstpd :) - I will try
-> > running it later!
-> >
+> Hm, so I see you are using 'NULL' which is a big nono (the API docs say 
+> that).
+> But the other reason why it is a no-no, is b/c this way the generic DMA 
+> engine has no
+> clue whether you are OK getting pages under 4GB or above it (so 64-bit 
+> support).
 > 
-> Ok, now it works with kernel bridge code and you can evaluate it.
+> If you don't supply a 'dev' it will assume 4GB. But when you are run this as 
+> a
+> pure PV guest that won't matter the slighest b/I there are no DMA code in 
+> action
+> (well, there is dma_alloc_coherent - which looking at the code would NULL it 
+> seems).
 > 
-> mstpd sends all the state changes in the CIST to the kernel bridge, so it 
-> works for the (R)STP cases as expected. Checked it by connecting two bridges: 
-> one running mstpd and another running rstpd and in-kernel stp. In both cases 
-> mstpd code behaves reasonably. Not checked in more complex setups though.
+> Anyhow, if you get to have more than 4GB in the guest or do PCI passthrough 
+> and use
+> 'iommu=soft'- at which point the Xen SWIOTLB will kick and you will end up 
+> 'swizzling'
+> the pages to be under 4GB. That can be fixed if you declerae a 'fake' device 
+> where you set
+> the coherent_dma_mask to DMA_BIT_MASK(64).
 > 
-> Also mstpd translates to the bridge code fdb flushing events and changes 
-> ageing time (for the rapid ageing case).
+> But if you boot the guest under HVM, then it will use the generic SWIOTLB 
+> code, which
+> won't guaranteeing the pages to be "machine" contingous but will be "guest 
+> machine"
+> contingous. Is that sufficient for this?
 > 
+> How did you test this? Did you supply iommu=soft  to your guest or booted it
+> with more than 4GB?
 
+Imo the use of the DMA API is a mistake here anyway. There's no need
+for anything to be contiguous in a PV frontend/backend handshake
+protocol, or if one finds there is it's very likely just because of trying to
+avoid doing something properly.
 
-Hi Vitalii,
-
-Thanks for your work.
-
-I am trying to implement your solution on an embedded system, but I dont have a 
-clear idea of how to use it.
-
-My scenario is like this:
-
-eth0.2 and eth1.2 belong to br1
-eth0.4 and eth3.4 belong to br2
-eth1.5 and eth3.5 belong to br3
-
-I added br1 br2 and br3 to bridge-stp.
-
-What steps should I take now?
-
-Thanks for your help
-
-Augusto
+Jan
