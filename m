@@ -1,49 +1,52 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: [PATCH] net: Disambiguate kernel message
-Date: Tue, 31 Jan 2012 12:46:08 -0800
-Message-ID: <4F285310.5060104@fb.com>
-References: <1327963304-24828-1-git-send-email-asharma@fb.com>  <CAErSpo54KRJbWEQ0fB_kuGx0qRQKWpH9d3mN=dPdiNfWH+Dhww@mail.gmail.com>  <20120131181554.GA24397@dev3310.snc6.facebook.com>  <1328035857.6911.8.camel@joe2Laptop>  <20120131194718.GA9834@dev3310.snc6.facebook.com> <1328040546.8012.6.camel@joe2Laptop>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcm80211 breakage..
+Date: Tue, 31 Jan 2012 21:21:08 +0100
+Message-ID: <4F284D34.9000602@broadcom.com>
+References: <CA+55aFx2UnVZP1Z44dMHeifB2nD1zJ87kz25zZjUdwv0ozwKPA@mail.gmail.com>
+ <20120131120846.GA8799@polaris.bitmath.org>
+ <CA+55aFy5-x6Zevga=rX_q+6vsmXFHyMJ+m8YqrqjC6yELqS6mw@mail.gmail.com>
+ <4F283C16.5090508@broadcom.com> <20120131192520.GA2974@tuxdriver.com>
+ <20120131195822.GA2175@polaris.bitmath.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain;
+ charset=iso-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>,
-	Ingo Molnar <mingo@elte.hu>, <christoph.paasch@uclouvain.be>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328040546.8012.6.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"John W. Linville" <linville@redhat.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	"=?ISO-8859-2?Q?Rafa=B3_M?= =?ISO-8859-2?Q?i=B3ecki?="
+	<zajec5@gmail.com>, "Hauke Mehrtens" <hauke@hauke-m.de>
+To: "Henrik Rydberg" <rydberg@euromail.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2770 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753515Ab2AaUsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jan 2012 15:48:04 -0500
+In-Reply-To: <20120131195822.GA2175@polaris.bitmath.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/31/12 12:09 PM, Joe Perches wrote:
-
->> +	too_many_orphans = tcp_too_many_orphans(sk, shift);
->> +	out_of_socket_memory = tcp_out_of_memory(sk);
->> +	tcp_log_oom(too_many_orphans, out_of_socket_memory);
->> +	if (too_many_orphans || out_of_socket_memory) {
+On 01/31/2012 08:58 PM, Henrik Rydberg wrote:
+>> From 1f3587dd7cdb8e2a505c76041bd5b816e7bcfb67 Mon Sep 17 00:00:00 2001
+>> From: Henrik Rydberg <rydberg@euromail.se>
+>> Date: Tue, 31 Jan 2012 14:22:15 -0500
+>> Subject: [PATCH] bcma: don't fail for bad SPROM CRC
+>>
+>> If it is OK ...?
+> 
+> How about this:
+> 
+> The brcmsmac driver is now using the bcma SPROM logic, which does not
+> recognize all chipsets that were functional prior to the switch. In
+> particular, the current code bails out on odd CRC errors in recent
+> Macbooks. This patch ignores those errors, with the argument that an
+> unrecognized SPROM should be treated similarly to a non-existing one.
 >
-> Perhaps these repeated three lines should be a routine like:
->
-> bool tcp_check_oom(struct sock *sk, int shift)
-> {
-> 	bool tcp_orphans = tcp_too_many_orphans(sk, shift);
-> 	bool tcp_oom = tcp_out_of_memory(sk);
->
-> 	printks...
->
-> 	return tcp_orphans || tcp_oom;
-> }
 
-I like your previous suggestion better. It preserves the ability to write:
+Not entirely correct. BCMA sprom logic is currently not used by
+brcmsmac, but it sure (as hell) makes sense to do so. Currently, the
+bcma SPROM logic is used in SoC chipsets (bcm47xx) and the b43 driver.
 
-if (too_many_orphans) {
-   do_something();
-}
-
-if (out_of_socket_memory) {
-   do_something_else();
-}
-
-  -Arun
+Gr. AvS
