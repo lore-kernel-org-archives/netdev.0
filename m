@@ -1,87 +1,100 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/6] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-Date: Wed, 1 Feb 2012 15:47:44 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1202011523590.18699@frira.zrqbmnf.qr>
-References: <1327269381-20748-1-git-send-email-richard@nod.at> <1327269381-20748-2-git-send-email-richard@nod.at> <CAFLxGvzLvdyyaBvh7LCM2+tTmKobK6n8jTRoH8NXd=MVmN4ocA@mail.gmail.com> <alpine.LNX.2.01.1201310208370.7433@frira.zrqbmnf.qr>
- <CAFLxGvwh5J=CR6OzST7ok6cEuHPWTziDN5TSbGxAiJOpANpAAQ@mail.gmail.com>
+From: yao zhao <yao.development@gmail.com>
+Subject: Re: VLAN 1 - Native
+Date: Wed, 1 Feb 2012 09:57:51 -0500
+Message-ID: <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	<1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	<1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	eric.dumazet@gmail.com, Pablo Neira Ayuso <pablo@netfilter.org>
-To: richard -rw- weinberger <richard.weinberger@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLxGvwh5J=CR6OzST7ok6cEuHPWTziDN5TSbGxAiJOpANpAAQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:45316 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932088Ab2BAO5w convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Feb 2012 09:57:52 -0500
+Received: by obcva7 with SMTP id va7so1391994obc.19
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 06:57:52 -0800 (PST)
+In-Reply-To: <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Wednesday 2012-02-01 10:14, richard -rw- weinberger wrote:
+On Wed, Feb 1, 2012 at 9:50 AM, yao zhao <yao.development@gmail.com> wr=
+ote:
+>
+>
+> On Wed, Feb 1, 2012 at 8:04 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
 >>
->> Do you have the patchset as a retrievable git tree, btw?
->
->Only for kernel stuff:
->git://git.kernel.org/pub/scm/linux/kernel/git/rw/misc.git xt_LOG
->
->If you want it for the user space part too, I can setup something...
-
-That would be welcome.
-
->>>[PATCH 6/6] iptables: xt_LOG: Add ring buffer support
->>>
->>>in libxt_LOG.c:
->>>+.size = XT_ALIGN(sizeof(struct xt_log_info_v1) + sizeof(void *)),
+>> Le mercredi 01 f=E9vrier 2012 =E0 11:24 +0000, Leonardo Uzcudun a =E9=
+crit :
+>> > ________________________________
+>> > Da: Leonardo Uzcudun <uzcudunl@yahoo.it>
+>> > A: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+>> > Inviato: Mercoled=EC 1 Febbraio 2012 12:22
+>> > Oggetto: VLAN 1 - Native
+>> >
+>> > Hello:
+>> >
+>> > I'm connecting my Linux computer (debian 2.6.32-5) to a switch to
+>> > implement vlans.
+>> >
+>> > All is working fine except for the VLAN 1. Of sure you are aware o=
+f
+>> > this situation and i would like to knoe if there is any parameter =
+or
+>> > setting that i should set in the vlan (linux side, not switch)
+>> > configuration. Here's my configuration:
+>> > ip addr add 0.0.0.0 dev eth0
+>> > ip link set eth0 up
+>> > ip link add link eth0 name eth0.1 type vlan id 1
+>> > ip link add link eth0 name eth0.101 type vlan id 101
+>> > ip addr add 0.0.0.0 dev eth0.1
+>> > ip addr add 0.0.0.0 dev eth0.101
+>> > ip link set eth0.101 up
+>> > ip link set eth0.1 up
+>> > brctl addbr br_vlan_1
+>> > brctl addbr br_vlan_101
+>> > brctl addif br_vlan_1 eth0.1
+>> > brctl addif br_vlan_101 eth0.101
+>> > ip addr add 0.0.0.0 dev br_vlan_1
+>> > ip
+>> > addr add 0.0.0.0 dev br_vlan_101
+>> > ip link set br_vlan_1 up
+>> > ip link set br_vlan_101 up
+>> >
+>> > Traffic on vlan 101 is working fine. Traffic on VLAN 1 is not work=
+ing
+>> > cause the packets are going out from eth0 like tagged. How could i=
+ set
+>> > the VID 1 as untagged?
 >>
->> Why the extra void*?
+>> What do you mean by "sending packets for VID 1, untagged " ?
+>>
+ on switch like Cisco: vlan 1 is the native vlan or default vlan so it =
+is
+ untagged. untagged means packet has no vlan header.
+
+>>
+>> What is the difference between vlan 101 and vlan 1 ?
+
+ No other difference. Just because it is vlan 1=A0 which is special in
+ switches(of course it can be changed on switch side but he doesn't wan=
+t to)
+>>
+>>
+>>
+>>
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
 >
->The kernel space part of  xt_log_info_v1 differs from the user space struct,
->it contains an extra pointer to the ring buffer context.
->Iptables must not see this extra pointer because the kernel writes to it.
-
-I don't see that extra pointer (outside xt_log_info_v1) that you talk about.
-
-+struct xt_log_info_v1 {
-+       unsigned char level;
-+       unsigned char logflags;
-+       char prefix[30];
-+
-+       char ring_name[30];
-+       unsigned long ring_size;
-+       struct xt_LOG_ring_ctx *rctx;
-+};
-
-This is the struct as you defined it. First, you must not use
-unsigned long (due to its flexible size, which is an ABI breaker; cf.
-"Writing Netfilter Modules" PDF), and the pointer must be tagged for
-8-alignment as well for the same reason.
-
-Second, the kernel will reject a ruleset if (kernel) .targetsize != (user)
-.size. This is likely to occur, since you essentially have
-.targetsize=72 in xt_LOG.c and .size=72+sizeof(void*)
-in libxt_LOG.
-
-
-
-Check commit 8a252e8941cd50e4390e6fedf280ba1c7ff9ac43 for
-trailing whitespace, git log -p shows them.
-
-+       if (par->family == NFPROTO_IPV4)
-+               m = ipt_log_packet(NFPROTO_IPV4, par->hooknum, skb, par->in,
-+                                  par->out, &li, loginfo->prefix);
-+#if IS_ENABLED(CONFIG_IPV6)
-+       else if (par->family == NFPROTO_IPV6)
-+               m = ip6t_log_packet(NFPROTO_IPV6, par->hooknum, skb, par->in,
-+                                   par->out, &li, loginfo->prefix);
-+#endif
-+       else
-+               BUG();
-
-Please avoid BUG. Either do nothing in the 'else' case, or print
-a courtesy message with some unkn_log_packet() or
-WARN_ON_ONCE(). The same goes for xt_LOG_ring_exit, which I vote
-for being reduced to WARN_ON as well. If the condition triggers,
-one will have a little memory leak, but at least the machine
-still runs.
+>
