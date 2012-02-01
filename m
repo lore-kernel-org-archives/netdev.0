@@ -1,42 +1,27 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/5] net/hyperv: Convert camel cased variables in
- rndis_filter.c to lower cases
-Date: Wed, 1 Feb 2012 19:39:21 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0CD2192F@TK5EX14MBXC221.redmond.corp.microsoft.com>
-References: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
- <20120201.143655.1013171439305457146.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 14/16] hamradio: fix incompatible pointer in module
+ parameter
+Date: Wed, 01 Feb 2012 14:40:10 -0500 (EST)
+Message-ID: <20120201.144010.700234218609686826.davem@davemloft.net>
+References: <1327960820-11867-1-git-send-email-danny.kukawka@bisect.de>
+	<1327960820-11867-15-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120201.143655.1013171439305457146.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: t.sailer@alumni.ethz.ch, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: danny.kukawka@bisect.de
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <1327960820-11867-15-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, February 01, 2012 2:37 PM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH 1/5] net/hyperv: Convert camel cased variables in
-> rndis_filter.c to lower cases
-> 
-> 
-> Please do not mix cleanups with real bug fixes.
-> 
-> Patches #4 and #5 in this series fix real bugs, so you should submit them
-> seperately for inclusion to my 'net' tree.
-> 
-> Once those fixes have propagated to my 'net-next' tree, you can then
-> submit
-> the cleanups.
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Mon, 30 Jan 2012 23:00:18 +0100
 
-Will do.
+> Fixed 'warning: return from incompatible pointer type' related
+> to module parameters.
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-Thanks,
-- Haiyang
+Applied, thanks.
