@@ -1,91 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv6: Remove never used function inet6_ac_check().
-Date: Wed, 01 Feb 2012 16:15:02 -0500 (EST)
-Message-ID: <20120201.161502.1573313945997804732.davem@davemloft.net>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Wed, 01 Feb 2012 16:21:57 -0500 (EST)
+Message-ID: <20120201.162157.880976652659067010.davem@davemloft.net>
+References: <4F26E72E.2020007@profihost.ag>
+	<20120130.164828.1695146432151008554.davem@davemloft.net>
+	<4F27A18F.3060907@profihost.ag>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: greg@kroah.com, eric.dumazet@gmail.com, jwboyer@gmail.com,
+	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
+	stable@vger.kernel.org, gregkh@suse.de
+To: s.priebe@profihost.ag
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34859 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35049 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932618Ab2BAVPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 16:15:04 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q11LF2tR002108
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 1 Feb 2012 13:15:03 -0800
+	with ESMTP id S932756Ab2BAVXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 16:23:40 -0500
+In-Reply-To: <4F27A18F.3060907@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Date: Tue, 31 Jan 2012 09:08:47 +0100
 
-It went from unused, to commented out, and never changing after
-that.
+> Hi David, Hi Greg,
+> 
+>> In all, I think this request is invalid.
+>>
+>> You're asking me to submit patches to -stable which don't apply
+>> even remotely, and whose dependencies haven't even been applied
+>> to the tree.
+> 
+> i'm sorry but it seems you miss something. The list of matches wasn't
+> mine it was the list you kernel guys generated in Dec 2011 while you
+> were discussing my NULL pointer dereference.
 
-Just get rid of it, if someone wants it they can unearth it from
-the history.
+That bug fix by Eric has lots of dependencies on other sets of
+non-trivial changes, so this will be a very difficult backport on many
+levels.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+Such a non-trivial backport has the danger of adding as many bugs as
+it is intended to fix.
 
-Commited to net-next.
+Therefore I will not be attempting to make this fix feasible for
+3.0.x-stable, sorry.
 
- include/net/addrconf.h |    1 -
- net/ipv6/anycast.c     |   29 -----------------------------
- 2 files changed, 0 insertions(+), 30 deletions(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index f68dce2..757a176 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -160,7 +160,6 @@ extern void addrconf_prefix_rcv(struct net_device *dev,
- extern int ipv6_sock_ac_join(struct sock *sk,int ifindex, const struct in6_addr *addr);
- extern int ipv6_sock_ac_drop(struct sock *sk,int ifindex, const struct in6_addr *addr);
- extern void ipv6_sock_ac_close(struct sock *sk);
--extern int inet6_ac_check(struct sock *sk, const struct in6_addr *addr, int ifindex);
- 
- extern int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr);
- extern int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr);
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 59402b4..db00d27 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -211,35 +211,6 @@ void ipv6_sock_ac_close(struct sock *sk)
- 	rcu_read_unlock();
- }
- 
--#if 0
--/* The function is not used, which is funny. Apparently, author
-- * supposed to use it to filter out datagrams inside udp/raw but forgot.
-- *
-- * It is OK, anycasts are not special comparing to delivery to unicasts.
-- */
--
--int inet6_ac_check(struct sock *sk, struct in6_addr *addr, int ifindex)
--{
--	struct ipv6_ac_socklist *pac;
--	struct ipv6_pinfo *np = inet6_sk(sk);
--	int	found;
--
--	found = 0;
--	read_lock(&ipv6_sk_ac_lock);
--	for (pac=np->ipv6_ac_list; pac; pac=pac->acl_next) {
--		if (ifindex && pac->acl_ifindex != ifindex)
--			continue;
--		found = ipv6_addr_equal(&pac->acl_addr, addr);
--		if (found)
--			break;
--	}
--	read_unlock(&ipv6_sk_ac_lock);
--
--	return found;
--}
--
--#endif
--
- static void aca_put(struct ifacaddr6 *ac)
- {
- 	if (atomic_dec_and_test(&ac->aca_refcnt)) {
--- 
-1.7.7.6
+I seriously suggest that if you really are hitting this race (the
+exposure is very small, it only happens if you get redirects and
+redirects are not common for most hosts) that you move to a more
+recent kernel such as 3.1.x or 3.2.x, both of which have all the
+dependencies as well as the bug fix applied.
