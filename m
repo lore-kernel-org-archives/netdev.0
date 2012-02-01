@@ -1,58 +1,52 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 6/6] cls_cgroup: remove redundant rcu_read_lock/unlock
-Date: Wed, 1 Feb 2012 18:23:07 +1100
-Message-ID: <20120201072307.GA6358@gondor.apana.org.au>
-References: <4F28E1D1.900@cn.fujitsu.com> <4F28E22A.703@cn.fujitsu.com> <1328080039.22641.2.camel@edumazet-laptop> <4F28E7A0.6000309@cn.fujitsu.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] xfrm6: remove unneeded NULL check in __xfrm6_output()
+Date: Wed, 1 Feb 2012 10:45:26 +0300
+Message-ID: <20120201074526.GC22179@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:51875 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753293Ab2BAHqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:46:15 -0500
 Content-Disposition: inline
-In-Reply-To: <4F28E7A0.6000309-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 01, 2012 at 03:20:00PM +0800, Li Zefan wrote:
-> Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-> 
-> >> diff --git a/net/core/sock.c b/net/core/sock.c
-> >> index 213c856..c0bab23 100644
-> >> --- a/net/core/sock.c
-> >> +++ b/net/core/sock.c
-> >> @@ -1160,9 +1160,7 @@ void sock_update_classid(struct sock *sk)
-> >>  {
-> >>  	u32 classid;
-> >>  
-> >> -	rcu_read_lock();  /* doing current task, which cannot vanish. */
-> >>  	classid = task_cls_classid(current);
-> >> -	rcu_read_unlock();
-> >>  	if (classid && classid != sk->sk_classid)
-> >>  		sk->sk_classid = classid;
-> > 
-> > Yes, this seems fine.
-> > 
-> > Then, I wonder why we do the "if (classid && classid != sk->sk_classid)"
-> > 
-> > before the :
-> > 
-> > 	sk->sk_classid = classid;
-> > 
-> > This seems unnecessary checks.
-> > 
-> 
-> I was wondering about this too. He who added this may provide us with an
-> answer.
+We don't check for NULL consistently in __xfrm6_output().  If "x" were
+NULL here it would lead to an OOPs later.  I asked Steffen Klassert
+about this and he suggested that we remove the NULL check.
 
-Well writing a cache-line unnecessarily is bad.
+On 10/29/11, Steffen Klassert <steffen.klassert@secunet.com> wrote:
+>> net/ipv6/xfrm6_output.c
+>>    148	
+>>    149		if ((x && x->props.mode == XFRM_MODE_TUNNEL) &&
+>>                           ^
+>
+> x can't be null here. It would be a bug if __xfrm6_output() is called
+> without a xfrm_state attached to the skb. I think we can just remove
+> this null check.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 4eeff89..8755a30 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -146,7 +146,7 @@ static int __xfrm6_output(struct sk_buff *skb)
+ 		return -EMSGSIZE;
+ 	}
+ 
+-	if ((x && x->props.mode == XFRM_MODE_TUNNEL) &&
++	if (x->props.mode == XFRM_MODE_TUNNEL &&
+ 	    ((skb->len > mtu && !skb_is_gso(skb)) ||
+ 		dst_allfrag(skb_dst(skb)))) {
+ 			return ip6_fragment(skb, x->outer_mode->afinfo->output_finish);
