@@ -1,25 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] net/hyperv: Convert camel cased variables in
- rndis_filter.c to lower cases
-Date: Wed, 01 Feb 2012 14:36:55 -0500 (EST)
-Message-ID: <20120201.143655.1013171439305457146.davem@davemloft.net>
-References: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH] Implement IP_UNICAST_IF socket option.
+Date: Wed, 01 Feb 2012 14:39:13 -0500 (EST)
+Message-ID: <20120201.143913.52085939693600862.davem@davemloft.net>
+References: <1327622268-15602-1-git-send-email-ehoover@mines.edu>
+	<20120201.141232.458020616314562146.davem@davemloft.net>
+	<CAEU2+vpDT5ZVAXmXf5VbNTiyEKbs9KG2b6oPr=cPDHQfBjyxkQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1327941218-12547-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ehoover@mines.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140Ab2BATjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:39:16 -0500
+In-Reply-To: <CAEU2+vpDT5ZVAXmXf5VbNTiyEKbs9KG2b6oPr=cPDHQfBjyxkQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: "Erich E. Hoover" <ehoover@mines.edu>
+Date: Wed, 1 Feb 2012 12:32:54 -0700
 
-Please do not mix cleanups with real bug fixes.
+> On Wed, Feb 1, 2012 at 12:12 PM, David Miller <davem@davemloft.net> wrote:
+>> ...
+>> I see no value in exporting a different API than what other systems
+>> use, especially if you are adding this interface exactly for providing
+>> support for WINE applications, so please don't do this thing with
+>> argument sizes and ip_mreqn.
+> 
+> I didn't intend to export the API differently, I clearly misread the
+> article on MSDN.  If I revise this patch to require an interface index
+> is there any chance it will be considered for inclusion?
 
-Patches #4 and #5 in this series fix real bugs, so you should submit them
-seperately for inclusion to my 'net' tree.
-
-Once those fixes have propagated to my 'net-next' tree, you can then submit
-the cleanups.
+Yes.
