@@ -1,43 +1,35 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4/6] netprio_cgroup: use IS_ENABLED() and family
-Date: Wed, 01 Feb 2012 02:07:38 -0500 (EST)
-Message-ID: <20120201.020738.1965865410881089752.davem@davemloft.net>
-References: <4F28E203.10502@cn.fujitsu.com>
-	<20120201.015954.2098592611164231843.davem@davemloft.net>
-	<4F28E48D.3040505@cn.fujitsu.com>
+Subject: Re: [PATCH 6/6] cls_cgroup: remove redundant rcu_read_lock/unlock
+Date: Wed, 01 Feb 2012 02:10:02 -0500 (EST)
+Message-ID: <20120201.021002.1399660597996401402.davem@davemloft.net>
+References: <4F28E1D1.900@cn.fujitsu.com>
+	<4F28E22A.703@cn.fujitsu.com>
+	<1328080039.22641.2.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+Cc: lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F28E48D.3040505-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+In-Reply-To: <1328080039.22641.2.camel@edumazet-laptop>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Date: Wed, 01 Feb 2012 15:06:53 +0800
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 01 Feb 2012 08:07:19 +0100
 
-> 14:59, David Miller wrote:
->> 
->> Do not mix genuine bug fixes and cleanups.
->> 
->> Otherwise I cannot apply your bug fixes to the 'net' tree.
->> 
->> Seperate things out, submit only pure bug fixes first, then
->> later once those changes propagate you can submit the cleanups.
->> 
+> Then, I wonder why we do the "if (classid && classid != sk->sk_classid)"
 > 
-> I did seperate them out, so the first three patches are fixes,
-> and others are cleanups. I can resend cleanup patches once
-> fixes hit mainline.
+> before the :
+> 
+> 	sk->sk_classid = classid;
+> 
+> This seems unnecessary checks.
+> 
 
-Seperate them in different groups, don't submit them as one
-collection.  And definitely don't submit them all at the
-same damn time!  You have to wait with the dependent cleanups
-until the fixes go in, and subsequently show up in my net-next
-tree.
+Avoiding dirtying the sk->sk_classid cache line unnecessarily?
 
-I'm not applying this stuff until you submit it properly, in
-two stages.
+I actually have no idea actually how often this routine can get
+invoked in real world scenerios.
