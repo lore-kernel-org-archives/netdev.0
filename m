@@ -1,52 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] xfrm6: remove unneeded NULL check in __xfrm6_output()
-Date: Wed, 1 Feb 2012 10:45:26 +0300
-Message-ID: <20120201074526.GC22179@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Wed, 01 Feb 2012 02:43:57 -0500 (EST)
+Message-ID: <20120201.024357.1370213516985704222.davem@davemloft.net>
+References: <CAGsizzLTHw5Ja3kT-zEN8uK5GrzpmN1bxOhA0OscGL5R6tH3WA@mail.gmail.com>
+	<20120131.190830.1189531706541596294.davem@davemloft.net>
+	<CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: steweg@ynet.sk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:51875 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753293Ab2BAHqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:46:15 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:56497 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753522Ab2BAHqh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:46:37 -0500
+In-Reply-To: <CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't check for NULL consistently in __xfrm6_output().  If "x" were
-NULL here it would lead to an OOPs later.  I asked Steffen Klassert
-about this and he suggested that we remove the NULL check.
+=46rom: =A6tefan Gula <steweg@ynet.sk>
+Date: Wed, 1 Feb 2012 08:22:02 +0100
 
-On 10/29/11, Steffen Klassert <steffen.klassert@secunet.com> wrote:
->> net/ipv6/xfrm6_output.c
->>    148	
->>    149		if ((x && x->props.mode == XFRM_MODE_TUNNEL) &&
->>                           ^
->
-> x can't be null here. It would be a bug if __xfrm6_output() is called
-> without a xfrm_state attached to the skb. I think we can just remove
-> this null check.
+> So if this is now only about the
+> maintenance of my code, I'll be more than happy to continue
+> maintaining it myself together with you guys.
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+You have a very warped understanding of what maintainence cost means.
 
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 4eeff89..8755a30 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -146,7 +146,7 @@ static int __xfrm6_output(struct sk_buff *skb)
- 		return -EMSGSIZE;
- 	}
- 
--	if ((x && x->props.mode == XFRM_MODE_TUNNEL) &&
-+	if (x->props.mode == XFRM_MODE_TUNNEL &&
- 	    ((skb->len > mtu && !skb_is_gso(skb)) ||
- 		dst_allfrag(skb_dst(skb)))) {
- 			return ip6_fragment(skb, x->outer_mode->afinfo->output_finish);
+Everyone time someone wants to change a core API in the networking
+your new code will need to be considered.  Every time someone wants to
+audit how an interface is used, your code adds to the audit burdon.
+
+And this is burdon placed upon other people, even if you personally
+"promise" to maintain this specific code snippet.  This promise
+completely meaningless from a global kernel maintainence standpoint.
+
+More code has a cost, no matter how well that specific piece of code
+is maintained.
+
+Therefore we don't add supurious code, and your code is spurious if it
+will end up duplicating a more desirable implementation and interface
+for this functionality.
+
+The world has spun successfully countless times in the 18 years that
+Linux hasn't had support for the feature you are so gravely interested
+in including "right now", and I suspect it will spin successfully a
+few more times while a proper implementation is ironed out.
