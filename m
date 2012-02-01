@@ -1,38 +1,78 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
-	originated TCP streams
-Date: Wed, 1 Feb 2012 19:38:37 +1100
-Message-ID: <20120201083837.GA7081@gondor.apana.org.au>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com> <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com> <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com> <4F264A6C.3070706@mellanox.com> <1327910672.2891.12.camel@edumazet-laptop> <20120130081849.GA7848@gondor.apana.org.au> <1327913583.2288.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120130085742.GA8262@gondor.apana.org.au> <CAJZOPZJb1HvcS0XXKLvoDuoi1EfYTY-awwY2g0aHWoS=4qmdyQ@mail.gmail.com>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Wed, 1 Feb 2012 10:01:55 +0100
+Message-ID: <CAGsizzL9x2es1XC5pac7LN99yp+sW5nt1eecYKhmdiRjBfNEeg@mail.gmail.com>
+References: <CAGsizzLTHw5Ja3kT-zEN8uK5GrzpmN1bxOhA0OscGL5R6tH3WA@mail.gmail.com>
+ <20120131.190830.1189531706541596294.davem@davemloft.net> <CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
+ <20120201.024357.1370213516985704222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZJb1HvcS0XXKLvoDuoi1EfYTY-awwY2g0aHWoS=4qmdyQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120201.024357.1370213516985704222.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 01, 2012 at 10:23:22AM +0200, Or Gerlitz wrote:
+2012/2/1 David Miller <davem@davemloft.net>:
+> From: =C5=A0tefan Gula <steweg@ynet.sk>
+> Date: Wed, 1 Feb 2012 08:22:02 +0100
 >
-> So what would you recommend here? not sure if you saw that, but Shlomo
-> suggested to add new entry to the header ops, compare_header e.g such
-> that if skb->dev has this callback use it instead of
-> compare_ether_header in __napi_gro_receive, makes sense?
+>> So if this is now only about the
+>> maintenance of my code, I'll be more than happy to continue
+>> maintaining it myself together with you guys.
+>
+> You have a very warped understanding of what maintainence cost means.
+>
+> Everyone time someone wants to change a core API in the networking
+> your new code will need to be considered. =C2=A0Every time someone wa=
+nts to
+> audit how an interface is used, your code adds to the audit burdon.
+That's true. But as I said. gretap interface already exists in linux
+kernel. Without my patch it simply use logic of point-to-point tunnel
+or static point-to-multipoint tunnel using muticast IP address as
+destination. The point here is that the maintenance cost is there
+already:
+=46rom the kernel API point of view the functions that enables use of
+gre or gretap interface are already there maintained (functions like
+init/exit/xmit/receive...). That part of the code was modified as
+little as possible. If that kernel API changes, the API will need to
+be changed also for standard gre or gretap code, which in the end
+almost the same amount of time consumed to figure out the code as it
+is the same functions that are called.
+=46rom the user-space/netlink API point of view those functions
+(open/close/add/change/del....) are already maintained - my patch
+allows you to use only one additional keyword "bridge" to maintain
+backward compatibility, so if that part of API changes, it influences
+again whole gre/gretap API and therefore almost the same amount of
+code is needed to be checked.
+The last portion of auditing the code purpose is that you are
+developing something new that doesn't exists or try to port the code
+to somewhere else. In that time we are talking about maintaining the
+gre/gretap code itself and not some global API changes - that's the
+only one relevant where more time is needed, but this one is expected
+(at least should be by developer)
 
-If we just turn it into a memcmp with a variable length would
-that work for you?
+If I missed something, please feel free to highlight it.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> And this is burdon placed upon other people, even if you personally
+> "promise" to maintain this specific code snippet. =C2=A0This promise
+> completely meaningless from a global kernel maintainence standpoint.
+Yes, the burdon is there, but it's minimal from global point of view.
+
+> Therefore we don't add spurious code, and your code is spurious if it
+> will end up duplicating a more desirable implementation and interface
+> for this functionality.
+It cannot duplicate something that doesn't actually currently exists.
+VXLAN or NVGRE are still in process of developing/designing, so in the
+end it could easily happen that those "standards" will not do the same
+thing or by the same methodology - it's completely on those
+developers/designers, if they adopt my implementation/design or use
+something else. Openvswitch gre interface is currently only the same
+as thing as is current gretap interface in linux kernel with some kind
+of caching code - nothing more.
