@@ -1,56 +1,116 @@
-From: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH 2/6] netprio_cgroup: don't allocate prio table when a device
- is registered
-Date: Wed, 01 Feb 2012 14:55:31 +0800
-Message-ID: <4F28E1E3.80507@cn.fujitsu.com>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: [PATCH 3/6] netprio_cgroup: fix wrong memory access when NETPRIO_CGROUP=m
+Date: Wed, 01 Feb 2012 14:55:46 +0800
+Message-ID: <4F28E1F2.70805@cn.fujitsu.com>
 References: <4F28E1D1.900@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F28E1D1.900-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Cgroups <cgroups@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F28E1D1.900@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So we delay the allocation till the priority is set through cgroup,
-and this makes skb_update_priority() faster when it's not set.
+When the netprio_cgroup module is not loaded, net_prio_subsys_id
+is -1, and so sock_update_prioidx() accesses cgroup_subsys array
+with negative index subsys[-1].
 
-This also eliminates an off-by-one bug similar with the one fixed
-in the previous patch.
+Make the code resembles cls_cgroup code, which is bug free.
 
-Signed-off-by: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 ---
- net/core/netprio_cgroup.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+ include/net/netprio_cgroup.h |   48 +++++++++++++++++++++++++++++++++++-------
+ net/core/sock.c              |    7 +----
+ 2 files changed, 42 insertions(+), 13 deletions(-)
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index a296cbb..2edfa6b 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -270,7 +270,6 @@ static int netprio_device_event(struct notifier_block *unused,
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index 7b2d431..d58fdec 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -37,19 +37,51 @@ extern int net_prio_subsys_id;
+ 
+ extern void sock_update_netprioidx(struct sock *sk);
+ 
+-static inline struct cgroup_netprio_state
+-		*task_netprio_state(struct task_struct *p)
++#if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
++
++static inline u32 task_netprioidx(struct task_struct *p)
  {
- 	struct net_device *dev = ptr;
- 	struct netprio_map *old;
--	u32 max_len = atomic_read(&max_prioidx);
+-#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+-	return container_of(task_subsys_state(p, net_prio_subsys_id),
+-			    struct cgroup_netprio_state, css);
+-#else
+-	return NULL;
+-#endif
++	struct cgroup_netprio_state *state;
++	u32 idx;
++
++	rcu_read_lock();
++	state = container_of(task_subsys_state(p, net_prio_subsys_id),
++			     struct cgroup_netprio_state, css);
++	idx = state->prioidx;
++	rcu_read_unlock();
++	return idx;
++}
++
++#elif IS_MODULE(CONFIG_NETPRIO_CGROUP)
++
++static inline u32 task_netprioidx(struct task_struct *p)
++{
++	struct cgroup_netprio_state *state;
++	int subsys_id;
++	u32 idx = 0;
++
++	rcu_read_lock();
++	subsys_id = rcu_dereference_index_check(net_prio_subsys_id,
++						rcu_read_lock_held());
++	if (subsys_id >= 0) {
++		state = container_of(task_subsys_state(p, subsys_id),
++				     struct cgroup_netprio_state, css);
++		idx = state->prioidx;
++	}
++	rcu_read_unlock();
++	return idx;
+ }
  
- 	/*
- 	 * Note this is called with rtnl_lock held so we have update side
-@@ -278,11 +277,6 @@ static int netprio_device_event(struct notifier_block *unused,
- 	 */
+ #else
  
- 	switch (event) {
--
--	case NETDEV_REGISTER:
--		if (max_len)
--			extend_netdev_table(dev, max_len);
--		break;
- 	case NETDEV_UNREGISTER:
- 		old = rtnl_dereference(dev->priomap);
- 		RCU_INIT_POINTER(dev->priomap, NULL);
++static inline u32 task_netprioidx(struct task_struct *p)
++{
++	return 0;
++}
++
++#endif /* CONFIG_NETPRIO_CGROUP */
++
++#else
+ #define sock_update_netprioidx(sk)
+ #endif
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 3e81fd2..02f8dfe 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1171,13 +1171,10 @@ EXPORT_SYMBOL(sock_update_classid);
+ 
+ void sock_update_netprioidx(struct sock *sk)
+ {
+-	struct cgroup_netprio_state *state;
+ 	if (in_interrupt())
+ 		return;
+-	rcu_read_lock();
+-	state = task_netprio_state(current);
+-	sk->sk_cgrp_prioidx = state ? state->prioidx : 0;
+-	rcu_read_unlock();
++
++	sk->sk_cgrp_prioidx = task_netprioidx(current);
+ }
+ EXPORT_SYMBOL_GPL(sock_update_netprioidx);
+ #endif
 -- 
 1.7.3.1
