@@ -1,102 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: VLAN 1 - Native
-Date: Wed, 01 Feb 2012 16:05:23 +0100
-Message-ID: <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
-	 <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
-	 <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
-	 <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: [PATCH 1/6] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
+Date: Wed, 1 Feb 2012 16:08:46 +0100
+Message-ID: <CAFLxGvzgvvfkKQ7r2WWD6jOr+nLCTOE0MvXaMxfCR3HPAHivxg@mail.gmail.com>
+References: <1327269381-20748-1-git-send-email-richard@nod.at>
+	<1327269381-20748-2-git-send-email-richard@nod.at>
+	<CAFLxGvzLvdyyaBvh7LCM2+tTmKobK6n8jTRoH8NXd=MVmN4ocA@mail.gmail.com>
+	<alpine.LNX.2.01.1201310208370.7433@frira.zrqbmnf.qr>
+	<CAFLxGvwh5J=CR6OzST7ok6cEuHPWTziDN5TSbGxAiJOpANpAAQ@mail.gmail.com>
+	<alpine.LNX.2.01.1202011523590.18699@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: yao zhao <yao.development@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50807 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369Ab2BAPF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 10:05:27 -0500
-Received: by wgbdt10 with SMTP id dt10so1400752wgb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 07:05:26 -0800 (PST)
-In-Reply-To: <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	eric.dumazet@gmail.com, Pablo Neira Ayuso <pablo@netfilter.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1202011523590.18699@frira.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 09:57 -0500, yao zhao a =C3=A9c=
-rit :
-> On Wed, Feb 1, 2012 at 9:50 AM, yao zhao <yao.development@gmail.com> =
-wrote:
-> >
-> >
-> > On Wed, Feb 1, 2012 at 8:04 AM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
-> >>
-> >> Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 11:24 +0000, Leonardo Uzcu=
-dun a =C3=A9crit :
-> >> > ________________________________
-> >> > Da: Leonardo Uzcudun <uzcudunl@yahoo.it>
-> >> > A: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-> >> > Inviato: Mercoled=C3=AC 1 Febbraio 2012 12:22
-> >> > Oggetto: VLAN 1 - Native
-> >> >
-> >> > Hello:
-> >> >
-> >> > I'm connecting my Linux computer (debian 2.6.32-5) to a switch t=
-o
-> >> > implement vlans.
-> >> >
-> >> > All is working fine except for the VLAN 1. Of sure you are aware=
- of
-> >> > this situation and i would like to knoe if there is any paramete=
-r or
-> >> > setting that i should set in the vlan (linux side, not switch)
-> >> > configuration. Here's my configuration:
-> >> > ip addr add 0.0.0.0 dev eth0
-> >> > ip link set eth0 up
-> >> > ip link add link eth0 name eth0.1 type vlan id 1
-> >> > ip link add link eth0 name eth0.101 type vlan id 101
-> >> > ip addr add 0.0.0.0 dev eth0.1
-> >> > ip addr add 0.0.0.0 dev eth0.101
-> >> > ip link set eth0.101 up
-> >> > ip link set eth0.1 up
-> >> > brctl addbr br_vlan_1
-> >> > brctl addbr br_vlan_101
-> >> > brctl addif br_vlan_1 eth0.1
-> >> > brctl addif br_vlan_101 eth0.101
-> >> > ip addr add 0.0.0.0 dev br_vlan_1
-> >> > ip
-> >> > addr add 0.0.0.0 dev br_vlan_101
-> >> > ip link set br_vlan_1 up
-> >> > ip link set br_vlan_101 up
-> >> >
-> >> > Traffic on vlan 101 is working fine. Traffic on VLAN 1 is not wo=
-rking
-> >> > cause the packets are going out from eth0 like tagged. How could=
- i set
-> >> > the VID 1 as untagged?
-> >>
-> >> What do you mean by "sending packets for VID 1, untagged " ?
-> >>
->  on switch like Cisco: vlan 1 is the native vlan or default vlan so i=
-t is
->  untagged. untagged means packet has no vlan header.
->=20
-> >>
-> >> What is the difference between vlan 101 and vlan 1 ?
->=20
->  No other difference. Just because it is vlan 1  which is special in
->  switches(of course it can be changed on switch side but he doesn't w=
-ant to)
+On Wed, Feb 1, 2012 at 3:47 PM, Jan Engelhardt <jengelh@medozas.de> wro=
+te:
+>
+> On Wednesday 2012-02-01 10:14, richard -rw- weinberger wrote:
+>>>
+>>> Do you have the patchset as a retrievable git tree, btw?
+>>
+>>Only for kernel stuff:
+>>git://git.kernel.org/pub/scm/linux/kernel/git/rw/misc.git xt_LOG
+>>
+>>If you want it for the user space part too, I can setup something...
+>
+> That would be welcome.
 
-VID=3D1 is not the "known" native vlan at all, this is a vendor (stupid=
- ?)
-extension.
+Okay, will do!
 
-There is no ID reserved to untagged traffic in the 802.1Q specs, since
-by definition, if traffic is untagged, there is _no_ VLAN tag in the
-frame.
+>>>>[PATCH 6/6] iptables: xt_LOG: Add ring buffer support
+>>>>
+>>>>in libxt_LOG.c:
+>>>>+.size =3D XT_ALIGN(sizeof(struct xt_log_info_v1) + sizeof(void *))=
+,
+>>>
+>>> Why the extra void*?
+>>
+>>The kernel space part of =A0xt_log_info_v1 differs from the user spac=
+e struct,
+>>it contains an extra pointer to the ring buffer context.
+>>Iptables must not see this extra pointer because the kernel writes to=
+ it.
+>
+> I don't see that extra pointer (outside xt_log_info_v1) that you talk=
+ about.
+>
+> +struct xt_log_info_v1 {
+> + =A0 =A0 =A0 unsigned char level;
+> + =A0 =A0 =A0 unsigned char logflags;
+> + =A0 =A0 =A0 char prefix[30];
+> +
+> + =A0 =A0 =A0 char ring_name[30];
+> + =A0 =A0 =A0 unsigned long ring_size;
+> + =A0 =A0 =A0 struct xt_LOG_ring_ctx *rctx;
+> +};
+>
+> This is the struct as you defined it. First, you must not use
+> unsigned long (due to its flexible size, which is an ABI breaker; cf.
+> "Writing Netfilter Modules" PDF), and the pointer must be tagged for
+> 8-alignment as well for the same reason.
 
-Untagged traffic on linux is on eth0 itself (ingress or egress), not on
-eth0.xxx
+See:
+include/linux/netfilter/xt_LOG.h (user space part).
+
++struct xt_log_info_v1 {
++       unsigned char level;
++       unsigned char logflags;
++       char prefix[30];
++
++       char ring_name[30];
++       unsigned long ring_siVs.ze;
++};
+
+Here is no context pointer.
+
+I'll fix the unsigned long issue.
+
+> Second, the kernel will reject a ruleset if (kernel) .targetsize !=3D=
+ (user)
+> .size. This is likely to occur, since you essentially have
+> .targetsize=3D72 in xt_LOG.c and .size=3D72+sizeof(void*)
+> in libxt_LOG.
+>
+>
+>
+> Check commit 8a252e8941cd50e4390e6fedf280ba1c7ff9ac43 for
+> trailing whitespace, git log -p shows them.
+>
+> + =A0 =A0 =A0 if (par->family =3D=3D NFPROTO_IPV4)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 m =3D ipt_log_packet(NFPROTO_IPV4, par-=
+>hooknum, skb, par->in,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+par->out, &li, loginfo->prefix);
+> +#if IS_ENABLED(CONFIG_IPV6)
+> + =A0 =A0 =A0 else if (par->family =3D=3D NFPROTO_IPV6)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 m =3D ip6t_log_packet(NFPROTO_IPV6, par=
+->hooknum, skb, par->in,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ par->out, &li, loginfo->prefix);
+> +#endif
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BUG();
+>
+> Please avoid BUG. Either do nothing in the 'else' case, or print
+> a courtesy message with some unkn_log_packet() or
+> WARN_ON_ONCE(). The same goes for xt_LOG_ring_exit, which I vote
+> for being reduced to WARN_ON as well. If the condition triggers,
+> one will have a little memory leak, but at least the machine
+> still runs.
+
+Will fix!
+
+--=20
+Thanks,
+//richard
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
