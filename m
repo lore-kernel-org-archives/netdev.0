@@ -1,28 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] netpoll: Neaten MAX_SKB_SIZE macro
-Date: Wed, 01 Feb 2012 14:22:16 -0500 (EST)
-Message-ID: <20120201.142216.1879481049733894828.davem@davemloft.net>
-References: <8a61df72a4eb6caaeaa8b5be644be227da61512b.1327888082.git.joe@perches.com>
-	<c3a95a1d04d11f3741114ca206d37aea5609e504.1327888082.git.joe@perches.com>
+Subject: Re: [net-next] ixgbe: Add module parameter to allow untested and
+ unsafe SFP+ modules
+Date: Wed, 01 Feb 2012 14:24:14 -0500 (EST)
+Message-ID: <20120201.142414.698250338068347063.davem@davemloft.net>
+References: <1328123961-17237-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, hawk@comx.dk
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33488 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33520 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756273Ab2BATWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:22:21 -0500
-In-Reply-To: <c3a95a1d04d11f3741114ca206d37aea5609e504.1327888082.git.joe@perches.com>
+	with ESMTP id S1751420Ab2BATYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:24:23 -0500
+In-Reply-To: <1328123961-17237-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 29 Jan 2012 17:50:44 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  1 Feb 2012 11:19:21 -0800
 
-> Add the types in the packet layout order.
+> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The X520 family of network devices, with the 82599 chip, support a
+> small number of Intel-verified SFP+ modules on their NICs.  To maintain
+> stability and quality, the current devices restrict untested 3rd party
+> SFP+ modules.
+> 
+> This patch introduces a module parameter for ixgbe to allow these untested
+> modules at the user's peril.  It also includes a warning to the syslog
+> alerting users that the modules aren't supported, and results may
+> vary.
+> 
+> CC: Jesper Dangaard Brouer <hawk@comx.dk>
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied.
+Applied, thanks.
