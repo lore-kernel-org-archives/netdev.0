@@ -1,36 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: md5: protects md5sig_info with RCU
-Date: Wed, 01 Feb 2012 02:18:08 -0500 (EST)
-Message-ID: <20120201.021808.298882655874661806.davem@davemloft.net>
-References: <1328057424-11962-1-git-send-email-shawn.lu@ericsson.com>
-	<1328057424-11962-2-git-send-email-shawn.lu@ericsson.com>
-	<1328071540.2617.25.camel@edumazet-laptop>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: [PATCH 4/6] netprio_cgroup: use IS_ENABLED() and family
+Date: Wed, 01 Feb 2012 15:22:59 +0800
+Message-ID: <4F28E853.7000104@cn.fujitsu.com>
+References: <4F28E203.10502@cn.fujitsu.com>	<20120201.015954.2098592611164231843.davem@davemloft.net>	<4F28E48D.3040505@cn.fujitsu.com> <20120201.020738.1965865410881089752.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shawn.lu@ericsson.com, netdev@vger.kernel.org, xiaoclu@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56287 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377Ab2BAHSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:18:14 -0500
-In-Reply-To: <1328071540.2617.25.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cgroups@vger.kernel.org, nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120201.020738.1965865410881089752.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Feb 2012 05:45:40 +0100
-
-> This patch makes sure we use appropriate memory barriers before
-> publishing tp->md5sig_info, allowing tcp_md5_do_lookup() being used from
-> tcp_v4_send_reset() without holding socket lock (upcoming patch from
-> Shawn Lu)
+>>> Do not mix genuine bug fixes and cleanups.
+>>>
+>>> Otherwise I cannot apply your bug fixes to the 'net' tree.
+>>>
+>>> Seperate things out, submit only pure bug fixes first, then
+>>> later once those changes propagate you can submit the cleanups.
+>>>
+>>
+>> I did seperate them out, so the first three patches are fixes,
+>> and others are cleanups. I can resend cleanup patches once
+>> fixes hit mainline.
 > 
-> Note we also need to respect rcu grace period before its freeing, since
-> we can free socket without this grace period thanks to
-> SLAB_DESTROY_BY_RCU
+> Seperate them in different groups, don't submit them as one
+> collection.  And definitely don't submit them all at the
+> same damn time!  You have to wait with the dependent cleanups
+> until the fixes go in, and subsequently show up in my net-next
+> tree.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I'm not applying this stuff until you submit it properly, in
+> two stages.
+> 
 
-Applied, thanks.
+I'll do this when I get some comments/acks.
