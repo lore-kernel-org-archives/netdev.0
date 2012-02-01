@@ -1,62 +1,65 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [PATCH 01/16] eicon: fix -Warray-bounds warning
-Date: Wed, 1 Feb 2012 13:52:18 +0100
-Message-ID: <201202011352.19539.danny.kukawka@bisect.de>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E45@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN 1 - Native
+Date: Wed, 01 Feb 2012 14:04:44 +0100
+Message-ID: <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	 <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Karsten Keil" <kkeil@linux-pingi.de>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Armin Schindler" <mac@melware.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "Karsten Keil" <isdn@linux-pingi.de>
-To: "David Laight" <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E45@saturn3.aculab.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Leonardo Uzcudun <uzcudunl@yahoo.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:42135 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754029Ab2BANEs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 08:04:48 -0500
+Received: by wgbdt10 with SMTP id dt10so1265237wgb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 05:04:47 -0800 (PST)
+In-Reply-To: <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mittwoch, 1. Februar 2012, David Laight wrote:
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org
-> > [mailto:netdev-owner@vger.kernel.org] On Behalf Of Danny Kukawka
-> > Sent: 31 January 2012 17:04
-> > To: Karsten Keil
-> > Cc: Ben Hutchings; Armin Schindler;
-> > linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Karsten Keil
-> > Subject: Re: [PATCH 01/16] eicon: fix -Warray-bounds warning
-> >
-> > On Dienstag, 31. Januar 2012, Karsten Keil wrote:
-> > > On Mon, Jan 30, 2012 at 11:09:32PM +0000, Ben Hutchings wrote:
-> > > > On Mon, 2012-01-30 at 23:00 +0100, Danny Kukawka wrote:
-> > > > > Fix for a -Warray-bounds warning. mixer_notify_update() tries to
-> > > > > write to ((CAPI_MSG *) msg)->info.facility_req.structs[3] while
-> > > > > structs is defined as byte structs[1], define structs[1] as
-> > > > > structs[4].
-> > > >
-> > > > I suspect that all the 'byte structs[1];' fields defined
-> >
-> > in that header
-> >
-> > > > are actually variable-length arrays.  In that case, there
-> >
-> > may be no
-> >
-> > > > reasonable bound you can specify.
-> > >
-> > > Yes, exactely, the structs is a ASN1 coded message so it
-> >
-> > can have any len.
-> >
-> > So, how can we get rid of the compiler warning then?
->
-> Try defining it as a 'variable sized array' - byte structs[0].
+Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 11:24 +0000, Leonardo Uzcudun a=
+ =C3=A9crit :
+> ________________________________
+> Da: Leonardo Uzcudun <uzcudunl@yahoo.it>
+> A: "netdev@vger.kernel.org" <netdev@vger.kernel.org>=20
+> Inviato: Mercoled=C3=AC 1 Febbraio 2012 12:22
+> Oggetto: VLAN 1 - Native
+>=20
+> Hello:
+>=20
+> I'm connecting my Linux computer (debian 2.6.32-5) to a switch to
+> implement vlans.
+>=20
+> All is working fine except for the VLAN 1. Of sure you are aware of
+> this situation and i would like to knoe if there is any parameter or
+> setting that i should set in the vlan (linux side, not switch)
+> configuration. Here's my configuration:
+> ip addr add 0.0.0.0 dev eth0
+> ip link set eth0 up
+> ip link add link eth0 name eth0.1 type vlan id 1
+> ip link add link eth0 name eth0.101 type vlan id 101
+> ip addr add 0.0.0.0 dev eth0.1
+> ip addr add 0.0.0.0 dev eth0.101
+> ip link set eth0.101 up
+> ip link set eth0.1 up
+> brctl addbr br_vlan_1
+> brctl addbr br_vlan_101
+> brctl addif br_vlan_1 eth0.1
+> brctl addif br_vlan_101 eth0.101
+> ip addr add 0.0.0.0 dev br_vlan_1
+> ip
+> addr add 0.0.0.0 dev br_vlan_101
+> ip link set br_vlan_1 up
+> ip link set br_vlan_101 up
+>=20
+> Traffic on vlan 101 is working fine. Traffic on VLAN 1 is not working
+> cause the packets are going out from eth0 like tagged. How could i se=
+t
+> the VID 1 as untagged?
 
-Okay, that works. I'll send an updated patch.
+What do you mean by "sending packets for VID 1, untagged " ?
 
-Thanks
-
-Danny
-> 	David
+What is the difference between vlan 101 and vlan 1 ?
