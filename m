@@ -1,39 +1,48 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: Re: [PATCH 4/6] netprio_cgroup: use IS_ENABLED() and family
-Date: Wed, 01 Feb 2012 15:22:59 +0800
-Message-ID: <4F28E853.7000104@cn.fujitsu.com>
-References: <4F28E203.10502@cn.fujitsu.com>	<20120201.015954.2098592611164231843.davem@davemloft.net>	<4F28E48D.3040505@cn.fujitsu.com> <20120201.020738.1965865410881089752.davem@davemloft.net>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Wed, 1 Feb 2012 08:22:02 +0100
+Message-ID: <CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
+References: <4168018.821328016111235.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <20120131.115005.1292336126288944173.davem@davemloft.net> <CAGsizzLTHw5Ja3kT-zEN8uK5GrzpmN1bxOhA0OscGL5R6tH3WA@mail.gmail.com>
+ <20120131.190830.1189531706541596294.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cgroups@vger.kernel.org, nhorman@tuxdriver.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120201.020738.1965865410881089752.davem@davemloft.net>
+In-Reply-To: <20120131.190830.1189531706541596294.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> Do not mix genuine bug fixes and cleanups.
->>>
->>> Otherwise I cannot apply your bug fixes to the 'net' tree.
->>>
->>> Seperate things out, submit only pure bug fixes first, then
->>> later once those changes propagate you can submit the cleanups.
->>>
->>
->> I did seperate them out, so the first three patches are fixes,
->> and others are cleanups. I can resend cleanup patches once
->> fixes hit mainline.
-> 
-> Seperate them in different groups, don't submit them as one
-> collection.  And definitely don't submit them all at the
-> same damn time!  You have to wait with the dependent cleanups
-> until the fixes go in, and subsequently show up in my net-next
-> tree.
-> 
-> I'm not applying this stuff until you submit it properly, in
-> two stages.
-> 
-
-I'll do this when I get some comments/acks.
+2012/2/1 David Miller <davem@davemloft.net>:
+> From: =C5=A0tefan Gula <steweg@ynet.sk>
+> Date: Wed, 1 Feb 2012 00:32:04 +0100
+>
+>
+> You don't understand.
+>
+> If your code is superfluous in the end, we shouldn't add it in
+> the first place.
+>
+> But if I do relent and let your code in now, we have to live
+> with it, and it's associated maintainence costs, FOREVER.
+>
+> That's why I'm forcing this to be implemented properly from the start=
+,
+> so we don't end up with two pieces of code that provide essentially
+> the same functionality.
+I understand your strategic point of maintenance here and partially
+agree with it. And if I understand it correctly, it is to one day have
+openvswitch as full replacement of linux bridge code. On the other
+hand gretap interface already exists in kernel so that part of the
+code is currently also superfluous - what's the plan with that
+particular piece of code?. So if this is now only about the
+maintenance of my code, I'll be more than happy to continue
+maintaining it myself together with you guys. And if it comes in the
+future to decision to remove whole gretap code (not just my part) and
+replace it with something else that will provide the same or even more
+functionality, I have absolutely no problem with that.
