@@ -1,121 +1,69 @@
 From: yao zhao <yao.development@gmail.com>
-Subject: Re: VLAN 1 - Native
-Date: Wed, 1 Feb 2012 11:25:31 -0500
-Message-ID: <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>
-References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
-	<1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
-	<1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
-	<CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
-	<1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: Introducing open source MSTP daemon
+Date: Wed, 1 Feb 2012 11:30:12 -0500
+Message-ID: <CADDf=MRCS61iDM+W=6dy+1mQiTE7HJK+7dSJQVUfx2wE9Qtgmw@mail.gmail.com>
+References: <201109221727.33010.vitas@nppfactor.kiev.ua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: bridge@linux-foundation.org, netdev@vger.kernel.org,
+	"Srinivas M.A." <srinivas.aji@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Alex Rozin <alexr@nbase.co.il>,
+	Michael Rozhavsky <mike@nbase.co.il>
+To: Vitalii Demianets <vitas@nppfactor.kiev.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:61270 "EHLO
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:47216 "EHLO
 	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755862Ab2BAQZc convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1752499Ab2BAQaN convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Feb 2012 11:25:32 -0500
-Received: by obcva7 with SMTP id va7so1487274obc.19
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 08:25:31 -0800 (PST)
-In-Reply-To: <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	Wed, 1 Feb 2012 11:30:13 -0500
+Received: by obcva7 with SMTP id va7so1492005obc.19
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 08:30:12 -0800 (PST)
+In-Reply-To: <201109221727.33010.vitas@nppfactor.kiev.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 1, 2012 at 10:05 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mercredi 01 f=E9vrier 2012 =E0 09:57 -0500, yao zhao a =E9crit :
->> On Wed, Feb 1, 2012 at 9:50 AM, yao zhao <yao.development@gmail.com>=
- wrote:
->> >
->> >
->> > On Wed, Feb 1, 2012 at 8:04 AM, Eric Dumazet <eric.dumazet@gmail.c=
-om> wrote:
->> >>
->> >> Le mercredi 01 f=E9vrier 2012 =E0 11:24 +0000, Leonardo Uzcudun a=
- =E9crit :
->> >> > ________________________________
->> >> > Da: Leonardo Uzcudun <uzcudunl@yahoo.it>
->> >> > A: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->> >> > Inviato: Mercoled=EC 1 Febbraio 2012 12:22
->> >> > Oggetto: VLAN 1 - Native
->> >> >
->> >> > Hello:
->> >> >
->> >> > I'm connecting my Linux computer (debian 2.6.32-5) to a switch =
-to
->> >> > implement vlans.
->> >> >
->> >> > All is working fine except for the VLAN 1. Of sure you are awar=
-e of
->> >> > this situation and i would like to knoe if there is any paramet=
-er or
->> >> > setting that i should set in the vlan (linux side, not switch)
->> >> > configuration. Here's my configuration:
->> >> > ip addr add 0.0.0.0 dev eth0
->> >> > ip link set eth0 up
->> >> > ip link add link eth0 name eth0.1 type vlan id 1
->> >> > ip link add link eth0 name eth0.101 type vlan id 101
->> >> > ip addr add 0.0.0.0 dev eth0.1
->> >> > ip addr add 0.0.0.0 dev eth0.101
->> >> > ip link set eth0.101 up
->> >> > ip link set eth0.1 up
->> >> > brctl addbr br_vlan_1
->> >> > brctl addbr br_vlan_101
->> >> > brctl addif br_vlan_1 eth0.1
->> >> > brctl addif br_vlan_101 eth0.101
->> >> > ip addr add 0.0.0.0 dev br_vlan_1
->> >> > ip
->> >> > addr add 0.0.0.0 dev br_vlan_101
->> >> > ip link set br_vlan_1 up
->> >> > ip link set br_vlan_101 up
->> >> >
->> >> > Traffic on vlan 101 is working fine. Traffic on VLAN 1 is not w=
-orking
->> >> > cause the packets are going out from eth0 like tagged. How coul=
-d i set
->> >> > the VID 1 as untagged?
->> >>
->> >> What do you mean by "sending packets for VID 1, untagged " ?
->> >>
->> =A0on switch like Cisco: vlan 1 is the native vlan or default vlan s=
-o it is
->> =A0untagged. untagged means packet has no vlan header.
->>
->> >>
->> >> What is the difference between vlan 101 and vlan 1 ?
->>
->> =A0No other difference. Just because it is vlan 1 =A0which is specia=
-l in
->> =A0switches(of course it can be changed on switch side but he doesn'=
-t want to)
->
-> VID=3D1 is not the "known" native vlan at all, this is a vendor (stup=
-id ?)
-> extension.
->
-That is true. But in IEEE standard it also said you can specify
-whether a vlan can be untagged or tagged on egress.
+nice job!
 
-> There is no ID reserved to untagged traffic in the 802.1Q specs, sinc=
-e
-> by definition, if traffic is untagged, there is _no_ VLAN tag in the
-> frame.
->
-> Untagged traffic on linux is on eth0 itself (ingress or egress), not =
-on
-> eth0.xxx
->
-If you want linux to do as a switch too, then you can have to make up
-something that what ERic said, use physical interface as the vlan 1,
-as it is untagged. When vlan 1 is not native vlan you have to change
-back to eth0.1. and change that new native vlan to physical interface.
+Will try! more work needed in kernel!
 
 yao
+
+On Thu, Sep 22, 2011 at 10:27 AM, Vitalii Demianets
+<vitas@nppfactor.kiev.ua> wrote:
+> Good day!
+> I am happy to introduce open source MSTP daemon:
+> http://sourceforge.net/p/mstpd
 >
+> Of course due to current limitations of the Linux bridge code, namely=
+:
+> =A0- no integration with VLAN code
+> =A0- no support of different FIDs (independent learning)
+> =A0- no support of the per-MSTI port states
+> this daemon is not very useful for the bare Linux box. It can work on=
+ly with
+> support of specialized driver which talks to the MSTP-aware hardware =
+(most of
+> the today ethernet switching parts are MSTP-aware and support FIDs an=
+d
+> per-MSTI port states).
+> Nevertheless I hope to find some interest in my work. Maybe it will s=
+timulate
+> in some way the integration of the Linux bridge and VLAN code, who kn=
+ows?
+> From the IEEE point of view they are already merged, see 802.1Q-2005 =
+which
+> incorporates previous editions of 802.1q and 802.1d and 802.1w/s.
 >
+> Once again, all interested are welcome. Please review, criticize, tes=
+t,
+> modify, patch, deploy and do other things :) Any kind of feedback is
+> extremely welcome :)
 >
+> --
+> Vitalii Demianets
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
