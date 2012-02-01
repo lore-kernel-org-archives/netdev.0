@@ -1,58 +1,39 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: md5: RST: getting md5 key from listener
-Date: Wed, 01 Feb 2012 10:54:55 +0100
-Message-ID: <1328090095.2595.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener>
-	 <1328085348-6771-1-git-send-email-shawn.lu@ericsson.com>
+Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Wed, 01 Feb 2012 11:02:02 +0100
+Message-ID: <1328090522.2595.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328020528.26983.396.camel@zakaz.uk.xensource.com>
+	 <1328021140.2297.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328089187.17444.10.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, xiaoclu@gmail.com
-To: Shawn Lu <shawn.lu@ericsson.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:39634 "EHLO
+Received: from mail-we0-f174.google.com ([74.125.82.174]:60998 "EHLO
 	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753405Ab2BAJy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 04:54:59 -0500
-Received: by werb13 with SMTP id b13so794270wer.19
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 01:54:58 -0800 (PST)
-In-Reply-To: <1328085348-6771-1-git-send-email-shawn.lu@ericsson.com>
+	with ESMTP id S1753286Ab2BAKCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 05:02:07 -0500
+Received: by werb13 with SMTP id b13so798932wer.19
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 02:02:05 -0800 (PST)
+In-Reply-To: <1328089187.17444.10.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 00:35 -0800, Shawn Lu a =C3=A9c=
-rit :
-> TCP RST mechanism is broken in TCP md5(RFC2385). When
-> connection is gone, md5 key is lost, sending RST
-> without md5 hash is deem to ignored by peer. This can
-> be a problem since RST help protocal like bgp to fast
-> recove from peer crash.
->=20
-> In most case, users of tcp md5, such as bgp and ldp,
-> have listener on both sides to accept connection from peer.
-> md5 keys for peers are saved in listening socket.
->=20
-> There are two cases in finding md5 key when connection is
-> lost:
-> 1.Passive receive RST: The message is send to well known port,
-> tcp will associate it with listner. md5 key is gotten from
-> listener.
->=20
-> 2.Active receive RST (no sock): The message is send to ative
-> side, there is no socket associated with the message. In this
-> case, finding listener from source port, then find md5 key from
-> listener.
->=20
-> we are not loosing sercuriy here:
-> packet is checked with md5 hash. No RST is generated
-> if md5 hash doesn't match or no md5 key can be found.
->=20
-> Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
-> ---
-> v4: change title and change log.=20
-> regerated after  "tcp: md5: protects md5sig_info with RCU"
+Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 09:39 +0000, Ian Campbell a =C3=
+=A9crit :
 
+> I'll investigate the sending side. The sender is running a 2.6.32 dis=
+tro
+> kernel. Maybe I need to tweak it somewhat.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Thanks !
+Thats strange, even a very old kernel is able to sustain Gigabit line
+rate with pktgen. Maybe a problem with a switch and ethernet pauses ?
