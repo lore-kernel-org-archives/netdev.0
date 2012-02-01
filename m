@@ -1,46 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: dev: Convert printks to pr_<level>
-Date: Wed, 01 Feb 2012 11:40:29 -0800
-Message-ID: <1328125229.18641.17.camel@joe2Laptop>
-References: <1327877783.2652.10.camel@joe2Laptop>
-	 <1327880872.2652.12.camel@joe2Laptop> <1327882830.2652.16.camel@joe2Laptop>
-	 <20120201.142156.871464551711177387.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Disambiguate kernel message
+Date: Wed, 01 Feb 2012 14:42:26 -0500 (EST)
+Message-ID: <20120201.144226.1972220684681132136.davem@davemloft.net>
+References: <1328043341.8702.3.camel@joe2Laptop>
+	<20120131.161535.422381201029777577.davem@davemloft.net>
+	<20120131220521.GA1505@dev3310.snc6.facebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: joe@perches.com, bhelgaas@google.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, glommer@parallels.com, mingo@elte.hu,
+	christoph.paasch@uclouvain.be
+To: asharma@fb.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120201.142156.871464551711177387.davem@davemloft.net>
+In-Reply-To: <20120131220521.GA1505@dev3310.snc6.facebook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-01 at 14:21 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Sun, 29 Jan 2012 16:20:30 -0800
-> > -		pr_warning("Number of in use tx queues changed "
-> > -			   "invalidating tc mappings. Priority "
-> > -			   "traffic classification disabled!\n");
-> > +		pr_warn(
-> > +"Number of in use tx queues changed invalidating tc mappings. "
-> > +"Priority traffic classification disabled!\n");
-> Don't do things like this.  It is never correct to un-indent subsequent
-> lines of a string like this.  And a line ending in "pr_whatever(" looks
-> terrible.
+From: Arun Sharma <asharma@fb.com>
+Date: Tue, 31 Jan 2012 14:05:22 -0800
 
-I don't care much one way or another about it.
-There are a few different uses in that file already.
+> From: Arun Sharma <asharma@fb.com>
+> Date: Mon, 30 Jan 2012 14:16:06 -0800
+> Subject: [PATCH] net: Disambiguate kernel message
+> 
+> Some of our machines were reporting:
+> 
+> TCP: too many of orphaned sockets
+> 
+> even when the number of orphaned sockets was well below the
+> limit.
+> 
+> We print a different message depending on whether we're out
+> of TCP memory or there are too many orphaned sockets.
+> 
+> Also move the check out of line and cleanup the messages
+> that were printed.
+> 
+> Signed-off-by: Arun Sharma <asharma@fb.com>
+> Suggested-by: Mohan Srinivasan <mohan@fb.com>
 
-I do try to avoid having the compiler do string
-coalescing.  In this case, I thought it unlikely
-that a person would grep with content from both
-sentences though.
-
-Coalesced, this format is:
-
-"Number of in use tx queues changed invalidating tc mappings. Priority traffic classification disabled!\n"
-
-105 chars.  That's pretty long.
-Do you prefer coalesced formats in all cases?
-
-		pr_warn("Number of in use tx queues changed invalidating tc mappings. Priority traffic classification disabled!\n");
+Applied, thanks.
