@@ -1,49 +1,36 @@
-From: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 6/6] cls_cgroup: remove redundant rcu_read_lock/unlock
-Date: Wed, 01 Feb 2012 15:20:00 +0800
-Message-ID: <4F28E7A0.6000309@cn.fujitsu.com>
-References: <4F28E1D1.900@cn.fujitsu.com> <4F28E22A.703@cn.fujitsu.com> <1328080039.22641.2.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: md5: protects md5sig_info with RCU
+Date: Wed, 01 Feb 2012 02:18:08 -0500 (EST)
+Message-ID: <20120201.021808.298882655874661806.davem@davemloft.net>
+References: <1328057424-11962-1-git-send-email-shawn.lu@ericsson.com>
+	<1328057424-11962-2-git-send-email-shawn.lu@ericsson.com>
+	<1328071540.2617.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Herbert Xu <herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1328080039.22641.2.camel@edumazet-laptop>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shawn.lu@ericsson.com, netdev@vger.kernel.org, xiaoclu@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56287 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377Ab2BAHSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:18:14 -0500
+In-Reply-To: <1328071540.2617.25.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 01 Feb 2012 05:45:40 +0100
 
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index 213c856..c0bab23 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -1160,9 +1160,7 @@ void sock_update_classid(struct sock *sk)
->>  {
->>  	u32 classid;
->>  
->> -	rcu_read_lock();  /* doing current task, which cannot vanish. */
->>  	classid = task_cls_classid(current);
->> -	rcu_read_unlock();
->>  	if (classid && classid != sk->sk_classid)
->>  		sk->sk_classid = classid;
+> This patch makes sure we use appropriate memory barriers before
+> publishing tp->md5sig_info, allowing tcp_md5_do_lookup() being used from
+> tcp_v4_send_reset() without holding socket lock (upcoming patch from
+> Shawn Lu)
 > 
-> Yes, this seems fine.
+> Note we also need to respect rcu grace period before its freeing, since
+> we can free socket without this grace period thanks to
+> SLAB_DESTROY_BY_RCU
 > 
-> Then, I wonder why we do the "if (classid && classid != sk->sk_classid)"
-> 
-> before the :
-> 
-> 	sk->sk_classid = classid;
-> 
-> This seems unnecessary checks.
-> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I was wondering about this too. He who added this may provide us with an
-answer.
+Applied, thanks.
