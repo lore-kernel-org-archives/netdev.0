@@ -1,47 +1,81 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
- than individually
-Date: Wed, 1 Feb 2012 10:09:49 +0000
-Message-ID: <1328090989.17444.31.camel@zakaz.uk.xensource.com>
-References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
-	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
-	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
-	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1328020528.26983.396.camel@zakaz.uk.xensource.com>
-	 <1328021140.2297.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1328089187.17444.10.camel@zakaz.uk.xensource.com>
-	 <1328090522.2595.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 7/7] ARM: davinci: add support for the am1808 based
+ enbw_cmc board
+Date: Wed, 01 Feb 2012 14:20:13 +0400
+Message-ID: <4F2911DD.6010405@mvista.com>
+References: <1327308967-8092-1-git-send-email-hs@denx.de> <1327308967-8092-8-git-send-email-hs@denx.de> <20120130203252.GX28397@ponder.secretlab.ca> <4F27E6E0.1050608@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:3535 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753819Ab2BAKJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 05:09:51 -0500
-In-Reply-To: <1328090522.2595.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: hs-ynQEQJNshbs@public.gmane.org
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F27E6E0.1050608-ynQEQJNshbs@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-01 at 10:02 +0000, Eric Dumazet wrote:
-> Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 09:39 +0000, Ian Campbell a =C3=
-=A9crit :
->=20
-> > I'll investigate the sending side. The sender is running a 2.6.32 d=
-istro
-> > kernel. Maybe I need to tweak it somewhat.
->=20
-> Thats strange, even a very old kernel is able to sustain Gigabit line
-> rate with pktgen. Maybe a problem with a switch and ethernet pauses ?
+Hello.
 
-Tanks, that was something I was going to investigate. These machines ar=
-e
-in our lab so I need to figure out if they are even directly attached t=
-o
-the same switch etc.
+On 31-01-2012 17:04, Heiko Schocher wrote:
 
-Ian.
+>> On Mon, Jan 23, 2012 at 09:56:07AM +0100, Heiko Schocher wrote:
+>>> - AM1808 based board
+>>> - 64 MiB DDR ram
+>>> - 2 MiB Nor flash
+>>> - 128 MiB NAND flash
+>>> - use internal RTC
+>>> - I2C support
+>>> - hwmon lm75 support
+>>> - UBI/UBIFS support
+>>> - MMC support
+>>> - USB OTG support
+
+>>> Signed-off-by: Heiko Schocher<hs-ynQEQJNshbs@public.gmane.org>
+>>> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+>>> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+>>> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+>>> Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+>>> Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>>> Cc: David Woodhouse<dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+>>> Cc: Ben Dooks<ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
+>>> Cc: Wolfram Sang<w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>>> Cc: Sekhar Nori<nsekhar-l0cyMroinI0@public.gmane.org>
+>>> Cc: Kevin Hilman<khilman-l0cyMroinI0@public.gmane.org>
+>>> Cc: Wolfgang Denk<wd-ynQEQJNshbs@public.gmane.org>
+
+>>> ---
+>>> - post this board support with USB support, even though
+>>>    USB is only working with the 10 ms "workaround", posted here:
+>>>    http://comments.gmane.org/gmane.linux.usb.general/54505
+>>>    I see this issue also on the AM1808 TMDXEXP1808L evalboard.
+>>> - MMC and USB are not using OF support yet, ideas how to port
+>>>    this are welcome. I need for USB and MMC boards board
+>>>    specific callbacks, how to solve this with OF support?
+
+[...]
+
+>>> diff --git a/arch/arm/boot/dts/enbw_cmc.dts b/arch/arm/boot/dts/enbw_cmc.dts
+>>> new file mode 100644
+>>> index 0000000..e5995ce
+>>> --- /dev/null
+>>> +++ b/arch/arm/boot/dts/enbw_cmc.dts
+[...]
+
+>>> +			compatible = "ns16550a";
+
+>> Should include a string for the specific device.  Something like:
+
+>> 	compatible = "ti,da800", "ns16550a";
+
+> added.
+
+    Note that there's no DA800 chip, only DA828, DA830, and DA850 AFAIK.
+
+WBR, Sergei
