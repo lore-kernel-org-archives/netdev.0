@@ -1,52 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Wed, 01 Feb 2012 02:43:57 -0500 (EST)
-Message-ID: <20120201.024357.1370213516985704222.davem@davemloft.net>
-References: <CAGsizzLTHw5Ja3kT-zEN8uK5GrzpmN1bxOhA0OscGL5R6tH3WA@mail.gmail.com>
-	<20120131.190830.1189531706541596294.davem@davemloft.net>
-	<CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] SUNRPC: remove an unneeded NULL check in xprt_connect()
+Date: Wed, 1 Feb 2012 10:46:20 +0300
+Message-ID: <20120201074620.GD22179@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: steweg@ynet.sk
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56497 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522Ab2BAHqh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:46:37 -0500
-In-Reply-To: <CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:52026 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755977Ab2BAHqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 02:46:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: =A6tefan Gula <steweg@ynet.sk>
-Date: Wed, 1 Feb 2012 08:22:02 +0100
+We check "task->tk_rqstp" and then we dereference it without checking on
+the next line.  The only caller is call_connect() and that has a check
+which prevents it from calling xprt_connect() with a NULL.
 
-> So if this is now only about the
-> maintenance of my code, I'll be more than happy to continue
-> maintaining it myself together with you guys.
+                if (task->tk_status < 0)
+                        return;
 
-You have a very warped understanding of what maintainence cost means.
+If "task->tk_rqstp" were NULL then "tk_status" would be -EAGAIN.
 
-Everyone time someone wants to change a core API in the networking
-your new code will need to be considered.  Every time someone wants to
-audit how an interface is used, your code adds to the audit burdon.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-And this is burdon placed upon other people, even if you personally
-"promise" to maintain this specific code snippet.  This promise
-completely meaningless from a global kernel maintainence standpoint.
-
-More code has a cost, no matter how well that specific piece of code
-is maintained.
-
-Therefore we don't add supurious code, and your code is spurious if it
-will end up duplicating a more desirable implementation and interface
-for this functionality.
-
-The world has spun successfully countless times in the 18 years that
-Linux hasn't had support for the feature you are so gravely interested
-in including "right now", and I suspect it will spin successfully a
-few more times while a proper implementation is ironed out.
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index 839f6ef..efe5495 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -715,9 +715,7 @@ void xprt_connect(struct rpc_task *task)
+ 	if (xprt_connected(xprt))
+ 		xprt_release_write(xprt, task);
+ 	else {
+-		if (task->tk_rqstp)
+-			task->tk_rqstp->rq_bytes_sent = 0;
+-
++		task->tk_rqstp->rq_bytes_sent = 0;
+ 		task->tk_timeout = task->tk_rqstp->rq_timeout;
+ 		rpc_sleep_on(&xprt->pending, task, xprt_connect_status);
+ 
