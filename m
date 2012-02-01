@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bna: add readme file
-Date: Wed, 01 Feb 2012 14:18:24 -0500 (EST)
-Message-ID: <20120201.141824.496100451360392995.davem@davemloft.net>
-References: <1327712205-17609-1-git-send-email-huangj@brocade.com>
+Subject: Re: [PATCH net-next] net: dev: Convert printks to pr_<level>
+Date: Wed, 01 Feb 2012 14:21:56 -0500 (EST)
+Message-ID: <20120201.142156.871464551711177387.davem@davemloft.net>
+References: <1327877783.2652.10.camel@joe2Laptop>
+	<1327880872.2652.12.camel@joe2Laptop>
+	<1327882830.2652.16.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@Brocade.COM
-To: huangj@Brocade.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33456 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756548Ab2BATT2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:19:28 -0500
-In-Reply-To: <1327712205-17609-1-git-send-email-huangj@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1327882830.2652.16.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jing Huang <huangj@Brocade.COM>
-Date: Fri, 27 Jan 2012 16:56:45 -0800
+From: Joe Perches <joe@perches.com>
+Date: Sun, 29 Jan 2012 16:20:30 -0800
 
-> This patch adds bna driver readme file to Documentation/networking.
-> 
-> Signed-off-by: Jing Huang <huangj@brocade.com>
+> -		pr_warning("Number of in use tx queues changed "
+> -			   "invalidating tc mappings. Priority "
+> -			   "traffic classification disabled!\n");
+> +		pr_warn(
+> +"Number of in use tx queues changed invalidating tc mappings. "
+> +"Priority traffic classification disabled!\n");
 
-I'm not adding a documentation file to the upstream kernel that tells
-the user to go read some document covering the out-of-tree driver, and
-to fetch distribution specific firmware packages.
+Don't do things like this.  It is never correct to un-indent subsequent
+lines of a string like this.  And a line ending in "pr_whatever(" looks
+terrible.
