@@ -1,31 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/hyperv: rx_bytes should account the ether header
- size
-Date: Wed, 01 Feb 2012 14:30:10 -0500 (EST)
-Message-ID: <20120201.143010.1818830777509458347.davem@davemloft.net>
-References: <CAPgLHd8M7vPra_gTH5J1RmR4nmSeuDEGCjghatd1BsOJEeGKKA@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] ethtool: Null-terminate filename passed to
+ ethtool_ops::flash_device
+Date: Wed, 1 Feb 2012 19:32:25 +0000
+Message-ID: <1328124745.2541.12.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, kys@microsoft.com, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: <netdev@vger.kernel.org>, Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753450Ab2BATaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:30:16 -0500
-In-Reply-To: <CAPgLHd8M7vPra_gTH5J1RmR4nmSeuDEGCjghatd1BsOJEeGKKA@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:61613 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755231Ab2BATc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:32:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Mon, 30 Jan 2012 16:14:02 +0800
+The parameters for ETHTOOL_FLASHDEV include a filename, which ought to
+be null-terminated.  Currently the only driver that implements
+ethtool_ops::flash_device attempts to add a null terminator if
+necessary, but does it wrongly.  Do it in the ethtool core instead.
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> skb->len after call eth_type_trans() does not include the ether
-> header size, but rx_bytes should account it.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Compile-tested only.
 
-Applied.
+Ben.
+
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    6 +-----
+ net/core/ethtool.c                             |    2 ++
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 6db6b6a..802e5dd 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -716,12 +716,8 @@ static int
+ be_do_flash(struct net_device *netdev, struct ethtool_flash *efl)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	char file_name[ETHTOOL_FLASH_MAX_FILENAME];
+ 
+-	file_name[ETHTOOL_FLASH_MAX_FILENAME - 1] = 0;
+-	strcpy(file_name, efl->data);
+-
+-	return be_load_fw(adapter, file_name);
++	return be_load_fw(adapter, efl->data);
+ }
+ 
+ static int
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 369b418..3f79db1 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1190,6 +1190,8 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
+ 	if (!dev->ethtool_ops->flash_device)
+ 		return -EOPNOTSUPP;
+ 
++	efl.data[ETHTOOL_FLASH_MAX_FILENAME - 1] = 0;
++
+ 	return dev->ethtool_ops->flash_device(dev, &efl);
+ }
+ 
+-- 
+1.7.7.5
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
