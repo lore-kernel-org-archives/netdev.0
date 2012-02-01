@@ -1,37 +1,36 @@
-From: Jing Huang <huangj@Brocade.COM>
-Subject: RE: [PATCH] bna: add readme file
-Date: Wed, 1 Feb 2012 11:58:18 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B1FB7BB0D0@HQ1-EXCH01.corp.brocade.com>
-References: <1327712205-17609-1-git-send-email-huangj@brocade.com>
- <20120201115607.10679ac3@s6510.linuxnetplumber.net>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v7, kernel version 3.2.1] Source mode for macvlan interface
+Date: Wed, 1 Feb 2012 20:59:27 +0100
+Message-ID: <CAGsizzJc9pJ-xsX12JNxZhFBC7VzF6QkRZMoPopK1nsVtA0AeA@mail.gmail.com>
+References: <21672990.651327923923151.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <13688762.701327924297781.JavaMail.root@5-MeO-DMT.ynet.sk> <20120201.143455.1014458821077044311.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.COM>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:37305 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754426Ab2BAT6V convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Feb 2012 14:58:21 -0500
-In-Reply-To: <20120201115607.10679ac3@s6510.linuxnetplumber.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120201.143455.1014458821077044311.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+2012/2/1 David Miller <davem@davemloft.net>:
+> From: Stefan Gula <steweg@ynet.sk>
+> Date: Mon, 30 Jan 2012 12:51:37 +0100 (CET)
 >
->Please do send the firmware to David Woodhouse <dwmw2@infradead.org>
->to put in the linux-firmware tree.
+>> V6 changes:
+>> =A0- removed ability to fill the list of macaddr per link to fix the
+>> =A0 =A0issue of netlink skb size. This can be added back by using se=
+parate
+>> =A0 =A0netlink dumper in kernel and parse inside iproute2 codes. Tho=
+se codes
+>> =A0 =A0are beyond my abilities so if anyone actually need that feel =
+free to
+>> =A0 =A0help.
 >
-> git://git.kernel.org/pub/scm/linux/kernel/git/dwmw2/linux-firmware.git
->
->
->If you do that every distribution will pick it
->up from there.
-
-Thanks
-Jing
+> I'm not applying this patch until you add an appropriate way to query
+> the setting, working around the link dump SKB size issue by not provi=
+ding
+> a way to query the information at all is not acceptable.
+Ok
