@@ -1,41 +1,58 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/6] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-Date: Wed, 1 Feb 2012 02:24:11 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1201310208370.7433@frira.zrqbmnf.qr>
-References: <1327269381-20748-1-git-send-email-richard@nod.at> <1327269381-20748-2-git-send-email-richard@nod.at> <CAFLxGvzLvdyyaBvh7LCM2+tTmKobK6n8jTRoH8NXd=MVmN4ocA@mail.gmail.com>
+From: Prashant Badsheshi <prashant.badsheshi@gmail.com>
+Subject: Regarding carl9170 wifi linux driver
+Date: Wed, 1 Feb 2012 07:46:49 +0530
+Message-ID: <CA+cdTWZsiCa6ccBjgybAc0EZBLT8xSqEgB=wVzNT_wHPZry-vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	eric.dumazet@gmail.com, Pablo Neira Ayuso <pablo@netfilter.org>
-To: richard -rw- weinberger <richard.weinberger@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLxGvzLvdyyaBvh7LCM2+tTmKobK6n8jTRoH8NXd=MVmN4ocA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36106 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753716Ab2BACQv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2012 21:16:51 -0500
+Received: by vcge1 with SMTP id e1so646454vcg.19
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2012 18:16:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 2012-01-30 10:01, richard -rw- weinberger wrote:
+Hi,
 
->On Sun, Jan 22, 2012 at 10:56 PM, Richard Weinberger <richard@nod.at> wrote:
->> ipt_LOG and ip6_LOG have a lot of common code, merge them
->> to reduce duplicate code.
->>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
->
->No comments?
+We are planning to use the below wifi dongle as station and AP.
 
-Adding Pablo to Cc.
+https://www.thinkpenguin.com/gnu-linux/penguin-wireless-n-usb-adapter
 
 
-Do you have the patchset as a retrievable git tree, btw?
+
+We got the linux driver from the below path
+
+git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing=
+=2Egit
 
 
->[PATCH 6/6] iptables: xt_LOG: Add ring buffer support
->
->in libxt_LOG.c:
->+.size = XT_ALIGN(sizeof(struct xt_log_info_v1) + sizeof(void *)),
 
-Why the extra void*?
+We found the driver source in drivers/net/wireless/ath/carl9170.
+
+
+
+Our Question:
+
+Is the carl9170 driver present in the above folder is a complete open
+source driver?
+
+Or is it not complete driver and is there any NON-GPL code that is not
+provided as an open source?
+
+Please clarify it. Your immediate response would be really appreciated.
+
+
+
+Also it would be great if there is any design document or programmer=92=
+s
+document for the above mentioned Wifi dongle chipset available.
+
+
+
+Regards,
+
+Prashant
