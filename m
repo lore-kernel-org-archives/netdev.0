@@ -1,69 +1,26 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH RFC tip/core/rcu 11/41] mac80211: Convert call_rcu() to kfree_rcu()
-Date: Wed,  1 Feb 2012 11:41:29 -0800
-Message-ID: <1328125319-5205-11-git-send-email-paulmck@linux.vnet.ibm.com>
-References: <20120201194131.GA10028@linux.vnet.ibm.com>
- <1328125319-5205-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Cc: mingo@elte.hu, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
-	akpm@linux-foundation.org, mathieu.desnoyers@polymtl.ca,
-	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, Valdis.Kletnieks@vt.edu,
-	dhowells@redhat.com, eric.dumazet@gmail.com, darren@dvhart.com,
-	fweisbec@gmail.com, patches@linaro.org,
-	"Paul E. McKenney" <paul.mckenney@linaro.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [trivial] vmxnet3: Fix typo in vmxnet3_drv.c
+Date: Wed, 01 Feb 2012 14:46:44 -0500 (EST)
+Message-ID: <20120201.144644.331526425289884377.davem@davemloft.net>
+References: <1328102039-1806-1-git-send-email-standby24x7@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, trivial@kernel.org,
+	linux-kernel@vger.kernel.org
+To: standby24x7@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328125319-5205-1-git-send-email-paulmck@linux.vnet.ibm.com>
+In-Reply-To: <1328102039-1806-1-git-send-email-standby24x7@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Paul E. McKenney" <paul.mckenney@linaro.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Date: Wed,  1 Feb 2012 22:13:59 +0900
 
-The call_rcu() in mesh_gate_del() invokes mesh_gate_node_reclaim(),
-which simply calls kfree().  So convert the call_rcu() to kfree_rcu(),
-allowing mesh_gate_node_reclaim() to be eliminated.
+> Correct spelling in "uncommited" to "uncommitted" in
+> drivers/net/vmxnet3/vmxnet3_drv.c
+> 
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
-Signed-off-by: Paul E. McKenney <paul.mckenney@linaro.org>
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-wireless@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- net/mac80211/mesh_pathtbl.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
-
-diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
-index edf167e..30420bc 100644
---- a/net/mac80211/mesh_pathtbl.c
-+++ b/net/mac80211/mesh_pathtbl.c
-@@ -413,12 +413,6 @@ struct mesh_path *mesh_path_lookup_by_idx(int idx, struct ieee80211_sub_if_data
- 	return NULL;
- }
- 
--static void mesh_gate_node_reclaim(struct rcu_head *rp)
--{
--	struct mpath_node *node = container_of(rp, struct mpath_node, rcu);
--	kfree(node);
--}
--
- /**
-  * mesh_path_add_gate - add the given mpath to a mesh gate to our path table
-  * @mpath: gate path to add to table
-@@ -479,7 +473,7 @@ static int mesh_gate_del(struct mesh_table *tbl, struct mesh_path *mpath)
- 		if (gate->mpath == mpath) {
- 			spin_lock_bh(&tbl->gates_lock);
- 			hlist_del_rcu(&gate->list);
--			call_rcu(&gate->rcu, mesh_gate_node_reclaim);
-+			kfree_rcu(gate, rcu);
- 			spin_unlock_bh(&tbl->gates_lock);
- 			mpath->sdata->u.mesh.num_gates--;
- 			mpath->is_gate = false;
--- 
-1.7.8
+Applied.
