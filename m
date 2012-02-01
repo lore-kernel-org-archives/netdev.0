@@ -1,7 +1,9 @@
 From: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH 1/6] netprio_cgroup: fix an off-by-one bug
-Date: Wed, 01 Feb 2012 14:55:13 +0800
-Message-ID: <4F28E1D1.900@cn.fujitsu.com>
+Subject: [PATCH 2/6] netprio_cgroup: don't allocate prio table when a device
+ is registered
+Date: Wed, 01 Feb 2012 14:55:31 +0800
+Message-ID: <4F28E1E3.80507@cn.fujitsu.com>
+References: <4F28E1D1.900@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -11,41 +13,44 @@ Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F28E1D1.900-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  # mount -t cgroup xxx /mnt
-  # mkdir /mnt/tmp
-  # cat /mnt/tmp/net_prio.ifpriomap
-  lo 0
-  eth0 0
-  virbr0 0
-  # echo 'lo 999' > /mnt/tmp/net_prio.ifpriomap
-  # cat /mnt/tmp/net_prio.ifpriomap
-  lo 999
-  eth0 0
-  virbr0 4101267344
+So we delay the allocation till the priority is set through cgroup,
+and this makes skb_update_priority() faster when it's not set.
 
-We got weired output, because we exceeded the boundary of the array.
-We may even crash the kernel..
+This also eliminates an off-by-one bug similar with the one fixed
+in the previous patch.
 
 Signed-off-by: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- net/core/netprio_cgroup.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/core/netprio_cgroup.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
 diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 3a9fd48..a296cbb 100644
+index a296cbb..2edfa6b 100644
 --- a/net/core/netprio_cgroup.c
 +++ b/net/core/netprio_cgroup.c
-@@ -107,7 +107,7 @@ static void extend_netdev_table(struct net_device *dev, u32 new_len)
- static void update_netdev_tables(void)
+@@ -270,7 +270,6 @@ static int netprio_device_event(struct notifier_block *unused,
  {
- 	struct net_device *dev;
+ 	struct net_device *dev = ptr;
+ 	struct netprio_map *old;
 -	u32 max_len = atomic_read(&max_prioidx);
-+	u32 max_len = atomic_read(&max_prioidx) + 1;
- 	struct netprio_map *map;
  
- 	rtnl_lock();
+ 	/*
+ 	 * Note this is called with rtnl_lock held so we have update side
+@@ -278,11 +277,6 @@ static int netprio_device_event(struct notifier_block *unused,
+ 	 */
+ 
+ 	switch (event) {
+-
+-	case NETDEV_REGISTER:
+-		if (max_len)
+-			extend_netdev_table(dev, max_len);
+-		break;
+ 	case NETDEV_UNREGISTER:
+ 		old = rtnl_dereference(dev->priomap);
+ 		RCU_INIT_POINTER(dev->priomap, NULL);
 -- 
 1.7.3.1
