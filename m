@@ -1,29 +1,44 @@
-From: Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 4/6] netprio_cgroup: use IS_ENABLED() and family
-Date: Wed, 01 Feb 2012 15:06:53 +0800
-Message-ID: <4F28E48D.3040505@cn.fujitsu.com>
-References: <4F28E1D1.900@cn.fujitsu.com>	<4F28E203.10502@cn.fujitsu.com> <20120201.015954.2098592611164231843.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Keep kernel coding style rule of hfs-s+/sp source
+Date: Wed, 01 Feb 2012 02:06:02 -0500 (EST)
+Message-ID: <20120201.020602.131240058939599710.davem@davemloft.net>
+References: <1328079593-19197-1-git-send-email-geunsik.lim@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120201.015954.2098592611164231843.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: isdn@linux-pingi.de, lucas.demarchi@profusion.mobi,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geunsik.lim@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328079593-19197-1-git-send-email-geunsik.lim@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-14:59, David Miller wrote:
-> 
-> Do not mix genuine bug fixes and cleanups.
-> 
-> Otherwise I cannot apply your bug fixes to the 'net' tree.
-> 
-> Seperate things out, submit only pure bug fixes first, then
-> later once those changes propagate you can submit the cleanups.
-> 
+From: Geunsik Lim <geunsik.lim@gmail.com>
+Date: Wed,  1 Feb 2012 15:59:53 +0900
 
-I did seperate them out, so the first three patches are fixes,
-and others are cleanups. I can resend cleanup patches once
-fixes hit mainline.
+> Modified for kernel coding style rule of hfs-s+/sp device driver .
+> . reference: ./Documentation/CodingStyle
+> 
+> ex)
+> 60 Don't put multiple statements on a single line unless you have
+> 61 something to hide:
+> 62
+> 63         if (condition) do_this;
+> 64           do_something_everytime;
+> 
+> Signed-off-by: Geunsik Lim <geunsik.lim@samsung.com>
+
+This was probably there to eliminate compiler warnings or avoid the
+code being eliminated completely, because the result of the register
+read is unused.
+
+Have you verified that neither is the case here?
+
+To be honest I very strongly dislike patches like this.  You're
+patching a driver that very few people use, and changes like this can
+only risk possible regressions that will be hard to notice and it's
+not like people scour over this driver often and thus will be upset by
+frequently seeing some minor coding style infraction.
+
+I'm not applying this patch.
