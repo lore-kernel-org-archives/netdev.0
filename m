@@ -1,45 +1,58 @@
-From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
- TCP streams
-Date: Wed, 1 Feb 2012 11:43:23 +0200
-Message-ID: <CAJZOPZJVAQoy0B30zqkROOBp_-bF6=EdU2L9V025fJgTexVuFQ@mail.gmail.com>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
-	<alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
-	<CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>
-	<4F264A6C.3070706@mellanox.com>
-	<1327910672.2891.12.camel@edumazet-laptop>
-	<20120130081849.GA7848@gondor.apana.org.au>
-	<1327913583.2288.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120130085742.GA8262@gondor.apana.org.au>
-	<CAJZOPZJb1HvcS0XXKLvoDuoi1EfYTY-awwY2g0aHWoS=4qmdyQ@mail.gmail.com>
-	<20120201083837.GA7081@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: md5: RST: getting md5 key from listener
+Date: Wed, 01 Feb 2012 10:54:55 +0100
+Message-ID: <1328090095.2595.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener>
+	 <1328085348-6771-1-git-send-email-shawn.lu@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120201083837.GA7081-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xiaoclu@gmail.com
+To: Shawn Lu <shawn.lu@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:39634 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753405Ab2BAJy7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 04:54:59 -0500
+Received: by werb13 with SMTP id b13so794270wer.19
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 01:54:58 -0800 (PST)
+In-Reply-To: <1328085348-6771-1-git-send-email-shawn.lu@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 1, 2012 at 10:38 AM, Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> wrote:
-> On Wed, Feb 01, 2012 at 10:23:22AM +0200, Or Gerlitz wrote:
+Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 00:35 -0800, Shawn Lu a =C3=A9c=
+rit :
+> TCP RST mechanism is broken in TCP md5(RFC2385). When
+> connection is gone, md5 key is lost, sending RST
+> without md5 hash is deem to ignored by peer. This can
+> be a problem since RST help protocal like bgp to fast
+> recove from peer crash.
+>=20
+> In most case, users of tcp md5, such as bgp and ldp,
+> have listener on both sides to accept connection from peer.
+> md5 keys for peers are saved in listening socket.
+>=20
+> There are two cases in finding md5 key when connection is
+> lost:
+> 1.Passive receive RST: The message is send to well known port,
+> tcp will associate it with listner. md5 key is gotten from
+> listener.
+>=20
+> 2.Active receive RST (no sock): The message is send to ative
+> side, there is no socket associated with the message. In this
+> case, finding listener from source port, then find md5 key from
+> listener.
+>=20
+> we are not loosing sercuriy here:
+> packet is checked with md5 hash. No RST is generated
+> if md5 hash doesn't match or no md5 key can be found.
+>=20
+> Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
+> ---
+> v4: change title and change log.=20
+> regerated after  "tcp: md5: protects md5sig_info with RCU"
 
->> So what would you recommend here? not sure if you saw that, but Shlomo
->> suggested to add new entry to the header ops, compare_header e.g such
->> that if skb->dev has this callback use it instead of
->> compare_ether_header in __napi_gro_receive, makes sense?
 
-> If we just turn it into a memcmp with a variable length would
-> that work for you?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I think yes, FWIW we will compare the IPoIB header, Roland is that okay for you?
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks !
