@@ -1,35 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener
-Date: Wed, 01 Feb 2012 10:25:44 +0100
-Message-ID: <1328088344.2595.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <RE: [PATCH] tcp: md5: fix md5 RST when both sides have listener>
-			 <1328053998-2498-1-git-send-email-shawn.lu@ericsson.com>
-	 <1328072958.2617.34.camel@edumazet-laptop>
-	 <62162DF05402B341B3DB59932A1FA992B5B5B932C9@EUSAACMS0702.eamcs.ericsson.se>
-	 <1328082833.22641.9.camel@edumazet-laptop>
-	 <62162DF05402B341B3DB59932A1FA992B5B5B932CF@EUSAACMS0702.eamcs.ericsson.se>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v3 1/6] net: pad skb data and shinfo as a whole rather
+ than individually
+Date: Wed, 1 Feb 2012 09:38:47 +0000
+Message-ID: <1328089127.17444.9.camel@zakaz.uk.xensource.com>
+References: <1327494389.24561.316.camel@zakaz.uk.xensource.com>
+	 <1327494434-21566-1-git-send-email-ian.campbell@citrix.com>
+	 <1327495879.2425.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1327496953.24561.323.camel@zakaz.uk.xensource.com>
+	 <1327497157.2425.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328020528.26983.396.camel@zakaz.uk.xensource.com>
+	 <20120131145417.GA19990@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
-To: Shawn Lu <shawn.lu@ericsson.com>
+	"David S. Miller" <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61039 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441Ab2BAJZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 04:25:49 -0500
-Received: by wgbdt10 with SMTP id dt10so1048850wgb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 01:25:47 -0800 (PST)
-In-Reply-To: <62162DF05402B341B3DB59932A1FA992B5B5B932CF@EUSAACMS0702.eamcs.ericsson.se>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:24777 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753917Ab2BAJiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 04:38:50 -0500
+In-Reply-To: <20120131145417.GA19990@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 f=C3=A9vrier 2012 =C3=A0 03:11 -0500, Shawn Lu a =C3=A9c=
-rit :
-> Why? Do you mean packet is droped by netfilter before getting to tcp =
-and No RST is generated.=20
+On Tue, 2012-01-31 at 14:54 +0000, Francois Romieu wrote:
+> Ian Campbell <Ian.Campbell@citrix.com> :
+> [...]
+> > I'm using a single NIC transmitter, no delay, 1000000 clones of each skb
+> > and I've tried 60 and 1500 byte packets. In the 60 byte case I see more
+> > like 50k pps
+> 
+> At this stage 'tools/perf/perf top -G graph' sometimes helps me discover
+> debug options that I had left enabled.
 
-Hmm, net/ipv4/netfilter/ipt_REJECT.c / net/ipv6/netfilter/ip6t_REJECT.c
-are able to sent RST packets. I presume this is not md5 aware.
+Thanks for the tip, I'll give it a look.
+
+Ian.
