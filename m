@@ -1,46 +1,60 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH 6/6] cls_cgroup: remove redundant rcu_read_lock/unlock
-Date: Wed, 01 Feb 2012 14:56:42 +0800
-Message-ID: <4F28E22A.703@cn.fujitsu.com>
-References: <4F28E1D1.900@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Cgroups <cgroups@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60543 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755144Ab2BAGx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Feb 2012 01:53:57 -0500
-In-Reply-To: <4F28E1D1.900@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geunsik Lim <geunsik.lim@gmail.com>
+Subject: [PATCH] Keep kernel coding style rule of hfs-s+/sp source
+Date: Wed,  1 Feb 2012 15:59:53 +0900
+Message-ID: <1328079593-19197-1-git-send-email-geunsik.lim@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We've already used rcu_read_lock/unlock inside task_classid(),
-so don't use the lock/unlock pair twice in this hot path.
+Modified for kernel coding style rule of hfs-s+/sp device driver .
+. reference: ./Documentation/CodingStyle
 
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+ex)
+60 Don't put multiple statements on a single line unless you have
+61 something to hide:
+62
+63         if (condition) do_this;
+64           do_something_everytime;
+
+Signed-off-by: Geunsik Lim <geunsik.lim@samsung.com>
 ---
- net/core/sock.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/isdn/hisax/hfc_sx.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 213c856..c0bab23 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1160,9 +1160,7 @@ void sock_update_classid(struct sock *sk)
- {
- 	u32 classid;
+diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
+index 156d7c6..7c41bd8 100644
+--- a/drivers/isdn/hisax/hfc_sx.c
++++ b/drivers/isdn/hisax/hfc_sx.c
+@@ -381,7 +381,7 @@ reset_hfcsx(struct IsdnCardState *cs)
+ 	Write_hfc(cs, HFCSX_INT_M1, cs->hw.hfcsx.int_m1);
  
--	rcu_read_lock();  /* doing current task, which cannot vanish. */
- 	classid = task_cls_classid(current);
--	rcu_read_unlock();
- 	if (classid && classid != sk->sk_classid)
- 		sk->sk_classid = classid;
+ 	/* Clear already pending ints */
+-	if (Read_hfc(cs, HFCSX_INT_S1));
++	Read_hfc(cs, HFCSX_INT_S1);
+ 
+ 	Write_hfc(cs, HFCSX_STATES, HFCSX_LOAD_STATE | 2);	/* HFC ST 2 */
+ 	udelay(10);
+@@ -411,7 +411,7 @@ reset_hfcsx(struct IsdnCardState *cs)
+ 	/* Finally enable IRQ output */
+ 	cs->hw.hfcsx.int_m2 = HFCSX_IRQ_ENABLE;
+ 	Write_hfc(cs, HFCSX_INT_M2, cs->hw.hfcsx.int_m2);
+-	if (Read_hfc(cs, HFCSX_INT_S2));
++	Read_hfc(cs, HFCSX_INT_S2);
  }
+ 
+ /***************************************************/
+@@ -1286,7 +1286,7 @@ hfcsx_bh(struct work_struct *work)
+ 						cs->hw.hfcsx.int_m1 &= ~HFCSX_INTS_TIMER;
+ 						Write_hfc(cs, HFCSX_INT_M1, cs->hw.hfcsx.int_m1);
+ 						/* Clear already pending ints */
+-						if (Read_hfc(cs, HFCSX_INT_S1));
++						Read_hfc(cs, HFCSX_INT_S1);
+ 
+ 						Write_hfc(cs, HFCSX_STATES, 4 | HFCSX_LOAD_STATE);
+ 						udelay(10);
 -- 
-1.7.3.1
+1.7.8.1
