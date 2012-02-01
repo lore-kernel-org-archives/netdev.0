@@ -1,95 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] qeth: Move away from using neighbour entries in
- qeth_l3_fill_header()
-Date: Wed, 01 Feb 2012 15:49:17 -0500 (EST)
-Message-ID: <20120201.154917.583259505584913966.davem@davemloft.net>
+From: yao zhao <yao.development@gmail.com>
+Subject: Re: VLAN 1 - Native
+Date: Wed, 1 Feb 2012 15:52:17 -0500
+Message-ID: <CADDf=MRvCyvEtWGAvPV29uCeoTrDTbjyi0g-q5Qj1zVPDOLYrA@mail.gmail.com>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	<1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	<1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+	<CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+	<1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>
+	<1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>
+	<CADDf=MRuAWRFWMiCOOkWBzhW7_B3wRoMEpmk8ij=SxD2QvP3mw@mail.gmail.com>
+	<1328120055.2541.5.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ursula.braun@de.ibm.com, netdev@vger.kernel.org
-To: elelueck@de.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34477 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444Ab2BAUtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 15:49:24 -0500
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:37671 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932095Ab2BAUxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 15:53:03 -0500
+Received: by obcva7 with SMTP id va7so1780703obc.19
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 12:53:02 -0800 (PST)
+In-Reply-To: <1328120055.2541.5.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 1, 2012 at 1:14 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> On Wed, 2012-02-01 at 12:25 -0500, yao zhao wrote:
+>> How about this?
+>>
+>> brctl addif br_vlan_1 eth0 eth1
+>
+> Right, VID 1 is not special to Linux.
+>
+>> brctl addif br_vlan_101 eth0.101 eth2.101
+>
+> I think you mean eth2 rather than eth2.101.
+>
+I guess he means vlan 101 is tagged on eth2, if not (connected to
+host, access port) then you are right.
 
-We've moving to a model where dst_entry objects to not have
-a reference to the associated neighbour entry, instead such
-neighbours must be looked up on-demand.
+> This should work on:
+> 1. Linux 2.6.36 and earlier, if eth0 has VLAN tag offload.
+> 2. Linux 3.2 and later.
+>
+Any reason?
 
-Here in qeth_l3_fill_header() it's actually much simpler to
-use the information in the route itself.  The code is
-already conditionalized upon protocol type.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
---
-If one of you could test this against net-next, I'd appreciate
-it.  I plan to make similar changes to the other dst_get_neighbour*()
-call in this driver.
-
-Thanks!
-
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 9648e4e..6d95c38 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2832,7 +2832,6 @@ static void qeth_l3_fill_af_iucv_hdr(struct qeth_card *card,
- static void qeth_l3_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
- 		struct sk_buff *skb, int ipv, int cast_type)
- {
--	struct neighbour *n = NULL;
- 	struct dst_entry *dst;
- 
- 	memset(hdr, 0, sizeof(struct qeth_hdr));
-@@ -2855,33 +2854,29 @@ static void qeth_l3_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
- 
- 	rcu_read_lock();
- 	dst = skb_dst(skb);
--	if (dst)
--		n = dst_get_neighbour_noref(dst);
- 	if (ipv == 4) {
-+		struct rtable *rt = (struct rtable *) dst;
-+		__be32 *pkey = &ip_hdr(skb)->daddr;
-+
-+		if (rt->rt_gateway)
-+			pkey = &rt->rt_gateway;
-+
- 		/* IPv4 */
- 		hdr->hdr.l3.flags = qeth_l3_get_qeth_hdr_flags4(cast_type);
- 		memset(hdr->hdr.l3.dest_addr, 0, 12);
--		if (n) {
--			*((u32 *) (&hdr->hdr.l3.dest_addr[12])) =
--			    *((u32 *) n->primary_key);
--		} else {
--			/* fill in destination address used in ip header */
--			*((u32 *) (&hdr->hdr.l3.dest_addr[12])) =
--							ip_hdr(skb)->daddr;
--		}
-+		*((__be32 *) (&hdr->hdr.l3.dest_addr[12])) = *pkey;
- 	} else if (ipv == 6) {
-+		struct rt6_info *rt = (struct rt6_info *) dst;
-+		struct in6_addr *pkey = &ipv6_hdr(skb)->daddr;
-+
-+		if (!ipv6_addr_any(&rt->rt6i_gateway))
-+			pkey = &rt->rt6i_gateway;
-+
- 		/* IPv6 */
- 		hdr->hdr.l3.flags = qeth_l3_get_qeth_hdr_flags6(cast_type);
- 		if (card->info.type == QETH_CARD_TYPE_IQD)
- 			hdr->hdr.l3.flags &= ~QETH_HDR_PASSTHRU;
--		if (n) {
--			memcpy(hdr->hdr.l3.dest_addr,
--			       n->primary_key, 16);
--		} else {
--			/* fill in destination address used in ip header */
--			memcpy(hdr->hdr.l3.dest_addr,
--			       &ipv6_hdr(skb)->daddr, 16);
--		}
-+		memcpy(hdr->hdr.l3.dest_addr, pkey, 16);
- 	} else {
- 		/* passthrough */
- 		if ((skb->dev->type == ARPHRD_IEEE802_TR) &&
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
