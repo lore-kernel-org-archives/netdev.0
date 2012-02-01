@@ -1,59 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: md5: RST: getting md5 key from listener
-Date: Wed, 01 Feb 2012 12:44:26 -0500 (EST)
-Message-ID: <20120201.124426.592024530798207293.davem@davemloft.net>
-References: <RE:_[PATCH]_tcp:_md5:_fix_md5_RST_when_both_sides_have_listener>
-	<1328085348-6771-1-git-send-email-shawn.lu@ericsson.com>
-	<1328090095.2595.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: VLAN 1 - Native
+Date: Wed, 1 Feb 2012 18:14:15 +0000
+Message-ID: <1328120055.2541.5.camel@bwh-desktop>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	 <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	 <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+	 <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+	 <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>
+	 <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>
+	 <CADDf=MRuAWRFWMiCOOkWBzhW7_B3wRoMEpmk8ij=SxD2QvP3mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shawn.lu@ericsson.com, netdev@vger.kernel.org, xiaoclu@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: yao zhao <yao.development@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942Ab2BARof convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 12:44:35 -0500
-In-Reply-To: <1328090095.2595.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail.solarflare.com ([216.237.3.220]:62729 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753157Ab2BASOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 13:14:19 -0500
+In-Reply-To: <CADDf=MRuAWRFWMiCOOkWBzhW7_B3wRoMEpmk8ij=SxD2QvP3mw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Feb 2012 10:54:55 +0100
+On Wed, 2012-02-01 at 12:25 -0500, yao zhao wrote:
+> How about this?
+> 
+> brctl addif br_vlan_1 eth0 eth1
 
-> Le mercredi 01 f=E9vrier 2012 =E0 00:35 -0800, Shawn Lu a =E9crit :
->> TCP RST mechanism is broken in TCP md5(RFC2385). When
->> connection is gone, md5 key is lost, sending RST
->> without md5 hash is deem to ignored by peer. This can
->> be a problem since RST help protocal like bgp to fast
->> recove from peer crash.
->>=20
->> In most case, users of tcp md5, such as bgp and ldp,
->> have listener on both sides to accept connection from peer.
->> md5 keys for peers are saved in listening socket.
->>=20
->> There are two cases in finding md5 key when connection is
->> lost:
->> 1.Passive receive RST: The message is send to well known port,
->> tcp will associate it with listner. md5 key is gotten from
->> listener.
->>=20
->> 2.Active receive RST (no sock): The message is send to ative
->> side, there is no socket associated with the message. In this
->> case, finding listener from source port, then find md5 key from
->> listener.
->>=20
->> we are not loosing sercuriy here:
->> packet is checked with md5 hash. No RST is generated
->> if md5 hash doesn't match or no md5 key can be found.
->>=20
->> Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
->> ---
->> v4: change title and change log.=20
->> regerated after  "tcp: md5: protects md5sig_info with RCU"
->=20
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Right, VID 1 is not special to Linux.
 
-Applied, thanks everyone.
+> brctl addif br_vlan_101 eth0.101 eth2.101
+
+I think you mean eth2 rather than eth2.101.
+
+This should work on:
+1. Linux 2.6.36 and earlier, if eth0 has VLAN tag offload.
+2. Linux 3.2 and later.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
