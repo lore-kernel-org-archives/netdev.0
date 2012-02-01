@@ -1,34 +1,49 @@
-From: Krishna Gudipati <kgudipat@Brocade.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: RE: [PATCH] bna: Implement ethtool flash_device entry point.
-Date: Wed, 1 Feb 2012 14:10:32 -0800
-Message-ID: <B5EE62D80D50B84BB9E5174F7FCCE80A260325B6E1@HQ1-EXCH02.corp.brocade.com>
+Date: Wed, 1 Feb 2012 22:17:50 +0000
+Message-ID: <1328134670.2541.19.camel@bwh-desktop>
 References: <1328054801-11322-1-git-send-email-kgudipat@brocade.com>
- <1328123687.2541.10.camel@bwh-desktop>
+	 <1328123687.2541.10.camel@bwh-desktop>
+	 <B5EE62D80D50B84BB9E5174F7FCCE80A260325B6E1@HQ1-EXCH02.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
 	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
 	Adapter Linux Open SRC Team
 	<adapter_linux_open_src_team@Brocade.COM>
-To: "'Ben Hutchings'" <bhutchings@solarflare.com>
+To: Krishna Gudipati <kgudipat@Brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48196 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753851Ab2BAWKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 17:10:37 -0500
-In-Reply-To: <1328123687.2541.10.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:8839 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757612Ab2BAWRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 17:17:55 -0500
+In-Reply-To: <B5EE62D80D50B84BB9E5174F7FCCE80A260325B6E1@HQ1-EXCH02.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIEJlbiBmb3IgdGhlIHJldmlldy4NCg0KSSBhbSBtYWtpbmcgdGhlIGNoYW5nZXMgYXMg
-cGVyIHRoZSByZXZpZXcgY29tbWVudHMgdG8gcmV0dXJuIHByb3BlciBlcnJvciBjb2RlLg0KDQo+
-ICsJaW5pdF9jb21wbGV0aW9uKCZmY29tcC5jb21wKTsNCj4gKwlzcGluX2xvY2tfaXJxc2F2ZSgm
-Ym5hZC0+Ym5hX2xvY2ssIGZsYWdzKTsNCg0KTm8gbmVlZCB0byBzYXZlIGZsYWdzLCB0aGlzIGlz
-IG5vdCBjYWxsZWQgaW4gSVJRIGNvbnRleHQhDQoNCltLcmlzaG5hXTogYm5hX2xvY2sgaXMgdXNl
-ZCBpbiBJbnRlcnJ1cHQgY29udGV4dCBhcyB3ZWxsLCBieSB1c2luZyBzcGluX2xvY2tfaXJxIGlu
-c3RlYWQgb2YNCgkgICAgIHNwaW5fbG9ja19pcnFzYXZlKCkgLSB3ZSB3aWxsIGxvc2UgdGhlIHN0
-YXRlIG9mIHRoZSBpbnRlcnJ1cHRzICYgd2lsbA0KCSAgICAgdW5jb25kaXRpb25hbGx5IGVuYWJs
-ZSBpbnRlcnJ1cHRzLiBXZSBwbGFuIHRvIHN0YXkgd2l0aCB1c2luZyBzcGluX2xvY2tfaXJxc2F2
-ZSgpDQoJICAgICBhcyBpdCdzIHNhZmUuDQoNClRoYW5rcywNCktyaXNobmEuDQo=
+On Wed, 2012-02-01 at 14:10 -0800, Krishna Gudipati wrote:
+> Thanks Ben for the review.
+> 
+> I am making the changes as per the review comments to return proper error code.
+> 
+> > +	init_completion(&fcomp.comp);
+> > +	spin_lock_irqsave(&bnad->bna_lock, flags);
+> 
+> No need to save flags, this is not called in IRQ context!
+> 
+> [Krishna]: bna_lock is used in Interrupt context as well, by using spin_lock_irq instead of
+> 	     spin_lock_irqsave() - we will lose the state of the interrupts & will
+> 	     unconditionally enable interrupts. We plan to stay with using spin_lock_irqsave()
+> 	     as it's safe.
+
+bnad_flash_device() will be called in process context, therefore it is
+correct to unconditionally enable interrupts.  It is safe but odd to use
+spin_lock_irqsave()/spin_lock_irqrestore() in such a function.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
