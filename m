@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [trivial] vmxnet3: Fix typo in vmxnet3_drv.c
-Date: Wed, 01 Feb 2012 14:46:44 -0500 (EST)
-Message-ID: <20120201.144644.331526425289884377.davem@davemloft.net>
-References: <1328102039-1806-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH net] ethtool: Null-terminate filename passed to
+ ethtool_ops::flash_device
+Date: Wed, 01 Feb 2012 14:47:52 -0500 (EST)
+Message-ID: <20120201.144752.544117675701129801.davem@davemloft.net>
+References: <1328124745.2541.12.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, trivial@kernel.org,
-	linux-kernel@vger.kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328102039-1806-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
+	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33890 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932285Ab2BATr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 14:47:58 -0500
+In-Reply-To: <1328124745.2541.12.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Wed,  1 Feb 2012 22:13:59 +0900
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 1 Feb 2012 19:32:25 +0000
 
-> Correct spelling in "uncommited" to "uncommitted" in
-> drivers/net/vmxnet3/vmxnet3_drv.c
+> The parameters for ETHTOOL_FLASHDEV include a filename, which ought to
+> be null-terminated.  Currently the only driver that implements
+> ethtool_ops::flash_device attempts to add a null terminator if
+> necessary, but does it wrongly.  Do it in the ethtool core instead.
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied.
+Applied, thanks Ben.
