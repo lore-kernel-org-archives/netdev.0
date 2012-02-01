@@ -1,73 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] decnet: Add missing neigh->ha locking to
- dn_neigh_output_packet()
-Date: Wed, 01 Feb 2012 16:36:33 -0500 (EST)
-Message-ID: <20120201.163633.429880242045037062.davem@davemloft.net>
+From: Leonardo Uzcudun <uzcudunl@yahoo.it>
+Subject: Re: VLAN 1 - Native
+Date: Wed, 1 Feb 2012 22:01:59 +0000 (GMT)
+Message-ID: <1328133719.56475.YahooMailNeo@web29013.mail.ird.yahoo.com>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>  <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>  <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>  <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>  <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>  <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>  <CADDf=MRuAWRFWMiCOOkWBzhW7_B3wRoMEpmk8ij=SxD2QvP3mw@mail.gmail.com>  <1328120055.2541.5.camel@bwh-desktop>  <CADDf=MRvCyvEtWGAvPV29uCeoTrDTbjyi0g-q5Qj1zVPDOLYrA@mail.gmail.com> <1328130088.2902.9.camel@edumazet-laptop>
+Reply-To: Leonardo Uzcudun <uzcudunl@yahoo.it>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	yao zhao <yao.development@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35357 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932510Ab2BAVgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 16:36:35 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q11LaXix004492
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 1 Feb 2012 13:36:34 -0800
+Received: from nm11.bullet.mail.ird.yahoo.com ([77.238.189.64]:31832 "HELO
+	nm11.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754338Ab2BAWCC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Feb 2012 17:02:02 -0500
+In-Reply-To: <1328130088.2902.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello Guys,
 
-Basically, mirror the logic in neigh_connected_output().
+Tested also in Ubuntu 2.6.38-13 and it is not working.
+Tomorrow i'll test Michal suggestion and i'll let you know.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
 
-Noticed this while auditing neighbour entry usage in the DecNET stack.
-Committed to net-next.
 
- net/decnet/dn_neigh.c |   24 +++++++++++++++---------
- 1 files changed, 15 insertions(+), 9 deletions(-)
+----- Messaggio originale -----
+Da: Eric Dumazet <eric.dumazet@gmail.com>
+A: yao zhao <yao.development@gmail.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>; Leonardo Uzcudun <uzcudu=
+nl@yahoo.it>; "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Inviato: Mercoled=EC 1 Febbraio 2012 22:01
+Oggetto: Re: VLAN 1 - Native
 
-diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
-index befe426..ee7013f 100644
---- a/net/decnet/dn_neigh.c
-+++ b/net/decnet/dn_neigh.c
-@@ -205,17 +205,23 @@ static int dn_neigh_output_packet(struct sk_buff *skb)
- 	struct neighbour *neigh = dst_get_neighbour_noref(dst);
- 	struct net_device *dev = neigh->dev;
- 	char mac_addr[ETH_ALEN];
-+	unsigned int seq;
-+	int err;
- 
- 	dn_dn2eth(mac_addr, rt->rt_local_src);
--	if (dev_hard_header(skb, dev, ntohs(skb->protocol), neigh->ha,
--			    mac_addr, skb->len) >= 0)
--		return dev_queue_xmit(skb);
--
--	if (net_ratelimit())
--		printk(KERN_DEBUG "dn_neigh_output_packet: oops, can't send packet\n");
--
--	kfree_skb(skb);
--	return -EINVAL;
-+	do {
-+		seq = read_seqbegin(&neigh->ha_lock);
-+		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
-+				      neigh->ha, mac_addr, skb->len);
-+	} while (read_seqretry(&neigh->ha_lock, seq));
-+
-+	if (err >= 0)
-+		err = dev_queue_xmit(skb);
-+	else {
-+		kfree_skb(skb);
-+		err = -EINVAL;
-+	}
-+	return err;
- }
- 
- static int dn_long_output(struct neighbour *neigh, struct sk_buff *skb)
--- 
-1.7.7.6
+Le mercredi 01 f=E9vrier 2012 =E0 15:52 -0500, yao zhao a =E9crit :
+
+> > This should work on:
+> > 1. Linux 2.6.36 and earlier, if eth0 has VLAN tag offload.
+> > 2. Linux 3.2 and later.
+> >
+> Any reason?
+
+Code was vastly changed by Jesse Gross in 2.6.36, and many adjustements=
+,
+bug fixes were needed to stabilize the thing.
+
+This is was I suggested to try a recent kernel.
+
+2.6.32 is too old to be discussed on netdev anymore.
