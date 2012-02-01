@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [trivial] atm: Fix typo in lanai.c
-Date: Wed, 01 Feb 2012 14:46:38 -0500 (EST)
-Message-ID: <20120201.144638.339846273889552158.davem@davemloft.net>
-References: <1328101513-1704-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH net-next] net: dev: Convert printks to pr_<level>
+Date: Wed, 01 Feb 2012 14:43:05 -0500 (EST)
+Message-ID: <20120201.144305.251984620339115457.davem@davemloft.net>
+References: <1327882830.2652.16.camel@joe2Laptop>
+	<20120201.142156.871464551711177387.davem@davemloft.net>
+	<1328125229.18641.17.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: standby24x7@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328101513-1704-1-git-send-email-standby24x7@gmail.com>
+In-Reply-To: <1328125229.18641.17.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Wed,  1 Feb 2012 22:05:13 +0900
+From: Joe Perches <joe@perches.com>
+Date: Wed, 01 Feb 2012 11:40:29 -0800
 
-> Correct spelling "reseting" to resetting" in
-> drivers/atm/lanai.c
+> Do you prefer coalesced formats in all cases?
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> 		pr_warn("Number of in use tx queues changed invalidating tc mappings. Priority traffic classification disabled!\n");
 
-Applied.
+It seems to be the new trend, so yes.
