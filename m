@@ -1,60 +1,24 @@
-From: Geunsik Lim <geunsik.lim@gmail.com>
-Subject: [PATCH] Keep kernel coding style rule of hfs-s+/sp source
-Date: Wed,  1 Feb 2012 15:59:53 +0900
-Message-ID: <1328079593-19197-1-git-send-email-geunsik.lim@gmail.com>
-Cc: Netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 4/6] netprio_cgroup: use IS_ENABLED() and family
+Date: Wed, 01 Feb 2012 01:59:54 -0500 (EST)
+Message-ID: <20120201.015954.2098592611164231843.davem@davemloft.net>
+References: <4F28E1D1.900@cn.fujitsu.com>
+	<4F28E203.10502@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F28E203.10502-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Modified for kernel coding style rule of hfs-s+/sp device driver .
-. reference: ./Documentation/CodingStyle
 
-ex)
-60 Don't put multiple statements on a single line unless you have
-61 something to hide:
-62
-63         if (condition) do_this;
-64           do_something_everytime;
+Do not mix genuine bug fixes and cleanups.
 
-Signed-off-by: Geunsik Lim <geunsik.lim@samsung.com>
----
- drivers/isdn/hisax/hfc_sx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Otherwise I cannot apply your bug fixes to the 'net' tree.
 
-diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
-index 156d7c6..7c41bd8 100644
---- a/drivers/isdn/hisax/hfc_sx.c
-+++ b/drivers/isdn/hisax/hfc_sx.c
-@@ -381,7 +381,7 @@ reset_hfcsx(struct IsdnCardState *cs)
- 	Write_hfc(cs, HFCSX_INT_M1, cs->hw.hfcsx.int_m1);
- 
- 	/* Clear already pending ints */
--	if (Read_hfc(cs, HFCSX_INT_S1));
-+	Read_hfc(cs, HFCSX_INT_S1);
- 
- 	Write_hfc(cs, HFCSX_STATES, HFCSX_LOAD_STATE | 2);	/* HFC ST 2 */
- 	udelay(10);
-@@ -411,7 +411,7 @@ reset_hfcsx(struct IsdnCardState *cs)
- 	/* Finally enable IRQ output */
- 	cs->hw.hfcsx.int_m2 = HFCSX_IRQ_ENABLE;
- 	Write_hfc(cs, HFCSX_INT_M2, cs->hw.hfcsx.int_m2);
--	if (Read_hfc(cs, HFCSX_INT_S2));
-+	Read_hfc(cs, HFCSX_INT_S2);
- }
- 
- /***************************************************/
-@@ -1286,7 +1286,7 @@ hfcsx_bh(struct work_struct *work)
- 						cs->hw.hfcsx.int_m1 &= ~HFCSX_INTS_TIMER;
- 						Write_hfc(cs, HFCSX_INT_M1, cs->hw.hfcsx.int_m1);
- 						/* Clear already pending ints */
--						if (Read_hfc(cs, HFCSX_INT_S1));
-+						Read_hfc(cs, HFCSX_INT_S1);
- 
- 						Write_hfc(cs, HFCSX_STATES, 4 | HFCSX_LOAD_STATE);
- 						udelay(10);
--- 
-1.7.8.1
+Seperate things out, submit only pure bug fixes first, then
+later once those changes propagate you can submit the cleanups.
