@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 3/4] sysctl: Comments to make the code clearer.
-Date: Wed, 01 Feb 2012 19:29:39 -0800
-Message-ID: <m1pqdxvroc.fsf_-_@fess.ebiederm.org>
+Subject: [PATCH 4/4] sysctl: Don't call sysctl_follow_link unless we are a link.
+Date: Wed, 01 Feb 2012 19:30:04 -0800
+Message-ID: <m1liolvrnn.fsf_-_@fess.ebiederm.org>
 References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
 	<m139atx6bs.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
@@ -18,67 +18,64 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Document get_subdir and that find_subdir alwasy takes a reference.
+There are no functional changes.  Just code motion to make it
+clear that we don't follow a link between sysctl roots unless the
+directory entry actually is a link.
 
 Suggested-by:  Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/proc/proc_sysctl.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+ fs/proc/proc_sysctl.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 722ec11..e5601dc 100644
+index e5601dc..a7708b7 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
-@@ -73,6 +73,7 @@ static int namecmp(const char *name1, int len1, const char *name2, int len2)
- 	return cmp;
- }
+@@ -451,10 +451,12 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
+ 	if (!p)
+ 		goto out;
  
-+/* Called under sysctl_lock */
- static struct ctl_table *find_entry(struct ctl_table_header **phead,
- 	struct ctl_dir *dir, const char *name, int namelen)
- {
-@@ -864,6 +865,18 @@ static struct ctl_dir *new_dir(struct ctl_table_set *set,
- 	return new;
- }
+-	ret = sysctl_follow_link(&h, &p, current->nsproxy);
+-	err = ERR_PTR(ret);
+-	if (ret)
+-		goto out;
++	if (S_ISLNK(p->mode)) {
++		ret = sysctl_follow_link(&h, &p, current->nsproxy);
++		err = ERR_PTR(ret);
++		if (ret)
++			goto out;
++	}
  
-+/**
-+ * get_subdir - find or create a subdir with the specified name.
-+ * @dir:  Directory to create the subdirectory in
-+ * @name: The name of the subdirectory to find or create
-+ * @namelen: The length of name
-+ *
-+ * Takes a directory with an elevated reference count so we know that
-+ * if we drop the lock the directory will not go away.  Upon success
-+ * the reference is moved from @dir to the returned subdirectory.
-+ * Upon error an error code is returned and the reference on @dir is
-+ * simply dropped.
-+ */
- static struct ctl_dir *get_subdir(struct ctl_dir *dir,
- 				  const char *name, int namelen)
- {
-@@ -885,12 +898,14 @@ static struct ctl_dir *get_subdir(struct ctl_dir *dir,
- 	if (!new)
- 		goto failed;
+ 	err = ERR_PTR(-ENOMEM);
+ 	inode = proc_sys_make_inode(dir->i_sb, h ? h : head, p);
+@@ -601,10 +603,12 @@ static int proc_sys_link_fill_cache(struct file *filp, void *dirent,
+ 	int err, ret = 0;
+ 	head = sysctl_head_grab(head);
  
-+	/* Was the subdir added while we dropped the lock? */
- 	subdir = find_subdir(dir, name, namelen);
- 	if (!IS_ERR(subdir))
- 		goto found;
- 	if (PTR_ERR(subdir) != -ENOENT)
- 		goto failed;
+-	/* It is not an error if we can not follow the link ignore it */
+-	err = sysctl_follow_link(&head, &table, current->nsproxy);
+-	if (err)
+-		goto out;
++	if (S_ISLNK(table->mode)) {
++		/* It is not an error if we can not follow the link ignore it */
++		err = sysctl_follow_link(&head, &table, current->nsproxy);
++		if (err)
++			goto out;
++	}
  
-+	/* Nope.  Use the our freshly made directory entry. */
- 	err = insert_header(dir, &new->header);
- 	subdir = ERR_PTR(err);
- 	if (err)
-@@ -1190,6 +1205,7 @@ struct ctl_table_header *__register_sysctl_table(
+ 	ret = proc_sys_fill_cache(filp, dirent, filldir, head, table);
+ out:
+@@ -950,10 +954,6 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
+ 	struct ctl_dir *dir;
+ 	int ret;
  
+-	/* Get out quickly if not a link */
+-	if (!S_ISLNK((*pentry)->mode))
+-		return 0;
+-
+ 	ret = 0;
  	spin_lock(&sysctl_lock);
- 	dir = &set->dir;
-+	/* Reference moved down the diretory tree get_subdir */
- 	dir->header.nreg++;
- 	spin_unlock(&sysctl_lock);
- 
+ 	root = (*pentry)->data;
 -- 
 1.7.2.5
