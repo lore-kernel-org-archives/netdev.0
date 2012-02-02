@@ -1,67 +1,40 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH net 2/2] caif: Bugfix double kfree_skb upon xmit failure
-Date: Thu,  2 Feb 2012 12:21:03 +0100
-Message-ID: <1328181663-13853-2-git-send-email-sjur.brandeland@stericsson.com>
-References: <1328181663-13853-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: VLAN 1 - Native
+Date: Thu, 02 Feb 2012 13:10:16 +0100
+Message-ID: <m34nv977x3.fsf@ursa.amorsen.dk>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	<1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	<1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+	<CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+	<1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sjurbren@gmail.com,
-	Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: yao zhao <yao.development@gmail.com>,
+	Leonardo Uzcudun <uzcudunl@yahoo.it>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m020-f174.google.com ([209.85.217.174]:58974 "EHLO
-	mail-lpp01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755572Ab2BBLVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 06:21:09 -0500
-Received: by lbom4 with SMTP id m4so338139lbo.19
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 03:21:07 -0800 (PST)
-In-Reply-To: <1328181663-13853-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from gate2.ipvision.dk ([217.195.186.4]:40198 "EHLO
+	gate2.ipvision.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755828Ab2BBMKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 07:10:20 -0500
+In-Reply-To: <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	(Eric Dumazet's message of "Wed, 01 Feb 2012 16:05:23 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-SKB is freed twice upon send error. The Network stack consumes SKB even
-when it returns error code.
+> There is no ID reserved to untagged traffic in the 802.1Q specs, since
+> by definition, if traffic is untagged, there is _no_ VLAN tag in the
+> frame.
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
- net/caif/caif_socket.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+This is not entirely true. If you want to send 802.1p-tagged packets
+without a specific VLAN, you should use the 0 tag. I would say that
+comes quite close to "The ID reserved to untagged traffic is 0".
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index a986280..a97d97a 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -539,8 +539,10 @@ static int transmit_skb(struct sk_buff *skb, struc=
-t caifsock *cf_sk,
- 	pkt =3D cfpkt_fromnative(CAIF_DIR_OUT, skb);
- 	memset(skb->cb, 0, sizeof(struct caif_payload_info));
-=20
--	if (cf_sk->layer.dn =3D=3D NULL)
-+	if (cf_sk->layer.dn =3D=3D NULL) {
-+		kfree_skb(skb);
- 		return -EINVAL;
-+	}
-=20
- 	return cf_sk->layer.dn->transmit(cf_sk->layer.dn, pkt);
- }
-@@ -683,10 +685,10 @@ static int caif_stream_sendmsg(struct kiocb *kioc=
-b, struct socket *sock,
- 		}
- 		err =3D transmit_skb(skb, cf_sk,
- 				msg->msg_flags&MSG_DONTWAIT, timeo);
--		if (err < 0) {
--			kfree_skb(skb);
-+		if (err < 0)
-+			/* skb is already freed */
- 			goto pipe_err;
--		}
-+
- 		sent +=3D size;
- 	}
-=20
---=20
-1.7.5.4
+It is, however, not 1.
+
+
+/Benny
