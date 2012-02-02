@@ -1,81 +1,81 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [RFC PATCH V4] Xen netback / netfront improvement
-Date: Thu, 2 Feb 2012 16:49:10 +0000
-Message-ID: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
+Subject: [RFC PATCH V4 02/13] netback: add module unload function.
+Date: Thu, 2 Feb 2012 16:49:12 +0000
+Message-ID: <1328201363-13915-3-git-send-email-wei.liu2@citrix.com>
+References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com,
+	Wei Liu <wei.liu2@citrix.com>
 To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:16259 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753002Ab2BBQt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 11:49:26 -0500
+	id S1755012Ab2BBQt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Feb 2012 11:49:28 -0500
+In-Reply-To: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes in V4:
- - Squash several patches
- - Per-cpu scratch improvement, guard against race condition, NUMA
-   awared allocation
- - Extend xenbus ring mapping interface to benifit all Xen BE / FE
- - Remove RX protocol stub patch
+Enables users to unload netback module.
 
-Changes in V3:
- - Rework of per-cpu scratch space
- - Multi page ring support
- - Split event channels
- - Rx protocol stub
- - Fix a minor bug in module_put path
+Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+---
+ drivers/net/xen-netback/common.h  |    1 +
+ drivers/net/xen-netback/netback.c |   14 ++++++++++++++
+ drivers/net/xen-netback/xenbus.c  |    5 +++++
+ 3 files changed, 20 insertions(+), 0 deletions(-)
 
-Changes in V2:
- - Fix minor bugs in V1
- - Embed pending_tx_info into page pool
- - Per-cpu scratch space
- - Notification code path clean up
-
-This version has been tested by 
-Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-
-V1:
-A new netback implementation which includes three major features:
-
- - Global page pool support
- - NAPI + kthread 1:1 model
- - Netback internal name changes
-
-This patch series is the foundation of furture work. So it is better
-to get it right first. Patch 1 and 3 have the real meat.
-
-The first benifit of 1:1 model will be scheduling fairness.
-
-The rational behind a global page pool is that we need to limit
-overall memory consumed by all vifs.
-
-Utilization of NAPI enables the possibility to mitigate
-interrupts/events, the code path is cleaned up in a separated patch.
-
-Netback internal changes cleans up the code structure after switching
-to 1:1 model. It also prepares netback for further code layout
-changes.
-
------
- drivers/block/xen-blkback/xenbus.c    |    8 +-
- drivers/block/xen-blkfront.c          |    5 +-
- drivers/net/xen-netback/Makefile      |    2 +-
- drivers/net/xen-netback/common.h      |  107 +++--
- drivers/net/xen-netback/interface.c   |  230 ++++++--
- drivers/net/xen-netback/netback.c     |  999 +++++++++++++++------------------
- drivers/net/xen-netback/page_pool.c   |  185 ++++++
- drivers/net/xen-netback/page_pool.h   |   66 +++
- drivers/net/xen-netback/xenbus.c      |  178 ++++++-
- drivers/net/xen-netfront.c            |  393 ++++++++++----
- drivers/pci/xen-pcifront.c            |    5 +-
- drivers/scsi/xen-scsiback/common.h    |    3 +-
- drivers/scsi/xen-scsiback/interface.c |    6 +-
- drivers/scsi/xen-scsiback/xenbus.c    |    4 +-
- drivers/scsi/xen-scsifront/xenbus.c   |    5 +-
- drivers/xen/xen-pciback/xenbus.c      |   11 +-
- drivers/xen/xenbus/xenbus_client.c    |  282 +++++++---
- include/xen/xenbus.h                  |   15 +-
- 18 files changed, 1646 insertions(+), 858 deletions(-)
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 288b2f3..372c7f5 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -126,6 +126,7 @@ void xenvif_get(struct xenvif *vif);
+ void xenvif_put(struct xenvif *vif);
+ 
+ int xenvif_xenbus_init(void);
++void xenvif_xenbus_exit(void);
+ 
+ int xenvif_schedulable(struct xenvif *vif);
+ 
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index d11205f..3059684 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1670,5 +1670,19 @@ failed_init:
+ 
+ module_init(netback_init);
+ 
++static void __exit netback_exit(void)
++{
++	int i;
++	xenvif_xenbus_exit();
++	for (i = 0; i < xen_netbk_group_nr; i++) {
++		struct xen_netbk *netbk = &xen_netbk[i];
++		del_timer_sync(&netbk->net_timer);
++		kthread_stop(netbk->task);
++	}
++	vfree(xen_netbk);
++	page_pool_destroy();
++}
++module_exit(netback_exit);
++
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_ALIAS("xen-backend:vif");
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 410018c..65d14f2 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -485,3 +485,8 @@ int xenvif_xenbus_init(void)
+ {
+ 	return xenbus_register_backend(&netback_driver);
+ }
++
++void xenvif_xenbus_exit(void)
++{
++	return xenbus_unregister_driver(&netback_driver);
++}
+-- 
+1.7.2.5
