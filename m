@@ -1,88 +1,81 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: VLAN 1 - Native
-Date: Thu, 2 Feb 2012 08:33:12 -0800
-Message-ID: <CAEP_g=_c9W2YZU+RjQwVfdAW2nuCTxq2cTd0WxOU0-MmfmbOAg@mail.gmail.com>
-References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
- <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
- <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
- <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
- <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>
- <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>
- <4F2991FD.8090407@ziu.info> <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com>
- <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F2A7ECD.2050909@ziu.info>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [RFC PATCH V4] Xen netback / netfront improvement
+Date: Thu, 2 Feb 2012 16:49:10 +0000
+Message-ID: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Leonardo Uzcudun <uzcudunl@yahoo.it>,
-	yao zhao <yao.development@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Soltys <soltys@ziu.info>
+Content-Type: text/plain
+Cc: ian.campbell@citrix.com, konrad.wilk@oracle.com
+To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:42596 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753238Ab2BBQdc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 11:33:32 -0500
-Received: by iacb35 with SMTP id b35so3342482iac.19
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 08:33:32 -0800 (PST)
-In-Reply-To: <4F2A7ECD.2050909@ziu.info>
+Received: from smtp.citrix.com ([66.165.176.89]:16259 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753002Ab2BBQt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Feb 2012 11:49:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 2, 2012 at 4:17 AM, Michal Soltys <soltys@ziu.info> wrote:
-> On 02.02.2012 10:12, Eric Dumazet wrote:
->>
->> Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 09:09 +0000, Leonardo Uzcudun a=
- =C3=A9crit :
->>>
->>> Hello Michal:
->>>
->>> It is working on kernel 3.0.0-15 Ubuntu. I've just to modify the
->>> ebtables command as:
->>> ebtables -t broute -A BROUTING -i eth0 -p 802_1Q --vlan-id 101 -j D=
-ROP
->>> (protocol is a must when you use --vlan-id)
->>>
->>>
->>> I'll test it on kernel 2.6.32-5 Debian
->>>
->>>
->>> Just last question,in the case i should implement this kind of
->>> configuration in a kernel 2.6.31, should i backport/patch anything?=
- is
->>> it a bad idea (running it on 2.6.31)?
->>
->>
->> This is going to be tough.
->>
->
-> Btw, this (ebtables broute drop) method has been mentioned in bridge-=
-nf faq
-> for ages (through most/all 2.6 kernels at least) - and for the very p=
-urpose
-> of directing tagged/not tagged traffic to proper bridge interfaces.
-> Shouldn't 2.6.31 be pretty safe in that regard ?
->
-> Or did you mean backporting/patching part ?
->
->
->> The point of Jesse Gross (and others) work was exactly to permit bet=
-ter
->> vlan/bridge integration/stacking.
->>
->
-> Just to be sure - are those patches in any way changing / deprecating=
- /
-> conflicting with ebtables approach ?
+Changes in V4:
+ - Squash several patches
+ - Per-cpu scratch improvement, guard against race condition, NUMA
+   awared allocation
+ - Extend xenbus ring mapping interface to benifit all Xen BE / FE
+ - Remove RX protocol stub patch
 
-Nothing in ebtables changed.  The part that is different here is
-whether the vlan device or the bridge takes priority for tagged
-frames.  So on new kernels your ebtables command to reject packets
-from the bridge back to the device isn't necessary because the device
-will just take it in the first place but it shouldn't break things.
+Changes in V3:
+ - Rework of per-cpu scratch space
+ - Multi page ring support
+ - Split event channels
+ - Rx protocol stub
+ - Fix a minor bug in module_put path
 
-Based on your description, I suspect that this will work fine on your
-old kernel.  Part of the problem that was fixed is that the result was
-hardware dependent.
+Changes in V2:
+ - Fix minor bugs in V1
+ - Embed pending_tx_info into page pool
+ - Per-cpu scratch space
+ - Notification code path clean up
+
+This version has been tested by 
+Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+
+V1:
+A new netback implementation which includes three major features:
+
+ - Global page pool support
+ - NAPI + kthread 1:1 model
+ - Netback internal name changes
+
+This patch series is the foundation of furture work. So it is better
+to get it right first. Patch 1 and 3 have the real meat.
+
+The first benifit of 1:1 model will be scheduling fairness.
+
+The rational behind a global page pool is that we need to limit
+overall memory consumed by all vifs.
+
+Utilization of NAPI enables the possibility to mitigate
+interrupts/events, the code path is cleaned up in a separated patch.
+
+Netback internal changes cleans up the code structure after switching
+to 1:1 model. It also prepares netback for further code layout
+changes.
+
+-----
+ drivers/block/xen-blkback/xenbus.c    |    8 +-
+ drivers/block/xen-blkfront.c          |    5 +-
+ drivers/net/xen-netback/Makefile      |    2 +-
+ drivers/net/xen-netback/common.h      |  107 +++--
+ drivers/net/xen-netback/interface.c   |  230 ++++++--
+ drivers/net/xen-netback/netback.c     |  999 +++++++++++++++------------------
+ drivers/net/xen-netback/page_pool.c   |  185 ++++++
+ drivers/net/xen-netback/page_pool.h   |   66 +++
+ drivers/net/xen-netback/xenbus.c      |  178 ++++++-
+ drivers/net/xen-netfront.c            |  393 ++++++++++----
+ drivers/pci/xen-pcifront.c            |    5 +-
+ drivers/scsi/xen-scsiback/common.h    |    3 +-
+ drivers/scsi/xen-scsiback/interface.c |    6 +-
+ drivers/scsi/xen-scsiback/xenbus.c    |    4 +-
+ drivers/scsi/xen-scsifront/xenbus.c   |    5 +-
+ drivers/xen/xen-pciback/xenbus.c      |   11 +-
+ drivers/xen/xenbus/xenbus_client.c    |  282 +++++++---
+ include/xen/xenbus.h                  |   15 +-
+ 18 files changed, 1646 insertions(+), 858 deletions(-)
