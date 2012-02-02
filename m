@@ -1,124 +1,268 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
- TCP streams
-Date: Thu, 2 Feb 2012 23:42:44 +0200
-Message-ID: <CAJZOPZJQo5+CDP3GQY-HMGP4sHCv9NTYY7+FtW7_nfZ4JeYAug@mail.gmail.com>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
-	<alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
-	<CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>
-	<4F264A6C.3070706@mellanox.com>
-	<1327910672.2891.12.camel@edumazet-laptop>
-	<20120130081849.GA7848@gondor.apana.org.au>
-	<1327913583.2288.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120130085742.GA8262@gondor.apana.org.au>
-	<CAJZOPZJb1HvcS0XXKLvoDuoi1EfYTY-awwY2g0aHWoS=4qmdyQ@mail.gmail.com>
-	<20120201083837.GA7081@gondor.apana.org.au>
-	<CAJZOPZJVAQoy0B30zqkROOBp_-bF6=EdU2L9V025fJgTexVuFQ@mail.gmail.com>
-	<1328105262.2595.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<4F2A974B.209@mellanox.com>
-	<1328193495.2279.51.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1328193865.2279.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] Implement IP_UNICAST_IF socket option.
+Date: Thu, 02 Feb 2012 22:57:08 +0100
+Message-ID: <1328219828.2480.32.camel@edumazet-laptop>
+References: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-rdma <linux-rdma@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: "Erich E. Hoover" <ehoover@mines.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:40309 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932158Ab2BBVmo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 16:42:44 -0500
-In-Reply-To: <1328193865.2279.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38765 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932596Ab2BBV5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 16:57:13 -0500
+Received: by werb13 with SMTP id b13so2227398wer.19
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 13:57:11 -0800 (PST)
+In-Reply-To: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 2, 2012 at 4:44 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> > I guess changing hard_header_len might be difficult (for you).
-> > Adding gro_mac_header_len sounds the easy way.
-> > [ You'll need to set it in your device setup() ]
+Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 14:36 -0700, Erich E. Hoover a =C3=
+=A9crit :
+> The IP_UNICAST_IF feature is needed by the Wine project.  This patch =
+implements the feature by setting the outgoing interface in a similar f=
+ashion to that of IP_PKTINFO.
+>=20
+> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
+> ---
+>  include/linux/in.h      |    1 +
+>  include/net/inet_sock.h |    2 +
+>  include/net/ip.h        |    1 +
+>  net/ipv4/af_inet.c      |    2 +
+>  net/ipv4/ip_sockglue.c  |   68 +++++++++++++++++++++++++++++++++++++=
+++++++++++
+>  net/ipv4/ping.c         |    2 +-
+>  net/ipv4/raw.c          |    2 +-
+>  net/ipv4/udp.c          |    2 +-
+>  8 files changed, 77 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/include/linux/in.h b/include/linux/in.h
+> index 01129c0..89f6682 100644
+> --- a/include/linux/in.h
+> +++ b/include/linux/in.h
+> @@ -86,6 +86,7 @@ struct in_addr {
+> =20
+>  #define IP_MINTTL       21
+>  #define IP_NODEFRAG     22
+> +#define IP_UNICAST_IF   23
+> =20
+>  /* IP_MTU_DISCOVER values */
+>  #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
+> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+> index e3e4051..ad517f5 100644
+> --- a/include/net/inet_sock.h
+> +++ b/include/net/inet_sock.h
+> @@ -132,6 +132,7 @@ struct rtable;
+>   * @tos - TOS
+>   * @mc_ttl - Multicasting TTL
+>   * @is_icsk - is this an inet_connection_sock?
+> + * @outif_index - Outgoing device index
+>   * @mc_index - Multicast device index
+>   * @mc_list - Group array
+>   * @cork - info to build ip hdr on each ip frag while socket is cork=
+ed
+> @@ -167,6 +168,7 @@ struct inet_sock {
+>  				transparent:1,
+>  				mc_all:1,
+>  				nodefrag:1;
+> +	int			outif_index;
+>  	int			mc_index;
+>  	__be32			mc_addr;
+>  	struct ip_mc_socklist __rcu	*mc_list;
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index 775009f..2c1a261 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -452,6 +452,7 @@ extern int ip_options_rcv_srr(struct sk_buff *skb=
+);
+> =20
+>  extern void	ipv4_pktinfo_prepare(struct sk_buff *skb);
+>  extern void	ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb);
+> +extern int	ip_default_ifindex(struct sock *sk);
+>  extern int	ip_cmsg_send(struct net *net,
+>  			     struct msghdr *msg, struct ipcm_cookie *ipc);
+>  extern int	ip_setsockopt(struct sock *sk, int level, int optname, ch=
+ar __user *optval, unsigned int optlen);
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index f7b5670..a5855cd 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -375,6 +375,8 @@ lookup_protocol:
+>  	sk->sk_protocol	   =3D protocol;
+>  	sk->sk_backlog_rcv =3D sk->sk_prot->backlog_rcv;
+> =20
+> +	inet->outif_index  =3D 0;
+> +
+>  	inet->uc_ttl	=3D -1;
+>  	inet->mc_loop	=3D 1;
+>  	inet->mc_ttl	=3D 1;
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index 8aa87c1..d7b507d 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -186,6 +186,18 @@ void ip_cmsg_recv(struct msghdr *msg, struct sk_=
+buff *skb)
+>  }
+>  EXPORT_SYMBOL(ip_cmsg_recv);
+> =20
+> +int ip_default_ifindex(struct sock *sk)
 
-> Something like :
+const struct sock *sk
 
-Hi Eric,
+> +{
+> +	struct inet_sock *inet =3D inet_sk(sk);
+> +	int ifindex =3D sk->sk_bound_dev_if;
+> +
+> +	/* Set the outgoing interface from the value set by IP_UNICAST_IF *=
+/
+> +	if (inet->outif_index)
+> +		ifindex =3D inet->outif_index;
+> +
+> +	return ifindex;
+> +}
+> +
+>  int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_co=
+okie *ipc)
+>  {
+>  	int err;
+> @@ -628,6 +640,48 @@ static int do_ip_setsockopt(struct sock *sk, int=
+ level,
+>  			goto e_inval;
+>  		inet->mc_loop =3D !!val;
+>  		break;
+> +
+> +	case IP_UNICAST_IF:
+> +	{
+> +		struct net_device *dev =3D NULL;
+> +		__be32 iface;
+> +		int ifindex;
+> +
+> +		/*
+> +		 *	Check the arguments are allowable
+> +		 */
+> +
+> +		if (optlen !=3D sizeof(__be32))
+> +			goto e_inval;
+> +
+> +		err =3D -EFAULT;
+> +		if (copy_from_user(&iface, optval, sizeof(__be32)))
+> +			break;
+> +
+> +		ifindex =3D ntohl(iface);
+> +		if (ifindex & ntohl(0xFF)) /* first octet must be zero */
 
-I will test this patch along with setting gro_mac_header_len in ipoib
-and let you know
 
-Or.
+This looks wrong.
 
->
-> =A0include/linux/netdevice.h | =A0 =A02 +-
-> =A0net/core/dev.c =A0 =A0 =A0 =A0 =A0 =A0| =A0 11 +++++++++--
-> =A02 files changed, 10 insertions(+), 3 deletions(-)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 0eac07c..99b12c4 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1095,7 +1095,7 @@ struct net_device {
-> =A0 =A0 =A0 =A0unsigned int =A0 =A0 =A0 =A0 =A0 =A0mtu; =A0 =A0/* int=
-erface MTU value =A0 =A0 =A0 =A0 =A0*/
-> =A0 =A0 =A0 =A0unsigned short =A0 =A0 =A0 =A0 =A0type; =A0 /* interfa=
-ce hardware type =A0 =A0 =A0*/
-> =A0 =A0 =A0 =A0unsigned short =A0 =A0 =A0 =A0 =A0hard_header_len; =A0=
- =A0 =A0 =A0/* hardware hdr length =A0*/
-> -
-> + =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0gro_mac_header_len;
-> =A0 =A0 =A0 =A0/* extra head- and tailroom the hardware may need, but=
- not in all cases
-> =A0 =A0 =A0 =A0 * can this be guaranteed, especially tailroom. Some c=
-ases also use
-> =A0 =A0 =A0 =A0 * LL_MAX_HEADER instead to allocate the skb.
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index f124947..a3af7bc 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3491,14 +3491,20 @@ static inline gro_result_t
-> =A0__napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-> =A0{
-> =A0 =A0 =A0 =A0struct sk_buff *p;
-> + =A0 =A0 =A0 unsigned int maclen =3D skb->dev->gro_mac_header_len;
->
-> =A0 =A0 =A0 =A0for (p =3D napi->gro_list; p; p =3D p->next) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0unsigned long diffs;
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0diffs =3D (unsigned long)p->dev ^ (uns=
-igned long)skb->dev;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0diffs |=3D p->vlan_tci ^ skb->vlan_tci=
-;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 diffs |=3D compare_ether_header(skb_mac=
-_header(p),
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 skb_gro_mac_header(skb));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (maclen =3D=3D ETH_HLEN)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 diffs |=3D compare_ethe=
-r_header(skb_mac_header(p),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_gro_mac_header(skb));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 else if (!diffs)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 diffs =3D memcmp(skb_ma=
-c_header(p),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 skb_gro_mac_header(skb),
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 maclen);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NAPI_GRO_CB(p)->same_flow =3D !diffs;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NAPI_GRO_CB(p)->flush =3D 0;
-> =A0 =A0 =A0 =A0}
-> @@ -5962,6 +5968,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_=
-priv, const char *name,
-> =A0 =A0 =A0 =A0INIT_LIST_HEAD(&dev->unreg_list);
-> =A0 =A0 =A0 =A0INIT_LIST_HEAD(&dev->link_watch_list);
-> =A0 =A0 =A0 =A0dev->priv_flags =3D IFF_XMIT_DST_RELEASE;
-> + =A0 =A0 =A0 dev->gro_mac_header_len =3D ETH_HLEN;
-> =A0 =A0 =A0 =A0setup(dev);
->
-> =A0 =A0 =A0 =A0dev->num_tx_queues =3D txqs;
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+Maybe you wanted : if (ifindex & 0xFF000000)=20
+
+> +			goto e_inval;
+> +
+> +		if (ifindex =3D=3D 0) {
+> +			inet->outif_index =3D 0;
+> +			err =3D 0;
+> +			break;
+> +		} else
+
+you can avoid the else (because of the break;)
+
+> +			dev =3D dev_get_by_index(sock_net(sk), ifindex);
+> +
+> +		err =3D -EADDRNOTAVAIL;
+> +		if (!dev)
+> +			break;
+> +		dev_put(dev);
+> +
+> +		err =3D -EINVAL;
+> +		if (sk->sk_bound_dev_if && ifindex !=3D sk->sk_bound_dev_if)
+> +			break;
+> +
+> +		inet->outif_index =3D ifindex;
+
+what happens if later sk_bound_dev_if is changed ? Should we redo the
+above tests ?
+
+> +		err =3D 0;
+> +		break;
+> +	}
+>  	case IP_MULTICAST_IF:
+>  	{
+>  		struct ip_mreqn mreq;
+> @@ -1178,6 +1232,20 @@ static int do_ip_getsockopt(struct sock *sk, i=
+nt level, int optname,
+>  	case IP_MULTICAST_LOOP:
+>  		val =3D inet->mc_loop;
+>  		break;
+> +	case IP_UNICAST_IF:
+> +	{
+> +		__be32 iface;
+> +
+> +		len =3D sizeof(__be32);
+> +		iface =3D htonl(inet->outif_index);
+> +		release_sock(sk);
+> +
+> +		if (put_user(len, optlen))
+> +			return -EFAULT;
+> +		if (copy_to_user(optval, &iface, len))
+> +			return -EFAULT;
+> +		return 0;
+
+wow.... thats not pretty...
+
+	what about :
+
+	case IP_UNICASE_IF:
+		val =3D htonl(inet->outif_index);
+		break;
+
+> +	}
+>  	case IP_MULTICAST_IF:
+>  	{
+>  		struct in_addr addr;
+> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+> index aea5a19..abeb454 100644
+> --- a/net/ipv4/ping.c
+> +++ b/net/ipv4/ping.c
+> @@ -510,7 +510,7 @@ static int ping_sendmsg(struct kiocb *iocb, struc=
+t sock *sk, struct msghdr *msg,
+> =20
+>  	ipc.addr =3D inet->inet_saddr;
+>  	ipc.opt =3D NULL;
+> -	ipc.oif =3D sk->sk_bound_dev_if;
+> +	ipc.oif =3D ip_default_ifindex(sk);
+>  	ipc.tx_flags =3D 0;
+>  	err =3D sock_tx_timestamp(sk, &ipc.tx_flags);
+>  	if (err)
+> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+> index 3ccda5a..000d9fb 100644
+> --- a/net/ipv4/raw.c
+> +++ b/net/ipv4/raw.c
+> @@ -515,7 +515,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct=
+ sock *sk, struct msghdr *msg,
+>  	ipc.addr =3D inet->inet_saddr;
+>  	ipc.opt =3D NULL;
+>  	ipc.tx_flags =3D 0;
+> -	ipc.oif =3D sk->sk_bound_dev_if;
+> +	ipc.oif =3D ip_default_ifindex(sk);
+> =20
+>  	if (msg->msg_controllen) {
+>  		err =3D ip_cmsg_send(sock_net(sk), msg, &ipc);
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 5d075b5..651eb62 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -869,7 +869,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *=
+sk, struct msghdr *msg,
+>  	}
+>  	ipc.addr =3D inet->inet_saddr;
+> =20
+> -	ipc.oif =3D sk->sk_bound_dev_if;
+> +	ipc.oif =3D ip_default_ifindex(sk);
+>  	err =3D sock_tx_timestamp(sk, &ipc.tx_flags);
+>  	if (err)
+>  		return err;
+
+
+IPv6 not supported ?
