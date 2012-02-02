@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v3.3-rc2+ PATCH] tcp: properly initialize tcp memory limits
-Date: Thu, 02 Feb 2012 14:27:29 -0500 (EST)
-Message-ID: <20120202.142729.317148369355280290.davem@davemloft.net>
-References: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Subject: Re: [PATCH net-next 1/3] caif: Fix compile warning
+Date: Thu, 02 Feb 2012 14:29:20 -0500 (EST)
+Message-ID: <20120202.142920.1445087235225482111.davem@davemloft.net>
+References: <1328181565-13781-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	glommer@parallels.com, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44825 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754290Ab2BBT32 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 14:29:28 -0500
+In-Reply-To: <1328181565-13781-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 02 Feb 2012 18:07:00 +0800
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Thu,  2 Feb 2012 12:19:23 +0100
 
-> Commit 4acb4190 tries to fix the using uninitialized value
-> introduced by commit 3dc43e3,  but it would make the
-> per-socket memory limits too small.
-> 
-> This patch fixes this and also remove the redundant codes
-> introduced in 4acb4190.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Fix compile warning:
+> ... warning: statement with no effect [-Wunused-value]
+> This warning is seen when debug-fs is disabled. Fix this
+> by adding new macro for use when no return value is needed.
+>=20
+> Signed-off-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
-Applied.
+Seriously, just get rid of this debug code.
+
+You'll feel very much relieved afterwards.
