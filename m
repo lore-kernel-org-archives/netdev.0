@@ -1,268 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] Implement IP_UNICAST_IF socket option.
-Date: Thu, 02 Feb 2012 22:57:08 +0100
-Message-ID: <1328219828.2480.32.camel@edumazet-laptop>
-References: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
+ TCP streams
+Date: Thu, 2 Feb 2012 23:58:38 +0200
+Message-ID: <alpine.LRH.2.00.1202022352560.30300@ogerlitz.voltaire.com>
+References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com> <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:38765 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932596Ab2BBV5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 16:57:13 -0500
-Received: by werb13 with SMTP id b13so2227398wer.19
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 13:57:11 -0800 (PST)
-In-Reply-To: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LRH.2.00.1201261642340.31408-VYr5/9ddeaGSIdy2EShu12Xnswh1EIUO@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 14:36 -0700, Erich E. Hoover a =C3=
-=A9crit :
-> The IP_UNICAST_IF feature is needed by the Wine project.  This patch =
-implements the feature by setting the outgoing interface in a similar f=
-ashion to that of IP_PKTINFO.
->=20
-> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
-> ---
->  include/linux/in.h      |    1 +
->  include/net/inet_sock.h |    2 +
->  include/net/ip.h        |    1 +
->  net/ipv4/af_inet.c      |    2 +
->  net/ipv4/ip_sockglue.c  |   68 +++++++++++++++++++++++++++++++++++++=
-++++++++++
->  net/ipv4/ping.c         |    2 +-
->  net/ipv4/raw.c          |    2 +-
->  net/ipv4/udp.c          |    2 +-
->  8 files changed, 77 insertions(+), 3 deletions(-)
->=20
-> diff --git a/include/linux/in.h b/include/linux/in.h
-> index 01129c0..89f6682 100644
-> --- a/include/linux/in.h
-> +++ b/include/linux/in.h
-> @@ -86,6 +86,7 @@ struct in_addr {
-> =20
->  #define IP_MINTTL       21
->  #define IP_NODEFRAG     22
-> +#define IP_UNICAST_IF   23
-> =20
->  /* IP_MTU_DISCOVER values */
->  #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
-> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-> index e3e4051..ad517f5 100644
-> --- a/include/net/inet_sock.h
-> +++ b/include/net/inet_sock.h
-> @@ -132,6 +132,7 @@ struct rtable;
->   * @tos - TOS
->   * @mc_ttl - Multicasting TTL
->   * @is_icsk - is this an inet_connection_sock?
-> + * @outif_index - Outgoing device index
->   * @mc_index - Multicast device index
->   * @mc_list - Group array
->   * @cork - info to build ip hdr on each ip frag while socket is cork=
-ed
-> @@ -167,6 +168,7 @@ struct inet_sock {
->  				transparent:1,
->  				mc_all:1,
->  				nodefrag:1;
-> +	int			outif_index;
->  	int			mc_index;
->  	__be32			mc_addr;
->  	struct ip_mc_socklist __rcu	*mc_list;
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index 775009f..2c1a261 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -452,6 +452,7 @@ extern int ip_options_rcv_srr(struct sk_buff *skb=
-);
-> =20
->  extern void	ipv4_pktinfo_prepare(struct sk_buff *skb);
->  extern void	ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb);
-> +extern int	ip_default_ifindex(struct sock *sk);
->  extern int	ip_cmsg_send(struct net *net,
->  			     struct msghdr *msg, struct ipcm_cookie *ipc);
->  extern int	ip_setsockopt(struct sock *sk, int level, int optname, ch=
-ar __user *optval, unsigned int optlen);
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index f7b5670..a5855cd 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -375,6 +375,8 @@ lookup_protocol:
->  	sk->sk_protocol	   =3D protocol;
->  	sk->sk_backlog_rcv =3D sk->sk_prot->backlog_rcv;
-> =20
-> +	inet->outif_index  =3D 0;
-> +
->  	inet->uc_ttl	=3D -1;
->  	inet->mc_loop	=3D 1;
->  	inet->mc_ttl	=3D 1;
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index 8aa87c1..d7b507d 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -186,6 +186,18 @@ void ip_cmsg_recv(struct msghdr *msg, struct sk_=
-buff *skb)
->  }
->  EXPORT_SYMBOL(ip_cmsg_recv);
-> =20
-> +int ip_default_ifindex(struct sock *sk)
+On Thu, 26 Jan 2012, Or Gerlitz wrote:
+> From: Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> The GRO flow makes a check in every layer to ensure the packets
+> are actually merged only if they match at all layers.
+> The first GRO check, at L2 always fails for IPoIB, since it assumes
+> that all packets have 14 bytes of Ethernet link layer header.
 
-const struct sock *sk
+Hi Sean, this is the patch posted earlier by Eric enhanced to
+have IPoIB to set gro_mac_header_len to the ipoib header len, does
+it make things to work okay for you?
 
-> +{
-> +	struct inet_sock *inet =3D inet_sk(sk);
-> +	int ifindex =3D sk->sk_bound_dev_if;
-> +
-> +	/* Set the outgoing interface from the value set by IP_UNICAST_IF *=
-/
-> +	if (inet->outif_index)
-> +		ifindex =3D inet->outif_index;
-> +
-> +	return ifindex;
-> +}
-> +
->  int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_co=
-okie *ipc)
->  {
->  	int err;
-> @@ -628,6 +640,48 @@ static int do_ip_setsockopt(struct sock *sk, int=
- level,
->  			goto e_inval;
->  		inet->mc_loop =3D !!val;
->  		break;
-> +
-> +	case IP_UNICAST_IF:
-> +	{
-> +		struct net_device *dev =3D NULL;
-> +		__be32 iface;
-> +		int ifindex;
-> +
-> +		/*
-> +		 *	Check the arguments are allowable
-> +		 */
-> +
-> +		if (optlen !=3D sizeof(__be32))
-> +			goto e_inval;
-> +
-> +		err =3D -EFAULT;
-> +		if (copy_from_user(&iface, optval, sizeof(__be32)))
-> +			break;
-> +
-> +		ifindex =3D ntohl(iface);
-> +		if (ifindex & ntohl(0xFF)) /* first octet must be zero */
+Or.
 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 3a6848d..397bb88 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -1026,6 +1026,11 @@ static void ipoib_setup(struct net_device *dev)
+ 	 * address "pseudoheader" for skbs without neighbour struct.
+ 	 */
+ 	dev->hard_header_len	 = IPOIB_ENCAP_LEN + INFINIBAND_ALEN;
++	/*
++	 * We want the GRO code to conduct link layer comparisons only
++	 * on the IPoIB header.
++	 */
++	dev->gro_mac_header_len	 = IPOIB_ENCAP_LEN;
+ 	dev->addr_len		 = INFINIBAND_ALEN;
+ 	dev->type		 = ARPHRD_INFINIBAND;
+ 	dev->tx_queue_len	 = ipoib_sendq_size * 2;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0eac07c..99b12c4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1095,7 +1095,7 @@ struct net_device {
+ 	unsigned int		mtu;	/* interface MTU value		*/
+ 	unsigned short		type;	/* interface hardware type	*/
+ 	unsigned short		hard_header_len;	/* hardware hdr length	*/
+-
++	unsigned int		gro_mac_header_len;
+ 	/* extra head- and tailroom the hardware may need, but not in all cases
+ 	 * can this be guaranteed, especially tailroom. Some cases also use
+ 	 * LL_MAX_HEADER instead to allocate the skb.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 115dee1..45738ef 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3500,14 +3500,20 @@ static inline gro_result_t
+ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff *p;
++	unsigned int maclen = skb->dev->gro_mac_header_len;
 
-This looks wrong.
+ 	for (p = napi->gro_list; p; p = p->next) {
+ 		unsigned long diffs;
 
-Maybe you wanted : if (ifindex & 0xFF000000)=20
+ 		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
+ 		diffs |= p->vlan_tci ^ skb->vlan_tci;
+-		diffs |= compare_ether_header(skb_mac_header(p),
+-					      skb_gro_mac_header(skb));
++		if (maclen == ETH_HLEN)
++			diffs |= compare_ether_header(skb_mac_header(p),
++						      skb_gro_mac_header(skb));
++		else if (!diffs)
++			diffs = memcmp(skb_mac_header(p),
++					skb_gro_mac_header(skb),
++					maclen);
+ 		NAPI_GRO_CB(p)->same_flow = !diffs;
+ 		NAPI_GRO_CB(p)->flush = 0;
+ 	}
+@@ -5978,6 +5984,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	INIT_LIST_HEAD(&dev->link_watch_list);
+ 	dev->priv_flags = IFF_XMIT_DST_RELEASE;
++	dev->gro_mac_header_len = ETH_HLEN;
+ 	setup(dev);
 
-> +			goto e_inval;
-> +
-> +		if (ifindex =3D=3D 0) {
-> +			inet->outif_index =3D 0;
-> +			err =3D 0;
-> +			break;
-> +		} else
-
-you can avoid the else (because of the break;)
-
-> +			dev =3D dev_get_by_index(sock_net(sk), ifindex);
-> +
-> +		err =3D -EADDRNOTAVAIL;
-> +		if (!dev)
-> +			break;
-> +		dev_put(dev);
-> +
-> +		err =3D -EINVAL;
-> +		if (sk->sk_bound_dev_if && ifindex !=3D sk->sk_bound_dev_if)
-> +			break;
-> +
-> +		inet->outif_index =3D ifindex;
-
-what happens if later sk_bound_dev_if is changed ? Should we redo the
-above tests ?
-
-> +		err =3D 0;
-> +		break;
-> +	}
->  	case IP_MULTICAST_IF:
->  	{
->  		struct ip_mreqn mreq;
-> @@ -1178,6 +1232,20 @@ static int do_ip_getsockopt(struct sock *sk, i=
-nt level, int optname,
->  	case IP_MULTICAST_LOOP:
->  		val =3D inet->mc_loop;
->  		break;
-> +	case IP_UNICAST_IF:
-> +	{
-> +		__be32 iface;
-> +
-> +		len =3D sizeof(__be32);
-> +		iface =3D htonl(inet->outif_index);
-> +		release_sock(sk);
-> +
-> +		if (put_user(len, optlen))
-> +			return -EFAULT;
-> +		if (copy_to_user(optval, &iface, len))
-> +			return -EFAULT;
-> +		return 0;
-
-wow.... thats not pretty...
-
-	what about :
-
-	case IP_UNICASE_IF:
-		val =3D htonl(inet->outif_index);
-		break;
-
-> +	}
->  	case IP_MULTICAST_IF:
->  	{
->  		struct in_addr addr;
-> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-> index aea5a19..abeb454 100644
-> --- a/net/ipv4/ping.c
-> +++ b/net/ipv4/ping.c
-> @@ -510,7 +510,7 @@ static int ping_sendmsg(struct kiocb *iocb, struc=
-t sock *sk, struct msghdr *msg,
-> =20
->  	ipc.addr =3D inet->inet_saddr;
->  	ipc.opt =3D NULL;
-> -	ipc.oif =3D sk->sk_bound_dev_if;
-> +	ipc.oif =3D ip_default_ifindex(sk);
->  	ipc.tx_flags =3D 0;
->  	err =3D sock_tx_timestamp(sk, &ipc.tx_flags);
->  	if (err)
-> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-> index 3ccda5a..000d9fb 100644
-> --- a/net/ipv4/raw.c
-> +++ b/net/ipv4/raw.c
-> @@ -515,7 +515,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct=
- sock *sk, struct msghdr *msg,
->  	ipc.addr =3D inet->inet_saddr;
->  	ipc.opt =3D NULL;
->  	ipc.tx_flags =3D 0;
-> -	ipc.oif =3D sk->sk_bound_dev_if;
-> +	ipc.oif =3D ip_default_ifindex(sk);
-> =20
->  	if (msg->msg_controllen) {
->  		err =3D ip_cmsg_send(sock_net(sk), msg, &ipc);
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 5d075b5..651eb62 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -869,7 +869,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *=
-sk, struct msghdr *msg,
->  	}
->  	ipc.addr =3D inet->inet_saddr;
-> =20
-> -	ipc.oif =3D sk->sk_bound_dev_if;
-> +	ipc.oif =3D ip_default_ifindex(sk);
->  	err =3D sock_tx_timestamp(sk, &ipc.tx_flags);
->  	if (err)
->  		return err;
-
-
-IPv6 not supported ?
+ 	dev->num_tx_queues = txqs;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
