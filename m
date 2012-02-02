@@ -1,62 +1,62 @@
-From: Michal Soltys <soltys@ziu.info>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: VLAN 1 - Native
-Date: Thu, 02 Feb 2012 13:17:17 +0100
-Message-ID: <4F2A7ECD.2050909@ziu.info>
-References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>  <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>  <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>  <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>  <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>  <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>  <4F2991FD.8090407@ziu.info>  <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com> <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Thu, 02 Feb 2012 13:53:37 +0100
+Message-ID: <1328187217.2279.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	 <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	 <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+	 <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+	 <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <m34nv977x3.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
-	yao zhao <yao.development@gmail.com>,
+Cc: yao zhao <yao.development@gmail.com>,
+	Leonardo Uzcudun <uzcudunl@yahoo.it>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tha.ppgk.com.pl ([77.252.116.179]:24796 "EHLO tha.ppgk.com.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756037Ab2BBM1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 07:27:10 -0500
-In-Reply-To: <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60174 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752869Ab2BBMxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 07:53:41 -0500
+Received: by wgbdt10 with SMTP id dt10so2526483wgb.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 04:53:40 -0800 (PST)
+In-Reply-To: <m34nv977x3.fsf@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02.02.2012 10:12, Eric Dumazet wrote:
-> Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 09:09 +0000, Leonardo Uzcudun a =
-=C3=A9crit :
->> Hello Michal:
->>
->> It is working on kernel 3.0.0-15 Ubuntu. I've just to modify the
->> ebtables command as:
->> ebtables -t broute -A BROUTING -i eth0 -p 802_1Q --vlan-id 101 -j DR=
-OP
->> (protocol is a must when you use --vlan-id)
->>
->>
->> I'll test it on kernel 2.6.32-5 Debian
->>
->>
->> Just last question,in the case i should implement this kind of
->> configuration in a kernel 2.6.31, should i backport/patch anything? =
-is
->> it a bad idea (running it on 2.6.31)?
->
-> This is going to be tough.
->
+Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 13:10 +0100, Benny Amorsen a =C3=A9=
+crit :
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>=20
+> > There is no ID reserved to untagged traffic in the 802.1Q specs, si=
+nce
+> > by definition, if traffic is untagged, there is _no_ VLAN tag in th=
+e
+> > frame.
+>=20
+> This is not entirely true. If you want to send 802.1p-tagged packets
+> without a specific VLAN, you should use the 0 tag. I would say that
+> comes quite close to "The ID reserved to untagged traffic is 0".
+>=20
+> It is, however, not 1.
+>=20
 
-Btw, this (ebtables broute drop) method has been mentioned in bridge-nf=
-=20
-faq for ages (through most/all 2.6 kernels at least) - and for the very=
-=20
-purpose of directing tagged/not tagged traffic to proper bridge=20
-interfaces. Shouldn't 2.6.31 be pretty safe in that regard ?
+There is a big confusion on the subject and terminology
 
-Or did you mean backporting/patching part ?
 
-> The point of Jesse Gross (and others) work was exactly to permit bett=
-er
-> vlan/bridge integration/stacking.
->
+_IF_ a 802.1Q Header is present in a frame, VID is a 12 bits field.
+In the standard, only 0x000 and 0xFFF are reserved. Not 1.
+On linux you can still use the full range, if you really want.
 
-Just to be sure - are those patches in any way changing / deprecating /=
-=20
-conflicting with ebtables approach ?
+_IF_ no 802.1Q header is present, there is no VLAN id included in the
+frame. This is what I called "Untagged"
+
+
+To send a frame without 802.1Q header on linux, use the undelying
+device, eth0.
+
+Dont expect eth0.XXX to send a frame without 802.1Q header, since
+eth0.XXX is _requested_ to send a 802.1Q header.
