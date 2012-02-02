@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3 v2] drivers/net/ethernet/ti: Move call to PTR_ERR
- after reassignment
-Date: Thu, 02 Feb 2012 14:37:49 -0500 (EST)
-Message-ID: <20120202.143749.209790216360616297.davem@davemloft.net>
-References: <1328194382-32465-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1328194382-32465-3-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Thu, 02 Feb 2012 14:39:57 -0500 (EST)
+Message-ID: <20120202.143957.2251106530056768980.davem@davemloft.net>
+References: <20120201.162157.880976652659067010.davem@davemloft.net>
+	<4F2A87B0.6070900@profihost.ag>
+	<1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328194382-32465-3-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: s.priebe@profihost.ag, greg@kroah.com, jwboyer@gmail.com,
+	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
+	stable@vger.kernel.org, gregkh@suse.de
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44967 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756074Ab2BBTlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 14:41:23 -0500
+In-Reply-To: <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Thu,  2 Feb 2012 15:53:01 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Feb 2012 16:04:15 +0100
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> PTR_ERR should be called before its argument is cleared.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-> Reported-by: Josh Triplett <josh@joshtriplett.org>
+> David, what do you think ?
 
-Applied, thanks.
+I frankly don't care at this point.
+
+The only reasonable thing is if someone can successfully do the
+backport, but if that's not possible there really isn't anything
+reasonable we can do, all the other options have fatal negative
+consequences which make them completely untenable.
