@@ -1,81 +1,109 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Sudden kernel panic with skge in 3.3-rc2
-Date: Thu, 2 Feb 2012 12:45:29 -0800
-Message-ID: <20120202124529.3e274223@s6510.linuxnetplumber.net>
-References: <20120202192115.GA8480@elliptictech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nick Bowler <nbowler@elliptictech.com>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH] rtlwifi: Fix PCI probe error path orphaned memory
+Date: Thu,  2 Feb 2012 13:48:06 -0700
+Message-ID: <1328215686-126550-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry.Finger@lwfinger.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120202192115.GA8480@elliptictech.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Feb 2012 14:21:15 -0500
-Nick Bowler <nbowler@elliptictech.com> wrote:
+Memory allocated by ieee80211_alloc_hw() will get orphaned
+if any subsequent initializations fail.
 
-> Hi,
-> 
-> I just saw this panic on 3.3-rc2 with skge.  I don't know whether it's
-> reproducible yet -- the machine crashed while I was not actively using
-> it.  We've had this type of card for a few years and I've never seen this
-> before so it may be a regression, but admittedly we don't use them all
-> that often.
-> 
-> At the time of the crash, the network interface in question was up, but
-> not configured with any addresses; mtu configured to (the default) 1500
-> bytes.  It was used for packet capture (tcpdump) shortly beforehand,
-> although this was not running at the time of the crash.  It's a PCI
-> gigabit ethernet card:
-> 
->   03:01.0 Ethernet controller: D-Link System Inc DGE-530T Gigabit Ethernet Adapter (rev 11) (rev 11)
-> 
-> In case it matters, the primary network interface of the system is an
-> onboard device using the sky2 driver:
-> 
->   02:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8057 PCI-E Gigabit Ethernet Controller (rev 10Ethernet controller: Marvell Technology Group Ltd. 88E8057 PCI-E Gigabit Ethernet Controller (rev 10)
-> 
-> I took a photo of the screen, but unfortuately the top few lines are
-> lost forever.  Posted at imgur because it seems a bit big for the
-> mailing lists: <http://i.imgur.com/xklGU.jpg>. Apologies for the
-> terrible quality; the best camera I could find around was in someone's
-> mobile phone.  I'll see about configuring a serial console in case it
-> crashes again.
-> 
-> For convenience (hopefully), here's the call trace retyped in plain text
-> (addresses elided, see photo for them).  The full code line is
-> reproduced by hand because it's almost unreadable in the photo (and
-> truncated to boot).
-> 
->   Call Trace:
->    <IRQ>
->    [...] net_rx_action+0xaa/0x1c0
->    [...] __do_softirq+0x7e/0x125
->    [...] ? _raw_spin_unlock+0x26/0x31
->    [...] call_softirq+0x1c/0x30
->    [...] do_softirq+0x33/0x68
->    [...] irq_exit+0x3f/0xb9
->    [...] do_IRQ+0x97/0xae
->    [...] common_interrupt+0x6b/0x6b
->    <EOI>
->    [...] ? hrtimer_start+0x13/0x15
->    [...] ? mwait_idle+0x6e/0x80
->    [...] ? mwait_idle+0x61/0x80
->    [...] cpu_idle+0x61/0xbd
->    [...] rest_init+0x8d/0x91
->    [...] start_kernel+0x338/0x343
->    [...] x86_64_start_reservations+0xb8/0xbd
->    [...] x86_64_start_kernel+0xed/0xf4
->   Code: 48 8b 40 30 48 85 c0 74 0a b9 02 00 00 00 4c 89 fa ff d0 49 8b 86 d0 00 00 00 49 8b 4d b4 48 89 c7 48 8b b2 d0 00 00 00 <f3> a4 31 ff 48 8b 03 49 8b 75 18 48 8b 40 08 48 85 c0 74 13 48
->   RIP  [...] skge_poll+0x367/0x5cd [skge]
-> 
-> Let me know if you need any more info,
+Also don't pci_set_drvdata(pdev, NULL) until just before disabling
+the PCI device. Functions called by rtl_deinit_core(hw) may eventually need
+the context (when its actually implemented).
 
-Try reverting this commit, it seems problematic
-commit d0249e44432aa0ffcf710b64449b8eaa3722547e
-Author: stephen hemminger <shemminger@vyatta.com>
-Date:   Thu Jan 19 14:37:18 2012 +0000
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+ drivers/net/wireless/rtlwifi/pci.c |   19 ++++++++++++-------
+ 1 files changed, 12 insertions(+), 7 deletions(-)
 
-    skge: check for PCI dma mapping errors
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 5cb2199..6b18063 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -1760,8 +1760,8 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 		if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32))) {
+ 			RT_ASSERT(false,
+ 				  "Unable to obtain 32bit DMA for consistent allocations\n");
+-			pci_disable_device(pdev);
+-			return -ENOMEM;
++			err = -ENOMEM;
++			goto fail1;
+ 		}
+ 	}
+ 
+@@ -1803,7 +1803,7 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 	err = pci_request_regions(pdev, KBUILD_MODNAME);
+ 	if (err) {
+ 		RT_ASSERT(false, "Can't obtain PCI resources\n");
+-		goto fail2;
++		goto fail1;
+ 	}
+ 
+ 	pmem_start = pci_resource_start(pdev, rtlpriv->cfg->bar_id);
+@@ -1816,6 +1816,7 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 			rtlpriv->cfg->bar_id, pmem_len);
+ 	if (rtlpriv->io.pci_mem_start == 0) {
+ 		RT_ASSERT(false, "Can't map PCI mem\n");
++		err = -ENOMEM;
+ 		goto fail2;
+ 	}
+ 
+@@ -1832,8 +1833,10 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 	pci_write_config_byte(pdev, 0x04, 0x07);
+ 
+ 	/* find adapter */
+-	if (!_rtl_pci_find_adapter(pdev, hw))
++	if (!_rtl_pci_find_adapter(pdev, hw)) {
++		err = -ENODEV;
+ 		goto fail3;
++	}
+ 
+ 	/* Init IO handler */
+ 	_rtl_pci_io_handler_init(&pdev->dev, hw);
+@@ -1843,6 +1846,7 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 
+ 	if (rtlpriv->cfg->ops->init_sw_vars(hw)) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG, "Can't init_sw_vars\n");
++		err = -ENODEV;
+ 		goto fail3;
+ 	}
+ 
+@@ -1887,7 +1891,6 @@ int __devinit rtl_pci_probe(struct pci_dev *pdev,
+ 	return 0;
+ 
+ fail3:
+-	pci_set_drvdata(pdev, NULL);
+ 	rtl_deinit_core(hw);
+ 	_rtl_pci_io_handler_release(hw);
+ 
+@@ -1899,10 +1902,12 @@ fail2:
+ 	complete(&rtlpriv->firmware_loading_complete);
+ 
+ fail1:
+-
++	if (hw)
++		ieee80211_free_hw(hw);
++	pci_set_drvdata(pdev, NULL);
+ 	pci_disable_device(pdev);
+ 
+-	return -ENODEV;
++	return err;
+ 
+ }
+ EXPORT_SYMBOL(rtl_pci_probe);
+-- 
+1.7.8.3
