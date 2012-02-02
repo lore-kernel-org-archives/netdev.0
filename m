@@ -1,82 +1,60 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH v2] net/hyperv: fix the issue that large packets be dropped
- under bridge
-Date: Thu, 2 Feb 2012 14:17:23 +0800
-Message-ID: <CAPgLHd-Z5azR2_5O+GkdjBF45k8YY1te0huMo75pFULGHG+izg@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Thu, 2 Feb 2012 09:24:49 +0200
+Message-ID: <20120202072448.GA25403@redhat.com>
+References: <1321575301.2749.51.camel@bwh-desktop>
+ <CAEE6B20.3A9F7%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: haiyangz@microsoft.com, kys@microsoft.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:37515 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108Ab2BBGRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 01:17:24 -0500
-Received: by qcqw6 with SMTP id w6so1192020qcq.19
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2012 22:17:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, chrisw@redhat.com, sri@us.ibm.com,
+	dragos.tatulea@gmail.com, kvm@vger.kernel.org, arnd@arndb.de,
+	gregory.v.rose@intel.com, mchan@broadcom.com, dwang2@cisco.com,
+	shemminger@vyatta.com, eric.dumazet@gmail.com, kaber@trash.net,
+	benve@cisco.com
+To: Roopa Prabhu <roprabhu@cisco.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAEE6B20.3A9F7%roprabhu@cisco.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Sun, Nov 20, 2011 at 08:30:24AM -0800, Roopa Prabhu wrote:
+> 
+> 
+> 
+> On 11/17/11 4:15 PM, "Ben Hutchings" <bhutchings@solarflare.com> wrote:
+> 
+> > Sorry to come to this rather late.
+> > 
+> > On Tue, 2011-11-08 at 23:55 -0800, Roopa Prabhu wrote:
+> > [...]
+> >> v2 -> v3
+> >> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
+> >> - Support for SRIOV VFs.
+> >>         [Note: The get filters msg (in the way current get rtnetlink handles
+> >>         it) might get too big for SRIOV vfs. This patch follows existing
+> >> sriov 
+> >>         vf get code and tries to accomodate filters for all VF's in a PF.
+> >>         And for the SRIOV case I have only tested the fact that the VF
+> >>         arguments are getting delivered to rtnetlink correctly. The code
+> >>         follows existing sriov vf handling code so rest of it should work
+> >> fine]
+> > [...]
+> > 
+> > This is already broken for large numbers of VFs, and increasing the
+> > amount of information per VF is going to make the situation worse.  I am
+> > no netlink expert but I think that the current approach of bundling all
+> > information about an interface in a single message may not be
+> > sustainable.
+> 
+> Yes agreed. I have the same concern.
 
-The packets with size larger than 1452 will be dropped by bridge
-which with two hyperv netdevice ports. This cause by hyperv netvsc
-driver always copy the trailer padding to the data packet, and then
-the skb received from netdevice may include wrong skb->len (20 bytes
-larger than the real size normally). The captured packet may like
-this:
+So it seems that we need to extend the existing interface to allow
+tweaking filters per VF. Does it need to block this
+patchset though? After all, we'll need to support the existing
+interface indefinitely, too.
 
-  Ethernet II, Src: Microsof_00:00:07 (00:15:5d:00:00:07),
-               Dst: HewlettP_00:00:4e (00:1f:29:00:00:4e)
-    Destination: HewlettP_e6:00:4e (00:1f:29:00:00:4e)
-    Source: Microsof_f6:6d:07 (00:15:5d:f6:6d:07)
-    Type: IP (0x0800)
-    Trailer: 1415161718191A1B1C1D1E1F20212223
-    Frame check sequence: 0x24252627 [incorrect, should be 0x7c2e5a5e]
-
-The following command help to reproduction it, and the ping ICMP
-packets will be dropped by bridge.
-  $ ping ip -s 1453
-
-This patch fixed it by removing the trailer padding from the data
-packet.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
-v1 -> v2: change to error message
----
- drivers/net/hyperv/rndis_filter.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index da181f9..dc2e384 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -321,6 +321,25 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 	data_offset = RNDIS_HEADER_SIZE + rndis_pkt->data_offset;
- 
- 	pkt->total_data_buflen -= data_offset;
-+
-+	/*
-+	 * Make sure we got a valid RNDIS message, now total_data_buflen
-+	 * should be the data packet size plus the trailer padding size
-+	 */
-+	if (pkt->total_data_buflen < rndis_pkt->data_len) {
-+		netdev_err(dev->net_dev->ndev, "rndis message buffer "
-+			   "overflow detected (got %u, min %u)"
-+			   "...dropping this message!\n",
-+			   pkt->total_data_buflen, rndis_pkt->data_len);
-+		return;
-+	}
-+
-+	/*
-+	 * Remove the rndis trailer padding from rndis packet message
-+	 * rndis_pkt->data_len tell us the real data length, we only copy
-+	 * the data packet to the stack, without the rndis trailer padding
-+	 */
-+	pkt->total_data_buflen = rndis_pkt->data_len;
- 	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
- 
- 	pkt->is_data_pkt = true;
 -- 
-1.7.1
+MST
