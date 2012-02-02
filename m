@@ -1,389 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/8] ixgbe: update copyright to 2012
-Date: Thu,  2 Feb 2012 04:20:14 -0800
-Message-ID: <1328185221-8591-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: VLAN 1 - Native
+Date: Thu, 02 Feb 2012 13:17:17 +0100
+Message-ID: <4F2A7ECD.2050909@ziu.info>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>  <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>  <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>  <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>  <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>  <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>  <4F2991FD.8090407@ziu.info>  <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com> <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Leonardo Uzcudun <uzcudunl@yahoo.it>,
+	yao zhao <yao.development@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:61281 "EHLO mga01.intel.com"
+Received: from tha.ppgk.com.pl ([77.252.116.179]:24796 "EHLO tha.ppgk.com.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755904Ab2BBMUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 07:20:24 -0500
-In-Reply-To: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1756037Ab2BBM1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Feb 2012 07:27:10 -0500
+In-Reply-To: <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On 02.02.2012 10:12, Eric Dumazet wrote:
+> Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 09:09 +0000, Leonardo Uzcudun a =
+=C3=A9crit :
+>> Hello Michal:
+>>
+>> It is working on kernel 3.0.0-15 Ubuntu. I've just to modify the
+>> ebtables command as:
+>> ebtables -t broute -A BROUTING -i eth0 -p 802_1Q --vlan-id 101 -j DR=
+OP
+>> (protocol is a must when you use --vlan-id)
+>>
+>>
+>> I'll test it on kernel 2.6.32-5 Debian
+>>
+>>
+>> Just last question,in the case i should implement this kind of
+>> configuration in a kernel 2.6.31, should i backport/patch anything? =
+is
+>> it a bad idea (running it on 2.6.31)?
+>
+> This is going to be tough.
+>
 
-New year so bump the copyright date.
+Btw, this (ebtables broute drop) method has been mentioned in bridge-nf=
+=20
+faq for ages (through most/all 2.6 kernels at least) - and for the very=
+=20
+purpose of directing tagged/not tagged traffic to proper bridge=20
+interfaces. Shouldn't 2.6.31 be pretty safe in that regard ?
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/Makefile          |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |    2 +-
- 25 files changed, 26 insertions(+), 26 deletions(-)
+Or did you mean backporting/patching part ?
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/Makefile b/drivers/net/ethernet/intel/ixgbe/Makefile
-index 7d7387f..7a16177 100644
---- a/drivers/net/ethernet/intel/ixgbe/Makefile
-+++ b/drivers/net/ethernet/intel/ixgbe/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel 10 Gigabit PCI Express Linux driver
--# Copyright(c) 1999 - 2010 Intel Corporation.
-+# Copyright(c) 1999 - 2012 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 258164d..e6aeb64 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index ef2afef..b406c36 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 7720721..4e59083 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index a3aa633..383b941 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 863f9c1..5ccea80 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-index 318caf4..8bfaaee 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-index e162775..24333b7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
-index fcd0e47..d3695ed 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h
-index 2f31893..ba83570 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-index 32cd97b..888a419 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-index a59d5dc..4dec47f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index da31735..005e5f2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index da7e580..1fd510c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index d18d615..4bc7942 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-index 261fd62..1dbed17 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1ee5d0f..92192c6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -64,7 +64,7 @@ char ixgbe_default_device_descr[] =
- 	__stringify(BUILD) "-k"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static const char ixgbe_copyright[] =
--				"Copyright (c) 1999-2011 Intel Corporation.";
-+				"Copyright (c) 1999-2012 Intel Corporation.";
- 
- static const struct ixgbe_info *ixgbe_info_tbl[] = {
- 	[board_82598] = &ixgbe_82598_info,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index 3f725d4..1f3e32b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index b239bda..310bdd9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 7cf1e1f..b917735 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 197bdd1..cc18165 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index cf6812d..b76339b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index e8badab..2ab38d5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 775602e..9b95bef 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 8cc5ecc..f838a2b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2011 Intel Corporation.
-+  Copyright(c) 1999 - 2012 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
--- 
-1.7.7.6
+> The point of Jesse Gross (and others) work was exactly to permit bett=
+er
+> vlan/bridge integration/stacking.
+>
+
+Just to be sure - are those patches in any way changing / deprecating /=
+=20
+conflicting with ebtables approach ?
