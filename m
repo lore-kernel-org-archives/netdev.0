@@ -1,86 +1,58 @@
-From: Leonardo Uzcudun <uzcudunl@yahoo.it>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: VLAN 1 - Native
-Date: Thu, 2 Feb 2012 09:09:01 +0000 (GMT)
-Message-ID: <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com>
-References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com> <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com> <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com> <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com> <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com> <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com> <4F2991FD.8090407@ziu.info>
-Reply-To: Leonardo Uzcudun <uzcudunl@yahoo.it>
+Date: Thu, 02 Feb 2012 10:12:52 +0100
+Message-ID: <1328173972.2279.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328095366.10975.YahooMailNeo@web29004.mail.ird.yahoo.com>
+	 <1328095449.75127.YahooMailNeo@web29014.mail.ird.yahoo.com>
+	 <1328101484.2595.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADDf=MQ8EYEtOO2e5NJLrW0DKDz5xCBEBwuY6rxNu4Cybq=kKQ@mail.gmail.com>
+	 <CADDf=MQ=0eadY-zT_YAgp17fo_xRUh0dg6nHCLpNXcMQnUdyCQ@mail.gmail.com>
+	 <1328108723.2595.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADDf=MRDa6C47ToCnR3_cTkfJR8VL9UAScwzwGVUDn3O4nL6fA@mail.gmail.com>
+	 <1328114680.76107.YahooMailNeo@web29019.mail.ird.yahoo.com>
+	 <4F2991FD.8090407@ziu.info>
+	 <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yao zhao <yao.development@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Michal Soltys <soltys@ziu.info>,
+	yao zhao <yao.development@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Soltys <soltys@ziu.info>
+To: Leonardo Uzcudun <uzcudunl@yahoo.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm1-vm0.bullet.mail.ird.yahoo.com ([77.238.189.95]:42871 "HELO
-	nm1-vm0.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751188Ab2BBJJE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 04:09:04 -0500
-In-Reply-To: <4F2991FD.8090407@ziu.info>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:45757 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753124Ab2BBJM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 04:12:56 -0500
+Received: by wics10 with SMTP id s10so1568417wic.19
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 01:12:55 -0800 (PST)
+In-Reply-To: <1328173741.73927.YahooMailNeo@web29018.mail.ird.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Michal:
+Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 09:09 +0000, Leonardo Uzcudun a =C3=
+=A9crit :
+> Hello Michal:
+>=20
+> It is working on kernel 3.0.0-15 Ubuntu. I've just to modify the
+> ebtables command as:
+> ebtables -t broute -A BROUTING -i eth0 -p 802_1Q --vlan-id 101 -j DRO=
+P
+> (protocol is a must when you use --vlan-id)
+>=20
+>=20
+> I'll test it on kernel 2.6.32-5 Debian
+>=20
+>=20
+> Just last question,in the case i should implement this kind of
+> configuration in a kernel 2.6.31, should i backport/patch anything? i=
+s
+> it a bad idea (running it on 2.6.31)?
 
-It is working on kernel 3.0.0-15 Ubuntu. I've just to modify the ebtabl=
-es command as:
-ebtables -t broute -A BROUTING -i eth0 -p 802_1Q --vlan-id 101 -j DROP =
-(protocol is a must when you use --vlan-id)
+This is going to be tough.=20
 
+The point of Jesse Gross (and others) work was exactly to permit better
+vlan/bridge integration/stacking.
 
-I'll test it on kernel 2.6.32-5 Debian
-
-
-Just last question,in the case i should implement this kind of configur=
-ation in a kernel 2.6.31, should i backport/patch anything? is it a bad=
- idea (running it on 2.6.31)?
-
-Thanks again.
-
-BR,
-
-Leo
-
-
-
------ Messaggio originale -----
-Da: Michal Soltys <soltys@ziu.info>
-A: Leonardo Uzcudun <uzcudunl@yahoo.it>
-Cc: yao zhao <yao.development@gmail.com>; Eric Dumazet <eric.dumazet@gm=
-ail.com>; "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Inviato: Mercoled=EC 1 Febbraio 2012 20:26
-Oggetto: Re: VLAN 1 - Native
-
-On 12-02-01 17:44, Leonardo Uzcudun wrote:
-> I'm sorry guys but i'm not understanding. Allow me to ask in a differ=
-ent way.
->
-> I've a linux computer with 3 network cards (eth0, eth1 and eth2)
->
-> eth0 is connected to a switch with vlans config.
-> eth1 is connected to a network that has VID 1
-> eth2 is connected to a network that has VID 101
->
-
-Assuming you have:
-
-eth0: 1u 101t
-eth1: 1u
-eth2: 101u
-
-would this work for you ?:
-
-ip link add link eth0 name eth0.101 type vlan id 101
-ebtables -t broute -A BROUTING -i eth0 --vlan-id 101 -j DROP
-brctl addbr br_vlan_1
-brctl addbr br_vlan_101
-brctl addif br_vlan_1 eth0 eth1
-brctl addif br_vlan_101 eth0.101 eth2
-
-ebtables should make 101 tagged traffic go through br_vlan_101 instead=20
-of br_vlan_1
-
-I think there's also option for doing it with single bridge interface=20
-and some more complex ebtables rules, but the above if I didn't miss=20
-anything, should work fine.
+I am not saying you cant do it. If you really have time you certainly
+can.
