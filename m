@@ -1,101 +1,83 @@
-From: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
-Subject: RE: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
- "-c" xmitted, and "-c" was exceeded for flood ping
-Date: Thu, 2 Feb 2012 11:00:21 -0600
-Message-ID: <7D3B6706FA74174B8C1AC24710890745136F61BB69@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
-References: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH V4 02/13] netback: add module unload function.
+Date: Thu, 02 Feb 2012 18:08:44 +0100
+Message-ID: <1328202524.11534.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
+	 <1328201363-13915-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'Linus Torvalds'" <torvalds@linux-foundation.org>
-To: "'YOSHIFUJI Hideaki'" <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	ian.campbell@citrix.com, konrad.wilk@oracle.com
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ihemail2.lucent.com ([135.245.0.35]:39532 "EHLO
-	ihemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091Ab2BBRAp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 12:00:45 -0500
-In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
-Content-Language: en-US
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:49353 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874Ab2BBRIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 12:08:48 -0500
+Received: by wgbgn7 with SMTP id gn7so224796wgb.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 09:08:47 -0800 (PST)
+In-Reply-To: <1328201363-13915-3-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yoshifuji- was this submission ok?  Can you tell me the status of it?  I am giving a talk to Verizon Wireless Engineers on trouble shooting again and would like to give them a status update on the "-w deadline" change.
+Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 16:49 +0000, Wei Liu a =C3=A9crit =
+:
+> Enables users to unload netback module.
+>=20
+> Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> ---
+>  drivers/net/xen-netback/common.h  |    1 +
+>  drivers/net/xen-netback/netback.c |   14 ++++++++++++++
+>  drivers/net/xen-netback/xenbus.c  |    5 +++++
+>  3 files changed, 20 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netba=
+ck/common.h
+> index 288b2f3..372c7f5 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -126,6 +126,7 @@ void xenvif_get(struct xenvif *vif);
+>  void xenvif_put(struct xenvif *vif);
+> =20
+>  int xenvif_xenbus_init(void);
+> +void xenvif_xenbus_exit(void);
+> =20
+>  int xenvif_schedulable(struct xenvif *vif);
+> =20
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netb=
+ack/netback.c
+> index d11205f..3059684 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1670,5 +1670,19 @@ failed_init:
+> =20
+>  module_init(netback_init);
+> =20
 
-Thanks, Joe
+While reviewing this code, I can see current netback_init() is buggy.
 
------Original Message-----
-From: Cloutier, Joseph (Joseph)
-Sent: Tuesday, January 10, 2012 1:01 PM
-To: 'YOSHIFUJI Hideaki'
-Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'
-Subject: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
-"-c" xmitted, and "-c" was exceeded for flood ping
+It assumes all online cpus xen_netbk_group_nr are numbered from 0 to
+xen_netbk_group_nr-1
 
+This is not right.
 
-From: Joseph Cloutier <jcloutier@alcatel-lucent.com>
+Instead of using :
 
-2 changes to ping & ping6.  Only ping_common.c affected.
-  1- changed "-w deadline" to start deadline after "-c" pings have been transmitted, instead of from start of run.
-  2- fixed bug where > "-c" pings are sent in flood ping mode when "-w deadline" option is also used.
-Reason:
-  Linux flood ping is an invaluable tool to finding duplex bugs, fiber problems, NE config problems-  especially
-  when used to trouble shoot wireless system backhaul problems.  ANY dropped pings are red flag indicators.
-  Current ping problem is that it terminates sometimes when outstanding pings are in transit, giving FALSE red
-  flags.  Change "-w deadline" to start after last "-c" transmitted ping allows cleanup of stragglers.  Second fix is
-  when "-f" option is running, "-c" is not rigorously checked when generating pings  A more rigorous check was
-  added.
+xen_netbk =3D vzalloc(sizeof(struct xen_netbk) * xen_netbk_group_nr);
 
-Signed-off-by: Joseph Cloutier <jcloutier@alcatel-lucent.com>
+You should use a percpu variable to get proper NUMA properties.
 
----
---- iputils-s20101006/ping_common.c.orig        2012-01-10 10:37:40.399719858 -0500
-+++ iputils-s20101006/ping_common.c     2012-01-10 11:33:37.084662882 -0500
-@@ -523,16 +523,6 @@ void setup(int icmp_sock)
+And instead of looping like :
 
-        gettimeofday(&start_time, NULL);
+for (group =3D 0; group < xen_netbk_group_nr; group++) {
 
--       if (deadline) {
--               struct itimerval it;
--
--               it.it_interval.tv_sec = 0;
--               it.it_interval.tv_usec = 0;
--               it.it_value.tv_sec = deadline;
--               it.it_value.tv_usec = 0;
--               setitimer(ITIMER_REAL, &it, NULL);
--       }
--
-        if (isatty(STDOUT_FILENO)) {
-                struct winsize w;
+You must use :
 
-@@ -553,6 +543,7 @@ void main_loop(int icmp_sock, __u8 *pack
-        int cc;
-        int next;
-        int polling;
-+       int sig_deadline = 0;
+for_each_online_cpu(cpu) {
+	...
+}
 
-        iov.iov_base = (char *)packet;
-
-@@ -567,9 +558,22 @@ void main_loop(int icmp_sock, __u8 *pack
-                /* Check for and do special actions. */
-                if (status_snapshot)
-                        status();
-+               if((npackets == ntransmitted) && deadline &&
-+                       (sig_deadline == 0)){
-+                       sig_deadline++;
-+                       struct itimerval it;
-+
-+                       it.it_interval.tv_sec = 0;
-+                       it.it_interval.tv_usec = 0;
-+                       it.it_value.tv_sec = deadline;
-+                       it.it_value.tv_usec = 0;
-+                       setitimer(ITIMER_REAL, &it, NULL);
-+               }
-
-                /* Send probes scheduled to this time. */
-                do {
-+                       if(npackets == ntransmitted)
-+                               break;
-                        next = pinger();
-                        next = schedule_exit(next);
-                } while (next <= 0);
+[ and also use kthread_create_on_node() instead of kthread_create() ]
