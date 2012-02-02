@@ -1,82 +1,64 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [v3.3-rc2+ PATCH] tcp: properly initialize tcp memory limits
-Date: Thu, 2 Feb 2012 14:39:26 +0400
-Message-ID: <4F2A67DE.1000909@parallels.com>
-References: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next 1/3] caif: Fix compile warning
+Date: Thu,  2 Feb 2012 12:19:23 +0100
+Message-ID: <1328181565-13781-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sjurbren@gmail.com,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:41161 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753917Ab2BBLTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 06:19:34 -0500
+Received: by lagu2 with SMTP id u2so1211951lag.19
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 03:19:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2012 02:07 PM, Jason Wang wrote:
-> Commit 4acb4190 tries to fix the using uninitialized value
-> introduced by commit 3dc43e3,  but it would make the
-> per-socket memory limits too small.
->
-> This patch fixes this and also remove the redundant codes
-> introduced in 4acb4190.
->
-> Signed-off-by: Jason Wang<jasowang@redhat.com>
-Acked-by: Glauber Costa <glommer@parallels.com>
+=46ix compile warning:
+=2E.. warning: statement with no effect [-Wunused-value]
+This warning is seen when debug-fs is disabled. Fix this
+by adding new macro for use when no return value is needed.
 
-> ---
->   net/ipv4/sysctl_net_ipv4.c |    5 -----
->   net/ipv4/tcp.c             |    4 ++--
->   2 files changed, 2 insertions(+), 7 deletions(-)
->
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 4cb9cd2..1eb8caa 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -815,11 +815,6 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
->   	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
->
->   	tcp_init_mem(net);
-> -	limit = nr_free_buffer_pages() / 8;
-> -	limit = max(limit, 128UL);
-> -	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-> -	net->ipv4.sysctl_tcp_mem[1] = limit;
-> -	net->ipv4.sysctl_tcp_mem[2] = net->ipv4.sysctl_tcp_mem[0] * 2;
->
->   	net->ipv4.ipv4_hdr = register_net_sysctl_table(net,
->   			net_ipv4_ctl_path, table);
-Ok, this is indeed a good change, since we avoid initializing it twice.
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/caif_socket.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 06373b4..3a7514b 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -3218,7 +3218,6 @@ __setup("thash_entries=", set_thash_entries);
->
->   void tcp_init_mem(struct net *net)
->   {
-> -	/* Set per-socket limits to no more than 1/128 the pressure threshold */
->   	unsigned long limit = nr_free_buffer_pages() / 8;
->   	limit = max(limit, 128UL);
->   	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
-> @@ -3287,7 +3286,8 @@ void __init tcp_init(void)
->   	sysctl_max_syn_backlog = max(128, cnt / 256);
->
->   	tcp_init_mem(&init_net);
-> -	limit = nr_free_buffer_pages() / 8;
-> +	/* Set per-socket limits to no more than 1/128 the pressure threshold */
-> +	limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
->   	limit = max(limit, 128UL);
->   	max_share = min(4UL*1024*1024, limit);
-
-Indeed, this ends up influencing the value of max_share used below to 
-initialize the other fields.
-I like your change because now the limit variable is being set 
-independently between the global (now per-cgroup) and the per-socket 
-limits. (it previously was limit = sysctl_tcp_mem[1] << (PAGE_SHIFT-7))
-
-So in the end, I personally think this is even clearer than what we had 
-before.
-
-Acked-by: Glauber Costa <glommer@parallels.com>
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index a986280..543f23c 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -60,11 +60,13 @@ struct debug_fs_counter {
+ 	atomic_t num_rx_flow_on;
+ };
+ static struct debug_fs_counter cnt;
+-#define	dbfs_atomic_inc(v) atomic_inc_return(v)
+-#define	dbfs_atomic_dec(v) atomic_dec_return(v)
++#define	dbfs_atomic_inc(v) atomic_inc(v)
++#define	dbfs_atomic_dec(v) atomic_dec(v)
++#define	dbfs_atomic_inc_ret(v) atomic_inc_return(v)
+ #else
+-#define	dbfs_atomic_inc(v) 0
+-#define	dbfs_atomic_dec(v) 0
++#define	dbfs_atomic_inc_ret(v) 0
++#define	dbfs_atomic_inc(v)
++#define	dbfs_atomic_dec(v)
+ #endif
+=20
+ struct caifsock {
+@@ -1122,7 +1124,7 @@ static int caif_create(struct net *net, struct so=
+cket *sock, int protocol,
+ 	cf_sk->conn_req.protocol =3D protocol;
+ 	/* Increase the number of sockets created. */
+ 	dbfs_atomic_inc(&cnt.caif_nr_socks);
+-	num =3D dbfs_atomic_inc(&cnt.caif_sock_create);
++	num =3D dbfs_atomic_inc_ret(&cnt.caif_sock_create);
+ #ifdef CONFIG_DEBUG_FS
+ 	if (!IS_ERR(debugfsdir)) {
+=20
+--=20
+1.7.5.4
