@@ -1,97 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/8][pull request] Intel Wired LAN Driver Update
-Date: Thu,  2 Feb 2012 04:20:13 -0800
-Message-ID: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 2/8] ixgbe: Add warning when no space left for more MAC filters
+Date: Thu,  2 Feb 2012 04:20:15 -0800
+Message-ID: <1328185221-8591-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:61281 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3805 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754208Ab2BBMUX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 07:20:23 -0500
+	id S1755965Ab2BBMUY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Feb 2012 07:20:24 -0500
+In-Reply-To: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains fixes to igbvf, ixgbe and ixgbevf.
-The fixes do the following:
- - update copyright
- - fix typo
- - fix sparse warnings
- - fix namespace issues
- - fix mailbox interrupt ACK bug
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The following are changes since commit 786f528119722f564a22ad953411374e06116333:
-  ethtool: Null-terminate filename passed to ethtool_ops::flash_device
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+Send message to system log when the VF requests another MAC filter
+but there is no space left on the device for it.
 
-Don Skidmore (1):
-  ixgbe: update copyright to 2012
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Greg Rose (3):
-  ixgbe: Add warning when no space left for more MAC filters
-  ixgbevf: Fix mailbox interrupt ack bug
-  ixgbevf: Update copyright notices
-
-Jeff Kirsher (1):
-  ixgbe: fix namespace issues when FCoE is not enabled
-
-Masanari Iida (1):
-  ixgbe: Fix typo in ixgbe_common.h
-
-Mitch A Williams (1):
-  igbvf: change copyright date
-
-Stephen Hemminger (1):
-  ixgbe: make ethtool strings table const
-
- drivers/net/ethernet/intel/igbvf/Makefile          |    2 +-
- drivers/net/ethernet/intel/igbvf/defines.h         |    2 +-
- drivers/net/ethernet/intel/igbvf/ethtool.c         |    2 +-
- drivers/net/ethernet/intel/igbvf/igbvf.h           |    2 +-
- drivers/net/ethernet/intel/igbvf/mbx.c             |    2 +-
- drivers/net/ethernet/intel/igbvf/mbx.h             |    2 +-
- drivers/net/ethernet/intel/igbvf/netdev.c          |    4 +-
- drivers/net/ethernet/intel/igbvf/regs.h            |    2 +-
- drivers/net/ethernet/intel/igbvf/vf.c              |    2 +-
- drivers/net/ethernet/intel/igbvf/vf.h              |    2 +-
- drivers/net/ethernet/intel/ixgbe/Makefile          |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   10 ++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   27 ++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |    5 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |    2 +-
- drivers/net/ethernet/intel/ixgbevf/Makefile        |    2 +-
- drivers/net/ethernet/intel/ixgbevf/defines.h       |    2 +-
- drivers/net/ethernet/intel/ixgbevf/ethtool.c       |    2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |    2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |   12 ++++++---
- drivers/net/ethernet/intel/ixgbevf/mbx.c           |    2 +-
- drivers/net/ethernet/intel/ixgbevf/mbx.h           |    2 +-
- drivers/net/ethernet/intel/ixgbevf/regs.h          |    2 +-
- drivers/net/ethernet/intel/ixgbevf/vf.c            |   21 +++++++++++---
- drivers/net/ethernet/intel/ixgbevf/vf.h            |    2 +-
- 45 files changed, 105 insertions(+), 56 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index b76339b..8d8cdbc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -646,6 +646,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, vf, false);
+ 		retval = ixgbe_set_vf_macvlan(adapter, vf, index,
+ 					      (unsigned char *)(&msgbuf[1]));
++		if (retval == -ENOSPC)
++			e_warn(drv, "VF %d has requested a MACVLAN filter "
++				    "but there is no space for it\n", vf);
+ 		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
 -- 
 1.7.7.6
