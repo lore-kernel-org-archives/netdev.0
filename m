@@ -1,81 +1,88 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 4/4] sysctl: Don't call sysctl_follow_link unless we are a link.
-Date: Wed, 01 Feb 2012 19:30:04 -0800
-Message-ID: <m1liolvrnn.fsf_-_@fess.ebiederm.org>
-References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
-	<m139atx6bs.fsf@fess.ebiederm.org>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: NAT on a stick with ebtables
+Date: Wed, 1 Feb 2012 21:50:50 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A2A04C46@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <linux-fsdevel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Damien Millescamps <damien.millescamps@6wind.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m139atx6bs.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Wed, 01 Feb 2012 19:27:51 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:30599 "EHLO
+	mail.infrasupport.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754939Ab2BBEGC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2012 23:06:02 -0500
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+I have another bridging/routing situation.  This one has both a
+Sonicwall VPN device and old Cisco VPN device behind my Linux
+brouter/firewall.  Both the Sonicwall and Cisco need their outside NICs
+to "think" they're really on the outside.  But I want them physically
+behind my brouter - that way, all the traffic in and out goes through me
+and I can get an accurate picture of what's going on at the border.
+This brouter is on a Fedora 16 system.  
 
-There are no functional changes.  Just code motion to make it
-clear that we don't follow a link between sysctl roots unless the
-directory entry actually is a link.
+I am deathly afraid to go back to pure routing and try ip neigh add
+proxy 1.2.248.61 dev em1 because the last time I tried proxy ARP here, I
+spent several days only to learn that Cisco does not get along well with
+a proxy ARP in front of it.  That Cisco will work behind a bridge, but
+not behind any kind of proxy ARP router I've been able to put in front
+of it.  
 
-Suggested-by:  Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- fs/proc/proc_sysctl.c |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+So I would like to keep this one bridged.
 
-diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index e5601dc..a7708b7 100644
---- a/fs/proc/proc_sysctl.c
-+++ b/fs/proc/proc_sysctl.c
-@@ -451,10 +451,12 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
- 	if (!p)
- 		goto out;
- 
--	ret = sysctl_follow_link(&h, &p, current->nsproxy);
--	err = ERR_PTR(ret);
--	if (ret)
--		goto out;
-+	if (S_ISLNK(p->mode)) {
-+		ret = sysctl_follow_link(&h, &p, current->nsproxy);
-+		err = ERR_PTR(ret);
-+		if (ret)
-+			goto out;
-+	}
- 
- 	err = ERR_PTR(-ENOMEM);
- 	inode = proc_sys_make_inode(dir->i_sb, h ? h : head, p);
-@@ -601,10 +603,12 @@ static int proc_sys_link_fill_cache(struct file *filp, void *dirent,
- 	int err, ret = 0;
- 	head = sysctl_head_grab(head);
- 
--	/* It is not an error if we can not follow the link ignore it */
--	err = sysctl_follow_link(&head, &table, current->nsproxy);
--	if (err)
--		goto out;
-+	if (S_ISLNK(table->mode)) {
-+		/* It is not an error if we can not follow the link ignore it */
-+		err = sysctl_follow_link(&head, &table, current->nsproxy);
-+		if (err)
-+			goto out;
-+	}
- 
- 	ret = proc_sys_fill_cache(filp, dirent, filldir, head, table);
- out:
-@@ -950,10 +954,6 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
- 	struct ctl_dir *dir;
- 	int ret;
- 
--	/* Get out quickly if not a link */
--	if (!S_ISLNK((*pentry)->mode))
--		return 0;
--
- 	ret = 0;
- 	spin_lock(&sysctl_lock);
- 	root = (*pentry)->data;
--- 
-1.7.2.5
+When I upgraded from Fedora 9 or so to Fedora 16, the scenario described
+in the simplified ASCII art picture below broke. 
+
+Internal LAN
+192.168.3.nnn                       Firewall/
+--+----------------+------------em3 Brouter em1----+---Internet
+Internal      Web server         |           |   Gateway
+user          192.168.3.111      +-----br0---+   1.2.248.49
+192.168.3.nnn                      192.168.3.5
+                                   1.2.248.50
+                                   1.2.248.61
+
+Firewall NICs em3 and em1 are bridged with bridge br0.  Bridge br0 has
+the IP Addresses above, plus a few others not relevant to this problem.
+NICs em3 and em1 do not have IP Addresses.  
+
+1.2.248.61 is the public IP Address for the website at 192.168.3.111.
+Inbound web requests DNAT to 192.168.3.111.
+
+My internal user wants to access the website at 192.168.3.111 on her
+laptop.  Sometimes the laptop is inside the 192.168.3.nnn subnet,
+sometimes it's somewhere on the Internet.  I want to give my user a
+consistent view of the website, so I handle it with NAT on the
+firewall/brouter.  The idea is, no matter where she is, she can look at
+the website using its public IP Address.
+
+>From both inside and outside the internal LAN, my user connects to the
+website using 1.2.248.61. I DNAT that web request to 192.168.3.111.  If
+the request comes from inside the internal LAN, I also SNAT (MASQUERADE)
+the request so the host at 3.111 "thinks" the request came from the
+firewall/brouter and "knows" where to send back the reply. The web host
+sends back the reply to the masqueraded 192.168.3.5, which should un-NAT
+it and forward it back to the internal user.  NAT on a stick.  
+
+This technique is well documented all over the place in netfilter and
+I've used it for many years.  But it recently broke with bridging.
+That's what I've been nagging about the past 7+ months.  
+
+I think the bridge is sending packets out the wrong NIC.  If I put the
+em3 NIC into PROMISC mode, then my technique above works, but PROPMISC
+mode breaks other NAT scenarios.  My hunch is, something changed in the
+order of how things get done between bridging and routing, because this
+all worked just fine with earlier 2.4 and 2.6 kernels.  
+
+That leads to the question - how do I regulate which physical NIC to
+use, based on either a source or destination IP Address?  How do I
+override the NIC that bridging wants to use and tell it to use the one I
+want instead?  I know I am asking to regulate L2 stuff based on L3
+fields but there must be a way to do this.  
+
+Thanks
+
+- Greg Scott
