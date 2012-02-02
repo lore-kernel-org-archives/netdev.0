@@ -1,83 +1,81 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
- support for passthru mode
-Date: Thu, 2 Feb 2012 20:38:29 +0000
-Message-ID: <1328215109.2541.69.camel@bwh-desktop>
-References: <1321575301.2749.51.camel@bwh-desktop>
-	 <CAEE6B20.3A9F7%roprabhu@cisco.com> <20120202072448.GA25403@redhat.com>
-	 <4F2A4D81.6070002@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Sudden kernel panic with skge in 3.3-rc2
+Date: Thu, 2 Feb 2012 12:45:29 -0800
+Message-ID: <20120202124529.3e274223@s6510.linuxnetplumber.net>
+References: <20120202192115.GA8480@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Roopa Prabhu <roprabhu@cisco.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <chrisw@redhat.com>, <sri@us.ibm.com>,
-	<dragos.tatulea@gmail.com>, <kvm@vger.kernel.org>, <arnd@arndb.de>,
-	<gregory.v.rose@intel.com>, <mchan@broadcom.com>,
-	<dwang2@cisco.com>, <shemminger@vyatta.com>,
-	<eric.dumazet@gmail.com>, <kaber@trash.net>, <benve@cisco.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4F2A4D81.6070002@intel.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Bowler <nbowler@elliptictech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120202192115.GA8480@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-02-02 at 00:46 -0800, John Fastabend wrote:
-[...]
-> OK finally got to read through this. And its not clear to me why we need
-> these per VF/PF filter netdevice ops and netlink extensions if we can
-> get the stacking correct. (Adding filters to the macvlan seems reasonable
-> to me)
-> 
-> In the cases I saw listed above I see a few enumerations:
-> 
-> PF <--> MACVLAN  <---> Guest <--- [...]
-> 
-> VF <--> MACVLAN  <---> Guest <--- [...]       
-> 
->                     VF|Guest <--- [...]       direct assigned VF
-> 
->                     PF|Guest <--- [...]       direct assigned PF
-> 
-> 
-> I used '[...]' to represent whatever additional stacking is done in the
-> guest unknown to the host. In the direct assign VF case (Greg Rose
-> correct me if I am wrong) the normal uc and mc addr lists should suffice
-> along with the netdev op ndo_set_rx_mode(). Here the guest adds MAC
-> addresses and/or VLANS as normal and then the VF<->PF back channel
-> should handle this if needed. This should work for Linux guests and other
-> OS's should do something similar.
-> 
-> In the direct assign PF case the hardware is owned by the guest so
-> no problems here.
-> 
-> This leaves the two MACVLAN cases which can be handled the same. If
-> the MACVLAN driver and netlink interface is extended to add filters
-> to the MACVLAN then the addresses can be pushed to the lower device
-> using the normal dev_uc_{add|del}() and dev_mc_{add|del}() routines.
-[...]
+On Thu, 2 Feb 2012 14:21:15 -0500
+Nick Bowler <nbowler@elliptictech.com> wrote:
 
-There is another case: hybrid acceleration.  Without a bridge in the
-NIC, you need a software bridge for multicast/broadcast replication,
-traffic between guests, and traffic between guest and host.  A guest
-driver can then send and receive to remote addresses through a VF while
-retaining fallback to the software bridge.
+> Hi,
+> 
+> I just saw this panic on 3.3-rc2 with skge.  I don't know whether it's
+> reproducible yet -- the machine crashed while I was not actively using
+> it.  We've had this type of card for a few years and I've never seen this
+> before so it may be a regression, but admittedly we don't use them all
+> that often.
+> 
+> At the time of the crash, the network interface in question was up, but
+> not configured with any addresses; mtu configured to (the default) 1500
+> bytes.  It was used for packet capture (tcpdump) shortly beforehand,
+> although this was not running at the time of the crash.  It's a PCI
+> gigabit ethernet card:
+> 
+>   03:01.0 Ethernet controller: D-Link System Inc DGE-530T Gigabit Ethernet Adapter (rev 11) (rev 11)
+> 
+> In case it matters, the primary network interface of the system is an
+> onboard device using the sky2 driver:
+> 
+>   02:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8057 PCI-E Gigabit Ethernet Controller (rev 10Ethernet controller: Marvell Technology Group Ltd. 88E8057 PCI-E Gigabit Ethernet Controller (rev 10)
+> 
+> I took a photo of the screen, but unfortuately the top few lines are
+> lost forever.  Posted at imgur because it seems a bit big for the
+> mailing lists: <http://i.imgur.com/xklGU.jpg>. Apologies for the
+> terrible quality; the best camera I could find around was in someone's
+> mobile phone.  I'll see about configuring a serial console in case it
+> crashes again.
+> 
+> For convenience (hopefully), here's the call trace retyped in plain text
+> (addresses elided, see photo for them).  The full code line is
+> reproduced by hand because it's almost unreadable in the photo (and
+> truncated to boot).
+> 
+>   Call Trace:
+>    <IRQ>
+>    [...] net_rx_action+0xaa/0x1c0
+>    [...] __do_softirq+0x7e/0x125
+>    [...] ? _raw_spin_unlock+0x26/0x31
+>    [...] call_softirq+0x1c/0x30
+>    [...] do_softirq+0x33/0x68
+>    [...] irq_exit+0x3f/0xb9
+>    [...] do_IRQ+0x97/0xae
+>    [...] common_interrupt+0x6b/0x6b
+>    <EOI>
+>    [...] ? hrtimer_start+0x13/0x15
+>    [...] ? mwait_idle+0x6e/0x80
+>    [...] ? mwait_idle+0x61/0x80
+>    [...] cpu_idle+0x61/0xbd
+>    [...] rest_init+0x8d/0x91
+>    [...] start_kernel+0x338/0x343
+>    [...] x86_64_start_reservations+0xb8/0xbd
+>    [...] x86_64_start_kernel+0xed/0xf4
+>   Code: 48 8b 40 30 48 85 c0 74 0a b9 02 00 00 00 4c 89 fa ff d0 49 8b 86 d0 00 00 00 49 8b 4d b4 48 89 c7 48 8b b2 d0 00 00 00 <f3> a4 31 ff 48 8b 03 49 8b 75 18 48 8b 40 08 48 85 c0 74 13 48
+>   RIP  [...] skge_poll+0x367/0x5cd [skge]
+> 
+> Let me know if you need any more info,
 
-In order to do this, the guest driver needs to know which addresses are
-local.  The net driver for the PF can tell it about the addresses
-assigned to each function, but if there are other devices included in
-the bridge then it will not know about them.
+Try reverting this commit, it seems problematic
+commit d0249e44432aa0ffcf710b64449b8eaa3722547e
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Thu Jan 19 14:37:18 2012 +0000
 
-In Solarflare's current out-of-tree implementation this is dealt with in
-an extension to libvirt that writes the additional 'local' MAC addresses
-to a driver-specific sysfs file, but that is obviously not likely to be
-acceptable in-tree!  So I was interested in this proposal to extend MAC
-filtering, but wanted to get the semantics clear.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+    skge: check for PCI dma mapping errors
