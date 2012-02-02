@@ -1,50 +1,47 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB originated
- TCP streams
-Date: Thu, 2 Feb 2012 17:43:16 +0200
-Message-ID: <4F2AAF14.5060701@mellanox.com>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>   <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>   <CAL1RGDUm8ROxFFMa+D1ZD5jF+cK+kV8aEVzspgnZFNXeuai+fA@mail.gmail.com>   <4F264A6C.3070706@mellanox.com> <1327910672.2891.12.camel@edumazet-laptop>   <20120130081849.GA7848@gondor.apana.org.au>   <1327913583.2288.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>   <20120130085742.GA8262@gondor.apana.org.au>   <CAJZOPZJb1HvcS0XXKLvoDuoi1EfYTY-awwY2g0aHWoS=4qmdyQ@mail.gmail.com>   <20120201083837.GA7081@gondor.apana.org.au>   <CAJZOPZJVAQoy0B30zqkROOBp_-bF6=EdU2L9V025fJgTexVuFQ@mail.gmail.com>  <1328105262.2595.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4F2A974B.209@mellanox.com> <1328193495.2279.51.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC tip/core/rcu 10/41] ipv4: Convert call_rcu() to
+ kfree_rcu()
+Date: Thu, 2 Feb 2012 07:56:12 -0800
+Message-ID: <20120202155612.GG2518@linux.vnet.ibm.com>
+References: <20120201194131.GA10028@linux.vnet.ibm.com>
+ <1328125319-5205-1-git-send-email-paulmck@linux.vnet.ibm.com>
+ <1328125319-5205-10-git-send-email-paulmck@linux.vnet.ibm.com>
+ <20120202002403.GB29058@leaf>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1328193495.2279.51.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, mingo@elte.hu, laijs@cn.fujitsu.com,
+	dipankar@in.ibm.com, akpm@linux-foundation.org,
+	mathieu.desnoyers@polymtl.ca, niv@us.ibm.com, tglx@linutronix.de,
+	peterz@infradead.org, rostedt@goodmis.org, Valdis.Kletnieks@vt.edu,
+	dhowells@redhat.com, eric.dumazet@gmail.com, darren@dvhart.com,
+	fweisbec@gmail.com, patches@linaro.org,
+	"Paul E. McKenney" <paul.mckenney@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Josh Triplett <josh@joshtriplett.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120202002403.GB29058@leaf>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/2/2012 4:38 PM, Eric Dumazet wrote:
->>> Maybe we can keep a fastpath for ethernet case... (the "if (hlen == ETH_HLEN) being always predicted) Maybe need to introduce gro_hard_header_len as well)
->>
->> today, IPoIB advertizes hard_header_len which is bigger than the IPoIB
->> header len, this is done such that skbs sent by the network stack have
->> enough headroom for a "pseudoheader" which for few flows (e.g unicast
->> arp replies and multicast) is placed there by the ipoib hard_header
->> function and later used by the xmit function.
->>
->> So we can either try and change that, such that hard_header_len will be equal to the ipoib header len or add gro_hard_header_len as you  suggested, any preferences?
->
-> I guess changing hard_header_len might be difficult (for you).
-> Adding gro_mac_header_len sounds the easy way. [ You'll need to set it in your device setup() ]
+On Wed, Feb 01, 2012 at 04:24:03PM -0800, Josh Triplett wrote:
+> On Wed, Feb 01, 2012 at 11:41:28AM -0800, Paul E. McKenney wrote:
+> > From: "Paul E. McKenney" <paul.mckenney@linaro.org>
+> > 
+> > The call_rcu() in do_ip_setsockopt() invokes opt_kfree_rcu(), which just
+> > calls kfree().  So convert the call_rcu() to kfree_rcu(), which allows
+> > opt_kfree_rcu() to be eliminated.
+> 
+> This and patch 9/41 have exactly the same subject line.  Consider
+> adding the name of the function you replaced to each one, to
+> disambiguate them.
 
+Good point, will also add function names to the other three kfree_rcu()
+patches.
 
-Eric, yep, I'm okay with adding gro_mac_header_len, such that if the 
-device setup function doesn't touch it, the core sets it to 
-hard_header_len and later the gro code uses that len in the comparison 
-you have placed in your patch.  The ipoib setup code will set that field 
-to the IPoIB header size. If you enhance a bit your patch to include 
-that I could do the testing or you prefer me to do that? do you think we 
-need two or one patch here?
-
-Or.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+							Thanx, Paul
