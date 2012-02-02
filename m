@@ -1,47 +1,71 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC tip/core/rcu 10/41] ipv4: Convert call_rcu() to
- kfree_rcu()
-Date: Thu, 2 Feb 2012 07:56:12 -0800
-Message-ID: <20120202155612.GG2518@linux.vnet.ibm.com>
-References: <20120201194131.GA10028@linux.vnet.ibm.com>
- <1328125319-5205-1-git-send-email-paulmck@linux.vnet.ibm.com>
- <1328125319-5205-10-git-send-email-paulmck@linux.vnet.ibm.com>
- <20120202002403.GB29058@leaf>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/4] sysctl: Comments to make the code clearer.
+Date: Thu, 2 Feb 2012 16:28:46 +0000
+Message-ID: <1328200126.3232.30.camel@deadeye>
+References: <m1pqe5ah3z.fsf@fess.ebiederm.org>
+	 <m139atx6bs.fsf@fess.ebiederm.org> <m1pqdxvroc.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, mingo@elte.hu, laijs@cn.fujitsu.com,
-	dipankar@in.ibm.com, akpm@linux-foundation.org,
-	mathieu.desnoyers@polymtl.ca, niv@us.ibm.com, tglx@linutronix.de,
-	peterz@infradead.org, rostedt@goodmis.org, Valdis.Kletnieks@vt.edu,
-	dhowells@redhat.com, eric.dumazet@gmail.com, darren@dvhart.com,
-	fweisbec@gmail.com, patches@linaro.org,
-	"Paul E. McKenney" <paul.mckenney@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Josh Triplett <josh@joshtriplett.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-fsdevel@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Damien Millescamps <damien.millescamps@6wind.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120202002403.GB29058@leaf>
+In-Reply-To: <m1pqdxvroc.fsf_-_@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 01, 2012 at 04:24:03PM -0800, Josh Triplett wrote:
-> On Wed, Feb 01, 2012 at 11:41:28AM -0800, Paul E. McKenney wrote:
-> > From: "Paul E. McKenney" <paul.mckenney@linaro.org>
-> > 
-> > The call_rcu() in do_ip_setsockopt() invokes opt_kfree_rcu(), which just
-> > calls kfree().  So convert the call_rcu() to kfree_rcu(), which allows
-> > opt_kfree_rcu() to be eliminated.
+On Wed, 2012-02-01 at 19:29 -0800, Eric W. Biederman wrote:
+> Document get_subdir and that find_subdir alwasy takes a reference.
 > 
-> This and patch 9/41 have exactly the same subject line.  Consider
-> adding the name of the function you replaced to each one, to
-> disambiguate them.
+> Suggested-by:  Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  fs/proc/proc_sysctl.c |   16 ++++++++++++++++
+>  1 files changed, 16 insertions(+), 0 deletions(-)
+> 
+> diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+> index 722ec11..e5601dc 100644
+> --- a/fs/proc/proc_sysctl.c
+> +++ b/fs/proc/proc_sysctl.c
+> @@ -73,6 +73,7 @@ static int namecmp(const char *name1, int len1, const char *name2, int len2)
+>  	return cmp;
+>  }
+>  
+> +/* Called under sysctl_lock */
+>  static struct ctl_table *find_entry(struct ctl_table_header **phead,
+>  	struct ctl_dir *dir, const char *name, int namelen)
+>  {
+> @@ -864,6 +865,18 @@ static struct ctl_dir *new_dir(struct ctl_table_set *set,
+>  	return new;
+>  }
+>  
+> +/**
+> + * get_subdir - find or create a subdir with the specified name.
+> + * @dir:  Directory to create the subdirectory in
+> + * @name: The name of the subdirectory to find or create
+> + * @namelen: The length of name
+> + *
+> + * Takes a directory with an elevated reference count so we know that
+> + * if we drop the lock the directory will not go away.  Upon success
+> + * the reference is moved from @dir to the returned subdirectory.
+> + * Upon error an error code is returned and the reference on @dir is
+> + * simply dropped.
+> + */
+>  static struct ctl_dir *get_subdir(struct ctl_dir *dir,
+>  				  const char *name, int namelen)
+[...]
 
-Good point, will also add function names to the other three kfree_rcu()
-patches.
+Should static functions really have kernel-doc?  (Aside from static
+inlines defined in a header.)  This can pollute the documentation
+namespace.
 
-							Thanx, Paul
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
