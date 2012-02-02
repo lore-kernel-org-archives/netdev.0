@@ -1,90 +1,48 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 2/2] net/hyperv: Fix the page buffer when an RNDIS message goes beyond page boundary
-Date: Thu,  2 Feb 2012 09:18:00 -0800
-Message-ID: <1328203080-801-2-git-send-email-haiyangz@microsoft.com>
-References: <1328203080-801-1-git-send-email-haiyangz@microsoft.com>
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328203080-801-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] cgroup: remove cgroup_subsys argument from callbacks
+Date: Thu, 2 Feb 2012 09:26:11 -0800
+Message-ID: <20120202172611.GF19837@google.com>
+References: <4F278078.5030703@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	container cgroup <containers@lists.linux-foundation.org>,
+	Cgroups <cgroups@vger.kernel.org>, linux-mm@kvack.org,
+	netdev <netdev@vger.kernel.org>
+To: Li Zefan <lizf@cn.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4F278078.5030703@cn.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-There is a possible data corruption if an RNDIS message goes beyond page
-boundary in the sending code path. This patch fixes the problem.
+On Tue, Jan 31, 2012 at 01:47:36PM +0800, Li Zefan wrote:
+> The argument is not used at all, and it's not necessary, because
+> a specific callback handler of course knows which subsys it
+> belongs to.
+> 
+> Now only ->pupulate() takes this argument, because the handlers of
+> this callback always call cgroup_add_file()/cgroup_add_files().
+> 
+> So we reduce a few lines of code, though the shrinking of object size
+> is minimal.
+> 
+>  16 files changed, 113 insertions(+), 162 deletions(-)
+> 
+>    text    data     bss     dec     hex filename
+> 5486240  656987 7039960 13183187         c928d3 vmlinux.o.orig
+> 5486170  656987 7039960 13183117         c9288d vmlinux.o
+> 
+> Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c   |    8 ++++----
- drivers/net/hyperv/rndis_filter.c |   13 +++++++++++++
- include/linux/hyperv.h            |    2 +-
- 3 files changed, 18 insertions(+), 5 deletions(-)
+Nice cleanup, applied to cgroup/for-3.4.  Thank you!
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 69193fc..466c58a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -151,10 +151,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	int ret;
- 	unsigned int i, num_pages, npg_data;
- 
--	/* Add multipage for skb->data and additional one for RNDIS */
-+	/* Add multipages for skb->data and additional 2 for RNDIS */
- 	npg_data = (((unsigned long)skb->data + skb_headlen(skb) - 1)
- 		>> PAGE_SHIFT) - ((unsigned long)skb->data >> PAGE_SHIFT) + 1;
--	num_pages = skb_shinfo(skb)->nr_frags + npg_data + 1;
-+	num_pages = skb_shinfo(skb)->nr_frags + npg_data + 2;
- 
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
-@@ -173,8 +173,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 				sizeof(struct hv_netvsc_packet) +
- 				    (num_pages * sizeof(struct hv_page_buffer));
- 
--	/* Setup the rndis header */
--	packet->page_buf_cnt = num_pages;
-+	/* If the rndis msg goes beyond 1 page, we will add 1 later */
-+	packet->page_buf_cnt = num_pages - 1;
- 
- 	/* Initialize it from the skb */
- 	packet->total_data_buflen = skb->len;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index dc2e384..133b7fb 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -797,6 +797,19 @@ int rndis_filter_send(struct hv_device *dev,
- 			(unsigned long)rndisMessage & (PAGE_SIZE-1);
- 	pkt->page_buf[0].len = rndisMessageSize;
- 
-+	/* Add one page_buf if the rndis msg goes beyond page boundary */
-+	if (pkt->page_buf[0].offset + rndisMessageSize > PAGE_SIZE) {
-+		int i;
-+		for (i = pkt->page_buf_cnt; i > 1; i--)
-+			pkt->page_buf[i] = pkt->page_buf[i-1];
-+		pkt->page_buf_cnt++;
-+		pkt->page_buf[0].len = PAGE_SIZE - pkt->page_buf[0].offset;
-+		pkt->page_buf[1].pfn = virt_to_phys((void *)((ulong)
-+			rndisMessage + pkt->page_buf[0].len)) >> PAGE_SHIFT;
-+		pkt->page_buf[1].offset = 0;
-+		pkt->page_buf[1].len = rndisMessageSize - pkt->page_buf[0].len;
-+	}
-+
- 	/* Save the packet send completion and context */
- 	filterPacket->completion = pkt->completion.send.send_completion;
- 	filterPacket->completion_ctx =
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 62b908e..0ae065a 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -35,7 +35,7 @@
- #include <linux/mod_devicetable.h>
- 
- 
--#define MAX_PAGE_BUFFER_COUNT				18
-+#define MAX_PAGE_BUFFER_COUNT				19
- #define MAX_MULTIPAGE_BUFFER_COUNT			32 /* 128K */
- 
- #pragma pack(push, 1)
 -- 
-1.7.4.1
+tejun
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
