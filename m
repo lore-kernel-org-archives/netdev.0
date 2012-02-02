@@ -1,157 +1,301 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/4] inetpeer: Allocate the peer metrics dynamically
-Date: Thu, 2 Feb 2012 11:12:15 +0100
-Message-ID: <20120202101215.GD23142@secunet.com>
+Subject: [PATCH 2/4] net: Unlink the inetpeer metrics from dst_entry
+Date: Thu, 2 Feb 2012 11:12:56 +0100
+Message-ID: <20120202101255.GE23142@secunet.com>
 References: <20120202101141.GC23142@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: timo.teras@iki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48751 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:48760 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754095Ab2BBKMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Feb 2012 05:12:39 -0500
+	id S1754095Ab2BBKNM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Feb 2012 05:13:12 -0500
 Content-Disposition: inline
 In-Reply-To: <20120202101141.GC23142@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We do a dynamic allocation of the peer metrics in order
-to be able to reset the peer metrics by exchanging a rcu
-pointer. This is done with separate patches.
+In order to be able to exchange the inetpeer metrics,
+we remove the direct reference from the dst_entry. We
+access them via a new dst_ops method 'metrics' and the
+inet_peer pointer of the routes.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/inetpeer.h |   13 +++++++++++--
- net/ipv4/inetpeer.c    |   14 ++++++++++++--
- net/ipv4/route.c       |    7 ++++---
- net/ipv6/route.c       |    2 +-
- 4 files changed, 28 insertions(+), 8 deletions(-)
+ include/net/dst.h         |   20 +++++++++++++-------
+ include/net/dst_ops.h     |    1 +
+ net/bridge/br_netfilter.c |    6 ++++++
+ net/decnet/dn_route.c     |    1 +
+ net/ipv4/route.c          |   32 +++++++++++++++++---------------
+ net/ipv4/xfrm4_policy.c   |    1 +
+ net/ipv6/route.c          |   27 +++++++++++++++++----------
+ net/ipv6/xfrm6_policy.c   |    1 +
+ 8 files changed, 57 insertions(+), 32 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 06b795d..6bb8060 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -27,13 +27,17 @@ struct inetpeer_addr {
- 	__u16				family;
- };
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 344c8dd..be1ffc8 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -124,6 +124,17 @@ static inline void dst_destroy_metrics_generic(struct dst_entry *dst)
+ 		__dst_destroy_metrics_generic(dst, val);
+ }
  
-+struct inetpeer_metrics {
-+	u32		m[RTAX_MAX];
-+};
-+
- struct inet_peer {
- 	/* group together avl_left,avl_right,v4daddr to speedup lookups */
- 	struct inet_peer __rcu	*avl_left, *avl_right;
- 	struct inetpeer_addr	daddr;
- 	__u32			avl_height;
- 
--	u32			metrics[RTAX_MAX];
-+	struct inetpeer_metrics *metrics;
- 	u32			rate_tokens;	/* rate limiting for ICMP */
- 	int			redirect_genid;
- 	unsigned long		rate_last;
-@@ -68,7 +72,12 @@ void			inet_initpeers(void) __init;
- 
- static inline bool inet_metrics_new(const struct inet_peer *p)
- {
--	return p->metrics[RTAX_LOCK-1] == INETPEER_METRICS_NEW;
-+	return p->metrics->m[RTAX_LOCK-1] == INETPEER_METRICS_NEW;
++static inline u32 *dst_metrics_ptr(const struct dst_entry *dst)
++{
++	return dst->ops->metrics(dst);
 +}
 +
-+static inline u32 *inetpeer_metrics(const struct inet_peer *p)
++static inline u32 *dst_metrics_ptr_default(const struct dst_entry *dst)
 +{
-+	return p->metrics->m;
- }
- 
- /* can be called with or without local BH being disabled */
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index bf4a9c4..92071a4 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -315,7 +315,9 @@ do {								\
- 
- static void inetpeer_free_rcu(struct rcu_head *head)
- {
--	kmem_cache_free(peer_cachep, container_of(head, struct inet_peer, rcu));
-+	struct inet_peer *p = container_of(head, struct inet_peer, rcu);
-+	kfree(p->metrics);
-+	kmem_cache_free(peer_cachep, p);
- }
- 
- static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base,
-@@ -434,6 +436,13 @@ relookup:
- 	}
- 	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
- 	if (p) {
-+		p->metrics = kmalloc(sizeof(struct inetpeer_metrics),
-+				     GFP_ATOMIC);
-+		if (!p->metrics) {
-+			kmem_cache_free(peer_cachep, p);
-+			goto out;
-+		}
++	return DST_METRICS_PTR(dst);
 +
- 		p->daddr = *daddr;
- 		atomic_set(&p->refcnt, 1);
- 		atomic_set(&p->rid, 0);
-@@ -442,7 +451,7 @@ relookup:
- 					secure_ip_id(daddr->addr.a4) :
- 					secure_ipv6_id(daddr->addr.a6));
- 		p->tcp_ts_stamp = 0;
--		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
-+		p->metrics->m[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
- 		p->rate_last = 0;
- 		p->pmtu_expires = 0;
-@@ -455,6 +464,7 @@ relookup:
- 		link_to_pool(p, base);
- 		base->total++;
- 	}
-+out:
- 	write_sequnlock_bh(&base->lock);
++}
++
+ static inline u32 *dst_metrics_write_ptr(struct dst_entry *dst)
+ {
+ 	unsigned long p = dst->_metrics;
+@@ -151,21 +162,16 @@ static inline void dst_copy_metrics(struct dst_entry *dest, const struct dst_ent
+ 	u32 *dst_metrics = dst_metrics_write_ptr(dest);
  
- 	return p;
+ 	if (dst_metrics) {
+-		u32 *src_metrics = DST_METRICS_PTR(src);
++		u32 *src_metrics = dst_metrics_ptr(src);
+ 
+ 		memcpy(dst_metrics, src_metrics, RTAX_MAX * sizeof(u32));
+ 	}
+ }
+ 
+-static inline u32 *dst_metrics_ptr(struct dst_entry *dst)
+-{
+-	return DST_METRICS_PTR(dst);
+-}
+-
+ static inline u32
+ dst_metric_raw(const struct dst_entry *dst, const int metric)
+ {
+-	u32 *p = DST_METRICS_PTR(dst);
++	u32 *p = dst_metrics_ptr(dst);
+ 
+ 	return p[metric-1];
+ }
+diff --git a/include/net/dst_ops.h b/include/net/dst_ops.h
+index e1c2ee0..2c7849b 100644
+--- a/include/net/dst_ops.h
++++ b/include/net/dst_ops.h
+@@ -19,6 +19,7 @@ struct dst_ops {
+ 	unsigned int		(*default_advmss)(const struct dst_entry *);
+ 	unsigned int		(*mtu)(const struct dst_entry *);
+ 	u32 *			(*cow_metrics)(struct dst_entry *, unsigned long);
++	u32 *			(*metrics)(const struct dst_entry *);
+ 	void			(*destroy)(struct dst_entry *);
+ 	void			(*ifdown)(struct dst_entry *,
+ 					  struct net_device *dev, int how);
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 8412247..74ba4bc 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -109,6 +109,11 @@ static u32 *fake_cow_metrics(struct dst_entry *dst, unsigned long old)
+ 	return NULL;
+ }
+ 
++static u32 *fake_metrics(const struct dst_entry *dst)
++{
++	return NULL;
++}
++
+ static struct neighbour *fake_neigh_lookup(const struct dst_entry *dst, const void *daddr)
+ {
+ 	return NULL;
+@@ -124,6 +129,7 @@ static struct dst_ops fake_dst_ops = {
+ 	.protocol =		cpu_to_be16(ETH_P_IP),
+ 	.update_pmtu =		fake_update_pmtu,
+ 	.cow_metrics =		fake_cow_metrics,
++	.metrics =		fake_metrics,
+ 	.neigh_lookup =		fake_neigh_lookup,
+ 	.mtu =			fake_mtu,
+ };
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index f31ce72..d2e56b0 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -137,6 +137,7 @@ static struct dst_ops dn_dst_ops = {
+ 	.default_advmss =	dn_dst_default_advmss,
+ 	.mtu =			dn_dst_mtu,
+ 	.cow_metrics =		dst_cow_metrics_generic,
++	.metrics =		dst_metrics_ptr_default,
+ 	.destroy =		dn_dst_destroy,
+ 	.negative_advice =	dn_dst_negative_advice,
+ 	.link_failure =		dn_dst_link_failure,
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index bcacf54..5099d35 100644
+index 5099d35..dc22d6f 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -169,7 +169,7 @@ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
- 		u32 *old_p = __DST_METRICS_PTR(old);
- 		unsigned long prev, new;
+@@ -155,6 +155,16 @@ static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ {
+ }
  
--		p = peer->metrics;
-+		p = inetpeer_metrics(peer);
++static u32 *ipv4_metrics(const struct dst_entry *dst)
++{
++	const struct rtable *rt = (const struct rtable *) dst;
++
++	if (rt->peer && !inet_metrics_new(rt->peer))
++		return inetpeer_metrics(rt->peer);
++
++	return DST_METRICS_PTR(dst);
++}
++
+ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
+ {
+ 	struct rtable *rt = (struct rtable *) dst;
+@@ -167,25 +177,10 @@ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
+ 	peer = rt->peer;
+ 	if (peer) {
+ 		u32 *old_p = __DST_METRICS_PTR(old);
+-		unsigned long prev, new;
+ 
+ 		p = inetpeer_metrics(peer);
  		if (inet_metrics_new(peer))
  			memcpy(p, old_p, sizeof(u32) * RTAX_MAX);
+-
+-		new = (unsigned long) p;
+-		prev = cmpxchg(&dst->_metrics, old, new);
+-
+-		if (prev != old) {
+-			p = __DST_METRICS_PTR(prev);
+-			if (prev & DST_METRICS_READ_ONLY)
+-				p = NULL;
+-		} else {
+-			if (rt->fi) {
+-				fib_info_put(rt->fi);
+-				rt->fi = NULL;
+-			}
+-		}
+ 	}
+ 	return p;
+ }
+@@ -200,6 +195,7 @@ static struct dst_ops ipv4_dst_ops = {
+ 	.default_advmss =	ipv4_default_advmss,
+ 	.mtu =			ipv4_mtu,
+ 	.cow_metrics =		ipv4_cow_metrics,
++	.metrics =		ipv4_metrics,
+ 	.destroy =		ipv4_dst_destroy,
+ 	.ifdown =		ipv4_dst_ifdown,
+ 	.negative_advice =	ipv4_negative_advice,
+@@ -2883,6 +2879,11 @@ static u32 *ipv4_rt_blackhole_cow_metrics(struct dst_entry *dst,
+ 	return NULL;
+ }
  
-@@ -1951,11 +1951,12 @@ static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
++static u32 *ipv4_rt_blackhole_metrics(const struct dst_entry *dst)
++{
++	return NULL;
++}
++
+ static struct dst_ops ipv4_dst_blackhole_ops = {
+ 	.family			=	AF_INET,
+ 	.protocol		=	cpu_to_be16(ETH_P_IP),
+@@ -2892,6 +2893,7 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
+ 	.default_advmss		=	ipv4_default_advmss,
+ 	.update_pmtu		=	ipv4_rt_blackhole_update_pmtu,
+ 	.cow_metrics		=	ipv4_rt_blackhole_cow_metrics,
++	.metrics		=	ipv4_rt_blackhole_metrics,
+ 	.neigh_lookup		=	ipv4_neigh_lookup,
+ };
  
- 	rt->peer = peer = inet_getpeer_v4(rt->rt_dst, create);
- 	if (peer) {
-+		u32 *peer_metrics = inetpeer_metrics(peer);
- 		rt->rt_peer_genid = rt_peer_genid();
- 		if (inet_metrics_new(peer))
--			memcpy(peer->metrics, fi->fib_metrics,
-+			memcpy(peer_metrics, fi->fib_metrics,
- 			       sizeof(u32) * RTAX_MAX);
--		dst_init_metrics(&rt->dst, peer->metrics, false);
-+		dst_init_metrics(&rt->dst, peer_metrics, false);
- 
- 		check_peer_pmtu(&rt->dst, peer);
- 		if (peer->redirect_genid != redirect_genid)
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index a0b4c5d..7a6ebfe 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -233,6 +233,7 @@ static struct dst_ops xfrm4_dst_ops = {
+ 	.gc =			xfrm4_garbage_collect,
+ 	.update_pmtu =		xfrm4_update_pmtu,
+ 	.cow_metrics =		dst_cow_metrics_generic,
++	.metrics =		dst_metrics_ptr_default,
+ 	.destroy =		xfrm4_dst_destroy,
+ 	.ifdown =		xfrm4_dst_ifdown,
+ 	.local_out =		__ip_local_out,
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8c2e3ab..ea13565 100644
+index ea13565..d8b01c0 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -105,7 +105,7 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
- 		u32 *old_p = __DST_METRICS_PTR(old);
- 		unsigned long prev, new;
+@@ -88,6 +88,16 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+ 					   const struct in6_addr *gwaddr, int ifindex);
+ #endif
  
--		p = peer->metrics;
-+		p = inetpeer_metrics(peer);
++static u32 *ipv6_metrics(const struct dst_entry *dst)
++{
++	const struct rt6_info *rt = (const struct rt6_info *) dst;
++
++	if (rt->rt6i_peer && !inet_metrics_new(rt->rt6i_peer))
++		return inetpeer_metrics(rt->rt6i_peer);
++
++	return DST_METRICS_PTR(dst);
++}
++
+ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *) dst;
+@@ -103,20 +113,10 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
+ 	peer = rt->rt6i_peer;
+ 	if (peer) {
+ 		u32 *old_p = __DST_METRICS_PTR(old);
+-		unsigned long prev, new;
+ 
+ 		p = inetpeer_metrics(peer);
  		if (inet_metrics_new(peer))
  			memcpy(p, old_p, sizeof(u32) * RTAX_MAX);
+-
+-		new = (unsigned long) p;
+-		prev = cmpxchg(&dst->_metrics, old, new);
+-
+-		if (prev != old) {
+-			p = __DST_METRICS_PTR(prev);
+-			if (prev & DST_METRICS_READ_ONLY)
+-				p = NULL;
+-		}
+ 	}
+ 	return p;
+ }
+@@ -151,6 +151,7 @@ static struct dst_ops ip6_dst_ops_template = {
+ 	.default_advmss		=	ip6_default_advmss,
+ 	.mtu			=	ip6_mtu,
+ 	.cow_metrics		=	ipv6_cow_metrics,
++	.metrics		=	ipv6_metrics,
+ 	.destroy		=	ip6_dst_destroy,
+ 	.ifdown			=	ip6_dst_ifdown,
+ 	.negative_advice	=	ip6_negative_advice,
+@@ -177,6 +178,11 @@ static u32 *ip6_rt_blackhole_cow_metrics(struct dst_entry *dst,
+ 	return NULL;
+ }
  
++static u32 *ip6_rt_blackhole_metrics(const struct dst_entry *dst)
++{
++	return NULL;
++}
++
+ static struct dst_ops ip6_dst_blackhole_ops = {
+ 	.family			=	AF_INET6,
+ 	.protocol		=	cpu_to_be16(ETH_P_IPV6),
+@@ -186,6 +192,7 @@ static struct dst_ops ip6_dst_blackhole_ops = {
+ 	.default_advmss		=	ip6_default_advmss,
+ 	.update_pmtu		=	ip6_rt_blackhole_update_pmtu,
+ 	.cow_metrics		=	ip6_rt_blackhole_cow_metrics,
++	.metrics		=	ip6_rt_blackhole_metrics,
+ 	.neigh_lookup		=	ip6_neigh_lookup,
+ };
+ 
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 8ea65e0..af4854c 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -261,6 +261,7 @@ static struct dst_ops xfrm6_dst_ops = {
+ 	.gc =			xfrm6_garbage_collect,
+ 	.update_pmtu =		xfrm6_update_pmtu,
+ 	.cow_metrics =		dst_cow_metrics_generic,
++	.metrics =		dst_metrics_ptr_default,
+ 	.destroy =		xfrm6_dst_destroy,
+ 	.ifdown =		xfrm6_dst_ifdown,
+ 	.local_out =		__ip6_local_out,
 -- 
 1.7.0.4
