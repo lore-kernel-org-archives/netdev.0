@@ -1,40 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8169 based device
-Date: Fri, 3 Feb 2012 14:26:11 +0100
-Message-ID: <20120203132611.GA21693@electric-eye.fr.zoreil.com>
-References: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+From: Laszlo Ersek <lersek@redhat.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netfront: correct	MAX_TX_TARGET	calculation.
+Date: Fri, 03 Feb 2012 14:39:42 +0100
+Message-ID: <4F2BE39E.9030101@redhat.com>
+References: <1327598603-16398-1-git-send-email-wei.liu2@citrix.com>	<20120126181900.GB25572@phenom.dumpdata.com>	<1327660589.2585.14.camel@leeni.uk.xensource.com>	<4F2BD2CC.4050906@redhat.com> <4F2BDA4C.7060601@redhat.com> <4F2BEEA70200007800070E81@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andy Hawkins <adhawkins@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeremy@goop.org" <jeremy@goop.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:45608 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756109Ab2BCNhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 08:37:33 -0500
-Content-Disposition: inline
-In-Reply-To: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51500 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756109Ab2BCNiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Feb 2012 08:38:21 -0500
+In-Reply-To: <4F2BEEA70200007800070E81@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Hawkins <adhawkins@gmail.com> :
-[...]
-> Secondly, I realise that the kernel I'm using here is quite old.
-> However, this is the kernel provided by the version of Openfiler I'm
-> using, so updating isn't a simple matter.
+On 02/03/12 14:26, Jan Beulich wrote:
+>>>> On 03.02.12 at 13:59, Laszlo Ersek<lersek@redhat.com>  wrote:
 
-Which kernel version is it and does an "XID" line appear for the r8169
-driver in the kernel log ?
+>> (Eyeballing the source makes me think
+>>
+>>     NET_TX_RING_SIZE == (4096 - 16 - 48) / (5 * 4) == 201
+>>     NET_RX_RING_SIZE == (4096 - 16 - 48) / (4 * 4) == 252
+>
+> NET_TX_RING_SIZE == (4096 - 16 - 48) / (6 * 2) == 336
+> NET_RX_RING_SIZE == (4096 - 16 - 48) / (4 * 2) == 504
 
-[...]
-> Can anyone offer any advice on getting this card to work?
+Sorry, I wasn't sure if gcc would pack them without 
+__attribute__((packed)) :) Dumb mistake, admittedly.
 
-In the end there may be only two paths left : upgrade the kernel or
-backport the driver.
-
-It could help if some openfiler developer was available, at the very
-least to retrieve an adequate kernel build tree if backporting is the
-only option.
-
--- 
-Ueimor
+Thanks,
+Laszlo
