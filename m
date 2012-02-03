@@ -1,65 +1,66 @@
-From: Shawn Lu <shawn.lu@ericsson.com>
-Subject: RE: [PATCH] tcp: RST: binding oif to iif for tcp v4
-Date: Fri, 3 Feb 2012 16:43:10 -0500
-Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5C9FB94@EUSAACMS0702.eamcs.ericsson.se>
-References: <1328300212-18836-1-git-send-email-shawn.lu@ericsson.com>
- <1328304719.2480.5.camel@edumazet-laptop>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: RE: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Fri, 3 Feb 2012 16:47:04 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+ <20120120.135028.1359677274445012541.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Seiji Aguchi <seiji.aguchi@hds.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr4.ericy.com ([198.24.6.9]:35180 "EHLO imr4.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913Ab2BCVnQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:43:16 -0500
-In-Reply-To: <1328304719.2480.5.camel@edumazet-laptop>
+Received: from usindpps03.hds.com ([207.126.252.16]:45438 "EHLO
+	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757922Ab2BCVr0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:47:26 -0500
+In-Reply-To: <20120120.135028.1359677274445012541.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=20
-See inline.
------Original Message-----
-=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-Sent: Friday, February 03, 2012 1:32 PM
-To: Shawn Lu
-Cc: davem@davemloft.net; netdev@vger.kernel.org; xiaoclu@gmail.com
-Subject: Re: [PATCH] tcp: RST: binding oif to iif for tcp v4
+On 01/20/2012 01:50 PM, David Miller wrote:
+> You were given an alternative way to trace these kinds of events, and 
+> you have yet to give us a solid reason why that cannot work for you.
 
-Le vendredi 03 f=E9vrier 2012 =E0 12:16 -0800, Shawn Lu a =E9crit :
-> Binding RST packet outgoing interface to incomming interface for tcp=20
-> v4. This has few benefits:
-> 1. tcp_v6_send_reset already did that.
+OK. I'll try to explain it.
 
-I dont think so. ipv6 makes no special provision for RST.
-[shawn LU] it's in  tcp_v6_send_response line 899 of tcp_ipv6.c
- fl6.flowi6_oif =3D inet6_iif(skb);
+First of all, we'd like to use this tracepoint with our
+flight recorder.
 
-> 2. This helps tcp connect with SO_BINDTODEVICE set. When connection i=
-s=20
-> lost, we still able to sending out RST using same interface.
+tcpdump:
+ tcpdump captures all the packets and so its overhead is not
+ acceptable. Also we can't keep the data on memory but must
+ write the data to file for each time. It introduce other
+ overhead which we can't accept.
 
-I dont understand this.
+commit 63e03724b51, dropwatch, skb:kfree_skb:
+ With this tracepoint, we can detect packet drop.
+ But it may be too late because with tcp kernel retransmits
+ packets repeatedly if it can't get ack and after that it
+ may drops packets in a no-win situation.
+ Also sometimes customer finds delays which is caused by
+ temporal packet drop and retransmission. With this tracepoint
+ we can explain it based on the real data.
 
-[shawn Lu] ok.  Tcp socket is bind to device using SO_BINDTODEVICE  to
-Limit traffic to specifc interface.  Sometime, it may not have a valid
-Source address to get through ip_route_output_key.=20
+netstat:
+ This is a good tool for the first step to analyze what
+ happened. But it shows only statistics and it's not enough
+ for us to analyze incidents and explain it to our customers.
+ We need each packet drop data(when it happen, whether it
+ succeeded or not etc.)
 
-> 3. limit RST traffic in ingress interface reduce the impact of RST=20
-> attack.
->=20
-[shawn Lu] sometime, we want to limit unimportant traffic to certain in=
-terface
-To reduce impact on other interface=20
+systemtap:
+ Actually, we've already used systemtap in our flight recorder.
+ But we believe that tcp retransmission is one of the fundamental
+ function in tcp stack and so kernel itself should provide the
+ instruments from which we can get enough information.
 
-I dont understand this.
-
-Me confused.
-
-Why RST are special and should bypass/force routing decisions ?
-
-This is going to break some setups.
+Regards,
+Satoru
