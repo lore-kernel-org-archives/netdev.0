@@ -1,40 +1,58 @@
-From: Laszlo Ersek <lersek@redhat.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: correct	MAX_TX_TARGET	calculation.
-Date: Fri, 03 Feb 2012 14:39:42 +0100
-Message-ID: <4F2BE39E.9030101@redhat.com>
-References: <1327598603-16398-1-git-send-email-wei.liu2@citrix.com>	<20120126181900.GB25572@phenom.dumpdata.com>	<1327660589.2585.14.camel@leeni.uk.xensource.com>	<4F2BD2CC.4050906@redhat.com> <4F2BDA4C.7060601@redhat.com> <4F2BEEA70200007800070E81@nat28.tlf.novell.com>
+From: Andy Hawkins <adhawkins@gmail.com>
+Subject: Re: Realtek 8169 based device
+Date: Fri, 3 Feb 2012 13:49:31 +0000
+Message-ID: <CAOkhdCc4=CpThnnwUxt_6dnUztmUwFX3cSebZdxencejEd1x7A@mail.gmail.com>
+References: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+	<20120203132611.GA21693@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeremy@goop.org" <jeremy@goop.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Jan Beulich <JBeulich@suse.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51500 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109Ab2BCNiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Feb 2012 08:38:21 -0500
-In-Reply-To: <4F2BEEA70200007800070E81@nat28.tlf.novell.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:40522 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756486Ab2BCNtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 08:49:31 -0500
+Received: by dadp15 with SMTP id p15so2749211dad.19
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 05:49:31 -0800 (PST)
+In-Reply-To: <20120203132611.GA21693@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/12 14:26, Jan Beulich wrote:
->>>> On 03.02.12 at 13:59, Laszlo Ersek<lersek@redhat.com>  wrote:
+Hi,
 
->> (Eyeballing the source makes me think
->>
->>     NET_TX_RING_SIZE == (4096 - 16 - 48) / (5 * 4) == 201
->>     NET_RX_RING_SIZE == (4096 - 16 - 48) / (4 * 4) == 252
->
-> NET_TX_RING_SIZE == (4096 - 16 - 48) / (6 * 2) == 336
-> NET_RX_RING_SIZE == (4096 - 16 - 48) / (4 * 2) == 504
+On Fri, Feb 3, 2012 at 1:26 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Which kernel version is it and does an "XID" line appear for the r8169
+> driver in the kernel log ?
 
-Sorry, I wasn't sure if gcc would pack them without 
-__attribute__((packed)) :) Dumb mistake, admittedly.
+Sorry, I realised after hitting send that I hadn't posted the kernel version:
 
-Thanks,
-Laszlo
+[root@nas ~]# uname -a
+Linux nas.gently.org.uk 2.6.29.6-0.30.smp.gcc3.4.x86.i686 #1 SMP Thu
+Nov 4 19:54:00 GMT 2010 i686 i686 i386 GNU/Linux
+
+The 8169 driver line is:
+
+[    5.216930] eth1: RTL8169sb/8110sb at 0xf8034000,
+4c:00:4e:00:08:fe, XID 10000000 IRQ 16
+
+Ondrej Zary replied to me suggesting I reseat the card as there is
+only one bit difference between the Hynic ID (0x106c) and Realtek ID
+(0x10ec). I'm at work and the machine is at home, so I can't check
+that until later today.
+
+> In the end there may be only two paths left : upgrade the kernel or
+> backport the driver.
+
+> It could help if some openfiler developer was available, at the very
+> least to retrieve an adequate kernel build tree if backporting is the
+> only option.
+
+I have already recompiled the driver to add in the handler for this
+ID. If it turns out that this is in fact a correct ID, then at least I
+know I can successfully compile and run any code should that become
+necessary.
+
+Thanks for the input.
+
+Andy
