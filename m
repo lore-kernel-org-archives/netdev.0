@@ -1,47 +1,45 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [Patch ] net: doc: cleanup
- Documentation/networking/scaling.txt
-Date: Fri, 3 Feb 2012 22:28:04 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
-References: <4EDF768F.1000500@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: RST: binding oif to iif for tcp v4
+Date: Fri, 03 Feb 2012 22:31:59 +0100
+Message-ID: <1328304719.2480.5.camel@edumazet-laptop>
+References: <1328300212-18836-1-git-send-email-shawn.lu@ericsson.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=GB2312
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Randy Dunlap (maintainer:DOCUMENTATION)" <rdunlap@xenotime.net>,
-	David Miller <davem@davemloft.net>, willemb@google.com,
-	benjamin.poirier@gmail.com, linux-doc@vger.kernel.org,
-	Network Developer Mailing List <netdev@vger.kernel.org>,
-	therbert@google.com
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <4EDF768F.1000500@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xiaoclu@gmail.com
+To: Shawn Lu <shawn.lu@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:44187 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032Ab2BCVcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:32:03 -0500
+Received: by werb13 with SMTP id b13so3035570wer.19
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 13:32:02 -0800 (PST)
+In-Reply-To: <1328300212-18836-1-git-send-email-shawn.lu@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 Dec 2011, Shan Wei wrote:
+Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 12:16 -0800, Shawn Lu a =C3=A9c=
+rit :
+> Binding RST packet outgoing interface to incomming interface
+> for tcp v4. This has few benefits:
+> 1. tcp_v6_send_reset already did that.
 
->=20
-> 1) Fix some typos.
-> 2) Change mode of the punctuation from full to half, eg.=A1=AF,=A1=B0=
- .
->    So that the punctuation can be read at console.
->=20
-> Signed-off-by: Shan Wei<shanwei88@gmail.com>
-> ---
-> I feel uncertain when reading following contents that no variable
-> in rps_dev_flow_table or softnet_data records the length of=20
-> the current backlog. Just last_qtail variable pointers the tail of th=
-e backlog.
->=20
-> "The counter in rps_dev_flow_table values records the length of the c=
-urrent
->  CPU's backlog when a packet in this flow was last enqueued. "
->=20
-> If missing something, please correct me.
+I dont think so. ipv6 makes no special provision for RST.
 
-To a minimum, the patch is corrupted. Please fix your mail client and=20
-resend.
+> 2. This helps tcp connect with SO_BINDTODEVICE set. When connection
+> is lost, we still able to sending out RST using same interface.
 
---=20
-Jiri Kosina
-SUSE Labs
+I dont understand this.
+
+> 3. limit RST traffic in ingress interface reduce the impact of
+> RST attack.
+>=20
+
+I dont understand this.
+
+Me confused.
+
+Why RST are special and should bypass/force routing decisions ?
+
+This is going to break some setups.
