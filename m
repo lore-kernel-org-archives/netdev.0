@@ -1,119 +1,72 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH 2/2] netfilter: remove rev 0 of xt_connlimit
-Date: Fri,  3 Feb 2012 13:40:26 +0800
-Message-ID: <1328247626-7528-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1328247626-7528-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: netfilter-devel@vger.kernel.org,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1328247626-7528-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net 4/8] ixgbe: fix namespace issues when FCoE is not enabled
+Date: Thu, 02 Feb 2012 21:46:54 -0800
+Message-ID: <1328248014.2581.33.camel@jtkirshe-mobl>
+References: <1328185221-8591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328185221-8591-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120202.142005.1066192595268413170.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-NH5j/xHEoxsoQuneG/QM"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:16403 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751935Ab2BCFqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Feb 2012 00:46:55 -0500
+In-Reply-To: <20120202.142005.1066192595268413170.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- Documentation/feature-removal-schedule.txt |    7 -----
- include/linux/netfilter/xt_connlimit.h     |    9 +-----
- net/netfilter/xt_connlimit.c               |   35 ++++++++-------------------
- 3 files changed, 13 insertions(+), 38 deletions(-)
 
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 830a0b9..4e1d8de 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -415,13 +415,6 @@ Who:	Jean Delvare <khali@linux-fr.org>
- 
- ----------------------------
- 
--What:	xt_connlimit rev 0
--When:	2012
--Who:	Jan Engelhardt <jengelh@medozas.de>
--Files:	net/netfilter/xt_connlimit.c
--
------------------------------
--
- What:	i2c_driver.attach_adapter
- 	i2c_driver.detach_adapter
- When:	September 2011
-diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
-index d1366f0..f165609 100644
---- a/include/linux/netfilter/xt_connlimit.h
-+++ b/include/linux/netfilter/xt_connlimit.h
-@@ -22,13 +22,8 @@ struct xt_connlimit_info {
- #endif
- 	};
- 	unsigned int limit;
--	union {
--		/* revision 0 */
--		unsigned int inverse;
--
--		/* revision 1 */
--		__u32 flags;
--	};
-+	/* revision 1 */
-+	__u32 flags;
- 
- 	/* Used internally by the kernel */
- 	struct xt_connlimit_data *data __attribute__((aligned(8)));
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index c6d5a83..70b5591 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -274,38 +274,25 @@ static void connlimit_mt_destroy(const struct xt_mtdtor_param *par)
- 	kfree(info->data);
- }
- 
--static struct xt_match connlimit_mt_reg[] __read_mostly = {
--	{
--		.name       = "connlimit",
--		.revision   = 0,
--		.family     = NFPROTO_UNSPEC,
--		.checkentry = connlimit_mt_check,
--		.match      = connlimit_mt,
--		.matchsize  = sizeof(struct xt_connlimit_info),
--		.destroy    = connlimit_mt_destroy,
--		.me         = THIS_MODULE,
--	},
--	{
--		.name       = "connlimit",
--		.revision   = 1,
--		.family     = NFPROTO_UNSPEC,
--		.checkentry = connlimit_mt_check,
--		.match      = connlimit_mt,
--		.matchsize  = sizeof(struct xt_connlimit_info),
--		.destroy    = connlimit_mt_destroy,
--		.me         = THIS_MODULE,
--	},
-+static struct xt_match connlimit_mt_reg __read_mostly = {
-+	.name       = "connlimit",
-+	.revision   = 1,
-+	.family     = NFPROTO_UNSPEC,
-+	.checkentry = connlimit_mt_check,
-+	.match      = connlimit_mt,
-+	.matchsize  = sizeof(struct xt_connlimit_info),
-+	.destroy    = connlimit_mt_destroy,
-+	.me         = THIS_MODULE,
- };
- 
- static int __init connlimit_mt_init(void)
- {
--	return xt_register_matches(connlimit_mt_reg,
--	       ARRAY_SIZE(connlimit_mt_reg));
-+	return xt_register_match(&connlimit_mt_reg);
- }
- 
- static void __exit connlimit_mt_exit(void)
- {
--	xt_unregister_matches(connlimit_mt_reg, ARRAY_SIZE(connlimit_mt_reg));
-+	xt_unregister_match(&connlimit_mt_reg);
- }
- 
- module_init(connlimit_mt_init);
--- 
-1.7.7.6
+--=-NH5j/xHEoxsoQuneG/QM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Thu, 2012-02-02 at 14:20 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Thu,  2 Feb 2012 04:20:17 -0800
+>=20
+> > Several functions are made external but are not used externally when
+> > FCoE/DCB is not enabled.
+> >=20
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>=20
+> Do not crap up the *.c files with ifdefs like this.
+>=20
+> Better to export these operations via an ops structure of
+> some kind, rather than doing stuff like this.
+>=20
+> I'm not applying this series if it contains stuff like
+> this.
+
+I apologize Dave, that was my mistake.  I will drop this patch from the
+series and find a better way to resolve the namespace errors.
+
+--=-NH5j/xHEoxsoQuneG/QM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPK3TOAAoJEOVv75VaS+3Ov70P/0ZEgesyta8wwnGc25WZDwNN
+Wyvpwnwy3Ui+zPw0JgyelGulSWlebZnuGctHd86KLcJCKos39UAOpAPhSafVhBqP
+jzXE5dwNZQIZfqTdK8yw746B/lhGBPZdbBuqxsEomQMrono6HbKXuSAeuYE6mSu7
+VyuzH54r4mQzhT4rGLZPMMIxFfJtLBtTyRomFjuk1By+N2wNhlAUBbEqavcta1tp
+uiO3YTGbdgfBnqi525xhNUKZkyvTy7laZd31GFMINRqOFq7U5aFF/4J9SnoGSO2c
+b/HQmgyXoEvx1czIkq25Z+chac8vVrRtLdarPHy/MWo0wGUQ2mtR0afimzhrdSkX
+mptGKp/FwMzoc7WlauzxWmdcIKGPx5CRUlHwLewB15D5gQMydosHuu9mntld2nPr
+BSXQ6eRIZJb0AOvRjkMAYgS2QfrYX+bqZdFLFIm18UzhfrO/KhjUWhSt3PB1fFIP
+WxFXarU/2ckwYTLfjXzycHjtvQGRdFS2SNLvzMMRsyoXanaW1YayXaNJZ0bzFVQX
+iWFSXmxtbtrX8ETnEO98DD17w87SuNNNefX5AolVtQfP/aFc0XHpftg1a8LSzCo1
+O4ZHXJKOeJCW5LPFwwXwdJngP+4RwakKW8EtWwxQLWORAx0XIPH5Hl3ZTT2uxIRS
+Mj3uQ07Oy0Z4lxQ/9dwN
+=ErlR
+-----END PGP SIGNATURE-----
+
+--=-NH5j/xHEoxsoQuneG/QM--
