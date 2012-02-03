@@ -1,89 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Fri, 03 Feb 2012 12:04:57 +0100
-Message-ID: <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120201.162157.880976652659067010.davem@davemloft.net>
-		 <4F2A87B0.6070900@profihost.ag>
-		 <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-		 <20120202.143957.2251106530056768980.davem@davemloft.net>
-		 <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
-	 <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: Regulator support for smsc911x
+Date: Fri, 3 Feb 2012 11:11:34 +0000
+Message-ID: <20120203111133.GD3151@opensource.wolfsonmicro.com>
+References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
+ <CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
+ <20120203074408.GD1990@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Xm/fll+QQv+hsKip"
+Cc: Fabio Estevam <festevam@gmail.com>, robert.marklund@stericsson.com,
+	netdev@vger.kernel.org, Sascha Hauer <kernel@pengutronix.de>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:51130 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755938Ab2BCLFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 06:05:01 -0500
-In-Reply-To: <4F2B963F.4020504@profihost.ag>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:50118 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755690Ab2BCLLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 06:11:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20120203074408.GD1990@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 09:09 +0100, Stefan Priebe - Pr=
-ofihost AG
-a =C3=A9crit :
-> Hi,
->=20
-> attached you find the patch files applying cleanly to 3.0.X.
 
-=46irst, thanks a lot for doing this work.
+--Xm/fll+QQv+hsKip
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-OK, lets try to provide a cumulative patch with a good Changelog ?
+On Fri, Feb 03, 2012 at 08:44:08AM +0100, Sascha Hauer wrote:
+> On Fri, Feb 03, 2012 at 01:17:23AM -0200, Fabio Estevam wrote:
 
-And please try a "allyesconfig" build, because it doesnt build right
-now :
+> > Please advise if I should fix it in Kconfig or defconfig, so that I
+> > can submit a patch.
 
-  CC [M]  net/decnet/dn_neigh.o
-net/decnet/dn_route.c: In function 'dn_forward':
-net/decnet/dn_route.c:757:31: error: 'struct dst_entry' has no member
-named 'neighbour'
-make[2]: *** [net/decnet/dn_route.o] Error 1
-make[2]: *** Waiting for unfinished jobs....
-net/decnet/dn_neigh.c: In function 'dn_long_output':
-net/decnet/dn_neigh.c:230:31: error: 'struct dst_entry' has no member
-named 'neighbour'
-net/decnet/dn_neigh.c: In function 'dn_short_output':
-net/decnet/dn_neigh.c:277:31: error: 'struct dst_entry' has no member
-named 'neighbour'
-net/decnet/dn_neigh.c: In function 'dn_phase3_output':
-net/decnet/dn_neigh.c:321:31: error: 'struct dst_entry' has no member
-named 'neighbour'
-make[2]: *** [net/decnet/dn_neigh.o] Error 1
-make[1]: *** [net/decnet] Error 2
+> If you enable it every device will get a regulator when it requests one.
+> If for some reason for example the initialization order of your devices
+> changes and a device gets probed before the corresponding (real)
+> regulator is registered, then this device will continue with the dummy
+> regulator and probably won't work.
 
+Hrm, yeah - the dummy regulator support will be totally broken by the
+stuff Grant is working on for fixing the general issues with probe
+ordering.
 
-So there is at least one patch missing ?
+> We could a) live with this problem and default enable the dummy
+> regulator. We could also b) apply (a fixed version of) the following
+> patch which simplifies registration of a dummy regulator. Still it's a
 
-Once you believe its ok, please send a proper patch with changelog like
-this :
+There's also options c) set up the regulators for the board and d) don't
+enable the regulator API if the board doesn't use regulators.
 
-[PATCH] net: hot fix for stable kernels
+> bit annoying to have to fix all users once someone adds regulator
+> support for a driver.
 
-This cumulative patch fixes IP redirect NULL dereferences
-added in commit f39925dbde77
-(ipv4: Cache learned redirect information in inetpeer.)
+Yeah, it's a shame.  I really can't see anything else useful we can do
+though.
 
-Backport of [xx] upstream commits
+--Xm/fll+QQv+hsKip
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-9cbb7ecbcff85077bb12301aaf4c9b5a56c5993d
-(ipv6: Get rid of rt6i_nexthop macro.)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-69cce1d1404968f78b177a0314f5822d5afdbbfb
-(net: Abstract dst->neighbour accesses behind helpers.)=20
-=2E..
+iQIcBAEBAgAGBQJPK8DYAAoJEBus8iNuMP3dPlkP/RKrmgvKsRDyp9MORJy09uvY
+D5t8YL7c2RNYyA+uzkeLSwsoJoX4sZJC+j96euTksIBA3BBFGEXShQoFhujFiAPo
+kEJ5SHU/2ulQMHKcqyJysGF7U60VPfAHElCyS+HgoB8zu5T4X20WP+qPCf/q3XgO
+6lgZVmq1R/ezYBkYRv+L5MCYfL5RRPj3yZXgLCub0JfbR02NafgH71gEX+TO3SOw
+j1eq0MObs5dTcZS/rVjqSRQs+e0gY2fAJ4wnmhTdqaFO8FjR+/Yga5EjURLENxoP
+pMWOGH/v4DZviCyRWxdL1f3IUBGVB2FC6+sEhOZ0MbfFCGpcSrjq2udlfp35kD/i
+JoGnW/FR3bNTqel/JacHCnCe0ZwKX8BHqQnzPLBlIo1bTzEhhrjm8BFSA2gwkZmt
+/2r1jVJkHkwRu2Frc7jUEDl7wh+3BIyTNZRkmI6BW/rao0fhkSLIjk2emxQmMFUN
+4EMRGfFX05fe8OrXe/NOl6dpLUacU9qPOkMNAvGeYkeHadw2wLDC5shFWYcLeBtv
+uO6tFEWjeW0Pv+tBWBBSEovaH9nltpfsXP+RK67pH0ixIIPTh+Au2ApfFqZjzKQ1
+RTlMHR9w7H53S5gvyGfxFBrEv8r+LaaSEhaDqAUGOiFNR/Ak8vKVINDB5dGXIqyj
+Mnh6bECB7sTF2Ch9w95c
+=Zn7L
+-----END PGP SIGNATURE-----
 
-[Full list of xx commits with their ID in linux tree and their title,
-to ease future maintenance]
-
-Signed-off-by: [your email]
----
-[diffstat -p1 -w70 of your patch]
-
-[content of the patch]
+--Xm/fll+QQv+hsKip--
