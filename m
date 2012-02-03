@@ -1,34 +1,40 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] mlx4: Fix typo in cmd.c
-Date: Fri,  3 Feb 2012 22:27:38 +0900
-Message-ID: <1328275658-1982-1-git-send-email-standby24x7@gmail.com>
-Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	standby24x7@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8169 based device
+Date: Fri, 3 Feb 2012 14:26:11 +0100
+Message-ID: <20120203132611.GA21693@electric-eye.fr.zoreil.com>
+References: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andy Hawkins <adhawkins@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:45608 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756109Ab2BCNhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 08:37:33 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Correct spelling "reseting" to "resetting" in
-drivers/net/ethernet/mellanox/mlx4/cmd.c
+Andy Hawkins <adhawkins@gmail.com> :
+[...]
+> Secondly, I realise that the kernel I'm using here is quite old.
+> However, this is the kernel provided by the version of Openfiler I'm
+> using, so updating isn't a simple matter.
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Which kernel version is it and does an "XID" line appear for the r8169
+driver in the kernel log ?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 405e6ac..1831dde 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1314,7 +1314,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 		down(&priv->cmd.slave_sem);
- 		if (mlx4_master_process_vhcr(dev, slave, NULL)) {
- 			mlx4_err(dev, "Failed processing vhcr for slave:%d,"
--				 " reseting slave.\n", slave);
-+				 " resetting slave.\n", slave);
- 			up(&priv->cmd.slave_sem);
- 			goto reset_slave;
- 		}
+[...]
+> Can anyone offer any advice on getting this card to work?
+
+In the end there may be only two paths left : upgrade the kernel or
+backport the driver.
+
+It could help if some openfiler developer was available, at the very
+least to retrieve an adequate kernel build tree if backporting is the
+only option.
+
 -- 
-1.7.6.5
+Ueimor
