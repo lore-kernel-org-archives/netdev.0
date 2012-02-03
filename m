@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 7/9] can: Kconfig: add more information about Intel EG20T PCH CAN controller
-Date: Fri,  3 Feb 2012 01:51:56 +0100
-Message-ID: <1328230318-8962-8-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 6/9] can: pch_can: Change company name OKI SEMICONDUCTOR to LAPIS Semiconductor
+Date: Fri,  3 Feb 2012 01:51:55 +0100
+Message-ID: <1328230318-8962-7-git-send-email-mkl@pengutronix.de>
 References: <1328230318-8962-1-git-send-email-mkl@pengutronix.de>
 Cc: Netdev@vger.kernel.org, kernel@pengutronix.de, mkl@blackshift.org,
 	linux-can@vger.kernel.org, Tomoya MORINAGA <tomoya.rohm@gmail.com>,
@@ -14,36 +14,27 @@ List-Id: netdev.vger.kernel.org
 
 From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
 
-Current menu description, not easy to understand what the description
-means. So, add information about the device.
+On October 1 in 2011,
+    OKI SEMICONDUCTOR Co., Ltd. changed the company name in to LAPIS Semiconductor
 
 Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-[mkl: Added space before opening parentheses in Kconfig.
-      Make commit message more descriptive.]
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/Kconfig |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/can/pch_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index ab45758..bb709fd 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -103,11 +103,11 @@ config CAN_FLEXCAN
- 	  Say Y here if you want to support for Freescale FlexCAN.
- 
- config PCH_CAN
--	tristate "PCH CAN"
-+	tristate "Intel EG20T PCH CAN controller"
- 	depends on CAN_DEV && PCI
- 	---help---
--	  This driver is for PCH CAN of Topcliff which is an IOH for x86
--	  embedded processor.
-+	  This driver is for PCH CAN of Topcliff (Intel EG20T PCH) which
-+	  is an IOH for x86 embedded processor (Intel Atom E6xx series).
- 	  This driver can access CAN bus.
- 
- source "drivers/net/can/mscan/Kconfig"
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index d11fbb2..cc3ed57 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (C) 1999 - 2010 Intel Corporation.
+- * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ * Copyright (C) 2010 LAPIS SEMICONDUCTOR CO., LTD.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
 -- 
 1.7.4.1
 
