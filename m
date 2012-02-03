@@ -1,65 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Mellanox ethernet card failed when probing
-Date: Fri, 03 Feb 2012 09:51:04 -0800
-Message-ID: <4F2C1E88.1040304@hp.com>
-References: <CAL8zT=gV=pe4Bnn188ngnPk8s=7JSGARY0g6uVHASVrUXNKeKg@mail.gmail.com>
+From: Neel Patel <neepatel@cisco.com>
+Subject: [net-next PATCH 1/3] enic: Enable support for multiple hardware
+	receive queues
+Date: Fri, 03 Feb 2012 10:25:14 -0800
+Message-ID: <20120203182514.9156.31915.stgit@savbu-pc100.cisco.com>
+References: <20120203182439.9156.37052.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:19353 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757195Ab2BCRvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 12:51:07 -0500
-In-Reply-To: <CAL8zT=gV=pe4Bnn188ngnPk8s=7JSGARY0g6uVHASVrUXNKeKg@mail.gmail.com>
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:29823 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757451Ab2BCSeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 13:34:44 -0500
+In-Reply-To: <20120203182439.9156.37052.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2012 07:13 AM, Jean-Michel Hautbois wrote:
-> Hi all,
->
-> I am using a HP server with Mellanox ethernet cards in it.
-> I have compiled the latest linux 3.2 version, and I am encountering
-> the following error :
->
-> [ 1094.644193] mlx4_core: Mellanox ConnectX core driver v1.1 (Dec, 2011)
-> [ 1094.644196] mlx4_core: Initializing 0000:06:00.0
-> [ 1097.183671] mlx4_core 0000:06:00.0: irq 84 for MSI/MSI-X
-> [ 1097.183681] mlx4_core 0000:06:00.0: irq 85 for MSI/MSI-X
-> [ 1097.183690] mlx4_core 0000:06:00.0: irq 86 for MSI/MSI-X
-> [ 1097.183697] mlx4_core 0000:06:00.0: irq 87 for MSI/MSI-X
-> [ 1097.201267] mlx4_core: Initializing 0000:06:00.1
-> [ 1097.201509] mlx4_core 0000:06:00.1: Multiple PFs not yet supported.
-> Skipping PF.
-> [ 1097.201844] mlx4_core: probe of 0000:06:00.1 failed with error -22
- > ...
-> I think this is firmware related, but I don't know for sure.
-> I can't find any firmware generated in the /lib/firmware directory...
+From: Neel Patel <neepatel@cisco.com>
 
-That error message seems to relate to SRIOV support:
+This patch enables support for multiple receive queues. If multiple receive
+queues are used ingress traffic is hashed into one of the receive queues based
+on IP or TCP or both headers. The max number of supported receive queues per
+vnic is 8.
 
-                 /* We reset the device and enable SRIOV only for physical
-                  * devices.  Try to claim ownership on the device;
-                  * if already taken, skip -- do not allow multiple PFs */
-                 err = mlx4_get_ownership(dev);
-                 if (err) {
-                         if (err < 0)
-                                 goto err_free_dev;
-                         else {
-                                 mlx4_warn(dev, "Multiple PFs not yet 
-supported."
-                                           " Skipping PF.\n");
-                                 err = -EINVAL;
-                                 goto err_free_dev;
-                         }
-                 }
+Signed-off-by: Neel Patel <neepatel@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
+--
+ drivers/net/ethernet/cisco/enic/enic.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 
-Isn't SRIOV support a "work in progress" for the Mellanox devices?  The 
-rest of the logging (snipped) seems to suggest that the ".0" PFs did 
-initialize correctly, so are you simply worried about the messages in 
-the log?
-
-rick jones
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index ee93a20..24bb088 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -32,13 +32,13 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.31"
++#define DRV_VERSION		"2.1.1.32"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+ 
+ #define ENIC_WQ_MAX		1
+-#define ENIC_RQ_MAX		1
++#define ENIC_RQ_MAX		8
+ #define ENIC_CQ_MAX		(ENIC_WQ_MAX + ENIC_RQ_MAX)
+ #define ENIC_INTR_MAX		(ENIC_CQ_MAX + 2)
+ 
