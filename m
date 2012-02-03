@@ -1,63 +1,84 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH NEXT 6/6] netxen: report valid speed and duplex status when link is down
-Date: Fri, 3 Feb 2012 13:35:15 -0800
-Message-ID: <1328304915-12858-7-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH NEXT 4/6] netxen_nic: Error logging on firmware hang
+Date: Fri, 3 Feb 2012 13:35:13 -0800
+Message-ID: <1328304915-12858-5-git-send-email-rajesh.borundia@qlogic.com>
 References: <1328304915-12858-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
 	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Sritej Velaga <sritej.velaga@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:13244
+Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:3168
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757952Ab2BCVvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:51:13 -0500
+	by vger.kernel.org with ESMTP id S1757952Ab2BCVvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:51:10 -0500
 In-Reply-To: <1328304915-12858-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+From: Sritej Velaga <sritej.velaga@qlogic.com>
 
-o Update version to 4.0.78
+Log states of essential registers on firmware hang detection.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
- .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    5 +++++
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ .../net/ethernet/qlogic/netxen/netxen_nic_hdr.h    |    1 +
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |   21 ++++++++++++++++++-
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-index 8a35430..2eeac32 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h
+index dc1967c..b1a897c 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h
+@@ -969,6 +969,7 @@ enum {
+ #define NX_RCODE_FATAL_ERROR		0x80000000
+ #define NX_FWERROR_PEGNUM(code)		((code) & 0xff)
+ #define NX_FWERROR_CODE(code)		((code >> 8) & 0xfffff)
++#define NX_FWERROR_PEGSTAT1(code)	((code >> 8) & 0x1fffff)
  
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 77
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.77"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 78
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.78"
+ #define FW_POLL_DELAY			(2 * HZ)
+ #define FW_FAIL_THRESH			3
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index f67655f..f517c16 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -2596,6 +2596,7 @@ static int
+ netxen_check_health(struct netxen_adapter *adapter)
+ {
+ 	u32 state, heartbit;
++	u32 peg_status;
+ 	struct net_device *netdev = adapter->netdev;
  
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-index 3e73d35..8c39299 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-@@ -248,6 +248,11 @@ skip:
- 		}
- 	}
+ 	state = NXRD32(adapter, NX_CRB_DEV_STATE);
+@@ -2642,8 +2643,24 @@ netxen_check_health(struct netxen_adapter *adapter)
  
-+	if (!netif_running(dev) || !adapter->ahw.linkup) {
-+		ecmd->duplex = DUPLEX_UNKNOWN;
-+		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
-+	}
-+
- 	return 0;
- }
+ 	clear_bit(__NX_FW_ATTACHED, &adapter->state);
  
+-	dev_info(&netdev->dev, "firmware hang detected\n");
+-
++	dev_err(&netdev->dev, "firmware hang detected\n");
++	peg_status = NXRD32(adapter, NETXEN_PEG_HALT_STATUS1);
++	dev_err(&adapter->pdev->dev, "Dumping hw/fw registers\n"
++			"PEG_HALT_STATUS1: 0x%x, PEG_HALT_STATUS2: 0x%x,\n"
++			"PEG_NET_0_PC: 0x%x, PEG_NET_1_PC: 0x%x,\n"
++			"PEG_NET_2_PC: 0x%x, PEG_NET_3_PC: 0x%x,\n"
++			"PEG_NET_4_PC: 0x%x\n",
++			peg_status,
++			NXRD32(adapter, NETXEN_PEG_HALT_STATUS2),
++			NXRD32(adapter, NETXEN_CRB_PEG_NET_0 + 0x3c),
++			NXRD32(adapter, NETXEN_CRB_PEG_NET_1 + 0x3c),
++			NXRD32(adapter, NETXEN_CRB_PEG_NET_2 + 0x3c),
++			NXRD32(adapter, NETXEN_CRB_PEG_NET_3 + 0x3c),
++			NXRD32(adapter, NETXEN_CRB_PEG_NET_4 + 0x3c));
++	if (NX_FWERROR_PEGSTAT1(peg_status) == 0x67)
++		dev_err(&adapter->pdev->dev,
++			"Firmware aborted with error code 0x00006700. "
++				"Device is being reset.\n");
+ detach:
+ 	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED) &&
+ 			!test_and_set_bit(__NX_RESETTING, &adapter->state))
 -- 
 1.7.3.3
