@@ -1,57 +1,47 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: RE: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Fri, 03 Feb 2012 21:55:51 +0100
-Message-ID: <6e2d275588a21cad8c267699c5231c44@localhost>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
- <02e98f84ee62073e1bf92338f6744fde@localhost>
- <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA3E@USINDEVS02.corp.hds.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [Patch ] net: doc: cleanup
+ Documentation/networking/scaling.txt
+Date: Fri, 3 Feb 2012 22:28:04 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
+References: <4EDF768F.1000500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<nhorman@tuxdriver.com>, <tgraf@infradead.org>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	<eric.dumazet@gmail.com>, Seiji Aguchi <seiji.aguchi@hds.com>
-To: Satoru Moriya <satoru.moriya@hds.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:54496 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757745Ab2BCUzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 15:55:53 -0500
-In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA3E@USINDEVS02.corp.hds.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Randy Dunlap (maintainer:DOCUMENTATION)" <rdunlap@xenotime.net>,
+	David Miller <davem@davemloft.net>, willemb@google.com,
+	benjamin.poirier@gmail.com, linux-doc@vger.kernel.org,
+	Network Developer Mailing List <netdev@vger.kernel.org>,
+	therbert@google.com
+To: Shan Wei <shanwei88@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4EDF768F.1000500@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 7 Dec 2011, Shan Wei wrote:
 
-On Fri, 3 Feb 2012 15:43:30 -0500, Satoru Moriya wrote:
+>=20
+> 1) Fix some typos.
+> 2) Change mode of the punctuation from full to half, eg.=A1=AF,=A1=B0=
+ .
+>    So that the punctuation can be read at console.
+>=20
+> Signed-off-by: Shan Wei<shanwei88@gmail.com>
+> ---
+> I feel uncertain when reading following contents that no variable
+> in rps_dev_flow_table or softnet_data records the length of=20
+> the current backlog. Just last_qtail variable pointers the tail of th=
+e backlog.
+>=20
+> "The counter in rps_dev_flow_table values records the length of the c=
+urrent
+>  CPU's backlog when a packet in this flow was last enqueued. "
+>=20
+> If missing something, please correct me.
 
+To a minimum, the patch is corrupted. Please fix your mail client and=20
+resend.
 
-
-> Actually, we've already used systemtap in our flight recorder.
-
-> But we believe that tcp retransmission is one of the fundamental
-
-> function in tcp stack and so kernel itself should provide the
-
-> instruments from which we can get enough information without
-
-> tools which is not included in kernel.
-
-
-
-Mhh, that's no real reason to add tracepoints all over. There where some
-
-lengthy debates on lkml about inflationary use of tracepoints. Especially
-
-this case where systemtap can provide the same information (btw: for
-
-tracepoints you may also need some userspace tools). Maybe you should start
-
-to improve systemtap. ;) But hey, it is David who decides if he is fine
-
-with your patch.
-
-
-
-Hagen
+--=20
+Jiri Kosina
+SUSE Labs
