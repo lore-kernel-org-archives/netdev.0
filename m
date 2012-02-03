@@ -1,119 +1,64 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH torvalds/linux.git] Make linux/tcp.h C++ friendly
- (trivial)
-Date: Fri, 3 Feb 2012 22:33:32 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1202032232320.25026@pobox.suse.cz>
-References: <20111229183002.9B4F4190B09@elbrus2.mtv.corp.google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] tcp: RST: binding oif to iif for tcp v4
+Date: Fri, 03 Feb 2012 13:39:53 -0800
+Message-ID: <4F2C5429.3080406@candelatech.com>
+References: <1328300212-18836-1-git-send-email-shawn.lu@ericsson.com> <1328304719.2480.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Paul Pluzhnikov <ppluzhnikov@google.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Lu <shawn.lu@ericsson.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, xiaoclu@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49003 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754902Ab2BCVdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Feb 2012 16:33:33 -0500
-In-Reply-To: <20111229183002.9B4F4190B09@elbrus2.mtv.corp.google.com>
+Received: from mail.candelatech.com ([208.74.158.172]:33918 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756048Ab2BCVkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:40:00 -0500
+In-Reply-To: <1328304719.2480.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Dec 2011, Paul Pluzhnikov wrote:
+On 02/03/2012 01:31 PM, Eric Dumazet wrote:
+> Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 12:16 -0800, Shawn Lu a =C3=A9=
+crit :
+>> Binding RST packet outgoing interface to incomming interface
+>> for tcp v4. This has few benefits:
+>> 1. tcp_v6_send_reset already did that.
+>
+> I dont think so. ipv6 makes no special provision for RST.
+>
+>> 2. This helps tcp connect with SO_BINDTODEVICE set. When connection
+>> is lost, we still able to sending out RST using same interface.
+>
+> I dont understand this.
 
-> Greetings,
-> 
-> Using linux/tcp.h from C++ results in:
-> 
-> cat t.cc
-> 
-> #include <linux/tcp.h>
-> int main() { }
-> 
-> g++ -c t.cc
-> 
-> In file included from t.cc:1:
-> /usr/include/linux/tcp.h:72: error: '__u32 __fswab32(__u32)' cannot appear in a constant-expression
-> /usr/include/linux/tcp.h:72: error: a function call cannot appear in a constant-expression
-> ...
+I have been using a similar patch for years now.  When using routing
+rules that depend on binding to an interface, the RST isn't always boun=
+d
+properly without this fix.
 
-Paul,
+My code looks like this:
 
-thanks for the patch. I'd however prefer this to go through netdev, not 
-feeling like this is fully appropriate for trivial tree.
+@@ -650,6 +650,7 @@ static void tcp_v4_send_reset(struct sock *sk, stru=
+ct sk_buff *skb)
+  				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
+  	arg.csumoffset =3D offsetof(struct tcphdr, check) / 2;
+  	arg.flags =3D (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCC=
+HECK : 0;
++	arg.bound_dev_if =3D skb_rtable(skb)->rt_iif;
 
-Adding netdev to CC and keeping the changelog and patch below for 
-reference.
+  	net =3D dev_net(skb_dst(skb)->dev);
+  	ip_send_reply(net->ipv4.tcp_sock, skb, ip_hdr(skb)->saddr,
 
-> 
-> Attached trivial patch fixes this problem.
-> 
-> Tested: 
-> - the t.cc above compiles with g++ and
-> - the following program generates the same output before/after
->   the patch:
-> 
-> #include <linux/tcp.h>
-> #include <stdio.h>
-> 
-> int main ()
-> {
-> #define P(a) printf("%s: %08x\n", #a, (int)a)
->   P(TCP_FLAG_CWR);
->   P(TCP_FLAG_ECE);
->   P(TCP_FLAG_URG);
->   P(TCP_FLAG_ACK);
->   P(TCP_FLAG_PSH);
->   P(TCP_FLAG_RST);
->   P(TCP_FLAG_SYN);
->   P(TCP_FLAG_FIN);
->   P(TCP_RESERVED_BITS);
->   P(TCP_DATA_OFFSET);
-> #undef P
->   return 0;
-> }
-> 
-> Signed-off-by: Paul Pluzhnikov <ppluzhnikov@google.com>
-> 
-> 
-> Thanks,
-> 
-> P.S. Google has blanket copyright assignment to FSF.
-> --
-> Paul Pluzhnikov
-> 
-> 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 7f59ee9..63334f7 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -69,16 +69,16 @@ union tcp_word_hdr {
->  #define tcp_flag_word(tp) ( ((union tcp_word_hdr *)(tp))->words [3]) 
->  
->  enum { 
-> -	TCP_FLAG_CWR = __cpu_to_be32(0x00800000),
-> -	TCP_FLAG_ECE = __cpu_to_be32(0x00400000),
-> -	TCP_FLAG_URG = __cpu_to_be32(0x00200000),
-> -	TCP_FLAG_ACK = __cpu_to_be32(0x00100000),
-> -	TCP_FLAG_PSH = __cpu_to_be32(0x00080000),
-> -	TCP_FLAG_RST = __cpu_to_be32(0x00040000),
-> -	TCP_FLAG_SYN = __cpu_to_be32(0x00020000),
-> -	TCP_FLAG_FIN = __cpu_to_be32(0x00010000),
-> -	TCP_RESERVED_BITS = __cpu_to_be32(0x0F000000),
-> -	TCP_DATA_OFFSET = __cpu_to_be32(0xF0000000)
-> +	TCP_FLAG_CWR = __constant_cpu_to_be32(0x00800000),
-> +	TCP_FLAG_ECE = __constant_cpu_to_be32(0x00400000),
-> +	TCP_FLAG_URG = __constant_cpu_to_be32(0x00200000),
-> +	TCP_FLAG_ACK = __constant_cpu_to_be32(0x00100000),
-> +	TCP_FLAG_PSH = __constant_cpu_to_be32(0x00080000),
-> +	TCP_FLAG_RST = __constant_cpu_to_be32(0x00040000),
-> +	TCP_FLAG_SYN = __constant_cpu_to_be32(0x00020000),
-> +	TCP_FLAG_FIN = __constant_cpu_to_be32(0x00010000),
-> +	TCP_RESERVED_BITS = __constant_cpu_to_be32(0x0F000000),
-> +	TCP_DATA_OFFSET = __constant_cpu_to_be32(0xF0000000)
->  }; 
->  
->  /*
-> 
 
--- 
-Jiri Kosina
-SUSE Labs
+It was originally written by Patrick McHardy, but I've hacked it
+a bit over the years to keep it compiling.  It seems to work fine.
+
+Thanks,
+Ben
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
