@@ -1,42 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/7] ixgbe: make ethtool strings table const
-Date: Fri,  3 Feb 2012 03:14:59 -0800
-Message-ID: <1328267703-9638-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328267703-9638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] net: move ethtool include to where its used
+Date: Fri,  3 Feb 2012 06:17:02 -0500
+Message-ID: <1328267822-25690-1-git-send-email-vapier@gentoo.org>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1774 "EHLO mga01.intel.com"
+Received: from smtp.gentoo.org ([140.211.166.183]:44305 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755690Ab2BCLPS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Feb 2012 06:15:18 -0500
-In-Reply-To: <1328267703-9638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1756051Ab2BCLQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Feb 2012 06:16:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+The linux/mii.h headers has long been standalone for userspace.  But a
+recent commit added linux/ethtool.h to the include list even when it
+isn't used.  Since we only need this with __KERNEL__, move the include
+down to the right spot.  Now userland no longer needs to pull this in.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    2 +-
+ include/linux/mii.h |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 1fd510c..1f31a04 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -58,7 +58,7 @@ struct ixgbe_stats {
- 				sizeof(((struct rtnl_link_stats64 *)0)->m), \
- 				offsetof(struct rtnl_link_stats64, m)
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index 2783eca..415b397 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -9,7 +9,6 @@
+ #define __LINUX_MII_H__
  
--static struct ixgbe_stats ixgbe_gstrings_stats[] = {
-+static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"rx_packets", IXGBE_NETDEV_STAT(rx_packets)},
- 	{"tx_packets", IXGBE_NETDEV_STAT(tx_packets)},
- 	{"rx_bytes", IXGBE_NETDEV_STAT(rx_bytes)},
+ #include <linux/types.h>
+-#include <linux/ethtool.h>
+ 
+ /* Generic MII registers. */
+ #define MII_BMCR		0x00	/* Basic mode control register */
+@@ -151,6 +150,7 @@ struct mii_ioctl_data {
+ 
+ #ifdef __KERNEL__
+ 
++#include <linux/ethtool.h>
+ #include <linux/if.h>
+ 
+ struct ethtool_cmd;
 -- 
-1.7.7.6
+1.7.8.4
