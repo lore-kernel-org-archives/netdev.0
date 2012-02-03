@@ -1,43 +1,42 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
- originated TCP streams
-Date: Fri, 3 Feb 2012 20:24:00 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A823733349A6C9@ORSMSX101.amr.corp.intel.com>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
-	 <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
-	 <alpine.LRH.2.00.1202022352560.30300@ogerlitz.voltaire.com>
-	 <1828884A29C6694DAF28B7E6B8A823733349A5D2@ORSMSX101.amr.corp.intel.com>
- <1328259640.2480.43.camel@edumazet-laptop>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: RE: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Fri, 3 Feb 2012 15:31:48 -0500
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA36@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+	 <02e98f84ee62073e1bf92338f6744fde@localhost>
+ <1327502660.2425.60.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1328259640.2480.43.camel@edumazet-laptop>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Seiji Aguchi <seiji.aguchi@hds.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usindpps06.hds.com ([207.126.252.19]:43562 "EHLO
+	usindpps06.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756754Ab2BCUcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 15:32:23 -0500
+In-Reply-To: <1327502660.2425.60.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gSGkgU2VhbiwgdGhpcyBpcyB0aGUgcGF0Y2ggcG9zdGVkIGVhcmxpZXIgYnkgRXJpYyBl
-bmhhbmNlZCB0bw0KPiA+ID4gaGF2ZSBJUG9JQiB0byBzZXQgZ3JvX21hY19oZWFkZXJfbGVuIHRv
-IHRoZSBpcG9pYiBoZWFkZXIgbGVuLCBkb2VzDQo+ID4gPiBpdCBtYWtlIHRoaW5ncyB0byB3b3Jr
-IG9rYXkgZm9yIHlvdT8NCj4gPg0KPiA+IEkgcmFuIGEgcXVpY2sgdGVzdC4gIEl0IGhlbHBzIHNv
-bWUsIGJ1dCB0aGUgcGVyZm9ybWFuY2UgZm9yIHN0cmVhbWluZw0KPiBwYWNrZXRzIGluIG9uZSBk
-aXJlY3Rpb24gaXMgc3RpbGwgb25seSAwLjExIEdicHMuICBJdCBzaG91bGQgYmUgY2xvc2VyIHRv
-IDEwLQ0KPiAxNSBHYnBzIGZvciBpcG9pYiBvbiBteSBzeXN0ZW1zLg0KPiA+DQo+ID4gLSBTZWFu
-DQo+IA0KPiBIbW0uLi4gYSB0Y3BkdW1wIHdvdWxkIGhlbHAgdG8gdW5kZXJzdGFuZCB3aGF0IGlz
-IGdvaW5nIG9uIChmb3IgZXhhbXBsZQ0KPiBpZiBHUk8ga2lja3MgaW4pDQoNCkkgc2hvdWxkIHN0
-b3AgdHJ5aW5nIHRvIGFwcGx5IHBhdGNoZXMgc28gbGF0ZS4gIEkgbXVzdCBoYXZlIGRvbmUgc29t
-ZXRoaW5nIHdyb25nIHdpdGggbXkgcXVpY2sgdGVzdC4gIFJlLWFwcGx5aW5nIHRoZSBwYXRjaCBv
-biAzLjIsIHRoZSBpcG9pYiBVRCBwZXJmb3JtYW5jZSBsb29rcyBva2F5IHRvIG1lIHdpdGggRXJp
-YydzIHBhdGNoLiAgU29ycnkgYWJvdXQgdGhlIGZsdWIuDQoNCi0gU2Vhbg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gMDEvMjUvMjAxMiAwOTo0NCBBTSwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPiBBZ3JlZWQsIGJ1
+dCBsYXN0IHRpbWUgSSB0cmllZCBzeXN0ZW10YXAgSSBmYWlsZWQgbWlzZXJhYmx5Lg0KPiBJdCB3
+YXMgb24gYSBkZWJpYW4gZGlzdHJvLg0KPiANCj4gQW55d2F5LCBpdCBzZWVtcyB3ZSBsYWNrIGEg
+TElOVVhfTUlCX1RDUFJFVFJBTlNGQUlMIGNvdW50ZXIuDQo+IA0KPiAibmV0c3RhdCAtcyIgaXMg
+YW4gaW5jcmVkaWJsZSB1bml2ZXJzYWwgdG9vbC4NCj4gDQo+IFtQQVRDSCBuZXQtbmV4dF0gdGNw
+OiBhZGQgTElOVVhfTUlCX1RDUFJFVFJBTlNGQUlMIGNvdW50ZXINCj4gDQo+IEl0IG1pZ2h0IGJl
+IHVzZWZ1bCB0byBnZXQgYSBjb3VudGVyIG9mIGZhaWxlZCB0Y3BfcmV0cmFuc21pdF9za2IoKSAN
+Cj4gY2FsbHMuDQoNClRoYW5rIHlvdSwgRXJpYy4NCg0KVGhpcyBpcyBhIGdvb2QgZmlyc3Qgc3Rl
+cCBmb3IgdXMgdG8gZ3JhYiB0aGUgZmFpbHVyZSBvZg0KcmV0cmFuc21pc3Npb24uIEJ1dCB1bmZv
+cnR1bmF0ZWx5LCBpdCdzIG5vdCBlbm91Z2ggYmVjYXVzZQ0Kd2hlbiB3ZSBhbmFseXplIGluY2lk
+ZW50cyBhbmQgcmVwb3J0IHRvIG91ciBjdXN0b21lcnMsDQp3ZSBuZWVkIG1vcmUgZGV0YWlsZWQg
+aW5mb3JtYXRpb24gc3VjaCBhcyB3aGVuIGl0IGhhcHBlbmVkLA0Kd2h5IGl0IGZhaWxlZCBldGMu
+DQoNClRoZXJlZm9yZSBJIHByb3Bvc2VkIHRoaXMgdHJhY2Vwb2ludC4NCg0KUmVnYXJkcywNClNh
+dG9ydQ0K
