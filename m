@@ -1,76 +1,69 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch] netfilter: remove ipt_SAME.h and ipt_realm.h too
-Date: Fri,  3 Feb 2012 18:02:31 +0800
-Message-ID: <1328263351-29363-1-git-send-email-xiyou.wangcong@gmail.com>
-References: <20120203081511.GD30546@Chamillionaire.breakpoint.cc>
-Cc: netfilter-devel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	WANG Cong <xiyou.wangcong@gmail.com>
+From: Andy Hawkins <adhawkins@gmail.com>
+Subject: Realtek 8169 based device
+Date: Fri, 3 Feb 2012 10:17:06 +0000
+Message-ID: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120203081511.GD30546@Chamillionaire.breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:65018 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199Ab2BCKRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 05:17:07 -0500
+Received: by dadp15 with SMTP id p15so2618112dad.19
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 02:17:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As Florian pointed out, these 2 headers can be removed too.
+Hi,
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Florian Westphal <fw@strlen.de>
-Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+Firstly, apologies if this is the wrong place to ask this. Please let
+me know if somewhere else is more appropriate.
 
----
-diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
-index 8e6362b..5ec78b6 100644
---- a/include/linux/netfilter_ipv4/Kbuild
-+++ b/include/linux/netfilter_ipv4/Kbuild
-@@ -4,10 +4,8 @@ header-y += ipt_CLUSTERIP.h
- header-y += ipt_ECN.h
- header-y += ipt_LOG.h
- header-y += ipt_REJECT.h
--header-y += ipt_SAME.h
- header-y += ipt_TTL.h
- header-y += ipt_ULOG.h
- header-y += ipt_ah.h
- header-y += ipt_ecn.h
--header-y += ipt_realm.h
- header-y += ipt_ttl.h
-diff --git a/include/linux/netfilter_ipv4/ipt_SAME.h b/include/linux/netfilter_ipv4/ipt_SAME.h
-deleted file mode 100644
-index 5bca782..0000000
---- a/include/linux/netfilter_ipv4/ipt_SAME.h
-+++ /dev/null
-@@ -1,20 +0,0 @@
--#ifndef _IPT_SAME_H
--#define _IPT_SAME_H
--
--#include <linux/types.h>
--
--#define IPT_SAME_MAX_RANGE	10
--
--#define IPT_SAME_NODST		0x01
--
--struct ipt_same_info {
--	unsigned char info;
--	__u32 rangesize;
--	__u32 ipnum;
--	__u32 *iparray;
--
--	/* hangs off end. */
--	struct nf_nat_range range[IPT_SAME_MAX_RANGE];
--};
--
--#endif /*_IPT_SAME_H*/
-diff --git a/include/linux/netfilter_ipv4/ipt_realm.h b/include/linux/netfilter_ipv4/ipt_realm.h
-deleted file mode 100644
-index b3996ea..0000000
---- a/include/linux/netfilter_ipv4/ipt_realm.h
-+++ /dev/null
-@@ -1,7 +0,0 @@
--#ifndef _IPT_REALM_H
--#define _IPT_REALM_H
--
--#include <linux/netfilter/xt_realm.h>
--#define ipt_realm_info xt_realm_info
--
--#endif /* _IPT_REALM_H */
+Secondly, I realise that the kernel I'm using here is quite old.
+However, this is the kernel provided by the version of Openfiler I'm
+using, so updating isn't a simple matter.
+
+I've just installed a Zyxel GN680T NIC into a PC (purchased here:
+http://www.dabs.com/products/zyxel-gn680t-gigabit-pci-network-card-75Q5.html).
+Initially it wasn't recognised by the device.
+
+lspci -vv reports:
+
+
+03:01.0 Ethernet controller: Hynix Semiconductor Unknown device 8169 (rev 10)
+        Subsystem: Hynix Semiconductor Unknown device 8169
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR- FastB2B-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR+
+        Latency: 64 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
+        Interrupt: pin A routed to IRQ 16
+        Region 0: I/O ports at de00 [size=256]
+        Region 1: [virtual] Memory at fdaff000 (32-bit,
+non-prefetchable) [size=256]
+        [virtual] Expansion ROM at fd900000 [disabled] [size=128K]
+        Capabilities: [5c] #00 [0000]
+
+lspci -n reports:
+
+
+03:01.0 0200: 106c:8169 (rev 10)
+
+I had a look at the driver source, and it didn't appear to be
+correctly recognising the PCI IDs. I managed to recompile the module,
+adding in support for this device as follows:
+
+
+        { PCI_DEVICE(0x106c,    0x8169), 0, 0, RTL_CFG_0 },
+
+When I load this new module, the device is correctly recognised, and
+ethtool can give sensible information and report negotiated link
+speeds etc. However the network card fails to work (I'm pretty sure it
+was reporting transmit time outs).
+
+Can anyone offer any advice on getting this card to work?
+
+Thanks
+
+Andy
