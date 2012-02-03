@@ -1,64 +1,52 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/9] can: ems_usb: Removed double netif_device_detach
-Date: Fri,  3 Feb 2012 01:51:50 +0100
-Message-ID: <1328230318-8962-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 4/9] can: ems_usb: Improved memory handling on ems_usb_start
+Date: Fri,  3 Feb 2012 01:51:53 +0100
+Message-ID: <1328230318-8962-5-git-send-email-mkl@pengutronix.de>
 References: <1328230318-8962-1-git-send-email-mkl@pengutronix.de>
 Cc: Netdev@vger.kernel.org, kernel@pengutronix.de, mkl@blackshift.org,
 	linux-can@vger.kernel.org, Sebastian Haas <dev@sebastianhaas.info>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56698 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754816Ab2BCAwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 19:52:05 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1328230318-8962-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Sebastian Haas <dev@sebastianhaas.info>
 
-netif_device_attched is called twice when ems_usb_start fails with -ENODEV
+Do not return from ems_usb_start if allocation fails. If not all URBs
+could be allocated use the one already submitted.
 
 Signed-off-by: Sebastian Haas <dev@sebastianhaas.info>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/ems_usb.c |    9 ---------
- 1 files changed, 0 insertions(+), 9 deletions(-)
+ drivers/net/can/usb/ems_usb.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index 9697c14..7dae64d 100644
+index 7dae64d..9783e02 100644
 --- a/drivers/net/can/usb/ems_usb.c
 +++ b/drivers/net/can/usb/ems_usb.c
-@@ -627,9 +627,6 @@ static int ems_usb_start(struct ems_usb *dev)
+@@ -607,7 +607,8 @@ static int ems_usb_start(struct ems_usb *dev)
+ 		if (!urb) {
+ 			dev_err(netdev->dev.parent,
+ 				"No memory left for URBs\n");
+-			return -ENOMEM;
++			err = -ENOMEM;
++			break;
+ 		}
  
- 		err = usb_submit_urb(urb, GFP_KERNEL);
- 		if (err) {
--			if (err == -ENODEV)
--				netif_device_detach(dev->netdev);
--
- 			usb_unanchor_urb(urb);
- 			usb_free_coherent(dev->udev, RX_BUFFER_SIZE, buf,
- 					  urb->transfer_dma);
-@@ -659,9 +656,6 @@ static int ems_usb_start(struct ems_usb *dev)
+ 		buf = usb_alloc_coherent(dev->udev, RX_BUFFER_SIZE, GFP_KERNEL,
+@@ -616,7 +617,8 @@ static int ems_usb_start(struct ems_usb *dev)
+ 			dev_err(netdev->dev.parent,
+ 				"No memory left for USB buffer\n");
+ 			usb_free_urb(urb);
+-			return -ENOMEM;
++			err = -ENOMEM;
++			break;
+ 		}
  
- 	err = usb_submit_urb(dev->intr_urb, GFP_KERNEL);
- 	if (err) {
--		if (err == -ENODEV)
--			netif_device_detach(dev->netdev);
--
- 		dev_warn(netdev->dev.parent, "intr URB submit failed: %d\n",
- 			 err);
- 
-@@ -692,9 +686,6 @@ static int ems_usb_start(struct ems_usb *dev)
- 	return 0;
- 
- failed:
--	if (err == -ENODEV)
--		netif_device_detach(dev->netdev);
--
- 	dev_warn(netdev->dev.parent, "couldn't submit control: %d\n", err);
- 
- 	return err;
+ 		usb_fill_bulk_urb(urb, dev->udev, usb_rcvbulkpipe(dev->udev, 2),
 -- 
 1.7.4.1
+
