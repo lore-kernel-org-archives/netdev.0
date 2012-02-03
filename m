@@ -1,56 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] Implement IP_UNICAST_IF socket option.
-Date: Fri, 03 Feb 2012 11:01:18 +0100
-Message-ID: <1328263278.2157.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
-	 <1328219828.2480.32.camel@edumazet-laptop>
-	 <CAEU2+vrgxzTmiHWs-kVoKeu2_DcFZQBjCXwQfQ8dms5O6+Larg@mail.gmail.com>
-	 <1328222744.2480.38.camel@edumazet-laptop>
-	 <CAEU2+vrtwSUKgY1f44h8btcKnhvhBHUU-d_BkkyYx+E1KViQ+g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:61659 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755191Ab2BCKBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 05:01:23 -0500
-Received: by werb13 with SMTP id b13so2539652wer.19
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 02:01:22 -0800 (PST)
-In-Reply-To: <CAEU2+vrtwSUKgY1f44h8btcKnhvhBHUU-d_BkkyYx+E1KViQ+g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch] netfilter: remove ipt_SAME.h and ipt_realm.h too
+Date: Fri,  3 Feb 2012 18:02:31 +0800
+Message-ID: <1328263351-29363-1-git-send-email-xiyou.wangcong@gmail.com>
+References: <20120203081511.GD30546@Chamillionaire.breakpoint.cc>
+Cc: netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120203081511.GD30546@Chamillionaire.breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 02 f=C3=A9vrier 2012 =C3=A0 18:22 -0700, Erich E. Hoover a =C3=
-=A9crit :
+As Florian pointed out, these 2 headers can be removed too.
 
-> I though I should double check this, and apparently I missed that
-> there's an equivalent IPV6_UNICAST_IF on "other OS".  Should that be =
-a
-> patch 2 or should it be included in this one?
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Florian Westphal <fw@strlen.de>
+Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
 
-Do as you prefer.
-
-BTW, do we really want the htonl() thing, and force device indexes in
-2^24 range ? This seems odd anyway.
-
-If yes, following patch is needed :
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f124947..ce7ebde 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5193,7 +5193,10 @@ static int dev_new_index(struct net *net)
- {
- 	static int ifindex;
- 	for (;;) {
--		if (++ifindex <=3D 0)
-+		/* Because of IP_UNICAST_IF support, we must limit indexes
-+		 * to 24 bits. Zero value is also reserved.
-+		 */
-+		if (++ifindex >=3D (1<<24))
- 			ifindex =3D 1;
- 		if (!__dev_get_by_index(net, ifindex))
- 			return ifindex;
+---
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+index 8e6362b..5ec78b6 100644
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -4,10 +4,8 @@ header-y += ipt_CLUSTERIP.h
+ header-y += ipt_ECN.h
+ header-y += ipt_LOG.h
+ header-y += ipt_REJECT.h
+-header-y += ipt_SAME.h
+ header-y += ipt_TTL.h
+ header-y += ipt_ULOG.h
+ header-y += ipt_ah.h
+ header-y += ipt_ecn.h
+-header-y += ipt_realm.h
+ header-y += ipt_ttl.h
+diff --git a/include/linux/netfilter_ipv4/ipt_SAME.h b/include/linux/netfilter_ipv4/ipt_SAME.h
+deleted file mode 100644
+index 5bca782..0000000
+--- a/include/linux/netfilter_ipv4/ipt_SAME.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-#ifndef _IPT_SAME_H
+-#define _IPT_SAME_H
+-
+-#include <linux/types.h>
+-
+-#define IPT_SAME_MAX_RANGE	10
+-
+-#define IPT_SAME_NODST		0x01
+-
+-struct ipt_same_info {
+-	unsigned char info;
+-	__u32 rangesize;
+-	__u32 ipnum;
+-	__u32 *iparray;
+-
+-	/* hangs off end. */
+-	struct nf_nat_range range[IPT_SAME_MAX_RANGE];
+-};
+-
+-#endif /*_IPT_SAME_H*/
+diff --git a/include/linux/netfilter_ipv4/ipt_realm.h b/include/linux/netfilter_ipv4/ipt_realm.h
+deleted file mode 100644
+index b3996ea..0000000
+--- a/include/linux/netfilter_ipv4/ipt_realm.h
++++ /dev/null
+@@ -1,7 +0,0 @@
+-#ifndef _IPT_REALM_H
+-#define _IPT_REALM_H
+-
+-#include <linux/netfilter/xt_realm.h>
+-#define ipt_realm_info xt_realm_info
+-
+-#endif /* _IPT_REALM_H */
