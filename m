@@ -1,53 +1,53 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: Regulator support for smsc911x
-Date: Fri, 3 Feb 2012 01:17:23 -0200
-Message-ID: <CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
-References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [v3.3-rc2+ PATCH] tcp: properly initialize tcp memory limits
+Date: Fri, 03 Feb 2012 11:26:41 +0800
+Message-ID: <4F2B53F1.6080405@redhat.com>
+References: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Sascha Hauer <kernel@pengutronix.de>,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>
-To: robert.marklund@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46518 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754747Ab2BCDRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2012 22:17:24 -0500
-Received: by eaah12 with SMTP id h12so1279571eaa.19
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2012 19:17:23 -0800 (PST)
-In-Reply-To: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, glommer@parallels.com, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120202100700.38694.80000.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 2, 2012 at 11:02 PM, Fabio Estevam <festevam@gmail.com> wrote:
-> Robert,
+On 02/02/2012 06:07 PM, Jason Wang wrote:
+> Commit 4acb4190 tries to fix the using uninitialized value
+> introduced by commit 3dc43e3,  but it would make the
+> per-socket memory limits too small.
 >
-> Since commit c7e963f6 (net/smsc911x: Add regulator support) I am no
-> longer able to use smsc911x driver due to the lack of regulators for
-> smsc on mx31_3ds board.
+> This patch fixes this and also remove the redundant codes
+> introduced in 4acb4190.
 >
-> Do you a board example that uses such regulator, so that I can look
-> for a reference?
+> Signed-off-by: Jason Wang<jasowang@redhat.com>
+> ---
 
-Ok, I fixed it by enabling CONFIG_REGULATOR_DUMMY on
-imx_v6_v7_defconfig, but I am wondering if the patch below would be a
-more appropriate fix:
+Just FYI, this fix the tcp performance regression, I test the virtio-net 
+tcp performance:
 
---- a/drivers/net/ethernet/smsc/Kconfig
-+++ b/drivers/net/ethernet/smsc/Kconfig
-@@ -102,6 +102,8 @@ config SMSC911X
-        select NET_CORE
-        select MII
-        select PHYLIB
-+       select REGULATOR
-+       select REGULATOR_DUMMY
-        ---help---
-          Say Y here if you want support for SMSC LAN911x and LAN921x families
-          of ethernet controllers.
+without this patch:
 
-Please advise if I should fix it in Kconfig or defconfig, so that I
-can submit a patch.
+[root@amd-6168-8-1 net-next]# netperf -H 192.168.100.4 -t TCP_MAERTS
+TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 
+(192.168.100.4) port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-Regards,
+  87380  16384  16384    10.00    5997.95
 
-Fabio Estevam
+with this patch:
+
+[root@amd-6168-8-1 net-next]# netperf -H 192.168.100.4 -t TCP_MAERTS
+TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 
+(192.168.100.4) port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+  87380  16384  16384    10.00    9670.98
