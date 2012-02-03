@@ -1,46 +1,41 @@
-From: Neel Patel <neepatel@cisco.com>
-Subject: [net-next PATCH 3/3] enic: Update enic maintainers
-Date: Fri, 03 Feb 2012 10:25:25 -0800
-Message-ID: <20120203182524.9156.99463.stgit@savbu-pc100.cisco.com>
-References: <20120203182439.9156.37052.stgit@savbu-pc100.cisco.com>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: Sudden kernel panic with skge in 3.3-rc2
+Date: Fri, 3 Feb 2012 14:28:32 -0500
+Message-ID: <20120203192832.GA19248@elliptictech.com>
+References: <20120202192115.GA8480@elliptictech.com>
+ <20120202124529.3e274223@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-2.cisco.com ([173.36.130.13]:8804 "EHLO
-	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757435Ab2BCSe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 13:34:57 -0500
-In-Reply-To: <20120203182439.9156.37052.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120202124529.3e274223@s6510.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neel Patel <neepatel@cisco.com>
+Hi Stephen,
 
+On 2012-02-02 12:45 -0800, Stephen Hemminger wrote:
+> On Thu, 2 Feb 2012 14:21:15 -0500
+> Nick Bowler <nbowler@elliptictech.com> wrote:
+> > I just saw this panic on 3.3-rc2 with skge.  I don't know whether it's
+> > reproducible yet -- the machine crashed while I was not actively using
+> > it.  We've had this type of card for a few years and I've never seen this
+> > before so it may be a regression, but admittedly we don't use them all
+> > that often.
+[...]
+> 
+> Try reverting this commit, it seems problematic
+> commit d0249e44432aa0ffcf710b64449b8eaa3722547e
+> Author: stephen hemminger <shemminger@vyatta.com>
+> Date:   Thu Jan 19 14:37:18 2012 +0000
+> 
+>     skge: check for PCI dma mapping errors
 
+Thanks for the pointer, I'll try that.  Unfortunately some other stuff
+has come up so I probably won't be able to test it until next week.
 
-Signed-off-by: Neel Patel <neepatel@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Nishank Trivedi <nistrive@cisco.com>
---
- MAINTAINERS |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 087b65d..6929dce 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1804,7 +1804,8 @@ F:	Documentation/zh_CN/
- CISCO VIC ETHERNET NIC DRIVER
- M:	Christian Benvenuti <benve@cisco.com>
- M:	Roopa Prabhu <roprabhu@cisco.com>
--M:	David Wang <dwang2@cisco.com>
-+M:	Neel Patel <neepatel@cisco.com>
-+M:	Nishank Trivedi <nistrive@cisco.com>
- S:	Supported
- F:	drivers/net/ethernet/cisco/enic/
- 
+Cheers,
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
