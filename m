@@ -1,35 +1,45 @@
-From: Guillaume Chazarain <guichaz@gmail.com>
-Subject: Re: Sudden kernel panic with skge in 3.3-rc2
-Date: Fri, 3 Feb 2012 23:05:26 +0100
-Message-ID: <CAA879TM1i7prdY_=o2NYPYd5U2NuyyvMstT-qFoF1===qfQekA@mail.gmail.com>
-References: <20120202192115.GA8480@elliptictech.com>
-	<20120202124529.3e274223@s6510.linuxnetplumber.net>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: [PATCH net-next 3/4] qlcnic: Fix firmware abort code check.
+Date: Fri, 3 Feb 2012 15:45:43 -0800
+Message-ID: <1328312745-19245-3-git-send-email-sony.chacko@qlogic.com>
+References: <1328312745-19245-1-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nick Bowler <nbowler@elliptictech.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120202124529.3e274223@s6510.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:33578
+	"EHLO AM1EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753563Ab2BDABk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 19:01:40 -0500
+In-Reply-To: <1328312745-19245-1-git-send-email-sony.chacko@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 2, 2012 at 9:45 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> Try reverting this commit, it seems problematic
-> commit d0249e44432aa0ffcf710b64449b8eaa3722547e
+From: Sritej Velaga <sritej.velaga@qlogic.com>
 
-Reverting this commit fixed skge for me. The NIC stopped working after
-a kernel upgrade with nothing interesting in dmesg:
+Check bits 8-28 of peg_halt status register for firmware abort code.
 
-skge: 1.14 addr 0xfbffc000 irq 18 chip Yukon-Lite rev 9
-skge 0000:03:00.0: eth0: addr 00:15:f2:46:d3:3b
-skge 0000:03:00.0: eth0: enabling interface
-ADDRCONF(NETDEV_UP): eth0: link is not ready
-skge 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex, flow control both
-ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-eth0: no IPv6 routers present
+Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-NetworkManager would Oops during shutting down: http://i.imgur.com/eAFgM.jpg
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index a47c70b..dba9531 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3159,7 +3159,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_3 + 0x3c),
+ 			QLCRD32(adapter, QLCNIC_CRB_PEG_NET_4 + 0x3c));
+ 	peg_status = QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1);
+-	if (LSW(MSB(peg_status)) == 0x67)
++	if (QLCNIC_FWERROR_CODE(peg_status) == 0x67)
+ 		dev_err(&adapter->pdev->dev,
+ 			"Firmware aborted with error code 0x00006700. "
+ 				"Device is being reset.\n");
 -- 
-Guillaume
+1.6.4.4
