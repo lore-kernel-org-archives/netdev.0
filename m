@@ -1,66 +1,63 @@
-From: Satoru Moriya <satoru.moriya@hds.com>
-Subject: RE: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Fri, 3 Feb 2012 16:47:04 -0500
-Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
- <20120120.135028.1359677274445012541.davem@davemloft.net>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH NEXT 6/6] netxen: report valid speed and duplex status when link is down
+Date: Fri, 3 Feb 2012 13:35:15 -0800
+Message-ID: <1328304915-12858-7-git-send-email-rajesh.borundia@qlogic.com>
+References: <1328304915-12858-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usindpps03.hds.com ([207.126.252.16]:45438 "EHLO
-	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757922Ab2BCVr0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:47:26 -0500
-In-Reply-To: <20120120.135028.1359677274445012541.davem@davemloft.net>
-Content-Language: en-US
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:13244
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757952Ab2BCVvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 16:51:13 -0500
+In-Reply-To: <1328304915-12858-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2012 01:50 PM, David Miller wrote:
-> You were given an alternative way to trace these kinds of events, and 
-> you have yet to give us a solid reason why that cannot work for you.
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-OK. I'll try to explain it.
+o Update version to 4.0.78
 
-First of all, we'd like to use this tracepoint with our
-flight recorder.
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
+ .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    5 +++++
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-tcpdump:
- tcpdump captures all the packets and so its overhead is not
- acceptable. Also we can't keep the data on memory but must
- write the data to file for each time. It introduce other
- overhead which we can't accept.
-
-commit 63e03724b51, dropwatch, skb:kfree_skb:
- With this tracepoint, we can detect packet drop.
- But it may be too late because with tcp kernel retransmits
- packets repeatedly if it can't get ack and after that it
- may drops packets in a no-win situation.
- Also sometimes customer finds delays which is caused by
- temporal packet drop and retransmission. With this tracepoint
- we can explain it based on the real data.
-
-netstat:
- This is a good tool for the first step to analyze what
- happened. But it shows only statistics and it's not enough
- for us to analyze incidents and explain it to our customers.
- We need each packet drop data(when it happen, whether it
- succeeded or not etc.)
-
-systemtap:
- Actually, we've already used systemtap in our flight recorder.
- But we believe that tcp retransmission is one of the fundamental
- function in tcp stack and so kernel itself should provide the
- instruments from which we can get enough information.
-
-Regards,
-Satoru
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 8a35430..2eeac32 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -53,8 +53,8 @@
+ 
+ #define _NETXEN_NIC_LINUX_MAJOR 4
+ #define _NETXEN_NIC_LINUX_MINOR 0
+-#define _NETXEN_NIC_LINUX_SUBVERSION 77
+-#define NETXEN_NIC_LINUX_VERSIONID  "4.0.77"
++#define _NETXEN_NIC_LINUX_SUBVERSION 78
++#define NETXEN_NIC_LINUX_VERSIONID  "4.0.78"
+ 
+ #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
+ #define _major(v)	(((v) >> 24) & 0xff)
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index 3e73d35..8c39299 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -248,6 +248,11 @@ skip:
+ 		}
+ 	}
+ 
++	if (!netif_running(dev) || !adapter->ahw.linkup) {
++		ecmd->duplex = DUPLEX_UNKNOWN;
++		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.3.3
