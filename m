@@ -1,51 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] netprio_cgroup: Fix obo in get_prioidx
-Date: Fri,  3 Feb 2012 10:18:43 -0500
-Message-ID: <1328282323-15902-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: "Erich E. Hoover" <ehoover@mines.edu>
+Subject: Re: [PATCH v2] Implement IP_UNICAST_IF socket option.
+Date: Fri, 3 Feb 2012 08:21:13 -0700
+Message-ID: <CAEU2+vrMKjLXyABZhi5QrUBA=Fvd4ExgMxjD+T376AZW1SRd8A@mail.gmail.com>
+References: <1328218567-3134-1-git-send-email-ehoover@mines.edu>
+	<1328219828.2480.32.camel@edumazet-laptop>
+	<CAEU2+vrgxzTmiHWs-kVoKeu2_DcFZQBjCXwQfQ8dms5O6+Larg@mail.gmail.com>
+	<1328222744.2480.38.camel@edumazet-laptop>
+	<CAEU2+vrtwSUKgY1f44h8btcKnhvhBHUU-d_BkkyYx+E1KViQ+g@mail.gmail.com>
+	<1328263278.2157.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40997 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660Ab2BCPTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 10:19:00 -0500
+Received: from izzard.Mines.EDU ([138.67.132.197]:46802 "EHLO izzard.mines.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750732Ab2BCPVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Feb 2012 10:21:14 -0500
+Received: from mail-vw0-f46.google.com (mail-vw0-f46.google.com [209.85.212.46])
+	(authenticated bits=0)
+	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q13FLDrG011816
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Fri, 3 Feb 2012 08:21:14 -0700
+Received: by vbjk17 with SMTP id k17so2607513vbj.19
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 07:21:13 -0800 (PST)
+In-Reply-To: <1328263278.2157.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was recently pointed out to me that the get_prioidx function sets a bit in
-the prioidx map prior to checking to see if the index being set is out of
-bounds.  This patch corrects that, avoiding the possiblity of us writing beyond
-the end of the array
+On Fri, Feb 3, 2012 at 3:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> ...
+> BTW, do we really want the htonl() thing, and force device indexes in
+> 2^24 range ? This seems odd anyway.
+> ...
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Stanislaw Gruszka <sgruszka@redhat.com>
-CC: Stanislaw Gruszka <sgruszka@redhat.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- net/core/netprio_cgroup.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+I can easily perform both of these steps in Wine.  The 2^24 limitation
+in particular seems artificial, and especially silly to add to the
+kernel if it will change the fundamental range of the indices.  With
+regard to htonl(), David Miller indicated that the API should match
+what other systems use (a 32-bit network byte order word), though he
+may not have meant his comment that specifically.  I can see the
+merits of doing it both ways and I'm not particularly attached to
+either one.
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 3a9fd48..9ae183a 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -58,11 +58,12 @@ static int get_prioidx(u32 *prio)
- 
- 	spin_lock_irqsave(&prioidx_map_lock, flags);
- 	prioidx = find_first_zero_bit(prioidx_map, sizeof(unsigned long) * PRIOIDX_SZ);
-+	if (prioidx == sizeof(unsigned long) * PRIOIDX_SZ) {
-+		spin_unlock_irqrestore(&prioidx_map_lock, flags);
-+		return -ENOSPC;
-+	}
- 	set_bit(prioidx, prioidx_map);
- 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
--	if (prioidx == sizeof(unsigned long) * PRIOIDX_SZ)
--		return -ENOSPC;
--
- 	atomic_set(&max_prioidx, prioidx);
- 	*prio = prioidx;
- 	return 0;
--- 
-1.7.7.6
+Erich Hoover
+ehoover@mines.edu
