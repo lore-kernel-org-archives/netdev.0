@@ -1,246 +1,43 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 2/2] be2net: Use new implementation of get mac list command
-Date: Sat, 4 Feb 2012 01:20:17 +0530
-Message-ID: <4d64f371-dc70-4525-9ecd-9eba2241c802@exht1.ad.emulex.com>
+From: Shawn Lu <shawn.lu@ericsson.com>
+Subject: [PATCH] tcp: RST: binding oif to iif for tcp v4
+Date: Fri, 3 Feb 2012 12:16:52 -0800
+Message-ID: <1328300212-18836-1-git-send-email-shawn.lu@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
-	Mammatha Edhala <mammatha.edhala@emulex.com>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, xiaoclu@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:30567 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755905Ab2BCTvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 14:51:19 -0500
+Received: from imr3.ericy.com ([198.24.6.13]:45562 "EHLO imr3.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755956Ab2BCURI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Feb 2012 15:17:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VFs use get mac list command to get their mac address. The format of
-this command has changed. Update driver to use the new format.
+Binding RST packet outgoing interface to incomming interface
+for tcp v4. This has few benefits:
+1. tcp_v6_send_reset already did that.
+2. This helps tcp connect with SO_BINDTODEVICE set. When connection
+is lost, we still able to sending out RST using same interface.
+3. limit RST traffic in ingress interface reduce the impact of
+RST attack.
 
-Signed-off-by: Mammatha Edhala <mammatha.edhala@emulex.com>
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   67 +++++++++++++++++++--------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   36 ++++++++++----
- drivers/net/ethernet/emulex/benet/be_main.c |   29 ++++++++----
- 3 files changed, 92 insertions(+), 40 deletions(-)
+ net/ipv4/tcp_ipv4.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index dd6e8e2..29dff7d 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2300,52 +2300,81 @@ err:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 90e4793..994b1ea 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -676,6 +676,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
+ 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
+ 	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
++	arg.bound_dev_if = inet_iif(skb);
  
- /* Uses synchronous MCCQ */
- int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
--							u32 *pmac_id)
-+			bool *pmac_id_active, u32 *pmac_id, u8 *mac)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_get_mac_list *req;
- 	int status;
- 	int mac_count;
-+	struct be_dma_mem get_mac_list_cmd;
-+	int i;
-+
-+	memset(&get_mac_list_cmd, 0, sizeof(struct be_dma_mem));
-+	get_mac_list_cmd.size = sizeof(struct be_cmd_resp_get_mac_list);
-+	get_mac_list_cmd.va = pci_alloc_consistent(adapter->pdev,
-+			get_mac_list_cmd.size,
-+			&get_mac_list_cmd.dma);
-+
-+	if (!get_mac_list_cmd.va) {
-+		dev_err(&adapter->pdev->dev,
-+				"Memory allocation failure during GET_MAC_LIST\n");
-+		return -ENOMEM;
-+	}
- 
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
- 	if (!wrb) {
- 		status = -EBUSY;
--		goto err;
-+		goto out;
- 	}
--	req = embedded_payload(wrb);
-+
-+	req = get_mac_list_cmd.va;
- 
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 				OPCODE_COMMON_GET_MAC_LIST, sizeof(*req),
--				wrb, NULL);
-+				wrb, &get_mac_list_cmd);
- 
- 	req->hdr.domain = domain;
-+	req->mac_type = MAC_ADDRESS_TYPE_NETWORK;
-+	req->perm_override = 1;
- 
- 	status = be_mcc_notify_wait(adapter);
- 	if (!status) {
- 		struct be_cmd_resp_get_mac_list *resp =
--						embedded_payload(wrb);
--		int i;
--		u8 *ctxt = &resp->context[0][0];
--		status = -EIO;
--		mac_count = resp->mac_count;
--		be_dws_le_to_cpu(&resp->context, sizeof(resp->context));
-+						get_mac_list_cmd.va;
-+		mac_count = resp->true_mac_count + resp->pseudo_mac_count;
-+		/* Mac list returned could contain one or more active mac_ids
-+		 * or one or more pseudo permanant mac addresses. If an active
-+		 * mac_id is present, return first active mac_id found
-+		 */
- 		for (i = 0; i < mac_count; i++) {
--			if (!AMAP_GET_BITS(struct amap_get_mac_list_context,
--					   act, ctxt)) {
--				*pmac_id = AMAP_GET_BITS
--					(struct amap_get_mac_list_context,
--					 macid, ctxt);
--				status = 0;
--				break;
-+			struct get_list_macaddr *mac_entry;
-+			u16 mac_addr_size;
-+			u32 mac_id;
-+
-+			mac_entry = &resp->macaddr_list[i];
-+			mac_addr_size = le16_to_cpu(mac_entry->mac_addr_size);
-+			/* mac_id is a 32 bit value and mac_addr size
-+			 * is 6 bytes
-+			 */
-+			if (mac_addr_size == sizeof(u32)) {
-+				*pmac_id_active = true;
-+				mac_id = mac_entry->mac_addr_id.s_mac_id.mac_id;
-+				*pmac_id = le32_to_cpu(mac_id);
-+				goto out;
- 			}
--			ctxt += sizeof(struct amap_get_mac_list_context) / 8;
- 		}
-+		/* If no active mac_id found, return first pseudo mac addr */
-+		*pmac_id_active = false;
-+		memcpy(mac, resp->macaddr_list[0].mac_addr_id.macaddr,
-+								ETH_ALEN);
- 	}
- 
--err:
-+out:
- 	spin_unlock_bh(&adapter->mcc_lock);
-+	pci_free_consistent(adapter->pdev, get_mac_list_cmd.size,
-+			get_mac_list_cmd.va, get_mac_list_cmd.dma);
- 	return status;
- }
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index bbd012b..5bb66c8 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1346,22 +1346,36 @@ struct be_cmd_resp_set_func_cap {
- 
- /******************** GET/SET_MACLIST  **************************/
- #define BE_MAX_MAC			64
--struct amap_get_mac_list_context {
--	u8 macid[31];
--	u8 act;
--} __packed;
--
- struct be_cmd_req_get_mac_list {
- 	struct be_cmd_req_hdr hdr;
--	u32 rsvd;
-+	u8 mac_type;
-+	u8 perm_override;
-+	u16 iface_id;
-+	u32 mac_id;
-+	u32 rsvd[3];
-+} __packed;
-+
-+struct get_list_macaddr {
-+	u16 mac_addr_size;
-+	union {
-+		u8 macaddr[6];
-+		struct {
-+			u8 rsvd[2];
-+			u32 mac_id;
-+		} __packed s_mac_id;
-+	} __packed mac_addr_id;
- } __packed;
- 
- struct be_cmd_resp_get_mac_list {
- 	struct be_cmd_resp_hdr hdr;
--	u8 mac_count;
--	u8 rsvd1;
--	u16 rsvd2;
--	u8 context[sizeof(struct amap_get_mac_list_context) / 8][BE_MAX_MAC];
-+	struct get_list_macaddr fd_macaddr; /* Factory default mac */
-+	struct get_list_macaddr macid_macaddr; /* soft mac */
-+	u8 true_mac_count;
-+	u8 pseudo_mac_count;
-+	u8 mac_list_size;
-+	u8 rsvd;
-+	/* perm override mac */
-+	struct get_list_macaddr macaddr_list[BE_MAX_MAC];
- } __packed;
- 
- struct be_cmd_req_set_mac_list {
-@@ -1575,7 +1589,7 @@ extern int be_cmd_req_native_mode(struct be_adapter *adapter);
- extern int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size);
- extern void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf);
- extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
--							u32 *pmac_id);
-+				bool *pmac_id_active, u32 *pmac_id, u8 *mac);
- extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
- 						u8 mac_count, u32 domain);
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 1395f80..7804987 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2608,19 +2608,28 @@ static void be_setup_init(struct be_adapter *adapter)
- 	adapter->eq_next_idx = 0;
- }
- 
--static int be_configure_mac_from_list(struct be_adapter *adapter, u8 *mac)
-+static int be_add_mac_from_list(struct be_adapter *adapter, u8 *mac)
- {
- 	u32 pmac_id;
--	int status = be_cmd_get_mac_from_list(adapter, 0, &pmac_id);
--	if (status != 0)
--		goto do_none;
--	status = be_cmd_mac_addr_query(adapter, mac,
--			MAC_ADDRESS_TYPE_NETWORK,
--			false, adapter->if_handle, pmac_id);
-+	int status;
-+	bool pmac_id_active;
-+
-+	status = be_cmd_get_mac_from_list(adapter, 0, &pmac_id_active,
-+							&pmac_id, mac);
- 	if (status != 0)
- 		goto do_none;
--	status = be_cmd_pmac_add(adapter, mac, adapter->if_handle,
--			&adapter->pmac_id, 0);
-+
-+	if (pmac_id_active) {
-+		status = be_cmd_mac_addr_query(adapter, mac,
-+				MAC_ADDRESS_TYPE_NETWORK,
-+				false, adapter->if_handle, pmac_id);
-+
-+		if (!status)
-+			adapter->pmac_id = pmac_id;
-+	} else {
-+		status = be_cmd_pmac_add(adapter, mac,
-+				adapter->if_handle, &adapter->pmac_id, 0);
-+	}
- do_none:
- 	return status;
- }
-@@ -2685,7 +2694,7 @@ static int be_setup(struct be_adapter *adapter)
- 	  */
- 	if (!be_physfn(adapter)) {
- 		if (lancer_chip(adapter))
--			status = be_configure_mac_from_list(adapter, mac);
-+			status = be_add_mac_from_list(adapter, mac);
- 		else
- 			status = be_cmd_mac_addr_query(adapter, mac,
- 					MAC_ADDRESS_TYPE_NETWORK, false,
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
 -- 
-1.6.0.2
+1.7.0.4
