@@ -1,41 +1,36 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: route cache flush??
-Date: Fri, 03 Feb 2012 09:59:10 -0500
-Message-ID: <4F2BF63E.1@earthlink.net>
-Reply-To: sclark46@earthlink.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: route cache flush??
+Date: Fri, 03 Feb 2012 16:05:15 +0100
+Message-ID: <1328281515.2157.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4F2BF63E.1@earthlink.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: sclark46@earthlink.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:60524 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756164Ab2BCO7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 09:59:11 -0500
-Received: from [69.22.83.66] (helo=joker.seclark.com)
-	by elasmtp-mealy.atl.sa.earthlink.net with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.67)
-	(envelope-from <sclark46@earthlink.net>)
-	id 1RtKbW-0005wz-Ui
-	for netdev@vger.kernel.org; Fri, 03 Feb 2012 09:59:10 -0500
+Received: from mail-we0-f174.google.com ([74.125.82.174]:36287 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756087Ab2BCPFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 10:05:19 -0500
+Received: by werb13 with SMTP id b13so2761825wer.19
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 07:05:18 -0800 (PST)
+In-Reply-To: <4F2BF63E.1@earthlink.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 09:59 -0500, Stephen Clark a =C3=
+=A9crit :
+> Hello,
+>=20
+> I have been beating my head against the wall for 2 days trying to
+> figure why when I change a route and do a "ip route flush cache"
+> it still takes up to a minute for packets to start using the new
+> route.
+>=20
+> Is there a step I am missing?
+>=20
+> kernel is 2.6.32
+>=20
 
-I have been beating my head against the wall for 2 days trying to
-figure why when I change a route and do a "ip route flush cache"
-it still takes up to a minute for packets to start using the new
-route.
-
-Is there a step I am missing?
-
-kernel is 2.6.32
-
--- 
-
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+Nothing comes to mind, please share more information ?
