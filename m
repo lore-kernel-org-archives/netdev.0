@@ -1,69 +1,89 @@
-From: Andy Hawkins <adhawkins@gmail.com>
-Subject: Realtek 8169 based device
-Date: Fri, 3 Feb 2012 10:17:06 +0000
-Message-ID: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Fri, 03 Feb 2012 12:04:57 +0100
+Message-ID: <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20120201.162157.880976652659067010.davem@davemloft.net>
+		 <4F2A87B0.6070900@profihost.ag>
+		 <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+		 <20120202.143957.2251106530056768980.davem@davemloft.net>
+		 <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
+	 <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
+	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
+	stable@vger.kernel.org, gregkh@suse.de
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:65018 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199Ab2BCKRH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 05:17:07 -0500
-Received: by dadp15 with SMTP id p15so2618112dad.19
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2012 02:17:06 -0800 (PST)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:51130 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755938Ab2BCLFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 06:05:01 -0500
+In-Reply-To: <4F2B963F.4020504@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 09:09 +0100, Stefan Priebe - Pr=
+ofihost AG
+a =C3=A9crit :
+> Hi,
+>=20
+> attached you find the patch files applying cleanly to 3.0.X.
 
-Firstly, apologies if this is the wrong place to ask this. Please let
-me know if somewhere else is more appropriate.
+=46irst, thanks a lot for doing this work.
 
-Secondly, I realise that the kernel I'm using here is quite old.
-However, this is the kernel provided by the version of Openfiler I'm
-using, so updating isn't a simple matter.
+OK, lets try to provide a cumulative patch with a good Changelog ?
 
-I've just installed a Zyxel GN680T NIC into a PC (purchased here:
-http://www.dabs.com/products/zyxel-gn680t-gigabit-pci-network-card-75Q5.html).
-Initially it wasn't recognised by the device.
+And please try a "allyesconfig" build, because it doesnt build right
+now :
 
-lspci -vv reports:
-
-
-03:01.0 Ethernet controller: Hynix Semiconductor Unknown device 8169 (rev 10)
-        Subsystem: Hynix Semiconductor Unknown device 8169
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
-ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
->TAbort- <TAbort- <MAbort- >SERR- <PERR+
-        Latency: 64 (8000ns min, 16000ns max), Cache Line Size: 32 bytes
-        Interrupt: pin A routed to IRQ 16
-        Region 0: I/O ports at de00 [size=256]
-        Region 1: [virtual] Memory at fdaff000 (32-bit,
-non-prefetchable) [size=256]
-        [virtual] Expansion ROM at fd900000 [disabled] [size=128K]
-        Capabilities: [5c] #00 [0000]
-
-lspci -n reports:
-
-
-03:01.0 0200: 106c:8169 (rev 10)
-
-I had a look at the driver source, and it didn't appear to be
-correctly recognising the PCI IDs. I managed to recompile the module,
-adding in support for this device as follows:
+  CC [M]  net/decnet/dn_neigh.o
+net/decnet/dn_route.c: In function 'dn_forward':
+net/decnet/dn_route.c:757:31: error: 'struct dst_entry' has no member
+named 'neighbour'
+make[2]: *** [net/decnet/dn_route.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+net/decnet/dn_neigh.c: In function 'dn_long_output':
+net/decnet/dn_neigh.c:230:31: error: 'struct dst_entry' has no member
+named 'neighbour'
+net/decnet/dn_neigh.c: In function 'dn_short_output':
+net/decnet/dn_neigh.c:277:31: error: 'struct dst_entry' has no member
+named 'neighbour'
+net/decnet/dn_neigh.c: In function 'dn_phase3_output':
+net/decnet/dn_neigh.c:321:31: error: 'struct dst_entry' has no member
+named 'neighbour'
+make[2]: *** [net/decnet/dn_neigh.o] Error 1
+make[1]: *** [net/decnet] Error 2
 
 
-        { PCI_DEVICE(0x106c,    0x8169), 0, 0, RTL_CFG_0 },
+So there is at least one patch missing ?
 
-When I load this new module, the device is correctly recognised, and
-ethtool can give sensible information and report negotiated link
-speeds etc. However the network card fails to work (I'm pretty sure it
-was reporting transmit time outs).
+Once you believe its ok, please send a proper patch with changelog like
+this :
 
-Can anyone offer any advice on getting this card to work?
+[PATCH] net: hot fix for stable kernels
 
-Thanks
+This cumulative patch fixes IP redirect NULL dereferences
+added in commit f39925dbde77
+(ipv4: Cache learned redirect information in inetpeer.)
 
-Andy
+Backport of [xx] upstream commits
+
+9cbb7ecbcff85077bb12301aaf4c9b5a56c5993d
+(ipv6: Get rid of rt6i_nexthop macro.)
+
+69cce1d1404968f78b177a0314f5822d5afdbbfb
+(net: Abstract dst->neighbour accesses behind helpers.)=20
+=2E..
+
+[Full list of xx commits with their ID in linux tree and their title,
+to ease future maintenance]
+
+Signed-off-by: [your email]
+---
+[diffstat -p1 -w70 of your patch]
+
+[content of the patch]
