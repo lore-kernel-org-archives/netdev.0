@@ -1,49 +1,35 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 000000000000002c
-Date: Fri, 03 Feb 2012 07:48:40 +0100
-Message-ID: <4F2B8348.3090305@profihost.ag>
-References: <20120201.162157.880976652659067010.davem@davemloft.net> <4F2A87B0.6070900@profihost.ag> <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120202.143957.2251106530056768980.davem@davemloft.net> <20120203004228.GA23429@kroah.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
+ originated TCP streams
+Date: Fri, 3 Feb 2012 07:18:59 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A823733349A5D2@ORSMSX101.amr.corp.intel.com>
+References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
+ <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
+ <alpine.LRH.2.00.1202022352560.30300@ogerlitz.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	jwboyer@gmail.com, hch@infradead.org, netdev@vger.kernel.org,
-	david@fromorbit.com, stable@vger.kernel.org, gregkh@suse.de
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:58033 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753145Ab2BCGsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 01:48:14 -0500
-In-Reply-To: <20120203004228.GA23429@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LRH.2.00.1202022352560.30300-VYr5/9ddeaGSIdy2EShu12Xnswh1EIUO@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Am 03.02.2012 01:42, schrieb Greg KH:
-> On Thu, Feb 02, 2012 at 02:39:57PM -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 02 Feb 2012 16:04:15 +0100
->>
->>> David, what do you think ?
->>
->> I frankly don't care at this point.
->>
->> The only reasonable thing is if someone can successfully do the
->> backport, but if that's not possible there really isn't anything
->> reasonable we can do, all the other options have fatal negative
->> consequences which make them completely untenable.
-> 
-> I agree.  I'm pretty sure the distros basing their releases on 3.0 are
-> aware of this issue, so perhaps someone could dig through those tree and
-> see how they resolved this issue, if at all.
-> 
-I haven't found any distris which has backported something regarding
-this issue.
+> Hi Sean, this is the patch posted earlier by Eric enhanced to
+> have IPoIB to set gro_mac_header_len to the ipoib header len, does
+> it make things to work okay for you?
 
-Also it seems that there's only Ubuntu using 3.0. Debian and others have
-already moved to 3.1 / 3.2. Anything i miss?
+I ran a quick test.  It helps some, but the performance for streaming packets in one direction is still only 0.11 Gbps.  It should be closer to 10-15 Gbps for ipoib on my systems.
 
-I've made my own backport of the patch and removed at least 1-2
-dependencies. Anybody interested?
-
-Stefan
+- Sean
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
