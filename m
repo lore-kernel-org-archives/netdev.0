@@ -1,37 +1,126 @@
-From: Andy Hawkins <adhawkins@gmail.com>
-Subject: Re: Realtek 8169 based device
-Date: Sat, 4 Feb 2012 15:03:51 +0000
-Message-ID: <CAOkhdCcP3UqH3Dr9k8G5SzcA8OQr22XJ=KUa3hZfS2ZiioDORw@mail.gmail.com>
-References: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
-	<201202031122.28949.linux@rainbow-software.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Connect hangs for a while before returns -1 with ECONNREFUSED
+ on 3.2 for loopback
+Date: Sat, 4 Feb 2012 17:48:50 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1202041537370.1496@ja.ssi.bg>
+References: <4F2B7DF1.5050303@oktetlabs.ru>  <1328279894.2157.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1328282126.2157.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1328358402.2731.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1741720319-1328370532=:1496"
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:42673 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab2BDPDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 10:03:51 -0500
-Received: by dadp15 with SMTP id p15so3531466dad.19
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2012 07:03:51 -0800 (PST)
-In-Reply-To: <201202031122.28949.linux@rainbow-software.org>
+Received: from ja.ssi.bg ([178.16.129.10]:41191 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753069Ab2BDPsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Feb 2012 10:48:15 -0500
+In-Reply-To: <1328358402.2731.11.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Fri, Feb 3, 2012 at 10:22 AM, Ondrej Zary <linux@rainbow-software.org> wrote:
-> Reseat the card in PCI slot. The difference between 0x106c (Hynix) and 0x10ec
-> (Realtek) is only one bit, probably caused by a bad contact in the slot.
+---1463811672-1741720319-1328370532=:1496
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-This turned out to be spot on.
 
-There was a connector in line with the PCI slot (for front panel audio
-ports) that was preventing the card from correctly sitting in the
-slot. I unplugged this (don't use audio on this machine anyway) and
-reseated the card, and it now works just fine.
+	Hello,
 
-Many thanks for the suggestion.
+On Sat, 4 Feb 2012, Eric Dumazet wrote:
 
-Andy
+> Le vendredi 03 février 2012 à 16:15 +0100, Eric Dumazet a écrit :
+> 
+> > We omit to send RST packet in tcp_v4_send_reset()
+> > 
+> > because of this test :
+> > 
+> > if (skb_rtable(skb)->rt_type != RTN_LOCAL)
+> > 	return
+> > 
+> > At this point rt_type is RTN_UNICAST
+> 
+> Here is the fix, thanks again !
+> 
+> [PATCH] ipv4: fix a route regression
+> 
+> commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is in output
+> route lookups.) added a regression.
+> 
+> Some callers of ip_route_output_slow() assumed their flow argument was
+> constant.
+
+	Problem with ip_route_connect?
+
+> ip_route_output_slow() must leave with original content of various
+> fields.
+
+	There were attempts to provide more results for
+xfrm purposes:
+
+http://marc.info/?t=132251214300008&r=1&w=2
+
+	So, may be we need to go in this direction, not
+to restore original values but to provide more results.
+And callers should initialize all input arguments.
+
+> Thanks to Yurij M. Plotnikov for providing a bug report including a
+> program to reproduce the problem.
+> 
+> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv4/route.c |   13 ++++++-------
+>  1 file changed, 6 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index bcacf54..0f63240 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2633,19 +2633,15 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
+>  	unsigned int flags = 0;
+>  	struct fib_result res;
+>  	struct rtable *rth;
+> -	__be32 orig_daddr;
+> -	__be32 orig_saddr;
+> -	int orig_oif;
+> +	__be32 orig_daddr = fl4->daddr;
+> +	__be32 orig_saddr = fl4->saddr;
+> +	int orig_oif = fl4->flowi4_oif;
+>  
+>  	res.fi		= NULL;
+>  #ifdef CONFIG_IP_MULTIPLE_TABLES
+>  	res.r		= NULL;
+>  #endif
+>  
+> -	orig_daddr = fl4->daddr;
+> -	orig_saddr = fl4->saddr;
+> -	orig_oif = fl4->flowi4_oif;
+> -
+>  	fl4->flowi4_iif = net->loopback_dev->ifindex;
+>  	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
+>  	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
+> @@ -2816,6 +2812,9 @@ make_route:
+>  
+>  out:
+>  	rcu_read_unlock();
+> +	fl4->flowi4_oif = orig_oif;
+> +	fl4->daddr = orig_daddr;
+> +	fl4->saddr = orig_saddr;
+
+	flowi4_tos is missing from this list but anyways,
+it looks wrong because __ip_route_output_key returns data
+in saddr and daddr, such change will break source address
+autoselection and destination address autoselection. That is
+what ip_route_connect is trying to do. May be
+ip_route_connect should be fixed instead?
+
+>  	return rth;
+>  }
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-1741720319-1328370532=:1496--
