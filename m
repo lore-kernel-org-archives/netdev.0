@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Remove macaddr option
-Date: Sat, 04 Feb 2012 16:29:36 -0500 (EST)
-Message-ID: <20120204.162936.1988486080455883986.davem@davemloft.net>
-References: <1328289904-22401-1-git-send-email-fabio.estevam@freescale.com>
+From: Shawn Lu <shawn.lu@ericsson.com>
+Subject: RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
+Date: Sat, 4 Feb 2012 16:30:48 -0500
+Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5C9FD00@EUSAACMS0702.eamcs.ericsson.se>
+References: <RE:_[PATCH]_tcp:_RST:_binding_oif_to_iif_for_tcp_v4>
+	<1328390556-14906-1-git-send-email-shawn.lu@ericsson.com>
+ <20120204.162602.1922697409850241775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	shawn.guo@freescale.com
-To: fabio.estevam@freescale.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36175 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751944Ab2BDVap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:30:45 -0500
-In-Reply-To: <1328289904-22401-1-git-send-email-fabio.estevam@freescale.com>
+Received: from imr3.ericy.com ([198.24.6.13]:43557 "EHLO imr3.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754063Ab2BDVay convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:30:54 -0500
+In-Reply-To: <20120204.162602.1922697409850241775.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Date: Fri, 3 Feb 2012 15:25:04 -0200
+Sorry, will resubmit with right format. 
 
-> "macaddr" option allows users to pass the MAC address via kernel command line.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Saturday, February 04, 2012 1:26 PM
+> To: Shawn Lu
+> Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; xiaoclu@gmail.com
+> Subject: Re: [PATCH] tcp_v4_send_reset: binding oif to iif in 
+> no sock case
 > 
-> Feedbacks from Alan Cox and David Miller (http://www.spinics.net/lists/linux-usb/msg57821.html )
-> mention that this is not a good idea, so remove it.
+> From: Shawn Lu <shawn.lu@ericsson.com>
+> Date: Sat, 4 Feb 2012 13:22:36 -0800
 > 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-
-Whilst we can prevent new additions of such module options, you can't
-just go and remove them from existing drivers without potentially
-breaking things for people.
-
-In this FEC case, the option was added more than a year ago.
-
-I'm not applying this patch.
+> > +	/*
+> > +	 * When socket is gone, all binding information is lost.
+> > +	 * routing might fail in this case. using iif for oif to
+> > +	 * make sure we can deliver it
+> > +	 */
+> 
+> Comment is poorly formatted, and I'm getting tired of teaching people
+> 
+> 	/* That comments are formatted like
+> 	 * this.
+> 	 */
+> 
+> 	/*
+> 	 * Not like this.
+> 	 */
+> 
+> or do you have infinite vertical lines on your monitor so 
+> that this empty "/*" line has no impact on your screen real 
+> estate like it does for the rest of us?
+> 
