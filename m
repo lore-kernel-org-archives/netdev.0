@@ -1,113 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Connect hangs for a while before returns -1 with ECONNREFUSED
- on 3.2 for loopback
-Date: Sat, 04 Feb 2012 20:43:50 +0100
-Message-ID: <1328384630.2731.46.camel@edumazet-laptop>
-References: <4F2B7DF1.5050303@oktetlabs.ru>
-	   <1328279894.2157.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	   <1328282126.2157.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <1328358402.2731.11.camel@edumazet-laptop>
-	  <alpine.LFD.2.00.1202041537370.1496@ja.ssi.bg>
-	 <1328374715.2731.21.camel@edumazet-laptop>
-	 <alpine.LFD.2.00.1202041912430.1496@ja.ssi.bg>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Sat, 4 Feb 2012 15:09:37 -0500
+Message-ID: <20120204200937.GA2670@neilslaptop.think-freely.org>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+ <20120120.135028.1359677274445012541.davem@davemloft.net>
+ <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
+ <20120204142823.GA7000@neilslaptop.think-freely.org>
+ <20120204155807.GA2657@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=us-ascii
+Cc: Satoru Moriya <satoru.moriya@hds.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:34778 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210Ab2BDTn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 14:43:56 -0500
-Received: by werb13 with SMTP id b13so3449277wer.19
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2012 11:43:54 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.00.1202041912430.1496@ja.ssi.bg>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59710 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175Ab2BDUKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 15:10:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20120204155807.GA2657@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 04 f=C3=A9vrier 2012 =C3=A0 19:39 +0200, Julian Anastasov a =C3=
-=A9crit :
+On Sat, Feb 04, 2012 at 04:58:07PM +0100, Hagen Paul Pfeifer wrote:
+> * Neil Horman | 2012-02-04 09:28:23 [-0500]:
+> 
+> >So, I hadn't really considered this approach (missed the suggestion previously).
+> >Its not really accurate to disregard this solution entirely.  While the overhead
+> >of tcpdump (or libpcap more specifically) might be too much, it speaks to a
+> >possible solution that doesn't require adding additional tracepoints: a
+> >netfilter hook.  What about writing a kernel module to hook at various points
+> >(I'd guess IP_PREROUTE would be best), to detect duplicate sequence numbers on a
+> >particular connection.  You could export the information via a proc file, or do
+> >it asynchronously with a netlink socket or some such.  Thats the sort of module
+> >that pleasantly isolated (allow those not interested to not have to include it
+> >in their builds or see it in the source), efficiently provides the information
+> >you need, and can be expanded to other types of traffic should you need it in
+> >the future.
+> 
+> That sounds broken by design. Copy TCP sequence number mechanism one more time
+> as a netfilter module? You probably catch the retransmission drop with this,
+Only enough of it to do some reasonable connection tracking, so that you can
+detect retransmissions (or whatever other info you want).
 
-> [PATCH] ipv4: reset flowi parameters on route connect
->=20
-> 	ip_route_connect and ip_route_newports need to reset
-> some flowi fields that are input parameters because we do not
-> want unnecessary binding to oif. Fixes problem with lost
-> RST packets when connecting to local port that has no
-> listener.
->=20
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Note I'm not strictly suggesting that this is an upstreamable approach, but it
+is a solution that lets them get the info they want without having to modify the
+kernel code, or use systemtap (which Satoru has previously said they wish to
+stop doing).  The cost is maintaining a kernel module (either by getting it
+upstream or maintaining it themselves).
 
-Please Julian, dont submit an official patch like this without proper
-credits, and proper reference to bug origin, to help stable backport.
+> but users *want* more: in one week Satoru realize that the retransmission
+> tracepoint doesn't cover all required information for their customer. Other
+> user may need information about TCP rate-halfing-SACK-rto-foo drops. You will
+> and up realizing that in-packet data (like sequence number) is not sufficient
+> for correct analysis. Ask Yuchung how many tracepoints they use. Maybe Google
+> guys should publish their git network-stack-trace topic branch, like the rt
+> branch: everybody who want more tracing should pull from this branch. (ok, too
+> revolutionary ;-)
+> 
+> What is required is a context aware tracing mechanism with no overhead and no
+> code modification ... Mmhh ... systemtap! ;-)
+> 
+Systemtap is fine for development.  Lots of application/product vendors really
+don't like it.  On top of the difficult to use aspect, it requires that
+debugging stabs info be kept with the kernel, which is a real pain, especially
+if you're running on a stable kernel.  Not saying you can't do it, but I
+understand why its undesireable.
 
-Issue was reported by Yurij, and I spent some time on it to find the
-problem, introduced in 3.0.
-
-
-> ---
->  include/net/flow.h  |   10 ++++++++++
->  include/net/route.h |    4 ++++
->  2 files changed, 14 insertions(+), 0 deletions(-)
->=20
-> diff --git a/include/net/flow.h b/include/net/flow.h
-> index 9b58243..6c469db 100644
-> --- a/include/net/flow.h
-> +++ b/include/net/flow.h
-> @@ -93,6 +93,16 @@ static inline void flowi4_init_output(struct flowi=
-4 *fl4, int oif,
->  	fl4->fl4_dport =3D dport;
->  	fl4->fl4_sport =3D sport;
->  }
-> +
-> +/* Reset some input parameters after previous lookup */
-> +static inline void flowi4_update_output(struct flowi4 *fl4, int oif,=
- __u8 tos,
-> +					__be32 daddr, __be32 saddr)
-> +{
-> +	fl4->flowi4_oif =3D oif;
-> +	fl4->flowi4_tos =3D tos;
-> +	fl4->daddr =3D daddr;
-> +	fl4->saddr =3D saddr;
-
-> +}
->  				     =20
-
-
-> =20
->  struct flowi6 {
-> diff --git a/include/net/route.h b/include/net/route.h
-> index 91855d1..b1c0d5b 100644
-> --- a/include/net/route.h
-> +++ b/include/net/route.h
-> @@ -270,6 +270,7 @@ static inline struct rtable *ip_route_connect(str=
-uct flowi4 *fl4,
->  		if (IS_ERR(rt))
->  			return rt;
->  		ip_rt_put(rt);
-> +		flowi4_update_output(fl4, oif, tos, fl4->daddr, fl4->saddr);
->  	}
->  	security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
->  	return ip_route_output_flow(net, fl4, sk);
-> @@ -284,6 +285,9 @@ static inline struct rtable *ip_route_newports(st=
-ruct flowi4 *fl4, struct rtable
->  		fl4->fl4_dport =3D dport;
->  		fl4->fl4_sport =3D sport;
->  		ip_rt_put(rt);
-> +		flowi4_update_output(fl4, sk->sk_bound_dev_if,
-> +				     RT_CONN_FLAGS(sk), fl4->daddr,
-> +				     fl4->saddr);
->  		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
->  		return ip_route_output_flow(sock_net(sk), fl4, sk);
->  	}
-
-I dont understand the saddr/daddr part, since you basically have :
-
-	fl4->daddr =3D fl4->daddr;
-	fl4->saddr =3D fl4->saddr;
-
-
-__ip_route_output_key() always had the possibility to change
-saddr/daddr, I dont think we have to deal with it.
+> The problem is the usability of systemtap. One problem is that the scripts are
+> maintained out of kernel development (maybe) and thus source code
+> modifications are not aligned (kernel and systemtap scripts). IMO that's one
+> of the drawbacks of systemap. But maybe this is no problem in praxis:
+> end-customers normally use stable kernels for a longer time.
+> 
+Again, systemtap is fine, and if Satoru and company want to go that route, fine,
+this conversation is done, but he's already said they've gone that route and
+want to discontinue that approach.  I'm just offering them another avenue,
+maintain your own kernel module that filters on the kind of frames you're after
+and report them in a useful format to you.
+Neil
