@@ -1,55 +1,41 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH net-next 1/4] qlcnic: Stop pause ctrl frames on fw hang.
-Date: Fri, 3 Feb 2012 15:45:41 -0800
-Message-ID: <1328312745-19245-1-git-send-email-sony.chacko@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [net-next PATCH 5/5] qlge: Bumped driver version to 1.00.00.30.
+Date: Fri, 3 Feb 2012 16:06:52 -0800
+Message-ID: <1328314013-20458-5-git-send-email-jitendra.kalsaria@qlogic.com>
+References: <1328314013-20458-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
+	Ron Mercer <ron.mercer@qlogic.com>,
 	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sritej Velaga <sritej.velaga@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:43381
-	"EHLO AM1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753925Ab2BDABk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 19:01:40 -0500
+Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:7932
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754160Ab2BDAWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2012 19:22:47 -0500
+In-Reply-To: <1328314013-20458-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
-
-When firmware hang is detected, fw should stop sending pause control frames.
-
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlge/qlge.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 7bfdf57..a47c70b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2999,8 +2999,18 @@ qlcnic_set_npar_non_operational(struct qlcnic_adapter *adapter)
- void
- qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- {
--	u32 state;
--
-+	u32 state, xg_val = 0, gb_val = 0;
-+
-+	qlcnic_xg_set_xg0_mask(xg_val);
-+	qlcnic_xg_set_xg1_mask(xg_val);
-+	QLCWR32(adapter, QLCNIC_NIU_XG_PAUSE_CTL, xg_val);
-+	qlcnic_gb_set_gb0_mask(gb_val);
-+	qlcnic_gb_set_gb1_mask(gb_val);
-+	qlcnic_gb_set_gb2_mask(gb_val);
-+	qlcnic_gb_set_gb3_mask(gb_val);
-+	QLCWR32(adapter, QLCNIC_NIU_GB_PAUSE_CTL, gb_val);
-+	dev_info(&adapter->pdev->dev, "Pause control frames disabled"
-+				" on all ports\n");
- 	adapter->need_fw_reset = 1;
- 	if (qlcnic_api_lock(adapter))
- 		return;
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
+index b8478aa..5a639df 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge.h
++++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
+@@ -18,7 +18,7 @@
+  */
+ #define DRV_NAME  	"qlge"
+ #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
+-#define DRV_VERSION	"v1.00.00.29.00.00-01"
++#define DRV_VERSION	"v1.00.00.30.00.00-01"
+ 
+ #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
+ 
 -- 
-1.6.4.4
+1.7.6.rc1.1.g2c162b
