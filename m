@@ -1,38 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] CodingStyle: Add net and drivers/net preferred
- commenting style
-Date: Sat, 04 Feb 2012 14:02:55 -0800
-Message-ID: <1328392975.7008.28.camel@joe2Laptop>
-References: <1328391283.7008.17.camel@joe2Laptop>
-	 <20120204.164008.1806138359327892173.davem@davemloft.net>
-	 <1328392259.7008.24.camel@joe2Laptop>
-	 <20120204.165319.1184659199358190039.davem@davemloft.net>
+From: Shawn Lu <shawn.lu@ericsson.com>
+Subject: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
+Date: Sat, 4 Feb 2012 14:38:09 -0800
+Message-ID: <1328395089-15932-1-git-send-email-shawn.lu@ericsson.com>
+References: <RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shawn.lu@ericsson.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xiaoclu@gmail.com, rdunlap@xenotime.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, xiaoclu@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:58702 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751024Ab2BDWC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Feb 2012 17:02:59 -0500
-In-Reply-To: <20120204.165319.1184659199358190039.davem@davemloft.net>
+Received: from imr3.ericy.com ([198.24.6.13]:52931 "EHLO imr3.ericy.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751408Ab2BDWiR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Feb 2012 17:38:17 -0500
+In-Reply-To: <RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-02-04 at 16:53 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> > I'm trying to get you to understand that your
-> > commenting style is not what's in CodingStyle
-> > and that you are a bit of an outlier for using
-> > it.
-> So do you think my way is superior or inferior to the CodingStyle
-> suggestion?
+Binding RST packet outgoing interface to incoming interface
+for tcp v4 when there is no socket associate with it.
+when sk is not NULL, using sk->sk_bound_dev_if instead.
+(suggested by Eric Dumazet).
 
-I think it doesn't matter enough to care about it
-and I generally use relatively height limited
-screens (100x 50y or so).
+This has few benefits:
+1. tcp_v6_send_reset already did that.
+2. This helps tcp connect with SO_BINDTODEVICE set. When
+connection is lost, we still able to sending out RST using
+same interface.
+3. we are sending reply, it is most likely to be succeed
+if iif is used
 
-cheers, Joe
+Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+V4: change log. Thanks for Eric Dumazet to take care
+of "sk is not NULL" case. He also provide code
+for this fix. 
+
+ net/ipv4/tcp_ipv4.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 90e4793..4d6f81c 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -676,6 +676,11 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
+ 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
+ 	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
++	/* When socket is gone, all binding information is lost.
++	 * routing might fail in this case. using iif for oif to
++	 * make sure we can deliver it
++	 */
++	arg.bound_dev_if = sk ? sk->sk_bound_dev_if : inet_iif(skb);
+ 
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
+-- 
+1.7.0.4
