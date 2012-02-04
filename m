@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/7][pull request] Intel Wired LAN Driver Update
-Date: Sat, 04 Feb 2012 15:54:42 -0500 (EST)
-Message-ID: <20120204.155442.1648336318117828618.davem@davemloft.net>
-References: <1328267703-9638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH 0/5] qlge: Fixes
+Date: Sat, 04 Feb 2012 16:04:09 -0500 (EST)
+Message-ID: <20120204.160409.1866896640187998436.davem@davemloft.net>
+References: <1328314013-20458-1-git-send-email-jitendra.kalsaria@qlogic.com>
+	<1328314013-20458-6-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: jitendra.kalsaria@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35933 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35965 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877Ab2BDUyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 15:54:45 -0500
-In-Reply-To: <1328267703-9638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751944Ab2BDVEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:04:15 -0500
+In-Reply-To: <1328314013-20458-6-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri,  3 Feb 2012 03:14:56 -0800
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Date: Fri, 3 Feb 2012 16:06:53 -0800
 
-> v2- Dropped the ixgbe namespace fix patch to find a better resolution
->     based on feedback from David Miller.
-> 
-> The following are changes since commit 29830406415c227a54af429d7b300aabd4754237:
->   can: peak_pci: Fix the way channels are linked together
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> Please apply the series to net-next. Thanks.
 
-These are "fixes" and based upon my "net" tree, but your subject lines
-say "net-next"...
-
-I know you meant "net" but...
+Applied.
