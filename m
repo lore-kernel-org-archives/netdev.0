@@ -1,44 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6-multicast: Fix memory leak in input path.
-Date: Sat, 04 Feb 2012 16:49:57 -0500 (EST)
-Message-ID: <20120204.164957.1798190312073830760.davem@davemloft.net>
-References: <1317149897-14932-1-git-send-email-greearb@candelatech.com>
-	<20110927.151616.1706187903528893128.davem@davemloft.net>
-	<4F2AC749.5070905@candelatech.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] CodingStyle: Add net and drivers/net preferred
+ commenting style
+Date: Sat, 04 Feb 2012 13:50:59 -0800
+Message-ID: <1328392259.7008.24.camel@joe2Laptop>
+References: <1328390556-14906-1-git-send-email-shawn.lu@ericsson.com>
+	 <20120204.162602.1922697409850241775.davem@davemloft.net>
+	 <1328391283.7008.17.camel@joe2Laptop>
+	 <20120204.164008.1806138359327892173.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: shawn.lu@ericsson.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiaoclu@gmail.com, rdunlap@xenotime.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36328 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316Ab2BDVuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:50:00 -0500
-In-Reply-To: <4F2AC749.5070905@candelatech.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:34163 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754063Ab2BDVvC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Feb 2012 16:51:02 -0500
+In-Reply-To: <20120204.164008.1806138359327892173.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 02 Feb 2012 09:26:33 -0800
+On Sat, 2012-02-04 at 16:40 -0500, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Sat, 04 Feb 2012 13:34:43 -0800
+> > Perhaps adding something to CodingStyle is useful?
+> Come on, get real.
 
-> On 09/27/2011 12:16 PM, David Miller wrote:
->> From: greearb@candelatech.com
->> Date: Tue, 27 Sep 2011 11:58:17 -0700
->>
->>> From: Ben Greear<greearb@candelatech.com>
->>>
->>> Have to free the skb before returning if we fail
->>> the fib lookup.
->>>
->>> Signed-off-by: Ben Greear<greearb@candelatech.com>
->>
->> Applied, thanks.
-> 
-> From what I can tell, this never made it into the 3.0 stable
-> series.
-> 
-> I know that normally you feed things to stable, but please let me
-> know if you'd like me to send it to the stable guys instead...
+;)
 
-I'll queue this and the other one up for -stable, thanks.
+I'm trying to get you to understand that your
+commenting style is not what's in CodingStyle
+and that you are a bit of an outlier for using
+it.
+
+You can repeat it again and again on the list,
+but not everyone reads it.
+
+Notice I didn't sign it either, but I suppose
+checkpatch could always add something instead...
+
+cheers, Joe
