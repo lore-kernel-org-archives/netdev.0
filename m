@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arch: net: bpf_jit_comp: Fixed coding style issues.
-Date: Sat, 04 Feb 2012 16:51:22 -0500 (EST)
-Message-ID: <20120204.165122.841855829159259361.davem@davemloft.net>
-References: <1328229495-7603-1-git-send-email-mbarekfiras@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] CodingStyle: Add net and drivers/net preferred
+ commenting style
+Date: Sat, 04 Feb 2012 14:02:55 -0800
+Message-ID: <1328392975.7008.28.camel@joe2Laptop>
+References: <1328391283.7008.17.camel@joe2Laptop>
+	 <20120204.164008.1806138359327892173.davem@davemloft.net>
+	 <1328392259.7008.24.camel@joe2Laptop>
+	 <20120204.165319.1184659199358190039.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, tglx@linutronix.de, mingo@redhat.com,
-	hpa@zytor.com, x86@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mbarekfiras@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328229495-7603-1-git-send-email-mbarekfiras@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shawn.lu@ericsson.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiaoclu@gmail.com, rdunlap@xenotime.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:58702 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751024Ab2BDWC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Feb 2012 17:02:59 -0500
+In-Reply-To: <20120204.165319.1184659199358190039.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mbarek Firas <mbarekfiras@gmail.com>
-Date: Fri,  3 Feb 2012 01:38:15 +0100
+On Sat, 2012-02-04 at 16:53 -0500, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> > I'm trying to get you to understand that your
+> > commenting style is not what's in CodingStyle
+> > and that you are a bit of an outlier for using
+> > it.
+> So do you think my way is superior or inferior to the CodingStyle
+> suggestion?
 
-> -			COND_SEL(BPF_S_JMP_JGT_K, X86_JA, X86_JBE);
-> -			COND_SEL(BPF_S_JMP_JGE_K, X86_JAE, X86_JB);
-> -			COND_SEL(BPF_S_JMP_JEQ_K, X86_JE, X86_JNE);
-> -			COND_SEL(BPF_S_JMP_JSET_K,X86_JNE, X86_JE);
-> -			COND_SEL(BPF_S_JMP_JGT_X, X86_JA, X86_JBE);
-> -			COND_SEL(BPF_S_JMP_JGE_X, X86_JAE, X86_JB);
-> -			COND_SEL(BPF_S_JMP_JEQ_X, X86_JE, X86_JNE);
-> -			COND_SEL(BPF_S_JMP_JSET_X,X86_JNE, X86_JE);
-> +			COND_SEL(BPF_S_JMP_JGT_K,  X86_JA,  X86_JBE);
-> +			COND_SEL(BPF_S_JMP_JGE_K,  X86_JAE, X86_JB);
-> +			COND_SEL(BPF_S_JMP_JEQ_K,  X86_JE,  X86_JNE);
-> +			COND_SEL(BPF_S_JMP_JSET_K, X86_JNE, X86_JE);
+I think it doesn't matter enough to care about it
+and I generally use relatively height limited
+screens (100x 50y or so).
 
-This is rediculious, it's not fixing anything.
-
-There is no requirement that all the arguments have to line up
-to the same column on every line.
-
-I'm not applying this patch.
+cheers, Joe
