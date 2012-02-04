@@ -1,59 +1,63 @@
 From: Shawn Lu <shawn.lu@ericsson.com>
-Subject: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
-Date: Sat, 4 Feb 2012 14:38:09 -0800
-Message-ID: <1328395089-15932-1-git-send-email-shawn.lu@ericsson.com>
-References: <RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case>
+Subject: RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
+Date: Sat, 4 Feb 2012 17:47:09 -0500
+Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5C9FD01@EUSAACMS0702.eamcs.ericsson.se>
+References: <RE:_[PATCH]_tcp_v4_send_reset:_binding_oif_to_iif_in_no_sock_case>
+	<1328391897-15241-1-git-send-email-shawn.lu@ericsson.com>
+ <20120204.164706.1648698930132193786.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, xiaoclu@gmail.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr3.ericy.com ([198.24.6.13]:52931 "EHLO imr3.ericy.com"
+Received: from imr4.ericy.com ([198.24.6.9]:50555 "EHLO imr4.ericy.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751408Ab2BDWiR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Feb 2012 17:38:17 -0500
-In-Reply-To: <RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case>
+	id S1750815Ab2BDWrV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 17:47:21 -0500
+In-Reply-To: <20120204.164706.1648698930132193786.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Binding RST packet outgoing interface to incoming interface
-for tcp v4 when there is no socket associate with it.
-when sk is not NULL, using sk->sk_bound_dev_if instead.
-(suggested by Eric Dumazet).
+Hi,David:
 
-This has few benefits:
-1. tcp_v6_send_reset already did that.
-2. This helps tcp connect with SO_BINDTODEVICE set. When
-connection is lost, we still able to sending out RST using
-same interface.
-3. we are sending reply, it is most likely to be succeed
-if iif is used
+I do appreciate Eric's helpand contribution in this fix. 
+I am a newer here. I just don't know how I can give credit to him. I thought
+That you will put "Acked-by: Eric Dumazet <eric.dumazet@gmail.com>" to 
+Credit his contribution.
 
-Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-V4: change log. Thanks for Eric Dumazet to take care
-of "sk is not NULL" case. He also provide code
-for this fix. 
+Thanks!
+Shawn Lu  
 
- net/ipv4/tcp_ipv4.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 90e4793..4d6f81c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -676,6 +676,11 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
- 	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
- 	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
-+	/* When socket is gone, all binding information is lost.
-+	 * routing might fail in this case. using iif for oif to
-+	 * make sure we can deliver it
-+	 */
-+	arg.bound_dev_if = sk ? sk->sk_bound_dev_if : inet_iif(skb);
- 
- 	net = dev_net(skb_dst(skb)->dev);
- 	arg.tos = ip_hdr(skb)->tos;
--- 
-1.7.0.4
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Saturday, February 04, 2012 1:47 PM
+> To: Shawn Lu
+> Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; xiaoclu@gmail.com
+> Subject: Re: [PATCH] tcp_v4_send_reset: binding oif to iif in 
+> no sock case
+> 
+> From: Shawn Lu <shawn.lu@ericsson.com>
+> Date: Sat, 4 Feb 2012 13:44:57 -0800
+> 
+> > Binding RST packet outgoing interface to incoming interface 
+> for tcp v4 
+> > when there is no socket associate with it.
+> > This has few benefits:
+> > 1. tcp_v6_send_reset already did that.
+> > 2. This helps tcp connect with SO_BINDTODEVICE set. When 
+> connection is 
+> > lost, we still able to sending out RST using same interface.
+> > 3. we are sending reply, it is most likely to be succeed if iif is 
+> > used
+> > 
+> > Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
+> 
+> Sigh...
+> 
+> Thanks for giving Eric not credit whatsoever for his 
+> contributions and feedback for this fix. :-/
+> 
