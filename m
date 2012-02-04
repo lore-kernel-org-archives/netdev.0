@@ -1,60 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Sat, 4 Feb 2012 09:28:23 -0500
-Message-ID: <20120204142823.GA7000@neilslaptop.think-freely.org>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
- <20120120.135028.1359677274445012541.davem@davemloft.net>
- <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
+From: Andy Hawkins <adhawkins@gmail.com>
+Subject: Re: Realtek 8169 based device
+Date: Sat, 4 Feb 2012 15:03:51 +0000
+Message-ID: <CAOkhdCcP3UqH3Dr9k8G5SzcA8OQr22XJ=KUa3hZfS2ZiioDORw@mail.gmail.com>
+References: <CAOkhdCf-emWHJ0rB9GtC3MnX6oj3jgRAbYJU+q65GzMUdXmd-Q@mail.gmail.com>
+	<201202031122.28949.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"hagen@jauu.net" <hagen@jauu.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>
-To: Satoru Moriya <satoru.moriya@hds.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38911 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab2BDO2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 09:28:43 -0500
-Content-Disposition: inline
-In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:42673 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788Ab2BDPDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 10:03:51 -0500
+Received: by dadp15 with SMTP id p15so3531466dad.19
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2012 07:03:51 -0800 (PST)
+In-Reply-To: <201202031122.28949.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 03, 2012 at 04:47:04PM -0500, Satoru Moriya wrote:
-> On 01/20/2012 01:50 PM, David Miller wrote:
-> > You were given an alternative way to trace these kinds of events, and 
-> > you have yet to give us a solid reason why that cannot work for you.
-> 
-> OK. I'll try to explain it.
-> 
-> First of all, we'd like to use this tracepoint with our
-> flight recorder.
-> 
-> tcpdump:
->  tcpdump captures all the packets and so its overhead is not
->  acceptable. Also we can't keep the data on memory but must
->  write the data to file for each time. It introduce other
->  overhead which we can't accept.
-> 
-So, I hadn't really considered this approach (missed the suggestion previously).
-Its not really accurate to disregard this solution entirely.  While the overhead
-of tcpdump (or libpcap more specifically) might be too much, it speaks to a
-possible solution that doesn't require adding additional tracepoints: a
-netfilter hook.  What about writing a kernel module to hook at various points
-(I'd guess IP_PREROUTE would be best), to detect duplicate sequence numbers on a
-particular connection.  You could export the information via a proc file, or do
-it asynchronously with a netlink socket or some such.  Thats the sort of module
-that pleasantly isolated (allow those not interested to not have to include it
-in their builds or see it in the source), efficiently provides the information
-you need, and can be expanded to other types of traffic should you need it in
-the future.
+Hi
 
-Thoughts?
-Neil
+On Fri, Feb 3, 2012 at 10:22 AM, Ondrej Zary <linux@rainbow-software.org> wrote:
+> Reseat the card in PCI slot. The difference between 0x106c (Hynix) and 0x10ec
+> (Realtek) is only one bit, probably caused by a bad contact in the slot.
 
-> 
+This turned out to be spot on.
+
+There was a connector in line with the PCI slot (for front panel audio
+ports) that was preventing the card from correctly sitting in the
+slot. I unplugged this (don't use audio on this machine anyway) and
+reseated the card, and it now works just fine.
+
+Many thanks for the suggestion.
+
+Andy
