@@ -1,63 +1,97 @@
-From: Shawn Lu <shawn.lu@ericsson.com>
-Subject: RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
-Date: Sat, 4 Feb 2012 17:47:09 -0500
-Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5C9FD01@EUSAACMS0702.eamcs.ericsson.se>
-References: <RE:_[PATCH]_tcp_v4_send_reset:_binding_oif_to_iif_in_no_sock_case>
-	<1328391897-15241-1-git-send-email-shawn.lu@ericsson.com>
- <20120204.164706.1648698930132193786.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] ipv4: reset flowi parameters on route connect
+Date: Sun,  5 Feb 2012 01:04:46 +0200
+Message-ID: <1328396686-15430-1-git-send-email-ja@ssi.bg>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr4.ericy.com ([198.24.6.9]:50555 "EHLO imr4.ericy.com"
+Received: from ja.ssi.bg ([178.16.129.10]:39919 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815Ab2BDWrV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 17:47:21 -0500
-In-Reply-To: <20120204.164706.1648698930132193786.davem@davemloft.net>
-Content-Language: en-US
+	id S1752767Ab2BDXEr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Feb 2012 18:04:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,David:
+	Eric Dumazet found that commit 813b3b5db83
+(ipv4: Use caller's on-stack flowi as-is in output
+route lookups.) that comes in 3.0 added a regression.
+The problem appears to be that resulting flowi4_oif is
+used incorrectly as input parameter to some routing lookups.
+The result is that when connecting to local port without
+listener if the IP address that is used is not on a loopback
+interface we incorrectly assign RTN_UNICAST to the output
+route because no route is matched by oif=lo. The RST packet
+can not be sent immediately by tcp_v4_send_reset because
+it expects RTN_LOCAL.
 
-I do appreciate Eric's helpand contribution in this fix. 
-I am a newer here. I just don't know how I can give credit to him. I thought
-That you will put "Acked-by: Eric Dumazet <eric.dumazet@gmail.com>" to 
-Credit his contribution.
+	So, change ip_route_connect and ip_route_newports to
+update the flowi4 fields that are input parameters because
+we do not want unnecessary binding to oif.
 
-Thanks!
-Shawn Lu  
+	To make it clear what are the input parameters that
+can be modified during lookup and to show which fields of
+floiw4 are reused add a new function to update the flowi4
+structure: flowi4_update_output.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Saturday, February 04, 2012 1:47 PM
-> To: Shawn Lu
-> Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; xiaoclu@gmail.com
-> Subject: Re: [PATCH] tcp_v4_send_reset: binding oif to iif in 
-> no sock case
-> 
-> From: Shawn Lu <shawn.lu@ericsson.com>
-> Date: Sat, 4 Feb 2012 13:44:57 -0800
-> 
-> > Binding RST packet outgoing interface to incoming interface 
-> for tcp v4 
-> > when there is no socket associate with it.
-> > This has few benefits:
-> > 1. tcp_v6_send_reset already did that.
-> > 2. This helps tcp connect with SO_BINDTODEVICE set. When 
-> connection is 
-> > lost, we still able to sending out RST using same interface.
-> > 3. we are sending reply, it is most likely to be succeed if iif is 
-> > used
-> > 
-> > Signed-off-by: Shawn Lu <shawn.lu@ericsson.com>
-> 
-> Sigh...
-> 
-> Thanks for giving Eric not credit whatsoever for his 
-> contributions and feedback for this fix. :-/
-> 
+Thanks to Yurij M. Plotnikov for providing a bug report including a
+program to reproduce the problem.
+
+Thanks to Eric Dumazet for tracking the problem down to
+tcp_v4_send_reset and providing initial fix.
+
+Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+
+	Eric, please comment and ack this change by signing it.
+
+ include/net/flow.h  |   10 ++++++++++
+ include/net/route.h |    4 ++++
+ 2 files changed, 14 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 9b58243..6c469db 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -93,6 +93,16 @@ static inline void flowi4_init_output(struct flowi4 *fl4, int oif,
+ 	fl4->fl4_dport = dport;
+ 	fl4->fl4_sport = sport;
+ }
++
++/* Reset some input parameters after previous lookup */
++static inline void flowi4_update_output(struct flowi4 *fl4, int oif, __u8 tos,
++					__be32 daddr, __be32 saddr)
++{
++	fl4->flowi4_oif = oif;
++	fl4->flowi4_tos = tos;
++	fl4->daddr = daddr;
++	fl4->saddr = saddr;
++}
+ 				      
+ 
+ struct flowi6 {
+diff --git a/include/net/route.h b/include/net/route.h
+index 91855d1..b1c0d5b 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -270,6 +270,7 @@ static inline struct rtable *ip_route_connect(struct flowi4 *fl4,
+ 		if (IS_ERR(rt))
+ 			return rt;
+ 		ip_rt_put(rt);
++		flowi4_update_output(fl4, oif, tos, fl4->daddr, fl4->saddr);
+ 	}
+ 	security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
+ 	return ip_route_output_flow(net, fl4, sk);
+@@ -284,6 +285,9 @@ static inline struct rtable *ip_route_newports(struct flowi4 *fl4, struct rtable
+ 		fl4->fl4_dport = dport;
+ 		fl4->fl4_sport = sport;
+ 		ip_rt_put(rt);
++		flowi4_update_output(fl4, sk->sk_bound_dev_if,
++				     RT_CONN_FLAGS(sk), fl4->daddr,
++				     fl4->saddr);
+ 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
+ 		return ip_route_output_flow(sock_net(sk), fl4, sk);
+ 	}
+-- 
+1.7.3.4
