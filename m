@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH tip/core/rcu 10/47] ipv4: Convert call_rcu() to kfree_rcu(), drop opt_kfree_rcu
-Date: Fri,  3 Feb 2012 17:44:45 -0800
-Message-ID: <1328319922-30828-10-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH tip/core/rcu 09/47] ipv4: Convert call_rcu() to kfree_rcu(), drop opt_kfree_rcu()
+Date: Fri,  3 Feb 2012 17:44:44 -0800
+Message-ID: <1328319922-30828-9-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20120204014452.GA29811@linux.vnet.ibm.com>
  <1328319922-30828-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -24,9 +24,9 @@ List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paul.mckenney@linaro.org>
 
-The call_rcu() in do_ip_setsockopt() invokes opt_kfree_rcu(), which just
-calls kfree().  So convert the call_rcu() to kfree_rcu(), which allows
-opt_kfree_rcu() to be eliminated.
+Because opt_kfree_rcu() just calls kfree(), all call_rcu() uses of it
+may be converted to kfree_rcu().  This permits opt_kfree_rcu() to
+be eliminated.
 
 Signed-off-by: Paul E. McKenney <paul.mckenney@linaro.org>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
@@ -37,33 +37,51 @@ Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: netdev@vger.kernel.org
 ---
- net/ipv4/ip_sockglue.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
+ net/ipv4/cipso_ipv4.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8aa87c1..5343d9a 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -445,11 +445,6 @@ out:
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index 86f3b88..c48adc5 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -1857,11 +1857,6 @@ static int cipso_v4_genopt(unsigned char *buf, u32 buf_len,
+ 	return CIPSO_V4_HDR_LEN + ret_val;
  }
- 
  
 -static void opt_kfree_rcu(struct rcu_head *head)
 -{
 -	kfree(container_of(head, struct ip_options_rcu, rcu));
 -}
 -
- /*
-  *	Socket option code for IP. This is the end of the line after any
-  *	TCP,UDP etc options on an IP socket.
-@@ -525,7 +520,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		}
- 		rcu_assign_pointer(inet->inet_opt, opt);
- 		if (old)
--			call_rcu(&old->rcu, opt_kfree_rcu);
-+			kfree_rcu(old, rcu);
- 		break;
+ /**
+  * cipso_v4_sock_setattr - Add a CIPSO option to a socket
+  * @sk: the socket
+@@ -1938,7 +1933,7 @@ int cipso_v4_sock_setattr(struct sock *sk,
  	}
- 	case IP_PKTINFO:
+ 	rcu_assign_pointer(sk_inet->inet_opt, opt);
+ 	if (old)
+-		call_rcu(&old->rcu, opt_kfree_rcu);
++		kfree_rcu(old, rcu);
+ 
+ 	return 0;
+ 
+@@ -2005,7 +2000,7 @@ int cipso_v4_req_setattr(struct request_sock *req,
+ 	req_inet = inet_rsk(req);
+ 	opt = xchg(&req_inet->opt, opt);
+ 	if (opt)
+-		call_rcu(&opt->rcu, opt_kfree_rcu);
++		kfree_rcu(opt, rcu);
+ 
+ 	return 0;
+ 
+@@ -2075,7 +2070,7 @@ static int cipso_v4_delopt(struct ip_options_rcu **opt_ptr)
+ 		 * remove the entire option struct */
+ 		*opt_ptr = NULL;
+ 		hdr_delta = opt->opt.optlen;
+-		call_rcu(&opt->rcu, opt_kfree_rcu);
++		kfree_rcu(opt, rcu);
+ 	}
+ 
+ 	return hdr_delta;
 -- 
 1.7.8
