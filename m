@@ -1,29 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] CodingStyle: Add net and drivers/net preferred
- commenting style
-Date: Sat, 04 Feb 2012 16:40:08 -0500 (EST)
-Message-ID: <20120204.164008.1806138359327892173.davem@davemloft.net>
-References: <1328390556-14906-1-git-send-email-shawn.lu@ericsson.com>
-	<20120204.162602.1922697409850241775.davem@davemloft.net>
-	<1328391283.7008.17.camel@joe2Laptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netprio_cgroup: Fix obo in get_prioidx
+Date: Sat, 4 Feb 2012 16:42:03 -0500
+Message-ID: <20120204214203.GA4260@neilslaptop.think-freely.org>
+References: <1328282323-15902-1-git-send-email-nhorman@tuxdriver.com>
+ <20120204.163100.1902018364644947001.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shawn.lu@ericsson.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xiaoclu@gmail.com, rdunlap@xenotime.net
-To: joe@perches.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sgruszka@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36269 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405Ab2BDVkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:40:18 -0500
-In-Reply-To: <1328391283.7008.17.camel@joe2Laptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38432 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405Ab2BDVmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:42:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20120204.163100.1902018364644947001.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 04 Feb 2012 13:34:43 -0800
-
-> Perhaps adding something to CodingStyle is useful?
-
-Come on, get real.
+On Sat, Feb 04, 2012 at 04:31:00PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri,  3 Feb 2012 10:18:43 -0500
+> 
+> > It was recently pointed out to me that the get_prioidx function sets a bit in
+> > the prioidx map prior to checking to see if the index being set is out of
+> > bounds.  This patch corrects that, avoiding the possiblity of us writing beyond
+> > the end of the array
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Reported-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> 
+> Applied and queued up for -stable, thanks Neil.
+> 
+> 
+Thanks Dave!
