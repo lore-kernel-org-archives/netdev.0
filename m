@@ -1,99 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Connect hangs for a while before returns -1 with ECONNREFUSED
- on 3.2 for loopback
-Date: Sat, 04 Feb 2012 13:26:42 +0100
-Message-ID: <1328358402.2731.11.camel@edumazet-laptop>
-References: <4F2B7DF1.5050303@oktetlabs.ru>
-	 <1328279894.2157.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1328282126.2157.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Sat, 4 Feb 2012 09:28:23 -0500
+Message-ID: <20120204142823.GA7000@neilslaptop.think-freely.org>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+ <20120120.135028.1359677274445012541.davem@davemloft.net>
+ <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	"hagen@jauu.net" <hagen@jauu.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Seiji Aguchi <seiji.aguchi@hds.com>
+To: Satoru Moriya <satoru.moriya@hds.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41846 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab2BDM0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 07:26:48 -0500
-Received: by wgbdt10 with SMTP id dt10so4712389wgb.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2012 04:26:46 -0800 (PST)
-In-Reply-To: <1328282126.2157.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38911 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788Ab2BDO2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 09:28:43 -0500
+Content-Disposition: inline
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 03 f=C3=A9vrier 2012 =C3=A0 16:15 +0100, Eric Dumazet a =C3=
-=A9crit :
+On Fri, Feb 03, 2012 at 04:47:04PM -0500, Satoru Moriya wrote:
+> On 01/20/2012 01:50 PM, David Miller wrote:
+> > You were given an alternative way to trace these kinds of events, and 
+> > you have yet to give us a solid reason why that cannot work for you.
+> 
+> OK. I'll try to explain it.
+> 
+> First of all, we'd like to use this tracepoint with our
+> flight recorder.
+> 
+> tcpdump:
+>  tcpdump captures all the packets and so its overhead is not
+>  acceptable. Also we can't keep the data on memory but must
+>  write the data to file for each time. It introduce other
+>  overhead which we can't accept.
+> 
+So, I hadn't really considered this approach (missed the suggestion previously).
+Its not really accurate to disregard this solution entirely.  While the overhead
+of tcpdump (or libpcap more specifically) might be too much, it speaks to a
+possible solution that doesn't require adding additional tracepoints: a
+netfilter hook.  What about writing a kernel module to hook at various points
+(I'd guess IP_PREROUTE would be best), to detect duplicate sequence numbers on a
+particular connection.  You could export the information via a proc file, or do
+it asynchronously with a netlink socket or some such.  Thats the sort of module
+that pleasantly isolated (allow those not interested to not have to include it
+in their builds or see it in the source), efficiently provides the information
+you need, and can be expanded to other types of traffic should you need it in
+the future.
 
-> We omit to send RST packet in tcp_v4_send_reset()
->=20
-> because of this test :
->=20
-> if (skb_rtable(skb)->rt_type !=3D RTN_LOCAL)
-> 	return
->=20
-> At this point rt_type is RTN_UNICAST
->=20
->=20
+Thoughts?
+Neil
 
-Here is the fix, thanks again !
-
-[PATCH] ipv4: fix a route regression
-
-commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is in output
-route lookups.) added a regression.
-
-Some callers of ip_route_output_slow() assumed their flow argument was
-constant.
-
-ip_route_output_slow() must leave with original content of various
-fields.
-
-Thanks to Yurij M. Plotnikov for providing a bug report including a
-program to reproduce the problem.
-
-Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/route.c |   13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index bcacf54..0f63240 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2633,19 +2633,15 @@ static struct rtable *ip_route_output_slow(stru=
-ct net *net, struct flowi4 *fl4)
- 	unsigned int flags =3D 0;
- 	struct fib_result res;
- 	struct rtable *rth;
--	__be32 orig_daddr;
--	__be32 orig_saddr;
--	int orig_oif;
-+	__be32 orig_daddr =3D fl4->daddr;
-+	__be32 orig_saddr =3D fl4->saddr;
-+	int orig_oif =3D fl4->flowi4_oif;
-=20
- 	res.fi		=3D NULL;
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	res.r		=3D NULL;
- #endif
-=20
--	orig_daddr =3D fl4->daddr;
--	orig_saddr =3D fl4->saddr;
--	orig_oif =3D fl4->flowi4_oif;
--
- 	fl4->flowi4_iif =3D net->loopback_dev->ifindex;
- 	fl4->flowi4_tos =3D tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope =3D ((tos & RTO_ONLINK) ?
-@@ -2816,6 +2812,9 @@ make_route:
-=20
- out:
- 	rcu_read_unlock();
-+	fl4->flowi4_oif =3D orig_oif;
-+	fl4->daddr =3D orig_daddr;
-+	fl4->saddr =3D orig_saddr;
- 	return rth;
- }
-=20
+> 
