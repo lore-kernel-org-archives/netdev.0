@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH tip/core/rcu 09/47] ipv4: Convert call_rcu() to kfree_rcu(), drop opt_kfree_rcu()
-Date: Fri,  3 Feb 2012 17:44:44 -0800
-Message-ID: <1328319922-30828-9-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH tip/core/rcu 11/47] mac80211: Convert call_rcu() to kfree_rcu(), drop mesh_gate_node_reclaim()
+Date: Fri,  3 Feb 2012 17:44:46 -0800
+Message-ID: <1328319922-30828-11-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20120204014452.GA29811@linux.vnet.ibm.com>
  <1328319922-30828-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -12,10 +12,10 @@ Cc: mingo@elte.hu, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	fweisbec@gmail.com, patches@linaro.org,
 	"Paul E. McKenney" <paul.mckenney@linaro.org>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1328319922-30828-1-git-send-email-paulmck@linux.vnet.ibm.com>
@@ -24,64 +24,46 @@ List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paul.mckenney@linaro.org>
 
-Because opt_kfree_rcu() just calls kfree(), all call_rcu() uses of it
-may be converted to kfree_rcu().  This permits opt_kfree_rcu() to
-be eliminated.
+The call_rcu() in mesh_gate_del() invokes mesh_gate_node_reclaim(),
+which simply calls kfree().  So convert the call_rcu() to kfree_rcu(),
+allowing mesh_gate_node_reclaim() to be eliminated.
 
 Signed-off-by: Paul E. McKenney <paul.mckenney@linaro.org>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- net/ipv4/cipso_ipv4.c |   11 +++--------
- 1 files changed, 3 insertions(+), 8 deletions(-)
+ net/mac80211/mesh_pathtbl.c |    8 +-------
+ 1 files changed, 1 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 86f3b88..c48adc5 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -1857,11 +1857,6 @@ static int cipso_v4_genopt(unsigned char *buf, u32 buf_len,
- 	return CIPSO_V4_HDR_LEN + ret_val;
+diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
+index edf167e..30420bc 100644
+--- a/net/mac80211/mesh_pathtbl.c
++++ b/net/mac80211/mesh_pathtbl.c
+@@ -413,12 +413,6 @@ struct mesh_path *mesh_path_lookup_by_idx(int idx, struct ieee80211_sub_if_data
+ 	return NULL;
  }
  
--static void opt_kfree_rcu(struct rcu_head *head)
+-static void mesh_gate_node_reclaim(struct rcu_head *rp)
 -{
--	kfree(container_of(head, struct ip_options_rcu, rcu));
+-	struct mpath_node *node = container_of(rp, struct mpath_node, rcu);
+-	kfree(node);
 -}
 -
  /**
-  * cipso_v4_sock_setattr - Add a CIPSO option to a socket
-  * @sk: the socket
-@@ -1938,7 +1933,7 @@ int cipso_v4_sock_setattr(struct sock *sk,
- 	}
- 	rcu_assign_pointer(sk_inet->inet_opt, opt);
- 	if (old)
--		call_rcu(&old->rcu, opt_kfree_rcu);
-+		kfree_rcu(old, rcu);
- 
- 	return 0;
- 
-@@ -2005,7 +2000,7 @@ int cipso_v4_req_setattr(struct request_sock *req,
- 	req_inet = inet_rsk(req);
- 	opt = xchg(&req_inet->opt, opt);
- 	if (opt)
--		call_rcu(&opt->rcu, opt_kfree_rcu);
-+		kfree_rcu(opt, rcu);
- 
- 	return 0;
- 
-@@ -2075,7 +2070,7 @@ static int cipso_v4_delopt(struct ip_options_rcu **opt_ptr)
- 		 * remove the entire option struct */
- 		*opt_ptr = NULL;
- 		hdr_delta = opt->opt.optlen;
--		call_rcu(&opt->rcu, opt_kfree_rcu);
-+		kfree_rcu(opt, rcu);
- 	}
- 
- 	return hdr_delta;
+  * mesh_path_add_gate - add the given mpath to a mesh gate to our path table
+  * @mpath: gate path to add to table
+@@ -479,7 +473,7 @@ static int mesh_gate_del(struct mesh_table *tbl, struct mesh_path *mpath)
+ 		if (gate->mpath == mpath) {
+ 			spin_lock_bh(&tbl->gates_lock);
+ 			hlist_del_rcu(&gate->list);
+-			call_rcu(&gate->rcu, mesh_gate_node_reclaim);
++			kfree_rcu(gate, rcu);
+ 			spin_unlock_bh(&tbl->gates_lock);
+ 			mpath->sdata->u.mesh.num_gates--;
+ 			mpath->is_gate = false;
 -- 
 1.7.8
