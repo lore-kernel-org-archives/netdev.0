@@ -1,57 +1,31 @@
-From: Shawn Lu <shawn.lu@ericsson.com>
-Subject: RE: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
-Date: Sat, 4 Feb 2012 16:30:48 -0500
-Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5C9FD00@EUSAACMS0702.eamcs.ericsson.se>
-References: <RE:_[PATCH]_tcp:_RST:_binding_oif_to_iif_for_tcp_v4>
-	<1328390556-14906-1-git-send-email-shawn.lu@ericsson.com>
- <20120204.162602.1922697409850241775.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netprio_cgroup: Fix obo in get_prioidx
+Date: Sat, 04 Feb 2012 16:31:00 -0500 (EST)
+Message-ID: <20120204.163100.1902018364644947001.davem@davemloft.net>
+References: <1328282323-15902-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiaoclu@gmail.com" <xiaoclu@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sgruszka@redhat.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imr3.ericy.com ([198.24.6.13]:43557 "EHLO imr3.ericy.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754063Ab2BDVay convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:30:54 -0500
-In-Reply-To: <20120204.162602.1922697409850241775.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:36196 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754203Ab2BDVcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 16:32:07 -0500
+In-Reply-To: <1328282323-15902-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, will resubmit with right format. 
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri,  3 Feb 2012 10:18:43 -0500
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Saturday, February 04, 2012 1:26 PM
-> To: Shawn Lu
-> Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; xiaoclu@gmail.com
-> Subject: Re: [PATCH] tcp_v4_send_reset: binding oif to iif in 
-> no sock case
+> It was recently pointed out to me that the get_prioidx function sets a bit in
+> the prioidx map prior to checking to see if the index being set is out of
+> bounds.  This patch corrects that, avoiding the possiblity of us writing beyond
+> the end of the array
 > 
-> From: Shawn Lu <shawn.lu@ericsson.com>
-> Date: Sat, 4 Feb 2012 13:22:36 -0800
-> 
-> > +	/*
-> > +	 * When socket is gone, all binding information is lost.
-> > +	 * routing might fail in this case. using iif for oif to
-> > +	 * make sure we can deliver it
-> > +	 */
-> 
-> Comment is poorly formatted, and I'm getting tired of teaching people
-> 
-> 	/* That comments are formatted like
-> 	 * this.
-> 	 */
-> 
-> 	/*
-> 	 * Not like this.
-> 	 */
-> 
-> or do you have infinite vertical lines on your monitor so 
-> that this empty "/*" line has no impact on your screen real 
-> estate like it does for the rest of us?
-> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Reported-by: Stanislaw Gruszka <sgruszka@redhat.com>
+
+Applied and queued up for -stable, thanks Neil.
