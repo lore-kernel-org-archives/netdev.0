@@ -1,44 +1,50 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH v3] Merge ipt_LOG and ip6t_LOG, add ring bufffer support
-Date: Sun,  5 Feb 2012 01:14:46 +0100
-Message-ID: <1328400892-22409-1-git-send-email-richard@nod.at>
+Subject: [PATCH 3/4] xt_log: Make printk() in sb_close() optional
+Date: Sun,  5 Feb 2012 01:14:51 +0100
+Message-ID: <1328400892-22409-6-git-send-email-richard@nod.at>
+References: <1328400892-22409-1-git-send-email-richard@nod.at>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, jengelh@medozas.de, rostedt@goodmis.org
+	eric.dumazet@gmail.com, jengelh@medozas.de, rostedt@goodmis.org,
+	Richard Weinberger <richard@nod.at>
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1328400892-22409-1-git-send-email-richard@nod.at>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set merges ipt_LOG and ip6t_LOG and adds ring buffer support
-to xt_LOG.
+Make printk() in sb_close() optional such that other modules
+can build a log string without printing it using printk().
 
-Using "--ring" an user can create LOG rules which log messages into
-one or more ring buffers.
-Each ring buffer is represented as pipe-like file in
-/proc/net/netfilter/xt_LOG_ring/.
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ include/net/netfilter/xt_log.h |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-Ring buffer support can be enabled/disabled using
-CONFIG_NETFILTER_XT_TARGET_LOG_RING.
+diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
+index 0dfb34a..767e08d 100644
+--- a/include/net/netfilter/xt_log.h
++++ b/include/net/netfilter/xt_log.h
+@@ -39,10 +39,12 @@ static struct sbuff *sb_open(void)
+ 	return m;
+ }
+ 
+-static void sb_close(struct sbuff *m)
++static void __sb_close(struct sbuff *m, int print)
+ {
+-	m->buf[m->count] = 0;
+-	printk("%s\n", m->buf);
++	if (print) {
++		m->buf[m->count] = 0;
++		printk("%s\n", m->buf);
++	}
+ 
+ 	if (likely(m != &emergency))
+ 		kfree(m);
+@@ -52,3 +54,4 @@ static void sb_close(struct sbuff *m)
+ 	}
+ }
+ 
++#define sb_close(m)	__sb_close(m, 1)
+-- 
+1.7.7.3
 
-Changes since v1:
- - Merged ipt_LOG and ip6t_LOG
- - Implemented ring buffer support as part of xt_LOG.
-
-Changes since v2:
- - Fixed struct xt_log_info_v1's data layout
- - Removed the sizeof(void *) hack
- - Replaced BUG() by WARN_ON_ONCE()
-
-
-git://git.kernel.org/pub/scm/linux/kernel/git/rw/misc.git xt_LOG
-[PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-[PATCH 2/4] ring_buffer: Export for_each_buffer_cpu()
-[PATCH 3/4] xt_log: Make printk() in sb_close() optional
-[PATCH 4/4] Netfilter: xt_LOG: Implement ring buffer support
-
-git://git.kernel.org/pub/scm/linux/kernel/git/rw/iptables.git xt_LOG
-[PATCH 1/2] iptables: Merge libip6t_LOG and libipt_LOG into libxt_LOG
-[PATCH 2/2] iptables: xt_LOG: Add ring buffer support
-
-Thanks,
-//richard
