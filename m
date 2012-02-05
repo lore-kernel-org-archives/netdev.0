@@ -1,70 +1,53 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] net: fec: Remove macaddr option
-Date: Sun, 5 Feb 2012 17:18:36 -0500
-Message-ID: <CAP=VYLrjWQX8ixV_fYBrpsMkYt+tug7OpWWgEq+R-qeu7rm=Qg@mail.gmail.com>
-References: <1328289904-22401-1-git-send-email-fabio.estevam@freescale.com>
-	<20120204.162936.1988486080455883986.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Net, decnet: remove unused variable from dn_output()
+Date: Sun, 5 Feb 2012 23:28:57 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1202052327050.32529@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fabio.estevam@freescale.com, netdev@vger.kernel.org,
-	kernel@pengutronix.de, shawn.guo@freescale.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:34714 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003Ab2BEWSg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 17:18:36 -0500
-Received: by ggnh1 with SMTP id h1so2526190ggn.19
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2012 14:18:36 -0800 (PST)
-In-Reply-To: <20120204.162936.1988486080455883986.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Steve Whitehouse <SteveW@ACM.org>,
+	Eduardo Marcelo Serrat <emserrat@geocities.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 4, 2012 at 4:29 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> Date: Fri, 3 Feb 2012 15:25:04 -0200
->
->> "macaddr" option allows users to pass the MAC address via kernel com=
-mand line.
->>
->> Feedbacks from Alan Cox and David Miller (http://www.spinics.net/lis=
-ts/linux-usb/msg57821.html )
->> mention that this is not a good idea, so remove it.
->>
->> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
->
-> Whilst we can prevent new additions of such module options, you can't
-> just go and remove them from existing drivers without potentially
-> breaking things for people.
->
-> In this FEC case, the option was added more than a year ago.
->
-> I'm not applying this patch.
+The variable 'neigh' is assigned to, but otherwise completely
+unused. So let's remove it.
 
-How about a patch to feature-removal-schedule.txt instead?  I don't
-know Fabio from a bar of soap, but to his credit, it seems he has been
-paying attention to recent netdev threads, and is trying to improve thi=
-ngs
-based on what he has seen recently -- even if he's not aware of the
-general linux intent to not break things that worked in the past.
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/decnet/dn_route.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Most of these "create MAC at random" threads are supported by people
-pointing at existing instances, and making the common mistake of thinki=
-ng
-that crimes of the past justify similar crimes in the present.  (Hint -=
- no they
-do not.)   So to that end, removing another instance is probably good -=
-- if it
-is communicated in advance...  even if delayed via feature-removal.
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index f31ce72..80a3de4 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -724,11 +724,10 @@ static int dn_output(struct sk_buff *skb)
+ 	struct dn_route *rt = (struct dn_route *)dst;
+ 	struct net_device *dev = dst->dev;
+ 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
+-	struct neighbour *neigh;
+ 
+ 	int err = -EINVAL;
+ 
+-	if ((neigh = dst_get_neighbour_noref(dst)) == NULL)
++	if (dst_get_neighbour_noref(dst) == NULL)
+ 		goto error;
+ 
+ 	skb->dev = dev;
+-- 
+1.7.9
 
-To my knowledge, the platforms using FEC are pretty limited, and if the
-folks at Freescale want to remove the MAC setting option, then great.
 
-Paul.
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
