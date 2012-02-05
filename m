@@ -1,177 +1,47 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH 1/1] wireless: move ifs' in _rtl92c_store_pwrIndex_diffrate_offset
- into elseif statements
-Date: Sun, 05 Feb 2012 09:12:38 +0100
-Message-ID: <4F2E39F6.70803@computer.org>
-References: <1327906245-8200-1-git-send-email-devendra.aaru@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net 1/1] via-velocity: S3 resume fix.
+Date: Sun, 5 Feb 2012 10:12:36 +0100
+Message-ID: <20120205091236.GA18774@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linville@tuxdriver.com, paul.gortmaker@windriver.com,
-	joe@perches.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Devendra.Naga" <devendra.aaru@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"DavidLv@viatech.com.cn" <DavidLv@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay005.isp.belgacom.be ([195.238.6.171]:35521 "EHLO
-	mailrelay005.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751799Ab2BEINg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 03:13:36 -0500
-In-Reply-To: <1327906245-8200-1-git-send-email-devendra.aaru@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55505 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799Ab2BEJYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 04:24:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2012 07:50 AM, Devendra.Naga wrote:
-> From: "Devendra.Naga"<devendra.aaru@gmail.com>
->
->          The regaddr is compared against different rates in each case and the powerlevels are set
->          accordingly. as this can match for the first if and we still check for other powerlevels too,
->          use else if ratherthan using if statements
-> Signed-off-by: Devendra.Naga<devendra.aaru@gmail.com>
-If this is correct, and I'm not saying it is or isn't, would it not be 
-clearer to turn this whole section into a switch statement? The cases 
-that requiring fiddling with the bitmask would need to be dealt with in 
-the default: case.
+From: David Lv (DavidLv@viatech.com.cn)
 
-Why was it written as a series of if statements to begin with: can (or 
-could) any of these if statements change the value of regaddr such that 
-later ifs evaluate differently? From reading only the patch the answer 
-seems to be "no", so that looks good.
+Initially diagnosed on Ubuntu 11.04 with kernel 2.6.38.
 
-Or what about turning this into a data-driven section? It looks like 
-values of regaddr are being translated into offsets into 
-rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt]. Can this be done with a lookup 
-table?
+velocity_close is not called during a suspend / resume cycle in this
+driver and it has no business playing directly with power states.
 
-> ---
->   drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |   47 +++++++------------
->   1 files changed, 17 insertions(+), 30 deletions(-)
->
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
-> index 22e998d..cb11e5a 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
-> @@ -260,106 +260,93 @@ void _rtl92c_store_pwrIndex_diffrate_offset(struct ieee80211_hw *hw,
->   			 "MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][0]);
-> -	}
-> -	if (regaddr == RTXAGC_A_RATE54_24) {
-> +	} else if (regaddr == RTXAGC_A_RATE54_24) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][1] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][1]);
-> -	}
-> -	if (regaddr == RTXAGC_A_CCK1_MCS32) {
-> +	} else if (regaddr == RTXAGC_A_CCK1_MCS32) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][6] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][6] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][6]);
-> -	}
-> -	if (regaddr == RTXAGC_B_CCK11_A_CCK2_11&&  bitmask == 0xffffff00) {
-> +	} else if (regaddr == RTXAGC_B_CCK11_A_CCK2_11&&
-> +		bitmask == 0xffffff00) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][7] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][7] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][7]);
-> -	}
-> -	if (regaddr == RTXAGC_A_MCS03_MCS00) {
-> +	} else if (regaddr == RTXAGC_A_MCS03_MCS00) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][2] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][2]);
-> -	}
-> -	if (regaddr == RTXAGC_A_MCS07_MCS04) {
-> +	} else if (regaddr == RTXAGC_A_MCS07_MCS04) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][3] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][3]);
-> -	}
-> -	if (regaddr == RTXAGC_A_MCS11_MCS08) {
-> +	} else if (regaddr == RTXAGC_A_MCS11_MCS08) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][4] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][4]);
-> -	}
-> -	if (regaddr == RTXAGC_A_MCS15_MCS12) {
-> +	} else if (regaddr == RTXAGC_A_MCS15_MCS12) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][5] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][5]);
-> -	}
-> -	if (regaddr == RTXAGC_B_RATE18_06) {
-> +	} else if (regaddr == RTXAGC_B_RATE18_06) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][8] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][8] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][8]);
-> -	}
-> -	if (regaddr == RTXAGC_B_RATE54_24) {
-> +	} else if (regaddr == RTXAGC_B_RATE54_24) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][9] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][9] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][9]);
-> -	}
-> -	if (regaddr == RTXAGC_B_CCK1_55_MCS32) {
-> +	} else if (regaddr == RTXAGC_B_CCK1_55_MCS32) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][14] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][14] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][14]);
-> -	}
-> -	if (regaddr == RTXAGC_B_CCK11_A_CCK2_11&&  bitmask == 0x000000ff) {
-> +	} else if (regaddr == RTXAGC_B_CCK11_A_CCK2_11&&
-> +		bitmask == 0x000000ff) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][15] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][15] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][15]);
-> -	}
-> -	if (regaddr == RTXAGC_B_MCS03_MCS00) {
-> +	} else if (regaddr == RTXAGC_B_MCS03_MCS00) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][10] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][10] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][10]);
-> -	}
-> -	if (regaddr == RTXAGC_B_MCS07_MCS04) {
-> +	} else if (regaddr == RTXAGC_B_MCS07_MCS04) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][11] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][11] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][11]);
-> -	}
-> -	if (regaddr == RTXAGC_B_MCS11_MCS08) {
-> +	} else if (regaddr == RTXAGC_B_MCS11_MCS08) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][12] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][12] = 0x%x\n",
->   			 rtlphy->pwrgroup_cnt,
->   			 rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][12]);
-> -	}
-> -	if (regaddr == RTXAGC_B_MCS15_MCS12) {
-> +	} else if (regaddr == RTXAGC_B_MCS15_MCS12) {
->   		rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][13] = data;
->   		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
->   			 "MCSTxPowerLevelOriginalOffset[%d][13] = 0x%x\n",
+Signed-off-by: David Lv (DavidLv@viatech.com.cn)
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ethernet/via/via-velocity.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index 4128d6b..cb35b14 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -2491,9 +2491,6 @@ static int velocity_close(struct net_device *dev)
+ 	if (dev->irq != 0)
+ 		free_irq(dev->irq, dev);
+ 
+-	/* Power down the chip */
+-	pci_set_power_state(vptr->pdev, PCI_D3hot);
+-
+ 	velocity_free_rings(vptr);
+ 
+ 	vptr->flags &= (~VELOCITY_FLAGS_OPENED);
+-- 
+1.7.6.5
