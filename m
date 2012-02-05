@@ -1,31 +1,36 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: [PATCH net 1/1] via-velocity: S3 resume fix.
-Date: Sun, 5 Feb 2012 10:12:36 +0100
-Message-ID: <20120205091236.GA18774@electric-eye.fr.zoreil.com>
+Date: Sun, 5 Feb 2012 10:22:26 +0100
+Message-ID: <20120205092226.GB18774@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	"DavidLv@viatech.com.cn" <DavidLv@fr.zoreil.com>
+	David Lv <DavidLv@viatech.com.cn>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:55505 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60352 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799Ab2BEJYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 04:24:08 -0500
+	with ESMTP id S1751799Ab2BEJd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 04:33:56 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lv (DavidLv@viatech.com.cn)
+From: David Lv <DavidLv@viatech.com.cn>
 
 Initially diagnosed on Ubuntu 11.04 with kernel 2.6.38.
 
 velocity_close is not called during a suspend / resume cycle in this
 driver and it has no business playing directly with power states.
 
-Signed-off-by: David Lv (DavidLv@viatech.com.cn)
+Signed-off-by: David Lv <DavidLv@viatech.com.cn>
 Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
+
+ David L., please don't put anything but a valid email address in
+ your S-o-b line when you send patches (no parenthesis, plain bracket).
+ Thanks.
+
  drivers/net/ethernet/via/via-velocity.c |    3 ---
  1 files changed, 0 insertions(+), 3 deletions(-)
 
