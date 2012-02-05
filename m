@@ -1,47 +1,45 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [Patch ] net: doc: cleanup Documentation/networking/scaling.txt
-Date: Sun, 05 Feb 2012 13:44:39 +0800
-Message-ID: <4F2E1747.2010501@gmail.com>
-References: <4EDF768F.1000500@gmail.com> <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: [PATCH] l2cap_chan_connect() shouldn't be inlined
+Date: Sun, 5 Feb 2012 06:21:05 +0000
+Message-ID: <20120205062105.GZ23916@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: "Randy Dunlap (maintainer:DOCUMENTATION)" <rdunlap@xenotime.net>,
-	David Miller <davem@davemloft.net>, willemb@google.com,
-	benjamin.poirier@gmail.com, linux-doc@vger.kernel.org,
-	Network Developer Mailing List <netdev@vger.kernel.org>,
-	therbert@google.com
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:61105 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801Ab2BEFlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 00:41:44 -0500
-In-Reply-To: <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Kosina said, at 2012/2/4 5:28:
+For one thing, it's big.  For another, the only caller is in a different
+file anyway...
 
-> 
-> To a minimum, the patch is corrupted. Please fix your mail client and 
-> resend.
+Signed-off-by: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+
+diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2cap.h
+index 68f5891..124f7cf 100644
+--- a/include/net/bluetooth/l2cap.h
++++ b/include/net/bluetooth/l2cap.h
+@@ -834,7 +834,7 @@ int l2cap_add_scid(struct l2cap_chan *chan,  __u16 scid);
+ struct l2cap_chan *l2cap_chan_create(struct sock *sk);
+ void l2cap_chan_close(struct l2cap_chan *chan, int reason);
+ void l2cap_chan_destroy(struct l2cap_chan *chan);
+-inline int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid,
++int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid,
+ 								bdaddr_t *dst);
+ int l2cap_chan_send(struct l2cap_chan *chan, struct msghdr *msg, size_t len,
+ 								u32 priority);
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index faf0b11..980abdb 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -1120,7 +1120,7 @@ static struct l2cap_chan *l2cap_global_chan_by_psm(int state, __le16 psm, bdaddr
+ 	return c1;
+ }
  
-
-Long long time ago.....:-)
-New version has been committed.
-
-commit 08f4fc9da9a04d59f5c937e06e375158abb68206
-Author: Shan Wei <shanwei88@gmail.com>
-Date:   Mon Dec 19 16:34:15 2011 +0000
-
-    net: doc: fix many typos in scaling.txt
-
-    Fix some trivial typos.
-
-    Signed-off-by: Shan Wei <shanwei88@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
---
-Best Regards
-Shan Wei
+-inline int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid, bdaddr_t *dst)
++int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid, bdaddr_t *dst)
+ {
+ 	struct sock *sk = chan->sk;
+ 	bdaddr_t *src = &bt_sk(sk)->src;
