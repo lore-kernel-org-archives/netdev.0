@@ -1,52 +1,115 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] via-velocity: S3 resume fix.
-Date: Sun, 5 Feb 2012 10:22:26 +0100
-Message-ID: <20120205092226.GB18774@electric-eye.fr.zoreil.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: MPTCP: TCP-option or "experimental option"
+Date: Sun, 05 Feb 2012 11:21:34 +0100
+Message-ID: <4F2E582E.40403@uclouvain.be>
+References: <4F2E4665.3080501@uclouvain.be> <1328435341.14474.19.camel@edumazet-laptop>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	David Lv <DavidLv@viatech.com.cn>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60352 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799Ab2BEJd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 04:33:56 -0500
-Content-Disposition: inline
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48775 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152Ab2BEKVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 05:21:40 -0500
+In-Reply-To: <1328435341.14474.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lv <DavidLv@viatech.com.cn>
+(cc-ing netdev and Ilpo)
 
-Initially diagnosed on Ubuntu 11.04 with kernel 2.6.38.
+On 02/05/2012 10:49 AM, Eric Dumazet wrote:
+> Le dimanche 05 f=C3=A9vrier 2012 =C3=A0 10:05 +0100, Christoph Paasch=
+ a =C3=A9crit :
+>> Hello David & Eric,
+>>
+>> the MPTCP working-group at the IETF is about to finalize the protoco=
+l
+>> specification. As MPTCP is currently not yet in Standards-Track, one
+>> point of discussion is wheter we should request IANA for an early
+>> assignment of a permanent TCP-option number or rather use the
+>> experimental option with a "magic number" as described by
+>> draft-ietf-tcpm-experimental-options-00
+>>
+>> My question is, whether the use of the experimental option would be =
+a
+>> blocker for upstream inclusion of our MPTCP-implementation? Especial=
+ly,
+>> as we then would have a hybrid situation as soon as MPTCP receives a
+>> permanent TCP-option number.
+>>
+>>
+>=20
+> Hi Christoph
+>=20
+> Your question reminds me the TCPOPT_COOKIE still using 253, even in R=
+=46C
+> 6013...
 
-velocity_close is not called during a suspend / resume cycle in this
-driver and it has no business playing directly with power states.
+Oh... Is there any plan on how to handle this, as soon as TCP-cookies
+receives a "real" option-number?
+Because there will be a situation where one implementation (using the
+new number) cannot talk to the other one (using 253).
 
-Signed-off-by: David Lv <DavidLv@viatech.com.cn>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
----
+> Using an experimental option tends to stay as is a long time...
 
- David L., please don't put anything but a valid email address in
- your S-o-b line when you send patches (no parenthesis, plain bracket).
- Thanks.
+Yes, probably...
 
- drivers/net/ethernet/via/via-velocity.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+> Adding a magic number consumes a lot of space in tcp option space, so=
+ it
+> will be hard to use SACK + timestamps + MPTCP_with_magic_number ?
 
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index 4128d6b..cb35b14 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -2491,9 +2491,6 @@ static int velocity_close(struct net_device *dev)
- 	if (dev->irq != 0)
- 		free_irq(dev->irq, dev);
- 
--	/* Power down the chip */
--	pci_set_power_state(vptr->pdev, PCI_D3hot);
--
- 	velocity_free_rings(vptr);
- 
- 	vptr->flags &= (~VELOCITY_FLAGS_OPENED);
--- 
-1.7.6.5
+Yes. MPTCP is already using quite a lot of option-space. The
+magic-number would make it even worse and give even less space for
+SACK-blocks.
+
+> Apparently, IANA is reluctant to consume some values on the ~200
+> remaining values of tcp options ?
+
+tcpcrypt is using two unassigned numbers in their implementation (as we
+do for MPTCP ;) ).
+This has been critized in an e-mail thread on tsvwg
+(http://www.ietf.org/mail-archive/web/tsvwg/current/msg10957.html)
+
+Upon this, a first draft has been proposed
+(http://www.ietf.org/mail-archive/web/tcpm/current/msg06653.html),
+resulting later-on in draft-ietf-tcpm-experimental-options-00 .
+
+> How long does it take to get an official value from IANA ?
+
+I don't think the problem is the time it takes to get this value (it
+should not take very long).
+The problem is rather, if there are compelling arguments for an early
+assignment of an official value.
+I fear that if the working-group concludes on the experimental option,
+we have to wait for MPTCP going into standards-track before receiving a=
+n
+official number. And going the standards-track may still take a lot of =
+time.
+
+
+Personally, I would prefer to see MPTCP receiving an official TCP-optio=
+n.
+
+But my opinion doesn't really matter for the question if you guys at
+netdev are for or against including code using this experimental option=
+=2E
+Especially due to the problem of this hybrid situation to support
+interoperability among the kernel-versions.
+
+
+Cheers,
+Christoph
+
+
+--=20
+Christoph Paasch
+PhD Student
+
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+Universit=C3=A9 Catholique de Louvain
+--=20
