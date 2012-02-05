@@ -1,58 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: reset flowi parameters on route connect
-Date: Sat, 04 Feb 2012 19:30:23 -0500 (EST)
-Message-ID: <20120204.193023.2287808303988988750.davem@davemloft.net>
-References: <1328396686-15430-1-git-send-email-ja@ssi.bg>
-	<1328398416.2731.52.camel@edumazet-laptop>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] tcp_v4_send_reset: binding oif to iif in no sock case
+Date: Sat, 04 Feb 2012 17:52:45 -0800
+Message-ID: <4F2DE0ED.7020708@candelatech.com>
+References: <RE:_[PATCH]_tcp:_RST:_binding_oif_to_iif_for_tcp_v4> <1328390556-14906-1-git-send-email-shawn.lu@ericsson.com> <20120204.162602.1922697409850241775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ja@ssi.bg, netdev@vger.kernel.org, Yurij.Plotnikov@oktetlabs.ru
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shawn.lu@ericsson.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiaoclu@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37120 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753502Ab2BEAao convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 19:30:44 -0500
-In-Reply-To: <1328398416.2731.52.camel@edumazet-laptop>
+Received: from mail.candelatech.com ([208.74.158.172]:53658 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752958Ab2BEBwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2012 20:52:55 -0500
+In-Reply-To: <20120204.162602.1922697409850241775.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 05 Feb 2012 00:33:36 +0100
+On 02/04/2012 01:26 PM, David Miller wrote:
+> From: Shawn Lu<shawn.lu@ericsson.com>
+> Date: Sat, 4 Feb 2012 13:22:36 -0800
+>
+>> +	/*
+>> +	 * When socket is gone, all binding information is lost.
+>> +	 * routing might fail in this case. using iif for oif to
+>> +	 * make sure we can deliver it
+>> +	 */
+>
+> Comment is poorly formatted, and I'm getting tired of teaching
+> people
+>
+> 	/* That comments are formatted like
+> 	 * this.
+> 	 */
+>
+> 	/*
+> 	 * Not like this.
+> 	 */
 
-> Le dimanche 05 f=E9vrier 2012 =E0 01:04 +0200, Julian Anastasov a =E9=
-crit :
->> 	Eric Dumazet found that commit 813b3b5db83
->> (ipv4: Use caller's on-stack flowi as-is in output
->> route lookups.) that comes in 3.0 added a regression.
->> The problem appears to be that resulting flowi4_oif is
->> used incorrectly as input parameter to some routing lookups.
->> The result is that when connecting to local port without
->> listener if the IP address that is used is not on a loopback
->> interface we incorrectly assign RTN_UNICAST to the output
->> route because no route is matched by oif=3Dlo. The RST packet
->> can not be sent immediately by tcp_v4_send_reset because
->> it expects RTN_LOCAL.
->>=20
->> 	So, change ip_route_connect and ip_route_newports to
->> update the flowi4 fields that are input parameters because
->> we do not want unnecessary binding to oif.
->>=20
->> 	To make it clear what are the input parameters that
->> can be modified during lookup and to show which fields of
->> floiw4 are reused add a new function to update the flowi4
->> structure: flowi4_update_output.
->>=20
->> Thanks to Yurij M. Plotnikov for providing a bug report including a
->> program to reproduce the problem.
->>=20
->> Thanks to Eric Dumazet for tracking the problem down to
->> tcp_v4_send_reset and providing initial fix.
->>=20
->> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
->> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-=2E..
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+I agree with your taste in comments, but the linux style guide
+says basically the opposite.  Maybe see if you can sneak a patch
+into the style guide? :)
 
-Applied, thanks everyone.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
