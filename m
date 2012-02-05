@@ -1,39 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Sun, 05 Feb 2012 16:48:12 -0500 (EST)
-Message-ID: <20120205.164812.383526470219039003.davem@davemloft.net>
-References: <20120205125325.GA31578@elastic.org>
-	<20120205191708.GA5337@neilslaptop.think-freely.org>
-	<20120205200428.GB2816@nuttenaction>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, fche@elastic.org, satoru.moriya@hds.com,
-	netdev@vger.kernel.org, tgraf@infradead.org,
-	stephen.hemminger@vyatta.com, eric.dumazet@gmail.com,
-	seiji.aguchi@hds.com, fche@sourceware.org,
-	mathieu.desnoyers@polymtl.ca, rostedt@goodmis.org
-To: hagen@jauu.net
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH 1/3] net/hyperv: Convert camel cased variables in rndis_filter.c to lower cases
+Date: Sun,  5 Feb 2012 14:13:08 -0800
+Message-ID: <1328479990-1436-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43332 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003Ab2BEVwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 16:52:16 -0500
-In-Reply-To: <20120205200428.GB2816@nuttenaction>
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:51256
+	"HELO p3plsmtps2ded03-02.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751709Ab2BEWI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Feb 2012 17:08:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c |   60 ++++++++++++++++++------------------
+ 1 files changed, 30 insertions(+), 30 deletions(-)
 
-Let me put an end to this dicussion right now, I'm not applying
-any patches which just add tracepoints into the TCP stack.
-
-That's not the solution, and you can hoot and hollar all you want
-about it, I simply do not care.
-
-The solution is a way to manage socket events, and be able to choose
-which sockets emit those events, in a useful way, via the perf event
-infrastructure.
-
-This means we need a perf event socket layer that allows filtering on
-socket flow ID, which enables per-socket event and statistics
-gathering, and so forth.
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 133b7fb..a60e5e2 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -758,66 +758,66 @@ int rndis_filter_open(struct hv_device *dev)
+ 
+ int rndis_filter_close(struct hv_device *dev)
+ {
+-	struct netvsc_device *netDevice = hv_get_drvdata(dev);
++	struct netvsc_device *nvdev = hv_get_drvdata(dev);
+ 
+-	if (!netDevice)
++	if (!nvdev)
+ 		return -EINVAL;
+ 
+-	return rndis_filter_close_device(netDevice->extension);
++	return rndis_filter_close_device(nvdev->extension);
+ }
+ 
+ int rndis_filter_send(struct hv_device *dev,
+ 			     struct hv_netvsc_packet *pkt)
+ {
+ 	int ret;
+-	struct rndis_filter_packet *filterPacket;
+-	struct rndis_message *rndisMessage;
+-	struct rndis_packet *rndisPacket;
+-	u32 rndisMessageSize;
++	struct rndis_filter_packet *filter_pkt;
++	struct rndis_message *rndis_msg;
++	struct rndis_packet *rndis_pkt;
++	u32 rndis_msg_size;
+ 
+ 	/* Add the rndis header */
+-	filterPacket = (struct rndis_filter_packet *)pkt->extension;
++	filter_pkt = (struct rndis_filter_packet *)pkt->extension;
+ 
+-	memset(filterPacket, 0, sizeof(struct rndis_filter_packet));
++	memset(filter_pkt, 0, sizeof(struct rndis_filter_packet));
+ 
+-	rndisMessage = &filterPacket->msg;
+-	rndisMessageSize = RNDIS_MESSAGE_SIZE(struct rndis_packet);
++	rndis_msg = &filter_pkt->msg;
++	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
+ 
+-	rndisMessage->ndis_msg_type = REMOTE_NDIS_PACKET_MSG;
+-	rndisMessage->msg_len = pkt->total_data_buflen +
+-				      rndisMessageSize;
++	rndis_msg->ndis_msg_type = REMOTE_NDIS_PACKET_MSG;
++	rndis_msg->msg_len = pkt->total_data_buflen +
++				      rndis_msg_size;
+ 
+-	rndisPacket = &rndisMessage->msg.pkt;
+-	rndisPacket->data_offset = sizeof(struct rndis_packet);
+-	rndisPacket->data_len = pkt->total_data_buflen;
++	rndis_pkt = &rndis_msg->msg.pkt;
++	rndis_pkt->data_offset = sizeof(struct rndis_packet);
++	rndis_pkt->data_len = pkt->total_data_buflen;
+ 
+ 	pkt->is_data_pkt = true;
+-	pkt->page_buf[0].pfn = virt_to_phys(rndisMessage) >> PAGE_SHIFT;
++	pkt->page_buf[0].pfn = virt_to_phys(rndis_msg) >> PAGE_SHIFT;
+ 	pkt->page_buf[0].offset =
+-			(unsigned long)rndisMessage & (PAGE_SIZE-1);
+-	pkt->page_buf[0].len = rndisMessageSize;
++			(unsigned long)rndis_msg & (PAGE_SIZE-1);
++	pkt->page_buf[0].len = rndis_msg_size;
+ 
+ 	/* Add one page_buf if the rndis msg goes beyond page boundary */
+-	if (pkt->page_buf[0].offset + rndisMessageSize > PAGE_SIZE) {
++	if (pkt->page_buf[0].offset + rndis_msg_size > PAGE_SIZE) {
+ 		int i;
+ 		for (i = pkt->page_buf_cnt; i > 1; i--)
+ 			pkt->page_buf[i] = pkt->page_buf[i-1];
+ 		pkt->page_buf_cnt++;
+ 		pkt->page_buf[0].len = PAGE_SIZE - pkt->page_buf[0].offset;
+ 		pkt->page_buf[1].pfn = virt_to_phys((void *)((ulong)
+-			rndisMessage + pkt->page_buf[0].len)) >> PAGE_SHIFT;
++			rndis_msg + pkt->page_buf[0].len)) >> PAGE_SHIFT;
+ 		pkt->page_buf[1].offset = 0;
+-		pkt->page_buf[1].len = rndisMessageSize - pkt->page_buf[0].len;
++		pkt->page_buf[1].len = rndis_msg_size - pkt->page_buf[0].len;
+ 	}
+ 
+ 	/* Save the packet send completion and context */
+-	filterPacket->completion = pkt->completion.send.send_completion;
+-	filterPacket->completion_ctx =
++	filter_pkt->completion = pkt->completion.send.send_completion;
++	filter_pkt->completion_ctx =
+ 				pkt->completion.send.send_completion_ctx;
+ 
+ 	/* Use ours */
+ 	pkt->completion.send.send_completion = rndis_filter_send_completion;
+-	pkt->completion.send.send_completion_ctx = filterPacket;
++	pkt->completion.send.send_completion_ctx = filter_pkt;
+ 
+ 	ret = netvsc_send(dev, pkt);
+ 	if (ret != 0) {
+@@ -826,9 +826,9 @@ int rndis_filter_send(struct hv_device *dev,
+ 		 * above
+ 		 */
+ 		pkt->completion.send.send_completion =
+-				filterPacket->completion;
++				filter_pkt->completion;
+ 		pkt->completion.send.send_completion_ctx =
+-				filterPacket->completion_ctx;
++				filter_pkt->completion_ctx;
+ 	}
+ 
+ 	return ret;
+@@ -836,10 +836,10 @@ int rndis_filter_send(struct hv_device *dev,
+ 
+ static void rndis_filter_send_completion(void *ctx)
+ {
+-	struct rndis_filter_packet *filterPacket = ctx;
++	struct rndis_filter_packet *filter_pkt = ctx;
+ 
+ 	/* Pass it back to the original handler */
+-	filterPacket->completion(filterPacket->completion_ctx);
++	filter_pkt->completion(filter_pkt->completion_ctx);
+ }
+ 
+ 
+-- 
+1.7.7
