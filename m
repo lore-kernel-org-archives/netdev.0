@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] via-velocity: S3 resume fix.
-Date: Sun, 05 Feb 2012 17:47:54 -0500 (EST)
-Message-ID: <20120205.174754.2243394389352770519.davem@davemloft.net>
-References: <20120205092226.GB18774@electric-eye.fr.zoreil.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Net: caifdev is never used in net/caif/caif_dev.c::transmit()
+ - remove it.
+Date: Sun, 5 Feb 2012 23:50:46 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1202052348450.32529@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, DavidLv@viatech.com.cn
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44007 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755204Ab2BEWs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 17:48:58 -0500
-In-Reply-To: <20120205092226.GB18774@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Remi Denis-Courmont <remi.denis-courmont@nokia.com>,
+	Sakari Ailus <sakari.ailus@nokia.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sun, 5 Feb 2012 10:22:26 +0100
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/caif/caif_dev.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-> From: David Lv <DavidLv@viatech.com.cn>
-> 
-> Initially diagnosed on Ubuntu 11.04 with kernel 2.6.38.
-> 
-> velocity_close is not called during a suspend / resume cycle in this
-> driver and it has no business playing directly with power states.
-> 
-> Signed-off-by: David Lv <DavidLv@viatech.com.cn>
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+index 82c5706..aa6f716 100644
+--- a/net/caif/caif_dev.c
++++ b/net/caif/caif_dev.c
+@@ -162,7 +162,6 @@ void caif_flow_cb(struct sk_buff *skb)
+ static int transmit(struct cflayer *layer, struct cfpkt *pkt)
+ {
+ 	int err, high = 0, qlen = 0;
+-	struct caif_dev_common *caifdev;
+ 	struct caif_device_entry *caifd =
+ 	    container_of(layer, struct caif_device_entry, layer);
+ 	struct sk_buff *skb;
+@@ -174,7 +173,6 @@ static int transmit(struct cflayer *layer, struct cfpkt *pkt)
+ 	skb->dev = caifd->netdev;
+ 	skb_reset_network_header(skb);
+ 	skb->protocol = htons(ETH_P_CAIF);
+-	caifdev = netdev_priv(caifd->netdev);
+ 
+ 	/* Check if we need to handle xoff */
+ 	if (likely(caifd->netdev->tx_queue_len == 0))
+-- 
+1.7.9
 
-Applied and queued up for -stable, thanks.
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
