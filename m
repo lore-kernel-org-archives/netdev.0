@@ -1,88 +1,164 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/1] wireless: move ifs' in _rtl92c_store_pwrIndex_diffrate_offset
- into elseif statements
-Date: Sun, 05 Feb 2012 10:05:44 -0600
-Message-ID: <4F2EA8D8.4080907@lwfinger.net>
-References: <1327906245-8200-1-git-send-email-devendra.aaru@gmail.com> <4F2E39F6.70803@computer.org>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Sun, 05 Feb 2012 08:54:49 -0800
+Message-ID: <CB53F459.437DF%roprabhu@cisco.com>
+References: <CB513DF0.435BE%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "Devendra.Naga" <devendra.aaru@gmail.com>,
-	chaoming_li@realsil.com.cn, linville@tuxdriver.com,
-	paul.gortmaker@windriver.com, joe@perches.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jan Ceuleers <jan.ceuleers@computer.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:55331 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149Ab2BEQFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 11:05:48 -0500
-In-Reply-To: <4F2E39F6.70803@computer.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<chrisw@redhat.com>, <sri@us.ibm.com>, <dragos.tatulea@gmail.com>,
+	<kvm@vger.kernel.org>, <arnd@arndb.de>, <gregory.v.rose@intel.com>,
+	<mchan@broadcom.com>, <dwang2@cisco.com>, <shemminger@vyatta.com>,
+	<eric.dumazet@gmail.com>, <kaber@trash.net>, <benve@cisco.com>
+To: Roopa Prabhu <roprabhu@cisco.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CB513DF0.435BE%roprabhu@cisco.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/05/2012 02:12 AM, Jan Ceuleers wrote:
-> On 01/30/2012 07:50 AM, Devendra.Naga wrote:
->> From: "Devendra.Naga"<devendra.aaru@gmail.com>
->>
->> The regaddr is compared against different rates in each case and the
->> powerlevels are set
->> accordingly. as this can match for the first if and we still check for other
->> powerlevels too,
->> use else if ratherthan using if statements
->> Signed-off-by: Devendra.Naga<devendra.aaru@gmail.com>
-> If this is correct, and I'm not saying it is or isn't, would it not be clearer
-> to turn this whole section into a switch statement? The cases that requiring
-> fiddling with the bitmask would need to be dealt with in the default: case.
 
-Yes, it is correct. It might be clearer if it were written as a switch 
-statement, but that would be a lot more intrusive. Besides, have you ever looked 
-at the way gcc compiles a switch? I have done some reverse engineering, and at 
-least some implementations generate code that looks like if .. else if .. .. 
-else. I have not looked at the generated code, but I'm quite certain that the 
-optimizer in gcc is good enough to know that once it gets a match between 
-regaddr and one of the RTXAGC constants, there is no need to test the rest, and 
-that the change to "else if" is mostly cosmetic, and will not greatly affect the 
-execution.
 
-> Why was it written as a series of if statements to begin with: can (or could)
-> any of these if statements change the value of regaddr such that later ifs
-> evaluate differently? From reading only the patch the answer seems to be "no",
-> so that looks good.
 
-I cannot answer the question of why it was written this way - you would have to 
-ask the original authors. As to the possibility of the code changing regaddr, 
-you either need to look more carefully at the code, or you need to restudy how C 
-works.
+On 2/3/12 7:32 AM, "Roopa Prabhu" <roprabhu@cisco.com> wrote:
 
-> Or what about turning this into a data-driven section? It looks like values of
-> regaddr are being translated into offsets into
-> rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt]. Can this be done with a lookup table?
+> 
+> 
+> 
+> On 2/2/12 10:58 AM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
+<snip>..
 
-I would state it a little differently - the values of regaddr are used to 
-determine where in the double-indexed array rtlphy->MCS_TXPWR[][] that the 
-quantity "data" should be placed. There are always multiple ways to do anything. 
-For the kernel, a major rule is to make minimal changes that are easy to verify. 
-The patch in question meets that condition. If this code were in the hot path, 
-it might be worth the effort required to do a complete rewrite with the 
-associated testing, but in my mind, that effort would be wasted. Something that 
-would be easy to do, easy to verify, and would reduce the size of the generated 
-code would be
+>> Are you sure they will be good to have? I'm  not so sure you want to be
+>> able to manipulate the uc and mc tables from user space. MACVLAN seems to
+>> be one type of device where it is useful but doing this to a PF or VF seems
+>> hard to use for any real use case. Fun to test the embedded bridge though.
+>> 
+> 
+> I wont say I am sure. Would be nice have to have netlink interfaces to
+> ADD/DEL additional uc, mc addrs, filter flags and vlans. I have looked at
+> the existing interfaces and nothing seemed straightforward then. But I
+> forget and need to take a look again.
+> I think vlans and filter flags is somehow possible today. And maybe mc too.
+> But if I am right we don't have a way to add additional unicast addresses
+> from userspace. 
+> 
+> I will dig my notes and try and list down the problems with using the
+> existing netlink interfaces for this.
 
-int index;
+There are kernel api's/ops to add/del hw uc/mc/vlan/filter filter flags:
+Ndo_set_rx_mode, add/del_vid, dev_uc_add, dev_mc_add and dev_filter_flags.
 
-if (regaddr == RTXAGC_A_RATE18_06) {
-	index = 0;
-else if (if (regaddr == RTXAGC_A_RATE54_24) {
-	index = 1;
-.....
+But there are no straight forward mechanisms to add these from userspace. L2
+mc addresses can be added by SIOCADDMULTI. And filter flags maybe via
+netlink. Nothing for uc and vlan as far as I know (correct me if I am
+wrong). Setting of hw filters is usually done indirectly by the kernel
+during creation of vlan devices for example.
+
+There is a netlink msg to create a vlan device. But there is no way to add a
+vlan filter directly to the hw. Nothing for secondary uc addrs.
+This is ok for all cases except for the virtualization case I am trying to
+solve. 
+
+To summarize,
+
+The requirement is to have a mechanism from userspace to populate hw filters
+on a device. And this is required to program guest nic filters into the host
+device backing the guest nic. In the direct attach case, its the macvtap
+device and in turn the macvtap lower device.
+
+Today I cant think of any other use case that would require this (except
+that there is a brief chance that this could be used in the hybrid
+acceleration stuff that ben and intel have been discussing).
+
+I see the below ways this can be done:
+1) TUNSETTXFILTER: My v1 patch, that targets only the above specific macvtap
+problem. This works for only uc/mc and flags filter. Possibly requires a new
+cmd TUNSETVLANFILTER for vlan filters.
+
+
+2) rtnetlink ops for setting hw filters: My v2 patch targeting virtual
+devices that implement rtnl_link_ops. Example macvtap/macvlan
+
+This netlink interface to set filters follows TUNSETTXFILTER giving the
+ability to set filters on these devices. The netlink payload must contain
+all the uc, mc, vid's and filter flags that go on the device.
+
+
+3) netdev_ops for setting hw filters: my v3 and v4 patches. This is same as
+2 but moves the ops to netdev, so that it can be used by all devices if
+required.
+
+
+4) v5 (New approach. Not submitted yet):
+In 2 and 3 above, the netlink msg could be broken down to have separate msgs
+to support add/del of uc/mc/vlan. This should be close to what we have today
+for vf vlan and vf mac. (Something similar to what John Fastabend was
+suggesting too). Advantage, use existing hw ops. (This slightly varies from
+the original goal which was not targeted at getting in to uc,mc lists alone.
+The goal was to have macvlan maintain its own filters and use it in fwding
+lookups if needed in the future. But I guess if we need this in the future
+we could possibly use the macvlan uc, mc lists.)
+
+
+Netlink msgs to set hw filters (basically for dev_uc_add/del,
+dev_mc_add/del, and vlans). The below is not a final cut. Just attempting
+something here. Please comment.
+
+[IFLA_FILTER_ADDR] = {
+    [IFLA_FILTER_ADD_ADDR] = {
+        [IFLA_FILTER_HWADDR]      // Maybe a list here
+    }
+
+    [IFLA_FILTER_DEL_ADDR] = {
+        [IFLA_FILTER_HWADDR]    // Maybe a list here
+    }
 }
-rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][index] = data;
-RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-          "MCSTxPowerLevelOriginalOffset[%d][%d] = 0x%x\n",
-          rtlphy->pwrgroup_cnt, index,
-          rtlphy->MCS_TXPWR[rtlphy->pwrgroup_cnt][index]);
-...
 
-Larry
+[IFLA_FILTER_VLAN] = {
+    [IFLA_FILTER_ADD_VLAN] = {
+        [IFLA_FILTER_VID]          // Maybe a list here too
+    }
+    [IFLA_FILTER_DEL_VLAN] = {
+        [IFLA_FILTER_VID] // Maybe a list here too
+    }
+}
+
+
+
+No additional ops, these will call the dev_uc_add/del and add/del_vid api's
+directly.
+
+If people think this might be a better way to go, I can work up a patch for
+this.
+
+Or if anyone thinks we can use something existing please let me know.
+
+Again, this is needed for passing guest filters in the virtualization case.
+I don't see a need to add support for this in iproute2 too (unless anyone
+thinks otherwise)
+
+[Note1: Since the addr is a resource and multiple adds/dels are handled by
+reference counts, a thread can really call delete multiple times and delete
+all references of a particular addr even if he had not owned it. But this is
+possible even with existing code today I think. Except that today the kernel
+does not expose an interface to do this to userspace
+
+Note2: We probably will need one for filter flags as well. I am still
+thinking maybe we can use an existing interface for that. For symmetry a
+IFLA_FILTER_FLAGS would be nice]
+
+
+
+Comments ?
+Thanks,
+Roopa
+
+
+
+ 
+
