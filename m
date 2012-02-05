@@ -1,53 +1,47 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] Net, decnet: remove unused variable from dn_output()
-Date: Sun, 5 Feb 2012 23:28:57 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1202052327050.32529@swampdragon.chaosbits.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fec: Remove macaddr option
+Date: Sun, 05 Feb 2012 17:41:42 -0500 (EST)
+Message-ID: <20120205.174142.890338887171223255.davem@davemloft.net>
+References: <1328289904-22401-1-git-send-email-fabio.estevam@freescale.com>
+	<20120204.162936.1988486080455883986.davem@davemloft.net>
+	<CAP=VYLrjWQX8ixV_fYBrpsMkYt+tug7OpWWgEq+R-qeu7rm=Qg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Steve Whitehouse <SteveW@ACM.org>,
-	Eduardo Marcelo Serrat <emserrat@geocities.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fabio.estevam@freescale.com, netdev@vger.kernel.org,
+	kernel@pengutronix.de, shawn.guo@freescale.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43881 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753366Ab2BEWmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 17:42:54 -0500
+In-Reply-To: <CAP=VYLrjWQX8ixV_fYBrpsMkYt+tug7OpWWgEq+R-qeu7rm=Qg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variable 'neigh' is assigned to, but otherwise completely
-unused. So let's remove it.
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sun, 5 Feb 2012 17:18:36 -0500
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- net/decnet/dn_route.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> On Sat, Feb 4, 2012 at 4:29 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Fabio Estevam <fabio.estevam@freescale.com>
+>> Date: Fri, 3 Feb 2012 15:25:04 -0200
+>>
+>>> "macaddr" option allows users to pass the MAC address via kernel command line.
+>>>
+>>> Feedbacks from Alan Cox and David Miller (http://www.spinics.net/lists/linux-usb/msg57821.html )
+>>> mention that this is not a good idea, so remove it.
+>>>
+>>> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+>>
+>> Whilst we can prevent new additions of such module options, you can't
+>> just go and remove them from existing drivers without potentially
+>> breaking things for people.
+>>
+>> In this FEC case, the option was added more than a year ago.
+>>
+>> I'm not applying this patch.
+> 
+> How about a patch to feature-removal-schedule.txt instead?
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index f31ce72..80a3de4 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -724,11 +724,10 @@ static int dn_output(struct sk_buff *skb)
- 	struct dn_route *rt = (struct dn_route *)dst;
- 	struct net_device *dev = dst->dev;
- 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
--	struct neighbour *neigh;
- 
- 	int err = -EINVAL;
- 
--	if ((neigh = dst_get_neighbour_noref(dst)) == NULL)
-+	if (dst_get_neighbour_noref(dst) == NULL)
- 		goto error;
- 
- 	skb->dev = dev;
--- 
-1.7.9
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+No.
