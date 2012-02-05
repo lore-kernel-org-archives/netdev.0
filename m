@@ -1,28 +1,44 @@
-From: "info@webmail.com" <wizorj@ism.com.br>
-Subject: Warning! Your mailbox is almost full.
-Date: Sun, 05 Feb 2012 20:51:37 -0200
-Message-ID: <20120205205137.117030vke5fyark0@webmail.ism.com.br>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] bonding: Fix misspelling of "since"
+Date: Mon, 6 Feb 2012 00:18:57 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1202060016290.32529@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from raptor.ism.com.br ([200.215.129.13]:51828 "EHLO
-	raptor.ism.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753847Ab2BEW7T convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 17:59:19 -0500
-Content-Disposition: inline
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:29479 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002Ab2BEXS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 18:18:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have exceeded your email limit quota of 450MB. You need to upgrade
-your email limit quota to 2GB within the next 48 hours. Use the below w=
-eb
-link to upgrade your email account:
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/bonding/bond_3ad.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=3DdF=
-J0cWRmSjhBWHd4QnVvT3ZoYzZUd2c6MQ
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 0ae0d7c..793b001 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -660,7 +660,7 @@ static void __attach_bond_to_agg(struct port *port)
+ static void __detach_bond_from_agg(struct port *port)
+ {
+ 	port = NULL; /* just to satisfy the compiler */
+-	// This function does nothing sience the parser/multiplexer of the receive
++	// This function does nothing since the parser/multiplexer of the receive
+ 	// and the parser/multiplexer of the aggregator are already combined
+ }
+ 
+-- 
+1.7.9
 
-Thank you for using our email.
-Copyright =A92012 Email Helpdesk Centre.
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
