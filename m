@@ -1,47 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: move ethtool include to where its used
-Date: Sun, 05 Feb 2012 00:24:03 -0500 (EST)
-Message-ID: <20120205.002403.528386341681036443.davem@davemloft.net>
-References: <1328267822-25690-1-git-send-email-vapier@gentoo.org>
-	<20120204.162331.1482938799603820869.davem@davemloft.net>
-	<201202042120.14192.vapier@gentoo.org>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: [Patch ] net: doc: cleanup Documentation/networking/scaling.txt
+Date: Sun, 05 Feb 2012 13:44:39 +0800
+Message-ID: <4F2E1747.2010501@gmail.com>
+References: <4EDF768F.1000500@gmail.com> <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vapier@gentoo.org
+Cc: "Randy Dunlap (maintainer:DOCUMENTATION)" <rdunlap@xenotime.net>,
+	David Miller <davem@davemloft.net>, willemb@google.com,
+	benjamin.poirier@gmail.com, linux-doc@vger.kernel.org,
+	Network Developer Mailing List <netdev@vger.kernel.org>,
+	therbert@google.com
+To: Jiri Kosina <jkosina@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38297 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750786Ab2BEFYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 00:24:20 -0500
-In-Reply-To: <201202042120.14192.vapier@gentoo.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:61105 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801Ab2BEFlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 00:41:44 -0500
+In-Reply-To: <alpine.LNX.2.00.1202032227260.25026@pobox.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Sat, 4 Feb 2012 21:20:07 -0500
+Jiri Kosina said, at 2012/2/4 5:28:
 
-> On Saturday 04 February 2012 16:23:31 David Miller wrote:
->> From: Mike Frysinger <vapier@gentoo.org>
->> > The linux/mii.h headers has long been standalone for userspace.  But a
->> > recent commit added linux/ethtool.h to the include list even when it
->> > isn't used.  Since we only need this with __KERNEL__, move the include
->> > down to the right spot.  Now userland no longer needs to pull this in.
->> 
->> I don't understand what the problem is.
 > 
-> the exported linux/mii.h userspace code doesn't need linux/ethtool.h, thus it 
-> should not need to include it
+> To a minimum, the patch is corrupted. Please fix your mail client and 
+> resend.
+ 
 
-So there's not bug, you're just twiddling.
+Long long time ago.....:-)
+New version has been committed.
 
-I don't think there should be any rule that just because the stuff
-needed by a header is in __KERNEL__ we have to put the include in
-there too, if the header in question is userspace clean itself.
+commit 08f4fc9da9a04d59f5c937e06e375158abb68206
+Author: Shan Wei <shanwei88@gmail.com>
+Date:   Mon Dec 19 16:34:15 2011 +0000
 
-It's so damn ugly, and error prone during audits (ie. easy to miss),
-to have include directives not at the top of the file.
+    net: doc: fix many typos in scaling.txt
 
-So I'm really not interested at all in applying patches like this
-one, sorry.
+    Fix some trivial typos.
+
+    Signed-off-by: Shan Wei <shanwei88@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+--
+Best Regards
+Shan Wei
