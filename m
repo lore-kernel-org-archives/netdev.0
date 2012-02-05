@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net/hyperv: Remove the unnecessary memset in
- rndis_filter_send()
-Date: Sun, 05 Feb 2012 17:46:16 -0500 (EST)
-Message-ID: <20120205.174616.861192939511656488.davem@davemloft.net>
-References: <1328479990-1436-1-git-send-email-haiyangz@microsoft.com>
-	<1328479990-1436-3-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH] Net, decnet: remove unused variable from dn_output()
+Date: Sun, 05 Feb 2012 17:46:23 -0500 (EST)
+Message-ID: <20120205.174623.402259480734565793.davem@davemloft.net>
+References: <alpine.LNX.2.00.1202052327050.32529@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com, steffen.klassert@secunet.com,
+	gregory.v.rose@intel.com, paul.gortmaker@windriver.com,
+	SteveW@ACM.org, emserrat@geocities.com
+To: jj@chaosbits.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328479990-1436-3-git-send-email-haiyangz@microsoft.com>
+In-Reply-To: <alpine.LNX.2.00.1202052327050.32529@swampdragon.chaosbits.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Sun,  5 Feb 2012 14:13:10 -0800
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Sun, 5 Feb 2012 23:28:57 +0100 (CET)
 
-> The memory has been allocated by kzalloc, so it's unnecessary to memset
-> again.
+> The variable 'neigh' is assigned to, but otherwise completely
+> unused. So let's remove it.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
 Applied.
