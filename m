@@ -1,7 +1,7 @@
 From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: [PATCH v5 3/5] netdev: ethernet dev_alloc_skb to netdev_alloc_skb
-Date: Sun,  5 Feb 2012 18:20:38 +0530
-Message-ID: <ef62da964e8660dfdf2a25cd643631bb15914ecf.1328445742.git.netdev@pradeepdalvi.com>
+Subject: [PATCH v5 4/5] netdev: ethernet dev_alloc_skb to netdev_alloc_skb
+Date: Sun,  5 Feb 2012 18:21:05 +0530
+Message-ID: <d8ad7b1e88df72e284cbc8b8fba1745530923375.1328445742.git.netdev@pradeepdalvi.com>
 References: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org,
@@ -19,550 +19,646 @@ Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/net/ethernet
 
 Signed-off-by: Pradeep A Dalvi <netdev@pradeepdalvi.com>
 ---
- drivers/net/ethernet/fujitsu/eth16i.c      |    2 +-
- drivers/net/ethernet/fujitsu/fmvj18x_cs.c  |    2 +-
- drivers/net/ethernet/hp/hp100.c            |    5 ++---
- drivers/net/ethernet/i825xx/3c505.c        |    2 +-
- drivers/net/ethernet/i825xx/3c507.c        |    2 +-
- drivers/net/ethernet/i825xx/3c523.c        |    2 +-
- drivers/net/ethernet/i825xx/3c527.c        |    4 ++--
- drivers/net/ethernet/i825xx/82596.c        |    8 +++-----
- drivers/net/ethernet/i825xx/eepro.c        |    2 +-
- drivers/net/ethernet/i825xx/eexpress.c     |    2 +-
- drivers/net/ethernet/i825xx/ether1.c       |    2 +-
- drivers/net/ethernet/i825xx/lp486e.c       |    2 +-
- drivers/net/ethernet/i825xx/ni52.c         |    2 +-
- drivers/net/ethernet/i825xx/sun3_82586.c   |    2 +-
- drivers/net/ethernet/i825xx/znet.c         |    2 +-
- drivers/net/ethernet/icplus/ipg.c          |    3 ---
- drivers/net/ethernet/lantiq_etop.c         |    2 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
- drivers/net/ethernet/marvell/pxa168_eth.c  |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 +--
- drivers/net/ethernet/micrel/ks8695net.c    |    4 ++--
- drivers/net/ethernet/micrel/ks8851_mll.c   |    2 +-
- drivers/net/ethernet/micrel/ksz884x.c      |    6 +++---
- drivers/net/ethernet/microchip/enc28j60.c  |    3 +--
- drivers/net/ethernet/mipsnet.c             |    2 +-
- drivers/net/ethernet/natsemi/ibmlana.c     |    2 +-
- drivers/net/ethernet/natsemi/natsemi.c     |    5 ++---
- drivers/net/ethernet/natsemi/sonic.c       |    4 ++--
- drivers/net/ethernet/neterion/s2io.c       |    6 +++---
- 29 files changed, 39 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/netx-eth.c                    |    2 +-
+ drivers/net/ethernet/nuvoton/w90p910_ether.c       |    2 +-
+ drivers/net/ethernet/nvidia/forcedeth.c            |   10 ++++++----
+ drivers/net/ethernet/packetengines/hamachi.c       |   10 +++++-----
+ drivers/net/ethernet/packetengines/yellowfin.c     |    9 ++++-----
+ drivers/net/ethernet/pasemi/pasemi_mac.c           |    2 +-
+ .../net/ethernet/qlogic/netxen/netxen_nic_init.c   |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c   |    2 +-
+ drivers/net/ethernet/racal/ni5010.c                |    2 +-
+ drivers/net/ethernet/realtek/atp.c                 |    2 +-
+ drivers/net/ethernet/renesas/sh_eth.c              |    6 ++----
+ drivers/net/ethernet/seeq/ether3.c                 |    2 +-
+ drivers/net/ethernet/seeq/seeq8005.c               |    2 +-
+ drivers/net/ethernet/sis/sis900.c                  |   10 ++++++----
+ drivers/net/ethernet/smsc/epic100.c                |    7 ++++---
+ drivers/net/ethernet/smsc/smc911x.c                |    2 +-
+ drivers/net/ethernet/smsc/smc9194.c                |    2 +-
+ drivers/net/ethernet/smsc/smc91c92_cs.c            |    2 +-
+ drivers/net/ethernet/smsc/smc91x.c                 |    2 +-
+ drivers/net/ethernet/smsc/smsc9420.c               |    2 --
+ drivers/net/ethernet/sun/cassini.c                 |    2 +-
+ drivers/net/ethernet/sun/sunbmac.c                 |    3 ++-
+ drivers/net/ethernet/sun/sunhme.c                  |    3 ++-
+ drivers/net/ethernet/sun/sunqe.c                   |    2 +-
+ drivers/net/ethernet/tehuti/tehuti.c               |    7 +++----
+ drivers/net/ethernet/ti/davinci_emac.c             |    3 +--
+ drivers/net/ethernet/tile/tilepro.c                |    4 ++--
+ drivers/net/ethernet/toshiba/tc35815.c             |    2 +-
+ drivers/net/ethernet/via/via-rhine.c               |    2 --
+ drivers/net/ethernet/via/via-velocity.c            |    2 +-
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c      |    2 +-
+ drivers/net/ethernet/xircom/xirc2ps_cs.c           |    3 ++-
+ 33 files changed, 58 insertions(+), 59 deletions(-)
 
-diff --git a/drivers/net/ethernet/fujitsu/eth16i.c b/drivers/net/ethernet/fujitsu/eth16i.c
-index b0e2313..c3f0178 100644
---- a/drivers/net/ethernet/fujitsu/eth16i.c
-+++ b/drivers/net/ethernet/fujitsu/eth16i.c
-@@ -1164,7 +1164,7 @@ static void eth16i_rx(struct net_device *dev)
- 		else {   /* Ok so now we should have a good packet */
- 			struct sk_buff *skb;
+diff --git a/drivers/net/ethernet/netx-eth.c b/drivers/net/ethernet/netx-eth.c
+index 8d288af..0762d01 100644
+--- a/drivers/net/ethernet/netx-eth.c
++++ b/drivers/net/ethernet/netx-eth.c
+@@ -150,7 +150,7 @@ static void netx_eth_receive(struct net_device *ndev)
+ 	seg = (val & FIFO_PTR_SEGMENT_MASK) >> FIFO_PTR_SEGMENT_SHIFT;
+ 	len = (val & FIFO_PTR_FRAMELEN_MASK) >> FIFO_PTR_FRAMELEN_SHIFT;
  
--			skb = dev_alloc_skb(pkt_len + 3);
-+			skb = netdev_alloc_skb(dev, pkt_len + 3);
- 			if( skb == NULL ) {
- 				printk(KERN_WARNING "%s: Could'n allocate memory for packet (len %d)\n",
- 				       dev->name, pkt_len);
-diff --git a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-index ee84b47..0230319 100644
---- a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-+++ b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-@@ -1002,7 +1002,7 @@ static void fjn_rx(struct net_device *dev)
- 		dev->stats.rx_errors++;
- 		break;
- 	    }
--	    skb = dev_alloc_skb(pkt_len+2);
-+	    skb = netdev_alloc_skb(dev, pkt_len + 2);
- 	    if (skb == NULL) {
- 		netdev_notice(dev, "Memory squeeze, dropping packet (len %d)\n",
- 			      pkt_len);
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index 6a5ee07..fc9e4b5 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -1274,7 +1274,7 @@ static int hp100_build_rx_pdl(hp100_ring_t * ringptr,
- 	/* Note: This depends on the alloc_skb functions allocating more
- 	 * space than requested, i.e. aligning to 16bytes */
+-	skb = dev_alloc_skb(len);
++	skb = netdev_alloc_skb(ndev, len);
+ 	if (unlikely(skb == NULL)) {
+ 		printk(KERN_NOTICE "%s: Low memory, packet dropped.\n",
+ 			ndev->name);
+diff --git a/drivers/net/ethernet/nuvoton/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
+index b75a049..6893a65 100644
+--- a/drivers/net/ethernet/nuvoton/w90p910_ether.c
++++ b/drivers/net/ethernet/nuvoton/w90p910_ether.c
+@@ -735,7 +735,7 @@ static void netdev_rx(struct net_device *dev)
  
--	ringptr->skb = dev_alloc_skb(roundup(MAX_ETHER_SIZE + 2, 4));
-+	ringptr->skb = netdev_alloc_skb(dev, roundup(MAX_ETHER_SIZE + 2, 4));
+ 		if (status & RXDS_RXGD) {
+ 			data = ether->rdesc->recv_buf[ether->cur_rx];
+-			skb = dev_alloc_skb(length+2);
++			skb = netdev_alloc_skb(dev, length + 2);
+ 			if (!skb) {
+ 				dev_err(&pdev->dev, "get skb buffer error\n");
+ 				ether->stats.rx_dropped++;
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 4c4e7f4..accb55d 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1815,7 +1815,8 @@ static int nv_alloc_rx(struct net_device *dev)
+ 		less_rx = np->last_rx.orig;
  
- 	if (NULL != ringptr->skb) {
- 		/*
-@@ -1284,7 +1284,6 @@ static int hp100_build_rx_pdl(hp100_ring_t * ringptr,
- 		 */
- 		skb_reserve(ringptr->skb, 2);
+ 	while (np->put_rx.orig != less_rx) {
+-		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + NV_RX_ALLOC_PAD);
++		struct sk_buff *skb =
++			netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
+ 		if (skb) {
+ 			np->put_rx_ctx->skb = skb;
+ 			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
+@@ -1850,7 +1851,8 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 		less_rx = np->last_rx.ex;
  
--		ringptr->skb->dev = dev;
- 		ringptr->skb->data = (u_char *) skb_put(ringptr->skb, MAX_ETHER_SIZE);
+ 	while (np->put_rx.ex != less_rx) {
+-		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + NV_RX_ALLOC_PAD);
++		struct sk_buff *skb =
++			netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
+ 		if (skb) {
+ 			np->put_rx_ctx->skb = skb;
+ 			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
+@@ -4993,9 +4995,9 @@ static int nv_loopback_test(struct net_device *dev)
  
- 		/* ringptr->pdl points to the beginning of the PDL, i.e. the PDH */
-@@ -1817,7 +1816,7 @@ static void hp100_rx(struct net_device *dev)
- #endif
+ 	/* setup packet for tx */
+ 	pkt_len = ETH_DATA_LEN;
+-	tx_skb = dev_alloc_skb(pkt_len);
++	tx_skb = netdev_alloc_skb(dev, pkt_len);
+ 	if (!tx_skb) {
+-		netdev_err(dev, "dev_alloc_skb() failed during loopback test\n");
++		netdev_err(dev, "netdev_alloc_skb() failed during loopback test\n");
+ 		ret = 0;
+ 		goto out;
+ 	}
+diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
+index 3458df3..8fc26af 100644
+--- a/drivers/net/ethernet/packetengines/hamachi.c
++++ b/drivers/net/ethernet/packetengines/hamachi.c
+@@ -1188,11 +1188,10 @@ static void hamachi_init_ring(struct net_device *dev)
+ 	}
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = dev_alloc_skb(hmp->rx_buf_sz + 2);
++		struct sk_buff *skb = netdev_alloc_skb(dev, hmp->rx_buf_sz + 2);
+ 		hmp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+-		skb->dev = dev;         /* Mark as being used by this device. */
+ 		skb_reserve(skb, 2); /* 16 byte align the IP header. */
+                 hmp->rx_ring[i].addr = cpu_to_leXX(pci_map_single(hmp->pci_dev,
+ 			skb->data, hmp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+@@ -1488,7 +1487,8 @@ static int hamachi_rx(struct net_device *dev)
+ 			/* Check if the packet is long enough to accept without copying
+ 			   to a minimally-sized skbuff. */
+ 			if (pkt_len < rx_copybreak &&
+-			    (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
++			    (skb = netdev_alloc_skb(dev, pkt_len + 2))
++			    != NULL) {
+ #ifdef RX_CHECKSUM
+ 				printk(KERN_ERR "%s: rx_copybreak non-zero "
+ 				  "not good with RX_CHECKSUM\n", dev->name);
+@@ -1591,12 +1591,12 @@ static int hamachi_rx(struct net_device *dev)
+ 		entry = hmp->dirty_rx % RX_RING_SIZE;
+ 		desc = &(hmp->rx_ring[entry]);
+ 		if (hmp->rx_skbuff[entry] == NULL) {
+-			struct sk_buff *skb = dev_alloc_skb(hmp->rx_buf_sz + 2);
++			struct sk_buff *skb = netdev_alloc_skb(dev,
++					hmp->rx_buf_sz + 2);
  
- 		/* Now we allocate the skb and transfer the data into it. */
--		skb = dev_alloc_skb(pkt_len+2);
-+		skb = netdev_alloc_skb(dev, pkt_len + 2);
- 		if (skb == NULL) {	/* Not enough memory->drop packet */
- #ifdef HP100_DEBUG
- 			printk("hp100: %s: rx: couldn't allocate a sk_buff of size %d\n",
-diff --git a/drivers/net/ethernet/i825xx/3c505.c b/drivers/net/ethernet/i825xx/3c505.c
-index ba82a26..6a5c21b 100644
---- a/drivers/net/ethernet/i825xx/3c505.c
-+++ b/drivers/net/ethernet/i825xx/3c505.c
-@@ -583,7 +583,7 @@ static void receive_packet(struct net_device *dev, int len)
- 	unsigned long flags;
+ 			hmp->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break;		/* Better luck next round. */
+-			skb->dev = dev;		/* Mark as being used by this device. */
+ 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+                 	desc->addr = cpu_to_leXX(pci_map_single(hmp->pci_dev,
+ 				skb->data, hmp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
+index db44e9a..68de55e 100644
+--- a/drivers/net/ethernet/packetengines/yellowfin.c
++++ b/drivers/net/ethernet/packetengines/yellowfin.c
+@@ -744,11 +744,10 @@ static int yellowfin_init_ring(struct net_device *dev)
+ 	}
  
- 	rlen = (len + 1) & ~1;
--	skb = dev_alloc_skb(rlen + 2);
-+	skb = netdev_alloc_skb(dev, rlen + 2);
- 
- 	if (!skb) {
- 		pr_warning("%s: memory squeeze, dropping packet\n", dev->name);
-diff --git a/drivers/net/ethernet/i825xx/3c507.c b/drivers/net/ethernet/i825xx/3c507.c
-index 1e94555..ed6925f 100644
---- a/drivers/net/ethernet/i825xx/3c507.c
-+++ b/drivers/net/ethernet/i825xx/3c507.c
-@@ -851,7 +851,7 @@ static void el16_rx(struct net_device *dev)
- 			struct sk_buff *skb;
- 
- 			pkt_len &= 0x3fff;
--			skb = dev_alloc_skb(pkt_len+2);
-+			skb = netdev_alloc_skb(dev, pkt_len + 2);
- 			if (skb == NULL) {
- 				pr_err("%s: Memory squeeze, dropping packet.\n",
- 				       dev->name);
-diff --git a/drivers/net/ethernet/i825xx/3c523.c b/drivers/net/ethernet/i825xx/3c523.c
-index d70d3df..8451ecd 100644
---- a/drivers/net/ethernet/i825xx/3c523.c
-+++ b/drivers/net/ethernet/i825xx/3c523.c
-@@ -983,7 +983,7 @@ static void elmc_rcv_int(struct net_device *dev)
- 			if ((totlen = rbd->status) & RBD_LAST) {	/* the first and the last buffer? */
- 				totlen &= RBD_MASK;	/* length of this frame */
- 				rbd->status = 0;
--				skb = (struct sk_buff *) dev_alloc_skb(totlen + 2);
-+				skb = netdev_alloc_skb(dev, totlen + 2);
- 				if (skb != NULL) {
- 					skb_reserve(skb, 2);	/* 16 byte alignment */
- 					skb_put(skb,totlen);
-diff --git a/drivers/net/ethernet/i825xx/3c527.c b/drivers/net/ethernet/i825xx/3c527.c
-index 474b5e7..ef43f3e 100644
---- a/drivers/net/ethernet/i825xx/3c527.c
-+++ b/drivers/net/ethernet/i825xx/3c527.c
-@@ -1169,7 +1169,7 @@ static void mc32_rx_ring(struct net_device *dev)
- 			/* Try to save time by avoiding a copy on big frames */
- 
- 			if ((length > RX_COPYBREAK) &&
--			    ((newskb=dev_alloc_skb(1532)) != NULL))
-+			    ((newskb = netdev_alloc_skb(dev, 1532)) != NULL))
- 			{
- 				skb=lp->rx_ring[rx_ring_tail].skb;
- 				skb_put(skb, length);
-@@ -1180,7 +1180,7 @@ static void mc32_rx_ring(struct net_device *dev)
- 			}
- 			else
- 			{
--				skb=dev_alloc_skb(length+2);
-+				skb = netdev_alloc_skb(dev, length + 2);
- 
- 				if(skb==NULL) {
- 					dev->stats.rx_dropped++;
-diff --git a/drivers/net/ethernet/i825xx/82596.c b/drivers/net/ethernet/i825xx/82596.c
-index f2408a4..6aa927a 100644
---- a/drivers/net/ethernet/i825xx/82596.c
-+++ b/drivers/net/ethernet/i825xx/82596.c
-@@ -549,14 +549,13 @@ static inline int init_rx_bufs(struct net_device *dev)
- 	/* First build the Receive Buffer Descriptor List */
- 
- 	for (i = 0, rbd = lp->rbds; i < rx_ring_size; i++, rbd++) {
--		struct sk_buff *skb = dev_alloc_skb(PKT_BUF_SZ);
-+		struct sk_buff *skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
- 
- 		if (skb == NULL) {
- 			remove_rx_bufs(dev);
- 			return -ENOMEM;
- 		}
- 
--		skb->dev = dev;
- 		rbd->v_next = rbd+1;
- 		rbd->b_next = WSWAPrbd(virt_to_bus(rbd+1));
- 		rbd->b_addr = WSWAPrbd(virt_to_bus(rbd));
-@@ -810,7 +809,7 @@ static inline int i596_rx(struct net_device *dev)
- 				struct sk_buff *newskb;
- 
- 				/* Get fresh skbuff to replace filled one. */
--				newskb = dev_alloc_skb(PKT_BUF_SZ);
-+				newskb = netdev_alloc_skb(dev, PKT_BUF_SZ);
- 				if (newskb == NULL) {
- 					skb = NULL;	/* drop pkt */
- 					goto memory_squeeze;
-@@ -819,7 +818,6 @@ static inline int i596_rx(struct net_device *dev)
- 				skb_put(skb, pkt_len);
- 				rx_in_place = 1;
- 				rbd->skb = newskb;
--				newskb->dev = dev;
- 				rbd->v_data = newskb->data;
- 				rbd->b_data = WSWAPchar(virt_to_bus(newskb->data));
- #ifdef __mc68000__
-@@ -827,7 +825,7 @@ static inline int i596_rx(struct net_device *dev)
- #endif
- 			}
- 			else
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = dev_alloc_skb(yp->rx_buf_sz + 2);
++		struct sk_buff *skb = netdev_alloc_skb(dev, yp->rx_buf_sz + 2);
+ 		yp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+-		skb->dev = dev;		/* Mark as being used by this device. */
+ 		skb_reserve(skb, 2);	/* 16 byte align the IP header. */
+ 		yp->rx_ring[i].addr = cpu_to_le32(pci_map_single(yp->pci_dev,
+ 			skb->data, yp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+@@ -1134,7 +1133,7 @@ static int yellowfin_rx(struct net_device *dev)
+ 					PCI_DMA_FROMDEVICE);
+ 				yp->rx_skbuff[entry] = NULL;
+ 			} else {
 -				skb = dev_alloc_skb(pkt_len + 2);
 +				skb = netdev_alloc_skb(dev, pkt_len + 2);
- memory_squeeze:
- 			if (skb == NULL) {
- 				/* XXX tulip.c can defer packets here!! */
-diff --git a/drivers/net/ethernet/i825xx/eepro.c b/drivers/net/ethernet/i825xx/eepro.c
-index 114cda77..7a4ad4a 100644
---- a/drivers/net/ethernet/i825xx/eepro.c
-+++ b/drivers/net/ethernet/i825xx/eepro.c
-@@ -1563,7 +1563,7 @@ eepro_rx(struct net_device *dev)
- 
- 			dev->stats.rx_bytes+=rcv_size;
- 			rcv_size &= 0x3fff;
--			skb = dev_alloc_skb(rcv_size+5);
-+			skb = netdev_alloc_skb(dev, rcv_size + 5);
- 			if (skb == NULL) {
- 				printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n", dev->name);
- 				dev->stats.rx_dropped++;
-diff --git a/drivers/net/ethernet/i825xx/eexpress.c b/drivers/net/ethernet/i825xx/eexpress.c
-index 3a9580f..3fc649e 100644
---- a/drivers/net/ethernet/i825xx/eexpress.c
-+++ b/drivers/net/ethernet/i825xx/eexpress.c
-@@ -955,7 +955,7 @@ static void eexp_hw_rx_pio(struct net_device *dev)
- 			{
- 				struct sk_buff *skb;
- 				pkt_len &= 0x3fff;
--				skb = dev_alloc_skb(pkt_len+16);
-+				skb = netdev_alloc_skb(dev, pkt_len + 16);
  				if (skb == NULL)
- 				{
- 					printk(KERN_WARNING "%s: Memory squeeze, dropping packet\n",dev->name);
-diff --git a/drivers/net/ethernet/i825xx/ether1.c b/drivers/net/ethernet/i825xx/ether1.c
-index 42e90a9..406a12b 100644
---- a/drivers/net/ethernet/i825xx/ether1.c
-+++ b/drivers/net/ethernet/i825xx/ether1.c
-@@ -867,7 +867,7 @@ ether1_recv_done (struct net_device *dev)
- 			struct sk_buff *skb;
+ 					break;
+ 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
+@@ -1157,11 +1156,11 @@ static int yellowfin_rx(struct net_device *dev)
+ 	for (; yp->cur_rx - yp->dirty_rx > 0; yp->dirty_rx++) {
+ 		entry = yp->dirty_rx % RX_RING_SIZE;
+ 		if (yp->rx_skbuff[entry] == NULL) {
+-			struct sk_buff *skb = dev_alloc_skb(yp->rx_buf_sz + 2);
++			struct sk_buff *skb = netdev_alloc_skb(dev,
++					yp->rx_buf_sz + 2);
+ 			if (skb == NULL)
+ 				break;				/* Better luck next round. */
+ 			yp->rx_skbuff[entry] = skb;
+-			skb->dev = dev;	/* Mark as being used by this device. */
+ 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+ 			yp->rx_ring[entry].addr = cpu_to_le32(pci_map_single(yp->pci_dev,
+ 				skb->data, yp->rx_buf_sz, PCI_DMA_FROMDEVICE));
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
+index 49b549f..148de79 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac.c
++++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
+@@ -643,7 +643,7 @@ static void pasemi_mac_replenish_rx_ring(const struct net_device *dev,
+ 		/* Entry in use? */
+ 		WARN_ON(*buff);
  
- 			length = (length + 1) & ~1;
--			skb = dev_alloc_skb (length + 2);
+-		skb = dev_alloc_skb(mac->bufsz);
++		skb = netdev_alloc_skb(dev, mac->bufsz);
+ 		skb_reserve(skb, LOCAL_SKB_ALIGN);
+ 
+ 		if (unlikely(!skb))
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+index a8259cc..df36b48 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+@@ -1494,7 +1494,7 @@ netxen_alloc_rx_skb(struct netxen_adapter *adapter,
+ 	dma_addr_t dma;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+-	buffer->skb = dev_alloc_skb(rds_ring->skb_size);
++	buffer->skb = netdev_alloc_skb(adapter->netdev, rds_ring->skb_size);
+ 	if (!buffer->skb)
+ 		return 1;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index cc228cf..8395d63 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -722,7 +722,7 @@ static int qlcnic_do_lb_test(struct qlcnic_adapter *adapter, u8 mode)
+ 	int i, loop, cnt = 0;
+ 
+ 	for (i = 0; i < QLCNIC_NUM_ILB_PKT; i++) {
+-		skb = dev_alloc_skb(QLCNIC_ILB_PKT_SIZE);
++		skb = netdev_alloc_skb(adapter->netdev, QLCNIC_ILB_PKT_SIZE);
+ 		qlcnic_create_loopback_buff(skb->data, adapter->mac_addr);
+ 		skb_put(skb, QLCNIC_ILB_PKT_SIZE);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+index 3866958..b019f59 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+@@ -1434,7 +1434,7 @@ qlcnic_alloc_rx_skb(struct qlcnic_adapter *adapter,
+ 	dma_addr_t dma;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+-	skb = dev_alloc_skb(rds_ring->skb_size);
++	skb = netdev_alloc_skb(adapter->netdev, rds_ring->skb_size);
+ 	if (!skb) {
+ 		adapter->stats.skb_alloc_failure++;
+ 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/racal/ni5010.c b/drivers/net/ethernet/racal/ni5010.c
+index 072810d..8079822 100644
+--- a/drivers/net/ethernet/racal/ni5010.c
++++ b/drivers/net/ethernet/racal/ni5010.c
+@@ -552,7 +552,7 @@ static void ni5010_rx(struct net_device *dev)
+ 	}
+ 
+ 	/* Malloc up new buffer. */
+-	skb = dev_alloc_skb(i_pkt_size + 3);
++	skb = netdev_alloc_skb(dev, i_pkt_size + 3);
+ 	if (skb == NULL) {
+ 		printk(KERN_WARNING "%s: Memory squeeze, dropping packet.\n", dev->name);
+ 		dev->stats.rx_dropped++;
+diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
+index e3f57fd..46c1932 100644
+--- a/drivers/net/ethernet/realtek/atp.c
++++ b/drivers/net/ethernet/realtek/atp.c
+@@ -783,7 +783,7 @@ static void net_rx(struct net_device *dev)
+ 		int pkt_len = (rx_head.rx_count & 0x7ff) - 4;
+ 		struct sk_buff *skb;
+ 
+-		skb = dev_alloc_skb(pkt_len + 2);
++		skb = netdev_alloc_skb(dev, pkt_len + 2);
+ 		if (skb == NULL) {
+ 			printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n",
+ 				   dev->name);
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 813d41c..4fe9621 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -653,13 +653,12 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 		/* skb */
+ 		mdp->rx_skbuff[i] = NULL;
+-		skb = dev_alloc_skb(mdp->rx_buf_sz);
++		skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
+ 		mdp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+ 		dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
+ 				DMA_FROM_DEVICE);
+-		skb->dev = ndev; /* Mark as being used by this device. */
+ 		sh_eth_set_receive_align(skb);
+ 
+ 		/* RX descriptor */
+@@ -953,13 +952,12 @@ static int sh_eth_rx(struct net_device *ndev)
+ 		rxdesc->buffer_length = ALIGN(mdp->rx_buf_sz, 16);
+ 
+ 		if (mdp->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(mdp->rx_buf_sz);
++			skb = netdev_alloc_skb(ndev, mdp->rx_buf_sz);
+ 			mdp->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break;	/* Better luck next round. */
+ 			dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
+ 					DMA_FROM_DEVICE);
+-			skb->dev = ndev;
+ 			sh_eth_set_receive_align(skb);
+ 
+ 			skb_checksum_none_assert(skb);
+diff --git a/drivers/net/ethernet/seeq/ether3.c b/drivers/net/ethernet/seeq/ether3.c
+index 893c880..7b819bd 100644
+--- a/drivers/net/ethernet/seeq/ether3.c
++++ b/drivers/net/ethernet/seeq/ether3.c
+@@ -643,7 +643,7 @@ if (next_ptr < RX_START || next_ptr >= RX_END) {
+ 			if (next_ptr <= this_ptr)
+ 				length += RX_END - RX_START;
+ 
+-			skb = dev_alloc_skb(length + 2);
 +			skb = netdev_alloc_skb(dev, length + 2);
- 
  			if (skb) {
- 				skb_reserve (skb, 2);
-diff --git a/drivers/net/ethernet/i825xx/lp486e.c b/drivers/net/ethernet/i825xx/lp486e.c
-index 414044b..2ad5f10 100644
---- a/drivers/net/ethernet/i825xx/lp486e.c
-+++ b/drivers/net/ethernet/i825xx/lp486e.c
-@@ -658,7 +658,7 @@ i596_rx_one(struct net_device *dev, struct i596_private *lp,
- 	if (rfd->stat & RFD_STAT_OK) {
- 		/* a good frame */
- 		int pkt_len = (rfd->count & 0x3fff);
--		struct sk_buff *skb = dev_alloc_skb(pkt_len);
-+		struct sk_buff *skb = netdev_alloc_skb(dev, pkt_len);
+ 				unsigned char *buf;
  
- 		(*frames)++;
- 
-diff --git a/drivers/net/ethernet/i825xx/ni52.c b/drivers/net/ethernet/i825xx/ni52.c
-index c089371..272976e 100644
---- a/drivers/net/ethernet/i825xx/ni52.c
-+++ b/drivers/net/ethernet/i825xx/ni52.c
-@@ -964,7 +964,7 @@ static void ni52_rcv_int(struct net_device *dev)
- 				/* the first and the last buffer? */
- 				totlen &= RBD_MASK; /* length of this frame */
- 				writew(0x00, &rbd->status);
--				skb = (struct sk_buff *)dev_alloc_skb(totlen+2);
-+				skb = netdev_alloc_skb(dev, totlen + 2);
- 				if (skb != NULL) {
- 					skb_reserve(skb, 2);
- 					skb_put(skb, totlen);
-diff --git a/drivers/net/ethernet/i825xx/sun3_82586.c b/drivers/net/ethernet/i825xx/sun3_82586.c
-index 6ef5e11..5a523dc 100644
---- a/drivers/net/ethernet/i825xx/sun3_82586.c
-+++ b/drivers/net/ethernet/i825xx/sun3_82586.c
-@@ -779,7 +779,7 @@ static void sun3_82586_rcv_int(struct net_device *dev)
- 				{
- 					totlen &= RBD_MASK; /* length of this frame */
- 					rbd->status = 0;
--					skb = (struct sk_buff *) dev_alloc_skb(totlen+2);
-+					skb = netdev_alloc_skb(dev, totlen + 2);
- 					if(skb != NULL)
- 					{
- 						skb_reserve(skb,2);
-diff --git a/drivers/net/ethernet/i825xx/znet.c b/drivers/net/ethernet/i825xx/znet.c
-index 962b4c4..a436497 100644
---- a/drivers/net/ethernet/i825xx/znet.c
-+++ b/drivers/net/ethernet/i825xx/znet.c
-@@ -762,7 +762,7 @@ static void znet_rx(struct net_device *dev)
- 			/* Malloc up new buffer. */
+diff --git a/drivers/net/ethernet/seeq/seeq8005.c b/drivers/net/ethernet/seeq/seeq8005.c
+index 6056145..7989907 100644
+--- a/drivers/net/ethernet/seeq/seeq8005.c
++++ b/drivers/net/ethernet/seeq/seeq8005.c
+@@ -548,7 +548,7 @@ static void seeq8005_rx(struct net_device *dev)
  			struct sk_buff *skb;
+ 			unsigned char *buf;
  
 -			skb = dev_alloc_skb(pkt_len);
 +			skb = netdev_alloc_skb(dev, pkt_len);
  			if (skb == NULL) {
- 				if (znet_debug)
- 				  printk(KERN_WARNING "%s: Memory squeeze, dropping packet.\n", dev->name);
-diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
-index 075451d..2e6c756 100644
---- a/drivers/net/ethernet/icplus/ipg.c
-+++ b/drivers/net/ethernet/icplus/ipg.c
-@@ -744,9 +744,6 @@ static int ipg_get_rxbuff(struct net_device *dev, int entry)
- 		return -ENOMEM;
- 	}
- 
--	/* Associate the receive buffer with the IPG NIC. */
--	skb->dev = dev;
--
- 	/* Save the address of the sk_buff structure. */
- 	sp->rx_buff[entry] = skb;
- 
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 85e2c6c..ce54778 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -114,7 +114,7 @@ struct ltq_etop_priv {
- static int
- ltq_etop_alloc_skb(struct ltq_etop_chan *ch)
- {
--	ch->skb[ch->dma.desc] = dev_alloc_skb(MAX_DMA_DATA_LEN);
-+	ch->skb[ch->dma.desc] = netdev_alloc_skb(ch->netdev, MAX_DMA_DATA_LEN);
- 	if (!ch->skb[ch->dma.desc])
- 		return -ENOMEM;
- 	ch->dma.desc_base[ch->dma.desc].addr = dma_map_single(NULL,
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 9edecfa..f702d0d 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -667,7 +667,7 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
- 
- 		skb = __skb_dequeue(&mp->rx_recycle);
- 		if (skb == NULL)
--			skb = dev_alloc_skb(mp->skb_size);
-+			skb = netdev_alloc_skb(mp->dev, mp->skb_size);
- 
- 		if (skb == NULL) {
- 			mp->oom = 1;
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 953ba58..a76bf553 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -350,7 +350,7 @@ static void rxq_refill(struct net_device *dev)
- 	while (pep->rx_desc_count < pep->rx_ring_size) {
- 		int size;
- 
--		skb = dev_alloc_skb(pep->skb_size);
-+		skb = netdev_alloc_skb(dev, pep->skb_size);
- 		if (!skb)
- 			break;
- 		if (SKB_DMA_REALIGN)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 971d4b6..700f802 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -464,12 +464,11 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 	int used_frags;
- 	dma_addr_t dma;
- 
--	skb = dev_alloc_skb(SMALL_PACKET_SIZE + NET_IP_ALIGN);
-+	skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
- 	if (!skb) {
- 		en_dbg(RX_ERR, priv, "Failed allocating skb\n");
- 		return NULL;
- 	}
--	skb->dev = priv->dev;
- 	skb_reserve(skb, NET_IP_ALIGN);
- 	skb->len = length;
- 
-diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
-index ab81c0d..bce9acc 100644
---- a/drivers/net/ethernet/micrel/ks8695net.c
-+++ b/drivers/net/ethernet/micrel/ks8695net.c
-@@ -278,7 +278,8 @@ ks8695_refill_rxbuffers(struct ks8695_priv *ksp)
- 
- 	for (buff_n = 0; buff_n < MAX_RX_DESC; ++buff_n) {
- 		if (!ksp->rx_buffers[buff_n].skb) {
--			struct sk_buff *skb = dev_alloc_skb(MAX_RXBUF_SIZE);
-+			struct sk_buff *skb =
-+				netdev_alloc_skb(ksp->ndev, MAX_RXBUF_SIZE);
- 			dma_addr_t mapping;
- 
- 			ksp->rx_buffers[buff_n].skb = skb;
-@@ -299,7 +300,6 @@ ks8695_refill_rxbuffers(struct ks8695_priv *ksp)
- 				break;
- 			}
- 			ksp->rx_buffers[buff_n].dma_ptr = mapping;
--			skb->dev = ksp->ndev;
- 			ksp->rx_buffers[buff_n].length = MAX_RXBUF_SIZE;
- 
- 			/* Record this into the DMA ring */
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index e58e78e..076996f 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -796,7 +796,7 @@ static void ks_rcv(struct ks_net *ks, struct net_device *netdev)
- 
- 	frame_hdr = ks->frame_head_info;
- 	while (ks->frame_cnt--) {
--		skb = dev_alloc_skb(frame_hdr->len + 16);
-+		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
- 		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
- 			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
- 			skb_reserve(skb, 2);
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index e52cd31..04276c9 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -4863,7 +4863,7 @@ static netdev_tx_t netdev_tx(struct sk_buff *skb, struct net_device *dev)
- 				memset(&skb->data[skb->len], 0, 50 - skb->len);
- 				skb->len = 50;
- 			} else {
--				skb = dev_alloc_skb(50);
-+				skb = netdev_alloc_skb(dev, 50);
- 				if (!skb)
- 					return NETDEV_TX_BUSY;
- 				memcpy(skb->data, org_skb->data, org_skb->len);
-@@ -4885,7 +4885,7 @@ static netdev_tx_t netdev_tx(struct sk_buff *skb, struct net_device *dev)
- 				(ETH_P_IPV6 == htons(skb->protocol)))) {
- 			struct sk_buff *org_skb = skb;
- 
--			skb = dev_alloc_skb(org_skb->len);
-+			skb = netdev_alloc_skb(dev, org_skb->len);
- 			if (!skb) {
- 				rc = NETDEV_TX_BUSY;
- 				goto unlock;
-@@ -5019,7 +5019,7 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
- 
- 	do {
- 		/* skb->data != skb->head */
--		skb = dev_alloc_skb(packet_len + 2);
-+		skb = netdev_alloc_skb(dev, packet_len + 2);
- 		if (!skb) {
- 			dev->stats.rx_dropped++;
- 			return -ENOMEM;
-diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
-index 50055e0..4125478 100644
---- a/drivers/net/ethernet/microchip/enc28j60.c
-+++ b/drivers/net/ethernet/microchip/enc28j60.c
-@@ -954,14 +954,13 @@ static void enc28j60_hw_rx(struct net_device *ndev)
- 		if (len > MAX_FRAMELEN)
- 			ndev->stats.rx_over_errors++;
- 	} else {
--		skb = dev_alloc_skb(len + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb(ndev, len + NET_IP_ALIGN);
- 		if (!skb) {
- 			if (netif_msg_rx_err(priv))
- 				dev_err(&ndev->dev,
- 					"out of memory for Rx'd frame\n");
- 			ndev->stats.rx_dropped++;
- 		} else {
--			skb->dev = ndev;
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			/* copy the packet from the receive buffer */
- 			enc28j60_mem_read(priv,
-diff --git a/drivers/net/ethernet/mipsnet.c b/drivers/net/ethernet/mipsnet.c
-index d05b0c9..dbc666a 100644
---- a/drivers/net/ethernet/mipsnet.c
-+++ b/drivers/net/ethernet/mipsnet.c
-@@ -152,7 +152,7 @@ static inline ssize_t mipsnet_get_fromdev(struct net_device *dev, size_t len)
- 	if (!len)
- 		return len;
- 
--	skb = dev_alloc_skb(len + NET_IP_ALIGN);
-+	skb = netdev_alloc_skb(dev, len + NET_IP_ALIGN);
- 	if (!skb) {
- 		dev->stats.rx_dropped++;
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/natsemi/ibmlana.c b/drivers/net/ethernet/natsemi/ibmlana.c
-index 999407f..3f94ddb 100644
---- a/drivers/net/ethernet/natsemi/ibmlana.c
-+++ b/drivers/net/ethernet/natsemi/ibmlana.c
-@@ -589,7 +589,7 @@ static void irqrx_handler(struct net_device *dev)
- 
- 			/* fetch buffer */
- 
--			skb = dev_alloc_skb(rda.length + 2);
-+			skb = netdev_alloc_skb(dev, rda.length + 2);
- 			if (skb == NULL)
+ 				printk("%s: Memory squeeze, dropping packet.\n", dev->name);
  				dev->stats.rx_dropped++;
- 			else {
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
-index ac7b16b..d38e48d 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -1934,11 +1934,10 @@ static void refill_rx(struct net_device *dev)
- 		int entry = np->dirty_rx % RX_RING_SIZE;
- 		if (np->rx_skbuff[entry] == NULL) {
- 			unsigned int buflen = np->rx_buf_sz+NATSEMI_PADDING;
--			skb = dev_alloc_skb(buflen);
-+			skb = netdev_alloc_skb(dev, buflen);
- 			np->rx_skbuff[entry] = skb;
- 			if (skb == NULL)
- 				break; /* Better luck next round. */
--			skb->dev = dev; /* Mark as being used by this device. */
- 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
- 				skb->data, buflen, PCI_DMA_FROMDEVICE);
- 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
-@@ -2344,7 +2343,7 @@ static void netdev_rx(struct net_device *dev, int *work_done, int work_to_do)
- 			/* Check if the packet is long enough to accept
- 			 * without copying to a minimally-sized skbuff. */
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index c8efc70..5c2f9bd 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -1165,9 +1165,9 @@ sis900_init_rx_ring(struct net_device *net_dev)
+ 
+ 	/* allocate sock buffers */
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+-		struct sk_buff *skb;
++		struct sk_buff *skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE);
+ 
+-		if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
++		if (skb == NULL) {
+ 			/* not enough memory for skbuff, this makes a "hole"
+ 			   on the buffer ring, it is not clear how the
+ 			   hardware will react to this kind of degenerated
+@@ -1770,7 +1770,8 @@ static int sis900_rx(struct net_device *net_dev)
+ 
+ 			/* refill the Rx buffer, what if there is not enough
+ 			 * memory for new socket buffer ?? */
+-			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
++			skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE);
++			if (skb == NULL) {
+ 				/*
+ 				 * Not enough memory to refill the buffer
+ 				 * so we need to recycle the old one so
+@@ -1828,7 +1829,8 @@ refill_rx_ring:
+ 		entry = sis_priv->dirty_rx % NUM_RX_DESC;
+ 
+ 		if (sis_priv->rx_skbuff[entry] == NULL) {
+-			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
++			skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE);
++			if (skb == NULL) {
+ 				/* not enough memory for skbuff, this makes a
+ 				 * "hole" on the buffer ring, it is not clear
+ 				 * how the hardware will react to this kind
+diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
+index 2c077ce..9ea580a 100644
+--- a/drivers/net/ethernet/smsc/epic100.c
++++ b/drivers/net/ethernet/smsc/epic100.c
+@@ -935,7 +935,7 @@ static void epic_init_ring(struct net_device *dev)
+ 
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = dev_alloc_skb(ep->rx_buf_sz + 2);
++		struct sk_buff *skb = netdev_alloc_skb(dev, ep->rx_buf_sz + 2);
+ 		ep->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+@@ -1200,7 +1200,7 @@ static int epic_rx(struct net_device *dev, int budget)
+ 			/* Check if the packet is long enough to accept without copying
+ 			   to a minimally-sized skbuff. */
  			if (pkt_len < rx_copybreak &&
--			    (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
-+			    (skb = netdev_alloc_skb(dev, pkt_len + RX_OFFSET)) != NULL) {
- 				/* 16 byte align the IP header */
- 				skb_reserve(skb, RX_OFFSET);
- 				pci_dma_sync_single_for_cpu(np->pci_dev,
-diff --git a/drivers/net/ethernet/natsemi/sonic.c b/drivers/net/ethernet/natsemi/sonic.c
-index 26e25d7..0452e296 100644
---- a/drivers/net/ethernet/natsemi/sonic.c
-+++ b/drivers/net/ethernet/natsemi/sonic.c
-@@ -51,7 +51,7 @@ static int sonic_open(struct net_device *dev)
- 		printk("sonic_open: initializing sonic driver.\n");
+-			    (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
++			    (skb = netdev_alloc_skb(dev, pkt_len + 2)) != NULL) {
+ 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
+ 				pci_dma_sync_single_for_cpu(ep->pci_dev,
+ 							    ep->rx_ring[entry].bufaddr,
+@@ -1233,7 +1233,8 @@ static int epic_rx(struct net_device *dev, int budget)
+ 		entry = ep->dirty_rx % RX_RING_SIZE;
+ 		if (ep->rx_skbuff[entry] == NULL) {
+ 			struct sk_buff *skb;
+-			skb = ep->rx_skbuff[entry] = dev_alloc_skb(ep->rx_buf_sz + 2);
++			skb = ep->rx_skbuff[entry] = netdev_alloc_skb(dev,
++					ep->rx_buf_sz + 2);
+ 			if (skb == NULL)
+ 				break;
+ 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
+index 313ba3b..4b4ece1 100644
+--- a/drivers/net/ethernet/smsc/smc911x.c
++++ b/drivers/net/ethernet/smsc/smc911x.c
+@@ -401,7 +401,7 @@ static inline void	 smc911x_rcv(struct net_device *dev)
+ 	} else {
+ 		/* Receive a valid packet */
+ 		/* Alloc a buffer with extra room for DMA alignment */
+-		skb=dev_alloc_skb(pkt_len+32);
++		skb = netdev_alloc_skb(dev, pkt_len + 32);
+ 		if (unlikely(skb == NULL)) {
+ 			PRINTK( "%s: Low memory, rcvd packet dropped.\n",
+ 				dev->name);
+diff --git a/drivers/net/ethernet/smsc/smc9194.c b/drivers/net/ethernet/smsc/smc9194.c
+index 4e45094..50823da 100644
+--- a/drivers/net/ethernet/smsc/smc9194.c
++++ b/drivers/net/ethernet/smsc/smc9194.c
+@@ -1222,7 +1222,7 @@ static void smc_rcv(struct net_device *dev)
+ 		if ( status & RS_MULTICAST )
+ 			dev->stats.multicast++;
  
- 	for (i = 0; i < SONIC_NUM_RRS; i++) {
--		struct sk_buff *skb = dev_alloc_skb(SONIC_RBSIZE + 2);
-+		struct sk_buff *skb = netdev_alloc_skb(dev, SONIC_RBSIZE + 2);
- 		if (skb == NULL) {
- 			while(i > 0) { /* free any that were allocated successfully */
- 				i--;
-@@ -422,7 +422,7 @@ static void sonic_rx(struct net_device *dev)
- 		status = sonic_rda_get(dev, entry, SONIC_RD_STATUS);
- 		if (status & SONIC_RCR_PRX) {
- 			/* Malloc up new buffer. */
--			new_skb = dev_alloc_skb(SONIC_RBSIZE + 2);
-+			new_skb = netdev_alloc_skb(SONIC_RBSIZE + 2);
- 			if (new_skb == NULL) {
- 				printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n", dev->name);
- 				lp->stats.rx_dropped++;
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index 97f63e1..4ef38ed 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -2524,7 +2524,7 @@ static int fill_rx_buffers(struct s2io_nic *nic, struct ring_info *ring,
- 			size = ring->mtu + ALIGN_SIZE + BUF0_LEN + 4;
+-		skb = dev_alloc_skb( packet_length + 5);
++		skb = netdev_alloc_skb(dev, packet_length + 5);
  
- 		/* allocate skb */
--		skb = dev_alloc_skb(size);
-+		skb = netdev_alloc_skb(nic->dev, size);
+ 		if ( skb == NULL ) {
+ 			printk(KERN_NOTICE CARDNAME ": Low memory, packet dropped.\n");
+diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
+index ada927a..d6bc8e9 100644
+--- a/drivers/net/ethernet/smsc/smc91c92_cs.c
++++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
+@@ -1500,7 +1500,7 @@ static void smc_rx(struct net_device *dev)
+ 	struct sk_buff *skb;
+ 	
+ 	/* Note: packet_length adds 5 or 6 extra bytes here! */
+-	skb = dev_alloc_skb(packet_length+2);
++	skb = netdev_alloc_skb(dev, packet_length + 2);
+ 	
+ 	if (skb == NULL) {
+ 	    pr_debug("%s: Low memory, packet dropped.\n", dev->name);
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 64ad3ed..3c86ddd 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -463,7 +463,7 @@ static inline void  smc_rcv(struct net_device *dev)
+ 		 * multiple of 4 bytes on 32 bit buses.
+ 		 * Hence packet_len - 6 + 2 + 2 + 2.
+ 		 */
+-		skb = dev_alloc_skb(packet_len);
++		skb = netdev_alloc_skb(dev, packet_len);
+ 		if (unlikely(skb == NULL)) {
+ 			printk(KERN_NOTICE "%s: Low memory, packet dropped.\n",
+ 				dev->name);
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index a9efbdf..7e67543 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -850,8 +850,6 @@ static int smsc9420_alloc_rx_buffer(struct smsc9420_pdata *pd, int index)
+ 		return -ENOMEM;
+ 	}
+ 
+-	skb->dev = pd->dev;
+-
+ 	mapping = pci_map_single(pd->pdev, skb_tail_pointer(skb),
+ 				 PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
+ 	if (pci_dma_mapping_error(pd->pdev, mapping)) {
+diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
+index f10665f..6ad5265 100644
+--- a/drivers/net/ethernet/sun/cassini.c
++++ b/drivers/net/ethernet/sun/cassini.c
+@@ -1975,7 +1975,7 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
+ 	else
+ 		alloclen = max(hlen, RX_COPY_MIN);
+ 
+-	skb = dev_alloc_skb(alloclen + swivel + cp->crc_size);
++	skb = netdev_alloc_skb(cp->dev, alloclen + swivel + cp->crc_size);
+ 	if (skb == NULL)
+ 		return -1;
+ 
+diff --git a/drivers/net/ethernet/sun/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
+index 220f724..79d71bc 100644
+--- a/drivers/net/ethernet/sun/sunbmac.c
++++ b/drivers/net/ethernet/sun/sunbmac.c
+@@ -853,7 +853,8 @@ static void bigmac_rx(struct bigmac *bp)
+ 			/* Trim the original skb for the netif. */
+ 			skb_trim(skb, len);
+ 		} else {
+-			struct sk_buff *copy_skb = dev_alloc_skb(len + 2);
++			struct sk_buff *copy_skb =
++				netdev_alloc_skb(bp->dev, len + 2);
+ 
+ 			if (copy_skb == NULL) {
+ 				drops++;
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index 09c5186..d49b558 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -2043,7 +2043,8 @@ static void happy_meal_rx(struct happy_meal *hp, struct net_device *dev)
+ 			/* Trim the original skb for the netif. */
+ 			skb_trim(skb, len);
+ 		} else {
+-			struct sk_buff *copy_skb = dev_alloc_skb(len + 2);
++			struct sk_buff *copy_skb =
++				netdev_alloc_skb(dev, len + 2);
+ 
+ 			if (copy_skb == NULL) {
+ 				drops++;
+diff --git a/drivers/net/ethernet/sun/sunqe.c b/drivers/net/ethernet/sun/sunqe.c
+index b28f743..b42d1c5 100644
+--- a/drivers/net/ethernet/sun/sunqe.c
++++ b/drivers/net/ethernet/sun/sunqe.c
+@@ -435,7 +435,7 @@ static void qe_rx(struct sunqe *qep)
+ 			dev->stats.rx_length_errors++;
+ 			dev->stats.rx_dropped++;
+ 		} else {
+-			skb = dev_alloc_skb(len + 2);
++			skb = netdev_alloc_skb(dev, len + 2);
+ 			if (skb == NULL) {
+ 				drops++;
+ 				dev->stats.rx_dropped++;
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index 4b19e9b..68df1ac 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -1089,12 +1089,11 @@ static void bdx_rx_alloc_skbs(struct bdx_priv *priv, struct rxf_fifo *f)
+ 	ENTER;
+ 	dno = bdx_rxdb_available(db) - 1;
+ 	while (dno > 0) {
+-		skb = dev_alloc_skb(f->m.pktsz + NET_IP_ALIGN);
++		skb = netdev_alloc_skb(priv->ndev, f->m.pktsz + NET_IP_ALIGN);
  		if (!skb) {
- 			DBG_PRINT(INFO_DBG, "%s: Could not allocate skb\n",
- 				  ring->dev->name);
-@@ -6820,7 +6820,7 @@ static int set_rxd_buffer_pointer(struct s2io_nic *sp, struct RxD_t *rxdp,
- 			 */
- 			rxdp1->Buffer0_ptr = *temp0;
- 		} else {
--			*skb = dev_alloc_skb(size);
-+			*skb = netdev_alloc_skb(dev, size);
- 			if (!(*skb)) {
- 				DBG_PRINT(INFO_DBG,
- 					  "%s: Out of memory to allocate %s\n",
-@@ -6849,7 +6849,7 @@ static int set_rxd_buffer_pointer(struct s2io_nic *sp, struct RxD_t *rxdp,
- 			rxdp3->Buffer0_ptr = *temp0;
- 			rxdp3->Buffer1_ptr = *temp1;
- 		} else {
--			*skb = dev_alloc_skb(size);
-+			*skb = netdev_alloc_skb(dev, size);
- 			if (!(*skb)) {
- 				DBG_PRINT(INFO_DBG,
- 					  "%s: Out of memory to allocate %s\n",
+-			pr_err("NO MEM: dev_alloc_skb failed\n");
++			pr_err("NO MEM: netdev_alloc_skb failed\n");
+ 			break;
+ 		}
+-		skb->dev = priv->ndev;
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 
+ 		idx = bdx_rxdb_alloc_elem(db);
+@@ -1258,7 +1257,7 @@ static int bdx_rx_receive(struct bdx_priv *priv, struct rxd_fifo *f, int budget)
+ 		skb = dm->skb;
+ 
+ 		if (len < BDX_COPYBREAK &&
+-		    (skb2 = dev_alloc_skb(len + NET_IP_ALIGN))) {
++		    (skb2 = netdev_alloc_skb(priv->ndev, len + NET_IP_ALIGN))) {
+ 			skb_reserve(skb2, NET_IP_ALIGN);
+ 			/*skb_put(skb2, len); */
+ 			pci_dma_sync_single_for_cpu(priv->pdev,
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 4fa0bcb..ab3efe3 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -992,10 +992,9 @@ static irqreturn_t emac_irq(int irq, void *dev_id)
+ 
+ static struct sk_buff *emac_rx_alloc(struct emac_priv *priv)
+ {
+-	struct sk_buff *skb = dev_alloc_skb(priv->rx_buf_size);
++	struct sk_buff *skb = netdev_alloc_skb(priv->ndev, priv->rx_buf_size);
+ 	if (WARN_ON(!skb))
+ 		return NULL;
+-	skb->dev = priv->ndev;
+ 	skb_reserve(skb, NET_IP_ALIGN);
+ 	return skb;
+ }
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index d9951af..a8e5daa 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -419,7 +419,7 @@ static bool tile_net_provide_needed_buffer(struct tile_net_cpu *info,
+ #endif
+ 
+ 	/* Avoid "false sharing" with last cache line. */
+-	/* ISSUE: This is already done by "dev_alloc_skb()". */
++	/* ISSUE: This is already done by "netdev_alloc_skb()". */
+ 	unsigned int len =
+ 		 (((small ? LIPP_SMALL_PACKET_SIZE : large_size) +
+ 		   CHIP_L2_LINE_SIZE() - 1) & -CHIP_L2_LINE_SIZE());
+@@ -433,7 +433,7 @@ static bool tile_net_provide_needed_buffer(struct tile_net_cpu *info,
+ 	struct sk_buff **skb_ptr;
+ 
+ 	/* Request 96 extra bytes for alignment purposes. */
+-	skb = dev_alloc_skb(len + padding);
++	skb = netdev_alloc_skb(info->napi->dev, len + padding);
+ 	if (skb == NULL)
+ 		return false;
+ 
+diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+index 71b785c..73c1d26 100644
+--- a/drivers/net/ethernet/toshiba/tc35815.c
++++ b/drivers/net/ethernet/toshiba/tc35815.c
+@@ -453,7 +453,7 @@ static struct sk_buff *alloc_rxbuf_skb(struct net_device *dev,
+ 				       dma_addr_t *dma_handle)
+ {
+ 	struct sk_buff *skb;
+-	skb = dev_alloc_skb(RX_BUF_SIZE);
++	skb = netdev_alloc_skb(dev, RX_BUF_SIZE);
+ 	if (!skb)
+ 		return NULL;
+ 	*dma_handle = pci_map_single(hwdev, skb->data, RX_BUF_SIZE,
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 10b18eb..df70e0c 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1156,7 +1156,6 @@ static void alloc_rbufs(struct net_device *dev)
+ 		rp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+-		skb->dev = dev;                 /* Mark as being used by this device. */
+ 
+ 		rp->rx_skbuff_dma[i] =
+ 			pci_map_single(rp->pdev, skb->data, rp->rx_buf_sz,
+@@ -1941,7 +1940,6 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 			rp->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break;	/* Better luck next round. */
+-			skb->dev = dev;	/* Mark as being used by this device. */
+ 			rp->rx_skbuff_dma[entry] =
+ 				pci_map_single(rp->pdev, skb->data,
+ 					       rp->rx_buf_sz,
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index 4128d6b..b0a260d 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -1509,7 +1509,7 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
+ 	struct rx_desc *rd = &(vptr->rx.ring[idx]);
+ 	struct velocity_rd_info *rd_info = &(vptr->rx.info[idx]);
+ 
+-	rd_info->skb = dev_alloc_skb(vptr->rx.buf_sz + 64);
++	rd_info->skb = netdev_alloc_skb(vptr->dev, vptr->rx.buf_sz + 64);
+ 	if (rd_info->skb == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 79013e5..441088f 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -613,7 +613,7 @@ static void xemaclite_rx_handler(struct net_device *dev)
+ 	u32 len;
+ 
+ 	len = ETH_FRAME_LEN + ETH_FCS_LEN;
+-	skb = dev_alloc_skb(len + ALIGNMENT);
++	skb = netdev_alloc_skb(dev, len + ALIGNMENT);
+ 	if (!skb) {
+ 		/* Couldn't get memory. */
+ 		dev->stats.rx_dropped++;
+diff --git a/drivers/net/ethernet/xircom/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
+index 33979c3..5ae54c3 100644
+--- a/drivers/net/ethernet/xircom/xirc2ps_cs.c
++++ b/drivers/net/ethernet/xircom/xirc2ps_cs.c
+@@ -1039,7 +1039,8 @@ xirc2ps_interrupt(int irq, void *dev_id)
+ 
+ 	    pr_debug("rsr=%#02x packet_length=%u\n", rsr, pktlen);
+ 
+-	    skb = dev_alloc_skb(pktlen+3); /* 1 extra so we can use insw */
++		/* 1 extra so we can use insw */
++		skb = netdev_alloc_skb(dev, pktlen + 3);
+ 	    if (!skb) {
+ 		pr_notice("low memory, packet dropped (size=%u)\n", pktlen);
+ 		dev->stats.rx_dropped++;
