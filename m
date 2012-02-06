@@ -1,40 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Mon, 06 Feb 2012 17:56:06 +0100
-Message-ID: <1328547366.2220.83.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120203.192933.510206531351047222.davem@davemloft.net>
-	 <C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
-	 <CAGsizzLFoXdUQrA-WtdRq4FDdnDNnevyK6HCRmrT2joUV=ZRXg@mail.gmail.com>
-	 <20120206.101517.1598607878740481170.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 12:00:15 -0500 (EST)
+Message-ID: <20120206.120015.1104308784569339801.davem@davemloft.net>
+References: <1328545627.2220.72.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20120206.113145.1284864994961472499.davem@davemloft.net>
+	<4F300353.2080705@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steweg@ynet.sk, gregory.v.rose@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120206.101517.1598607878740481170.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F300353.2080705-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 10:15 -0500, David Miller a =C3=A9=
-crit :
-> From: =C5=A0tefan Gula <steweg@ynet.sk>
-> Date: Mon, 6 Feb 2012 09:53:28 +0100
->=20
-> > If I try to request for it, it will eventually fail with a lot of
-> > records even with filtering...
->=20
-> Then the user can loop increasing the buffer size until the netlink
-> request succeeds.
->=20
-> It is not a problem.
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Date: Mon, 6 Feb 2012 18:44:03 +0200
 
-Actually we always truncate message in netlink_recvmsg()
+> As I wrote earlier on this thread, the reason is that in order to be
+> able to xmit skb's for which the stack doesn't provide a neighbour,
+> IPoIB makes sure to have extra INFINIBAND_ALEN bytes headroom on
+> skbs. Such that the ipoib hard_header functions writes a
+> "ipoib_pseudoheader" (= hw address) on the skb and the xmit function
+> grabs it from there and use that pseudoheader to search for the actual
+> IB L2 address handle kept for that dest. Example such skbs are unicast
+> ARP replies and multicast. see below some relevant code sections from
+> ipoib_main.c
 
-We could use a MSG_NOPARTIAL flag in netlink_recvmsg() so that user can
-avoid the MSG_PEEK operation to fetch next message length.
+Then IPoIB is broken and must be fixed, see my other reply.
 
-(Ie not consume/copy skb if user buffer is too small to hold full
-message, and only return the needed length)
+We're not adding a bogus member to the netdevice just because IPoIB
+tries to do path resolution and neighbour validation behind the
+neighbour cache's back.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
