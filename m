@@ -1,93 +1,51 @@
-From: greearb@candelatech.com
-Subject: [PATCH 2/2] e100: Support RXFCS feature flag.
-Date: Mon,  6 Feb 2012 10:39:07 -0800
-Message-ID: <1328553547-27337-2-git-send-email-greearb@candelatech.com>
-References: <1328553547-27337-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55490 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755492Ab2BFSjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 13:39:31 -0500
-In-Reply-To: <1328553547-27337-1-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH 2/2] mlx4: fix DMA mapping leak when allocation fails
+Date: Mon,  6 Feb 2012 16:39:50 -0200
+Message-ID: <1328553590-27677-2-git-send-email-cascardo@linux.vnet.ibm.com>
+References: <1328553590-27677-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Alexander Guller <alexg@mellanox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328553590-27677-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
+mlx4_en_prepare_rx_desc does not correctly clean up after it finds an
+allocation failure. It should unmap a page before calling put_page, but
+it only calls the later.
 
-This allows e100 to be configured to append the
-Ethernet FCS to the skb.
+This bug would prevent a device removal using hotplug after setting the
+device MTU to 9000 and opening the network interface. After the fix, we
+still see the allocation failure with MTU 9000, but we are able to
+remove the device.
 
-Useful for sniffing networks.
-
-Signed-off-by: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 ---
-:100644 100644 485ab8c... 68b393b... M	drivers/net/ethernet/intel/e100.c
- drivers/net/ethernet/intel/e100.c |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 485ab8c..68b393b 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	struct config *config = &cb->u.config;
- 	u8 *c = (u8 *)config;
-+	struct net_device *netdev = nic->netdev;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d1c631e..d4ad8c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -168,8 +168,12 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+ 	return 0;
  
- 	cb->command = cpu_to_le16(cb_config);
+ err:
+-	while (i--)
++	while (i--) {
++		dma_addr_t dma = be64_to_cpu(rx_desc->data[i].addr);
++		pci_unmap_single(priv->mdev->pdev, dma, skb_frags[i].size,
++				 PCI_DMA_FROMDEVICE);
+ 		put_page(skb_frags[i].page);
++	}
+ 	return -ENOMEM;
+ }
  
-@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
- 	}
- 
-+	if (unlikely(netdev->features & NETIF_F_RXFCS))
-+		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
-+
- 	if (nic->flags & multicast_all)
- 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
- 
-@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	struct sk_buff *skb = rx->skb;
- 	struct rfd *rfd = (struct rfd *)skb->data;
- 	u16 rfd_status, actual_size;
-+	u16 fcs_pad = 0;
- 
- 	if (unlikely(work_done && *work_done >= work_to_do))
- 		return -EAGAIN;
-@@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	}
- 
- 	/* Get actual data size */
-+	if (unlikely(dev->features & NETIF_F_RXFCS))
-+		fcs_pad = 4;
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
--	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
--		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
-+	if (unlikely(actual_size > RFD_BUF_LEN + fcs_pad - sizeof(struct rfd)))
-+		actual_size = RFD_BUF_LEN + fcs_pad - sizeof(struct rfd);
- 
- 	/* Get data */
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
-@@ -1980,7 +1987,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	if (unlikely(!(rfd_status & cb_ok))) {
- 		/* Don't indicate if hardware indicates errors */
- 		dev_kfree_skb_any(skb);
--	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
-+	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
- 		/* Don't indicate oversized frames */
- 		nic->rx_over_length_errors++;
- 		dev_kfree_skb_any(skb);
-@@ -2754,6 +2761,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
- 		return -ENOMEM;
- 
-+	netdev->hw_features |= NETIF_F_RXFCS;
-+
- 	netdev->netdev_ops = &e100_netdev_ops;
- 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
 -- 
-1.7.3.4
+1.7.4.4
