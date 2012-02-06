@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Fix misspelling of "since"
-Date: Sun, 05 Feb 2012 22:46:27 -0500 (EST)
-Message-ID: <20120205.224627.48619619506408906.davem@davemloft.net>
-References: <alpine.LNX.2.00.1202060016290.32529@swampdragon.chaosbits.net>
+Subject: Re: [PATCH 1/3 net-next] bnx2: Add support for ethtool
+ --show-channels|--set-channels
+Date: Sun, 05 Feb 2012 22:46:37 -0500 (EST)
+Message-ID: <20120205.224637.839025650766388242.davem@davemloft.net>
+References: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fubar@us.ibm.com, andy@greyhouse.net
-To: jj@chaosbits.net
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45419 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:45429 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753175Ab2BFDqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 22:46:44 -0500
-In-Reply-To: <alpine.LNX.2.00.1202060016290.32529@swampdragon.chaosbits.net>
+	with ESMTP id S1753302Ab2BFDrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 22:47:12 -0500
+In-Reply-To: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Mon, 6 Feb 2012 00:18:57 +0100 (CET)
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sun, 5 Feb 2012 17:24:38 -0800
 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> Allow the user to override the default number of RSS/TSS rings.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 Applied.
