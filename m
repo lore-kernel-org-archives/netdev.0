@@ -1,166 +1,112 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 14/15] mm: Throttle direct reclaimers if PF_MEMALLOC reserves are low and swap is backed by network storage
-Date: Mon,  6 Feb 2012 22:56:17 +0000
-Message-ID: <1328568978-17553-15-git-send-email-mgorman@suse.de>
-References: <1328568978-17553-1-git-send-email-mgorman@suse.de>
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
+Subject: [PATCH 00/11] Swap-over-NFS without deadlocking V2
+Date: Mon,  6 Feb 2012 22:56:30 +0000
+Message-ID: <1328569001-17599-1-git-send-email-mgorman@suse.de>
+Cc: Linux-Netdev <netdev@vger.kernel.org>,
+	Linux-NFS <linux-nfs@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1328568978-17553-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Neil Brown <neilb@suse.de>,
+	Christoph Hellwig <hch@infradead.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mel Gorman <mgorman@suse.de>
+To: Linux-MM <linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If swap is backed by network storage such as NBD, there is a risk
-that a large number of reclaimers can hang the system by consuming
-all PF_MEMALLOC reserves. To avoid these hangs, the administrator
-must tune min_free_kbytes in advance. This patch will throttle direct
-reclaimers if half the PF_MEMALLOC reserves are in use as the system
-is at risk of hanging.
+This patch series is based on top of "Swap-over-NBD without deadlocking v8"
+as it depends on the same reservation of PF_MEMALLOC reserves logic.
 
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- include/linux/mmzone.h |    1 +
- mm/page_alloc.c        |    1 +
- mm/vmscan.c            |   71 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 73 insertions(+), 0 deletions(-)
+When a user or administrator requires swap for their application, they
+create a swap partition and file, format it with mkswap and activate it with
+swapon. In diskless systems this is not an option so if swap if required
+then swapping over the network is considered.  The two likely scenarios
+are when blade servers are used as part of a cluster where the form factor
+or maintenance costs do not allow the use of disks and thin clients.
 
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 650ba2f..eea0398 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -662,6 +662,7 @@ typedef struct pglist_data {
- 					     range, including holes */
- 	int node_id;
- 	wait_queue_head_t kswapd_wait;
-+	wait_queue_head_t pfmemalloc_wait;
- 	struct task_struct *kswapd;
- 	int kswapd_max_order;
- 	enum zone_type classzone_idx;
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 7c26962..01138a6 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -4281,6 +4281,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat,
- 	pgdat_resize_init(pgdat);
- 	pgdat->nr_zones = 0;
- 	init_waitqueue_head(&pgdat->kswapd_wait);
-+	init_waitqueue_head(&pgdat->pfmemalloc_wait);
- 	pgdat->kswapd_max_order = 0;
- 	pgdat_page_cgroup_init(pgdat);
- 	
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index c52b235..87ae4314 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -2425,6 +2425,49 @@ out:
- 	return 0;
- }
- 
-+static bool pfmemalloc_watermark_ok(pg_data_t *pgdat)
-+{
-+	struct zone *zone;
-+	unsigned long pfmemalloc_reserve = 0;
-+	unsigned long free_pages = 0;
-+	int i;
-+
-+	for (i = 0; i <= ZONE_NORMAL; i++) {
-+		zone = &pgdat->node_zones[i];
-+		pfmemalloc_reserve += min_wmark_pages(zone);
-+		free_pages += zone_page_state(zone, NR_FREE_PAGES);
-+	}
-+
-+	return (free_pages > pfmemalloc_reserve / 2) ? true : false;
-+}
-+
-+/*
-+ * Throttle direct reclaimers if backing storage is backed by the network
-+ * and the PFMEMALLOC reserve for the preferred node is getting dangerously
-+ * depleted. kswapd will continue to make progress and wake the processes
-+ * when the low watermark is reached
-+ */
-+static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
-+					nodemask_t *nodemask)
-+{
-+	struct zone *zone;
-+	int high_zoneidx = gfp_zone(gfp_mask);
-+	DEFINE_WAIT(wait);
-+
-+	/* Kernel threads such as kjournald should not be throttled */
-+	if (current->flags & PF_KTHREAD)
-+		return;
-+
-+	/* Check if the pfmemalloc reserves are ok */
-+	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
-+	if (pfmemalloc_watermark_ok(zone->zone_pgdat))
-+		return;
-+
-+	/* Throttle */
-+	wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
-+		pfmemalloc_watermark_ok(zone->zone_pgdat));
-+}
-+
- unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
- 				gfp_t gfp_mask, nodemask_t *nodemask)
- {
-@@ -2443,6 +2486,15 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
- 		.gfp_mask = sc.gfp_mask,
- 	};
- 
-+	throttle_direct_reclaim(gfp_mask, zonelist, nodemask);
-+
-+	/*
-+	 * Do not enter reclaim if fatal signal is pending. 1 is returned so
-+	 * that the page allocator does not consider triggering OOM
-+	 */
-+	if (fatal_signal_pending(current))
-+		return 1;
-+
- 	trace_mm_vmscan_direct_reclaim_begin(order,
- 				sc.may_writepage,
- 				gfp_mask);
-@@ -2840,6 +2892,12 @@ loop_again:
- 			}
- 
- 		}
-+
-+		/* Wake throttled direct reclaimers if low watermark is met */
-+		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
-+				pfmemalloc_watermark_ok(pgdat))
-+			wake_up(&pgdat->pfmemalloc_wait);
-+
- 		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
- 			break;		/* kswapd: all done */
- 		/*
-@@ -2961,6 +3019,19 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
- 		trace_mm_vmscan_kswapd_sleep(pgdat->node_id);
- 
- 		/*
-+		 * There is a potential race between when kswapd checks it
-+		 * watermarks and a process gets throttled. There is also
-+		 * a potential race if processes get throttled, kswapd wakes,
-+		 * a large process exits therby balancing the zones that causes
-+		 * kswapd to miss a wakeup. If kswapd is going to sleep, no
-+		 * process should be sleeping on pfmemalloc_wait so wake them
-+		 * now if necessary. If necessary, processes will wake kswapd
-+		 * and get throttled again
-+		 */
-+		if (waitqueue_active(&pgdat->pfmemalloc_wait))
-+			wake_up(&pgdat->pfmemalloc_wait);
-+
-+		/*
- 		 * vmstat counters are not perfectly accurate and the estimated
- 		 * value for counters such as NR_FREE_PAGES can deviate from the
- 		 * true value by nr_online_cpus * threshold. To avoid the zone
+The Linux Terminal Server Project recommends the use of the Network
+Block Device (NBD) for swap but this is not always an option.  There is
+no guarantee that the network attached storage (NAS) device is running
+Linux or supports NBD. However, it is likely that it supports NFS so there
+are users that want support for swapping over NFS despite any performance
+concern. Some distributions currently carry patches that support swapping
+over NFS but it would be preferable to support it in the mainline kernel.
+
+Patch 1 avoids a stream-specific deadlock that potentially affects TCP.
+
+Patch 2 is a small modification to SELinux to avoid using PFMEMALLOC
+	reserves.
+
+Patch 3 adds three helpers for filesystems to handle swap cache pages.
+	For example, page_file_mapping() returns page->mapping for
+	file-backed pages and the address_space of the underlying
+	swap file for swap cache pages.
+
+Patch 4 adds two address_space_operations to allow a filesystem
+	to pin all metadata relevant to a swapfile in memory. Upon
+	successful activation, the swapfile is marked SWP_FILE and
+	the address space operation ->direct_IO is used for writing
+	and ->readpage for reading in swap pages.
+
+Patch 5 notes that patch 3 is bolting
+	filesystem-specific-swapfile-support onto the side and that
+	the default handlers have different information to what
+	is available to the filesystem. This patch refactors the
+	code so that there are generic handlers for each of the new
+	address_space operations.
+
+Patch 6 adds an API to allow a vector of kernel addresses to be
+	translated to struct pages and pinned for IO.
+
+Patch 7 updates NFS to use the helpers from patch 3 where necessary.
+
+Patch 8 avoids setting PF_private on PG_swapcache pages within NFS.
+
+Patch 9 implements the new swapfile-related address_space operations
+	for NFS and teaches the direct IO handler how to manage
+	kernel addresses.
+
+Patch 10 prevents page allocator recursions in NFS by using GFP_NOIO
+	where appropriate.
+
+Patch 11 fixes a NULL pointer dereference that occurs when using
+	swap-over-NFS.
+
+ Documentation/filesystems/Locking |   13 ++++
+ Documentation/filesystems/vfs.txt |   12 +++
+ fs/nfs/Kconfig                    |    8 ++
+ fs/nfs/direct.c                   |   94 ++++++++++++++++--------
+ fs/nfs/file.c                     |   28 ++++++--
+ fs/nfs/inode.c                    |    6 ++
+ fs/nfs/internal.h                 |    7 +-
+ fs/nfs/pagelist.c                 |    8 +-
+ fs/nfs/read.c                     |    6 +-
+ fs/nfs/write.c                    |   93 ++++++++++++++----------
+ include/linux/blk_types.h         |    2 +
+ include/linux/fs.h                |    9 +++
+ include/linux/mm.h                |   29 ++++++++
+ include/linux/nfs_fs.h            |    4 +-
+ include/linux/pagemap.h           |    5 ++
+ include/linux/sunrpc/xprt.h       |    3 +
+ include/linux/swap.h              |    8 ++
+ include/net/sock.h                |    7 +-
+ mm/memory.c                       |   53 ++++++++++++++
+ mm/page_io.c                      |  144 +++++++++++++++++++++++++++++++++++++
+ mm/swap_state.c                   |    2 +-
+ mm/swapfile.c                     |  142 ++++++++++++++----------------------
+ net/caif/caif_socket.c            |    2 +-
+ net/core/sock.c                   |    2 +-
+ net/ipv4/tcp_input.c              |   12 ++--
+ net/sctp/ulpevent.c               |    2 +-
+ net/sunrpc/Kconfig                |    5 ++
+ net/sunrpc/clnt.c                 |    2 +
+ net/sunrpc/sched.c                |    7 ++-
+ net/sunrpc/xprtsock.c             |   53 ++++++++++++++
+ security/selinux/avc.c            |    2 +-
+ 31 files changed, 580 insertions(+), 190 deletions(-)
+
 -- 
 1.7.3.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
