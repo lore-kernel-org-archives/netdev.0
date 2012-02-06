@@ -1,91 +1,126 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Mon, 6 Feb 2012 10:53:05 -0500
-Message-ID: <20120206155305.GB3620@hmsreliant.think-freely.org>
-References: <20120120.135028.1359677274445012541.davem@davemloft.net>
- <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
- <20120204142823.GA7000@neilslaptop.think-freely.org>
- <20120204155807.GA2657@nuttenaction>
- <20120204200937.GA2670@neilslaptop.think-freely.org>
- <20120205125325.GA31578@elastic.org>
- <20120205191708.GA5337@neilslaptop.think-freely.org>
- <20120205200428.GB2816@nuttenaction>
- <20120206013247.GA5681@neilslaptop.think-freely.org>
- <20120206152019.GG27935@redhat.com>
+From: "Tim Sander" <tim.sander@hbm.com>
+Subject: Re: [PATCH] fec: fix tx bounce handling
+Date: Mon, 6 Feb 2012 17:09:31 +0100
+Message-ID: <201202061709.31406.tim.sander@hbm.com>
+References: <1328520810-28030-1-git-send-email-hector.palacios@digi.com> <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1328535883.2220.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	"Frank Ch. Eigler" <fche@elastic.org>,
-	Satoru Moriya <satoru.moriya@hds.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org,
-	mathieu.desnoyers@polymtl.ca, rostedt@goodmis.org
-To: "Frank Ch. Eigler" <fche@redhat.com>
+Content-Type: text/Plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Hector Palacios" <hector.palacios@digi.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<shawn.guo@linaro.org>, <jgq516@gmail.com>, <rostedt@goodmis.org>,
+	<u.kleine-koenig@pengutronix.de>, <tglx@linutronix.de>,
+	"Zeng Zhaoming" <b32542@freescale.com>,
+	"Frank Li" <Frank.Li@freescale.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56999 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755298Ab2BFPxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 10:53:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20120206152019.GG27935@redhat.com>
+Received: from relay.medianet-world.de ([213.157.0.172]:13772 "HELO
+	relay.medianet-world.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755407Ab2BFQK0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 11:10:26 -0500
+Content-Class: urn:content-classes:message
+In-reply-to: <1328535883.2220.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 06, 2012 at 10:20:19AM -0500, Frank Ch. Eigler wrote:
-> Hi, Neil -
-> 
-> On Sun, Feb 05, 2012 at 08:32:47PM -0500, Neil Horman wrote:
-> 
-> > [...]
-> > > Hey Neil, I though about this more deeply. In my first iteration I
-> > > had the same answer. But IMHO if you think about this more deeply,
-> > > I think this is not a scalable approach (implementing in userspace
-> > > as systemtap scripts compared to implement them in kernelspace
-> > > (tracepoints). Why? Because at a deep TCP level the API (and thus
-> > > the context) is not static and the meaning of return values (or
-> > > arguments) change over time. No matter _where_ it is implemented
-> > > or coded.
-> 
-> > Yes, this is why I'm suggesting alternatives to the tracepoint.
-> 
-> I believe Hagen's point was that alternatives to tracepoints would
-> have substantially the same difficulty.  At some point in the stack,
-> you have to standardize/abstract.  What you hook up *at that point* is
-> not too important: tracepoints, or function calls, or expanded perf
-> machinery all seem to have the same burden.
-> 
-Yes, that was his point.  Mine was that, given Satoru's needs, a netfilter hook
-provides 90% of what they need (as its been described here).  If you're
-unfamiliar with them, netfilter hooks are those standard points in the network
-input/output/forwarding paths at which we can watch and maniupulate network
-traffic.  They're what iptables/ip6tables/ebtables/etc use to do everything they
-do.  I'm suggesting that they use those existing hooks to monitor outgoing
-traffic for whatever information they want (in this case retransmitted unacked
-tcp sequence numbers).  Or whatever else their interested in.
+Hi
 
-As for the other 10% (recording failed retransmits, which don't generate
-traffic), we have existing tracepoints that can be used.
+I forward ported the patch i have for 3.0-rt (which was working on a qu=
+ick test)=20
+to the net-dev  branch with the patch from Eric mixed in.=20
 
-> 
-> > [...] If something is needed in the short term for Satoru, I still
-> > think a privately maintained module that registers a netfilter hook
-> > to watch outgoing packets for retransmits offers a good solution.
-> 
-> Does this mean that this netfilter hook mechanism is sufficient to
-> adapt to the current/future diversity of behaviors?  Why not make
-> *that* into a tracepoint then, so perf/stap scripts could get at it in
-> userspace?
-> 
-I suppose you could.  In fact there is a queue target that lets you shuttle
-frames from netfilter hook points up to userspace already, so you could do that.
-I'm suggesting a kernel module because then you wouldn't have the performance
-overhead of moving all those frames to user space.
-Neil
+But a quick test revealed that dmesg is full of:
+eth0: tx queue full!.
+Not good! Any suggestions on this?
 
-> 
-> - FChE
-> 
+Tim
+
+Heres my patch for 3.3:
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/etherne=
+t/freescale/fec.c
+index 336edd7..74d5865 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -284,11 +284,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct ne=
+t_device *ndev)
+        unsigned short  status;
+        unsigned long flags;
+=20
+-       if (!fep->link) {
+-               /* Link is down or autonegotiation is in progress. */
+-               return NETDEV_TX_BUSY;
+-       }
+-
+        spin_lock_irqsave(&fep->hw_lock, flags);
+        /* Fill in a Tx ring entry */
+        bdp =3D fep->cur_tx;
+@@ -319,8 +314,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net=
+_device *ndev)
+        if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+                unsigned int index;
+                index =3D bdp - fep->tx_bd_base;
+-               memcpy(fep->tx_bounce[index], skb->data, skb->len);
+-               bufaddr =3D fep->tx_bounce[index];
++               bufaddr =3D PTR_ALIGN(fep->tx_bounce[index], FEC_ALIGNM=
+ENT + 1);
++               memcpy(bufaddr, skb->data, skb->len);
+        }
+=20
+        /*
+@@ -542,6 +537,9 @@ fec_stop(struct net_device *ndev)
+                writel(2, fep->hwp + FEC_ECNTRL);
+                writel(rmii_mode, fep->hwp + FEC_R_CNTRL);
+        }
++
++       netif_stop_queue(ndev);
++       fep->link=3D0;
+ }
+=20
+=20
+@@ -1210,7 +1208,7 @@ static int fec_enet_alloc_buffers(struct net_devi=
+ce *ndev)
+=20
+        bdp =3D fep->rx_bd_base;
+        for (i =3D 0; i < RX_RING_SIZE; i++) {
+-               skb =3D dev_alloc_skb(FEC_ENET_RX_FRSIZE);
++               skb =3D __dev_alloc_skb(FEC_ENET_RX_FRSIZE, GFP_KERNEL)=
+;
+                if (!skb) {
+                        fec_enet_free_buffers(ndev);
+                        return -ENOMEM;
+@@ -1230,6 +1228,10 @@ static int fec_enet_alloc_buffers(struct net_dev=
+ice *ndev)
+        bdp =3D fep->tx_bd_base;
+        for (i =3D 0; i < TX_RING_SIZE; i++) {
+                fep->tx_bounce[i] =3D kmalloc(FEC_ENET_TX_FRSIZE, GFP_K=
+ERNEL);
++               if(!fep->tx_bounce[i])  {
++                       fec_enet_free_buffers(ndev);
++                       return -ENOMEM;
++               }
+=20
+                bdp->cbd_sc =3D 0;
+                bdp->cbd_bufaddr =3D 0;
+
+Hottinger Baldwin Messtechnik GmbH, Im Tiefen See 45, 64293 Darmstadt, =
+Germany | www.hbm.com=20
+
+Registered as GmbH (German limited liability corporation) in the commer=
+cial register at the local court of Darmstadt, HRB 1147 =20
+Company domiciled in Darmstadt | CEO: Andreas Huellhorst | Chairman of =
+the board: James Charles Webster
+
+Als Gesellschaft mit beschraenkter Haftung eingetragen im Handelsregist=
+er des Amtsgerichts Darmstadt unter HRB 1147=20
+Sitz der Gesellschaft: Darmstadt | Geschaeftsfuehrung: Andreas Huellhor=
+st | Aufsichtsratsvorsitzender: James Charles Webster
+
+The information in this email is confidential. It is intended solely fo=
+r the addressee. If you are not the intended recipient, please let me k=
+now and delete this email.
+
+Die in dieser E-Mail enthaltene Information ist vertraulich und ledigli=
+ch f=C3=BCr den Empfaenger bestimmt. Sollten Sie nicht der eigentliche =
+Empfaenger sein, informieren Sie mich bitte kurz und loeschen diese E-M=
+ail.
