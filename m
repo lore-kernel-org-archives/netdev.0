@@ -1,57 +1,56 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
-Date: Mon, 6 Feb 2012 11:23:21 -0800
-Message-ID: <CAG4TOxNgJ3=AFuA==Km815YzW8eQ7nD_UAzkXLSXcAyaCAAvPg@mail.gmail.com>
-References: <1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20120206.115859.1384761795375582044.davem@davemloft.net> <CAG4TOxOBCbEEOtP62ZM1R3-6umebdbJFkK0bnjphLCZOgHzt1g@mail.gmail.com>
- <20120206.141223.332863167187002998.davem@davemloft.net>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [PATCH] bcma: don't fail for bad SPROM CRC
+Date: Mon, 6 Feb 2012 20:28:44 +0100
+Message-ID: <4F3029EC.3070709@broadcom.com>
+References: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+ <CACna6rwqO73a0G=AQhTVCm=KeLRgjgc5ohJ_B8Z4T9Y-6ZTwMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120206.141223.332863167187002998.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Henrik Rydberg" <rydberg@euromail.se>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1936 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752228Ab2BFT33 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 14:29:29 -0500
+In-Reply-To: <CACna6rwqO73a0G=AQhTVCm=KeLRgjgc5ohJ_B8Z4T9Y-6ZTwMg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 6, 2012 at 11:12 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
-te:
->> IMHO the problem is in the IPoIB RFC: (4391) which makes
->> a distinction between an "encapsulation header" and the "link
->> layer address". =A0The LL address is what we put into ARP and
->> ND packets, and so I think we are forced into exposing that
->> to the network stack as our hardware address.
->
-> An address is not a hardware MAC header, we're only talking
-> about the length of the latter.
->
-> If the addressing is such that you need to put the GID
-> into the ARP/NDISC packets, and that's different from what
-> ends up in the final encapsulation header, I really don't
-> see what the problem is specificially with respect to the
-> MAC header size.
+On 02/06/2012 06:08 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
+> 2012/2/6 Henrik Rydberg <rydberg@euromail.se>:
+>> The brcmsmac driver is now checking the bcma SPROM CRCs, leaving som=
+e
+>> chipsets unrecognized that were functional prior to the switch. In
+>> particular, the current code bails out on recent Macbooks. This patc=
+h
+>> simply ignores the outcome of the CRC check, with the argument that =
+an
+>> unrecognized SPROM should be treated similarly to a non-existing one=
+=2E
+>=20
+> Have you maybe tried to look at the real solution?
+>=20
 
-Dave, please look at my whole email.  The problem is that
-the LL addr is not what we need to send packets but it's all
-we get in our .hard_header method.  So for eg unicast ARP
-packets without a dst we have nowhere to stash what we
-actually will need in our xmit method.
+It could be a new SPROM revision, but brcmsmac still does SPROM access
+on its own accord and would fail the probe sequence. So it is probably
+something else.
 
-(The same problem for unicast ARPs applies to multicast
-sends too).
+SPROM configuration can differ between chipsets and have the following
+variations:
 
-Does the netdev driver own skb->cb between hard_header
-and start_xmit?  If so we could use that instead of stealing
-some header space, and that would at least let us not lie
-about hard_header_len.
+1) external SPROM: when following conditions are true
+	chipcommon.capabilities & 0x40000000
+	chipcommon.sromcontrol & 0x00000001
+2) on-chip OTP: when following conditions are true
+	for 4313: chipcommon.chipstatus & 2
+	for 43224/43225: true
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The real solution would be to take the variations into account. I
+started tinkering on it, but not completed yet.
+
+Gr. AvS
