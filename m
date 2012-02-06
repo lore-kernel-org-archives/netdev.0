@@ -1,77 +1,80 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Mon, 6 Feb 2012 18:36:03 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F80AEB@ORSMSX106.amr.corp.intel.com>
-References: <5422254.3711328278789768.JavaMail.root@5-MeO-DMT.ynet.sk>
- <10521320.3761328279061644.JavaMail.root@5-MeO-DMT.ynet.sk>
- <20120203.192933.510206531351047222.davem@davemloft.net>
- <C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
- <CAGsizzLFoXdUQrA-WtdRq4FDdnDNnevyK6HCRmrT2joUV=ZRXg@mail.gmail.com>
- <C5551D9AAB213A418B7FD5E4A6F30A0702F806E3@ORSMSX106.amr.corp.intel.com>
- <CAGsizzKVMHT2TUK2O0odbpm6tkMHq9isSOZcjEies+fOOkURYA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizzKVMHT2TUK2O0odbpm6tkMHq9isSOZcjEies+fOOkURYA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH 1/2] net: Support RXFCS feature flag.
+Date: Mon,  6 Feb 2012 10:39:06 -0800
+Message-ID: <1328553547-27337-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:55488 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755492Ab2BFSjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 13:39:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: steweg@gmail.com [mailto:steweg@gmail.com] On Behalf Of =A9tefa=
-n Gula
-> Sent: Monday, February 06, 2012 10:32 AM
-> To: Rose, Gregory V
-> Cc: David Miller; linux-kernel@vger.kernel.org; netdev@vger.kernel.or=
-g
-> Subject: Re: [patch v1, kernel version 3.2.1] rtnetlink workaround ar=
-ound
-> the skb buff size issue
->=20
-> 2012/2/6 Rose, Gregory V <gregory.v.rose@intel.com>:
-> > That is exactly my approach. =A0We currently have a *bug* in the ke=
-rnel
-> that this patch is addressing. =A0The kernel is attempting to provide=
- too
-> much information for the netlink interface to handle and it's breakin=
-g
-> things. =A0So what I want to do is fix the immediate problem while st=
-ill
-> providing a way for folks to get the information they need. =A0I've
-> accomplished this by doing exactly what Dave asked me to do, provide =
-a
-> filter that defaults to off and then provide a way for the user to re=
-quest
-> discrete chunks of information in the dump that won't exceed the netl=
-ink
-> buffer limits.
-> >
-> > The patch is fairly unobtrusive and simple to understand.
-> >
-> > I appreciate that it doesn't do all that you'd like to see done and=
- I
-> see no reason why you couldn't go on and develop the extended feature=
-s
-> that you would like to see, correct? =A0There's nothing in my patch t=
-hat
-> would prevent that so far as I can tell, although I'm not that famili=
-ar
-> with your requirements or proposals yet.
-> Greg, your patch is completely ok for filtering. I like that thing. I
-> am just stating that it doesn't eliminate every possible option that
-> can happen so I believe we should also have method for using cycles -
-> that's what my patch is doing. So I believe both approaches should be
-> applied.
+From: Ben Greear <greearb@candelatech.com>
 
-OK, good deal.  I'll go ahead and finish up my kernel patch and the ass=
-ociated iproute2 patch.
+When set on hardware that supports the feature,
+this causes the Ethernet FCS to be appended
+to the end of the skb.
 
-Thanks,
+Useful for sniffing packets.
 
-- Greg
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 4b1c0dc... 7d27812... M	Documentation/networking/netdev-features.txt
+:100644 100644 77f5202... d133186... M	include/linux/netdev_features.h
+:100644 100644 3f79db1... 0801619... M	net/core/ethtool.c
+ Documentation/networking/netdev-features.txt |    6 ++++++
+ include/linux/netdev_features.h              |    2 ++
+ net/core/ethtool.c                           |    1 +
+ 3 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index 4b1c0dc..7d27812 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -152,3 +152,9 @@ NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope with VLAN
+ headers. Some drivers set this because the cards can't handle the bigger MTU.
+ [FIXME: Those cases could be fixed in VLAN code by allowing only reduced-MTU
+ VLANs. This may be not useful, though.]
++
++*  rx-fcs
++
++This requests that the NIC append the Ethernet Frame Checksum (FCS)
++to the end of the skb data.  This allows sniffers and other tools to
++read the CRC recorded by the NIC on receipt of the packet.
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 77f5202..d133186 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -54,6 +54,7 @@ enum {
+ 	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
++	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -98,6 +99,7 @@ enum {
+ #define NETIF_F_TSO		__NETIF_F(TSO)
+ #define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
++#define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 3f79db1..0801619 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -73,6 +73,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXCSUM_BIT] =           "rx-checksum",
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
++	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
+ };
+ 
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+-- 
+1.7.3.4
