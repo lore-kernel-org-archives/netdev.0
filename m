@@ -1,74 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bnx2x: Fix mem leak in bnx2x_tpa_stop() if build_skb()
- fails.
-Date: Mon, 06 Feb 2012 23:53:53 +0100
-Message-ID: <1328568833.2476.1.camel@edumazet-laptop>
-References: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eliezer Tamir <eliezert@broadcom.com>
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/15] mm: Serialize access to min_free_kbytes
+Date: Mon,  6 Feb 2012 22:56:04 +0000
+Message-ID: <1328568978-17553-2-git-send-email-mgorman@suse.de>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1328568978-17553-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 22:28 +0100, Jesper Juhl a =C3=A9c=
-rit :
-> We allocate memory for 'new_data' with kmalloc(). If we get the memor=
-y
-> we then try to build_skb() and if that should fail (which it can) we
-> do not enter 'if (likely(skb)) {' and actually use 'new_data' but
-> instead fall through to the 'drop:' label and end up returning from
-> the function without ever assigning 'new'data' to anything or freeing
-> it. That leaks the memory allocated to 'new_data'.
->=20
-> This patch fixes the memory leak by doing a kfree(new_data) in the
-> case where build_skb() fails (or where allocation of 'new_data' itsel=
-f
-> fails, but in taht case it's just a harmless kfree(NULL)).
->=20
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
->=20
->  No hardware to test, so compile tested only.
->=20
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/driver=
-s/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> index 03f3935..7aee469 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> @@ -523,7 +523,6 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, stru=
-ct bnx2x_fastpath *fp,
->  		skb =3D build_skb(data);
-> =20
->  	if (likely(skb)) {
-> -
->  #ifdef BNX2X_STOP_ON_ERROR
->  		if (pad + len > fp->rx_buf_size) {
->  			BNX2X_ERR("skb_put is about to fail...  "
-> @@ -557,7 +556,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, stru=
-ct bnx2x_fastpath *fp,
-> =20
->  		return;
->  	}
-> -
-> +	kfree(new_data);
->  drop:
->  	/* drop the packet and keep the buffer in the bin */
->  	DP(NETIF_MSG_RX_STATUS,
-> --=20
-> 1.7.9
->=20
->=20
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-Good catch, my bad.
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-Thanks
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index d2186ec..8b3b8cf 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4932,14 +4932,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -4994,6 +4987,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
+-- 
+1.7.3.4
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
