@@ -1,37 +1,41 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Strange pppoe problem - duplicate packages
-Date: Mon, 6 Feb 2012 20:02:04 +0100
-Message-ID: <OF235FF8C1.78D68B24-ONC125799C.006795F0-C125799C.00688F84@transmode.se>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 14:12:23 -0500 (EST)
+Message-ID: <20120206.141223.332863167187002998.davem@davemloft.net>
+References: <1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20120206.115859.1384761795375582044.davem@davemloft.net>
+	<CAG4TOxOBCbEEOtP62ZM1R3-6umebdbJFkK0bnjphLCZOgHzt1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:36632 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752555Ab2BFTK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Feb 2012 14:10:59 -0500
-Received: from mail1.transmode.se (mail1.transmode.se [192.168.201.18])
-	by gw1.transmode.se (Postfix) with ESMTP id B0E0425839E
-	for <netdev@vger.kernel.org>; Mon,  6 Feb 2012 20:02:05 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAG4TOxOBCbEEOtP62ZM1R3-6umebdbJFkK0bnjphLCZOgHzt1g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Mon, 6 Feb 2012 09:23:58 -0800
 
-Trying to debug a problem at customer site(don't have any tools really) what seems to
-be some sort of duplication of pppoe pkgs.
+> IMHO the problem is in the IPoIB RFC: (4391) which makes
+> a distinction between an "encapsulation header" and the "link
+> layer address".  The LL address is what we put into ARP and
+> ND packets, and so I think we are forced into exposing that
+> to the network stack as our hardware address.
 
-I got 2 pppoe links going out on the same eth0 I/F to 2 different MAC addresses but with the
-same session ID.
+An address is not a hardware MAC header, we're only talking
+about the length of the latter.
 
-pinging one neighbour results in 2 replies, one from each pppoe neighbour!
-It looks like linux is ignoring the different MAC addresses somehow and just uses
-the session ID and since it is the same session ID, I get 2 pkgs.
-
-Does this sound familiar to anyone? Any idea where to start looking? I suspect the
-TX patch somehow duplicating the pkgs.
-
- Jocke
-
-PS.
-    My kernel is somewhat old, 2.6.35, but I have checked current sources and it
-    doesn't look like there has been any significat changes in this area.
+If the addressing is such that you need to put the GID
+into the ARP/NDISC packets, and that's different from what
+ends up in the final encapsulation header, I really don't
+see what the problem is specificially with respect to the
+MAC header size.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
