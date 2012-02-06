@@ -1,130 +1,52 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/3 net-next] cnic: Add FCoE parity error recovery
-Date: Sun, 5 Feb 2012 17:24:40 -0800
-Message-ID: <1328491480-13030-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 2/3 net-next] bnx2: Add missing memory barrier in
+ bnx2_start_xmit()
+Date: Sun, 5 Feb 2012 17:24:39 -0800
+Message-ID: <1328491480-13030-2-git-send-email-mchan@broadcom.com>
 References: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
- <1328491480-13030-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3299 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3298 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754716Ab2BFBRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754641Ab2BFBRu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 5 Feb 2012 20:17:50 -0500
-In-Reply-To: <1328491480-13030-2-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When bnx2x returns error on FCoE SPQ messages, generate an error
-completion to bnx2fc immediately to speed up error recovery.  This
-will eliminate length timeouts and spped up the reset of the device.
+From: Vlad Zolotarov <vlad@scalemp.com>
 
-Signed-off-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
+Sync DMA descriptor before hitting the TX mailbox for weak memory model
+CPUs.
+
+There has been discussions several years ago about this.  Some believe
+that writel() should guarantee ordering.  Others want explicit barriers
+if necessary.  Today writel() does not have the ordering guarantee and
+many other drivers use explicit barriers.
+
+Signed-off-by: Vlad Zolotarov <vlad@scalemp.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c      |   38 +++++++++++++++++++++++++---
- drivers/net/ethernet/broadcom/cnic_defs.h |    3 +-
- 2 files changed, 36 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index dd3a0a2..7381460 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -1,6 +1,6 @@
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2011 Broadcom Corporation
-+ * Copyright (c) 2006-2012 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -2521,12 +2521,35 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 	u32 cid;
- 	u32 opcode = KWQE_OPCODE(kwqe->kwqe_op_flag);
- 	u32 layer_code = kwqe->kwqe_op_flag & KWQE_LAYER_MASK;
-+	u32 kcqe_op;
- 	int ulp_type;
- 
- 	cid = kwqe->kwqe_info0;
- 	memset(&kcqe, 0, sizeof(kcqe));
- 
--	if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_ISCSI) {
-+	if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_FCOE) {
-+		u32 l5_cid = 0;
-+
-+		ulp_type = CNIC_ULP_FCOE;
-+		if (opcode == FCOE_KWQE_OPCODE_DISABLE_CONN) {
-+			struct fcoe_kwqe_conn_enable_disable *req;
-+
-+			req = (struct fcoe_kwqe_conn_enable_disable *) kwqe;
-+			kcqe_op = FCOE_KCQE_OPCODE_DISABLE_CONN;
-+			cid = req->context_id;
-+			l5_cid = req->conn_id;
-+		} else if (opcode == FCOE_KWQE_OPCODE_DESTROY) {
-+			kcqe_op = FCOE_KCQE_OPCODE_DESTROY_FUNC;
-+		} else {
-+			return;
-+		}
-+		kcqe.kcqe_op_flag = kcqe_op << KCQE_FLAGS_OPCODE_SHIFT;
-+		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_FCOE;
-+		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR;
-+		kcqe.kcqe_info2 = cid;
-+		kcqe.kcqe_info0 = l5_cid;
-+
-+	} else if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_ISCSI) {
- 		ulp_type = CNIC_ULP_ISCSI;
- 		if (opcode == ISCSI_KWQE_OPCODE_UPDATE_CONN)
- 			cid = kwqe->kwqe_info1;
-@@ -2539,7 +2562,6 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 
- 	} else if (layer_code == KWQE_FLAGS_LAYER_MASK_L4) {
- 		struct l4_kcq *l4kcqe = (struct l4_kcq *) &kcqe;
--		u32 kcqe_op;
- 
- 		ulp_type = CNIC_ULP_L4;
- 		if (opcode == L4_KWQE_OPCODE_VALUE_CONNECT1)
-@@ -2686,9 +2708,17 @@ static int cnic_submit_bnx2x_fcoe_kwqes(struct cnic_dev *dev,
- 				   opcode);
- 			break;
- 		}
--		if (ret < 0)
-+		if (ret < 0) {
- 			netdev_err(dev->netdev, "KWQE(0x%x) failed\n",
- 				   opcode);
-+
-+			/* Possibly bnx2x parity error, send completion
-+			 * to ulp drivers with error code to speed up
-+			 * cleanup and reset recovery.
-+			 */
-+			if (ret == -EIO || ret == -EAGAIN)
-+				cnic_bnx2x_kwqe_err(dev, kwqe);
-+		}
- 		i += work;
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 2ab31da..7105989 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -6565,6 +6565,9 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	}
- 	return 0;
-diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
-index 86936f6..7271f14 100644
---- a/drivers/net/ethernet/broadcom/cnic_defs.h
-+++ b/drivers/net/ethernet/broadcom/cnic_defs.h
-@@ -1,7 +1,7 @@
+ 	txbd->tx_bd_vlan_tag_flags |= TX_BD_FLAGS_END;
  
- /* cnic.c: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2009 Broadcom Corporation
-+ * Copyright (c) 2006-2012 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -69,6 +69,7 @@
++	/* Sync BD data before updating TX mailbox */
++	wmb();
++
+ 	netdev_tx_sent_queue(txq, skb->len);
  
- #define FCOE_KCQE_COMPLETION_STATUS_ERROR	(0x1)
- #define FCOE_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAILURE	(0x3)
-+#define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR	(0x5)
- 
- /* KCQ (kernel completion queue) response op codes */
- #define L4_KCQE_OPCODE_VALUE_CLOSE_COMP             (53)
+ 	prod = NEXT_TX_BD(prod);
 -- 
 1.6.4.GIT
