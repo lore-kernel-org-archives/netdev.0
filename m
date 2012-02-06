@@ -1,35 +1,31 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] bcma: don't fail for bad SPROM CRC
-Date: Mon, 6 Feb 2012 18:08:51 +0100
-Message-ID: <CACna6rwqO73a0G=AQhTVCm=KeLRgjgc5ohJ_B8Z4T9Y-6ZTwMg@mail.gmail.com>
-References: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] mlx4_core: fix memory leak at
+ multi_func_cleanup
+Date: Mon, 06 Feb 2012 12:13:13 -0500 (EST)
+Message-ID: <20120206.121313.1272368607632831388.davem@davemloft.net>
+References: <4F2FFF29.2030701@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: Henrik Rydberg <rydberg@euromail.se>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33505 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755337Ab2BFRIw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:08:52 -0500
-Received: by wgbdt10 with SMTP id dt10so6435041wgb.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 09:08:51 -0800 (PST)
-In-Reply-To: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51215 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754033Ab2BFRNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:13:22 -0500
+In-Reply-To: <4F2FFF29.2030701@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/2/6 Henrik Rydberg <rydberg@euromail.se>:
-> The brcmsmac driver is now checking the bcma SPROM CRCs, leaving some
-> chipsets unrecognized that were functional prior to the switch. In
-> particular, the current code bails out on recent Macbooks. This patch
-> simply ignores the outcome of the CRC check, with the argument that a=
-n
-> unrecognized SPROM should be treated similarly to a non-existing one.
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 6 Feb 2012 18:26:17 +0200
 
-Have you maybe tried to look at the real solution?
+> From: Eugenia Emantayev <eugenia@mellanox.co.il>
+> 
+> Perform cleanup also in non-master flow.
+> The VFs use communication channel as well.
+> 
+> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
 
---=20
-Rafa=C5=82
+Applied.
