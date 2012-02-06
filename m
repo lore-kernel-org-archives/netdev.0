@@ -1,63 +1,88 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/fec: infinite spin on sirq-net-tx on real-time
-Date: Mon, 06 Feb 2012 14:39:59 +0100
-Message-ID: <1328535599.2220.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH] fec: fix tx bounce handling
+Date: Mon, 06 Feb 2012 14:44:43 +0100
+Message-ID: <1328535883.2220.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <1328520810-28030-1-git-send-email-hector.palacios@digi.com>
 	 <1328522191.2220.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F2FB39B.9010205@digi.com> <1328534721.5882.225.camel@gandalf.stny.rr.com>
+	 <4F2FB39B.9010205@digi.com>
+	 <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hector Palacios <hector.palacios@digi.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
 	"jgq516@gmail.com" <jgq516@gmail.com>,
+	"rostedt@goodmis.org" <rostedt@goodmis.org>,
 	"tim.sander@hbm.com" <tim.sander@hbm.com>,
 	"u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>,
 	"tglx@linutronix.de" <tglx@linutronix.de>,
 	Zeng Zhaoming <b32542@freescale.com>,
 	Frank Li <Frank.Li@freescale.com>
-To: Steven Rostedt <rostedt@goodmis.org>
+To: Hector Palacios <hector.palacios@digi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:45545 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996Ab2BFNkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:40:04 -0500
-Received: by wics10 with SMTP id s10so4167804wic.19
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 05:40:02 -0800 (PST)
-In-Reply-To: <1328534721.5882.225.camel@gandalf.stny.rr.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:62222 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753420Ab2BFNoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:44:46 -0500
+Received: by werb13 with SMTP id b13so4276475wer.19
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 05:44:45 -0800 (PST)
+In-Reply-To: <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 08:25 -0500, Steven Rostedt a =C3=A9=
-crit :
-> On Mon, 2012-02-06 at 12:03 +0100, Hector Palacios wrote:
->=20
-> > >>
-> > >> @@ -530,6 +531,7 @@ fec_stop(struct net_device *ndev)
-> > >>   	udelay(10);
-> > >>   	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
-> > >>   	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
-> > >> +	fep->link =3D 0;
-> > >
-> > >
-> > > Why not call netif_stop_queue(dev) here ?
-> > >
->=20
-> > I'm no network driver expert so I'll leave it up to others to comme=
-nt. I just forward=20
-> > ported a patch I came across in Freescale's BSP which solves the pr=
-oblem in mainline=20
-> > and in RT.
->=20
-> Hector,
->=20
-> Eric's suggestion may also work. Could your revert this patch and add
-> the netif_stop_queue(dev) there, and see if it fixes the problems in
-> both mainline and -rt?
+fec_enet_alloc_buffers() doesnt check for allocation
+failures for tx bounce buffers, and assumes kmalloc() returns aligned
+blocks of memory. This is not always true.
 
-Not sure it will be enough to call netif_stop_queue(dev) in fec_stop()
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Shawn Guo <shawn.guo@linaro.org>
+---
+Compile tested only.
 
-We probably need to start the device with its tx queue stopped, then
-later when device is really ready wakeup the queue.
+ drivers/net/ethernet/freescale/fec.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 7b25e9c..f831d0d 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -319,8 +319,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+ 		unsigned int index;
+ 		index = bdp - fep->tx_bd_base;
+-		memcpy(fep->tx_bounce[index], skb->data, skb->len);
+-		bufaddr = fep->tx_bounce[index];
++		bufaddr = PTR_ALIGN(fep->tx_bounce[index], FEC_ALIGNMENT + 1);
++		memcpy(bufaddr, skb->data, skb->len);
+ 	}
+ 
+ 	/*
+@@ -1196,7 +1196,6 @@ static void fec_enet_free_buffers(struct net_device *ndev)
+ 		bdp++;
+ 	}
+ 
+-	bdp = fep->tx_bd_base;
+ 	for (i = 0; i < TX_RING_SIZE; i++)
+ 		kfree(fep->tx_bounce[i]);
+ }
+@@ -1210,7 +1209,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 
+ 	bdp = fep->rx_bd_base;
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		skb = dev_alloc_skb(FEC_ENET_RX_FRSIZE);
++		skb = __dev_alloc_skb(FEC_ENET_RX_FRSIZE, GFP_KERNEL);
+ 		if (!skb) {
+ 			fec_enet_free_buffers(ndev);
+ 			return -ENOMEM;
+@@ -1230,6 +1229,10 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 	bdp = fep->tx_bd_base;
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+ 		fep->tx_bounce[i] = kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
++		if (!fep->tx_bounce[i]) {
++			fec_enet_free_buffers(ndev);
++			return -ENOMEM;
++		}
+ 
+ 		bdp->cbd_sc = 0;
+ 		bdp->cbd_bufaddr = 0;
