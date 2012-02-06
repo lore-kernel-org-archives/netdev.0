@@ -1,62 +1,69 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] bnx2x: Fix mem leak in bnx2x_tpa_stop() if build_skb()
- fails.
-Date: Mon, 6 Feb 2012 22:28:21 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
+From: "Erich E. Hoover" <ehoover@mines.edu>
+Subject: Re: [PATCH v3 2/2] Implement IPV6_UNICAST_IF socket option.
+Date: Mon, 6 Feb 2012 15:11:32 -0700
+Message-ID: <CAEU2+vr823WcoF_Z4NV7ptWNBQ4uTG+tD2VAXbQPDYGqsaKpLQ@mail.gmail.com>
+References: <1328551064-28573-2-git-send-email-ehoover@mines.edu>
+	<4F30428B.2080102@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eilon Greenstein <eilong@broadcom.com>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eliezer Tamir <eliezert@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from izzard.Mines.EDU ([138.67.132.197]:42169 "EHLO izzard.mines.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754238Ab2BFWLr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 17:11:47 -0500
+Received: from mail-vw0-f46.google.com (mail-vw0-f46.google.com [209.85.212.46])
+	(authenticated bits=0)
+	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q16MBkx7024569
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 6 Feb 2012 15:11:47 -0700
+Received: by vbjk17 with SMTP id k17so4213888vbj.19
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 14:11:46 -0800 (PST)
+In-Reply-To: <4F30428B.2080102@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We allocate memory for 'new_data' with kmalloc(). If we get the memory
-we then try to build_skb() and if that should fail (which it can) we
-do not enter 'if (likely(skb)) {' and actually use 'new_data' but
-instead fall through to the 'drop:' label and end up returning from
-the function without ever assigning 'new'data' to anything or freeing
-it. That leaks the memory allocated to 'new_data'.
+On Mon, Feb 6, 2012 at 2:13 PM, Brian Haley <brian.haley@hp.com> wrote:
+> On 02/06/2012 12:57 PM, Erich E. Hoover wrote:
+> > ...
+> > + =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 outif_index;
+> ...
+> Nitpick: is ucast_oif a better name?
 
-This patch fixes the memory leak by doing a kfree(new_data) in the
-case where build_skb() fails (or where allocation of 'new_data' itself
-fails, but in taht case it's just a harmless kfree(NULL)).
+I templated off of the IPv4 code (example: mc_index), but I do think
+that that is a better name.  Should I call the IPv4 version
+"ucast_index" or have the same name for both IPv4 and IPv6?
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> > diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> > index 01d46bf..18f144e 100644
+> > --- a/net/ipv6/icmp.c
+> > +++ b/net/ipv6/icmp.c
+> > @@ -551,6 +551,9 @@ static void icmpv6_echo_reply(struct sk_buff *s=
+kb)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+> > =A0 =A0 =A0 np =3D inet6_sk(sk);
+> >
+> > + =A0 =A0 if (!fl6.flowi6_oif)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 fl6.flowi6_oif =3D ipv6_default_ifindex(s=
+k);
+> > +
+> > =A0 =A0 =A0 if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.dadd=
+r))
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 fl6.flowi6_oif =3D np->mcast_oif;
+>
+> This snippet shows (and rawv6_sendmsg() has the same problem), that
+> IPV6_UNICAST_IF can also affect multicast packets. =A0And I think we =
+always want
+> SO_BINDTODEVICE to override them all. =A0Perhaps these checks should =
+be:
+> ...
 
- No hardware to test, so compile tested only.
+I'll double check all of these tonight, but a cursory look seems to
+indicate that the multicast check is the right place to put this for
+all the files.  I'm sorry about that, I clearly didn't consider
+interfering with multicast.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 03f3935..7aee469 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -523,7 +523,6 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 		skb = build_skb(data);
- 
- 	if (likely(skb)) {
--
- #ifdef BNX2X_STOP_ON_ERROR
- 		if (pad + len > fp->rx_buf_size) {
- 			BNX2X_ERR("skb_put is about to fail...  "
-@@ -557,7 +556,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 
- 		return;
- 	}
--
-+	kfree(new_data);
- drop:
- 	/* drop the packet and keep the buffer in the bin */
- 	DP(NETIF_MSG_RX_STATUS,
--- 
-1.7.9
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Erich Hoover
+ehoover@mines.edu
