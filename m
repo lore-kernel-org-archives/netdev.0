@@ -1,133 +1,99 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-02-06
-Date: Mon, 06 Feb 2012 15:53:53 -0500 (EST)
-Message-ID: <20120206.155353.837462133668656662.davem@davemloft.net>
-References: <20120206201827.GH21048@tuxdriver.com>
+From: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
+Subject: RE: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
+ "-c" xmitted, and "-c" was exceeded for flood ping
+Date: Mon, 6 Feb 2012 14:54:57 -0600
+Message-ID: <7D3B6706FA74174B8C1AC24710890745136F61C577@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+References: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120206201827.GH21048-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'Linus Torvalds'" <torvalds@linux-foundation.org>
+To: "'YOSHIFUJI Hideaki'" <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ihemail2.lucent.com ([135.245.0.35]:35876 "EHLO
+	ihemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753119Ab2BFUzV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 15:55:21 -0500
+In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 6 Feb 2012 15:18:27 -0500
+Hideaki, can you give me any status on this request?  Was it rejected, is it pending?  Thanks, Joe Cloutier
 
-> Here is a big pull request full of wireless updates intended for 3.4!
->=20
-> Highlights include a round of NFC updates from Ilan Elias, a big batc=
-h
-> of spruce-ups from Joe Perches, and the usual round of updates from
-> Larry Finger (rtlwifi), Rafa=A9=A9 Mi=A9=A9ecki (bcma, b43), Johannes=
- Berg
-> (mac80211), and a variety of other contributors.
->=20
-> Please let me know if there are problems!
+-----Original Message-----
+From: Cloutier, Joseph (Joseph)
+Sent: Tuesday, January 10, 2012 1:01 PM
+To: 'YOSHIFUJI Hideaki'
+Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'
+Subject: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
+"-c" xmitted, and "-c" was exceeded for flood ping
 
-Pulled, but there are some locations that need coding style
-fixups, particularly the NFC changes.  It seems that the TI
-engineer making changes there is not capable of tabbing with
-spaces.  So things like:
 
-	if (x &&
-	    y)
+From: Joseph Cloutier <jcloutier@alcatel-lucent.com>
 
-ends up being:
+2 changes to ping & ping6.  Only ping_common.c affected.
+  1- changed "-w deadline" to start deadline after "-c" pings have been transmitted, instead of from start of run.
+  2- fixed bug where > "-c" pings are sent in flood ping mode when "-w deadline" option is also used.
+Reason:
+  Linux flood ping is an invaluable tool to finding duplex bugs, fiber problems, NE config problems-  especially
+  when used to trouble shoot wireless system backhaul problems.  ANY dropped pings are red flag indicators.
+  Current ping problem is that it terminates sometimes when outstanding pings are in transit, giving FALSE red
+  flags.  Change "-w deadline" to start after last "-c" transmitted ping allows cleanup of stragglers.  Second fix is
+  when "-f" option is running, "-c" is not rigorously checked when generating pings  A more rigorous check was
+  added.
 
-	if (x &&
-		y)
+Signed-off-by: Joseph Cloutier <jcloutier@alcatel-lucent.com>
 
-which looks like crap.  Specifically:
+---
+--- iputils-s20101006/ping_common.c.orig        2012-01-10 10:37:40.399719858 -0500
++++ iputils-s20101006/ping_common.c     2012-01-10 11:33:37.084662882 -0500
+@@ -523,16 +523,6 @@ void setup(int icmp_sock)
 
-net/nfc/nci/rsp.c:151
-+	/* If target was active, complete the request only in deactivate_ntf =
-*/
-+	if ((status !=3D NCI_STATUS_OK) ||
-+		(!test_bit(NCI_POLL_ACTIVE, &ndev->flags)))
-+		nci_req_complete(ndev, status);
+        gettimeofday(&start_time, NULL);
 
-net/nfc/nci/ntf.c:115
-+	pr_debug("bit_rate %d, sensf_res_len %d\n",
-+		nfcf_poll->bit_rate, nfcf_poll->sensf_res_len);
+-       if (deadline) {
+-               struct itimerval it;
+-
+-               it.it_interval.tv_sec = 0;
+-               it.it_interval.tv_usec = 0;
+-               it.it_value.tv_sec = deadline;
+-               it.it_value.tv_usec = 0;
+-               setitimer(ITIMER_REAL, &it, NULL);
+-       }
+-
+        if (isatty(STDOUT_FILENO)) {
+                struct winsize w;
 
-net/nfc/nci/ntf.c:169
-+		pr_debug("attrib_res_len %d\n",
-+			nfcb_poll->attrib_res_len);
- ...
-+			memcpy(nfcb_poll->attrib_res,
-+				data,
-+				nfcb_poll->attrib_res_len);
+@@ -553,6 +543,7 @@ void main_loop(int icmp_sock, __u8 *pack
+        int cc;
+        int next;
+        int polling;
++       int sig_deadline = 0;
 
-net/nfc/nci/ntf.c:212
-+			memcpy(nfc_tgt.nfcid1,
-+				ntf->rf_tech_specific_params.nfca_poll.nfcid1,
-+				nfc_tgt.nfcid1_len);
+        iov.iov_base = (char *)packet;
 
-net/nfc/nci/ntf.c:290
-+			data =3D nci_extract_rf_params_nfcb_passive_poll(ndev,
-+				&ntf, data);
- ...
-+			data =3D nci_extract_rf_params_nfcf_passive_poll(ndev,
-+				&ntf, data);
+@@ -567,9 +558,22 @@ void main_loop(int icmp_sock, __u8 *pack
+                /* Check for and do special actions. */
+                if (status_snapshot)
+                        status();
++               if((npackets == ntransmitted) && deadline &&
++                       (sig_deadline == 0)){
++                       sig_deadline++;
++                       struct itimerval it;
++
++                       it.it_interval.tv_sec = 0;
++                       it.it_interval.tv_usec = 0;
++                       it.it_value.tv_sec = deadline;
++                       it.it_value.tv_usec = 0;
++                       setitimer(ITIMER_REAL, &it, NULL);
++               }
 
-net/nfc/netlink.c:70
-+	if (target->sensb_res_len > 0)
-+		NLA_PUT(msg, NFC_ATTR_TARGET_SENSB_RES, target->sensb_res_len,
-+				target->sensb_res);
-+	if (target->sensf_res_len > 0)
-+		NLA_PUT(msg, NFC_ATTR_TARGET_SENSF_RES, target->sensf_res_len,
-+				target->sensf_res);
-
-There's a lot more, these are just a tiny example of the issues I saw i=
-n the
-patches contained in this pull request.
-
-Actually, it seems nobody has been paying attention to this tabbing
-issue at all in the entire NFC stack, so someone needs to go in there
-and wholesale fix all of this stuff.
-
-mwifiex had some turds too:
-
-drivers/net/wireless/mwifiex/init.c:526
- 		dev_dbg(adapter->dev, "info: delete BSS priority table,"
--				" index =3D %d, i =3D %d, head =3D %p, cur =3D %p\n",
--			      priv->bss_index, i, head, *cur);
-+				" bss_type =3D %d, bss_num =3D %d, i =3D %d,"
-+				" head =3D %p, cur =3D %p\n",
-+			      priv->bss_type, priv->bss_num, i, head, *cur);
-
-drivers/net/wireless/mwifiex/main.c:424
-+	dev_dbg(priv->adapter->dev, "data: %lu BSS(%d-%d): Data <=3D kernel\n=
-",
-+				jiffies, priv->bss_type, priv->bss_num);
-
-drivers/net/wireless/mwifiex/main.c:532
-+	dev_err(priv->adapter->dev, "%lu : Tx timeout, bss_type-num =3D %d-%d=
-\n",
-+				jiffies, priv->bss_type, priv->bss_num);
-
-drivers/net/wireless/mwifiex/sta_rx.c:43
-+	struct mwifiex_private *priv =3D mwifiex_get_priv_by_id(adapter,
-+			rx_info->bss_num, rx_info->bss_type);
-
-drivers/net/wireless/mwifiex/sta_rx.c:125
-+	struct mwifiex_private *priv =3D mwifiex_get_priv_by_id(adapter,
-+			rx_info->bss_num, rx_info->bss_type);
-
-drivers/net/wireless/mwifiex/txrx.c:131
-+	priv =3D mwifiex_get_priv_by_id(adapter, tx_info->bss_num,
-+			tx_info->bss_type);
-
-drivers/net/wireless/mwifiex/util.c:159
-+	priv =3D mwifiex_get_priv_by_id(adapter, rx_info->bss_num,
-+			rx_info->bss_type);
-
-and so on, and so forth, you get the idea.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                /* Send probes scheduled to this time. */
+                do {
++                       if(npackets == ntransmitted)
++                               break;
+                        next = pinger();
+                        next = schedule_exit(next);
+                } while (next <= 0);
