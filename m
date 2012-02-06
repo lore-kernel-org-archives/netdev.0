@@ -1,52 +1,78 @@
-From: "Frank Ch. Eigler" <fche@redhat.com>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Mon, 6 Feb 2012 11:21:36 -0500
-Message-ID: <20120206162136.GJ27935@redhat.com>
-References: <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com> <20120204142823.GA7000@neilslaptop.think-freely.org> <20120204155807.GA2657@nuttenaction> <20120204200937.GA2670@neilslaptop.think-freely.org> <20120205125325.GA31578@elastic.org> <20120205191708.GA5337@neilslaptop.think-freely.org> <20120205200428.GB2816@nuttenaction> <20120206013247.GA5681@neilslaptop.think-freely.org> <20120206152019.GG27935@redhat.com> <20120206155305.GB3620@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] fec: fix tx bounce handling
+Date: Mon, 06 Feb 2012 17:25:09 +0100
+Message-ID: <1328545509.2220.70.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328520810-28030-1-git-send-email-hector.palacios@digi.com>
+	 <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1328535883.2220.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <201202061709.31406.tim.sander@hbm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	"Frank Ch. Eigler" <fche@elastic.org>,
-	Satoru Moriya <satoru.moriya@hds.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org,
-	mathieu.desnoyers@polymtl.ca, rostedt@goodmis.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hector Palacios <hector.palacios@digi.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, shawn.guo@linaro.org, jgq516@gmail.com,
+	rostedt@goodmis.org, u.kleine-koenig@pengutronix.de,
+	tglx@linutronix.de, Zeng Zhaoming <b32542@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: Tim Sander <tim.sander@hbm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30338 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754852Ab2BFQWh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Feb 2012 11:22:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20120206155305.GB3620@hmsreliant.think-freely.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35181 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753003Ab2BFQZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 11:25:13 -0500
+Received: by wgbdt10 with SMTP id dt10so6394380wgb.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 08:25:12 -0800 (PST)
+In-Reply-To: <201202061709.31406.tim.sander@hbm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi -
+Le lundi 06 f=C3=A9vrier 2012 =C3=A0 17:09 +0100, Tim Sander a =C3=A9cr=
+it :
+> Hi
+>=20
+> I forward ported the patch i have for 3.0-rt (which was working on a =
+quick test)=20
+> to the net-dev  branch with the patch from Eric mixed in.=20
+>=20
+> But a quick test revealed that dmesg is full of:
+> eth0: tx queue full!.
+> Not good! Any suggestions on this?
+>=20
 
-On Mon, Feb 06, 2012 at 10:53:05AM -0500, Neil Horman wrote:
+Please dont mix things.
 
-> [...] If you're unfamiliar with them, netfilter hooks are those
-> standard points in the network input/output/forwarding paths at
-> which we can watch and maniupulate network traffic.  [...]
+My patch has nothing to do with the TX ring handling.
 
-Aha, nf_register_hook and friends.  Thanks for the pointer.
+> Tim
+>=20
+> Heres my patch for 3.3:
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index 336edd7..74d5865 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -284,11 +284,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct =
+net_device *ndev)
+>         unsigned short  status;
+>         unsigned long flags;
+> =20
+> -       if (!fep->link) {
 
-> > Does this mean that this netfilter hook mechanism is sufficient to
-> > adapt to the current/future diversity of behaviors?  Why not make
-> > *that* into a tracepoint then, so perf/stap scripts could get at it in
-> > userspace?
 
-> I suppose you could.  [...]  I'm suggesting a kernel module because
-> then you wouldn't have the performance overhead of moving all those
-> frames to user space.
 
-(For what it's worth, if there were a tracepoint in the netfilter 
-hook machinery, stap would be able to process the packets likewise,
-in-kernel, with no kernel debuginfo installed.)
+We first must fix the driver before removing this work around.
 
-- FChE
+
+> -               /* Link is down or autonegotiation is in progress. */
+> -               return NETDEV_TX_BUSY;
+> -       }
+> -
+
+In fact, returning NETDEV_TX_BUSY here is proof driver is buggy.
+
+We should not enter fec_enet_start_xmit() is device is not ready to sen=
+d
+frames.
+
+There are missing netif_stop_queue(dev) in this driver.
