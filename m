@@ -1,380 +1,211 @@
-From: rshriram@cs.ubc.ca
-Subject: [PATCH V3] net/sched: sch_plug - Queue traffic until an explicit release command
-Date: Sun,  5 Feb 2012 15:51:32 -0800
-Message-ID: <1328485892-16721-1-git-send-email-rshriram@cs.ubc.ca>
-Cc: jhs@mojatatu.com, hagen@jauu.net,
-	Shriram Rajagopalan <rshriram@cs.ubc.ca>,
-	Brendan Cully <brendan@cs.ubc.ca>
-To: netdev@vger.kernel.org
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 1/3 net-next] bnx2: Add support for ethtool
+ --show-channels|--set-channels
+Date: Sun, 5 Feb 2012 17:24:38 -0800
+Message-ID: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [198.162.52.240] ([198.162.52.240]:50526 "EHLO
-	athos.nss.cs.ubc.ca" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752899Ab2BEXvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2012 18:51:42 -0500
+Received: from mms1.broadcom.com ([216.31.210.17]:4550 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754641Ab2BFBSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Feb 2012 20:18:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shriram Rajagopalan <rshriram@cs.ubc.ca>
+Allow the user to override the default number of RSS/TSS rings.
 
-The qdisc supports two operations - plug and unplug. When the
-qdisc receives a plug command via netlink request, packets arriving
-henceforth are buffered until a corresponding unplug command is received.
-Depending on the type of unplug command, the queue can be unplugged
-indefinitely or selectively.
-
-This qdisc can be used to implement output buffering, an essential
-functionality required for consistent recovery in checkpoint based
-fault-tolerance systems. Output buffering enables speculative execution
-by allowing generated network traffic to be rolled back. It is used to
-provide network protection for Xen Guests in the Remus high availability
-project, available as part of Xen.
-
-This module is generic enough to be used by any other system that wishes
-to add speculative execution and output buffering to its applications.
-
-This module was originally available in the linux 2.6.32 PV-OPS tree,
-used as dom0 for Xen.
-
-For more information, please refer to http://nss.cs.ubc.ca/remus/
-and http://wiki.xensource.com/xenwiki/Remus
-
-Changes in V3:
-  * Removed debug output (printk) on queue overflow
-  * Added TCQ_PLUG_RELEASE_INDEFINITE - that allows the user to
-    use this qdisc, for simple plug/unplug operations.
-  * Use of packet counts instead of pointers to keep track of
-    the buffers in the queue.
-
-Signed-off-by: Shriram Rajagopalan <rshriram@cs.ubc.ca>
-Signed-off-by: Brendan Cully <brendan@cs.ubc.ca>
-[author of the code in the linux 2.6.32 pvops tree]
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- include/linux/pkt_sched.h |   21 ++++
- net/sched/Kconfig         |   26 +++++
- net/sched/Makefile        |    1 +
- net/sched/sch_plug.c      |  233 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 281 insertions(+), 0 deletions(-)
- create mode 100644 net/sched/sch_plug.c
+ drivers/net/ethernet/broadcom/bnx2.c |   99 ++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2.h |    3 +
+ 2 files changed, 93 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 0d5b793..410b33d 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -127,6 +127,27 @@ struct tc_multiq_qopt {
- 	__u16	max_bands;		/* Maximum number of queues */
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 0a4c540..2ab31da 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -6246,7 +6246,16 @@ static int
+ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ {
+ 	int cpus = num_online_cpus();
+-	int msix_vecs = min(cpus + 1, RX_MAX_RINGS);
++	int msix_vecs;
++
++	if (!bp->num_req_rx_rings)
++		msix_vecs = max(cpus + 1, bp->num_req_tx_rings);
++	else if (!bp->num_req_tx_rings)
++		msix_vecs = max(cpus, bp->num_req_rx_rings);
++	else
++		msix_vecs = max(bp->num_req_rx_rings, bp->num_req_tx_rings);
++
++	msix_vecs = min(msix_vecs, RX_MAX_RINGS);
+ 
+ 	bp->irq_tbl[0].handler = bnx2_interrupt;
+ 	strcpy(bp->irq_tbl[0].name, bp->dev->name);
+@@ -6270,10 +6279,18 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ 		}
+ 	}
+ 
+-	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
++	if (!bp->num_req_tx_rings)
++		bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
++	else
++		bp->num_tx_rings = min(bp->irq_nvecs, bp->num_req_tx_rings);
++
++	if (!bp->num_req_rx_rings)
++		bp->num_rx_rings = bp->irq_nvecs;
++	else
++		bp->num_rx_rings = min(bp->irq_nvecs, bp->num_req_rx_rings);
++
+ 	netif_set_real_num_tx_queues(bp->dev, bp->num_tx_rings);
+ 
+-	bp->num_rx_rings = bp->irq_nvecs;
+ 	return netif_set_real_num_rx_queues(bp->dev, bp->num_rx_rings);
+ }
+ 
+@@ -7162,7 +7179,7 @@ bnx2_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
+ }
+ 
+ static int
+-bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
++bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx, bool reset_irq)
+ {
+ 	if (netif_running(bp->dev)) {
+ 		/* Reset will erase chipset stats; save them */
+@@ -7170,7 +7187,12 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 
+ 		bnx2_netif_stop(bp, true);
+ 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
+-		__bnx2_free_irq(bp);
++		if (reset_irq) {
++			bnx2_free_irq(bp);
++			bnx2_del_napi(bp);
++		} else {
++			__bnx2_free_irq(bp);
++		}
+ 		bnx2_free_skbs(bp);
+ 		bnx2_free_mem(bp);
+ 	}
+@@ -7179,9 +7201,16 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 	bp->tx_ring_size = tx;
+ 
+ 	if (netif_running(bp->dev)) {
+-		int rc;
++		int rc = 0;
++
++		if (reset_irq) {
++			rc = bnx2_setup_int_mode(bp, disable_msi);
++			bnx2_init_napi(bp);
++		}
++
++		if (!rc)
++			rc = bnx2_alloc_mem(bp);
+ 
+-		rc = bnx2_alloc_mem(bp);
+ 		if (!rc)
+ 			rc = bnx2_request_irq(bp);
+ 
+@@ -7217,7 +7246,8 @@ bnx2_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
+ 
+ 		return -EINVAL;
+ 	}
+-	rc = bnx2_change_ring_size(bp, ering->rx_pending, ering->tx_pending);
++	rc = bnx2_change_ring_size(bp, ering->rx_pending, ering->tx_pending,
++				   false);
+ 	return rc;
+ }
+ 
+@@ -7605,6 +7635,54 @@ bnx2_set_features(struct net_device *dev, netdev_features_t features)
+ 	return 0;
+ }
+ 
++static void bnx2_get_channels(struct net_device *dev,
++			      struct ethtool_channels *channels)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	u32 max_rx_rings = 1;
++	u32 max_tx_rings = 1;
++
++	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !disable_msi) {
++		max_rx_rings = RX_MAX_RINGS;
++		max_tx_rings = TX_MAX_RINGS;
++	}
++
++	channels->max_rx = max_rx_rings;
++	channels->max_tx = max_tx_rings;
++	channels->max_other = 0;
++	channels->max_combined = 0;
++	channels->rx_count = bp->num_rx_rings;
++	channels->tx_count = bp->num_tx_rings;
++	channels->other_count = 0;
++	channels->combined_count = 0;
++}
++
++static int bnx2_set_channels(struct net_device *dev,
++			      struct ethtool_channels *channels)
++{
++	struct bnx2 *bp = netdev_priv(dev);
++	u32 max_rx_rings = 1;
++	u32 max_tx_rings = 1;
++	int rc = 0;
++
++	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !disable_msi) {
++		max_rx_rings = RX_MAX_RINGS;
++		max_tx_rings = TX_MAX_RINGS;
++	}
++	if (channels->rx_count > max_rx_rings ||
++	    channels->tx_count > max_tx_rings)
++		return -EINVAL;
++
++	bp->num_req_rx_rings = channels->rx_count;
++	bp->num_req_tx_rings = channels->tx_count;
++
++	if (netif_running(dev))
++		rc = bnx2_change_ring_size(bp, bp->rx_ring_size,
++					   bp->tx_ring_size, true);
++
++	return rc;
++}
++
+ static const struct ethtool_ops bnx2_ethtool_ops = {
+ 	.get_settings		= bnx2_get_settings,
+ 	.set_settings		= bnx2_set_settings,
+@@ -7629,6 +7707,8 @@ static const struct ethtool_ops bnx2_ethtool_ops = {
+ 	.set_phys_id		= bnx2_set_phys_id,
+ 	.get_ethtool_stats	= bnx2_get_ethtool_stats,
+ 	.get_sset_count		= bnx2_get_sset_count,
++	.get_channels		= bnx2_get_channels,
++	.set_channels		= bnx2_set_channels,
  };
  
-+/* PLUG section */
-+
-+#define TCQ_PLUG_BUFFER                0
-+#define TCQ_PLUG_RELEASE_ONE           1
-+#define TCQ_PLUG_RELEASE_INDEFINITE    2
-+#define TCQ_PLUG_LIMIT                 3
-+
-+struct tc_plug_qopt {
-+	/* TCQ_PLUG_BUFFER: Inset a plug into the queue and
-+	 *  buffer any incoming packets
-+	 * TCQ_PLUG_RELEASE_ONE: Dequeue packets from queue head
-+	 *   to beginning of the next plug.
-+	 * TCQ_PLUG_RELEASE_INDEFINITE: Dequeue all packets from queue.
-+	 *   Stop buffering packets until the next TCQ_PLUG_BUFFER
-+	 *   command is received (just act as a pass-thru queue).
-+	 * TCQ_PLUG_LIMIT: Increase/decrease queue size
-+	 */
-+	int             action;
-+	__u32           limit;
-+};
-+
- /* TBF section */
+ /* Called with rtnl_lock */
+@@ -7710,7 +7790,8 @@ bnx2_change_mtu(struct net_device *dev, int new_mtu)
+ 		return -EINVAL;
  
- struct tc_tbf_qopt {
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 2590e91..75b58f8 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -260,6 +260,32 @@ config NET_SCH_INGRESS
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_ingress.
+ 	dev->mtu = new_mtu;
+-	return bnx2_change_ring_size(bp, bp->rx_ring_size, bp->tx_ring_size);
++	return bnx2_change_ring_size(bp, bp->rx_ring_size, bp->tx_ring_size,
++				     false);
+ }
  
-+config NET_SCH_PLUG
-+	tristate "Plug network traffic until release (PLUG)"
-+	---help---
-+
-+	  This queuing discipline allows userspace to plug/unplug a network
-+	  output queue, using the netlink interface.  When it receives an
-+	  enqueue command it inserts a plug into the outbound queue that
-+	  causes following packets to enqueue until a dequeue command arrives
-+	  over netlink, causing the plug to be removed and resuming the normal
-+	  packet flow.
-+
-+	  This module also provides a generic "network output buffering"
-+	  functionality (aka output commit), wherein upon arrival of a dequeue
-+	  command, only packets up to the first plug are released for delivery.
-+	  The Remus HA project uses this module to enable speculative execution
-+	  of virtual machines by allowing the generated network output to be rolled
-+	  back if needed.
-+
-+	  For more information, please refer to http://wiki.xensource.com/xenwiki/Remus
-+
-+	  Say Y here if you are using this kernel for Xen dom0 and
-+	  want to protect Xen guests with Remus.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_plug.
-+
- comment "Classification"
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
+index 1db2d51..dc06bda 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.h
++++ b/drivers/net/ethernet/broadcom/bnx2.h
+@@ -6933,6 +6933,9 @@ struct bnx2 {
+ 	u8			num_tx_rings;
+ 	u8			num_rx_rings;
  
- config NET_CLS
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index dc5889c..8cdf4e2 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -33,6 +33,7 @@ obj-$(CONFIG_NET_SCH_MULTIQ)	+= sch_multiq.o
- obj-$(CONFIG_NET_SCH_ATM)	+= sch_atm.o
- obj-$(CONFIG_NET_SCH_NETEM)	+= sch_netem.o
- obj-$(CONFIG_NET_SCH_DRR)	+= sch_drr.o
-+obj-$(CONFIG_NET_SCH_PLUG)	+= sch_plug.o
- obj-$(CONFIG_NET_SCH_MQPRIO)	+= sch_mqprio.o
- obj-$(CONFIG_NET_SCH_CHOKE)	+= sch_choke.o
- obj-$(CONFIG_NET_SCH_QFQ)	+= sch_qfq.o
-diff --git a/net/sched/sch_plug.c b/net/sched/sch_plug.c
-new file mode 100644
-index 0000000..ba7b737
---- /dev/null
-+++ b/net/sched/sch_plug.c
-@@ -0,0 +1,233 @@
-+/*
-+ * sch_plug.c Queue traffic until an explicit release command
-+ *
-+ *             This program is free software; you can redistribute it and/or
-+ *             modify it under the terms of the GNU General Public License
-+ *             as published by the Free Software Foundation; either version
-+ *             2 of the License, or (at your option) any later version.
-+ *
-+ * There are two ways to use this qdisc:
-+ * 1. A simple "instantaneous" plug/unplug operation, by issuing an alternating
-+ *    sequence of TCQ_PLUG_BUFFER & TCQ_PLUG_RELEASE_INDEFINITE commands.
-+ *
-+ * 2. For network output buffering (a.k.a output commit) functionality.
-+ *    Output commit property is commonly used by applications using checkpoint
-+ *    based fault-tolerance to ensure that the checkpoint from which a system
-+ *    is being restored is consistent w.r.t outside world.
-+ *
-+ *    Consider for e.g. Remus - a Virtual Machine checkpointing system,
-+ *    wherein a VM is checkpointed, say every 50ms. The checkpoint is replicated
-+ *    asynchronously to the backup host, while the VM continues executing the
-+ *    next epoch speculatively.
-+ *
-+ *    The following is a typical sequence of output buffer operations:
-+ *       1.At epoch i, start_buffer(i)
-+ *       2. At end of epoch i (i.e. after 50ms):
-+ *          2.1 Stop VM and take checkpoint(i).
-+ *          2.2 start_buffer(i+1) and Resume VM
-+ *       3. While speculatively executing epoch(i+1), asynchronously replicate
-+ *          checkpoint(i) to backup host.
-+ *       4. When checkpoint_ack(i) is received from backup, release_buffer(i)
-+ *    Thus, this Qdisc would receive the following sequence of commands:
-+ *       TCQ_PLUG_BUFFER (epoch i)
-+ *       .. TCQ_PLUG_BUFFER (epoch i+1)
-+ *       ....TCQ_PLUG_RELEASE_ONE (epoch i)
-+ *       ......TCQ_PLUG_BUFFER (epoch i+2)
-+ *       ........
-+ */
++	int			num_req_tx_rings;
++	int			num_req_rx_rings;
 +
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <net/pkt_sched.h>
-+
-+/*
-+ * State of the queue, when used for network output buffering:
-+ *
-+ *                 plug(i+1)            plug(i)          head
-+ * ------------------+--------------------+---------------->
-+ *                   |                    |
-+ *                   |                    |
-+ * pkts_current_epoch| pkts_last_epoch    |pkts_to_release
-+ * ----------------->|<--------+--------->|+--------------->
-+ *                   v                    v
-+ *
-+ */
-+
-+struct plug_sched_data {
-+	/* If true, the dequeue function releases all packets
-+	 * from head to end of the queue. The queue turns into
-+	 * a pass-through queue for newly arriving packets.
-+	 */
-+	bool unplug_indefinite;
-+
-+	/* Queue Limit in bytes */
-+	u32 limit;
-+
-+	/* Number of packets (output) from the current speculatively
-+	 * executing epoch.
-+	 */
-+	u32 pkts_current_epoch;
-+
-+	/* Number of packets corresponding to the recently finished
-+	 * epoch. These will be released when we receive a
-+	 * TCQ_PLUG_RELEASE_ONE command. This command is typically
-+	 * issued after committing a checkpoint at the target.
-+	 */
-+	u32 pkts_last_epoch;
-+
-+	/*
-+	 * Number of packets from the head of the queue, that can
-+	 * be released (committed checkpoint).
-+	 */
-+	u32 pkts_to_release;
-+};
-+
-+static int plug_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+
-+	if (likely(sch->qstats.backlog + skb->len <= q->limit)) {
-+		if (!q->unplug_indefinite)
-+			q->pkts_current_epoch++;
-+		return qdisc_enqueue_tail(skb, sch);
-+	}
-+
-+	return qdisc_reshape_fail(skb, sch);
-+}
-+
-+static struct sk_buff *plug_dequeue(struct Qdisc *sch)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+
-+	if (qdisc_is_throttled(sch))
-+		return NULL;
-+
-+	if (!q->unplug_indefinite) {
-+		if (!q->pkts_to_release) {
-+			/* No more packets to dequeue. Block the queue
-+			 * and wait for the next release command.
-+			 */
-+			qdisc_throttled(sch);
-+			return NULL;
-+		}
-+		q->pkts_to_release--;
-+	}
-+
-+	return qdisc_dequeue_head(sch);
-+}
-+
-+static int plug_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+
-+	q->pkts_current_epoch = 0;
-+	q->pkts_last_epoch = 0;
-+	q->pkts_to_release = 0;
-+	q->unplug_indefinite = false;
-+
-+	if (opt == NULL) {
-+		/* We will set a default limit of 100 pkts (~150kB)
-+		 * in case tx_queue_len is not available. The
-+		 * default value is completely arbitrary.
-+		 */
-+		u32 pkt_limit = qdisc_dev(sch)->tx_queue_len ? : 100;
-+		q->limit = pkt_limit * psched_mtu(qdisc_dev(sch));
-+	} else {
-+		struct tc_plug_qopt *ctl = nla_data(opt);
-+
-+		if (nla_len(opt) < sizeof(*ctl))
-+			return -EINVAL;
-+
-+		q->limit = ctl->limit;
-+	}
-+
-+	qdisc_throttled(sch);
-+	return 0;
-+}
-+
-+/* Receives 4 types of messages:
-+ * TCQ_PLUG_BUFFER: Inset a plug into the queue and
-+ *  buffer any incoming packets
-+ * TCQ_PLUG_RELEASE_ONE: Dequeue packets from queue head
-+ *   to beginning of the next plug.
-+ * TCQ_PLUG_RELEASE_INDEFINITE: Dequeue all packets from queue.
-+ *   Stop buffering packets until the next TCQ_PLUG_BUFFER
-+ *   command is received (just act as a pass-thru queue).
-+ * TCQ_PLUG_LIMIT: Increase/decrease queue size
-+ */
-+static int plug_change(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct plug_sched_data *q = qdisc_priv(sch);
-+	struct tc_plug_qopt *msg;
-+
-+	if (opt == NULL)
-+		return -EINVAL;
-+
-+	msg = nla_data(opt);
-+	if (nla_len(opt) < sizeof(*msg))
-+		return -EINVAL;
-+
-+	switch (msg->action) {
-+	case TCQ_PLUG_BUFFER:
-+		/* Save size of the current buffer */
-+		q->pkts_last_epoch = q->pkts_current_epoch;
-+		q->pkts_current_epoch = 0;
-+		if (q->unplug_indefinite)
-+			qdisc_throttled(sch);
-+		q->unplug_indefinite = false;
-+		break;
-+	case TCQ_PLUG_RELEASE_ONE:
-+		/* Add packets from the last complete buffer to the
-+		 * packets to be released set.
-+		 */
-+		q->pkts_to_release += q->pkts_last_epoch;
-+		q->pkts_last_epoch = 0;
-+		qdisc_unthrottled(sch);
-+		netif_schedule_queue(sch->dev_queue);
-+		break;
-+	case TCQ_PLUG_RELEASE_INDEFINITE:
-+		q->unplug_indefinite = true;
-+		q->pkts_to_release = 0;
-+		q->pkts_last_epoch = 0;
-+		q->pkts_current_epoch = 0;
-+		qdisc_unthrottled(sch);
-+		netif_schedule_queue(sch->dev_queue);
-+		break;
-+	case TCQ_PLUG_LIMIT:
-+		/* Limit is supplied in bytes */
-+		q->limit = msg->limit;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+struct Qdisc_ops plug_qdisc_ops = {
-+	.id          =       "plug",
-+	.priv_size   =       sizeof(struct plug_sched_data),
-+	.enqueue     =       plug_enqueue,
-+	.dequeue     =       plug_dequeue,
-+	.peek        =       qdisc_peek_head,
-+	.init        =       plug_init,
-+	.change      =       plug_change,
-+	.owner       =       THIS_MODULE,
-+};
-+
-+static int __init plug_module_init(void)
-+{
-+	return register_qdisc(&plug_qdisc_ops);
-+}
-+
-+static void __exit plug_module_exit(void)
-+{
-+	unregister_qdisc(&plug_qdisc_ops);
-+}
-+module_init(plug_module_init)
-+module_exit(plug_module_exit)
-+MODULE_LICENSE("GPL");
+ 	u32 			leds_save;
+ 	u32			idle_chk_status_idx;
+ 
 -- 
-1.7.0.4
+1.6.4.GIT
