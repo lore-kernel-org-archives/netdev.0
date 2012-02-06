@@ -1,38 +1,23 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: [PATCH] bcma: don't fail for bad SPROM CRC
-Date: Mon, 6 Feb 2012 14:34:08 +0100
-Message-ID: <4F2FD6D0.8070508@broadcom.com>
-References: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+From: Demurring Mccray <mccraydemurring@yahoo.com>
+Subject: You are not losing anything if you open this letter but u can really acquire something
+Date: Mon, 6 Feb 2012 05:32:02 -0800 (PST)
+Message-ID: <1328535122.74161.YahooMailNeo@web121201.mail.ne1.yahoo.com>
+Reply-To: Shawana Hagins <shawana.hagins@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	"=?UTF-8?B?UmFmYcWCIE1pxYJl?= =?UTF-8?B?Y2tp?=" <zajec5@gmail.com>
-To: "Henrik Rydberg" <rydberg@euromail.se>
+Content-Type: text/plain; charset=us-ascii
+To: "amytomlinson@hotmail.com" <amytomlinson@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4558 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755222Ab2BFNez (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Feb 2012 08:34:55 -0500
-In-Reply-To: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+Received: from nm20-vm4.bullet.mail.ne1.yahoo.com ([98.138.91.180]:47016 "HELO
+	nm20-vm4.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754653Ab2BFNhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:37:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2012 02:26 PM, Henrik Rydberg wrote:
-> The brcmsmac driver is now checking the bcma SPROM CRCs, leaving some
-> chipsets unrecognized that were functional prior to the switch. In
-> particular, the current code bails out on recent Macbooks. This patch
-> simply ignores the outcome of the CRC check, with the argument that an
-> unrecognized SPROM should be treated similarly to a non-existing one.
-
-Suggestion:
-
-The brcmsmac driver is now registered as a bcma device driver. Some
-chipsets fail on SPROM CRC check in the bcma bus driver. This leaves the
-chipset unrecognized and the bcma bus is not registered so that brcmsmac
-is not probed. In particular, the current code .......
-
-Gr. AvS
+Hi!
+I found ur photographs in the the dating site some days ago and I got to say that I was amazed... I dunno exactly what this is but You have got something that attracts everyone to you. I didn't even notice how this letter almost got finished))
+Oh! I almost forgot to tell you that, my name is Shawana.
+Let me tell you a little bit about myself.. I travel a lot and I love it! I always want to go somewhere and I think I will go on until I found someone whom I'd like for real.  I like to get to know interesting people from all over the world.
+Could u tell me about yourself??? What kind of man're u? What do you like? Why'd you like to write me maybe tomorrow? (;
+Can't wait for your answer... Please write me back when you got some time.
+Keep in touch
