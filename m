@@ -1,52 +1,70 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net 2/3] mlx4_core: use correct flag for unicast_promisc
-Date: Mon, 6 Feb 2012 18:26:29 +0200
-Message-ID: <4F2FFF35.3050900@mellanox.co.il>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 1/5] netdev: ethernet dev_alloc_skb to
+ netdev_alloc_skb
+Date: Mon, 06 Feb 2012 11:45:05 -0500 (EST)
+Message-ID: <20120206.114505.1068389709235471266.davem@davemloft.net>
+References: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<eugenia@mellanox.co.il>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:38823 "HELO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754865Ab2BFQjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 11:39:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@pradeepdalvi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eugenia Emantayev <eugenia@mellanox.co.il>
+From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Date: Sun,  5 Feb 2012 18:19:09 +0530
 
-Use MLX4_DEV_CAP_FLAG_VEP_UC_STEER for unicast_promisc_add/remove
-Unicast entries were managed in wrong data structures.
+> From: Pradeep A Dalvi <netdev@pradeepdalvi.com>
+> 
+> Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/net/ethernet
+>   - Removed extra skb->dev = dev after netdev_alloc_skb
+> 
+> Signed-off-by: Pradeep A Dalvi <netdev@pradeepdalvi.com>
 
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Applied, but I had to fix several things up:
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 0785d9b..00794cb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -1004,7 +1004,7 @@ EXPORT_SYMBOL_GPL(mlx4_multicast_promisc_remove);
- 
- int mlx4_unicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
-+	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
- 		return 0;
- 
- 	if (mlx4_is_mfunc(dev))
-@@ -1016,7 +1016,7 @@ EXPORT_SYMBOL_GPL(mlx4_unicast_promisc_add);
- 
- int mlx4_unicast_promisc_remove(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
-+	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
- 		return 0;
- 
- 	if (mlx4_is_mfunc(dev))
--- 
-1.5.4.3
+> -			if (pkt_len < rx_copybreak && (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
+> +			if (pkt_len < rx_copybreak &&
+> +					(skb = netdev_alloc_skb(dev, pkt_len + 2)) != NULL) {
+
+This is not the correct way to format a multi-line conditional.
+
+All subsequent lines must start at the first column after the initial line's
+openning parenthesis:
+
+	if (format_it &&
+	    like_this)
+
+	if (not &&
+		like_this)
+
+To be honest I have no idea what posses people to tab things out in such
+an incredibly ugly fashion in the first place.
+
+> -		if (!(lp->rx_skbuff[i] = dev_alloc_skb(lp->rx_buff_len))) {
+> +		lp->rx_skbuff[i] = netdev_alloc_skb(dev, lp->rx_buff_len);
+> +		if (!lp->rx_skbuff[i]) {
+
+You properly leave this test alone and keep it as "!foo" yet:
+
+> -			if(!(new_skb = dev_alloc_skb(lp->rx_buff_len))){
+> +			new_skb = netdev_alloc_skb(dev, lp->rx_buff_len);
+> +			if (new_skb == NULL) {
+
+You change this one to the undesirable "== NULL" test, don't do that.
+"!foo" is the canonical and most efficient NULL pointer test.
+
+> -      skb = dev_alloc_skb(pkt_len+2);
+> +	skb = netdev_alloc_skb(dev, pkt_len + 2);
+
+Do not change the indentation in one place when the entire rest of the source
+file uses something else, fixing that would a seperate change from what you're
+doing.
+
+> -	    skb = dev_alloc_skb(RX_BUFLEN + 2);
+> +		skb = netdev_alloc_skb(RX_BUFLEN + 2);
+
+Same problem.
