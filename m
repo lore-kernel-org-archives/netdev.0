@@ -1,44 +1,53 @@
-From: "Erich E. Hoover" <ehoover@mines.edu>
-Subject: Re: [PATCH v3 1/2] Implement IP_UNICAST_IF socket option.
-Date: Mon, 6 Feb 2012 12:35:27 -0700
-Message-ID: <CAEU2+vrvKS8e0hjkZG0j_Ukm_Fq3KJ9NnSz+Yb1R3vQnn7-vcQ@mail.gmail.com>
+From: Shawn Lu <shawn.lu@ericsson.com>
+Subject: RE: [PATCH v3 1/2] Implement IP_UNICAST_IF socket option.
+Date: Mon, 6 Feb 2012 14:40:22 -0500
+Message-ID: <62162DF05402B341B3DB59932A1FA992B5B5CA01B7@EUSAACMS0702.eamcs.ericsson.se>
 References: <62162DF05402B341B3DB59932A1FA992B5B5CA0154@EUSAACMS0702.eamcs.ericsson.se>
+ <CAEU2+vrvKS8e0hjkZG0j_Ukm_Fq3KJ9NnSz+Yb1R3vQnn7-vcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Netdev <netdev@vger.kernel.org>
-To: Shawn Lu <shawn.lu@ericsson.com>
+To: "Erich E. Hoover" <ehoover@mines.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from izzard.Mines.EDU ([138.67.132.197]:45888 "EHLO izzard.mines.edu"
+Received: from imr4.ericy.com ([198.24.6.9]:55574 "EHLO imr4.ericy.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754277Ab2BFTf3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 14:35:29 -0500
-Received: from mail-vw0-f46.google.com (mail-vw0-f46.google.com [209.85.212.46])
-	(authenticated bits=0)
-	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q16JZREC006611
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 6 Feb 2012 12:35:28 -0700
-Received: by vbjk17 with SMTP id k17so4112451vbj.19
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 11:35:27 -0800 (PST)
-In-Reply-To: <62162DF05402B341B3DB59932A1FA992B5B5CA0154@EUSAACMS0702.eamcs.ericsson.se>
+	id S1753145Ab2BFTkh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 14:40:37 -0500
+In-Reply-To: <CAEU2+vrvKS8e0hjkZG0j_Ukm_Fq3KJ9NnSz+Yb1R3vQnn7-vcQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 6, 2012 at 12:00 PM, Shawn Lu <shawn.lu@ericsson.com> wrote=
-:
->On 2/6/12, Erich E. Hoover <ehoover@mines.edu> wrote:
->> ...
->> +             if (sk->sk_bound_dev_if && ifindex !=3D sk->sk_bound_d=
-ev_if)
-> If I understand right,=A0 when sk->sk_bound_dev_if !=3D0 ,=A0 sk->sk_=
-bound_dev_if
-> will be used instead. Then why bother to set outif_index.
-> Here.
+=20
 
-It seems to me that if the socket is already bound to an interface
-(other than intended interface) then it makes sense to fail to set the
-option, since it will clearly not work under this circumstance.  I may
-be misunderstanding you though.
-
-Erich Hoover
-ehoover@mines.edu
+> -----Original Message-----
+> From: Erich E. Hoover [mailto:ehoover@mines.edu]=20
+> Sent: Monday, February 06, 2012 11:35 AM
+> To: Shawn Lu
+> Cc: Linux Netdev
+> Subject: Re: [PATCH v3 1/2] Implement IP_UNICAST_IF socket option.
+>=20
+> On Mon, Feb 6, 2012 at 12:00 PM, Shawn Lu=20
+> <shawn.lu@ericsson.com> wrote:
+> >On 2/6/12, Erich E. Hoover <ehoover@mines.edu> wrote:
+> >> ...
+> >> +             if (sk->sk_bound_dev_if && ifindex !=3D=20
+> >> + sk->sk_bound_dev_if)
+> > If I understand right,=A0 when sk->sk_bound_dev_if !=3D0 ,=A0=20
+> > sk->sk_bound_dev_if will be used instead. Then why bother=20
+> to set outif_index.
+> > Here.
+>=20
+> It seems to me that if the socket is already bound to an=20
+> interface (other than intended interface) then it makes sense=20
+> to fail to set the option, since it will clearly not work=20
+> under this circumstance.  I may be misunderstanding you though.
+What I mean is replace=20
+  if (sk->sk_bound_dev_if && ifindex !=3D sk->sk_bound_dev_if)
+With=20
+  if (sk->sk_bound_dev_if)
+>=20
+> Erich Hoover
+> ehoover@mines.edu
+> 
