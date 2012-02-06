@@ -1,99 +1,119 @@
-From: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
-Subject: RE: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
- "-c" xmitted, and "-c" was exceeded for flood ping
-Date: Mon, 6 Feb 2012 14:54:57 -0600
-Message-ID: <7D3B6706FA74174B8C1AC24710890745136F61C577@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
-References: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH v3 2/2] Implement IPV6_UNICAST_IF socket option.
+Date: Mon, 06 Feb 2012 16:13:47 -0500
+Message-ID: <4F30428B.2080102@hp.com>
+References: <1328551064-28573-2-git-send-email-ehoover@mines.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'Linus Torvalds'" <torvalds@linux-foundation.org>
-To: "'YOSHIFUJI Hideaki'" <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: "Erich E. Hoover" <ehoover@mines.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ihemail2.lucent.com ([135.245.0.35]:35876 "EHLO
-	ihemail2.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753119Ab2BFUzV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 15:55:21 -0500
-In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F1A0C15@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
-Content-Language: en-US
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:31824 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337Ab2BFVNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 16:13:49 -0500
+In-Reply-To: <1328551064-28573-2-git-send-email-ehoover@mines.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hideaki, can you give me any status on this request?  Was it rejected, is it pending?  Thanks, Joe Cloutier
+On 02/06/2012 12:57 PM, Erich E. Hoover wrote:
+> 
+> The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
+> 
 
------Original Message-----
-From: Cloutier, Joseph (Joseph)
-Sent: Tuesday, January 10, 2012 1:01 PM
-To: 'YOSHIFUJI Hideaki'
-Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'
-Subject: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
-"-c" xmitted, and "-c" was exceeded for flood ping
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 6318268..1602fb0 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -299,6 +299,8 @@ struct ipv6_pinfo {
+>  	struct in6_addr		*saddr_cache;
+>  #endif
+>  
+> +	int			outif_index;
+> +
+>  	__be32			flow_label;
+>  	__u32			frag_size;
 
+I haven't done the math, but to make sure you don't add a padding hole you could
+put this next to mcast_oif.  'pahole -C ipv6_pinfo net/built-in.o' showed there
+was 5 bytes of padding in this cache line.
 
-From: Joseph Cloutier <jcloutier@alcatel-lucent.com>
+Nitpick: is ucast_oif a better name?
 
-2 changes to ping & ping6.  Only ping_common.c affected.
-  1- changed "-w deadline" to start deadline after "-c" pings have been transmitted, instead of from start of run.
-  2- fixed bug where > "-c" pings are sent in flood ping mode when "-w deadline" option is also used.
-Reason:
-  Linux flood ping is an invaluable tool to finding duplex bugs, fiber problems, NE config problems-  especially
-  when used to trouble shoot wireless system backhaul problems.  ANY dropped pings are red flag indicators.
-  Current ping problem is that it terminates sometimes when outstanding pings are in transit, giving FALSE red
-  flags.  Change "-w deadline" to start after last "-c" transmitted ping allows cleanup of stragglers.  Second fix is
-  when "-f" option is running, "-c" is not rigorously checked when generating pings  A more rigorous check was
-  added.
+> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> index 01d46bf..18f144e 100644
+> --- a/net/ipv6/icmp.c
+> +++ b/net/ipv6/icmp.c
+> @@ -551,6 +551,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+>  		return;
+>  	np = inet6_sk(sk);
+>  
+> +	if (!fl6.flowi6_oif)
+> +		fl6.flowi6_oif = ipv6_default_ifindex(sk);
+> +
+>  	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+>  		fl6.flowi6_oif = np->mcast_oif;
 
-Signed-off-by: Joseph Cloutier <jcloutier@alcatel-lucent.com>
+This snippet shows (and rawv6_sendmsg() has the same problem), that
+IPV6_UNICAST_IF can also affect multicast packets.  And I think we always want
+SO_BINDTODEVICE to override them all.  Perhaps these checks should be:
 
----
---- iputils-s20101006/ping_common.c.orig        2012-01-10 10:37:40.399719858 -0500
-+++ iputils-s20101006/ping_common.c     2012-01-10 11:33:37.084662882 -0500
-@@ -523,16 +523,6 @@ void setup(int icmp_sock)
+	if (!fl6.flowi6_oif)
+		fl6.flowi6_oif = sk->sk_bound_dev_if;
 
-        gettimeofday(&start_time, NULL);
+	if (!fl6.flowi6_oif)
+		if (ipv6_addr_is_multicast(&fl6.daddr))
+			fl6.flowi6_oif = np->mcast_oif;
+		else
+			fl6.flowi6_oif = np->ucast_oif;
 
--       if (deadline) {
--               struct itimerval it;
--
--               it.it_interval.tv_sec = 0;
--               it.it_interval.tv_usec = 0;
--               it.it_value.tv_sec = deadline;
--               it.it_value.tv_usec = 0;
--               setitimer(ITIMER_REAL, &it, NULL);
--       }
--
-        if (isatty(STDOUT_FILENO)) {
-                struct winsize w;
+> +int ipv6_default_ifindex(const struct sock *sk)
+> +{
+> +	struct ipv6_pinfo *np = inet6_sk(sk);
+> +	int ifindex = sk->sk_bound_dev_if;
+> +
+> +	/*
+> +         * If not bound to a specific interface then set the outgoing interface
+> +	 * to the value from the IPV6_UNICAST_IF socket option.
+> +         */
+> +	if (!ifindex)
+> +		ifindex = np->outif_index;
+> +
+> +	return ifindex;
+> +}
 
-@@ -553,6 +543,7 @@ void main_loop(int icmp_sock, __u8 *pack
-        int cc;
-        int next;
-        int polling;
-+       int sig_deadline = 0;
+All callers of this already have 'np', you could just pass it along.  Or with
+the above change you don't even need it.  IPv4 code as well.
 
-        iov.iov_base = (char *)packet;
+> diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+> index d02f7e4..25539a1 100644
+> --- a/net/ipv6/raw.c
+> +++ b/net/ipv6/raw.c
+> @@ -813,7 +813,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+>  	}
+>  
+>  	if (fl6.flowi6_oif == 0)
+> -		fl6.flowi6_oif = sk->sk_bound_dev_if;
+> +		fl6.flowi6_oif = ipv6_default_ifindex(sk);
 
-@@ -567,9 +558,22 @@ void main_loop(int icmp_sock, __u8 *pack
-                /* Check for and do special actions. */
-                if (status_snapshot)
-                        status();
-+               if((npackets == ntransmitted) && deadline &&
-+                       (sig_deadline == 0)){
-+                       sig_deadline++;
-+                       struct itimerval it;
-+
-+                       it.it_interval.tv_sec = 0;
-+                       it.it_interval.tv_usec = 0;
-+                       it.it_value.tv_sec = deadline;
-+                       it.it_value.tv_usec = 0;
-+                       setitimer(ITIMER_REAL, &it, NULL);
-+               }
+I think you should change this like above.
 
-                /* Send probes scheduled to this time. */
-                do {
-+                       if(npackets == ntransmitted)
-+                               break;
-                        next = pinger();
-                        next = schedule_exit(next);
-                } while (next <= 0);
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 4f96b5c..bb8db62 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -1081,7 +1081,7 @@ do_udp_sendmsg:
+>  	}
+>  
+>  	if (!fl6.flowi6_oif)
+> -		fl6.flowi6_oif = sk->sk_bound_dev_if;
+> +		fl6.flowi6_oif = ipv6_default_ifindex(sk);
+>  
+>  	if (!fl6.flowi6_oif)
+>  		fl6.flowi6_oif = np->sticky_pktinfo.ipi6_ifindex;
+
+This too, letting np->ucast_oif be third after PKTINFO, there's a multicast
+check below in this code.
+
+-Brian
