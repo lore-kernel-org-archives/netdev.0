@@ -1,211 +1,130 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/3 net-next] bnx2: Add support for ethtool
- --show-channels|--set-channels
-Date: Sun, 5 Feb 2012 17:24:38 -0800
-Message-ID: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 3/3 net-next] cnic: Add FCoE parity error recovery
+Date: Sun, 5 Feb 2012 17:24:40 -0800
+Message-ID: <1328491480-13030-3-git-send-email-mchan@broadcom.com>
+References: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
+ <1328491480-13030-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4550 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3299 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754641Ab2BFBSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Feb 2012 20:18:00 -0500
+	id S1754716Ab2BFBRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Feb 2012 20:17:50 -0500
+In-Reply-To: <1328491480-13030-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the user to override the default number of RSS/TSS rings.
+When bnx2x returns error on FCoE SPQ messages, generate an error
+completion to bnx2fc immediately to speed up error recovery.  This
+will eliminate length timeouts and spped up the reset of the device.
 
+Signed-off-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |   99 ++++++++++++++++++++++++++++++---
- drivers/net/ethernet/broadcom/bnx2.h |    3 +
- 2 files changed, 93 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c      |   38 +++++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/cnic_defs.h |    3 +-
+ 2 files changed, 36 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 0a4c540..2ab31da 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -6246,7 +6246,16 @@ static int
- bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
- {
- 	int cpus = num_online_cpus();
--	int msix_vecs = min(cpus + 1, RX_MAX_RINGS);
-+	int msix_vecs;
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index dd3a0a2..7381460 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -1,6 +1,6 @@
+ /* cnic.c: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2011 Broadcom Corporation
++ * Copyright (c) 2006-2012 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -2521,12 +2521,35 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
+ 	u32 cid;
+ 	u32 opcode = KWQE_OPCODE(kwqe->kwqe_op_flag);
+ 	u32 layer_code = kwqe->kwqe_op_flag & KWQE_LAYER_MASK;
++	u32 kcqe_op;
+ 	int ulp_type;
+ 
+ 	cid = kwqe->kwqe_info0;
+ 	memset(&kcqe, 0, sizeof(kcqe));
+ 
+-	if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_ISCSI) {
++	if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_FCOE) {
++		u32 l5_cid = 0;
 +
-+	if (!bp->num_req_rx_rings)
-+		msix_vecs = max(cpus + 1, bp->num_req_tx_rings);
-+	else if (!bp->num_req_tx_rings)
-+		msix_vecs = max(cpus, bp->num_req_rx_rings);
-+	else
-+		msix_vecs = max(bp->num_req_rx_rings, bp->num_req_tx_rings);
++		ulp_type = CNIC_ULP_FCOE;
++		if (opcode == FCOE_KWQE_OPCODE_DISABLE_CONN) {
++			struct fcoe_kwqe_conn_enable_disable *req;
 +
-+	msix_vecs = min(msix_vecs, RX_MAX_RINGS);
- 
- 	bp->irq_tbl[0].handler = bnx2_interrupt;
- 	strcpy(bp->irq_tbl[0].name, bp->dev->name);
-@@ -6270,10 +6279,18 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
- 		}
- 	}
- 
--	bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
-+	if (!bp->num_req_tx_rings)
-+		bp->num_tx_rings = rounddown_pow_of_two(bp->irq_nvecs);
-+	else
-+		bp->num_tx_rings = min(bp->irq_nvecs, bp->num_req_tx_rings);
-+
-+	if (!bp->num_req_rx_rings)
-+		bp->num_rx_rings = bp->irq_nvecs;
-+	else
-+		bp->num_rx_rings = min(bp->irq_nvecs, bp->num_req_rx_rings);
-+
- 	netif_set_real_num_tx_queues(bp->dev, bp->num_tx_rings);
- 
--	bp->num_rx_rings = bp->irq_nvecs;
- 	return netif_set_real_num_rx_queues(bp->dev, bp->num_rx_rings);
- }
- 
-@@ -7162,7 +7179,7 @@ bnx2_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
- }
- 
- static int
--bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
-+bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx, bool reset_irq)
- {
- 	if (netif_running(bp->dev)) {
- 		/* Reset will erase chipset stats; save them */
-@@ -7170,7 +7187,12 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- 
- 		bnx2_netif_stop(bp, true);
- 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
--		__bnx2_free_irq(bp);
-+		if (reset_irq) {
-+			bnx2_free_irq(bp);
-+			bnx2_del_napi(bp);
++			req = (struct fcoe_kwqe_conn_enable_disable *) kwqe;
++			kcqe_op = FCOE_KCQE_OPCODE_DISABLE_CONN;
++			cid = req->context_id;
++			l5_cid = req->conn_id;
++		} else if (opcode == FCOE_KWQE_OPCODE_DESTROY) {
++			kcqe_op = FCOE_KCQE_OPCODE_DESTROY_FUNC;
 +		} else {
-+			__bnx2_free_irq(bp);
++			return;
 +		}
- 		bnx2_free_skbs(bp);
- 		bnx2_free_mem(bp);
- 	}
-@@ -7179,9 +7201,16 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- 	bp->tx_ring_size = tx;
- 
- 	if (netif_running(bp->dev)) {
--		int rc;
-+		int rc = 0;
++		kcqe.kcqe_op_flag = kcqe_op << KCQE_FLAGS_OPCODE_SHIFT;
++		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_FCOE;
++		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR;
++		kcqe.kcqe_info2 = cid;
++		kcqe.kcqe_info0 = l5_cid;
 +
-+		if (reset_irq) {
-+			rc = bnx2_setup_int_mode(bp, disable_msi);
-+			bnx2_init_napi(bp);
++	} else if (layer_code == KWQE_FLAGS_LAYER_MASK_L5_ISCSI) {
+ 		ulp_type = CNIC_ULP_ISCSI;
+ 		if (opcode == ISCSI_KWQE_OPCODE_UPDATE_CONN)
+ 			cid = kwqe->kwqe_info1;
+@@ -2539,7 +2562,6 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
+ 
+ 	} else if (layer_code == KWQE_FLAGS_LAYER_MASK_L4) {
+ 		struct l4_kcq *l4kcqe = (struct l4_kcq *) &kcqe;
+-		u32 kcqe_op;
+ 
+ 		ulp_type = CNIC_ULP_L4;
+ 		if (opcode == L4_KWQE_OPCODE_VALUE_CONNECT1)
+@@ -2686,9 +2708,17 @@ static int cnic_submit_bnx2x_fcoe_kwqes(struct cnic_dev *dev,
+ 				   opcode);
+ 			break;
+ 		}
+-		if (ret < 0)
++		if (ret < 0) {
+ 			netdev_err(dev->netdev, "KWQE(0x%x) failed\n",
+ 				   opcode);
++
++			/* Possibly bnx2x parity error, send completion
++			 * to ulp drivers with error code to speed up
++			 * cleanup and reset recovery.
++			 */
++			if (ret == -EIO || ret == -EAGAIN)
++				cnic_bnx2x_kwqe_err(dev, kwqe);
 +		}
-+
-+		if (!rc)
-+			rc = bnx2_alloc_mem(bp);
- 
--		rc = bnx2_alloc_mem(bp);
- 		if (!rc)
- 			rc = bnx2_request_irq(bp);
- 
-@@ -7217,7 +7246,8 @@ bnx2_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
- 
- 		return -EINVAL;
+ 		i += work;
  	}
--	rc = bnx2_change_ring_size(bp, ering->rx_pending, ering->tx_pending);
-+	rc = bnx2_change_ring_size(bp, ering->rx_pending, ering->tx_pending,
-+				   false);
- 	return rc;
- }
- 
-@@ -7605,6 +7635,54 @@ bnx2_set_features(struct net_device *dev, netdev_features_t features)
  	return 0;
- }
+diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
+index 86936f6..7271f14 100644
+--- a/drivers/net/ethernet/broadcom/cnic_defs.h
++++ b/drivers/net/ethernet/broadcom/cnic_defs.h
+@@ -1,7 +1,7 @@
  
-+static void bnx2_get_channels(struct net_device *dev,
-+			      struct ethtool_channels *channels)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	u32 max_rx_rings = 1;
-+	u32 max_tx_rings = 1;
-+
-+	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !disable_msi) {
-+		max_rx_rings = RX_MAX_RINGS;
-+		max_tx_rings = TX_MAX_RINGS;
-+	}
-+
-+	channels->max_rx = max_rx_rings;
-+	channels->max_tx = max_tx_rings;
-+	channels->max_other = 0;
-+	channels->max_combined = 0;
-+	channels->rx_count = bp->num_rx_rings;
-+	channels->tx_count = bp->num_tx_rings;
-+	channels->other_count = 0;
-+	channels->combined_count = 0;
-+}
-+
-+static int bnx2_set_channels(struct net_device *dev,
-+			      struct ethtool_channels *channels)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	u32 max_rx_rings = 1;
-+	u32 max_tx_rings = 1;
-+	int rc = 0;
-+
-+	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !disable_msi) {
-+		max_rx_rings = RX_MAX_RINGS;
-+		max_tx_rings = TX_MAX_RINGS;
-+	}
-+	if (channels->rx_count > max_rx_rings ||
-+	    channels->tx_count > max_tx_rings)
-+		return -EINVAL;
-+
-+	bp->num_req_rx_rings = channels->rx_count;
-+	bp->num_req_tx_rings = channels->tx_count;
-+
-+	if (netif_running(dev))
-+		rc = bnx2_change_ring_size(bp, bp->rx_ring_size,
-+					   bp->tx_ring_size, true);
-+
-+	return rc;
-+}
-+
- static const struct ethtool_ops bnx2_ethtool_ops = {
- 	.get_settings		= bnx2_get_settings,
- 	.set_settings		= bnx2_set_settings,
-@@ -7629,6 +7707,8 @@ static const struct ethtool_ops bnx2_ethtool_ops = {
- 	.set_phys_id		= bnx2_set_phys_id,
- 	.get_ethtool_stats	= bnx2_get_ethtool_stats,
- 	.get_sset_count		= bnx2_get_sset_count,
-+	.get_channels		= bnx2_get_channels,
-+	.set_channels		= bnx2_set_channels,
- };
+ /* cnic.c: Broadcom CNIC core network driver.
+  *
+- * Copyright (c) 2006-2009 Broadcom Corporation
++ * Copyright (c) 2006-2012 Broadcom Corporation
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -69,6 +69,7 @@
  
- /* Called with rtnl_lock */
-@@ -7710,7 +7790,8 @@ bnx2_change_mtu(struct net_device *dev, int new_mtu)
- 		return -EINVAL;
+ #define FCOE_KCQE_COMPLETION_STATUS_ERROR	(0x1)
+ #define FCOE_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAILURE	(0x3)
++#define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR	(0x5)
  
- 	dev->mtu = new_mtu;
--	return bnx2_change_ring_size(bp, bp->rx_ring_size, bp->tx_ring_size);
-+	return bnx2_change_ring_size(bp, bp->rx_ring_size, bp->tx_ring_size,
-+				     false);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
-index 1db2d51..dc06bda 100644
---- a/drivers/net/ethernet/broadcom/bnx2.h
-+++ b/drivers/net/ethernet/broadcom/bnx2.h
-@@ -6933,6 +6933,9 @@ struct bnx2 {
- 	u8			num_tx_rings;
- 	u8			num_rx_rings;
- 
-+	int			num_req_tx_rings;
-+	int			num_req_rx_rings;
-+
- 	u32 			leds_save;
- 	u32			idle_chk_status_idx;
- 
+ /* KCQ (kernel completion queue) response op codes */
+ #define L4_KCQE_OPCODE_VALUE_CLOSE_COMP             (53)
 -- 
 1.6.4.GIT
