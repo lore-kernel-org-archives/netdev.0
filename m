@@ -1,70 +1,47 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
-Date: Mon, 6 Feb 2012 09:23:58 -0800
-Message-ID: <CAG4TOxOBCbEEOtP62ZM1R3-6umebdbJFkK0bnjphLCZOgHzt1g@mail.gmail.com>
-References: <1328545627.2220.72.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20120206.113145.1284864994961472499.davem@davemloft.net> <1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20120206.115859.1384761795375582044.davem@davemloft.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [RFC PATCH V4 08/13] xenbus_client: extend interface to support
+ mapping / unmapping of multi page ring.
+Date: Mon, 6 Feb 2012 12:21:39 -0500
+Message-ID: <20120206172139.GA26583@phenom.dumpdata.com>
+References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
+ <1328201363-13915-9-git-send-email-wei.liu2@citrix.com>
+ <20120203165516.GA20005@phenom.dumpdata.com>
+ <1328289625.7388.38.camel@leeds.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120206.115859.1384761795375582044.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:26195 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754562Ab2BFRY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:24:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1328289625.7388.38.camel@leeds.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 6, 2012 at 8:58 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrot=
-e:
->
-> So if IPoIB path resolution was properly integrated into the neighbou=
-r
-> cache state machine, instead of being implemented awkwardly in the
-> device transmit path, this crap wouldn't be necessary right?
->
-> So here we have yet another incredibly painful side effect of how
-> IPoIB path resolution works.
->
-> Roland, I want you to seriously consider a way, any way, to get rid o=
-f
-> how IPoIB does path resolution. =A0It must be fully integrated into t=
-he
-> neighbour layer, the neighbour layer must be knowledgable about how
-> path resolution is a necessary step for a neighbour entry to enter th=
-e
-> valid state, and I want all of this awkward neighbour handling code
-> removed from the transmit path of IPoIB.
->
-> And finally it must not lie about it's hardware header length.
+On Fri, Feb 03, 2012 at 05:20:25PM +0000, Wei Liu wrote:
+> On Fri, 2012-02-03 at 16:55 +0000, Konrad Rzeszutek Wilk wrote:
+> > On Thu, Feb 02, 2012 at 04:49:18PM +0000, Wei Liu wrote:
+> > > 
+> > 
+> > So this does the job but with this patch you introduce a compile bisection
+> > bug, which is a not good. The way around is that in this patch you also
+> > introduce temporary scaffolding so that the drivers can build. Something
+> > as simple as an function that calls the new version, but has the right
+> > arguments. Then the next patch (the one that actually does change
+> > the backends, will back that wrapper out).
+> > 
+> 
+> How about squashing these two patches. The changes in backends are
+> trivial.
 
-I would love to clean this up.  But I don't know how to do it.
 
-IMHO the problem is in the IPoIB RFC: (4391) which makes
-a distinction between an "encapsulation header" and the "link
-layer address".  The LL address is what we put into ARP and
-ND packets, and so I think we are forced into exposing that
-to the network stack as our hardware address.
-
-However this LL address is not actually what we need to send
-a packet -- we need to take the GID of our destination and send
-a query to the subnet manager to resolve it to a path.  And this
-query really is an RPC to a remote entity somewhere else on
-the network, so we have to do it asynchronously etc.
-
-Now the part I don't know how to handle is when the network
-stack gives us a LL address to send an ARP or something to
-but the skb has no dst attached.  Suppose I don't have a path
-for that LL address when I get that skb with no dst into my
-=2Ehard_header method.  Where do I stick the LL addr to keep
-around until the packet shows up in the xmit function?
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+One thing I forgot to mention is that since the backends touch different
+subsystems maintainers tree - you will need to get Acks from all of them
+on a single patch. That should not be an technical issue - except that some
+maintainers can take longer to respond - so your whole patchset might
+be delayed by that.
