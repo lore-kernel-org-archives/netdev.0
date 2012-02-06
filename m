@@ -1,67 +1,44 @@
-From: Satoru Moriya <satoru.moriya@hds.com>
-Subject: RE: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Mon, 6 Feb 2012 13:21:37 -0500
-Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9CB8E7B0D4@USINDEVS02.corp.hds.com>
-References: <20120120.135028.1359677274445012541.davem@davemloft.net>
- <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
- <20120204142823.GA7000@neilslaptop.think-freely.org>
- <20120204155807.GA2657@nuttenaction>
- <20120204200937.GA2670@neilslaptop.think-freely.org>
- <20120205125325.GA31578@elastic.org>
- <20120205191708.GA5337@neilslaptop.think-freely.org>
- <20120205200428.GB2816@nuttenaction>
- <20120206013247.GA5681@neilslaptop.think-freely.org>
- <20120206152019.GG27935@redhat.com>
- <20120206155305.GB3620@hmsreliant.think-freely.org>
+From: =?ISO-8859-2?Q?=A9tefan_Gula?= <steweg@ynet.sk>
+Subject: Re: [patch v1, kernel version 3.2.1] rtnetlink workaround around the
+ skb buff size issue
+Date: Mon, 6 Feb 2012 19:32:16 +0100
+Message-ID: <CAGsizzKVMHT2TUK2O0odbpm6tkMHq9isSOZcjEies+fOOkURYA@mail.gmail.com>
+References: <5422254.3711328278789768.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <10521320.3761328279061644.JavaMail.root@5-MeO-DMT.ynet.sk>
+ <20120203.192933.510206531351047222.davem@davemloft.net> <C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
+ <CAGsizzLFoXdUQrA-WtdRq4FDdnDNnevyK6HCRmrT2joUV=ZRXg@mail.gmail.com> <C5551D9AAB213A418B7FD5E4A6F30A0702F806E3@ORSMSX106.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	"Frank Ch. Eigler" <fche@elastic.org>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>,
-	"fche@sourceware.org" <fche@sourceware.org>,
-	"mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>,
-	"rostedt@goodmis.org" <rostedt@goodmis.org>
-To: Neil Horman <nhorman@tuxdriver.com>,
-	"Frank Ch. Eigler" <fche@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usindpps03.hds.com ([207.126.252.16]:51184 "EHLO
-	usindpps03.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555Ab2BFSWy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 13:22:54 -0500
-In-Reply-To: <20120206155305.GB3620@hmsreliant.think-freely.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F806E3@ORSMSX106.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/06/2012 10:53 AM, Neil Horman wrote:
-> On Mon, Feb 06, 2012 at 10:20:19AM -0500, Frank Ch. Eigler wrote:
->> On Sun, Feb 05, 2012 at 08:32:47PM -0500, Neil Horman wrote:
->>
-> Yes, that was his point.  Mine was that, given Satoru's needs, a 
-> netfilter hook provides 90% of what they need (as its been described 
-> here).  If you're unfamiliar with them, netfilter hooks are those 
-> standard points in the network input/output/forwarding paths at which 
-> we can watch and maniupulate network traffic.  They're what 
-> iptables/ip6tables/ebtables/etc use to do everything they do.  I'm 
-> suggesting that they use those existing hooks to monitor outgoing 
-> traffic for whatever information they want (in this case
-> retransmitted unacked tcp sequence numbers).  Or whatever else their
-> interested in.
-> 
-> As for the other 10% (recording failed retransmits, which don't 
-> generate traffic), we have existing tracepoints that can be used.
-
-Thank you so much, Neil and other guys.
-
-For now it seems to be difficult to move into netfilter approach
-because "other 10%" is so important for us. But first, I'll consider
-it more deeply.
-
-Regards,
-Satoru
+2012/2/6 Rose, Gregory V <gregory.v.rose@intel.com>:
+> That is exactly my approach. =A0We currently have a *bug* in the kern=
+el that this patch is addressing. =A0The kernel is attempting to provid=
+e too much information for the netlink interface to handle and it's bre=
+aking things. =A0So what I want to do is fix the immediate problem whil=
+e still providing a way for folks to get the information they need. =A0=
+I've accomplished this by doing exactly what Dave asked me to do, provi=
+de a filter that defaults to off and then provide a way for the user to=
+ request discrete chunks of information in the dump that won't exceed t=
+he netlink buffer limits.
+>
+> The patch is fairly unobtrusive and simple to understand.
+>
+> I appreciate that it doesn't do all that you'd like to see done and I=
+ see no reason why you couldn't go on and develop the extended features=
+ that you would like to see, correct? =A0There's nothing in my patch th=
+at would prevent that so far as I can tell, although I'm not that famil=
+iar with your requirements or proposals yet.
+Greg, your patch is completely ok for filtering. I like that thing. I
+am just stating that it doesn't eliminate every possible option that
+can happen so I believe we should also have method for using cycles -
+that's what my patch is doing. So I believe both approaches should be
+applied.
