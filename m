@@ -1,70 +1,56 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] IB/ipoib: fix GRO merge failure for IPoIB
- originated TCP streams
-Date: Mon, 06 Feb 2012 16:21:46 +0100
-Message-ID: <1328541706.2220.50.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <alpine.LRH.2.00.1201261624540.30384@ogerlitz.voltaire.com>
-	  <alpine.LRH.2.00.1201261642340.31408@ogerlitz.voltaire.com>
-	  <alpine.LRH.2.00.1202022352560.30300@ogerlitz.voltaire.com>
-	  <1828884A29C6694DAF28B7E6B8A823733349A5D2@ORSMSX101.amr.corp.intel.com>
-	 <1328259640.2480.43.camel@edumazet-laptop>
-	 <1828884A29C6694DAF28B7E6B8A823733349A6C9@ORSMSX101.amr.corp.intel.com>
-	 <4F2FEC36.6090800@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
+Date: Mon, 06 Feb 2012 16:24:19 +0100
+Message-ID: <1328541859.2220.52.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <65795E11DBF1E645A09CEC7EAEE94B9CB728DD67@USINDEVS02.corp.hds.com>
+	 <20120120.135028.1359677274445012541.davem@davemloft.net>
+	 <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
+	 <20120204142823.GA7000@neilslaptop.think-freely.org>
+	 <20120204155807.GA2657@nuttenaction>
+	 <20120204200937.GA2670@neilslaptop.think-freely.org>
+	 <20120205125325.GA31578@elastic.org>
+	 <20120205191708.GA5337@neilslaptop.think-freely.org>
+	 <20120205200428.GB2816@nuttenaction>
+	 <20120206013247.GA5681@neilslaptop.think-freely.org>
+	 <20120206152019.GG27935@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F2FEC36.6090800-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	"Frank Ch. Eigler" <fche@elastic.org>,
+	Satoru Moriya <satoru.moriya@hds.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
+	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org,
+	mathieu.desnoyers@polymtl.ca, rostedt@goodmis.org
+To: "Frank Ch. Eigler" <fche@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57790 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754544Ab2BFPYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 10:24:23 -0500
+Received: by wgbdt10 with SMTP id dt10so6333008wgb.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 07:24:22 -0800 (PST)
+In-Reply-To: <20120206152019.GG27935@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 17:05 +0200, Or Gerlitz a =C3=A9cr=
-it :
-> On 2/3/2012 10:24 PM, Hefty, Sean wrote:
-> >> Hmm... a tcpdump would help to understand what is going on (for ex=
-ample if GRO kicks in)
-> >
-> > I should stop trying to apply patches so late.  I must have done so=
-mething wrong with my quick test.  Re-applying the patch on 3.2, the ip=
-oib UD performance looks okay to me with Eric's patch.  Sorry about the=
- flub.
-> >
+Le lundi 06 f=C3=A9vrier 2012 =C3=A0 10:20 -0500, Frank Ch. Eigler a =C3=
+=A9crit :
+
+> > [...] If something is needed in the short term for Satoru, I still
+> > think a privately maintained module that registers a netfilter hook
+> > to watch outgoing packets for retransmits offers a good solution.
 >=20
-> Sean, same here, with both 3.2 and 3.3-rc1 I see with tcpdump that no=
-=20
-> GRO aggregation is done in the receiving side, when applying the patc=
-h I=20
-> sent (Eric's patch enhanced to change ipoib code such that it sets=20
-> gro_mac_header_lento the ipoib header len), I can see GRO aggregation=
-=20
-> and the performance goes well up. So how do we go from here? Herbert,=
-=20
-> Roland, are you okay with the patch?
->=20
-> Eric, if this we're going on that patch, could you please add=20
-> Reported-by: Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> to the change-log=
-=2E
-
-Sure, I suggest two patches then.
-
-One from me (the one I sent earlier), introducing the core
-infrastructure, and one from you adding the "dev->gro_mac_header_len  =3D
-IPOIB_ENCAP_LEN;" in drivers/infiniband/ulp/ipoib/ipoib_main.c
-
-If you agree, I'll resend my part with official submission, and you'll
-send your patch after ?
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+> Does this mean that this netfilter hook mechanism is sufficient to
+> adapt to the current/future diversity of behaviors?  Why not make
+> *that* into a tracepoint then, so perf/stap scripts could get at it i=
 n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> userspace?
+
+Anyway, this netfilter module wont catch the failed retransmits (becaus=
+e
+of memory allocation errors or other checks done in our stack)
