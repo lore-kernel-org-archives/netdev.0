@@ -1,64 +1,43 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Mon, 06 Feb 2012 12:18:26 -0500
-Message-ID: <1328548706.2200.17.camel@gandalf.stny.rr.com>
-References: <20120120.135028.1359677274445012541.davem@davemloft.net>
-	 <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
-	 <20120204142823.GA7000@neilslaptop.think-freely.org>
-	 <20120204155807.GA2657@nuttenaction>
-	 <20120204200937.GA2670@neilslaptop.think-freely.org>
-	 <20120205125325.GA31578@elastic.org>
-	 <20120205191708.GA5337@neilslaptop.think-freely.org>
-	 <20120205200428.GB2816@nuttenaction>
-	 <20120206013247.GA5681@neilslaptop.think-freely.org>
-	 <20120206152019.GG27935@redhat.com>
-	 <20120206155305.GB3620@hmsreliant.think-freely.org>
-	 <1328545089.2200.13.camel@gandalf.stny.rr.com>
-	 <1328547754.2220.86.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 18:19:41 +0100
+Message-ID: <1328548781.2220.89.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328545627.2220.72.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <20120206.113145.1284864994961472499.davem@davemloft.net>
+	  <1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <20120206.115859.1384761795375582044.davem@davemloft.net>
+	 <1328548022.2220.87.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F3009AE.2090605@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"Frank Ch. Eigler" <fche@redhat.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	"Frank Ch. Eigler" <fche@elastic.org>,
-	Satoru Moriya <satoru.moriya@hds.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org,
-	mathieu.desnoyers@polymtl.ca
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.123]:58210 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754464Ab2BFRS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:18:29 -0500
-In-Reply-To: <1328547754.2220.86.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F3009AE.2090605-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-02-06 at 18:02 +0100, Eric Dumazet wrote:
->  
-> > I haven't looked at the details here, but I'm wondering if netfilter
-> > could benefit from static_branch() calls (aka jump-labels). I'm sure
-> > selinux could too. Basically, when netfilter is disabled, the fast path
-> > would just include a nop, with no if() branch testing at all. When you
-> > enable netfilters, it would then add a jmp to the code that actually
-> > does the tests.
-> 
-> Hmm... I thought I already did that.
-> 
-> Or maybe I intended so and forgot.
-> 
-> Ah no, its there in commit a2d7ec58ac09
-> (netfilter: use jump_label for nf_hooks)
+Le lundi 06 f=C3=A9vrier 2012 =C3=A0 19:11 +0200, Or Gerlitz a =C3=A9cr=
+it :
+> On 2/6/2012 7:07 PM, Eric Dumazet wrote:
+> > OK, I'll resend my first patch then, using hard_header_len
+>=20
+> so, we will be back to square one... as the hard_header_len which=20
+> advertized now by IPoIB will fail
+> the GRO L2 check... lets see where this discussion evolves.
+>=20
+> Or.
+>=20
 
-hehe, this shows the fact that "I haven't looked at the details here".
+You'll have to define hard_header_len to IPOIB_ENCAP_LEN ?
 
-;-)
 
-Great to hear!
 
--- Steve
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
