@@ -1,100 +1,159 @@
-From: "Henrik Rydberg" <rydberg@euromail.se>
-Subject: Re: [PATCH] bcma: don't fail for bad SPROM CRC
-Date: Mon, 6 Feb 2012 14:48:57 +0100
-Message-ID: <20120206134857.GA3636@polaris.bitmath.org>
-References: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
- <4F2FD6D0.8070508@broadcom.com>
+From: "Tim Sander" <tim.sander@hbm.com>
+Subject: [PATCH]Re: [PATCH] net/fec: infinite spin on sirq-net-tx on real-time
+Date: Mon, 6 Feb 2012 14:43:39 +0100
+Message-ID: <201202061443.39668.tim.sander@hbm.com>
+References: <1328520810-28030-1-git-send-email-hector.palacios@digi.com> <4F2FB39B.9010205@digi.com> <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/Plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-To: Arend van Spriel <arend@broadcom.com>
+Cc: "Hector Palacios" <hector.palacios@digi.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<shawn.guo@linaro.org>, <jgq516@gmail.com>, <rostedt@goodmis.org>,
+	<u.kleine-koenig@pengutronix.de>, <tglx@linutronix.de>,
+	"Zeng Zhaoming" <b32542@freescale.com>,
+	"Frank Li" <Frank.Li@freescale.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b12.telenor.se ([62.127.194.21]:54606 "EHLO
-	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753420Ab2BFNro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:47:44 -0500
-Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
-	by smtprelay-b12.telenor.se (Postfix) with ESMTP id 1D2F7C797
-	for <netdev@vger.kernel.org>; Mon,  6 Feb 2012 14:47:42 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <4F2FD6D0.8070508@broadcom.com>
+Received: from relay.medianet-world.de ([213.157.0.172]:10302 "HELO
+	relay.medianet-world.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753420Ab2BFNvQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:51:16 -0500
+Content-Class: urn:content-classes:message
+In-reply-to: <1328532924.2220.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 06, 2012 at 02:34:08PM +0100, Arend van Spriel wrote:
-> On 02/06/2012 02:26 PM, Henrik Rydberg wrote:
-> > The brcmsmac driver is now checking the bcma SPROM CRCs, leaving so=
-me
-> > chipsets unrecognized that were functional prior to the switch. In
-> > particular, the current code bails out on recent Macbooks. This pat=
-ch
-> > simply ignores the outcome of the CRC check, with the argument that=
- an
-> > unrecognized SPROM should be treated similarly to a non-existing on=
-e.
+Hi=20
+
+I just reworked the driver according to Eric's suggestions.
+It passes first smoke tests. I don't know how to test the out of memory=
+ path.
+
+Am Montag, 6. Februar 2012, 13:55:24 schrieb Eric Dumazet:
+> Le lundi 06 f=C3=A9vrier 2012 =C3=A0 12:03 +0100, Hector Palacios a =C3=
+=A9crit :
+> > I'm no network driver expert so I'll leave it up to others to comme=
+nt. I
+> > just forward ported a patch I came across in Freescale's BSP which
+> > solves the problem in mainline and in RT.
 >=20
-> Suggestion:
+> I understood you didnt write the patch alone, and my question was
+> addressed to all people involved, not only to you.
 >=20
-> The brcmsmac driver is now registered as a bcma device driver. Some
-> chipsets fail on SPROM CRC check in the bcma bus driver. This leaves =
-the
-> chipset unrecognized and the bcma bus is not registered so that brcms=
-mac
-> is not probed. In particular, the current code .......
+> FEC driver needs some bugfixes, before diverging too much from the st=
+ate
+> of the art.
+>=20
+> For example, fec_enet_alloc_buffers()  doesnt check for allocation
+> failures :
+>=20
+> fep->tx_bounce[i] =3D kmalloc(FEC_ENET_TX_FRSIZE, GFP_KERNEL);
+>=20
+> NULL dereferences are then possible later in fec_enet_start_xmit()
+>=20
+> By the way, I am not even sure kmalloc(2048) has a guarantee on
+> alignement of the result, depending on the slub/slab debugging option=
+s.
+I have not taken care of the alignment issue mentioned.
 
-All fine with me. To avoid confusion, here is the patch again, with
-the above inserted.
+> If softirqd is a real time task, an inifinite spin is hit
+> if the FEC driver tries to send a packet before the autonegotiation
+> with the PHY has completed.
+>=20
+> This was seen when booting the platform with DHCP on. The driver
+> sends the DHCP request before the PHY has completed autonegotiation.
+> As a consequence, the driver's dev_hard_start_xmit returns NETDEV_TX_=
+BUSY.
+> NETDEV_TX_BUSY is part of NET_TX_MASK thus the packet is requeued (th=
+e
+> skb->next =3D nskb) in dev_hard_start_xmit(). And the NETDEV_TX_BUSY =
+is
+> passed back to sch_derect_xmit() which calls dev_requeue_skb() which
+> then calls __netif_schedule(q) which will call __netif_reschedule(q)
+> which will then do raise_softirq_irqoff(NET_TX_SOFTIRQ).
+>=20
+> Thus, as soon as ksoftirq exits this routine, it will restart the
+> process over again. As the fec driver never finished with its
+> negotiations, the process starts over again and we never move forward=
+=2E
+>=20
+> Newsgroup reference: linux-rt-users http://www.spinics.net/lists/linu=
+x-rt-users/msg07551.html
 
-Thanks,
-Henrik
+Signed-of-by: Tim Sander <tim.sander@hbm.com>
 
----
-
-=46rom 57a4fbd1767b3c2e7c32d288b713e1b06e597bd6 Mon Sep 17 00:00:00 200=
-1
-=46rom: Henrik Rydberg <rydberg@euromail.se>
-Date: Tue, 31 Jan 2012 14:22:15 -0500
-Subject: [PATCH] bcma: don't fail for bad SPROM CRC
-MIME-Version: 1.0
-Content-Type: text/plain; charset=3DUTF-8
-Content-Transfer-Encoding: 8bit
-
-The brcmsmac driver is now registered as a bcma device driver. Some
-chipsets fail on SPROM CRC check in the bcma bus driver. This leaves
-the chipset unrecognized and the bcma bus is not registered so that
-brcmsmac is not probed. In particular, the current code bails out on
-recent Macbooks. This patch simply ignores the outcome of the CRC
-check, with the argument that an unrecognized SPROM should be treated
-similarly to a non-existing one.
-
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: Franky (Zhenhui) Lin <frankyl@broadcom.com>
-Cc: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-Signed-off-by: Henrik Rydberg <rydberg@euromail.se>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- drivers/bcma/main.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
-index febbc0a..ec31f7d 100644
---- a/drivers/bcma/main.c
-+++ b/drivers/bcma/main.c
-@@ -169,10 +169,8 @@ int bcma_bus_register(struct bcma_bus *bus)
- 	err =3D bcma_sprom_get(bus);
- 	if (err =3D=3D -ENOENT) {
- 		pr_err("No SPROM available\n");
--	} else if (err) {
-+	} else if (err)
- 		pr_err("Failed to get SPROM: %d\n", err);
--		return -ENOENT;
--	}
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 885d8ba..f69d95f 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -242,11 +242,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct ne=
+t_device *ndev)
+        unsigned short  status;
+        unsigned long flags;
 =20
- 	/* Register found cores */
- 	bcma_register_cores(bus);
---=20
-1.7.9
+-       if (!fep->link) {
+-               /* Link is down or autonegotiation is in progress. */
+-               return NETDEV_TX_BUSY;
+-       }
+-
+        spin_lock_irqsave(&fep->hw_lock, flags);
+        /* Fill in a Tx ring entry */
+        bdp =3D fep->cur_tx;
+@@ -470,6 +465,9 @@ fec_stop(struct net_device *ndev)
+        udelay(10);
+        writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+        writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++
++       netif_stop_queue(ndev);
++       fep->link =3D 0;
+ }
+=20
+=20
+@@ -787,6 +785,7 @@ static void fec_enet_adjust_link(struct net_device =
+*ndev)
+        if (phy_dev->link) {
+                if (fep->full_duplex !=3D phy_dev->duplex) {
+                        fec_restart(ndev, phy_dev->duplex);
++                       netif_wake_queue(ndev);
+                        status_change =3D 1;
+                }
+        }
+@@ -1118,6 +1117,13 @@ static int fec_enet_alloc_buffers(struct net_dev=
+ice *ndev)
+        bdp =3D fep->tx_bd_base;
+        for (i =3D 0; i < TX_RING_SIZE; i++) {
+                fep->tx_bounce[i] =3D kmalloc(FEC_ENET_TX_FRSIZE, GFP_K=
+ERNEL);
++               if(!fep->tx_bounce[i])  {
++                       for(j =3D 0; j < i; j++) {
++                               kfree(fep->tx_bounce[j]);
++                       }
++                       fec_enet_free_buffers(ndev);
++                       return -ENOMEM;
++               }
+=20
+                bdp->cbd_sc =3D 0;
+                bdp->cbd_bufaddr =3D 0;
+
+
+Hottinger Baldwin Messtechnik GmbH, Im Tiefen See 45, 64293 Darmstadt, =
+Germany | www.hbm.com=20
+
+Registered as GmbH (German limited liability corporation) in the commer=
+cial register at the local court of Darmstadt, HRB 1147 =20
+Company domiciled in Darmstadt | CEO: Andreas Huellhorst | Chairman of =
+the board: James Charles Webster
+
+Als Gesellschaft mit beschraenkter Haftung eingetragen im Handelsregist=
+er des Amtsgerichts Darmstadt unter HRB 1147=20
+Sitz der Gesellschaft: Darmstadt | Geschaeftsfuehrung: Andreas Huellhor=
+st | Aufsichtsratsvorsitzender: James Charles Webster
+
+The information in this email is confidential. It is intended solely fo=
+r the addressee. If you are not the intended recipient, please let me k=
+now and delete this email.
+
+Die in dieser E-Mail enthaltene Information ist vertraulich und ledigli=
+ch f=C3=BCr den Empfaenger bestimmt. Sollten Sie nicht der eigentliche =
+Empfaenger sein, informieren Sie mich bitte kurz und loeschen diese E-M=
+ail.
