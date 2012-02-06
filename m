@@ -1,23 +1,24 @@
 From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH v5 1/5] netdev: ethernet dev_alloc_skb to netdev_alloc_skb
-Date: Mon, 6 Feb 2012 23:07:44 +0530
-Message-ID: <CA+Dx6HaYkYCB3d8Md-LdEg8ER1qL=Jj1XRPwA9NHHg_LUS-o5A@mail.gmail.com>
+Subject: Re: [PATCH v5 2/5] netdev: ethernet dev_alloc_skb to netdev_alloc_skb
+Date: Mon, 6 Feb 2012 23:10:30 +0530
+Message-ID: <CA+Dx6HbHcU_Y5PSCisiRJxoKLjk_TKOef2BHHoRYGrP0Jc8oUg@mail.gmail.com>
 References: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
-	<20120206.114505.1068389709235471266.davem@davemloft.net>
+	<59b9c48e067528d94b260b044e1b375c56c97040.1328445742.git.netdev@pradeepdalvi.com>
+	<20120206.114917.1450321525231150955.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120206.114505.1068389709235471266.davem@davemloft.net>
+In-Reply-To: <20120206.114917.1450321525231150955.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 6, 2012 at 10:15 PM, David Miller <davem@davemloft.net> wro=
+On Mon, Feb 6, 2012 at 10:19 PM, David Miller <davem@davemloft.net> wro=
 te:
 > From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-> Date: Sun, =A05 Feb 2012 18:19:09 +0530
+> Date: Sun, =A05 Feb 2012 18:20:10 +0530
 >
 >> From: Pradeep A Dalvi <netdev@pradeepdalvi.com>
 >>
@@ -27,65 +28,30 @@ net/ethernet
 >>
 >> Signed-off-by: Pradeep A Dalvi <netdev@pradeepdalvi.com>
 >
-> Applied, but I had to fix several things up:
+> Applied, but again I had to fix things:
 >
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pkt_len < rx_copybreak=
- && (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pkt_len < rx_copybreak=
- &&
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 (skb =3D netdev_alloc_skb(dev, pkt_len + 2)) !=3D NULL) {
+>> - =A0 =A0p =3D dev_alloc_skb(IEEE802_3_SZ + DE4X5_ALIGN + 2);
+>> + =A0 =A0 p =3D netdev_alloc_skb(dev, IEEE802_3_SZ + DE4X5_ALIGN + 2=
+);
+> =A0...
+>> - =A0 =A0p =3D dev_alloc_skb(len + 2);
+>> + =A0 =A0 p =3D netdev_alloc_skb(dev, len + 2);
 >
-> This is not the correct way to format a multi-line conditional.
+> Leave existing indentation alone.
 >
-> All subsequent lines must start at the first column after the initial=
- line's
-> openning parenthesis:
+>> - =A0 =A0 =A0 =A0 =A0 =A0 skb =3D dev_alloc_skb(ugeth->ug_info->uf_i=
+nfo.max_rx_buf_length +
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 UC=
+C_GETH_RX_DATA_BUF_ALIGNMENT);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 skb =3D netdev_alloc_skb(ugeth->ndev,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ugeth->ug_=
+info->uf_info.max_rx_buf_length +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 UCC_GETH_R=
+X_DATA_BUF_ALIGNMENT);
 >
-> =A0 =A0 =A0 =A0if (format_it &&
-> =A0 =A0 =A0 =A0 =A0 =A0like_this)
->
-> =A0 =A0 =A0 =A0if (not &&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0like_this)
->
-> To be honest I have no idea what posses people to tab things out in s=
-uch
-> an incredibly ugly fashion in the first place.
->
->> - =A0 =A0 =A0 =A0 =A0 =A0 if (!(lp->rx_skbuff[i] =3D dev_alloc_skb(l=
-p->rx_buff_len))) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 lp->rx_skbuff[i] =3D netdev_alloc_skb(dev,=
- lp->rx_buff_len);
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (!lp->rx_skbuff[i]) {
->
-> You properly leave this test alone and keep it as "!foo" yet:
->
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if(!(new_skb =3D dev_alloc=
-_skb(lp->rx_buff_len))){
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 new_skb =3D netdev_alloc_s=
-kb(dev, lp->rx_buff_len);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (new_skb =3D=3D NULL) {
->
-> You change this one to the undesirable "=3D=3D NULL" test, don't do t=
-hat.
-> "!foo" is the canonical and most efficient NULL pointer test.
->
->> - =A0 =A0 =A0skb =3D dev_alloc_skb(pkt_len+2);
->> + =A0 =A0 skb =3D netdev_alloc_skb(dev, pkt_len + 2);
->
-> Do not change the indentation in one place when the entire rest of th=
-e source
-> file uses something else, fixing that would a seperate change from wh=
-at you're
-> doing.
->
->> - =A0 =A0 =A0 =A0 skb =3D dev_alloc_skb(RX_BUFLEN + 2);
->> + =A0 =A0 =A0 =A0 =A0 =A0 skb =3D netdev_alloc_skb(RX_BUFLEN + 2);
->
-> Same problem.
+> Line up subsequent lines of a multiline series of function arguments
+> properly, each should start at the first column after the function ca=
+lls
+> openning parenthesis.
 
-Thanks a lot! I will make note of these points and shall not repeat aga=
-in.
-
-Regards,
-Pradeep A. Dalvi
+Thanks a lot again! And would remember about these too.
