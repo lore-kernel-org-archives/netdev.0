@@ -1,29 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Mon, 06 Feb 2012 10:15:17 -0500 (EST)
-Message-ID: <20120206.101517.1598607878740481170.davem@davemloft.net>
-References: <20120203.192933.510206531351047222.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
-	<CAGsizzLFoXdUQrA-WtdRq4FDdnDNnevyK6HCRmrT2joUV=ZRXg@mail.gmail.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH V2 02/10] cxgb4: Common platform specific changes for
+ DB Drop Recovery
+Date: Mon, 06 Feb 2012 20:50:30 +0530
+Message-ID: <4F2FEFBE.1060503@chelsio.com>
+References: <1319130620-9240-1-git-send-email-vipul@chelsio.com> <8A71B368A89016469F72CD08050AD3340A3D3120@maui.asicdesigners.com> <CAL1RGDXoeJNYz3R58bU-ixRyY1uKNgGPdUrWZ4nbcuyRDjL6Cg@mail.gmail.com> <20111028182234.GA11554@kumars-PC.asicdesigners.com> <CAL1RGDVQJUb2sM+Yo1sYVO5o-GhyBCOGo3_Q0U7YkR0GAoFgfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregory.v.rose@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: steweg@ynet.sk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizzLFoXdUQrA-WtdRq4FDdnDNnevyK6HCRmrT2joUV=ZRXg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	Felix Marti <felix-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	Dimitrios Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDVQJUb2sM+Yo1sYVO5o-GhyBCOGo3_Q0U7YkR0GAoFgfg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: =A6tefan Gula <steweg@ynet.sk>
-Date: Mon, 6 Feb 2012 09:53:28 +0100
+Hi Roland,
 
-> If I try to request for it, it will eventually fail with a lot of
-> records even with filtering...
+On 28-10-2011 23:58, Roland Dreier wrote:
 
-Then the user can loop increasing the buffer size until the netlink
-request succeeds.
+>> Vipul did a respin of this patch, and posted the V3 version.
+>> Its available here:
+>> http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg09659.html
+> 
+> Got it, thanks.
+> 
+>  - R.
 
-It is not a problem.
+Will this series be coming out with 3.3?
+let me know if anything is required from my side.
+
+Thanks,
+Vipul Pandya
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
