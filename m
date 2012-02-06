@@ -1,81 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 0/2] Tracepoint for tcp retransmission
-Date: Mon, 06 Feb 2012 18:02:34 +0100
-Message-ID: <1328547754.2220.86.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120120.135028.1359677274445012541.davem@davemloft.net>
-	 <65795E11DBF1E645A09CEC7EAEE94B9CB8D3EA7B@USINDEVS02.corp.hds.com>
-	 <20120204142823.GA7000@neilslaptop.think-freely.org>
-	 <20120204155807.GA2657@nuttenaction>
-	 <20120204200937.GA2670@neilslaptop.think-freely.org>
-	 <20120205125325.GA31578@elastic.org>
-	 <20120205191708.GA5337@neilslaptop.think-freely.org>
-	 <20120205200428.GB2816@nuttenaction>
-	 <20120206013247.GA5681@neilslaptop.think-freely.org>
-	 <20120206152019.GG27935@redhat.com>
-	 <20120206155305.GB3620@hmsreliant.think-freely.org>
-	 <1328545089.2200.13.camel@gandalf.stny.rr.com>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 18:07:02 +0100
+Message-ID: <1328548022.2220.87.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1328545627.2220.72.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120206.113145.1284864994961472499.davem@davemloft.net>
+	 <1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120206.115859.1384761795375582044.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"Frank Ch. Eigler" <fche@redhat.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	"Frank Ch. Eigler" <fche@elastic.org>,
-	Satoru Moriya <satoru.moriya@hds.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>,
-	Seiji Aguchi <seiji.aguchi@hds.com>, fche@sourceware.org,
-	mathieu.desnoyers@polymtl.ca
-To: Steven Rostedt <rostedt@goodmis.org>
+Cc: ogerlitz@mellanox.com, sean.hefty@intel.com,
+	herbert@gondor.hengli.com.au, linux-rdma@vger.kernel.org,
+	shlomop@mellanox.com, roland@kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:56021 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755513Ab2BFRCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:02:38 -0500
-Received: by wgbdt10 with SMTP id dt10so6429231wgb.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 09:02:37 -0800 (PST)
-In-Reply-To: <1328545089.2200.13.camel@gandalf.stny.rr.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49709 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755337Ab2BFRHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 12:07:05 -0500
+In-Reply-To: <20120206.115859.1384761795375582044.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 11:18 -0500, Steven Rostedt a =C3=A9=
+Le lundi 06 f=C3=A9vrier 2012 =C3=A0 11:58 -0500, David Miller a =C3=A9=
 crit :
-> On Mon, 2012-02-06 at 10:53 -0500, Neil Horman wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 06 Feb 2012 17:47:14 +0100
 >=20
-> > Yes, that was his point.  Mine was that, given Satoru's needs, a ne=
-tfilter hook
-> > provides 90% of what they need (as its been described here).  If yo=
-u're
-> > unfamiliar with them, netfilter hooks are those standard points in =
-the network
-> > input/output/forwarding paths at which we can watch and maniupulate=
- network
-> > traffic.  They're what iptables/ip6tables/ebtables/etc use to do ev=
-erything they
-> > do.  I'm suggesting that they use those existing hooks to monitor o=
-utgoing
-> > traffic for whatever information they want (in this case retransmit=
-ted unacked
-> > tcp sequence numbers).  Or whatever else their interested in.
+> [ Roland Dreier CC:'d ]
+>=20
+> > gro_max_header_len can be different than hard_header_len because as=
+ Or
+> > Gerlitz said :
 > >=20
-> > As for the other 10% (recording failed retransmits, which don't gen=
-erate
-> > traffic), we have existing tracepoints that can be used.
+> > 	IPoIB advertizes hard_header_len which is bigger than the
+> > 	IPoIB header len, this is done such that skbs sent by the
+> > 	network stack have enough headroom for a "pseudoheader"
+> > 	which for few flows (e.g unicast arp replies and multicast)
+> > 	is placed there by the ipoib hard_header function and later
+> > 	used by the xmit function.
 >=20
-> I haven't looked at the details here, but I'm wondering if netfilter
-> could benefit from static_branch() calls (aka jump-labels). I'm sure
-> selinux could too. Basically, when netfilter is disabled, the fast pa=
-th
-> would just include a nop, with no if() branch testing at all. When yo=
-u
-> enable netfilters, it would then add a jmp to the code that actually
-> does the tests.
+> Translation: IPoIB's path resolution mechanism is garbage
+>=20
+> So if IPoIB path resolution was properly integrated into the neighbou=
+r
+> cache state machine, instead of being implemented awkwardly in the
+> device transmit path, this crap wouldn't be necessary right?
+>=20
+> So here we have yet another incredibly painful side effect of how
+> IPoIB path resolution works.
+>=20
+> Roland, I want you to seriously consider a way, any way, to get rid o=
+f
+> how IPoIB does path resolution.  It must be fully integrated into the
+> neighbour layer, the neighbour layer must be knowledgable about how
+> path resolution is a necessary step for a neighbour entry to enter th=
+e
+> valid state, and I want all of this awkward neighbour handling code
+> removed from the transmit path of IPoIB.
+>=20
+> And finally it must not lie about it's hardware header length.
+>=20
+> Then we won't need crap like what is being proposed here, a
+> "no_this_is_the_real_hard_header_len" struct member.  That's just
+> rediculious.
 
-Hmm... I thought I already did that.
-
-Or maybe I intended so and forgot.
-
-Ah no, its there in commit a2d7ec58ac09
-(netfilter: use jump_label for nf_hooks)
+OK, I'll resend my first patch then, using hard_header_len
