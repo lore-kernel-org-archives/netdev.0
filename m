@@ -1,56 +1,40 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: [PATCH] bcma: don't fail for bad SPROM CRC
-Date: Mon, 6 Feb 2012 20:28:44 +0100
-Message-ID: <4F3029EC.3070709@broadcom.com>
-References: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
- <CACna6rwqO73a0G=AQhTVCm=KeLRgjgc5ohJ_B8Z4T9Y-6ZTwMg@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 14:32:30 -0500 (EST)
+Message-ID: <20120206.143230.1415707004934341114.davem@davemloft.net>
+References: <CAG4TOxOBCbEEOtP62ZM1R3-6umebdbJFkK0bnjphLCZOgHzt1g@mail.gmail.com>
+	<20120206.141223.332863167187002998.davem@davemloft.net>
+	<CAG4TOxNgJ3=AFuA==Km815YzW8eQ7nD_UAzkXLSXcAyaCAAvPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Henrik Rydberg" <rydberg@euromail.se>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1936 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752228Ab2BFT33 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 14:29:29 -0500
-In-Reply-To: <CACna6rwqO73a0G=AQhTVCm=KeLRgjgc5ohJ_B8Z4T9Y-6ZTwMg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAG4TOxNgJ3=AFuA==Km815YzW8eQ7nD_UAzkXLSXcAyaCAAvPg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/06/2012 06:08 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
-> 2012/2/6 Henrik Rydberg <rydberg@euromail.se>:
->> The brcmsmac driver is now checking the bcma SPROM CRCs, leaving som=
-e
->> chipsets unrecognized that were functional prior to the switch. In
->> particular, the current code bails out on recent Macbooks. This patc=
-h
->> simply ignores the outcome of the CRC check, with the argument that =
-an
->> unrecognized SPROM should be treated similarly to a non-existing one=
-=2E
->=20
-> Have you maybe tried to look at the real solution?
->=20
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Mon, 6 Feb 2012 11:23:21 -0800
 
-It could be a new SPROM revision, but brcmsmac still does SPROM access
-on its own accord and would fail the probe sequence. So it is probably
-something else.
+> Does the netdev driver own skb->cb between hard_header
+> and start_xmit?  If so we could use that instead of stealing
+> some header space, and that would at least let us not lie
+> about hard_header_len.
 
-SPROM configuration can differ between chipsets and have the following
-variations:
+Unfortunately the packet scheduler sits between the hard_header()
+call (via neigh_*_output() --> dev_hard_header()) and when the
+device xmit method is invoked.
 
-1) external SPROM: when following conditions are true
-	chipcommon.capabilities & 0x40000000
-	chipcommon.sromcontrol & 0x00000001
-2) on-chip OTP: when following conditions are true
-	for 4313: chipcommon.chipstatus & 2
-	for 43224/43225: true
+And the packet scheduler can make use of the skb->cb[], for
+include/net/sch_generic.h:qdisc_skb_cb
 
-The real solution would be to take the variations into account. I
-started tinkering on it, but not completed yet.
 
-Gr. AvS
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
