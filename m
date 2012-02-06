@@ -1,97 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Mon, 06 Feb 2012 10:19:50 +0100
-Message-ID: <1328519990.2220.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120201.162157.880976652659067010.davem@davemloft.net>
-	 <4F2A87B0.6070900@profihost.ag>
-	 <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120202.143957.2251106530056768980.davem@davemloft.net>
-	 <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
-	 <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
-	 <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120203155309.GB20638@kroah.com> <4F2F9784.7090203@profihost.ag>
+From: Hector Palacios <hector.palacios@digi.com>
+Subject: [PATCH] net/fec: infinite spin on sirq-net-tx on real-time
+Date: Mon, 6 Feb 2012 10:33:30 +0100
+Message-ID: <1328520810-28030-1-git-send-email-hector.palacios@digi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <shawn.guo@linaro.org>, <jgq516@gmail.com>,
+	<rostedt@goodmis.org>, <tim.sander@hbm.com>,
+	<u.kleine-koenig@pengutronix.de>, <tglx@linutronix.de>,
+	Hector Palacios <hector.palacios@digi.com>,
+	Zeng Zhaoming <b32542@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49833 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075Ab2BFJTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 04:19:54 -0500
-In-Reply-To: <4F2F9784.7090203@profihost.ag>
+Received: from mail46.messagelabs.com ([216.82.241.196]:61714 "EHLO
+	mail46.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754075Ab2BFJnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 04:43:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 f=C3=A9vrier 2012 =C3=A0 10:04 +0100, Stefan Priebe - Profi=
-host AG a
-=C3=A9crit :
-> Hi Eric, Hi David
->=20
-> today i've seen this:
-> [1048676.660457] ------------[ cut here ]------------
-> [1048676.688131] WARNING: at net/ipv4/tcp_input.c:2964
-> tcp_ack+0xfe1/0x2420()
-> [1048676.716291] Hardware name: X8SIL
-> [1048676.744292] Modules linked in: xt_tcpudp ipt_REJECT iptable_filt=
-er
-> ip_tables x_tables coretemp k8temp ipv6 dm_snapshot dm_mod
-> [1048676.802468] Pid: 0, comm: kworker/0:1 Not tainted 2.6.40.17.1int=
-el #1
-> [1048676.831737] Call Trace:
-> [1048676.860455]  <IRQ>  [<ffffffff81565921>] ? tcp_ack+0xfe1/0x2420
-> [1048676.860765]  [<ffffffff81045e10>] warn_slowpath_common+0x80/0xc0
-> [1048676.860771]  [<ffffffff81045e65>] warn_slowpath_null+0x15/0x20
-> [1048676.860777]  [<ffffffff81565921>] tcp_ack+0xfe1/0x2420
-> [1048676.860784]  [<ffffffff81567060>] tcp_rcv_established+0x300/0x63=
-0
-> [1048676.860791]  [<ffffffff815708a4>] tcp_v4_do_rcv+0x154/0x2d0
-> [1048676.860796]  [<ffffffff8157111b>] tcp_v4_rcv+0x6fb/0x880
-> [1048676.860804]  [<ffffffff8154e4e7>] ip_local_deliver_finish+0x127/=
-0x250
-> [1048676.860810]  [<ffffffff8154e69d>] ip_local_deliver+0x8d/0xa0
-> [1048676.860815]  [<ffffffff8154dda2>] ip_rcv_finish+0x172/0x340
-> [1048676.860820]  [<ffffffff8154e1e5>] ip_rcv+0x275/0x2f0
-> [1048676.860827]  [<ffffffff81523387>] __netif_receive_skb+0x427/0x4a=
-0
-> [1048676.860832]  [<ffffffff81529148>] netif_receive_skb+0x78/0x80
-> [1048676.860837]  [<ffffffff81529280>] napi_skb_finish+0x50/0x70
-> [1048676.860842]  [<ffffffff81529735>] napi_gro_receive+0xc5/0xd0
-> [1048676.860851]  [<ffffffff81462786>] e1000_receive_skb+0x56/0x70
-> [1048676.860856]  [<ffffffff814646eb>] e1000_clean_rx_irq+0x22b/0x3d0
-> [1048676.860862]  [<ffffffff814630f2>] e1000_clean+0xb2/0x2f0
-> [1048676.860868]  [<ffffffff81054efc>] ? run_timer_softirq+0x3c/0x320
-> [1048676.860873]  [<ffffffff815298fa>] net_rx_action+0x10a/0x2b0
-> [1048676.860879]  [<ffffffff8104c300>] __do_softirq+0xd0/0x1c0
-> [1048676.860887]  [<ffffffff815eb20c>] call_softirq+0x1c/0x30
-> [1048676.860895]  [<ffffffff810047b5>] do_softirq+0x55/0x90
-> [1048676.860900]  [<ffffffff8104c0dd>] irq_exit+0xad/0xe0
-> [1048676.860905]  [<ffffffff81003f94>] do_IRQ+0x64/0xe0
-> [1048676.860910]  [<ffffffff815e9a93>] common_interrupt+0x13/0x13
-> [1048676.860913]  <EOI>  [<ffffffff8106bdff>] ?
-> notifier_call_chain+0x3f/0x80
-> [1048676.860926]  [<ffffffff813117b3>] ? intel_idle+0xb3/0x120
-> [1048676.860931]  [<ffffffff81311795>] ? intel_idle+0x95/0x120
-> [1048676.860937]  [<ffffffff814fc27c>] cpuidle_idle_call+0xdc/0x1a0
-> [1048676.860942]  [<ffffffff81002091>] cpu_idle+0xb1/0x110
-> [1048676.860948]  [<ffffffff81b0d7aa>] start_secondary+0x201/0x297
-> [1048676.860953] ---[ end trace 4d27234ace919a1b ]---
->=20
-> Any idea about that? Is it due to my custom patch being buggy or is i=
-t
-> anything you know which is missing in 3.0.X too?
+If softirqd is a real time task, an inifinite spin is hit
+if the FEC driver tries to send a packet before the autonegotiation
+with the PHY has completed.
 
-Thats the tcp_fastretrans_alert()
+This was seen when booting the platform with DHCP on. The driver
+sends the DHCP request before the PHY has completed autonegotiation.
+As a consequence, the driver's dev_hard_start_xmit returns NETDEV_TX_BUSY.
+NETDEV_TX_BUSY is part of NET_TX_MASK thus the packet is requeued (the
+skb->next = nskb) in dev_hard_start_xmit(). And the NETDEV_TX_BUSY is
+passed back to sch_derect_xmit() which calls dev_requeue_skb() which
+then calls __netif_schedule(q) which will call __netif_reschedule(q)
+which will then do raise_softirq_irqoff(NET_TX_SOFTIRQ).
 
-	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
-		tp->fackets_out =3D 0;
+Thus, as soon as ksoftirq exits this routine, it will restart the
+process over again. As the fec driver never finished with its
+negotiations, the process starts over again and we never move forward.
 
-I dont know if some recent patch addressed this issue.
+Newsgroup reference: linux-rt-users http://www.spinics.net/lists/linux-rt-users/msg07551.html
 
-CC Ilpo on this one.
+Signed-off-by: Zeng Zhaoming <b32542@freescale.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Hector Palacios <hector.palacios@digi.com>
+---
+ drivers/net/ethernet/freescale/fec.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index c136230..3fa7d3b 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -284,6 +284,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	if (!fep->link) {
+ 		/* Link is down or autonegotiation is in progress. */
++		netif_stop_queue(dev);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -530,6 +531,7 @@ fec_stop(struct net_device *ndev)
+ 	udelay(10);
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++	fep->link = 0;
+ 
+ 	/* We have to keep ENET enabled to have MII interrupt stay working */
+ 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+@@ -866,6 +868,7 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ 	if (phy_dev->link) {
+ 		if (fep->full_duplex != phy_dev->duplex) {
+ 			fec_restart(ndev, phy_dev->duplex);
++			netif_wake_queue(dev);
+ 			status_change = 1;
+ 		}
+ 	}
+-- 
+1.7.1
