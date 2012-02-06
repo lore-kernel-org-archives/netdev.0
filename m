@@ -1,7 +1,8 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 00/11] Swap-over-NFS without deadlocking V2
-Date: Mon,  6 Feb 2012 22:56:30 +0000
-Message-ID: <1328569001-17599-1-git-send-email-mgorman@suse.de>
+Subject: [PATCH 03/11] mm: Methods for teaching filesystems about PG_swapcache pages
+Date: Mon,  6 Feb 2012 22:56:33 +0000
+Message-ID: <1328569001-17599-4-git-send-email-mgorman@suse.de>
+References: <1328569001-17599-1-git-send-email-mgorman@suse.de>
 Cc: Linux-Netdev <netdev@vger.kernel.org>,
 	Linux-NFS <linux-nfs@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -14,99 +15,131 @@ Cc: Linux-Netdev <netdev@vger.kernel.org>,
 	Mel Gorman <mgorman@suse.de>
 To: Linux-MM <linux-mm@kvack.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328569001-17599-1-git-send-email-mgorman@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series is based on top of "Swap-over-NBD without deadlocking v8"
-as it depends on the same reservation of PF_MEMALLOC reserves logic.
+In order to teach filesystems to handle swap cache pages, three new
+page functions are introduced:
 
-When a user or administrator requires swap for their application, they
-create a swap partition and file, format it with mkswap and activate it with
-swapon. In diskless systems this is not an option so if swap if required
-then swapping over the network is considered.  The two likely scenarios
-are when blade servers are used as part of a cluster where the form factor
-or maintenance costs do not allow the use of disks and thin clients.
+  pgoff_t page_file_index(struct page *);
+  loff_t page_file_offset(struct page *);
+  struct address_space *page_file_mapping(struct page *);
 
-The Linux Terminal Server Project recommends the use of the Network
-Block Device (NBD) for swap but this is not always an option.  There is
-no guarantee that the network attached storage (NAS) device is running
-Linux or supports NBD. However, it is likely that it supports NFS so there
-are users that want support for swapping over NFS despite any performance
-concern. Some distributions currently carry patches that support swapping
-over NFS but it would be preferable to support it in the mainline kernel.
+page_file_index() - gives the offset of this page in the file in
+PAGE_CACHE_SIZE blocks. Like page->index is for mapped pages, this
+function also gives the correct index for PG_swapcache pages.
 
-Patch 1 avoids a stream-specific deadlock that potentially affects TCP.
+page_file_offset() - uses page_file_index(), so that it will give
+the expected result, even for PG_swapcache pages.
 
-Patch 2 is a small modification to SELinux to avoid using PFMEMALLOC
-	reserves.
+page_file_mapping() - gives the mapping backing the actual page;
+that is for swap cache pages it will give swap_file->f_mapping.
 
-Patch 3 adds three helpers for filesystems to handle swap cache pages.
-	For example, page_file_mapping() returns page->mapping for
-	file-backed pages and the address_space of the underlying
-	swap file for swap cache pages.
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ include/linux/mm.h      |   25 +++++++++++++++++++++++++
+ include/linux/pagemap.h |    5 +++++
+ mm/swapfile.c           |   20 ++++++++++++++++++++
+ 3 files changed, 50 insertions(+), 0 deletions(-)
 
-Patch 4 adds two address_space_operations to allow a filesystem
-	to pin all metadata relevant to a swapfile in memory. Upon
-	successful activation, the swapfile is marked SWP_FILE and
-	the address space operation ->direct_IO is used for writing
-	and ->readpage for reading in swap pages.
-
-Patch 5 notes that patch 3 is bolting
-	filesystem-specific-swapfile-support onto the side and that
-	the default handlers have different information to what
-	is available to the filesystem. This patch refactors the
-	code so that there are generic handlers for each of the new
-	address_space operations.
-
-Patch 6 adds an API to allow a vector of kernel addresses to be
-	translated to struct pages and pinned for IO.
-
-Patch 7 updates NFS to use the helpers from patch 3 where necessary.
-
-Patch 8 avoids setting PF_private on PG_swapcache pages within NFS.
-
-Patch 9 implements the new swapfile-related address_space operations
-	for NFS and teaches the direct IO handler how to manage
-	kernel addresses.
-
-Patch 10 prevents page allocator recursions in NFS by using GFP_NOIO
-	where appropriate.
-
-Patch 11 fixes a NULL pointer dereference that occurs when using
-	swap-over-NFS.
-
- Documentation/filesystems/Locking |   13 ++++
- Documentation/filesystems/vfs.txt |   12 +++
- fs/nfs/Kconfig                    |    8 ++
- fs/nfs/direct.c                   |   94 ++++++++++++++++--------
- fs/nfs/file.c                     |   28 ++++++--
- fs/nfs/inode.c                    |    6 ++
- fs/nfs/internal.h                 |    7 +-
- fs/nfs/pagelist.c                 |    8 +-
- fs/nfs/read.c                     |    6 +-
- fs/nfs/write.c                    |   93 ++++++++++++++----------
- include/linux/blk_types.h         |    2 +
- include/linux/fs.h                |    9 +++
- include/linux/mm.h                |   29 ++++++++
- include/linux/nfs_fs.h            |    4 +-
- include/linux/pagemap.h           |    5 ++
- include/linux/sunrpc/xprt.h       |    3 +
- include/linux/swap.h              |    8 ++
- include/net/sock.h                |    7 +-
- mm/memory.c                       |   53 ++++++++++++++
- mm/page_io.c                      |  144 +++++++++++++++++++++++++++++++++++++
- mm/swap_state.c                   |    2 +-
- mm/swapfile.c                     |  142 ++++++++++++++----------------------
- net/caif/caif_socket.c            |    2 +-
- net/core/sock.c                   |    2 +-
- net/ipv4/tcp_input.c              |   12 ++--
- net/sctp/ulpevent.c               |    2 +-
- net/sunrpc/Kconfig                |    5 ++
- net/sunrpc/clnt.c                 |    2 +
- net/sunrpc/sched.c                |    7 ++-
- net/sunrpc/xprtsock.c             |   53 ++++++++++++++
- security/selinux/avc.c            |    2 +-
- 31 files changed, 580 insertions(+), 190 deletions(-)
-
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 17b27cd..ac90729 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -802,6 +802,17 @@ static inline void *page_rmapping(struct page *page)
+ 	return (void *)((unsigned long)page->mapping & ~PAGE_MAPPING_FLAGS);
+ }
+ 
++extern struct address_space *__page_file_mapping(struct page *);
++
++static inline
++struct address_space *page_file_mapping(struct page *page)
++{
++	if (unlikely(PageSwapCache(page)))
++		return __page_file_mapping(page);
++
++	return page->mapping;
++}
++
+ static inline int PageAnon(struct page *page)
+ {
+ 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
+@@ -818,6 +829,20 @@ static inline pgoff_t page_index(struct page *page)
+ 	return page->index;
+ }
+ 
++extern pgoff_t __page_file_index(struct page *page);
++
++/*
++ * Return the file index of the page. Regular pagecache pages use ->index
++ * whereas swapcache pages use swp_offset(->private)
++ */
++static inline pgoff_t page_file_index(struct page *page)
++{
++	if (unlikely(PageSwapCache(page)))
++		return __page_file_index(page);
++
++	return page->index;
++}
++
+ /*
+  * Return true if this page is mapped into pagetables.
+  */
+diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
+index cfaaa69..d4d4bda 100644
+--- a/include/linux/pagemap.h
++++ b/include/linux/pagemap.h
+@@ -286,6 +286,11 @@ static inline loff_t page_offset(struct page *page)
+ 	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
+ }
+ 
++static inline loff_t page_file_offset(struct page *page)
++{
++	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
++}
++
+ extern pgoff_t linear_hugepage_index(struct vm_area_struct *vma,
+ 				     unsigned long address);
+ 
+diff --git a/mm/swapfile.c b/mm/swapfile.c
+index d999f09..5e00875 100644
+--- a/mm/swapfile.c
++++ b/mm/swapfile.c
+@@ -31,6 +31,7 @@
+ #include <linux/memcontrol.h>
+ #include <linux/poll.h>
+ #include <linux/oom.h>
++#include <linux/export.h>
+ 
+ #include <asm/pgtable.h>
+ #include <asm/tlbflush.h>
+@@ -2290,6 +2291,25 @@ int swapcache_prepare(swp_entry_t entry)
+ }
+ 
+ /*
++ * out-of-line __page_file_ methods to avoid include hell.
++ */
++
++struct address_space *__page_file_mapping(struct page *page)
++{
++	VM_BUG_ON(!PageSwapCache(page));
++	return page_swap_info(page)->swap_file->f_mapping;
++}
++EXPORT_SYMBOL_GPL(__page_file_mapping);
++
++pgoff_t __page_file_index(struct page *page)
++{
++	swp_entry_t swap = { .val = page_private(page) };
++	VM_BUG_ON(!PageSwapCache(page));
++	return swp_offset(swap);
++}
++EXPORT_SYMBOL_GPL(__page_file_index);
++
++/*
+  * swap_lock prevents swap_map being freed. Don't grab an extra
+  * reference on the swaphandle, it doesn't matter if it becomes unused.
+  */
 -- 
 1.7.3.4
