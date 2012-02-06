@@ -1,65 +1,56 @@
-From: "Henrik Rydberg" <rydberg@euromail.se>
-Subject: =?UTF-8?q?=5BPATCH=5D=20bcma=3A=20don=27t=20fail=20for=20bad=20SPROM=20CRC?=
-Date: Mon,  6 Feb 2012 14:26:41 +0100
-Message-ID: <1328534801-3477-1-git-send-email-rydberg@euromail.se>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] net/fec: infinite spin on sirq-net-tx on real-time
+Date: Mon, 06 Feb 2012 08:25:21 -0500
+Message-ID: <1328534721.5882.225.camel@gandalf.stny.rr.com>
+References: <1328520810-28030-1-git-send-email-hector.palacios@digi.com>
+	 <1328522191.2220.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4F2FB39B.9010205@digi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Henrik Rydberg <rydberg@euromail.se>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"jgq516@gmail.com" <jgq516@gmail.com>,
+	"tim.sander@hbm.com" <tim.sander@hbm.com>,
+	"u.kleine-koenig@pengutronix.de" <u.kleine-koenig@pengutronix.de>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	Zeng Zhaoming <b32542@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: Hector Palacios <hector.palacios@digi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b22.telenor.se ([195.54.99.213]:40123 "EHLO
-	smtprelay-b22.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755039Ab2BFNZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:25:25 -0500
-Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
-	by smtprelay-b22.telenor.se (Postfix) with ESMTP id 88F6DC030
-	for <netdev@vger.kernel.org>; Mon,  6 Feb 2012 14:25:23 +0100 (CET)
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:44334 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755004Ab2BFNZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 08:25:24 -0500
+In-Reply-To: <4F2FB39B.9010205@digi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The brcmsmac driver is now checking the bcma SPROM CRCs, leaving some
-chipsets unrecognized that were functional prior to the switch. In
-particular, the current code bails out on recent Macbooks. This patch
-simply ignores the outcome of the CRC check, with the argument that an
-unrecognized SPROM should be treated similarly to a non-existing one.
+On Mon, 2012-02-06 at 12:03 +0100, Hector Palacios wrote:
 
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: Franky (Zhenhui) Lin <frankyl@broadcom.com>
-Cc: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-Signed-off-by: Henrik Rydberg <rydberg@euromail.se>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-Hi John,
+> >>
+> >> @@ -530,6 +531,7 @@ fec_stop(struct net_device *ndev)
+> >>   	udelay(10);
+> >>   	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+> >>   	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+> >> +	fep->link = 0;
+> >
+> >
+> > Why not call netif_stop_queue(dev) here ?
+> >
 
-It seems this patch may have gotten lost, at least I have not seen it
-on any of the net/wireless parties. Arend, are you ok with the final
-wording?
+> I'm no network driver expert so I'll leave it up to others to comment. I just forward 
+> ported a patch I came across in Freescale's BSP which solves the problem in mainline 
+> and in RT.
 
-Thanks,
-Henrik
+Hector,
 
- drivers/bcma/main.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+Eric's suggestion may also work. Could your revert this patch and add
+the netif_stop_queue(dev) there, and see if it fixes the problems in
+both mainline and -rt?
 
-diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
-index febbc0a..ec31f7d 100644
---- a/drivers/bcma/main.c
-+++ b/drivers/bcma/main.c
-@@ -169,10 +169,8 @@ int bcma_bus_register(struct bcma_bus *bus)
- 	err =3D bcma_sprom_get(bus);
- 	if (err =3D=3D -ENOENT) {
- 		pr_err("No SPROM available\n");
--	} else if (err) {
-+	} else if (err)
- 		pr_err("Failed to get SPROM: %d\n", err);
--		return -ENOENT;
--	}
-=20
- 	/* Register found cores */
- 	bcma_register_cores(bus);
---=20
-1.7.9
+Thanks!
+
+-- Steve
