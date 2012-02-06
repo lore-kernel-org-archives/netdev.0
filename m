@@ -1,44 +1,74 @@
-From: "Erich E. Hoover" <ehoover@mines.edu>
-Subject: Re: [PATCH v3 1/2] Implement IP_UNICAST_IF socket option.
-Date: Mon, 6 Feb 2012 15:14:56 -0700
-Message-ID: <CAEU2+vqsB=uUTyhuQ1-52kfFi82R25r2ydexjdVC0s1omUt7qQ@mail.gmail.com>
-References: <62162DF05402B341B3DB59932A1FA992B5B5CA0154@EUSAACMS0702.eamcs.ericsson.se>
-	<CAEU2+vrvKS8e0hjkZG0j_Ukm_Fq3KJ9NnSz+Yb1R3vQnn7-vcQ@mail.gmail.com>
-	<62162DF05402B341B3DB59932A1FA992B5B5CA01B7@EUSAACMS0702.eamcs.ericsson.se>
-	<CAEU2+vrS_HmpUmcSkrsGq0RYZxynYmXrY_Pm9ESa=280kEqSgg@mail.gmail.com>
-	<62162DF05402B341B3DB59932A1FA992B5B5CA0245@EUSAACMS0702.eamcs.ericsson.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: Fix mem leak in bnx2x_tpa_stop() if build_skb()
+ fails.
+Date: Mon, 06 Feb 2012 23:53:53 +0100
+Message-ID: <1328568833.2476.1.camel@edumazet-laptop>
+References: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: Shawn Lu <shawn.lu@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from izzard.Mines.EDU ([138.67.132.197]:42620 "EHLO izzard.mines.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755705Ab2BFWO5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 17:14:57 -0500
-Received: from mail-vx0-f174.google.com (mail-vx0-f174.google.com [209.85.220.174])
-	(authenticated bits=0)
-	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q16MEuHg024904
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 6 Feb 2012 15:14:56 -0700
-Received: by vcge1 with SMTP id e1so4240212vcg.19
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 14:14:56 -0800 (PST)
-In-Reply-To: <62162DF05402B341B3DB59932A1FA992B5B5CA0245@EUSAACMS0702.eamcs.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eliezer Tamir <eliezert@broadcom.com>
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 6, 2012 at 1:30 PM, Shawn Lu <shawn.lu@ericsson.com> wrote:
-> ...
-> If sk->sk_bound_dev_if has a value, =A0we are not going to use
-> outif_index anywhere. Seting outif_index is confusing in this case,
->
-> In addition, =A0when socket has bond to specific device, this
-> Option should return fail to indicate it is wrong to use =A0IP_UNICAS=
-T_IF
-> Here.
+Le lundi 06 f=C3=A9vrier 2012 =C3=A0 22:28 +0100, Jesper Juhl a =C3=A9c=
+rit :
+> We allocate memory for 'new_data' with kmalloc(). If we get the memor=
+y
+> we then try to build_skb() and if that should fail (which it can) we
+> do not enter 'if (likely(skb)) {' and actually use 'new_data' but
+> instead fall through to the 'drop:' label and end up returning from
+> the function without ever assigning 'new'data' to anything or freeing
+> it. That leaks the memory allocated to 'new_data'.
+>=20
+> This patch fixes the memory leak by doing a kfree(new_data) in the
+> case where build_skb() fails (or where allocation of 'new_data' itsel=
+f
+> fails, but in taht case it's just a harmless kfree(NULL)).
+>=20
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+>=20
+>  No hardware to test, so compile tested only.
+>=20
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/driver=
+s/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index 03f3935..7aee469 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -523,7 +523,6 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, stru=
+ct bnx2x_fastpath *fp,
+>  		skb =3D build_skb(data);
+> =20
+>  	if (likely(skb)) {
+> -
+>  #ifdef BNX2X_STOP_ON_ERROR
+>  		if (pad + len > fp->rx_buf_size) {
+>  			BNX2X_ERR("skb_put is about to fail...  "
+> @@ -557,7 +556,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, stru=
+ct bnx2x_fastpath *fp,
+> =20
+>  		return;
+>  	}
+> -
+> +	kfree(new_data);
+>  drop:
+>  	/* drop the packet and keep the buffer in the bin */
+>  	DP(NETIF_MSG_RX_STATUS,
+> --=20
+> 1.7.9
+>=20
+>=20
 
-Ok.
+Good catch, my bad.
 
-Erich Hoover
-ehoover@mines.edu
+Thanks
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
