@@ -1,41 +1,54 @@
-From: "Erich E. Hoover" <ehoover@mines.edu>
-Subject: Re: [PATCH v3 1/2] Implement IP_UNICAST_IF socket option.
-Date: Mon, 6 Feb 2012 12:51:24 -0700
-Message-ID: <CAEU2+vrS_HmpUmcSkrsGq0RYZxynYmXrY_Pm9ESa=280kEqSgg@mail.gmail.com>
-References: <62162DF05402B341B3DB59932A1FA992B5B5CA0154@EUSAACMS0702.eamcs.ericsson.se>
-	<CAEU2+vrvKS8e0hjkZG0j_Ukm_Fq3KJ9NnSz+Yb1R3vQnn7-vcQ@mail.gmail.com>
-	<62162DF05402B341B3DB59932A1FA992B5B5CA01B7@EUSAACMS0702.eamcs.ericsson.se>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Mon, 06 Feb 2012 14:51:48 -0500 (EST)
+Message-ID: <20120206.145148.558736903670696169.davem@davemloft.net>
+References: <20120206.141223.332863167187002998.davem@davemloft.net>
+	<CAG4TOxNgJ3=AFuA==Km815YzW8eQ7nD_UAzkXLSXcAyaCAAvPg@mail.gmail.com>
+	<20120206.143230.1415707004934341114.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: Shawn Lu <shawn.lu@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from izzard.Mines.EDU ([138.67.132.197]:48547 "EHLO izzard.mines.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754548Ab2BFTv0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 14:51:26 -0500
-Received: from mail-vx0-f174.google.com (mail-vx0-f174.google.com [209.85.220.174])
-	(authenticated bits=0)
-	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q16JpOGT008572
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 6 Feb 2012 12:51:25 -0700
-Received: by vcge1 with SMTP id e1so4146131vcg.19
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 11:51:24 -0800 (PST)
-In-Reply-To: <62162DF05402B341B3DB59932A1FA992B5B5CA01B7@EUSAACMS0702.eamcs.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120206.143230.1415707004934341114.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 6, 2012 at 12:40 PM, Shawn Lu <shawn.lu@ericsson.com> wrote=
-:
->...
-> What I mean is replace
-> =A0if (sk->sk_bound_dev_if && ifindex !=3D sk->sk_bound_dev_if)
-> With
-> =A0if (sk->sk_bound_dev_if)
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Mon, 06 Feb 2012 14:32:30 -0500 (EST)
 
-Are you sure that that's appropriate?  I choose to do it this way
-since IP_MULTICAST_IF does the exact same check.
+> From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Date: Mon, 6 Feb 2012 11:23:21 -0800
+> 
+>> Does the netdev driver own skb->cb between hard_header
+>> and start_xmit?  If so we could use that instead of stealing
+>> some header space, and that would at least let us not lie
+>> about hard_header_len.
+> 
+> Unfortunately the packet scheduler sits between the hard_header()
+> call (via neigh_*_output() --> dev_hard_header()) and when the
+> device xmit method is invoked.
+> 
+> And the packet scheduler can make use of the skb->cb[], for
+> include/net/sch_generic.h:qdisc_skb_cb
 
-Erich Hoover
-ehoover@mines.edu
+Actually there is a way to make this work.
+
+Define your ipoib_skb_cb something like:
+
+struct ipoib_skb_cb {
+	struct qdisc_skb_cb	qdisc_cb;
+
+	... ipoib stuff goes here ...
+};
+
+That way you can use the SKB cb area for your ipoib info
+without interfering with the packet scheduler.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
