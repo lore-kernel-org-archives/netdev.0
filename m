@@ -1,33 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] netxen_nic: Add License file.
-Date: Tue, 07 Feb 2012 12:43:10 -0500 (EST)
-Message-ID: <20120207.124310.713272741745520237.davem@davemloft.net>
-References: <1328635546-18740-1-git-send-email-rajesh.borundia@qlogic.com>
-	<1328635546-18740-2-git-send-email-rajesh.borundia@qlogic.com>
+From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH 3/5] NFS: search for client session id in proper network
+ namespace
+Date: Tue, 7 Feb 2012 17:48:52 +0000
+Message-ID: <1328636931.4124.17.camel@lade.trondhjem.org>
+References: <20120126110955.8386.34551.stgit@localhost6.localdomain6>
+	 <20120126111149.8386.51043.stgit@localhost6.localdomain6>
+	 <4F314688.5050406@netapp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	sony.chacko@qlogic.com, sritej.velaga@qlogic.com
-To: rajesh.borundia@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35008 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754563Ab2BGRnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:43:14 -0500
-In-Reply-To: <1328635546-18740-2-git-send-email-rajesh.borundia@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"xemul@parallels.com" <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jbottomley@parallels.com" <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Schumaker, Bryan" <Bryan.Schumaker@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F314688.5050406@netapp.com>
+Content-Language: en-US
+Content-ID: <1E04BB25172959408E01651C2C37D8E9@tahoe.netapp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Tue, 7 Feb 2012 09:25:46 -0800
-
-> From: Sritej Velaga <sritej.velaga@qlogic.com>
-> 
-> Added new License file for netxen_nic driver.
-> 
-> Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
-> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-
-This seems entirely unnecessary.  The top-level COPYING file covers
-the kernel.
+T24gVHVlLCAyMDEyLTAyLTA3IGF0IDEwOjQzIC0wNTAwLCBCcnlhbiBTY2h1bWFrZXIgd3JvdGU6
+DQo+IE9uIDAxLzI2LzEyIDA2OjExLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3cm90ZToNCj4gDQo+
+ID4gTmV0d29yayBuYW1lc3BhY2UgaXMgdGFrZW4gZnJvbSByZXF1ZXN0IHRyYW5zcG9ydCBhbmQg
+cGFzc2VkIGFzIGEgcGFydCBvZg0KPiA+IGNiX3Byb2Nlc3Nfc3RhdGUgc3RydWN0dXJlLg0KPiA+
+IA0KPiA+IFNpZ25lZC1vZmYtYnk6IFN0YW5pc2xhdiBLaW5zYnVyc2t5IDxza2luc2J1cnNreUBw
+YXJhbGxlbHMuY29tPg0KPiA+IA0KPiA+IC0tLQ0KPiA+ICBmcy9uZnMvY2FsbGJhY2suaCAgICAg
+IHwgICAgMSArDQo+ID4gIGZzL25mcy9jYWxsYmFja19wcm9jLmMgfCAgICAyICstDQo+ID4gIGZz
+L25mcy9jYWxsYmFja194ZHIuYyAgfCAgICAxICsNCj4gPiAgZnMvbmZzL2NsaWVudC5jICAgICAg
+ICB8ICAgIDQgKystLQ0KPiA+ICBmcy9uZnMvaW50ZXJuYWwuaCAgICAgIHwgICAgMyArKy0NCj4g
+PiAgNSBmaWxlcyBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0pDQo+ID4g
+DQo+ID4gZGlmZiAtLWdpdCBhL2ZzL25mcy9jYWxsYmFjay5oIGIvZnMvbmZzL2NhbGxiYWNrLmgN
+Cj4gPiBpbmRleCBjODlkM2I5Li4xOTdlMGQzIDEwMDY0NA0KPiA+IC0tLSBhL2ZzL25mcy9jYWxs
+YmFjay5oDQo+ID4gKysrIGIvZnMvbmZzL2NhbGxiYWNrLmgNCj4gPiBAQCAtMzksNiArMzksNyBA
+QCBzdHJ1Y3QgY2JfcHJvY2Vzc19zdGF0ZSB7DQo+ID4gIAlfX2JlMzIJCQlkcmNfc3RhdHVzOw0K
+PiA+ICAJc3RydWN0IG5mc19jbGllbnQJKmNscDsNCj4gPiAgCWludAkJCXNsb3RpZDsNCj4gPiAr
+CXN0cnVjdCBuZXQJCSpuZXQ7DQo+ID4gIH07DQo+ID4gIA0KPiA+ICBzdHJ1Y3QgY2JfY29tcG91
+bmRfaGRyX2FyZyB7DQo+ID4gZGlmZiAtLWdpdCBhL2ZzL25mcy9jYWxsYmFja19wcm9jLmMgYi9m
+cy9uZnMvY2FsbGJhY2tfcHJvYy5jDQo+ID4gaW5kZXggMGU2ZTYzZi4uZjcxOTc4ZCAxMDA2NDQN
+Cj4gPiAtLS0gYS9mcy9uZnMvY2FsbGJhY2tfcHJvYy5jDQo+ID4gKysrIGIvZnMvbmZzL2NhbGxi
+YWNrX3Byb2MuYw0KPiA+IEBAIC00NjEsNyArNDYxLDcgQEAgX19iZTMyIG5mczRfY2FsbGJhY2tf
+c2VxdWVuY2Uoc3RydWN0IGNiX3NlcXVlbmNlYXJncyAqYXJncywNCj4gPiAgCWludCBpOw0KPiA+
+ICAJX19iZTMyIHN0YXR1cyA9IGh0b25sKE5GUzRFUlJfQkFEU0VTU0lPTik7DQo+ID4gIA0KPiA+
+IC0JY2xwID0gbmZzNF9maW5kX2NsaWVudF9zZXNzaW9uaWQoYXJncy0+Y3NhX2FkZHIsICZhcmdz
+LT5jc2Ffc2Vzc2lvbmlkKTsNCj4gPiArCWNscCA9IG5mczRfZmluZF9jbGllbnRfc2Vzc2lvbmlk
+KGNwcy0+bmV0LCBhcmdzLT5jc2FfYWRkciwgJmFyZ3MtPmNzYV9zZXNzaW9uaWQpOw0KPiA+ICAJ
+aWYgKGNscCA9PSBOVUxMKQ0KPiA+ICAJCWdvdG8gb3V0Ow0KPiA+ICANCj4gPiBkaWZmIC0tZ2l0
+IGEvZnMvbmZzL2NhbGxiYWNrX3hkci5jIGIvZnMvbmZzL2NhbGxiYWNrX3hkci5jDQo+ID4gaW5k
+ZXggZjJiZTNlMWUuLjhjMmE5NjkgMTAwNjQ0DQo+ID4gLS0tIGEvZnMvbmZzL2NhbGxiYWNrX3hk
+ci5jDQo+ID4gKysrIGIvZnMvbmZzL2NhbGxiYWNrX3hkci5jDQo+ID4gQEAgLTg2MSw2ICs4NjEs
+NyBAQCBzdGF0aWMgX19iZTMyIG5mczRfY2FsbGJhY2tfY29tcG91bmQoc3RydWN0IHN2Y19ycXN0
+ICpycXN0cCwgdm9pZCAqYXJncCwgdm9pZCAqcg0KPiA+ICAJCS5kcmNfc3RhdHVzID0gMCwNCj4g
+PiAgCQkuY2xwID0gTlVMTCwNCj4gPiAgCQkuc2xvdGlkID0gLTEsDQo+ID4gKwkJLm5ldCA9IHJx
+c3RwLT5ycV94cHJ0LT54cHRfbmV0LA0KPiA+ICAJfTsNCj4gPiAgCXVuc2lnbmVkIGludCBub3Bz
+ID0gMDsNCj4gPiAgDQo+ID4gZGlmZiAtLWdpdCBhL2ZzL25mcy9jbGllbnQuYyBiL2ZzL25mcy9j
+bGllbnQuYw0KPiA+IGluZGV4IDllMTFkMjkuLjIzMjhkY2IgMTAwNjQ0DQo+ID4gLS0tIGEvZnMv
+bmZzL2NsaWVudC5jDQo+ID4gKysrIGIvZnMvbmZzL2NsaWVudC5jDQo+ID4gQEAgLTEyMzIsMTEg
+KzEyMzIsMTEgQEAgbmZzNF9maW5kX2NsaWVudF9pZGVudChzdHJ1Y3QgbmV0ICpuZXQsIGludCBj
+Yl9pZGVudCkNCj4gPiAgICogUmV0dXJucyBOVUxMIGlmIG5vIHN1Y2ggY2xpZW50DQo+ID4gICAq
+Lw0KPiA+ICBzdHJ1Y3QgbmZzX2NsaWVudCAqDQo+ID4gLW5mczRfZmluZF9jbGllbnRfc2Vzc2lv
+bmlkKGNvbnN0IHN0cnVjdCBzb2NrYWRkciAqYWRkciwNCj4gPiArbmZzNF9maW5kX2NsaWVudF9z
+ZXNzaW9uaWQoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBzdHJ1Y3Qgc29ja2FkZHIgKmFkZHIsDQo+
+ID4gIAkJCSAgIHN0cnVjdCBuZnM0X3Nlc3Npb25pZCAqc2lkKQ0KPiA+ICB7DQo+ID4gIAlzdHJ1
+Y3QgbmZzX2NsaWVudCAqY2xwOw0KPiA+IC0Jc3RydWN0IG5mc19uZXQgKm5uID0gbmV0X2dlbmVy
+aWMoJmluaXRfbmV0LCBuZnNfbmV0X2lkKTsNCj4gPiArCXN0cnVjdCBuZnNfbmV0ICpubiA9IG5l
+dF9nZW5lcmljKG5ldCwgbmZzX25ldF9pZCk7DQo+IA0KPiANCj4gSGksDQo+IA0KPiBZb3UgY2hh
+bmdlZCB0aGlzIGZ1bmN0aW9uIGZvciB0aGUgdjQuMSBjYXNlLCBidXQgbm90IGZvciB2NC4wICh0
+aGlzIGlzIHdoYXQgSSB3YXMgdHJ5aW5nIHRvIGJpc2VjdCBlYXJsaWVyKS4gIFdpdGhvdXQgQ09O
+RklHX05GU19WNF8xIHNldCwgSSBnZXQgdGhpczoNCj4gDQo+ICBtYWtlWzFdOiBOb3RoaW5nIHRv
+IGJlIGRvbmUgZm9yIGBhbGwnLg0KPiAgIENISyAgICAgaW5jbHVkZS9saW51eC92ZXJzaW9uLmgN
+Cj4gICBDSEsgICAgIGluY2x1ZGUvZ2VuZXJhdGVkL3V0c3JlbGVhc2UuaA0KPiAgIENBTEwgICAg
+c2NyaXB0cy9jaGVja3N5c2NhbGxzLnNoDQo+ICAgQ0hLICAgICBpbmNsdWRlL2dlbmVyYXRlZC9j
+b21waWxlLmgNCj4gICBDSEsgICAgIGtlcm5lbC9jb25maWdfZGF0YS5oDQo+ICAgQ0MgW01dICBm
+cy9uZnMvY2xpZW50Lm8NCj4gZnMvbmZzL2NsaWVudC5jOjEyNjU6MTogZXJyb3I6IGNvbmZsaWN0
+aW5nIHR5cGVzIGZvciAnbmZzNF9maW5kX2NsaWVudF9zZXNzaW9uaWQnDQo+IGZzL25mcy9pbnRl
+cm5hbC5oOjE1NToxOiBub3RlOiBwcmV2aW91cyBkZWNsYXJhdGlvbiBvZiAnbmZzNF9maW5kX2Ns
+aWVudF9zZXNzaW9uaWQnIHdhcyBoZXJlDQo+IG1ha2VbMl06ICoqKiBbZnMvbmZzL2NsaWVudC5v
+XSBFcnJvciAxDQo+IG1ha2VbMV06ICoqKiBbZnMvbmZzXSBFcnJvciAyDQo+IG1ha2U6ICoqKiBb
+ZnNdIEVycm9yIDINCg0KVGhhbmtzIGZvciB0cmFja2luZyB0aGlzIGRvd24gQnJ5YW4hDQoNCi0t
+IA0KVHJvbmQgTXlrbGVidXN0DQpMaW51eCBORlMgY2xpZW50IG1haW50YWluZXINCg0KTmV0QXBw
+DQpUcm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbQ0Kd3d3Lm5ldGFwcC5jb20NCg0K
