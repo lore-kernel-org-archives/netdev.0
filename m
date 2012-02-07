@@ -1,80 +1,149 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 00/15] TIPC updates for upcoming v3.4
-Date: Mon,  6 Feb 2012 19:52:33 -0500
-Message-ID: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 13/15] tipc: Prevent loss of fragmented messages over broadcast link
+Date: Mon,  6 Feb 2012 19:52:46 -0500
+Message-ID: <1328575968-20643-14-git-send-email-paul.gortmaker@windriver.com>
+References: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50171 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:50215 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341Ab2BGAxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:12 -0500
+	with ESMTP id S1756532Ab2BGAxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:19 -0500
+In-Reply-To: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Allan Stephens <allan.stephens@windriver.com>
 
-No real trend or correlation from one patch to the next here,
-just continued chiseling away at what were deemed to be the
-worthwhile bits that were squirreled away on sourceforge.
-I think there is on the order of 50 left after this.
+Modifies broadcast link so that an incoming fragmented message is not
+lost if reassembly cannot begin because there currently is no buffer
+big enough to hold the entire reassembled message. The broadcast link
+now ignores the first fragment completely, which causes the sending node
+to retransmit the first fragment so that reassembly can be re-attempted.
 
-I haven't forgot about your earlier request to see some of
-the tipc_printbuf related stuff go away (at least I think that
-was what you wanted to see replaced).  I'm not entirely 100%
-sure how to proceed there just yet, so I may tackle a few
-more from the remaining 50 in the interim while the log.c
-cleanup gets more thought.
+Previously, the sender would have had no reason to retransmit the 1st
+fragment, so we would never have a chance to re-try the allocation.
 
-Runtime tested from 64 to 32 bit x86 machines; I had to revert
-an skge commit to get my 32 bit machine functional, but that
-is largely of no interest here.
+To do this cleanly without duplicaton, a new bclink_accept_pkt()
+function is introduced.
 
-Thanks,
-Paul
-
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/bcast.c |   64 +++++++++++++++++++++++++++++++++++------------------
+ 1 files changed, 42 insertions(+), 22 deletions(-)
 
-The following changes since commit 3238a9be4d7ad95c741bcfe6c147406eeef62d95:
-
-  cnic: Add FCoE parity error recovery (2012-02-05 22:42:00 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next
-
-for you to fetch changes up to dff10e9e637663c8c5dd0bae1a8f0e899cbb4a36:
-
-  tipc: Minor optimization to rejection of connection-based messages (2012-02-06 16:59:19 -0500)
-
-----------------------------------------------------------------
-Allan Stephens (15):
-  tipc: improve the link deferred queue insertion algorithm
-  tipc: Prevent transmission of outdated link protocol messages
-  tipc: Prevent broadcast link stalling in dual LAN environments
-  tipc: Ensure broadcast link re-acquires node after link failure
-  tipc: Fix problem with broadcast link synchronization between nodes
-  tipc: Add missing broadcast link lock when sending NACK
-  tipc: Fix node lock reclamation issues in broadcast link reception
-  tipc: Fix bug in broadcast link duplicate message statistics
-  tipc: Add missing locks in broadcast link statistics accumulation
-  tipc: Major redesign of broadcast link ACK/NACK algorithms
-  tipc: Remove obsolete broadcast tag capability
-  tipc: Prevent loss of fragmented messages over unicast links
-  tipc: Prevent loss of fragmented messages over broadcast link
-  tipc: Eliminate alteration of publication key during name table purging
-  tipc: Minor optimization to rejection of connection-based messages
-
- net/tipc/bcast.c      |  324 +++++++++++++++++++++++-------------------------
- net/tipc/bcast.h      |    2 +-
- net/tipc/link.c       |  148 +++++++++++++----------
- net/tipc/name_distr.c |    4 -
- net/tipc/node.c       |   14 +--
- net/tipc/node.h       |   18 ++--
- net/tipc/port.c       |    5 +-
- 7 files changed, 255 insertions(+), 260 deletions(-)
-
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index a9b7132..41ecf31 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -389,7 +389,33 @@ exit:
+ 	return res;
+ }
+ 
+-/**
++/*
++ * bclink_accept_pkt - accept an incoming, in-sequence broadcast packet
++ *
++ * Called with both sending node's lock and bc_lock taken.
++ */
++
++static void bclink_accept_pkt(struct tipc_node *node, u32 seqno)
++{
++	bclink_update_last_sent(node, seqno);
++	node->bclink.last_in = seqno;
++	node->bclink.oos_state = 0;
++	bcl->stats.recv_info++;
++
++	/*
++	 * Unicast an ACK periodically, ensuring that
++	 * all nodes in the cluster don't ACK at the same time
++	 */
++
++	if (((seqno - tipc_own_addr) % TIPC_MIN_LINK_WIN) == 0) {
++		tipc_link_send_proto_msg(
++			node->active_links[node->addr & 1],
++			STATE_MSG, 0, 0, 0, 0, 0);
++		bcl->stats.sent_acks++;
++	}
++}
++
++/*
+  * tipc_bclink_recv_pkt - receive a broadcast packet, and deliver upwards
+  *
+  * tipc_net_lock is read_locked, no other locks set
+@@ -443,29 +469,12 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+ 	next_in = mod(node->bclink.last_in + 1);
+ 
+ 	if (likely(seqno == next_in)) {
+-		bclink_update_last_sent(node, seqno);
+ receive:
+-		node->bclink.last_in = seqno;
+-		node->bclink.oos_state = 0;
+-
+-		spin_lock_bh(&bc_lock);
+-		bcl->stats.recv_info++;
+-
+-		/*
+-		 * Unicast an ACK periodically, ensuring that
+-		 * all nodes in the cluster don't ACK at the same time
+-		 */
+-
+-		if (((seqno - tipc_own_addr) % TIPC_MIN_LINK_WIN) == 0) {
+-			tipc_link_send_proto_msg(
+-				node->active_links[node->addr & 1],
+-				STATE_MSG, 0, 0, 0, 0, 0);
+-			bcl->stats.sent_acks++;
+-		}
+-
+ 		/* Deliver message to destination */
+ 
+ 		if (likely(msg_isdata(msg))) {
++			spin_lock_bh(&bc_lock);
++			bclink_accept_pkt(node, seqno);
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+ 			if (likely(msg_mcast(msg)))
+@@ -473,24 +482,35 @@ receive:
+ 			else
+ 				buf_discard(buf);
+ 		} else if (msg_user(msg) == MSG_BUNDLER) {
++			spin_lock_bh(&bc_lock);
++			bclink_accept_pkt(node, seqno);
+ 			bcl->stats.recv_bundles++;
+ 			bcl->stats.recv_bundled += msg_msgcnt(msg);
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+ 			tipc_link_recv_bundle(buf);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
++			int ret = tipc_link_recv_fragment(&node->bclink.defragm,
++						      &buf, &msg);
++			if (ret < 0)
++				goto unlock;
++			spin_lock_bh(&bc_lock);
++			bclink_accept_pkt(node, seqno);
+ 			bcl->stats.recv_fragments++;
+-			if (tipc_link_recv_fragment(&node->bclink.defragm,
+-						    &buf, &msg))
++			if (ret > 0)
+ 				bcl->stats.recv_fragmented++;
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+ 			tipc_net_route_msg(buf);
+ 		} else if (msg_user(msg) == NAME_DISTRIBUTOR) {
++			spin_lock_bh(&bc_lock);
++			bclink_accept_pkt(node, seqno);
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+ 			tipc_named_recv(buf);
+ 		} else {
++			spin_lock_bh(&bc_lock);
++			bclink_accept_pkt(node, seqno);
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+ 			buf_discard(buf);
 -- 
 1.7.9
