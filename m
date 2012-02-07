@@ -1,18 +1,18 @@
 From: Marek Vasut <marek.vasut@gmail.com>
-Subject: [PATCH] FEC: Rename dev to ndev, fix compile error
-Date: Tue,  7 Feb 2012 23:42:28 +0100
-Message-ID: <1328654548-28396-1-git-send-email-marek.vasut@gmail.com>
+Subject: [PATCH RESEND] FEC: Rename dev to ndev, fix compile error
+Date: Tue,  7 Feb 2012 23:44:03 +0100
+Message-ID: <1328654643-28442-1-git-send-email-marek.vasut@gmail.com>
 Cc: netdev@vger.kernel.org, Marek Vasut <marek.vasut@gmail.com>,
 	Pradeep A Dalvi <netdev@pradeepdalvi.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infreadead.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:40048 "EHLO
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:57350 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756081Ab2BGWmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 17:42:38 -0500
-Received: by eaah12 with SMTP id h12so2989350eaa.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 14:42:37 -0800 (PST)
+	with ESMTP id S1756081Ab2BGWoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 17:44:09 -0500
+Received: by eaah12 with SMTP id h12so2989705eaa.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 14:44:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -33,6 +33,8 @@ Cc: David S. Miller <davem@davemloft.net>
 ---
  drivers/net/ethernet/freescale/fec.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
+
+RESEND: Typo in list address
 
 diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
 index f976619..0ee2ca7 100644
