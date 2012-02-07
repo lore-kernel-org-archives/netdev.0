@@ -1,105 +1,74 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Tue, 7 Feb 2012 18:59:25 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F83144@ORSMSX106.amr.corp.intel.com>
-References: <1328572230.12637.18.camel@deadeye>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F81413@ORSMSX106.amr.corp.intel.com>
-	<1328639192.3549.14.camel@bwh-desktop>
- <20120207.133208.1817158606072906259.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skbuff: Add new tc classify variable
+Date: Tue, 7 Feb 2012 11:05:22 -0800
+Message-ID: <20120207110522.70663963@nehalam.linuxnetplumber.net>
+References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "steweg@ynet.sk" <steweg@ynet.sk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120207.133208.1817158606072906259.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38136 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753992Ab2BGTF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 14:05:26 -0500
+In-Reply-To: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of David Miller
-> Sent: Tuesday, February 07, 2012 10:32 AM
-> To: bhutchings@solarflare.com
-> Cc: Rose, Gregory V; steweg@ynet.sk; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org
-> Subject: Re: [patch v1, kernel version 3.2.1] rtnetlink workaround around
-> the skb buff size issue
+On Tue,  7 Feb 2012 19:39:08 +0100
+Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
+
+> The linux traffic control mechanism has different ways to select the
+> correct class of a qdisc. A common way to do this is to use tc filters
+> that are directly attached to a qdisc. Another approach is to use the
+> iptables classify module. The latter one can reduce the amount of work
+> necessary to process a packet when iptables is already involved in the
+> packet classification.
 > 
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 7 Feb 2012 18:26:32 +0000
+> The iptables module can be used in the postrouting chain of the mangle
+> table.
 > 
-> > On Tue, 2012-02-07 at 00:13 +0000, Rose, Gregory V wrote:
-> >> > -----Original Message-----
-> >> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >> > Sent: Monday, February 06, 2012 3:51 PM
-> >> > To: Rose, Gregory V
-> >> > Cc: David Miller; steweg@ynet.sk; linux-kernel@vger.kernel.org;
-> >> > netdev@vger.kernel.org
-> >> > Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround
-> around
-> >> > the skb buff size issue
-> >> >
-> >> > On Mon, 2012-02-06 at 04:41 +0000, Rose, Gregory V wrote:
-> >> > [...]
-> >> > > > This is not how we're going to fix this.  I already stated the
-> desired
-> >> > > > way to fix this, which is to make the existing dump request have
-> a way
-> >> > > > for the requestor to enable extended parts of the device dump.
-> >> > > >
-> >> > > > This is just like netlink diag socket dumps, where the dump
-> request
-> >> > > > specifies what the user wants to see.
-> >> > > >
-> >> > > > In this case we'd add a netlink attribute to the dump request
-> which
-> >> > > > is just a u32 bitmask or similar.
-> >> > > >
-> >> > > > The Intel engineer who added the VF dump support said he would
-> work on
-> >> > > > this fix so why don't you just wait patiently for him to do the
-> work?
-> >> > >
-> >> > > The patch below is what I've got so far.  Right now the bit mask
-> array
-> >> > > is global so if you enable display of VF (n) on one interface it
-> will
-> >> > > enable display of the same VF on other interfaces.  I intend to
-> move
-> >> > > the bit mask array into the net_device structure so we can set the
-> >> > > display mask for each interface independently.
-> >> >
-> >> > I don't think this can work.  Using an application that requests VF
-> >> > information and uses large buffers (e.g. the updated 'ip') will break
-> >> > another application that doesn't (e.g. current Network Manager),
-> won't
-> >> > it?
-> >>
-> >> It's my understanding that the problem isn't with the application
-> >> buffer size but with the kernel buffer size, which is limited to a
-> >> page.
-> > [...]
-> >
-> > Then it's no wonder you're going about this the wrong way.
+> # iptables -F -t mangle
+> # iptables -X -t mangle
+> # iptables -t mangle -I POSTROUTING -j CLASSIFY --set-class 1:1337
 > 
-> It is the userland buffer size that is the problem, userland will allocate
-> max(8192, PAGE_SIZE) for it's recvmsg() call, that's why we have to only
-> dump VF's and other potentially large objects when the user enables it in
-> the request.
+> A simple qdisc with two classes will now route the traffic to 1:1337
+> 
+> # tc qdisc del dev eth0 root
+> # tc qdisc add dev eth0 root handle 1: htb default 1
+> # tc class add dev eth0 parent 1: classid 1:1 htb rate 15kbit burst 0kbit
+> # tc class add dev eth0 parent 1: classid 1:1337 htb rate 250kbit burst 0kbit
+> # tc -s class show dev eth0
+> 
+> A similar test with an ath9k device will show a complete different
+> behavior. The default class 1:1 will be used and data is sent through.
+> This problem seems to be related to the fact that the shared member
+> variable sk_buff::priority is used to store the tc class id of an
+> outgoing packet. This variable is also used in other places for
+> different purposes. An example is the ieee80211_select_queue function
+> which always overwrites the priority of an outgoing skb.
+> 
+> This conflict can be resolved by an additional member variable
+> sk_buff::tc_class that is only used for the traffic control
+> classification.
+> 
+> Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Jamal Hadi Salim <hadi@cyberus.ca>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Johannes Berg <johannes@sipsolutions.net>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Marek Lindner <lindner_marek@yahoo.de>
+> Cc: Sven Eckelmann <sven@narfation.org>
+> Cc: netfilter-devel@vger.kernel.org
+> Cc: netfilter@vger.kernel.org
+> Cc: coreteam@netfilter.org
+> Cc: netdev@vger.kernel.org
+> Cc: linux-wireless@vger.kernel.org
 
-Ah well, when that was stated before I was under the impression it was in the kernel.  My bad...
-
-Anyway, if Ben would like to do this work it's fine by me.  He seems to have some very definite opinions about this and I don't feel like going through another several weeks of fighting about it him.  I've got a patch ready to submit today that goes along the lines of what I've already posted but with a few clean ups.  I'll post it, if it gets shot down then fine, I'll get on with my other work.
-
-- Greg
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't understand why this is better, we already have mark to do this.
+Your method saves adding a tc filter to map mark to classid, but that is hardly
+a huge burden.
