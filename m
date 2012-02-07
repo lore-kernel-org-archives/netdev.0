@@ -1,88 +1,160 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/11] e1000e: cleanup - check return values consistently
-Date: Tue,  7 Feb 2012 04:33:51 -0800
-Message-ID: <1328618038-5008-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/11] e1000e: cleanup e1000_init_mac_params_82571()
+Date: Tue,  7 Feb 2012 04:33:53 -0800
+Message-ID: <1328618038-5008-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30741 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47275 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755736Ab2BGMeO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 07:34:14 -0500
+	id S1756126Ab2BGMeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 07:34:15 -0500
 In-Reply-To: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The majority of the e1000e code checks most function return values using a
-test like 'if (ret_val)' or 'if (!ret_val)' but there are a few instances
-of 'if (ret_val == 0)'.  This patch converts the latter to the former for
-consistency.
+Combine two switch statements into one, convert a nebulous pointer to one
+that is a bit more in keeping with the rest of the driver code and cleanup
+some coding style.  No change in functionality, just cosmetic changes.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ethtool.c |    2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/e1000e/82571.c |   72 ++++++++++++-----------------
+ 1 files changed, 30 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 92d5b62..f43af46 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -537,7 +537,7 @@ static int e1000_set_eeprom(struct net_device *netdev,
- 		ret_val = e1000_read_nvm(hw, first_word, 1, &eeprom_buff[0]);
- 		ptr++;
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 844907d..4cadcc7 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -239,26 +239,39 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_mac_info *mac = &hw->mac;
+-	struct e1000_mac_operations *func = &mac->ops;
+ 	u32 swsm = 0;
+ 	u32 swsm2 = 0;
+ 	bool force_clear_smbi = false;
+ 
+-	/* Set media type */
++	/* Set media type and media-dependent function pointers */
+ 	switch (adapter->pdev->device) {
+ 	case E1000_DEV_ID_82571EB_FIBER:
+ 	case E1000_DEV_ID_82572EI_FIBER:
+ 	case E1000_DEV_ID_82571EB_QUAD_FIBER:
+ 		hw->phy.media_type = e1000_media_type_fiber;
++		mac->ops.setup_physical_interface =
++		    e1000_setup_fiber_serdes_link_82571;
++		mac->ops.check_for_link = e1000e_check_for_fiber_link;
++		mac->ops.get_link_up_info =
++		    e1000e_get_speed_and_duplex_fiber_serdes;
+ 		break;
+ 	case E1000_DEV_ID_82571EB_SERDES:
+-	case E1000_DEV_ID_82572EI_SERDES:
+ 	case E1000_DEV_ID_82571EB_SERDES_DUAL:
+ 	case E1000_DEV_ID_82571EB_SERDES_QUAD:
++	case E1000_DEV_ID_82572EI_SERDES:
+ 		hw->phy.media_type = e1000_media_type_internal_serdes;
++		mac->ops.setup_physical_interface =
++		    e1000_setup_fiber_serdes_link_82571;
++		mac->ops.check_for_link = e1000_check_for_serdes_link_82571;
++		mac->ops.get_link_up_info =
++		    e1000e_get_speed_and_duplex_fiber_serdes;
+ 		break;
+ 	default:
+ 		hw->phy.media_type = e1000_media_type_copper;
++		mac->ops.setup_physical_interface =
++		    e1000_setup_copper_link_82571;
++		mac->ops.check_for_link = e1000e_check_for_copper_link;
++		mac->ops.get_link_up_info = e1000e_get_speed_and_duplex_copper;
+ 		break;
  	}
--	if (((eeprom->offset + eeprom->len) & 1) && (ret_val == 0))
-+	if (((eeprom->offset + eeprom->len) & 1) && (!ret_val))
- 		/* need read/modify/write of last changed EEPROM word */
- 		/* only the first byte of the word is being modified */
- 		ret_val = e1000_read_nvm(hw, last_word, 1,
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 907b17b..0e64cc4 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -2286,7 +2286,7 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 			}
- 			udelay(1);
- 		}
--		if (ret_val == 0) {
-+		if (!ret_val) {
- 			/*
- 			 * Successful in waiting for previous cycle to timeout,
- 			 * now set the Flash Cycle Done.
-@@ -2404,7 +2404,7 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 		udelay(1);
- 		/* Steps */
- 		ret_val = e1000_flash_cycle_init_ich8lan(hw);
--		if (ret_val != 0)
-+		if (ret_val)
- 			break;
  
- 		hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
-@@ -2424,7 +2424,7 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 		 * read in (shift in) the Flash Data0, the order is
- 		 * least significant byte first msb to lsb
- 		 */
--		if (ret_val == 0) {
-+		if (!ret_val) {
- 			flash_data = er32flash(ICH_FLASH_FDATA0);
- 			if (size == 1)
- 				*data = (u8)(flash_data & 0x000000FF);
-@@ -2936,7 +2936,7 @@ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank)
+@@ -269,38 +282,13 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	/* Adaptive IFS supported */
+ 	mac->adaptive_ifs = true;
  
- 			ret_val = e1000_flash_cycle_ich8lan(hw,
- 					       ICH_FLASH_ERASE_COMMAND_TIMEOUT);
--			if (ret_val == 0)
-+			if (!ret_val)
- 				break;
+-	/* check for link */
+-	switch (hw->phy.media_type) {
+-	case e1000_media_type_copper:
+-		func->setup_physical_interface = e1000_setup_copper_link_82571;
+-		func->check_for_link = e1000e_check_for_copper_link;
+-		func->get_link_up_info = e1000e_get_speed_and_duplex_copper;
+-		break;
+-	case e1000_media_type_fiber:
+-		func->setup_physical_interface =
+-			e1000_setup_fiber_serdes_link_82571;
+-		func->check_for_link = e1000e_check_for_fiber_link;
+-		func->get_link_up_info =
+-			e1000e_get_speed_and_duplex_fiber_serdes;
+-		break;
+-	case e1000_media_type_internal_serdes:
+-		func->setup_physical_interface =
+-			e1000_setup_fiber_serdes_link_82571;
+-		func->check_for_link = e1000_check_for_serdes_link_82571;
+-		func->get_link_up_info =
+-			e1000e_get_speed_and_duplex_fiber_serdes;
+-		break;
+-	default:
+-		return -E1000_ERR_CONFIG;
+-		break;
+-	}
+-
++	/* MAC-specific function pointers */
+ 	switch (hw->mac.type) {
+ 	case e1000_82573:
+-		func->set_lan_id = e1000_set_lan_id_single_port;
+-		func->check_mng_mode = e1000e_check_mng_mode_generic;
+-		func->led_on = e1000e_led_on_generic;
+-		func->blink_led = e1000e_blink_led_generic;
++		mac->ops.set_lan_id = e1000_set_lan_id_single_port;
++		mac->ops.check_mng_mode = e1000e_check_mng_mode_generic;
++		mac->ops.led_on = e1000e_led_on_generic;
++		mac->ops.blink_led = e1000e_blink_led_generic;
  
- 			/*
+ 		/* FWSM register */
+ 		mac->has_fwsm = true;
+@@ -314,14 +302,14 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 		break;
+ 	case e1000_82574:
+ 	case e1000_82583:
+-		func->set_lan_id = e1000_set_lan_id_single_port;
+-		func->check_mng_mode = e1000_check_mng_mode_82574;
+-		func->led_on = e1000_led_on_82574;
++		mac->ops.set_lan_id = e1000_set_lan_id_single_port;
++		mac->ops.check_mng_mode = e1000_check_mng_mode_82574;
++		mac->ops.led_on = e1000_led_on_82574;
+ 		break;
+ 	default:
+-		func->check_mng_mode = e1000e_check_mng_mode_generic;
+-		func->led_on = e1000e_led_on_generic;
+-		func->blink_led = e1000e_blink_led_generic;
++		mac->ops.check_mng_mode = e1000e_check_mng_mode_generic;
++		mac->ops.led_on = e1000e_led_on_generic;
++		mac->ops.blink_led = e1000e_blink_led_generic;
+ 
+ 		/* FWSM register */
+ 		mac->has_fwsm = true;
+@@ -342,11 +330,11 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 
+ 		if (!(swsm2 & E1000_SWSM2_LOCK)) {
+ 			/* Only do this for the first interface on this card */
+-			ew32(SWSM2,
+-			    swsm2 | E1000_SWSM2_LOCK);
++			ew32(SWSM2, swsm2 | E1000_SWSM2_LOCK);
+ 			force_clear_smbi = true;
+-		} else
++		} else {
+ 			force_clear_smbi = false;
++		}
+ 		break;
+ 	default:
+ 		force_clear_smbi = true;
 -- 
 1.7.7.6
