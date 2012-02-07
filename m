@@ -1,117 +1,129 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 02/11] e1000: Adding e1000_dump function
-Date: Tue, 07 Feb 2012 07:40:03 -0800
-Message-ID: <1328629203.4837.6.camel@joe2Laptop>
-References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Bryan Schumaker <bjschuma@netapp.com>
+Subject: Re: [PATCH 3/5] NFS: search for client session id in proper network
+ namespace
+Date: Tue, 07 Feb 2012 10:43:04 -0500
+Message-ID: <4F314688.5050406@netapp.com>
+References: <20120126110955.8386.34551.stgit@localhost6.localdomain6> <20120126111149.8386.51043.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Tushar Dave <tushar.n.dave@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:52173 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751625Ab2BGPkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 10:40:06 -0500
-In-Reply-To: <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
+	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
+	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120126111149.8386.51043.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-02-07 at 04:33 -0800, Jeff Kirsher wrote:
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+On 01/26/12 06:11, Stanislav Kinsbursky wrote:
 
-trivia:
-
-> @@ -3239,6 +3239,228 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
->  	return NETDEV_TX_OK;
->  }
+> Network namespace is taken from request transport and passed as a part of
+> cb_process_state structure.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> 
+> ---
+>  fs/nfs/callback.h      |    1 +
+>  fs/nfs/callback_proc.c |    2 +-
+>  fs/nfs/callback_xdr.c  |    1 +
+>  fs/nfs/client.c        |    4 ++--
+>  fs/nfs/internal.h      |    3 ++-
+>  5 files changed, 7 insertions(+), 4 deletions(-)
+> 
+> diff --git a/fs/nfs/callback.h b/fs/nfs/callback.h
+> index c89d3b9..197e0d3 100644
+> --- a/fs/nfs/callback.h
+> +++ b/fs/nfs/callback.h
+> @@ -39,6 +39,7 @@ struct cb_process_state {
+>  	__be32			drc_status;
+>  	struct nfs_client	*clp;
+>  	int			slotid;
+> +	struct net		*net;
+>  };
 >  
-> +#define NUM_REGS 38 /* 1 based count */
-> +static void e1000_regdump(struct e1000_adapter *adapter)
-> +{
-> +	struct e1000_hw *hw = &adapter->hw;
-> +	u32 regs[NUM_REGS];
-> +	u32 *regs_buff = regs;
-> +	int i = 0;
-> +
-> +	char *reg_name[] = {
-
-static const char * const reg_name[]
-(and the layout is poor)
-
-> +	"CTRL",  "STATUS",
-> +	"RCTL", "RDLEN", "RDH", "RDT", "RDTR",
-> +	"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
-> +	"TIDV", "TXDCTL", "TADV", "TARC0",
-> +	"TDBAL1", "TDBAH1", "TDLEN1", "TDH1", "TDT1",
-> +	"TXDCTL1", "TARC1",
-> +	"CTRL_EXT", "ERT", "RDBAL", "RDBAH",
-> +	"TDFH", "TDFT", "TDFHS", "TDFTS", "TDFPC",
-> +	"RDFH", "RDFT", "RDFHS", "RDFTS", "RDFPC"
-> +	};
-> +	pr_info("Register dump\n");
-> +	for (i = 0; i < NUM_REGS; i++) {
-> +		printk(KERN_INFO "%-15s  %08x\n",
-> +		reg_name[i], regs_buff[i]);
-> +	}
-
-		pr_info(%-15s  %08x\n", reg_name[i], regs_buff[i]);
-
-[]
-> +static void e1000_dump(struct e1000_adapter *adapter)
-[]
-> +	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ]"
-> +	       " leng  ntw timestmp         bi->skb\n");
-> +	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ]"
-> +	       " leng  ntw timestmp         bi->skb\n");
-
-pr_info
-
-> +
-> +	if (!netif_msg_tx_done(adapter))
-> +		goto rx_ring_summary;
-> +
-> +	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-> +		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
-> +		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
-> +		struct my_u { u64 a; u64 b; };
-> +		struct my_u *u = (struct my_u *)tx_desc;
-> +		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X "
-> +		       "%016llX %p",
-> +		       ((le64_to_cpu(u->b) & (1<<20)) ? 'd' : 'c'), i,
-> +		       le64_to_cpu(u->a), le64_to_cpu(u->b),
-> +		       (u64)buffer_info->dma, buffer_info->length,
-> +		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
-> +		       buffer_info->skb);
-> +		if (i == tx_ring->next_to_use &&bet i == tx_ring->next_to_clean)
-> +			printk(KERN_CONT" NTC/U\n");
-> +		else if (i == tx_ring->next_to_use)
-> +			printk(KERN_CONT " NTU\n");
-> +		else if (i == tx_ring->next_to_clean)
-> +			printk(KERN_CONT " NTC\n");
-> +		else
-> +			printk(KERN_CONT "\n");
-> +
+>  struct cb_compound_hdr_arg {
+> diff --git a/fs/nfs/callback_proc.c b/fs/nfs/callback_proc.c
+> index 0e6e63f..f71978d 100644
+> --- a/fs/nfs/callback_proc.c
+> +++ b/fs/nfs/callback_proc.c
+> @@ -461,7 +461,7 @@ __be32 nfs4_callback_sequence(struct cb_sequenceargs *args,
+>  	int i;
+>  	__be32 status = htonl(NFS4ERR_BADSESSION);
+>  
+> -	clp = nfs4_find_client_sessionid(args->csa_addr, &args->csa_sessionid);
+> +	clp = nfs4_find_client_sessionid(cps->net, args->csa_addr, &args->csa_sessionid);
+>  	if (clp == NULL)
+>  		goto out;
+>  
+> diff --git a/fs/nfs/callback_xdr.c b/fs/nfs/callback_xdr.c
+> index f2be3e1e..8c2a969 100644
+> --- a/fs/nfs/callback_xdr.c
+> +++ b/fs/nfs/callback_xdr.c
+> @@ -861,6 +861,7 @@ static __be32 nfs4_callback_compound(struct svc_rqst *rqstp, void *argp, void *r
+>  		.drc_status = 0,
+>  		.clp = NULL,
+>  		.slotid = -1,
+> +		.net = rqstp->rq_xprt->xpt_net,
+>  	};
+>  	unsigned int nops = 0;
+>  
+> diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+> index 9e11d29..2328dcb 100644
+> --- a/fs/nfs/client.c
+> +++ b/fs/nfs/client.c
+> @@ -1232,11 +1232,11 @@ nfs4_find_client_ident(struct net *net, int cb_ident)
+>   * Returns NULL if no such client
+>   */
+>  struct nfs_client *
+> -nfs4_find_client_sessionid(const struct sockaddr *addr,
+> +nfs4_find_client_sessionid(struct net *net, const struct sockaddr *addr,
+>  			   struct nfs4_sessionid *sid)
+>  {
+>  	struct nfs_client *clp;
+> -	struct nfs_net *nn = net_generic(&init_net, nfs_net_id);
+> +	struct nfs_net *nn = net_generic(net, nfs_net_id);
 
 
-better to use a temporary char * for NTC/NTU/NTC/""
-and use a single pr_info()
+Hi,
 
-> +	for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
-> +		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rx_ring, i);
-> +		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
-> +		struct my_u { u64 a; u64 b; };
-> +		struct my_u *u = (struct my_u *)rx_desc;
-> +		printk(KERN_INFO "R[0x%03X]     %016llX %016llX %016llX %p",
-> +			i, le64_to_cpu(u->a), le64_to_cpu(u->b),
-> +			(u64)buffer_info->dma, buffer_info->skb);
-> +		if (i == rx_ring->next_to_use)
-> +			printk(KERN_CONT " NTU\n");
-> +		else if (i == rx_ring->next_to_clean)
-> +			printk(KERN_CONT " NTC\n");
-> +		else
-> +			printk(KERN_CONT "\n");
+You changed this function for the v4.1 case, but not for v4.0 (this is what I was trying to bisect earlier).  Without CONFIG_NFS_V4_1 set, I get this:
 
-temporary here too
+ make[1]: Nothing to be done for `all'.
+  CHK     include/linux/version.h
+  CHK     include/generated/utsrelease.h
+  CALL    scripts/checksyscalls.sh
+  CHK     include/generated/compile.h
+  CHK     kernel/config_data.h
+  CC [M]  fs/nfs/client.o
+fs/nfs/client.c:1265:1: error: conflicting types for 'nfs4_find_client_sessionid'
+fs/nfs/internal.h:155:1: note: previous declaration of 'nfs4_find_client_sessionid' was here
+make[2]: *** [fs/nfs/client.o] Error 1
+make[1]: *** [fs/nfs] Error 2
+make: *** [fs] Error 2
+
+- Bryan
+
+>  
+>  	spin_lock(&nn->nfs_client_lock);
+>  	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
+> diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
+> index b38b733..0c3648a 100644
+> --- a/fs/nfs/internal.h
+> +++ b/fs/nfs/internal.h
+> @@ -152,7 +152,8 @@ extern void nfs_cleanup_cb_ident_idr(struct net *);
+>  extern void nfs_put_client(struct nfs_client *);
+>  extern struct nfs_client *nfs4_find_client_ident(struct net *, int);
+>  extern struct nfs_client *
+> -nfs4_find_client_sessionid(const struct sockaddr *, struct nfs4_sessionid *);
+> +nfs4_find_client_sessionid(struct net *, const struct sockaddr *,
+> +				struct nfs4_sessionid *);
+>  extern struct nfs_server *nfs_create_server(
+>  					const struct nfs_parsed_mount_data *,
+>  					struct nfs_fh *);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
