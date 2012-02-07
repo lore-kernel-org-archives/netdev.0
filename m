@@ -1,60 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
-Date: Tue,  7 Feb 2012 04:33:47 -0800
-Message-ID: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 09/11] e1000e: fix checkpatch warning from MINMAX test
+Date: Tue,  7 Feb 2012 04:33:56 -0800
+Message-ID: <1328618038-5008-10-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:47275 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755676Ab2BGMeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 07:34:11 -0500
+	id S1756151Ab2BGMeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 07:34:15 -0500
+In-Reply-To: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000, igbvf and e1000e.
-Majority of the updates are to e1000e and do the following:
- - cleanup 82571 and 80003es2lan code
- - fix checkpatch and sparse warnings
- - fix whitespace/indentation
- - add missing initializers
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit 59d74026fa4b5df72a268f1e9578af500154ad07:
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+WARNING: min() should probably be min_t(unsigned int, 4, skb->data_len)
 
-Bruce Allan (9):
-  e1000e: add missing initializers reported when compiling with W=1
-  e1000e: cleanup - check return values consistently
-  e1000e: cleanup e1000_init_mac_params_80003es2lan()
-  e1000e: cleanup e1000_init_mac_params_82571()
-  e1000e: cleanup e1000_set_phys_id
-  e1000e: cleanup - use braces in both branches of a conditional
-    statement
-  e1000e: fix checkpatch warning from MINMAX test
-  e1000e: fix sparse warnings with -D__CHECK_ENDIAN__
-  e1000e: minor whitespace and indentation cleanup
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Mitch A Williams (1):
-  igbvf: refactor Interrupt Throttle Rate code
-
-Tushar Dave (1):
-  e1000: Adding e1000_dump function
-
- drivers/net/ethernet/intel/e1000/e1000.h        |    1 +
- drivers/net/ethernet/intel/e1000/e1000_hw.h     |   10 +
- drivers/net/ethernet/intel/e1000/e1000_main.c   |  224 +++++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |   28 +--
- drivers/net/ethernet/intel/e1000e/82571.c       |   72 +++-----
- drivers/net/ethernet/intel/e1000e/ethtool.c     |    8 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |   12 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |  104 ++++++-----
- drivers/net/ethernet/intel/igbvf/ethtool.c      |   19 +-
- drivers/net/ethernet/intel/igbvf/igbvf.h        |   27 ++--
- drivers/net/ethernet/intel/igbvf/netdev.c       |  131 ++++++++------
- 11 files changed, 438 insertions(+), 198 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 02efae0..a9f25fc 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5023,7 +5023,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		if (skb->data_len && (hdr_len == len)) {
+ 			unsigned int pull_size;
+ 
+-			pull_size = min((unsigned int)4, skb->data_len);
++			pull_size = min_t(unsigned int, 4, skb->data_len);
+ 			if (!__pskb_pull_tail(skb, pull_size)) {
+ 				e_err("__pskb_pull_tail failed.\n");
+ 				dev_kfree_skb_any(skb);
 -- 
 1.7.7.6
