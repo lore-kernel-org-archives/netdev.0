@@ -1,45 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
-Date: Tue, 07 Feb 2012 15:33:25 -0500 (EST)
-Message-ID: <20120207.153325.1941809701255235550.davem@davemloft.net>
-References: <CAG4TOxNcB8+SP3f0WhZG1GZ481s+=7pVRv91vzAbwDzUZD8g_A@mail.gmail.com>
-	<20120206.151509.1959432192519622134.davem@davemloft.net>
-	<CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/5] send-crc: Add framework to allow sending packets with
+ customized CRC.
+Date: Tue, 7 Feb 2012 21:33:29 +0100
+Message-ID: <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com>
+References: <1328644182-7872-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ogerlitz@mellanox.com,
-	sean.hefty@intel.com, herbert@gondor.hengli.com.au,
-	linux-rdma@vger.kernel.org, shlomop@mellanox.com,
-	netdev@vger.kernel.org
-To: roland@kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36725 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756226Ab2BGUdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:33:38 -0500
-In-Reply-To: <CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:62899 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756819Ab2BGUdv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:33:51 -0500
+Received: by ggnh1 with SMTP id h1so3700656ggn.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 12:33:50 -0800 (PST)
+In-Reply-To: <1328644182-7872-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <roland@kernel.org>
-Date: Tue, 7 Feb 2012 11:51:46 -0800
+2012/2/7  <greearb@candelatech.com>:
+> From: Ben Greear <greearb@candelatech.com>
+>
+> This is useful for testing RX handling of frames with bad
+> CRCs.
+>
+> Requires driver support to actually put the packet on the
+> wire properly.
+[...]
 
-Overall, looks great.
+I like this idea. I think that this is not a feature to have in
+dev->features to toggle, though. Driver either supports this or not,
+so it's better to put it in dev->priv_flags instead. Disabling of FCS
+inserting is a per-packet option in the drivers, isn't it?
 
-> @@ -843,9 +837,8 @@ static int ipoib_hard_header(struct sk_buff *skb,
->  	if (dst)
->  		n = dst_get_neighbour_noref_raw(dst);
->  	if ((!dst || !n) && daddr) {
-> -		struct ipoib_pseudoheader *phdr =
-> -			(struct ipoib_pseudoheader *) skb_push(skb, sizeof *phdr);
-> -		memcpy(phdr->hwaddr, daddr, INFINIBAND_ALEN);
-> +		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
-> +		memcpy(cb->hwaddr, daddr, INFINIBAND_ALEN);
+=46or one problem with toggling: if you create a socket using it and
+later turn off the feature, the socket will still send skbs with FCS
+appended.
 
-I would simplify this to "!skb_dst(skb)", any failure of
-dst_get_neighbour_noref_raw() (now and in the future) would be
-transient.
-
-You're trying to see if this is a "neigh resolvable" path or not, and
-the correct test for that is whether a dst is attached to the SKB.
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
