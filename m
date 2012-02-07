@@ -1,61 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v8, kernel version 3.2.1] Source mode for macvlan
- interface
-Date: Tue, 07 Feb 2012 12:10:23 -0500 (EST)
-Message-ID: <20120207.121023.2131074219122624371.davem@davemloft.net>
-References: <2400968.61328600903168.JavaMail.root@5-MeO-DMT.ynet.sk>
-	<15266430.31328603700375.JavaMail.root@5-MeO-DMT.ynet.sk>
+Subject: Re: [net-next 10/11] e1000e: fix sparse warnings with
+ -D__CHECK_ENDIAN__
+Date: Tue, 07 Feb 2012 12:16:33 -0500 (EST)
+Message-ID: <20120207.121633.43514871391885371.davem@davemloft.net>
+References: <1328618038-5008-11-git-send-email-jeffrey.t.kirsher@intel.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6E5C@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: steweg@ynet.sk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <15266430.31328603700375.JavaMail.root@5-MeO-DMT.ynet.sk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34817 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755661Ab2BGRQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:16:42 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E5C@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Gula <steweg@ynet.sk>
-Date: Tue, 7 Feb 2012 09:35:00 +0100 (CET)
+From: "David Laight" <David.Laight@ACULAB.COM>
+Date: Tue, 7 Feb 2012 12:58:35 -0000
 
-> From: Stefan Gula <steweg@gmail.com>
+>  
+>>  	for (i = 0; i < last_word - first_word + 1; i++)
+>> -		eeprom_buff[i] = cpu_to_le16(eeprom_buff[i]);
+>> +		cpu_to_le16s(&eeprom_buff[i]);
 > 
-> New mode of macvlan interface called "source" allows one to set a list
-> of allowed mac address, which is used to match against source mac
-> address from received frames on underlying interface. This allows
-> creating mac based VLAN associations, instead of standard port or tag
-> based. The feature is useful to deploy 802.1x mac based behavior,
-> where drivers of underlying interfaces doesn't allows that.
-> Configuration is done through the netlink interface using e.g.:
->  ip link add link eth0 name macvlan0 type macvlan mode source
->  ip link add link eth0 name macvlan1 type macvlan mode source
->  ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
->  ip link set link macvlan0 type macvlan macaddr add 00:22:22:22:22:22
->  ip link set link macvlan0 type macvlan macaddr add 00:33:33:33:33:33
->  ip link set link macvlan1 type macvlan macaddr add 00:33:33:33:33:33
->  ip link set link macvlan1 type macvlan macaddr add 00:44:44:44:44:44
-> This allows clients with MAC addresses 00:11:11:11:11:11,
-> 00:22:22:22:22:22 to be part of only VLAN associated with macvlan0
-> interface. Clients with MAC addresses 00:44:44:44:44:44 with only VLAN
-> associated with macvlan1 interface. And client with MAC address
-> 00:33:33:33:33:33 to be associated with both VLANs.
-> 
-> Signed-off-by: Stefan Gula <steweg@gmail.com>
-> 
-> ---
-> 
-> V8 changes:
->    - added ability to list allowed mac address list back using devdump
->      ops method - required previous rtnetlink patch to be applied first
+> The old version is likely to generate much better code.
 
-So you can't submit this until we've applied the final version of that
-patch, because you have no idea what the exact mechanism is going to be to
-enable dumping of your state, and therefore you can't code to the API
-that enables your part of the dump.
-
-The way that you rush your work is irritating, let things run their
-course, in as much time as it takes.
-
-And frankly there is no rush on this, as the next merge window for
-new features is several months away.
+Not on cpus that have swap-endian loads and stores.
