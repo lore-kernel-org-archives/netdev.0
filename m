@@ -1,51 +1,55 @@
-From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
-Subject: Re: [net-next 02/11] e1000: Adding e1000_dump function
-Date: Tue, 07 Feb 2012 18:38:09 +0100
-Message-ID: <1782836.alj52xdzPl@alaris>
-References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com> <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
+From: Anisse Astier <anisse@astier.eu>
+Subject: Re: [PATCH] net: Default UDP and UNIX diag to 'n'.
+Date: Tue, 7 Feb 2012 18:39:11 +0100
+Message-ID: <20120207183911.4dd65ac8@destiny.ordissimo>
+References: <20120107.121339.633839797125273714.davem@davemloft.net>
+	<20120207121256.50667809@destiny.ordissimo>
+	<4F31292F.2090503@parallels.com>
+	<20120207.122931.1509587729423704935.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Tushar Dave <tushar.n.dave@intel.com>, gospo@redhat.com,
-	sassmann@redhat.com, jbeulich@suse.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: xemul@parallels.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51202 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755258Ab2BGRiL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:38:11 -0500
-In-Reply-To: <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:50565 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301Ab2BGRjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:39:20 -0500
+Received: by wics10 with SMTP id s10so5081329wic.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 09:39:18 -0800 (PST)
+In-Reply-To: <20120207.122931.1509587729423704935.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 07 of February 2012 04:33EN, Jeff Kirsher wrote:
-> +		if (netif_msg_pktdata(adapter) && buffer_info->dma !=3D 0)
-> +			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
-> +					16, 1, phys_to_virt(buffer_info->dma),
-> +					buffer_info->length, true);
+On Tue, 07 Feb 2012 12:29:31 -0500 (EST), David Miller <davem@davemloft.net> wrote :
 
-This might cause problems in Xen environment, we encountered a crash in=
-=20
-e1000e where phys_to_virt() is used the same way. I'm not familiar with=
-=20
-the details but this is what Jan Beulich wrote about it:
+> From: Pavel Emelyanov <xemul@parallels.com>
+> Date: Tue, 07 Feb 2012 17:37:51 +0400
+> 
+> > @@ -409,7 +409,7 @@ config INET_TCP_DIAG
+> >  
+> >  config INET_UDP_DIAG
+> >  	tristate "UDP: socket monitoring interface"
+> > -	depends on INET_DIAG
+> > +	depends on INET_DIAG && IPV6
+> 
+> This needs to be something like "INET_DIAG && (IPV6 || IPV6=n)"
 
-> And the use of phys_to_virt() here seems wrong - buffer_info->dma,
-> afaict, is being obtained via the dma_map_*() APIs, which do NOT
-> return a physical address (the fact that what they return is identica=
-l
-> to the corresponding physical address on native doesn't mean this is
-> universally so).
->=20
-> bus_to_virt() is what should be used here on Xen (though that isn't
-> universally correct either afaik, but there simply is no
-> dma_to_virt(); it *is* consistent on x86 and ia64 at least, while
-> ppc64 is lacking a definition altogether [I would be very surprised
-> though if this use of phys_to_virt() was correct on this arch, given
-> that e.g. dma_direct_map_page() uses get_dma_offset() to obtain the
-> DMA address]).
+Yes, this works better. This is the right solution.
 
-                                                         Michal Kube=E8=
-ek
+Tested-by: Anisse Astier <anisse@astier.eu>
+
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index aa2a2c7..d183262 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -409,7 +409,7 @@ config INET_TCP_DIAG
+ 
+ config INET_UDP_DIAG
+        tristate "UDP: socket monitoring interface"
+-       depends on INET_DIAG
++       depends on INET_DIAG && (IPV6 || IPV6=n)
+        default n
+        ---help---
+          Support for UDP socket monitoring interface used by the ss tool.
