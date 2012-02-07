@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 10/11] e1000e: fix sparse warnings with
- -D__CHECK_ENDIAN__
-Date: Tue, 07 Feb 2012 12:16:33 -0500 (EST)
-Message-ID: <20120207.121633.43514871391885371.davem@davemloft.net>
-References: <1328618038-5008-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6E5C@saturn3.aculab.com>
+Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 07 Feb 2012 12:27:34 -0500 (EST)
+Message-ID: <20120207.122734.998657469254126483.davem@davemloft.net>
+References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David.Laight@ACULAB.COM
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34817 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34872 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755661Ab2BGRQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:16:42 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E5C@saturn3.aculab.com>
+	with ESMTP id S1754338Ab2BGR1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:27:38 -0500
+In-Reply-To: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Tue, 7 Feb 2012 12:58:35 -0000
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  7 Feb 2012 04:33:47 -0800
 
->  
->>  	for (i = 0; i < last_word - first_word + 1; i++)
->> -		eeprom_buff[i] = cpu_to_le16(eeprom_buff[i]);
->> +		cpu_to_le16s(&eeprom_buff[i]);
+> The following series contains updates to e1000, igbvf and e1000e.
+> Majority of the updates are to e1000e and do the following:
+>  - cleanup 82571 and 80003es2lan code
+>  - fix checkpatch and sparse warnings
+>  - fix whitespace/indentation
+>  - add missing initializers
 > 
-> The old version is likely to generate much better code.
+> The following are changes since commit 59d74026fa4b5df72a268f1e9578af500154ad07:
+>   Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Not on cpus that have swap-endian loads and stores.
+Pulled, thanks Jeff.
