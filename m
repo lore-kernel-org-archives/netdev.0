@@ -1,69 +1,84 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH] net: sh_eth: fix skb_over_panic happen
-Date: Tue, 07 Feb 2012 15:54:32 +0900
-Message-ID: <4F30CAA8.5050207@renesas.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: Fix mem leak in bnx2x_tpa_stop() if
+ build_skb() fails.
+Date: Tue, 7 Feb 2012 08:55:01 +0200
+Message-ID: <1328597701.18349.0.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <alpine.LNX.2.00.1202062224210.20532@swampdragon.chaosbits.net>
+ <1328568833.2476.1.camel@edumazet-laptop>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:52591 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965Ab2BGGyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 01:54:36 -0500
-Received: from relmlir1.idc.renesas.com ([10.200.68.151])
- by relmlor3.idc.renesas.com ( SJSMS)
- with ESMTP id <0LZ0002VJGIYSJ00@relmlor3.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 Feb 2012 15:54:34 +0900 (JST)
-Received: from relmlac2.idc.renesas.com ([10.200.69.22])
- by relmlir1.idc.renesas.com (SJSMS)
- with ESMTP id <0LZ0000CYGIYF820@relmlir1.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 Feb 2012 15:54:34 +0900 (JST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>,
+	"Eliezer Tamir" <eliezert@broadcom.com>
+To: "Jesper Juhl" <jj@chaosbits.net>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328568833.2476.1.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When this GETHER controller received a large frame (about 1800 bytes
-or more), skb_over_panic() happened. This is because the previous
-driver set the RFLR to 0x1000 (4096 bytes) and the skb allocate size
-is smaller than 4096 bytes. So, the controller accepted such a frame.
+On Mon, 2012-02-06 at 23:53 +0100, Eric Dumazet wrote:
+> Le lundi 06 f=C3=A9vrier 2012 =C3=A0 22:28 +0100, Jesper Juhl a =C3=A9=
+crit :
+> > We allocate memory for 'new_data' with kmalloc(). If we get the mem=
+ory
+> > we then try to build_skb() and if that should fail (which it can) w=
+e
+> > do not enter 'if (likely(skb)) {' and actually use 'new_data' but
+> > instead fall through to the 'drop:' label and end up returning from
+> > the function without ever assigning 'new'data' to anything or freei=
+ng
+> > it. That leaks the memory allocated to 'new_data'.
+> >=20
+> > This patch fixes the memory leak by doing a kfree(new_data) in the
+> > case where build_skb() fails (or where allocation of 'new_data' its=
+elf
+> > fails, but in taht case it's just a harmless kfree(NULL)).
+> >=20
+> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> > ---
+> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    3 +--
+> >  1 files changed, 1 insertions(+), 2 deletions(-)
+> >=20
+> >  No hardware to test, so compile tested only.
+> >=20
+> > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/driv=
+ers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > index 03f3935..7aee469 100644
+> > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > @@ -523,7 +523,6 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, st=
+ruct bnx2x_fastpath *fp,
+> >  		skb =3D build_skb(data);
+> > =20
+> >  	if (likely(skb)) {
+> > -
+> >  #ifdef BNX2X_STOP_ON_ERROR
+> >  		if (pad + len > fp->rx_buf_size) {
+> >  			BNX2X_ERR("skb_put is about to fail...  "
+> > @@ -557,7 +556,7 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, st=
+ruct bnx2x_fastpath *fp,
+> > =20
+> >  		return;
+> >  	}
+> > -
+> > +	kfree(new_data);
+> >  drop:
+> >  	/* drop the packet and keep the buffer in the bin */
+> >  	DP(NETIF_MSG_RX_STATUS,
+> > --=20
+> > 1.7.9
+> >=20
+> >=20
+>=20
+> Good catch, my bad.
+>=20
+> Thanks
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-The controller can discard a large frame by the RFLR setting.
-So, the patch modifies the value of RFLR to mtu + ETH_HLEN +
-ETH_FCS_LEN.
+Indeed - nice catch. Thanks Jesper.
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |    2 +-
- drivers/net/ethernet/renesas/sh_eth.h |    3 ---
- 2 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 813d41c..9e899b0 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -817,7 +817,7 @@ static int sh_eth_dev_init(struct net_device *ndev)
- 		sh_eth_write(ndev, 0, TRIMD);
-
- 	/* Recv frame limit set register */
--	sh_eth_write(ndev, RFLR_VALUE, RFLR);
-+	sh_eth_write(ndev, ndev->mtu + ETH_HLEN + ETH_FCS_LEN, RFLR);
-
- 	sh_eth_write(ndev, sh_eth_read(ndev, EESR), EESR);
- 	sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 47877b1..cdbd844 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -575,9 +575,6 @@ enum RPADIR_BIT {
- 	RPADIR_PADR = 0x0003f,
- };
-
--/* RFLR */
--#define RFLR_VALUE 0x1000
--
- /* FDR */
- #define DEFAULT_FDR_INIT	0x00000707
-
--- 
-1.7.1
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
