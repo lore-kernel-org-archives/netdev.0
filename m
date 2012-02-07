@@ -1,73 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Tue, 7 Feb 2012 18:26:32 +0000
-Message-ID: <1328639192.3549.14.camel@bwh-desktop>
-References: <5422254.3711328278789768.JavaMail.root@5-MeO-DMT.ynet.sk>
-	 <10521320.3761328279061644.JavaMail.root@5-MeO-DMT.ynet.sk>
-	 <20120203.192933.510206531351047222.davem@davemloft.net>
-	 <C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
-	 <1328572230.12637.18.camel@deadeye>
-	 <C5551D9AAB213A418B7FD5E4A6F30A0702F81413@ORSMSX106.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"steweg@ynet.sk" <steweg@ynet.sk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F81413@ORSMSX106.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] net: fec: Fix build due to wrong dev annotation
+Date: Tue,  7 Feb 2012 16:27:31 -0200
+Message-ID: <1328639251-26310-1-git-send-email-festevam@gmail.com>
+Cc: davem@davemloft.net, netdev@pradeepdalvi.com,
+	kernel@pengutronix.de, Fabio Estevam <festevam@gmail.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:55816 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507Ab2BGS1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:27:40 -0500
+Received: by yenm8 with SMTP id m8so3165531yen.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 10:27:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-02-07 at 00:13 +0000, Rose, Gregory V wrote:
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: Monday, February 06, 2012 3:51 PM
-> > To: Rose, Gregory V
-> > Cc: David Miller; steweg@ynet.sk; linux-kernel@vger.kernel.org;
-> > netdev@vger.kernel.org
-> > Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround around
-> > the skb buff size issue
-> > 
-> > On Mon, 2012-02-06 at 04:41 +0000, Rose, Gregory V wrote:
-> > [...]
-> > > > This is not how we're going to fix this.  I already stated the desired
-> > > > way to fix this, which is to make the existing dump request have a way
-> > > > for the requestor to enable extended parts of the device dump.
-> > > >
-> > > > This is just like netlink diag socket dumps, where the dump request
-> > > > specifies what the user wants to see.
-> > > >
-> > > > In this case we'd add a netlink attribute to the dump request which
-> > > > is just a u32 bitmask or similar.
-> > > >
-> > > > The Intel engineer who added the VF dump support said he would work on
-> > > > this fix so why don't you just wait patiently for him to do the work?
-> > >
-> > > The patch below is what I've got so far.  Right now the bit mask array
-> > > is global so if you enable display of VF (n) on one interface it will
-> > > enable display of the same VF on other interfaces.  I intend to move
-> > > the bit mask array into the net_device structure so we can set the
-> > > display mask for each interface independently.
-> > 
-> > I don't think this can work.  Using an application that requests VF
-> > information and uses large buffers (e.g. the updated 'ip') will break
-> > another application that doesn't (e.g. current Network Manager), won't
-> > it?
-> 
-> It's my understanding that the problem isn't with the application
-> buffer size but with the kernel buffer size, which is limited to a
-> page.
-[...]
+commit 21a4e469 (netdev: ethernet dev_alloc_skb to netdev_alloc_skb) 
+should have used "ndev" instead of "dev".
 
-Then it's no wonder you're going about this the wrong way.
+This causes the following build errors:
 
-Ben.
+drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_rx':
+drivers/net/ethernet/freescale/fec.c:714: error: 'dev' undeclared (first use in this function)
+drivers/net/ethernet/freescale/fec.c:714: error: (Each undeclared identifier is reported only once
+drivers/net/ethernet/freescale/fec.c:714: error: for each function it appears in.)
+drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_alloc_buffers':
+drivers/net/ethernet/freescale/fec.c:1213: error: 'dev' undeclared (first use in this function)
 
+Fix it, so that fec driver can be built again.
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index f976619..0ee2ca7 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -711,7 +711,7 @@ fec_enet_rx(struct net_device *ndev)
+ 		 * include that when passing upstream as it messes up
+ 		 * bridging applications.
+ 		 */
+-		skb = netdev_alloc_skb(dev, pkt_len - 4 + NET_IP_ALIGN);
++		skb = netdev_alloc_skb(ndev, pkt_len - 4 + NET_IP_ALIGN);
+ 
+ 		if (unlikely(!skb)) {
+ 			printk("%s: Memory squeeze, dropping packet.\n",
+@@ -1210,7 +1210,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 
+ 	bdp = fep->rx_bd_base;
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		skb = netdev_alloc_skb(dev, FEC_ENET_RX_FRSIZE);
++		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
+ 		if (!skb) {
+ 			fec_enet_free_buffers(ndev);
+ 			return -ENOMEM;
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
