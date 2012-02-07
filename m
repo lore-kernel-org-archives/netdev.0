@@ -1,73 +1,63 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [PATCH 4/4] NFS: make nfs_client_lock per net ns
-Date: Tue, 07 Feb 2012 18:09:15 +0400
-Message-ID: <4F31308B.1090002@parallels.com>
-References: <20120123172631.29637.17188.stgit@localhost6.localdomain6> <1328622659.4124.3.camel@lade.trondhjem.org>
+Date: Tue, 7 Feb 2012 14:11:46 +0000
+Message-ID: <1328623906.4124.10.camel@lade.trondhjem.org>
+References: <20120123172631.29637.17188.stgit@localhost6.localdomain6>
+	 <1328622659.4124.3.camel@lade.trondhjem.org>
+	 <4F31308B.1090002@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328622659.4124.3.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F31308B.1090002-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <1D2668105108354AA4FC32BEB96DAC00-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-07.02.2012 17:51, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> 8<-------------------------------------------------------------------=
-------
->  From 5a489156da4fd15dd143f2b21dd9657b97dcef88 Mon Sep 17 00:00:00 20=
-01
-> From: Trond Myklebust<Trond.Myklebust@netapp.com>
-> Date: Tue, 7 Feb 2012 00:05:11 -0500
-> Subject: [PATCH] NFS: Initialise the nfs_net->nfs_client_lock
->
-> Ensure that we initialise the nfs_net->nfs_client_lock spinlock.
-> Also ensure that nfs_server_remove_lists() doesn't try to
-> dereference server->nfs_client before that is initialised.
->
-
-Sorry.
-Patch looks nice. Except one notice below.
-
-> Signed-off-by: Trond Myklebust<Trond.Myklebust@netapp.com>
-> Cc: Stanislav Kinsbursky<skinsbursky@parallels.com>
-> ---
->   fs/nfs/client.c |    6 +++++-
->   1 files changed, 5 insertions(+), 1 deletions(-)
->
-> diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-> index 1a5cd49..f0dacad 100644
-> --- a/fs/nfs/client.c
-> +++ b/fs/nfs/client.c
-> @@ -1055,8 +1055,11 @@ static void nfs_server_insert_lists(struct nfs=
-_server *server)
->   static void nfs_server_remove_lists(struct nfs_server *server)
->   {
->   	struct nfs_client *clp =3D server->nfs_client;
-> -	struct nfs_net *nn =3D net_generic(clp->net, nfs_net_id);
-> +	struct nfs_net *nn;
->
-> +	if (clp =3D=3D NULL)
-> +		return;
-> +	nn =3D net_generic(clp->net, nfs_net_id);
->   	spin_lock(&nn->nfs_client_lock);
->   	list_del_rcu(&server->client_link);
->   	if (clp&&  list_empty(&clp->cl_superblocks))
-
-This check for clp !=3D NULL can be removed.
-
-
-
---=20
-Best regards,
-Stanislav Kinsbursky
+T24gVHVlLCAyMDEyLTAyLTA3IGF0IDE4OjA5ICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
+cm90ZToNCj4gMDcuMDIuMjAxMiAxNzo1MSwgTXlrbGVidXN0LCBUcm9uZCDQv9C40YjQtdGCOg0K
+PiA+IDg8LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ICBGcm9tIDVhNDg5MTU2ZGE0ZmQxNWRkMTQzZjJi
+MjFkZDk2NTdiOTdkY2VmODggTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxDQo+ID4gRnJvbTogVHJv
+bmQgTXlrbGVidXN0PFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tPg0KPiA+IERhdGU6IFR1ZSwg
+NyBGZWIgMjAxMiAwMDowNToxMSAtMDUwMA0KPiA+IFN1YmplY3Q6IFtQQVRDSF0gTkZTOiBJbml0
+aWFsaXNlIHRoZSBuZnNfbmV0LT5uZnNfY2xpZW50X2xvY2sNCj4gPg0KPiA+IEVuc3VyZSB0aGF0
+IHdlIGluaXRpYWxpc2UgdGhlIG5mc19uZXQtPm5mc19jbGllbnRfbG9jayBzcGlubG9jay4NCj4g
+PiBBbHNvIGVuc3VyZSB0aGF0IG5mc19zZXJ2ZXJfcmVtb3ZlX2xpc3RzKCkgZG9lc24ndCB0cnkg
+dG8NCj4gPiBkZXJlZmVyZW5jZSBzZXJ2ZXItPm5mc19jbGllbnQgYmVmb3JlIHRoYXQgaXMgaW5p
+dGlhbGlzZWQuDQo+ID4NCj4gDQo+IFNvcnJ5Lg0KPiBQYXRjaCBsb29rcyBuaWNlLiBFeGNlcHQg
+b25lIG5vdGljZSBiZWxvdy4NCj4gDQo+ID4gU2lnbmVkLW9mZi1ieTogVHJvbmQgTXlrbGVidXN0
+PFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tPg0KPiA+IENjOiBTdGFuaXNsYXYgS2luc2J1cnNr
+eTxza2luc2J1cnNreUBwYXJhbGxlbHMuY29tPg0KPiA+IC0tLQ0KPiA+ICAgZnMvbmZzL2NsaWVu
+dC5jIHwgICAgNiArKysrKy0NCj4gPiAgIDEgZmlsZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCsp
+LCAxIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2ZzL25mcy9jbGllbnQuYyBi
+L2ZzL25mcy9jbGllbnQuYw0KPiA+IGluZGV4IDFhNWNkNDkuLmYwZGFjYWQgMTAwNjQ0DQo+ID4g
+LS0tIGEvZnMvbmZzL2NsaWVudC5jDQo+ID4gKysrIGIvZnMvbmZzL2NsaWVudC5jDQo+ID4gQEAg
+LTEwNTUsOCArMTA1NSwxMSBAQCBzdGF0aWMgdm9pZCBuZnNfc2VydmVyX2luc2VydF9saXN0cyhz
+dHJ1Y3QgbmZzX3NlcnZlciAqc2VydmVyKQ0KPiA+ICAgc3RhdGljIHZvaWQgbmZzX3NlcnZlcl9y
+ZW1vdmVfbGlzdHMoc3RydWN0IG5mc19zZXJ2ZXIgKnNlcnZlcikNCj4gPiAgIHsNCj4gPiAgIAlz
+dHJ1Y3QgbmZzX2NsaWVudCAqY2xwID0gc2VydmVyLT5uZnNfY2xpZW50Ow0KPiA+IC0Jc3RydWN0
+IG5mc19uZXQgKm5uID0gbmV0X2dlbmVyaWMoY2xwLT5uZXQsIG5mc19uZXRfaWQpOw0KPiA+ICsJ
+c3RydWN0IG5mc19uZXQgKm5uOw0KPiA+DQo+ID4gKwlpZiAoY2xwID09IE5VTEwpDQo+ID4gKwkJ
+cmV0dXJuOw0KPiA+ICsJbm4gPSBuZXRfZ2VuZXJpYyhjbHAtPm5ldCwgbmZzX25ldF9pZCk7DQo+
+ID4gICAJc3Bpbl9sb2NrKCZubi0+bmZzX2NsaWVudF9sb2NrKTsNCj4gPiAgIAlsaXN0X2RlbF9y
+Y3UoJnNlcnZlci0+Y2xpZW50X2xpbmspOw0KPiA+ICAgCWlmIChjbHAmJiAgbGlzdF9lbXB0eSgm
+Y2xwLT5jbF9zdXBlcmJsb2NrcykpDQo+IA0KPiBUaGlzIGNoZWNrIGZvciBjbHAgIT0gTlVMTCBj
+YW4gYmUgcmVtb3ZlZC4NCj4gDQoNClllcC4uLiBJJ2xsIGFkZCB0aGF0IGluLi4uDQoNCi0tIA0K
+VHJvbmQgTXlrbGVidXN0DQpMaW51eCBORlMgY2xpZW50IG1haW50YWluZXINCg0KTmV0QXBwDQpU
+cm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbQ0Kd3d3Lm5ldGFwcC5jb20NCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
