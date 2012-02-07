@@ -1,37 +1,60 @@
-From: Hillf Danton <dhillf@gmail.com>
-Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Tue, 7 Feb 2012 20:10:42 +0800
-Message-ID: <CAJd=RBDc1NKmbcTwtF+wQcUebneVNxVPOFs8DMRtb2BKtUVmoA@mail.gmail.com>
-References: <CAGsizzLTHw5Ja3kT-zEN8uK5GrzpmN1bxOhA0OscGL5R6tH3WA@mail.gmail.com>
-	<20120131.190830.1189531706541596294.davem@davemloft.net>
-	<CAGsizzKB=NcAe9KvfZbbPiGvSQ6a9Mj+kBaKtDQziGWJ+eGGRA@mail.gmail.com>
-	<20120201.024357.1370213516985704222.davem@davemloft.net>
-	<CAGsizzL9x2es1XC5pac7LN99yp+sW5nt1eecYKhmdiRjBfNEeg@mail.gmail.com>
-	<CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?B?xaB0ZWZhbiBHdWxh?= <steweg@ynet.sk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Tue,  7 Feb 2012 04:33:47 -0800
+Message-ID: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:47275 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755676Ab2BGMeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 07:34:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/2/7 =C5=A0tefan Gula <steweg@ynet.sk>:
-> 2012/2/1 =C5=A0tefan Gula <steweg@ynet.sk>:
->> 2012/2/1 David Miller <davem@davemloft.net>:
-> I think that everything what could be done and said from my-side to
-> provide you guys answers to hopefully all your questions and to get
-> this into kernel was done. So I would like to ask you to provide me
-> final feedback. Thanks
->
->
-After staring at your message over ten minutes I have to say that
-you really need to stop overnight work ASAP and take a hot shower and
-a cup of hot coffee, then try to sort out answer to my question, what
-Ingo Molnar did, like ANK and old David, in the past ten years, and how=
-?
+The following series contains updates to e1000, igbvf and e1000e.
+Majority of the updates are to e1000e and do the following:
+ - cleanup 82571 and 80003es2lan code
+ - fix checkpatch and sparse warnings
+ - fix whitespace/indentation
+ - add missing initializers
+
+The following are changes since commit 59d74026fa4b5df72a268f1e9578af500154ad07:
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Bruce Allan (9):
+  e1000e: add missing initializers reported when compiling with W=1
+  e1000e: cleanup - check return values consistently
+  e1000e: cleanup e1000_init_mac_params_80003es2lan()
+  e1000e: cleanup e1000_init_mac_params_82571()
+  e1000e: cleanup e1000_set_phys_id
+  e1000e: cleanup - use braces in both branches of a conditional
+    statement
+  e1000e: fix checkpatch warning from MINMAX test
+  e1000e: fix sparse warnings with -D__CHECK_ENDIAN__
+  e1000e: minor whitespace and indentation cleanup
+
+Mitch A Williams (1):
+  igbvf: refactor Interrupt Throttle Rate code
+
+Tushar Dave (1):
+  e1000: Adding e1000_dump function
+
+ drivers/net/ethernet/intel/e1000/e1000.h        |    1 +
+ drivers/net/ethernet/intel/e1000/e1000_hw.h     |   10 +
+ drivers/net/ethernet/intel/e1000/e1000_main.c   |  224 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |   28 +--
+ drivers/net/ethernet/intel/e1000e/82571.c       |   72 +++-----
+ drivers/net/ethernet/intel/e1000e/ethtool.c     |    8 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |   12 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |  104 ++++++-----
+ drivers/net/ethernet/intel/igbvf/ethtool.c      |   19 +-
+ drivers/net/ethernet/intel/igbvf/igbvf.h        |   27 ++--
+ drivers/net/ethernet/intel/igbvf/netdev.c       |  131 ++++++++------
+ 11 files changed, 438 insertions(+), 198 deletions(-)
+
+-- 
+1.7.7.6
