@@ -1,66 +1,50 @@
-From: Brian Haley <brian.haley@hp.com>
+From: "Erich E. Hoover" <ehoover@mines.edu>
 Subject: Re: [PATCH v3 2/2] Implement IPV6_UNICAST_IF socket option.
-Date: Mon, 06 Feb 2012 22:00:05 -0500
-Message-ID: <4F3093B5.5070801@hp.com>
-References: <1328551064-28573-2-git-send-email-ehoover@mines.edu>	<4F30428B.2080102@hp.com> <CAEU2+vr823WcoF_Z4NV7ptWNBQ4uTG+tD2VAXbQPDYGqsaKpLQ@mail.gmail.com>
+Date: Mon, 6 Feb 2012 20:23:53 -0700
+Message-ID: <CAEU2+vqBrkh0Wab9r3PAVAWTiTGC7NwW_Nh862izCsyipPzd_w@mail.gmail.com>
+References: <1328551064-28573-2-git-send-email-ehoover@mines.edu>
+	<4F30428B.2080102@hp.com>
+	<CAEU2+vr823WcoF_Z4NV7ptWNBQ4uTG+tD2VAXbQPDYGqsaKpLQ@mail.gmail.com>
+	<4F3093B5.5070801@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:48151 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755638Ab2BGDAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 22:00:07 -0500
-In-Reply-To: <CAEU2+vr823WcoF_Z4NV7ptWNBQ4uTG+tD2VAXbQPDYGqsaKpLQ@mail.gmail.com>
+Received: from izzard.Mines.EDU ([138.67.132.197]:47228 "EHLO izzard.mines.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755887Ab2BGDXz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 22:23:55 -0500
+Received: from mail-vx0-f174.google.com (mail-vx0-f174.google.com [209.85.220.174])
+	(authenticated bits=0)
+	by izzard.mines.edu (8.13.8/8.13.8) with ESMTP id q173NsSw017044
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 6 Feb 2012 20:23:54 -0700
+Received: by vcge1 with SMTP id e1so4370408vcg.19
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 19:23:54 -0800 (PST)
+In-Reply-To: <4F3093B5.5070801@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2012 05:11 PM, Erich E. Hoover wrote:
-> On Mon, Feb 6, 2012 at 2:13 PM, Brian Haley <brian.haley@hp.com> wrote:
->> On 02/06/2012 12:57 PM, Erich E. Hoover wrote:
->>> ...
->>> +     int                     outif_index;
+On Mon, Feb 6, 2012 at 8:00 PM, Brian Haley <brian.haley@hp.com> wrote:
+> On 02/06/2012 05:11 PM, Erich E. Hoover wrote:
 >> ...
->> Nitpick: is ucast_oif a better name?
-> 
-> I templated off of the IPv4 code (example: mc_index), but I do think
-> that that is a better name.  Should I call the IPv4 version
-> "ucast_index" or have the same name for both IPv4 and IPv6?
+>> I'll double check all of these tonight, but a cursory look seems to
+>> indicate that the multicast check is the right place to put this for
+>> all the files. =A0I'm sorry about that, I clearly didn't consider
+>> interfering with multicast.
+>
+> It's probably important to keep the precedence the same as before:
+>
+> =A0 =A0 =A0 =A0SO_BINDTODEVICE
+> =A0 =A0 =A0 =A0IPV6_PKTINFO
+> =A0 =A0 =A0 =A0IPV6_*CAST_IF
+> ...
 
-If it was me I'd call it uc_index for IPv4, to mimic mc_ifindex.
+I agree, I mean that the IP*_MULTICAST_IF location appears to be the
+correct place to put IP*_UNICAST_IF.  I'll post a revision after I've
+had a chance to test it.
 
->>> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
->>> index 01d46bf..18f144e 100644
->>> --- a/net/ipv6/icmp.c
->>> +++ b/net/ipv6/icmp.c
->>> @@ -551,6 +551,9 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
->>>               return;
->>>       np = inet6_sk(sk);
->>>
->>> +     if (!fl6.flowi6_oif)
->>> +             fl6.flowi6_oif = ipv6_default_ifindex(sk);
->>> +
->>>       if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
->>>               fl6.flowi6_oif = np->mcast_oif;
->>
->> This snippet shows (and rawv6_sendmsg() has the same problem), that
->> IPV6_UNICAST_IF can also affect multicast packets.  And I think we always want
->> SO_BINDTODEVICE to override them all.  Perhaps these checks should be:
->> ...
-> 
-> I'll double check all of these tonight, but a cursory look seems to
-> indicate that the multicast check is the right place to put this for
-> all the files.  I'm sorry about that, I clearly didn't consider
-> interfering with multicast.
-
-It's probably important to keep the precedence the same as before:
-
-	SO_BINDTODEVICE
-	IPV6_PKTINFO
-	IPV6_*CAST_IF
-
-It looks like your IPv4 changes have the same problem.
-
--Brian
+Erich Hoover
+ehoover@mines.edu
