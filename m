@@ -1,79 +1,154 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: Regulator support for smsc911x
-Date: Tue, 7 Feb 2012 19:39:14 +0000
-Message-ID: <20120207193914.GA31557@opensource.wolfsonmicro.com>
-References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
- <CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
- <20120203074408.GD1990@pengutronix.de>
- <20120203111133.GD3151@opensource.wolfsonmicro.com>
- <CAOMZO5B2_yq=m8Mer=iV-HsXvF-MZJ-BV2=LTg1CZN+O=yepSQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="M9NhX3UHpAaciwkO"
-Cc: Sascha Hauer <s.hauer@pengutronix.de>,
-	robert.marklund@stericsson.com, netdev@vger.kernel.org,
-	Sascha Hauer <kernel@pengutronix.de>
-To: Fabio Estevam <festevam@gmail.com>
+From: "Erich E. Hoover" <ehoover@mines.edu>
+Subject: [PATCH v5 2/2] Implement IPV6_UNICAST_IF socket option.
+Date: Tue,  7 Feb 2012 12:44:23 -0700
+Message-ID: <1328643863-10404-2-git-send-email-ehoover@mines.edu>
+Cc: "Erich E. Hoover" <ehoover@mines.edu>
+To: Linux Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:53043 "EHLO
-	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755937Ab2BGTjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 14:39:17 -0500
-Content-Disposition: inline
-In-Reply-To: <CAOMZO5B2_yq=m8Mer=iV-HsXvF-MZJ-BV2=LTg1CZN+O=yepSQ@mail.gmail.com>
+Received: from izzard.Mines.EDU ([138.67.132.197]:53615 "EHLO izzard.mines.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754593Ab2BGTol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 14:44:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---M9NhX3UHpAaciwkO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
 
-On Tue, Feb 07, 2012 at 05:25:48PM -0200, Fabio Estevam wrote:
-> On Fri, Feb 3, 2012 at 9:11 AM, Mark Brown
+Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
+---
+ include/linux/in6.h      |    1 +
+ include/linux/ipv6.h     |    1 +
+ net/ipv6/icmp.c          |    4 ++++
+ net/ipv6/ipv6_sockglue.c |   34 ++++++++++++++++++++++++++++++++++
+ net/ipv6/raw.c           |    2 ++
+ net/ipv6/udp.c           |    3 ++-
+ 6 files changed, 44 insertions(+), 1 deletions(-)
 
-> > There's also options c) set up the regulators for the board and d) don't
-> > enable the regulator API if the board doesn't use regulators.
-
-> Option c would require that we change every single board.
-
-Well, yes.
-
-> The patch below does option d.
-
-> What do you think?
-
-Absolutely not.  Putting conditional code like this in drivers is nuts,
-you would have to do the same thing in every single driver which is not
-a useful use of anyone's time.  This is *clearly* a generic thing and
-should therefore be handled in generic code for the same reason we don't
-have driver specific platform data for actual usage of the API.
-
-Really, anyone who wants this sort of thing should just enable dummy
-regulators - it's exactly what you're implementing.  I'm pretty sure
-your board does actually have power supplies for the chip, you've just
-not told software about them.
-
---M9NhX3UHpAaciwkO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPMX3cAAoJEBus8iNuMP3dKUIQAI0DiF3SCyZYiqBn0L6WeD+o
-va22mYzdroeNlFBVWbKnEouxLcAi2LMGXnHBz3qfKlSpQ1VcZQba1EMnJ6vIIFWq
-dAMhoMEryA1h1NyK72woQT3WiUzKsIbOwMZlEwcBYKXBJuXshoKNlw6VIe47IQQB
-XuDd8mqCzDAaOL1tUZ4z+5ymlhMpLmzj1ZXTwmM5koJL1stwx594oa3fpjxPIq0s
-pE1hzRP+WZLQokCaPPSWBJhHkIg3DtON09xcw/bgo5zibVjKJ5I++PcPXw8dyAYt
-Dr7fXpskPCHc/4mXyMurPRC2adeb8hxjAfc/RJkaaOKjHdlt/NZ5MoWqTdeCBogP
-DqpF7HF8kVmabN3snTwh4tw7pgxRhInw7zBe/vn/2e0ZN8nNUPAZuAZiG9uSzTG1
-sIyEaYYgUm1DXlAivSIKQUok7MIaWJLw4ygoBRDgWgIUN14j8irkFAugmRpCk7gM
-pffq1ekj7GDFV6EI0JR0lG4wE9sIV5+e+4Qlv4hrDxkvESia3jPVSAuraLUs+VRF
-l30uF89AxhGZkbd1IxdRqu1SW5PMPMP5u5aXM7nzFfcjNl/sutQJzTe/+dgSs/7Q
-KA4XQurYT7IbUpgvQgJN1aX7uV8Kwtf/7a9YRFE1V5bVW9GkodSJpcsHC0tvXYBx
-dubwFu1+T8A3i3Y7qozB
-=r6Vp
------END PGP SIGNATURE-----
-
---M9NhX3UHpAaciwkO--
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index 097a34b..a67d76e 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -163,6 +163,7 @@ struct in6_flowlabel_req {
+ #define IPV6_NEXTHOP		9
+ #define IPV6_AUTHHDR		10	/* obsolete */
+ #define IPV6_FLOWINFO		11
++#define IPV6_UNICAST_IF		12
+ 
+ #define IPV6_UNICAST_HOPS	16
+ #define IPV6_MULTICAST_IF	17
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 6318268..743a16a 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -324,6 +324,7 @@ struct ipv6_pinfo {
+ 				__unused_2:6;
+ 	__s16			mcast_hops:9;
+ #endif
++	int			ucast_oif;
+ 	int			mcast_oif;
+ 
+ 	/* pktoption flags */
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 01d46bf..af88934 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -468,6 +468,8 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+ 		fl6.flowi6_oif = np->mcast_oif;
++	else if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = np->ucast_oif;
+ 
+ 	dst = icmpv6_route_lookup(net, skb, sk, &fl6);
+ 	if (IS_ERR(dst))
+@@ -553,6 +555,8 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+ 		fl6.flowi6_oif = np->mcast_oif;
++	else if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = np->ucast_oif;
+ 
+ 	err = ip6_dst_lookup(sk, &dst, &fl6);
+ 	if (err)
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 18a2719..6d6b65f 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -516,6 +516,36 @@ done:
+ 		retv = 0;
+ 		break;
+ 
++	case IPV6_UNICAST_IF:
++	{
++		struct net_device *dev = NULL;
++		int ifindex;
++
++		if (optlen != sizeof(int))
++			goto e_inval;
++
++		ifindex = (__force int)ntohl((__force __be32)val);
++		if (ifindex == 0) {
++			np->ucast_oif = 0;
++			retv = 0;
++			break;
++		}
++
++		dev = dev_get_by_index(net, ifindex);
++		retv = -EADDRNOTAVAIL;
++		if (!dev)
++			break;
++		dev_put(dev);
++
++		retv = -EINVAL;
++		if (sk->sk_bound_dev_if)
++			break;
++
++		np->ucast_oif = ifindex;
++		retv = 0;
++		break;
++	}
++
+ 	case IPV6_MULTICAST_IF:
+ 		if (sk->sk_type == SOCK_STREAM)
+ 			break;
+@@ -1160,6 +1190,10 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		val = np->mcast_oif;
+ 		break;
+ 
++	case IPV6_UNICAST_IF:
++		val = (__force int)htonl((__u32) np->ucast_oif);
++		break;
++
+ 	case IPV6_MTU_DISCOVER:
+ 		val = np->pmtudisc;
+ 		break;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index d02f7e4..5bddea7 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -856,6 +856,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+ 		fl6.flowi6_oif = np->mcast_oif;
++	else if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = np->ucast_oif;
+ 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+ 
+ 	dst = ip6_dst_lookup_flow(sk, &fl6, final_p, true);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 4f96b5c..8aebf8f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1130,7 +1130,8 @@ do_udp_sendmsg:
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr)) {
+ 		fl6.flowi6_oif = np->mcast_oif;
+ 		connected = 0;
+-	}
++	} else if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = np->ucast_oif;
+ 
+ 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+ 
+-- 
+1.7.5.4
