@@ -1,84 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/3 net-next] bnx2: Add support for ethtool
- --show-channels|--set-channels
-Date: Tue, 7 Feb 2012 20:19:14 +0000
-Message-ID: <1328645954.3549.17.camel@bwh-desktop>
-References: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: Regulator support for smsc911x
+Date: Tue, 7 Feb 2012 18:29:17 -0200
+Message-ID: <CAOMZO5C=w6DDue1n-JbN7UHfnFDpLO9RN113QpFwtfQgjdSafg@mail.gmail.com>
+References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
+	<CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
+	<20120203074408.GD1990@pengutronix.de>
+	<20120203111133.GD3151@opensource.wolfsonmicro.com>
+	<CAOMZO5B2_yq=m8Mer=iV-HsXvF-MZJ-BV2=LTg1CZN+O=yepSQ@mail.gmail.com>
+	<20120207193914.GA31557@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sascha Hauer <s.hauer@pengutronix.de>,
+	robert.marklund@stericsson.com, netdev@vger.kernel.org,
+	Sascha Hauer <kernel@pengutronix.de>
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36114 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756458Ab2BGUTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:19:21 -0500
-In-Reply-To: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:65368 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756439Ab2BGU3S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:29:18 -0500
+Received: by eaah12 with SMTP id h12so2955934eaa.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 12:29:17 -0800 (PST)
+In-Reply-To: <20120207193914.GA31557@opensource.wolfsonmicro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-02-05 at 17:24 -0800, Michael Chan wrote:
-> Allow the user to override the default number of RSS/TSS rings.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2.c |   99 ++++++++++++++++++++++++++++++---
->  drivers/net/ethernet/broadcom/bnx2.h |    3 +
->  2 files changed, 93 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-> index 0a4c540..2ab31da 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2.c
-> @@ -6246,7 +6246,16 @@ static int
->  bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
->  {
->  	int cpus = num_online_cpus();
-> -	int msix_vecs = min(cpus + 1, RX_MAX_RINGS);
-> +	int msix_vecs;
-> +
-> +	if (!bp->num_req_rx_rings)
-> +		msix_vecs = max(cpus + 1, bp->num_req_tx_rings);
-> +	else if (!bp->num_req_tx_rings)
-> +		msix_vecs = max(cpus, bp->num_req_rx_rings);
-> +	else
-> +		msix_vecs = max(bp->num_req_rx_rings, bp->num_req_tx_rings);
-> +
-> +	msix_vecs = min(msix_vecs, RX_MAX_RINGS);
+On Tue, Feb 7, 2012 at 5:39 PM, Mark Brown
+<broonie@opensource.wolfsonmicro.com> wrote:
 
-If I read this correctly, IRQs may be shared between RX and TX queues
-i.e. there may be 'combined channels'.
+> Really, anyone who wants this sort of thing should just enable dummy
+> regulators - it's exactly what you're implementing. =C2=A0I'm pretty =
+sure
+> your board does actually have power supplies for the chip, you've jus=
+t
+> not told software about them.
 
-[...]
-> +static void bnx2_get_channels(struct net_device *dev,
-> +			      struct ethtool_channels *channels)
-> +{
-> +	struct bnx2 *bp = netdev_priv(dev);
-> +	u32 max_rx_rings = 1;
-> +	u32 max_tx_rings = 1;
-> +
-> +	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !disable_msi) {
-> +		max_rx_rings = RX_MAX_RINGS;
-> +		max_tx_rings = TX_MAX_RINGS;
-> +	}
-> +
-> +	channels->max_rx = max_rx_rings;
-> +	channels->max_tx = max_tx_rings;
-> +	channels->max_other = 0;
-> +	channels->max_combined = 0;
-> +	channels->rx_count = bp->num_rx_rings;
-> +	channels->tx_count = bp->num_tx_rings;
-> +	channels->other_count = 0;
-> +	channels->combined_count = 0;
-> +}
-[...]
+Ok, I have sent a patch adding the regulators.
 
-But here you report that all channels are RX-only or TX-only.
+Thanks,
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+=46abio Estevam
