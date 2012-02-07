@@ -1,61 +1,67 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] net: fec: Fix build due to wrong dev annotation
-Date: Tue,  7 Feb 2012 16:27:31 -0200
-Message-ID: <1328639251-26310-1-git-send-email-festevam@gmail.com>
-Cc: davem@davemloft.net, netdev@pradeepdalvi.com,
-	kernel@pengutronix.de, Fabio Estevam <festevam@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool v2] ethtool: Add ntuple to the -K option in the man
+ page
+Date: Tue, 7 Feb 2012 18:30:59 +0000
+Message-ID: <1328639459.3549.15.camel@bwh-desktop>
+References: <1328613644-16668-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amir Hanania <amir.hanania@intel.com>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:55816 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507Ab2BGS1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:27:40 -0500
-Received: by yenm8 with SMTP id m8so3165531yen.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 10:27:39 -0800 (PST)
+Received: from exchange.solarflare.com ([216.237.3.220]:27289 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751818Ab2BGSbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:31:04 -0500
+In-Reply-To: <1328613644-16668-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 21a4e469 (netdev: ethernet dev_alloc_skb to netdev_alloc_skb) 
-should have used "ndev" instead of "dev".
+On Tue, 2012-02-07 at 03:20 -0800, Jeff Kirsher wrote:
+> From: Amir Hanania <amir.hanania@intel.com>
+> 
+> -v2: Added full description.
+>      Made the location of ntuple consistent with the ordering in
+>      'ethtool -h' output
+> 
+> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
+> Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-This causes the following build errors:
+Applied, thanks.
 
-drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_rx':
-drivers/net/ethernet/freescale/fec.c:714: error: 'dev' undeclared (first use in this function)
-drivers/net/ethernet/freescale/fec.c:714: error: (Each undeclared identifier is reported only once
-drivers/net/ethernet/freescale/fec.c:714: error: for each function it appears in.)
-drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_alloc_buffers':
-drivers/net/ethernet/freescale/fec.c:1213: error: 'dev' undeclared (first use in this function)
+Ben.
 
-Fix it, so that fec driver can be built again.
+> ---
+>  ethtool.8.in |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/ethtool.8.in b/ethtool.8.in
+> index e6e46cc..98078ae 100644
+> --- a/ethtool.8.in
+> +++ b/ethtool.8.in
+> @@ -214,6 +214,7 @@ ethtool \- query or control network driver and hardware settings
+>  .B2 lro on off
+>  .B2 rxvlan on off
+>  .B2 txvlan on off
+> +.B2 ntuple on off
+>  .B2 rxhash on off
+>  .HP
+>  .B ethtool \-p|\-\-identify
+> @@ -454,6 +455,9 @@ Specifies whether RX VLAN acceleration should be enabled
+>  .A2 txvlan on off
+>  Specifies whether TX VLAN acceleration should be enabled
+>  .TP
+> +.A2 ntuple on off
+> +Specifies whether Rx ntuple filters and actions should be enabled
+> +.TP
+>  .A2 rxhash on off
+>  Specifies whether receive hashing offload should be enabled
+>  .TP
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index f976619..0ee2ca7 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -711,7 +711,7 @@ fec_enet_rx(struct net_device *ndev)
- 		 * include that when passing upstream as it messes up
- 		 * bridging applications.
- 		 */
--		skb = netdev_alloc_skb(dev, pkt_len - 4 + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb(ndev, pkt_len - 4 + NET_IP_ALIGN);
- 
- 		if (unlikely(!skb)) {
- 			printk("%s: Memory squeeze, dropping packet.\n",
-@@ -1210,7 +1210,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 
- 	bdp = fep->rx_bd_base;
- 	for (i = 0; i < RX_RING_SIZE; i++) {
--		skb = netdev_alloc_skb(dev, FEC_ENET_RX_FRSIZE);
-+		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 		if (!skb) {
- 			fec_enet_free_buffers(ndev);
- 			return -ENOMEM;
 -- 
-1.7.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
