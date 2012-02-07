@@ -1,35 +1,41 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Tue, 7 Feb 2012 10:27:56 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1202071025050.30652@router.home>
-References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
+ multipoint GRE over IP
+Date: Tue, 07 Feb 2012 12:06:26 -0500 (EST)
+Message-ID: <20120207.120626.504782957149146533.davem@davemloft.net>
+References: <20120201.024357.1370213516985704222.davem@davemloft.net>
+	<CAGsizzL9x2es1XC5pac7LN99yp+sW5nt1eecYKhmdiRjBfNEeg@mail.gmail.com>
+	<CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-  Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1328568978-17553-3-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: steweg@ynet.sk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Feb 2012, Mel Gorman wrote:
+=46rom: =A6tefan Gula <steweg@ynet.sk>
+Date: Tue, 7 Feb 2012 10:10:04 +0100
 
-> Pages allocated from the reserve are returned with page->pfmemalloc
-> set and it is up to the caller to determine how the page should be
-> protected.  SLAB restricts access to any page with page->pfmemalloc set
+> 2012/2/1 =A6tefan Gula <steweg@ynet.sk>:
+>> 2012/2/1 David Miller <davem@davemloft.net>:
+> I think that everything what could be done and said from my-side to
+> provide you guys answers to hopefully all your questions and to get
+> this into kernel was done. So I would like to ask you to provide me
+> final feedback. Thanks
 
-pfmemalloc sounds like a page flag. If you would use one then the
-preservation of the flag by copying it elsewhere may not be necessary and
-the patches would be less invasive. Also you would not need to extend
-and modify many of the structures.
+Your patch will not be applied, you haven't said anything new to me,
+you haven't given me any new information that would change my position,
+so it should be no surprise to you that I still want you to work
+towards a solution that uses openvswitch.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+And btw, your inability to see our point of view on this matter in any
+way, shape, or form, is really working to your disadvantage and is
+undermining your ultimate goals.  Your should seriously reconsider
+how you are going about this, because right now I cringe when I see
+messages from you in my inbox and I bet a lot of other people feel
+this way right now as well.
