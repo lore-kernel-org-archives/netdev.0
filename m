@@ -1,48 +1,496 @@
 From: Stefan Gula <steweg@ynet.sk>
-Subject: [patch v4, iproute2 version 3.2.0] Source mode for macvlan
- interface
-Date: Tue, 7 Feb 2012 09:34:53 +0100 (CET)
-Message-ID: <27789127.01328603693122.JavaMail.root@5-MeO-DMT.ynet.sk>
-References: <5991994.111328600976247.JavaMail.root@5-MeO-DMT.ynet.sk>
+Subject: [patch v8, kernel version 3.2.1] Source mode for macvlan interface
+Date: Tue, 7 Feb 2012 09:35:00 +0100 (CET)
+Message-ID: <15266430.31328603700375.JavaMail.root@5-MeO-DMT.ynet.sk>
+References: <2400968.61328600903168.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:55428 "EHLO
-	5-meo-dmt.ynet.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411Ab2BGIiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 03:38:25 -0500
-In-Reply-To: <5991994.111328600976247.JavaMail.root@5-MeO-DMT.ynet.sk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2400968.61328600903168.JavaMail.root@5-MeO-DMT.ynet.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Stefan Gula <steweg@gmail.com>
 
-Adjusting iproute2 utility to support new macvlan link type mode
-called "source". Example of commands that can be applied:
+New mode of macvlan interface called "source" allows one to set a list
+of allowed mac address, which is used to match against source mac
+address from received frames on underlying interface. This allows
+creating mac based VLAN associations, instead of standard port or tag
+based. The feature is useful to deploy 802.1x mac based behavior,
+where drivers of underlying interfaces doesn't allows that.
+Configuration is done through the netlink interface using e.g.:
  ip link add link eth0 name macvlan0 type macvlan mode source
+ ip link add link eth0 name macvlan1 type macvlan mode source
  ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
- ip link set link macvlan0 type macvlan macaddr del 00:11:11:11:11:11
- ip link set link macvlan0 type macvlan macaddr flush
+ ip link set link macvlan0 type macvlan macaddr add 00:22:22:22:22:22
+ ip link set link macvlan0 type macvlan macaddr add 00:33:33:33:33:33
+ ip link set link macvlan1 type macvlan macaddr add 00:33:33:33:33:33
+ ip link set link macvlan1 type macvlan macaddr add 00:44:44:44:44:44
+This allows clients with MAC addresses 00:11:11:11:11:11,
+00:22:22:22:22:22 to be part of only VLAN associated with macvlan0
+interface. Clients with MAC addresses 00:44:44:44:44:44 with only VLAN
+associated with macvlan1 interface. And client with MAC address
+00:33:33:33:33:33 to be associated with both VLANs.
 
 Signed-off-by: Stefan Gula <steweg@gmail.com>
 
 ---
 
-V4 changes:
-  - added documentation to manual
-  - added ability to list list of the allowed mac address by using
-    "ip -d link"
-  - added devdump ops to be able to get extra dynamic, link type
-    based info from kernel using DEVDUMP command
-  - as rtnetlink patch is still under discussion, so please treat this
-    one as only example how it can work
+V8 changes:
+   - added ability to list allowed mac address list back using devdump
+     ops method - required previous rtnetlink patch to be applied first
+   - rtnetlink patch is still under discussion... so please treat this
+     one as only example how it can work
 
-diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-macvlan/include/linux/if_link.h
---- iproute2-3.2.0/include/linux/if_link.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/include/linux/if_link.h	2012-02-03 11:26:48.000000000 +0000
-@@ -250,6 +250,10 @@ struct ifla_vlan_qos_mapping {
+diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff linux-3.2.1-orig/drivers/net/macvlan.c linux-3.2.1-macvlan/drivers/net/macvlan.c
+--- linux-3.2.1-orig/drivers/net/macvlan.c	2012-01-27 13:38:51.000000000 +0000
++++ linux-3.2.1-macvlan/drivers/net/macvlan.c	2012-02-03 13:46:34.000000000 +0000
+@@ -40,6 +40,7 @@ struct macvlan_port {
+ 	struct rcu_head		rcu;
+ 	bool 			passthru;
+ 	int			count;
++	struct hlist_head	vlan_source_hash[MACVLAN_HASH_SIZE];
+ };
+ 
+ static void macvlan_port_destroy(struct net_device *dev);
+@@ -155,6 +156,117 @@ static void macvlan_broadcast(struct sk_
+ 	}
+ }
+ 
++struct macvlan_source_list {
++	struct hlist_node	hlist;
++	struct macvlan_dev	*vlan;
++	unsigned char		addr[ETH_ALEN];
++	struct rcu_head		rcu;
++};
++
++static struct macvlan_source_list *macvlan_hash_lookup_sources_list(
++	const struct macvlan_dev *vlan,
++	const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++	struct hlist_head *h = &vlan->port->vlan_source_hash[addr[5]];
++
++	hlist_for_each_entry(list, n, h, hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr) &&
++		    list->vlan == vlan)
++			return list;
++	}
++	return NULL;
++}
++
++static int macvlan_hash_add_sources(struct macvlan_dev *vlan,
++				    const unsigned char *addr)
++{
++	struct macvlan_port *port = vlan->port;
++	struct macvlan_source_list *list;
++	struct hlist_head *h;
++
++	list = macvlan_hash_lookup_sources_list(vlan, addr);
++	if (!list) {
++		list = kmalloc(sizeof(*list), GFP_KERNEL);
++		if (list) {
++			memcpy(list->addr, addr, ETH_ALEN);
++			list->vlan = vlan;
++			h = &port->vlan_source_hash[addr[5]];
++			hlist_add_head_rcu(&list->hlist, h);
++			vlan->macaddr_count++;
++		} else {
++			return -ENOMEM;
++		}
++	}
++	return 0;
++}
++
++static void macvlan_hash_del_sources(struct macvlan_source_list *list)
++{
++	hlist_del_rcu(&list->hlist);
++	kfree_rcu(list, rcu);
++}
++
++static void macvlan_flush_sources(struct macvlan_port *port,
++				struct macvlan_dev *vlan)
++{
++	int i;
++
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++		struct hlist_node *h, *n;
++
++		hlist_for_each_safe(h, n, &port->vlan_source_hash[i]) {
++			struct macvlan_source_list *list;
++
++			list = hlist_entry(h, struct macvlan_source_list,
++					   hlist);
++			if (list->vlan == vlan)
++				macvlan_hash_del_sources(list);
++		}
++	}
++	vlan->macaddr_count = 0;
++}
++
++static void macvlan_forward_sources_one(struct sk_buff *skb,
++					struct macvlan_dev *vlan)
++{
++	struct sk_buff *nskb;
++	struct net_device *dev;
++	int len;
++	int ret;
++
++	dev = vlan->dev;
++	if (unlikely(!(dev->flags & IFF_UP)))
++		return;
++
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (!nskb)
++		return;
++
++	len = nskb->len + ETH_HLEN;
++	nskb->dev = dev;
++	nskb->pkt_type = PACKET_HOST;
++	ret = vlan->receive(nskb);
++	macvlan_count_rx(vlan, len, ret == NET_RX_SUCCESS, 0);
++}
++
++static void macvlan_forward_sources(struct sk_buff *skb,
++				    struct macvlan_port *port,
++				    const unsigned char *addr)
++{
++	struct macvlan_source_list *list;
++	struct hlist_node *n;
++	struct hlist_head *h = &port->vlan_source_hash[addr[5]];
++
++	hlist_for_each_entry_rcu(list, n, h, hlist) {
++		if (!compare_ether_addr_64bits(list->addr, addr))
++			if (list->vlan->dev->flags & IFF_UP)
++				macvlan_forward_sources_one(skb, list->vlan);
++	}
++	return;
++}
++
+ /* called under rcu_read_lock() from netif_receive_skb */
+ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+ {
+@@ -172,6 +284,8 @@ static rx_handler_result_t macvlan_handl
+ 		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
+ 		if (!skb)
+ 			return RX_HANDLER_CONSUMED;
++
++		macvlan_forward_sources(skb, port, eth->h_source);
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+ 			/* frame comes from an external address */
+@@ -202,6 +316,7 @@ static rx_handler_result_t macvlan_handl
+ 		return RX_HANDLER_PASS;
+ 	}
+ 
++	macvlan_forward_sources(skb, port, eth->h_source);
+ 	if (port->passthru)
+ 		vlan = list_first_entry(&port->vlans, struct macvlan_dev, list);
+ 	else
+@@ -474,6 +589,7 @@ static void macvlan_uninit(struct net_de
+ 
+ 	free_percpu(vlan->pcpu_stats);
+ 
++	macvlan_flush_sources(port, vlan);
+ 	port->count -= 1;
+ 	if (!port->count)
+ 		macvlan_port_destroy(port->dev);
+@@ -615,7 +731,8 @@ static int macvlan_port_create(struct ne
+ 	INIT_LIST_HEAD(&port->vlans);
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+ 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+-
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
++		INIT_HLIST_HEAD(&port->vlan_source_hash[i]);
+ 	err = netdev_rx_handler_register(dev, macvlan_handle_frame, port);
+ 	if (err)
+ 		kfree(port);
+@@ -648,11 +765,35 @@ static int macvlan_validate(struct nlatt
+ 		case MACVLAN_MODE_VEPA:
+ 		case MACVLAN_MODE_BRIDGE:
+ 		case MACVLAN_MODE_PASSTHRU:
++		case MACVLAN_MODE_SOURCE:
+ 			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
+ 	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
++		switch (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE])) {
++		case MACVLAN_MACADDR_ADD:
++		case MACVLAN_MACADDR_DEL:
++		case MACVLAN_MACADDR_FLUSH:
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR]) {
++		if (nla_len(data[IFLA_MACVLAN_MACADDR]) != ETH_ALEN)
++			return -EINVAL;
++
++		if (!is_valid_ether_addr(nla_data(data[IFLA_MACVLAN_MACADDR])))
++			return -EADDRNOTAVAIL;
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_COUNT])
++		return -EINVAL;
++
+ 	return 0;
+ }
+ 
+@@ -706,6 +847,7 @@ int macvlan_common_newlink(struct net *s
+ 	vlan->port     = port;
+ 	vlan->receive  = receive;
+ 	vlan->forward  = forward;
++	vlan->devdump_count = 0;
+ 
+ 	vlan->mode     = MACVLAN_MODE_VEPA;
+ 	if (data && data[IFLA_MACVLAN_MODE])
+@@ -749,23 +891,79 @@ void macvlan_dellink(struct net_device *
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
++	if (vlan->mode == MACVLAN_MODE_SOURCE)
++		macvlan_flush_sources(vlan->port, vlan);
+ 	list_del(&vlan->list);
+ 	unregister_netdevice_queue(dev, head);
+ }
+ EXPORT_SYMBOL_GPL(macvlan_dellink);
+ 
++static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 mode,
++				      unsigned char *addr)
++{
++	if (mode == MACVLAN_MACADDR_ADD) {
++		if (!addr)
++			return -EINVAL;
++
++		return macvlan_hash_add_sources(vlan, addr);
++
++	} else if (mode == MACVLAN_MACADDR_DEL) {
++		struct macvlan_source_list *list;
++
++		if (!addr)
++			return -EINVAL;
++
++		list = macvlan_hash_lookup_sources_list(vlan, addr);
++		if (list) {
++			macvlan_hash_del_sources(list);
++			vlan->macaddr_count--;
++		}
++	} else if (mode == MACVLAN_MACADDR_FLUSH) {
++		macvlan_flush_sources(vlan->port, vlan);
++	} else {
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int macvlan_changelink(struct net_device *dev,
+ 		struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	if (data && data[IFLA_MACVLAN_MODE])
++	u32 mode;
++	unsigned char *addr;
++
++	if (data && data[IFLA_MACVLAN_MODE]) {
++		if (vlan->mode == MACVLAN_MODE_SOURCE &&
++		    vlan->mode != nla_get_u32(data[IFLA_MACVLAN_MODE]))
++			macvlan_flush_sources(vlan->port, vlan);
+ 		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++	}
++
++	if (data && data[IFLA_MACVLAN_MACADDR_MODE] &&
++	    data[IFLA_MACVLAN_MACADDR]) {
++		mode = nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]);
++		addr = nla_data(data[IFLA_MACVLAN_MACADDR]);
++		if (vlan->mode == MACVLAN_MODE_SOURCE)
++			return macvlan_changelink_sources(vlan, mode, addr);
++		else
++			return -EINVAL;
++
++	} else if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
++		mode = nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]);
++		if (vlan->mode == MACVLAN_MODE_SOURCE)
++			return macvlan_changelink_sources(vlan, mode, NULL);
++		else
++			return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
+ static size_t macvlan_get_size(const struct net_device *dev)
+ {
+-	return nla_total_size(4);
++	return nla_total_size(4) + nla_total_size(4);
+ }
+ 
+ static int macvlan_fill_info(struct sk_buff *skb,
+@@ -774,14 +972,143 @@ static int macvlan_fill_info(struct sk_b
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
+ 	NLA_PUT_U32(skb, IFLA_MACVLAN_MODE, vlan->mode);
++	NLA_PUT_U32(skb, IFLA_MACVLAN_MACADDR_COUNT, vlan->macaddr_count);
++
+ 	return 0;
+ 
+ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
++static size_t macvlan_sources_size(void)
++{
++	return nla_total_size(sizeof(u8) * ETH_ALEN);
++}
++
++
++static int macvlan_sources_fill(struct sk_buff *skb, int type, u32 pid,
++				u32 seq, unsigned int flags,
++				struct macvlan_source_list *list)
++{
++	struct nlmsghdr *nlh;
++
++	ASSERT_RTNL();
++	nlh = nlmsg_put(skb, pid, seq, type, 0, flags);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	NLA_PUT(skb, IFLA_MACVLAN_MACADDR, ETH_ALEN, list->addr);
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static int macvlan_sources_send(struct macvlan_source_list *list,
++				struct net *net, int type, u32 pid, u32 seq,
++				unsigned int flags)
++{
++	struct sk_buff *nskb;
++	int err;
++
++	nskb = nlmsg_new(macvlan_sources_size(), GFP_KERNEL);
++	if (nskb == NULL)
++		return -ENOBUFS;
++
++	err = macvlan_sources_fill(nskb, type, pid, seq, flags, list);
++	if (err < 0) {
++		WARN_ON(err == -EMSGSIZE);
++		kfree_skb(nskb);
++	} else {
++		err = rtnl_unicast(nskb, net, pid);
++	}
++
++	return err;
++}
++
++static int macvlan_sources_dump_done(int err, struct net *net, u32 pid,
++				     u32 seq)
++{
++	struct nlmsghdr *nlh;
++	struct sk_buff *nskb;
++
++	nskb = nlmsg_new(sizeof(err), GFP_KERNEL);
++	if (nskb == NULL)
++		return -ENOBUFS;
++
++	ASSERT_RTNL();
++	nlh = nlmsg_put(nskb, pid, seq, NLMSG_DONE, sizeof(err), NLM_F_MULTI);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	memcpy(nlmsg_data(nlh), &err, sizeof(err));
++
++	err = nlmsg_end(nskb, nlh);
++	if (err < 0) {
++		WARN_ON(err == -EMSGSIZE);
++		kfree_skb(nskb);
++	} else {
++		err = rtnl_unicast(nskb, net, pid);
++	}
++
++	return err;
++}
++
++static int macvlan_sources_dump(struct sk_buff *skb, struct net_device *dev,
++			    int type, u32 pid, u32 seq)
++{
++	struct net *net = sock_net(skb->sk);
++	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct macvlan_source_list *list;
++	int err = 0;
++	int i;
++	int iter = 0;
++	int upper_limit = vlan->devdump_count + MACVLAN_DUMP_PAGE_COUNT;
++
++	for (i = 0; i < MACVLAN_HASH_SIZE; i++) {
++		struct hlist_node *n;
++		struct hlist_head *h;
++
++		h = &vlan->port->vlan_source_hash[i];
++		hlist_for_each_entry_rcu(list, n, h, hlist) {
++			if (list->vlan == vlan) {
++				iter++;
++				if (iter <= vlan->devdump_count)
++					continue;
++
++				if (iter > upper_limit)
++					goto out2;
++
++				err = macvlan_sources_send(list, net, type,
++							   pid, seq,
++							   NLM_F_MULTI);
++				if (err < 0)
++					goto out;
++
++			}
++		}
++	}
++out2:
++	vlan->devdump_count += MACVLAN_DUMP_PAGE_COUNT;
++	if (vlan->devdump_count >= vlan->macaddr_count)
++		vlan->devdump_count = 0;
++
++	err = macvlan_sources_dump_done(err, net, pid, seq);
++	if (err < 0)
++		goto out;
++	return 0;
++out:
++	return err;
++}
++
+ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
+ 	[IFLA_MACVLAN_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR_MODE] = { .type = NLA_U32 },
++	[IFLA_MACVLAN_MACADDR] = { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
++	[IFLA_MACVLAN_MACADDR_DATA] = { .type = NLA_NESTED },
++	[IFLA_MACVLAN_MACADDR_COUNT] = { .type = NLA_U32 },
+ };
+ 
+ int macvlan_link_register(struct rtnl_link_ops *ops)
+@@ -794,6 +1121,7 @@ int macvlan_link_register(struct rtnl_li
+ 	ops->changelink		= macvlan_changelink;
+ 	ops->get_size		= macvlan_get_size;
+ 	ops->fill_info		= macvlan_fill_info;
++	ops->dev_dump		= macvlan_sources_dump;
+ 
+ 	return rtnl_link_register(ops);
+ };
+diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff linux-3.2.1-orig/include/linux/if_link.h linux-3.2.1-macvlan/include/linux/if_link.h
+--- linux-3.2.1-orig/include/linux/if_link.h	2012-01-27 13:38:57.000000000 +0000
++++ linux-3.2.1-macvlan/include/linux/if_link.h	2012-02-03 11:27:28.000000000 +0000
+@@ -252,6 +252,10 @@ struct ifla_vlan_qos_mapping {
  enum {
  	IFLA_MACVLAN_UNSPEC,
  	IFLA_MACVLAN_MODE,
@@ -53,7 +501,7 @@ diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-macvlan/include
  	__IFLA_MACVLAN_MAX,
  };
  
-@@ -260,8 +264,17 @@ enum macvlan_mode {
+@@ -262,8 +266,17 @@ enum macvlan_mode {
  	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
  	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
  	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
@@ -71,314 +519,15 @@ diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-macvlan/include
  /* SR-IOV virtual function management section */
  
  enum {
-diff -uprN iproute2-3.2.0/include/linux/rtnetlink.h iproute2-3.2.0-macvlan/include/linux/rtnetlink.h
---- iproute2-3.2.0/include/linux/rtnetlink.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/include/linux/rtnetlink.h	2012-02-02 08:34:35.000000000 +0000
-@@ -120,6 +120,8 @@ enum {
- 	RTM_SETDCB,
- #define RTM_SETDCB RTM_SETDCB
- 
-+	RTM_DEVDUMP = 80,
-+#define RTM_DEVDUMP	RTM_DEVDUMP
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
-diff -uprN iproute2-3.2.0/ip/ip_common.h iproute2-3.2.0-macvlan/ip/ip_common.h
---- iproute2-3.2.0/ip/ip_common.h	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/ip/ip_common.h	2012-02-03 13:38:32.000000000 +0000
-@@ -63,6 +63,8 @@ struct link_util
- 					     struct rtattr *[]);
- 	void			(*print_xstats)(struct link_util *, FILE *,
- 					     struct rtattr *);
-+	void			(*print_devdump)(char *, FILE *,
-+						 struct rtattr **);
+diff -uprN -X linux-3.2.1-orig/Documentation/dontdiff linux-3.2.1-orig/include/linux/if_macvlan.h linux-3.2.1-macvlan/include/linux/if_macvlan.h
+--- linux-3.2.1-orig/include/linux/if_macvlan.h	2012-01-27 13:38:56.000000000 +0000
++++ linux-3.2.1-macvlan/include/linux/if_macvlan.h	2012-02-03 11:08:47.000000000 +0000
+@@ -65,6 +65,8 @@ struct macvlan_dev {
+ 	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
+ 	int			numvtaps;
+ 	int			minor;
++	unsigned int		devdump_count;
++	unsigned int		macaddr_count;
  };
  
- struct link_util *get_link_kind(const char *kind);
-diff -uprN iproute2-3.2.0/ip/ipaddress.c iproute2-3.2.0-macvlan/ip/ipaddress.c
---- iproute2-3.2.0/ip/ipaddress.c	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/ip/ipaddress.c	2012-02-03 13:33:41.000000000 +0000
-@@ -157,7 +157,7 @@ static void print_queuelen(FILE *f, stru
- 		fprintf(f, "qlen %d", qlen);
- }
- 
--static void print_linktype(FILE *fp, struct rtattr *tb)
-+static void print_linktype(FILE *fp, struct rtattr *tb, char *dev)
- {
- 	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
- 	struct link_util *lu;
-@@ -185,7 +185,8 @@ static void print_linktype(FILE *fp, str
- 			data = attr;
- 		}
- 		lu->print_opt(lu, fp, data);
--
-+		if (lu->print_devdump)
-+			lu->print_devdump(dev, fp, data);
- 		if (linkinfo[IFLA_INFO_XSTATS] && show_stats &&
- 		    lu->print_xstats)
- 			lu->print_xstats(lu, fp, linkinfo[IFLA_INFO_XSTATS]);
-@@ -336,7 +337,8 @@ int print_linkinfo(const struct sockaddr
- 	}
- 
- 	if (do_link && tb[IFLA_LINKINFO] && show_details)
--		print_linktype(fp, tb[IFLA_LINKINFO]);
-+		print_linktype(fp, tb[IFLA_LINKINFO],
-+			       RTA_DATA(tb[IFLA_IFNAME]));
- 
- 	if (do_link && tb[IFLA_IFALIAS])
- 		fprintf(fp,"\n    alias %s", 
-diff -uprN iproute2-3.2.0/ip/iplink_macvlan.c iproute2-3.2.0-macvlan/ip/iplink_macvlan.c
---- iproute2-3.2.0/ip/iplink_macvlan.c	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/ip/iplink_macvlan.c	2012-02-03 13:35:34.000000000 +0000
-@@ -15,6 +15,7 @@
- #include <string.h>
- #include <sys/socket.h>
- #include <linux/if_link.h>
-+#include <linux/if_ether.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -22,18 +23,98 @@
- 
- static void explain(void)
- {
--	fprintf(stderr,
--		"Usage: ... macvlan mode { private | vepa | bridge | passthru }\n"
--	);
-+	fprintf(stderr, "Usage: ... macvlan mode MODE MODE_OPTS\n"
-+		"MODE: private | vepa | bridge | passthru | source\n"
-+		"MODE_OPTS: for mode \"source\":\n"
-+		"\tmacaddr { add <macaddr> | del <macaddr> | flush }\n");
- }
- 
- static int mode_arg(void)
- {
-         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
--		"\"vepa\", \"bridge\" or \"passthru\" \n");
-+		"\"vepa\", \"bridge\", \"passthru\" or \"source\"\n");
-         return -1;
- }
- 
-+struct macvlan_req {
-+	struct nlmsghdr		n;
-+	struct ifinfomsg	i;
-+	char			buf[1024];
-+};
-+
-+int macvlan_print_macaddr(const struct sockaddr_nl *who,
-+			   struct nlmsghdr *n,
-+			   void *arg)
-+{
-+	FILE *fp = (FILE *)arg;
-+
-+	int len = n->nlmsg_len;
-+	struct rtattr *tb[IFLA_MACVLAN_MAX+1];
-+	unsigned char *addr;
-+
-+
-+	len -= NLMSG_HDRLEN;
-+	if (len < 0) {
-+		fprintf(stderr, "Wrong len %d\n", len);
-+		return -1;
-+	}
-+
-+	parse_rtattr(tb, IFLA_MACVLAN_MAX, NLMSG_DATA(n), len);
-+
-+	if (tb[IFLA_MACVLAN_MACADDR]) {
-+		addr = RTA_DATA(tb[IFLA_MACVLAN_MACADDR]);
-+		fprintf(fp, "\n\t%.2x:%.2x:%.2x:%.2x:%.2x:%.2x", addr[0],
-+			addr[1], addr[2], addr[3], addr[4], addr[5]);
-+	}
-+
-+	return 0;
-+}
-+
-+static void macvlan_print_devdump_loop(char *dev, FILE *fp)
-+{
-+	struct macvlan_req req;
-+
-+	memset(&req, 0, sizeof(req));
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST;
-+	req.n.nlmsg_type = RTM_DEVDUMP;
-+	req.n.nlmsg_seq = rth.dump = ++rth.seq;
-+	req.i.ifi_family = preferred_family;
-+	if (!dev) {
-+		fprintf(stderr, "Not enough information: \"dev\" "
-+				"argument is required.\n");
-+			exit(-1);
-+	}
-+
-+	req.i.ifi_index = ll_name_to_index(dev);
-+	if (req.i.ifi_index == 0) {
-+		fprintf(stderr, "Cannot find device \"%s\"\n", dev);
-+		exit(-1);
-+	}
-+
-+	if (rtnl_send(&rth, &req.n, sizeof(req)) < 0)
-+		exit(-1);
-+
-+	rtnl_dump_filter(&rth, macvlan_print_macaddr, fp);
-+}
-+
-+static void macvlan_print_devdump(char *dev, FILE *fp, struct rtattr *tb[])
-+{
-+	int i = 0;
-+	int count;
-+
-+	if (!tb[IFLA_MACVLAN_MACADDR_COUNT] ||
-+	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_COUNT]) < sizeof(__u32))
-+		return;
-+
-+	count = *(__u32 *)RTA_DATA(tb[IFLA_MACVLAN_MACADDR_COUNT]);
-+	fprintf(fp, "with allowed MAC addresses:");
-+	while (i < count) {
-+		i += MACVLAN_DUMP_PAGE_COUNT;
-+		macvlan_print_devdump_loop(dev, fp);
-+	}
-+}
-+
- static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			  struct nlmsghdr *n)
- {
-@@ -50,10 +131,40 @@ static int macvlan_parse_opt(struct link
- 				mode = MACVLAN_MODE_BRIDGE;
- 			else if (strcmp(*argv, "passthru") == 0)
- 				mode = MACVLAN_MODE_PASSTHRU;
-+			else if (strcmp(*argv, "source") == 0)
-+				mode = MACVLAN_MODE_SOURCE;
- 			else
- 				return mode_arg();
- 
- 			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
-+		} else if (matches(*argv, "macaddr") == 0) {
-+			int len;
-+			__u32 mac_mode = 0;
-+			char abuf[32];
-+
-+			NEXT_ARG();
-+
-+			if (strcmp(*argv, "add") == 0) {
-+				mac_mode = MACVLAN_MACADDR_ADD;
-+			} else if (strcmp(*argv, "del") == 0) {
-+				mac_mode = MACVLAN_MACADDR_DEL;
-+			} else if (strcmp(*argv, "flush") == 0) {
-+				mac_mode = MACVLAN_MACADDR_FLUSH;
-+			} else {
-+				explain();
-+				return -1;
-+			}
-+			addattr32(n, 1024, IFLA_MACVLAN_MACADDR_MODE, mac_mode);
-+
-+			if (mac_mode != MACVLAN_MACADDR_FLUSH) {
-+				NEXT_ARG();
-+
-+				len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+				if (len < 0)
-+					return -1;
-+				addattr_l(n, 1024, IFLA_MACVLAN_MACADDR, abuf,
-+					  len);
-+			}
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -85,6 +196,7 @@ static void macvlan_print_opt(struct lin
- 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
- 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
- 		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
-+		: mode == MACVLAN_MODE_SOURCE  ? "source"
- 		:				 "unknown");
- }
- 
-@@ -93,4 +205,5 @@ struct link_util macvlan_link_util = {
- 	.maxattr	= IFLA_MACVLAN_MAX,
- 	.parse_opt	= macvlan_parse_opt,
- 	.print_opt	= macvlan_print_opt,
-+	.print_devdump	= macvlan_print_devdump,
- };
-diff -uprN iproute2-3.2.0/man/man8/ip-link.8 iproute2-3.2.0-macvlan/man/man8/ip-link.8
---- iproute2-3.2.0/man/man8/ip-link.8	2012-01-05 16:34:31.000000000 +0000
-+++ iproute2-3.2.0-macvlan/man/man8/ip-link.8	2012-02-03 14:32:00.000000000 +0000
-@@ -104,6 +104,9 @@ ip link \- network device configuration
- .IR DEVICE
- .br
- .B nomaster
-+.br
-+.B macaddr
-+.IR "COMMAND MACADDR"
- .BR " }"
- 
- 
-@@ -144,9 +147,48 @@ Link types:
- .B ifb
- - Intermediate Functional Block device
- .sp
--.B macvlan
-+.B macvlan mode
-+.I MODE
- - virtual interface base on link layer address (MAC)
- .sp
-+Modes:
-+
-+.in +8
-+.B private
-+- The device never communicates with any other device on the same upper_dev.
-+This even includes frames coming back from a reflective relay, where supported
-+by the adjacent bridge.
-+.sp
-+.B vepa
-+- we assume that the adjacent bridge returns all frames where both source and
-+destination are local to the macvlan port, i.e. the bridge is set up as a
-+reflective relay. Broadcast frames coming in from the upper_dev get flooded to
-+all macvlan interfaces in VEPA mode. We never deliver any frames locally.
-+.sp
-+.B bridge
-+- behave as simple bridge between different macvlan interfaces on the same
-+port. Frames from one interface to another one get delivered directly and are
-+not sent out externally. Broadcast frames get flooded to all other bridge
-+ports and to the external interface, but when they come back from a reflective
-+relay, we don't deliver them again. Since we know all the MAC addresses, the
-+macvlan bridge mode does not require learning or STP like the bridge module
-+does.
-+.sp
-+.B passthru
-+- allows takeover of the underlying device and passing it to a guest using
-+virtio with macvtap backend. Only one macvlan device is allowed in passthru
-+mode and it inherits the mac address from the underlying device and sets it in
-+promiscuous mode to receive and forward all the packets.
-+.sp
-+.B source
-+- allows one to set a list of allowed mac address, which is used to match
-+against source mac address from received frames on underlying interface. This
-+allows creating mac based VLAN associations, instead of standard port or tag
-+based. The feature is useful to deploy 802.1x mac based behavior,
-+where drivers of underlying interfaces doesn't allows that.
-+.sp
-+.in -8
-+.sp
- .B can
- - Controller Area Network interface
- .sp
-@@ -311,6 +353,22 @@ set master device of the device (enslave
- .BI nomaster
- unset master device of the device (release device).
- 
-+.TP
-+.BI macaddr " COMMAND MACADDR"
-+add or removes MACADDR from allowed list for source mode macvlan type link
-+Commands:
-+.in +8
-+.B add
-+- add MACADDR to allowed list
-+.sp
-+.B del
-+- remove MACADDR from allowed list
-+.sp
-+.B flush
-+- flush whole allowed list
-+.sp
-+.in -8
-+
- .PP
- .B Warning:
- If multiple parameter changes are requested,
+ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
