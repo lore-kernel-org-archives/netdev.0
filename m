@@ -1,238 +1,384 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sh-eth: use netdev stats structure and fix
- dma_map_single
-Date: Tue, 07 Feb 2012 09:17:21 +0100
-Message-ID: <1328602641.2476.12.camel@edumazet-laptop>
+From: Stefan Gula <steweg@ynet.sk>
+Subject: [patch v4, iproute2 version 3.2.0] Source mode for macvlan
+ interface
+Date: Tue, 7 Feb 2012 09:34:53 +0100 (CET)
+Message-ID: <27789127.01328603693122.JavaMail.root@5-MeO-DMT.ynet.sk>
+References: <5991994.111328600976247.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:50760 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349Ab2BGIR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 03:17:26 -0500
-Received: by wics10 with SMTP id s10so4717046wic.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 00:17:25 -0800 (PST)
+Received: from 5-meo-dmt.ynet.sk ([147.175.167.220]:55428 "EHLO
+	5-meo-dmt.ynet.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754411Ab2BGIiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 03:38:25 -0500
+In-Reply-To: <5991994.111328600976247.JavaMail.root@5-MeO-DMT.ynet.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to maintain a parallel net_device_stats structure in
-sh_eth_private, since we have a generic one in netdev
+From: Stefan Gula <steweg@gmail.com>
 
-Fix two dma_map_single() incorrect parameters, passing skb->tail instead
-of skb->data. Seems that there is no corresponding dmap_unmap_single()
-calls for the moment in this driver.
+Adjusting iproute2 utility to support new macvlan link type mode
+called "source". Example of commands that can be applied:
+ ip link add link eth0 name macvlan0 type macvlan mode source
+ ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
+ ip link set link macvlan0 type macvlan macaddr del 00:11:11:11:11:11
+ ip link set link macvlan0 type macvlan macaddr flush
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Signed-off-by: Stefan Gula <steweg@gmail.com>
+
 ---
-Please test this patch Yoshihiro before we can apply it, thanks !
 
- drivers/net/ethernet/renesas/sh_eth.c |   62 ++++++++++++------------
- drivers/net/ethernet/renesas/sh_eth.h |    1 
- 2 files changed, 31 insertions(+), 32 deletions(-)
+V4 changes:
+  - added documentation to manual
+  - added ability to list list of the allowed mac address by using
+    "ip -d link"
+  - added devdump ops to be able to get extra dynamic, link type
+    based info from kernel using DEVDUMP command
+  - as rtnetlink patch is still under discussion, so please treat this
+    one as only example how it can work
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 1cb5a34..dacd131 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -657,7 +657,7 @@ static void sh_eth_ring_format(struct net_device *ndev)
- 		mdp->rx_skbuff[i] = skb;
- 		if (skb == NULL)
- 			break;
--		dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
-+		dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
- 				DMA_FROM_DEVICE);
- 		skb->dev = ndev; /* Mark as being used by this device. */
- 		sh_eth_set_receive_align(skb);
-@@ -881,8 +881,8 @@ static int sh_eth_txfree(struct net_device *ndev)
- 		if (entry >= TX_RING_SIZE - 1)
- 			txdesc->status |= cpu_to_edmac(mdp, TD_TDLE);
+diff -uprN iproute2-3.2.0/include/linux/if_link.h iproute2-3.2.0-macvlan/include/linux/if_link.h
+--- iproute2-3.2.0/include/linux/if_link.h	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/include/linux/if_link.h	2012-02-03 11:26:48.000000000 +0000
+@@ -250,6 +250,10 @@ struct ifla_vlan_qos_mapping {
+ enum {
+ 	IFLA_MACVLAN_UNSPEC,
+ 	IFLA_MACVLAN_MODE,
++	IFLA_MACVLAN_MACADDR_MODE,
++	IFLA_MACVLAN_MACADDR,
++	IFLA_MACVLAN_MACADDR_DATA,
++	IFLA_MACVLAN_MACADDR_COUNT,
+ 	__IFLA_MACVLAN_MAX,
+ };
  
--		mdp->stats.tx_packets++;
--		mdp->stats.tx_bytes += txdesc->buffer_length;
-+		ndev->stats.tx_packets++;
-+		ndev->stats.tx_bytes += txdesc->buffer_length;
- 	}
- 	return freeNum;
- }
-@@ -908,23 +908,23 @@ static int sh_eth_rx(struct net_device *ndev)
- 			break;
+@@ -260,8 +264,17 @@ enum macvlan_mode {
+ 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
+ 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
+ 	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
++	MACVLAN_MODE_SOURCE  = 16,/* use source MAC address list to assign */
+ };
  
- 		if (!(desc_status & RDFEND))
--			mdp->stats.rx_length_errors++;
-+			ndev->stats.rx_length_errors++;
++enum macvlan_macaddr_mode {
++	MACVLAN_MACADDR_ADD,
++	MACVLAN_MACADDR_DEL,
++	MACVLAN_MACADDR_FLUSH,
++};
++
++#define MACVLAN_DUMP_PAGE_COUNT	10
++
+ /* SR-IOV virtual function management section */
  
- 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
- 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
--			mdp->stats.rx_errors++;
-+			ndev->stats.rx_errors++;
- 			if (desc_status & RD_RFS1)
--				mdp->stats.rx_crc_errors++;
-+				ndev->stats.rx_crc_errors++;
- 			if (desc_status & RD_RFS2)
--				mdp->stats.rx_frame_errors++;
-+				ndev->stats.rx_frame_errors++;
- 			if (desc_status & RD_RFS3)
--				mdp->stats.rx_length_errors++;
-+				ndev->stats.rx_length_errors++;
- 			if (desc_status & RD_RFS4)
--				mdp->stats.rx_length_errors++;
-+				ndev->stats.rx_length_errors++;
- 			if (desc_status & RD_RFS6)
--				mdp->stats.rx_missed_errors++;
-+				ndev->stats.rx_missed_errors++;
- 			if (desc_status & RD_RFS10)
--				mdp->stats.rx_over_errors++;
-+				ndev->stats.rx_over_errors++;
- 		} else {
- 			if (!mdp->cd->hw_swap)
- 				sh_eth_soft_swap(
-@@ -937,8 +937,8 @@ static int sh_eth_rx(struct net_device *ndev)
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
- 			netif_rx(skb);
--			mdp->stats.rx_packets++;
--			mdp->stats.rx_bytes += pkt_len;
-+			ndev->stats.rx_packets++;
-+			ndev->stats.rx_bytes += pkt_len;
- 		}
- 		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
- 		entry = (++mdp->cur_rx) % RX_RING_SIZE;
-@@ -957,7 +957,7 @@ static int sh_eth_rx(struct net_device *ndev)
- 			mdp->rx_skbuff[entry] = skb;
- 			if (skb == NULL)
- 				break;	/* Better luck next round. */
--			dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
-+			dma_map_single(&ndev->dev, skb->data, mdp->rx_buf_sz,
- 					DMA_FROM_DEVICE);
- 			skb->dev = ndev;
- 			sh_eth_set_receive_align(skb);
-@@ -1007,7 +1007,7 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 		felic_stat = sh_eth_read(ndev, ECSR);
- 		sh_eth_write(ndev, felic_stat, ECSR);	/* clear int */
- 		if (felic_stat & ECSR_ICD)
--			mdp->stats.tx_carrier_errors++;
-+			ndev->stats.tx_carrier_errors++;
- 		if (felic_stat & ECSR_LCHNG) {
- 			/* Link Changed */
- 			if (mdp->cd->no_psr || mdp->no_ether_link) {
-@@ -1040,7 +1040,7 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 	if (intr_status & EESR_TWB) {
- 		/* Write buck end. unused write back interrupt */
- 		if (intr_status & EESR_TABT)	/* Transmit Abort int */
--			mdp->stats.tx_aborted_errors++;
-+			ndev->stats.tx_aborted_errors++;
- 			if (netif_msg_tx_err(mdp))
- 				dev_err(&ndev->dev, "Transmit Abort\n");
- 	}
-@@ -1049,7 +1049,7 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 		/* Receive Abort int */
- 		if (intr_status & EESR_RFRMER) {
- 			/* Receive Frame Overflow int */
--			mdp->stats.rx_frame_errors++;
-+			ndev->stats.rx_frame_errors++;
- 			if (netif_msg_rx_err(mdp))
- 				dev_err(&ndev->dev, "Receive Abort\n");
- 		}
-@@ -1057,21 +1057,21 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
+ enum {
+diff -uprN iproute2-3.2.0/include/linux/rtnetlink.h iproute2-3.2.0-macvlan/include/linux/rtnetlink.h
+--- iproute2-3.2.0/include/linux/rtnetlink.h	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/include/linux/rtnetlink.h	2012-02-02 08:34:35.000000000 +0000
+@@ -120,6 +120,8 @@ enum {
+ 	RTM_SETDCB,
+ #define RTM_SETDCB RTM_SETDCB
  
- 	if (intr_status & EESR_TDE) {
- 		/* Transmit Descriptor Empty int */
--		mdp->stats.tx_fifo_errors++;
-+		ndev->stats.tx_fifo_errors++;
- 		if (netif_msg_tx_err(mdp))
- 			dev_err(&ndev->dev, "Transmit Descriptor Empty\n");
- 	}
++	RTM_DEVDUMP = 80,
++#define RTM_DEVDUMP	RTM_DEVDUMP
+ 	__RTM_MAX,
+ #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
+ };
+diff -uprN iproute2-3.2.0/ip/ip_common.h iproute2-3.2.0-macvlan/ip/ip_common.h
+--- iproute2-3.2.0/ip/ip_common.h	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/ip/ip_common.h	2012-02-03 13:38:32.000000000 +0000
+@@ -63,6 +63,8 @@ struct link_util
+ 					     struct rtattr *[]);
+ 	void			(*print_xstats)(struct link_util *, FILE *,
+ 					     struct rtattr *);
++	void			(*print_devdump)(char *, FILE *,
++						 struct rtattr **);
+ };
  
- 	if (intr_status & EESR_TFE) {
- 		/* FIFO under flow */
--		mdp->stats.tx_fifo_errors++;
-+		ndev->stats.tx_fifo_errors++;
- 		if (netif_msg_tx_err(mdp))
- 			dev_err(&ndev->dev, "Transmit FIFO Under flow\n");
- 	}
- 
- 	if (intr_status & EESR_RDE) {
- 		/* Receive Descriptor Empty int */
--		mdp->stats.rx_over_errors++;
-+		ndev->stats.rx_over_errors++;
- 
- 		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
- 			sh_eth_write(ndev, EDRRR_R, EDRRR);
-@@ -1081,14 +1081,14 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 
- 	if (intr_status & EESR_RFE) {
- 		/* Receive FIFO Overflow int */
--		mdp->stats.rx_fifo_errors++;
-+		ndev->stats.rx_fifo_errors++;
- 		if (netif_msg_rx_err(mdp))
- 			dev_err(&ndev->dev, "Receive FIFO Overflow\n");
- 	}
- 
- 	if (!mdp->cd->no_ade && (intr_status & EESR_ADE)) {
- 		/* Address Error */
--		mdp->stats.tx_fifo_errors++;
-+		ndev->stats.tx_fifo_errors++;
- 		if (netif_msg_tx_err(mdp))
- 			dev_err(&ndev->dev, "Address Error\n");
- 	}
-@@ -1445,7 +1445,7 @@ static void sh_eth_tx_timeout(struct net_device *ndev)
- 	       " resetting...\n", ndev->name, (int)sh_eth_read(ndev, EESR));
- 
- 	/* tx_errors count up */
--	mdp->stats.tx_errors++;
-+	ndev->stats.tx_errors++;
- 
- 	/* timer off */
- 	del_timer_sync(&mdp->timer);
-@@ -1567,27 +1567,27 @@ static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev)
- 
- 	pm_runtime_get_sync(&mdp->pdev->dev);
- 
--	mdp->stats.tx_dropped += sh_eth_read(ndev, TROCR);
-+	ndev->stats.tx_dropped += sh_eth_read(ndev, TROCR);
- 	sh_eth_write(ndev, 0, TROCR);	/* (write clear) */
--	mdp->stats.collisions += sh_eth_read(ndev, CDCR);
-+	ndev->stats.collisions += sh_eth_read(ndev, CDCR);
- 	sh_eth_write(ndev, 0, CDCR);	/* (write clear) */
--	mdp->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
-+	ndev->stats.tx_carrier_errors += sh_eth_read(ndev, LCCR);
- 	sh_eth_write(ndev, 0, LCCR);	/* (write clear) */
- 	if (sh_eth_is_gether(mdp)) {
--		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CERCR);
- 		sh_eth_write(ndev, 0, CERCR);	/* (write clear) */
--		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CEECR);
- 		sh_eth_write(ndev, 0, CEECR);	/* (write clear) */
- 	} else {
--		mdp->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
-+		ndev->stats.tx_carrier_errors += sh_eth_read(ndev, CNDCR);
- 		sh_eth_write(ndev, 0, CNDCR);	/* (write clear) */
- 	}
- 	pm_runtime_put_sync(&mdp->pdev->dev);
- 
--	return &mdp->stats;
-+	return &ndev->stats;
+ struct link_util *get_link_kind(const char *kind);
+diff -uprN iproute2-3.2.0/ip/ipaddress.c iproute2-3.2.0-macvlan/ip/ipaddress.c
+--- iproute2-3.2.0/ip/ipaddress.c	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/ip/ipaddress.c	2012-02-03 13:33:41.000000000 +0000
+@@ -157,7 +157,7 @@ static void print_queuelen(FILE *f, stru
+ 		fprintf(f, "qlen %d", qlen);
  }
  
--/* ioctl to device funciotn*/
-+/* ioctl to device function */
- static int sh_eth_do_ioctl(struct net_device *ndev, struct ifreq *rq,
- 				int cmd)
+-static void print_linktype(FILE *fp, struct rtattr *tb)
++static void print_linktype(FILE *fp, struct rtattr *tb, char *dev)
  {
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 47877b1..ba72976 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -762,7 +762,6 @@ struct sh_eth_private {
- 	struct sh_eth_txdesc *tx_ring;
- 	struct sk_buff **rx_skbuff;
- 	struct sk_buff **tx_skbuff;
--	struct net_device_stats stats;
- 	struct timer_list timer;
- 	spinlock_t lock;
- 	u32 cur_rx, dirty_rx;	/* Producer/consumer ring indices */
+ 	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
+ 	struct link_util *lu;
+@@ -185,7 +185,8 @@ static void print_linktype(FILE *fp, str
+ 			data = attr;
+ 		}
+ 		lu->print_opt(lu, fp, data);
+-
++		if (lu->print_devdump)
++			lu->print_devdump(dev, fp, data);
+ 		if (linkinfo[IFLA_INFO_XSTATS] && show_stats &&
+ 		    lu->print_xstats)
+ 			lu->print_xstats(lu, fp, linkinfo[IFLA_INFO_XSTATS]);
+@@ -336,7 +337,8 @@ int print_linkinfo(const struct sockaddr
+ 	}
+ 
+ 	if (do_link && tb[IFLA_LINKINFO] && show_details)
+-		print_linktype(fp, tb[IFLA_LINKINFO]);
++		print_linktype(fp, tb[IFLA_LINKINFO],
++			       RTA_DATA(tb[IFLA_IFNAME]));
+ 
+ 	if (do_link && tb[IFLA_IFALIAS])
+ 		fprintf(fp,"\n    alias %s", 
+diff -uprN iproute2-3.2.0/ip/iplink_macvlan.c iproute2-3.2.0-macvlan/ip/iplink_macvlan.c
+--- iproute2-3.2.0/ip/iplink_macvlan.c	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/ip/iplink_macvlan.c	2012-02-03 13:35:34.000000000 +0000
+@@ -15,6 +15,7 @@
+ #include <string.h>
+ #include <sys/socket.h>
+ #include <linux/if_link.h>
++#include <linux/if_ether.h>
+ 
+ #include "rt_names.h"
+ #include "utils.h"
+@@ -22,18 +23,98 @@
+ 
+ static void explain(void)
+ {
+-	fprintf(stderr,
+-		"Usage: ... macvlan mode { private | vepa | bridge | passthru }\n"
+-	);
++	fprintf(stderr, "Usage: ... macvlan mode MODE MODE_OPTS\n"
++		"MODE: private | vepa | bridge | passthru | source\n"
++		"MODE_OPTS: for mode \"source\":\n"
++		"\tmacaddr { add <macaddr> | del <macaddr> | flush }\n");
+ }
+ 
+ static int mode_arg(void)
+ {
+         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
+-		"\"vepa\", \"bridge\" or \"passthru\" \n");
++		"\"vepa\", \"bridge\", \"passthru\" or \"source\"\n");
+         return -1;
+ }
+ 
++struct macvlan_req {
++	struct nlmsghdr		n;
++	struct ifinfomsg	i;
++	char			buf[1024];
++};
++
++int macvlan_print_macaddr(const struct sockaddr_nl *who,
++			   struct nlmsghdr *n,
++			   void *arg)
++{
++	FILE *fp = (FILE *)arg;
++
++	int len = n->nlmsg_len;
++	struct rtattr *tb[IFLA_MACVLAN_MAX+1];
++	unsigned char *addr;
++
++
++	len -= NLMSG_HDRLEN;
++	if (len < 0) {
++		fprintf(stderr, "Wrong len %d\n", len);
++		return -1;
++	}
++
++	parse_rtattr(tb, IFLA_MACVLAN_MAX, NLMSG_DATA(n), len);
++
++	if (tb[IFLA_MACVLAN_MACADDR]) {
++		addr = RTA_DATA(tb[IFLA_MACVLAN_MACADDR]);
++		fprintf(fp, "\n\t%.2x:%.2x:%.2x:%.2x:%.2x:%.2x", addr[0],
++			addr[1], addr[2], addr[3], addr[4], addr[5]);
++	}
++
++	return 0;
++}
++
++static void macvlan_print_devdump_loop(char *dev, FILE *fp)
++{
++	struct macvlan_req req;
++
++	memset(&req, 0, sizeof(req));
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.n.nlmsg_flags = NLM_F_REQUEST;
++	req.n.nlmsg_type = RTM_DEVDUMP;
++	req.n.nlmsg_seq = rth.dump = ++rth.seq;
++	req.i.ifi_family = preferred_family;
++	if (!dev) {
++		fprintf(stderr, "Not enough information: \"dev\" "
++				"argument is required.\n");
++			exit(-1);
++	}
++
++	req.i.ifi_index = ll_name_to_index(dev);
++	if (req.i.ifi_index == 0) {
++		fprintf(stderr, "Cannot find device \"%s\"\n", dev);
++		exit(-1);
++	}
++
++	if (rtnl_send(&rth, &req.n, sizeof(req)) < 0)
++		exit(-1);
++
++	rtnl_dump_filter(&rth, macvlan_print_macaddr, fp);
++}
++
++static void macvlan_print_devdump(char *dev, FILE *fp, struct rtattr *tb[])
++{
++	int i = 0;
++	int count;
++
++	if (!tb[IFLA_MACVLAN_MACADDR_COUNT] ||
++	    RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_COUNT]) < sizeof(__u32))
++		return;
++
++	count = *(__u32 *)RTA_DATA(tb[IFLA_MACVLAN_MACADDR_COUNT]);
++	fprintf(fp, "with allowed MAC addresses:");
++	while (i < count) {
++		i += MACVLAN_DUMP_PAGE_COUNT;
++		macvlan_print_devdump_loop(dev, fp);
++	}
++}
++
+ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			  struct nlmsghdr *n)
+ {
+@@ -50,10 +131,40 @@ static int macvlan_parse_opt(struct link
+ 				mode = MACVLAN_MODE_BRIDGE;
+ 			else if (strcmp(*argv, "passthru") == 0)
+ 				mode = MACVLAN_MODE_PASSTHRU;
++			else if (strcmp(*argv, "source") == 0)
++				mode = MACVLAN_MODE_SOURCE;
+ 			else
+ 				return mode_arg();
+ 
+ 			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
++		} else if (matches(*argv, "macaddr") == 0) {
++			int len;
++			__u32 mac_mode = 0;
++			char abuf[32];
++
++			NEXT_ARG();
++
++			if (strcmp(*argv, "add") == 0) {
++				mac_mode = MACVLAN_MACADDR_ADD;
++			} else if (strcmp(*argv, "del") == 0) {
++				mac_mode = MACVLAN_MACADDR_DEL;
++			} else if (strcmp(*argv, "flush") == 0) {
++				mac_mode = MACVLAN_MACADDR_FLUSH;
++			} else {
++				explain();
++				return -1;
++			}
++			addattr32(n, 1024, IFLA_MACVLAN_MACADDR_MODE, mac_mode);
++
++			if (mac_mode != MACVLAN_MACADDR_FLUSH) {
++				NEXT_ARG();
++
++				len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
++				if (len < 0)
++					return -1;
++				addattr_l(n, 1024, IFLA_MACVLAN_MACADDR, abuf,
++					  len);
++			}
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -85,6 +196,7 @@ static void macvlan_print_opt(struct lin
+ 		: mode == MACVLAN_MODE_VEPA    ? "vepa"
+ 		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
+ 		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
++		: mode == MACVLAN_MODE_SOURCE  ? "source"
+ 		:				 "unknown");
+ }
+ 
+@@ -93,4 +205,5 @@ struct link_util macvlan_link_util = {
+ 	.maxattr	= IFLA_MACVLAN_MAX,
+ 	.parse_opt	= macvlan_parse_opt,
+ 	.print_opt	= macvlan_print_opt,
++	.print_devdump	= macvlan_print_devdump,
+ };
+diff -uprN iproute2-3.2.0/man/man8/ip-link.8 iproute2-3.2.0-macvlan/man/man8/ip-link.8
+--- iproute2-3.2.0/man/man8/ip-link.8	2012-01-05 16:34:31.000000000 +0000
++++ iproute2-3.2.0-macvlan/man/man8/ip-link.8	2012-02-03 14:32:00.000000000 +0000
+@@ -104,6 +104,9 @@ ip link \- network device configuration
+ .IR DEVICE
+ .br
+ .B nomaster
++.br
++.B macaddr
++.IR "COMMAND MACADDR"
+ .BR " }"
+ 
+ 
+@@ -144,9 +147,48 @@ Link types:
+ .B ifb
+ - Intermediate Functional Block device
+ .sp
+-.B macvlan
++.B macvlan mode
++.I MODE
+ - virtual interface base on link layer address (MAC)
+ .sp
++Modes:
++
++.in +8
++.B private
++- The device never communicates with any other device on the same upper_dev.
++This even includes frames coming back from a reflective relay, where supported
++by the adjacent bridge.
++.sp
++.B vepa
++- we assume that the adjacent bridge returns all frames where both source and
++destination are local to the macvlan port, i.e. the bridge is set up as a
++reflective relay. Broadcast frames coming in from the upper_dev get flooded to
++all macvlan interfaces in VEPA mode. We never deliver any frames locally.
++.sp
++.B bridge
++- behave as simple bridge between different macvlan interfaces on the same
++port. Frames from one interface to another one get delivered directly and are
++not sent out externally. Broadcast frames get flooded to all other bridge
++ports and to the external interface, but when they come back from a reflective
++relay, we don't deliver them again. Since we know all the MAC addresses, the
++macvlan bridge mode does not require learning or STP like the bridge module
++does.
++.sp
++.B passthru
++- allows takeover of the underlying device and passing it to a guest using
++virtio with macvtap backend. Only one macvlan device is allowed in passthru
++mode and it inherits the mac address from the underlying device and sets it in
++promiscuous mode to receive and forward all the packets.
++.sp
++.B source
++- allows one to set a list of allowed mac address, which is used to match
++against source mac address from received frames on underlying interface. This
++allows creating mac based VLAN associations, instead of standard port or tag
++based. The feature is useful to deploy 802.1x mac based behavior,
++where drivers of underlying interfaces doesn't allows that.
++.sp
++.in -8
++.sp
+ .B can
+ - Controller Area Network interface
+ .sp
+@@ -311,6 +353,22 @@ set master device of the device (enslave
+ .BI nomaster
+ unset master device of the device (release device).
+ 
++.TP
++.BI macaddr " COMMAND MACADDR"
++add or removes MACADDR from allowed list for source mode macvlan type link
++Commands:
++.in +8
++.B add
++- add MACADDR to allowed list
++.sp
++.B del
++- remove MACADDR from allowed list
++.sp
++.B flush
++- flush whole allowed list
++.sp
++.in -8
++
+ .PP
+ .B Warning:
+ If multiple parameter changes are requested,
