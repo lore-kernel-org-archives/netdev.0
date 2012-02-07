@@ -1,61 +1,53 @@
-From: Anisse Astier <anisse@astier.eu>
-Subject: Re: [PATCH] net: Default UDP and UNIX diag to 'n'.
-Date: Tue, 7 Feb 2012 12:12:56 +0100
-Message-ID: <20120207121256.50667809@destiny.ordissimo>
-References: <20120107.121339.633839797125273714.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [ethtool v2] ethtool: Add ntuple to the -K option in the man page
+Date: Tue,  7 Feb 2012 03:20:44 -0800
+Message-ID: <1328613644-16668-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43830 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755736Ab2BGLNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 06:13:47 -0500
-Received: by wgbdt10 with SMTP id dt10so7209931wgb.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 03:13:46 -0800 (PST)
-In-Reply-To: <20120107.121339.633839797125273714.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:18090 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751349Ab2BGLUr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 06:20:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Amir Hanania <amir.hanania@intel.com>
 
-On Sat, 07 Jan 2012 12:13:39 -0800 (PST), David Miller <davem@davemloft.net> wrote :
+-v2: Added full description.
+     Made the location of ntuple consistent with the ordering in
+     'ethtool -h' output
 
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/ipv4/Kconfig |    6 +++++-
->  net/unix/Kconfig |    2 +-
->  2 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index 1a8f93b..43e1439 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -410,8 +410,12 @@ config INET_TCP_DIAG
->  	def_tristate INET_DIAG
->  
->  config INET_UDP_DIAG
-> +	tristate "UDP: socket monitoring interface"
->  	depends on INET_DIAG
-> -	def_tristate INET_DIAG && IPV6
-This broke earlier patch 
-b872a2371ffd13e6d83423ef621a707df4c158ac "udp_diag: Make it module when ipv6 is a module",
-which brings back the compilation error when compiling linus master (v3.3-rc2+):
+Signed-off-by: Amir Hanania <amir.hanania@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ ethtool.8.in |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-net/built-in.o: In function `udp_dump_one':
-udp_diag.c:(.text+0x59852): undefined reference to `__udp6_lib_lookup'
-
-
-> +	default n
-> +	---help---
-> +	  Support for UDP socket monitoring interface used by the ss tool.
-> +	  If unsure, say Y.
->  
-
-Regards,
-
-Anisse
+diff --git a/ethtool.8.in b/ethtool.8.in
+index e6e46cc..98078ae 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -214,6 +214,7 @@ ethtool \- query or control network driver and hardware settings
+ .B2 lro on off
+ .B2 rxvlan on off
+ .B2 txvlan on off
++.B2 ntuple on off
+ .B2 rxhash on off
+ .HP
+ .B ethtool \-p|\-\-identify
+@@ -454,6 +455,9 @@ Specifies whether RX VLAN acceleration should be enabled
+ .A2 txvlan on off
+ Specifies whether TX VLAN acceleration should be enabled
+ .TP
++.A2 ntuple on off
++Specifies whether Rx ntuple filters and actions should be enabled
++.TP
+ .A2 rxhash on off
+ Specifies whether receive hashing offload should be enabled
+ .TP
+-- 
+1.7.7.6
