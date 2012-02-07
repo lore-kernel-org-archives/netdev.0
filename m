@@ -1,149 +1,61 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
-Date: Tue, 7 Feb 2012 11:51:46 -0800
-Message-ID: <CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
-References: <20120206.145148.558736903670696169.davem@davemloft.net>
- <20120206.145652.1575591691467905094.davem@davemloft.net> <CAG4TOxNcB8+SP3f0WhZG1GZ481s+=7pVRv91vzAbwDzUZD8g_A@mail.gmail.com>
- <20120206.151509.1959432192519622134.davem@davemloft.net>
+From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+Subject: Re: [PATCH] skbuff: Add new tc classify variable
+Date: Tue, 7 Feb 2012 20:57:29 +0100
+Message-ID: <20120207195729.GA26533@pandem0nium>
+References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+ <20120207110522.70663963@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d0418256e1a1d0604b8651d7d
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120206.151509.1959432192519622134.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="k1lZvvs/B4yU6o8G"
+Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cora.hrz.tu-chemnitz.de ([134.109.228.40]:37343 "EHLO
+	cora.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756090Ab2BGT5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 14:57:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20120207110522.70663963@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---f46d0418256e1a1d0604b8651d7d
-Content-Type: text/plain; charset=ISO-8859-1
 
-On Mon, Feb 6, 2012 at 12:15 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> I just pushed the following into net-next, you have 24 bytes
-> available.
+--k1lZvvs/B4yU6o8G
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-OK, I'm testing the attached patch (sorry, stuck on webmail ATM
-but wanted to send this out).  Will submit formally later today or
-tomorrow.
+On Tue, Feb 07, 2012 at 11:05:22AM -0800, Stephen Hemminger wrote:
+> On Tue,  7 Feb 2012 19:39:08 +0100
+> Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
+>=20
+> I don't understand why this is better, we already have mark to do this.
+> Your method saves adding a tc filter to map mark to classid, but that is =
+hardly
+> a huge burden.
 
-Sean / Or if you have a chance to perf test this + Eric's patch to
-test hard_header_len against ETH_ALEN and see if GRO works
-with IPoIb, that would be helpful.
+Unfortunately, it is. We have previously built our trees by setting marks w=
+ith iptables
+and matching the masks with tc and the u32 matcher, but we got a rather big=
+ performance
+impact as soon as the number of users grow. The target platform are WiFi ac=
+cess points.
+By using the proposed patch, the performance stays nearly constant at a gro=
+wing number
+of users.
 
- - R.
+--k1lZvvs/B4yU6o8G
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
---f46d0418256e1a1d0604b8651d7d
-Content-Type: text/x-diff; charset=US-ASCII; name="net-next-ipoib-cb.patch"
-Content-Disposition: attachment; filename="net-next-ipoib-cb.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gydcia890
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-IGRyaXZlcnMvaW5maW5pYmFuZC91bHAvaXBvaWIvaXBvaWIuaCAgICAgICAgICAgfCAgICA2ICsr
-LQogZHJpdmVycy9pbmZpbmliYW5kL3VscC9pcG9pYi9pcG9pYl9tYWluLmMgICAgICB8ICAgNDEg
-KysrKysrKysrLS0tLS0tLS0tLS0tLS0tCiBkcml2ZXJzL2luZmluaWJhbmQvdWxwL2lwb2liL2lw
-b2liX211bHRpY2FzdC5jIHwgICAxMCArLS0tLS0KIDMgZmlsZXMgY2hhbmdlZCwgMjAgaW5zZXJ0
-aW9ucygrKSwgMzcgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9pbmZpbmliYW5k
-L3VscC9pcG9pYi9pcG9pYi5oIGIvZHJpdmVycy9pbmZpbmliYW5kL3VscC9pcG9pYi9pcG9pYi5o
-CmluZGV4IGIzY2MxZTAuLjg2ZGY2MzIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvaW5maW5pYmFuZC91
-bHAvaXBvaWIvaXBvaWIuaAorKysgYi9kcml2ZXJzL2luZmluaWJhbmQvdWxwL2lwb2liL2lwb2li
-LmgKQEAgLTQ0LDYgKzQ0LDcgQEAKICNpbmNsdWRlIDxsaW51eC9tdXRleC5oPgogCiAjaW5jbHVk
-ZSA8bmV0L25laWdoYm91ci5oPgorI2luY2x1ZGUgPG5ldC9zY2hfZ2VuZXJpYy5oPgogCiAjaW5j
-bHVkZSA8bGludXgvYXRvbWljLmg+CiAKQEAgLTExNyw4ICsxMTgsOSBAQCBzdHJ1Y3QgaXBvaWJf
-aGVhZGVyIHsKIAl1MTYJcmVzZXJ2ZWQ7CiB9OwogCi1zdHJ1Y3QgaXBvaWJfcHNldWRvaGVhZGVy
-IHsKLQl1OCAgaHdhZGRyW0lORklOSUJBTkRfQUxFTl07CitzdHJ1Y3QgaXBvaWJfY2IgeworCXN0
-cnVjdCBxZGlzY19za2JfY2IJcWRpc2NfY2I7CisJdTgJCQlod2FkZHJbSU5GSU5JQkFORF9BTEVO
-XTsKIH07CiAKIC8qIFVzZWQgZm9yIGFsbCBtdWx0aWNhc3Qgam9pbnMgKGJyb2FkY2FzdCwgSVB2
-NCBtY2FzdCBhbmQgSVB2NiBtY2FzdCkgKi8KZGlmZiAtLWdpdCBhL2RyaXZlcnMvaW5maW5pYmFu
-ZC91bHAvaXBvaWIvaXBvaWJfbWFpbi5jIGIvZHJpdmVycy9pbmZpbmliYW5kL3VscC9pcG9pYi9p
-cG9pYl9tYWluLmMKaW5kZXggMzUxNGNhMC4uM2U0OTU1YiAxMDA2NDQKLS0tIGEvZHJpdmVycy9p
-bmZpbmliYW5kL3VscC9pcG9pYi9pcG9pYl9tYWluLmMKKysrIGIvZHJpdmVycy9pbmZpbmliYW5k
-L3VscC9pcG9pYi9pcG9pYl9tYWluLmMKQEAgLTY1Myw3ICs2NTMsNyBAQCBzdGF0aWMgdm9pZCBp
-cG9pYl9wYXRoX2xvb2t1cChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmVpZ2hib3VyICpu
-LCBzdHJ1Y3QgbgogfQogCiBzdGF0aWMgdm9pZCB1bmljYXN0X2FycF9zZW5kKHN0cnVjdCBza19i
-dWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCi0JCQkgICAgIHN0cnVjdCBpcG9pYl9w
-c2V1ZG9oZWFkZXIgKnBoZHIpCisJCQkgICAgIHN0cnVjdCBpcG9pYl9jYiAqY2IpCiB7CiAJc3Ry
-dWN0IGlwb2liX2Rldl9wcml2ICpwcml2ID0gbmV0ZGV2X3ByaXYoZGV2KTsKIAlzdHJ1Y3QgaXBv
-aWJfcGF0aCAqcGF0aDsKQEAgLTY2MSwxNyArNjYxLDE1IEBAIHN0YXRpYyB2b2lkIHVuaWNhc3Rf
-YXJwX3NlbmQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAog
-CXNwaW5fbG9ja19pcnFzYXZlKCZwcml2LT5sb2NrLCBmbGFncyk7CiAKLQlwYXRoID0gX19wYXRo
-X2ZpbmQoZGV2LCBwaGRyLT5od2FkZHIgKyA0KTsKKwlwYXRoID0gX19wYXRoX2ZpbmQoZGV2LCBj
-Yi0+aHdhZGRyICsgNCk7CiAJaWYgKCFwYXRoIHx8ICFwYXRoLT52YWxpZCkgewogCQlpbnQgbmV3
-X3BhdGggPSAwOwogCiAJCWlmICghcGF0aCkgewotCQkJcGF0aCA9IHBhdGhfcmVjX2NyZWF0ZShk
-ZXYsIHBoZHItPmh3YWRkciArIDQpOworCQkJcGF0aCA9IHBhdGhfcmVjX2NyZWF0ZShkZXYsIGNi
-LT5od2FkZHIgKyA0KTsKIAkJCW5ld19wYXRoID0gMTsKIAkJfQogCQlpZiAocGF0aCkgewotCQkJ
-LyogcHV0IHBzZXVkb2hlYWRlciBiYWNrIG9uIGZvciBuZXh0IHRpbWUgKi8KLQkJCXNrYl9wdXNo
-KHNrYiwgc2l6ZW9mICpwaGRyKTsKIAkJCV9fc2tiX3F1ZXVlX3RhaWwoJnBhdGgtPnF1ZXVlLCBz
-a2IpOwogCiAJCQlpZiAoIXBhdGgtPnF1ZXJ5ICYmIHBhdGhfcmVjX3N0YXJ0KGRldiwgcGF0aCkp
-IHsKQEAgLTY5NSwxMiArNjkzLDEwIEBAIHN0YXRpYyB2b2lkIHVuaWNhc3RfYXJwX3NlbmQoc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwKIAkJCSAgYmUxNl90b19j
-cHUocGF0aC0+cGF0aHJlYy5kbGlkKSk7CiAKIAkJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmcHJp
-di0+bG9jaywgZmxhZ3MpOwotCQlpcG9pYl9zZW5kKGRldiwgc2tiLCBwYXRoLT5haCwgSVBPSUJf
-UVBOKHBoZHItPmh3YWRkcikpOworCQlpcG9pYl9zZW5kKGRldiwgc2tiLCBwYXRoLT5haCwgSVBP
-SUJfUVBOKGNiLT5od2FkZHIpKTsKIAkJcmV0dXJuOwogCX0gZWxzZSBpZiAoKHBhdGgtPnF1ZXJ5
-IHx8ICFwYXRoX3JlY19zdGFydChkZXYsIHBhdGgpKSAmJgogCQkgICBza2JfcXVldWVfbGVuKCZw
-YXRoLT5xdWV1ZSkgPCBJUE9JQl9NQVhfUEFUSF9SRUNfUVVFVUUpIHsKLQkJLyogcHV0IHBzZXVk
-b2hlYWRlciBiYWNrIG9uIGZvciBuZXh0IHRpbWUgKi8KLQkJc2tiX3B1c2goc2tiLCBzaXplb2Yg
-KnBoZHIpOwogCQlfX3NrYl9xdWV1ZV90YWlsKCZwYXRoLT5xdWV1ZSwgc2tiKTsKIAl9IGVsc2Ug
-ewogCQkrK2Rldi0+c3RhdHMudHhfZHJvcHBlZDsKQEAgLTc3NCwxNiArNzcwLDE0IEBAIHN0YXRp
-YyBpbnQgaXBvaWJfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2Rl
-dmljZSAqZGV2KQogCQkJZGV2X2tmcmVlX3NrYl9hbnkoc2tiKTsKIAkJfQogCX0gZWxzZSB7Ci0J
-CXN0cnVjdCBpcG9pYl9wc2V1ZG9oZWFkZXIgKnBoZHIgPQotCQkJKHN0cnVjdCBpcG9pYl9wc2V1
-ZG9oZWFkZXIgKikgc2tiLT5kYXRhOwotCQlza2JfcHVsbChza2IsIHNpemVvZiAqcGhkcik7CisJ
-CXN0cnVjdCBpcG9pYl9jYiAqY2IgPSAoc3RydWN0IGlwb2liX2NiICopIHNrYi0+Y2I7CiAKLQkJ
-aWYgKHBoZHItPmh3YWRkcls0XSA9PSAweGZmKSB7CisJCWlmIChjYi0+aHdhZGRyWzRdID09IDB4
-ZmYpIHsKIAkJCS8qIEFkZCBpbiB0aGUgUF9LZXkgZm9yIG11bHRpY2FzdCovCi0JCQlwaGRyLT5o
-d2FkZHJbOF0gPSAocHJpdi0+cGtleSA+PiA4KSAmIDB4ZmY7Ci0JCQlwaGRyLT5od2FkZHJbOV0g
-PSBwcml2LT5wa2V5ICYgMHhmZjsKKwkJCWNiLT5od2FkZHJbOF0gPSAocHJpdi0+cGtleSA+PiA4
-KSAmIDB4ZmY7CisJCQljYi0+aHdhZGRyWzldID0gcHJpdi0+cGtleSAmIDB4ZmY7CiAKLQkJCWlw
-b2liX21jYXN0X3NlbmQoZGV2LCBwaGRyLT5od2FkZHIgKyA0LCBza2IpOworCQkJaXBvaWJfbWNh
-c3Rfc2VuZChkZXYsIGNiLT5od2FkZHIgKyA0LCBza2IpOwogCQl9IGVsc2UgewogCQkJLyogdW5p
-Y2FzdCBHSUQgLS0gc2hvdWxkIGJlIEFSUCBvciBSQVJQIHJlcGx5ICovCiAKQEAgLTc5MiwxNCAr
-Nzg2LDE0IEBAIHN0YXRpYyBpbnQgaXBvaWJfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQkJCWlwb2liX3dhcm4ocHJpdiwgIlVuaWNhc3Qs
-IG5vICVzOiB0eXBlICUwNHgsIFFQTiAlMDZ4ICVwSTZcbiIsCiAJCQkJCSAgIHNrYl9kc3Qoc2ti
-KSA/ICJuZWlnaCIgOiAiZHN0IiwKIAkJCQkJICAgYmUxNl90b19jcHVwKChfX2JlMTYgKikgc2ti
-LT5kYXRhKSwKLQkJCQkJICAgSVBPSUJfUVBOKHBoZHItPmh3YWRkciksCi0JCQkJCSAgIHBoZHIt
-Pmh3YWRkciArIDQpOworCQkJCQkgICBJUE9JQl9RUE4oY2ItPmh3YWRkciksCisJCQkJCSAgIGNi
-LT5od2FkZHIgKyA0KTsKIAkJCQlkZXZfa2ZyZWVfc2tiX2FueShza2IpOwogCQkJCSsrZGV2LT5z
-dGF0cy50eF9kcm9wcGVkOwogCQkJCWdvdG8gdW5sb2NrOwogCQkJfQogCi0JCQl1bmljYXN0X2Fy
-cF9zZW5kKHNrYiwgZGV2LCBwaGRyKTsKKwkJCXVuaWNhc3RfYXJwX3NlbmQoc2tiLCBkZXYsIGNi
-KTsKIAkJfQogCX0KIHVubG9jazoKQEAgLTg0Myw5ICs4MzcsOCBAQCBzdGF0aWMgaW50IGlwb2li
-X2hhcmRfaGVhZGVyKHN0cnVjdCBza19idWZmICpza2IsCiAJaWYgKGRzdCkKIAkJbiA9IGRzdF9n
-ZXRfbmVpZ2hib3VyX25vcmVmX3Jhdyhkc3QpOwogCWlmICgoIWRzdCB8fCAhbikgJiYgZGFkZHIp
-IHsKLQkJc3RydWN0IGlwb2liX3BzZXVkb2hlYWRlciAqcGhkciA9Ci0JCQkoc3RydWN0IGlwb2li
-X3BzZXVkb2hlYWRlciAqKSBza2JfcHVzaChza2IsIHNpemVvZiAqcGhkcik7Ci0JCW1lbWNweShw
-aGRyLT5od2FkZHIsIGRhZGRyLCBJTkZJTklCQU5EX0FMRU4pOworCQlzdHJ1Y3QgaXBvaWJfY2Ig
-KmNiID0gKHN0cnVjdCBpcG9pYl9jYiAqKSBza2ItPmNiOworCQltZW1jcHkoY2ItPmh3YWRkciwg
-ZGFkZHIsIElORklOSUJBTkRfQUxFTik7CiAJfQogCiAJcmV0dXJuIDA7CkBAIC0xMDIxLDExICsx
-MDE0LDcgQEAgc3RhdGljIHZvaWQgaXBvaWJfc2V0dXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikK
-IAogCWRldi0+ZmxhZ3MJCXw9IElGRl9CUk9BRENBU1QgfCBJRkZfTVVMVElDQVNUOwogCi0JLyoK
-LQkgKiBXZSBhZGQgaW4gSU5GSU5JQkFORF9BTEVOIHRvIGFsbG93IGZvciB0aGUgZGVzdGluYXRp
-b24KLQkgKiBhZGRyZXNzICJwc2V1ZG9oZWFkZXIiIGZvciBza2JzIHdpdGhvdXQgbmVpZ2hib3Vy
-IHN0cnVjdC4KLQkgKi8KLQlkZXYtPmhhcmRfaGVhZGVyX2xlbgkgPSBJUE9JQl9FTkNBUF9MRU4g
-KyBJTkZJTklCQU5EX0FMRU47CisJZGV2LT5oYXJkX2hlYWRlcl9sZW4JID0gSVBPSUJfRU5DQVBf
-TEVOOwogCWRldi0+YWRkcl9sZW4JCSA9IElORklOSUJBTkRfQUxFTjsKIAlkZXYtPnR5cGUJCSA9
-IEFSUEhSRF9JTkZJTklCQU5EOwogCWRldi0+dHhfcXVldWVfbGVuCSA9IGlwb2liX3NlbmRxX3Np
-emUgKiAyOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9pbmZpbmliYW5kL3VscC9pcG9pYi9pcG9pYl9t
-dWx0aWNhc3QuYyBiL2RyaXZlcnMvaW5maW5pYmFuZC91bHAvaXBvaWIvaXBvaWJfbXVsdGljYXN0
-LmMKaW5kZXggZjdmZjlkZC4uMjBlYmM2ZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9pbmZpbmliYW5k
-L3VscC9pcG9pYi9pcG9pYl9tdWx0aWNhc3QuYworKysgYi9kcml2ZXJzL2luZmluaWJhbmQvdWxw
-L2lwb2liL2lwb2liX211bHRpY2FzdC5jCkBAIC0yNjIsMjEgKzI2MiwxMyBAQCBzdGF0aWMgaW50
-IGlwb2liX21jYXN0X2pvaW5fZmluaXNoKHN0cnVjdCBpcG9pYl9tY2FzdCAqbWNhc3QsCiAJbmV0
-aWZfdHhfbG9ja19iaChkZXYpOwogCXdoaWxlICghc2tiX3F1ZXVlX2VtcHR5KCZtY2FzdC0+cGt0
-X3F1ZXVlKSkgewogCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiID0gc2tiX2RlcXVldWUoJm1jYXN0LT5w
-a3RfcXVldWUpOwotCQlzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QgPSBza2JfZHN0KHNrYik7Ci0JCXN0
-cnVjdCBuZWlnaGJvdXIgKm4gPSBOVUxMOwogCiAJCW5ldGlmX3R4X3VubG9ja19iaChkZXYpOwog
-CiAJCXNrYi0+ZGV2ID0gZGV2OwotCQlpZiAoZHN0KQotCQkJbiA9IGRzdF9nZXRfbmVpZ2hib3Vy
-X25vcmVmX3Jhdyhkc3QpOwotCQlpZiAoIWRzdCB8fCAhbikgewotCQkJLyogcHV0IHBzZXVkb2hl
-YWRlciBiYWNrIG9uIGZvciBuZXh0IHRpbWUgKi8KLQkJCXNrYl9wdXNoKHNrYiwgc2l6ZW9mIChz
-dHJ1Y3QgaXBvaWJfcHNldWRvaGVhZGVyKSk7Ci0JCX0KLQogCQlpZiAoZGV2X3F1ZXVlX3htaXQo
-c2tiKSkKIAkJCWlwb2liX3dhcm4ocHJpdiwgImRldl9xdWV1ZV94bWl0IGZhaWxlZCB0byByZXF1
-ZXVlIHBhY2tldFxuIik7CisKIAkJbmV0aWZfdHhfbG9ja19iaChkZXYpOwogCX0KIAluZXRpZl90
-eF91bmxvY2tfYmgoZGV2KTsK
---f46d0418256e1a1d0604b8651d7d--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iEYEARECAAYFAk8xgigACgkQrzg/fFk7axZQMACdGJ8H81zE2J5qoL+Tlu4JU5TA
+mpwAniVC5NP31mAWZ2K5ShofZr8SzpRV
+=l+Wy
+-----END PGP SIGNATURE-----
+
+--k1lZvvs/B4yU6o8G--
