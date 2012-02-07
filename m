@@ -1,74 +1,156 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] skbuff: Add new tc classify variable
-Date: Tue, 7 Feb 2012 11:05:22 -0800
-Message-ID: <20120207110522.70663963@nehalam.linuxnetplumber.net>
-References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: [PATCH net-next] e1000: Neaten e1000_dump function
+Date: Tue, 7 Feb 2012 19:09:18 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891237DA7@ORSMSX102.amr.corp.intel.com>
+References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328629203.4837.6.camel@joe2Laptop> <1328638775.4837.10.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Joe Perches <joe@perches.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38136 "EHLO mail.vyatta.com"
+Received: from mga01.intel.com ([192.55.52.88]:2886 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753992Ab2BGTF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 14:05:26 -0500
-In-Reply-To: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+	id S1753992Ab2BGTJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 14:09:25 -0500
+In-Reply-To: <1328638775.4837.10.camel@joe2Laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  7 Feb 2012 19:39:08 +0100
-Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
-
-> The linux traffic control mechanism has different ways to select the
-> correct class of a qdisc. A common way to do this is to use tc filters
-> that are directly attached to a qdisc. Another approach is to use the
-> iptables classify module. The latter one can reduce the amount of work
-> necessary to process a packet when iptables is already involved in the
-> packet classification.
-> 
-> The iptables module can be used in the postrouting chain of the mangle
-> table.
-> 
-> # iptables -F -t mangle
-> # iptables -X -t mangle
-> # iptables -t mangle -I POSTROUTING -j CLASSIFY --set-class 1:1337
-> 
-> A simple qdisc with two classes will now route the traffic to 1:1337
-> 
-> # tc qdisc del dev eth0 root
-> # tc qdisc add dev eth0 root handle 1: htb default 1
-> # tc class add dev eth0 parent 1: classid 1:1 htb rate 15kbit burst 0kbit
-> # tc class add dev eth0 parent 1: classid 1:1337 htb rate 250kbit burst 0kbit
-> # tc -s class show dev eth0
-> 
-> A similar test with an ath9k device will show a complete different
-> behavior. The default class 1:1 will be used and data is sent through.
-> This problem seems to be related to the fact that the shared member
-> variable sk_buff::priority is used to store the tc class id of an
-> outgoing packet. This variable is also used in other places for
-> different purposes. An example is the ieee80211_select_queue function
-> which always overwrites the priority of an outgoing skb.
-> 
-> This conflict can be resolved by an additional member variable
-> sk_buff::tc_class that is only used for the traffic control
-> classification.
-> 
-> Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Jamal Hadi Salim <hadi@cyberus.ca>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Johannes Berg <johannes@sipsolutions.net>
-> Cc: "John W. Linville" <linville@tuxdriver.com>
-> Cc: Marek Lindner <lindner_marek@yahoo.de>
-> Cc: Sven Eckelmann <sven@narfation.org>
-> Cc: netfilter-devel@vger.kernel.org
-> Cc: netfilter@vger.kernel.org
-> Cc: coreteam@netfilter.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
-
-I don't understand why this is better, we already have mark to do this.
-Your method saves adding a tc filter to map mark to classid, but that is hardly
-a huge burden.
+Sm9lLA0KVGhhbmtzIGZvciBkb2luZyB0aGUgd29yay4NCkkgd2lsbCBzZW5kIGZvbGxvdy11cCBw
+YXRjaC4NCg0KLVR1c2hhcg0KDQo+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj5Gcm9tOiBK
+b2UgUGVyY2hlcyBbbWFpbHRvOmpvZUBwZXJjaGVzLmNvbV0NCj5TZW50OiBUdWVzZGF5LCBGZWJy
+dWFyeSAwNywgMjAxMiAxMDoyMCBBTQ0KPlRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj5DYzogZGF2
+ZW1AZGF2ZW1sb2Z0Lm5ldDsgRGF2ZSwgVHVzaGFyIE47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+DQo+Z29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPlN1YmplY3Q6IFtQQVRD
+SCBuZXQtbmV4dF0gZTEwMDA6IE5lYXRlbiBlMTAwMF9kdW1wIGZ1bmN0aW9uDQo+DQo+VXNlIHBy
+XzxsZXZlbD4gZm9yIHByaW50aw0KPlVzZSB0ZW1wb3JhcnkgaW5zdGVhZCBvZiBtdWx0aXBsZSBw
+cl9jb250cw0KPkNvYWxlc2NlIGZvcm1hdHMuDQo+DQo+U2F2ZSBhIGZldyBieXRlcyBvZiBvYmpl
+Y3QgY29kZSB0b286DQo+DQo+JCBzaXplIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAw
+L2UxMDAwX21haW4ubyoNCj4gICB0ZXh0CSAgIGRhdGEJICAgIGJzcwkgICAgZGVjCSAgICBoZXgJ
+ZmlsZW5hbWUNCj4gIDYwNTA3CSAgICAzNjkJICAxNDEyMAkgIDc0OTk2CSAgMTI0ZjQNCj4JZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDAvZTEwMDBfbWFpbi5vLm5ldw0KPiAgNjA3MTcJ
+ICAgIDM2OQkgIDE0MTc2CSAgNzUyNjIJICAxMjVmZQ0KPglkcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9lMTAwMC9lMTAwMF9tYWluLm8ub2xkDQo+DQo+U2lnbmVkLW9mZi1ieTogSm9lIFBlcmNo
+ZXMgPGpvZUBwZXJjaGVzLmNvbT4NCj4tLS0NCj5kaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvZTEwMDAvZTEwMDBfbWFpbi5jDQo+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9lMTAwMC9lMTAwMF9tYWluLmMNCj5pbmRleCAxZjg2YTcwLi4xMzcwMDU3IDEwMDY0NA0K
+Pi0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwL2UxMDAwX21haW4uYw0KPisr
+KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwL2UxMDAwX21haW4uYw0KPkBAIC0z
+MjQ3LDE2ICszMjQ3LDE2IEBAIHN0YXRpYyB2b2lkIGUxMDAwX3JlZ2R1bXAoc3RydWN0IGUxMDAw
+X2FkYXB0ZXINCj4qYWRhcHRlcikNCj4gCXUzMiAqcmVnc19idWZmID0gcmVnczsNCj4gCWludCBp
+ID0gMDsNCj4NCj4tCWNoYXIgKnJlZ19uYW1lW10gPSB7DQo+LQkiQ1RSTCIsICAiU1RBVFVTIiwN
+Cj4tCSJSQ1RMIiwgIlJETEVOIiwgIlJESCIsICJSRFQiLCAiUkRUUiIsDQo+LQkiVENUTCIsICJU
+REJBTCIsICJUREJBSCIsICJURExFTiIsICJUREgiLCAiVERUIiwNCj4tCSJUSURWIiwgIlRYRENU
+TCIsICJUQURWIiwgIlRBUkMwIiwNCj4tCSJUREJBTDEiLCAiVERCQUgxIiwgIlRETEVOMSIsICJU
+REgxIiwgIlREVDEiLA0KPi0JIlRYRENUTDEiLCAiVEFSQzEiLA0KPi0JIkNUUkxfRVhUIiwgIkVS
+VCIsICJSREJBTCIsICJSREJBSCIsDQo+LQkiVERGSCIsICJUREZUIiwgIlRERkhTIiwgIlRERlRT
+IiwgIlRERlBDIiwNCj4tCSJSREZIIiwgIlJERlQiLCAiUkRGSFMiLCAiUkRGVFMiLCAiUkRGUEMi
+DQo+KwlzdGF0aWMgY29uc3QgY2hhciAqIGNvbnN0IHJlZ19uYW1lW10gPSB7DQo+KwkJIkNUUkwi
+LCAgIlNUQVRVUyIsDQo+KwkJIlJDVEwiLCAiUkRMRU4iLCAiUkRIIiwgIlJEVCIsICJSRFRSIiwN
+Cj4rCQkiVENUTCIsICJUREJBTCIsICJUREJBSCIsICJURExFTiIsICJUREgiLCAiVERUIiwNCj4r
+CQkiVElEViIsICJUWERDVEwiLCAiVEFEViIsICJUQVJDMCIsDQo+KwkJIlREQkFMMSIsICJUREJB
+SDEiLCAiVERMRU4xIiwgIlRESDEiLCAiVERUMSIsDQo+KwkJIlRYRENUTDEiLCAiVEFSQzEiLA0K
+PisJCSJDVFJMX0VYVCIsICJFUlQiLCAiUkRCQUwiLCAiUkRCQUgiLA0KPisJCSJUREZIIiwgIlRE
+RlQiLCAiVERGSFMiLCAiVERGVFMiLCAiVERGUEMiLA0KPisJCSJSREZIIiwgIlJERlQiLCAiUkRG
+SFMiLCAiUkRGVFMiLCAiUkRGUEMiDQo+IAl9Ow0KPg0KPiAJcmVnc19idWZmWzBdICA9IGVyMzIo
+Q1RSTCk7DQo+QEAgLTMzMDIsMTAgKzMzMDIsOCBAQCBzdGF0aWMgdm9pZCBlMTAwMF9yZWdkdW1w
+KHN0cnVjdCBlMTAwMF9hZGFwdGVyDQo+KmFkYXB0ZXIpDQo+IAlyZWdzX2J1ZmZbMzddID0gZXIz
+MihSREZQQyk7DQo+DQo+IAlwcl9pbmZvKCJSZWdpc3RlciBkdW1wXG4iKTsNCj4tCWZvciAoaSA9
+IDA7IGkgPCBOVU1fUkVHUzsgaSsrKSB7DQo+LQkJcHJpbnRrKEtFUk5fSU5GTyAiJS0xNXMgICUw
+OHhcbiIsDQo+LQkJcmVnX25hbWVbaV0sIHJlZ3NfYnVmZltpXSk7DQo+LQl9DQo+Kwlmb3IgKGkg
+PSAwOyBpIDwgTlVNX1JFR1M7IGkrKykNCj4rCQlwcl9pbmZvKCIlLTE1cyAgJTA4eFxuIiwgcmVn
+X25hbWVbaV0sIHJlZ3NfYnVmZltpXSk7DQo+IH0NCj4NCj4gLyoNCj5AQCAtMzM1NiwxMCArMzM1
+NCw4IEBAIHN0YXRpYyB2b2lkIGUxMDAwX2R1bXAoc3RydWN0IGUxMDAwX2FkYXB0ZXINCj4qYWRh
+cHRlcikNCj4gCSAqICAgKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+LS0rDQo+IAkgKiAgIDYzICAgICAgIDQ4IDQ3ICAgICA0
+MCAzOSAgMzYgMzUgICAgMzIgMzEgICAgIDI0IDIzICAyMCAxOQ0KPjANCj4gCSAqLw0KPi0JcHJp
+bnRrKEtFUk5fSU5GTyAiVGNbZGVzY10gICAgIFtDZSBDb0NzSXBjZUNvU10gW01zc0hsUlNDbTBQ
+bGVuXQ0KPltiaS0+ZG1hICAgICAgIF0iDQo+LQkgICAgICAgIiBsZW5nICBudHcgdGltZXN0bXAg
+ICAgICAgICBiaS0+c2tiXG4iKTsNCj4tCXByaW50ayhLRVJOX0lORk8gIlRkW2Rlc2NdICAgICBb
+YWRkcmVzcyA2MzowICBdIFtWbGFQb1JTQ20xRGxlbl0NCj5bYmktPmRtYSAgICAgICBdIg0KPi0J
+ICAgICAgICIgbGVuZyAgbnR3IHRpbWVzdG1wICAgICAgICAgYmktPnNrYlxuIik7DQo+Kwlwcl9p
+bmZvKCJUY1tkZXNjXSAgICAgW0NlIENvQ3NJcGNlQ29TXSBbTXNzSGxSU0NtMFBsZW5dIFtiaS0+
+ZG1hDQo+XSBsZW5nICBudHcgdGltZXN0bXAgICAgICAgICBiaS0+c2tiXG4iKTsNCj4rCXByX2lu
+Zm8oIlRkW2Rlc2NdICAgICBbYWRkcmVzcyA2MzowICBdIFtWbGFQb1JTQ20xRGxlbl0gW2JpLT5k
+bWENCj5dIGxlbmcgIG50dyB0aW1lc3RtcCAgICAgICAgIGJpLT5za2JcbiIpOw0KPg0KPiAJaWYg
+KCFuZXRpZl9tc2dfdHhfZG9uZShhZGFwdGVyKSkNCj4gCQlnb3RvIHJ4X3Jpbmdfc3VtbWFyeTsN
+Cj5AQCAtMzM2OSwyMSArMzM2NSwyMyBAQCBzdGF0aWMgdm9pZCBlMTAwMF9kdW1wKHN0cnVjdCBl
+MTAwMF9hZGFwdGVyDQo+KmFkYXB0ZXIpDQo+IAkJc3RydWN0IGUxMDAwX2J1ZmZlciAqYnVmZmVy
+X2luZm8gPSAmdHhfcmluZy0+YnVmZmVyX2luZm9baV07DQo+IAkJc3RydWN0IG15X3UgeyB1NjQg
+YTsgdTY0IGI7IH07DQo+IAkJc3RydWN0IG15X3UgKnUgPSAoc3RydWN0IG15X3UgKil0eF9kZXNj
+Ow0KPi0JCXByaW50ayhLRVJOX0lORk8gIlQlY1sweCUwM1hdICAgICUwMTZsbFggJTAxNmxsWCAl
+MDE2bGxYICUwNFgNCj4lM1ggIg0KPi0JCSAgICAgICAiJTAxNmxsWCAlcCIsDQo+LQkJICAgICAg
+ICgobGU2NF90b19jcHUodS0+YikgJiAoMTw8MjApKSA/ICdkJyA6ICdjJyksIGksDQo+LQkJICAg
+ICAgIGxlNjRfdG9fY3B1KHUtPmEpLCBsZTY0X3RvX2NwdSh1LT5iKSwNCj4tCQkgICAgICAgKHU2
+NClidWZmZXJfaW5mby0+ZG1hLCBidWZmZXJfaW5mby0+bGVuZ3RoLA0KPi0JCSAgICAgICBidWZm
+ZXJfaW5mby0+bmV4dF90b193YXRjaCwgKHU2NClidWZmZXJfaW5mby0NCj4+dGltZV9zdGFtcCwN
+Cj4tCQkgICAgICAgYnVmZmVyX2luZm8tPnNrYik7DQo+KwkJY29uc3QgY2hhciAqdHlwZTsNCj4r
+DQo+IAkJaWYgKGkgPT0gdHhfcmluZy0+bmV4dF90b191c2UgJiYgaSA9PSB0eF9yaW5nLT5uZXh0
+X3RvX2NsZWFuKQ0KPi0JCQlwcmludGsoS0VSTl9DT05UIiBOVEMvVVxuIik7DQo+KwkJCXR5cGUg
+PSAiTlRDL1UiOw0KPiAJCWVsc2UgaWYgKGkgPT0gdHhfcmluZy0+bmV4dF90b191c2UpDQo+LQkJ
+CXByaW50ayhLRVJOX0NPTlQgIiBOVFVcbiIpOw0KPisJCQl0eXBlID0gIk5UVSI7DQo+IAkJZWxz
+ZSBpZiAoaSA9PSB0eF9yaW5nLT5uZXh0X3RvX2NsZWFuKQ0KPi0JCQlwcmludGsoS0VSTl9DT05U
+ICIgTlRDXG4iKTsNCj4rCQkJdHlwZSA9ICJOVEMiOw0KPiAJCWVsc2UNCj4tCQkJcHJpbnRrKEtF
+Uk5fQ09OVCAiXG4iKTsNCj4rCQkJdHlwZSA9ICIiOw0KPisNCj4rCQlwcl9pbmZvKCJUJWNbMHgl
+MDNYXSAgICAlMDE2bGxYICUwMTZsbFggJTAxNmxsWCAlMDRYICAlM1gNCj4lMDE2bGxYICVwICVz
+XG4iLA0KPisJCQkoKGxlNjRfdG9fY3B1KHUtPmIpICYgKDE8PDIwKSkgPyAnZCcgOiAnYycpLCBp
+LA0KPisJCQlsZTY0X3RvX2NwdSh1LT5hKSwgbGU2NF90b19jcHUodS0+YiksDQo+KwkJCSh1NjQp
+YnVmZmVyX2luZm8tPmRtYSwgYnVmZmVyX2luZm8tPmxlbmd0aCwNCj4rCQkJYnVmZmVyX2luZm8t
+Pm5leHRfdG9fd2F0Y2gsDQo+KwkJCSh1NjQpYnVmZmVyX2luZm8tPnRpbWVfc3RhbXAsIGJ1ZmZl
+cl9pbmZvLT5za2IsIHR5cGUpOw0KPg0KPg0KPiAJCWlmIChuZXRpZl9tc2dfcGt0ZGF0YShhZGFw
+dGVyKSAmJiBidWZmZXJfaW5mby0+ZG1hICE9IDApDQo+QEAgLTM0MDcsOCArMzQwNSw3IEBAIHJ4
+X3Jpbmdfc3VtbWFyeToNCj4gCSAqICstLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLSsNCj4gCSAqIDYzICAgICAgIDQ4IDQ3ICAgIDQwIDM5ICAgICAg
+MzIgMzEgICAgICAgICAxNiAxNSAgICAgIDANCj4gCSAqLw0KPi0JcHJpbnRrKEtFUk5fSU5GTyAi
+UltkZXNjXSAgICAgIFthZGRyZXNzIDYzOjAgIF0gW3ZsIGVyIFMgY2tzIGxuXSAiDQo+LQkJIlti
+aS0+ZG1hICAgICAgIF0gW2JpLT5za2JdXG4iKTsNCj4rCXByX2luZm8oIlJbZGVzY10gICAgICBb
+YWRkcmVzcyA2MzowICBdIFt2bCBlciBTIGNrcyBsbl0gW2JpLT5kbWENCj5dIFtiaS0+c2tiXVxu
+Iik7DQo+DQo+IAlpZiAoIW5ldGlmX21zZ19yeF9zdGF0dXMoYWRhcHRlcikpDQo+IAkJZ290byBl
+eGl0Ow0KPkBAIC0zNDE4LDE1ICszNDE1LDE4IEBAIHJ4X3Jpbmdfc3VtbWFyeToNCj4gCQlzdHJ1
+Y3QgZTEwMDBfYnVmZmVyICpidWZmZXJfaW5mbyA9ICZyeF9yaW5nLT5idWZmZXJfaW5mb1tpXTsN
+Cj4gCQlzdHJ1Y3QgbXlfdSB7IHU2NCBhOyB1NjQgYjsgfTsNCj4gCQlzdHJ1Y3QgbXlfdSAqdSA9
+IChzdHJ1Y3QgbXlfdSAqKXJ4X2Rlc2M7DQo+LQkJcHJpbnRrKEtFUk5fSU5GTyAiUlsweCUwM1hd
+ICAgICAlMDE2bGxYICUwMTZsbFggJTAxNmxsWCAlcCIsDQo+LQkJCWksIGxlNjRfdG9fY3B1KHUt
+PmEpLCBsZTY0X3RvX2NwdSh1LT5iKSwNCj4tCQkJKHU2NClidWZmZXJfaW5mby0+ZG1hLCBidWZm
+ZXJfaW5mby0+c2tiKTsNCj4rCQljb25zdCBjaGFyICp0eXBlOw0KPisNCj4gCQlpZiAoaSA9PSBy
+eF9yaW5nLT5uZXh0X3RvX3VzZSkNCj4tCQkJcHJpbnRrKEtFUk5fQ09OVCAiIE5UVVxuIik7DQo+
+KwkJCXR5cGUgPSAiTlRVIjsNCj4gCQllbHNlIGlmIChpID09IHJ4X3JpbmctPm5leHRfdG9fY2xl
+YW4pDQo+LQkJCXByaW50ayhLRVJOX0NPTlQgIiBOVENcbiIpOw0KPisJCQl0eXBlID0gIk5UQyI7
+DQo+IAkJZWxzZQ0KPi0JCQlwcmludGsoS0VSTl9DT05UICJcbiIpOw0KPisJCQl0eXBlID0gIiI7
+DQo+Kw0KPisJCXByX2luZm8oIlJbMHglMDNYXSAgICAgJTAxNmxsWCAlMDE2bGxYICUwMTZsbFgg
+JXAgJXNcbiIsDQo+KwkJCWksIGxlNjRfdG9fY3B1KHUtPmEpLCBsZTY0X3RvX2NwdSh1LT5iKSwN
+Cj4rCQkJKHU2NClidWZmZXJfaW5mby0+ZG1hLCBidWZmZXJfaW5mby0+c2tiLCB0eXBlKTsNCj4N
+Cj4gCQlpZiAobmV0aWZfbXNnX3BrdGRhdGEoYWRhcHRlcikpDQo+IAkJCXByaW50X2hleF9kdW1w
+KEtFUk5fSU5GTywgIiIsDQo+QEAgLTM0MzgsMjQgKzM0MzgsMjQgQEAgcnhfcmluZ19zdW1tYXJ5
+Og0KPg0KPiAJLyogZHVtcCB0aGUgZGVzY3JpcHRvciBjYWNoZXMgKi8NCj4gCS8qIHJ4ICovDQo+
+LQlwcmludGsoS0VSTl9JTkZPICJlMTAwMDogUnggZGVzY3JpcHRvciBjYWNoZSBpbiA2NGJpdCBm
+b3JtYXRcbiIpOw0KPisJcHJfaW5mbygiUnggZGVzY3JpcHRvciBjYWNoZSBpbiA2NGJpdCBmb3Jt
+YXRcbiIpOw0KPiAJZm9yIChpID0gMHg2MDAwOyBpIDw9IDB4NjNGRiA7IGkgKz0gMHgxMCkgew0K
+Pi0JCXByaW50ayhLRVJOX0lORk8gIlIlMDRYOiAlMDhYfCUwOFggJTA4WHwlMDhYXG4iLA0KPi0J
+CQkJaSwNCj4tCQkJCXJlYWRsKGFkYXB0ZXItPmh3Lmh3X2FkZHIgKyBpKzQpLA0KPi0JCQkJcmVh
+ZGwoYWRhcHRlci0+aHcuaHdfYWRkciArIGkpLA0KPi0JCQkJcmVhZGwoYWRhcHRlci0+aHcuaHdf
+YWRkciArIGkrMTIpLA0KPi0JCQkJcmVhZGwoYWRhcHRlci0+aHcuaHdfYWRkciArIGkrOCkpOw0K
+PisJCXByX2luZm8oIlIlMDRYOiAlMDhYfCUwOFggJTA4WHwlMDhYXG4iLA0KPisJCQlpLA0KPisJ
+CQlyZWFkbChhZGFwdGVyLT5ody5od19hZGRyICsgaSs0KSwNCj4rCQkJcmVhZGwoYWRhcHRlci0+
+aHcuaHdfYWRkciArIGkpLA0KPisJCQlyZWFkbChhZGFwdGVyLT5ody5od19hZGRyICsgaSsxMiks
+DQo+KwkJCXJlYWRsKGFkYXB0ZXItPmh3Lmh3X2FkZHIgKyBpKzgpKTsNCj4gCX0NCj4gCS8qIHR4
+ICovDQo+LQlwcmludGsoS0VSTl9JTkZPICJlMTAwMDogVHggZGVzY3JpcHRvciBjYWNoZSBpbiA2
+NGJpdCBmb3JtYXRcbiIpOw0KPisJcHJfaW5mbygiVHggZGVzY3JpcHRvciBjYWNoZSBpbiA2NGJp
+dCBmb3JtYXRcbiIpOw0KPiAJZm9yIChpID0gMHg3MDAwOyBpIDw9IDB4NzNGRiA7IGkgKz0gMHgx
+MCkgew0KPi0JCXByaW50ayhLRVJOX0lORk8gIlQlMDRYOiAlMDhYfCUwOFggJTA4WHwlMDhYXG4i
+LA0KPi0JCQkJaSwNCj4tCQkJCXJlYWRsKGFkYXB0ZXItPmh3Lmh3X2FkZHIgKyBpKzQpLA0KPi0J
+CQkJcmVhZGwoYWRhcHRlci0+aHcuaHdfYWRkciArIGkpLA0KPi0JCQkJcmVhZGwoYWRhcHRlci0+
+aHcuaHdfYWRkciArIGkrMTIpLA0KPi0JCQkJcmVhZGwoYWRhcHRlci0+aHcuaHdfYWRkciArIGkr
+OCkpOw0KPisJCXByX2luZm8oIlQlMDRYOiAlMDhYfCUwOFggJTA4WHwlMDhYXG4iLA0KPisJCQlp
+LA0KPisJCQlyZWFkbChhZGFwdGVyLT5ody5od19hZGRyICsgaSs0KSwNCj4rCQkJcmVhZGwoYWRh
+cHRlci0+aHcuaHdfYWRkciArIGkpLA0KPisJCQlyZWFkbChhZGFwdGVyLT5ody5od19hZGRyICsg
+aSsxMiksDQo+KwkJCXJlYWRsKGFkYXB0ZXItPmh3Lmh3X2FkZHIgKyBpKzgpKTsNCj4gCX0NCj4g
+ZXhpdDoNCj4gCXJldHVybjsNCj4NCg0K
