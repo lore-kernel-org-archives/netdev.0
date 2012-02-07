@@ -1,41 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v7, kernel version 3.2.1] net/ipv4/ip_gre: Ethernet
- multipoint GRE over IP
-Date: Tue, 07 Feb 2012 12:06:26 -0500 (EST)
-Message-ID: <20120207.120626.504782957149146533.davem@davemloft.net>
-References: <20120201.024357.1370213516985704222.davem@davemloft.net>
-	<CAGsizzL9x2es1XC5pac7LN99yp+sW5nt1eecYKhmdiRjBfNEeg@mail.gmail.com>
-	<CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
+Subject: Re: [patch v8, kernel version 3.2.1] Source mode for macvlan
+ interface
+Date: Tue, 07 Feb 2012 12:10:23 -0500 (EST)
+Message-ID: <20120207.121023.2131074219122624371.davem@davemloft.net>
+References: <2400968.61328600903168.JavaMail.root@5-MeO-DMT.ynet.sk>
+	<15266430.31328603700375.JavaMail.root@5-MeO-DMT.ynet.sk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: steweg@ynet.sk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGsizz+-O5jRRxpd=dG664kKnabqH+ge8NCd08bOAhVU6RMFMQ@mail.gmail.com>
+In-Reply-To: <15266430.31328603700375.JavaMail.root@5-MeO-DMT.ynet.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: =A6tefan Gula <steweg@ynet.sk>
-Date: Tue, 7 Feb 2012 10:10:04 +0100
+From: Stefan Gula <steweg@ynet.sk>
+Date: Tue, 7 Feb 2012 09:35:00 +0100 (CET)
 
-> 2012/2/1 =A6tefan Gula <steweg@ynet.sk>:
->> 2012/2/1 David Miller <davem@davemloft.net>:
-> I think that everything what could be done and said from my-side to
-> provide you guys answers to hopefully all your questions and to get
-> this into kernel was done. So I would like to ask you to provide me
-> final feedback. Thanks
+> From: Stefan Gula <steweg@gmail.com>
+> 
+> New mode of macvlan interface called "source" allows one to set a list
+> of allowed mac address, which is used to match against source mac
+> address from received frames on underlying interface. This allows
+> creating mac based VLAN associations, instead of standard port or tag
+> based. The feature is useful to deploy 802.1x mac based behavior,
+> where drivers of underlying interfaces doesn't allows that.
+> Configuration is done through the netlink interface using e.g.:
+>  ip link add link eth0 name macvlan0 type macvlan mode source
+>  ip link add link eth0 name macvlan1 type macvlan mode source
+>  ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
+>  ip link set link macvlan0 type macvlan macaddr add 00:22:22:22:22:22
+>  ip link set link macvlan0 type macvlan macaddr add 00:33:33:33:33:33
+>  ip link set link macvlan1 type macvlan macaddr add 00:33:33:33:33:33
+>  ip link set link macvlan1 type macvlan macaddr add 00:44:44:44:44:44
+> This allows clients with MAC addresses 00:11:11:11:11:11,
+> 00:22:22:22:22:22 to be part of only VLAN associated with macvlan0
+> interface. Clients with MAC addresses 00:44:44:44:44:44 with only VLAN
+> associated with macvlan1 interface. And client with MAC address
+> 00:33:33:33:33:33 to be associated with both VLANs.
+> 
+> Signed-off-by: Stefan Gula <steweg@gmail.com>
+> 
+> ---
+> 
+> V8 changes:
+>    - added ability to list allowed mac address list back using devdump
+>      ops method - required previous rtnetlink patch to be applied first
 
-Your patch will not be applied, you haven't said anything new to me,
-you haven't given me any new information that would change my position,
-so it should be no surprise to you that I still want you to work
-towards a solution that uses openvswitch.
+So you can't submit this until we've applied the final version of that
+patch, because you have no idea what the exact mechanism is going to be to
+enable dumping of your state, and therefore you can't code to the API
+that enables your part of the dump.
 
-And btw, your inability to see our point of view on this matter in any
-way, shape, or form, is really working to your disadvantage and is
-undermining your ultimate goals.  Your should seriously reconsider
-how you are going about this, because right now I cringe when I see
-messages from you in my inbox and I bet a lot of other people feel
-this way right now as well.
+The way that you rush your work is irritating, let things run their
+course, in as much time as it takes.
+
+And frankly there is no rush on this, as the next merge window for
+new features is several months away.
