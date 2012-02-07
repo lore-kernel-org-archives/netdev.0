@@ -1,61 +1,65 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 14/15] tipc: Eliminate alteration of publication key during name table purging
-Date: Mon,  6 Feb 2012 19:52:47 -0500
-Message-ID: <1328575968-20643-15-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 03/15] tipc: Prevent broadcast link stalling in dual LAN environments
+Date: Mon,  6 Feb 2012 19:52:36 -0500
+Message-ID: <1328575968-20643-4-git-send-email-paul.gortmaker@windriver.com>
 References: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50221 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:50170 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756534Ab2BGAxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:19 -0500
+	with ESMTP id S1754529Ab2BGAxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:10 -0500
 In-Reply-To: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Removes code that alters the publication key of a name table entry
-that is being forcibly purged from TIPC's name table after contact
-with the publishing node has been lost.
+Ensure that sequence number information about incoming broadcast link
+messages is initialized only by the activation of the first link to a
+given cluster node.  Previously, a race condition allowed reset and/or
+activation messages for a second link to re-initialize this sequence
+number information with obsolete values. This could trigger TIPC to
+request the retransmission of previously acknowledged broadcast link
+messages from that node, resulting in broadcast link processing becoming
+stalled if the node had already released one or more of those messages
+and was unable to perform the required retransmission.
 
-Current TIPC ensures that all defunct names are purged before
-re-establishing contact with a failed node.  There used to be a risk
-that the publication might be accidentally deleted because it might be
-re-added to the name table before the purge operation was completed.
-But now there is no longer a need to ensure that the new key is different
-than the old one.
+Thanks to Laser <gotolaser@gmail.com> for identifying this problem
+and assisting in the development of this fix.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_distr.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ net/tipc/link.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 98ebb37..acecfda 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -239,9 +239,6 @@ exit:
-  *
-  * Invoked for each publication issued by a newly failed node.
-  * Removes publication structure from name table & deletes it.
-- * In rare cases the link may have come back up again when this
-- * function is called, and we have two items representing the same
-- * publication. Nudge this item's key to distinguish it from the other.
-  */
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index bee316c..4ea6cad 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2128,14 +2128,15 @@ static void link_recv_proto_msg(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 		}
+ 		l_ptr->owner->bclink.supported = (max_pkt_info != 0);
  
- static void named_purge_publ(struct publication *publ)
-@@ -249,7 +246,6 @@ static void named_purge_publ(struct publication *publ)
- 	struct publication *p;
++		/* Synchronize broadcast link info, if not done previously */
++
++		if (!tipc_node_is_up(l_ptr->owner))
++			l_ptr->owner->bclink.last_in = msg_last_bcast(msg);
++
+ 		link_state_event(l_ptr, msg_type(msg));
  
- 	write_lock_bh(&tipc_nametbl_lock);
--	publ->key += 1222345;
- 	p = tipc_nametbl_remove_publ(publ->type, publ->lower,
- 				     publ->node, publ->ref, publ->key);
- 	if (p)
+ 		l_ptr->peer_session = msg_session(msg);
+ 		l_ptr->peer_bearer_id = msg_bearer_id(msg);
+-
+-		/* Synchronize broadcast sequence numbers */
+-		if (!tipc_node_redundant_links(l_ptr->owner))
+-			l_ptr->owner->bclink.last_in = mod(msg_last_bcast(msg));
+ 		break;
+ 	case STATE_MSG:
+ 
 -- 
 1.7.9
