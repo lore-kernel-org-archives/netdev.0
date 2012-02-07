@@ -1,92 +1,141 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 09/15] tipc: Add missing locks in broadcast link statistics accumulation
-Date: Mon,  6 Feb 2012 19:52:42 -0500
-Message-ID: <1328575968-20643-10-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/15] tipc: Fix node lock reclamation issues in broadcast link reception
+Date: Mon,  6 Feb 2012 19:52:40 -0500
+Message-ID: <1328575968-20643-8-git-send-email-paul.gortmaker@windriver.com>
 References: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50193 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:50184 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756468Ab2BGAxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:15 -0500
+	with ESMTP id S1756230Ab2BGAxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:14 -0500
 In-Reply-To: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Ensures that all attempts to update broadcast link statistics are done
-only while holding the lock that protects the link's main data structures,
-to prevent interference by simultaneous updates caused by messages
-arriving on other interfaces.
+Fixes a pair of problems in broadcast link message reception code
+relating to the reclamation of the node lock after consuming an
+in-sequence message.
+
+1) Now retests to see if the sending node is still up after reclaiming
+   the node lock, and bails out if it is non-operational.
+
+2) Now manipulates the node's deferred message queue only after
+   reclaiming the node lock, rather than using queue head pointer
+   information that was cached previously.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ net/tipc/bcast.c |   58 +++++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 40 insertions(+), 18 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 035b350..facc216 100644
+index 7342abc..e7df313 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -520,6 +520,7 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+@@ -474,7 +474,7 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+ 	struct tipc_node *node;
+ 	u32 next_in;
+ 	u32 seqno;
+-	struct sk_buff *deferred;
++	int deferred;
+ 
+ 	/* Screen out unwanted broadcast messages */
+ 
+@@ -489,6 +489,8 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+ 	if (unlikely(!node->bclink.supported))
+ 		goto unlock;
+ 
++	/* Handle broadcast protocol message */
++
+ 	if (unlikely(msg_user(msg) == BCAST_PROTOCOL)) {
+ 		if (msg_type(msg) != STATE_MSG)
+ 			goto unlock;
+@@ -513,11 +515,11 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
+ 
+ 	/* Handle in-sequence broadcast message */
+ 
+-receive:
+-	next_in = mod(node->bclink.last_in + 1);
+ 	seqno = msg_seqno(msg);
++	next_in = mod(node->bclink.last_in + 1);
  
  	if (likely(seqno == next_in)) {
- receive:
-+		spin_lock_bh(&bc_lock);
++receive:
  		bcl->stats.recv_info++;
  		node->bclink.last_in++;
  		bclink_set_gap(node);
-@@ -527,7 +528,9 @@ receive:
- 			bclink_send_ack(node);
- 			bcl->stats.sent_acks++;
- 		}
-+
- 		if (likely(msg_isdata(msg))) {
-+			spin_unlock_bh(&bc_lock);
- 			tipc_node_unlock(node);
- 			if (likely(msg_mcast(msg)))
- 				tipc_port_recv_mcast(buf, NULL);
-@@ -536,6 +539,7 @@ receive:
- 		} else if (msg_user(msg) == MSG_BUNDLER) {
- 			bcl->stats.recv_bundles++;
- 			bcl->stats.recv_bundled += msg_msgcnt(msg);
-+			spin_unlock_bh(&bc_lock);
- 			tipc_node_unlock(node);
- 			tipc_link_recv_bundle(buf);
- 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
-@@ -543,12 +547,15 @@ receive:
- 			if (tipc_link_recv_fragment(&node->bclink.defragm,
- 						    &buf, &msg))
- 				bcl->stats.recv_fragmented++;
-+			spin_unlock_bh(&bc_lock);
- 			tipc_node_unlock(node);
- 			tipc_net_route_msg(buf);
- 		} else if (msg_user(msg) == NAME_DISTRIBUTOR) {
-+			spin_unlock_bh(&bc_lock);
- 			tipc_node_unlock(node);
- 			tipc_named_recv(buf);
- 		} else {
-+			spin_unlock_bh(&bc_lock);
- 			tipc_node_unlock(node);
+@@ -551,23 +553,40 @@ receive:
  			buf_discard(buf);
  		}
-@@ -601,11 +608,15 @@ receive:
- 	} else
- 		deferred = 0;
- 
-+	spin_lock_bh(&bc_lock);
+ 		buf = NULL;
 +
- 	if (deferred)
- 		bcl->stats.deferred_recv++;
- 	else
- 		bcl->stats.duplicates++;
++		/* Determine new synchronization state */
++
+ 		tipc_node_lock(node);
+-		deferred = node->bclink.deferred_head;
+-		if (deferred && (buf_seqno(deferred) == mod(next_in + 1))) {
+-			buf = deferred;
+-			msg = buf_msg(buf);
+-			node->bclink.deferred_head = deferred->next;
+-			goto receive;
+-		}
+-	} else if (less(next_in, seqno)) {
++		if (unlikely(!tipc_node_is_up(node)))
++			goto unlock;
++
++		if (!node->bclink.deferred_head)
++			goto unlock;
++
++		msg = buf_msg(node->bclink.deferred_head);
++		seqno = msg_seqno(msg);
++		next_in = mod(next_in + 1);
++		if (seqno != next_in)
++			goto unlock;
++
++		/* Take in-sequence message from deferred queue & deliver it */
++
++		buf = node->bclink.deferred_head;
++		node->bclink.deferred_head = buf->next;
++		goto receive;
++	}
++
++	/* Handle out-of-sequence broadcast message */
++
++	if (less(next_in, seqno)) {
+ 		u32 gap_after = node->bclink.gap_after;
+ 		u32 gap_to = node->bclink.gap_to;
  
-+	spin_unlock_bh(&bc_lock);
+-		if (tipc_link_defer_pkt(&node->bclink.deferred_head,
+-					&node->bclink.deferred_tail,
+-					buf)) {
++		deferred = tipc_link_defer_pkt(&node->bclink.deferred_head,
++					       &node->bclink.deferred_tail,
++					       buf);
++		if (deferred) {
+ 			node->bclink.nack_sync++;
+-			bcl->stats.deferred_recv++;
+ 			if (seqno == mod(gap_after + 1))
+ 				node->bclink.gap_after = seqno;
+ 			else if (less(gap_after, seqno) && less(seqno, gap_to))
+@@ -579,9 +598,12 @@ receive:
+ 				bclink_send_nack(node);
+ 			bclink_set_gap(node);
+ 		}
+-	} else {
+-		bcl->stats.duplicates++;
+-	}
++	} else
++		deferred = 0;
++
++	if (deferred)
++		bcl->stats.deferred_recv++;
 +
  unlock:
  	tipc_node_unlock(node);
