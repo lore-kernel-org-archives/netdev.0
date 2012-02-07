@@ -1,132 +1,49 @@
-From: greearb@candelatech.com
-Subject: [RFC 2/2] e1000e:  Support RXALL feature flag.
-Date: Tue,  7 Feb 2012 15:07:43 -0800
-Message-ID: <1328656063-13129-2-git-send-email-greearb@candelatech.com>
-References: <1328656063-13129-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH RESEND] FEC: Rename dev to ndev, fix compile error
+Date: Tue, 7 Feb 2012 21:31:56 -0200
+Message-ID: <CAOMZO5Dq4o9BWfsL97awSaxeqHrLZK5GYb+JS1cpghSeaEfYYw@mail.gmail.com>
+References: <1328654643-28442-1-git-send-email-marek.vasut@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Pradeep A Dalvi <netdev@pradeepdalvi.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Marek Vasut <marek.vasut@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41858 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757141Ab2BGXH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 18:07:57 -0500
-In-Reply-To: <1328656063-13129-1-git-send-email-greearb@candelatech.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:39548 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756603Ab2BGXb6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 18:31:58 -0500
+Received: by eaah12 with SMTP id h12so2999184eaa.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 15:31:56 -0800 (PST)
+In-Reply-To: <1328654643-28442-1-git-send-email-marek.vasut@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+Hi Marek,
 
-This allows the NIC to receive all frames available, including
-those with bad FCS, un-matched vlans, ethernet control frames,
-and more.
+On Tue, Feb 7, 2012 at 8:44 PM, Marek Vasut <marek.vasut@gmail.com> wro=
+te:
+> The following commit introduced a typo, this commit fixes it.
+>
+> commit 21a4e46995fa1a76281ac0281ff837f706231a37
+> Author: Pradeep A Dalvi <netdev@pradeepdalvi.com>
+> Date: =C2=A0 Sun Feb 5 02:50:10 2012 +0000
+>
+> =C2=A0 =C2=A0netdev: ethernet dev_alloc_skb to netdev_alloc_skb
+>
+> =C2=A0 =C2=A0Replaced deprecating dev_alloc_skb with netdev_alloc_skb=
+ in drivers/net/ethernet
+> =C2=A0 =C2=A0 =C2=A0- Removed extra skb->dev =3D dev after netdev_all=
+oc_skb
+>
+> Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
+> Cc: Pradeep A Dalvi <netdev@pradeepdalvi.com>
+> Cc: David S. Miller <davem@davemloft.net>
 
-Tested by sending frames with bad FCS.
+I have already sent a fix for this issue and David has applied it.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 1af30b9... 3a50259... M	drivers/net/ethernet/intel/e1000e/defines.h
-:100644 100644 22bafbd... 48cf317... M	drivers/net/ethernet/intel/e1000e/netdev.c
- drivers/net/ethernet/intel/e1000e/defines.h |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c  |   40 ++++++++++++++++++++++-----
- 2 files changed, 34 insertions(+), 7 deletions(-)
+Regards,
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 1af30b9..3a50259 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -177,6 +177,7 @@
- #define E1000_RCTL_VFE            0x00040000    /* vlan filter enable */
- #define E1000_RCTL_CFIEN          0x00080000    /* canonical form enable */
- #define E1000_RCTL_CFI            0x00100000    /* canonical form indicator */
-+#define E1000_RCTL_DPF            0x00400000    /* Discard Pause Frames */
- #define E1000_RCTL_PMCF           0x00800000    /* pass MAC control frames */
- #define E1000_RCTL_BSEX           0x02000000    /* Buffer size extension */
- #define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 22bafbd..48cf317 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -930,9 +930,11 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 		}
- 
- 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
--			/* recycle */
--			buffer_info->skb = skb;
--			goto next_desc;
-+			if (!(netdev->features & NETIF_F_RXALL)) {
-+				/* recycle */
-+				buffer_info->skb = skb;
-+				goto next_desc;
-+			}
- 		}
- 
- 		/* adjust length to remove Ethernet CRC */
-@@ -1259,8 +1261,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
- 		}
- 
- 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
--			dev_kfree_skb_irq(skb);
--			goto next_desc;
-+			if (!(netdev->features & NETIF_F_RXALL)) {
-+				dev_kfree_skb_irq(skb);
-+				goto next_desc;
-+			}
- 		}
- 
- 		length = le16_to_cpu(rx_desc->wb.middle.length0);
-@@ -1451,7 +1455,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 
- 		/* errors is only valid for DD + EOP descriptors */
- 		if (unlikely((staterr & E1000_RXD_STAT_EOP) &&
--			     (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK))) {
-+			     ((staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) &&
-+			      !(netdev->features & NETIF_F_RXALL)))) {
- 			/* recycle both page and skb */
- 			buffer_info->skb = skb;
- 			/* an error means any chain goes out the window too */
-@@ -2996,6 +3001,25 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 		ew32(PSRCTL, psrctl);
- 	}
- 
-+	/* This is useful for sniffing bad packets. */
-+	if (adapter->netdev->features & NETIF_F_RXALL) {
-+		rctl |= (E1000_RCTL_SBP | /* Receive bad packets */
-+			 E1000_RCTL_UPE | /* RX all Unicast Pkts */
-+			 E1000_RCTL_MPE | /* RX all Mcast Pkts */
-+			 E1000_RCTL_BAM | /* RX All Bcast Pkts Pkts */
-+			 E1000_RCTL_PMCF); /* RX All MAC Ctrl Pkts */
-+
-+		rctl &= ~(E1000_RCTL_VFE | /* Disable VLAN filter */
-+			  E1000_RCTL_DPF | /* Allow filtered pause */
-+			  E1000_RCTL_CFIEN); /* Dis VLAN CFIEN Filter */
-+		/* disable VLAN tagging/striping */
-+		/* SKIP This, it also affects transmit side and
-+		   screws up VLANs --Ben. */
-+		/* ctrl = er32(CTRL); */
-+		/* ctrl &= ~E1000_CTRL_VME; */
-+		/* ew32(CTRL, ctrl); */
-+	}
-+
- 	ew32(RFCTL, rfctl);
- 	ew32(RCTL, rctl);
- 	/* just started the receive unit, no need to restart */
-@@ -6002,7 +6026,8 @@ static int e1000_set_features(struct net_device *netdev,
- 		adapter->flags |= FLAG_TSO_FORCE;
- 
- 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
--			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS)))
-+			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS |
-+			 NETIF_F_RXALL)))
- 		return 0;
- 
- 	/*
-@@ -6230,6 +6255,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	/* Set user-changeable features (subset of all device features) */
- 	netdev->hw_features = netdev->features;
- 	netdev->hw_features |= NETIF_F_RXFCS;
-+	netdev->hw_features |= NETIF_F_RXALL;
- 
- 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
- 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
--- 
-1.7.3.4
+=46abio Estevam
