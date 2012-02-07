@@ -1,40 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/15] TIPC updates for upcoming v3.4
-Date: Tue, 07 Feb 2012 12:33:36 -0500 (EST)
-Message-ID: <20120207.123336.1274282916319329519.davem@davemloft.net>
-References: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
+From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
+Subject: Re: [net-next 02/11] e1000: Adding e1000_dump function
+Date: Tue, 07 Feb 2012 18:38:09 +0100
+Message-ID: <1782836.alj52xdzPl@alaris>
+References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com> <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	ying.xue@windriver.com
-To: paul.gortmaker@windriver.com
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Tushar Dave <tushar.n.dave@intel.com>, gospo@redhat.com,
+	sassmann@redhat.com, jbeulich@suse.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34918 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754338Ab2BGRdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:33:39 -0500
-In-Reply-To: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from cantor2.suse.de ([195.135.220.15]:51202 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755258Ab2BGRiL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:38:11 -0500
+In-Reply-To: <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon,  6 Feb 2012 19:52:33 -0500
+On Tuesday 07 of February 2012 04:33EN, Jeff Kirsher wrote:
+> +		if (netif_msg_pktdata(adapter) && buffer_info->dma !=3D 0)
+> +			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
+> +					16, 1, phys_to_virt(buffer_info->dma),
+> +					buffer_info->length, true);
 
-> No real trend or correlation from one patch to the next here,
-> just continued chiseling away at what were deemed to be the
-> worthwhile bits that were squirreled away on sourceforge.
-> I think there is on the order of 50 left after this.
-> 
-> I haven't forgot about your earlier request to see some of
-> the tipc_printbuf related stuff go away (at least I think that
-> was what you wanted to see replaced).  I'm not entirely 100%
-> sure how to proceed there just yet, so I may tackle a few
-> more from the remaining 50 in the interim while the log.c
-> cleanup gets more thought.
-> 
-> Runtime tested from 64 to 32 bit x86 machines; I had to revert
-> an skge commit to get my 32 bit machine functional, but that
-> is largely of no interest here.
+This might cause problems in Xen environment, we encountered a crash in=
+=20
+e1000e where phys_to_virt() is used the same way. I'm not familiar with=
+=20
+the details but this is what Jan Beulich wrote about it:
 
-Pulled, thanks Paul.
+> And the use of phys_to_virt() here seems wrong - buffer_info->dma,
+> afaict, is being obtained via the dma_map_*() APIs, which do NOT
+> return a physical address (the fact that what they return is identica=
+l
+> to the corresponding physical address on native doesn't mean this is
+> universally so).
+>=20
+> bus_to_virt() is what should be used here on Xen (though that isn't
+> universally correct either afaik, but there simply is no
+> dma_to_virt(); it *is* consistent on x86 and ia64 at least, while
+> ppc64 is lacking a definition altogether [I would be very surprised
+> though if this use of phys_to_virt() was correct on this arch, given
+> that e.g. dma_direct_map_page() uses get_dma_offset() to obtain the
+> DMA address]).
+
+                                                         Michal Kube=E8=
+ek
