@@ -1,45 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 2/2] e100: Support RXFCS feature flag.
-Date: Tue, 07 Feb 2012 15:55:28 -0800
-Message-ID: <4F31B9F0.5000407@candelatech.com>
-References: <1328553547-27337-1-git-send-email-greearb@candelatech.com> <1328553547-27337-2-git-send-email-greearb@candelatech.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/5] send-crc: Add framework to allow sending packets with
+ customized CRC.
+Date: Wed, 8 Feb 2012 00:59:17 +0100
+Message-ID: <CAHXqBFKbv13jL_RqbOTZp6P-TOO7iQ1211SXmMso_3LK27LkPw@mail.gmail.com>
+References: <1328644182-7872-1-git-send-email-greearb@candelatech.com>
+ <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com> <4F318CF5.1060200@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51642 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754296Ab2BGXz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 18:55:29 -0500
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id q17NtSHt018493
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 7 Feb 2012 15:55:28 -0800
-In-Reply-To: <1328553547-27337-2-git-send-email-greearb@candelatech.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:47511 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755998Ab2BGX7i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 18:59:38 -0500
+Received: by yhoo21 with SMTP id o21so3366072yho.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 15:59:37 -0800 (PST)
+In-Reply-To: <4F318CF5.1060200@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2012 10:39 AM, greearb@candelatech.com wrote:
-> From: Ben Greear<greearb@candelatech.com>
+W dniu 7 lutego 2012 21:43 u=BFytkownik Ben Greear
+<greearb@candelatech.com> napisa=B3:
+> On 02/07/2012 12:33 PM, Micha=B3 Miros=B3aw wrote:
+>>
+>> 2012/2/7<greearb@candelatech.com>:
+>>>
+>>> From: Ben Greear<greearb@candelatech.com>
+>>>
+>>> This is useful for testing RX handling of frames with bad
+>>> CRCs.
+>>>
+>>> Requires driver support to actually put the packet on the
+>>> wire properly.
+>>
+>> [...]
+>>
+>> I like this idea. I think that this is not a feature to have in
+>> dev->features to toggle, though. Driver either supports this or not,
+>> so it's better to put it in dev->priv_flags instead. Disabling of FC=
+S
+>> inserting is a per-packet option in the drivers, isn't it?
+>>
+>> For one problem with toggling: if you create a socket using it and
+>> later turn off the feature, the socket will still send skbs with FCS
+>> appended.
+> For the priv-flags, is there a way to query that from user-space to
+> see if the NIC supports it?
 >
-> This allows e100 to be configured to append the
-> Ethernet FCS to the skb.
+> The pkt-socket xmit logic will throw away pkts if the NIC doesn't
+> have the feature enabled, but a few already queued might get
+> through with extra CRC appended.
 >
-> Useful for sniffing networks.
+> So, I'm fine with your suggestion, as long as there is some way to
+> query whether the NIC supports this feature or not...
 
-This patch actually works in testing, but I think I might
-be getting lucky somehow.  I think I need to add an ndo_set_features
-method that resets the chip when the rxfcs flag is toggled...
+There's a way, as you implemented -EINVAL when trying to send via
+unsupporting device. :-) Would be even better if setting SO_NO_FCS
+would fail at setsockopt() time.
 
-So, please do not apply this version of this patch, I'll
-re-send these when I complete that change and test it.
+priv_flags are not exposed to userspace. It should be easy to export
+them using ETHTOOL_GFEATURES as non-changeable features, if that's
+useful.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Best Regards,
+Micha=B3 Miros=B3aw
