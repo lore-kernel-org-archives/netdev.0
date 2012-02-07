@@ -1,29 +1,62 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
-Date: Tue, 7 Feb 2012 12:34:42 -0800
-Message-ID: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA@mail.gmail.com>
-References: <CAG4TOxNcB8+SP3f0WhZG1GZ481s+=7pVRv91vzAbwDzUZD8g_A@mail.gmail.com>
- <20120206.151509.1959432192519622134.davem@davemloft.net> <CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
- <20120207.153325.1941809701255235550.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 1/5] send-crc: Add framework to allow sending packets
+ with customized CRC.
+Date: Tue, 07 Feb 2012 12:43:33 -0800
+Message-ID: <4F318CF5.1060200@candelatech.com>
+References: <1328644182-7872-1-git-send-email-greearb@candelatech.com> <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120207.153325.1941809701255235550.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:52449 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755438Ab2BGUnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:43:35 -0500
+In-Reply-To: <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 7, 2012 at 12:33 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> I would simplify this to "!skb_dst(skb)", any failure of
-> dst_get_neighbour_noref_raw() (now and in the future) would be
-> transient.
+On 02/07/2012 12:33 PM, Micha=C5=82 Miros=C5=82aw wrote:
+> 2012/2/7<greearb@candelatech.com>:
+>> From: Ben Greear<greearb@candelatech.com>
+>>
+>> This is useful for testing RX handling of frames with bad
+>> CRCs.
+>>
+>> Requires driver support to actually put the packet on the
+>> wire properly.
+> [...]
+>
+> I like this idea. I think that this is not a feature to have in
+> dev->features to toggle, though. Driver either supports this or not,
+> so it's better to put it in dev->priv_flags instead. Disabling of FCS
+> inserting is a per-packet option in the drivers, isn't it?
+>
+> For one problem with toggling: if you create a socket using it and
+> later turn off the feature, the socket will still send skbs with FCS
+> appended.
 
-OK, will do.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46or the priv-flags, is there a way to query that from user-space to
+see if the NIC supports it?
+
+The pkt-socket xmit logic will throw away pkts if the NIC doesn't
+have the feature enabled, but a few already queued might get
+through with extra CRC appended.
+
+So, I'm fine with your suggestion, as long as there is some way to
+query whether the NIC supports this feature or not...
+
+Thanks,
+Ben
+
+>
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
