@@ -1,173 +1,503 @@
-From: "Erich E. Hoover" <ehoover@mines.edu>
-Subject: [PATCH v5 1/2] Implement IP_UNICAST_IF socket option.
-Date: Tue,  7 Feb 2012 12:44:22 -0700
-Message-ID: <1328643863-10404-1-git-send-email-ehoover@mines.edu>
-Cc: "Erich E. Hoover" <ehoover@mines.edu>
-To: Linux Netdev <netdev@vger.kernel.org>
+From: greearb@candelatech.com
+Subject: [PATCH 1/5] send-crc: Add framework to allow sending packets with customized CRC.
+Date: Tue,  7 Feb 2012 11:49:40 -0800
+Message-ID: <1328644182-7872-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from izzard.Mines.EDU ([138.67.132.197]:53598 "EHLO izzard.mines.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754593Ab2BGToi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 14:44:38 -0500
+Received: from mail.candelatech.com ([208.74.158.172]:35670 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756739Ab2BGTtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 14:49:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Greear <greearb@candelatech.com>
 
-The IP_UNICAST_IF feature is needed by the Wine project.  This patch implements the feature by setting the outgoing interface in a similar fashion to that of IP_MULTICAST_IF.  A separate option is needed to handle this feature since the existing options do not provide all of the characteristics required by IP_UNICAST_IF, a summary is provided below.
+This is useful for testing RX handling of frames with bad
+CRCs.
 
-SO_BINDTODEVICE:
-* SO_BINDTODEVICE requires administrative privileges, IP_UNICAST_IF does not.  From reading some old mailing list articles my understanding is that SO_BINDTODEVICE requires administrative privileges because it can override the administrator's routing settings.
-* The SO_BINDTODEVICE option restricts both outbound and inbound traffic, IP_UNICAST_IF only impacts outbound traffic.
+Requires driver support to actually put the packet on the
+wire properly.
 
-IP_PKTINFO:
-* Since IP_PKTINFO and IP_UNICAST_IF are independent options, implementing IP_UNICAST_IF with IP_PKTINFO will likely break some applications.
-* Implementing IP_UNICAST_IF on top of IP_PKTINFO significantly complicates the Wine codebase and reduces the socket performance (doing this requires a lot of extra communication between the "server" and "user" layers).
-
-bind():
-* bind() does not work on broadcast packets, IP_UNICAST_IF is specifically intended to work with broadcast packets.
-* Like SO_BINDTODEVICE, bind() restricts both outbound and inbound traffic.
-
-Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
- include/linux/in.h      |    1 +
- include/net/inet_sock.h |    2 ++
- net/ipv4/ip_sockglue.c  |   33 +++++++++++++++++++++++++++++++++
- net/ipv4/ping.c         |    3 ++-
- net/ipv4/raw.c          |    3 ++-
- net/ipv4/udp.c          |    3 ++-
- 6 files changed, 42 insertions(+), 3 deletions(-)
+:100644 100644 7d27812... 0bc0d37... M	Documentation/networking/netdev-features.txt
+:100644 100644 082355f... 87ba870... M	arch/alpha/include/asm/socket.h
+:100644 100644 dec6f9a... ea7629e... M	arch/arm/include/asm/socket.h
+:100644 100644 247b88c... 6d2e448... M	arch/avr32/include/asm/socket.h
+:100644 100644 e269264... 9ba1079... M	arch/cris/include/asm/socket.h
+:100644 100644 ce80fda... ff8a4c3... M	arch/frv/include/asm/socket.h
+:100644 100644 cf1daab... 8be2267... M	arch/h8300/include/asm/socket.h
+:100644 100644 4b03664... 17664c9... M	arch/ia64/include/asm/socket.h
+:100644 100644 e8b8c5b... 20de3ac... M	arch/m32r/include/asm/socket.h
+:100644 100644 d4708ce... 98bf770... M	arch/m68k/include/asm/socket.h
+:100644 100644 ad5c0a7... d97c83a... M	arch/mips/include/asm/socket.h
+:100644 100644 876356d... 545cbbe... M	arch/mn10300/include/asm/socket.h
+:100644 100644 d28c51b... 15d2d90... M	arch/parisc/include/asm/socket.h
+:100644 100644 2fc2af8... 29bbe62... M	arch/powerpc/include/asm/socket.h
+:100644 100644 67b5c1b... 237b1e7... M	arch/s390/include/asm/socket.h
+:100644 100644 8af1b64... 18d523a... M	arch/sparc/include/asm/socket.h
+:100644 100644 bb06968... 00af4e6... M	arch/xtensa/include/asm/socket.h
+:100644 100644 49c1704... 3c59235... M	include/asm-generic/socket.h
+:100644 100644 d133186... 3bae320... M	include/linux/netdev_features.h
+:100644 100644 50db9b0... cc614a9... M	include/linux/skbuff.h
+:100644 100644 91c1c8b... 5d8ecbc... M	include/net/sock.h
+:100644 100644 0801619... cf81ccf... M	net/core/ethtool.c
+:100644 100644 da0c97f... 36e7b7c... M	net/core/skbuff.c
+:100644 100644 3e81fd2... 1db3096... M	net/core/sock.c
+:100644 100644 2dbb32b... f4c833e... M	net/packet/af_packet.c
+ Documentation/networking/netdev-features.txt |    9 +++++++
+ arch/alpha/include/asm/socket.h              |    3 ++
+ arch/arm/include/asm/socket.h                |    3 ++
+ arch/avr32/include/asm/socket.h              |    3 ++
+ arch/cris/include/asm/socket.h               |    3 ++
+ arch/frv/include/asm/socket.h                |    3 ++
+ arch/h8300/include/asm/socket.h              |    3 ++
+ arch/ia64/include/asm/socket.h               |    3 ++
+ arch/m32r/include/asm/socket.h               |    3 ++
+ arch/m68k/include/asm/socket.h               |    3 ++
+ arch/mips/include/asm/socket.h               |    3 ++
+ arch/mn10300/include/asm/socket.h            |    3 ++
+ arch/parisc/include/asm/socket.h             |    4 +++
+ arch/powerpc/include/asm/socket.h            |    3 ++
+ arch/s390/include/asm/socket.h               |    3 ++
+ arch/sparc/include/asm/socket.h              |    4 +++
+ arch/xtensa/include/asm/socket.h             |    3 ++
+ include/asm-generic/socket.h                 |    4 +++
+ include/linux/netdev_features.h              |    2 +
+ include/linux/skbuff.h                       |    4 ++-
+ include/net/sock.h                           |    4 +++
+ net/core/ethtool.c                           |    1 +
+ net/core/skbuff.c                            |    1 +
+ net/core/sock.c                              |    4 +++
+ net/packet/af_packet.c                       |   32 ++++++++++++++++++++++---
+ 25 files changed, 106 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/in.h b/include/linux/in.h
-index 01129c0..89f6682 100644
---- a/include/linux/in.h
-+++ b/include/linux/in.h
-@@ -86,6 +86,7 @@ struct in_addr {
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index 7d27812..0bc0d37 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -158,3 +158,12 @@ VLANs. This may be not useful, though.]
+ This requests that the NIC append the Ethernet Frame Checksum (FCS)
+ to the end of the skb data.  This allows sniffers and other tools to
+ read the CRC recorded by the NIC on receipt of the packet.
++
++*  no-fcs
++
++This requests that the NIC not calculated the Ethernet Frame Checksum (FCS)
++for packets flagged to use this feature.  Instead, the NIC will use the last
++4 bytes of the skb data as the FCS.  This allows user-space to create packets
++with custom (including mal-formed) Ethernet FCS.  Probably most useful for
++sniffers.  Note that in addition to enabling this device flag, a socket option
++or similar must be used to flag specific SKBs as wanting to use this behaviour.
+diff --git a/arch/alpha/include/asm/socket.h b/arch/alpha/include/asm/socket.h
+index 082355f..87ba870 100644
+--- a/arch/alpha/include/asm/socket.h
++++ b/arch/alpha/include/asm/socket.h
+@@ -72,6 +72,9 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- #define IP_MINTTL       21
- #define IP_NODEFRAG     22
-+#define IP_UNICAST_IF   23
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+  * have to define SOCK_NONBLOCK to a different value here.
+  */
+diff --git a/arch/arm/include/asm/socket.h b/arch/arm/include/asm/socket.h
+index dec6f9a..ea7629e 100644
+--- a/arch/arm/include/asm/socket.h
++++ b/arch/arm/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- /* IP_MTU_DISCOVER values */
- #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index e3e4051..022f772 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -132,6 +132,7 @@ struct rtable;
-  * @tos - TOS
-  * @mc_ttl - Multicasting TTL
-  * @is_icsk - is this an inet_connection_sock?
-+ * @uc_index - Unicast outgoing device index
-  * @mc_index - Multicast device index
-  * @mc_list - Group array
-  * @cork - info to build ip hdr on each ip frag while socket is corked
-@@ -167,6 +168,7 @@ struct inet_sock {
- 				transparent:1,
- 				mc_all:1,
- 				nodefrag:1;
-+	int			uc_index;
- 	int			mc_index;
- 	__be32			mc_addr;
- 	struct ip_mc_socklist __rcu	*mc_list;
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8aa87c1..9125529 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -469,6 +469,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
- 			     (1<<IP_PASSSEC) | (1<<IP_TRANSPARENT) |
- 			     (1<<IP_MINTTL) | (1<<IP_NODEFRAG))) ||
-+	    optname == IP_UNICAST_IF ||
- 	    optname == IP_MULTICAST_TTL ||
- 	    optname == IP_MULTICAST_ALL ||
- 	    optname == IP_MULTICAST_LOOP ||
-@@ -628,6 +629,35 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 			goto e_inval;
- 		inet->mc_loop = !!val;
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/avr32/include/asm/socket.h b/arch/avr32/include/asm/socket.h
+index 247b88c..6d2e448 100644
+--- a/arch/avr32/include/asm/socket.h
++++ b/arch/avr32/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* __ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/asm/socket.h b/arch/cris/include/asm/socket.h
+index e269264..9ba1079 100644
+--- a/arch/cris/include/asm/socket.h
++++ b/arch/cris/include/asm/socket.h
+@@ -67,6 +67,9 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+ 
+ 
+diff --git a/arch/frv/include/asm/socket.h b/arch/frv/include/asm/socket.h
+index ce80fda..ff8a4c3 100644
+--- a/arch/frv/include/asm/socket.h
++++ b/arch/frv/include/asm/socket.h
+@@ -65,5 +65,8 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/h8300/include/asm/socket.h b/arch/h8300/include/asm/socket.h
+index cf1daab..8be2267 100644
+--- a/arch/h8300/include/asm/socket.h
++++ b/arch/h8300/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/ia64/include/asm/socket.h b/arch/ia64/include/asm/socket.h
+index 4b03664..17664c9 100644
+--- a/arch/ia64/include/asm/socket.h
++++ b/arch/ia64/include/asm/socket.h
+@@ -74,4 +74,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/asm/socket.h b/arch/m32r/include/asm/socket.h
+index e8b8c5b..20de3ac 100644
+--- a/arch/m32r/include/asm/socket.h
++++ b/arch/m32r/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/m68k/include/asm/socket.h b/arch/m68k/include/asm/socket.h
+index d4708ce..98bf770 100644
+--- a/arch/m68k/include/asm/socket.h
++++ b/arch/m68k/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/mips/include/asm/socket.h b/arch/mips/include/asm/socket.h
+index ad5c0a7..d97c83a 100644
+--- a/arch/mips/include/asm/socket.h
++++ b/arch/mips/include/asm/socket.h
+@@ -85,6 +85,9 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #ifdef __KERNEL__
+ 
+ /** sock_type - Socket types
+diff --git a/arch/mn10300/include/asm/socket.h b/arch/mn10300/include/asm/socket.h
+index 876356d..545cbbe 100644
+--- a/arch/mn10300/include/asm/socket.h
++++ b/arch/mn10300/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/asm/socket.h b/arch/parisc/include/asm/socket.h
+index d28c51b..15d2d90 100644
+--- a/arch/parisc/include/asm/socket.h
++++ b/arch/parisc/include/asm/socket.h
+@@ -64,6 +64,10 @@
+ #define SO_WIFI_STATUS		0x4022
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		0x4023
++
++
+ /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+  * have to define SOCK_NONBLOCK to a different value here.
+  */
+diff --git a/arch/powerpc/include/asm/socket.h b/arch/powerpc/include/asm/socket.h
+index 2fc2af8..29bbe62 100644
+--- a/arch/powerpc/include/asm/socket.h
++++ b/arch/powerpc/include/asm/socket.h
+@@ -72,4 +72,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/asm/socket.h b/arch/s390/include/asm/socket.h
+index 67b5c1b..237b1e7 100644
+--- a/arch/s390/include/asm/socket.h
++++ b/arch/s390/include/asm/socket.h
+@@ -73,4 +73,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/asm/socket.h b/arch/sparc/include/asm/socket.h
+index 8af1b64..18d523a 100644
+--- a/arch/sparc/include/asm/socket.h
++++ b/arch/sparc/include/asm/socket.h
+@@ -61,6 +61,10 @@
+ #define SO_WIFI_STATUS		0x0025
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		0x0026
++
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/asm/socket.h b/arch/xtensa/include/asm/socket.h
+index bb06968..00af4e6 100644
+--- a/arch/xtensa/include/asm/socket.h
++++ b/arch/xtensa/include/asm/socket.h
+@@ -76,4 +76,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
+index 49c1704..3c59235 100644
+--- a/include/asm-generic/socket.h
++++ b/include/asm-generic/socket.h
+@@ -67,4 +67,8 @@
+ 
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS	SO_WIFI_STATUS
++
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d133186..3bae320 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -55,6 +55,7 @@ enum {
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
+ 	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
++	NETIF_F_NOFCS_BIT,		/* Use last 4 bytes of skb as tx FCS */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -100,6 +101,7 @@ enum {
+ #define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
+ #define NETIF_F_RXFCS		__NETIF_F(RXFCS)
++#define NETIF_F_NOFCS		__NETIF_F(NOFCS)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 50db9b0..cc614a9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -361,6 +361,7 @@ typedef unsigned char *sk_buff_data_t;
+  *		ports.
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
++ *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
+@@ -456,7 +457,8 @@ struct sk_buff {
+ 	__u8			l4_rxhash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
+-	/* 10/12 bit hole (depending on ndisc_nodetype presence) */
++	__u8			no_fcs:1;
++	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #ifdef CONFIG_NET_DMA
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 91c1c8b..5d8ecbc 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -590,6 +590,10 @@ enum sock_flags {
+ 	SOCK_RXQ_OVFL,
+ 	SOCK_ZEROCOPY, /* buffers from userspace */
+ 	SOCK_WIFI_STATUS, /* push wifi status to userspace */
++	SOCK_NOFCS, /* Tell NIC not to do the Ethernet FCS.
++		     * Will use last 4 bytes of packet sent from
++		     * user-space instead.
++		     */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 0801619..cf81ccf 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -74,6 +74,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
+ 	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
++	[NETIF_F_NOFCS_BIT] =            "no-fcs",
+ };
+ 
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index da0c97f..36e7b7c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -592,6 +592,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->rxhash		= old->rxhash;
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->l4_rxhash		= old->l4_rxhash;
++	new->no_fcs		= old->no_fcs;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
+ #endif
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 3e81fd2..1db3096 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -793,6 +793,10 @@ set_rcvbuf:
+ 		sock_valbool_flag(sk, SOCK_WIFI_STATUS, valbool);
  		break;
-+	case IP_UNICAST_IF:
-+	{
-+		struct net_device *dev = NULL;
-+		int ifindex;
+ 
++	case SO_NOFCS:
++		sock_valbool_flag(sk, SOCK_NOFCS, valbool);
++		break;
 +
-+		if (optlen != sizeof(int))
-+			goto e_inval;
-+
-+		ifindex = (__force int)ntohl((__force __be32)val);
-+		if (ifindex == 0) {
-+			inet->uc_index = 0;
-+			err = 0;
-+			break;
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2dbb32b..f4c833e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1459,6 +1459,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
+ 	struct net_device *dev;
+ 	__be16 proto = 0;
+ 	int err;
++	int extra_len = 0;
+ 
+ 	/*
+ 	 *	Get and verify the address.
+@@ -1493,8 +1494,16 @@ retry:
+ 	 * raw protocol and you must do your own fragmentation at this level.
+ 	 */
+ 
++	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
++		if (!(dev->features & NETIF_F_NOFCS)) {
++			err = -EINVAL;
++			goto out_unlock;
 +		}
-+
-+		dev = dev_get_by_index(sock_net(sk), ifindex);
-+		err = -EADDRNOTAVAIL;
-+		if (!dev)
-+			break;
-+		dev_put(dev);
-+
-+		err = -EINVAL;
-+		if (sk->sk_bound_dev_if)
-+			break;
-+
-+		inet->uc_index = ifindex;
-+		err = 0;
-+		break;
++		extra_len = 4; /* We're doing our own CRC */
 +	}
- 	case IP_MULTICAST_IF:
- 	{
- 		struct ip_mreqn mreq;
-@@ -1178,6 +1208,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 	case IP_MULTICAST_LOOP:
- 		val = inet->mc_loop;
- 		break;
-+	case IP_UNICAST_IF:
-+		val = (__force int)htonl((__u32) inet->uc_index);
-+		break;
- 	case IP_MULTICAST_IF:
- 	{
- 		struct in_addr addr;
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index aea5a19..cfc82cf 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -556,7 +556,8 @@ static int ping_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			ipc.oif = inet->mc_index;
- 		if (!saddr)
- 			saddr = inet->mc_addr;
--	}
-+	} else if (!ipc.oif)
-+		ipc.oif = inet->uc_index;
++
+ 	err = -EMSGSIZE;
+-	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
++	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN + extra_len)
+ 		goto out_unlock;
  
- 	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
- 			   RT_SCOPE_UNIVERSE, sk->sk_protocol,
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 3ccda5a..ab46630 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -563,7 +563,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			ipc.oif = inet->mc_index;
- 		if (!saddr)
- 			saddr = inet->mc_addr;
--	}
-+	} else if (!ipc.oif)
-+		ipc.oif = inet->uc_index;
+ 	if (!skb) {
+@@ -1526,7 +1535,7 @@ retry:
+ 		goto retry;
+ 	}
  
- 	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
- 			   RT_SCOPE_UNIVERSE,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 5d075b5..cd99f1a 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -917,7 +917,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if (!saddr)
- 			saddr = inet->mc_addr;
- 		connected = 0;
--	}
-+	} else if (!ipc.oif)
-+		ipc.oif = inet->uc_index;
+-	if (len > (dev->mtu + dev->hard_header_len)) {
++	if (len > (dev->mtu + dev->hard_header_len + extra_len)) {
+ 		/* Earlier code assumed this would be a VLAN pkt,
+ 		 * double-check this now that we have the actual
+ 		 * packet in hand.
+@@ -1548,6 +1557,9 @@ retry:
+ 	if (err < 0)
+ 		goto out_unlock;
  
- 	if (connected)
- 		rt = (struct rtable *)sk_dst_check(sk, 0);
++	if (unlikely(extra_len == 4))
++		skb->no_fcs = 1;
++
+ 	dev_queue_xmit(skb);
+ 	rcu_read_unlock();
+ 	return len;
+@@ -2209,6 +2221,7 @@ static int packet_snd(struct socket *sock,
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	unsigned short gso_type = 0;
+ 	int hlen, tlen;
++	int extra_len = 0;
+ 
+ 	/*
+ 	 *	Get and verify the address.
+@@ -2288,8 +2301,16 @@ static int packet_snd(struct socket *sock,
+ 		}
+ 	}
+ 
++	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
++		if (!(dev->features & NETIF_F_NOFCS)) {
++			err = -EINVAL;
++			goto out_unlock;
++		}
++		extra_len = 4; /* We're doing our own CRC */
++	}
++
+ 	err = -EMSGSIZE;
+-	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
++	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN + extra_len))
+ 		goto out_unlock;
+ 
+ 	err = -ENOBUFS;
+@@ -2315,7 +2336,7 @@ static int packet_snd(struct socket *sock,
+ 	if (err < 0)
+ 		goto out_free;
+ 
+-	if (!gso_type && (len > dev->mtu + reserve)) {
++	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+ 		/* Earlier code assumed this would be a VLAN pkt,
+ 		 * double-check this now that we have the actual
+ 		 * packet in hand.
+@@ -2353,6 +2374,9 @@ static int packet_snd(struct socket *sock,
+ 		len += vnet_hdr_len;
+ 	}
+ 
++	if (unlikely(extra_len == 4))
++		skb->no_fcs = 1;
++
+ 	/*
+ 	 *	Now send it
+ 	 */
 -- 
-1.7.5.4
+1.7.3.4
