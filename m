@@ -1,96 +1,88 @@
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 4/4] NFS: make nfs_client_lock per net ns
-Date: Tue, 7 Feb 2012 13:51:00 +0000
-Message-ID: <1328622659.4124.3.camel@lade.trondhjem.org>
-References: <20120123172631.29637.17188.stgit@localhost6.localdomain6>
+From: Anisse Astier <anisse@astier.eu>
+Subject: Re: [PATCH] net: Default UDP and UNIX diag to 'n'.
+Date: Tue, 7 Feb 2012 14:51:20 +0100
+Message-ID: <20120207145120.26905922@destiny.ordissimo>
+References: <20120107.121339.633839797125273714.davem@davemloft.net>
+	<20120207121256.50667809@destiny.ordissimo>
+	<4F31292F.2090503@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120123172631.29637.17188.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Content-Language: en-US
-Content-ID: <8F50D2D0DEE86840A12AE4E16DB3E516-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:46088 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756554Ab2BGNvb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 08:51:31 -0500
+Received: by werb13 with SMTP id b13so5022823wer.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 05:51:30 -0800 (PST)
+In-Reply-To: <4F31292F.2090503@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDEyLTAxLTIzIGF0IDE3OjI2ICswMDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
-cm90ZToNCj4gVGhpcyBwYXRjaCBtYWtlcyBuZnNfY2xpZW50c19sb2NrIGFsbG9jYXRlZCBwZXIg
-bmV0d29yayBuYW1lc3BhY2UuIEFsbCBpdGVtcyBpdA0KPiBwcm90ZWN0cyBhcmUgYWxyZWFkeSBu
-ZXR3b3JrIG5hbWVzcGFjZSBhd2FyZS4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFN0YW5pc2xhdiBL
-aW5zYnVyc2t5IDxza2luc2J1cnNreUBwYXJhbGxlbHMuY29tPg0KPiANCj4gLS0tDQo+ICBmcy9u
-ZnMvY2xpZW50LmMgICB8ICAgNTEgKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tDQo+ICBmcy9uZnMvaWRtYXAuYyAgICB8ICAgIDQgKystLQ0KPiAgZnMv
-bmZzL2ludGVybmFsLmggfCAgICAzIC0tLQ0KPiAgZnMvbmZzL25ldG5zLmggICAgfCAgICAxICsN
-Cj4gIDQgZmlsZXMgY2hhbmdlZCwgMzIgaW5zZXJ0aW9ucygrKSwgMjcgZGVsZXRpb25zKC0pDQo+
-IA0KPiBkaWZmIC0tZ2l0IGEvZnMvbmZzL2NsaWVudC5jIGIvZnMvbmZzL2NsaWVudC5jDQo+IGlu
-ZGV4IGY1MWIyNzkuLjllMTFkMjkgMTAwNjQ0DQo+IC0tLSBhL2ZzL25mcy9jbGllbnQuYw0KPiAr
-KysgYi9mcy9uZnMvY2xpZW50LmMNCj4gQEAgLTU1MSw3ICs1NTMsNyBAQCBpbnN0YWxsX2NsaWVu
-dDoNCj4gIAkgKiAtIG1ha2Ugc3VyZSBpdCdzIHJlYWR5IGJlZm9yZSByZXR1cm5pbmcNCj4gIAkg
-Ki8NCj4gIGZvdW5kX2NsaWVudDoNCj4gLQlzcGluX3VubG9jaygmbmZzX2NsaWVudF9sb2NrKTsN
-Cj4gKwlzcGluX3VubG9jaygmbm4tPm5mc19jbGllbnRfbG9jayk7DQo+ICANCj4gIAlpZiAobmV3
-KQ0KPiAgCQluZnNfZnJlZV9jbGllbnQobmV3KTsNCj4gQEAgLTEwNDEsMjQgKzEwNDMsMjUgQEAg
-c3RhdGljIHZvaWQgbmZzX3NlcnZlcl9pbnNlcnRfbGlzdHMoc3RydWN0IG5mc19zZXJ2ZXIgKnNl
-cnZlcikNCj4gIAlzdHJ1Y3QgbmZzX2NsaWVudCAqY2xwID0gc2VydmVyLT5uZnNfY2xpZW50Ow0K
-PiAgCXN0cnVjdCBuZnNfbmV0ICpubiA9IG5ldF9nZW5lcmljKGNscC0+bmV0LCBuZnNfbmV0X2lk
-KTsNCj4gIA0KPiAtCXNwaW5fbG9jaygmbmZzX2NsaWVudF9sb2NrKTsNCj4gKwlzcGluX2xvY2so
-Jm5uLT5uZnNfY2xpZW50X2xvY2spOw0KPiAgCWxpc3RfYWRkX3RhaWxfcmN1KCZzZXJ2ZXItPmNs
-aWVudF9saW5rLCAmY2xwLT5jbF9zdXBlcmJsb2Nrcyk7DQo+ICAJbGlzdF9hZGRfdGFpbCgmc2Vy
-dmVyLT5tYXN0ZXJfbGluaywgJm5uLT5uZnNfdm9sdW1lX2xpc3QpOw0KPiAgCWNsZWFyX2JpdChO
-RlNfQ1NfU1RPUF9SRU5FVywgJmNscC0+Y2xfcmVzX3N0YXRlKTsNCj4gLQlzcGluX3VubG9jaygm
-bmZzX2NsaWVudF9sb2NrKTsNCj4gKwlzcGluX3VubG9jaygmbm4tPm5mc19jbGllbnRfbG9jayk7
-DQo+ICANCj4gIH0NCj4gIA0KPiAgc3RhdGljIHZvaWQgbmZzX3NlcnZlcl9yZW1vdmVfbGlzdHMo
-c3RydWN0IG5mc19zZXJ2ZXIgKnNlcnZlcikNCj4gIHsNCj4gIAlzdHJ1Y3QgbmZzX2NsaWVudCAq
-Y2xwID0gc2VydmVyLT5uZnNfY2xpZW50Ow0KPiArCXN0cnVjdCBuZnNfbmV0ICpubiA9IG5ldF9n
-ZW5lcmljKGNscC0+bmV0LCBuZnNfbmV0X2lkKTsNCj4gIA0KPiAtCXNwaW5fbG9jaygmbmZzX2Ns
-aWVudF9sb2NrKTsNCj4gKwlzcGluX2xvY2soJm5uLT5uZnNfY2xpZW50X2xvY2spOw0KPiAgCWxp
-c3RfZGVsX3JjdSgmc2VydmVyLT5jbGllbnRfbGluayk7DQo+ICAJaWYgKGNscCAmJiBsaXN0X2Vt
-cHR5KCZjbHAtPmNsX3N1cGVyYmxvY2tzKSkNCj4gIAkJc2V0X2JpdChORlNfQ1NfU1RPUF9SRU5F
-VywgJmNscC0+Y2xfcmVzX3N0YXRlKTsNCj4gIAlsaXN0X2RlbCgmc2VydmVyLT5tYXN0ZXJfbGlu
-ayk7DQo+IC0Jc3Bpbl91bmxvY2soJm5mc19jbGllbnRfbG9jayk7DQo+ICsJc3Bpbl91bmxvY2so
-Jm5uLT5uZnNfY2xpZW50X2xvY2spOw0KPiAgDQo+ICAJc3luY2hyb25pemVfcmN1KCk7DQo+ICB9
-DQoNClRoaXMgaHVuayBjYXVzZXMgYW4gT29wcyB3aGVuIG5mc19zZXJ2ZXJfcmVtb3ZlX2xpc3Rz
-IGdldHMgY2FsbGVkIGZyb20NCm5mczRfY3JlYXRlX3NlcnZlcigpLiBJJ3ZlIGFwcGxpZWQgdGhl
-IGZvbGxvd2luZyBwYXRjaCB0byBmaXggaXQgdXAuDQoNCkNoZWVycw0KICBUcm9uZA0KODwtLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tDQpGcm9tIDVhNDg5MTU2ZGE0ZmQxNWRkMTQzZjJiMjFkZDk2NTdiOTdkY2Vm
-ODggTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxDQpGcm9tOiBUcm9uZCBNeWtsZWJ1c3QgPFRyb25k
-Lk15a2xlYnVzdEBuZXRhcHAuY29tPg0KRGF0ZTogVHVlLCA3IEZlYiAyMDEyIDAwOjA1OjExIC0w
-NTAwDQpTdWJqZWN0OiBbUEFUQ0hdIE5GUzogSW5pdGlhbGlzZSB0aGUgbmZzX25ldC0+bmZzX2Ns
-aWVudF9sb2NrDQoNCkVuc3VyZSB0aGF0IHdlIGluaXRpYWxpc2UgdGhlIG5mc19uZXQtPm5mc19j
-bGllbnRfbG9jayBzcGlubG9jay4NCkFsc28gZW5zdXJlIHRoYXQgbmZzX3NlcnZlcl9yZW1vdmVf
-bGlzdHMoKSBkb2Vzbid0IHRyeSB0bw0KZGVyZWZlcmVuY2Ugc2VydmVyLT5uZnNfY2xpZW50IGJl
-Zm9yZSB0aGF0IGlzIGluaXRpYWxpc2VkLg0KDQpTaWduZWQtb2ZmLWJ5OiBUcm9uZCBNeWtsZWJ1
-c3QgPFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tPg0KQ2M6IFN0YW5pc2xhdiBLaW5zYnVyc2t5
-IDxza2luc2J1cnNreUBwYXJhbGxlbHMuY29tPg0KLS0tDQogZnMvbmZzL2NsaWVudC5jIHwgICAg
-NiArKysrKy0NCiAxIGZpbGVzIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbnMo
-LSkNCg0KZGlmZiAtLWdpdCBhL2ZzL25mcy9jbGllbnQuYyBiL2ZzL25mcy9jbGllbnQuYw0KaW5k
-ZXggMWE1Y2Q0OS4uZjBkYWNhZCAxMDA2NDQNCi0tLSBhL2ZzL25mcy9jbGllbnQuYw0KKysrIGIv
-ZnMvbmZzL2NsaWVudC5jDQpAQCAtMTA1NSw4ICsxMDU1LDExIEBAIHN0YXRpYyB2b2lkIG5mc19z
-ZXJ2ZXJfaW5zZXJ0X2xpc3RzKHN0cnVjdCBuZnNfc2VydmVyICpzZXJ2ZXIpDQogc3RhdGljIHZv
-aWQgbmZzX3NlcnZlcl9yZW1vdmVfbGlzdHMoc3RydWN0IG5mc19zZXJ2ZXIgKnNlcnZlcikNCiB7
-DQogCXN0cnVjdCBuZnNfY2xpZW50ICpjbHAgPSBzZXJ2ZXItPm5mc19jbGllbnQ7DQotCXN0cnVj
-dCBuZnNfbmV0ICpubiA9IG5ldF9nZW5lcmljKGNscC0+bmV0LCBuZnNfbmV0X2lkKTsNCisJc3Ry
-dWN0IG5mc19uZXQgKm5uOw0KIA0KKwlpZiAoY2xwID09IE5VTEwpDQorCQlyZXR1cm47DQorCW5u
-ID0gbmV0X2dlbmVyaWMoY2xwLT5uZXQsIG5mc19uZXRfaWQpOw0KIAlzcGluX2xvY2soJm5uLT5u
-ZnNfY2xpZW50X2xvY2spOw0KIAlsaXN0X2RlbF9yY3UoJnNlcnZlci0+Y2xpZW50X2xpbmspOw0K
-IAlpZiAoY2xwICYmIGxpc3RfZW1wdHkoJmNscC0+Y2xfc3VwZXJibG9ja3MpKQ0KQEAgLTE3Nzcs
-NiArMTc4MCw3IEBAIHZvaWQgbmZzX2NsaWVudHNfaW5pdChzdHJ1Y3QgbmV0ICpuZXQpDQogI2lm
-ZGVmIENPTkZJR19ORlNfVjQNCiAJaWRyX2luaXQoJm5uLT5jYl9pZGVudF9pZHIpOw0KICNlbmRp
-Zg0KKwlzcGluX2xvY2tfaW5pdCgmbm4tPm5mc19jbGllbnRfbG9jayk7DQogfQ0KIA0KICNpZmRl
-ZiBDT05GSUdfUFJPQ19GUw0KLS0gDQoxLjcuNy42DQoNCg0KDQotLSANClRyb25kIE15a2xlYnVz
-dA0KTGludXggTkZTIGNsaWVudCBtYWludGFpbmVyDQoNCk5ldEFwcA0KVHJvbmQuTXlrbGVidXN0
-QG5ldGFwcC5jb20NCnd3dy5uZXRhcHAuY29tDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Tue, 07 Feb 2012 17:37:51 +0400, Pavel Emelyanov <xemul@parallels.co=
+m> wrote :
+
+> >> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> >> index 1a8f93b..43e1439 100644
+> >> --- a/net/ipv4/Kconfig
+> >> +++ b/net/ipv4/Kconfig
+> >> @@ -410,8 +410,12 @@ config INET_TCP_DIAG
+> >>  	def_tristate INET_DIAG
+> >> =20
+> >>  config INET_UDP_DIAG
+> >> +	tristate "UDP: socket monitoring interface"
+> >>  	depends on INET_DIAG
+> >> -	def_tristate INET_DIAG && IPV6
+> > This broke earlier patch=20
+> > b872a2371ffd13e6d83423ef621a707df4c158ac "udp_diag: Make it module =
+when ipv6 is a module",
+> > which brings back the compilation error when compiling linus master=
+ (v3.3-rc2+):
+> >=20
+> > net/built-in.o: In function `udp_dump_one':
+> > udp_diag.c:(.text+0x59852): undefined reference to `__udp6_lib_look=
+up'
+> >=20
+> >=20
+> >> +	default n
+> >> +	---help---
+> >> +	  Support for UDP socket monitoring interface used by the ss too=
+l.
+> >> +	  If unsure, say Y.
+> >> =20
+>=20
+> I assume you have CONFIG_IPV6=3Dm and CONFIG_INET_UDP_DIAG=3Dy, right=
+?
+
+That's correct.
+
+> This one should fix the issue, you'll not be able to set it to Y when
+> IPV6 is M.
+
+Indeed, it fixes the issue, but it also prevents using UDP_DIAG without
+IPv6 (just like the previous patch I=C2=A0guess.). Not a problem for me=
+=2E
+
+>=20
+>=20
+> [PATCH] udp_diag: Add dependency on IPV6
+>=20
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>=20
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index aa2a2c7..55d39a4 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -409,7 +409,7 @@ config INET_TCP_DIAG
+> =20
+>  config INET_UDP_DIAG
+>  	tristate "UDP: socket monitoring interface"
+> -	depends on INET_DIAG
+> +	depends on INET_DIAG && IPV6
+>  	default n
+>  	---help---
+>  	  Support for UDP socket monitoring interface used by the ss tool.
