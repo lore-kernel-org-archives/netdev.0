@@ -1,60 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] net/sched: sch_plug - Queue traffic until an
- explicit release command
-Date: Tue, 07 Feb 2012 12:57:45 -0500 (EST)
-Message-ID: <20120207.125745.676129087240196385.davem@davemloft.net>
-References: <1328485892-16721-1-git-send-email-rshriram@cs.ubc.ca>
+Subject: Re: [PATCH] CONFIG_TR/CONFIG_LLC: work around the problem with
+ select
+Date: Tue, 07 Feb 2012 13:06:47 -0500 (EST)
+Message-ID: <20120207.130647.2102701372922806986.davem@davemloft.net>
+References: <20120205063139.GB23916@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, hagen@jauu.net,
-	brendan@cs.ubc.ca
-To: rshriram@cs.ubc.ca
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: viro@ZenIV.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35117 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35223 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276Ab2BGR5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 12:57:54 -0500
-In-Reply-To: <1328485892-16721-1-git-send-email-rshriram@cs.ubc.ca>
+	with ESMTP id S1753428Ab2BGSGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:06:54 -0500
+In-Reply-To: <20120205063139.GB23916@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: rshriram@cs.ubc.ca
-Date: Sun,  5 Feb 2012 15:51:32 -0800
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Date: Sun, 5 Feb 2012 06:31:39 +0000
 
-> From: Shriram Rajagopalan <rshriram@cs.ubc.ca>
+> As it is, with PCI/ISA/MCA/CCW all set to n and PCMCIA set to m
+> setting TR to y will set LLC to m, with very unpleasant results -
+> net/802/psnap gets picked into obj-y, resulting in the kernel
+> that won't link - psnap calls functions from llc.  The cause,
+> AFAICS, is that kconfig gets rev_dep for LLC containing
+> || TR && (deps for TR)
+> and even though TR is boolean, both LLC and PCMCIA are tristate
+> and that thing becomes || y && (n || m), i.e. || m.  The reason
+> for dependency on PCMCIA is that when none of PCI, ISA, MCA, CCW
+> or PCMCIA is set there'll be no tokenring drivers, so there's no
+> point building tokenring core.  Proper fix probably belongs in
+> kconfig (we need strict and, such that y <strict_and> m would be
+> y, so that rev_deps added for tristate selected by bool would
+> use that instead of &&; we'd have || TR <strict_and> (deps for TR)
+> in this case), but it's a rather intrusive change.  There's an
+> easy workaround in case of TR -> LLC select, namely to have a def_bool y
+> symbol sitting under if TR and have that symbol selecting LLC.
+> Kudos to johill for suggesting that one...
 > 
-> The qdisc supports two operations - plug and unplug. When the
-> qdisc receives a plug command via netlink request, packets arriving
-> henceforth are buffered until a corresponding unplug command is received.
-> Depending on the type of unplug command, the queue can be unplugged
-> indefinitely or selectively.
-> 
-> This qdisc can be used to implement output buffering, an essential
-> functionality required for consistent recovery in checkpoint based
-> fault-tolerance systems. Output buffering enables speculative execution
-> by allowing generated network traffic to be rolled back. It is used to
-> provide network protection for Xen Guests in the Remus high availability
-> project, available as part of Xen.
-> 
-> This module is generic enough to be used by any other system that wishes
-> to add speculative execution and output buffering to its applications.
-> 
-> This module was originally available in the linux 2.6.32 PV-OPS tree,
-> used as dom0 for Xen.
-> 
-> For more information, please refer to http://nss.cs.ubc.ca/remus/
-> and http://wiki.xensource.com/xenwiki/Remus
-> 
-> Changes in V3:
->   * Removed debug output (printk) on queue overflow
->   * Added TCQ_PLUG_RELEASE_INDEFINITE - that allows the user to
->     use this qdisc, for simple plug/unplug operations.
->   * Use of packet counts instead of pointers to keep track of
->     the buffers in the queue.
-> 
-> Signed-off-by: Shriram Rajagopalan <rshriram@cs.ubc.ca>
-> Signed-off-by: Brendan Cully <brendan@cs.ubc.ca>
-> [author of the code in the linux 2.6.32 pvops tree]
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 
 Applied, thanks.
