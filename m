@@ -1,61 +1,51 @@
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
-Subject: Re: [PATCH] skbuff: Add new tc classify variable
-Date: Tue, 7 Feb 2012 20:57:29 +0100
-Message-ID: <20120207195729.GA26533@pandem0nium>
-References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
- <20120207110522.70663963@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5 2/2] Implement IPV6_UNICAST_IF socket option.
+Date: Tue, 07 Feb 2012 21:03:13 +0100
+Message-ID: <1328644993.2457.2.camel@edumazet-laptop>
+References: <1328643863-10404-2-git-send-email-ehoover@mines.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="k1lZvvs/B4yU6o8G"
-Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: "Erich E. Hoover" <ehoover@mines.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cora.hrz.tu-chemnitz.de ([134.109.228.40]:37343 "EHLO
-	cora.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756090Ab2BGT5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 14:57:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20120207110522.70663963@nehalam.linuxnetplumber.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:55524 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755661Ab2BGUDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:03:19 -0500
+Received: by wics10 with SMTP id s10so5175763wic.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 12:03:18 -0800 (PST)
+In-Reply-To: <1328643863-10404-2-git-send-email-ehoover@mines.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Feb 07, 2012 at 11:05:22AM -0800, Stephen Hemminger wrote:
-> On Tue,  7 Feb 2012 19:39:08 +0100
-> Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
+Le mardi 07 f=C3=A9vrier 2012 =C3=A0 12:44 -0700, Erich E. Hoover a =C3=
+=A9crit :
+> The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
 >=20
-> I don't understand why this is better, we already have mark to do this.
-> Your method saves adding a tc filter to map mark to classid, but that is =
-hardly
-> a huge burden.
+> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
+> ---
+>  include/linux/in6.h      |    1 +
+>  include/linux/ipv6.h     |    1 +
+>  net/ipv6/icmp.c          |    4 ++++
+>  net/ipv6/ipv6_sockglue.c |   34 ++++++++++++++++++++++++++++++++++
+>  net/ipv6/raw.c           |    2 ++
+>  net/ipv6/udp.c           |    3 ++-
+>  6 files changed, 44 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/include/linux/in6.h b/include/linux/in6.h
+> index 097a34b..a67d76e 100644
+> --- a/include/linux/in6.h
+> +++ b/include/linux/in6.h
+> @@ -163,6 +163,7 @@ struct in6_flowlabel_req {
+>  #define IPV6_NEXTHOP		9
+>  #define IPV6_AUTHHDR		10	/* obsolete */
+>  #define IPV6_FLOWINFO		11
+> +#define IPV6_UNICAST_IF		12
+> =20
 
-Unfortunately, it is. We have previously built our trees by setting marks w=
-ith iptables
-and matching the masks with tc and the u32 matcher, but we got a rather big=
- performance
-impact as soon as the number of users grow. The target platform are WiFi ac=
-cess points.
-By using the proposed patch, the performance stays nearly constant at a gro=
-wing number
-of users.
+Hmm, last entry is :
 
---k1lZvvs/B4yU6o8G
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+#define IPV6_TRANSPARENT        75=20
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAk8xgigACgkQrzg/fFk7axZQMACdGJ8H81zE2J5qoL+Tlu4JU5TA
-mpwAniVC5NP31mAWZ2K5ShofZr8SzpRV
-=l+Wy
------END PGP SIGNATURE-----
-
---k1lZvvs/B4yU6o8G--
+So 76 for your new option would be better
