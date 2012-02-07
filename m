@@ -1,56 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 3/5] netdev: ethernet dev_alloc_skb to
- netdev_alloc_skb
-Date: Tue, 07 Feb 2012 15:29:05 -0500 (EST)
-Message-ID: <20120207.152905.1412072387367320828.davem@davemloft.net>
-References: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
-	<ef62da964e8660dfdf2a25cd643631bb15914ecf.1328445742.git.netdev@pradeepdalvi.com>
-	<CAMuHMdXFz5zEWUkrJjNvOqkgt-n2uKc3wzD9H5NKKz1LT4BpOw@mail.gmail.com>
+Subject: Re: [PATCH net-next V2] gro: introduce gro_mac_header_len
+Date: Tue, 07 Feb 2012 15:33:25 -0500 (EST)
+Message-ID: <20120207.153325.1941809701255235550.davem@davemloft.net>
+References: <CAG4TOxNcB8+SP3f0WhZG1GZ481s+=7pVRv91vzAbwDzUZD8g_A@mail.gmail.com>
+	<20120206.151509.1959432192519622134.davem@davemloft.net>
+	<CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@pradeepdalvi.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: geert@linux-m68k.org
+Cc: eric.dumazet@gmail.com, ogerlitz@mellanox.com,
+	sean.hefty@intel.com, herbert@gondor.hengli.com.au,
+	linux-rdma@vger.kernel.org, shlomop@mellanox.com,
+	netdev@vger.kernel.org
+To: roland@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36694 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36725 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756439Ab2BGUaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:30:16 -0500
-In-Reply-To: <CAMuHMdXFz5zEWUkrJjNvOqkgt-n2uKc3wzD9H5NKKz1LT4BpOw@mail.gmail.com>
+	with ESMTP id S1756226Ab2BGUdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:33:38 -0500
+In-Reply-To: <CAL1RGDWZuFY=zeYYf2Tegw=YdpGxs9j5w2-8ADuFq1zH3vGX3w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 7 Feb 2012 21:04:07 +0100
+From: Roland Dreier <roland@kernel.org>
+Date: Tue, 7 Feb 2012 11:51:46 -0800
 
-> drivers/net/ethernet/natsemi/sonic.c:425: error: too few arguments to
-> function 'netdev_alloc_skb'
+Overall, looks great.
 
-I just wrote and committed the following fix, which took less effort
-than your report most likely :-)
+> @@ -843,9 +837,8 @@ static int ipoib_hard_header(struct sk_buff *skb,
+>  	if (dst)
+>  		n = dst_get_neighbour_noref_raw(dst);
+>  	if ((!dst || !n) && daddr) {
+> -		struct ipoib_pseudoheader *phdr =
+> -			(struct ipoib_pseudoheader *) skb_push(skb, sizeof *phdr);
+> -		memcpy(phdr->hwaddr, daddr, INFINIBAND_ALEN);
+> +		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
+> +		memcpy(cb->hwaddr, daddr, INFINIBAND_ALEN);
 
---------------------
-sonice: Fix build due to botched netdev_alloc_skb() conversion.
+I would simplify this to "!skb_dst(skb)", any failure of
+dst_get_neighbour_noref_raw() (now and in the future) would be
+transient.
 
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/natsemi/sonic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/natsemi/sonic.c b/drivers/net/ethernet/natsemi/sonic.c
-index 0452e296..46795e4 100644
---- a/drivers/net/ethernet/natsemi/sonic.c
-+++ b/drivers/net/ethernet/natsemi/sonic.c
-@@ -422,7 +422,7 @@ static void sonic_rx(struct net_device *dev)
- 		status = sonic_rda_get(dev, entry, SONIC_RD_STATUS);
- 		if (status & SONIC_RCR_PRX) {
- 			/* Malloc up new buffer. */
--			new_skb = netdev_alloc_skb(SONIC_RBSIZE + 2);
-+			new_skb = netdev_alloc_skb(dev, SONIC_RBSIZE + 2);
- 			if (new_skb == NULL) {
- 				printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n", dev->name);
- 				lp->stats.rx_dropped++;
--- 
-1.7.7.6
+You're trying to see if this is a "neigh resolvable" path or not, and
+the correct test for that is whether a dst is attached to the SKB.
