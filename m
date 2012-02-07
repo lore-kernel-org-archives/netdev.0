@@ -1,88 +1,73 @@
-From: Anisse Astier <anisse@astier.eu>
-Subject: Re: [PATCH] net: Default UDP and UNIX diag to 'n'.
-Date: Tue, 7 Feb 2012 14:51:20 +0100
-Message-ID: <20120207145120.26905922@destiny.ordissimo>
-References: <20120107.121339.633839797125273714.davem@davemloft.net>
-	<20120207121256.50667809@destiny.ordissimo>
-	<4F31292F.2090503@parallels.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 4/4] NFS: make nfs_client_lock per net ns
+Date: Tue, 07 Feb 2012 18:09:15 +0400
+Message-ID: <4F31308B.1090002@parallels.com>
+References: <20120123172631.29637.17188.stgit@localhost6.localdomain6> <1328622659.4124.3.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:46088 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756554Ab2BGNvb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 08:51:31 -0500
-Received: by werb13 with SMTP id b13so5022823wer.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 05:51:30 -0800 (PST)
-In-Reply-To: <4F31292F.2090503@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328622659.4124.3.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Feb 2012 17:37:51 +0400, Pavel Emelyanov <xemul@parallels.co=
-m> wrote :
+07.02.2012 17:51, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> 8<-------------------------------------------------------------------=
+------
+>  From 5a489156da4fd15dd143f2b21dd9657b97dcef88 Mon Sep 17 00:00:00 20=
+01
+> From: Trond Myklebust<Trond.Myklebust@netapp.com>
+> Date: Tue, 7 Feb 2012 00:05:11 -0500
+> Subject: [PATCH] NFS: Initialise the nfs_net->nfs_client_lock
+>
+> Ensure that we initialise the nfs_net->nfs_client_lock spinlock.
+> Also ensure that nfs_server_remove_lists() doesn't try to
+> dereference server->nfs_client before that is initialised.
+>
 
-> >> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> >> index 1a8f93b..43e1439 100644
-> >> --- a/net/ipv4/Kconfig
-> >> +++ b/net/ipv4/Kconfig
-> >> @@ -410,8 +410,12 @@ config INET_TCP_DIAG
-> >>  	def_tristate INET_DIAG
-> >> =20
-> >>  config INET_UDP_DIAG
-> >> +	tristate "UDP: socket monitoring interface"
-> >>  	depends on INET_DIAG
-> >> -	def_tristate INET_DIAG && IPV6
-> > This broke earlier patch=20
-> > b872a2371ffd13e6d83423ef621a707df4c158ac "udp_diag: Make it module =
-when ipv6 is a module",
-> > which brings back the compilation error when compiling linus master=
- (v3.3-rc2+):
-> >=20
-> > net/built-in.o: In function `udp_dump_one':
-> > udp_diag.c:(.text+0x59852): undefined reference to `__udp6_lib_look=
-up'
-> >=20
-> >=20
-> >> +	default n
-> >> +	---help---
-> >> +	  Support for UDP socket monitoring interface used by the ss too=
-l.
-> >> +	  If unsure, say Y.
-> >> =20
->=20
-> I assume you have CONFIG_IPV6=3Dm and CONFIG_INET_UDP_DIAG=3Dy, right=
-?
+Sorry.
+Patch looks nice. Except one notice below.
 
-That's correct.
+> Signed-off-by: Trond Myklebust<Trond.Myklebust@netapp.com>
+> Cc: Stanislav Kinsbursky<skinsbursky@parallels.com>
+> ---
+>   fs/nfs/client.c |    6 +++++-
+>   1 files changed, 5 insertions(+), 1 deletions(-)
+>
+> diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+> index 1a5cd49..f0dacad 100644
+> --- a/fs/nfs/client.c
+> +++ b/fs/nfs/client.c
+> @@ -1055,8 +1055,11 @@ static void nfs_server_insert_lists(struct nfs=
+_server *server)
+>   static void nfs_server_remove_lists(struct nfs_server *server)
+>   {
+>   	struct nfs_client *clp =3D server->nfs_client;
+> -	struct nfs_net *nn =3D net_generic(clp->net, nfs_net_id);
+> +	struct nfs_net *nn;
+>
+> +	if (clp =3D=3D NULL)
+> +		return;
+> +	nn =3D net_generic(clp->net, nfs_net_id);
+>   	spin_lock(&nn->nfs_client_lock);
+>   	list_del_rcu(&server->client_link);
+>   	if (clp&&  list_empty(&clp->cl_superblocks))
 
-> This one should fix the issue, you'll not be able to set it to Y when
-> IPV6 is M.
+This check for clp !=3D NULL can be removed.
 
-Indeed, it fixes the issue, but it also prevents using UDP_DIAG without
-IPv6 (just like the previous patch I=C2=A0guess.). Not a problem for me=
-=2E
 
->=20
->=20
-> [PATCH] udp_diag: Add dependency on IPV6
->=20
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->=20
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index aa2a2c7..55d39a4 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -409,7 +409,7 @@ config INET_TCP_DIAG
-> =20
->  config INET_UDP_DIAG
->  	tristate "UDP: socket monitoring interface"
-> -	depends on INET_DIAG
-> +	depends on INET_DIAG && IPV6
->  	default n
->  	---help---
->  	  Support for UDP socket monitoring interface used by the ss tool.
+
+--=20
+Best regards,
+Stanislav Kinsbursky
