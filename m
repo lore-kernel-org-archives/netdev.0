@@ -1,86 +1,48 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [patch v1, kernel version 3.2.1] rtnetlink workaround around
- the skb buff size issue
-Date: Tue, 7 Feb 2012 00:13:19 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F81413@ORSMSX106.amr.corp.intel.com>
-References: <5422254.3711328278789768.JavaMail.root@5-MeO-DMT.ynet.sk>
-	 <10521320.3761328279061644.JavaMail.root@5-MeO-DMT.ynet.sk>
-	 <20120203.192933.510206531351047222.davem@davemloft.net>
-	 <C5551D9AAB213A418B7FD5E4A6F30A0702F7F86F@ORSMSX106.amr.corp.intel.com>
- <1328572230.12637.18.camel@deadeye>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Sudden kernel panic with skge in 3.3-rc2
+Date: Mon, 6 Feb 2012 16:17:57 -0800
+Message-ID: <20120206161757.6eac9277@nehalam.linuxnetplumber.net>
+References: <20120202192115.GA8480@elliptictech.com>
+	<20120202124529.3e274223@s6510.linuxnetplumber.net>
+	<CAP=VYLp6Kh7OtN0nsTBDkvTvNLMV0jymAmbR0tJX4r-yMdTSQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"steweg@ynet.sk" <steweg@ynet.sk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10535 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756215Ab2BGANY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Feb 2012 19:13:24 -0500
-In-Reply-To: <1328572230.12637.18.camel@deadeye>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nick Bowler <nbowler@elliptictech.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLp6Kh7OtN0nsTBDkvTvNLMV0jymAmbR0tJX4r-yMdTSQA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogTW9uZGF5LCBGZWJydWFyeSAw
-NiwgMjAxMiAzOjUxIFBNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IERhdmlkIE1pbGxl
-cjsgc3Rld2VnQHluZXQuc2s7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUkU6IFtwYXRjaCB2MSwga2VybmVsIHZlcnNp
-b24gMy4yLjFdIHJ0bmV0bGluayB3b3JrYXJvdW5kIGFyb3VuZA0KPiB0aGUgc2tiIGJ1ZmYgc2l6
-ZSBpc3N1ZQ0KPiANCj4gT24gTW9uLCAyMDEyLTAyLTA2IGF0IDA0OjQxICswMDAwLCBSb3NlLCBH
-cmVnb3J5IFYgd3JvdGU6DQo+IFsuLi5dDQo+ID4gPiBUaGlzIGlzIG5vdCBob3cgd2UncmUgZ29p
-bmcgdG8gZml4IHRoaXMuICBJIGFscmVhZHkgc3RhdGVkIHRoZSBkZXNpcmVkDQo+ID4gPiB3YXkg
-dG8gZml4IHRoaXMsIHdoaWNoIGlzIHRvIG1ha2UgdGhlIGV4aXN0aW5nIGR1bXAgcmVxdWVzdCBo
-YXZlIGEgd2F5DQo+ID4gPiBmb3IgdGhlIHJlcXVlc3RvciB0byBlbmFibGUgZXh0ZW5kZWQgcGFy
-dHMgb2YgdGhlIGRldmljZSBkdW1wLg0KPiA+ID4NCj4gPiA+IFRoaXMgaXMganVzdCBsaWtlIG5l
-dGxpbmsgZGlhZyBzb2NrZXQgZHVtcHMsIHdoZXJlIHRoZSBkdW1wIHJlcXVlc3QNCj4gPiA+IHNw
-ZWNpZmllcyB3aGF0IHRoZSB1c2VyIHdhbnRzIHRvIHNlZS4NCj4gPiA+DQo+ID4gPiBJbiB0aGlz
-IGNhc2Ugd2UnZCBhZGQgYSBuZXRsaW5rIGF0dHJpYnV0ZSB0byB0aGUgZHVtcCByZXF1ZXN0IHdo
-aWNoDQo+ID4gPiBpcyBqdXN0IGEgdTMyIGJpdG1hc2sgb3Igc2ltaWxhci4NCj4gPiA+DQo+ID4g
-PiBUaGUgSW50ZWwgZW5naW5lZXIgd2hvIGFkZGVkIHRoZSBWRiBkdW1wIHN1cHBvcnQgc2FpZCBo
-ZSB3b3VsZCB3b3JrIG9uDQo+ID4gPiB0aGlzIGZpeCBzbyB3aHkgZG9uJ3QgeW91IGp1c3Qgd2Fp
-dCBwYXRpZW50bHkgZm9yIGhpbSB0byBkbyB0aGUgd29yaz8NCj4gPg0KPiA+IFRoZSBwYXRjaCBi
-ZWxvdyBpcyB3aGF0IEkndmUgZ290IHNvIGZhci4gIFJpZ2h0IG5vdyB0aGUgYml0IG1hc2sgYXJy
-YXkNCj4gPiBpcyBnbG9iYWwgc28gaWYgeW91IGVuYWJsZSBkaXNwbGF5IG9mIFZGIChuKSBvbiBv
-bmUgaW50ZXJmYWNlIGl0IHdpbGwNCj4gPiBlbmFibGUgZGlzcGxheSBvZiB0aGUgc2FtZSBWRiBv
-biBvdGhlciBpbnRlcmZhY2VzLiAgSSBpbnRlbmQgdG8gbW92ZQ0KPiA+IHRoZSBiaXQgbWFzayBh
-cnJheSBpbnRvIHRoZSBuZXRfZGV2aWNlIHN0cnVjdHVyZSBzbyB3ZSBjYW4gc2V0IHRoZQ0KPiA+
-IGRpc3BsYXkgbWFzayBmb3IgZWFjaCBpbnRlcmZhY2UgaW5kZXBlbmRlbnRseS4NCj4gDQo+IEkg
-ZG9uJ3QgdGhpbmsgdGhpcyBjYW4gd29yay4gIFVzaW5nIGFuIGFwcGxpY2F0aW9uIHRoYXQgcmVx
-dWVzdHMgVkYNCj4gaW5mb3JtYXRpb24gYW5kIHVzZXMgbGFyZ2UgYnVmZmVycyAoZS5nLiB0aGUg
-dXBkYXRlZCAnaXAnKSB3aWxsIGJyZWFrDQo+IGFub3RoZXIgYXBwbGljYXRpb24gdGhhdCBkb2Vz
-bid0IChlLmcuIGN1cnJlbnQgTmV0d29yayBNYW5hZ2VyKSwgd29uJ3QNCj4gaXQ/DQoNCkl0J3Mg
-bXkgdW5kZXJzdGFuZGluZyB0aGF0IHRoZSBwcm9ibGVtIGlzbid0IHdpdGggdGhlIGFwcGxpY2F0
-aW9uIGJ1ZmZlciBzaXplIGJ1dCB3aXRoIHRoZSBrZXJuZWwgYnVmZmVyIHNpemUsIHdoaWNoIGlz
-IGxpbWl0ZWQgdG8gYSBwYWdlLg0KDQo+IA0KPiBUaGUgZmlsdGVyIHNob3VsZCBiZSBwZXItcmVx
-dWVzdCBhbmQgbm90IHBlcnNpc3RlbnQgKGFuZCBJIHRoaW5rIGl0DQo+IGNvdWxkIGp1c3QgYmUg
-YSBib29sZWFuIG9yIGEgbGltaXQgdmFsdWUgcmF0aGVyIHRoYW4gYSBiaXRtYXNrKS4NCg0KV2h5
-Pw0KDQpJIHRoaW5rIGhhdmluZyB0aGUgYWJpbGl0eSB0byBzcGVjaWZ5IG9uZSBvciBtb3JlIGRp
-c2NyZXRlIFZGcyBmb3IgdGhlIGluZm8gZHVtcCBpcyB1c2VmdWwuDQoNCj4gDQo+ID4gVGhlIGNv
-bW1hbmQgdG8gc2V0IHRoZSBmaWx0ZXIgbWFzayBpcyAic2V0IG9ubHkiLCBJIHNlZSBubyByZWFz
-b24gdG8NCj4gPiBhZGQgaXQgdG8gdGhlIGluZm8gZHVtcC4gIElmIG90aGVyIGZvbGtzIHNlZSBp
-dCBkaWZmZXJlbnRseSB0aGVuIEkgY2FuDQo+ID4gZG8gdGhhdCB0b28uDQo+ID4NCj4gPiBBbnl3
-YXksIGl0IHdpbGwgYWxsb3cgdGhlIHVzZXIgdG8gY29udHJvbCB3aGljaCBWRnMgYXJlIGdldHRp
-bmcNCj4gPiBkaXNwbGF5ZWQgZHVyaW5nIHRoZSBpbmZvIGR1bXAuICBUaGV5IGFsbCBkZWZhdWx0
-IHRvIG9mZiBzbyBpbml0aWFsbHkNCj4gPiBubyBWRiBpbmZvIGdldHMgZGlzcGxheWVkLg0KPiA+
-DQo+ID4gSSd2ZSBhbHNvIHdoaXBwZWQgdXAgYSBwYXRjaCBmb3IgdGhlIGlwcm91dGUyIGlwIGNv
-bW1hbmQuICBJdCdsbCB3b3JrDQo+ID4gbGlrZSB0aGlzOg0KPiA+DQo+ID4gJ2lwIGxpbmsgc2V0
-IDxkZXY+IHZmIChuKSBmaWx0ZXIgW29ufG9mZl0nDQo+IA0KPiBXZWxsIHRoZXJlJ3Mgbm8gbmVl
-ZCBmb3IgYSBwZXJzaXN0ZW50IGZpbHRlci4gIEFuZCBJIHRoaW5rIHRoYXQgdGhlDQo+IGRlZmF1
-bHQgYmVoYXZpb3VyIG9mICdpcCcgc2hvdWxkIGJlIHRvIHNob3cgYWxsIHRoZSBWRnMsIGFzIGl0
-IGRvZXMgbm93Lg0KDQpEYXZlIGFza2VkIG1lIHRvIG1ha2UgdGhlIGRlZmF1bHQgYmVoYXZpb3Ig
-dG8gbm90IHNob3cgdGhlIFZGcy4gIFRha2UgaXQgdXAgd2l0aCBoaW0uDQoNCj4gDQo+IFsuLi5d
-DQo+ID4gLS0tIGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMNCj4gPiArKysgYi9uZXQvY29yZS9ydG5l
-dGxpbmsuYw0KPiA+IEBAIC02Miw2ICs2Miw5IEBAIHN0cnVjdCBydG5sX2xpbmsgew0KPiA+ICBz
-dGF0aWMgREVGSU5FX01VVEVYKHJ0bmxfbXV0ZXgpOw0KPiA+ICBzdGF0aWMgdTE2IG1pbl9pZmlu
-Zm9fZHVtcF9zaXplOw0KPiA+DQo+ID4gKy8qIFZGIGluZm8gZGlzcGxheSBmaWx0ZXIgLSBOdW1i
-ZXIgb2YgVkZzIG1heCBpcyAyNTYgKi8NCj4gPiArc3RhdGljIHVuc2lnbmVkIGxvbmcgc2hvd192
-ZmluZm9fZmlsdGVyWzI1NiAvIHNpemVvZih1bnNpZ25lZCBsb25nKV07DQo+IFsuLi5dDQo+IA0K
-PiBUaGlzIGFycmF5IGlzIDggdGltZXMgdG9vIGxhcmdlOyB1c2UgQklUU19UT19MT05HUy4NCg0K
-T29wcy4uLiB5ZWFoLCB0aGF0J2xsIGJlIGZpeGVkIGluIHRoZSBhY3R1YWwgcGF0Y2guDQoNCi0g
-R3JlZw0KDQo=
+On Mon, 6 Feb 2012 19:11:27 -0500
+Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
+
+> On Thu, Feb 2, 2012 at 3:45 PM, Stephen Hemminger <shemminger@vyatta.=
+com> wrote:
+>=20
+> [...]
+>=20
+> >
+> > Try reverting this commit, it seems problematic
+> > commit d0249e44432aa0ffcf710b64449b8eaa3722547e
+> > Author: stephen hemminger <shemminger@vyatta.com>
+> > Date: =A0 Thu Jan 19 14:37:18 2012 +0000
+> >
+> > =A0 =A0skge: check for PCI dma mapping errors
+> >
+>=20
+> I'm seeing similar issues, and a revert of the above caused the
+> problems to go away.  I'm testing on a baseline of net-next
+> as of today (3238a9be4d7a) plus some TIPC patches I was
+> trying to test (which are 99.9% unrelated to this, I'm sure).
+>=20
+> Details captured from serial console are below.  100% reproducible.
+>=20
+> I can probably try a test/debug patch for you if need be.
+>=20
+> Paul.
+
+There is a simple bug in the cleanup code reordering. And it is
+reproducible here. Working on a better solution.
