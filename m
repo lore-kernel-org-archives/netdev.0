@@ -1,51 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 2/2] Implement IPV6_UNICAST_IF socket option.
-Date: Tue, 07 Feb 2012 21:03:13 +0100
-Message-ID: <1328644993.2457.2.camel@edumazet-laptop>
-References: <1328643863-10404-2-git-send-email-ehoover@mines.edu>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v5 3/5] netdev: ethernet dev_alloc_skb to netdev_alloc_skb
+Date: Tue, 7 Feb 2012 21:04:07 +0100
+Message-ID: <CAMuHMdXFz5zEWUkrJjNvOqkgt-n2uKc3wzD9H5NKKz1LT4BpOw@mail.gmail.com>
+References: <cf736034e7bd407297e2ea9fbf247fb410eb7b39.1328445742.git.netdev@pradeepdalvi.com>
+	<ef62da964e8660dfdf2a25cd643631bb15914ecf.1328445742.git.netdev@pradeepdalvi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:55524 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755661Ab2BGUDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 15:03:19 -0500
-Received: by wics10 with SMTP id s10so5175763wic.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 12:03:18 -0800 (PST)
-In-Reply-To: <1328643863-10404-2-git-send-email-ehoover@mines.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Linux-Next <linux-next@vger.kernel.org>
+To: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <ef62da964e8660dfdf2a25cd643631bb15914ecf.1328445742.git.netdev@pradeepdalvi.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 07 f=C3=A9vrier 2012 =C3=A0 12:44 -0700, Erich E. Hoover a =C3=
-=A9crit :
-> The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
->=20
-> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
-> ---
->  include/linux/in6.h      |    1 +
->  include/linux/ipv6.h     |    1 +
->  net/ipv6/icmp.c          |    4 ++++
->  net/ipv6/ipv6_sockglue.c |   34 ++++++++++++++++++++++++++++++++++
->  net/ipv6/raw.c           |    2 ++
->  net/ipv6/udp.c           |    3 ++-
->  6 files changed, 44 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/in6.h b/include/linux/in6.h
-> index 097a34b..a67d76e 100644
-> --- a/include/linux/in6.h
-> +++ b/include/linux/in6.h
-> @@ -163,6 +163,7 @@ struct in6_flowlabel_req {
->  #define IPV6_NEXTHOP		9
->  #define IPV6_AUTHHDR		10	/* obsolete */
->  #define IPV6_FLOWINFO		11
-> +#define IPV6_UNICAST_IF		12
-> =20
+On Sun, Feb 5, 2012 at 13:50, Pradeep A. Dalvi <netdev@pradeepdalvi.com=
+> wrote:
+> diff --git a/drivers/net/ethernet/natsemi/sonic.c b/drivers/net/ether=
+net/natsemi/sonic.c
+> index 26e25d7..0452e296 100644
+> --- a/drivers/net/ethernet/natsemi/sonic.c
+> +++ b/drivers/net/ethernet/natsemi/sonic.c
+> @@ -51,7 +51,7 @@ static int sonic_open(struct net_device *dev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0printk("sonic_=
+open: initializing sonic driver.\n");
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i =3D 0; i < SONIC_NUM_RRS; i++) {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct sk_buff *sk=
+b =3D dev_alloc_skb(SONIC_RBSIZE + 2);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct sk_buff *sk=
+b =3D netdev_alloc_skb(dev, SONIC_RBSIZE + 2);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb =3D=3D=
+ NULL) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0while(i > 0) { /* free any that were allocated successful=
+ly */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0i--;
+> @@ -422,7 +422,7 @@ static void sonic_rx(struct net_device *dev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0status =3D son=
+ic_rda_get(dev, entry, SONIC_RD_STATUS);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (status & S=
+ONIC_RCR_PRX) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0/* Malloc up new buffer. */
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 new_skb =3D dev_alloc_skb(SONIC_RBSIZE + 2);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 new_skb =3D netdev_alloc_skb(SONIC_RBSIZE + 2);
 
-Hmm, last entry is :
+drivers/net/ethernet/natsemi/sonic.c:425: error: too few arguments to
+function 'netdev_alloc_skb'
 
-#define IPV6_TRANSPARENT        75=20
+cfr. m68k/defconfig http://kisskb.ellerman.id.au/kisskb/buildresult/558=
+3743/
 
-So 76 for your new option would be better
+Your search-and-replace script (hmm, you haven't used a script, have
+you?) forgot
+to add the first "dev" parameter.
+
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0if (new_skb =3D=3D NULL) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_ERR "%s: Memory s=
+queeze, dropping packet.\n", dev->name);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0lp->stats.rx_dropped++;
+
+Gr{oetje,eeting}s,
+
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
