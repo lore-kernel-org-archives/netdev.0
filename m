@@ -1,34 +1,37 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 10/11] e1000e: fix sparse warnings with -D__CHECK_ENDIAN__
-Date: Tue, 7 Feb 2012 12:58:35 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E5C@saturn3.aculab.com>
-References: <1328618038-5008-11-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 00/11] SUNRPC: make sysctl per network namespcase context
+Date: Tue, 7 Feb 2012 13:21:34 +0000
+Message-ID: <1328620894.3126.2.camel@lade.trondhjem.org>
+References: <20111214103602.3991.20990.stgit@localhost6.localdomain6>
+	 <4F310E8E.5040608@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Bruce Allan" <bruce.w.allan@intel.com>, <netdev@vger.kernel.org>,
-	<gospo@redhat.com>, <sassmann@redhat.com>
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57707 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756102Ab2BGM7A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 07:59:00 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17881-03 for <netdev@vger.kernel.org>;
- Tue,  7 Feb 2012 12:58:57 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1328618038-5008-11-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F310E8E.5040608-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <E03EDC82AF5DD140ADFC6207CA6E7C10-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
- 
->  	for (i = 0; i < last_word - first_word + 1; i++)
-> -		eeprom_buff[i] = cpu_to_le16(eeprom_buff[i]);
-> +		cpu_to_le16s(&eeprom_buff[i]);
-
-The old version is likely to generate much better code.
-
-	David
+T24gVHVlLCAyMDEyLTAyLTA3IGF0IDE1OjQ0ICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
+cm90ZToNCj4gVHJvbmQsIHdoYXQgYXJlIHlvdXIgcGxhbnMgYWJvdXQgdGhpcyBwYXRjaCBzZXQ/
+DQo+IEFyZSB5b3Ugd2FpdGluZyBmb3IgbWUgYW5kIEVyaWMgdG8gcmVhY2ggc29tZSBkZWNpc2lv
+biwgdGhhdCBzdWl0cyBib3RoIG9mIHVzPw0KDQpZZXMuIEknZCBsaWtlIGEgY29uc2Vuc3VzIG9u
+IHRoZSBzb2x1dGlvbi4NCg0KLS0gDQpUcm9uZCBNeWtsZWJ1c3QNCkxpbnV4IE5GUyBjbGllbnQg
+bWFpbnRhaW5lcg0KDQpOZXRBcHANClRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tDQp3d3cubmV0
+YXBwLmNvbQ0KDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
