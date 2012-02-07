@@ -1,49 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Default UDP and UNIX diag to 'n'.
-Date: Tue, 07 Feb 2012 13:36:17 -0500 (EST)
-Message-ID: <20120207.133617.2073149861534644798.davem@davemloft.net>
-References: <4F31292F.2090503@parallels.com>
-	<20120207.122931.1509587729423704935.davem@davemloft.net>
-	<20120207183911.4dd65ac8@destiny.ordissimo>
+Subject: Re: [PATCH v2] net: sh_eth: fix skb_over_panic happen
+Date: Tue, 07 Feb 2012 13:38:06 -0500 (EST)
+Message-ID: <20120207.133806.473035154885048767.davem@davemloft.net>
+References: <4F30F503.6090300@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: anisse@astier.eu
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	nobuhiro.iwamatsu.yj@renesas.com
+To: yoshihiro.shimoda.uh@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35540 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35560 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755808Ab2BGSgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:36:22 -0500
-In-Reply-To: <20120207183911.4dd65ac8@destiny.ordissimo>
+	with ESMTP id S1753706Ab2BGSiM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 13:38:12 -0500
+In-Reply-To: <4F30F503.6090300@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anisse Astier <anisse@astier.eu>
-Date: Tue, 7 Feb 2012 18:39:11 +0100
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Date: Tue, 07 Feb 2012 18:55:15 +0900
 
-> On Tue, 07 Feb 2012 12:29:31 -0500 (EST), David Miller <davem@davemloft.net> wrote :
+> When this GETHER controller received a large frame (about 1800 bytes
+> or more), skb_over_panic() happened. This is because the previous
+> driver set the RFLR to 0x1000 (4096 bytes) and the skb allocate size
+> is smaller than 4096 bytes. So, the controller accepted such a frame.
 > 
->> From: Pavel Emelyanov <xemul@parallels.com>
->> Date: Tue, 07 Feb 2012 17:37:51 +0400
->> 
->> > @@ -409,7 +409,7 @@ config INET_TCP_DIAG
->> >  
->> >  config INET_UDP_DIAG
->> >  	tristate "UDP: socket monitoring interface"
->> > -	depends on INET_DIAG
->> > +	depends on INET_DIAG && IPV6
->> 
->> This needs to be something like "INET_DIAG && (IPV6 || IPV6=n)"
+> The controller can discard a large frame by the RFLR setting.
+> So, the patch modifies the value of RFLR to mtu + ETH_HLEN +
+> VLAN_HLEN + ETH_FCS_LEN.
 > 
-> Yes, this works better. This is the right solution.
-> 
-> Tested-by: Anisse Astier <anisse@astier.eu>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
 
-The patch was corrupted by your email client, it turned all the
-tab characters into spaces, you also didn't write an appropriate
-commit message.
-
-I took care of this, but if you plan to submit any patch at all in
-the future, even as an "request for comments" and testing, you must
-keep these issues in mind.
+Applied, thanks.
