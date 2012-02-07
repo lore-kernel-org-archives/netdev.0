@@ -1,154 +1,75 @@
-From: "Erich E. Hoover" <ehoover@mines.edu>
-Subject: [PATCH v6 2/2] Implement IPV6_UNICAST_IF socket option.
-Date: Tue,  7 Feb 2012 14:44:33 -0700
-Message-ID: <1328651073-976-2-git-send-email-ehoover@mines.edu>
-Cc: "Erich E. Hoover" <ehoover@mines.edu>
-To: Linux Netdev <netdev@vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skbuff: Add new tc classify variable
+Date: Tue, 7 Feb 2012 13:45:53 -0800
+Message-ID: <20120207134553.220a1da5@nehalam.linuxnetplumber.net>
+References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+	<20120207110522.70663963@nehalam.linuxnetplumber.net>
+	<20120207195729.GA26533@pandem0nium>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/1iaYM..SHwr59JxuCqjCLRc"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from izzard.Mines.EDU ([138.67.132.197]:46388 "EHLO izzard.mines.edu"
+Received: from mail.vyatta.com ([76.74.103.46]:36969 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756920Ab2BGVoo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 16:44:44 -0500
+	id S1756637Ab2BGVp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 16:45:56 -0500
+In-Reply-To: <20120207195729.GA26533@pandem0nium>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--Sig_/1iaYM..SHwr59JxuCqjCLRc
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
+On Tue, 7 Feb 2012 20:57:29 +0100
+Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
 
-Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
----
- include/linux/in6.h      |    1 +
- include/linux/ipv6.h     |    1 +
- net/ipv6/icmp.c          |    4 ++++
- net/ipv6/ipv6_sockglue.c |   34 ++++++++++++++++++++++++++++++++++
- net/ipv6/raw.c           |    2 ++
- net/ipv6/udp.c           |    3 ++-
- 6 files changed, 44 insertions(+), 1 deletions(-)
+> On Tue, Feb 07, 2012 at 11:05:22AM -0800, Stephen Hemminger wrote:
+> > On Tue,  7 Feb 2012 19:39:08 +0100
+> > Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
+> >=20
+> > I don't understand why this is better, we already have mark to do this.
+> > Your method saves adding a tc filter to map mark to classid, but that i=
+s hardly
+> > a huge burden.
+>=20
+> Unfortunately, it is. We have previously built our trees by setting marks=
+ with iptables
+> and matching the masks with tc and the u32 matcher, but we got a rather b=
+ig performance
+> impact as soon as the number of users grow. The target platform are WiFi =
+access points.
+> By using the proposed patch, the performance stays nearly constant at a g=
+rowing number
+> of users.
 
-diff --git a/include/linux/in6.h b/include/linux/in6.h
-index 097a34b..5c83d9e 100644
---- a/include/linux/in6.h
-+++ b/include/linux/in6.h
-@@ -271,6 +271,7 @@ struct in6_flowlabel_req {
- #define IPV6_ORIGDSTADDR        74
- #define IPV6_RECVORIGDSTADDR    IPV6_ORIGDSTADDR
- #define IPV6_TRANSPARENT        75
-+#define IPV6_UNICAST_IF         76
- 
- /*
-  * Multicast Routing:
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 6318268..743a16a 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -324,6 +324,7 @@ struct ipv6_pinfo {
- 				__unused_2:6;
- 	__s16			mcast_hops:9;
- #endif
-+	int			ucast_oif;
- 	int			mcast_oif;
- 
- 	/* pktoption flags */
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 01d46bf..af88934 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -468,6 +468,8 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
- 
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- 		fl6.flowi6_oif = np->mcast_oif;
-+	else if (!fl6.flowi6_oif)
-+		fl6.flowi6_oif = np->ucast_oif;
- 
- 	dst = icmpv6_route_lookup(net, skb, sk, &fl6);
- 	if (IS_ERR(dst))
-@@ -553,6 +555,8 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
- 
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- 		fl6.flowi6_oif = np->mcast_oif;
-+	else if (!fl6.flowi6_oif)
-+		fl6.flowi6_oif = np->ucast_oif;
- 
- 	err = ip6_dst_lookup(sk, &dst, &fl6);
- 	if (err)
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 18a2719..6d6b65f 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -516,6 +516,36 @@ done:
- 		retv = 0;
- 		break;
- 
-+	case IPV6_UNICAST_IF:
-+	{
-+		struct net_device *dev = NULL;
-+		int ifindex;
-+
-+		if (optlen != sizeof(int))
-+			goto e_inval;
-+
-+		ifindex = (__force int)ntohl((__force __be32)val);
-+		if (ifindex == 0) {
-+			np->ucast_oif = 0;
-+			retv = 0;
-+			break;
-+		}
-+
-+		dev = dev_get_by_index(net, ifindex);
-+		retv = -EADDRNOTAVAIL;
-+		if (!dev)
-+			break;
-+		dev_put(dev);
-+
-+		retv = -EINVAL;
-+		if (sk->sk_bound_dev_if)
-+			break;
-+
-+		np->ucast_oif = ifindex;
-+		retv = 0;
-+		break;
-+	}
-+
- 	case IPV6_MULTICAST_IF:
- 		if (sk->sk_type == SOCK_STREAM)
- 			break;
-@@ -1160,6 +1190,10 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		val = np->mcast_oif;
- 		break;
- 
-+	case IPV6_UNICAST_IF:
-+		val = (__force int)htonl((__u32) np->ucast_oif);
-+		break;
-+
- 	case IPV6_MTU_DISCOVER:
- 		val = np->pmtudisc;
- 		break;
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index d02f7e4..5bddea7 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -856,6 +856,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- 		fl6.flowi6_oif = np->mcast_oif;
-+	else if (!fl6.flowi6_oif)
-+		fl6.flowi6_oif = np->ucast_oif;
- 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
- 
- 	dst = ip6_dst_lookup_flow(sk, &fl6, final_p, true);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4f96b5c..8aebf8f 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1130,7 +1130,8 @@ do_udp_sendmsg:
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr)) {
- 		fl6.flowi6_oif = np->mcast_oif;
- 		connected = 0;
--	}
-+	} else if (!fl6.flowi6_oif)
-+		fl6.flowi6_oif = np->ucast_oif;
- 
- 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
- 
--- 
-1.7.5.4
+The problem then is not the use of marks but having to add a filter rule for
+each mark. We need something like u32 hash but for marks to build a table
+of mark -> class id.  The current method uses a linear list of filter rules,
+which is an obvious bottleneck with lots of classes.
+
+--Sig_/1iaYM..SHwr59JxuCqjCLRc
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPMZuRAAoJEICnf2CVzeR+RWgP/jb3Pn1bvYvSSZVFXS5auDHE
+dc/eDfEgS1nnSl5M/5PwsRc/5mSBRWEfYdMPqb760NPmlmuSeThpqBsCROItWQo2
+e+OLuS1OgrxqySHB1nM21y8LhDvUpU4Dw6Na6/jdiIooa609iLaFl8FCQmQxptyc
+f/t+/jnCgrGBmZVQgWcIYSk599ttClXj+MHCUkIN28ljPD8GrGpsA06Gd42onxhP
+5djXm/FTaaY2i1tlj3ienHPvhHCi/ePbkF5zU0xeXR320WtS3rFCTxb+fEcXRKFe
+Eut62YjEBg2OJHh0x6RxFadC+1sg0G1m6baxbbo5MaHHTZ+IzA5Tpw/V2dk18MXy
+A9eYbpbC3cPlx4bAE1WoTpT5WS8E7qNaw/Mrm009RP6huY0EK/HwRDFaxI2CzBWC
+7+VX2jqe0RPsA8j8PWO0/2oDqa/efK0j1ZCUctG6/CoYg/1RcRjSSWebeKwxgWOx
+XBuaFY9g3ddwr7fc7okA8XOvS1gWhexdxbOP7SHCl8rpupg+HRmV/vMfCpyLiRrN
+9bEFiXQob+O00fBEi3TwZ9WSsr+AuFi566A0IlQBzVz5TMd/M0QdFA7FGCkjlSfc
+JgtcwoOFjFknMo8E9MxZGYOhkU+yOfHt+hGLd7VUvL5Yt1w7Ng5B4ftDATCUMUuf
+7IffB00Qw0T3KUlmHKi3
+=4ltU
+-----END PGP SIGNATURE-----
+
+--Sig_/1iaYM..SHwr59JxuCqjCLRc--
