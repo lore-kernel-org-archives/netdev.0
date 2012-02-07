@@ -1,16 +1,16 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 04/15] tipc: Ensure broadcast link re-acquires node after link failure
-Date: Mon,  6 Feb 2012 19:52:37 -0500
-Message-ID: <1328575968-20643-5-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 02/15] tipc: Prevent transmission of outdated link protocol messages
+Date: Mon,  6 Feb 2012 19:52:35 -0500
+Message-ID: <1328575968-20643-3-git-send-email-paul.gortmaker@windriver.com>
 References: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50168 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:50167 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341Ab2BGAxK (ORCPT
+	with ESMTP id S1754023Ab2BGAxK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2012 19:53:10 -0500
 In-Reply-To: <1328575968-20643-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,98 +18,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Fix a bug that can prevent TIPC from sending broadcast messages to a node
-if contact with the node is lost and then regained. The problem occurs if
-the broadcast link first clears the flag indicating the node is part of the
-link's distribution set (when it loses contact with the node), and later
-fails to restore the flag (when contact is regained); restoration fails
-if contact with the node is regained by implicit unicast link activation
-triggered by the arrival of a data message, rather than explicitly by the
-arrival of a link activation message.
+Ensures that a link endpoint discards any previously deferred link
+protocol message whenever it attempts to send a new one.
 
-The broadcast link now uses separate fields to track whether a node is
-theoretically capable of receiving broadcast messages versus whether it is
-actually part of the link's distribution set. The former member is updated
-by the receipt of link protocol messages, which can occur at any time; the
-latter member is updated only when contact with the node is gained or lost.
-This change also permits the simplification of several conditional
-expressions since the broadcast link's "supported" field can now only be
-set if there are working links to the associated node.
+Previously, it was possible for a link protocol message that was unsent
+due to congestion to be transmitted after newer protocol messages had
+been sent. The stale link protocol message might then cause the receiving
+link endpoint to malfunction because of its outdated conent.
+
+Thanks to Osamu Kaminuma [okaminum@avaya.com] for diagnosing the problem
+and contributing a prototype patch.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |    5 +++--
- net/tipc/node.c |    3 ++-
- net/tipc/node.h |    4 +++-
- 3 files changed, 8 insertions(+), 4 deletions(-)
+ net/tipc/link.c |   53 +++++++++++++++++++++++++++--------------------------
+ 1 files changed, 27 insertions(+), 26 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 4ea6cad..3405f56 100644
+index c317abf..bee316c 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1502,6 +1502,7 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
+@@ -1954,6 +1954,13 @@ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ,
+ 	u32 msg_size = sizeof(l_ptr->proto_msg);
+ 	int r_flag;
  
- 		tipc_addr_string_fill(addr_string, n_ptr->addr);
- 		info("Multicast link info for %s\n", addr_string);
-+		info("Supportable: %d,  ", n_ptr->bclink.supportable);
- 		info("Supported: %d,  ", n_ptr->bclink.supported);
- 		info("Acked: %u\n", n_ptr->bclink.acked);
- 		info("Last in: %u,  ", n_ptr->bclink.last_in);
-@@ -1736,7 +1737,7 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
++	/* Discard any previous message that was deferred due to congestion */
++
++	if (l_ptr->proto_msg_queue) {
++		buf_discard(l_ptr->proto_msg_queue);
++		l_ptr->proto_msg_queue = NULL;
++	}
++
+ 	if (link_blocked(l_ptr))
+ 		return;
  
- 		/* Release acked messages */
+@@ -1962,6 +1969,8 @@ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ,
+ 	if ((l_ptr->owner->block_setup) && (msg_typ != RESET_MSG))
+ 		return;
  
--		if (tipc_node_is_up(n_ptr) && n_ptr->bclink.supported)
-+		if (n_ptr->bclink.supported)
- 			tipc_bclink_acknowledge(n_ptr, msg_bcast_ack(msg));
++	/* Create protocol message with "out-of-sequence" sequence number */
++
+ 	msg_set_type(msg, msg_typ);
+ 	msg_set_net_plane(msg, l_ptr->b_ptr->net_plane);
+ 	msg_set_bcast_ack(msg, mod(l_ptr->owner->bclink.last_in));
+@@ -2018,44 +2027,36 @@ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ,
+ 	r_flag = (l_ptr->owner->working_links > tipc_link_is_up(l_ptr));
+ 	msg_set_redundant_link(msg, r_flag);
+ 	msg_set_linkprio(msg, l_ptr->priority);
+-
+-	/* Ensure sequence number will not fit : */
++	msg_set_size(msg, msg_size);
  
- 		crs = l_ptr->first_out;
-@@ -2126,7 +2127,7 @@ static void link_recv_proto_msg(struct tipc_link *l_ptr, struct sk_buff *buf)
- 		} else {
- 			l_ptr->max_pkt = l_ptr->max_pkt_target;
- 		}
--		l_ptr->owner->bclink.supported = (max_pkt_info != 0);
-+		l_ptr->owner->bclink.supportable = (max_pkt_info != 0);
+ 	msg_set_seqno(msg, mod(l_ptr->next_out_no + (0xffff/2)));
  
- 		/* Synchronize broadcast link info, if not done previously */
+-	/* Congestion? */
+-
+-	if (tipc_bearer_congested(l_ptr->b_ptr, l_ptr)) {
+-		if (!l_ptr->proto_msg_queue) {
+-			l_ptr->proto_msg_queue =
+-				tipc_buf_acquire(sizeof(l_ptr->proto_msg));
+-		}
+-		buf = l_ptr->proto_msg_queue;
+-		if (!buf)
+-			return;
+-		skb_copy_to_linear_data(buf, msg, sizeof(l_ptr->proto_msg));
+-		return;
+-	}
+-
+-	/* Message can be sent */
+-
+ 	buf = tipc_buf_acquire(msg_size);
+ 	if (!buf)
+ 		return;
  
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 6b226fa..9196f94 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -306,8 +306,9 @@ static void node_established_contact(struct tipc_node *n_ptr)
- 	/* Syncronize broadcast acks */
- 	n_ptr->bclink.acked = tipc_bclink_get_last_sent();
+ 	skb_copy_to_linear_data(buf, msg, sizeof(l_ptr->proto_msg));
+-	msg_set_size(buf_msg(buf), msg_size);
  
--	if (n_ptr->bclink.supported) {
-+	if (n_ptr->bclink.supportable) {
- 		tipc_bclink_add_node(n_ptr->addr);
-+		n_ptr->bclink.supported = 1;
- 		if (n_ptr->addr < tipc_own_addr)
- 			tipc_own_tag++;
+-	if (tipc_bearer_send(l_ptr->b_ptr, buf, &l_ptr->media_addr)) {
+-		l_ptr->unacked_window = 0;
+-		buf_discard(buf);
++	/* Defer message if bearer is already congested */
++
++	if (tipc_bearer_congested(l_ptr->b_ptr, l_ptr)) {
++		l_ptr->proto_msg_queue = buf;
++		return;
++	}
++
++	/* Defer message if attempting to send results in bearer congestion */
++
++	if (!tipc_bearer_send(l_ptr->b_ptr, buf, &l_ptr->media_addr)) {
++		tipc_bearer_schedule(l_ptr->b_ptr, l_ptr);
++		l_ptr->proto_msg_queue = buf;
++		l_ptr->stats.bearer_congs++;
+ 		return;
  	}
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 0b1c5f8..90689f4 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -62,6 +62,7 @@
-  * @link_cnt: number of links to node
-  * @permit_changeover: non-zero if node has redundant links to this system
-  * @bclink: broadcast-related info
-+ *    @supportable: non-zero if node supports TIPC b'cast link capability
-  *    @supported: non-zero if node supports TIPC b'cast capability
-  *    @acked: sequence # of last outbound b'cast message acknowledged by node
-  *    @last_in: sequence # of last in-sequence b'cast message received from node
-@@ -86,7 +87,8 @@ struct tipc_node {
- 	int block_setup;
- 	int permit_changeover;
- 	struct {
--		int supported;
-+		u8 supportable;
-+		u8 supported;
- 		u32 acked;
- 		u32 last_in;
- 		u32 gap_after;
+ 
+-	/* New congestion */
+-	tipc_bearer_schedule(l_ptr->b_ptr, l_ptr);
+-	l_ptr->proto_msg_queue = buf;
+-	l_ptr->stats.bearer_congs++;
++	/* Discard message if it was sent successfully */
++
++	l_ptr->unacked_window = 0;
++	buf_discard(buf);
+ }
+ 
+ /*
 -- 
 1.7.9
