@@ -1,64 +1,322 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] e1000e: add missing initializers reported when compiling with W=1
-Date: Tue,  7 Feb 2012 04:33:50 -0800
-Message-ID: <1328618038-5008-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] e1000: Adding e1000_dump function
+Date: Tue,  7 Feb 2012 04:33:49 -0800
+Message-ID: <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47275 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:40692 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755676Ab2BGMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756040Ab2BGMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Feb 2012 07:34:13 -0500
 In-Reply-To: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Tushar Dave <tushar.n.dave@intel.com>
 
-warning: missing initializer
+When TX hang occurs e1000_dump prints TX ring, RX ring and Device registers.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000.h      |    1 +
+ drivers/net/ethernet/intel/e1000/e1000_hw.h   |   10 +
+ drivers/net/ethernet/intel/e1000/e1000_main.c |  224 +++++++++++++++++++++++++
+ 3 files changed, 235 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 1a8dd2f..c05137f 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -137,7 +137,7 @@ static const struct e1000_reg_info e1000_reg_info_tbl[] = {
- 	{E1000_TDFPC, "TDFPC"},
+diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
+index 1e15969..2b6cd02 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000.h
++++ b/drivers/net/ethernet/intel/e1000/e1000.h
+@@ -254,6 +254,7 @@ struct e1000_adapter {
+ 	atomic_t tx_fifo_stall;
+ 	bool pcix_82544;
+ 	bool detect_tx_hung;
++	bool dump_buffers;
  
- 	/* List Terminator */
--	{}
-+	{0, NULL}
- };
+ 	/* RX */
+ 	bool (*clean_rx)(struct e1000_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+index f6c4d7e..11578c8 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_hw.h
++++ b/drivers/net/ethernet/intel/e1000/e1000_hw.h
+@@ -895,6 +895,11 @@ struct e1000_ffvt_entry {
+ #define E1000_FCRTL    0x02160	/* Flow Control Receive Threshold Low - RW */
+ #define E1000_FCRTH    0x02168	/* Flow Control Receive Threshold High - RW */
+ #define E1000_PSRCTL   0x02170	/* Packet Split Receive Control - RW */
++#define E1000_RDFH     0x02410  /* RX Data FIFO Head - RW */
++#define E1000_RDFT     0x02418  /* RX Data FIFO Tail - RW */
++#define E1000_RDFHS    0x02420  /* RX Data FIFO Head Saved - RW */
++#define E1000_RDFTS    0x02428  /* RX Data FIFO Tail Saved - RW */
++#define E1000_RDFPC    0x02430  /* RX Data FIFO Packet Count - RW */
+ #define E1000_RDBAL    0x02800	/* RX Descriptor Base Address Low - RW */
+ #define E1000_RDBAH    0x02804	/* RX Descriptor Base Address High - RW */
+ #define E1000_RDLEN    0x02808	/* RX Descriptor Length - RW */
+@@ -1074,6 +1079,11 @@ struct e1000_ffvt_entry {
+ #define E1000_82542_IMC      E1000_IMC
+ #define E1000_82542_RCTL     E1000_RCTL
+ #define E1000_82542_RDTR     0x00108
++#define E1000_82542_RDFH     E1000_RDFH
++#define E1000_82542_RDFT     E1000_RDFT
++#define E1000_82542_RDFHS    E1000_RDFHS
++#define E1000_82542_RDFTS    E1000_RDFTS
++#define E1000_82542_RDFPC    E1000_RDFPC
+ #define E1000_82542_RDBAL    0x00110
+ #define E1000_82542_RDBAH    0x00114
+ #define E1000_82542_RDLEN    0x00118
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 363fd39..1f86a70 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3239,6 +3239,228 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ }
  
- /*
-@@ -6502,7 +6502,7 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH2_LV_LM), board_pch2lan },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH2_LV_V), board_pch2lan },
++#define NUM_REGS 38 /* 1 based count */
++static void e1000_regdump(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 regs[NUM_REGS];
++	u32 *regs_buff = regs;
++	int i = 0;
++
++	char *reg_name[] = {
++	"CTRL",  "STATUS",
++	"RCTL", "RDLEN", "RDH", "RDT", "RDTR",
++	"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
++	"TIDV", "TXDCTL", "TADV", "TARC0",
++	"TDBAL1", "TDBAH1", "TDLEN1", "TDH1", "TDT1",
++	"TXDCTL1", "TARC1",
++	"CTRL_EXT", "ERT", "RDBAL", "RDBAH",
++	"TDFH", "TDFT", "TDFHS", "TDFTS", "TDFPC",
++	"RDFH", "RDFT", "RDFHS", "RDFTS", "RDFPC"
++	};
++
++	regs_buff[0]  = er32(CTRL);
++	regs_buff[1]  = er32(STATUS);
++
++	regs_buff[2]  = er32(RCTL);
++	regs_buff[3]  = er32(RDLEN);
++	regs_buff[4]  = er32(RDH);
++	regs_buff[5]  = er32(RDT);
++	regs_buff[6]  = er32(RDTR);
++
++	regs_buff[7]  = er32(TCTL);
++	regs_buff[8]  = er32(TDBAL);
++	regs_buff[9]  = er32(TDBAH);
++	regs_buff[10] = er32(TDLEN);
++	regs_buff[11] = er32(TDH);
++	regs_buff[12] = er32(TDT);
++	regs_buff[13] = er32(TIDV);
++	regs_buff[14] = er32(TXDCTL);
++	regs_buff[15] = er32(TADV);
++	regs_buff[16] = er32(TARC0);
++
++	regs_buff[17] = er32(TDBAL1);
++	regs_buff[18] = er32(TDBAH1);
++	regs_buff[19] = er32(TDLEN1);
++	regs_buff[20] = er32(TDH1);
++	regs_buff[21] = er32(TDT1);
++	regs_buff[22] = er32(TXDCTL1);
++	regs_buff[23] = er32(TARC1);
++	regs_buff[24] = er32(CTRL_EXT);
++	regs_buff[25] = er32(ERT);
++	regs_buff[26] = er32(RDBAL0);
++	regs_buff[27] = er32(RDBAH0);
++	regs_buff[28] = er32(TDFH);
++	regs_buff[29] = er32(TDFT);
++	regs_buff[30] = er32(TDFHS);
++	regs_buff[31] = er32(TDFTS);
++	regs_buff[32] = er32(TDFPC);
++	regs_buff[33] = er32(RDFH);
++	regs_buff[34] = er32(RDFT);
++	regs_buff[35] = er32(RDFHS);
++	regs_buff[36] = er32(RDFTS);
++	regs_buff[37] = er32(RDFPC);
++
++	pr_info("Register dump\n");
++	for (i = 0; i < NUM_REGS; i++) {
++		printk(KERN_INFO "%-15s  %08x\n",
++		reg_name[i], regs_buff[i]);
++	}
++}
++
++/*
++ * e1000_dump: Print registers, tx ring and rx ring
++ */
++static void e1000_dump(struct e1000_adapter *adapter)
++{
++	/* this code doesn't handle multiple rings */
++	struct e1000_tx_ring *tx_ring = adapter->tx_ring;
++	struct e1000_rx_ring *rx_ring = adapter->rx_ring;
++	int i;
++
++	if (!netif_msg_hw(adapter))
++		return;
++
++	/* Print Registers */
++	e1000_regdump(adapter);
++
++	/*
++	 * transmit dump
++	 */
++	pr_info("TX Desc ring0 dump\n");
++
++	/* Transmit Descriptor Formats - DEXT[29] is 0 (Legacy) or 1 (Extended)
++	 *
++	 * Legacy Transmit Descriptor
++	 *   +--------------------------------------------------------------+
++	 * 0 |         Buffer Address [63:0] (Reserved on Write Back)       |
++	 *   +--------------------------------------------------------------+
++	 * 8 | Special  |    CSS     | Status |  CMD    |  CSO   |  Length  |
++	 *   +--------------------------------------------------------------+
++	 *   63       48 47        36 35    32 31     24 23    16 15        0
++	 *
++	 * Extended Context Descriptor (DTYP=0x0) for TSO or checksum offload
++	 *   63      48 47    40 39       32 31             16 15    8 7      0
++	 *   +----------------------------------------------------------------+
++	 * 0 |  TUCSE  | TUCS0  |   TUCSS   |     IPCSE       | IPCS0 | IPCSS |
++	 *   +----------------------------------------------------------------+
++	 * 8 |   MSS   | HDRLEN | RSV | STA | TUCMD | DTYP |      PAYLEN      |
++	 *   +----------------------------------------------------------------+
++	 *   63      48 47    40 39 36 35 32 31   24 23  20 19                0
++	 *
++	 * Extended Data Descriptor (DTYP=0x1)
++	 *   +----------------------------------------------------------------+
++	 * 0 |                     Buffer Address [63:0]                      |
++	 *   +----------------------------------------------------------------+
++	 * 8 | VLAN tag |  POPTS  | Rsvd | Status | Command | DTYP |  DTALEN  |
++	 *   +----------------------------------------------------------------+
++	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
++	 */
++	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ]"
++	       " leng  ntw timestmp         bi->skb\n");
++	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ]"
++	       " leng  ntw timestmp         bi->skb\n");
++
++	if (!netif_msg_tx_done(adapter))
++		goto rx_ring_summary;
++
++	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
++		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
++		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
++		struct my_u { u64 a; u64 b; };
++		struct my_u *u = (struct my_u *)tx_desc;
++		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X "
++		       "%016llX %p",
++		       ((le64_to_cpu(u->b) & (1<<20)) ? 'd' : 'c'), i,
++		       le64_to_cpu(u->a), le64_to_cpu(u->b),
++		       (u64)buffer_info->dma, buffer_info->length,
++		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
++		       buffer_info->skb);
++		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
++			printk(KERN_CONT" NTC/U\n");
++		else if (i == tx_ring->next_to_use)
++			printk(KERN_CONT " NTU\n");
++		else if (i == tx_ring->next_to_clean)
++			printk(KERN_CONT " NTC\n");
++		else
++			printk(KERN_CONT "\n");
++
++
++		if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
++			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
++					16, 1, phys_to_virt(buffer_info->dma),
++					buffer_info->length, true);
++	}
++
++rx_ring_summary:
++	/*
++	 * receive dump
++	 */
++	pr_info("\nRX Desc ring dump\n");
++
++	/* Legacy Receive Descriptor Format
++	 *
++	 * +-----------------------------------------------------+
++	 * |                Buffer Address [63:0]                |
++	 * +-----------------------------------------------------+
++	 * | VLAN Tag | Errors | Status 0 | Packet csum | Length |
++	 * +-----------------------------------------------------+
++	 * 63       48 47    40 39      32 31         16 15      0
++	 */
++	printk(KERN_INFO "R[desc]      [address 63:0  ] [vl er S cks ln] "
++		"[bi->dma       ] [bi->skb]\n");
++
++	if (!netif_msg_rx_status(adapter))
++		goto exit;
++
++	for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
++		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rx_ring, i);
++		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
++		struct my_u { u64 a; u64 b; };
++		struct my_u *u = (struct my_u *)rx_desc;
++		printk(KERN_INFO "R[0x%03X]     %016llX %016llX %016llX %p",
++			i, le64_to_cpu(u->a), le64_to_cpu(u->b),
++			(u64)buffer_info->dma, buffer_info->skb);
++		if (i == rx_ring->next_to_use)
++			printk(KERN_CONT " NTU\n");
++		else if (i == rx_ring->next_to_clean)
++			printk(KERN_CONT " NTC\n");
++		else
++			printk(KERN_CONT "\n");
++
++		if (netif_msg_pktdata(adapter))
++			print_hex_dump(KERN_INFO, "",
++				DUMP_PREFIX_ADDRESS, 16, 1,
++				phys_to_virt(buffer_info->dma),
++				buffer_info->length, true);
++
++	} /* for */
++
++	/* dump the descriptor caches */
++	/* rx */
++	printk(KERN_INFO "e1000: Rx descriptor cache in 64bit format\n");
++	for (i = 0x6000; i <= 0x63FF ; i += 0x10) {
++		printk(KERN_INFO "R%04X: %08X|%08X %08X|%08X\n",
++				i,
++				readl(adapter->hw.hw_addr + i+4),
++				readl(adapter->hw.hw_addr + i),
++				readl(adapter->hw.hw_addr + i+12),
++				readl(adapter->hw.hw_addr + i+8));
++	}
++	/* tx */
++	printk(KERN_INFO "e1000: Tx descriptor cache in 64bit format\n");
++	for (i = 0x7000; i <= 0x73FF ; i += 0x10) {
++		printk(KERN_INFO "T%04X: %08X|%08X %08X|%08X\n",
++				i,
++				readl(adapter->hw.hw_addr + i+4),
++				readl(adapter->hw.hw_addr + i),
++				readl(adapter->hw.hw_addr + i+12),
++				readl(adapter->hw.hw_addr + i+8));
++	}
++exit:
++	return;
++}
++
+ /**
+  * e1000_tx_timeout - Respond to a Tx Hang
+  * @netdev: network interface device structure
+@@ -3260,6 +3482,7 @@ static void e1000_reset_task(struct work_struct *work)
  
--	{ }	/* terminate list */
-+	{ 0, 0, 0, 0, 0, 0, 0 }	/* terminate list */
- };
- MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
+ 	if (test_bit(__E1000_DOWN, &adapter->flags))
+ 		return;
++	e_err(drv, "Reset adapter\n");
+ 	e1000_reinit_safe(adapter);
+ }
  
-@@ -6521,7 +6521,9 @@ static struct pci_driver e1000_driver = {
- 	.probe    = e1000_probe,
- 	.remove   = __devexit_p(e1000_remove),
- #ifdef CONFIG_PM
--	.driver.pm = &e1000_pm_ops,
-+	.driver   = {
-+		.pm = &e1000_pm_ops,
-+	},
- #endif
- 	.shutdown = e1000_shutdown,
- 	.err_handler = &e1000_err_handler
+@@ -3677,6 +3900,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 				eop,
+ 				jiffies,
+ 				eop_desc->upper.fields.status);
++			e1000_dump(adapter);
+ 			netif_stop_queue(netdev);
+ 		}
+ 	}
 -- 
 1.7.7.6
