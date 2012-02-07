@@ -1,43 +1,54 @@
-From: "Pradeep A. Dalvi" <netdev@pradeepdalvi.com>
-Subject: Re: [PATCH] net: fec: Fix build due to wrong dev annotation
-Date: Wed, 8 Feb 2012 00:42:45 +0530
-Message-ID: <CA+Dx6HY0G8f0WkvGaGKZm1YdxknU-FLo5Z+9x_62HwCF7Lb5LQ@mail.gmail.com>
-References: <1328639251-26310-1-git-send-email-festevam@gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: pch_gbe: set dma mask to only 32 bit
+Date: Tue, 7 Feb 2012 20:23:54 +0100
+Message-ID: <20120207192354.GA7770@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kernel@pengutronix.de,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:62277 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755527Ab2BGTMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 14:12:47 -0500
-Received: by lagu2 with SMTP id u2so4334647lag.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 11:12:45 -0800 (PST)
-In-Reply-To: <1328639251-26310-1-git-send-email-festevam@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19362 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752447Ab2BGTYD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Feb 2012 14:24:03 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 7, 2012 at 11:57 PM, Fabio Estevam <festevam@gmail.com> wrote:
-> commit 21a4e469 (netdev: ethernet dev_alloc_skb to netdev_alloc_skb)
-> should have used "ndev" instead of "dev".
->
-> This causes the following build errors:
->
-> drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_rx':
-> drivers/net/ethernet/freescale/fec.c:714: error: 'dev' undeclared (first use in this function)
-> drivers/net/ethernet/freescale/fec.c:714: error: (Each undeclared identifier is reported only once
-> drivers/net/ethernet/freescale/fec.c:714: error: for each function it appears in.)
-> drivers/net/ethernet/freescale/fec.c: In function 'fec_enet_alloc_buffers':
-> drivers/net/ethernet/freescale/fec.c:1213: error: 'dev' undeclared (first use in this function)
->
-> Fix it, so that fec driver can be built again.
->
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-> ---
+Because pch_gbe_rx_desc->buffer_addr is u32, we cannot set dma mask to 64
+bit or otherwise we could end up loosing the higher 32 bit from the return
+of dma_map_single(). Removing DMA_BIT_MASK(64) setting will solve it.
 
-Thanks a lot, Fabio!
-
-Regards,
-Pradeep A. Dalvi
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 3ead111..6c6713b 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -2397,17 +2397,13 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(64))
+-		|| pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
+-		ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
++		ret = pci_set_consistent_dma_mask(pdev,
++						  DMA_BIT_MASK(32));
+ 		if (ret) {
+-			ret = pci_set_consistent_dma_mask(pdev,
+-							  DMA_BIT_MASK(32));
+-			if (ret) {
+-				dev_err(&pdev->dev, "ERR: No usable DMA "
+-					"configuration, aborting\n");
+-				goto err_disable_device;
+-			}
++			dev_err(&pdev->dev, "ERR: No usable DMA "
++				"configuration, aborting\n");
++			goto err_disable_device;
+ 		}
+ 	}
+ 
