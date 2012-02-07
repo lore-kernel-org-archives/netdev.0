@@ -1,70 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 0/7][pull request] Intel Wired LAN Driver Update
-Date: Mon, 06 Feb 2012 23:30:41 -0800
-Message-ID: <1328599841.2782.14.camel@jtkirshe-mobl>
-References: <1328267703-9638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120204.155442.1648336318117828618.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sh_eth: fix skb_over_panic happen
+Date: Tue, 07 Feb 2012 08:55:10 +0100
+Message-ID: <1328601310.2476.3.camel@edumazet-laptop>
+References: <4F30CAA8.5050207@renesas.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-WTsolKt85hiwfWGvU9sb"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41382 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754940Ab2BGHam (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 02:30:42 -0500
-In-Reply-To: <20120204.155442.1648336318117828618.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:60790 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754624Ab2BGHzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 02:55:15 -0500
+Received: by wics10 with SMTP id s10so4705747wic.19
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2012 23:55:13 -0800 (PST)
+In-Reply-To: <4F30CAA8.5050207@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-WTsolKt85hiwfWGvU9sb
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2012-02-04 at 15:54 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Fri,  3 Feb 2012 03:14:56 -0800
+Le mardi 07 f=C3=A9vrier 2012 =C3=A0 15:54 +0900, Shimoda, Yoshihiro a =
+=C3=A9crit :
+> When this GETHER controller received a large frame (about 1800 bytes
+> or more), skb_over_panic() happened. This is because the previous
+> driver set the RFLR to 0x1000 (4096 bytes) and the skb allocate size
+> is smaller than 4096 bytes. So, the controller accepted such a frame.
 >=20
-> > v2- Dropped the ixgbe namespace fix patch to find a better resolution
-> >     based on feedback from David Miller.
-> >=20
-> > The following are changes since commit 29830406415c227a54af429d7b300aab=
-d4754237:
-> >   can: peak_pci: Fix the way channels are linked together
-> > and are available in the git repository at:
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> The controller can discard a large frame by the RFLR setting.
+> So, the patch modifies the value of RFLR to mtu + ETH_HLEN +
+> ETH_FCS_LEN.
 >=20
-> These are "fixes" and based upon my "net" tree, but your subject lines
-> say "net-next"...
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c |    2 +-
+>  drivers/net/ethernet/renesas/sh_eth.h |    3 ---
+>  2 files changed, 1 insertions(+), 4 deletions(-)
 >=20
-> I know you meant "net" but...
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethe=
+rnet/renesas/sh_eth.c
+> index 813d41c..9e899b0 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -817,7 +817,7 @@ static int sh_eth_dev_init(struct net_device *nde=
+v)
+>  		sh_eth_write(ndev, 0, TRIMD);
+>=20
+>  	/* Recv frame limit set register */
+> -	sh_eth_write(ndev, RFLR_VALUE, RFLR);
+> +	sh_eth_write(ndev, ndev->mtu + ETH_HLEN + ETH_FCS_LEN, RFLR);
+>=20
 
-Your right, I wish I could blame my fat fingered mistake on Nyquil... :)
-
---=-WTsolKt85hiwfWGvU9sb
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCgAGBQJPMNMhAAoJEOVv75VaS+3OdikP/A53zlv4OC5AWDn5luBceWcZ
-JsmsHWiZdx8tM1/0yej9dj8I+S4g/szl0id/YddU2+QBrup40BXWUGr3y9geqG+F
-FkFjg6Xhftf81VpspLb+UUnIzD1WJEulK1cinZfkiyMxf42JZjVcrMrivYZvfNJk
-vJAKPr3cFt0OLC3iFJqEL5/8Wex5nTbJjAbplG7QDi226O6PfH29ZK3uNN6lXdaK
-44zpdNwI2JXgvET8BCChTVKmmk31neS6uJGGDmP55+hHtUVgMRLBFv3CVr9Z2AJu
-1Ytu3ZugUYdND9u3dM/xxydiPvApQU51Frxiy8RPs01xyva7YpBUhxwyQQi1Y81T
-sah2A/f1UqJTaJbZHU0BEze2A9K9dGkw4Q2o+oAy+Pg0ntihRZrXCyBPhUVLcYMn
-l49Xh+zJaGta13UkyfOKm5VrRzvpC4hiMOLQ6Gjlm/JdcszY49wxHnZx/oId5s3m
-4vEWm42l0GtUKahAikNjcSO63hwxkjNxs9no4rTN5TnQ/Me/ffg8dLuhMCXxCB5f
-OncCP0rq5bayM/j4onNXZEVQj/hnf+iXbzSRFMeX23pBUuov/mlRtVlKbjLXDED6
-ZQpG8+yk3ZQU/ikthq+8Lm5wDjqW+2e94sajj1P+xC7G5HnH4IN6AoTfwdugzgED
-zyupSY4KHamMVFNMYTAH
-=dc/g
------END PGP SIGNATURE-----
-
---=-WTsolKt85hiwfWGvU9sb--
+No VLAN_HDR ?
