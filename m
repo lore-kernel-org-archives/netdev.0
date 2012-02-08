@@ -1,69 +1,50 @@
-From: Frans Meulenbroeks <fransmeulenbroeks@gmail.com>
-Subject: Re: drivers/net/phy/phy.c issue
-Date: Wed, 8 Feb 2012 21:00:27 +0100
-Message-ID: <CACW_hTbLd3kbuwJy9U2ZGDi3ypD-+KsecjYhku7jwQgFPaRqhg@mail.gmail.com>
-References: <CACW_hTY41xZV6d0W2Z2kRfKOfa+RSQ-A-BoZsZwNXSQmeF_6Gg@mail.gmail.com>
-	<1328729420.2261.329.camel@groeck-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] rtlwifi/rtl8192c: in _rtl92c_phy_calculate_bit_shift
+ remove comparing bitmask against 1
+Date: Wed, 8 Feb 2012 14:57:44 -0500
+Message-ID: <20120208195744.GD2929@tuxdriver.com>
+References: <1327993863-6810-1-git-send-email-devendra.aaru@gmail.com>
+ <1327995440.1804.16.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"afleming@freescale.com" <afleming@freescale.com>,
-	"macro@linux-mips.org" <macro@linux-mips.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: guenter.roeck@ericsson.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Devendra.Naga" <devendra.aaru@gmail.com>,
+	Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
+	paul.gortmaker@windriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328729420.2261.329.camel@groeck-laptop>
+Content-Disposition: inline
+In-Reply-To: <1327995440.1804.16.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2012/2/8 Guenter Roeck <guenter.roeck@ericsson.com>:
-> Copying netdev.
->
-> On Wed, 2012-02-08 at 09:31 -0500, Frans Meulenbroeks wrote:
->> Hi
->>
->> I found an issue with drivers/net/phy/phy.c
->> As I could not identify a maintainer for this file I decided to mail
->> it to the above addressees.
->> Apologies upfront if it is inappropriate.
->>
->> The issue:
->>
->> My network interface was configured as 10Mbit, full duplex, autonegotiate off.
->> If the cable is unplugged after 10 seconds or so the interface drops
->> to half duplex and the message:
->> Trying 10/HALF
->> is printed. This message comes (if I am correct from the function
->> phy_force_reduction in drivers/net/phy/phy.c
->>
->> Maybe this is still ok, however if I reconnect my network cable the
->> interface remains configured as 10 Mbit, half duplex.
->> I had expected/assumed that it would go back to 10 Mbit, full duplex.
->>
->> If I try the same with a 1Gbit full duplex link with autonegotiate on,
->> the link also drops to half duplex whenever the cable is
->> disconnected. However reconnecting the cable then brings the interface
->> back to full duplex again.
->>
->> Not sure what is wrong (if the interface should not be dropped to half
->> or get back to full) and even less an idea how to fix it,
->> but wanted to report it anyway, in the hope someone can shed a light
->> on this and/or fix it.
->>
-> What is your kernel version ? No idea if it makes a difference, but I
-> strongly suspect people will need to know.
+On Mon, Jan 30, 2012 at 11:37:20PM -0800, Joe Perches wrote:
+> On Tue, 2012-01-31 at 02:11 -0500, Devendra.Naga wrote:
+> > From: "Devendra.Naga" <devendra.aaru@gmail.com>
+> []
+> > diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c
+> []
+> > @@ -177,7 +177,7 @@ u32 _rtl92c_phy_calculate_bit_shift(u32 bitmask)
+> >  	u32 i;
+> >  
+> >  	for (i = 0; i <= 31; i++) {
+> > -		if (((bitmask >> i) & 0x1) == 1)
+> > +		if ((bitmask >> i) & 0x1)
+> >  			break;
+> >  	}
+> >  	return i;
+> 
+> Perhaps this is simpler and faster:
+> 
+> {
+> 	u32 rtn = (u32)ffs((int)bitmask);
+> 	if (rtn)
+> 		return rtn - 1;
+> 	return 32;
+> }
 
-Oops, sorry for the incomplete info.
-This was detected in 2.6.38, but the current git head of phy.c differs
-only on a few places that (at least according to my judgement) are not
-related.
-Apologies, but I cannot test on a git head kernel.
+Are you planning to revise your patch based on Joe's suggestion?
 
-And wrt the question of Andy in the subsequent reply.
-
-Hw is a Freescale MPC8313. This is a Gianfar. Is that the info you wanted?
-
-BTW what is the desired behaviour? Should I drop to half duplex? Or
-should I get back to full if I reconnect.
-
-Best regards, Frans
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
