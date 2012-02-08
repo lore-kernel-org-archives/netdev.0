@@ -1,35 +1,42 @@
-From: "Hefty, Sean" <sean.hefty@intel.com>
-Subject: RE: [PATCH] IPoIB: Stop lying about hard_header_len and use skb->cb
- to stash LL addresses
-Date: Wed, 8 Feb 2012 07:29:26 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373374C1C26@ORSMSX101.amr.corp.intel.com>
-References: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA@mail.gmail.com>
- <1328662281-16256-1-git-send-email-roland@kernel.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 0/4] Fix routing metrics
+Date: Wed, 8 Feb 2012 08:30:37 +0100
+Message-ID: <20120208073037.GI23142@secunet.com>
+References: <20120202101141.GC23142@secunet.com>
+ <20120206.152916.224032109057159733.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"shlomop@mellanox.com" <shlomop@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Roland Dreier <roland@kernel.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49804 "EHLO mga02.intel.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:52125 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751594Ab2BHH3j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 02:29:39 -0500
-In-Reply-To: <1328662281-16256-1-git-send-email-roland@kernel.org>
-Content-Language: en-US
+	id S1751426Ab2BHHak (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 02:30:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20120206.152916.224032109057159733.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> OK, this works for me.  Definitely looks cleaner and also looks
-> obvious enough that it's probably even correct.
+On Mon, Feb 06, 2012 at 03:29:16PM -0500, David Miller wrote:
+> 
+> Thinking about this, it seems overkill to check this on every metric
+> access.
+> 
+> You have an opportunity to validate metrics when the peer is bound to
+> the route.
+> 
+> This is because any change to the FIB metrics, is in turn a change
+> to the FIB, which therefore invalidates the entire routing cache.
+> 
+> So you can be sure that a new route cache entry will be created, and
+> at that creation time you can ensure that we'll respect the updated
+> FIB metrics if encessary.
 
-I tested this with Dave's patch and Eric's first patch against Linus' latest tree 3.3-rc2+, and things look good so far.
-
-Thanks,
-- Sean
+Not sure if I get you right here, but that's what this patchset
+does. It invalidates the metrics on the peer by incrementing
+peer_genid in rt_cache_invalidate() which is invoked on every FIB
+change. Then, on slowpath route lookup it checks in rt_init_metrics()
+whether the peer_genid changed. If it changed, it exchanges the
+invalidated merics with new ones and copies the informations from
+the FIB into it.
