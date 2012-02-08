@@ -1,34 +1,48 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Proper value for bandwidth parameters
-Date: Wed, 08 Feb 2012 10:58:24 -0500
-Message-ID: <1328716704.3310.36.camel@denise.theartistscloset.com>
+From: "Gregory G. Carter" <gcarter@aesgi.com>
+Subject: Re: Proper value for bandwidth parameters
+Date: Wed, 08 Feb 2012 10:10:36 -0600
+Message-ID: <xvuuf248uo940ii7w0kd1egd.1328717345088@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:59531 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753535Ab2BHP62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 10:58:28 -0500
+Received: from omr7.networksolutionsemail.com ([205.178.146.57]:57950 "EHLO
+	omr7.networksolutionsemail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754365Ab2BHQUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 11:20:14 -0500
+Received: from cm-omr2 (mail.networksolutionsemail.com [205.178.146.50])
+	by omr7.networksolutionsemail.com (8.13.8/8.13.8) with ESMTP id q18GANC5008333
+	for <netdev@vger.kernel.org>; Wed, 8 Feb 2012 11:10:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  From a system administrator's perspective, do I need to
-reduce the values I feed to bandwidth defining parameters in tc such as
-the ul m2 values in HFSC?
-
-For example, if I have a 1.544 mbits circuit and I set HFSC ul m2 to
-1544kbits (or any other bandwidth parameter in different algorithms),
-when it calculates its timer for dequeuing the packet (let's assume a
-full sized 1500 byte packet) is it performing the calculation on 1500
-bytes or 1500 bytes plus overhead such as the Ethernet header, CRC,
-preamble, and IFG?
-
-I am assuming it is based upon the 1500 byte packet in the above
-example.  In which case, I think I need to reduce my bandwidth value fed
-to tc to account for the overhead lest I exceed the real bandwidth.  For
-example, the full sized Ethernet packet will be somewhere around 1538
-bytes so 1500/1538 * 1.544 = 1505kbits.  Is that correct? Is there a
-guideline for a multiplier to use? I suppose if we are flooding a link,
-it is most likely with full sized packets.  Thanks - John
+U2V0IG5hZ2lvcyB1cCBhbmQgZG8gYSB0cmFuc2ZlciBvdmVyIHRoZSBsaW5lIHdpdGhvdXQgVEMg
+Y29udHJvbHMuICBUaGVuIHVzZSB0aGUgZmlndXJlcyBmcm9tIHRoZSBsaW5lIGFzIGEgYmFzZSBm
+b3Igc2V0dGluZyBwb2xpY3kgdXNpbmcgVEMuCgpUaGlzIHN0dWZmIGlzIGFuIGFydCwgbm90IGFu
+IGlkZWFsaXplZCBzZXQgb2YgZWRnZXMgaW4gYSB0ZXh0Ym9vayBvbiBuZXR3b3JrIHRoZW9yeS4g
+IFNvIGFsd2F5cyBzZWUgd2hhdCB5b3VyIHJlYWwgY2FwYWNpdHkgaXMgYmVmb3JlIHlvdSBzZXQg
+cG9saWN5LgoKR2MKCiJKb2huIEEuIFN1bGxpdmFuIElJSSIgPGpzdWxsaXZhbkBvcGVuc291cmNl
+ZGV2ZWwuY29tPiB3cm90ZToKCj5IZWxsbywgYWxsLiAgRnJvbSBhIHN5c3RlbSBhZG1pbmlzdHJh
+dG9yJ3MgcGVyc3BlY3RpdmUsIGRvIEkgbmVlZCB0bwo+cmVkdWNlIHRoZSB2YWx1ZXMgSSBmZWVk
+IHRvIGJhbmR3aWR0aCBkZWZpbmluZyBwYXJhbWV0ZXJzIGluIHRjIHN1Y2ggYXMKPnRoZSB1bCBt
+MiB2YWx1ZXMgaW4gSEZTQz8KPgo+Rm9yIGV4YW1wbGUsIGlmIEkgaGF2ZSBhIDEuNTQ0IG1iaXRz
+IGNpcmN1aXQgYW5kIEkgc2V0IEhGU0MgdWwgbTIgdG8KPjE1NDRrYml0cyAob3IgYW55IG90aGVy
+IGJhbmR3aWR0aCBwYXJhbWV0ZXIgaW4gZGlmZmVyZW50IGFsZ29yaXRobXMpLAo+d2hlbiBpdCBj
+YWxjdWxhdGVzIGl0cyB0aW1lciBmb3IgZGVxdWV1aW5nIHRoZSBwYWNrZXQgKGxldCdzIGFzc3Vt
+ZSBhCj5mdWxsIHNpemVkIDE1MDAgYnl0ZSBwYWNrZXQpIGlzIGl0IHBlcmZvcm1pbmcgdGhlIGNh
+bGN1bGF0aW9uIG9uIDE1MDAKPmJ5dGVzIG9yIDE1MDAgYnl0ZXMgcGx1cyBvdmVyaGVhZCBzdWNo
+IGFzIHRoZSBFdGhlcm5ldCBoZWFkZXIsIENSQywKPnByZWFtYmxlLCBhbmQgSUZHPwo+Cj5JIGFt
+IGFzc3VtaW5nIGl0IGlzIGJhc2VkIHVwb24gdGhlIDE1MDAgYnl0ZSBwYWNrZXQgaW4gdGhlIGFi
+b3ZlCj5leGFtcGxlLiAgSW4gd2hpY2ggY2FzZSwgSSB0aGluayBJIG5lZWQgdG8gcmVkdWNlIG15
+IGJhbmR3aWR0aCB2YWx1ZSBmZWQKPnRvIHRjIHRvIGFjY291bnQgZm9yIHRoZSBvdmVyaGVhZCBs
+ZXN0IEkgZXhjZWVkIHRoZSByZWFsIGJhbmR3aWR0aC4gIEZvcgo+ZXhhbXBsZSwgdGhlIGZ1bGwg
+c2l6ZWQgRXRoZXJuZXQgcGFja2V0IHdpbGwgYmUgc29tZXdoZXJlIGFyb3VuZCAxNTM4Cj5ieXRl
+cyBzbyAxNTAwLzE1MzggKiAxLjU0NCA9IDE1MDVrYml0cy4gIElzIHRoYXQgY29ycmVjdD8gSXMg
+dGhlcmUgYQo+Z3VpZGVsaW5lIGZvciBhIG11bHRpcGxpZXIgdG8gdXNlPyBJIHN1cHBvc2UgaWYg
+d2UgYXJlIGZsb29kaW5nIGEgbGluaywKPml0IGlzIG1vc3QgbGlrZWx5IHdpdGggZnVsbCBzaXpl
+ZCBwYWNrZXRzLiAgVGhhbmtzIC0gSm9obgo+Cj4tLQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlz
+IGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4KPnRoZSBib2R5IG9m
+IGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj5Nb3JlIG1ham9yZG9tbyBp
+bmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwKPgo=
