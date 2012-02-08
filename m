@@ -1,67 +1,185 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net 8/8] ixgbe: ethtool: stats user buffer overrun
-Date: Wed, 8 Feb 2012 15:17:09 +0000
-Message-ID: <1328714229.12637.43.camel@deadeye>
-References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1328693798-27323-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 10/15] netvm: Propagate page->pfmemalloc from
+ netdev_alloc_page to skb
+Date: Wed, 8 Feb 2012 15:23:46 +0000
+Message-ID: <20120208152346.GJ5938@suse.de>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de>
+ <1328568978-17553-11-git-send-email-mgorman@suse.de>
+ <4F31B604.5070401@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, John Fastabend <john.r.fastabend@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:63694 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754233Ab2BHPRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 10:17:06 -0500
-In-Reply-To: <1328693798-27323-9-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4F31B604.5070401@intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-08 at 01:36 -0800, Jeff Kirsher wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
+On Tue, Feb 07, 2012 at 03:38:44PM -0800, Alexander Duyck wrote:
+> On 02/06/2012 02:56 PM, Mel Gorman wrote:
+> > diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> > index e91d73c..c062909 100644
+> > --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> > @@ -6187,7 +6187,7 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
+> >  		return true;
+> >  
+> >  	if (!page) {
+> > -		page = alloc_page(GFP_ATOMIC | __GFP_COLD);
+> > +		page = __netdev_alloc_page(GFP_ATOMIC, bi->skb);
+> >  		bi->page = page;
+> >  		if (unlikely(!page)) {
+> >  			rx_ring->rx_stats.alloc_failed++;
 > 
-> If the number of tx/rx queues changes the ethtool ioctl
-> ETHTOOL_GSTATS may overrun the userspace buffer. This
-> occurs because the general practice in user space to
-> query stats is to issue a ETHTOOL_GSSET cmd to learn the
-> buffer size needed, allocate the buffer, then call
-> ETHTOOL_GSTIRNGS and ETHTOOL_GSTATS. If the number of
-> real_num_queues is changed or flow control attributes
-> are changed after ETHTOOL_GSSET but before the
-> ETHTOOL_GSTRINGS/ETHTOOL_GSTATS a user space buffer
-> overrun occurs.
+> This takes care of the case where we are allocating the page, but what
+> about if we are reusing the page?
 
-This is a problem with several ethtool operations - the user buffer size
-is implicit.
+Then nothing... You're right, I did not consider that case.
 
-> To fix the overrun always return the max buffer size
-> needed from get_sset_count() then return all strings
-> and stats from get_strings()/get_ethtool_stats().
+> For this driver it might work better
+> to hold of on doing the association between the page and skb either
+> somewhere after the skb and the page have both been allocated, or in the
+> igb_clean_rx_irq path where we will have both the page and the data
+> accessible.
+
+Again, from looking through the code you appear to be right. Thanks for
+the suggestion!
+
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > index 1ee5d0f..7a011c3 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > @@ -1143,7 +1143,7 @@ void ixgbe_alloc_rx_buffers(struct ixgbe_ring *rx_ring, u16 cleaned_count)
+> >  
+> >  		if (ring_is_ps_enabled(rx_ring)) {
+> >  			if (!bi->page) {
+> > -				bi->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
+> > +				bi->page = __netdev_alloc_page(GFP_ATOMIC, skb);
+> >  				if (!bi->page) {
+> >  					rx_ring->rx_stats.alloc_rx_page_failed++;
+> >  					goto no_buffers;
 > 
-> This _will_ change the output from the ioctl() call
-> which could break applications and script parsing in
-> theory. I believe these changes should not break existing
-> tools because the only changes will be more {tx|rx}_queues
-> and the {tx|rx}_pb_* stats will always be returned.
-[...]
+> Same thing for this driver.
+> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > index bed411b..f6ea14a 100644
+> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > @@ -366,7 +366,7 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
+> >  		if (!bi->page_dma &&
+> >  		    (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)) {
+> >  			if (!bi->page) {
+> > -				bi->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
+> > +				bi->page = __netdev_alloc_page(GFP_ATOMIC, NULL);
+> >  				if (!bi->page) {
+> >  					adapter->alloc_rx_page_failed++;
+> >  					goto no_buffers;
+> > @@ -400,6 +400,7 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
+> >  			 */
+> >  			skb_reserve(skb, NET_IP_ALIGN);
+> >  
+> > +			propagate_pfmemalloc_skb(bi->page_dma, skb);
+> >  			bi->skb = skb;
+> >  		}
+> >  		if (!bi->dma) {
+>
+> I am pretty sure this is incorrect.  I believe you want bi->page, not
+> bi->page_dma.  This one is closer though to what I had in mind for igb
+> and ixgbe in terms of making it so there is only one location that
+> generates the association.
+> 
 
-Yes, this sounds perfectly reasonable.  And this change is definitely
-worth making.
+You are on a roll of being right.
 
-However, even if the number of stats (or other attributes) for a device
-never change at run-time, devices can be renamed concurrently so that
-the second operation runs on a different device!
+> Also a similar changes would be needed for the igbvf , e1000, and e1000e
+> drivers in the Intel tree.
+> 
+> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > index 17ed022..8da4ca0 100644
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -1696,6 +1696,44 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
+> >  }
+> >  
+> >  /**
+> > + *	__netdev_alloc_page - allocate a page for ps-rx on a specific device
+> > + *	@gfp_mask: alloc_pages_node mask. Set __GFP_NOMEMALLOC if not for network packet RX
+> > + *	@skb: skb to set pfmemalloc on if __GFP_MEMALLOC is used
+> > + *
+> > + * 	Allocate a new page. dev currently unused.
+> > + *
+> > + * 	%NULL is returned if there is no free memory.
+> > + */
+> > +static inline struct page *__netdev_alloc_page(gfp_t gfp_mask,
+> > +						struct sk_buff *skb)
+> > +{
+> > +	struct page *page;
+> > +
+> > +	gfp_mask |= __GFP_COLD;
+> > +
+> > +	if (!(gfp_mask & __GFP_NOMEMALLOC))
+> > +		gfp_mask |= __GFP_MEMALLOC;
+> > +
+> > +	page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, 0);
+> > +	if (skb && page && page->pfmemalloc)
+> > +		skb->pfmemalloc = true;
+> > +
+> > +	return page;
+> > +}
+> > +
+> > +/**
+> > + *	propagate_pfmemalloc_skb - Propagate pfmemalloc if skb is allocated after RX page
+> > + *	@page: The page that was allocated from netdev_alloc_page
+> > + *	@skb: The skb that may need pfmemalloc set
+> > + */
+> > +static inline void propagate_pfmemalloc_skb(struct page *page,
+> > +						struct sk_buff *skb)
+> > +{
+> > +	if (page && page->pfmemalloc)
+> > +		skb->pfmemalloc = true;
+> > +}
+> > +
+> > +/**
+> >   * skb_frag_page - retrieve the page refered to by a paged fragment
+> >   * @frag: the paged fragment
+> >   *
+> 
+> Is this function even really needed? 
 
-Perhaps we could change dev_ioctl so that if ifreq::ifr_name is an empty
-string then the socket's bound device is used.  However, setting
-SO_BINDTODEVICE currently requires CAP_NET_RAW.  Alternately, there
-could be some sort of union between ifr_name and an ifindex.
+It's not *really* needed. As noted in the changelog, getting this wrong
+has minor consequences. At worst, swap becomes a little slower but it
+should not result in hangs.
 
-Ben.
+> It seems like you already have
+> this covered in your earlier patches, specifically 9/15, which takes
+> care of associating the skb and the page pfmemalloc flags when you use
+> skb_fill_page_desc. 
+
+Yes, this patch was an attempt to being thorough but the actual impact
+is moving a bunch of complexity into drivers where it is difficult to
+test and of marginal benefit.
+
+> It would be useful to narrow things down so that we
+> are associating this either at the allocation time or at the
+> fill_page_desc call instead of doing it at both.
+> 
+
+I think you're right. I'm going to drop this patch entirely as the
+benfit is marginal and not necessary for swap over network to work.
+
+Thanks very much for the review.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
