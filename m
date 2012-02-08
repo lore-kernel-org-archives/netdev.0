@@ -1,82 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] rtlwifi: rtl8192se firmware load can overflow target
- buffer
-Date: Wed, 8 Feb 2012 21:45:14 +0000
-Message-ID: <1328737514.2627.14.camel@bwh-desktop>
-References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com>
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] gro: more generic L2 header check
+Date: Wed, 8 Feb 2012 23:49:43 +0200
+Message-ID: <CAJZOPZLLteDbm0prTN3-npubtFun=kO2DYT7ea=E-HyJ84gaiA@mail.gmail.com>
+References: <1328727110.2631.8.camel@edumazet-laptop>
+	<20120208.155027.599792363539233740.davem@davemloft.net>
+	<CAJZOPZL_zEbNwUfVOmQeODny7HDf24gOc1HStfBxim_UtD-kvA@mail.gmail.com>
+	<20120208.163159.2229331610142060560.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Tim Gardner <tim.gardner@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120208.163159.2229331610142060560.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-08 at 14:08 -0700, Tim Gardner wrote:
-> The firmware file size check does not use the
-> correct limit.
-> 
-> Cc: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Chaoming Li <chaoming_li@realsil.com.cn>
-> Cc: John W. Linville <linville@tuxdriver.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
-> ---
->  drivers/net/wireless/rtlwifi/rtl8192se/fw.h |    3 ++-
->  drivers/net/wireless/rtlwifi/rtl8192se/sw.c |    2 +-
->  2 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
-> index babe85d..5c377fc 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
-> @@ -30,6 +30,7 @@
->  #define __REALTEK_FIRMWARE92S_H__
->  
->  #define RTL8190_MAX_FIRMWARE_CODE_SIZE		64000
-> +#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	164000
->  #define RTL8190_CPU_START_OFFSET		0x80
->  /* Firmware Local buffer size. 64k */
->  #define	MAX_FIRMWARE_CODE_SIZE			0xFF00
-> @@ -217,7 +218,7 @@ struct rt_firmware {
->  	u8 fw_emem[RTL8190_MAX_FIRMWARE_CODE_SIZE];
->  	u32 fw_imem_len;
->  	u32 fw_emem_len;
-> -	u8 sz_fw_tmpbuffer[164000];
-> +	u8 sz_fw_tmpbuffer[RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE];
->  	u32 sz_fw_tmpbufferlen;
->  	u16 cmdpacket_fragthresold;
->  };
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> index ca38dd9..155da0a 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
-> @@ -105,7 +105,7 @@ static void rtl92se_fw_cb(const struct firmware *firmware, void *context)
->  		rtlpriv->max_fw_size = 0;
->  		return;
->  	}
-> -	if (firmware->size > rtlpriv->max_fw_size) {
-> +	if (firmware->size >= RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE) {
+On Wed, Feb 8, 2012 at 11:31 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-This appears to reject a firmware blob which is exactly the maximum
-size, which looks wrong.  Also doesn't this make the max_fw_size field
-redundant?
+>> Hi Dave, for correct operation / future bisection, you should 1st
+>> apply Roland's patch which reduces the hard header len advertized by
+>> ipoib to be only the size of the ipoib header without that 20 bytes
+>> headroom, else the gro memcmp will be issued on the ipoib header and
+>> then 20 bytes of the ip header, kind of back to square one...
 
-Ben.
+> I did.
 
->  		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
->  			 "Firmware is too big!\n");
->  		release_firmware(firmware);
+Yep, I missed your earlier response to Roland's patch. So a question
+here, how would you recommend to get that out... since the fix for the
+problem includes two patches to core networking and one patch to
+ipoib, we can't just ship a patch to ipoib which people can apply
+build against their kernels. You've placed this work in net-next and
+not net, so I assume we should wait for 3.4-rc1 and then push to
+-stable? any other method to use here that you can recommend? thanks,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
