@@ -1,62 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6 1/2] Implement IP_UNICAST_IF socket option.
-Date: Wed, 08 Feb 2012 08:21:57 +0100
-Message-ID: <1328685717.4736.4.camel@edumazet-laptop>
-References: <1328651073-976-1-git-send-email-ehoover@mines.edu>
+From: "Hefty, Sean" <sean.hefty@intel.com>
+Subject: RE: [PATCH] IPoIB: Stop lying about hard_header_len and use skb->cb
+ to stash LL addresses
+Date: Wed, 8 Feb 2012 07:29:26 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373374C1C26@ORSMSX101.amr.corp.intel.com>
+References: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA@mail.gmail.com>
+ <1328662281-16256-1-git-send-email-roland@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"shlomop@mellanox.com" <shlomop@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roland Dreier <roland@kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40903 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962Ab2BHHWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 02:22:01 -0500
-Received: by wgbdt10 with SMTP id dt10so282388wgb.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 23:22:00 -0800 (PST)
-In-Reply-To: <1328651073-976-1-git-send-email-ehoover@mines.edu>
+Received: from mga02.intel.com ([134.134.136.20]:49804 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751594Ab2BHH3j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 02:29:39 -0500
+In-Reply-To: <1328662281-16256-1-git-send-email-roland@kernel.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 f=C3=A9vrier 2012 =C3=A0 14:44 -0700, Erich E. Hoover a =C3=
-=A9crit :
-> The IP_UNICAST_IF feature is needed by the Wine project.  This patch =
-implements the feature by setting the outgoing interface in a similar f=
-ashion to that of IP_MULTICAST_IF.  A separate option is needed to hand=
-le this feature since the existing options do not provide all of the ch=
-aracteristics required by IP_UNICAST_IF, a summary is provided below.
->=20
-> SO_BINDTODEVICE:
-> * SO_BINDTODEVICE requires administrative privileges, IP_UNICAST_IF d=
-oes not.  From reading some old mailing list articles my understanding =
-is that SO_BINDTODEVICE requires administrative privileges because it c=
-an override the administrator's routing settings.
-> * The SO_BINDTODEVICE option restricts both outbound and inbound traf=
-fic, IP_UNICAST_IF only impacts outbound traffic.
->=20
-> IP_PKTINFO:
-> * Since IP_PKTINFO and IP_UNICAST_IF are independent options, impleme=
-nting IP_UNICAST_IF with IP_PKTINFO will likely break some applications=
-=2E
-> * Implementing IP_UNICAST_IF on top of IP_PKTINFO significantly compl=
-icates the Wine codebase and reduces the socket performance (doing this=
- requires a lot of extra communication between the "server" and "user" =
-layers).
->=20
-> bind():
-> * bind() does not work on broadcast packets, IP_UNICAST_IF is specifi=
-cally intended to work with broadcast packets.
-> * Like SO_BINDTODEVICE, bind() restricts both outbound and inbound tr=
-affic.
->=20
-> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
+> OK, this works for me.  Definitely looks cleaner and also looks
+> obvious enough that it's probably even correct.
 
-This seems good, only the changelog is not formatted to fit in short
-lines (70 cols)
+I tested this with Dave's patch and Eric's first patch against Linus' latest tree 3.3-rc2+, and things look good so far.
 
-Also title should include subsystem name  :
-
-ipv4: Implement IP_UNICAST_IF socket option.
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Thanks,
+- Sean
