@@ -1,75 +1,72 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net 2/8] igb: fix vf lookup
-Date: Wed, 8 Feb 2012 23:42:37 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F86242@ORSMSX106.amr.corp.intel.com>
-References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1328693798-27323-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: network regression: cannot rename netdev twice
+Date: Thu, 9 Feb 2012 00:48:56 +0100
+Message-ID: <CAPXgP13j1abG-ncaGeRgTpZdPc964Q4Yz3XLk8YQm4z5Q07Hkg@mail.gmail.com>
+References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
+ <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
+ <20120204021457.GA25386@khazad-dum.debian.net> <CAPXgP12yZ74679JNwRB-pDfnjOBaxMzL2=krSDK31jM1mjXfuA@mail.gmail.com>
+ <20120208020038.GE13296@khazad-dum.debian.net> <CAPXgP12ExDub9ML0=DcWRwyQP23GXDJ75jiNnw+BTXY17tEa8Q@mail.gmail.com>
+ <14373.1328683324@turing-police.cc.vt.edu> <CAPXgP10-W+yeHJMENzWi7FBkYOaXw6ccMMMT=K9X2bf_Tigitw@mail.gmail.com>
+ <10120.1328731572@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26924 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757679Ab2BHXmx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 18:42:53 -0500
-In-Reply-To: <1328693798-27323-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	Jiri Slaby <jslaby@suse.cz>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <10120.1328731572@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Kirsher, Jeffrey T
-> Sent: Wednesday, February 08, 2012 1:37 AM
-> To: davem@davemloft.net
-> Cc: Rose, Gregory V; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com; stable@vger.kernel.org; Kirsher, Jeffrey T
-> Subject: [net 2/8] igb: fix vf lookup
-> 
-> From: Greg Rose <gregory.v.rose@intel.com>
-> 
-> Recent addition of code to find already allocated VFs failed to take
-> account that systems with 2 or more multi-port SR-IOV capable controllers
-> might have already enabled VFs.  Make sure that the VFs the function is
-> finding are actually subordinate to the particular instance of the adapter
-> that is looking for them and not subordinate to some device that has
-> previously enabled SR-IOV.
-> 
-> This is applicable to 3.2+ kernels.
-> 
-> CC: stable@vger.kernel.org
-> Reported-by: David Ahern <daahern@cisco.com>
-> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index e91d73c..94be6c3 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -5012,7 +5012,8 @@ static int igb_find_enabled_vfs(struct igb_adapter
-> *adapter)
->  	vf_devfn = pdev->devfn + 0x80;
->  	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
->  	while (pvfdev) {
-> -		if (pvfdev->devfn == vf_devfn)
-> +		if (pvfdev->devfn == vf_devfn &&
-> +		    (pvfdev->bus->number >= pdev->bus->number))
->  			vfs_found++;
->  		vf_devfn += vf_stride;
->  		pvfdev = pci_get_device(hw->vendor_id,
-> --
-> 1.7.7.6
+On Wed, Feb 8, 2012 at 21:06,  <Valdis.Kletnieks@vt.edu> wrote:
+> On Wed, 08 Feb 2012 11:57:18 +0100, Kay Sievers said:
+>> On Wed, Feb 8, 2012 at 07:42, =C2=A0<Valdis.Kletnieks@vt.edu> wrote:
+>
+>> > Or is this sort of thing in /etc/udev/rules.d/70-persistent-net.ru=
+les
+>> > SUBSYSTEM=3D=3D"net", ACTION=3D=3D"add", DRIVERS=3D=3D"?*", ATTR{a=
+ddress}=3D=3D"00:25:90:0b:f2:80", ATTR{type}=3D=3D"1", KERNEL=3D=3D"eth=
+*", NAME=3D"eth0"
+>> > what you are trying to move to, and my systems are already onboard=
+ and
+>> > I should just move along, nothing to see here? ;)
+>>
+>> Yeah, that's what we did in the past. It works fine if you never hav=
+e
+>> to swap names like eth0 and eth1, with need to free one of the the
+>> names with a temporary rename.
+>
+> Well, if I had my druthers, I'd stick name=3D"net-mgt", "net-pub", an=
+d "net-10g"
+> in the udev rules, and not care about 1/2/3 and race conditions, beca=
+use
+> meaningful names are easier to not screw up (just last week found a s=
+ystem that
+> had eth1 and eth2 reversed in some iptables rules, wouldn't have happ=
+ened if
+> they were -mgt and -pub).
+>
+> Only thing stopping me is getting iptables to accept '-i net-10g', an=
+d the
+> distro /etc/sysconfig/network scripts like ifup and ifdown playing ni=
+ce....
+>
+> So it sounds like what I want as a sysadmin is the same thing you wan=
+t
+> as a maintainer...
 
-I'll fix this one too.  You start leaning on checkpatch and you get lazy I guess.
+Yeah, that sounds very much like it is.
 
-- Greg
+I want to push some responsibility to the admin, do less automagic,
+and personally want to be less responsible for all the unintended
+screw-up the automagic is causing everywhere.
+
+Sure, the intention to keep the names like they always have been was
+good, but a good intention and a broken model to deliver it, and
+continue to pretend we can solve it, is the worst things we can do. :)
+
+Kay
