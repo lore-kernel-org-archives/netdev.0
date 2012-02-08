@@ -1,37 +1,49 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 37/50] usbnet: set addr_assign_type if random_ether_addr() used
-Date: Wed,  8 Feb 2012 22:10:44 +0100
-Message-ID: <1328735457-29986-38-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 20/50] smsc911x: use dev_hw_addr_random() instead of random_ether_addr()
+Date: Wed,  8 Feb 2012 22:10:27 +0100
+Message-ID: <1328735457-29986-21-git-send-email-danny.kukawka@bisect.de>
 References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
+Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set addr_assign_type correctly to NET_ADDR_RANDOM in case
-a random MAC address was generated and assigned to the netdevice.
+Use dev_hw_addr_random() instead of calling random_ether_addr()
+to set addr_assign_type correctly to NET_ADDR_RANDOM.
+
+Reset the state to NET_ADDR_PERM as soon as the MAC get
+changed via .ndo_set_mac_address.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/usb/usbnet.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index fae0fbd..7bd07d7 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1365,6 +1365,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	dev->net = net;
- 	strcpy (net->name, "usb%d");
- 	memcpy (net->dev_addr, node_id, sizeof node_id);
-+	net->addr_assign_type |= NET_ADDR_RANDOM;
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 24d2df0..92ab844 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1834,6 +1834,8 @@ static int smsc911x_set_mac_address(struct net_device *dev, void *p)
+ 		return -EADDRNOTAVAIL;
  
- 	/* rx and tx sides can use different message sizes;
- 	 * bind() should set rx_urb_size in that case.
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++	if (dev->addr_assign_type & NET_ADDR_RANDOM)
++		dev->addr_assign_type ^= NET_ADDR_RANDOM;
+ 
+ 	spin_lock_irq(&pdata->mac_lock);
+ 	smsc911x_set_hw_mac_address(pdata, dev->dev_addr);
+@@ -2486,7 +2488,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 				   "Mac Address is read from LAN911x EEPROM");
+ 		} else {
+ 			/* eeprom values are invalid, generate random MAC */
+-			random_ether_addr(dev->dev_addr);
++			dev_hw_addr_random(dev, dev->dev_addr);
+ 			smsc911x_set_hw_mac_address(pdata, dev->dev_addr);
+ 			SMSC_TRACE(pdata, probe,
+ 				   "MAC Address is set to random_ether_addr");
 -- 
 1.7.7.3
