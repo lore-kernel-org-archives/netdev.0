@@ -1,81 +1,81 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/5] send-crc: Add framework to allow sending packets
- with customized CRC.
-Date: Tue, 07 Feb 2012 16:06:00 -0800
-Message-ID: <4F31BC68.9000502@candelatech.com>
-References: <1328644182-7872-1-git-send-email-greearb@candelatech.com> <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com> <4F318CF5.1060200@candelatech.com> <CAHXqBFKbv13jL_RqbOTZp6P-TOO7iQ1211SXmMso_3LK27LkPw@mail.gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [RFC 2/2] e1000e: Support RXALL feature flag.
+Date: Wed, 8 Feb 2012 01:06:42 +0100
+Message-ID: <CAHXqBFJ9=fXYuzZd0SM0hGsDxQee5UPzOwThbxNkks03VLFunw@mail.gmail.com>
+References: <1328656063-13129-1-git-send-email-greearb@candelatech.com> <1328656063-13129-2-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44752 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755998Ab2BHAGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 19:06:03 -0500
-In-Reply-To: <CAHXqBFKbv13jL_RqbOTZp6P-TOO7iQ1211SXmMso_3LK27LkPw@mail.gmail.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:65502 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755998Ab2BHAHD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 19:07:03 -0500
+Received: by iacb35 with SMTP id b35so10816150iac.19
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 16:07:02 -0800 (PST)
+In-Reply-To: <1328656063-13129-2-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2012 03:59 PM, Micha=B3 Miros=B3aw wrote:
-> W dniu 7 lutego 2012 21:43 u=BFytkownik Ben Greear
-> <greearb@candelatech.com>  napisa=B3:
->> On 02/07/2012 12:33 PM, Micha=B3 Miros=B3aw wrote:
->>>
->>> 2012/2/7<greearb@candelatech.com>:
->>>>
->>>> From: Ben Greear<greearb@candelatech.com>
->>>>
->>>> This is useful for testing RX handling of frames with bad
->>>> CRCs.
->>>>
->>>> Requires driver support to actually put the packet on the
->>>> wire properly.
->>>
->>> [...]
->>>
->>> I like this idea. I think that this is not a feature to have in
->>> dev->features to toggle, though. Driver either supports this or not=
-,
->>> so it's better to put it in dev->priv_flags instead. Disabling of F=
-CS
->>> inserting is a per-packet option in the drivers, isn't it?
->>>
->>> For one problem with toggling: if you create a socket using it and
->>> later turn off the feature, the socket will still send skbs with FC=
-S
->>> appended.
->> For the priv-flags, is there a way to query that from user-space to
->> see if the NIC supports it?
->>
->> The pkt-socket xmit logic will throw away pkts if the NIC doesn't
->> have the feature enabled, but a few already queued might get
->> through with extra CRC appended.
->>
->> So, I'm fine with your suggestion, as long as there is some way to
->> query whether the NIC supports this feature or not...
+2012/2/8  <greearb@candelatech.com>:
+> From: Ben Greear <greearb@candelatech.com>
 >
-> There's a way, as you implemented -EINVAL when trying to send via
-> unsupporting device. :-)  Would be even better if setting SO_NO_FCS
-> would fail at setsockopt() time.
+> This allows the NIC to receive all frames available, including
+> those with bad FCS, un-matched vlans, ethernet control frames,
+> and more.
+>
+> Tested by sending frames with bad FCS.
 
-Using -EINVAL for this purpose is lame even by my low standards :)
+This should probably mark the bad packets somehow, so they are not
+passed up the stack and mixed with correct traffic.
 
-And, you don't necessarily know what device you are bound to
-at setsockopt time, so I don't think I can add restrictions
-there.
+[...]
+> @@ -2996,6 +3001,25 @@ static void e1000_setup_rctl(struct e1000_adap=
+ter *adapter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ew32(PSRCTL, p=
+srctl);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> + =C2=A0 =C2=A0 =C2=A0 /* This is useful for sniffing bad packets. */
+> + =C2=A0 =C2=A0 =C2=A0 if (adapter->netdev->features & NETIF_F_RXALL)=
+ {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 rctl |=3D (E1000_R=
+CTL_SBP | /* Receive bad packets */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0E1000_RCTL_UPE | /* RX all Unicast Pkts */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0E1000_RCTL_MPE | /* RX all Mcast Pkts */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0E1000_RCTL_BAM | /* RX All Bcast Pkts Pkts */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0E1000_RCTL_PMCF); /* RX All MAC Ctrl Pkts */
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 rctl &=3D ~(E1000_=
+RCTL_VFE | /* Disable VLAN filter */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 E1000_RCTL_DPF | /* Allow filtered pause */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 E1000_RCTL_CFIEN); /* Dis VLAN CFIEN Filter */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* disable VLAN ta=
+gging/striping */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* SKIP This, it a=
+lso affects transmit side and
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0screw=
+s up VLANs --Ben. */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* ctrl =3D er32(C=
+TRL); */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* ctrl &=3D ~E100=
+0_CTRL_VME; */
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* ew32(CTRL, ctrl=
+); */
+> + =C2=A0 =C2=A0 =C2=A0 }
+> +
+[...]
 
-> priv_flags are not exposed to userspace. It should be easy to export
-> them using ETHTOOL_GFEATURES as non-changeable features, if that's
-> useful.
+Looks like it can be enabled independently of promisc mode: rx-all +
+no-promisc would receive only bad packets destined for this host.
 
-I'll poke around and see what I can figure out.
-
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
