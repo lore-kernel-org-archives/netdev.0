@@ -1,64 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP sacked_out and fackets_out inconsistency (Was: Re: BUG:
- unable to handle kernel NULL pointer dereference at 000000000000002c)
-Date: Wed, 08 Feb 2012 10:28:22 +0100
-Message-ID: <1328693302.2284.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120201.162157.880976652659067010.davem@davemloft.net>
-	 <4F2A87B0.6070900@profihost.ag>
-	 <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120202.143957.2251106530056768980.davem@davemloft.net>
-	 <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
-	 <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
-	 <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120203155309.GB20638@kroah.com> <4F2F9784.7090203@profihost.ag>
-	 <1328519990.2220.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <alpine.DEB.2.00.1202061151580.2966@wel-95.cs.helsinki.fi>
-	 <4F3231C1.9040509@profihost.ag>
-	 <1328692513.2284.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: linux-next: manual merge of the kmap_atomic tree with the  tree
+Date: Wed, 08 Feb 2012 17:30:18 +0800
+Message-ID: <1328693418.2442.18.camel@cr0>
+References: <20120208151057.5ad413a05fbbb393b4a00109@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
-	hch@infradead.org, Netdev <netdev@vger.kernel.org>,
-	david@fromorbit.com, stable@vger.kernel.org,
-	Greg KH <gregkh@suse.de>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:39095 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306Ab2BHJ20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 04:28:26 -0500
-In-Reply-To: <1328692513.2284.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mx1.redhat.com ([209.132.183.28]:15159 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751311Ab2BHJal (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 04:30:41 -0500
+In-Reply-To: <20120208151057.5ad413a05fbbb393b4a00109@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 10:15 +0100, Eric Dumazet a =C3=
-=A9crit :
-> Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 09:26 +0100, Stefan Priebe - =
-Profihost AG
-> a =C3=A9crit :
-> > Hi Eric,
->=20
-> > What do you think about this? Can anybody give me the commit id?
-> >=20
-> > Stefan
->=20
-> commit 5b35e1e6e9ca651e6b291c96d1106043c9af314a
-> Author: Neal Cardwell <ncardwell@google.com>
-> Date:   Sat Jan 28 17:29:46 2012 +0000
->=20
->     tcp: fix tcp_trim_head() to adjust segment count with skb MSS
->=20
->=20
->=20
-> Its quite recent and David will push it to stable, dont worry.
->=20
->=20
+On Wed, 2012-02-08 at 15:10 +1100, Stephen Rothwell wrote:
+> Hi Cong,
+> 
+> Today's linux-next merge of the kmap_atomic tree got a conflict in
+> drivers/net/ethernet/intel/e1000e/netdev.c between commit 0e15df490eef
+> ("e1000e: minor whitespace and indentation cleanup") from the net-next
+> tree and commit 2b4ba510a572 ("net: remove the second argument of k
+> [un]map_atomic()") from the kmap_atomic tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary.
 
-Actually already taken by stable teams :
+Hi, Stephen,
 
-=46or 3.0 kernel, search archives with :
-
-[56/65] tcp: fix tcp_trim_head() to adjust segment count with skb MSS
+Looks good, thanks!
