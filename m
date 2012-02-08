@@ -1,137 +1,111 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 30/50] atheros eth: set addr_assign_type if random_ether_addr() used
-Date: Wed,  8 Feb 2012 22:10:37 +0100
-Message-ID: <1328735457-29986-31-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 29/50] micrel eth: use dev_hw_addr_random() instead of random_ether_addr()
+Date: Wed,  8 Feb 2012 22:10:36 +0100
+Message-ID: <1328735457-29986-30-git-send-email-danny.kukawka@bisect.de>
 References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>,
-	Chris Snook <chris.snook@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Decotigny <decot@google.com>
-To: Jay Cliburn <jcliburn@gmail.com>
+Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Samuel Ortiz <sameo@linux.intel.com>,
+	Dennis Aberilla <denzzzhome@yahoo.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	Ben Dooks <ben@simtec.co.uk>,
+	"Simtec Linux Team" <linux@simtec.co.uk>,
+	Thomas Meyer <thomas@m3y3r.de>,
+	Wan ZongShun <mcuos.com@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set addr_assign_type correctly to NET_ADDR_RANDOM in case
-a random MAC address was generated and assigned to the netdevice.
+Use dev_hw_addr_random() instead of calling random_ether_addr()
+to set addr_assign_type correctly to NET_ADDR_RANDOM.
 
 Reset the state to NET_ADDR_PERM as soon as the MAC get
 changed via .ndo_set_mac_address.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |    2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   11 ++++++-----
- drivers/net/ethernet/atheros/atlx/atl1.c        |   12 +++++++++---
- drivers/net/ethernet/atheros/atlx/atlx.c        |    3 +++
- 4 files changed, 19 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/micrel/ks8842.c     |    4 +++-
+ drivers/net/ethernet/micrel/ks8851.c     |    7 +++++--
+ drivers/net/ethernet/micrel/ks8851_mll.c |    4 +++-
+ 3 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index 23f2ab0..bd1667c 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -224,7 +224,7 @@ int atl1c_read_mac_addr(struct atl1c_hw *hw)
- 		random_ether_addr(hw->perm_mac_addr);
- 
- 	memcpy(hw->mac_addr, hw->perm_mac_addr, sizeof(hw->perm_mac_addr));
--	return 0;
-+	return err;
- }
- 
- /*
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index b859124..edc0442 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -467,6 +467,9 @@ static int atl1c_set_mac_addr(struct net_device *netdev, void *p)
- 		return -EBUSY;
- 
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+	/* reset to NET_ADDR_PERM if was random */
-+	if (netdev->addr_assign_type & NET_ADDR_RANDOM)
-+		netdev->addr_assign_type ^= NET_ADDR_RANDOM;
- 	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
- 
- 	atl1c_hw_set_mac_addr(&adapter->hw);
-@@ -2746,10 +2749,9 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
- 		err = -EIO;
- 		goto err_reset;
- 	}
--	if (atl1c_read_mac_addr(&adapter->hw) != 0) {
--		err = -EIO;
--		dev_err(&pdev->dev, "get mac address failed\n");
--		goto err_eeprom;
-+	if (atl1c_read_mac_addr(&adapter->hw)) {
-+		/* got a random MAC address, set NET_ADDR_RANDOM to netdev */
-+		netdev->addr_assign_type |= NET_ADDR_RANDOM;
- 	}
- 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
- 	memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
-@@ -2774,7 +2776,6 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
- err_reset:
- err_register:
- err_sw_init:
--err_eeprom:
- 	iounmap(adapter->hw.hw_addr);
- err_init_netdev:
- err_ioremap:
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 9bd2049..40ac414 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -534,14 +534,17 @@ static int atl1_get_permanent_address(struct atl1_hw *hw)
-  */
- static s32 atl1_read_mac_addr(struct atl1_hw *hw)
- {
-+	s32 ret = 0;
- 	u16 i;
- 
--	if (atl1_get_permanent_address(hw))
-+	if (atl1_get_permanent_address(hw)) {
- 		random_ether_addr(hw->perm_mac_addr);
-+		ret = 1;
-+	}
- 
- 	for (i = 0; i < ETH_ALEN; i++)
- 		hw->mac_addr[i] = hw->perm_mac_addr[i];
--	return 0;
-+	return ret;
- }
- 
- /*
-@@ -3007,7 +3010,10 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
- 	}
- 
- 	/* copy the MAC address out of the EEPROM */
--	atl1_read_mac_addr(&adapter->hw);
-+	if (atl1_read_mac_addr(&adapter->hw)) {
-+		/* mark random mac */
-+		netdev->addr_assign_type |= NET_ADDR_RANDOM;
-+	}
- 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
- 
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
-diff --git a/drivers/net/ethernet/atheros/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
-index 8ff7411..77d2925 100644
---- a/drivers/net/ethernet/atheros/atlx/atlx.c
-+++ b/drivers/net/ethernet/atheros/atlx/atlx.c
-@@ -83,6 +83,9 @@ static int atlx_set_mac(struct net_device *netdev, void *p)
+diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
+index 0a85690..5bba69a 100644
+--- a/drivers/net/ethernet/micrel/ks8842.c
++++ b/drivers/net/ethernet/micrel/ks8842.c
+@@ -1081,6 +1081,8 @@ static int ks8842_set_mac(struct net_device *netdev, void *p)
  		return -EADDRNOTAVAIL;
  
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-+	/* reset to NET_ADDR_PERM if was random */
+ 	memcpy(netdev->dev_addr, mac, netdev->addr_len);
 +	if (netdev->addr_assign_type & NET_ADDR_RANDOM)
 +		netdev->addr_assign_type ^= NET_ADDR_RANDOM;
- 	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
  
- 	atlx_set_mac_addr(&adapter->hw);
+ 	ks8842_write_mac_addr(adapter, mac);
+ 	return 0;
+@@ -1211,7 +1213,7 @@ static int __devinit ks8842_probe(struct platform_device *pdev)
+ 		ks8842_read_mac_addr(adapter, netdev->dev_addr);
+ 
+ 		if (!is_valid_ether_addr(netdev->dev_addr))
+-			random_ether_addr(netdev->dev_addr);
++			dev_hw_addr_random(netdev, netdev->dev_addr);
+ 	}
+ 
+ 	id = ks8842_read16(adapter, 32, REG_SW_ID_AND_ENABLE);
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 6b35e7d..49537d4 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -422,7 +422,7 @@ static void ks8851_read_mac_addr(struct net_device *dev)
+  *
+  * Get or create the initial mac address for the device and then set that
+  * into the station address register. If there is an EEPROM present, then
+- * we try that. If no valid mac address is found we use random_ether_addr()
++ * we try that. If no valid mac address is found we use dev_hw_addr_random()
+  * to create a new one.
+  */
+ static void ks8851_init_mac(struct ks8851_net *ks)
+@@ -439,7 +439,7 @@ static void ks8851_init_mac(struct ks8851_net *ks)
+ 				dev->dev_addr);
+ 	}
+ 
+-	random_ether_addr(dev->dev_addr);
++	dev_hw_addr_random(dev, dev->dev_addr);
+ 	ks8851_write_mac_addr(dev);
+ }
+ 
+@@ -1051,6 +1051,9 @@ static int ks8851_set_mac_address(struct net_device *dev, void *addr)
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
++	if (dev->addr_assign_type & NET_ADDR_RANDOM)
++		dev->addr_assign_type ^= NET_ADDR_RANDOM;
++
+ 	return ks8851_write_mac_addr(dev);
+ }
+ 
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index e58e78e..1fa93b6 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -1242,6 +1242,8 @@ static int ks_set_mac_address(struct net_device *netdev, void *paddr)
+ 	u8 *da;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++	if (netdev->addr_assign_type & NET_ADDR_RANDOM)
++		netdev->addr_assign_type ^= NET_ADDR_RANDOM;
+ 
+ 	da = (u8 *)netdev->dev_addr;
+ 
+@@ -1609,7 +1611,7 @@ static int __devinit ks8851_probe(struct platform_device *pdev)
+ 	 * comment out the 2 functions below.
+ 	 */
+ 
+-	random_ether_addr(netdev->dev_addr);
++	dev_hw_addr_random(netdev, netdev->dev_addr);
+ 	ks_set_mac(ks, netdev->dev_addr);
+ 
+ 	id = ks_rdreg16(ks, KS_CIDER);
 -- 
 1.7.7.3
