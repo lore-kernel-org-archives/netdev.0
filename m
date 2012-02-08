@@ -1,71 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 5/8] ixgbe: Fix broken dependency on MAX_SKB_FRAGS being related to page size
-Date: Wed,  8 Feb 2012 01:36:35 -0800
-Message-ID: <1328693798-27323-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 8/8] ixgbe: ethtool: stats user buffer overrun
+Date: Wed,  8 Feb 2012 01:36:38 -0800
+Message-ID: <1328693798-27323-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:45540 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751902Ab2BHJgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 04:36:46 -0500
+	id S1751362Ab2BHJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 04:36:48 -0500
 In-Reply-To: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch fixes an issue in which RSC will generate corrupted frames when
-PAGE_SIZE is larger than 8K.  Specifically it looks like that in 2.6.39 a
-change was made so that GRO would always have at least 16 frags available
-for coalescing, but the ixgbe RSC logic was not updated.  As such the RSC
-feature would generate a frame larger than 64K and then overflow the value
-in the IP length field.
+If the number of tx/rx queues changes the ethtool ioctl
+ETHTOOL_GSTATS may overrun the userspace buffer. This
+occurs because the general practice in user space to
+query stats is to issue a ETHTOOL_GSSET cmd to learn the
+buffer size needed, allocate the buffer, then call
+ETHTOOL_GSTIRNGS and ETHTOOL_GSTATS. If the number of
+real_num_queues is changed or flow control attributes
+are changed after ETHTOOL_GSSET but before the
+ETHTOOL_GSTRINGS/ETHTOOL_GSTATS a user space buffer
+overrun occurs.
 
-To correct that I am now basing things on the PAGE_SIZE.
+To fix the overrun always return the max buffer size
+needed from get_sset_count() then return all strings
+and stats from get_strings()/get_ethtool_stats().
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+This _will_ change the output from the ioctl() call
+which could break applications and script parsing in
+theory. I believe these changes should not break existing
+tools because the only changes will be more {tx|rx}_queues
+and the {tx|rx}_pb_* stats will always be returned.
+Existing scripts already need to handle changing number
+of queues because this occurs today depending on system
+and current features. The {tx|rx}_pb_* stats are at the
+end of the output and should be handled by scripts today
+regardless.
+
+Finally get_ethtool_stats and get_strings are free-form
+outputs tools parsing these outputs should be defensive
+anyways. In the end these updates are better then
+having a tool segfault because of a buffer overrun.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   88 +++++++++++++---------
+ 1 files changed, 51 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 819b5c0..0688704 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2633,22 +2633,22 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
- 	/*
- 	 * we must limit the number of descriptors so that the
- 	 * total size of max desc * buf_len is not greater
--	 * than 65535
-+	 * than 65536
- 	 */
- 	if (ring_is_ps_enabled(ring)) {
--#if (MAX_SKB_FRAGS > 16)
-+#if (PAGE_SIZE < 8192)
- 		rscctrl |= IXGBE_RSCCTL_MAXDESC_16;
--#elif (MAX_SKB_FRAGS > 8)
-+#elif (PAGE_SIZE < 16384)
- 		rscctrl |= IXGBE_RSCCTL_MAXDESC_8;
--#elif (MAX_SKB_FRAGS > 4)
-+#elif (PAGE_SIZE < 32768)
- 		rscctrl |= IXGBE_RSCCTL_MAXDESC_4;
- #else
- 		rscctrl |= IXGBE_RSCCTL_MAXDESC_1;
- #endif
- 	} else {
--		if (rx_buf_len < IXGBE_RXBUFFER_4K)
-+		if (rx_buf_len <= IXGBE_RXBUFFER_4K)
- 			rscctrl |= IXGBE_RSCCTL_MAXDESC_16;
--		else if (rx_buf_len < IXGBE_RXBUFFER_8K)
-+		else if (rx_buf_len <= IXGBE_RXBUFFER_8K)
- 			rscctrl |= IXGBE_RSCCTL_MAXDESC_8;
- 		else
- 			rscctrl |= IXGBE_RSCCTL_MAXDESC_4;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 1f31a04..a629754 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -120,19 +120,23 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ #endif /* IXGBE_FCOE */
+ };
+ 
+-#define IXGBE_QUEUE_STATS_LEN \
+-	((((struct ixgbe_adapter *)netdev_priv(netdev))->num_tx_queues + \
+-	((struct ixgbe_adapter *)netdev_priv(netdev))->num_rx_queues) * \
++/* ixgbe allocates num_tx_queues and num_rx_queues symmetrically so
++ * we set the num_rx_queues to evaluate to num_tx_queues. This is
++ * used because we do not have a good way to get the max number of
++ * rx queues with CONFIG_RPS disabled.
++ */
++#define IXGBE_NUM_RX_QUEUES netdev->num_tx_queues
++
++#define IXGBE_QUEUE_STATS_LEN ( \
++	(netdev->num_tx_queues + IXGBE_NUM_RX_QUEUES) * \
+ 	(sizeof(struct ixgbe_queue_stats) / sizeof(u64)))
+ #define IXGBE_GLOBAL_STATS_LEN ARRAY_SIZE(ixgbe_gstrings_stats)
+ #define IXGBE_PB_STATS_LEN ( \
+-                 (((struct ixgbe_adapter *)netdev_priv(netdev))->flags & \
+-                 IXGBE_FLAG_DCB_ENABLED) ? \
+-                 (sizeof(((struct ixgbe_adapter *)0)->stats.pxonrxc) + \
+-                  sizeof(((struct ixgbe_adapter *)0)->stats.pxontxc) + \
+-                  sizeof(((struct ixgbe_adapter *)0)->stats.pxoffrxc) + \
+-                  sizeof(((struct ixgbe_adapter *)0)->stats.pxofftxc)) \
+-                  / sizeof(u64) : 0)
++			(sizeof(((struct ixgbe_adapter *)0)->stats.pxonrxc) + \
++			 sizeof(((struct ixgbe_adapter *)0)->stats.pxontxc) + \
++			 sizeof(((struct ixgbe_adapter *)0)->stats.pxoffrxc) + \
++			 sizeof(((struct ixgbe_adapter *)0)->stats.pxofftxc)) \
++			/ sizeof(u64))
+ #define IXGBE_STATS_LEN (IXGBE_GLOBAL_STATS_LEN + \
+                          IXGBE_PB_STATS_LEN + \
+                          IXGBE_QUEUE_STATS_LEN)
+@@ -1078,8 +1082,15 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 		data[i] = (ixgbe_gstrings_stats[i].sizeof_stat ==
+ 		           sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
+-	for (j = 0; j < adapter->num_tx_queues; j++) {
++	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
+ 		ring = adapter->tx_ring[j];
++		if (!ring) {
++			data[i] = 0;
++			data[i+1] = 0;
++			i += 2;
++			continue;
++		}
++
+ 		do {
+ 			start = u64_stats_fetch_begin_bh(&ring->syncp);
+ 			data[i]   = ring->stats.packets;
+@@ -1087,8 +1098,15 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		i += 2;
+ 	}
+-	for (j = 0; j < adapter->num_rx_queues; j++) {
++	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
+ 		ring = adapter->rx_ring[j];
++		if (!ring) {
++			data[i] = 0;
++			data[i+1] = 0;
++			i += 2;
++			continue;
++		}
++
+ 		do {
+ 			start = u64_stats_fetch_begin_bh(&ring->syncp);
+ 			data[i]   = ring->stats.packets;
+@@ -1096,22 +1114,20 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		i += 2;
+ 	}
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-		for (j = 0; j < MAX_TX_PACKET_BUFFERS; j++) {
+-			data[i++] = adapter->stats.pxontxc[j];
+-			data[i++] = adapter->stats.pxofftxc[j];
+-		}
+-		for (j = 0; j < MAX_RX_PACKET_BUFFERS; j++) {
+-			data[i++] = adapter->stats.pxonrxc[j];
+-			data[i++] = adapter->stats.pxoffrxc[j];
+-		}
++
++	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
++		data[i++] = adapter->stats.pxontxc[j];
++		data[i++] = adapter->stats.pxofftxc[j];
++	}
++	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
++		data[i++] = adapter->stats.pxonrxc[j];
++		data[i++] = adapter->stats.pxoffrxc[j];
+ 	}
+ }
+ 
+ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+                               u8 *data)
+ {
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	char *p = (char *)data;
+ 	int i;
+ 
+@@ -1126,31 +1142,29 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+ 			       ETH_GSTRING_LEN);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+-		for (i = 0; i < adapter->num_tx_queues; i++) {
++		for (i = 0; i < netdev->num_tx_queues; i++) {
+ 			sprintf(p, "tx_queue_%u_packets", i);
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "tx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+-		for (i = 0; i < adapter->num_rx_queues; i++) {
++		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
+ 			sprintf(p, "rx_queue_%u_packets", i);
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "rx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
+-				sprintf(p, "tx_pb_%u_pxon", i);
+-				p += ETH_GSTRING_LEN;
+-				sprintf(p, "tx_pb_%u_pxoff", i);
+-				p += ETH_GSTRING_LEN;
+-			}
+-			for (i = 0; i < MAX_RX_PACKET_BUFFERS; i++) {
+-				sprintf(p, "rx_pb_%u_pxon", i);
+-				p += ETH_GSTRING_LEN;
+-				sprintf(p, "rx_pb_%u_pxoff", i);
+-				p += ETH_GSTRING_LEN;
+-			}
++		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
++			sprintf(p, "tx_pb_%u_pxon", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_pb_%u_pxoff", i);
++			p += ETH_GSTRING_LEN;
++		}
++		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
++			sprintf(p, "rx_pb_%u_pxon", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_pb_%u_pxoff", i);
++			p += ETH_GSTRING_LEN;
+ 		}
+ 		/* BUG_ON(p - data != IXGBE_STATS_LEN * ETH_GSTRING_LEN); */
+ 		break;
 -- 
 1.7.7.6
