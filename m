@@ -1,156 +1,493 @@
 From: greearb@candelatech.com
-Subject: [PATCH v2 03/10] e1000e:  Support RXFCS feature flag.
-Date: Wed,  8 Feb 2012 11:54:38 -0800
-Message-ID: <1328730885-10941-4-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2 04/10] net: Add framework to allow sending packets with customized CRC.
+Date: Wed,  8 Feb 2012 11:54:39 -0800
+Message-ID: <1328730885-10941-5-git-send-email-greearb@candelatech.com>
 References: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55711 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55713 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757322Ab2BHTzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:44 -0500
+	with ESMTP id S1757322Ab2BHTzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:50 -0500
 In-Reply-To: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This enables enabling/disabling reception of the Ethernet
-FCS.  This can be useful when sniffing packets.
+This is useful for testing RX handling of frames with bad
+CRCs.
 
-For e1000e, enabling RXFCS can change the default
-behaviour for how the NIC handles CRC.  Disabling RXFCS
-will take the NIC back to defaults, which can be configured
-as part of the module options.
+Requires driver support to actually put the packet on the
+wire properly.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 45e5ae8... 04a21fc... M	drivers/net/ethernet/intel/e1000e/e1000.h
-:100644 100644 293a760... e3eefda... M	drivers/net/ethernet/intel/e1000e/netdev.c
-:100644 100644 9c6a56d... ff796e4... M	drivers/net/ethernet/intel/e1000e/param.c
- drivers/net/ethernet/intel/e1000e/e1000.h  |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c |   41 +++++++++++++++++++++++-----
- drivers/net/ethernet/intel/e1000e/param.c  |    5 +++-
- 3 files changed, 39 insertions(+), 8 deletions(-)
+:100644 100644 082355f... 87ba870... M	arch/alpha/include/asm/socket.h
+:100644 100644 dec6f9a... ea7629e... M	arch/arm/include/asm/socket.h
+:100644 100644 247b88c... 6d2e448... M	arch/avr32/include/asm/socket.h
+:100644 100644 e269264... 9ba1079... M	arch/cris/include/asm/socket.h
+:100644 100644 ce80fda... ff8a4c3... M	arch/frv/include/asm/socket.h
+:100644 100644 cf1daab... 8be2267... M	arch/h8300/include/asm/socket.h
+:100644 100644 4b03664... 17664c9... M	arch/ia64/include/asm/socket.h
+:100644 100644 e8b8c5b... 20de3ac... M	arch/m32r/include/asm/socket.h
+:100644 100644 d4708ce... 98bf770... M	arch/m68k/include/asm/socket.h
+:100644 100644 ad5c0a7... d97c83a... M	arch/mips/include/asm/socket.h
+:100644 100644 876356d... 545cbbe... M	arch/mn10300/include/asm/socket.h
+:100644 100644 d28c51b... 15d2d90... M	arch/parisc/include/asm/socket.h
+:100644 100644 2fc2af8... 29bbe62... M	arch/powerpc/include/asm/socket.h
+:100644 100644 67b5c1b... 237b1e7... M	arch/s390/include/asm/socket.h
+:100644 100644 8af1b64... 18d523a... M	arch/sparc/include/asm/socket.h
+:100644 100644 bb06968... 00af4e6... M	arch/xtensa/include/asm/socket.h
+:100644 100644 49c1704... 3c59235... M	include/asm-generic/socket.h
+:100644 100644 06b6ef6... f995c66... M	include/linux/if.h
+:100644 100644 0eac07c... f1b7d03... M	include/linux/netdevice.h
+:100644 100644 50db9b0... cc614a9... M	include/linux/skbuff.h
+:100644 100644 91c1c8b... 5d8ecbc... M	include/net/sock.h
+:100644 100644 da0c97f... 36e7b7c... M	net/core/skbuff.c
+:100644 100644 3e81fd2... 1db3096... M	net/core/sock.c
+:100644 100644 2dbb32b... ae2d484... M	net/packet/af_packet.c
+ arch/alpha/include/asm/socket.h   |    3 +++
+ arch/arm/include/asm/socket.h     |    3 +++
+ arch/avr32/include/asm/socket.h   |    3 +++
+ arch/cris/include/asm/socket.h    |    3 +++
+ arch/frv/include/asm/socket.h     |    3 +++
+ arch/h8300/include/asm/socket.h   |    3 +++
+ arch/ia64/include/asm/socket.h    |    3 +++
+ arch/m32r/include/asm/socket.h    |    3 +++
+ arch/m68k/include/asm/socket.h    |    3 +++
+ arch/mips/include/asm/socket.h    |    3 +++
+ arch/mn10300/include/asm/socket.h |    3 +++
+ arch/parisc/include/asm/socket.h  |    4 ++++
+ arch/powerpc/include/asm/socket.h |    3 +++
+ arch/s390/include/asm/socket.h    |    3 +++
+ arch/sparc/include/asm/socket.h   |    4 ++++
+ arch/xtensa/include/asm/socket.h  |    3 +++
+ include/asm-generic/socket.h      |    4 ++++
+ include/linux/if.h                |    2 ++
+ include/linux/netdevice.h         |    8 +++++++-
+ include/linux/skbuff.h            |    4 +++-
+ include/net/sock.h                |    4 ++++
+ net/core/skbuff.c                 |    1 +
+ net/core/sock.c                   |    4 ++++
+ net/packet/af_packet.c            |   32 ++++++++++++++++++++++++++++----
+ 24 files changed, 103 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 45e5ae8..04a21fc 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -461,6 +461,7 @@ struct e1000_info {
- #define FLAG2_CHECK_PHY_HANG              (1 << 9)
- #define FLAG2_NO_DISABLE_RX               (1 << 10)
- #define FLAG2_PCIM2PCI_ARBITER_WA         (1 << 11)
-+#define FLAG2_DFLT_CRC_STRIPPING          (1 << 12)
+diff --git a/arch/alpha/include/asm/socket.h b/arch/alpha/include/asm/socket.h
+index 082355f..87ba870 100644
+--- a/arch/alpha/include/asm/socket.h
++++ b/arch/alpha/include/asm/socket.h
+@@ -72,6 +72,9 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 293a760..e3eefda 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -936,8 +936,16 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 		}
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+  * have to define SOCK_NONBLOCK to a different value here.
+  */
+diff --git a/arch/arm/include/asm/socket.h b/arch/arm/include/asm/socket.h
+index dec6f9a..ea7629e 100644
+--- a/arch/arm/include/asm/socket.h
++++ b/arch/arm/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- 		/* adjust length to remove Ethernet CRC */
--		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
--			length -= 4;
-+		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
-+			/* If configured to store CRC, don't subtract FCS,
-+			 * but keep the FCS bytes out of the total_rx_bytes
-+			 * counter
-+			 */
-+			if (netdev->features & NETIF_F_RXFCS)
-+				total_rx_bytes -= 4;
-+			else
-+				length -= 4;
-+		}
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/avr32/include/asm/socket.h b/arch/avr32/include/asm/socket.h
+index 247b88c..6d2e448 100644
+--- a/arch/avr32/include/asm/socket.h
++++ b/arch/avr32/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- 		total_rx_bytes += length;
- 		total_rx_packets++;
-@@ -1304,8 +1312,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
- 							   DMA_FROM_DEVICE);
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* __ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/asm/socket.h b/arch/cris/include/asm/socket.h
+index e269264..9ba1079 100644
+--- a/arch/cris/include/asm/socket.h
++++ b/arch/cris/include/asm/socket.h
+@@ -67,6 +67,9 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- 				/* remove the CRC */
--				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
--					l1 -= 4;
-+				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
-+					if (!(netdev->features & NETIF_F_RXFCS))
-+						l1 -= 4;
-+				}
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
  
- 				skb_put(skb, l1);
- 				goto copydone;
-@@ -1331,8 +1341,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
- 		/* strip the ethernet crc, problem is we're using pages now so
- 		 * this whole operation can get a little cpu intensive
- 		 */
--		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
--			pskb_trim(skb, skb->len - 4);
-+		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
-+			if (!(netdev->features & NETIF_F_RXFCS))
-+				pskb_trim(skb, skb->len - 4);
-+		}
  
- copydone:
- 		total_rx_bytes += skb->len;
-@@ -5987,7 +5999,7 @@ static int e1000_set_features(struct net_device *netdev,
- 		adapter->flags |= FLAG_TSO_FORCE;
+diff --git a/arch/frv/include/asm/socket.h b/arch/frv/include/asm/socket.h
+index ce80fda..ff8a4c3 100644
+--- a/arch/frv/include/asm/socket.h
++++ b/arch/frv/include/asm/socket.h
+@@ -65,5 +65,8 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
  
- 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
--			 NETIF_F_RXCSUM | NETIF_F_RXHASH)))
-+			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS)))
- 		return 0;
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/h8300/include/asm/socket.h b/arch/h8300/include/asm/socket.h
+index cf1daab..8be2267 100644
+--- a/arch/h8300/include/asm/socket.h
++++ b/arch/h8300/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/ia64/include/asm/socket.h b/arch/ia64/include/asm/socket.h
+index 4b03664..17664c9 100644
+--- a/arch/ia64/include/asm/socket.h
++++ b/arch/ia64/include/asm/socket.h
+@@ -74,4 +74,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/asm/socket.h b/arch/m32r/include/asm/socket.h
+index e8b8c5b..20de3ac 100644
+--- a/arch/m32r/include/asm/socket.h
++++ b/arch/m32r/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/m68k/include/asm/socket.h b/arch/m68k/include/asm/socket.h
+index d4708ce..98bf770 100644
+--- a/arch/m68k/include/asm/socket.h
++++ b/arch/m68k/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/mips/include/asm/socket.h b/arch/mips/include/asm/socket.h
+index ad5c0a7..d97c83a 100644
+--- a/arch/mips/include/asm/socket.h
++++ b/arch/mips/include/asm/socket.h
+@@ -85,6 +85,9 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #ifdef __KERNEL__
+ 
+ /** sock_type - Socket types
+diff --git a/arch/mn10300/include/asm/socket.h b/arch/mn10300/include/asm/socket.h
+index 876356d..545cbbe 100644
+--- a/arch/mn10300/include/asm/socket.h
++++ b/arch/mn10300/include/asm/socket.h
+@@ -65,4 +65,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/asm/socket.h b/arch/parisc/include/asm/socket.h
+index d28c51b..15d2d90 100644
+--- a/arch/parisc/include/asm/socket.h
++++ b/arch/parisc/include/asm/socket.h
+@@ -64,6 +64,10 @@
+ #define SO_WIFI_STATUS		0x4022
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		0x4023
++
++
+ /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+  * have to define SOCK_NONBLOCK to a different value here.
+  */
+diff --git a/arch/powerpc/include/asm/socket.h b/arch/powerpc/include/asm/socket.h
+index 2fc2af8..29bbe62 100644
+--- a/arch/powerpc/include/asm/socket.h
++++ b/arch/powerpc/include/asm/socket.h
+@@ -72,4 +72,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/asm/socket.h b/arch/s390/include/asm/socket.h
+index 67b5c1b..237b1e7 100644
+--- a/arch/s390/include/asm/socket.h
++++ b/arch/s390/include/asm/socket.h
+@@ -73,4 +73,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/asm/socket.h b/arch/sparc/include/asm/socket.h
+index 8af1b64..18d523a 100644
+--- a/arch/sparc/include/asm/socket.h
++++ b/arch/sparc/include/asm/socket.h
+@@ -61,6 +61,10 @@
+ #define SO_WIFI_STATUS		0x0025
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		0x0026
++
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/asm/socket.h b/arch/xtensa/include/asm/socket.h
+index bb06968..00af4e6 100644
+--- a/arch/xtensa/include/asm/socket.h
++++ b/arch/xtensa/include/asm/socket.h
+@@ -76,4 +76,7 @@
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS		SO_WIFI_STATUS
+ 
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
+index 49c1704..3c59235 100644
+--- a/include/asm-generic/socket.h
++++ b/include/asm-generic/socket.h
+@@ -67,4 +67,8 @@
+ 
+ #define SO_WIFI_STATUS		41
+ #define SCM_WIFI_STATUS	SO_WIFI_STATUS
++
++/* Instruct lower device to use last 4-bytes of skb data as FCS */
++#define SO_NOFCS		42
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 06b6ef6..f995c66 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -80,6 +80,8 @@
+ 					 * skbs on transmit */
+ #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
+ #define IFF_TEAM_PORT	0x40000		/* device used as team port */
++#define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
++
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0eac07c..f1b7d03 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1082,7 +1082,8 @@ struct net_device {
+ 	const struct header_ops *header_ops;
+ 
+ 	unsigned int		flags;	/* interface flags (a la BSD)	*/
+-	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace. */
++	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace.
++					     * See if.h for definitions. */
+ 	unsigned short		gflags;
+ 	unsigned short		padded;	/* How much padding added by alloc_netdev() */
+ 
+@@ -2650,6 +2651,11 @@ static inline int netif_is_bond_slave(struct net_device *dev)
+ 	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
+ }
+ 
++static inline bool netif_supports_nofcs(struct net_device *dev)
++{
++	return dev->priv_flags & IFF_SUPP_NOFCS;
++}
++
+ extern struct pernet_operations __net_initdata loopback_net_ops;
+ 
+ /* Logging, debugging and troubleshooting/diagnostic helpers. */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 50db9b0..cc614a9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -361,6 +361,7 @@ typedef unsigned char *sk_buff_data_t;
+  *		ports.
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
++ *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
+@@ -456,7 +457,8 @@ struct sk_buff {
+ 	__u8			l4_rxhash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
+-	/* 10/12 bit hole (depending on ndisc_nodetype presence) */
++	__u8			no_fcs:1;
++	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #ifdef CONFIG_NET_DMA
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 91c1c8b..5d8ecbc 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -590,6 +590,10 @@ enum sock_flags {
+ 	SOCK_RXQ_OVFL,
+ 	SOCK_ZEROCOPY, /* buffers from userspace */
+ 	SOCK_WIFI_STATUS, /* push wifi status to userspace */
++	SOCK_NOFCS, /* Tell NIC not to do the Ethernet FCS.
++		     * Will use last 4 bytes of packet sent from
++		     * user-space instead.
++		     */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index da0c97f..36e7b7c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -592,6 +592,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->rxhash		= old->rxhash;
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->l4_rxhash		= old->l4_rxhash;
++	new->no_fcs		= old->no_fcs;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
+ #endif
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 3e81fd2..1db3096 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -793,6 +793,10 @@ set_rcvbuf:
+ 		sock_valbool_flag(sk, SOCK_WIFI_STATUS, valbool);
+ 		break;
+ 
++	case SO_NOFCS:
++		sock_valbool_flag(sk, SOCK_NOFCS, valbool);
++		break;
++
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2dbb32b..ae2d484 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1459,6 +1459,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
+ 	struct net_device *dev;
+ 	__be16 proto = 0;
+ 	int err;
++	int extra_len = 0;
  
  	/*
-@@ -6001,6 +6013,20 @@ static int e1000_set_features(struct net_device *netdev,
- 		return -EINVAL;
- 	}
+ 	 *	Get and verify the address.
+@@ -1493,8 +1494,16 @@ retry:
+ 	 * raw protocol and you must do your own fragmentation at this level.
+ 	 */
  
-+	if (changed & NETIF_F_RXFCS) {
-+		if (features & NETIF_F_RXFCS) {
-+			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
-+		} else {
-+			/* We need to take it back to defaults, which might mean
-+			 * stripping is still disabled at the adapter level.
-+			 */
-+			if (adapter->flags2 & FLAG2_DFLT_CRC_STRIPPING)
-+				adapter->flags2 |= FLAG2_CRC_STRIPPING;
-+			else
-+				adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
++	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
++		if (!netif_supports_nofcs(dev)) {
++			err = -EPROTONOSUPPORT;
++			goto out_unlock;
 +		}
++		extra_len = 4; /* We're doing our own CRC */
 +	}
 +
- 	netdev->features = features;
+ 	err = -EMSGSIZE;
+-	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
++	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN + extra_len)
+ 		goto out_unlock;
  
- 	if (netif_running(netdev))
-@@ -6199,6 +6225,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	if (!skb) {
+@@ -1526,7 +1535,7 @@ retry:
+ 		goto retry;
+ 	}
  
- 	/* Set user-changeable features (subset of all device features) */
- 	netdev->hw_features = netdev->features;
-+	netdev->hw_features |= NETIF_F_RXFCS;
+-	if (len > (dev->mtu + dev->hard_header_len)) {
++	if (len > (dev->mtu + dev->hard_header_len + extra_len)) {
+ 		/* Earlier code assumed this would be a VLAN pkt,
+ 		 * double-check this now that we have the actual
+ 		 * packet in hand.
+@@ -1548,6 +1557,9 @@ retry:
+ 	if (err < 0)
+ 		goto out_unlock;
  
- 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
- 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 9c6a56d..ff796e4 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -463,10 +463,13 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		if (num_CrcStripping > bd) {
- 			unsigned int crc_stripping = CrcStripping[bd];
- 			e1000_validate_option(&crc_stripping, &opt, adapter);
--			if (crc_stripping == OPTION_ENABLED)
-+			if (crc_stripping == OPTION_ENABLED) {
- 				adapter->flags2 |= FLAG2_CRC_STRIPPING;
-+				adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
-+			}
- 		} else {
- 			adapter->flags2 |= FLAG2_CRC_STRIPPING;
-+			adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
++	if (unlikely(extra_len == 4))
++		skb->no_fcs = 1;
++
+ 	dev_queue_xmit(skb);
+ 	rcu_read_unlock();
+ 	return len;
+@@ -2209,6 +2221,7 @@ static int packet_snd(struct socket *sock,
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	unsigned short gso_type = 0;
+ 	int hlen, tlen;
++	int extra_len = 0;
+ 
+ 	/*
+ 	 *	Get and verify the address.
+@@ -2288,8 +2301,16 @@ static int packet_snd(struct socket *sock,
  		}
  	}
- 	{ /* Kumeran Lock Loss Workaround */
+ 
++	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
++		if (!netif_supports_nofcs(dev)) {
++			err = -EPROTONOSUPPORT;
++			goto out_unlock;
++		}
++		extra_len = 4; /* We're doing our own CRC */
++	}
++
+ 	err = -EMSGSIZE;
+-	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
++	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN + extra_len))
+ 		goto out_unlock;
+ 
+ 	err = -ENOBUFS;
+@@ -2315,7 +2336,7 @@ static int packet_snd(struct socket *sock,
+ 	if (err < 0)
+ 		goto out_free;
+ 
+-	if (!gso_type && (len > dev->mtu + reserve)) {
++	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
+ 		/* Earlier code assumed this would be a VLAN pkt,
+ 		 * double-check this now that we have the actual
+ 		 * packet in hand.
+@@ -2353,6 +2374,9 @@ static int packet_snd(struct socket *sock,
+ 		len += vnet_hdr_len;
+ 	}
+ 
++	if (unlikely(extra_len == 4))
++		skb->no_fcs = 1;
++
+ 	/*
+ 	 *	Now send it
+ 	 */
 -- 
 1.7.3.4
