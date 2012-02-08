@@ -1,62 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/8] e1000: add dropped DMA receive enable back in for WoL
-Date: Wed,  8 Feb 2012 01:36:31 -0800
-Message-ID: <1328693798-27323-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 4/8] ixgbe: Fix case of Tx Hang in PF with 32 VFs
+Date: Wed,  8 Feb 2012 01:36:34 -0800
+Message-ID: <1328693798-27323-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.stable.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:21470 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751141Ab2BHJgo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 04:36:44 -0500
+	id S1751314Ab2BHJgq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 04:36:46 -0500
 In-Reply-To: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48 broke Wake-on-LAN by
-inadvertently dropping the enabling of DMA receives.
+A check for the number of VFs allocated should have used a greater than
+equal operator instead of just greater than.  This caused allocation of
+exactly 32 VFs to not enable the PF transmit and receive enables.
 
-Restore the enabling of DMA receives for WoL.
-
-This is applicable to 3.1+ stable trees.
-
-CC: stable@vger.stable.org
-Reported-by: Tobias Klausmann <klausman@schwarzvogel.de>
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
-Tested-by: Tobias Klausmann <klausman@schwarzvogel.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 669ca38..d94d64b 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -4740,12 +4740,14 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 		e1000_setup_rctl(adapter);
- 		e1000_set_rx_mode(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 92192c6..819b5c0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2830,7 +2830,7 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl | vt_reg_bits);
  
-+		rctl = er32(RCTL);
-+
- 		/* turn on all-multi mode if wake on multicast is enabled */
--		if (wufc & E1000_WUFC_MC) {
--			rctl = er32(RCTL);
-+		if (wufc & E1000_WUFC_MC)
- 			rctl |= E1000_RCTL_MPE;
--			ew32(RCTL, rctl);
--		}
-+
-+		/* enable receives in the hardware */
-+		ew32(RCTL, rctl | E1000_RCTL_EN);
+ 	vf_shift = adapter->num_vfs % 32;
+-	reg_offset = (adapter->num_vfs > 32) ? 1 : 0;
++	reg_offset = (adapter->num_vfs >= 32) ? 1 : 0;
  
- 		if (hw->mac_type >= e1000_82540) {
- 			ctrl = er32(CTRL);
+ 	/* Enable only the PF's pool for Tx/Rx */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), (1 << vf_shift));
 -- 
 1.7.7.6
