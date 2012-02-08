@@ -1,75 +1,72 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] IPoIB: Stop lying about hard_header_len and use skb->cb
- to stash LL addresses
-Date: Wed, 8 Feb 2012 16:28:47 +0200
-Message-ID: <4F32869F.3090605@mellanox.com>
-References: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA@mail.gmail.com>  <1328662281-16256-1-git-send-email-roland@kernel.org>  <1828884A29C6694DAF28B7E6B8A82373374C1C26@ORSMSX101.amr.corp.intel.com> <1328687424.4736.5.camel@edumazet-laptop>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Wed, 8 Feb 2012 14:45:06 +0000
+Message-ID: <20120208144506.GI5938@suse.de>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de>
+ <1328568978-17553-3-git-send-email-mgorman@suse.de>
+ <alpine.DEB.2.00.1202071025050.30652@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Hefty, Sean" <sean.hefty@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"shlomop@mellanox.com" <shlomop@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Roland Dreier <roland@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:45810 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753663Ab2BHOeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 09:34:17 -0500
-In-Reply-To: <1328687424.4736.5.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1202071025050.30652@router.home>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 2/8/2012 9:50 AM, Eric Dumazet wrote:
-> Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 07:29 +0000, Hefty, Sean a =C3=
-=A9crit :
->> I tested this with Dave's patch and Eric's first patch against Linus=
-' latest tree 3.3-rc2+, and things look good so far.
->>
->
-> Thanks for testing, I'll resend my (updated) patch today.
+On Tue, Feb 07, 2012 at 10:27:56AM -0600, Christoph Lameter wrote:
+> On Mon, 6 Feb 2012, Mel Gorman wrote:
+> 
+> > Pages allocated from the reserve are returned with page->pfmemalloc
+> > set and it is up to the caller to determine how the page should be
+> > protected.  SLAB restricts access to any page with page->pfmemalloc set
+> 
+> pfmemalloc sounds like a page flag. If you would use one then the
+> preservation of the flag by copying it elsewhere may not be necessary and
+> the patches would be less invasive.
 
-same here, I used Roland's patch on top of net-next plus the below patc=
-h=20
-and got GRO to aggregate okay,
-great doing! Eric, could you please post your work to Dave after=20
-Roland's patch is applied?
+Using a page flag would simplify parts of the patch. The catch of course
+is that it requires a page flag which are in tight supply and I do not
+want to tie this to being 32-bit unnecessarily.
 
-Or.
+> Also you would not need to extend
+> and modify many of the structures.
+> 
+ 
+Lets see;
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index f124947..9b8e2fa 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3491,14 +3491,20 @@ static inline gro_result_t
->  __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
->  {
->         struct sk_buff *p;
-> +       unsigned int maclen =3D skb->dev->hard_header_len;
->
->         for (p =3D napi->gro_list; p; p =3D p->next) {
->                 unsigned long diffs;
->
->                 diffs =3D (unsigned long)p->dev ^ (unsigned long)skb-=
->dev;
->                 diffs |=3D p->vlan_tci ^ skb->vlan_tci;
-> -               diffs |=3D compare_ether_header(skb_mac_header(p),
-> -                                             skb_gro_mac_header(skb)=
-);
-> +               if (maclen =3D=3D ETH_HLEN)
-> +                       diffs |=3D compare_ether_header(skb_mac_heade=
-r(p),
-> +                                                    =20
-> skb_gro_mac_header(skb));
-> +               else if (!diffs)
-> +                       diffs =3D memcmp(skb_mac_header(p),
-> +                                       skb_gro_mac_header(skb),
-> +                                       maclen);
->                 NAPI_GRO_CB(p)->same_flow =3D !diffs;
->                 NAPI_GRO_CB(p)->flush =3D 0;
->         }
+o struct page size would be unaffected
+o struct kmem_cache_cpu could be left alone even though it's a small saving
+o struct slab also be left alone
+o struct array_cache could be left alone although I would point out that
+  it would make no difference in size as touched is changed to a bool to
+  fit pfmemalloc in
+o It would still be necessary to do the object pointer tricks in slab.c
+  to avoid doing an excessive number of page lookups which is where much
+  of the complexity is
+o The virt_to_slab could be replaced by looking up the page flag instead
+  and avoiding a level of indirection that would be pleasing
+  to an int and placed with struct kmem_cache
+
+I agree that parts of the patch would be simplier although the
+complexity of storing pfmemalloc within the obj pointer would probably
+remain. However, the downside of requiring a page flag is very high. In
+the event we increase the number of page flags - great, I'll use one but
+right now I do not think the use of page flag is justified.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
