@@ -1,242 +1,359 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 5/6] [PATCH] qeth: add query OSA address table support
-Date: Wed, 08 Feb 2012 11:19:49 +0100
-Message-ID: <20120208102029.571724964@de.ibm.com>
+Subject: [patch 3/6] [PATCH] af_iucv: change net_device handling for HS transport
+Date: Wed, 08 Feb 2012 11:19:47 +0100
+Message-ID: <20120208102029.346652378@de.ibm.com>
 References: <20120208101944.272235343@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:57816 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756126Ab2BHKVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 05:21:14 -0500
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:41683 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756076Ab2BHKVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 05:21:13 -0500
 Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Wed, 8 Feb 2012 10:21:08 -0000
-Content-Disposition: inline; filename=606-qeth-query-osa-table.diff
+	Wed, 8 Feb 2012 10:21:11 -0000
+Content-Disposition: inline; filename=603-af_iucv-netdev-hs-transport.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-Add qeth device private ioctl to query the OSA address table.
-This helps debugging hw related problems.
+This patch saves the net_device in the iucv_sock structure during
+bind in order to fasten skb sending.
+In addition some other small improvements are made for HS transport:
+   - error checking when sending skbs
+   - locking changes in afiucv_hs_callback_txnotify
+   - skb freeing in afiucv_hs_callback_txnotify
+And finally it contains code cleanup to get rid of iucv_skb_queue_purge.
 
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- arch/s390/include/asm/qeth.h      |    7 ++
- drivers/s390/net/qeth_core.h      |    1 
- drivers/s390/net/qeth_core_main.c |   99 ++++++++++++++++++++++++++++++++++++++
- drivers/s390/net/qeth_core_mpc.h  |   13 ++++
- drivers/s390/net/qeth_l2_main.c   |    3 +
- drivers/s390/net/qeth_l3_main.c   |    3 +
- 6 files changed, 126 insertions(+)
+ include/net/iucv/af_iucv.h |    1 
+ net/iucv/af_iucv.c         |  119 +++++++++++++++++++++++----------------------
+ 2 files changed, 63 insertions(+), 57 deletions(-)
 
---- a/arch/s390/include/asm/qeth.h
-+++ b/arch/s390/include/asm/qeth.h
-@@ -20,6 +20,7 @@
- #define SIOC_QETH_ARP_FLUSH_CACHE       (SIOCDEVPRIVATE + 4)
- #define SIOC_QETH_ADP_SET_SNMP_CONTROL  (SIOCDEVPRIVATE + 5)
- #define SIOC_QETH_GET_CARD_TYPE         (SIOCDEVPRIVATE + 6)
-+#define SIOC_QETH_QUERY_OAT		(SIOCDEVPRIVATE + 7)
- 
- struct qeth_arp_cache_entry {
- 	__u8  macaddr[6];
-@@ -107,4 +108,10 @@ struct qeth_arp_query_user_data {
- 	char *entries;
- } __attribute__((packed));
- 
-+struct qeth_query_oat_data {
-+	__u32 command;
-+	__u32 buffer_len;
-+	__u32 response_len;
-+	__u64 ptr;
-+};
- #endif /* __ASM_S390_QETH_IOCTL_H__ */
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -906,6 +906,7 @@ void qeth_prepare_ipa_cmd(struct qeth_ca
- struct qeth_cmd_buffer *qeth_wait_for_buffer(struct qeth_channel *);
- int qeth_mdio_read(struct net_device *, int, int);
- int qeth_snmp_command(struct qeth_card *, char __user *);
-+int qeth_query_oat_command(struct qeth_card *, char __user *);
- struct qeth_cmd_buffer *qeth_get_adapter_cmd(struct qeth_card *, __u32, __u32);
- int qeth_default_setadapterparms_cb(struct qeth_card *, struct qeth_reply *,
- 					unsigned long);
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -26,6 +26,7 @@
- #include <asm/ebcdic.h>
- #include <asm/io.h>
- #include <asm/sysinfo.h>
-+#include <asm/compat.h>
- 
- #include "qeth_core.h"
- 
-@@ -4402,6 +4403,104 @@ int qeth_snmp_command(struct qeth_card *
+--- a/include/net/iucv/af_iucv.h
++++ b/include/net/iucv/af_iucv.h
+@@ -113,6 +113,7 @@ struct iucv_sock {
+ 	spinlock_t		accept_q_lock;
+ 	struct sock		*parent;
+ 	struct iucv_path	*path;
++	struct net_device	*hs_dev;
+ 	struct sk_buff_head	send_skb_q;
+ 	struct sk_buff_head	backlog_skb_q;
+ 	struct sock_msg_q	message_q;
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -131,17 +131,6 @@ static inline void low_nmcpy(unsigned ch
+        memcpy(&dst[8], src, 8);
  }
- EXPORT_SYMBOL_GPL(qeth_snmp_command);
  
-+static int qeth_setadpparms_query_oat_cb(struct qeth_card *card,
-+		struct qeth_reply *reply, unsigned long data)
-+{
-+	struct qeth_ipa_cmd *cmd;
-+	struct qeth_qoat_priv *priv;
-+	char *resdata;
-+	int resdatalen;
-+
-+	QETH_CARD_TEXT(card, 3, "qoatcb");
-+
-+	cmd = (struct qeth_ipa_cmd *)data;
-+	priv = (struct qeth_qoat_priv *)reply->param;
-+	resdatalen = cmd->data.setadapterparms.hdr.cmdlength;
-+	resdata = (char *)data + 28;
-+
-+	if (resdatalen > (priv->buffer_len - priv->response_len)) {
-+		cmd->hdr.return_code = IPA_RC_FFFF;
-+		return 0;
-+	}
-+
-+	memcpy((priv->buffer + priv->response_len), resdata,
-+		resdatalen);
-+	priv->response_len += resdatalen;
-+
-+	if (cmd->data.setadapterparms.hdr.seq_no <
-+	    cmd->data.setadapterparms.hdr.used_total)
-+		return 1;
-+	return 0;
-+}
-+
-+int qeth_query_oat_command(struct qeth_card *card, char __user *udata)
-+{
-+	int rc = 0;
-+	struct qeth_cmd_buffer *iob;
-+	struct qeth_ipa_cmd *cmd;
-+	struct qeth_query_oat *oat_req;
-+	struct qeth_query_oat_data oat_data;
-+	struct qeth_qoat_priv priv;
-+	void __user *tmp;
-+
-+	QETH_CARD_TEXT(card, 3, "qoatcmd");
-+
-+	if (!qeth_adp_supported(card, IPA_SETADP_QUERY_OAT)) {
-+		rc = -EOPNOTSUPP;
-+		goto out;
-+	}
-+
-+	if (copy_from_user(&oat_data, udata,
-+	    sizeof(struct qeth_query_oat_data))) {
-+			rc = -EFAULT;
-+			goto out;
-+	}
-+
-+	priv.buffer_len = oat_data.buffer_len;
-+	priv.response_len = 0;
-+	priv.buffer =  kzalloc(oat_data.buffer_len, GFP_KERNEL);
-+	if (!priv.buffer) {
-+		rc = -ENOMEM;
-+		goto out;
-+	}
-+
-+	iob = qeth_get_adapter_cmd(card, IPA_SETADP_QUERY_OAT,
-+				   sizeof(struct qeth_ipacmd_setadpparms_hdr) +
-+				   sizeof(struct qeth_query_oat));
-+	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
-+	oat_req = &cmd->data.setadapterparms.data.query_oat;
-+	oat_req->subcmd_code = oat_data.command;
-+
-+	rc = qeth_send_ipa_cmd(card, iob, qeth_setadpparms_query_oat_cb,
-+			       &priv);
-+	if (!rc) {
-+		if (is_compat_task())
-+			tmp = compat_ptr(oat_data.ptr);
-+		else
-+			tmp = (void __user *)(unsigned long)oat_data.ptr;
-+
-+		if (copy_to_user(tmp, priv.buffer,
-+		    priv.response_len)) {
-+			rc = -EFAULT;
-+			goto out_free;
-+		}
-+
-+		oat_data.response_len = priv.response_len;
-+
-+		if (copy_to_user(udata, &oat_data,
-+		    sizeof(struct qeth_query_oat_data)))
-+			rc = -EFAULT;
-+	} else
-+		if (rc == IPA_RC_FFFF)
-+			rc = -EFAULT;
-+
-+out_free:
-+	kfree(priv.buffer);
-+out:
-+	return rc;
-+}
-+EXPORT_SYMBOL_GPL(qeth_query_oat_command);
-+
- static inline int qeth_get_qdio_q_format(struct qeth_card *card)
+-static void iucv_skb_queue_purge(struct sk_buff_head *list)
+-{
+-	struct sk_buff *skb;
+-
+-	while ((skb = skb_dequeue(list)) != NULL) {
+-		if (skb->dev)
+-			dev_put(skb->dev);
+-		kfree_skb(skb);
+-	}
+-}
+-
+ static int afiucv_pm_prepare(struct device *dev)
  {
- 	switch (card->info.type) {
---- a/drivers/s390/net/qeth_core_mpc.h
-+++ b/drivers/s390/net/qeth_core_mpc.h
-@@ -249,6 +249,7 @@ enum qeth_ipa_setadp_cmd {
- 	IPA_SETADP_SET_PROMISC_MODE		= 0x00000800L,
- 	IPA_SETADP_SET_DIAG_ASSIST		= 0x00002000L,
- 	IPA_SETADP_SET_ACCESS_CONTROL		= 0x00010000L,
-+	IPA_SETADP_QUERY_OAT			= 0x00080000L,
- };
- enum qeth_ipa_mac_ops {
- 	CHANGE_ADDR_READ_MAC		= 0,
-@@ -398,6 +399,17 @@ struct qeth_set_access_ctrl {
- 	__u32 subcmd_code;
- } __attribute__((packed));
+ #ifdef CONFIG_PM_DEBUG
+@@ -176,7 +165,7 @@ static int afiucv_pm_freeze(struct devic
+ 	read_lock(&iucv_sk_list.lock);
+ 	sk_for_each(sk, node, &iucv_sk_list.head) {
+ 		iucv = iucv_sk(sk);
+-		iucv_skb_queue_purge(&iucv->send_skb_q);
++		skb_queue_purge(&iucv->send_skb_q);
+ 		skb_queue_purge(&iucv->backlog_skb_q);
+ 		switch (sk->sk_state) {
+ 		case IUCV_DISCONN:
+@@ -337,7 +326,6 @@ static void iucv_sock_wake_msglim(struct
+ static int afiucv_hs_send(struct iucv_message *imsg, struct sock *sock,
+ 		   struct sk_buff *skb, u8 flags)
+ {
+-	struct net *net = sock_net(sock);
+ 	struct iucv_sock *iucv = iucv_sk(sock);
+ 	struct af_iucv_trans_hdr *phs_hdr;
+ 	struct sk_buff *nskb;
+@@ -374,10 +362,10 @@ static int afiucv_hs_send(struct iucv_me
+ 	if (imsg)
+ 		memcpy(&phs_hdr->iucv_hdr, imsg, sizeof(struct iucv_message));
  
-+struct qeth_query_oat {
-+	__u32 subcmd_code;
-+	__u8 reserved[12];
-+} __packed;
-+
-+struct qeth_qoat_priv {
-+	__u32 buffer_len;
-+	__u32 response_len;
-+	char *buffer;
-+};
-+
- struct qeth_ipacmd_setadpparms_hdr {
- 	__u32 supp_hw_cmds;
- 	__u32 reserved1;
-@@ -417,6 +429,7 @@ struct qeth_ipacmd_setadpparms {
- 		struct qeth_change_addr change_addr;
- 		struct qeth_snmp_cmd snmp;
- 		struct qeth_set_access_ctrl set_access_ctrl;
-+		struct qeth_query_oat query_oat;
- 		__u32 mode;
- 	} data;
- } __attribute__ ((packed));
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -75,6 +75,9 @@ static int qeth_l2_do_ioctl(struct net_d
- 			mii_data->val_out = qeth_mdio_read(dev,
- 				mii_data->phy_id, mii_data->reg_num);
- 		break;
-+	case SIOC_QETH_QUERY_OAT:
-+		rc = qeth_query_oat_command(card, rq->ifr_ifru.ifru_data);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
+-	skb->dev = dev_get_by_index(net, sock->sk_bound_dev_if);
++	skb->dev = iucv->hs_dev;
+ 	if (!skb->dev)
+ 		return -ENODEV;
+-	if (!(skb->dev->flags & IFF_UP))
++	if (!(skb->dev->flags & IFF_UP) || !netif_carrier_ok(skb->dev))
+ 		return -ENETDOWN;
+ 	if (skb->len > skb->dev->mtu) {
+ 		if (sock->sk_type == SOCK_SEQPACKET)
+@@ -392,15 +380,14 @@ static int afiucv_hs_send(struct iucv_me
+ 		return -ENOMEM;
+ 	skb_queue_tail(&iucv->send_skb_q, nskb);
+ 	err = dev_queue_xmit(skb);
+-	if (err) {
++	if (net_xmit_eval(err)) {
+ 		skb_unlink(nskb, &iucv->send_skb_q);
+-		dev_put(nskb->dev);
+ 		kfree_skb(nskb);
+ 	} else {
+ 		atomic_sub(confirm_recv, &iucv->msg_recv);
+ 		WARN_ON(atomic_read(&iucv->msg_recv) < 0);
  	}
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -2745,6 +2745,9 @@ static int qeth_l3_do_ioctl(struct net_d
- 							mii_data->phy_id,
- 							mii_data->reg_num);
- 		break;
-+	case SIOC_QETH_QUERY_OAT:
-+		rc = qeth_query_oat_command(card, rq->ifr_ifru.ifru_data);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
+-	return err;
++	return net_xmit_eval(err);
+ }
+ 
+ static struct sock *__iucv_get_sock_by_name(char *nm)
+@@ -471,7 +458,8 @@ static void iucv_sock_close(struct sock
+ {
+ 	struct iucv_sock *iucv = iucv_sk(sk);
+ 	unsigned long timeo;
+-	int err, blen;
++	int err = 0;
++	int blen;
+ 	struct sk_buff *skb;
+ 
+ 	lock_sock(sk);
+@@ -498,7 +486,7 @@ static void iucv_sock_close(struct sock
+ 		sk->sk_state = IUCV_CLOSING;
+ 		sk->sk_state_change(sk);
+ 
+-		if (!skb_queue_empty(&iucv->send_skb_q)) {
++		if (!err && !skb_queue_empty(&iucv->send_skb_q)) {
+ 			if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
+ 				timeo = sk->sk_lingertime;
+ 			else
+@@ -515,13 +503,19 @@ static void iucv_sock_close(struct sock
+ 		sk->sk_err = ECONNRESET;
+ 		sk->sk_state_change(sk);
+ 
+-		iucv_skb_queue_purge(&iucv->send_skb_q);
++		skb_queue_purge(&iucv->send_skb_q);
+ 		skb_queue_purge(&iucv->backlog_skb_q);
+ 
+ 	default:   /* fall through */
+ 		iucv_sever_path(sk, 1);
  	}
+ 
++	if (iucv->hs_dev) {
++		dev_put(iucv->hs_dev);
++		iucv->hs_dev = NULL;
++		sk->sk_bound_dev_if = 0;
++	}
++
+ 	/* mark socket for deletion by iucv_sock_kill() */
+ 	sock_set_flag(sk, SOCK_ZAPPED);
+ 
+@@ -713,7 +707,6 @@ static int iucv_sock_bind(struct socket
+ 		goto done_unlock;
+ 
+ 	/* Bind the socket */
+-
+ 	if (pr_iucv)
+ 		if (!memcmp(sa->siucv_user_id, iucv_userid, 8))
+ 			goto vm_bind; /* VM IUCV transport */
+@@ -727,6 +720,8 @@ static int iucv_sock_bind(struct socket
+ 			memcpy(iucv->src_name, sa->siucv_name, 8);
+ 			memcpy(iucv->src_user_id, sa->siucv_user_id, 8);
+ 			sk->sk_bound_dev_if = dev->ifindex;
++			iucv->hs_dev = dev;
++			dev_hold(dev);
+ 			sk->sk_state = IUCV_BOUND;
+ 			iucv->transport = AF_IUCV_TRANS_HIPER;
+ 			if (!iucv->msglimit)
+@@ -1128,8 +1123,10 @@ static int iucv_sock_sendmsg(struct kioc
+ 			noblock, &err);
+ 	else
+ 		skb = sock_alloc_send_skb(sk, len, noblock, &err);
+-	if (!skb)
++	if (!skb) {
++		err = -ENOMEM;
+ 		goto out;
++	}
+ 	if (iucv->transport == AF_IUCV_TRANS_HIPER)
+ 		skb_reserve(skb, sizeof(struct af_iucv_trans_hdr) + ETH_HLEN);
+ 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
+@@ -1152,6 +1149,7 @@ static int iucv_sock_sendmsg(struct kioc
+ 	/* increment and save iucv message tag for msg_completion cbk */
+ 	txmsg.tag = iucv->send_tag++;
+ 	memcpy(CB_TAG(skb), &txmsg.tag, CB_TAG_LEN);
++
+ 	if (iucv->transport == AF_IUCV_TRANS_HIPER) {
+ 		atomic_inc(&iucv->msg_sent);
+ 		err = afiucv_hs_send(&txmsg, sk, skb, 0);
+@@ -1206,8 +1204,6 @@ release:
+ 	return len;
+ 
+ fail:
+-	if (skb->dev)
+-		dev_put(skb->dev);
+ 	kfree_skb(skb);
+ out:
+ 	release_sock(sk);
+@@ -1400,7 +1396,14 @@ static int iucv_sock_recvmsg(struct kioc
+ 		}
+ 
+ 		kfree_skb(skb);
+-		atomic_inc(&iucv->msg_recv);
++		if (iucv->transport == AF_IUCV_TRANS_HIPER) {
++			atomic_inc(&iucv->msg_recv);
++			if (atomic_read(&iucv->msg_recv) > iucv->msglimit) {
++				WARN_ON(1);
++				iucv_sock_close(sk);
++				return -EFAULT;
++			}
++		}
+ 
+ 		/* Queue backlog skbs */
+ 		spin_lock_bh(&iucv->message_q.lock);
+@@ -1957,6 +1960,8 @@ static int afiucv_hs_callback_syn(struct
+ 	memcpy(niucv->src_name, iucv->src_name, 8);
+ 	memcpy(niucv->src_user_id, iucv->src_user_id, 8);
+ 	nsk->sk_bound_dev_if = sk->sk_bound_dev_if;
++	niucv->hs_dev = iucv->hs_dev;
++	dev_hold(niucv->hs_dev);
+ 	afiucv_swap_src_dest(skb);
+ 	trans_hdr->flags = AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_ACK;
+ 	trans_hdr->window = niucv->msglimit;
+@@ -2025,12 +2030,15 @@ static int afiucv_hs_callback_fin(struct
+ 	struct iucv_sock *iucv = iucv_sk(sk);
+ 
+ 	/* other end of connection closed */
+-	if (iucv) {
+-		bh_lock_sock(sk);
++	if (!iucv)
++		goto out;
++	bh_lock_sock(sk);
++	if (sk->sk_state == IUCV_CONNECTED) {
+ 		sk->sk_state = IUCV_DISCONN;
+ 		sk->sk_state_change(sk);
+-		bh_unlock_sock(sk);
+ 	}
++	bh_unlock_sock(sk);
++out:
+ 	kfree_skb(skb);
+ 	return NET_RX_SUCCESS;
+ }
+@@ -2175,11 +2183,11 @@ static int afiucv_hs_rcv(struct sk_buff
+ 		break;
+ 	case (AF_IUCV_FLAG_WIN):
+ 		err = afiucv_hs_callback_win(sk, skb);
+-		if (skb->len > sizeof(struct af_iucv_trans_hdr))
+-			err = afiucv_hs_callback_rx(sk, skb);
+-		else
+-			kfree(skb);
+-		break;
++		if (skb->len == sizeof(struct af_iucv_trans_hdr)) {
++			kfree_skb(skb);
++			break;
++		}
++		/* fall through */
+ 	case 0:
+ 		/* plain data frame */
+ 		memcpy(CB_TRGCLS(skb), &trans_hdr->iucv_hdr.class,
+@@ -2205,65 +2213,64 @@ static void afiucv_hs_callback_txnotify(
+ 	struct iucv_sock *iucv = NULL;
+ 	struct sk_buff_head *list;
+ 	struct sk_buff *list_skb;
+-	struct sk_buff *this = NULL;
++	struct sk_buff *nskb;
+ 	unsigned long flags;
+ 	struct hlist_node *node;
+ 
+-	read_lock(&iucv_sk_list.lock);
++	read_lock_irqsave(&iucv_sk_list.lock, flags);
+ 	sk_for_each(sk, node, &iucv_sk_list.head)
+ 		if (sk == isk) {
+ 			iucv = iucv_sk(sk);
+ 			break;
+ 		}
+-	read_unlock(&iucv_sk_list.lock);
++	read_unlock_irqrestore(&iucv_sk_list.lock, flags);
+ 
+-	if (!iucv)
++	if (!iucv || sock_flag(sk, SOCK_ZAPPED))
+ 		return;
+ 
+-	bh_lock_sock(sk);
+ 	list = &iucv->send_skb_q;
+-	list_skb = list->next;
++	spin_lock_irqsave(&list->lock, flags);
+ 	if (skb_queue_empty(list))
+ 		goto out_unlock;
+-
+-	spin_lock_irqsave(&list->lock, flags);
++	list_skb = list->next;
++	nskb = list_skb->next;
+ 	while (list_skb != (struct sk_buff *)list) {
+ 		if (skb_shinfo(list_skb) == skb_shinfo(skb)) {
+-			this = list_skb;
+ 			switch (n) {
+ 			case TX_NOTIFY_OK:
+-				__skb_unlink(this, list);
++				__skb_unlink(list_skb, list);
++				kfree_skb(list_skb);
+ 				iucv_sock_wake_msglim(sk);
+-				dev_put(this->dev);
+-				kfree_skb(this);
+ 				break;
+ 			case TX_NOTIFY_PENDING:
+ 				atomic_inc(&iucv->pendings);
+ 				break;
+ 			case TX_NOTIFY_DELAYED_OK:
+-				__skb_unlink(this, list);
++				__skb_unlink(list_skb, list);
+ 				atomic_dec(&iucv->pendings);
+ 				if (atomic_read(&iucv->pendings) <= 0)
+ 					iucv_sock_wake_msglim(sk);
+-				dev_put(this->dev);
+-				kfree_skb(this);
++				kfree_skb(list_skb);
+ 				break;
+ 			case TX_NOTIFY_UNREACHABLE:
+ 			case TX_NOTIFY_DELAYED_UNREACHABLE:
+ 			case TX_NOTIFY_TPQFULL: /* not yet used */
+ 			case TX_NOTIFY_GENERALERROR:
+ 			case TX_NOTIFY_DELAYED_GENERALERROR:
+-				__skb_unlink(this, list);
+-				dev_put(this->dev);
+-				kfree_skb(this);
+-				sk->sk_state = IUCV_DISCONN;
+-				sk->sk_state_change(sk);
++				__skb_unlink(list_skb, list);
++				kfree_skb(list_skb);
++				if (sk->sk_state == IUCV_CONNECTED) {
++					sk->sk_state = IUCV_DISCONN;
++					sk->sk_state_change(sk);
++				}
+ 				break;
+ 			}
+ 			break;
+ 		}
+-		list_skb = list_skb->next;
++		list_skb = nskb;
++		nskb = nskb->next;
+ 	}
++out_unlock:
+ 	spin_unlock_irqrestore(&list->lock, flags);
+ 
+ 	if (sk->sk_state == IUCV_CLOSING) {
+@@ -2273,8 +2280,6 @@ static void afiucv_hs_callback_txnotify(
+ 		}
+ 	}
+ 
+-out_unlock:
+-	bh_unlock_sock(sk);
+ }
+ static const struct proto_ops iucv_sock_ops = {
+ 	.family		= PF_IUCV,
