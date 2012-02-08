@@ -1,40 +1,49 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 48/50] ip_gre.c: use dev_hw_addr_random() instead of random_ether_addr()
-Date: Wed,  8 Feb 2012 22:10:55 +0100
-Message-ID: <1328735457-29986-49-git-send-email-danny.kukawka@bisect.de>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] gro: more generic L2 header check
+Date: Wed, 08 Feb 2012 16:31:59 -0500 (EST)
+Message-ID: <20120208.163159.2229331610142060560.davem@davemloft.net>
+References: <1328727110.2631.8.camel@edumazet-laptop>
+	<20120208.155027.599792363539233740.davem@davemloft.net>
+	<CAJZOPZL_zEbNwUfVOmQeODny7HDf24gOc1HStfBxim_UtD-kvA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJZOPZL_zEbNwUfVOmQeODny7HDf24gOc1HStfBxim_UtD-kvA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use dev_hw_addr_random() instead of calling random_ether_addr()
-to set addr_assign_type correctly to NET_ADDR_RANDOM.
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 8 Feb 2012 23:08:26 +0200
 
-Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
----
- net/ipv4/ip_gre.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> On Wed, Feb 8, 2012 at 10:50 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> > Shlomo Pongratz reported GRO L2 header check was suited for Ethernet
+>> > only, and failed on IB/ipoib traffic.
+>> > He provided a patch faking a zeroed header to let GRO aggregates frames.
+>> >
+>> > Roland Dreier, Herbert Xu, and others suggested we change GRO L2 header
+>> > check to be more generic, ie not assuming L2 header is 14 bytes, but
+>> > taking into account hard_header_len.
+>> >
+>> > __napi_gro_receive() has special handling for the common case (Ethernet)
+>> > to avoid a memcmp() call and use an inline optimized function instead.
+> 
+>> Applied.
+> 
+> Hi Dave, for correct operation / future bisection, you should 1st
+> apply Roland's patch which reduces the hard header len advertized by
+> ipoib to be only the size of the ipoib header without that 20 bytes
+> headroom, else the gro memcmp will be issued on the ipoib header and
+> then 20 bytes of the ip header, kind of back to square one...
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 6b3ca5b..33371a9 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1529,7 +1529,7 @@ static int ipgre_newlink(struct net *src_net, struct net_device *dev, struct nla
- 		return -EEXIST;
- 
- 	if (dev->type == ARPHRD_ETHER && !tb[IFLA_ADDRESS])
--		random_ether_addr(dev->dev_addr);
-+		dev_hw_addr_random(dev, dev->dev_addr);
- 
- 	mtu = ipgre_tunnel_bind_dev(dev);
- 	if (!tb[IFLA_MTU])
--- 
-1.7.7.3
+I did.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
