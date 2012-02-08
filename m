@@ -1,68 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 7/8] ixgbe: dcb: up2tc mapping lost on disable/enable CEE DCB state
-Date: Wed,  8 Feb 2012 01:36:37 -0800
-Message-ID: <1328693798-27323-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 6/8] ixgbe: do not update real num queues when netdev is going away
+Date: Wed,  8 Feb 2012 01:36:36 -0800
+Message-ID: <1328693798-27323-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Yi Zou <yi.zou@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:19848 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:21470 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753869Ab2BHJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752104Ab2BHJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 8 Feb 2012 04:36:48 -0500
 In-Reply-To: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Yi Zou <yi.zou@intel.com>
 
-Users expect the up2tc mapping to be maintained across a DCB
-enable/disable/enable transition. And since we maintain all
-the other DCB attributes we should do this for up2tc mappings
-as well just to be consistent. Also without this we break
-user space applications that expect this to occur that
-previously worked.
+If the netdev is already in NETREG_UNREGISTERING/_UNREGISTERED state, do not
+update the real num tx queues. netdev_queue_update_kobjects() is already
+called via remove_queue_kobjects() at NETREG_UNREGISTERING time. So, when
+upper layer driver, e.g., FCoE protocol stack is monitoring the netdev
+event of NETDEV_UNREGISTER and calls back to LLD ndo_fcoe_disable() to remove
+extra queues allocated for FCoE, the associated txq sysfs kobjects are already
+removed, and trying to update the real num queues would cause something like
+below:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+...
+PID: 25138  TASK: ffff88021e64c440  CPU: 3   COMMAND: "kworker/3:3"
+ #0 [ffff88021f007760] machine_kexec at ffffffff810226d9
+ #1 [ffff88021f0077d0] crash_kexec at ffffffff81089d2d
+ #2 [ffff88021f0078a0] oops_end at ffffffff813bca78
+ #3 [ffff88021f0078d0] no_context at ffffffff81029e72
+ #4 [ffff88021f007920] __bad_area_nosemaphore at ffffffff8102a155
+ #5 [ffff88021f0079f0] bad_area_nosemaphore at ffffffff8102a23e
+ #6 [ffff88021f007a00] do_page_fault at ffffffff813bf32e
+ #7 [ffff88021f007b10] page_fault at ffffffff813bc045
+    [exception RIP: sysfs_find_dirent+17]
+    RIP: ffffffff81178611  RSP: ffff88021f007bc0  RFLAGS: 00010246
+    RAX: ffff88021e64c440  RBX: ffffffff8156cc63  RCX: 0000000000000004
+    RDX: ffffffff8156cc63  RSI: 0000000000000000  RDI: 0000000000000000
+    RBP: ffff88021f007be0   R8: 0000000000000004   R9: 0000000000000008
+    R10: ffffffff816fed00  R11: 0000000000000004  R12: 0000000000000000
+    R13: ffffffff8156cc63  R14: 0000000000000000  R15: ffff8802222a0000
+    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+ #8 [ffff88021f007be8] sysfs_get_dirent at ffffffff81178c07
+ #9 [ffff88021f007c18] sysfs_remove_group at ffffffff8117ac27
+#10 [ffff88021f007c48] netdev_queue_update_kobjects at ffffffff813178f9
+#11 [ffff88021f007c88] netif_set_real_num_tx_queues at ffffffff81303e38
+#12 [ffff88021f007cc8] ixgbe_set_num_queues at ffffffffa0249763 [ixgbe]
+#13 [ffff88021f007cf8] ixgbe_init_interrupt_scheme at ffffffffa024ea89 [ixgbe]
+#14 [ffff88021f007d48] ixgbe_fcoe_disable at ffffffffa0267113 [ixgbe]
+#15 [ffff88021f007d68] vlan_dev_fcoe_disable at ffffffffa014fef5 [8021q]
+#16 [ffff88021f007d78] fcoe_interface_cleanup at ffffffffa02b7dfd [fcoe]
+#17 [ffff88021f007df8] fcoe_destroy_work at ffffffffa02b7f08 [fcoe]
+#18 [ffff88021f007e18] process_one_work at ffffffff8105d7ca
+#19 [ffff88021f007e68] worker_thread at ffffffff81060513
+#20 [ffff88021f007ee8] kthread at ffffffff810648b6
+#21 [ffff88021f007f48] kernel_thread_helper at ffffffff813c40f4
+
+Signed-off-by: Yi Zou <yi.zou@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 005e5f2..79a92fe 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -112,6 +112,8 @@ static u8 ixgbe_dcbnl_get_state(struct net_device *netdev)
- static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- {
- 	u8 err = 0;
-+	u8 prio_tc[MAX_USER_PRIORITY] = {0};
-+	int i;
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0688704..3dc6cef 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4330,6 +4330,10 @@ static int ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 	adapter->num_tx_queues = 1;
  
- 	/* Fail command if not in CEE mode */
-@@ -122,10 +124,15 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
- 		return err;
- 
--	if (state > 0)
-+	if (state > 0) {
- 		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
--	else
-+		ixgbe_dcb_unpack_map(&adapter->dcb_cfg, DCB_TX_CONFIG, prio_tc);
-+	} else {
- 		err = ixgbe_setup_tc(netdev, 0);
-+	}
+ done:
++	if ((adapter->netdev->reg_state == NETREG_UNREGISTERED) ||
++	    (adapter->netdev->reg_state == NETREG_UNREGISTERING))
++		return 0;
 +
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+		netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
- 
- 	return err;
- }
+ 	/* Notify the stack of the (possibly) reduced queue counts. */
+ 	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
+ 	return netif_set_real_num_rx_queues(adapter->netdev,
 -- 
 1.7.7.6
