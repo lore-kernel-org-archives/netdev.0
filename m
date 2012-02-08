@@ -1,52 +1,36 @@
-From: "Dave, Tushar N" <tushar.n.dave@intel.com>
-Subject: RE: [net-next 02/11] e1000: Adding e1000_dump function
-Date: Wed, 8 Feb 2012 18:39:30 +0000
-Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA89123BDE6@ORSMSX102.amr.corp.intel.com>
-References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <1782836.alj52xdzPl@alaris>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [PATCH 01/15] mm: Serialize access to min_free_kbytes
+Date: Wed, 08 Feb 2012 13:47:59 -0500
+Message-ID: <4F32C35F.1090806@redhat.com>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-2-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jbeulich@suse.com" <jbeulich@suse.com>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43602 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751197Ab2BHSjh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 13:39:37 -0500
-In-Reply-To: <1782836.alj52xdzPl@alaris>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+        Linux-Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+        Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1328568978-17553-2-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Michal Kube=E8ek [mailto:mkubecek@suse.cz]
->Sent: Tuesday, February 07, 2012 9:38 AM
->To: netdev@vger.kernel.org
->Cc: Kirsher, Jeffrey T; davem@davemloft.net; Dave, Tushar N;
->gospo@redhat.com; sassmann@redhat.com; jbeulich@suse.com
->Subject: Re: [net-next 02/11] e1000: Adding e1000_dump function
+On 02/06/2012 05:56 PM, Mel Gorman wrote:
+> There is a race between the min_free_kbytes sysctl, memory hotplug
+> and transparent hugepage support enablement.  Memory hotplug uses a
+> zonelists_mutex to avoid a race when building zonelists. Reuse it to
+> serialise watermark updates.
 >
->On Tuesday 07 of February 2012 04:33EN, Jeff Kirsher wrote:
->> +		if (netif_msg_pktdata(adapter) && buffer_info->dma !=3D 0)
->> +			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
->> +					16, 1, phys_to_virt(buffer_info->dma),
->> +					buffer_info->length, true);
->
->This might cause problems in Xen environment, we encountered a crash i=
-n
->e1000e where phys_to_virt() is used the same way. I'm not familiar wit=
-h
->the details but this is what Jan Beulich wrote about it:
+> [a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+> Signed-off-by: Mel Gorman<mgorman@suse.de>
 
-How did you fix the problem in e1000e then? I don't see bus_to_virt use=
-d in any of our Ethernet drivers.
-Also when running in Xen which arch are you running on?
+Reviewed-by: Rik van Riel <riel@redhat.com>
 
--Tushar
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
