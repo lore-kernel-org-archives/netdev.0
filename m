@@ -1,37 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] netxen_nic: signedness bug in netxen_md_entry_err_chk()
-Date: Wed, 8 Feb 2012 12:23:36 +0300
-Message-ID: <20120208092335.GC6554@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP sacked_out and fackets_out inconsistency (Was: Re: BUG:
+ unable to handle kernel NULL pointer dereference at 000000000000002c)
+Date: Wed, 08 Feb 2012 10:28:22 +0100
+Message-ID: <1328693302.2284.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20120201.162157.880976652659067010.davem@davemloft.net>
+	 <4F2A87B0.6070900@profihost.ag>
+	 <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120202.143957.2251106530056768980.davem@davemloft.net>
+	 <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
+	 <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
+	 <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120203155309.GB20638@kroah.com> <4F2F9784.7090203@profihost.ag>
+	 <1328519990.2220.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <alpine.DEB.2.00.1202061151580.2966@wel-95.cs.helsinki.fi>
+	 <4F3231C1.9040509@profihost.ag>
+	 <1328692513.2284.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Sony Chacko <sony.chacko@qlogic.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
+	hch@infradead.org, Netdev <netdev@vger.kernel.org>,
+	david@fromorbit.com, stable@vger.kernel.org,
+	Greg KH <gregkh@suse.de>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:30134 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab2BHJXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 04:23:46 -0500
-Content-Disposition: inline
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:39095 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306Ab2BHJ20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 04:28:26 -0500
+In-Reply-To: <1328692513.2284.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"esize" should be signed because it can be negative here.  For example,
-when we call it in netxen_parse_md_template(), it could be -1 from the
-return value of netxen_md_L2Cache().
+Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 10:15 +0100, Eric Dumazet a =C3=
+=A9crit :
+> Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 09:26 +0100, Stefan Priebe - =
+Profihost AG
+> a =C3=A9crit :
+> > Hi Eric,
+>=20
+> > What do you think about this? Can anybody give me the commit id?
+> >=20
+> > Stefan
+>=20
+> commit 5b35e1e6e9ca651e6b291c96d1106043c9af314a
+> Author: Neal Cardwell <ncardwell@google.com>
+> Date:   Sat Jan 28 17:29:46 2012 +0000
+>=20
+>     tcp: fix tcp_trim_head() to adjust segment count with skb MSS
+>=20
+>=20
+>=20
+> Its quite recent and David will push it to stable, dont worry.
+>=20
+>=20
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Actually already taken by stable teams :
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index 0a81228..6f37470 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -2354,7 +2354,7 @@ netxen_md_rdqueue(struct netxen_adapter *adapter,
- */
- 
- static int netxen_md_entry_err_chk(struct netxen_adapter *adapter,
--				struct netxen_minidump_entry *entry, u32 esize)
-+				struct netxen_minidump_entry *entry, int esize)
- {
- 	if (esize < 0) {
- 		entry->hdr.driver_flags |= NX_DUMP_SKIP;
+=46or 3.0 kernel, search archives with :
+
+[56/65] tcp: fix tcp_trim_head() to adjust segment count with skb MSS
