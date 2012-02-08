@@ -1,53 +1,58 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 07/50] au1000_eth: use dev_hw_addr_random() instead of random_ether_addr()
-Date: Wed,  8 Feb 2012 22:10:14 +0100
-Message-ID: <1328735457-29986-8-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 26/50] faraday: use dev_hw_addr_random() instead of random_ether_addr()
+Date: Wed,  8 Feb 2012 22:10:33 +0100
+Message-ID: <1328735457-29986-27-git-send-email-danny.kukawka@bisect.de>
 References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
 Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>
+	Po-Yu Chuang <ratbert@faraday-tech.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Thomas Faber <thfabba@gmx.de>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wp188.webpack.hosteurope.de ([80.237.132.195]:56665 "EHLO
+	wp188.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750863Ab2BHVRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 16:17:00 -0500
 In-Reply-To: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Use dev_hw_addr_random() instead of calling random_ether_addr()
 to set addr_assign_type correctly to NET_ADDR_RANDOM.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/ethernet/amd/au1000_eth.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c |    2 +-
+ drivers/net/ethernet/faraday/ftmac100.c  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index 8b95dd3..5683c06 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -1130,9 +1130,6 @@ static int __devinit au1000_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 47f85c3..4842659 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -1289,7 +1289,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	netdev_info(netdev, "irq %d, mapped at %p\n", priv->irq, priv->base);
  
- 	au1000_setup_hw_rings(aup, aup->macdma);
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		random_ether_addr(netdev->dev_addr);
++		dev_hw_addr_random(netdev, netdev->dev_addr);
+ 		netdev_info(netdev, "generated random MAC address %pM\n",
+ 			    netdev->dev_addr);
+ 	}
+diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+index bb336a0..1561010 100644
+--- a/drivers/net/ethernet/faraday/ftmac100.c
++++ b/drivers/net/ethernet/faraday/ftmac100.c
+@@ -1133,7 +1133,7 @@ static int ftmac100_probe(struct platform_device *pdev)
+ 	netdev_info(netdev, "irq %d, mapped at %p\n", priv->irq, priv->base);
  
--	/* set a random MAC now in case platform_data doesn't provide one */
--	random_ether_addr(dev->dev_addr);
--
- 	writel(0, aup->enable);
- 	aup->mac_enabled = 0;
- 
-@@ -1142,8 +1139,12 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 					" PHY search on MAC0\n");
- 		aup->phy1_search_mac0 = 1;
- 	} else {
--		if (is_valid_ether_addr(pd->mac))
-+		if (is_valid_ether_addr(pd->mac)) {
- 			memcpy(dev->dev_addr, pd->mac, 6);
-+		} else {
-+			/*set a random MAC if not provided by platform_data*/
-+			dev_hw_addr_random(dev, dev->dev_addr);
-+		}
- 
- 		aup->phy_static_config = pd->phy_static_config;
- 		aup->phy_search_highest_addr = pd->phy_search_highest_addr;
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		random_ether_addr(netdev->dev_addr);
++		dev_hw_addr_random(netdev, netdev->dev_addr);
+ 		netdev_info(netdev, "generated random MAC address %pM\n",
+ 			    netdev->dev_addr);
+ 	}
 -- 
 1.7.7.3
