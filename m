@@ -1,52 +1,52 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Wed, 8 Feb 2012 08:49:50 -0800
-Message-ID: <20120208164950.GA13596@kroah.com>
-References: <20120202.143957.2251106530056768980.davem@davemloft.net>
- <20120203004228.GA23429@kroah.com>
- <4F2B8348.3090305@profihost.ag>
- <1328253972.2480.42.camel@edumazet-laptop>
- <4F2B963F.4020504@profihost.ag>
- <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4F2F971B.9090503@profihost.ag>
- <1328519818.2220.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4F2FBA16.8010400@profihost.ag>
- <4F323138.2040200@profihost.ag>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: [net-next 02/11] e1000: Adding e1000_dump function
+Date: Wed, 8 Feb 2012 18:39:30 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA89123BDE6@ORSMSX102.amr.corp.intel.com>
+References: <1328618038-5008-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1328618038-5008-3-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1782836.alj52xdzPl@alaris>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
-	hch@infradead.org, netdev@vger.kernel.org, david@fromorbit.com,
-	stable@vger.kernel.org, gregkh@suse.de
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jbeulich@suse.com" <jbeulich@suse.com>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59092 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756161Ab2BHQt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 11:49:59 -0500
-Received: from compute4.internal (compute4.nyi.mail.srv.osa [10.202.2.44])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 603372129B
-	for <netdev@vger.kernel.org>; Wed,  8 Feb 2012 11:49:58 -0500 (EST)
-Content-Disposition: inline
-In-Reply-To: <4F323138.2040200@profihost.ag>
+Received: from mga02.intel.com ([134.134.136.20]:43602 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751197Ab2BHSjh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 13:39:37 -0500
+In-Reply-To: <1782836.alj52xdzPl@alaris>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2012 at 09:24:24AM +0100, Stefan Priebe - Profihost AG wrote:
-> Hi Greg, Hi Eric,
-> 
-> Am 06.02.2012 12:31, schrieb Stefan Priebe - Profihost AG:
-> >> make   $your_favorite_build_options
-> > 
-> > here is the missing patch attached to have a fine build with
-> > allyesconfig.allyesconfig
-> 
-> Amy news on my patches? Can they get integrated into 3.0.X stable series?
+>-----Original Message-----
+>From: Michal Kube=E8ek [mailto:mkubecek@suse.cz]
+>Sent: Tuesday, February 07, 2012 9:38 AM
+>To: netdev@vger.kernel.org
+>Cc: Kirsher, Jeffrey T; davem@davemloft.net; Dave, Tushar N;
+>gospo@redhat.com; sassmann@redhat.com; jbeulich@suse.com
+>Subject: Re: [net-next 02/11] e1000: Adding e1000_dump function
+>
+>On Tuesday 07 of February 2012 04:33EN, Jeff Kirsher wrote:
+>> +		if (netif_msg_pktdata(adapter) && buffer_info->dma !=3D 0)
+>> +			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
+>> +					16, 1, phys_to_virt(buffer_info->dma),
+>> +					buffer_info->length, true);
+>
+>This might cause problems in Xen environment, we encountered a crash i=
+n
+>e1000e where phys_to_virt() is used the same way. I'm not familiar wit=
+h
+>the details but this is what Jan Beulich wrote about it:
 
-I will consider them after this next release goes out, and I get a
-chance to review and test them.
+How did you fix the problem in e1000e then? I don't see bus_to_virt use=
+d in any of our Ethernet drivers.
+Also when running in Xen which arch are you running on?
 
-Don't worry, they are in my "to-review" queue, they are not lost.
-
-greg k-h
+-Tushar
