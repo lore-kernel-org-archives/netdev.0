@@ -1,180 +1,227 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v8 PATCH 3/3] NETFILTER userspace part for target HMARK
-Date: Wed, 8 Feb 2012 01:32:10 +0100
-Message-ID: <20120208003210.GB29189@1984>
-References: <1327675303-9059-1-git-send-email-hans.schillstrom@ericsson.com>
- <1327675303-9059-4-git-send-email-hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1327675303-9059-4-git-send-email-hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] IPoIB: Stop lying about hard_header_len and use skb->cb to stash LL addresses
+Date: Tue,  7 Feb 2012 16:51:21 -0800
+Message-ID: <1328662281-16256-1-git-send-email-roland@kernel.org>
+References: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA@mail.gmail.com>
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAG4TOxP2iEgT64L8vAR6P139U-HyHSxU8gdWw+cLsDwWSGkrwA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2012 at 03:41:43PM +0100, Hans Schillstrom wrote:
-> new file mode 100644
-> index 0000000..09d9c75
-> --- /dev/null
-> +++ b/extensions/libxt_HMARK.c
-> @@ -0,0 +1,372 @@
-> +/*
-> + * Shared library add-on to iptables to add HMARK target support.
-> + *
-> + * The kernel module calculates a hash value that can be modified by modulus
-> + * and an offset. The hash value is based on a direction independent
-> + * five tuple: src & dst addr src & dst ports and protocol.
-> + * However src & dst port can be masked and are not used for fragmented
-> + * packets, ESP and AH don't have ports so SPI will be used instead.
-> + * For ICMP error messages the hash mark values will be calculated on
-> + * the source packet i.e. the packet caused the error (If sufficient
-> + * amount of data exists).
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
-> +#include <stdbool.h>
-> +#include <stdio.h>
-> +#include <string.h>
-> +
-> +#include <xtables.h>
-> +#include <linux/netfilter/xt_hmark.h>
-> +
-> +
-> +#define DEF_HRAND 0xc175a3b8	/* Default "random" value to jhash */
-> +
-> +static void HMARK_help(void)
-> +{
-> +	printf(
-> +"HMARK target options, i.e. modify hash calculation by:\n"
-> +"  --hmark-method <method>          Overall L3/L4 and fragment behavior\n"
-> +"                 L3                Fragment safe, do not use ports or proto\n"
-> +"                                   i.e. Fragments don't need special care.\n"
-> +"                 L3-4 (Default)    Fragment unsafe, use ports and proto\n"
-> +"                                   if defrag off in conntrack\n"
-> +"                                      no hmark on any part of a fragment\n"
-> +"  Limit/modify the calculated hash mark by:\n"
-> +"  --hmark-mod value                nfmark modulus value\n"
-> +"  --hmark-offset value             Last action add value to nfmark\n\n"
-> +" Fine tuning of what will be included in hash calculation\n"
-> +"  --hmark-src-mask length          Source address mask length\n"
-> +"  --hmark-dst-mask length          Dest address mask length\n"
-> +"  --hmark-sport-mask value         Mask src port with value\n"
-> +"  --hmark-dport-mask value         Mask dst port with value\n"
-> +"  --hmark-spi-mask value           For esp and ah AND spi with value\n"
-> +"  --hmark-sport-set value          OR src port with value\n"
-> +"  --hmark-dport-set value          OR dst port with value\n"
-> +"  --hmark-spi-set value            For esp and ah OR spi with value\n"
-> +"  --hmark-proto-mask value         Mask Protocol with value\n"
-> +"  --hmark-rnd                      Initial Random value to hash cacl.\n"
-> +" For NAT in IPv4 the original address can be used in the return path.\n"
-> +" Make sure to qualify the statement in a proper way when using nat flags\n"
-> +"  --hmark-ct-orig-src              Replace src addr with original dst addr\n"
-> +"  --hmark-ct-orig-dst              Replace dst addr with original src addr\n"
-> +" In many cases hmark can be omitted i.e. --src-mask can be used\n");
-> +}
-> +
-> +#define hi struct xt_hmark_info
-> +
-> +static const struct xt_option_entry HMARK_opts[] = {
-> +	{ .name = "hmark-method",     .type = XTTYPE_STRING, .id = XT_HMARK_METHOD_L3
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
 
-Make sure you break lines at 80 chars.
+Commit a0417fa3a18a ("net: Make qdisc_skb_cb upper size bound
+explicit.") made it possible for a netdev driver to use skb->cb
+between its header_ops.create method and its .ndo_start_xmit
+method.  Use this in ipoib_hard_header() to stash away the LL address
+(GID + QPN), instead of the "ipoib_pseudoheader" hack.  This allows
+IPoIB to stop lying about its hard_header_len, which will let us fix
+the L2 check for GRO.
 
-This is the convention in the kernel and in user-space netfilter
-tools.
+Signed-off-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+---
+OK, this works for me.  Definitely looks cleaner and also looks
+obvious enough that it's probably even correct.
 
-> diff --git a/extensions/libxt_HMARK.man b/extensions/libxt_HMARK.man
-> new file mode 100644
-> index 0000000..d514c8b
-> --- /dev/null
-> +++ b/extensions/libxt_HMARK.man
-> @@ -0,0 +1,88 @@
-> +This module does the same as MARK, i.e. set an fwmark, but the mark is based on a hash value.
-> +The hash is based on saddr, daddr, sport, dport and proto. The same mark will be produced independent of direction if no masks is set or the same masks is used for src and dest.
-> +The hash mark could be adjusted by modulus and finally an offset could be added, i.e the final mark will be within a range.
-> +ICMP error will use the the original message for hash calculation not the icmp it self.
-> +
-> +Note: IPv4 packets with nf_defrag_ipv4 loaded will be defragmented before they reach hmark,
-> +      IPv6 nf_defrag is not implemented this way, hence fragmented ipv6 packets will reach hmark.
-> +      Default behavior is to completely ignore any fragment if it reach hmark.
-> +      --hmark-method L3 is fragment safe since neither ports or L4 protocol field is used.
-> +      None of the parameters effect the packet it self only the calculated hash value.
-> +
-> +.PP
-> +Parameters:
-> +Short hand methods
-> +.TP
-> +\fB\-\-hmark\-method\fP \fIL3\fP
-> +Do not use L4 protocol field, ports or spi, only Layer 3 addresses, mask length
-> +of L3 addresses can still be used. Fragment or not does not matter in
-> +this case since only L3 address can be used in calc. of hash value.
-> +.TP
-> +\fB\-\-hmark\-method\fP \fIL3-4\fP (Default)
-> +Include L4 in calculation. of hash value i.e. all masks below are valid.
-> +Fragments will be ignored. (i.e no hash value produced)
-> +.PP
-> +For all masks default is all "1:s", to disable a field use mask 0
-> +.TP
-> +\fB\-\-hmark\-src\-mask\fP \fIlength\fP
-> +The length of the mask to AND the source address with (saddr & value).
-> +.TP
-> +\fB\-\-hmark\-dst\-mask\fP \fIlength\fP
-> +The length of the mask to AND the dest. address with (daddr & value).
-> +.TP
-> +\fB\-\-hmark\-sport\-mask\fP \fIvalue\fP
-> +A 16 bit value to AND the src port with (sport & value).
-> +.TP
-> +\fB\-\-hmark\-dport\-mask\fP \fIvalue\fP
-> +A 16 bit value to AND the dest port with (dport & value).
-> +.TP
-> +\fB\-\-hmark\-sport\-set\fP \fIvalue\fP
-> +A 16 bit value to OR the src port with (sport | value).
-> +.TP
-> +\fB\-\-hmark\-dport\-set\fP \fIvalue\fP
-> +A 16 bit value to OR the dest port with (dport | value).
-> +.TP
-> +\fB\-\-hmark\-spi\-mask\fP \fIvalue\fP
-> +Value to AND the spi field with (spi & value) valid for proto esp or ah.
-> +.TP
-> +\fB\-\-hmark\-spi\-set\fP \fIvalue\fP
-> +Value to OR the spi field with (spi | value) valid for proto esp or ah.
-> +.TP
-> +\fB\-\-hmark\-proto\-mask\fP \fIvalue\fP
-> +An 8 bit value to AND the L4 proto field with (proto & value).
-> +.TP
-> +\fB\-\-hmark\-rnd\fP \fIvalue\fP
-> +A 32 bit initial value for hash calc, default is 0xc175a3b8.
-> +.PP
-> +Final processing of the mark in order of execution.
-> +.TP
-> +\fB\-\-hmark\-mod\fP \fIvalue (must be > 0)\fP
-> +The easiest way to describe this is:  hash = hash mod <value>
-> +.TP
-> +\fB\-\-hmark\-offset\fP \fIvalue\fP
-> +The easiest way to describe this is:  hash = hash + <value>
-> +.PP
-> +\fIExamples:\fP
-> +.PP
-> +Default rule handles all TCP, UDP, SCTP, ESP & AH
-> +.IP
-> +iptables \-t mangle \-A PREROUTING \-m state \-\-state NEW,ESTABLISHED,RELATED
-> + \-j HMARK \-\-hmark-offs 10000 \-\-hmark-mod 10
-> +.PP
-> +Handle SCTP and hash dest port only and produce a nfmark between 100-119.
-> +.IP
-> +iptables \-t mangle \-A PREROUTING -p SCTP \-j HMARK \-\-src\-mask 0 \-\-dst\-mask 0
-> + \-\-sp\-mask 0 \-\-offset 100 \-\-mod 20
-> +.PP
-> +No defragment by conntrack, None Fragments will have fwmark 100-119
-> +and Fragments will have fwmark 120-139 (based on saddr and daddr only)
+ drivers/infiniband/ulp/ipoib/ipoib.h           |    6 ++-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c      |   55 ++++++++---------------
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c |   10 +----
+ 3 files changed, 24 insertions(+), 47 deletions(-)
 
-I'm not native English speaker, so I understand the limitations of
-writing in foreign languages. I'd appreciate if you can give review the
-text. This sentence above is hard to understand.
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
+index b3cc1e0..86df632 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib.h
++++ b/drivers/infiniband/ulp/ipoib/ipoib.h
+@@ -44,6 +44,7 @@
+ #include <linux/mutex.h>
+ 
+ #include <net/neighbour.h>
++#include <net/sch_generic.h>
+ 
+ #include <linux/atomic.h>
+ 
+@@ -117,8 +118,9 @@ struct ipoib_header {
+ 	u16	reserved;
+ };
+ 
+-struct ipoib_pseudoheader {
+-	u8  hwaddr[INFINIBAND_ALEN];
++struct ipoib_cb {
++	struct qdisc_skb_cb	qdisc_cb;
++	u8			hwaddr[INFINIBAND_ALEN];
+ };
+ 
+ /* Used for all multicast joins (broadcast, IPv4 mcast and IPv6 mcast) */
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 3514ca0..3974c29 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -653,7 +653,7 @@ static void ipoib_path_lookup(struct sk_buff *skb, struct neighbour *n, struct n
+ }
+ 
+ static void unicast_arp_send(struct sk_buff *skb, struct net_device *dev,
+-			     struct ipoib_pseudoheader *phdr)
++			     struct ipoib_cb *cb)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+ 	struct ipoib_path *path;
+@@ -661,17 +661,15 @@ static void unicast_arp_send(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+-	path = __path_find(dev, phdr->hwaddr + 4);
++	path = __path_find(dev, cb->hwaddr + 4);
+ 	if (!path || !path->valid) {
+ 		int new_path = 0;
+ 
+ 		if (!path) {
+-			path = path_rec_create(dev, phdr->hwaddr + 4);
++			path = path_rec_create(dev, cb->hwaddr + 4);
+ 			new_path = 1;
+ 		}
+ 		if (path) {
+-			/* put pseudoheader back on for next time */
+-			skb_push(skb, sizeof *phdr);
+ 			__skb_queue_tail(&path->queue, skb);
+ 
+ 			if (!path->query && path_rec_start(dev, path)) {
+@@ -695,12 +693,10 @@ static void unicast_arp_send(struct sk_buff *skb, struct net_device *dev,
+ 			  be16_to_cpu(path->pathrec.dlid));
+ 
+ 		spin_unlock_irqrestore(&priv->lock, flags);
+-		ipoib_send(dev, skb, path->ah, IPOIB_QPN(phdr->hwaddr));
++		ipoib_send(dev, skb, path->ah, IPOIB_QPN(cb->hwaddr));
+ 		return;
+ 	} else if ((path->query || !path_rec_start(dev, path)) &&
+ 		   skb_queue_len(&path->queue) < IPOIB_MAX_PATH_REC_QUEUE) {
+-		/* put pseudoheader back on for next time */
+-		skb_push(skb, sizeof *phdr);
+ 		__skb_queue_tail(&path->queue, skb);
+ 	} else {
+ 		++dev->stats.tx_dropped;
+@@ -774,16 +770,14 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			dev_kfree_skb_any(skb);
+ 		}
+ 	} else {
+-		struct ipoib_pseudoheader *phdr =
+-			(struct ipoib_pseudoheader *) skb->data;
+-		skb_pull(skb, sizeof *phdr);
++		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
+ 
+-		if (phdr->hwaddr[4] == 0xff) {
++		if (cb->hwaddr[4] == 0xff) {
+ 			/* Add in the P_Key for multicast*/
+-			phdr->hwaddr[8] = (priv->pkey >> 8) & 0xff;
+-			phdr->hwaddr[9] = priv->pkey & 0xff;
++			cb->hwaddr[8] = (priv->pkey >> 8) & 0xff;
++			cb->hwaddr[9] = priv->pkey & 0xff;
+ 
+-			ipoib_mcast_send(dev, phdr->hwaddr + 4, skb);
++			ipoib_mcast_send(dev, cb->hwaddr + 4, skb);
+ 		} else {
+ 			/* unicast GID -- should be ARP or RARP reply */
+ 
+@@ -792,14 +786,14 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				ipoib_warn(priv, "Unicast, no %s: type %04x, QPN %06x %pI6\n",
+ 					   skb_dst(skb) ? "neigh" : "dst",
+ 					   be16_to_cpup((__be16 *) skb->data),
+-					   IPOIB_QPN(phdr->hwaddr),
+-					   phdr->hwaddr + 4);
++					   IPOIB_QPN(cb->hwaddr),
++					   cb->hwaddr + 4);
+ 				dev_kfree_skb_any(skb);
+ 				++dev->stats.tx_dropped;
+ 				goto unlock;
+ 			}
+ 
+-			unicast_arp_send(skb, dev, phdr);
++			unicast_arp_send(skb, dev, cb);
+ 		}
+ 	}
+ unlock:
+@@ -825,8 +819,6 @@ static int ipoib_hard_header(struct sk_buff *skb,
+ 			     const void *daddr, const void *saddr, unsigned len)
+ {
+ 	struct ipoib_header *header;
+-	struct dst_entry *dst;
+-	struct neighbour *n;
+ 
+ 	header = (struct ipoib_header *) skb_push(skb, sizeof *header);
+ 
+@@ -834,18 +826,13 @@ static int ipoib_hard_header(struct sk_buff *skb,
+ 	header->reserved = 0;
+ 
+ 	/*
+-	 * If we don't have a neighbour structure, stuff the
+-	 * destination address onto the front of the skb so we can
+-	 * figure out where to send the packet later.
++	 * If we don't have a dst_entry structure, stuff the
++	 * destination address into skb->cb so we can figure out where
++	 * to send the packet later.
+ 	 */
+-	dst = skb_dst(skb);
+-	n = NULL;
+-	if (dst)
+-		n = dst_get_neighbour_noref_raw(dst);
+-	if ((!dst || !n) && daddr) {
+-		struct ipoib_pseudoheader *phdr =
+-			(struct ipoib_pseudoheader *) skb_push(skb, sizeof *phdr);
+-		memcpy(phdr->hwaddr, daddr, INFINIBAND_ALEN);
++	if (!skb_dst(skb)) {
++		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
++		memcpy(cb->hwaddr, daddr, INFINIBAND_ALEN);
+ 	}
+ 
+ 	return 0;
+@@ -1021,11 +1008,7 @@ static void ipoib_setup(struct net_device *dev)
+ 
+ 	dev->flags		|= IFF_BROADCAST | IFF_MULTICAST;
+ 
+-	/*
+-	 * We add in INFINIBAND_ALEN to allow for the destination
+-	 * address "pseudoheader" for skbs without neighbour struct.
+-	 */
+-	dev->hard_header_len	 = IPOIB_ENCAP_LEN + INFINIBAND_ALEN;
++	dev->hard_header_len	 = IPOIB_ENCAP_LEN;
+ 	dev->addr_len		 = INFINIBAND_ALEN;
+ 	dev->type		 = ARPHRD_INFINIBAND;
+ 	dev->tx_queue_len	 = ipoib_sendq_size * 2;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+index f7ff9dd..20ebc6f 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+@@ -262,21 +262,13 @@ static int ipoib_mcast_join_finish(struct ipoib_mcast *mcast,
+ 	netif_tx_lock_bh(dev);
+ 	while (!skb_queue_empty(&mcast->pkt_queue)) {
+ 		struct sk_buff *skb = skb_dequeue(&mcast->pkt_queue);
+-		struct dst_entry *dst = skb_dst(skb);
+-		struct neighbour *n = NULL;
+ 
+ 		netif_tx_unlock_bh(dev);
+ 
+ 		skb->dev = dev;
+-		if (dst)
+-			n = dst_get_neighbour_noref_raw(dst);
+-		if (!dst || !n) {
+-			/* put pseudoheader back on for next time */
+-			skb_push(skb, sizeof (struct ipoib_pseudoheader));
+-		}
+-
+ 		if (dev_queue_xmit(skb))
+ 			ipoib_warn(priv, "dev_queue_xmit failed to requeue packet\n");
++
+ 		netif_tx_lock_bh(dev);
+ 	}
+ 	netif_tx_unlock_bh(dev);
+-- 
+1.7.9
 
-Thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
