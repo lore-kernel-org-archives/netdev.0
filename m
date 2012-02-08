@@ -1,34 +1,47 @@
-From: woody@dedicatedserver.com.hk
-Subject: Cloud server solutions - more stable, powerful, flexible and cheap
-Date: Wed,  8 Feb 2012 17:54:39 +0800 (HKT)
-Message-ID: <Pfz2__16551.7708905556$1328696085$gmane$org@microsoft.com>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: frank.blaschka@de.ibm.com
+Subject: [patch 6/6] [PATCH] qeth: add wake_up on write channel
+Date: Wed, 08 Feb 2012 11:19:50 +0100
+Message-ID: <20120208102029.681812945@de.ibm.com>
+References: <20120208101944.272235343@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-46.sunnyvision.com ([124.248.200.46]:52690 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750706Ab2BHKOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 05:14:21 -0500
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:40015 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706Ab2BHKUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 05:20:34 -0500
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Wed, 8 Feb 2012 10:20:33 -0000
+Content-Disposition: inline; filename=607-qeth-write-wake-up.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Have a nice day
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-We are one of the top Cloud Solution provider base in Hong Kong, with over 10+ years experience,
-we providing better than good and lower cost service of CLoud Hosting (Cloud Server / Hosting / CDN)
+To send commands on the write channel 8 buffers exist. If all 
+8 buffers are used, a wait is triggered on the write channel. When
+such buffer are freed, a wake_up is needed. This patch adds the
+missing wake_up in qeth_release_buffer().
+This fix is especially important when running Communications
+Controller for Linux on System z.
 
-Starting at $1.99, let's come to experience and enjoy our powerful cloud system.
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-Thanks for your time and appreciated to look arround our website.
+ drivers/s390/net/qeth_core_main.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-http://www.dedicatedserver.com.hk/ 
-
-Best Regards,
-The 36cloud Team
-
-
-
-
-
-If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or revoe your email from the list.
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -678,6 +678,7 @@ void qeth_release_buffer(struct qeth_cha
+ 	iob->callback = qeth_send_control_data_cb;
+ 	iob->rc = 0;
+ 	spin_unlock_irqrestore(&channel->iob_lock, flags);
++	wake_up(&channel->wait_q);
+ }
+ EXPORT_SYMBOL_GPL(qeth_release_buffer);
+ 
