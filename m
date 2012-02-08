@@ -1,48 +1,102 @@
-From: "Gregory G. Carter" <gcarter@aesgi.com>
-Subject: Re: Proper value for bandwidth parameters
-Date: Wed, 08 Feb 2012 10:10:36 -0600
-Message-ID: <xvuuf248uo940ii7w0kd1egd.1328717345088@email.android.com>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: Sudden kernel panic with skge in 3.3-rc2
+Date: Wed, 8 Feb 2012 11:32:23 -0500
+Message-ID: <20120208163223.GA873@elliptictech.com>
+References: <20120202192115.GA8480@elliptictech.com>
+ <20120202124529.3e274223@s6510.linuxnetplumber.net>
+ <20120203192832.GA19248@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr7.networksolutionsemail.com ([205.178.146.57]:57950 "EHLO
-	omr7.networksolutionsemail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754365Ab2BHQUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 11:20:14 -0500
-Received: from cm-omr2 (mail.networksolutionsemail.com [205.178.146.50])
-	by omr7.networksolutionsemail.com (8.13.8/8.13.8) with ESMTP id q18GANC5008333
-	for <netdev@vger.kernel.org>; Wed, 8 Feb 2012 11:10:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120203192832.GA19248@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-U2V0IG5hZ2lvcyB1cCBhbmQgZG8gYSB0cmFuc2ZlciBvdmVyIHRoZSBsaW5lIHdpdGhvdXQgVEMg
-Y29udHJvbHMuICBUaGVuIHVzZSB0aGUgZmlndXJlcyBmcm9tIHRoZSBsaW5lIGFzIGEgYmFzZSBm
-b3Igc2V0dGluZyBwb2xpY3kgdXNpbmcgVEMuCgpUaGlzIHN0dWZmIGlzIGFuIGFydCwgbm90IGFu
-IGlkZWFsaXplZCBzZXQgb2YgZWRnZXMgaW4gYSB0ZXh0Ym9vayBvbiBuZXR3b3JrIHRoZW9yeS4g
-IFNvIGFsd2F5cyBzZWUgd2hhdCB5b3VyIHJlYWwgY2FwYWNpdHkgaXMgYmVmb3JlIHlvdSBzZXQg
-cG9saWN5LgoKR2MKCiJKb2huIEEuIFN1bGxpdmFuIElJSSIgPGpzdWxsaXZhbkBvcGVuc291cmNl
-ZGV2ZWwuY29tPiB3cm90ZToKCj5IZWxsbywgYWxsLiAgRnJvbSBhIHN5c3RlbSBhZG1pbmlzdHJh
-dG9yJ3MgcGVyc3BlY3RpdmUsIGRvIEkgbmVlZCB0bwo+cmVkdWNlIHRoZSB2YWx1ZXMgSSBmZWVk
-IHRvIGJhbmR3aWR0aCBkZWZpbmluZyBwYXJhbWV0ZXJzIGluIHRjIHN1Y2ggYXMKPnRoZSB1bCBt
-MiB2YWx1ZXMgaW4gSEZTQz8KPgo+Rm9yIGV4YW1wbGUsIGlmIEkgaGF2ZSBhIDEuNTQ0IG1iaXRz
-IGNpcmN1aXQgYW5kIEkgc2V0IEhGU0MgdWwgbTIgdG8KPjE1NDRrYml0cyAob3IgYW55IG90aGVy
-IGJhbmR3aWR0aCBwYXJhbWV0ZXIgaW4gZGlmZmVyZW50IGFsZ29yaXRobXMpLAo+d2hlbiBpdCBj
-YWxjdWxhdGVzIGl0cyB0aW1lciBmb3IgZGVxdWV1aW5nIHRoZSBwYWNrZXQgKGxldCdzIGFzc3Vt
-ZSBhCj5mdWxsIHNpemVkIDE1MDAgYnl0ZSBwYWNrZXQpIGlzIGl0IHBlcmZvcm1pbmcgdGhlIGNh
-bGN1bGF0aW9uIG9uIDE1MDAKPmJ5dGVzIG9yIDE1MDAgYnl0ZXMgcGx1cyBvdmVyaGVhZCBzdWNo
-IGFzIHRoZSBFdGhlcm5ldCBoZWFkZXIsIENSQywKPnByZWFtYmxlLCBhbmQgSUZHPwo+Cj5JIGFt
-IGFzc3VtaW5nIGl0IGlzIGJhc2VkIHVwb24gdGhlIDE1MDAgYnl0ZSBwYWNrZXQgaW4gdGhlIGFi
-b3ZlCj5leGFtcGxlLiAgSW4gd2hpY2ggY2FzZSwgSSB0aGluayBJIG5lZWQgdG8gcmVkdWNlIG15
-IGJhbmR3aWR0aCB2YWx1ZSBmZWQKPnRvIHRjIHRvIGFjY291bnQgZm9yIHRoZSBvdmVyaGVhZCBs
-ZXN0IEkgZXhjZWVkIHRoZSByZWFsIGJhbmR3aWR0aC4gIEZvcgo+ZXhhbXBsZSwgdGhlIGZ1bGwg
-c2l6ZWQgRXRoZXJuZXQgcGFja2V0IHdpbGwgYmUgc29tZXdoZXJlIGFyb3VuZCAxNTM4Cj5ieXRl
-cyBzbyAxNTAwLzE1MzggKiAxLjU0NCA9IDE1MDVrYml0cy4gIElzIHRoYXQgY29ycmVjdD8gSXMg
-dGhlcmUgYQo+Z3VpZGVsaW5lIGZvciBhIG11bHRpcGxpZXIgdG8gdXNlPyBJIHN1cHBvc2UgaWYg
-d2UgYXJlIGZsb29kaW5nIGEgbGluaywKPml0IGlzIG1vc3QgbGlrZWx5IHdpdGggZnVsbCBzaXpl
-ZCBwYWNrZXRzLiAgVGhhbmtzIC0gSm9obgo+Cj4tLQo+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlz
-IGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4KPnRoZSBib2R5IG9m
-IGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj5Nb3JlIG1ham9yZG9tbyBp
-bmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwKPgo=
+On 2012-02-03 14:28 -0500, Nick Bowler wrote:
+> On 2012-02-02 12:45 -0800, Stephen Hemminger wrote:
+> > On Thu, 2 Feb 2012 14:21:15 -0500
+> > Nick Bowler <nbowler@elliptictech.com> wrote:
+> > > I just saw this panic on 3.3-rc2 with skge.  I don't know whether it's
+> > > reproducible yet -- the machine crashed while I was not actively using
+> > > it.  We've had this type of card for a few years and I've never seen this
+> > > before so it may be a regression, but admittedly we don't use them all
+> > > that often.
+> [...]
+> > 
+> > Try reverting this commit, it seems problematic
+> > commit d0249e44432aa0ffcf710b64449b8eaa3722547e
+> > Author: stephen hemminger <shemminger@vyatta.com>
+> > Date:   Thu Jan 19 14:37:18 2012 +0000
+> > 
+> >     skge: check for PCI dma mapping errors
+> 
+> Thanks for the pointer, I'll try that.  Unfortunately some other stuff
+> has come up so I probably won't be able to test it until next week.
+
+Just to confirm: I can reliably reproduce the crash and reverting that
+commit fixes it.
+
+For reference, I captured the full trace over serial console:
+
+  skge 0000:03:01.0: eth1: enabling interface
+  ADDRCONF(NETDEV_UP): eth1: link is not ready
+  skge 0000:03:01.0: eth1: Link is up at 1000 Mbps, full duplex, flow control none
+  ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+  device eth1 entered promiscuous mode
+  BUG: unable to handle kernel NULL pointer dereference at           (null)
+  IP: [<ffffffffa001826e>] skge_poll+0x367/0x5cd [skge]
+  PGD 0 
+  Oops: 0000 [#1] PREEMPT SMP 
+  CPU 0 
+  Modules linked in: nfs lockd auth_rpcgss nfs_acl sunrpc autofs4 acpi_cpufreq mperf deflate zlib_deflate ctr aes_x86_64 aes_generic des_generic cbc sha512_generic sha256_generic sha1_ssse3 sha1_generic md5 hmac crypto_null af_key ipv6 loop snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_pcm snd_seq snd_timer snd_seq_device snd soundcore skge snd_page_alloc sky2 evdev i2c_i801
+  
+  Pid: 10, comm: kworker/0:1 Not tainted 3.3.0-rc2+ #10 LENOVO 0841A5U/LENOVO
+  RIP: 0010:[<ffffffffa001826e>]  [<ffffffffa001826e>] skge_poll+0x367/0x5cd [skge]
+  RSP: 0018:ffff88007f403e00  EFLAGS: 00010246
+  RAX: ffff880079e3bc40 RBX: ffff88007baf3600 RCX: 0000000000000046
+  RDX: ffff88007bddaf00 RSI: 0000000000000000 RDI: ffff880079e3bc40
+  RBP: ffff88007f403e70 R08: 0000000000000300 R09: ffffffff812d7e11
+  R10: ffff880079eb7200 R11: ffff88007baf3600 R12: ffff88007baf3000
+  R13: ffff88007ae98208 R14: ffff880079eb7200 R15: 0000000000000046
+  FS:  0000000000000000(0000) GS:ffff88007f400000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+  CR2: 0000000000000000 CR3: 000000007ae4d000 CR4: 00000000000406f0
+  DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+  DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+  Process kworker/0:1 (pid: 10, threadinfo ffff88007bca8000, task ffff88007c87c260)
+  Stack:
+   ffff88007c870600 ffff88007f403e18 ffff88007c870600 897488007f403e58
+   0000004600000040 ffff88007baf3600 0046000000000001 ffff88007baf3610
+   0000000000000000 ffff88007baf3610 ffff88007f411380 0000000000000000
+  Call Trace:
+   <IRQ> 
+   [<ffffffff812e432c>] net_rx_action+0xaa/0x1c0
+   [<ffffffff8102fe91>] __do_softirq+0x7e/0x125
+   [<ffffffff8135ecb7>] ? _raw_spin_unlock+0x26/0x31
+   [<ffffffff8136092c>] call_softirq+0x1c/0x30
+   [<ffffffff8100411b>] do_softirq+0x33/0x68
+   [<ffffffff8102fc7f>] irq_exit+0x3f/0xb9
+   [<ffffffff81003a20>] do_IRQ+0x97/0xae
+   [<ffffffff8135f02b>] common_interrupt+0x6b/0x6b
+   <EOI> 
+   [<ffffffff8135ed02>] ? _raw_spin_unlock_irq+0xd/0x32
+   [<ffffffff8103ea56>] worker_thread+0x24b/0x255
+   [<ffffffff8103e80b>] ? manage_workers+0x190/0x190
+   [<ffffffff81041f31>] kthread+0x84/0x8c
+   [<ffffffff81360834>] kernel_thread_helper+0x4/0x10
+   [<ffffffff81041ead>] ? kthread_freezable_should_stop+0x6b/0x6b
+   [<ffffffff81360830>] ? gs_change+0xb/0xb
+  Code: 48 8b 40 30 48 85 c0 74 0a b9 02 00 00 00 4c 89 fa ff d0 49 8b 86 d0 00 00 00 49 8b 55 10 8b 4d b4 48 89 c7 48 8b b2 d0 00 00 00 <f3> a4 31 ff 48 8b 03 49 8b 75 18 48 8b 40 08 48 85 c0 74 13 48 
+  RIP  [<ffffffffa001826e>] skge_poll+0x367/0x5cd [skge]
+   RSP <ffff88007f403e00>
+  CR2: 0000000000000000
+  ---[ end trace 13c07164f6f205a2 ]---
+  Kernel panic - not syncing: Fatal exception in interrupt
+  panic occurred, switching back to text console
+
+Cheers,
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
