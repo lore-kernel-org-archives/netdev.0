@@ -1,50 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC][PATCH 00/50] set addr_assign_type to NET_ADDR_RANDOM if
- a random mac address get assigned to a netdevice
-Date: Wed, 8 Feb 2012 14:58:23 -0800
-Message-ID: <20120208145823.75f386c5@nehalam.linuxnetplumber.net>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] gro: more generic L2 header check
+Date: Wed, 08 Feb 2012 18:09:17 -0500 (EST)
+Message-ID: <20120208.180917.586628615268005115.davem@davemloft.net>
+References: <CAJZOPZL_zEbNwUfVOmQeODny7HDf24gOc1HStfBxim_UtD-kvA@mail.gmail.com>
+	<20120208.163159.2229331610142060560.davem@davemloft.net>
+	<CAJZOPZLLteDbm0prTN3-npubtFun=kO2DYT7ea=E-HyJ84gaiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJZOPZLLteDbm0prTN3-npubtFun=kO2DYT7ea=E-HyJ84gaiA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed,  8 Feb 2012 22:10:07 +0100
-Danny Kukawka <danny.kukawka@bisect.de> wrote:
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 8 Feb 2012 23:49:43 +0200
 
-> The information if a device has a random MAC address is exported
-> to the userspace via /sys/class/net/*/addr_assign_type, which
-> export net_device->addr_assign_type.
+> On Wed, Feb 8, 2012 at 11:31 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > 
-> Currently only a few driver really use dev_hw_addr_random() to
-> set addr_assign_type correctly to NET_ADDR_RANDOM.
+>>> Hi Dave, for correct operation / future bisection, you should 1st
+>>> apply Roland's patch which reduces the hard header len advertized by
+>>> ipoib to be only the size of the ipoib header without that 20 bytes
+>>> headroom, else the gro memcmp will be issued on the ipoib header and
+>>> then 20 bytes of the ip header, kind of back to square one...
 > 
-> This patch change the drivers which set random addresses to
-> change also addr_assign_type to NET_ADDR_RANDOM.
+>> I did.
 > 
-> To reflect if the MAC was changed from userspace via SIOCSIFHWADDR,
-> which means it's no longer a random address set by the kernel,
-> this patch remove NET_ADDR_RANDOM from addr_assign_type in this
-> case.
-> 
-> With this patch tools from userspace can now detect devices with
-> random MAC addresses and change them to persistent addresses if
-> needed (as e.g. in case of smsc95xx on PandaBoard).
-> 
-> Maybe it makes sense to introduce a new state for addr_assign_type
-> to reflect the fact, that the MAC address was changed via a ioctl
-> from user space, e.g, with NET_ADDR_USERSPACE ?
-> 
+> Yep, I missed your earlier response to Roland's patch. So a question
+> here, how would you recommend to get that out... since the fix for the
+> problem includes two patches to core networking and one patch to
+> ipoib, we can't just ship a patch to ipoib which people can apply
+> build against their kernels. You've placed this work in net-next and
+> not net, so I assume we should wait for 3.4-rc1 and then push to
+> -stable? any other method to use here that you can recommend? thanks,
 
+I don't think this is an appropriate bug fix at all.
 
-This reminds me that passing dev->dev_addr to dev_hw_addr_rrandom is redundant
-for all the instances you showed, so why is it ia parameter.
-
-Also it should BUG() if address length is not 6 (ETH_ALEN).
+Apparently this problem has existed since day one and the world has
+kept on spinning meanwhile.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
