@@ -1,64 +1,105 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Wed, 8 Feb 2012 13:49:05 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1202081338210.32060@router.home>
-References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home>
- <20120208163421.GL5938@suse.de>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-  Peter Zijlstra <a.p.zijlstra@chello.nl>,
-  Pekka Enberg <penberg@cs.helsinki.fi>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120208163421.GL5938@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH v2 00/10] Low-level Ethernet debugging features.
+Date: Wed,  8 Feb 2012 11:54:35 -0800
+Message-ID: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:55699 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757247Ab2BHTyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:54:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Feb 2012, Mel Gorman wrote:
+From: Ben Greear <greearb@candelatech.com>
 
-> Ok, I looked into what is necessary to replace these with checking a page
-> flag and the cost shifts quite a bit and ends up being more expensive.
+This patch series enables some features designed to make
+testing ethernet devices and debugging link-level errors
+easier.
 
-That is only true if you go the slab route. Slab suffers from not having
-the page struct pointer readily available. The changes are likely already
-impacting slab performance without the virt_to_page patch.
+First, support is added for receiving the Ethernet FCS.  This
+allows stock wireshark to show you the actual Ethernet FCS.
 
-> In slub, it's sufficient to check kmem_cache_cpu to know whether the
-> objects in the list are pfmemalloc or not.
+Second, allow sending packets with user-specified Ethernet
+FCS.  The user can specify bad FCS in order to test network
+equipments' handling of FCS errors, or, in strange cases,
+users might want to implement their own FCS scheme.
 
-We try to minimize the size of kmem_cache_cpu. The page pointer is readily
-available. We just removed the node field from kmem_cache_cpu because it
-was less expensive to get the node number from the struct page field.
+Third, allow configuring a NIC to receive errored (and possibly
+other types of packets not normally passed up the stack).  This
+allows sniffers to show packets with bad FCS, for instance.
 
-The same is certainly true for a PFMEMALLOC flag.
+These features have been tested on e100 and e1000e.  The
+e1000 patch has not been tested yet.
 
-> Yeah, you're right on the button there. I did my checking assuming that
-> PG_active+PG_slab were safe to use. The following is an untested patch that
-> I probably got details wrong in but it illustrates where virt_to_page()
-> starts cropping up.
+Changes from first posting:
 
-Yes you need to come up with a way to not use virt_to_page otherwise slab
-performance is significantly impacted. On NUMA we are already doing a page
-struct lookup on free in slab. If you would save the page struct pointer
-there and reuse it then you would not have an issue at least on free.
+*  Ensure nic reset when changing the rx-fcs and rx-all
+   logic in e100 (e1000e already did this).
 
-You still would need to determine which "struct slab" pointer is in use
-which will also require similar lookups in varous places.
+*  Use priv-flag for the 'send customized CRC' logic and
+   make it non configurable (if NIC supports it, feature is
+   enabled)  Please note that this will only be used when the
+   SKB is specifically flagged as wanting this behaviour.
 
-Transfer of the pfmemalloc flags (guess you must have a pfmemalloc
-field in struct slab then) in slab is best be done when allocating and
-freeing a slab page from the page allocator.
+*  Use EPROTONOSUPPORT error to indicate the packet-socket's bound
+   NIC does not support the 'send customized CRC' feature.
 
-I think its rather trivial to add the support you want in a non intrusive
-way to slub. Slab would require some more thought and discussion.
+*  Some general cleanup, and patch re-ordering.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+There was a suggestion to throw away packets flagged as bad by
+the NIC.  I did not add any additional logic to do this.  I think
+it is not needed, but I am open to other opinions.
+
+
+Ben Greear (10):
+  net: Support RXFCS feature flag.
+  e100: Support RXFCS feature flag.
+  e1000e:  Support RXFCS feature flag.
+  net: Add framework to allow sending packets with customized CRC.
+  e100: Support sending custom Ethernet CRC
+  e1000e:  Support sending custom Ethernet CRC.
+  net:  Support RX-ALL feature flag.
+  e1000e:  Support RXALL feature flag.
+  e100:  Support RXALL feature flag.
+  e1000: Support sending custom Ethernet CRC.
+
+ Documentation/networking/netdev-features.txt  |   13 ++++
+ arch/alpha/include/asm/socket.h               |    3 +
+ arch/arm/include/asm/socket.h                 |    3 +
+ arch/avr32/include/asm/socket.h               |    3 +
+ arch/cris/include/asm/socket.h                |    3 +
+ arch/frv/include/asm/socket.h                 |    3 +
+ arch/h8300/include/asm/socket.h               |    3 +
+ arch/ia64/include/asm/socket.h                |    3 +
+ arch/m32r/include/asm/socket.h                |    3 +
+ arch/m68k/include/asm/socket.h                |    3 +
+ arch/mips/include/asm/socket.h                |    3 +
+ arch/mn10300/include/asm/socket.h             |    3 +
+ arch/parisc/include/asm/socket.h              |    4 +
+ arch/powerpc/include/asm/socket.h             |    3 +
+ arch/s390/include/asm/socket.h                |    3 +
+ arch/sparc/include/asm/socket.h               |    4 +
+ arch/xtensa/include/asm/socket.h              |    3 +
+ drivers/net/ethernet/intel/e100.c             |   66 +++++++++++++++++++-
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   13 ++++
+ drivers/net/ethernet/intel/e1000e/defines.h   |    1 +
+ drivers/net/ethernet/intel/e1000e/e1000.h     |    1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c    |   80 +++++++++++++++++++++---
+ drivers/net/ethernet/intel/e1000e/param.c     |    5 +-
+ include/asm-generic/socket.h                  |    4 +
+ include/linux/if.h                            |    2 +
+ include/linux/netdev_features.h               |    4 +
+ include/linux/netdevice.h                     |    8 ++-
+ include/linux/skbuff.h                        |    4 +-
+ include/net/sock.h                            |    4 +
+ net/core/ethtool.c                            |    2 +
+ net/core/skbuff.c                             |    1 +
+ net/core/sock.c                               |    4 +
+ net/packet/af_packet.c                        |   32 +++++++++-
+ 33 files changed, 273 insertions(+), 21 deletions(-)
+
+-- 
+1.7.3.4
