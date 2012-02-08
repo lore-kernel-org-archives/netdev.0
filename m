@@ -1,78 +1,69 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: TCP sacked_out and fackets_out inconsistency (Was: Re: BUG: unable
- to handle kernel NULL pointer dereference at 000000000000002c)
-Date: Wed, 08 Feb 2012 09:26:41 +0100
-Message-ID: <4F3231C1.9040509@profihost.ag>
-References: <20120201.162157.880976652659067010.davem@davemloft.net>  <4F2A87B0.6070900@profihost.ag>  <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20120202.143957.2251106530056768980.davem@davemloft.net>  <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>  <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>  <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <20120203155309.GB20638@kroah.com> <4F2F9784.7090203@profihost.ag> <1328519990.2220.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <alpine.DEB.2.00.1202061151580.2966@wel-95.cs.helsinki.fi>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: Regulator support for smsc911x
+Date: Wed, 8 Feb 2012 09:31:41 +0100
+Message-ID: <20120208083141.GM3852@pengutronix.de>
+References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
+ <CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
+ <20120203074408.GD1990@pengutronix.de>
+ <20120203111133.GD3151@opensource.wolfsonmicro.com>
+ <CAOMZO5B2_yq=m8Mer=iV-HsXvF-MZJ-BV2=LTg1CZN+O=yepSQ@mail.gmail.com>
+ <20120207193914.GA31557@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
-	hch@infradead.org, Netdev <netdev@vger.kernel.org>,
-	david@fromorbit.com, stable@vger.kernel.org,
-	Greg KH <gregkh@suse.de>
-To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Fabio Estevam <festevam@gmail.com>, robert.marklund@stericsson.com,
+	netdev@vger.kernel.org, Sascha Hauer <kernel@pengutronix.de>
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:41079 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755536Ab2BHI0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 03:26:42 -0500
-In-Reply-To: <alpine.DEB.2.00.1202061151580.2966@wel-95.cs.helsinki.fi>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43116 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756035Ab2BHIbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 03:31:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20120207193914.GA31557@opensource.wolfsonmicro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On Tue, Feb 07, 2012 at 07:39:14PM +0000, Mark Brown wrote:
+> On Tue, Feb 07, 2012 at 05:25:48PM -0200, Fabio Estevam wrote:
+> > On Fri, Feb 3, 2012 at 9:11 AM, Mark Brown
+> 
+> > > There's also options c) set up the regulators for the board and d) don't
+> > > enable the regulator API if the board doesn't use regulators.
+> 
+> > Option c would require that we change every single board.
+> 
+> Well, yes.
+> 
+> > The patch below does option d.
+> 
+> > What do you think?
+> 
+> Absolutely not.  Putting conditional code like this in drivers is nuts,
+> you would have to do the same thing in every single driver which is not
+> a useful use of anyone's time.  This is *clearly* a generic thing and
+> should therefore be handled in generic code for the same reason we don't
+> have driver specific platform data for actual usage of the API.
+> 
+> Really, anyone who wants this sort of thing should just enable dummy
+> regulators - it's exactly what you're implementing.  I'm pretty sure
+> your board does actually have power supplies for the chip, you've just
+> not told software about them.
 
-Am 06.02.2012 13:47, schrieb Ilpo J=E4rvinen:
->>> Any idea about that? Is it due to my custom patch being buggy or is=
- it
->>> anything you know which is missing in 3.0.X too?
->=20
-> This warning is known to trigger every now and then...
->=20
->> Thats the tcp_fastretrans_alert()
->>
->> 	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
->> 		tp->fackets_out =3D 0;
->>
->> I dont know if some recent patch addressed this issue.
->=20
-> ...the recent fix from Neal to pick correct MSS might fix this but it=
-=20
-> is of course hard to confirm for sure (we'll see it indirectly eventu=
-ally=20
-> if there won't be anymore these rare splats). If one has infinite tim=
-e it=20
-> would be quite simple to see if changing mss setup triggers this and =
-if=20
-> the Neal's fix helped or not, however, I don't consider this particul=
-ar=20
-> inconsistency worth the effort.
->=20
-> ...What I can say for sure is at least tp->fackets_out -=3D min(pkts_=
-acked,=20
-> tp->fackets_out); seems to fail when pkts_acked (u32) underflows due =
-to=20
-> the mss badness we used to have. So it could actually solve this for =
-real.
->=20
-> The effects of this counter inconsistency are not that devastating.=20
-> Fackets_out mainly affect when recovery is triggered/which segments t=
-o=20
-> mark lost in the recovery itself. Two extremes I can think of: recove=
-ry=20
-> not triggered =3D> RTO triggers and everyone is happy except some res=
-earcher=20
-> who finds that odd and unwanted and needs to fix it :-); recovery in=20
-> progress but works too much ahead, as if dupthresh (tp->reordering) w=
-ould=20
-> be slightly smaller (if in-order behavior in the network is assumed t=
-his=20
-> is still fully safe, dupthresh is there to help in cases of minor=20
-> reordering).
+Yes, my board also has a supply for the smc911x, it's the same as used
+for the CPU...
 
-What do you think about this? Can anybody give me the commit id?
+There is also option e), something I've been thinking about for a while.
+Implement a list of resources which can be attached to a device. By
+resources I mean regulators, clocks and pinmux for example. A device
+would then just call a make_me_work(state) function which iterates over
+this list and enables/disables all resources as necessary. This way we
+could attach everything we need to a device without cluttering the
+driver code like we do today.
 
-Stefan
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
