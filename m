@@ -1,56 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] skbuff: Add new tc classify variable
-Date: Wed, 8 Feb 2012 09:54:49 +0100
-Message-ID: <20120208085449.GA14772@Chamillionaire.breakpoint.cc>
-References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
- <20120207110522.70663963@nehalam.linuxnetplumber.net>
- <20120207195729.GA26533@pandem0nium>
- <20120207134553.220a1da5@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP sacked_out and fackets_out inconsistency (Was: Re: BUG:
+ unable to handle kernel NULL pointer dereference at 000000000000002c)
+Date: Wed, 08 Feb 2012 10:15:13 +0100
+Message-ID: <1328692513.2284.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20120201.162157.880976652659067010.davem@davemloft.net>
+	  <4F2A87B0.6070900@profihost.ag>
+	  <1328195055.2279.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <20120202.143957.2251106530056768980.davem@davemloft.net>
+	  <20120203004228.GA23429@kroah.com> <4F2B8348.3090305@profihost.ag>
+	  <1328253972.2480.42.camel@edumazet-laptop> <4F2B963F.4020504@profihost.ag>
+	  <1328267097.2157.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <20120203155309.GB20638@kroah.com> <4F2F9784.7090203@profihost.ag>
+	 <1328519990.2220.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <alpine.DEB.2.00.1202061151580.2966@wel-95.cs.helsinki.fi>
+	 <4F3231C1.9040509@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>, jwboyer@gmail.com,
+	hch@infradead.org, Netdev <netdev@vger.kernel.org>,
+	david@fromorbit.com, stable@vger.kernel.org,
+	Greg KH <gregkh@suse.de>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:34599 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756556Ab2BHIyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 03:54:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20120207134553.220a1da5@nehalam.linuxnetplumber.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:64919 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107Ab2BHJPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 04:15:17 -0500
+In-Reply-To: <4F3231C1.9040509@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > On Tue, Feb 07, 2012 at 11:05:22AM -0800, Stephen Hemminger wrote:
-> > > On Tue,  7 Feb 2012 19:39:08 +0100
-> > > Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
-> > > 
-> > > I don't understand why this is better, we already have mark to do this.
-> > > Your method saves adding a tc filter to map mark to classid, but that is hardly
-> > > a huge burden.
-> > 
-> > Unfortunately, it is. We have previously built our trees by setting marks with iptables
-> > and matching the masks with tc and the u32 matcher, but we got a rather big performance
-> > impact as soon as the number of users grow. The target platform are WiFi access points.
-> > By using the proposed patch, the performance stays nearly constant at a growing number
-> > of users.
-> 
-> The problem then is not the use of marks but having to add a filter rule for
-> each mark. We need something like u32 hash but for marks to build a table
-> of mark -> class id.  The current method uses a linear list of filter rules,
-> which is an obvious bottleneck with lots of classes.
+Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 09:26 +0100, Stefan Priebe - Pr=
+ofihost AG
+a =C3=A9crit :
+> Hi Eric,
 
-Maybe.  But marks might already be used e.g. for policy routing or for
-additional metadata (such as encoding higher level data).
+> What do you think about this? Can anybody give me the commit id?
+>=20
+> Stefan
 
-And even if you do your 'mark identifies the traffic class' very late in
-your iptables ruleset -- as soon as you've got tunnels configured,
-the encapsulated packets end up travellign through the ruleset again
-with a "classid mark" set -- which might interfere with the ruleset.
+commit 5b35e1e6e9ca651e6b291c96d1106043c9af314a
+Author: Neal Cardwell <ncardwell@google.com>
+Date:   Sat Jan 28 17:29:46 2012 +0000
 
-IOW, using -j CLASSIFY does have advantages regardless of the "tc mark filter"
-performance issue Simon has.
+    tcp: fix tcp_trim_head() to adjust segment count with skb MSS
 
-There is also the SO_PRIORITY setsockopt which userspace might be using to pick a
-particular traffic class...
+
+
+Its quite recent and David will push it to stable, dont worry.
