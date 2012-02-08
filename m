@@ -1,68 +1,37 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/5] send-crc: Add framework to allow sending packets with
- customized CRC.
-Date: Wed, 8 Feb 2012 00:59:17 +0100
-Message-ID: <CAHXqBFKbv13jL_RqbOTZp6P-TOO7iQ1211SXmMso_3LK27LkPw@mail.gmail.com>
-References: <1328644182-7872-1-git-send-email-greearb@candelatech.com>
- <CAHXqBFKe+nAGk8gjjOxRSbgtPSPHXcz3_fNjaBaxh48vPvDysQ@mail.gmail.com> <4F318CF5.1060200@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] FEC: Rename dev to ndev, fix compile error
+Date: Tue, 07 Feb 2012 19:04:30 -0500 (EST)
+Message-ID: <20120207.190430.1219273346186860486.davem@davemloft.net>
+References: <1328654548-28396-1-git-send-email-marek.vasut@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infreadead.org, netdev@vger.kernel.org,
+	netdev@pradeepdalvi.com
+To: marek.vasut@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:47511 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755998Ab2BGX7i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 18:59:38 -0500
-Received: by yhoo21 with SMTP id o21so3366072yho.19
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 15:59:37 -0800 (PST)
-In-Reply-To: <4F318CF5.1060200@candelatech.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38363 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755998Ab2BHAEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2012 19:04:37 -0500
+In-Reply-To: <1328654548-28396-1-git-send-email-marek.vasut@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 7 lutego 2012 21:43 u=BFytkownik Ben Greear
-<greearb@candelatech.com> napisa=B3:
-> On 02/07/2012 12:33 PM, Micha=B3 Miros=B3aw wrote:
->>
->> 2012/2/7<greearb@candelatech.com>:
->>>
->>> From: Ben Greear<greearb@candelatech.com>
->>>
->>> This is useful for testing RX handling of frames with bad
->>> CRCs.
->>>
->>> Requires driver support to actually put the packet on the
->>> wire properly.
->>
->> [...]
->>
->> I like this idea. I think that this is not a feature to have in
->> dev->features to toggle, though. Driver either supports this or not,
->> so it's better to put it in dev->priv_flags instead. Disabling of FC=
-S
->> inserting is a per-packet option in the drivers, isn't it?
->>
->> For one problem with toggling: if you create a socket using it and
->> later turn off the feature, the socket will still send skbs with FCS
->> appended.
-> For the priv-flags, is there a way to query that from user-space to
-> see if the NIC supports it?
->
-> The pkt-socket xmit logic will throw away pkts if the NIC doesn't
-> have the feature enabled, but a few already queued might get
-> through with extra CRC appended.
->
-> So, I'm fine with your suggestion, as long as there is some way to
-> query whether the NIC supports this feature or not...
+From: Marek Vasut <marek.vasut@gmail.com>
+Date: Tue,  7 Feb 2012 23:42:28 +0100
 
-There's a way, as you implemented -EINVAL when trying to send via
-unsupporting device. :-) Would be even better if setting SO_NO_FCS
-would fail at setsockopt() time.
+> The following commit introduced a typo, this commit fixes it.
+> 
+> commit 21a4e46995fa1a76281ac0281ff837f706231a37
+> Author: Pradeep A Dalvi <netdev@pradeepdalvi.com>
+> Date:   Sun Feb 5 02:50:10 2012 +0000
+> 
+>     netdev: ethernet dev_alloc_skb to netdev_alloc_skb
+> 
+>     Replaced deprecating dev_alloc_skb with netdev_alloc_skb in drivers/net/ethernet
+>       - Removed extra skb->dev = dev after netdev_alloc_skb
+> 
+> Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
 
-priv_flags are not exposed to userspace. It should be easy to export
-them using ETHTOOL_GFEATURES as non-changeable features, if that's
-useful.
-
-Best Regards,
-Micha=B3 Miros=B3aw
+This is already fixed in the net-next tree.
