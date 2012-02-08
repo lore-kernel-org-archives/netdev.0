@@ -1,82 +1,156 @@
 From: greearb@candelatech.com
-Subject: [PATCH v2 01/10] net: Support RXFCS feature flag.
-Date: Wed,  8 Feb 2012 11:54:36 -0800
-Message-ID: <1328730885-10941-2-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2 03/10] e1000e:  Support RXFCS feature flag.
+Date: Wed,  8 Feb 2012 11:54:38 -0800
+Message-ID: <1328730885-10941-4-git-send-email-greearb@candelatech.com>
 References: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55707 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55711 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757247Ab2BHTz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:26 -0500
+	with ESMTP id S1757322Ab2BHTzo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:44 -0500
 In-Reply-To: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-When set on hardware that supports the feature,
-this causes the Ethernet FCS to be appended
-to the end of the skb.
+This enables enabling/disabling reception of the Ethernet
+FCS.  This can be useful when sniffing packets.
 
-Useful for sniffing packets.
+For e1000e, enabling RXFCS can change the default
+behaviour for how the NIC handles CRC.  Disabling RXFCS
+will take the NIC back to defaults, which can be configured
+as part of the module options.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 4b1c0dc... 7d27812... M	Documentation/networking/netdev-features.txt
-:100644 100644 77f5202... d133186... M	include/linux/netdev_features.h
-:100644 100644 3f79db1... 0801619... M	net/core/ethtool.c
- Documentation/networking/netdev-features.txt |    6 ++++++
- include/linux/netdev_features.h              |    2 ++
- net/core/ethtool.c                           |    1 +
- 3 files changed, 9 insertions(+), 0 deletions(-)
+:100644 100644 45e5ae8... 04a21fc... M	drivers/net/ethernet/intel/e1000e/e1000.h
+:100644 100644 293a760... e3eefda... M	drivers/net/ethernet/intel/e1000e/netdev.c
+:100644 100644 9c6a56d... ff796e4... M	drivers/net/ethernet/intel/e1000e/param.c
+ drivers/net/ethernet/intel/e1000e/e1000.h  |    1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c |   41 +++++++++++++++++++++++-----
+ drivers/net/ethernet/intel/e1000e/param.c  |    5 +++-
+ 3 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
-index 4b1c0dc..7d27812 100644
---- a/Documentation/networking/netdev-features.txt
-+++ b/Documentation/networking/netdev-features.txt
-@@ -152,3 +152,9 @@ NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope with VLAN
- headers. Some drivers set this because the cards can't handle the bigger MTU.
- [FIXME: Those cases could be fixed in VLAN code by allowing only reduced-MTU
- VLANs. This may be not useful, though.]
-+
-+*  rx-fcs
-+
-+This requests that the NIC append the Ethernet Frame Checksum (FCS)
-+to the end of the skb data.  This allows sniffers and other tools to
-+read the CRC recorded by the NIC on receipt of the packet.
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 77f5202..d133186 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -54,6 +54,7 @@ enum {
- 	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
- 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
- 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
-+	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 45e5ae8..04a21fc 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -461,6 +461,7 @@ struct e1000_info {
+ #define FLAG2_CHECK_PHY_HANG              (1 << 9)
+ #define FLAG2_NO_DISABLE_RX               (1 << 10)
+ #define FLAG2_PCIM2PCI_ARBITER_WA         (1 << 11)
++#define FLAG2_DFLT_CRC_STRIPPING          (1 << 12)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 293a760..e3eefda 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -936,8 +936,16 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+ 		}
+ 
+ 		/* adjust length to remove Ethernet CRC */
+-		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-			length -= 4;
++		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++			/* If configured to store CRC, don't subtract FCS,
++			 * but keep the FCS bytes out of the total_rx_bytes
++			 * counter
++			 */
++			if (netdev->features & NETIF_F_RXFCS)
++				total_rx_bytes -= 4;
++			else
++				length -= 4;
++		}
+ 
+ 		total_rx_bytes += length;
+ 		total_rx_packets++;
+@@ -1304,8 +1312,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
+ 							   DMA_FROM_DEVICE);
+ 
+ 				/* remove the CRC */
+-				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-					l1 -= 4;
++				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++					if (!(netdev->features & NETIF_F_RXFCS))
++						l1 -= 4;
++				}
+ 
+ 				skb_put(skb, l1);
+ 				goto copydone;
+@@ -1331,8 +1341,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
+ 		/* strip the ethernet crc, problem is we're using pages now so
+ 		 * this whole operation can get a little cpu intensive
+ 		 */
+-		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-			pskb_trim(skb, skb->len - 4);
++		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++			if (!(netdev->features & NETIF_F_RXFCS))
++				pskb_trim(skb, skb->len - 4);
++		}
+ 
+ copydone:
+ 		total_rx_bytes += skb->len;
+@@ -5987,7 +5999,7 @@ static int e1000_set_features(struct net_device *netdev,
+ 		adapter->flags |= FLAG_TSO_FORCE;
+ 
+ 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
+-			 NETIF_F_RXCSUM | NETIF_F_RXHASH)))
++			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS)))
+ 		return 0;
  
  	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -98,6 +99,7 @@ enum {
- #define NETIF_F_TSO		__NETIF_F(TSO)
- #define NETIF_F_UFO		__NETIF_F(UFO)
- #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
-+#define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+@@ -6001,6 +6013,20 @@ static int e1000_set_features(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
  
- /* Features valid for ethtool to change */
- /* = all defined minus driver/device-class-related */
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 3f79db1..0801619 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -73,6 +73,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXCSUM_BIT] =           "rx-checksum",
- 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
- 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
-+	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
- };
++	if (changed & NETIF_F_RXFCS) {
++		if (features & NETIF_F_RXFCS) {
++			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
++		} else {
++			/* We need to take it back to defaults, which might mean
++			 * stripping is still disabled at the adapter level.
++			 */
++			if (adapter->flags2 & FLAG2_DFLT_CRC_STRIPPING)
++				adapter->flags2 |= FLAG2_CRC_STRIPPING;
++			else
++				adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
++		}
++	}
++
+ 	netdev->features = features;
  
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+ 	if (netif_running(netdev))
+@@ -6199,6 +6225,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	/* Set user-changeable features (subset of all device features) */
+ 	netdev->hw_features = netdev->features;
++	netdev->hw_features |= NETIF_F_RXFCS;
+ 
+ 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
+ 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index 9c6a56d..ff796e4 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -463,10 +463,13 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		if (num_CrcStripping > bd) {
+ 			unsigned int crc_stripping = CrcStripping[bd];
+ 			e1000_validate_option(&crc_stripping, &opt, adapter);
+-			if (crc_stripping == OPTION_ENABLED)
++			if (crc_stripping == OPTION_ENABLED) {
+ 				adapter->flags2 |= FLAG2_CRC_STRIPPING;
++				adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
++			}
+ 		} else {
+ 			adapter->flags2 |= FLAG2_CRC_STRIPPING;
++			adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
+ 		}
+ 	}
+ 	{ /* Kumeran Lock Loss Workaround */
 -- 
 1.7.3.4
