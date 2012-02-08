@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
- 000000000000002c
-Date: Wed, 08 Feb 2012 15:19:19 -0500 (EST)
-Message-ID: <20120208.151919.2049614654497501820.davem@davemloft.net>
-References: <1328519818.2220.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<4F2FBA16.8010400@profihost.ag>
-	<4F323138.2040200@profihost.ag>
+Subject: Re: [PATCH net-next] mace: Fix build for mace due to
+ netdev_alloc_skb
+Date: Wed, 08 Feb 2012 15:23:58 -0500 (EST)
+Message-ID: <20120208.152358.916104383646981710.davem@davemloft.net>
+References: <1328695395-2565-1-git-send-email-netdev@pradeepdalvi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, gregkh@linuxfoundation.org,
-	jwboyer@gmail.com, hch@infradead.org, netdev@vger.kernel.org,
-	david@fromorbit.com, stable@vger.kernel.org, gregkh@suse.de
-To: s.priebe@profihost.ag
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263Ab2BHUU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 15:20:56 -0500
-In-Reply-To: <4F323138.2040200@profihost.ag>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@pradeepdalvi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328695395-2565-1-git-send-email-netdev@pradeepdalvi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Date: Wed, 08 Feb 2012 09:24:24 +0100
+From: Pradeep A Dalvi <netdev@pradeepdalvi.com>
+Date: Wed,  8 Feb 2012 15:33:15 +0530
 
-> Hi Greg, Hi Eric,
+> Refs:
+> 1. pmac32_defconfig
+> http://kisskb.ellerman.id.au/kisskb/buildresult/5583746/
+> 2. ppc6xx_defconfig
+> http://kisskb.ellerman.id.au/kisskb/buildresult/5584116/
 > 
-> Am 06.02.2012 12:31, schrieb Stefan Priebe - Profihost AG:
->>> make   $your_favorite_build_options
->> 
->> here is the missing patch attached to have a fine build with
->> allyesconfig.allyesconfig
+> Confirmed any such occurances from all failed defconfigs &
+> in net-next sources with
+> grep -nrs "netdev_alloc_skb" drivers/net/ethernet/ | grep -v ","
 > 
-> Amy news on my patches? Can they get integrated into 3.0.X stable series?
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Pradeep A Dalvi <netdev@pradeepdalvi.com>
 
-Can you please be patient?  This isn't the only thing going on in our
-lives right now.
+Applied.
