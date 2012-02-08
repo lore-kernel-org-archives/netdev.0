@@ -1,46 +1,65 @@
-From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] gro: more generic L2 header check
-Date: Wed, 8 Feb 2012 23:08:26 +0200
-Message-ID: <CAJZOPZL_zEbNwUfVOmQeODny7HDf24gOc1HStfBxim_UtD-kvA@mail.gmail.com>
-References: <20120206.113145.1284864994961472499.davem@davemloft.net>
-	<1328546834.2220.79.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1328727110.2631.8.camel@edumazet-laptop>
-	<20120208.155027.599792363539233740.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, herbert-F6s6mLieUQo7FNHlEwC/lvQIK84fMopw@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120208.155027.599792363539233740.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH] rtlwifi: rtl8192se firmware load can overflow target buffer
+Date: Wed,  8 Feb 2012 14:08:10 -0700
+Message-ID: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry.Finger@lwfinger.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 8, 2012 at 10:50 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Shlomo Pongratz reported GRO L2 header check was suited for Ethernet
-> > only, and failed on IB/ipoib traffic.
-> > He provided a patch faking a zeroed header to let GRO aggregates frames.
-> >
-> > Roland Dreier, Herbert Xu, and others suggested we change GRO L2 header
-> > check to be more generic, ie not assuming L2 header is 14 bytes, but
-> > taking into account hard_header_len.
-> >
-> > __napi_gro_receive() has special handling for the common case (Ethernet)
-> > to avoid a memcmp() call and use an inline optimized function instead.
+The firmware file size check does not use the
+correct limit.
 
-> Applied.
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+ drivers/net/wireless/rtlwifi/rtl8192se/fw.h |    3 ++-
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-Hi Dave, for correct operation / future bisection, you should 1st
-apply Roland's patch which reduces the hard header len advertized by
-ipoib to be only the size of the ipoib header without that 20 bytes
-headroom, else the gro memcmp will be issued on the ipoib header and
-then 20 bytes of the ip header, kind of back to square one...
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+index babe85d..5c377fc 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+@@ -30,6 +30,7 @@
+ #define __REALTEK_FIRMWARE92S_H__
+ 
+ #define RTL8190_MAX_FIRMWARE_CODE_SIZE		64000
++#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	164000
+ #define RTL8190_CPU_START_OFFSET		0x80
+ /* Firmware Local buffer size. 64k */
+ #define	MAX_FIRMWARE_CODE_SIZE			0xFF00
+@@ -217,7 +218,7 @@ struct rt_firmware {
+ 	u8 fw_emem[RTL8190_MAX_FIRMWARE_CODE_SIZE];
+ 	u32 fw_imem_len;
+ 	u32 fw_emem_len;
+-	u8 sz_fw_tmpbuffer[164000];
++	u8 sz_fw_tmpbuffer[RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE];
+ 	u32 sz_fw_tmpbufferlen;
+ 	u16 cmdpacket_fragthresold;
+ };
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+index ca38dd9..155da0a 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+@@ -105,7 +105,7 @@ static void rtl92se_fw_cb(const struct firmware *firmware, void *context)
+ 		rtlpriv->max_fw_size = 0;
+ 		return;
+ 	}
+-	if (firmware->size > rtlpriv->max_fw_size) {
++	if (firmware->size >= RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
+ 			 "Firmware is too big!\n");
+ 		release_firmware(firmware);
+-- 
+1.7.9
