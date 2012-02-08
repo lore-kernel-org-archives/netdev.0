@@ -1,83 +1,62 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: network regression: cannot rename netdev twice
-Date: Wed, 08 Feb 2012 01:42:04 -0500
-Message-ID: <14373.1328683324@turing-police.cc.vt.edu>
-References: <4F27120A.4040106@suse.cz> <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com> <4F27C54F.1010107@suse.cz> <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com> <20120204021457.GA25386@khazad-dum.debian.net> <CAPXgP12yZ74679JNwRB-pDfnjOBaxMzL2=krSDK31jM1mjXfuA@mail.gmail.com> <20120208020038.GE13296@khazad-dum.debian.net>
-            <CAPXgP12ExDub9ML0=DcWRwyQP23GXDJ75jiNnw+BTXY17tEa8Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6 1/2] Implement IP_UNICAST_IF socket option.
+Date: Wed, 08 Feb 2012 08:21:57 +0100
+Message-ID: <1328685717.4736.4.camel@edumazet-laptop>
+References: <1328651073-976-1-git-send-email-ehoover@mines.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1328683324_3347P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	Jiri Slaby <jslaby@suse.cz>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Wed, 08 Feb 2012 04:50:15 +0100."
-             <CAPXgP12ExDub9ML0=DcWRwyQP23GXDJ75jiNnw+BTXY17tEa8Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: "Erich E. Hoover" <ehoover@mines.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40903 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750962Ab2BHHWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 02:22:01 -0500
+Received: by wgbdt10 with SMTP id dt10so282388wgb.1
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2012 23:22:00 -0800 (PST)
+In-Reply-To: <1328651073-976-1-git-send-email-ehoover@mines.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1328683324_3347P
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Le mardi 07 f=C3=A9vrier 2012 =C3=A0 14:44 -0700, Erich E. Hoover a =C3=
+=A9crit :
+> The IP_UNICAST_IF feature is needed by the Wine project.  This patch =
+implements the feature by setting the outgoing interface in a similar f=
+ashion to that of IP_MULTICAST_IF.  A separate option is needed to hand=
+le this feature since the existing options do not provide all of the ch=
+aracteristics required by IP_UNICAST_IF, a summary is provided below.
+>=20
+> SO_BINDTODEVICE:
+> * SO_BINDTODEVICE requires administrative privileges, IP_UNICAST_IF d=
+oes not.  From reading some old mailing list articles my understanding =
+is that SO_BINDTODEVICE requires administrative privileges because it c=
+an override the administrator's routing settings.
+> * The SO_BINDTODEVICE option restricts both outbound and inbound traf=
+fic, IP_UNICAST_IF only impacts outbound traffic.
+>=20
+> IP_PKTINFO:
+> * Since IP_PKTINFO and IP_UNICAST_IF are independent options, impleme=
+nting IP_UNICAST_IF with IP_PKTINFO will likely break some applications=
+=2E
+> * Implementing IP_UNICAST_IF on top of IP_PKTINFO significantly compl=
+icates the Wine codebase and reduces the socket performance (doing this=
+ requires a lot of extra communication between the "server" and "user" =
+layers).
+>=20
+> bind():
+> * bind() does not work on broadcast packets, IP_UNICAST_IF is specifi=
+cally intended to work with broadcast packets.
+> * Like SO_BINDTODEVICE, bind() restricts both outbound and inbound tr=
+affic.
+>=20
+> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
 
-On Wed, 08 Feb 2012 04:50:15 +0100, Kay Sievers said:
+This seems good, only the changelog is not formatted to fit in short
+lines (70 cols)
 
-> After years of working in that area I will stop to work on these hacks
-> to promise stable ethX names. It was just wrong, like enumerations
-> always are in hotplug setups.
+Also title should include subsystem name  :
 
-So (real world case) I've got a server that's got a 1G ethernet connected=
- to
-the public net, a 1G ethernet that's a cluster management network, and
-a 10G ethernet that connects to our HPC clusters.
+ipv4: Implement IP_UNICAST_IF socket option.
 
-And I want to add iptables rules that distinguish based on interface. Cur=
-rently
-I can nail the management net to eth0, the public net to eth1, and the 10=
-G to
-eth2, and then just add =22-i eth1=22 or whatever in the iptables ruleset=
-.
-
-I really don't care if the 0/1/2 move around - but if we're not having na=
-iled-down
-interface names, what will take the place of '-i ethN' in iptables?
-
-> People who need predictable interface names should just manually
-> configure custom/descriptive names, or names which are reliably
-> derived from the hardware, like firmware-provided names or the pci
-> slot number.
-
-Or is this sort of thing in /etc/udev/rules.d/70-persistent-net.rules
-SUBSYSTEM=3D=3D=22net=22, ACTION=3D=3D=22add=22, DRIVERS=3D=3D=22?*=22, A=
-TTR=7Baddress=7D=3D=3D=2200:25:90:0b:f2:80=22, ATTR=7Btype=7D=3D=3D=221=
-=22, KERNEL=3D=3D=22eth*=22, NAME=3D=22eth0=22
-what you are trying to move to, and my systems are already onboard and
-I should just move along, nothing to see here? ;)
-
---==_Exmh_1328683324_3347P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBTzIZOwdmEQWDXROgAQKFqhAAoqjjoFtAHfddKC06dWIBUikCHPFK90ny
-cvg8HEMxVcIZBJBUGpXxm8jA9u1Q2GouJ1aYhp4tIQMsN7GjLqKLCPKI+Re1ePDW
-4nGSMcGWKY4iE6pWtbmhQfsrcPJtvxgUQCgwAfU5+sTEpBcaoFglA3wvN4WCGrbM
-+UzMqwW/E6vuKDn4QY8q6Nc7WqgiDbDaW1ZxRKP2zkY2/Y23u2eY6AfAwj2XV+1c
-ft9EmB8fkTwdAYuGY8pWpyN+WKm6H2sAYHggqqxi8PL2Jfw87hNZkJsLFByxldSY
-pyDK86pOjG1z88Tq3ZXXxx5RkXx/+ZA3QLpSjKg4TDXkoK9gW8RGWs0WYKHa4biv
-VfJFzSem83f31xds+xjKKYkTr4jEyRT/ybfZ2frCagSrr8HDXgR3WhgwqW2N82HV
-ECCCE7HGLYzsxb92KsIyVKqosY+OYCQelYmheRnU5sRQvnFfJiTrWExBUs12iSgX
-eo0W8RbaQBG+8uJU8N3p2ZFD62/BOyLaoly16/7MJcyghmvEv4QP/yH8Nz3ORHpV
-IKJvhSKfiSDBld3ca3+/jE3fhWrVjueLxWcTYHvOmNHvV+Xww8sO/rl0W7x0dnvb
-cgAGJZxwd/y5BQOx9V1SGReRYm3zpx8wvgL9OuRXUcmMsxU2AM3akwznfCmeMqRU
-RIPoEEwC6Jw=
-=JUGY
------END PGP SIGNATURE-----
-
---==_Exmh_1328683324_3347P--
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
