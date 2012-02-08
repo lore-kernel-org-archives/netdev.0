@@ -1,47 +1,76 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Bug#656331: RTL8168b/8111b with ASUS M2A-VM (SB600): Network device stays down after resume
-Date: Wed, 8 Feb 2012 23:16:44 +0100
-Message-ID: <20120208221644.GA25538@electric-eye.fr.zoreil.com>
-References: <1326896138.29125.86.camel@mattotaupa> <1326899011.3271.3.camel@deadeye> <1326900763.29125.117.camel@mattotaupa> <1326901834.3271.8.camel@deadeye> <1328383563.20142.23.camel@mattotaupa> <20120205175730.GA23604@electric-eye.fr.zoreil.com> <1328714917.3483.21.camel@mattotaupa> <1328730429.3483.35.camel@mattotaupa>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Wed, 8 Feb 2012 16:13:15 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1202081557540.5970@router.home>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home>
+ <20120208163421.GL5938@suse.de> <alpine.DEB.2.00.1202081338210.32060@router.home> <20120208212323.GM5938@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, 656331@bugs.debian.org,
-	netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Paul Menzel <pm.debian@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38326 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab2BHW2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 17:28:41 -0500
-Content-Disposition: inline
-In-Reply-To: <1328730429.3483.35.camel@mattotaupa>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+  Peter Zijlstra <a.p.zijlstra@chello.nl>,
+  Pekka Enberg <penberg@cs.helsinki.fi>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120208212323.GM5938@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Paul Menzel <pm.debian@googlemail.com> :
-[forget runtime PM]
->         [18764.958557] r8169 0000:02:00.0: PME# disabled
->         [18781.998004] r8169 0000:02:00.0: eth0: link down
-                     ^^
->         [18781.998024] r8169 0000:02:00.0: eth0: link down
-                     ^^
-Two link events within 20 us. /me wonders...
+On Wed, 8 Feb 2012, Mel Gorman wrote:
 
-The datasheet states "[the PHYStatus] register is updated continuously at
-maximum periods of 300us." but it is far from clear that the coherency
-with the interrupt status register can be taken for granted. Hayes ?
+> On Wed, Feb 08, 2012 at 01:49:05PM -0600, Christoph Lameter wrote:
+> > On Wed, 8 Feb 2012, Mel Gorman wrote:
+> >
+> > > Ok, I looked into what is necessary to replace these with checking a page
+> > > flag and the cost shifts quite a bit and ends up being more expensive.
+> >
+> > That is only true if you go the slab route.
+>
+> Well, yes but both slab and slub have to be supported. I see no reason
+> why I would choose to make this a slab-only or slub-only feature. Slob is
+> not supported because it's not expected that a platform using slob is also
+> going to use network-based swap.
 
-Paul, can you try the hack below ?
+I think so far the patches in particular to slab.c are pretty significant
+in impact.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 7a0c800..6daca05 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1278,6 +1278,7 @@ static void __rtl8169_check_link_status(struct net_device *dev,
- {
- 	unsigned long flags;
- 
-+	udelay(500);
- 	spin_lock_irqsave(&tp->lock, flags);
- 	if (tp->link_ok(ioaddr)) {
- 		rtl_link_chg_patch(tp);
+> > Slab suffers from not having
+> > the page struct pointer readily available. The changes are likely already
+> > impacting slab performance without the virt_to_page patch.
+> >
+>
+> The performance impact only comes into play when swap is on a network
+> device and pfmemalloc reserves are in use. The rest of the time the check
+> on ac avoids all the cost and there is a micro-optimisation later to avoid
+> calling a function (patch 12).
+
+We have been down this road too many times. Logic is added to critical
+paths and memory structures grow. This is not free. And for NBD swap
+support? Pretty exotic use case.
+
+> Ok, are you asking that I use the page flag for slub and leave kmem_cache_cpu
+> alone in the slub case? I can certainly check it out if that's what you
+> are asking for.
+
+No I am not asking for something. Still thinking about the best way to
+address the issues. I think we can easily come up with a minimally
+invasive patch for slub. Not sure about slab at this point. I think we
+could avoid most of the new fields but this requires some tinkering. I
+have a day @ home tomorrow which hopefully gives me a chance to
+put some focus on this issue.
+
+> I did come up with a way: the necessary information is in ac and slabp
+> on slab :/ . There are not exactly many ways that the information can
+> be recorded.
+
+Wish we had something that would not involve increasing the number of
+fields in these slab structures.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
