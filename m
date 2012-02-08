@@ -1,54 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/8] ixgbe: fix vf lookup
-Date: Wed,  8 Feb 2012 01:36:33 -0800
-Message-ID: <1328693798-27323-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 7/8] ixgbe: dcb: up2tc mapping lost on disable/enable CEE DCB state
+Date: Wed,  8 Feb 2012 01:36:37 -0800
+Message-ID: <1328693798-27323-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:19848 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074Ab2BHJgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 04:36:46 -0500
+	id S1753869Ab2BHJgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 04:36:48 -0500
 In-Reply-To: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Recent addition of code to find already allocated VFs failed to take
-account that systems with 2 or more multi-port SR-IOV capable controllers
-might have already enabled VFs.  Make sure that the VFs the function is
-finding are actually subordinate to the particular instance of the adapter
-that is looking for them and not subordinate to some device that has
-previously enabled SR-IOV.
+Users expect the up2tc mapping to be maintained across a DCB
+enable/disable/enable transition. And since we maintain all
+the other DCB attributes we should do this for up2tc mappings
+as well just to be consistent. Also without this we break
+user space applications that expect this to occur that
+previously worked.
 
-This bug exists in 3.2 stable as well as 3.3 release candidates.
-
-CC: stable@vger.kernel.org
-Reported-by: David Ahern <daahern@cisco.com>
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 8d8cdbc..b982710 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -67,7 +67,8 @@ static int ixgbe_find_enabled_vfs(struct ixgbe_adapter *adapter)
- 	vf_devfn = pdev->devfn + 0x80;
- 	pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
- 	while (pvfdev) {
--		if (pvfdev->devfn == vf_devfn)
-+		if (pvfdev->devfn == vf_devfn &&
-+				(pvfdev->bus->number >= pdev->bus->number))
- 			vfs_found++;
- 		vf_devfn += 2;
- 		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 005e5f2..79a92fe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -112,6 +112,8 @@ static u8 ixgbe_dcbnl_get_state(struct net_device *netdev)
+ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ {
+ 	u8 err = 0;
++	u8 prio_tc[MAX_USER_PRIORITY] = {0};
++	int i;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
+ 	/* Fail command if not in CEE mode */
+@@ -122,10 +124,15 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+ 		return err;
+ 
+-	if (state > 0)
++	if (state > 0) {
+ 		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
+-	else
++		ixgbe_dcb_unpack_map(&adapter->dcb_cfg, DCB_TX_CONFIG, prio_tc);
++	} else {
+ 		err = ixgbe_setup_tc(netdev, 0);
++	}
++
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
+ 
+ 	return err;
+ }
 -- 
 1.7.7.6
