@@ -1,94 +1,64 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 1/3 net-next] bnx2: Add support for ethtool
- --show-channels|--set-channels
-Date: Tue, 7 Feb 2012 17:19:33 -0800
-Message-ID: <20120207171933.00001f12@unknown>
-References: <1328491480-13030-1-git-send-email-mchan@broadcom.com>
-	<1328645954.3549.17.camel@bwh-desktop>
-	<1328648307.8014.35.camel@nseg_linux_HP1.broadcom.com>
-	<1328652088.3549.30.camel@bwh-desktop>
-	<1328654187.3549.40.camel@bwh-desktop>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: network regression: cannot rename netdev twice
+Date: Wed, 8 Feb 2012 00:00:38 -0200
+Message-ID: <20120208020038.GE13296@khazad-dum.debian.net>
+References: <4F27120A.4040106@suse.cz>
+ <CAPXgP12Sr2KzGJ9RA13QBOCkctb-z3O4+1uHOjANgMDDv2pxaQ@mail.gmail.com>
+ <4F27C54F.1010107@suse.cz>
+ <CAPXgP11=U_Y3LvJB2LRnXQ53y1WQQTqc0j1c7iva6ZXvF97wEw@mail.gmail.com>
+ <20120204021457.GA25386@khazad-dum.debian.net>
+ <CAPXgP12yZ74679JNwRB-pDfnjOBaxMzL2=krSDK31jM1mjXfuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:6219 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756522Ab2BHBTl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Feb 2012 20:19:41 -0500
-In-Reply-To: <1328654187.3549.40.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Slaby <jslaby@suse.cz>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPXgP12yZ74679JNwRB-pDfnjOBaxMzL2=krSDK31jM1mjXfuA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Feb 2012 22:36:27 +0000
-Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > > > If I read this correctly, IRQs may be shared between RX and TX queues
-> > > > i.e. there may be 'combined channels'.
-> > > 
-> > > It is true that an IRQ can have a TX and a RX queue, but they don't both
-> > > have to be enabled.  Because of that, it is easier to treat them as
-> > > independent queues.  They are independent in all aspects except the IRQ.
-> > 
-> > Given that these numbers can be set independently, I can see that
-> > treating TX and RX queues as having separate sets of channels might make
-> > the set_channels operation easier to understand.
-> > 
-> > The kernel-doc actually committed for struct ethtool_channels is not at
-> > all clear on what is meant by a 'channel', but it was certainly my
-> > intent that a channel should correspond to one IRQ and the total number
-> > of IRQs used by a device would be equal to the sum of
-> > {rx,tx,other,combined}_count.  Which is certainly not the case for the
-> > implementation in bnx2.
-> 
-> It doesn't seem to be true for the original implementation in qlcnic
-> either.  That has 1 IRQ shared between RX and TX, with additional IRQs
-> for RX only, but it reports them as all separate.  (It also seems to
-> report the number of TX channels to be what the firmware reports as the
-> maximum, despite the fact the driver only uses 1.)
-> 
-> There really should be some way to report, and potentially change,
-> whether IRQs are shared between RX and TX queues.  I wonder if it isn't
-> too late to rename and redefine the max_combined and combined_count
-> fields...
+On Mon, 06 Feb 2012, Kay Sievers wrote:
+> On Sat, Feb 4, 2012 at 03:14, Henrique de Moraes Holschuh
+> <hmh@hmh.eng.br> wrote:
+> > Is it possible to configure the kernel to use something other than =
+"eth#" as
+> > its initial namespace for netif names? =A0Or is there some other wa=
+y to get
+> > eth1 to be what you need eth1 to be during userland boot?
+>=20
+> I don't think there is a sane way to do that. Someone could add a
+> kernel command line parameter to switch ethX in the kernel to
+> something else, and create custom udev rules which match on device
+> properties and apply configured names which are ethX again. But for
+> all that, there will be no generally available support in common base
+> system tools, and we absolutely do not recommend anybody doing that.
 
-I'm not very fond of the current ethtool implementation either.  Just
-today I was implementing the -l/-L options for ixgbe, and since ixgbe
-hardware can support 1-all queues on a single interrupt vector, it is
-very difficult to express any kind of useful control over anything but
-the most basic cases.  The driver defaults today to queue tx/rx pairs
-per interrupt, with one interrupt per CPU.  This default is easy to
-express, but if I want to have 1 tx queue per cpu thread, and 1 rx
-queue per socket, what do we do then? 
+What sort of impact analysis on userspace was done about this change?
 
-While we're at it, can we at least mention in the -h (and man page) that
-this is about queues (and or interrupts)?  The "channels" reference
-ends up being obtuse and difficult for no reason that I can discern.
+Nobody in his right mind would go back to the dark ages of uncontrolled
+ifnames.  You're effectively forcing everybody with a clue away from th=
+e
+eth# namespace.
 
-In my initial interpretation of the data structure I was showing:
-Channel parameters for p6p1:
-Pre-set maximums:
-RX:             64
-TX:             64
-Other:          0
-Combined:       64
-Current hardware settings:
-RX:             8
-TX:             8
-Other:          0
-Combined:       8
+Just to be very clear: the impact of this is the need to change the
+interface names on potentially millions of lines of firewall rules and
+scripts out there, as well as tracking down stuff (mostly scripts) that
+special-cases the eth prefix.
 
-p6p1 /proc/interrupts
-p6p1-TxRx-0
-p6p1-TxRx-1
-p6p1-TxRx-2
-p6p1-TxRx-3
-p6p1-TxRx-4
-p6p1-TxRx-5
-p6p1-TxRx-6
-p6p1-TxRx-7
-p6p1
+Is there a really good reason why we cannot have a way to move the
+kernel away from the eth# namespace at boot (through a kernel parameter=
+,
+maybe with the default namespace set at compile time), AND keep the
+"common base system tools" support to assign ifname based on MAC
+addresses that we have right now?
 
-8 rx queues, 8 tx queues and they were all combined.
+--=20
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
