@@ -1,49 +1,82 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [PATCH 37/50] usbnet: set addr_assign_type if random_ether_addr() used
-Date: Wed, 8 Feb 2012 22:41:33 +0100
-Message-ID: <201202082241.35654.danny.kukawka@bisect.de>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <1328735457-29986-38-git-send-email-danny.kukawka@bisect.de> <201202082230.19936.oliver@neukum.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] rtlwifi: rtl8192se firmware load can overflow target
+ buffer
+Date: Wed, 8 Feb 2012 21:45:14 +0000
+Message-ID: <1328737514.2627.14.camel@bwh-desktop>
+References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
+Cc: <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201202082230.19936.oliver@neukum.org>
-Content-Disposition: inline
+In-Reply-To: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mittwoch, 8. Februar 2012, Oliver Neukum wrote:
-> Am Mittwoch, 8. Februar 2012, 22:10:44 schrieb Danny Kukawka:
-> > Set addr_assign_type correctly to NET_ADDR_RANDOM in case
-> > a random MAC address was generated and assigned to the netdevice.
-> >
-> > Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-> > ---
-> >  drivers/net/usb/usbnet.c |    1 +
-> >  1 files changed, 1 insertions(+), 0 deletions(-)
-> >
-> > diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> > index fae0fbd..7bd07d7 100644
-> > --- a/drivers/net/usb/usbnet.c
-> > +++ b/drivers/net/usb/usbnet.c
-> > @@ -1365,6 +1365,7 @@ usbnet_probe (struct usb_interface *udev, const
-> > struct usb_device_id *prod) dev->net = net;
-> >  	strcpy (net->name, "usb%d");
-> >  	memcpy (net->dev_addr, node_id, sizeof node_id);
-> > +	net->addr_assign_type |= NET_ADDR_RANDOM;
-> >
-> >  	/* rx and tx sides can use different message sizes;
-> >  	 * bind() should set rx_urb_size in that case.
->
-> Don't you set the flag too early here? By that time we don't know
-> whether the device provides a real MAC, do we?
+On Wed, 2012-02-08 at 14:08 -0700, Tim Gardner wrote:
+> The firmware file size check does not use the
+> correct limit.
+> 
+> Cc: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+> Cc: John W. Linville <linville@tuxdriver.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
+>  drivers/net/wireless/rtlwifi/rtl8192se/fw.h |    3 ++-
+>  drivers/net/wireless/rtlwifi/rtl8192se/sw.c |    2 +-
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+> index babe85d..5c377fc 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+> @@ -30,6 +30,7 @@
+>  #define __REALTEK_FIRMWARE92S_H__
+>  
+>  #define RTL8190_MAX_FIRMWARE_CODE_SIZE		64000
+> +#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	164000
+>  #define RTL8190_CPU_START_OFFSET		0x80
+>  /* Firmware Local buffer size. 64k */
+>  #define	MAX_FIRMWARE_CODE_SIZE			0xFF00
+> @@ -217,7 +218,7 @@ struct rt_firmware {
+>  	u8 fw_emem[RTL8190_MAX_FIRMWARE_CODE_SIZE];
+>  	u32 fw_imem_len;
+>  	u32 fw_emem_len;
+> -	u8 sz_fw_tmpbuffer[164000];
+> +	u8 sz_fw_tmpbuffer[RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE];
+>  	u32 sz_fw_tmpbufferlen;
+>  	u16 cmdpacket_fragthresold;
+>  };
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+> index ca38dd9..155da0a 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+> @@ -105,7 +105,7 @@ static void rtl92se_fw_cb(const struct firmware *firmware, void *context)
+>  		rtlpriv->max_fw_size = 0;
+>  		return;
+>  	}
+> -	if (firmware->size > rtlpriv->max_fw_size) {
+> +	if (firmware->size >= RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE) {
 
-You're right. Maybe it's the wrong place. Better the drivers take care of 
-setting the correct addr_assign_type. 
+This appears to reject a firmware blob which is exactly the maximum
+size, which looks wrong.  Also doesn't this make the max_fw_size field
+redundant?
 
-Danny
+Ben.
+
+>  		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
+>  			 "Firmware is too big!\n");
+>  		release_firmware(firmware);
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
