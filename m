@@ -1,69 +1,56 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: Regulator support for smsc911x
-Date: Wed, 8 Feb 2012 09:31:41 +0100
-Message-ID: <20120208083141.GM3852@pengutronix.de>
-References: <CAOMZO5Bn4jMYjcBC87uD99qYgzXdiH6YxD5xakjftH-U6bbzMQ@mail.gmail.com>
- <CAOMZO5Be_0W6E7Vj7YDLwFUhrqt_7Q748rpj=J2Tbyh9+MP7gQ@mail.gmail.com>
- <20120203074408.GD1990@pengutronix.de>
- <20120203111133.GD3151@opensource.wolfsonmicro.com>
- <CAOMZO5B2_yq=m8Mer=iV-HsXvF-MZJ-BV2=LTg1CZN+O=yepSQ@mail.gmail.com>
- <20120207193914.GA31557@opensource.wolfsonmicro.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] skbuff: Add new tc classify variable
+Date: Wed, 8 Feb 2012 09:54:49 +0100
+Message-ID: <20120208085449.GA14772@Chamillionaire.breakpoint.cc>
+References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+ <20120207110522.70663963@nehalam.linuxnetplumber.net>
+ <20120207195729.GA26533@pandem0nium>
+ <20120207134553.220a1da5@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Fabio Estevam <festevam@gmail.com>, robert.marklund@stericsson.com,
-	netdev@vger.kernel.org, Sascha Hauer <kernel@pengutronix.de>
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:43116 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756035Ab2BHIbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 03:31:47 -0500
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:34599 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756556Ab2BHIyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 03:54:52 -0500
 Content-Disposition: inline
-In-Reply-To: <20120207193914.GA31557@opensource.wolfsonmicro.com>
+In-Reply-To: <20120207134553.220a1da5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2012 at 07:39:14PM +0000, Mark Brown wrote:
-> On Tue, Feb 07, 2012 at 05:25:48PM -0200, Fabio Estevam wrote:
-> > On Fri, Feb 3, 2012 at 9:11 AM, Mark Brown
+Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > On Tue, Feb 07, 2012 at 11:05:22AM -0800, Stephen Hemminger wrote:
+> > > On Tue,  7 Feb 2012 19:39:08 +0100
+> > > Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de> wrote:
+> > > 
+> > > I don't understand why this is better, we already have mark to do this.
+> > > Your method saves adding a tc filter to map mark to classid, but that is hardly
+> > > a huge burden.
+> > 
+> > Unfortunately, it is. We have previously built our trees by setting marks with iptables
+> > and matching the masks with tc and the u32 matcher, but we got a rather big performance
+> > impact as soon as the number of users grow. The target platform are WiFi access points.
+> > By using the proposed patch, the performance stays nearly constant at a growing number
+> > of users.
 > 
-> > > There's also options c) set up the regulators for the board and d) don't
-> > > enable the regulator API if the board doesn't use regulators.
-> 
-> > Option c would require that we change every single board.
-> 
-> Well, yes.
-> 
-> > The patch below does option d.
-> 
-> > What do you think?
-> 
-> Absolutely not.  Putting conditional code like this in drivers is nuts,
-> you would have to do the same thing in every single driver which is not
-> a useful use of anyone's time.  This is *clearly* a generic thing and
-> should therefore be handled in generic code for the same reason we don't
-> have driver specific platform data for actual usage of the API.
-> 
-> Really, anyone who wants this sort of thing should just enable dummy
-> regulators - it's exactly what you're implementing.  I'm pretty sure
-> your board does actually have power supplies for the chip, you've just
-> not told software about them.
+> The problem then is not the use of marks but having to add a filter rule for
+> each mark. We need something like u32 hash but for marks to build a table
+> of mark -> class id.  The current method uses a linear list of filter rules,
+> which is an obvious bottleneck with lots of classes.
 
-Yes, my board also has a supply for the smc911x, it's the same as used
-for the CPU...
+Maybe.  But marks might already be used e.g. for policy routing or for
+additional metadata (such as encoding higher level data).
 
-There is also option e), something I've been thinking about for a while.
-Implement a list of resources which can be attached to a device. By
-resources I mean regulators, clocks and pinmux for example. A device
-would then just call a make_me_work(state) function which iterates over
-this list and enables/disables all resources as necessary. This way we
-could attach everything we need to a device without cluttering the
-driver code like we do today.
+And even if you do your 'mark identifies the traffic class' very late in
+your iptables ruleset -- as soon as you've got tunnels configured,
+the encapsulated packets end up travellign through the ruleset again
+with a "classid mark" set -- which might interfere with the ruleset.
 
-Sascha
+IOW, using -j CLASSIFY does have advantages regardless of the "tc mark filter"
+performance issue Simon has.
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+There is also the SO_PRIORITY setsockopt which userspace might be using to pick a
+particular traffic class...
