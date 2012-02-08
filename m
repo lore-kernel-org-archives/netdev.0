@@ -1,122 +1,82 @@
 From: greearb@candelatech.com
-Subject: [PATCH v2 02/10] e100: Support RXFCS feature flag.
-Date: Wed,  8 Feb 2012 11:54:37 -0800
-Message-ID: <1328730885-10941-3-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2 01/10] net: Support RXFCS feature flag.
+Date: Wed,  8 Feb 2012 11:54:36 -0800
+Message-ID: <1328730885-10941-2-git-send-email-greearb@candelatech.com>
 References: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55702 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55707 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757247Ab2BHTzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:10 -0500
+	with ESMTP id S1757247Ab2BHTz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:55:26 -0500
 In-Reply-To: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows e100 to be configured to append the
-Ethernet FCS to the skb.
+When set on hardware that supports the feature,
+this causes the Ethernet FCS to be appended
+to the end of the skb.
 
-Useful for sniffing networks.
+Useful for sniffing packets.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 485ab8c... 943178b... M	drivers/net/ethernet/intel/e100.c
- drivers/net/ethernet/intel/e100.c |   30 +++++++++++++++++++++++++++---
- 1 files changed, 27 insertions(+), 3 deletions(-)
+:100644 100644 4b1c0dc... 7d27812... M	Documentation/networking/netdev-features.txt
+:100644 100644 77f5202... d133186... M	include/linux/netdev_features.h
+:100644 100644 3f79db1... 0801619... M	net/core/ethtool.c
+ Documentation/networking/netdev-features.txt |    6 ++++++
+ include/linux/netdev_features.h              |    2 ++
+ net/core/ethtool.c                           |    1 +
+ 3 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 485ab8c..943178b 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	struct config *config = &cb->u.config;
- 	u8 *c = (u8 *)config;
-+	struct net_device *netdev = nic->netdev;
- 
- 	cb->command = cpu_to_le16(cb_config);
- 
-@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
- 	}
- 
-+	if (unlikely(netdev->features & NETIF_F_RXFCS))
-+		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index 4b1c0dc..7d27812 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -152,3 +152,9 @@ NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope with VLAN
+ headers. Some drivers set this because the cards can't handle the bigger MTU.
+ [FIXME: Those cases could be fixed in VLAN code by allowing only reduced-MTU
+ VLANs. This may be not useful, though.]
 +
- 	if (nic->flags & multicast_all)
- 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
- 
-@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	struct sk_buff *skb = rx->skb;
- 	struct rfd *rfd = (struct rfd *)skb->data;
- 	u16 rfd_status, actual_size;
-+	u16 fcs_pad = 0;
- 
- 	if (unlikely(work_done && *work_done >= work_to_do))
- 		return -EAGAIN;
-@@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	}
- 
- 	/* Get actual data size */
-+	if (unlikely(dev->features & NETIF_F_RXFCS))
-+		fcs_pad = 4;
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
--	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
--		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
-+	if (unlikely(actual_size > RFD_BUF_LEN + fcs_pad - sizeof(struct rfd)))
-+		actual_size = RFD_BUF_LEN + fcs_pad - sizeof(struct rfd);
- 
- 	/* Get data */
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
-@@ -1980,7 +1987,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	if (unlikely(!(rfd_status & cb_ok))) {
- 		/* Don't indicate if hardware indicates errors */
- 		dev_kfree_skb_any(skb);
--	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
-+	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
- 		/* Don't indicate oversized frames */
- 		nic->rx_over_length_errors++;
- 		dev_kfree_skb_any(skb);
-@@ -2729,6 +2736,20 @@ static int e100_close(struct net_device *netdev)
- 	return 0;
- }
- 
-+static int e100_set_features(struct net_device *netdev,
-+			     netdev_features_t features)
-+{
-+	struct nic *nic = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
++*  rx-fcs
 +
-+	if (!(changed & (NETIF_F_RXFCS)))
-+		return 0;
-+
-+	netdev->features = features;
-+	e100_exec_cb(nic, NULL, e100_configure);
-+	return 0;
-+}
-+
- static const struct net_device_ops e100_netdev_ops = {
- 	.ndo_open		= e100_open,
- 	.ndo_stop		= e100_close,
-@@ -2742,6 +2763,7 @@ static const struct net_device_ops e100_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= e100_netpoll,
- #endif
-+	.ndo_set_features	= e100_set_features,
++This requests that the NIC append the Ethernet Frame Checksum (FCS)
++to the end of the skb data.  This allows sniffers and other tools to
++read the CRC recorded by the NIC on receipt of the packet.
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 77f5202..d133186 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -54,6 +54,7 @@ enum {
+ 	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
++	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -98,6 +99,7 @@ enum {
+ #define NETIF_F_TSO		__NETIF_F(TSO)
+ #define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
++#define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 3f79db1..0801619 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -73,6 +73,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXCSUM_BIT] =           "rx-checksum",
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
++	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
  };
  
- static int __devinit e100_probe(struct pci_dev *pdev,
-@@ -2754,6 +2776,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
- 		return -ENOMEM;
- 
-+	netdev->hw_features |= NETIF_F_RXFCS;
-+
- 	netdev->netdev_ops = &e100_netdev_ops;
- 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
 -- 
 1.7.3.4
