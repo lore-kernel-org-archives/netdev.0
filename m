@@ -1,29 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7 2/2] ipv6: Implement IPV6_UNICAST_IF socket option.
-Date: Wed, 08 Feb 2012 20:29:57 +0100
-Message-ID: <1328729397.2631.10.camel@edumazet-laptop>
-References: <1328728268-22220-2-git-send-email-ehoover@mines.edu>
+From: Guenter Roeck <guenter.roeck@ericsson.com>
+Subject: Re: drivers/net/phy/phy.c issue
+Date: Wed, 8 Feb 2012 11:30:20 -0800
+Message-ID: <1328729420.2261.329.camel@groeck-laptop>
+References: <CACW_hTY41xZV6d0W2Z2kRfKOfa+RSQ-A-BoZsZwNXSQmeF_6Gg@mail.gmail.com>
+Reply-To: guenter.roeck@ericsson.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: "Erich E. Hoover" <ehoover@mines.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:42915 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063Ab2BHTaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 14:30:01 -0500
-Received: by werb13 with SMTP id b13so653822wer.19
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2012 11:30:00 -0800 (PST)
-In-Reply-To: <1328728268-22220-2-git-send-email-ehoover@mines.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "afleming@freescale.com" <afleming@freescale.com>,
+	"macro@linux-mips.org" <macro@linux-mips.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Frans Meulenbroeks <fransmeulenbroeks@gmail.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACW_hTY41xZV6d0W2Z2kRfKOfa+RSQ-A-BoZsZwNXSQmeF_6Gg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 08 f=C3=A9vrier 2012 =C3=A0 12:11 -0700, Erich E. Hoover a =
-=C3=A9crit :
-> The IPV6_UNICAST_IF feature is the IPv6 compliment to IP_UNICAST_IF.
->=20
-> Signed-off-by: Erich E. Hoover <ehoover@mines.edu>
-> ---
+Copying netdev.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On Wed, 2012-02-08 at 09:31 -0500, Frans Meulenbroeks wrote:
+> Hi
+> 
+> I found an issue with drivers/net/phy/phy.c
+> As I could not identify a maintainer for this file I decided to mail
+> it to the above addressees.
+> Apologies upfront if it is inappropriate.
+> 
+> The issue:
+> 
+> My network interface was configured as 10Mbit, full duplex, autonegotiate off.
+> If the cable is unplugged after 10 seconds or so the interface drops
+> to half duplex and the message:
+> Trying 10/HALF
+> is printed. This message comes (if I am correct from the function
+> phy_force_reduction in drivers/net/phy/phy.c
+> 
+> Maybe this is still ok, however if I reconnect my network cable the
+> interface remains configured as 10 Mbit, half duplex.
+> I had expected/assumed that it would go back to 10 Mbit, full duplex.
+> 
+> If I try the same with a 1Gbit full duplex link with autonegotiate on,
+> the link also drops to half duplex whenever the cable is
+> disconnected. However reconnecting the cable then brings the interface
+> back to full duplex again.
+> 
+> Not sure what is wrong (if the interface should not be dropped to half
+> or get back to full) and even less an idea how to fix it,
+> but wanted to report it anyway, in the hope someone can shed a light
+> on this and/or fix it.
+> 
+What is your kernel version ? No idea if it makes a difference, but I
+strongly suspect people will need to know.
+
+Guenter
+
+> Best regards, Frans.
+> 
+> PS: I'm not on lkml (way too much mails for me), so please keep me on Cc
