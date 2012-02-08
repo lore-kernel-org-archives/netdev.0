@@ -1,59 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Wed,  8 Feb 2012 01:36:30 -0800
-Message-ID: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 2/8] igb: fix vf lookup
+Date: Wed,  8 Feb 2012 01:36:32 -0800
+Message-ID: <1328693798-27323-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:45540 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074Ab2BHJgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 04:36:43 -0500
+	id S1751362Ab2BHJgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Feb 2012 04:36:45 -0500
+In-Reply-To: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains fixes to e1000, igb and ixgbe.
-The e1000 fix comes from Red Hat, where a previous commit removed
-code which broke WoL and this patch rectifies that. The igb patch
-fixes an issue with VF lookup.  The remaining patches in the series
-are against ixgbe and fix the following:
- - VF lookup and Tx hang with 32 VFs
- - broken dependency on MAX_SKB_FRAGS
- - ethtool buffer overrun in stats
- - DCB fix for up2tc mapping being lost on disable/enable
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The following are changes since commit a1728800bed3b93b231d99e97c756f622b9991c2:
-  net: enable TC35815 for MIPS again
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+Recent addition of code to find already allocated VFs failed to take
+account that systems with 2 or more multi-port SR-IOV capable controllers
+might have already enabled VFs.  Make sure that the VFs the function is
+finding are actually subordinate to the particular instance of the adapter
+that is looking for them and not subordinate to some device that has
+previously enabled SR-IOV.
 
-Alexander Duyck (1):
-  ixgbe: Fix broken dependency on MAX_SKB_FRAGS being related to page
-    size
+This is applicable to 3.2+ kernels.
 
-Dean Nelson (1):
-  e1000: add dropped DMA receive enable back in for WoL
+CC: stable@vger.kernel.org
+Reported-by: David Ahern <daahern@cisco.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Greg Rose (3):
-  igb: fix vf lookup
-  ixgbe: fix vf lookup
-  ixgbe: Fix case of Tx Hang in PF with 32 VFs
-
-John Fastabend (2):
-  ixgbe: dcb: up2tc mapping lost on disable/enable CEE DCB state
-  ixgbe: ethtool: stats user buffer overrun
-
-Yi Zou (1):
-  ixgbe: do not update real num queues when netdev is going away
-
- drivers/net/ethernet/intel/e1000/e1000_main.c    |   10 ++-
- drivers/net/ethernet/intel/igb/igb_main.c        |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |   11 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   88 +++++++++++++---------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   18 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |    3 +-
- 6 files changed, 81 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index e91d73c..94be6c3 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5012,7 +5012,8 @@ static int igb_find_enabled_vfs(struct igb_adapter *adapter)
+ 	vf_devfn = pdev->devfn + 0x80;
+ 	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
+ 	while (pvfdev) {
+-		if (pvfdev->devfn == vf_devfn)
++		if (pvfdev->devfn == vf_devfn &&
++		    (pvfdev->bus->number >= pdev->bus->number))
+ 			vfs_found++;
+ 		vf_devfn += vf_stride;
+ 		pvfdev = pci_get_device(hw->vendor_id,
 -- 
 1.7.7.6
