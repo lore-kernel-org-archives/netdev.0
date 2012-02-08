@@ -1,61 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] skbuff: Add new tc classify variable
-Date: Wed, 08 Feb 2012 09:48:41 -0500
-Message-ID: <1328712521.2983.1.camel@mojatatu>
-References: <1328639948-25232-1-git-send-email-siwu@hrz.tu-chemnitz.de>
-	 <20120207.135841.1753473725075272902.davem@davemloft.net>
-	 <20120207201633.GB26533@pandem0nium>
-	 <1328692916.2284.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: jhs@mojatatu.com
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Wed, 8 Feb 2012 09:14:32 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1202080907320.30248@router.home>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Sven Eckelmann <sven@narfation.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-wireless@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1328692916.2284.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+  Peter Zijlstra <a.p.zijlstra@chello.nl>,
+  Pekka Enberg <penberg@cs.helsinki.fi>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120208144506.GI5938@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-skb->cb is the right scratch pad to use.
-The problem appears to be the wireless stack abusing some of these
-fields (prio for one). And we do have marks in place already which
-are 32 bit and global.
+On Wed, 8 Feb 2012, Mel Gorman wrote:
 
-=20
-cheers,
-jamal
+> o struct kmem_cache_cpu could be left alone even though it's a small saving
 
-On Wed, 2012-02-08 at 10:21 +0100, Eric Dumazet wrote:
-> Le mardi 07 f=C3=A9vrier 2012 =C3=A0 21:16 +0100, Simon Wunderlich a =
-=C3=A9crit :
+Its multiplied by the number of caches and by the number of
+processors.
 
->=20
-> I really dont understand what the conflict might be.
->=20
-> As long as skb is in Qdisc layer, Qdisc owns skb->cb[] (a part of it
-> actually, see current discussions about IB on netdev)
->=20
-> As soon as packet is given to device (mac80211), cb[] can be reused.
->=20
-> Or are you saying tc_class also might be needed by mac80211 in the
-> future ?
->=20
->=20
->=20
+> o struct slab also be left alone
+> o struct array_cache could be left alone although I would point out that
+>   it would make no difference in size as touched is changed to a bool to
+>   fit pfmemalloc in
 
+Both of these are performance critical structures in slab.
+
+> o It would still be necessary to do the object pointer tricks in slab.c
+
+These trick are not done for slub. It seems that they are not necessary?
+
+> remain. However, the downside of requiring a page flag is very high. In
+> the event we increase the number of page flags - great, I'll use one but
+> right now I do not think the use of page flag is justified.
+
+On 64 bit I think there is not much of an issue with another page flag.
+
+Also consider that the slab allocators do not make full use of the other
+page flags. We could overload one of the existing flags. I removed
+slubs use of them last year. PG_active could be overloaded I think.
 
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
