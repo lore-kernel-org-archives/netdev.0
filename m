@@ -1,74 +1,104 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH] rtnetlink: Add filter for VF info dump requests
-Date: Thu, 9 Feb 2012 19:13:56 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F875F0@ORSMSX106.amr.corp.intel.com>
-References: <C5551D9AAB213A418B7FD5E4A6F30A0702F874CA@ORSMSX106.amr.corp.intel.com>
-	<20120209.134940.176223015646381142.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F87530@ORSMSX106.amr.corp.intel.com>
-	<20120209.140137.825194006300440230.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F8759A@ORSMSX106.amr.corp.intel.com>
- <20120209111158.71a6ab4a@nehalam.linuxnetplumber.net>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RFC for sysfs management of TIPC
+Date: Thu, 9 Feb 2012 14:14:12 -0500
+Message-ID: <0434463FDA60A94FA978ACA44617682DF7A43C76D1@EUSAACMS0702.eamcs.ericsson.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:6641 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753740Ab2BITOD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 14:14:03 -0500
-In-Reply-To: <20120209111158.71a6ab4a@nehalam.linuxnetplumber.net>
+Content-Transfer-Encoding: 7bit
+Cc: "Xue, Ying \(Ying.Xue@windriver.com\)" <Ying.Xue@windriver.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>, "Stephens, Allan
+	\(allan.stephens@windriver.com\)" <allan.stephens@windriver.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Thursday, February 09, 2012 11:12 AM
-> To: Rose, Gregory V
-> Cc: David Miller; netdev@vger.kernel.org
-> Subject: Re: [RFC PATCH] rtnetlink: Add filter for VF info dump requests
-> 
-> On Thu, 9 Feb 2012 19:06:02 +0000
-> "Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
-> 
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org]
-> > > On Behalf Of David Miller
-> > > Sent: Thursday, February 09, 2012 11:02 AM
-> > > To: Rose, Gregory V
-> > > Cc: netdev@vger.kernel.org
-> > > Subject: Re: [RFC PATCH] rtnetlink: Add filter for VF info dump
-> requests
-> > >
-> > > From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-> > > Date: Thu, 9 Feb 2012 18:57:26 +0000
-> > >
-> > > > I'm sure the consternation on my part is that I had thought you
-> > > > wanted the feature bits to default to none.  You said this at one
-> > > > point:
-> > >
-> > > In "the kernel", so that things like GLIBC, that don't ask for the
-> > > features, no longer break with lots of VFs.
-> > >
-> > > "iproute2" in userland can set all the feature bits, and have code
-> > > added to accomodate large dump requests in the future, so you're going
-> > > to have to make changes to iproute2 for this.
-> >
-> > OK, that's a bit more clear to me then.  And that's the only reason I
-> mentioned that the semantics to 'ip link show' would change.  But now I
-> see what you mean by the rubbish comment.  By default ip link show will
-> set all the feature bits and I'll add option code to iproute2 to allow the
-> user to turn it off.
-> >
-> > Does that make sense?
-> 
-> Please don't introduce more flags, either use the existing detail flag or
-> just get everything.
+TIPC currently provides a netlink interface towards a user space 
+program (tipc-config), which is used to turn the different knobs
+and levers of TIPC. 
+This program is provided by some distributions package systems,
+and is also downloadable from SourceForge.
 
-Alright.
+Now, we are considering the option of making the configuration 
+available as a structured tree in sysfs.
+Before we invest any more time in this, we'd like to get feedback on 
+whether people think this is a worthwhile change to undertake.
 
-- Greg
+What follows below is an initial draft of what we think the user 
+interface would look like.  If you have any feedback on whether you 
+think this feature is a good idea, or if you think it isn't worth pursuing 
+any further, we would appreciate your input.
+
+/* 
+  * The top level sysfs directory /tipc holds all global configuration.
+  * The address file shall accept a string representation of a TIPC
+  * address. The 'ports' and 'nametable' are read-only files that can
+  * dump a list of active TIPC ports and published names.
+  * The rest are integer attributes.
+  */
+/sys/.../tipc/
+address maxports maxpub maxsubscr netid ports nametable
+
+
+/* 
+  * Each registered media type will have a directory under /media .
+  * It should be possible to set default (integer) 
+  * priority/windowsize/tolerance that will apply for all bearers 
+  *enabled on a given media type 
+  */
+/sys/.../tipc/media/
+priority tolerance windowsize
+
+
+/* 
+  * The /bearer directory have two persistent files to enable/disable
+  * bearers.
+  * By writing the bearer string to the add/delete file it will
+  * subsequently be enabled or disabled. The bearer string is in the
+  * format <media>:<interface name>
+  */
+/sys/.../tipc/bearer/
+add delete
+
+/* 
+  * Each enabled bearer are represented by a directory under /bearer.
+  * It should be possible to set the default (integer)
+  * priority/windowsize/tolerance that will apply for all links enabled
+  * over a given bearer.
+  */
+/sys/.../tipc/bearer/eth:eth1/
+priority tolerance windowsize
+
+
+/* 
+  *All established links are listed as a separate directory under /link 
+  */ 
+/sys/.../tipc/link/
+
+/* 
+  * Each link have a set of attribute files, each containing 1 unique
+  * integer value.
+  * The statistics file holds per-link statistics that can be reset
+  * with the 'reset' command
+  */
+/sys/.../tipc/link/1.1.1:eth1-1.1.2:eth1/
+priority tolerance windowsize statistics
+
+Regards
+Jon Maloy
+Erik Hugne
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
