@@ -1,50 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/7] e1000e: remove test that is always false
-Date: Thu,  9 Feb 2012 02:27:56 -0800
-Message-ID: <1328783282-17760-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Thu,  9 Feb 2012 02:27:55 -0800
+Message-ID: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:60039 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757619Ab2BIK2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 05:28:10 -0500
-In-Reply-To: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1757851Ab2BIK2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 05:28:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+The following series contains updates to igb and e1000e.
+Majority of the updates are to e1000e and do the following:
+ - several cleanups which remove unnecessary () and returns from void
+   functions
+ - remove test that is always false
+ - use 'true' instead of '1' for boolean
+The one igb fix resolves warning about unused function.
 
-warning: comparison of unsigned expression < 0 is always false
+The following are changes since commit a584b7ae4ef01425f6827657abdc3e4db49b3578:
+  netxen_nic: signedness bug in netxen_md_entry_err_chk()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Remove an unnecessary test that is reported when compiling driver with W=1.
-The test is unnecessary because Intel wired GbE hardware older (i.e. less)
-than 82571 is not supported by this driver.
+Bruce Allan (6):
+  e1000e: remove test that is always false
+  e1000e: remove unnecessary returns from void functions
+  e1000e: remove unnecessary parentheses
+  e1000e: use true/false for bool autoneg_false
+  e1000e: pass pointer to hw struct for e1000_init_mac_params_XXX()
+  e1000e: replace '1' with 'true' for boolean get_link_status
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/mac.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Emil Tantilov (1):
+  igb: fix warning about unused function
 
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index e1cf107..33d1b9e 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -174,8 +174,8 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
- 
--	/* not supported on older hardware or 82573 */
--	if ((hw->mac.type < e1000_82571) || (hw->mac.type == e1000_82573))
-+	/* not supported on 82573 */
-+	if (hw->mac.type == e1000_82573)
- 		goto out;
- 
- 	ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    7 ++---
+ drivers/net/ethernet/intel/e1000e/82571.c       |    9 +++---
+ drivers/net/ethernet/intel/e1000e/ethtool.c     |    4 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |    8 +----
+ drivers/net/ethernet/intel/e1000e/mac.c         |   32 ++++++++++-------------
+ drivers/net/ethernet/intel/e1000e/manage.c      |    2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   13 +++-----
+ drivers/net/ethernet/intel/e1000e/phy.c         |   12 ++++----
+ drivers/net/ethernet/intel/igb/igb_main.c       |    4 +++
+ 9 files changed, 41 insertions(+), 50 deletions(-)
+
 -- 
 1.7.7.6
