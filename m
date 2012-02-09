@@ -1,143 +1,74 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/1] netfilter: nf_queue: fix queueing of bridged gro skbs
-Date: Thu, 9 Feb 2012 17:37:01 +0100
-Message-ID: <20120209163701.GB14772@Chamillionaire.breakpoint.cc>
-References: <1328530990-6782-1-git-send-email-fw@strlen.de>
- <20120209154421.GA5865@1984>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: rtl8192se firmware load can overflow target
+ buffer
+Date: Thu, 09 Feb 2012 10:43:52 -0600
+Message-ID: <4F33F7C8.2090105@lwfinger.net>
+References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com> <1328737514.2627.14.camel@bwh-desktop> <4F332FC3.7000808@lwfinger.net> <4F33DAFC.1000502@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120209154421.GA5865@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tim Gardner <rtg.canonical@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tim.gardner@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F33DAFC.1000502@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+On 02/09/2012 08:41 AM, Tim Gardner wrote:
+>
+> I agree with you about the semantics of rtlpriv->max_fw_size, but I don't agree
+> that the size check is correct. While rtlpriv->max_fw_size has been set to
+> sizeof(struct rt_firmware), that value is _way_ bigger then the size of the
+> target buffer.
+>
+> sizeof(struct rt_firmware) == 64000+64000+164000 plus some change
+>
+> The target buffer size is only 164000 bytes.
+>
+> I've attached v2 of the patch that is simpler and may serve to better illustrate
+> my point. By the way, Ben Hutchings was right about the original patch having an
+> off by one error. This version also clears rtlpriv->max_fw_size if the size
+> check fails. Probably should have mentioned that in the commit log.
 
-[ CC'd Herbert ]
+I agree that Ben is right.
 
-> On Mon, Feb 06, 2012 at 01:23:10PM +0100, Florian Westphal wrote:
-> > When trying to nf_queue GRO/GSO skbs, nf_queue uses skb_gso_segment
-> > to split the skb.
-> > 
-> > However, if nf_queue is called via bridge netfilter, the mac header
-> > won't be preserved -- packets will thus contain a bogus mac header.
-> > 
-> > Fix this by setting skb->data to the mac header when skb->nf_bridge
-> > is set and restoring skb->data afterwards for all segments.
-> 
-> Better fix skb_gso_segment to handle this case?
+This thread forced me to go back to square one in analyzing the situation. For 
+the other drivers in the rtlwifi family, the firmware file contains an image 
+that is directly stuffed into the device. For the RTL8192SE devices, it is more 
+complicated. The structure is described in struct rt_firmware. At the moment, 
+the arrays there are grossly oversized. They could be as follows:
 
-I don't see how -- is skb_gso_segment broken?
+struct rt_firmware {
+         struct fw_hdr *pfwheader;
+         enum fw_status fwstatus;
+         u16 firmwareversion;
+         u8 fw_imem[RTL8190_MAX_IMEM_CODE_SIZE];
+         u8 fw_emem[RTL8190_MAX_DMEM_CODE_SIZE];
+         u32 fw_imem_len;
+         u32 fw_emem_len;
+         u8 sz_fw_tmpbuffer[RTL8190_MAX_FIRMWARE_SIZE];
+         u32 sz_fw_tmpbufferlen;
+         u16 cmdpacket_fragthresold;
+};
 
-It treats skb->data as the starting point of the
-segmentation, so I think its the callers job to make skb->data
-point at the right place (network header, mac header, ...)
+with
 
-How would skb_gso_segment know where it should start?
-Changing skb_gso_segment to use skb_mac_header() as starting
-point doesn't really help: What if you don't want to copy the mac header/no
-mac header exists (yet)?
+RTL8190_MAX_IMEM_CODE_SIZE = 54000 (current fw is 51,208), 
+RTL8190_MAX_DMEM_CODE_SIZE = 40000 (current fw is 37,520), and 
+RTL8190_MAX_FIRMWARE_SIZE = 90000 (it holds the raw firmware image, which is 
+currently 88,856).
 
-Also, br_netfilter skb_pull()s the MAC header (and also the vlan header if
-brnf_filter_vlan_tagged sysctl is on), so skb->len has been reduced.
+Ultimately, all three arrays should be eliminated. Now that we are using 
+asynchronous loading, the kernel should keep its cached data and not copy it 
+into the driver's private storage when a pointer will suffice. All the drivers 
+need this change, but that can wait for now.
 
-Herbert, dou you have any opionion on this?
+I will ACK the patch if you resumit it with
+#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	90000
 
-The only other alternative that I see is to declare
-'GRO + bridge + NF_QUEUE as unsupported' and just tell people to
-turn GRO off (ie., add a printk_once warning in nf_queue).
-
-For reference, the discussed patch is below:
-
-index b3a7db6..ce60cf0 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -203,6 +203,27 @@ err:
- 	return status;
- }
- 
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+/* When called from bridge netfilter, skb->data must point to MAC header
-+ * before calling skb_gso_segment(). Else, original MAC header is lost
-+ * and segmented skbs will be sent to wrong destination.
-+ */
-+static void nf_bridge_adjust_skb_data(struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge)
-+		__skb_push(skb, skb->network_header - skb->mac_header);
-+}
-+
-+static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge)
-+		__skb_pull(skb, skb->network_header - skb->mac_header);
-+}
-+#else
-+#define nf_bridge_adjust_skb_data(s) do {} while (0)
-+#define nf_bridge_adjust_segmented_data(s) do {} while (0)
-+#endif
-+
- int nf_queue(struct sk_buff *skb,
- 	     struct list_head *elem,
- 	     u_int8_t pf, unsigned int hook,
-@@ -212,7 +233,7 @@ int nf_queue(struct sk_buff *skb,
- 	     unsigned int queuenum)
- {
- 	struct sk_buff *segs;
--	int err;
-+	int err = -EINVAL;
- 	unsigned int queued;
- 
- 	if (!skb_is_gso(skb))
-@@ -228,23 +249,25 @@ int nf_queue(struct sk_buff *skb,
- 		break;
- 	}
- 
-+	nf_bridge_adjust_skb_data(skb);
- 	segs = skb_gso_segment(skb, 0);
- 	/* Does not use PTR_ERR to limit the number of error codes that can be
- 	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to mean
- 	 * 'ignore this hook'.
- 	 */
- 	if (IS_ERR(segs))
--		return -EINVAL;
--
-+		goto out_err;
- 	queued = 0;
- 	err = 0;
- 	do {
- 		struct sk_buff *nskb = segs->next;
- 
- 		segs->next = NULL;
--		if (err == 0)
-+		if (err == 0) {
-+			nf_bridge_adjust_segmented_data(segs);
- 			err = __nf_queue(segs, elem, pf, hook, indev,
- 					   outdev, okfn, queuenum);
-+		}
- 		if (err == 0)
- 			queued++;
- 		else
-@@ -252,11 +275,12 @@ int nf_queue(struct sk_buff *skb,
- 		segs = nskb;
- 	} while (segs);
- 
--	/* also free orig skb if only some segments were queued */
--	if (unlikely(err && queued))
--		err = 0;
--	if (err == 0)
-+	if (queued) {
- 		kfree_skb(skb);
-+		return 0;
-+	}
-+  out_err:
-+	nf_bridge_adjust_segmented_data(skb);
- 	return err;
- }
- 
+Larry
