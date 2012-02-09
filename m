@@ -1,43 +1,61 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH v2 1/2] eth: reset addr_assign_type if eth_mac_addr() called
-Date: Thu,  9 Feb 2012 20:48:53 +0100
-Message-ID: <1328816934-11508-2-git-send-email-danny.kukawka@bisect.de>
-References: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Randy Dunlap <rdunlap@xenotime.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Thu, 9 Feb 2012 13:53:58 -0600 (CST)
+Message-ID: <alpine.DEB.2.00.1202091345540.4413@router.home>
+References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home>
+ <20120208163421.GL5938@suse.de> <alpine.DEB.2.00.1202081338210.32060@router.home> <20120208212323.GM5938@suse.de> <alpine.DEB.2.00.1202081557540.5970@router.home> <20120209125018.GN5938@suse.de>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+  Peter Zijlstra <a.p.zijlstra@chello.nl>,
+  Pekka Enberg <penberg@cs.helsinki.fi>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120209125018.GN5938@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-If eth_mac_addr() get called, usually if SIOCSIFHWADDR was
-used to change the MAC of a ethernet device, reset the
-addr_assign_type to NET_ADDR_PERM if the state was
-NET_ADDR_RANDOM before. Reset the state since the MAC is
-no longer random at least not from the kernel side.
+On Thu, 9 Feb 2012, Mel Gorman wrote:
 
-v2: changed to bitops, removed if()
+> Ok, I am working on a solution that does not affect any of the existing
+> slab structures. Between that and the fact we check if there are any
+> memalloc_socks after patch 12, the impact for normal systems is an additional
+> branch in ac_get_obj() and ac_put_obj()
 
-Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
----
- net/ethernet/eth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+That sounds good in particular since some other things came up again,
+sigh. Have not had time to see if an alternate approach works.
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index a246836..a93af86 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -288,6 +288,8 @@ int eth_mac_addr(struct net_device *dev, void *p)
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
- 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-+	/* if device marked as NET_ADDR_RANDOM, reset it */
-+	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
- 	return 0;
- }
- EXPORT_SYMBOL(eth_mac_addr);
--- 
-1.7.7.3
+> > We have been down this road too many times. Logic is added to critical
+> > paths and memory structures grow. This is not free. And for NBD swap
+> > support? Pretty exotic use case.
+> >
+>
+> NFS support is the real target. NBD is the logical starting point and
+> NFS needs the same support.
+
+But this is already a pretty strange use case on multiple levels. Swap is
+really detrimental to performance. Its a kind of emergency outlet that
+gets worse with every new step that increases the differential in
+performance between disk and memory. On top of that you want to add
+special code in various subsystems to also do that over the network.
+Sigh. I think we agreed a while back that we want to limit the amount of
+I/O triggered from reclaim paths? AFAICT many filesystems do not support
+writeout from reclaim anymore because of all the issues that arise at that
+level.
+
+We have numerous other mechanisms that can compress swap etc and provide
+ways to work around the problem without I/O which has always be
+troublesome and these fixes are likely only to work in a very limited
+way causing a lot of maintenance effort because (given the exotic
+nature) it is highly likely that there are cornercases that only will be
+triggered in rare cases.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
