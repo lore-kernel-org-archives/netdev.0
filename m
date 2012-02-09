@@ -1,7 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Wed, 08 Feb 2012 19:22:06 -0800
-Message-ID: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+Subject: [RFC PATCH v0 2/2] ixgbe: add NETIF_F_HW_FDB to supported flags
+Date: Wed, 08 Feb 2012 19:22:11 -0800
+Message-ID: <20120209032211.32468.90929.stgit@jf-dev1-dcblab>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,22 +10,14 @@ Cc: netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
 	davem@davemloft.net, gregory.v.rose@intel.com,
 	shemminger@vyatta.com, kvm@vger.kernel.org, sri@us.ibm.com
 To: bhutchings@solarflare.com, roprabhu@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3801 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757896Ab2BIDdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Feb 2012 22:33:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Propagate software FDB table into hardware uc, mc lists when
-the NETIF_F_HW_FDB is set.
-
-This resolves the case below where an embedded switch is used
-in hardware to do inter-VF or VF-PF switching. This patch
-pushes the FDB entry (specifically the MAC address) into the
-embedded switch with dev_add_uc and dev_add_mc so the switch
-"learns" about the software bridge.
+Add support for NETIF_F_HW_FDB flag when SR-IOV is enabled. This
+allows the bridge to push fdb entries into the hardware so the
+VF can communicate with virtual devices attached to the bridge.
 
 
           veth0  veth2
@@ -42,105 +35,80 @@ embedded switch with dev_add_uc and dev_add_mc so the switch
   |  Embedded Bridge |    <---- hardware offloaded switching
   --------------------
 
-This is only an RFC couple more changes are needed.
-
-(1) Optimize HW FDB set/del to only walk list if an FDB offloaded
-    device is attached. Or decide it doesn't matter from unlikely()
-    path.
-
-(2) Is it good enough to just call dev_uc_{add|del} or
-    dev_mc_{add|del}? Or do some devices really need a new netdev
-    callback to do this operation correctly. I think it should be
-    good enough as is.
-
-(3) wrapped list walk in rcu_read_lock() just in case maybe every
-    case is already inside rcu_read_lock()/unlock().
-
-Also this is in response to this thread regarding the macvlan and
-exposing rx filters posting now to see if folks think this is the
-right idea and if it will resolve at least the bridge case.
-
-http://lists.openwall.net/netdev/2011/11/08/135
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdev_features.h |    2 ++
- net/bridge/br_fdb.c             |   34 ++++++++++++++++++++++++++++++++++
- 2 files changed, 36 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   35 +++++++++++++++++--------
+ 1 files changed, 24 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 77f5202..5936fae 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -55,6 +55,8 @@ enum {
- 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
- 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
- 
-+	NETIF_F_HW_FDB,			/* Hardware supports switching */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ecc46ce..66261fa 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3207,6 +3207,11 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev)
+ 		netdev_for_each_uc_addr(ha, netdev) {
+ 			if (!rar_entries)
+ 				break;
 +
- 	/*
- 	 * Add your fresh new feature above and remember to update
- 	 * netdev_features_strings[] in net/core/ethtool.c and maybe
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 5ba0c84..4cc545b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -81,9 +81,26 @@ static void fdb_rcu_free(struct rcu_head *head)
- 	kmem_cache_free(br_fdb_cache, ent);
- }
- 
-+static void fdb_hw_delete(struct net_bridge *br,
-+			  struct net_bridge_fdb_entry *fdb)
-+{
-+	struct net_bridge_port *op;
++			netif_printk(adapter, hw, KERN_DEBUG, adapter->netdev,
++				     "%s %s: write vfn %i %pM\n",
++				     __func__, netdev->name, vfn, ha->addr);
 +
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(op, &br->port_list, list) {
-+		struct net_device *dev = op->dev;
-+
-+		if ((dev->features & NETIF_F_HW_FDB) &&
-+		    dev != fdb->dst->dev)
-+			dev_uc_del(dev, fdb->addr.addr);
+ 			hw->mac.ops.set_rar(hw, rar_entries--, ha->addr,
+ 					    vfn, IXGBE_RAH_AV);
+ 			count++;
+@@ -3268,16 +3273,17 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		}
+ 		ixgbe_vlan_filter_enable(adapter);
+ 		hw->addr_ctrl.user_set_promisc = false;
+-		/*
+-		 * Write addresses to available RAR registers, if there is not
+-		 * sufficient space to store all the addresses then enable
+-		 * unicast promiscuous mode
+-		 */
+-		count = ixgbe_write_uc_addr_list(netdev);
+-		if (count < 0) {
+-			fctrl |= IXGBE_FCTRL_UPE;
+-			vmolr |= IXGBE_VMOLR_ROPE;
+-		}
 +	}
-+	rcu_read_unlock();
-+}
 +
- static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
- {
- 	hlist_del_rcu(&f->hlist);
-+	fdb_hw_delete(br, f);
- 	fdb_notify(br, f, RTM_DELNEIGH);
- 	call_rcu(&f->rcu, fdb_rcu_free);
- }
-@@ -350,6 +367,22 @@ static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
- 	return NULL;
- }
- 
-+static void fdb_hw_create(struct net_bridge *br,
-+			  struct net_bridge_fdb_entry *fdb)
-+{
-+	struct net_bridge_port *op;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(op, &br->port_list, list) {
-+		struct net_device *dev = op->dev;
-+
-+		if ((dev->features & NETIF_F_HW_FDB) &&
-+		    dev != fdb->dst->dev)
-+			dev_uc_add(dev, fdb->addr.addr);
-+	}
-+	rcu_read_unlock();
-+}
-+
- static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 					       struct net_bridge_port *source,
- 					       const unsigned char *addr)
-@@ -363,6 +396,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 		fdb->is_local = 0;
- 		fdb->is_static = 0;
- 		fdb->updated = fdb->used = jiffies;
-+		fdb_hw_create(source->br, fdb);
- 		hlist_add_head_rcu(&fdb->hlist, head);
++	/*
++	 * Write addresses to available RAR registers, if there is not
++	 * sufficient space to store all the addresses then enable
++	 * unicast promiscuous mode
++	 */
++	count = ixgbe_write_uc_addr_list(netdev);
++	if (count < 0) {
++		fctrl |= IXGBE_FCTRL_UPE;
++		vmolr |= IXGBE_VMOLR_ROPE;
  	}
- 	return fdb;
+ 
+ 	if (adapter->num_vfs) {
+@@ -7214,6 +7220,10 @@ static netdev_features_t ixgbe_fix_features(struct net_device *netdev,
+ 		e_info(probe, "rx-usecs set too low, not enabling RSC\n");
+ 	}
+ 
++	/* Only use offloaded FDB if SR-IOV is enabled */
++	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
++		data &= ~NETIF_F_HW_FDB;
++
+ 	return data;
+ }
+ 
+@@ -7549,9 +7559,12 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
+ 		adapter->flags &= ~(IXGBE_FLAG_RSS_ENABLED |
+ 				    IXGBE_FLAG_DCB_ENABLED);
++		netdev->hw_features |= NETIF_F_HW_FDB;
++		netdev->features |= NETIF_F_HW_FDB;
++	}
+ 
+ #ifdef CONFIG_IXGBE_DCB
+ 	netdev->dcbnl_ops = &dcbnl_ops;
+
