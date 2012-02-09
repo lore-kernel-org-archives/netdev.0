@@ -1,96 +1,73 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH 40/50] batman-adv: use
-	dev_hw_addr_random() instead of random_ether_addr()
-Date: Thu, 09 Feb 2012 09:44:12 +0100
-Message-ID: <4131504.bFpDbrJZp3@sven-laptop.home.narfation.org>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-	<1328735457-29986-41-git-send-email-danny.kukawka@bisect.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net 3/8] ixgbe: fix vf lookup
+Date: Thu, 09 Feb 2012 01:06:15 -0800
+Message-ID: <1328778375.6576.3.camel@jtkirshe-mobl>
+References: <1328693798-27323-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328693798-27323-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120208.183314.265645315647132912.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart14017467.JRCiTb72lR";
-	micalg="pgp-sha512"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
-	Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>,
-	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1328735457-29986-41-git-send-email-danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-SHnJ5+x4bp7o6vc5HMDt"
+Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:32531 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752268Ab2BIJG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 04:06:27 -0500
+In-Reply-To: <20120208.183314.265645315647132912.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---nextPart14017467.JRCiTb72lR
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="ISO-8859-1"
+--=-SHnJ5+x4bp7o6vc5HMDt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Wednesday 08 February 2012 22:10:47 Danny Kukawka wrote:
-> Use dev_hw_addr_random() instead of calling random_ether_addr()
-> to set addr_assign_type correctly to NET_ADDR_RANDOM.
-> 
-> Reset the state to NET_ADDR_PERM as soon as the MAC get
-> changed via .ndo_set_mac_address.
-> 
-> Signed-off-by: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-> ---
->  net/batman-adv/soft-interface.c |    7 ++++---
->  1 files changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/batman-adv/soft-interface.c
-> b/net/batman-adv/soft-interface.c index 987c75a..865a485 100644
-> --- a/net/batman-adv/soft-interface.c
-> +++ b/net/batman-adv/soft-interface.c
-> @@ -541,6 +541,9 @@ static int interface_set_mac_addr(struct net_device
-> *dev, void *p) }
-> 
->  	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-> +	if (dev->addr_assign_type & NET_ADDR_RANDOM)
-> +		dev->addr_assign_type ^= NET_ADDR_RANDOM;
-> +
->  	return 0;
->  }
+On Wed, 2012-02-08 at 18:33 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Wed,  8 Feb 2012 01:36:33 -0800
+>=20
+> > -             if (pvfdev->devfn =3D=3D vf_devfn)
+> > +             if (pvfdev->devfn =3D=3D vf_devfn &&
+> > +                             (pvfdev->bus->number >=3D
+> pdev->bus->number))
+>=20
+> Come on.... do you look at these patches at all?
+>=20
+> I don't think you did, because this kind of code formatting stuff
+> sticks out like a sore thumb.=20
 
-Why not something like
+Your right, I over-looked this, and it is especially bad since I caught
+the problem with the igb patch (which was right before this one).  I
+remember thinking that I need to make sure the ixgbe patch did not have
+the same formatting issue.  But completely forgot before I applied the
+patch.
 
-dev->addr_assign_type &= ~NET_ADDR_RANDOM;
 
-? It is a relative common way inside the kernel to do this kind of stuff.
-
-Thanks,
-	Sven
-
-PS: For the batman-adv people. This functionality was introduced with 2.6.36. 
---nextPart14017467.JRCiTb72lR
+--=-SHnJ5+x4bp7o6vc5HMDt
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAABCgAGBQJPM4dcAAoJEF2HCgfBJntGnHUP/3Vrc6d5QO0uEbhtNFkCLn+k
-0bRP1ad4SpSC4a94B8/cblQ/HXujqE1fvVkZrtRKss6gkhYLFwOzBvKff0cOt658
-v8i7jRfo4REKjdHUWFZtyUX+SnE+IXbJ3UbxJNoRwUq+WamI5aCNKBGBaHWIx2rS
-CkEZuWSc7U9g1Ic74gycS7AmLr/nCRcTRxq2Z1XieCUB81atAG5SfwdvYlWIka9p
-OWp+uPKdMQ2w+nEpwJgTdXnR3aRe5eVuiHgqGBlPRAWEgfgidLWqLSO5Hx2k4tnw
-cG5y4N/BKcF0tv5Yy24Y9C1SVyWNPwUi8xeHnpqZO9RTlkuCnykLi6q/tKZiC8kQ
-22fWSmRIc/qL4AzEuSHART4Ejtd8haoszIWTw00vCWstEkqo7K/xY2uzGEZdeH5T
-i6zH1XxtBnGDYCODTCdSD/J33s348cDdSrfpNPubYpcxBvIaKnjpDVNK1sAmVf46
-LiJfCM5d/6FqhNnkUg6lCMRv/Qiu4NiexzmzNR0HNswSPTZDqvTAK2XUwUciMQBN
-5Ks7KEXttyRksSesYHM3lI6Ig0+OOX6jUWEHmguK1FnC6WsDEFXC35S9EvPa2GmK
-ggHlJfmBqHO+wQwvLmf0tH0S2ADogCtHel70ciI8G2qSDc8A3t0POqa5Hu0E34FZ
-wpjyK1883XjbbsfK4msM
-=r1h5
+iQIcBAABCgAGBQJPM4yHAAoJEOVv75VaS+3O3LYP/jXfOYQZQmcNtspa2IrUNkZd
+RyjFcxjOftWx57a1bIKe4ruwzjyQTDt2wRRvCJrVHkHtO31FCkuse40yL1aeaRUf
+aoGuImyw1yaW9d9/KLiVW4XvtVPzbPpERXKr+MG0QYzZPvj2kyWcAPxEgIl+TcXE
+cYCLod0g0AaoiH3ZzqgZgPuyb36ODKf3jjpfJXsP39mCT0Jrtw0cfCc/3tGz/omV
+7zxtG/rmm6qfrk/ALgyg2+L4e87wKZLKTS7bugQoiomNStJFww2KRNsagZUJ56Pj
+c5Cwgt5OgYRaCb2/V0JJzQgkTDclDYPdwf1FYmfF5QZGB+Ed4Cp1t0EiLSfdKtUG
+Vs/0DmFfF5VbU5wNDzwQQvef4OH/+PrZgmSdoNk+BW0nqsMRAXuNRBG2uYPB2tMX
+Vm7vnCDu8Ajw/HInn/mUe/PyclX9BmNSlKkIKZT8p3ooVxUDPFu/fANk6/c7rKat
+0WLnYT50srSZfvLEk1/5k7+Ql3iZw9rQ+NZw0PZmJMwXKqe/5YozEdQL2beAF+V4
+mcv3F81SP5kB0RwidSa4oWiRfIiF8s2tSi2K0cb4CAR7hy8R3IylAthtJBnQ6Ac6
+NsolBGHPylj8CAvULBc3n7WcxJYAEmDnKW2gmxvSDRaJ/DH2jwQSd2/u9hMcm9yu
+vdi9GVZbxL7eYJpwG/Qs
+=U4i7
 -----END PGP SIGNATURE-----
 
---nextPart14017467.JRCiTb72lR--
+--=-SHnJ5+x4bp7o6vc5HMDt--
