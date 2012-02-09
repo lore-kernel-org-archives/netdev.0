@@ -1,55 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 42/50] virtio_net:  use dev_hw_addr_random() instead of
-	random_ether_addr()
-Date: Thu, 9 Feb 2012 11:35:59 +0200
-Message-ID: <20120209093559.GA903@redhat.com>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
-	<1328735457-29986-43-git-send-email-danny.kukawka@bisect.de>
+From: Peter Meerwald <pmeerw@pmeerw.net>
+Subject: Re: [PATCH 1/2] smsc95xx: add module parameter to turn off NIC status
+ leds
+Date: Thu, 9 Feb 2012 10:38:15 +0100 (CET)
+Message-ID: <alpine.DEB.2.01.1202091024250.8085@pmeerw.net>
+References: <1328699332-9024-1-git-send-email-pmeerw@pmeerw.net> <20120208.152624.1844477840327789365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Danny Kukawka <dkukawka@suse.de>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1328735457-29986-43-git-send-email-danny.kukawka@bisect.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.pmeerw.net ([87.118.82.44]:41113 "EHLO pmeerw.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751429Ab2BIJpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 04:45:07 -0500
+In-Reply-To: <20120208.152624.1844477840327789365.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2012 at 10:10:49PM +0100, Danny Kukawka wrote:
-> Use dev_hw_addr_random() instead of calling random_ether_addr()
-> to set addr_assign_type correctly to NET_ADDR_RANDOM.
-> 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+Hello David,
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> > add module parameter to allow to turn off NIC status leds (link, 
+> > speed, activity); blinking LEDs are annoying outside the server room :)
 
-> ---
->  drivers/net/virtio_net.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 4880aa8..69d36e1 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1061,7 +1061,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_config_val_len(vdev, VIRTIO_NET_F_MAC,
->  				  offsetof(struct virtio_net_config, mac),
->  				  dev->dev_addr, dev->addr_len) < 0)
-> -		random_ether_addr(dev->dev_addr);
-> +		dev_hw_addr_random(dev, dev->dev_addr);
->  
->  	/* Set up our device-specific information */
->  	vi = netdev_priv(dev);
-> -- 
-> 1.7.7.3
+> No.  Create a generic mechanism, perhaps via ethtool, for users to
+> configure something like this.
+ 
+> Otherwise the next driver that wants to provide this kind of knob
+> will add yet another module parameter with yet another name, and
+> this kind of ad-hoc set of interfaces absolutely sucks for users.
+
+I am not sure how many NICs provide that functionality, so a specific knob 
+seemed reasonable
+
+I had a look at ethtool, there are ETHTOOL_GFLAGS and ETHTOOL_GPFLAGS (and 
+the respective setters) which could be used -- but noone seems to use 
+those for any purpose 
+
+a private flag for LED control (via ETHTOOL_GPFLAGS) is pretty much the 
+same knob as a module parameter, so not an option
+
+so the remaining option is to add something like ETHTOOL_GLEDCONTROL / 
+ETHTOOL_SLEDCONTROL with likely only one user (smsc95xx)
+
+regards, p.
+
+-- 
+
+Peter Meerwald
++43-664-2444418 (mobile)
