@@ -1,81 +1,42 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Thu, 09 Feb 2012 12:30:36 -0800
-Message-ID: <4F342CEC.8080104@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab> <1328811287.19664.9.camel@oc1677441337.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] stmmac: fix driver features
+Date: Thu, 09 Feb 2012 15:35:04 -0500 (EST)
+Message-ID: <20120209.153504.92022308276431620.davem@davemloft.net>
+References: <1328784993-31733-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com,
-	shemminger@vyatta.com, kvm@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1328811287.19664.9.camel@oc1677441337.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58465 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757857Ab2BIUfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 15:35:11 -0500
+In-Reply-To: <1328784993-31733-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/9/2012 10:14 AM, Sridhar Samudrala wrote:
-> On Wed, 2012-02-08 at 19:22 -0800, John Fastabend wrote:
->> Propagate software FDB table into hardware uc, mc lists when
->> the NETIF_F_HW_FDB is set.
->>
->> This resolves the case below where an embedded switch is used
->> in hardware to do inter-VF or VF-PF switching. This patch
->> pushes the FDB entry (specifically the MAC address) into the
->> embedded switch with dev_add_uc and dev_add_mc so the switch
->> "learns" about the software bridge.
->>
->>
->>           veth0  veth2
->>             |      |
->>           ------------
->>           |  bridge0 |   <---- software bridging
->>           ------------
->>                /
->>                /
->>   ethx.y      ethx
->>     VF         PF
->>      \         \          <---- propagate FDB entries to HW
->>      \         \
->>   --------------------
->>   |  Embedded Bridge |    <---- hardware offloaded switching
->>   --------------------
->>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Thu,  9 Feb 2012 11:56:33 +0100
+
+> New GMAC chips can set the tx_coe and rx_csum
+> flags by looking at the HW cap register and this
+> happens during the open.
+> This patch fixes the stmmac_fix_feature function that
+> in some cases assumes that there is no HW csum
+> because no flags are passed through the platform.
+> As soon as the open method is called then the
+> stmmac_fix_feature could want to turn-on the NETIF_F_RXCSUM
+> or NETIF_F_ALL_CSUM.
 > 
-> This scenario works now as adding an interface to a bridge puts it in
-> promiscuous mode. So adding a PF to a software bridge should not be
-> a problem as it supports promiscuous mode. But adding a VF will not
-> work.
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-It shouldn't work because the embedded bridge will lookup the address
-in its FDB and when it doesn't match any unicast filters it will forward
-the packet onto the wire. Because the veth0 and veth2 above never get
-inserted into the embedded brdige's FDB the packets will _never_ get
-routed there.
+This is not the purpose of the fix_features method, it's meant to
+ensure that the settings are valid.
 
-That said the current 'ixgbe' driver is doing something broken in that
-it is always setting the unicast hash table and mirroring bits to 1. So
-if you think this is working your seeing a bug where packets are being
-sent onto the wire AND upto the PF. Packets with destination addresses
-matching veth1 should not end up on the wire and vice versa. This is
-specific to ixgbe and is not the case for other SR-IOV devices.
+It's not meant to "catch up" with settings you store in the internal
+datastructures of your driver.
 
-This causes some issues (a) has some very real performance implications,
-(b) at this point you have some strange behavior from my point of view.
-The embedded bridge is not a learning bridge nor is it acting like an
-802.1Q VEB or VEPA.
-
-> 
-> Are you trying to avoid the requirement of having to put the interface 
-> in promiscuous mode when adding to a bridge?
-> 
-
-I think the bridge being in promiscuous mode is correct.
-
-Hope that helps sorry its a bit long winded.
-John
-
-
-
+You need to do this at probe time, where the initial ->hw_features
+and ->features values are set.
