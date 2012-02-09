@@ -1,29 +1,38 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 08/50] bnx2x: use dev_hw_addr_random() instead of random_ether_addr()
-Date: Thu, 9 Feb 2012 09:59:35 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E5F@saturn3.aculab.com>
-References: <1328735457-29986-9-git-send-email-danny.kukawka@bisect.de>
+From: Martin Schmidt <mschmidt00000@gmail.com>
+Subject: Re: How to debug iproute2 based policy routing?
+Date: Thu, 9 Feb 2012 11:22:02 +0100
+Message-ID: <CAPTK99BjrpLTxMhwgScSn-cgFcf=jOMiG_8NCCzeJM6okigUDw@mail.gmail.com>
+References: <CAPTK99Cf5jSVejqW23BrsrHqNn56cj2QB48KiTV=XmWq5pi6tA@mail.gmail.com>
+	<CAPTK99C8bRjdZjEU+sj8mOPH64a1_ObO-deqC2EFLhcWgbYqSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Danny Kukawka" <dkukawka@suse.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Danny Kukawka" <danny.kukawka@bisect.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1328735457-29986-9-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m020-f174.google.com ([209.85.217.174]:53560 "EHLO
+	mail-lpp01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757675Ab2BIKWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 05:22:03 -0500
+Received: by lbom4 with SMTP id m4so705962lbo.19
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2012 02:22:02 -0800 (PST)
+In-Reply-To: <CAPTK99C8bRjdZjEU+sj8mOPH64a1_ObO-deqC2EFLhcWgbYqSA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
-> +	if (dev->addr_assign_type & NET_ADDR_RANDOM)
-> +		dev->addr_assign_type ^= NET_ADDR_RANDOM;
+2012/2/8 Martin Schmidt <mschmidt00000@gmail.com>:
+> Hi,
+>
+> I have a somewhat complicated iproute2 based policy routing scenario
+> on Ubuntu server.
+> It mainly works as needed, but under some circumstances it weirdly
+> misroutes some packets, but not all.
+> I've already been struggling with this for long, but now it seems to
+> be a routing bug, although not sure.
+>
+> To get closer I need a way to verbose log the full routing decision
+> process for all outgoing packets.
+> How can I achieve this? With some kernel configuration options, or any
+> other ideas?
+>
+> Thanks!
 
-Why not just:
-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
-the cache is probably dirty and it won't be a critical path.
-
-	David
+Any ideas how to track down a possible routing related bug? Thanks!
