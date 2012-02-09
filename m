@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC for sysfs management of TIPC
-Date: Thu, 09 Feb 2012 14:19:03 -0500 (EST)
-Message-ID: <20120209.141903.1988391781467106278.davem@davemloft.net>
-References: <0434463FDA60A94FA978ACA44617682DF7A43C76D1@EUSAACMS0702.eamcs.ericsson.se>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH 1/2 net-next] ipv6: helper function to get tclass
+Date: Thu, 9 Feb 2012 20:34:41 +0100
+Message-ID: <20120209203441.24c97aa3@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	allan.stephens@windriver.com, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, Ying.Xue@windriver.com
-To: jon.maloy@ericsson.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57545 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140Ab2BITTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 14:19:16 -0500
-In-Reply-To: <0434463FDA60A94FA978ACA44617682DF7A43C76D1@EUSAACMS0702.eamcs.ericsson.se>
+Received: from mx1.redhat.com ([209.132.183.28]:27847 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757904Ab2BITep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 14:34:45 -0500
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q19JYiWn009108
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 9 Feb 2012 14:34:44 -0500
+Received: from griffin (ovpn-116-57.ams2.redhat.com [10.36.116.57])
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q19JYgw9017779
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 9 Feb 2012 14:34:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 9 Feb 2012 14:14:12 -0500
+Implement helper inline function to get traffic class from IPv6 header.
 
-> TIPC currently provides a netlink interface towards a user space 
-> program (tipc-config), which is used to turn the different knobs
-> and levers of TIPC. 
-> This program is provided by some distributions package systems,
-> and is also downloadable from SourceForge.
-> 
-> Now, we are considering the option of making the configuration 
-> available as a structured tree in sysfs.
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-If you've already made the netlink mechanism for all of this,
-do not bother with SYSFS.
+---
+ include/linux/ipv6.h |    5 +++++
+ net/ipv6/datagram.c  |    2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -233,6 +233,11 @@ static inline struct ipv6hdr *ipipv6_hdr
+ 	return (struct ipv6hdr *)skb_transport_header(skb);
+ }
+ 
++static inline __u8 ipv6_tclass(const struct ipv6hdr *iph)
++{
++	return (ntohl(*(__be32 *)iph) >> 20) & 0xff;
++}
++
+ /* 
+    This structure contains results of exthdrs parsing
+    as offsets from skb->nh.
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -485,7 +485,7 @@ int datagram_recv_ctl(struct sock *sk, s
+ 	}
+ 
+ 	if (np->rxopt.bits.rxtclass) {
+-		int tclass = (ntohl(*(__be32 *)ipv6_hdr(skb)) >> 20) & 0xff;
++		int tclass = ipv6_tclass(ipv6_hdr(skb));
+ 		put_cmsg(msg, SOL_IPV6, IPV6_TCLASS, sizeof(tclass), &tclass);
+ 	}
+ 
