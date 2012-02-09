@@ -1,46 +1,39 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Thu, 09 Feb 2012 09:52:55 -0800
-Message-ID: <4F3407F7.9000202@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab> <20120208203627.035c6b0e@nehalam.linuxnetplumber.net> <4F34042F.6090806@intel.com> <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.0: unexpected route cache entry for wrong segment?
+Date: Thu, 09 Feb 2012 19:05:07 +0100
+Message-ID: <1328810707.6099.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4F33FC0E.4020701@msgid.tls.msk.ru>
+	 <1328809519.6099.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:41041 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757894Ab2BISFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 13:05:11 -0500
+Received: by werb13 with SMTP id b13so1443718wer.19
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2012 10:05:10 -0800 (PST)
+In-Reply-To: <1328809519.6099.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/9/2012 9:40 AM, Stephen Hemminger wrote:
-> On Thu, 09 Feb 2012 09:36:47 -0800
-> John Fastabend <john.r.fastabend@intel.com> wrote:
-> 
->> But the device features makes it easy for user space to learn that the device
->> supports this sort of offload. Now if all SR-IOV devices support this then it
->> doesn't matter but I thought there were SR-IOV devices that didn't do any
->> switching? I'll dig through the SR-IOV drivers to check there are not too
->> many of them.
-> 
-> If user space needs to know then the OS is not designed properly.
-> The purpose of the network device is to abstract all those details, and more and more
-> of them are bleeding through. This makes writing management applications harder and makes
-> things dependent on features that may or may not be present. The best design is when
-> the change is invisible.
-> 
+Le jeudi 09 f=C3=A9vrier 2012 =C3=A0 18:45 +0100, Eric Dumazet a =C3=A9=
+crit :
 
-Agreed.
+> Did you try to apply by hand commits :
+>=20
+> 7cc9150ebe8ec06cafea9f1c10d92ddacf88d8ae   // added in 3.2
+> (route: fix ICMP redirect validation)
+>=20
+> and
+> 9cc20b268a5a14f5e57b8ad405a83513ab0d78dc
+> (ipv4: fix redirect handling)
 
->> By netlink_notifier do you mean adding a notifier_block and using atomic_notifier_call_chain()
->> probably in rtnl_notify()? Then drivers could register with the notifier chain with
->> atomic_notifier_chain_register() and receive the events correctly. Or did I miss
->> some notifier chain that already exists?
-> 
-> Yes. that is what I mean. The callbacks you need may or may not already be present.
+Oh well, please forgive my stupid questions.
 
-
-OK thanks I'll put together an update here shortly.
+David is currently working on backporting to 3.0 all necessary fixes fo=
+r
+this exact problem.
