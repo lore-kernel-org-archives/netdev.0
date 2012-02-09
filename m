@@ -1,81 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Wed, 8 Feb 2012 20:36:27 -0800
-Message-ID: <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: newbie: phy platform interrupt config
+Date: Thu, 9 Feb 2012 00:29:15 -0600
+Message-ID: <CAKWjMd66rTzM7AipQZsu-c0jDSNw_=CFHnN1Mms4WQp_4aaFWA@mail.gmail.com>
+References: <201201241537.17194.tim01@iss.tu-darmstadt.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Andy Fleming <afleming@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Richard Cochran <richard.cochran@omicron.at>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Decotigny <decot@google.com>,
+	linux-kernel@vger.kernel.org
+To: Tim Sander <tim01@iss.tu-darmstadt.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201201241537.17194.tim01@iss.tu-darmstadt.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Feb 2012 19:22:06 -0800
-John Fastabend <john.r.fastabend@intel.com> wrote:
+On Tue, Jan 24, 2012 at 8:37 AM, Tim Sander <tim01@iss.tu-darmstadt.de> wrote:
+> Hi
+>
+> I would like to set the interrupt for the phy on the i.mx35 pcm43 in the file
+> arch/arm/mach-imx/mach-pcm043.c. Unfortunatly i didn't find a way to specify
+> it. So i want to set the field (struct phy_device*)->irq.
+>
+> What i managed so far is to request the gpio for the interrupt:
+> #define IMX_PHY_IRQ IMX_GPIO_NR(2,7)
+> gpio_request(IMX_PHY_IRQ, "FEC PHY irq");
+> gpio_direction_input(IMX_PHY_IRQ);
+>
+> Now i guess the result of "gpio_to_irq(IMX_PHY_IRQ)" should go into some kind
+> of argument to imx35_add_fec(pdata) which is a macro
+> imx_add_fec(&imx35_fec_data, pdata).
+> pdata is of type (?) struct fec_platform_data which contains phy_interface_t
+> and unsigned char array. So i don't see a way to set the phy interrupt there.
+>
+> I tried search for a driver which set the phy irq but i didn't find any and
+> setting the phy in the phy_fixup function is also not working since the
+> interrupt seems not get registered when opening the device.
+>
+> So how do i set the phy interrupt line in the platform file?
 
-> Propagate software FDB table into hardware uc, mc lists when
-> the NETIF_F_HW_FDB is set.
-> 
-> This resolves the case below where an embedded switch is used
-> in hardware to do inter-VF or VF-PF switching. This patch
-> pushes the FDB entry (specifically the MAC address) into the
-> embedded switch with dev_add_uc and dev_add_mc so the switch
-> "learns" about the software bridge.
-> 
-> 
->           veth0  veth2
->             |      |
->           ------------
->           |  bridge0 |   <---- software bridging
->           ------------
->                /
->                /
->   ethx.y      ethx
->     VF         PF
->      \         \          <---- propagate FDB entries to HW
->      \         \
->   --------------------
->   |  Embedded Bridge |    <---- hardware offloaded switching
->   --------------------
-> 
-> This is only an RFC couple more changes are needed.
-> 
-> (1) Optimize HW FDB set/del to only walk list if an FDB offloaded
->     device is attached. Or decide it doesn't matter from unlikely()
->     path.
-> 
-> (2) Is it good enough to just call dev_uc_{add|del} or
->     dev_mc_{add|del}? Or do some devices really need a new netdev
->     callback to do this operation correctly. I think it should be
->     good enough as is.
-> 
-> (3) wrapped list walk in rcu_read_lock() just in case maybe every
->     case is already inside rcu_read_lock()/unlock().
-> 
-> Also this is in response to this thread regarding the macvlan and
-> exposing rx filters posting now to see if folks think this is the
-> right idea and if it will resolve at least the bridge case.
-> 
-> http://lists.openwall.net/netdev/2011/11/08/135
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
-> 
->  include/linux/netdev_features.h |    2 ++
->  net/bridge/br_fdb.c             |   34 ++++++++++++++++++++++++++++++++++
->  2 files changed, 36 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-> index 77f5202..5936fae 100644
+Look in drivers/of/of_mdio.c.
 
-Rather than yet another device feature, I would rather use netlink_notifier
-callback. The notifier is more general and generic without messing with internals
-of bridge.
+It's the job of the mdio driver to set the IRQs for the device. I
+don't honestly know why I designed it that way. I suspect it's because
+the MDIO controller's driver is the entity most likely to communicate
+directly with the platform code.
 
+So wherever you set up your mdio bus, set the IRQs for all the PHYs on
+the bus there.
+
+Andy
