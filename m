@@ -1,109 +1,81 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH 04/50] adi/blackfin: set addr_assign_type correctly if random
-Date: Wed, 8 Feb 2012 23:05:13 -0500
-Message-ID: <201202082305.17415.vapier@gentoo.org>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <1328735457-29986-5-git-send-email-danny.kukawka@bisect.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Wed, 8 Feb 2012 20:36:27 -0800
+Message-ID: <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2532916.jiUJtrOzss";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Bob Liu <lliubbo@gmail.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"Lars-Peter Clausen" <lars@metafoo.de>,
-	Scott Jiang <scott.jiang@analog.com>,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328735457-29986-5-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2532916.jiUJtrOzss
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Wed, 08 Feb 2012 19:22:06 -0800
+John Fastabend <john.r.fastabend@intel.com> wrote:
 
-On Wednesday 08 February 2012 16:10:11 Danny Kukawka wrote:
-> --- a/arch/blackfin/mach-bf537/boards/cm_bf537e.c
-> +++ b/arch/blackfin/mach-bf537/boards/cm_bf537e.c
->=20
-> -void bfin_get_ether_addr(char *addr)
-> +int bfin_get_ether_addr(char *addr)
->  {
->  	random_ether_addr(addr);
->  	printk(KERN_WARNING "%s:%s: Setting Ethernet MAC to a random one\n",
-> 		__FILE__, __func__);
-> +	return 1;
->  }
+> Propagate software FDB table into hardware uc, mc lists when
+> the NETIF_F_HW_FDB is set.
+> 
+> This resolves the case below where an embedded switch is used
+> in hardware to do inter-VF or VF-PF switching. This patch
+> pushes the FDB entry (specifically the MAC address) into the
+> embedded switch with dev_add_uc and dev_add_mc so the switch
+> "learns" about the software bridge.
+> 
+> 
+>           veth0  veth2
+>             |      |
+>           ------------
+>           |  bridge0 |   <---- software bridging
+>           ------------
+>                /
+>                /
+>   ethx.y      ethx
+>     VF         PF
+>      \         \          <---- propagate FDB entries to HW
+>      \         \
+>   --------------------
+>   |  Embedded Bridge |    <---- hardware offloaded switching
+>   --------------------
+> 
+> This is only an RFC couple more changes are needed.
+> 
+> (1) Optimize HW FDB set/del to only walk list if an FDB offloaded
+>     device is attached. Or decide it doesn't matter from unlikely()
+>     path.
+> 
+> (2) Is it good enough to just call dev_uc_{add|del} or
+>     dev_mc_{add|del}? Or do some devices really need a new netdev
+>     callback to do this operation correctly. I think it should be
+>     good enough as is.
+> 
+> (3) wrapped list walk in rcu_read_lock() just in case maybe every
+>     case is already inside rcu_read_lock()/unlock().
+> 
+> Also this is in response to this thread regarding the macvlan and
+> exposing rx filters posting now to see if folks think this is the
+> right idea and if it will resolve at least the bridge case.
+> 
+> http://lists.openwall.net/netdev/2011/11/08/135
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+>  include/linux/netdev_features.h |    2 ++
+>  net/bridge/br_fdb.c             |   34 ++++++++++++++++++++++++++++++++++
+>  2 files changed, 36 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index 77f5202..5936fae 100644
 
-these boards that just call random_ether_addr() should be changed to only=20
-return 1 ...
+Rather than yet another device feature, I would rather use netlink_notifier
+callback. The notifier is more general and generic without messing with internals
+of bridge.
 
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -621,6 +621,8 @@
->
->  	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-> +	if (dev->addr_assign_type & NET_ADDR_RANDOM)
-> +		dev->addr_assign_type ^=3D NET_ADDR_RANDOM;
->  	setup_mac_addr(dev->dev_addr);
->  	return 0;
->  }
-> @@ -1496,12 +1498,14 @@
->
-> -	if (!is_valid_ether_addr(ndev->dev_addr))
-> -		bfin_get_ether_addr(ndev->dev_addr);
-> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
-> +		if (bfin_get_ether_addr(ndev->dev_addr))
-> +			ndev->addr_assign_type |=3D NET_ADDR_RANDOM;
-> +	}
-
-if it returned non-zero, then the mac addr is still invalid, so down below =
-=2E..
-
->  	/* If still not valid, get a random one */
->  	if (!is_valid_ether_addr(ndev->dev_addr))
-> -		random_ether_addr(ndev->dev_addr);
-> +		dev_hw_addr_random(ndev, ndev->dev_addr);
-
-=2E.. we call dev_hw_addr_random(), so explicitly setting NET_ADDR_RANDOM=20
-ourselves is unnecessary
-
-i think the logic should read:
-	if (!is_valid_ether_addr(ndev->dev_addr)) {
-		if (bfin_get_ether_addr(ndev->dev_addr))
-			goto random_mac;
-
-	if (!is_valid_ether_addr(ndev->dev_addr))
- random_mac:
-		dev_hw_addr_random(ndev, ndev->dev_addr);
-=2Dmike
-
---nextPart2532916.jiUJtrOzss
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJPM0X9AAoJEEFjO5/oN/WBAhoP/3CYcTypNIBrwxNmxe2O75Tv
-ulbnK/GQ4lOLtzguXPtpkJhs1TVFvc+yEMpPnxbn2aEQVWTi+kpEbQnRk50fsRT/
-1ynE3VzYAFNYx1PUBwN4p42ib3ILIJpPgZp9EmrQuLS6n4ARiGT712LtJ2z2bt/g
-mqQmZxnzvzzTdpOTJ4hgHoGhHtxGRevmQJWYcl23rhj5tR0TqvLeyKWgDt8O6ClT
-QPk2kN0JGLzsfpvVS5xyFDYL2fxMWxIM2wuK5do64EL77Dhav43zYj8TTcYhwei9
-Bn+Ixh0ik1i//x5tjp47yHDpIwZtFoL+z/owet4Cs2AKPM6Y31QUt1cg++Sy5bSm
-x1vHsBpMRDquIwpnPG5OEtGrfqskg7jQBuNfCcBm+z59c/NsnG3BG8PROWZ+GZCU
-AjXPclWY2nclFfz6yHLowdie7E4tpCspQR9KGt+dkDL9X1vIVJSOFcYuiNcDwB3O
-xBUBwFmOQOSuXFju4eLheIe0a9NqmeI6p/y+e2RDMb7euqiFkYTV+tITE4RFSlJB
-PivscXgmt53MuLvlev2P9FDIE6mSs0LEcbjSebp9gIHlN3HEZwMcy/YtoaX/6l9n
-+ITt5bIt8QGc/phspTLzksx8itZbIM17cejO+5fdRchznjJQxMmkKxkBBLGitwz9
-2j83/DGkLcQQkyReOGzJ
-=phjj
------END PGP SIGNATURE-----
-
---nextPart2532916.jiUJtrOzss--
