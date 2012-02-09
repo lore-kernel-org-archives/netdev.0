@@ -1,68 +1,42 @@
-From: Li Yang-R58472 <r58472@freescale.com>
-Subject: RE: [RFC] Multi queue support in ethernet/freescale/ucc_geth.c
-Date: Thu, 9 Feb 2012 10:44:54 +0000
-Message-ID: <94F013E7935FF44C83EBE7784D62AD3F0571F5FE@039-SN2MPN1-022.039d.mgd.msft.net>
-References: <4F2B1138.2090004@windriver.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdn: type bug in isdn_net_header()
+Date: Thu, 9 Feb 2012 13:46:47 +0300
+Message-ID: <20120209104647.GB5540@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <4F2B1138.2090004@windriver.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:38063 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398Ab2BIKr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 05:47:26 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Paul Gortmaker [mailto:paul.gortmaker@windriver.com]
-> Sent: Friday, February 03, 2012 6:42 AM
-> To: Li Yang-R58472
-> Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org
-> Subject: [RFC] Multi queue support in ethernet/freescale/ucc_geth.c
-> 
-> Hi Li,
+We use len to store the return value from eth_header().  eth_header()
+can return -ETH_HLEN (-14).  We want to pass this back instead of
+truncating it to 65522 and returning that.
 
-Hi Paul,
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+WARNING: Compile tested only.  I don't have this hardware.  Please check
+that I am on the right track.
 
-Sorry for the late response due to holidays.
-
-> 
-> A while back DaveM mentioned that it would be good to break out the ring
-> allocations[1] in this driver.
-> 
-> I was looking at it, and in the process noticed this:
-> 
-> $ grep 'numQueues.*=' drivers/net/ethernet/freescale/ucc_geth.c
->         .numQueuesTx = 1,
->         .numQueuesRx = 1,
-> $
-> 
-> My interpretation of the above is that there is no way (aside from a code
-> edit) to enable multi queue support.
-> They are only ever assigned one time, to a value of one.
-> 
-> Assuming I'm not missing something obvious, is the multi queue support
-> functional and tested, or just old code that never got tested and
-> subsequently enabled?
-
-Previously the device is only used on single core cpu, so we didn't have the incentive to enable multi-queue.  It is not tested on Linux currently.
-
-> 
-> The reason I ask, is that the ring allocation code gets rid of the loop
-> wrapping it, if the driver is really only meant to ever have just single
-> queues for Rx/Tx. And other areas of the driver can also be simplified
-> accordingly as well.
-
-Well.  I would prefer the other way which is to add the multi-queue support as we are using the QE in multi-core SoC and the current driver is having almost all the code needed for multi-queue except interface to the protocol layer.
-
-- Leo
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index 2339d73..802ab87 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -1901,7 +1901,7 @@ static int isdn_net_header(struct sk_buff *skb, struct net_device *dev,
+ {
+ 	isdn_net_local *lp = netdev_priv(dev);
+ 	unsigned char *p;
+-	ushort len = 0;
++	int len = 0;
+ 
+ 	switch (lp->p_encap) {
+ 		case ISDN_NET_ENCAP_ETHER:
