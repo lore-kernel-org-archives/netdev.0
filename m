@@ -1,114 +1,109 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v0 2/2] ixgbe: add NETIF_F_HW_FDB to supported flags
-Date: Wed, 08 Feb 2012 19:22:11 -0800
-Message-ID: <20120209032211.32468.90929.stgit@jf-dev1-dcblab>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH 04/50] adi/blackfin: set addr_assign_type correctly if random
+Date: Wed, 8 Feb 2012 23:05:13 -0500
+Message-ID: <201202082305.17415.vapier@gentoo.org>
+References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <1328735457-29986-5-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: multipart/signed;
+  boundary="nextPart2532916.jiUJtrOzss";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com,
-	shemminger@vyatta.com, kvm@vger.kernel.org, sri@us.ibm.com
-To: bhutchings@solarflare.com, roprabhu@cisco.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-Sender: kvm-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Bob Liu <lliubbo@gmail.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"Lars-Peter Clausen" <lars@metafoo.de>,
+	Scott Jiang <scott.jiang@analog.com>,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328735457-29986-5-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for NETIF_F_HW_FDB flag when SR-IOV is enabled. This
-allows the bridge to push fdb entries into the hardware so the
-VF can communicate with virtual devices attached to the bridge.
+--nextPart2532916.jiUJtrOzss
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Wednesday 08 February 2012 16:10:11 Danny Kukawka wrote:
+> --- a/arch/blackfin/mach-bf537/boards/cm_bf537e.c
+> +++ b/arch/blackfin/mach-bf537/boards/cm_bf537e.c
+>=20
+> -void bfin_get_ether_addr(char *addr)
+> +int bfin_get_ether_addr(char *addr)
+>  {
+>  	random_ether_addr(addr);
+>  	printk(KERN_WARNING "%s:%s: Setting Ethernet MAC to a random one\n",
+> 		__FILE__, __func__);
+> +	return 1;
+>  }
 
-          veth0  veth2
-            |      |
-          ------------
-          |  bridge0 |   <---- software bridging
-          ------------
-               /
-               /
-  ethx.y      ethx
-    VF         PF
-     \         \          <---- propagate FDB entries to HW
-     \         \
-  --------------------
-  |  Embedded Bridge |    <---- hardware offloaded switching
-  --------------------
+these boards that just call random_ether_addr() should be changed to only=20
+return 1 ...
 
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -621,6 +621,8 @@
+>
+>  	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+> +	if (dev->addr_assign_type & NET_ADDR_RANDOM)
+> +		dev->addr_assign_type ^=3D NET_ADDR_RANDOM;
+>  	setup_mac_addr(dev->dev_addr);
+>  	return 0;
+>  }
+> @@ -1496,12 +1498,14 @@
+>
+> -	if (!is_valid_ether_addr(ndev->dev_addr))
+> -		bfin_get_ether_addr(ndev->dev_addr);
+> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> +		if (bfin_get_ether_addr(ndev->dev_addr))
+> +			ndev->addr_assign_type |=3D NET_ADDR_RANDOM;
+> +	}
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+if it returned non-zero, then the mac addr is still invalid, so down below =
+=2E..
 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   35 +++++++++++++++++--------
- 1 files changed, 24 insertions(+), 11 deletions(-)
+>  	/* If still not valid, get a random one */
+>  	if (!is_valid_ether_addr(ndev->dev_addr))
+> -		random_ether_addr(ndev->dev_addr);
+> +		dev_hw_addr_random(ndev, ndev->dev_addr);
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ecc46ce..66261fa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3207,6 +3207,11 @@ static int ixgbe_write_uc_addr_list(struct net_device *netdev)
- 		netdev_for_each_uc_addr(ha, netdev) {
- 			if (!rar_entries)
- 				break;
-+
-+			netif_printk(adapter, hw, KERN_DEBUG, adapter->netdev,
-+				     "%s %s: write vfn %i %pM\n",
-+				     __func__, netdev->name, vfn, ha->addr);
-+
- 			hw->mac.ops.set_rar(hw, rar_entries--, ha->addr,
- 					    vfn, IXGBE_RAH_AV);
- 			count++;
-@@ -3268,16 +3273,17 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		}
- 		ixgbe_vlan_filter_enable(adapter);
- 		hw->addr_ctrl.user_set_promisc = false;
--		/*
--		 * Write addresses to available RAR registers, if there is not
--		 * sufficient space to store all the addresses then enable
--		 * unicast promiscuous mode
--		 */
--		count = ixgbe_write_uc_addr_list(netdev);
--		if (count < 0) {
--			fctrl |= IXGBE_FCTRL_UPE;
--			vmolr |= IXGBE_VMOLR_ROPE;
--		}
-+	}
-+
-+	/*
-+	 * Write addresses to available RAR registers, if there is not
-+	 * sufficient space to store all the addresses then enable
-+	 * unicast promiscuous mode
-+	 */
-+	count = ixgbe_write_uc_addr_list(netdev);
-+	if (count < 0) {
-+		fctrl |= IXGBE_FCTRL_UPE;
-+		vmolr |= IXGBE_VMOLR_ROPE;
- 	}
- 
- 	if (adapter->num_vfs) {
-@@ -7214,6 +7220,10 @@ static netdev_features_t ixgbe_fix_features(struct net_device *netdev,
- 		e_info(probe, "rx-usecs set too low, not enabling RSC\n");
- 	}
- 
-+	/* Only use offloaded FDB if SR-IOV is enabled */
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+		data &= ~NETIF_F_HW_FDB;
-+
- 	return data;
- }
- 
-@@ -7549,9 +7559,12 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
- 		adapter->flags &= ~(IXGBE_FLAG_RSS_ENABLED |
- 				    IXGBE_FLAG_DCB_ENABLED);
-+		netdev->hw_features |= NETIF_F_HW_FDB;
-+		netdev->features |= NETIF_F_HW_FDB;
-+	}
- 
- #ifdef CONFIG_IXGBE_DCB
- 	netdev->dcbnl_ops = &dcbnl_ops;
+=2E.. we call dev_hw_addr_random(), so explicitly setting NET_ADDR_RANDOM=20
+ourselves is unnecessary
 
+i think the logic should read:
+	if (!is_valid_ether_addr(ndev->dev_addr)) {
+		if (bfin_get_ether_addr(ndev->dev_addr))
+			goto random_mac;
+
+	if (!is_valid_ether_addr(ndev->dev_addr))
+ random_mac:
+		dev_hw_addr_random(ndev, ndev->dev_addr);
+=2Dmike
+
+--nextPart2532916.jiUJtrOzss
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJPM0X9AAoJEEFjO5/oN/WBAhoP/3CYcTypNIBrwxNmxe2O75Tv
+ulbnK/GQ4lOLtzguXPtpkJhs1TVFvc+yEMpPnxbn2aEQVWTi+kpEbQnRk50fsRT/
+1ynE3VzYAFNYx1PUBwN4p42ib3ILIJpPgZp9EmrQuLS6n4ARiGT712LtJ2z2bt/g
+mqQmZxnzvzzTdpOTJ4hgHoGhHtxGRevmQJWYcl23rhj5tR0TqvLeyKWgDt8O6ClT
+QPk2kN0JGLzsfpvVS5xyFDYL2fxMWxIM2wuK5do64EL77Dhav43zYj8TTcYhwei9
+Bn+Ixh0ik1i//x5tjp47yHDpIwZtFoL+z/owet4Cs2AKPM6Y31QUt1cg++Sy5bSm
+x1vHsBpMRDquIwpnPG5OEtGrfqskg7jQBuNfCcBm+z59c/NsnG3BG8PROWZ+GZCU
+AjXPclWY2nclFfz6yHLowdie7E4tpCspQR9KGt+dkDL9X1vIVJSOFcYuiNcDwB3O
+xBUBwFmOQOSuXFju4eLheIe0a9NqmeI6p/y+e2RDMb7euqiFkYTV+tITE4RFSlJB
+PivscXgmt53MuLvlev2P9FDIE6mSs0LEcbjSebp9gIHlN3HEZwMcy/YtoaX/6l9n
++ITt5bIt8QGc/phspTLzksx8itZbIM17cejO+5fdRchznjJQxMmkKxkBBLGitwz9
+2j83/DGkLcQQkyReOGzJ
+=phjj
+-----END PGP SIGNATURE-----
+
+--nextPart2532916.jiUJtrOzss--
