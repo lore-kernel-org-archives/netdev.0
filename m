@@ -1,38 +1,34 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ipvs: fix matching of fwmark templates during
- scheduling
-Date: Thu, 9 Feb 2012 16:15:07 +0100
-Message-ID: <20120209151507.GA5842@1984>
-References: <1327628727-22482-1-git-send-email-horms@verge.net.au>
- <1327628727-22482-2-git-send-email-horms@verge.net.au>
+Subject: Re: [PATCH 1/1] netfilter: nf_queue: fix queueing of bridged gro
+ skbs
+Date: Thu, 9 Feb 2012 16:44:21 +0100
+Message-ID: <20120209154421.GA5865@1984>
+References: <1328530990-6782-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, stable@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:44886 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752828Ab2BIPoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 10:44:24 -0500
 Content-Disposition: inline
-In-Reply-To: <1327628727-22482-2-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1328530990-6782-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2012 at 10:45:27AM +0900, Simon Horman wrote:
-> From: Julian Anastasov <ja@ssi.bg>
+Hi Florian,
+
+On Mon, Feb 06, 2012 at 01:23:10PM +0100, Florian Westphal wrote:
+> When trying to nf_queue GRO/GSO skbs, nf_queue uses skb_gso_segment
+> to split the skb.
 > 
-> 	Commit f11017ec2d1859c661f4e2b12c4a8d250e1f47cf (2.6.37)
-> moved the fwmark variable in subcontext that is invalidated before
-> reaching the ip_vs_ct_in_get call. As vaddr is provided as pointer
-> in the param structure make sure the fwmark variable is in
-> same context. As the fwmark templates can not be matched,
-> more and more template connections are created and the
-> controlled connections can not go to single real server.
+> However, if nf_queue is called via bridge netfilter, the mac header
+> won't be preserved -- packets will thus contain a bogus mac header.
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Fix this by setting skb->data to the mac header when skb->nf_bridge
+> is set and restoring skb->data afterwards for all segments.
 
-Applied, thanks. I'll pass it to davem.
-
-I'll pass it to stable once this hits Linus tree.
+Better fix skb_gso_segment to handle this case?
