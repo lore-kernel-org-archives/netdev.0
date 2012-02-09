@@ -1,44 +1,58 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [RFC][PATCH 00/50] set addr_assign_type to NET_ADDR_RANDOM if a random mac address get assigned to a netdevice
-Date: Thu, 9 Feb 2012 13:18:35 +0100
-Message-ID: <201202091318.36264.danny.kukawka@bisect.de>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <20120208.182942.1223790992368933837.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 0/4] Fix routing metrics
+Date: Thu, 9 Feb 2012 13:44:11 +0100
+Message-ID: <20120209124411.GJ23142@secunet.com>
+References: <20120202101141.GC23142@secunet.com>
+ <20120206.152916.224032109057159733.davem@davemloft.net>
+ <20120208073037.GI23142@secunet.com>
+ <20120208.151837.75403230557283008.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120208.182942.1223790992368933837.davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:41627 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754759Ab2BIMoS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 07:44:18 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120208.151837.75403230557283008.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Donnerstag, 9. Februar 2012, David Miller wrote:
-> 50 patches is way too many patches to submit and expect people
-> to review at one time.
->
-> You must do one of two things:
->
-> 1) Condense the series down to a smaller number of more managable
->    patches.  Perhaps combine all the completely trivial conversion
->    cases into one single patch, and post the non-trivial cases
->    seperately.
->
-> 2) Only submit a few of these changes at a time, not all at once.
->
-> It's your choice, but what you did here is unacceptable.
+On Wed, Feb 08, 2012 at 03:18:37PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Wed, 8 Feb 2012 08:30:37 +0100
+> 
+> > On Mon, Feb 06, 2012 at 03:29:16PM -0500, David Miller wrote:
+> >> 
+> >> Thinking about this, it seems overkill to check this on every metric
+> >> access.
+> >> 
+> >> You have an opportunity to validate metrics when the peer is bound to
+> >> the route.
+> >> 
+> >> This is because any change to the FIB metrics, is in turn a change
+> >> to the FIB, which therefore invalidates the entire routing cache.
+> >> 
+> >> So you can be sure that a new route cache entry will be created, and
+> >> at that creation time you can ensure that we'll respect the updated
+> >> FIB metrics if encessary.
+> > 
+> > Not sure if I get you right here, but that's what this patchset
+> > does. It invalidates the metrics on the peer by incrementing
+> > peer_genid in rt_cache_invalidate() which is invoked on every FIB
+> > change. Then, on slowpath route lookup it checks in rt_init_metrics()
+> > whether the peer_genid changed. If it changed, it exchanges the
+> > invalidated merics with new ones and copies the informations from
+> > the FIB into it.
+> 
+> If the routing cache is invalided, you'll "see" this updated inetpeer
+> because every single routing cache entry will get rebuilt.
 
-Could you at least comment on these points from the cover letter, before I 
-change/update the patches?
+Hm, I still don't get your point. Could you specify this please?
 
-- Should NET_ADDR_RANDOM get reset (to NET_ADDR_PERM) if the MAC address
-  get changed via SIOCSIFHWADDR/.ndo_set_mac_address and was random before?
-- Would it make sense to add a new state (e.g. NET_ADDR_USERSPACE)
-  if the net address get changed via SIOCSIFHWADDR/.ndo_set_mac_address 
-  from userspace?
-
-Thanks,
-
-Danny
+When a route cache entry is created and the peer_genid does not match
+the genid on the inetpeer, fresh inetpeer metrics are allocated  and
+then published. After that, the new metrics are in proper state and
+ready to use.
