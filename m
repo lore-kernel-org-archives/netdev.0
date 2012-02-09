@@ -1,64 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/7] igb: fix warning about unused function
-Date: Thu,  9 Feb 2012 02:28:02 -0800
-Message-ID: <1328783282-17760-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/7] e1000e: replace '1' with 'true' for boolean get_link_status
+Date: Thu,  9 Feb 2012 02:28:01 -0800
+Message-ID: <1328783282-17760-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:35471 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:60039 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757855Ab2BIK2O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 05:28:14 -0500
+	id S1757856Ab2BIK2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 05:28:13 -0500
 In-Reply-To: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch fixes a warning about unused function when CONFIG_PM_SLEEP
-is not selected in the kernel config:
-
-igb_main.c: warning: `igb_suspend` defined but not used [W-unused-function]
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |    6 +++---
+ drivers/net/ethernet/intel/e1000e/phy.c    |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index e91d73c..fd911ca 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -173,7 +173,9 @@ static int igb_check_vf_assignment(struct igb_adapter *adapter);
- #endif
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 7ccd5f3..f868fb8 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1652,7 +1652,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+ 	 */
  
- #ifdef CONFIG_PM
-+#ifdef CONFIG_PM_SLEEP
- static int igb_suspend(struct device *);
-+#endif
- static int igb_resume(struct device *);
- #ifdef CONFIG_PM_RUNTIME
- static int igb_runtime_suspend(struct device *dev);
-@@ -6709,6 +6711,7 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 	if (icr & E1000_ICR_LSC) {
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/*
+ 		 * ICH8 workaround-- Call gig speed drop workaround on cable
+ 		 * disconnect (LSC) before accessing any PHY registers
+@@ -1718,7 +1718,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	 */
+ 
+ 	if (icr & E1000_ICR_LSC) {
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/*
+ 		 * ICH8 workaround-- Call gig speed drop workaround on cable
+ 		 * disconnect (LSC) before accessing any PHY registers
+@@ -1775,7 +1775,7 @@ static irqreturn_t e1000_msix_other(int irq, void *data)
+ 	if (icr & E1000_ICR_OTHER) {
+ 		if (!(icr & E1000_ICR_LSC))
+ 			goto no_link_interrupt;
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/* guard against interrupt when we're going down */
+ 		if (!test_bit(__E1000_DOWN, &adapter->state))
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index e8ad080..6f44c3f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -1141,7 +1141,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
+ 		}
+ 	}
+ 
+-	hw->mac.get_link_status = 1;
++	hw->mac.get_link_status = true;
+ 
+ 	return ret_val;
  }
- 
- #ifdef CONFIG_PM
-+#ifdef CONFIG_PM_SLEEP
- static int igb_suspend(struct device *dev)
- {
- 	int retval;
-@@ -6728,6 +6731,7 @@ static int igb_suspend(struct device *dev)
- 
- 	return 0;
- }
-+#endif /* CONFIG_PM_SLEEP */
- 
- static int igb_resume(struct device *dev)
- {
 -- 
 1.7.7.6
