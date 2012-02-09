@@ -1,61 +1,40 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Thu, 9 Feb 2012 13:53:58 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1202091345540.4413@router.home>
-References: <1328568978-17553-1-git-send-email-mgorman@suse.de> <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home>
- <20120208163421.GL5938@suse.de> <alpine.DEB.2.00.1202081338210.32060@router.home> <20120208212323.GM5938@suse.de> <alpine.DEB.2.00.1202081557540.5970@router.home> <20120209125018.GN5938@suse.de>
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] gro: more generic L2 header check
+Date: Thu, 9 Feb 2012 22:04:34 +0200
+Message-ID: <CAJZOPZJj=rBoss-JiLm6K66D1h+zyerDspDS+358t7u=Mg2pfQ@mail.gmail.com>
+References: <CAJZOPZ+SyGsDpnK89wNWtBn4Jdzc2tg1diKjbHSv=n75XiG+ug@mail.gmail.com>
+	<20120208.182629.1816927738607872730.davem@davemloft.net>
+	<4F33A3FC.1050205@mellanox.com>
+	<20120209.135235.957414875716615693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-  Peter Zijlstra <a.p.zijlstra@chello.nl>,
-  Pekka Enberg <penberg@cs.helsinki.fi>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120209125018.GN5938@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120209.135235.957414875716615693.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Feb 2012, Mel Gorman wrote:
+On Thu, Feb 9, 2012 at 8:52 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-> Ok, I am working on a solution that does not affect any of the existing
-> slab structures. Between that and the fact we check if there are any
-> memalloc_socks after patch 12, the impact for normal systems is an additional
-> branch in ac_get_obj() and ac_put_obj()
+> I've fix this now, thanks.
 
-That sounds good in particular since some other things came up again,
-sigh. Have not had time to see if an alternate approach works.
+Yep, I see it there, still, for correctness/biscetion, you should
+rebase such that the order of commits when pushed to Linus is
 
-> > We have been down this road too many times. Logic is added to critical
-> > paths and memory structures grow. This is not free. And for NBD swap
-> > support? Pretty exotic use case.
-> >
->
-> NFS support is the real target. NBD is the logical starting point and
-> NFS needs the same support.
+3. 5ca3b72c5da47d95b83857b768def6172fbc080a "gro: more generic L2 header check"
 
-But this is already a pretty strange use case on multiple levels. Swap is
-really detrimental to performance. Its a kind of emergency outlet that
-gets worse with every new step that increases the differential in
-performance between disk and memory. On top of that you want to add
-special code in various subsystems to also do that over the network.
-Sigh. I think we agreed a while back that we want to limit the amount of
-I/O triggered from reclaim paths? AFAICT many filesystems do not support
-writeout from reclaim anymore because of all the issues that arise at that
-level.
+2. 936d7de3d736e0737542641269436f4b5968e9ef "IPoIB: Stop lying about
+hard_header_len and use skb->cb to stash LL addresses"
 
-We have numerous other mechanisms that can compress swap etc and provide
-ways to work around the problem without I/O which has always be
-troublesome and these fixes are likely only to work in a very limited
-way causing a lot of maintenance effort because (given the exotic
-nature) it is highly likely that there are cornercases that only will be
-triggered in rare cases.
+1. 16bda13d90c8d5da243e2cfa1677e62ecce26860 "net: Make qdisc_skb_cb
+upper size bound explicit" comes before "
 
+currently its 2,3,1
+
+Or.
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
