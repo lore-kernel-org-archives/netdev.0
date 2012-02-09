@@ -1,52 +1,67 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [patch] netxen_nic: signedness bug in netxen_md_entry_err_chk()
-Date: Thu, 9 Feb 2012 01:27:58 -0600
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886ECD2@MNEXMB1.qlogic.org>
-References: <20120208092335.GC6554@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH 1/2] stmmac: request_irq when use an ext wake irq line
+Date: Thu,  9 Feb 2012 08:55:13 +0100
+Message-ID: <1328774114-28894-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Francesco Virlinzi <francesco.virlinzi@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:12722
-	"EHLO AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751621Ab2BIH2e convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 02:28:34 -0500
-In-Reply-To: <20120208092335.GC6554@elgon.mountain>
-Content-Language: en-US
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:37965 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750790Ab2BIHzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 02:55:37 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6CAC3B4
+	for <netdev@vger.kernel.org>; Thu,  9 Feb 2012 07:55:25 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 060421B45
+	for <netdev@vger.kernel.org>; Thu,  9 Feb 2012 07:55:25 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Dan for fixing this.
+From: Francesco Virlinzi <francesco.virlinzi@st.com>
 
-Rajesh
-________________________________________
-From: Dan Carpenter [dan.carpenter@oracle.com]
-Sent: Wednesday, February 08, 2012 2:53 PM
-To: Sony Chacko
-Cc: Rajesh Borundia; netdev; kernel-janitors@vger.kernel.org
-Subject: [patch] netxen_nic: signedness bug in netxen_md_entry_err_chk()
+In case of we use an external Wake-Up IRQ line
+(priv->wol_irq != dev->irq) we need to invoke the
+request_irq.
 
-"esize" should be signed because it can be negative here.  For example,
-when we call it in netxen_parse_md_template(), it could be -1 from the
-return value of netxen_md_L2Cache().
+Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index 0a81228..6f37470 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -2354,7 +2354,7 @@ netxen_md_rdqueue(struct netxen_adapter *adapter,
- */
-
- static int netxen_md_entry_err_chk(struct netxen_adapter *adapter,
--                               struct netxen_minidump_entry *entry, u32 esize)
-+                               struct netxen_minidump_entry *entry, int esize)
- {
-        if (esize < 0) {
-                entry->hdr.driver_flags |= NX_DUMP_SKIP;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 96fa2da..36ee77f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1047,6 +1047,17 @@ static int stmmac_open(struct net_device *dev)
+ 		goto open_error;
+ 	}
+ 
++	/* Request the Wake IRQ in case of another line is used for WoL */
++	if (priv->wol_irq != dev->irq) {
++		ret = request_irq(priv->wol_irq, stmmac_interrupt,
++				  IRQF_SHARED, dev->name, dev);
++		if (unlikely(ret < 0)) {
++			pr_err("%s: ERROR: allocating the ext WoL IRQ %d "
++			       "(error: %d)\n",	__func__, priv->wol_irq, ret);
++			goto open_error_wolirq;
++		}
++	}
++
+ 	/* Enable the MAC Rx/Tx */
+ 	stmmac_set_mac(priv->ioaddr, true);
+ 
+@@ -1087,6 +1098,9 @@ static int stmmac_open(struct net_device *dev)
+ 
+ 	return 0;
+ 
++open_error_wolirq:
++	free_irq(dev->irq, dev);
++
+ open_error:
+ #ifdef CONFIG_STMMAC_TIMER
+ 	kfree(priv->tm);
+-- 
+1.7.4.4
