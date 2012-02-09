@@ -1,91 +1,50 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8192se firmware load can overflow target
- buffer
-Date: Wed, 08 Feb 2012 18:55:03 -0600
-Message-ID: <4F331967.3070900@lwfinger.net>
-References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com> <1328737514.2627.14.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pch_gbe: set dma mask to only 32 bit
+Date: Wed, 08 Feb 2012 20:06:02 -0500 (EST)
+Message-ID: <20120208.200602.200734891435792991.davem@davemloft.net>
+References: <20120207192354.GA7770@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328737514.2627.14.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, toshiharu-linux@dsn.okisemi.com,
+	paul.gortmaker@windriver.com, mirq-linux@rere.qmqm.pl
+To: vfalico@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49807 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757943Ab2BIBHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 20:07:13 -0500
+In-Reply-To: <20120207192354.GA7770@darkmag.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2012 03:45 PM, Ben Hutchings wrote:
-> On Wed, 2012-02-08 at 14:08 -0700, Tim Gardner wrote:
->> The firmware file size check does not use the
->> correct limit.
->>
->> Cc: Larry Finger<Larry.Finger@lwfinger.net>
->> Cc: Chaoming Li<chaoming_li@realsil.com.cn>
->> Cc: John W. Linville<linville@tuxdriver.com>
->> Cc: linux-wireless@vger.kernel.org
->> Cc: netdev@vger.kernel.org
->> Cc: linux-kernel@vger.kernel.org
->> Signed-off-by: Tim Gardner<tim.gardner@canonical.com>
->> ---
->>   drivers/net/wireless/rtlwifi/rtl8192se/fw.h |    3 ++-
->>   drivers/net/wireless/rtlwifi/rtl8192se/sw.c |    2 +-
->>   2 files changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
->> index babe85d..5c377fc 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
->> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
->> @@ -30,6 +30,7 @@
->>   #define __REALTEK_FIRMWARE92S_H__
->>
->>   #define RTL8190_MAX_FIRMWARE_CODE_SIZE		64000
->> +#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	164000
->>   #define RTL8190_CPU_START_OFFSET		0x80
->>   /* Firmware Local buffer size. 64k */
->>   #define	MAX_FIRMWARE_CODE_SIZE			0xFF00
->> @@ -217,7 +218,7 @@ struct rt_firmware {
->>   	u8 fw_emem[RTL8190_MAX_FIRMWARE_CODE_SIZE];
->>   	u32 fw_imem_len;
->>   	u32 fw_emem_len;
->> -	u8 sz_fw_tmpbuffer[164000];
->> +	u8 sz_fw_tmpbuffer[RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE];
->>   	u32 sz_fw_tmpbufferlen;
->>   	u16 cmdpacket_fragthresold;
->>   };
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
->> index ca38dd9..155da0a 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
->> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
->> @@ -105,7 +105,7 @@ static void rtl92se_fw_cb(const struct firmware *firmware, void *context)
->>   		rtlpriv->max_fw_size = 0;
->>   		return;
->>   	}
->> -	if (firmware->size>  rtlpriv->max_fw_size) {
->> +	if (firmware->size>= RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE) {
->
-> This appears to reject a firmware blob which is exactly the maximum
-> size, which looks wrong.  Also doesn't this make the max_fw_size field
-> redundant?
->
-> Ben.
->
->>   		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
->>   			 "Firmware is too big!\n");
->>   		release_firmware(firmware);
->
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 7 Feb 2012 20:23:54 +0100
 
-For all the drivers under rtlwifi, max_fw_size is set to zero whenever the 
-required firmware file is not found. In the original version with synchronous 
-firmware loading, the existence of the required file and it's size were known 
-immediately, but with the asynch loading now used, that info is not known until 
-later. Thus a parameter is used. In addition, rtl8192ce, rtl8192cu, and 
-rtl8192de all share the same asynchronous loading callback routine, but each has 
-a different firmware size. The parameter max_fw_size contains that info as well.
+> Because pch_gbe_rx_desc->buffer_addr is u32, we cannot set dma mask to 64
+> bit or otherwise we could end up loosing the higher 32 bit from the return
+> of dma_map_single(). Removing DMA_BIT_MASK(64) setting will solve it.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-The patch is NACKed.
+The logic here makes no sense.
 
-Larry
+> -	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(64))
+> -		|| pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
+> -		ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> +	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+> +		ret = pci_set_consistent_dma_mask(pdev,
+> +						  DMA_BIT_MASK(32));
+
+You want to take this branch on success, not failure.  pci_set_dma_mask()
+returns 0 on success.
+
+Something like:
+
+	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+	if (ret ||
+	    (ret = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)))) {
+		dev_err(&pdev->dev, "ERR: No usable DMA "
+			"configuration, aborting\n");
+		goto err_disable_device;
+	}
