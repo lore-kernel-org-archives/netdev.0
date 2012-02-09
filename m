@@ -1,54 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/8] igb: fix vf lookup
-Date: Thu,  9 Feb 2012 01:34:15 -0800
-Message-ID: <1328780061-25000-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:23892 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757300Ab2BIJe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 04:34:26 -0500
-In-Reply-To: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 42/50] virtio_net:  use dev_hw_addr_random() instead of
+	random_ether_addr()
+Date: Thu, 9 Feb 2012 11:35:59 +0200
+Message-ID: <20120209093559.GA903@redhat.com>
+References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de>
+	<1328735457-29986-43-git-send-email-danny.kukawka@bisect.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Danny Kukawka <dkukawka@suse.de>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1328735457-29986-43-git-send-email-danny.kukawka@bisect.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Wed, Feb 08, 2012 at 10:10:49PM +0100, Danny Kukawka wrote:
+> Use dev_hw_addr_random() instead of calling random_ether_addr()
+> to set addr_assign_type correctly to NET_ADDR_RANDOM.
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-Recent addition of code to find already allocated VFs failed to take
-account that systems with 2 or more multi-port SR-IOV capable controllers
-might have already enabled VFs.  Make sure that the VFs the function is
-finding are actually subordinate to the particular instance of the adapter
-that is looking for them and not subordinate to some device that has
-previously enabled SR-IOV.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-This is applicable to 3.2+ kernels.
-
-CC: stable@vger.kernel.org
-Reported-by: David Ahern <daahern@cisco.com>
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index e91d73c..94be6c3 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5012,7 +5012,8 @@ static int igb_find_enabled_vfs(struct igb_adapter *adapter)
- 	vf_devfn = pdev->devfn + 0x80;
- 	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
- 	while (pvfdev) {
--		if (pvfdev->devfn == vf_devfn)
-+		if (pvfdev->devfn == vf_devfn &&
-+		    (pvfdev->bus->number >= pdev->bus->number))
- 			vfs_found++;
- 		vf_devfn += vf_stride;
- 		pvfdev = pci_get_device(hw->vendor_id,
--- 
-1.7.7.6
+> ---
+>  drivers/net/virtio_net.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 4880aa8..69d36e1 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1061,7 +1061,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_config_val_len(vdev, VIRTIO_NET_F_MAC,
+>  				  offsetof(struct virtio_net_config, mac),
+>  				  dev->dev_addr, dev->addr_len) < 0)
+> -		random_ether_addr(dev->dev_addr);
+> +		dev_hw_addr_random(dev, dev->dev_addr);
+>  
+>  	/* Set up our device-specific information */
+>  	vi = netdev_priv(dev);
+> -- 
+> 1.7.7.3
