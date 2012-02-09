@@ -1,74 +1,153 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8192se firmware load can overflow target
- buffer
-Date: Thu, 09 Feb 2012 10:43:52 -0600
-Message-ID: <4F33F7C8.2090105@lwfinger.net>
-References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com> <1328737514.2627.14.camel@bwh-desktop> <4F332FC3.7000808@lwfinger.net> <4F33DAFC.1000502@canonical.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: 3.0: unexpected route cache entry for wrong segment?
+Date: Thu, 09 Feb 2012 21:02:06 +0400
+Message-ID: <4F33FC0E.4020701@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Tim Gardner <rtg.canonical@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tim.gardner@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F33DAFC.1000502@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isrv.corpit.ru ([86.62.121.231]:53071 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757212Ab2BIRCK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 12:02:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2012 08:41 AM, Tim Gardner wrote:
->
-> I agree with you about the semantics of rtlpriv->max_fw_size, but I don't agree
-> that the size check is correct. While rtlpriv->max_fw_size has been set to
-> sizeof(struct rt_firmware), that value is _way_ bigger then the size of the
-> target buffer.
->
-> sizeof(struct rt_firmware) == 64000+64000+164000 plus some change
->
-> The target buffer size is only 164000 bytes.
->
-> I've attached v2 of the patch that is simpler and may serve to better illustrate
-> my point. By the way, Ben Hutchings was right about the original patch having an
-> off by one error. This version also clears rtlpriv->max_fw_size if the size
-> check fails. Probably should have mentioned that in the commit log.
+Hello.
 
-I agree that Ben is right.
+I'm observing a situation when just one single IP
+address from entirely different segment gets routed
+locally as if it were in a directly-connected network.
 
-This thread forced me to go back to square one in analyzing the situation. For 
-the other drivers in the rtlwifi family, the firmware file contains an image 
-that is directly stuffed into the device. For the RTL8192SE devices, it is more 
-complicated. The structure is described in struct rt_firmware. At the moment, 
-the arrays there are grossly oversized. They could be as follows:
+Here's how.  The short version, to show the idea, first:
 
-struct rt_firmware {
-         struct fw_hdr *pfwheader;
-         enum fw_status fwstatus;
-         u16 firmwareversion;
-         u8 fw_imem[RTL8190_MAX_IMEM_CODE_SIZE];
-         u8 fw_emem[RTL8190_MAX_DMEM_CODE_SIZE];
-         u32 fw_imem_len;
-         u32 fw_emem_len;
-         u8 sz_fw_tmpbuffer[RTL8190_MAX_FIRMWARE_SIZE];
-         u32 sz_fw_tmpbufferlen;
-         u16 cmdpacket_fragthresold;
-};
+A host with single eth0 interface and single IP address
+(not counting loopback interface):
 
-with
+$ ip addr
+8: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 52:54:c0:a8:b1:02 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.177.2/26 scope global eth0
 
-RTL8190_MAX_IMEM_CODE_SIZE = 54000 (current fw is 51,208), 
-RTL8190_MAX_DMEM_CODE_SIZE = 40000 (current fw is 37,520), and 
-RTL8190_MAX_FIRMWARE_SIZE = 90000 (it holds the raw firmware image, which is 
-currently 88,856).
+$ ip route
+default via 192.168.177.5 dev eth0
+192.168.177.0/26 dev eth0  proto kernel  scope link  src 192.168.177.2
 
-Ultimately, all three arrays should be eliminated. Now that we are using 
-asynchronous loading, the kernel should keep its cached data and not copy it 
-into the driver's private storage when a pointer will suffice. All the drivers 
-need this change, but that can wait for now.
+$ ip neigh
+...
+192.168.177.5 dev eth0 lladdr 00:90:27:30:6d:1c REACHABLE
+192.168.177.33 dev eth0 lladdr 38:60:77:25:3f:95 REACHABLE
+192.168.19.166 dev eth0  FAILED
+192.168.177.21 dev eth0 lladdr 52:54:c0:a8:b1:15 REACHABLE
 
-I will ACK the patch if you resumit it with
-#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	90000
+The address in question is this 192.168.19.166 -- it should
+not be tried on locally connected ethernet segment, but instead
+should go to the (default) gateway at 192.168.177.5.
 
-Larry
+This machine is running 3.0.18 kernel.  The gateway (also
+running this kernel) can access the IP in question just fine
+(it is 2 hops away from the gateway, not reachable directly
+neither from the gw nor from the machine in question).
+
+After some searching we found a very very similarly looking
+issue:
+
+ http://lists.openwall.net/netdev/2011/11/15/126
+  "Unable to flush ICMP redirect routes in kernel 3.0+"
+
+with a good reproducer:
+
+ http://lists.openwall.net/netdev/2011/11/16/138
+
+The issue however is that, in our case, I can't reproduce
+this problem at all using the way described by Ivan Zahariev
+in the last message: sending redirects from the geateay for
+"random" addresses does not make corresponding "persistent"
+cache entries, once the route on the gw gets removed, that
+IP address starts working again from the machine in question.
+
+So now we have only one IP address that behaves like this,
+and I can't get other addresses to repeat its behavour.
+
+The problem appeared suddenly, while the network was in
+use.
+
+What is also interesting here is that the gateway should
+never send a redirect like that because it has explicit
+route for that network pointing to entirely different
+machine.
+
+I can work around the _current_ problem we're facing by
+moving the host in question (192.168.19.166) to another
+IP address.  But I'd love to understand what's going on
+here.
+
+Also, it appears that the patch that emerged from the
+mentioned discussion hasn't been released in any
+stable kernels so far - is there some issue with it?
+
+And since I can't reproduce the issue here as described
+above, I've one more question: should it be reproducible?
+
+And finally, here's some more details about our setup.
+It is actually a "bit" more complex, involving bridges,
+vlans, veth and tap devices.
+
+The "host" in question is a lxc guest on veth interface.
+Its veth iface is connected to a bridge "tls-br" on the
+host.  I'm omiting some details still (like other lxc
+guests which have very similar config, and also kvm
+guests with tap interfaces).
+
+ host$ ip addr
+ 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+     link/ether 00:1f:c6:ef:e5:1b brd ff:ff:ff:ff:ff:ff
+ 3: tls-vlan@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master tls-br state UP
+     link/ether 00:1f:c6:ef:e5:1b brd ff:ff:ff:ff:ff:ff
+ 4: tls-br: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP
+     link/ether 00:1f:c6:ef:e5:1b brd ff:ff:ff:ff:ff:ff
+     inet 192.168.177.15/26 brd 192.168.177.63 scope global tls-br
+ 9: veth-tsrv: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master tls-br state UP qlen 1000
+     link/ether 5e:e8:4f:67:80:17 brd ff:ff:ff:ff:ff:ff
+
+tls-br connects tls-vlan@eth0 and veth-tsrv.  It has an
+address from the same 192.168.177/26 segment as the guest
+in question.
+
+ host$ ip route
+ default via 192.168.177.5 dev tls-br
+ 192.168.177.0/26 dev tls-br  proto kernel  scope link  src 192.168.177.15
+ (this is a complete routing table, there's no more routes)
+
+What is also very interesting is that this problem with
+this single IP address affects ALL lxc machines on this
+host at once, and the host itself:
+
+ host$ ip neigh
+ 192.168.177.35 dev tls-br lladdr 6c:f0:49:9d:f2:0c STALE
+ 192.168.19.166 dev tls-br  FAILED
+ 192.168.177.38 dev tls-br lladdr 38:60:77:25:3f:9c STALE
+ 192.168.177.5 dev tls-br lladdr 00:90:27:30:6d:1c DELAY
+ ...
+
+(after trying to ping it).
+
+Each "subdivision" on this host has its own arp table, but
+every subdivision (host itself or any of it lxc guests which
+all have similar config) always tries to reach thiis very
+IP address directly.
+
+ otherLXCguest$ ip n
+ 192.168.19.166 dev eth0  INCOMPLETE
+ 192.168.177.15 dev eth0 lladdr 00:1f:c6:ef:e5:1b STALE
+ 192.168.177.5 dev eth0 lladdr 00:90:27:30:6d:1c DELAY
+
+So.. it looks like something does not work right across
+namespaces.
+
+Any clue what's going on?
+
+Thank you!
+
+/mjt
