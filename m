@@ -1,40 +1,85 @@
-From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] gro: more generic L2 header check
-Date: Thu, 9 Feb 2012 22:04:34 +0200
-Message-ID: <CAJZOPZJj=rBoss-JiLm6K66D1h+zyerDspDS+358t7u=Mg2pfQ@mail.gmail.com>
-References: <CAJZOPZ+SyGsDpnK89wNWtBn4Jdzc2tg1diKjbHSv=n75XiG+ug@mail.gmail.com>
-	<20120208.182629.1816927738607872730.davem@davemloft.net>
-	<4F33A3FC.1050205@mellanox.com>
-	<20120209.135235.957414875716615693.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 0/2] Part 1: handle addr_assign_type for random
+ addresses
+Date: Thu, 09 Feb 2012 12:09:24 -0800
+Message-ID: <1328818164.3639.15.camel@jtkirshe-mobl>
+References: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120209.135235.957414875716615693.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mFZkc5zcZS20KZWL9YHM"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	e1000-devel@lists.sourceforge.net,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 9, 2012 at 8:52 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 
-> I've fix this now, thanks.
+--=-mFZkc5zcZS20KZWL9YHM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yep, I see it there, still, for correctness/biscetion, you should
-rebase such that the order of commits when pushed to Linus is
+On Thu, 2012-02-09 at 20:48 +0100, Danny Kukawka wrote:
+> This is an updated and split up version of my patch series to
+> fix the handling of addr_assign_type for random MAC addresses.
+>=20
+> The first part contains the basic changes in etherdevice.h
+> and eth.c incl. needed adaptations in the existing code
+>=20
+> Danny Kukawka (2):
+>   eth: reset addr_assign_type if eth_mac_addr() called
+>   rename dev_hw_addr_random and remove redundant second
+>=20
+>  drivers/net/ethernet/intel/igbvf/netdev.c         |   11 +++++---
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   28 ++++++++++++---=
+-----
+>  include/linux/etherdevice.h                       |   13 +++++----
+>  net/ethernet/eth.c                                |    2 +
+>  4 files changed, 33 insertions(+), 21 deletions(-)
+>=20
 
-3. 5ca3b72c5da47d95b83857b768def6172fbc080a "gro: more generic L2 header check"
+Thanks Danny, I will add both patches to my queue so that we can
+validate the changes for ixgbevf and igbvf.
 
-2. 936d7de3d736e0737542641269436f4b5968e9ef "IPoIB: Stop lying about
-hard_header_len and use skb->cb to stash LL addresses"
+--=-mFZkc5zcZS20KZWL9YHM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-1. 16bda13d90c8d5da243e2cfa1677e62ecce26860 "net: Make qdisc_skb_cb
-upper size bound explicit" comes before "
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-currently its 2,3,1
+iQIcBAABCgAGBQJPNCf0AAoJEOVv75VaS+3OUAMQAJ0eMnzEZ9MY1r9GhWvKiGC1
+LacyFg9KzTypNtj5ptYzGhfyLsacOkdE0Ys8/rly56oX5YqS6C/KWK4V68rWSOF0
+Nc4VWEua93LYjqjVr9b2uZpe7YQV3g61R3C6Tk0YuFeug+/FP77SHDbjohcGSHhY
+74W3m6Mp42mhgINKkdxCu+kwH7Td9RS3LItklQfWKuPzDvxI1uv44kkwzPyOthwg
+hmNcHu7/WsSSLe3qo9Pp9nEFoPxdoJv1Kzq9eSDM9E3Pw/QOyZVWuGb5YKGhh6us
+Zyu5XPkmNPApgzPzPfUWdeoPEWN3T75ynoSU6/Nz8zqoPRXyXFksqNmOSsSLvsL9
+6436gyOaXDSH4mOh9NG6ET3egZuvPr0xRsBNmugv/+204Fa+y3gWl+rHizskVb3H
+S4ObdOTzsQmiRzmxsRgW0q8IEEZ/z8zJrK/G1aUCIwS+m4i3RqyQg/BBCDYCO6J+
+s1IW01t+CeQCanym+Ci/7Ed3vQ2DE10FihvVHwBfV4isMMwm14W2CVDHUlg2AubH
+3/23HWmXYJen+wEUcHJt7AG/EjLy8dUUwJNl5E4LF8ZwnrZiOAyabnVIrQkcJiRY
+0WoZFMmjMkRiclA6gIHZhmaeBNuQyuLfIVf575HXsSDjFbsp19q/d7zvmgCS1kTO
+HGMKs6v4WBLqmTZ4HODC
+=Yb6x
+-----END PGP SIGNATURE-----
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-mFZkc5zcZS20KZWL9YHM--
