@@ -1,37 +1,94 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] gro: more generic L2 header check
-Date: Thu, 09 Feb 2012 17:28:31 -0500 (EST)
-Message-ID: <20120209.172831.1366859709918853798.davem@davemloft.net>
-References: <CAJZOPZJj=rBoss-JiLm6K66D1h+zyerDspDS+358t7u=Mg2pfQ@mail.gmail.com>
-	<20120209.152943.1123862542883793404.davem@davemloft.net>
-	<CAJZOPZKUG-tT+Zd=1EiLhgRxg4VEDrisBJQ99XtARMvK68UWfA@mail.gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH net-next] drivers/net: Remove boolean comparisons to
+ true/false
+Date: Thu, 9 Feb 2012 22:36:16 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1842709C1@ORSMSX102.amr.corp.intel.com>
+References: <1328783282-17760-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B6E62@saturn3.aculab.com>
+	 <20120209.133413.349832435589531136.davem@davemloft.net>
+	 <1328822243.29329.11.camel@joe2Laptop>
+ <1328822935.2242.1.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJZOPZKUG-tT+Zd=1EiLhgRxg4VEDrisBJQ99XtARMvK68UWfA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1328822935.2242.1.camel@jtkirshe-mobl>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Fri, 10 Feb 2012 00:18:30 +0200
-
-> On Thu, Feb 9, 2012 at 10:29 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->> I cannot rebase my tree, too many people use it and I would break
->> their stuff. We simply have to live with this error.
-> 
-> I see, so you will add CC to stable, such that they will be picked
-> into -stable once you push them to Linus?
-
-This is so tiring explaining all of this stuff...
-
-I submit stable patches for networking directly myself, at a time of
-my own choosing, once I believe that the changes have had enough
-exposure and testing.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBKZWZmIEtpcnNoZXINCj4gU2VudDogVGh1cnNkYXksIEZlYnJ1YXJ5IDA5LCAyMDEy
+IDE6MjkgUE0NCj4gVG86IEpvZSBQZXJjaGVzDQo+IENjOiBEYXZpZCBNaWxsZXI7IERhdmlkLkxh
+aWdodEBBQ1VMQUIuQ09NOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC13aXJlbGVz
+cw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBkcml2ZXJzL25ldDogUmVtb3ZlIGJv
+b2xlYW4gY29tcGFyaXNvbnMNCj4gdG8gdHJ1ZS9mYWxzZQ0KPiANCj4gT24gVGh1LCAyMDEyLTAy
+LTA5IGF0IDEzOjE3IC0wODAwLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4gPiBCb29sZWFucyBzaG91
+bGQgbm90IGJlIGNvbXBhcmVkIHRvIHRydWUgb3IgZmFsc2UNCj4gPiBidXQgYmUgZGlyZWN0bHkg
+dGVzdGVkIG9yIHRlc3RlZCB3aXRoICEuDQo+ID4NCj4gPiBEb25lIHZpYSBjb2NjaSBzY3JpcHQ6
+DQo+ID4NCj4gPiBAQA0KPiA+IGJvb2wgdDsNCj4gPiBAQA0KPiA+IC0gdCA9PSB0cnVlDQo+ID4g
+KyB0DQo+ID4gQEANCj4gPiBib29sIHQ7DQo+ID4gQEANCj4gPiAtIHQgIT0gdHJ1ZQ0KPiA+ICsg
+IXQNCj4gPiBAQA0KPiA+IGJvb2wgdDsNCj4gPiBAQA0KPiA+IC0gdCA9PSBmYWxzZQ0KPiA+ICsg
+IXQNCj4gPiBAQA0KPiA+IGJvb2wgdDsNCj4gPiBAQA0KPiA+IC0gdCAhPSBmYWxzZQ0KPiA+ICsg
+dA0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogSm9lIFBlcmNoZXMgPGpvZUBwZXJjaGVzLmNvbT4N
+Cj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhf
+Y21uLmggICAgfCAgICAzICstLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9jYWRlL2Ju
+YS9iZmFfY2VlLmMgICAgICAgICB8ICAgIDggKysrKy0tLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvYnJvY2FkZS9ibmEvYmZhX2lvYy5jICAgICAgICAgfCAgICAyICstDQo+ID4gIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2IvaXhnYl9lZS5jICAgICAgICAgIHwgICAxMg0KPiA+
+ICsrKysrLS0tLS0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdi
+ZV84MjU5OC5jICAgICB8ICAgIDQgKystLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9peGdiZS9peGdiZV9zcmlvdi5jICAgICB8ICAgIDIgKy0NCj4gPiAgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfeDU0MC5jICAgICAgfCAgICAyICstDQo+ID4gIC4uLi9u
+ZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYyAgIHwgICAgMiArLQ0K
+PiA+ICBkcml2ZXJzL25ldC9waHkvYnJvYWRjb20uYyAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDYgKystLS0tDQo+ID4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg1ay9hbmkuYyAg
+ICAgICAgICAgICAgIHwgICAgOCArKysrLS0tLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9h
+dGgvYXRoOWsvYW5pLmMgICAgICAgICAgICAgICB8ICAgIDYgKysrLS0tDQo+ID4gIGRyaXZlcnMv
+bmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9ody1vcHMuaCAgICAgICAgICAgIHwgICAgMiArLQ0KPiA+
+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaHcuYyAgICAgICAgICAgICAgICB8ICAg
+IDUgKystLS0NCj4gPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2JyY21mbWFjL2Ro
+ZF9zZGlvLmMgfCAgIDE2DQo+ID4gKysrKysrKy0tLS0tLS0tLQ0KPiA+ICBkcml2ZXJzL25ldC93
+aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvbWFpbi5jICAgICB8ICAgIDQgKystLQ0KPiA+ICAu
+Li4vbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9waHkvcGh5X24uYyAgICB8ICAgIDIg
+Ky0NCj4gPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtdHJhbnMtcGNpZS10eC5j
+ICAgfCAgICA0ICsrLS0NCj4gPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtdHJh
+bnMtcGNpZS5jICAgICAgfCAgICAyICstDQo+ID4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL213bDhr
+LmMgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNSArKy0tLQ0KPiA+ICBkcml2ZXJzL25ldC93
+aXJlbGVzcy9ydGx3aWZpL2VmdXNlLmMgICAgICAgICAgICAgICB8ICAgIDIgKy0NCj4gPiAgZHJp
+dmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9wcy5jICAgICAgICAgICAgICAgICAgfCAgICAzICst
+LQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJjL2RtX2NvbW1vbi5j
+ICB8ICAgIDQgKystLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJj
+L3BoeV9jb21tb24uYyB8ICAgIDggKysrKy0tLS0NCj4gPiAgZHJpdmVycy9uZXQvd2lyZWxlc3Mv
+cnRsd2lmaS9ydGw4MTkyY2UvaHcuYyAgICAgICAgfCAgICA5ICsrKystLS0tLQ0KPiA+ICBkcml2
+ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJjZS9waHkuYyAgICAgICB8ICAgIDMgKy0t
+DQo+ID4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MmNlL3JmLmMgICAgICAg
+IHwgICAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJjdS9w
+aHkuYyAgICAgICB8ICAgIDMgKy0tDQo+ID4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkv
+cnRsODE5MmN1L3JmLmMgICAgICAgIHwgICAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVz
+cy9ydGx3aWZpL3J0bDgxOTJkZS9kbS5jICAgICAgICB8ICAgIDIgKy0NCj4gPiAgZHJpdmVycy9u
+ZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4MTkyZGUvaHcuYyAgICAgICAgfCAgICA5ICsrKystLS0t
+LQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJkZS9waHkuYyAgICAg
+ICB8ICAgMTEgKysrKystLS0tDQo+IC0tDQo+ID4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdp
+ZmkvcnRsODE5MmRlL3JmLmMgICAgICAgIHwgICAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJl
+bGVzcy9ydGx3aWZpL3J0bDgxOTJzZS9mdy5jICAgICAgICB8ICAgIDYgKysrLS0tDQo+ID4gIGRy
+aXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MnNlL2h3LmMgICAgICAgIHwgICAxMCAr
+KysrKy0tLS0NCj4gLQ0KPiA+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJz
+ZS9waHkuYyAgICAgICB8ICAgMTMNCj4gPiArKysrKystLS0tLS0tDQo+ID4gIGRyaXZlcnMvbmV0
+L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MnNlL3JmLmMgICAgICAgIHwgICAgMiArLQ0KPiA+ICAz
+NiBmaWxlcyBjaGFuZ2VkLCA4NSBpbnNlcnRpb25zKCspLCAxMDEgZGVsZXRpb25zKC0pDQo+IA0K
+PiBUaGUgaXhnYmUgY2hhbmdlcyBsb29rIGZpbmUsIGFuZCBJIGRvIG5vdCBzZWUgYW55IGlzc3Vl
+cyB3aXRoIHRoZQ0KPiBjaGFuZ2VzLg0KPiANCj4gUmV2aWV3ZWQtYnk6IEplZmYgS2lyc2hlciA8
+amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KDQpIYXMgdGhlIGNvY2NpIHNjcmlwdCBiZWVu
+IChvciB3aWxsIGl0IGJlKSBhZGRlZCB0byAuL3NjcmlwdHMvY29jY2luZWxsZT8NCg0K
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
