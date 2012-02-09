@@ -1,61 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net v2 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Thu,  9 Feb 2012 01:34:13 -0800
-Message-ID: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 2/8] igb: fix vf lookup
+Date: Thu,  9 Feb 2012 01:34:15 -0800
+Message-ID: <1328780061-25000-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:23892 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754759Ab2BIJeY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 04:34:24 -0500
+	id S1757300Ab2BIJe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 04:34:26 -0500
+In-Reply-To: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains fixes to e1000, igb and ixgbe.
-The e1000 fix comes from Red Hat, where a previous commit removed
-code which broke WoL and this patch rectifies that. The igb patch
-fixes an issue with VF lookup.  The remaining patches in the series
-are against ixgbe and fix the following:
- - VF lookup and Tx hang with 32 VFs
- - broken dependency on MAX_SKB_FRAGS
- - ethtool buffer overrun in stats
- - DCB fix for up2tc mapping being lost on disable/enable
+From: Greg Rose <gregory.v.rose@intel.com>
 
-v2- fix the formatting in the "ixgbe: fix vf lookup" patch.
+Recent addition of code to find already allocated VFs failed to take
+account that systems with 2 or more multi-port SR-IOV capable controllers
+might have already enabled VFs.  Make sure that the VFs the function is
+finding are actually subordinate to the particular instance of the adapter
+that is looking for them and not subordinate to some device that has
+previously enabled SR-IOV.
 
-The following are changes since commit 64db880e7488a6d31363ad17c4c0590f27fd48e5:
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+This is applicable to 3.2+ kernels.
 
-Alexander Duyck (1):
-  ixgbe: Fix broken dependency on MAX_SKB_FRAGS being related to page
-    size
+CC: stable@vger.kernel.org
+Reported-by: David Ahern <daahern@cisco.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Robert E Garrett <robertX.e.garrett@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Dean Nelson (1):
-  e1000: add dropped DMA receive enable back in for WoL
-
-Greg Rose (3):
-  igb: fix vf lookup
-  ixgbe: fix vf lookup
-  ixgbe: Fix case of Tx Hang in PF with 32 VFs
-
-John Fastabend (2):
-  ixgbe: dcb: up2tc mapping lost on disable/enable CEE DCB state
-  ixgbe: ethtool: stats user buffer overrun
-
-Yi Zou (1):
-  ixgbe: do not update real num queues when netdev is going away
-
- drivers/net/ethernet/intel/e1000/e1000_main.c    |   10 ++-
- drivers/net/ethernet/intel/igb/igb_main.c        |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |   11 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   88 +++++++++++++---------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   18 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |    3 +-
- 6 files changed, 81 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index e91d73c..94be6c3 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5012,7 +5012,8 @@ static int igb_find_enabled_vfs(struct igb_adapter *adapter)
+ 	vf_devfn = pdev->devfn + 0x80;
+ 	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
+ 	while (pvfdev) {
+-		if (pvfdev->devfn == vf_devfn)
++		if (pvfdev->devfn == vf_devfn &&
++		    (pvfdev->bus->number >= pdev->bus->number))
+ 			vfs_found++;
+ 		vf_devfn += vf_stride;
+ 		pvfdev = pci_get_device(hw->vendor_id,
 -- 
 1.7.7.6
