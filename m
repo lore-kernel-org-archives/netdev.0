@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] netxen_nic: signedness bug in netxen_md_entry_err_chk()
-Date: Wed, 08 Feb 2012 20:28:35 -0500 (EST)
-Message-ID: <20120208.202835.161468483687895578.davem@davemloft.net>
-References: <20120208092335.GC6554@elgon.mountain>
+Subject: Re: [patch 0/6] s390: network driver features and fixes for
+ net-next
+Date: Wed, 08 Feb 2012 20:28:47 -0500 (EST)
+Message-ID: <20120208.202847.2263101124035209366.davem@davemloft.net>
+References: <20120208101944.272235343@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49968 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49973 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab2BIB2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 20:28:42 -0500
-In-Reply-To: <20120208092335.GC6554@elgon.mountain>
+	with ESMTP id S1755241Ab2BIB2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 20:28:53 -0500
+In-Reply-To: <20120208101944.272235343@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 8 Feb 2012 12:23:36 +0300
+From: frank.blaschka@de.ibm.com
+Date: Wed, 08 Feb 2012 11:19:44 +0100
 
-> "esize" should be signed because it can be negative here.  For example,
-> when we call it in netxen_parse_md_template(), it could be -1 from the
-> return value of netxen_md_L2Cache().
+> here are some s390 network driver features and fixes for net-next
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> shortlog:
+> 
+> Ursula Braun (5)
+> af_iucv: remove IUCV-pathes completely
+> af_iucv: block writing if msg limit is exceeded
+> af_iucv: change net_device handling for HS transport
+> af_iucv: allow retrieval of maximum message size
+> qeth: add wake_up on write channel
+> 
+> Frank Blaschka (1)
+> qeth: add query OSA address table support
 
-Applied.
+All applied.
