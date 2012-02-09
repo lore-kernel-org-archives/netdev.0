@@ -1,59 +1,38 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [RFC][PATCH 00/50] set addr_assign_type to NET_ADDR_RANDOM if  a random mac address get assigned to a netdevice
-Date: Thu, 9 Feb 2012 15:59:05 +0100
-Message-ID: <201202091559.06480.danny.kukawka@bisect.de>
-References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <20120208145823.75f386c5@nehalam.linuxnetplumber.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] ipvs: fix matching of fwmark templates during
+ scheduling
+Date: Thu, 9 Feb 2012 16:15:07 +0100
+Message-ID: <20120209151507.GA5842@1984>
+References: <1327628727-22482-1-git-send-email-horms@verge.net.au>
+ <1327628727-22482-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120208145823.75f386c5@nehalam.linuxnetplumber.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, stable@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1327628727-22482-2-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mittwoch, 8. Februar 2012, Stephen Hemminger wrote:
-> On Wed,  8 Feb 2012 22:10:07 +0100
->
-> Danny Kukawka <danny.kukawka@bisect.de> wrote:
-> > The information if a device has a random MAC address is exported
-> > to the userspace via /sys/class/net/*/addr_assign_type, which
-> > export net_device->addr_assign_type.
-> >
-> > Currently only a few driver really use dev_hw_addr_random() to
-> > set addr_assign_type correctly to NET_ADDR_RANDOM.
-> >
-> > This patch change the drivers which set random addresses to
-> > change also addr_assign_type to NET_ADDR_RANDOM.
-> >
-> > To reflect if the MAC was changed from userspace via SIOCSIFHWADDR,
-> > which means it's no longer a random address set by the kernel,
-> > this patch remove NET_ADDR_RANDOM from addr_assign_type in this
-> > case.
-> >
-> > With this patch tools from userspace can now detect devices with
-> > random MAC addresses and change them to persistent addresses if
-> > needed (as e.g. in case of smsc95xx on PandaBoard).
-> >
-> > Maybe it makes sense to introduce a new state for addr_assign_type
-> > to reflect the fact, that the MAC address was changed via a ioctl
-> > from user space, e.g, with NET_ADDR_USERSPACE ?
->
-> This reminds me that passing dev->dev_addr to dev_hw_addr_rrandom is
-> redundant for all the instances you showed, so why is it ia parameter.
+On Fri, Jan 27, 2012 at 10:45:27AM +0900, Simon Horman wrote:
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> 	Commit f11017ec2d1859c661f4e2b12c4a8d250e1f47cf (2.6.37)
+> moved the fwmark variable in subcontext that is invalidated before
+> reaching the ip_vs_ct_in_get call. As vaddr is provided as pointer
+> in the param structure make sure the fwmark variable is in
+> same context. As the fwmark templates can not be matched,
+> more and more template connections are created and the
+> controlled connections can not go to single real server.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-There are two places in the existing code where it's used in a different way 
-in ixgbevf and igbvf, but thats changeable. I will take a look at it and 
-change dev_hw_addr_random to take simply a net_device ands set everything 
-directly.
+Applied, thanks. I'll pass it to davem.
 
-> Also it should BUG() if address length is not 6 (ETH_ALEN).
-
-Not needed if I change it to: 
-static inline void dev_hw_addr_random(struct net_device *dev) 
-
-Danny
+I'll pass it to stable once this hits Linus tree.
