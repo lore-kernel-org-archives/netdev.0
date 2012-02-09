@@ -1,50 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pch_gbe: set dma mask to only 32 bit
-Date: Wed, 08 Feb 2012 20:06:02 -0500 (EST)
-Message-ID: <20120208.200602.200734891435792991.davem@davemloft.net>
-References: <20120207192354.GA7770@darkmag.usersys.redhat.com>
+Subject: Re: [RFC PATCH] rtnetlink: Add filter for VF info dump requests
+Date: Wed, 08 Feb 2012 20:10:18 -0500 (EST)
+Message-ID: <20120208.201018.97784090083485473.davem@davemloft.net>
+References: <20120207223346.21320.89370.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, toshiharu-linux@dsn.okisemi.com,
-	paul.gortmaker@windriver.com, mirq-linux@rere.qmqm.pl
-To: vfalico@redhat.com
+Cc: netdev@vger.kernel.org
+To: gregory.v.rose@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49807 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49827 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757943Ab2BIBHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 20:07:13 -0500
-In-Reply-To: <20120207192354.GA7770@darkmag.usersys.redhat.com>
+	with ESMTP id S1756838Ab2BIBKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2012 20:10:20 -0500
+In-Reply-To: <20120207223346.21320.89370.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 7 Feb 2012 20:23:54 +0100
+From: Greg Rose <gregory.v.rose@intel.com>
+Date: Tue, 07 Feb 2012 14:33:46 -0800
 
-> Because pch_gbe_rx_desc->buffer_addr is u32, we cannot set dma mask to 64
-> bit or otherwise we could end up loosing the higher 32 bit from the return
-> of dma_map_single(). Removing DMA_BIT_MASK(64) setting will solve it.
+> Add a 256 bit filter to allow the user to filter which VFs' info will
+> get displayed during the dump info request.  This is to fix a bug in
+> which a an info dump request on a device with many VFs would overflow
+> the recvmsg buffer which is allocated to max(8192, PAGE_SIZE).  A
+> complimentary patch to the iproute2 ip tool will allow the user to
+> set/clear individual VF filters.
 > 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 
-The logic here makes no sense.
+This isn't the idea.
 
-> -	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(64))
-> -		|| pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
-> -		ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-> +	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
-> +		ret = pci_set_consistent_dma_mask(pdev,
-> +						  DMA_BIT_MASK(32));
+I meant we have to add a generic u32 mask attribute to the GETLINK
+requests, and it's a mask of "features".  One feature bit would be for
+enabling the "VF" part of the dump, another bit would be for the
+macvlan source address lists that are being proposed, etc.  Any new
+auxiliarry information type we want to add to devide dumps, we have
+to add a feature bit for in this mask.
 
-You want to take this branch on success, not failure.  pci_set_dma_mask()
-returns 0 on success.
+And then you can't just stop there, you have to update all of the
+logic related to min_ifinfo_dump_size to take into account the current
+request's mask state.
 
-Something like:
-
-	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-	if (ret ||
-	    (ret = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)))) {
-		dev_err(&pdev->dev, "ERR: No usable DMA "
-			"configuration, aborting\n");
-		goto err_disable_device;
-	}
+In fact this means you must get rid of the min_info_dump_size global
+variable altogether because the size is context dependent upon the
+mask configuration of the current dump request.
