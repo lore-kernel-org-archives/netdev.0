@@ -1,85 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] rename dev_hw_addr_random and remove redundant
- second
-Date: Thu, 9 Feb 2012 20:11:30 +0000
-Message-ID: <1328818290.2562.19.camel@bwh-desktop>
-References: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
-	 <1328816934-11508-3-git-send-email-danny.kukawka@bisect.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] gro: more generic L2 header check
+Date: Thu, 09 Feb 2012 15:29:43 -0500 (EST)
+Message-ID: <20120209.152943.1123862542883793404.davem@davemloft.net>
+References: <4F33A3FC.1050205@mellanox.com>
+	<20120209.135235.957414875716615693.davem@davemloft.net>
+	<CAJZOPZJj=rBoss-JiLm6K66D1h+zyerDspDS+358t7u=Mg2pfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	<e1000-devel@lists.sourceforge.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328816934-11508-3-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: or.gerlitz@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58404 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754163Ab2BIU3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 15:29:48 -0500
+In-Reply-To: <CAJZOPZJj=rBoss-JiLm6K66D1h+zyerDspDS+358t7u=Mg2pfQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-09 at 20:48 +0100, Danny Kukawka wrote:
-> Renamed dev_hw_addr_random to eth_hw_addr_random() to reflect that
-> this function only assign a random ethernet address (MAC). Removed
-> the second parameter (u8 *hwaddr), it's redundant since the also
-> given net_device already contains net_device->dev_addr.
-> Set it directly.
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Thu, 9 Feb 2012 22:04:34 +0200
+
+> On Thu, Feb 9, 2012 at 8:52 PM, David Miller <davem@davemloft.net> wrote:
 > 
-> Adapt igbvf and ixgbevf to the changed function.
-[...]
-> --- a/drivers/net/ethernet/intel/igbvf/netdev.c
-> +++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-> @@ -2695,18 +2695,19 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
->  		dev_info(&pdev->dev,
->  			 "PF still in reset state, assigning new address."
->  			 " Is the PF interface up?\n");
-> -		dev_hw_addr_random(adapter->netdev, hw->mac.addr);
-> +		eth_hw_addr_random(netdev);
-> +		memcpy(adapter->hw.mac.addr, netdev->dev_addr,
-> +			netdev->addr_len);
->  	} else {
->  		err = hw->mac.ops.read_mac_addr(hw);
->  		if (err) {
->  			dev_err(&pdev->dev, "Error reading MAC address\n");
->  			goto err_hw_init;
->  		}
-> +		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
-> +			netdev->addr_len);
->  	}
->  
-> -	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
-> -	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
-> -
->  	if (!is_valid_ether_addr(netdev->perm_addr)) {
->  		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
->  		        netdev->dev_addr);
-> @@ -2714,6 +2715,8 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
->  		goto err_hw_init;
->  	}
->  
-> +	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
-[...]
+>> I've fix this now, thanks.
+> 
+> Yep, I see it there, still, for correctness/biscetion, you should
+> rebase such that the order of commits when pushed to Linus is
 
-I wonder whether VF drivers should claim to have a permanent address at
-all, let alone setting the 'permanent' address to a randomly generated
-address.
+I cannot rebase my tree, too many people use it and I would break
+their stuff.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+We simply have to live with this error.
