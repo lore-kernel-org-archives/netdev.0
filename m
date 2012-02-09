@@ -1,49 +1,29 @@
-From: Peter Meerwald <pmeerw@pmeerw.net>
-Subject: Re: [PATCH 2/2] smsc95xx: allow to re-use MAC address already
- programmed
-Date: Thu, 9 Feb 2012 10:59:36 +0100 (CET)
-Message-ID: <alpine.DEB.2.01.1202091038580.8085@pmeerw.net>
-References: <1328699332-9024-1-git-send-email-pmeerw@pmeerw.net> <1328699332-9024-2-git-send-email-pmeerw@pmeerw.net> <20120208.152647.2150915591550944292.davem@davemloft.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 08/50] bnx2x: use dev_hw_addr_random() instead of random_ether_addr()
+Date: Thu, 9 Feb 2012 09:59:35 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E5F@saturn3.aculab.com>
+References: <1328735457-29986-9-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, danny.kukawka@bisect.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.pmeerw.net ([87.118.82.44]:51100 "EHLO pmeerw.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752462Ab2BIJ7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 04:59:37 -0500
-In-Reply-To: <20120208.152647.2150915591550944292.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Danny Kukawka" <dkukawka@suse.de>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Danny Kukawka" <danny.kukawka@bisect.de>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1328735457-29986-9-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+ 
+> +	if (dev->addr_assign_type & NET_ADDR_RANDOM)
+> +		dev->addr_assign_type ^= NET_ADDR_RANDOM;
 
-> > patch adds a module parameter which allows to keep the MAC address already 
-> > set (e.g. by the boot loader) if it is valid (otherwise the MAC address is read 
-> > from an optional EEPROM or randomly generated)
+Why not just:
+	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+the cache is probably dirty and it won't be a critical path.
 
-> No way, for the same reason as your other patch.
-> Module parameters suck, use something generic.
-
-is there a generic solution (yet)?
-
-the goal is to support tftp-ing a kernel image from u-boot and doing 
-a rootnfs mount in the kernel (with the same MAC address)
-
-it was suggested to set the MAC address from userspace/initrd which seems 
-to be a lot of overhead
-
-I am aware of Danny Kukawka's work in a similar direction
-
-the embedded approach would probably be to hand some board-specific 
-callback to the 'network layer' in order to obtain a MAC whenever it is 
-needed; this could replace/supplement random_ether_addr() found in many 
-drivers
-
-regards, p.
-
--- 
-
-Peter Meerwald
-+43-664-2444418 (mobile)
+	David
