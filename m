@@ -1,124 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/7] e1000e: remove unnecessary returns from void functions
-Date: Thu,  9 Feb 2012 02:27:57 -0800
-Message-ID: <1328783282-17760-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:60039 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757235Ab2BIK2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 05:28:09 -0500
-In-Reply-To: <1328783282-17760-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Li Yang-R58472 <r58472@freescale.com>
+Subject: RE: [RFC] Multi queue support in ethernet/freescale/ucc_geth.c
+Date: Thu, 9 Feb 2012 10:44:54 +0000
+Message-ID: <94F013E7935FF44C83EBE7784D62AD3F0571F5FE@039-SN2MPN1-022.039d.mgd.msft.net>
+References: <4F2B1138.2090004@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <4F2B1138.2090004@windriver.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+> -----Original Message-----
+> From: Paul Gortmaker [mailto:paul.gortmaker@windriver.com]
+> Sent: Friday, February 03, 2012 6:42 AM
+> To: Li Yang-R58472
+> Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org
+> Subject: [RFC] Multi queue support in ethernet/freescale/ucc_geth.c
+> 
+> Hi Li,
 
-...and convert some goto's which simply return to just return.
+Hi Paul,
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ich8lan.c |    3 ---
- drivers/net/ethernet/intel/e1000e/mac.c     |    8 ++------
- drivers/net/ethernet/intel/e1000e/netdev.c  |    7 ++-----
- 3 files changed, 4 insertions(+), 14 deletions(-)
+Sorry for the late response due to holidays.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 5061d4d..942f4da 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1762,7 +1762,6 @@ static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate)
- 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_GATE_PHY_CFG;
- 
- 	ew32(EXTCNF_CTRL, extcnf_ctrl);
--	return;
- }
- 
- /**
-@@ -3768,8 +3767,6 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
- 
- release:
- 	hw->phy.ops.release(hw);
--
--	return;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 33d1b9e..be8335a 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -1661,7 +1661,7 @@ void e1000e_reset_adaptive(struct e1000_hw *hw)
- 
- 	if (!mac->adaptive_ifs) {
- 		e_dbg("Not in Adaptive IFS mode!\n");
--		goto out;
-+		return;
- 	}
- 
- 	mac->current_ifs_val = 0;
-@@ -1672,8 +1672,6 @@ void e1000e_reset_adaptive(struct e1000_hw *hw)
- 
- 	mac->in_ifs_mode = false;
- 	ew32(AIT, 0);
--out:
--	return;
- }
- 
- /**
-@@ -1689,7 +1687,7 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
- 
- 	if (!mac->adaptive_ifs) {
- 		e_dbg("Not in Adaptive IFS mode!\n");
--		goto out;
-+		return;
- 	}
- 
- 	if ((mac->collision_delta * mac->ifs_ratio) > mac->tx_packet_delta) {
-@@ -1712,6 +1710,4 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
- 			ew32(AIT, 0);
- 		}
- 	}
--out:
--	return;
- }
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 293a760..7ccd5f3 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -221,7 +221,7 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 
- 	/* Print Tx Ring Summary */
- 	if (!netdev || !netif_running(netdev))
--		goto exit;
-+		return;
- 
- 	dev_info(&adapter->pdev->dev, "Tx Ring Summary\n");
- 	pr_info("Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp\n");
-@@ -308,7 +308,7 @@ rx_ring_summary:
- 
- 	/* Print Rx Ring */
- 	if (!netif_msg_rx_status(adapter))
--		goto exit;
-+		return;
- 
- 	dev_info(&adapter->pdev->dev, "Rx Ring Dump\n");
- 	switch (adapter->rx_ps_pages) {
-@@ -449,9 +449,6 @@ rx_ring_summary:
- 			}
- 		}
- 	}
--
--exit:
--	return;
- }
- 
- /**
--- 
-1.7.7.6
+> 
+> A while back DaveM mentioned that it would be good to break out the ring
+> allocations[1] in this driver.
+> 
+> I was looking at it, and in the process noticed this:
+> 
+> $ grep 'numQueues.*=' drivers/net/ethernet/freescale/ucc_geth.c
+>         .numQueuesTx = 1,
+>         .numQueuesRx = 1,
+> $
+> 
+> My interpretation of the above is that there is no way (aside from a code
+> edit) to enable multi queue support.
+> They are only ever assigned one time, to a value of one.
+> 
+> Assuming I'm not missing something obvious, is the multi queue support
+> functional and tested, or just old code that never got tested and
+> subsequently enabled?
+
+Previously the device is only used on single core cpu, so we didn't have the incentive to enable multi-queue.  It is not tested on Linux currently.
+
+> 
+> The reason I ask, is that the ring allocation code gets rid of the loop
+> wrapping it, if the driver is really only meant to ever have just single
+> queues for Rx/Tx. And other areas of the driver can also be simplified
+> accordingly as well.
+
+Well.  I would prefer the other way which is to add the multi-queue support as we are using the QE in multi-core SoC and the current driver is having almost all the code needed for multi-queue except interface to the protocol layer.
+
+- Leo
