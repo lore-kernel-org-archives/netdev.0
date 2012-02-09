@@ -1,48 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch] isdn: type bug in isdn_net_header()
-Date: Thu, 9 Feb 2012 06:34:11 -0500
-Message-ID: <20120209113410.GB25634@hmsreliant.think-freely.org>
-References: <20120209104647.GB5540@elgon.mountain>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: Re: [RFC][PATCH 00/50] set addr_assign_type to NET_ADDR_RANDOM if a random mac address get assigned to a netdevice
+Date: Thu, 9 Feb 2012 13:18:35 +0100
+Message-ID: <201202091318.36264.danny.kukawka@bisect.de>
+References: <1328735457-29986-1-git-send-email-danny.kukawka@bisect.de> <20120208.182942.1223790992368933837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51791 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751621Ab2BILeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 06:34:31 -0500
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120208.182942.1223790992368933837.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20120209104647.GB5540@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 09, 2012 at 01:46:47PM +0300, Dan Carpenter wrote:
-> We use len to store the return value from eth_header().  eth_header()
-> can return -ETH_HLEN (-14).  We want to pass this back instead of
-> truncating it to 65522 and returning that.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> WARNING: Compile tested only.  I don't have this hardware.  Please check
-> that I am on the right track.
-> 
-> diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-> index 2339d73..802ab87 100644
-> --- a/drivers/isdn/i4l/isdn_net.c
-> +++ b/drivers/isdn/i4l/isdn_net.c
-> @@ -1901,7 +1901,7 @@ static int isdn_net_header(struct sk_buff *skb, struct net_device *dev,
->  {
->  	isdn_net_local *lp = netdev_priv(dev);
->  	unsigned char *p;
-> -	ushort len = 0;
-> +	int len = 0;
->  
->  	switch (lp->p_encap) {
->  		case ISDN_NET_ENCAP_ETHER:
-> 
-Looks reasonable
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Donnerstag, 9. Februar 2012, David Miller wrote:
+> 50 patches is way too many patches to submit and expect people
+> to review at one time.
+>
+> You must do one of two things:
+>
+> 1) Condense the series down to a smaller number of more managable
+>    patches.  Perhaps combine all the completely trivial conversion
+>    cases into one single patch, and post the non-trivial cases
+>    seperately.
+>
+> 2) Only submit a few of these changes at a time, not all at once.
+>
+> It's your choice, but what you did here is unacceptable.
+
+Could you at least comment on these points from the cover letter, before I 
+change/update the patches?
+
+- Should NET_ADDR_RANDOM get reset (to NET_ADDR_PERM) if the MAC address
+  get changed via SIOCSIFHWADDR/.ndo_set_mac_address and was random before?
+- Would it make sense to add a new state (e.g. NET_ADDR_USERSPACE)
+  if the net address get changed via SIOCSIFHWADDR/.ndo_set_mac_address 
+  from userspace?
+
+Thanks,
+
+Danny
