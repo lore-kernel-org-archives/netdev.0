@@ -1,40 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net v2 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 09 Feb 2012 13:29:24 -0500 (EST)
-Message-ID: <20120209.132924.1417066410996276149.davem@davemloft.net>
-References: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [v8 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH based fwmark
+Date: Thu, 9 Feb 2012 19:32:03 +0100
+Message-ID: <201202091932.03785.hans@schillstrom.com>
+References: <1327675303-9059-1-git-send-email-hans.schillstrom@ericsson.com> <1327675303-9059-3-git-send-email-hans.schillstrom@ericsson.com> <20120208002743.GA29189@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, kaber@trash.net,
+	jengelh@medozas.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57045 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752559Ab2BIS3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 13:29:30 -0500
-In-Reply-To: <1328780061-25000-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:33597 "EHLO
+	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559Ab2BIScI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 13:32:08 -0500
+In-Reply-To: <20120208002743.GA29189@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  9 Feb 2012 01:34:13 -0800
 
-> The following series contains fixes to e1000, igb and ixgbe.
-> The e1000 fix comes from Red Hat, where a previous commit removed
-> code which broke WoL and this patch rectifies that. The igb patch
-> fixes an issue with VF lookup.  The remaining patches in the series
-> are against ixgbe and fix the following:
->  - VF lookup and Tx hang with 32 VFs
->  - broken dependency on MAX_SKB_FRAGS
->  - ethtool buffer overrun in stats
->  - DCB fix for up2tc mapping being lost on disable/enable
-> 
-> v2- fix the formatting in the "ixgbe: fix vf lookup" patch.
-> 
-> The following are changes since commit 64db880e7488a6d31363ad17c4c0590f27fd48e5:
->   Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+On Wednesday, February 08, 2012 01:27:43 Pablo Neira Ayuso wrote:
+> On Fri, Jan 27, 2012 at 03:41:42PM +0100, Hans Schillstrom wrote:
+[snip]
 
-Pulled, thanks Jeff.
+> > +#if defined(CONFIG_NF_NAT)
+> > +	if (ct && test_bit(IP_CT_IS_REPLY, &ct->status)) {
+> > +		struct nf_conntrack_tuple *otuple;
+> > +
+> > +		otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+> > +		/*
+> > +		 * On the "return flow", to get the original address
+> > +		 */
+> > +		if ((ct->status & IPS_DST_NAT) &&
+> > +			(info->flags & XT_HMARK_USE_DNAT)) {
+> > +			addr1 = (__force u32) otuple->dst.u3.in.s_addr;
+> > +			dnatport = otuple->dst.u.udp.port;
+> > +		}
+> > +		if ((ct->status & IPS_SRC_NAT) &&
+> > +			(info->flags & XT_HMARK_USE_SNAT)) {
+> > +			addr2 = (__force u32) otuple->src.u3.in.s_addr;
+> > +			snatport = otuple->src.u.udp.port;
+> > +		}
+> 
+> You can make this much more simple.
+> 
+> Allow the user to tell your HMARK target to use the conntrack
+> information instead.
+> 
+> My opinion is that the user must have total control on the target
+> behaviour through the configuration options. The number of internal
+> by-default decisions have to be kept up to the minimum, otherwise
+> the behaviour of the target may seem obscure.
+> 
+> > +	}
+> > +#endif
+> > +	/* user space tool ensures that prmask is zero when method is L3*/
+
+While dealing with fragmentation in ipvs, an idea run into my head...
+why not take care of fragments from nfct_reasm in L3_4 mode ?
+
+OK it might be an obscure behaviour but on the other hand
+people expect that fragments is handled by netfilter...
+
+
+/Hans
