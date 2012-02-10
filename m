@@ -1,77 +1,51 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Fri, 10 Feb 2012 16:07:57 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1202101606530.3840@router.home>
-References: <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home> <20120208163421.GL5938@suse.de> <alpine.DEB.2.00.1202081338210.32060@router.home>
- <20120208212323.GM5938@suse.de> <alpine.DEB.2.00.1202081557540.5970@router.home> <20120209125018.GN5938@suse.de> <alpine.DEB.2.00.1202091345540.4413@router.home> <20120210102605.GO5938@suse.de> <alpine.DEB.2.00.1202101443570.31424@router.home>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-  Peter Zijlstra <a.p.zijlstra@chello.nl>,
-  Pekka Enberg <penberg@cs.helsinki.fi>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1202101443570.31424@router.home>
-Sender: owner-linux-mm@kvack.org
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH v5] Merge ipt_LOG and ip6t_LOG, add ring bufffer support
+Date: Fri, 10 Feb 2012 23:10:50 +0100
+Message-ID: <1328911856-19260-1-git-send-email-richard@nod.at>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, jengelh@medozas.de, rostedt@goodmis.org,
+	pablo@netfilter.org, basti@b-bl.de
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Proposal for a patch for slub to move the pfmemalloc handling out of the
-fastpath by simply not assigning a per cpu slab when pfmemalloc processing
-is going on.
+This patch set merges ipt_LOG and ip6t_LOG and adds ring buffer support
+to xt_LOG.
 
+Using "--ring" a user can create LOG rules which log messages into
+one or more ring buffers.
+Each ring buffer is represented as pipe-like file in
+/proc/net/netfilter/xt_LOG_ring/.
 
+Ring buffer support can be enabled/disabled using
+CONFIG_NETFILTER_XT_TARGET_LOG_RING.
 
-Subject: [slub] Fix so that no mods are required for the fast path
+Changes since v1:
+ - Merged ipt_LOG and ip6t_LOG
+ - Implemented ring buffer support as part of xt_LOG.
 
-Remove the check for pfmemalloc from the alloc hotpath and put the logic after
-the election of a new per cpu slab.
+Changes since v2:
+ - Fixed struct xt_log_info_v1's data layout
+ - Removed the sizeof(void *) hack
+ - Replaced BUG() by WARN_ON_ONCE()
 
-For a pfmemalloc page do not use the fast path but force use of the slow
-path (which is also used for the debug case).
+Changes since v3:
+ - Merged xt_LOG_core.c and xt_LOG_ring.c into xt_LOG.c
+ - Made checkpatch.pl happy
 
-Signed-off-by: Christoph Lameter <cl@linux.com>
+Changes since v4:
+ - Fixed a typo in include/linux/netfilter/Kbuild
+   (Thanks Bastian!)
 
+All patches can also be found at:
+git://git.kernel.org/pub/scm/linux/kernel/git/rw/misc.git xt_LOG
+git://git.kernel.org/pub/scm/linux/kernel/git/rw/iptables.git xt_LOG
 
----
- mm/slub.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+[PATCH 1/2] iptables: Merge libip6t_LOG and libipt_LOG into
+[PATCH 2/2] iptables: xt_LOG: Add ring buffer support
 
-Index: linux-2.6/mm/slub.c
-===================================================================
---- linux-2.6.orig/mm/slub.c	2012-02-10 09:58:13.066125970 -0600
-+++ linux-2.6/mm/slub.c	2012-02-10 10:06:07.114113000 -0600
-@@ -2273,11 +2273,12 @@ new_slab:
- 		}
- 	}
-
--	if (likely(!kmem_cache_debug(s)))
-+	if (likely(!kmem_cache_debug(s) && pfmemalloc_match(c, gfpflags)))
- 		goto load_freelist;
-
-+
- 	/* Only entered in the debug case */
--	if (!alloc_debug_processing(s, c->page, object, addr))
-+	if (kmem_cache_debug(s) && !alloc_debug_processing(s, c->page, object, addr))
- 		goto new_slab;	/* Slab failed checks. Next slab needed */
-
- 	c->freelist = get_freepointer(s, object);
-@@ -2327,8 +2328,7 @@ redo:
- 	barrier();
-
- 	object = c->freelist;
--	if (unlikely(!object || !node_match(c, node) ||
--					!pfmemalloc_match(c, gfpflags)))
-+	if (unlikely(!object || !node_match(c, node)))
- 		object = __slab_alloc(s, gfpflags, node, addr, c);
-
- 	else {
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+[PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
+[PATCH 2/4] ring_buffer: Export for_each_buffer_cpu()
+[PATCH 3/4] xt_log: Make printk() in sb_close() optional
+[PATCH 4/4] Netfilter: xt_LOG: Implement ring buffer support
