@@ -1,50 +1,43 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv4: Fix wrong order of ip_rt_get_source() and update
- iph->daddr.
-Date: Fri, 10 Feb 2012 15:08:10 +0800
-Message-ID: <4F34C25A.4020904@cn.fujitsu.com>
-References: <4F34BDAD.8080608@cn.fujitsu.com> <1328857450.2436.9.camel@edumazet-laptop>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: fix driver features
+Date: Fri, 10 Feb 2012 08:08:54 +0100
+Message-ID: <4F34C286.2070304@st.com>
+References: <1328784993-31733-1-git-send-email-peppe.cavallaro@st.com> <20120209.153504.92022308276431620.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52340 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754340Ab2BJHIH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 02:08:07 -0500
-In-Reply-To: <1328857450.2436.9.camel@edumazet-laptop>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:35649 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751915Ab2BJHJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 02:09:02 -0500
+In-Reply-To: <20120209.153504.92022308276431620.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet =E5=86=99=E9=81=93:
-> Le vendredi 10 f=C3=A9vrier 2012 =C3=A0 14:48 +0800, Li Wei a =C3=A9c=
-rit :
->> Need to update iph->daddr before ip_rt_get_source(), otherwise
->> we may get a wrong src.
->>
->=20
-> It would be nice that patch submitters try to pinpoint bug origin in
-> changelog, to ease patch review and stable submissions.
->=20
-> Is it coming from ac8a48106be49c422575ddc7531b776f8eb49610 (ipv4: Sav=
-e
-> nexthop address of LSRR/SSRR option to IPCB.) added in 3.2, or is it
-> something needing a backport in some other way in old kernels ?
+Hello David
 
-As you said, it is coming from ac8a48106be49c422575ddc7531b776f8eb49610=
-=20
-(ipv4: Save nexthop address of LSRR/SSRR option to IPCB.).
+On 2/9/2012 9:35 PM, David Miller wrote:
+> This is not the purpose of the fix_features method, it's meant to
+> ensure that the settings are valid.
+> 
+> It's not meant to "catch up" with settings you store in the internal
+> datastructures of your driver.
+> 
+> You need to do this at probe time, where the initial ->hw_features
+> and ->features values are set.
 
-I'll modify the changelog and post a v2.
+Initially the driver HW features are indeed set in the probe but in the
+stmmac_open function, after looking at the HW cap reg, some parameters,
+for example the HW csum, can be overridden and the
+netdev_update_features is called. IIUC the netdev_update_features calls
+the driver's ndo_fix_features. For this reason I improved the
+stmmac_fix_feature function to cover more setting. Anyway, if I cannot
+use this function I should move from the open to the probe the logic to
+manage the MAC identification and HW cap register. What do you suggest?
 
-Thanks!
-
->=20
-> Thanks !
->=20
->=20
->=20
->=20
+Many thanks for you review
+Regards
+Peppe
