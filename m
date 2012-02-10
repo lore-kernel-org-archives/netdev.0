@@ -1,54 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 10 Feb 2012 00:08:50 -0800
-Message-ID: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 6/7] e1000e: replace '1' with 'true' for boolean get_link_status
+Date: Fri, 10 Feb 2012 00:08:56 -0800
+Message-ID: <1328861337-12810-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7659 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:3668 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754026Ab2BJII7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 03:08:59 -0500
+	id S1757927Ab2BJIJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 03:09:03 -0500
+In-Reply-To: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to igb and e1000e.
-Majority of the updates are to e1000e and do the following:
- - several cleanups which remove unnecessary () and returns from void
-   functions
- - remove test that is always false
- - use 'true' instead of '1' for boolean
-The one igb fix resolves warning about unused function.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-v2- updated patch 4 based on feedback from community
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    6 +++---
+ drivers/net/ethernet/intel/e1000e/phy.c    |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-The following are changes since commit 4cbbb04dc115423682349aa7466c8aeead825140:
-  cnic: Update VLAN ID during ISCSI_UEVENT_PATH_UPDATE
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Bruce Allan (6):
-  e1000e: remove test that is always false
-  e1000e: remove unnecessary returns from void functions
-  e1000e: remove unnecessary parentheses
-  e1000e: use true/false for bool autoneg_false
-  e1000e: pass pointer to hw struct for e1000_init_mac_params_XXX()
-  e1000e: replace '1' with 'true' for boolean get_link_status
-
-Emil Tantilov (1):
-  igb: fix warning about unused function
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    7 ++---
- drivers/net/ethernet/intel/e1000e/82571.c       |    9 +++---
- drivers/net/ethernet/intel/e1000e/ethtool.c     |    4 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |    8 +----
- drivers/net/ethernet/intel/e1000e/mac.c         |   32 ++++++++++-------------
- drivers/net/ethernet/intel/e1000e/manage.c      |    2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |   13 +++-----
- drivers/net/ethernet/intel/e1000e/phy.c         |   12 ++++----
- drivers/net/ethernet/intel/igb/igb_main.c       |    4 +++
- 9 files changed, 41 insertions(+), 50 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 7ccd5f3..f868fb8 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1652,7 +1652,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+ 	 */
+ 
+ 	if (icr & E1000_ICR_LSC) {
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/*
+ 		 * ICH8 workaround-- Call gig speed drop workaround on cable
+ 		 * disconnect (LSC) before accessing any PHY registers
+@@ -1718,7 +1718,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	 */
+ 
+ 	if (icr & E1000_ICR_LSC) {
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/*
+ 		 * ICH8 workaround-- Call gig speed drop workaround on cable
+ 		 * disconnect (LSC) before accessing any PHY registers
+@@ -1775,7 +1775,7 @@ static irqreturn_t e1000_msix_other(int irq, void *data)
+ 	if (icr & E1000_ICR_OTHER) {
+ 		if (!(icr & E1000_ICR_LSC))
+ 			goto no_link_interrupt;
+-		hw->mac.get_link_status = 1;
++		hw->mac.get_link_status = true;
+ 		/* guard against interrupt when we're going down */
+ 		if (!test_bit(__E1000_DOWN, &adapter->state))
+ 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index e8ad080..6f44c3f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -1141,7 +1141,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
+ 		}
+ 	}
+ 
+-	hw->mac.get_link_status = 1;
++	hw->mac.get_link_status = true;
+ 
+ 	return ret_val;
+ }
 -- 
 1.7.7.6
