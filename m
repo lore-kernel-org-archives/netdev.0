@@ -1,54 +1,47 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 0/4] Fix routing metrics
-Date: Fri, 10 Feb 2012 09:44:25 +0100
-Message-ID: <20120210084424.GM23142@secunet.com>
-References: <20120210065031.GK23142@secunet.com>
- <20120210.023815.192069104397847238.davem@davemloft.net>
- <20120210075106.GL23142@secunet.com>
- <20120210.031211.2297215055759518521.davem@davemloft.net>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH net-next] drivers/net: Remove boolean comparisons to true/false
+Date: Fri, 10 Feb 2012 09:32:39 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E65@saturn3.aculab.com>
+References: <1328822243.29329.11.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51202 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753419Ab2BJIob (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 03:44:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20120210.031211.2297215055759518521.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Joe Perches" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1328822243.29329.11.camel@joe2Laptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2012 at 03:12:11AM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Fri, 10 Feb 2012 08:51:07 +0100
-> 
-> > On Fri, Feb 10, 2012 at 02:38:15AM -0500, David Miller wrote:
-> >> From: Steffen Klassert <steffen.klassert@secunet.com>
-> >> > 
-> >> > I fully agree with you here. But we check for the genid just in
-> >> > rt_init_metrics() which is invoked only on route cache entry
-> >> > creation. There is no check when the metrics are accessed,
-> >> > because the metrics on the inetpeer are valid on every access.
-> >> 
-> >> Every routing cache entry we will use after the flush will be
-> >> a newly created one!  All the old ones will be stop being used.
-> > 
-> > Yes, I know that. All inetpeer metrics are updated once with the
-> > first new routing cache entry that binds that inetpeer to the route.
-> 
-> And after a routing cache flush, that will be all routing cache
-> entries every used after that point.
+ 
+> -	u32 func_encode = func |
+> -			((is_Pf == true ? 1 : 0) <<
+IGU_FID_ENCODE_IS_PF_SHIFT);
+> +	u32 func_encode = func | (is_Pf ? 1 : 0) <<
+IGU_FID_ENCODE_IS_PF_SHIFT;
 
-Yes, the genid check happens once for every new routing cache entry
-we recreate. After that, we'll find maching routes in the cache
-and we don't do that check.
+This sort of thing is why I personally don't like 'bool' at all.
+If 'is_Pf' were an integer type that is known to only contain 0 or 1
+then the code can just be:
+	u32 func_encode = func | is_Pf << IGU_FID_ENCODE_IS_PF_SHIFT;
+although that is still valid when is_Pf is bool, the compiler
+is required to generate code on every access that converts
+all non-zero values to 1 - so the generated code is likely
+to be 'is_Pf ? 1 : 0'.
 
-> 
-> So since this happens, you don't need to check the inetpeer at every
-> metric access.  The fact that all routing cache entries get recreated
-> will do it for you.
+The generated code is particularly horrid for boolean arithmetic.
+IIRC:
+   bool_var &= bool_var_1;
+typically requires a sequence of compare and branch instructions.
 
-So if rt_init_metrics() is not the right place to check for genid
-changes, where would you suggest to do it?
+	David
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
