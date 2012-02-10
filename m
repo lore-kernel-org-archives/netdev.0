@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/7] e1000e: remove unnecessary parentheses
-Date: Fri, 10 Feb 2012 00:08:53 -0800
-Message-ID: <1328861337-12810-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/7] e1000e: use true/false for bool autoneg_false
+Date: Fri, 10 Feb 2012 00:08:54 -0800
+Message-ID: <1328861337-12810-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,145 +10,69 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:3668 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754026Ab2BJIJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 03:09:01 -0500
+	id S1755210Ab2BJIJC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 03:09:02 -0500
 In-Reply-To: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+v2 - replaced mac->autoneg_failed == false with !mac->autoneg_failed
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c   |    2 +-
- drivers/net/ethernet/intel/e1000e/ethtool.c |    4 ++--
- drivers/net/ethernet/intel/e1000e/mac.c     |    6 +++---
- drivers/net/ethernet/intel/e1000e/manage.c  |    2 +-
- drivers/net/ethernet/intel/e1000e/phy.c     |   10 +++++-----
- 5 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/e1000e/mac.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 4cadcc7..7ef4711 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1865,7 +1865,7 @@ static void e1000_power_down_phy_copper_82571(struct e1000_hw *hw)
- 	struct e1000_phy_info *phy = &hw->phy;
- 	struct e1000_mac_info *mac = &hw->mac;
- 
--	if (!(phy->ops.check_reset_block))
-+	if (!phy->ops.check_reset_block)
- 		return;
- 
- 	/* If the management interface is not enabled, then power down */
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index f4dc0fa..b1f5d74 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -1088,7 +1088,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	tx_ring->buffer_info = kcalloc(tx_ring->count,
- 				       sizeof(struct e1000_buffer),
- 				       GFP_KERNEL);
--	if (!(tx_ring->buffer_info)) {
-+	if (!tx_ring->buffer_info) {
- 		ret_val = 1;
- 		goto err_nomem;
- 	}
-@@ -1150,7 +1150,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	rx_ring->buffer_info = kcalloc(rx_ring->count,
- 				       sizeof(struct e1000_buffer),
- 				       GFP_KERNEL);
--	if (!(rx_ring->buffer_info)) {
-+	if (!rx_ring->buffer_info) {
- 		ret_val = 5;
- 		goto err_nomem;
- 	}
 diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index be8335a..0d63c3e 100644
+index 0d63c3e..a5eb0d4 100644
 --- a/drivers/net/ethernet/intel/e1000e/mac.c
 +++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -511,8 +511,8 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 	 * was just plugged in. The autoneg_failed flag does this.
+@@ -513,8 +513,8 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
+ 	/* (ctrl & E1000_CTRL_SWDPIN1) == 1 == have signal */
+ 	if ((ctrl & E1000_CTRL_SWDPIN1) && !(status & E1000_STATUS_LU) &&
+ 	    !(rxcw & E1000_RXCW_C)) {
+-		if (mac->autoneg_failed == 0) {
+-			mac->autoneg_failed = 1;
++		if (!mac->autoneg_failed) {
++			mac->autoneg_failed = true;
+ 			return 0;
+ 		}
+ 		e_dbg("NOT Rx'ing /C/, disable AutoNeg and force link.\n");
+@@ -578,8 +578,8 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
  	 */
  	/* (ctrl & E1000_CTRL_SWDPIN1) == 1 == have signal */
--	if ((ctrl & E1000_CTRL_SWDPIN1) && (!(status & E1000_STATUS_LU)) &&
--	    (!(rxcw & E1000_RXCW_C))) {
-+	if ((ctrl & E1000_CTRL_SWDPIN1) && !(status & E1000_STATUS_LU) &&
-+	    !(rxcw & E1000_RXCW_C)) {
- 		if (mac->autoneg_failed == 0) {
- 			mac->autoneg_failed = 1;
+ 	if (!(status & E1000_STATUS_LU) && !(rxcw & E1000_RXCW_C)) {
+-		if (mac->autoneg_failed == 0) {
+-			mac->autoneg_failed = 1;
++		if (!mac->autoneg_failed) {
++			mac->autoneg_failed = true;
  			return 0;
-@@ -577,7 +577,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 	 * time to complete.
- 	 */
- 	/* (ctrl & E1000_CTRL_SWDPIN1) == 1 == have signal */
--	if ((!(status & E1000_STATUS_LU)) && (!(rxcw & E1000_RXCW_C))) {
-+	if (!(status & E1000_STATUS_LU) && !(rxcw & E1000_RXCW_C)) {
- 		if (mac->autoneg_failed == 0) {
- 			mac->autoneg_failed = 1;
- 			return 0;
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
-index 6594dbf..c54caf6 100644
---- a/drivers/net/ethernet/intel/e1000e/manage.c
-+++ b/drivers/net/ethernet/intel/e1000e/manage.c
-@@ -78,7 +78,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
- 	u32 hicr;
- 	u8 i;
- 
--	if (!(hw->mac.arc_subsystem_valid)) {
-+	if (!hw->mac.arc_subsystem_valid) {
- 		e_dbg("ARC subsystem not valid.\n");
- 		return -E1000_ERR_HOST_INTERFACE_COMMAND;
+ 		}
+ 		e_dbg("NOT Rx'ing /C/, disable AutoNeg and force link.\n");
+@@ -855,7 +855,7 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
  	}
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 8dd2ff0..e8ad080 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -132,7 +132,7 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
- 	u16 phy_id;
- 	u16 retry_count = 0;
+ 	if (i == FIBER_LINK_UP_LIMIT) {
+ 		e_dbg("Never got a valid link from auto-neg!!!\n");
+-		mac->autoneg_failed = 1;
++		mac->autoneg_failed = true;
+ 		/*
+ 		 * AutoNeg failed to achieve a link, so we'll call
+ 		 * mac->check_for_link. This routine will force the
+@@ -867,9 +867,9 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
+ 			e_dbg("Error while checking for link\n");
+ 			return ret_val;
+ 		}
+-		mac->autoneg_failed = 0;
++		mac->autoneg_failed = false;
+ 	} else {
+-		mac->autoneg_failed = 0;
++		mac->autoneg_failed = false;
+ 		e_dbg("Valid Link Found\n");
+ 	}
  
--	if (!(phy->ops.read_reg))
-+	if (!phy->ops.read_reg)
- 		goto out;
- 
- 	while (retry_count < 2) {
-@@ -382,7 +382,7 @@ static s32 __e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data,
- 	s32 ret_val = 0;
- 
- 	if (!locked) {
--		if (!(hw->phy.ops.acquire))
-+		if (!hw->phy.ops.acquire)
- 			goto out;
- 
- 		ret_val = hw->phy.ops.acquire(hw);
-@@ -453,7 +453,7 @@ static s32 __e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data,
- 	s32 ret_val = 0;
- 
- 	if (!locked) {
--		if (!(hw->phy.ops.acquire))
-+		if (!hw->phy.ops.acquire)
- 			goto out;
- 
- 		ret_val = hw->phy.ops.acquire(hw);
-@@ -526,7 +526,7 @@ static s32 __e1000_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data,
- 	s32 ret_val = 0;
- 
- 	if (!locked) {
--		if (!(hw->phy.ops.acquire))
-+		if (!hw->phy.ops.acquire)
- 			goto out;
- 
- 		ret_val = hw->phy.ops.acquire(hw);
-@@ -599,7 +599,7 @@ static s32 __e1000_write_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 data,
- 	s32 ret_val = 0;
- 
- 	if (!locked) {
--		if (!(hw->phy.ops.acquire))
-+		if (!hw->phy.ops.acquire)
- 			goto out;
- 
- 		ret_val = hw->phy.ops.acquire(hw);
 -- 
 1.7.7.6
