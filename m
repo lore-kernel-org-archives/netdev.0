@@ -1,164 +1,36 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Fri, 10 Feb 2012 15:01:37 -0600 (CST)
-Message-ID: <alpine.DEB.2.00.1202101443570.31424@router.home>
-References: <1328568978-17553-3-git-send-email-mgorman@suse.de> <alpine.DEB.2.00.1202071025050.30652@router.home> <20120208144506.GI5938@suse.de> <alpine.DEB.2.00.1202080907320.30248@router.home> <20120208163421.GL5938@suse.de> <alpine.DEB.2.00.1202081338210.32060@router.home>
- <20120208212323.GM5938@suse.de> <alpine.DEB.2.00.1202081557540.5970@router.home> <20120209125018.GN5938@suse.de> <alpine.DEB.2.00.1202091345540.4413@router.home> <20120210102605.GO5938@suse.de>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Shaping ingress and egress VPN traffic with OpenVPN or KLIPS
+Date: Fri, 10 Feb 2012 16:57:02 -0500
+Message-ID: <1328911022.3310.143.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-  Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-  David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-  Peter Zijlstra <a.p.zijlstra@chello.nl>,
-  Pekka Enberg <penberg@cs.helsinki.fi>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120210102605.GO5938@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.194]:57217 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752321Ab2BJV5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 16:57:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 10 Feb 2012, Mel Gorman wrote:
+I've just emailed some questions about doing traffic shaping with IPSec
+but I also have question when using OpenVPN since it uses a separate
+interface, i.e., the tun interfaces. I suppose this would also be true
+of systems still using KLIPS with ipsec interfaces like the Endian
+firewalls.
 
-> I have an updated version of this 02/15 patch below. It passed testing
-> and is a lot less invasive than the previous release. As you suggested,
-> it uses page flags and the bulk of the complexity is only executed if
-> someone is using network-backed storage.
+Once again, with egress traffic, do we simply use a CONNMARK? Is that
+preserved in the OpenVPN or KLIPS encapsulated packet?
 
-Hmmm.. hmm... Still modifies the hotpaths of the allocators for a
-pretty exotic feature.
+For ingress traffic, I would think I would simply redirect traffic on
+the tun or ipsec interfaces to the same ifb interface as the physical
+interface uses for shaping.  However, since the original OpenVPN or ESP
+traffic is also coming in on that interface, how do we properly shape
+the traffic? Do we create a separate queue for the original traffic and
+allocate it bandwidth equal to the sum of all the queues for the traffic
+it might handle? Will it work to pass traffic to two separate ifb
+interfaces, one for traffic coming in off of ipsec+ or tun+ and the
+other for traffic coming in on the physical interface?
 
-> > On top of that you want to add
-> > special code in various subsystems to also do that over the network.
-> > Sigh. I think we agreed a while back that we want to limit the amount of
-> > I/O triggered from reclaim paths?
->
-> Specifically we wanted to reduce or stop page reclaim calling ->writepage()
-> for file-backed pages because it generated awful IO patterns and deep
-> call stacks. We still write anonymous pages from page reclaim because we
-> do not have a dedicated thread for writing to swap. It is expected that
-> the call stack for writing to network storage would be less than a
-> filesystem.
->
-> > AFAICT many filesystems do not support
-> > writeout from reclaim anymore because of all the issues that arise at that
-> > level.
-> >
->
-> NBD is a block device so filesystem restrictions like you mention do not
-> apply. In NFS, the direct_IO paths are used to write pages not
-> ->writepage so again the restriction does not apply.
-
-Block devices are a little simpler ok. But it is still not a desirable
-thing to do (just think about raid and other complex filesystems that may
-also have to do allocations).I do not think that block device writers
-code with the VM in mind. In the case of network devices as block devices
-we have a pretty serious problem since the network subsystem is certainly
-not designed to be called from VM reclaim code that may be triggered
-arbitrarily from deeply nested other code in the kernel. Implementing
-something like this invites breakage all over the place to show up.
-
-> index 8b3b8cf..6a3fa1c 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -695,6 +695,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
->  	trace_mm_page_free(page, order);
->  	kmemcheck_free_shadow(page, order);
->
-> +	page->pfmemalloc = false;
->  	if (PageAnon(page))
->  		page->mapping = NULL;
->  	for (i = 0; i < (1 << order); i++)
-> @@ -1221,6 +1222,7 @@ void free_hot_cold_page(struct page *page, int cold)
->
->  	migratetype = get_pageblock_migratetype(page);
->  	set_page_private(page, migratetype);
-> +	page->pfmemalloc = false;
->  	local_irq_save(flags);
->  	if (unlikely(wasMlocked))
->  		free_page_mlock(page);
-
-page allocator hotpaths affected.
-
-> diff --git a/mm/slab.c b/mm/slab.c
-> index f0bd785..f322dc2 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -123,6 +123,8 @@
->
->  #include <trace/events/kmem.h>
->
-> +#include	"internal.h"
-> +
->  /*
->   * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
->   *		  0 for faster, smaller code (especially in the critical paths).
-> @@ -151,6 +153,12 @@
->  #define ARCH_KMALLOC_FLAGS SLAB_HWCACHE_ALIGN
->  #endif
->
-> +/*
-> + * true if a page was allocated from pfmemalloc reserves for network-based
-> + * swap
-> + */
-> +static bool pfmemalloc_active;
-
-Implying an additional cacheline use in critical slab paths? Hopefully
-grouped with other variables already in cache.
-
-> @@ -3243,23 +3380,35 @@ static inline void *____cache_alloc(struct kmem_cache *cachep, gfp_t flags)
->  {
->  	void *objp;
->  	struct array_cache *ac;
-> +	bool force_refill = false;
-
-... hitting the hotpath here.
-
-> @@ -3693,12 +3845,12 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
->
->  	if (likely(ac->avail < ac->limit)) {
->  		STATS_INC_FREEHIT(cachep);
-> -		ac->entry[ac->avail++] = objp;
-> +		ac_put_obj(cachep, ac, objp);
->  		return;
->  	} else {
->  		STATS_INC_FREEMISS(cachep);
->  		cache_flusharray(cachep, ac);
-> -		ac->entry[ac->avail++] = objp;
-> +		ac_put_obj(cachep, ac, objp);
->  	}
->  }
-
-and here.
-
-
-> diff --git a/mm/slub.c b/mm/slub.c
-> index 4907563..8eed0de 100644
-> --- a/mm/slub.c
-> +++ b/mm/slub.c
-
-> @@ -2304,8 +2327,8 @@ redo:
->  	barrier();
->
->  	object = c->freelist;
-> -	if (unlikely(!object || !node_match(c, node)))
-> -
-> +	if (unlikely(!object || !node_match(c, node) ||
-> +					!pfmemalloc_match(c, gfpflags)))
->  		object = __slab_alloc(s, gfpflags, node, addr, c);
->
->  	else {
-
-
-Modification to hotpath. That could be fixed here by forcing pfmemalloc
-(like debug allocs) to always go to the slow path and checking in there
-instead. Just keep c->freelist == NULL.
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks - John
