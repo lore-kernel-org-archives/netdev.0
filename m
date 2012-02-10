@@ -1,92 +1,98 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH v3] rtlwifi: rtl8192se firmware load can overflow target
- buffer
-Date: Thu, 09 Feb 2012 18:21:04 -0600
-Message-ID: <4F3462F0.20905@lwfinger.net>
-References: <1328735291-33220-1-git-send-email-tim.gardner@canonical.com> <1328737514.2627.14.camel@bwh-desktop> <4F332FC3.7000808@lwfinger.net> <4F33DAFC.1000502@canonical.com> <4F33F7C8.2090105@lwfinger.net> <4F34019E.60007@canonical.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Thu, 09 Feb 2012 16:39:09 -0800
+Message-ID: <1328834349.14661.3.camel@oc1677441337.ibm.com>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <1328811287.19664.9.camel@oc1677441337.ibm.com>
+	 <4F342CEC.8080104@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tim Gardner <rtg.canonical@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tim.gardner@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F34019E.60007@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com,
+	shemminger@vyatta.com, kvm@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4F342CEC.8080104@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/09/2012 11:25 AM, Tim Gardner wrote:
-> On 02/09/2012 09:43 AM, Larry Finger wrote:
->> On 02/09/2012 08:41 AM, Tim Gardner wrote:
->>>
->>> I agree with you about the semantics of rtlpriv->max_fw_size, but I
->>> don't agree
->>> that the size check is correct. While rtlpriv->max_fw_size has been
->>> set to
->>> sizeof(struct rt_firmware), that value is _way_ bigger then the size
->>> of the
->>> target buffer.
->>>
->>> sizeof(struct rt_firmware) == 64000+64000+164000 plus some change
->>>
->>> The target buffer size is only 164000 bytes.
->>>
->>> I've attached v2 of the patch that is simpler and may serve to better
->>> illustrate
->>> my point. By the way, Ben Hutchings was right about the original patch
->>> having an
->>> off by one error. This version also clears rtlpriv->max_fw_size if the
->>> size
->>> check fails. Probably should have mentioned that in the commit log.
->>
->> I agree that Ben is right.
->>
->> This thread forced me to go back to square one in analyzing the
->> situation. For the other drivers in the rtlwifi family, the firmware
->> file contains an image that is directly stuffed into the device. For the
->> RTL8192SE devices, it is more complicated. The structure is described in
->> struct rt_firmware. At the moment, the arrays there are grossly
->> oversized. They could be as follows:
->>
->> struct rt_firmware {
->> struct fw_hdr *pfwheader;
->> enum fw_status fwstatus;
->> u16 firmwareversion;
->> u8 fw_imem[RTL8190_MAX_IMEM_CODE_SIZE];
->> u8 fw_emem[RTL8190_MAX_DMEM_CODE_SIZE];
->> u32 fw_imem_len;
->> u32 fw_emem_len;
->> u8 sz_fw_tmpbuffer[RTL8190_MAX_FIRMWARE_SIZE];
->> u32 sz_fw_tmpbufferlen;
->> u16 cmdpacket_fragthresold;
->> };
->>
->> with
->>
->> RTL8190_MAX_IMEM_CODE_SIZE = 54000 (current fw is 51,208),
->> RTL8190_MAX_DMEM_CODE_SIZE = 40000 (current fw is 37,520), and
->> RTL8190_MAX_FIRMWARE_SIZE = 90000 (it holds the raw firmware image,
->> which is currently 88,856).
->>
->> Ultimately, all three arrays should be eliminated. Now that we are using
->> asynchronous loading, the kernel should keep its cached data and not
->> copy it into the driver's private storage when a pointer will suffice.
->> All the drivers need this change, but that can wait for now.
->>
->> I will ACK the patch if you resumit it with
->> #define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE 90000
->>
->> Larry
->
-> v3 expands the commit log a bit. It doesn't apply to stable 3.2.y, but could
-> easily be backported. If I remember I'll do it when its merged in Linus' tree.
+On Thu, 2012-02-09 at 12:30 -0800, John Fastabend wrote:
+> On 2/9/2012 10:14 AM, Sridhar Samudrala wrote:
+> > On Wed, 2012-02-08 at 19:22 -0800, John Fastabend wrote:
+> >> Propagate software FDB table into hardware uc, mc lists when
+> >> the NETIF_F_HW_FDB is set.
+> >>
+> >> This resolves the case below where an embedded switch is used
+> >> in hardware to do inter-VF or VF-PF switching. This patch
+> >> pushes the FDB entry (specifically the MAC address) into the
+> >> embedded switch with dev_add_uc and dev_add_mc so the switch
+> >> "learns" about the software bridge.
+> >>
+> >>
+> >>           veth0  veth2
+> >>             |      |
+> >>           ------------
+> >>           |  bridge0 |   <---- software bridging
+> >>           ------------
+> >>                /
+> >>                /
+> >>   ethx.y      ethx
+> >>     VF         PF
+> >>      \         \          <---- propagate FDB entries to HW
+> >>      \         \
+> >>   --------------------
+> >>   |  Embedded Bridge |    <---- hardware offloaded switching
+> >>   --------------------
+> >>
+> > 
+> > This scenario works now as adding an interface to a bridge puts it in
+> > promiscuous mode. So adding a PF to a software bridge should not be
+> > a problem as it supports promiscuous mode. But adding a VF will not
+> > work.
+> 
+> It shouldn't work because the embedded bridge will lookup the address
+> in its FDB and when it doesn't match any unicast filters it will forward
+> the packet onto the wire. Because the veth0 and veth2 above never get
+> inserted into the embedded brdige's FDB the packets will _never_ get
+> routed there.
+> 
+> That said the current 'ixgbe' driver is doing something broken in that
+> it is always setting the unicast hash table and mirroring bits to 1. So
+> if you think this is working your seeing a bug where packets are being
+> sent onto the wire AND upto the PF. Packets with destination addresses
+> matching veth1 should not end up on the wire and vice versa. This is
+> specific to ixgbe and is not the case for other SR-IOV devices.
 
-I added my S-O-B and pushed it on to John.
+OK. Is this behavior going to be fixed.
 
-Thanks,
+> 
+> This causes some issues (a) has some very real performance implications,
+> (b) at this point you have some strange behavior from my point of view.
+> The embedded bridge is not a learning bridge nor is it acting like an
+> 802.1Q VEB or VEPA.
+> 
+> > 
+> > Are you trying to avoid the requirement of having to put the interface 
+> > in promiscuous mode when adding to a bridge?
+> > 
+> 
+> I think the bridge being in promiscuous mode is correct.
 
-Larry
+The interface that is added to the bridge is put in promiscuous mode,
+not the bridge itself.  In this example, i assumed that setting
+promiscuous on PF is putting the embedded bridge in learning mode.
+
+Thanks
+Sridhar
+
+> 
+> Hope that helps sorry its a bit long winded.
+> John
+> 
+> 
+> 
+
+
