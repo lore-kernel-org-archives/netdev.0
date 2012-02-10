@@ -1,82 +1,153 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Fwd: Linux 3.3-rc3
-Date: Fri, 10 Feb 2012 08:56:29 -0800
-Message-ID: <CA+55aFw9wOUbJKm7vVZYzFfKucanX43T2RwKoEfvNiVeEJP-2A@mail.gmail.com>
-References: <CA+55aFyDE+chjpt9N5yNG=+A_LL5qhZjPYfOjFGuZcXUPGEoOQ@mail.gmail.com>
- <20120210100809.GB28736@pcnci.linuxbox.cz>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: r8169 crash (probably my fault) in 3.3.0-rc1+ (net-next)
+Date: Fri, 10 Feb 2012 09:09:37 -0800
+Message-ID: <4F354F51.7070202@candelatech.com>
+References: <4F3446AB.2080209@candelatech.com> <20120210093006.GA23710@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120210100809.GB28736-xTMdSLfc3Wpi51D5yjT6kKVXKuFTiq87@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------050306000208050303000703"
+Cc: netdev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:38729 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716Ab2BJRJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 12:09:41 -0500
+In-Reply-To: <20120210093006.GA23710@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This seems to have gotten lost somewhere - the lkml post was from the
-middle of January.
+This is a multi-part message in MIME format.
+--------------050306000208050303000703
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-                    Linus
-
----------- Forwarded message ----------
-=46rom: Nikola Ciprich <nikola.ciprich-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org>
-Date: Fri, Feb 10, 2012 at 2:08 AM
-Subject: Re: Linux 3.3-rc3
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-
-On Wed, Feb 08, 2012 at 07:36:37PM -0800, Linus Torvalds wrote:
-> Another week, another -rc.
+On 02/10/2012 01:30 AM, Francois Romieu wrote:
+> Ben Greear<greearb@candelatech.com>  :
+> [...]
+>> I am hacking on the 8169 code, (adding RX-ALL and RX-FCS support on top
+>> of my previously posted patches) so this could easily be my fault..
+>> but just in case someone else has seen it, please let me know....
 >
-> No big surprises, which is just how I like it. About a third of the
-> patches are in ARM, but the bulk of that is due to the removal of the
-> unused DMA map code form the bcmring support. So no complaints.
+> I have never met it before. Neither does the web.
 >
-> The rest is fairly flat in the diffstat (=3D=3D random small changes =
-all
-> over), although mostly drivers. More sound/hda (and asoc) updates,
-> some target and IB updates, etc etc.
->
-> Shortlog appended for your perusal, you can see the kind of largely
-> "fix small details" almost all of it is,
+> Are you hacking against davem's -next branch ?
 
-Hi,
+Yes.  I was testing the attached patch, and when I enabled the rx-fcs, it crashed
+shortly after.  So, my changes must be bad somehow...
 
-just wanted to let You know, that following fix didn't make it into
-Your tree yet:
-https://lkml.org/lkml/2012/1/15/23
+Probably something to do with pkt_size being 4 bytes larger when
+rx-fcs is enabled (I was hoping that would grab the FCS, as similar
+logic seems to work fine in 8139too...)
 
-the bug is causing build failures with some GCC versions:
+Thanks,
+Ben
 
-=A0CC [M] =A0net/bluetooth/l2cap_sock.o
-net/bluetooth/l2cap_sock.c: In function =91l2cap_sock_connect=92:
-include/net/bluetooth/l2cap.h:838: sorry, unimplemented: inlining
-failed in call to =91l2cap_chan_connect=92: function body not available
-net/bluetooth/l2cap_sock.c:126: sorry, unimplemented: called from here
-make[2]: *** [net/bluetooth/l2cap_sock.o] Error 1
-make[1]: *** [net/bluetooth] Error 2
-make: *** [net] Error 2
-
-BR
-nik
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
 
---
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28. rijna 168, 709 01 Ostrava
+--------------050306000208050303000703
+Content-Type: text/x-patch;
+ name="rtl.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="rtl.patch"
 
-tel.: =A0 +420 596 603 142
-fax: =A0 =A0+420 596 621 273
-mobil: =A0+420 777 093 799
-www.linuxbox.cz
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 5eb6858..fbd855b 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1626,21 +1626,32 @@ static void __rtl8169_set_features(struct net_device *dev,
+ 				   netdev_features_t features)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-
++	netdev_features_t changed = features ^ dev->features;
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 
+-	if (features & NETIF_F_RXCSUM)
+-		tp->cp_cmd |= RxChkSum;
+-	else
+-		tp->cp_cmd &= ~RxChkSum;
++	if (!(changed & (NETIF_F_RXALL | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)))
++		return;
+ 
+-	if (dev->features & NETIF_F_HW_VLAN_RX)
+-		tp->cp_cmd |= RxVlan;
+-	else
+-		tp->cp_cmd &= ~RxVlan;
++	if (changed & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)) {
++		if (features & NETIF_F_RXCSUM)
++			tp->cp_cmd |= RxChkSum;
++		else
++			tp->cp_cmd &= ~RxChkSum;
+ 
+-	RTL_W16(CPlusCmd, tp->cp_cmd);
+-	RTL_R16(CPlusCmd);
++		if (dev->features & NETIF_F_HW_VLAN_RX)
++			tp->cp_cmd |= RxVlan;
++		else
++			tp->cp_cmd &= ~RxVlan;
++
++		RTL_W16(CPlusCmd, tp->cp_cmd);
++		RTL_R16(CPlusCmd);
++	}
++	if (changed & NETIF_F_RXALL) {
++		int tmp = (RTL_R32(RxConfig) & ~(AcceptErr | AcceptRunt));
++		if (features & NETIF_F_RXALL)
++			tmp |= (AcceptErr | AcceptRunt);
++		RTL_W32(RxConfig, tmp);
++	}
+ }
+ 
+ static int rtl8169_set_features(struct net_device *dev,
+@@ -4174,6 +4185,9 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
+ 		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
+ 
++	dev->hw_features |= NETIF_F_RXALL;
++	dev->hw_features |= NETIF_F_RXFCS;
++
+ 	tp->hw_start = cfg->hw_start;
+ 	tp->event_slow = cfg->event_slow;
+ 
+@@ -5747,11 +5761,23 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+ 				rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
+ 				dev->stats.rx_fifo_errors++;
+ 			}
++			if ((status & (RxRUNT | RxCRC)) &&
++			    !(status & (RxRWT | RxFOVF)) &&
++			    (dev->features & NETIF_F_RXALL))
++				goto process_pkt;
++
+ 			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 		} else {
+ 			struct sk_buff *skb;
+-			dma_addr_t addr = le64_to_cpu(desc->addr);
+-			int pkt_size = (status & 0x00003fff) - 4;
++			dma_addr_t addr;
++			int pkt_size;
++
++process_pkt:
++			addr = le64_to_cpu(desc->addr);
++			if (likely(!(dev->features & NETIF_F_RXFCS)))
++				pkt_size = (status & 0x00003fff) - 4;
++			else
++				pkt_size = status & 0x00003fff;
+ 
+ 			/*
+ 			 * The driver does not support incoming fragmented
+@@ -6025,6 +6051,9 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ 		}
+ 	}
+ 
++	if (dev->features & NETIF_F_RXALL)
++		rx_mode |= (AcceptErr | AcceptRunt);
++
+ 	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
+ 
+ 	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
 
-mobil servis: +420 737 238 656
-email servis: servis-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org
--------------------------------------
+--------------050306000208050303000703--
