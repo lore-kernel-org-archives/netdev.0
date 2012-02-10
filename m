@@ -1,33 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Fri, 10 Feb 2012 14:24:52 -0500 (EST)
-Message-ID: <20120210.142452.2227318248629247303.davem@davemloft.net>
-References: <20120210150518.4002.85507.stgit@gitlad.jf.intel.com>
-	<20120210.135151.754379087490167636.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F88CF8@ORSMSX106.amr.corp.intel.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: r8169 crash (probably my fault) in 3.3.0-rc1+ (net-next)
+Date: Fri, 10 Feb 2012 11:29:19 -0800
+Message-ID: <4F35700F.5010708@candelatech.com>
+References: <4F3446AB.2080209@candelatech.com> <20120210093006.GA23710@electric-eye.fr.zoreil.com> <4F354F51.7070202@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gregory.v.rose@intel.com
+Cc: netdev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40870 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753Ab2BJTY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 14:24:57 -0500
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F88CF8@ORSMSX106.amr.corp.intel.com>
+Received: from mail.candelatech.com ([208.74.158.172]:47277 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752637Ab2BJT3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 14:29:23 -0500
+In-Reply-To: <4F354F51.7070202@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Date: Fri, 10 Feb 2012 19:07:15 +0000
+On 02/10/2012 09:09 AM, Ben Greear wrote:
+> On 02/10/2012 01:30 AM, Francois Romieu wrote:
+>> Ben Greear<greearb@candelatech.com> :
+>> [...]
+>>> I am hacking on the 8169 code, (adding RX-ALL and RX-FCS support on top
+>>> of my previously posted patches) so this could easily be my fault..
+>>> but just in case someone else has seen it, please let me know....
+>>
+>> I have never met it before. Neither does the web.
+>>
+>> Are you hacking against davem's -next branch ?
+>
+> Yes. I was testing the attached patch, and when I enabled the rx-fcs, it crashed
+> shortly after. So, my changes must be bad somehow...
+>
+> Probably something to do with pkt_size being 4 bytes larger when
+> rx-fcs is enabled (I was hoping that would grab the FCS, as similar
+> logic seems to work fine in 8139too...)
 
-> OK, sounds good.  How about I also add a field to indicate the
-> application buffer size?
+I cannot reproduce the problem, so maybe I had a funky build
+or just got unlucky with some extraneous bug.
 
-How can this help, we already have it.  It's the length field to
-the recvmsg() call.
+With that patch applied, rtl8169 seems to support rx-all
+and rx-fcs just fine (tested with frames with bad FCS).
 
-Also, either the user provided a large enough buffer or he didn't.  If
-he didn't we return an error to the recvmsg() call, and the user can
-increase the buffer size and try again.
+If/when the framework patches get accepted I'll post
+the 8139too and rtl8169 patches for formal review.
+
+Thanks,
+Ben
+
+>
+> Thanks,
+> Ben
+>
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
