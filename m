@@ -1,246 +1,106 @@
-From: =?ISO-8859-1?Q?=C1ngel_Gonz=E1lez?= <ingenit@zoho.com>
-Subject: [PATCH] iputils: Add capability dropping
-Date: Sun, 5 Feb 2012 19:16:42 +0100
-Message-ID: <4F2EBC40.2080500@zoho.com>
+From: Gustavo Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: Fwd: Linux 3.3-rc3
+Date: Fri, 10 Feb 2012 16:24:56 -0200
+Message-ID: <20120210182456.GD5022@joana>
+References: <CA+55aFyDE+chjpt9N5yNG=+A_LL5qhZjPYfOjFGuZcXUPGEoOQ@mail.gmail.com>
+ <20120210100809.GB28736@pcnci.linuxbox.cz>
+ <CA+55aFw9wOUbJKm7vVZYzFfKucanX43T2RwKoEfvNiVeEJP-2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender1.zohomail.com ([72.5.230.103]:57618 "EHLO
-	sender1.zohomail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298Ab2BJRhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 12:37:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFw9wOUbJKm7vVZYzFfKucanX43T2RwKoEfvNiVeEJP-2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for dropping capabilities to the iputils progra=
-ms
-which need root privileges (ping, ping6, clockdiff, traceroute6), so th=
-at
-users installing them suid can instead install them setcap cap_net_raw+=
-ep
+Hi Linus,
 
-The feature adds libcap as a requisite. In order to disable the feature
- sed -i "s/-DCAPABILITIES//;s/ -lcap//" Makefile
+* Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> [2012-02-10 08:56:29 -=
+0800]:
 
+> This seems to have gotten lost somewhere - the lkml post was from the
+> middle of January.
 
-Signed-off-by: =C1ngel Gonz=E1lez <ingenit@zoho.com>
----
+Actually not, the fix is in another tree and should be sent mainline so=
+on. I
+was away from development during January and the pull requests stopped =
+during
+that time. Things should be back to normal now.
 
-diff -ur iputils/Makefile iputils-capabilities/Makefile
---- iputils/Makefile	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/Makefile	2012-02-05 17:40:18.000000000 +0100
-@@ -14,7 +14,7 @@
- # What a pity, all new gccs are buggy and -Werror does not work. Sigh.
- #CCOPT=3D-D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g -Werror
- CCOPT=3D-D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g
--CFLAGS=3D$(CCOPT) $(GLIBCFIX) $(DEFINES)=20
-+CFLAGS=3D$(CCOPT) $(GLIBCFIX) $(DEFINES) -DCAPABILITIES
-=20
- IPV4_TARGETS=3Dtracepath ping clockdiff rdisc arping tftpd rarpd
- IPV6_TARGETS=3Dtracepath6 traceroute6 ping6
-@@ -25,11 +25,12 @@
-=20
- all: $(TARGETS)
-=20
--
-+clockdiff: -lcap
-+traceroute6: -lcap
- tftpd: tftpd.o tftpsubs.o
--arping: arping.o -lsysfs
--ping: ping.o ping_common.o
--ping6: ping6.o ping_common.o -lresolv -lcrypto
-+arping: arping.o -lsysfs -lcap
-+ping: ping.o ping_common.o -lcap
-+ping6: ping6.o ping_common.o -lresolv -lcrypto -lcap
- ping.o ping6.o ping_common.o: ping_common.h
- tftpd.o tftpsubs.o: tftp.h
-=20
-diff -ur iputils/arping.c iputils-capabilities/arping.c
---- iputils/arping.c	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/arping.c	2012-02-05 17:23:53.000000000 +0100
-@@ -22,6 +22,9 @@
- #include <linux/if_ether.h>
- #include <net/if_arp.h>
- #include <sys/uio.h>
-+#ifdef CAPABILITIES
-+#include <sys/capability.h>
-+#endif
-=20
- #include <netdb.h>
- #include <unistd.h>
-@@ -356,6 +359,17 @@
- 		exit(-1);
- 	}
-=20
-+#ifdef CAPABILITIES
-+	{
-+		cap_t caps =3D cap_init();
-+		if (cap_set_proc(caps)) {
-+			perror("arping: cap_set_proc");
-+			exit(-1);
-+		}
-+		cap_free(caps);
-+	}
-+#endif
-+
- 	while ((ch =3D getopt(argc, argv, "h?bfDUAqc:w:s:I:V")) !=3D EOF) {
- 		switch(ch) {
- 		case 'b':
-diff -ur iputils/clockdiff.c iputils-capabilities/clockdiff.c
---- iputils/clockdiff.c	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/clockdiff.c	2012-02-05 17:33:14.000000000 +010=
-0
-@@ -20,6 +20,9 @@
- #include <arpa/inet.h>
- #include <errno.h>
- #include <linux/types.h>
-+#ifdef CAPABILITIES
-+#include <sys/capability.h>
-+#endif
-=20
- void usage(void) __attribute__((noreturn));
-=20
-@@ -530,6 +533,20 @@
-   exit(1);
- }
-=20
-+void drop_rights(void) {
-+#ifdef CAPABILITIES
-+	cap_t caps =3D cap_init();
-+	if (cap_set_proc(caps)) {
-+		perror("clockdiff: cap_set_proc");
-+		exit(-1);
-+	}
-+	cap_free(caps);
-+#endif
-+	if (setuid(getuid())) {
-+		perror("clockdiff: setuid");
-+		exit(-1);
-+	}
-+}
-=20
- int
- main(int argc, char *argv[])
-@@ -541,10 +558,7 @@
- 	int n_errno =3D 0;
-=20
- 	if (argc < 2) {
--		if (setuid(getuid())) {
--			perror("clockdiff: setuid");
--			exit(-1);
--		}
-+		drop_rights();
- 		usage();
- 	}
-=20
-@@ -554,11 +568,7 @@
- 	errno =3D 0;
- 	if (nice(-16) =3D=3D -1)
- 		n_errno =3D errno;
--
--	if (setuid(getuid())) {
--		perror("clockdiff: setuid");
--		exit(-1);
--	}
-+	drop_rights();
-=20
- 	if (argc =3D=3D 3) {
- 		if (strcmp(argv[1], "-o") =3D=3D 0) {
-diff -ur iputils/ping.c iputils-capabilities/ping.c
---- iputils/ping.c	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/ping.c	2012-02-05 17:33:51.000000000 +0100
-@@ -62,6 +62,9 @@
-=20
- #include <netinet/ip.h>
- #include <netinet/ip_icmp.h>
-+#ifdef CAPABILITIES
-+#include <sys/capability.h>
-+#endif
-=20
- #ifndef ICMP_FILTER
- #define ICMP_FILTER	1
-@@ -131,6 +134,16 @@
- 		perror("ping: setuid");
- 		exit(-1);
- 	}
-+#ifdef CAPABILITIES
-+	{
-+		cap_t caps =3D cap_init();
-+		if (cap_set_proc(caps)) {
-+			perror("ping: cap_set_proc");
-+			exit(-1);
-+		}
-+		cap_free(caps);
-+	}
-+#endif
-=20
- 	source.sin_family =3D AF_INET;
-=20
-diff -ur iputils/ping6.c iputils-capabilities/ping6.c
---- iputils/ping6.c	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/ping6.c	2012-02-05 17:33:44.000000000 +0100
-@@ -72,6 +72,9 @@
- #include <netinet/ip6.h>
- #include <netinet/icmp6.h>
- #include <resolv.h>
-+#ifdef CAPABILITIES
-+#include <sys/capability.h>
-+#endif
-=20
- #include "ping6_niquery.h"
-=20
-@@ -551,9 +554,19 @@
-=20
- 	uid =3D getuid();
- 	if (setuid(uid)) {
--		perror("ping: setuid");
-+		perror("ping6: setuid");
- 		exit(-1);
- 	}
-+#ifdef CAPABILITIES
-+	{
-+		cap_t caps =3D cap_init();
-+		if (cap_set_proc(caps)) {
-+			perror("ping6: cap_set_proc");
-+			exit(-1);
-+		}
-+		cap_free(caps);
-+	}
-+#endif
-=20
- 	source.sin6_family =3D AF_INET6;
- 	memset(&firsthop, 0, sizeof(firsthop));
-diff -ur iputils/traceroute6.c iputils-capabilities/traceroute6.c
---- iputils/traceroute6.c	2012-01-10 02:42:52.000000000 +0100
-+++ iputils-capabilities/traceroute6.c	2012-02-05 17:33:59.000000000 +0=
-100
-@@ -249,6 +249,9 @@
- #include <netinet/ip6.h>
- #include <netinet/icmp6.h>
- #include <linux/types.h>
-+#ifdef CAPABILITIES
-+#include <sys/capability.h>
-+#endif
-=20
- #include <arpa/inet.h>
-=20
-@@ -342,6 +345,16 @@
- 		perror("traceroute6: setuid");
- 		exit(-1);
- 	}
-+#ifdef CAPABILITIES
-+	{
-+		cap_t caps =3D cap_init();
-+		if (cap_set_proc(caps)) {
-+			perror("traceroute6: cap_set_proc");
-+			exit(-1);
-+		}
-+		cap_free(caps);
-+	}
-+#endif
-=20
- 	on =3D 1;
- 	seq =3D tos =3D 0;
+If you wanna go ahead and apply this patch directly you have my ack:
+
+Acked-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+
+	Gustavo
+
+>=20
+>                     Linus
+>=20
+> ---------- Forwarded message ----------
+> From: Nikola Ciprich <nikola.ciprich-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org>
+> Date: Fri, Feb 10, 2012 at 2:08 AM
+> Subject: Re: Linux 3.3-rc3
+> To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+> geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+>=20
+>=20
+> On Wed, Feb 08, 2012 at 07:36:37PM -0800, Linus Torvalds wrote:
+> > Another week, another -rc.
+> >
+> > No big surprises, which is just how I like it. About a third of the
+> > patches are in ARM, but the bulk of that is due to the removal of t=
+he
+> > unused DMA map code form the bcmring support. So no complaints.
+> >
+> > The rest is fairly flat in the diffstat (=3D=3D random small change=
+s all
+> > over), although mostly drivers. More sound/hda (and asoc) updates,
+> > some target and IB updates, etc etc.
+> >
+> > Shortlog appended for your perusal, you can see the kind of largely
+> > "fix small details" almost all of it is,
+>=20
+> Hi,
+>=20
+> just wanted to let You know, that following fix didn't make it into
+> Your tree yet:
+> https://lkml.org/lkml/2012/1/15/23
+>=20
+> the bug is causing build failures with some GCC versions:
+>=20
+> =C2=A0CC [M] =C2=A0net/bluetooth/l2cap_sock.o
+> net/bluetooth/l2cap_sock.c: In function =E2=80=98l2cap_sock_connect=E2=
+=80=99:
+> include/net/bluetooth/l2cap.h:838: sorry, unimplemented: inlining
+> failed in call to =E2=80=98l2cap_chan_connect=E2=80=99: function body=
+ not available
+> net/bluetooth/l2cap_sock.c:126: sorry, unimplemented: called from her=
+e
+> make[2]: *** [net/bluetooth/l2cap_sock.o] Error 1
+> make[1]: *** [net/bluetooth] Error 2
+> make: *** [net] Error 2
+>=20
+> BR
+> nik
+>=20
+>=20
+> --
+> -------------------------------------
+> Ing. Nikola CIPRICH
+> LinuxBox.cz, s.r.o.
+> 28. rijna 168, 709 01 Ostrava
+>=20
+> tel.: =C2=A0 +420 596 603 142
+> fax: =C2=A0 =C2=A0+420 596 621 273
+> mobil: =C2=A0+420 777 093 799
+> www.linuxbox.cz
+>=20
+> mobil servis: +420 737 238 656
+> email servis: servis-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org
+> -------------------------------------
