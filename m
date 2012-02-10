@@ -1,69 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: RE: [PATCH net-next] drivers/net: Remove boolean comparisons to
- true/false
-Date: Thu, 09 Feb 2012 15:08:38 -0800
-Message-ID: <1328828918.29329.21.camel@joe2Laptop>
-References: <1328783282-17760-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B6E62@saturn3.aculab.com>
-	 <20120209.133413.349832435589531136.davem@davemloft.net>
-	 <1328822243.29329.11.camel@joe2Laptop>
-	 <1328822935.2242.1.camel@jtkirshe-mobl>
-	 <804857E1F29AAC47BF68C404FC60A1842709C1@ORSMSX102.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Julia Lawall <julia.lawall@lip6.fr>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH v3] rtlwifi: rtl8192se firmware load can overflow target buffer
+Date: Thu,  9 Feb 2012 18:19:52 -0600
+Message-ID: <1328833192-10681-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:33045 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758014Ab2BIXIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 18:08:40 -0500
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A1842709C1@ORSMSX102.amr.corp.intel.com>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:54920 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757799Ab2BJAUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2012 19:20:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-09 at 22:36 +0000, Allan, Bruce W wrote:
-> > On Thu, 2012-02-09 at 13:17 -0800, Joe Perches wrote:
-> > > Booleans should not be compared to true or false
-> > > but be directly tested or tested with !.
-> > >
-> > > Done via cocci script:
-> > >
-> > > @@
-> > > bool t;
-> > > @@
-> > > - t == true
-> > > + t
-> > > @@
-> > > bool t;
-> > > @@
-> > > - t != true
-> > > + !t
-> > > @@
-> > > bool t;
-> > > @@
-> > > - t == false
-> > > + !t
-> > > @@
-> > > bool t;
-> > > @@
-> > > - t != false
-> > > + t
+From: Tim Gardner <tim.gardner@canonical.com>
 
-> Has the cocci script been (or will it be) added to ./scripts/coccinelle?
+Define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE which represents the
+maximimum possible firmware file size. Use it in the definition
+of the buffer which receives the firmware file data.
 
-These are pretty trivial scripts.
+Set RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE closer to the actual size of
+the firmware file, e.g., 90000 (down from hard coded 164000). The current
+size of rtlwifi/rtl8192sefw.bin is 88856.
 
-You're welcome to add it or combine it
-with the one Rusty did to convert
-bool foo = 1
-to
-bool foo = true
+Set max_fw_size to RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE for the size limit
+check. Fix the error case where max_fw_size is not cleared if the size
+limit check fails.
 
-https://lkml.org/lkml/2011/12/19/15
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/net/wireless/rtlwifi/rtl8192se/fw.h |    3 ++-
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c |    3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+index babe85d..b4afff6 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/fw.h
+@@ -30,6 +30,7 @@
+ #define __REALTEK_FIRMWARE92S_H__
+ 
+ #define RTL8190_MAX_FIRMWARE_CODE_SIZE		64000
++#define RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE	90000
+ #define RTL8190_CPU_START_OFFSET		0x80
+ /* Firmware Local buffer size. 64k */
+ #define	MAX_FIRMWARE_CODE_SIZE			0xFF00
+@@ -217,7 +218,7 @@ struct rt_firmware {
+ 	u8 fw_emem[RTL8190_MAX_FIRMWARE_CODE_SIZE];
+ 	u32 fw_imem_len;
+ 	u32 fw_emem_len;
+-	u8 sz_fw_tmpbuffer[164000];
++	u8 sz_fw_tmpbuffer[RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE];
+ 	u32 sz_fw_tmpbufferlen;
+ 	u16 cmdpacket_fragthresold;
+ };
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+index ca38dd9..345d752 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/sw.c
+@@ -108,6 +108,7 @@ static void rtl92se_fw_cb(const struct firmware *firmware, void *context)
+ 	if (firmware->size > rtlpriv->max_fw_size) {
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
+ 			 "Firmware is too big!\n");
++		rtlpriv->max_fw_size = 0;
+ 		release_firmware(firmware);
+ 		return;
+ 	}
+@@ -232,7 +233,7 @@ static int rtl92s_init_sw_vars(struct ieee80211_hw *hw)
+ 		return 1;
+ 	}
+ 
+-	rtlpriv->max_fw_size = sizeof(struct rt_firmware);
++	rtlpriv->max_fw_size = RTL8190_MAX_RAW_FIRMWARE_CODE_SIZE;
+ 
+ 	pr_info("Driver for Realtek RTL8192SE/RTL8191SE\n"
+ 		"Loading firmware %s\n", rtlpriv->cfg->fw_name);
+-- 
+1.7.9
