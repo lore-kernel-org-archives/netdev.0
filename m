@@ -1,698 +1,377 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Fri, 10 Feb 2012 10:26:05 +0000
-Message-ID: <20120210102605.GO5938@suse.de>
-References: <1328568978-17553-3-git-send-email-mgorman@suse.de>
- <alpine.DEB.2.00.1202071025050.30652@router.home>
- <20120208144506.GI5938@suse.de>
- <alpine.DEB.2.00.1202080907320.30248@router.home>
- <20120208163421.GL5938@suse.de>
- <alpine.DEB.2.00.1202081338210.32060@router.home>
- <20120208212323.GM5938@suse.de>
- <alpine.DEB.2.00.1202081557540.5970@router.home>
- <20120209125018.GN5938@suse.de>
- <alpine.DEB.2.00.1202091345540.4413@router.home>
+From: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
+Subject: Re: [Bug 42754] New: BUG: sleeping function called from invalid
+ context at mm/memory.c:3924
+Date: Fri, 10 Feb 2012 13:26:57 +0100
+Message-ID: <20120210122657.GA9347@smp.if.uj.edu.pl>
+References: <bug-42754-27@https.bugzilla.kernel.org/>
+ <20120209191317.2fbad57b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Pekka Enberg <penberg@cs.helsinki.fi>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smp.if.uj.edu.pl ([149.156.82.206]:37960 "EHLO smp.if.uj.edu.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758758Ab2BJMcH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 07:32:07 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1202091345540.4413@router.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120209191317.2fbad57b.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 09, 2012 at 01:53:58PM -0600, Christoph Lameter wrote:
-> On Thu, 9 Feb 2012, Mel Gorman wrote:
+On 02-09 19:13, Andrew Morton wrote:
 > 
-> > Ok, I am working on a solution that does not affect any of the existing
-> > slab structures. Between that and the fact we check if there are any
-> > memalloc_socks after patch 12, the impact for normal systems is an additional
-> > branch in ac_get_obj() and ac_put_obj()
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 > 
-> That sounds good in particular since some other things came up again,
-> sigh. Have not had time to see if an alternate approach works.
+> (It's 3.3-rc2)
 > 
-
-I have an updated version of this 02/15 patch below. It passed testing
-and is a lot less invasive than the previous release. As you suggested,
-it uses page flags and the bulk of the complexity is only executed if
-someone is using network-backed storage.
-
-> > > We have been down this road too many times. Logic is added to critical
-> > > paths and memory structures grow. This is not free. And for NBD swap
-> > > support? Pretty exotic use case.
-> > >
-> >
-> > NFS support is the real target. NBD is the logical starting point and
-> > NFS needs the same support.
+> On Fri, 10 Feb 2012 02:24:10 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
 > 
-> But this is already a pretty strange use case on multiple levels. Swap is
-> really detrimental to performance. Its a kind of emergency outlet that
-> gets worse with every new step that increases the differential in
-> performance between disk and memory.
-
-Performance is generally not the concern of the users of swap-over-N[FS|BD].
-In the cases I am aware of, they just want an emergency overflow. One user
-for example had an application with a sparse mapping larger than physical
-memory. During the workload execution it would occasionally push small
-parts out to swap and needed network-based swap due to the lack of a local
-disk. The performance impact was not a concern because swapping was rare.
-
-> On top of that you want to add
-> special code in various subsystems to also do that over the network.
-> Sigh. I think we agreed a while back that we want to limit the amount of
-> I/O triggered from reclaim paths?
-
-Specifically we wanted to reduce or stop page reclaim calling ->writepage()
-for file-backed pages because it generated awful IO patterns and deep
-call stacks. We still write anonymous pages from page reclaim because we
-do not have a dedicated thread for writing to swap. It is expected that
-the call stack for writing to network storage would be less than a
-filesystem.
-
-> AFAICT many filesystems do not support
-> writeout from reclaim anymore because of all the issues that arise at that
-> level.
+> > https://bugzilla.kernel.org/show_bug.cgi?id=42754
+> > 
+> >            Summary: BUG: sleeping function called from invalid context at
+> >                     mm/memory.c:3924
+> >            Product: Memory Management
+> >            Version: 2.5
+> >     Kernel Version: 3.3.0-rc2+
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: akpm@linux-foundation.org
+> >         ReportedBy: baryluk@smp.if.uj.edu.pl
+> >         Regression: Yes
+> > 
+> > 
+> > Created an attachment (id=72350)
+> >  --> (https://bugzilla.kernel.org/attachment.cgi?id=72350)
+> > Konfig file
+> > 
+> > [    0.000000] Linux version 3.3.0-rc2-t43-devel-smp-00172-g23783f8
+> > (baryluk@sredniczarny) (gcc version 4.6.2 (Debian 4.6.2-12) ) #13 SMP Sun Feb 5
+> > 15:37:06 CET 2012
+> > 
+> > 
+> > [ 1203.050623] BUG: sleeping function called from invalid context at
+> > mm/memory.c:3924
+> > [ 1203.054259] in_atomic(): 1, irqs_disabled(): 0, pid: 4446, name:
+> > NetworkManager
+> > [ 1203.057932] INFO: lockdep is turned off.
+> > [ 1203.061685] Pid: 4446, comm: NetworkManager Tainted: G        W  O
+> > 3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13
+> > [ 1203.065606] Call Trace:
+> > [ 1203.069502]  [<c107e182>] __might_sleep+0x122/0x1d0
+> > [ 1203.073506]  [<c1140b4e>] might_fault+0x2e/0xb0
+> > [ 1203.077501]  [<c131c67b>] copy_to_user+0x3b/0x60
+> > [ 1203.081561]  [<c158a102>] put_cmsg+0x52/0xd0
+> > [ 1203.085624]  [<c15bc7d7>] netlink_recvmsg+0x287/0x340
+> > [ 1203.089740]  [<c1579b43>] sock_recvmsg+0xd3/0x110
+> > [ 1203.093902]  [<c1140b74>] ? might_fault+0x54/0xb0
+> > [ 1203.098093]  [<c158834c>] ? verify_iovec+0x4c/0xc0
+> > [ 1203.102336]  [<c1579a70>] ? sock_sendmsg_nosec+0x100/0x100
+> > [ 1203.106611]  [<c157a994>] __sys_recvmsg+0x114/0x1e0
+> > [ 1203.110942]  [<c1081dc7>] ? finish_task_switch+0x77/0x200
+> > [ 1203.115315]  [<c11784b5>] ? fget_light+0xc5/0x410
+> > [ 1203.119722]  [<c1081dc7>] ? finish_task_switch+0x77/0x200
+> > [ 1203.124167]  [<c11784c9>] ? fget_light+0xd9/0x410
+> > [ 1203.128618]  [<c1178435>] ? fget_light+0x45/0x410
+> > [ 1203.133102]  [<c157c659>] sys_recvmsg+0x39/0x60
+> > [ 1203.137590]  [<c157cbb3>] sys_socketcall+0x2e3/0x330
+> > [ 1203.142147]  [<c17cf58d>] ? sysenter_exit+0xf/0x1a
+> > [ 1203.146707]  [<c131be78>] ? trace_hardirqs_on_thunk+0xc/0x10
+> > [ 1203.151358]  [<c17cf558>] sysenter_do_call+0x12/0x38
+> > [ 1203.155980] BUG: scheduling while atomic: NetworkManager/4446/0x10000002
+> > [ 1203.160714] INFO: lockdep is turned off.
+> > [ 1203.165429] Modules linked in: vfat fat pci_stub vboxpci(O) vboxnetadp(O)
+> > vboxnetflt(O) vboxdrv(O) pktcdvd ebtable_nat ebtables acpi_cpufreq mperf
+> > xt_CHECKSUM irtty_sir sir_dev irda crc_ccitt dummy ppdev lp bnep rfcomm
+> > bluetooth lib80211_crypt_ccmp uinput nfsd pcmcia yenta_socket i2c_i801 radeon
+> > ipw2200 libipw pcmcia_rsrc pcmcia_core ttm drm_kms_helper parport_pc parport
+> > cfbfillrect cfbcopyarea cfbimgblt raid10 raid456 async_memcpy async_pq
+> > async_xor xor async_raid6_recov async_tx raid6_pq sr_mod cdrom floppy [last
+> > unloaded: scsi_wait_scan]
 > 
+> 
+> OK, so we have a pile of in_atomic warnings.  I assume the above was
+> the first to come out?  The third and following traces have a different
+> trace.
+> 
+> It might be a bug in the netlink code or thereabouts.  Or it might be that
+> some random unrelated piece of kernel code forgot to release a lock and
+> netlink was the first place where this was detected.
+> 
+> Peter, is there any way in which lockdep can help us find the culprit
+> in the second case?
+> 
+> Thanks.
 
-NBD is a block device so filesystem restrictions like you mention do not
-apply. In NFS, the direct_IO paths are used to write pages not
-->writepage so again the restriction does not apply.
 
-> We have numerous other mechanisms that can compress swap etc and provide
-> ways to work around the problem without I/O which has always be
-> troublesome and these fixes are likely only to work in a very limited
-> way causing a lot of maintenance effort because (given the exotic
-> nature) it is highly likely that there are cornercases that only will be
-> triggered in rare cases.
+Well, there is few problems before this message, they are already reported:
 
-Compressing swap only gets you so far. For some workloads, at some point
-the anonymous pages have to be written to swap somewhere. If there is a
-local disk, great, use it. If there is no disk, then either
-hardware-based solutions are needed (HBA that exposes the network as a
-block device, works but is expensive), virtualisation is used (the host
-os exposes a network-based swapfile as a block device to the guest but
-only usable in virtualisation) or you need something like these patches.
+https://bugzilla.kernel.org/show_bug.cgi?id=42742  (cpu_idle warning)
+https://bugzilla.kernel.org/show_bug.cgi?id=42741  (sirdev DEADLOCK - second one is DEADLOCK warning, and it actually triggers real deadlock, but not on this boot)
 
-Here is the revised 02/15 patch
+but they are somehow unreleated.
 
-=== CUT HERE ===
-mm: sl[au]b: Add knowledge of PFMEMALLOC reserve pages
+Immiedietly before BUG I have
+[  592.952374] PM: Adding info for No Bus:0:52
 
-Allocations of pages below the min watermark run a risk of the
-machine hanging due to a lack of memory.  To prevent this, only
-callers who have PF_MEMALLOC or TIF_MEMDIE set and are not processing
-an interrupt are allowed to allocate with ALLOC_NO_WATERMARKS. Once
-they are allocated to a slab though, nothing prevents other callers
-consuming free objects within those slabs. This patch limits access
-to slab pages that were alloced from the PFMEMALLOC reserves.
+so pretty nothing for long time. System wasn't really loaded or anything,
+it just happened. There was not suspend/resume cycles or anything.
 
-Pages allocated from the reserve are returned with page->pfmemalloc
-set and it is up to the caller to determine how the page should be
-protected. SLAB restricts access to any page with page->pfmemalloc set
-to callers which are known to able to access the PFMEMALLOC reserve. If
-one is not available, an attempt is made to allocate a new page rather
-than use a reserve. SLUB is a bit more relaxed in that it only records
-if the current per-CPU page was allocated from PFMEMALLOC reserve and
-uses another partial slab if the caller does not have the necessary
-GFP or process flags. This was found to be sufficient in tests to
-avoid hangs due to SLUB generally maintaining smaller lists than SLAB.
+This is IBM ThinkPad T43 (Pentium-M 32 bit), and it had fresh boot 20
+minutes before this happened.
 
-In low-memory conditions it does mean that !PFMEMALLOC allocators
-can fail a slab allocation even though free objects are available
-because they are being preserved for callers that are freeing pages.
+Bellow dmesg are same as boot above
 
-[a.p.zijlstra@chello.nl: Original implementation]
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- include/linux/mm_types.h   |    9 ++
- include/linux/page-flags.h |   28 +++++++
- mm/internal.h              |    3 +
- mm/page_alloc.c            |   27 +++++-
- mm/slab.c                  |  190 +++++++++++++++++++++++++++++++++++++++-----
- mm/slub.c                  |   27 ++++++-
- 6 files changed, 258 insertions(+), 26 deletions(-)
+cpuidle looks like this:
 
-diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 3cc3062..56a465f 100644
---- a/include/linux/mm_types.h
-+++ b/include/linux/mm_types.h
-@@ -53,6 +53,15 @@ struct page {
- 		union {
- 			pgoff_t index;		/* Our offset within mapping. */
- 			void *freelist;		/* slub first free object */
-+			bool pfmemalloc;	/* If set by the page allocator,
-+						 * ALLOC_PFMEMALLOC was set
-+						 * and the low watermark was not
-+						 * met implying that the system
-+						 * is under some pressure. The
-+						 * caller should try ensure
-+						 * this page is only used to
-+						 * free other pages.
-+						 */
- 		};
- 
- 		union {
-diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
-index e90a673..0c42973 100644
---- a/include/linux/page-flags.h
-+++ b/include/linux/page-flags.h
-@@ -432,6 +432,34 @@ static inline int PageTransCompound(struct page *page)
- }
- #endif
- 
-+/*
-+ * If network-based swap is enabled, sl*b must keep track of whether pages
-+ * were allocated from pfmemalloc reserves.
-+ */
-+static inline int PageSlabPfmemalloc(struct page *page)
-+{
-+	VM_BUG_ON(!PageSlab(page));
-+	return PageActive(page);
-+}
-+
-+static inline void SetPageSlabPfmemalloc(struct page *page)
-+{
-+	VM_BUG_ON(!PageSlab(page));
-+	SetPageActive(page);
-+}
-+
-+static inline void __ClearPageSlabPfmemalloc(struct page *page)
-+{
-+	VM_BUG_ON(!PageSlab(page));
-+	__ClearPageActive(page);
-+}
-+
-+static inline void ClearPageSlabPfmemalloc(struct page *page)
-+{
-+	VM_BUG_ON(!PageSlab(page));
-+	ClearPageActive(page);
-+}
-+
- #ifdef CONFIG_MMU
- #define __PG_MLOCKED		(1 << PG_mlocked)
- #else
-diff --git a/mm/internal.h b/mm/internal.h
-index 2189af4..bff60d8 100644
---- a/mm/internal.h
-+++ b/mm/internal.h
-@@ -239,6 +239,9 @@ static inline struct page *mem_map_next(struct page *iter,
- #define __paginginit __init
- #endif
- 
-+/* Returns true if the gfp_mask allows use of ALLOC_NO_WATERMARK */
-+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask);
-+
- /* Memory initialisation debug and verification */
- enum mminit_level {
- 	MMINIT_WARNING,
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 8b3b8cf..6a3fa1c 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -695,6 +695,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
- 	trace_mm_page_free(page, order);
- 	kmemcheck_free_shadow(page, order);
- 
-+	page->pfmemalloc = false;
- 	if (PageAnon(page))
- 		page->mapping = NULL;
- 	for (i = 0; i < (1 << order); i++)
-@@ -1221,6 +1222,7 @@ void free_hot_cold_page(struct page *page, int cold)
- 
- 	migratetype = get_pageblock_migratetype(page);
- 	set_page_private(page, migratetype);
-+	page->pfmemalloc = false;
- 	local_irq_save(flags);
- 	if (unlikely(wasMlocked))
- 		free_page_mlock(page);
-@@ -1427,6 +1429,7 @@ failed:
- #define ALLOC_HARDER		0x10 /* try to alloc harder */
- #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
- #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+#define ALLOC_PFMEMALLOC	0x80 /* Caller has PF_MEMALLOC set */
- 
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
-@@ -2170,16 +2173,22 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
- 	} else if (unlikely(rt_task(current)) && !in_interrupt())
- 		alloc_flags |= ALLOC_HARDER;
- 
--	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((current->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+	if ((current->flags & PF_MEMALLOC) ||
-+			unlikely(test_thread_flag(TIF_MEMDIE))) {
-+		alloc_flags |= ALLOC_PFMEMALLOC;
-+
-+		if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
- 
- 	return alloc_flags;
- }
- 
-+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
-+{
-+	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC);
-+}
-+
- static inline struct page *
- __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
- 	struct zonelist *zonelist, enum zone_type high_zoneidx,
-@@ -2365,8 +2374,16 @@ nopage:
- got_pg:
- 	if (kmemcheck_enabled)
- 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
--	return page;
- 
-+	/*
-+	 * page->pfmemalloc is set when the caller had PFMEMALLOC set or is
-+	 * been OOM killed. The expectation is that the caller is taking
-+	 * steps that will free more memory. The caller should avoid the
-+	 * page being used for !PFMEMALLOC purposes.
-+	 */
-+	page->pfmemalloc = !!(alloc_flags & ALLOC_PFMEMALLOC);
-+
-+	return page;
- }
- 
- /*
-diff --git a/mm/slab.c b/mm/slab.c
-index f0bd785..f322dc2 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -123,6 +123,8 @@
- 
- #include <trace/events/kmem.h>
- 
-+#include	"internal.h"
-+
- /*
-  * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
-  *		  0 for faster, smaller code (especially in the critical paths).
-@@ -151,6 +153,12 @@
- #define ARCH_KMALLOC_FLAGS SLAB_HWCACHE_ALIGN
- #endif
- 
-+/*
-+ * true if a page was allocated from pfmemalloc reserves for network-based
-+ * swap
-+ */
-+static bool pfmemalloc_active;
-+
- /* Legal flag mask for kmem_cache_create(). */
- #if DEBUG
- # define CREATE_MASK	(SLAB_RED_ZONE | \
-@@ -256,9 +264,30 @@ struct array_cache {
- 			 * Must have this definition in here for the proper
- 			 * alignment of array_cache. Also simplifies accessing
- 			 * the entries.
-+			 *
-+			 * Entries should not be directly dereferenced as
-+			 * entries belonging to slabs marked pfmemalloc will
-+			 * have the lower bits set SLAB_OBJ_PFMEMALLOC
- 			 */
- };
- 
-+#define SLAB_OBJ_PFMEMALLOC	1
-+static inline bool is_obj_pfmemalloc(void *objp)
-+{
-+	return (unsigned long)objp & SLAB_OBJ_PFMEMALLOC;
-+}
-+
-+static inline void set_obj_pfmemalloc(void **objp)
-+{
-+	*objp = (void *)((unsigned long)*objp | SLAB_OBJ_PFMEMALLOC);
-+	return;
-+}
-+
-+static inline void clear_obj_pfmemalloc(void **objp)
-+{
-+	*objp = (void *)((unsigned long)*objp & ~SLAB_OBJ_PFMEMALLOC);
-+}
-+
- /*
-  * bootstrap: The caches do not work without cpuarrays anymore, but the
-  * cpuarrays are allocated from the generic caches...
-@@ -951,6 +980,98 @@ static struct array_cache *alloc_arraycache(int node, int entries,
- 	return nc;
- }
- 
-+static inline bool is_slab_pfmemalloc(struct slab *slabp)
-+{
-+	struct page *page = virt_to_page(slabp->s_mem);
-+
-+	return PageSlabPfmemalloc(page);
-+}
-+
-+/* Clears ac->pfmemalloc if no slabs have pfmalloc set */
-+static void check_ac_pfmemalloc(struct kmem_cache *cachep,
-+						struct array_cache *ac)
-+{
-+	struct kmem_list3 *l3 = cachep->nodelists[numa_mem_id()];
-+	struct slab *slabp;
-+
-+	if (!pfmemalloc_active)
-+		return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_full, list)
-+		if (is_slab_pfmemalloc(slabp))
-+			return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_partial, list)
-+		if (is_slab_pfmemalloc(slabp))
-+			return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_free, list)
-+		if (is_slab_pfmemalloc(slabp))
-+			return;
-+
-+	pfmemalloc_active = false;
-+}
-+
-+static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+						gfp_t flags, bool force_refill)
-+{
-+	int i;
-+	void *objp = ac->entry[--ac->avail];
-+
-+	/* Ensure the caller is allowed to use objects from PFMEMALLOC slab */
-+	if (unlikely(is_obj_pfmemalloc(objp))) {
-+		struct kmem_list3 *l3;
-+
-+		if (gfp_pfmemalloc_allowed(flags)) {
-+			clear_obj_pfmemalloc(&objp);
-+			return objp;
-+		}
-+
-+		/* The caller cannot use PFMEMALLOC objects, find another one */
-+		for (i = 1; i < ac->avail; i++) {
-+			/* If a !PFMEMALLOC object is found, swap them */
-+			if (!is_obj_pfmemalloc(ac->entry[i])) {
-+				objp = ac->entry[i];
-+				ac->entry[i] = ac->entry[ac->avail];
-+				ac->entry[ac->avail] = objp;
-+				return objp;
-+			}
-+		}
-+
-+		/*
-+		 * If there are empty slabs on the slabs_free list and we are
-+		 * being forced to refill the cache, mark this one !pfmemalloc.
-+		 */
-+		l3 = cachep->nodelists[numa_mem_id()];
-+		if (!list_empty(&l3->slabs_free) && force_refill) {
-+			struct slab *slabp = virt_to_slab(objp);
-+			ClearPageSlabPfmemalloc(virt_to_page(slabp->s_mem));
-+			clear_obj_pfmemalloc(&objp);
-+			check_ac_pfmemalloc(cachep, ac);
-+			return objp;
-+		}
-+
-+		/* No !PFMEMALLOC objects available */
-+		ac->avail++;
-+		objp = NULL;
-+	}
-+
-+	return objp;
-+}
-+
-+static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+								void *objp)
-+{
-+	if (unlikely(pfmemalloc_active)) {
-+		/* Some pfmemalloc slabs exist, check if this is one */
-+		struct page *page = virt_to_page(objp);
-+		if (PageSlabPfmemalloc(page))
-+			set_obj_pfmemalloc(&objp);
-+	}
-+
-+	ac->entry[ac->avail++] = objp;
-+}
-+
- /*
-  * Transfer objects in one arraycache to another.
-  * Locking must be handled by the caller.
-@@ -1127,7 +1248,7 @@ static inline int cache_free_alien(struct kmem_cache *cachep, void *objp)
- 			STATS_INC_ACOVERFLOW(cachep);
- 			__drain_alien_cache(cachep, alien, nodeid);
- 		}
--		alien->entry[alien->avail++] = objp;
-+		ac_put_obj(cachep, alien, objp);
- 		spin_unlock(&alien->lock);
- 	} else {
- 		spin_lock(&(cachep->nodelists[nodeid])->list_lock);
-@@ -1760,6 +1881,10 @@ static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
- 	if (!page)
- 		return NULL;
- 
-+	/* Record if ALLOC_PFMEMALLOC was set when allocating the slab */
-+	if (unlikely(page->pfmemalloc))
-+		pfmemalloc_active = true;
-+
- 	nr_pages = (1 << cachep->gfporder);
- 	if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
- 		add_zone_page_state(page_zone(page),
-@@ -1767,9 +1892,13 @@ static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
- 	else
- 		add_zone_page_state(page_zone(page),
- 			NR_SLAB_UNRECLAIMABLE, nr_pages);
--	for (i = 0; i < nr_pages; i++)
-+	for (i = 0; i < nr_pages; i++) {
- 		__SetPageSlab(page + i);
- 
-+		if (page->pfmemalloc)
-+			SetPageSlabPfmemalloc(page + i);
-+	}
-+
- 	if (kmemcheck_enabled && !(cachep->flags & SLAB_NOTRACK)) {
- 		kmemcheck_alloc_shadow(page, cachep->gfporder, flags, nodeid);
- 
-@@ -1802,6 +1931,7 @@ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
- 	while (i--) {
- 		BUG_ON(!PageSlab(page));
- 		__ClearPageSlab(page);
-+		__ClearPageSlabPfmemalloc(page);
- 		page++;
- 	}
- 	if (current->reclaim_state)
-@@ -3071,16 +3201,19 @@ bad:
- #define check_slabp(x,y) do { } while(0)
- #endif
- 
--static void *cache_alloc_refill(struct kmem_cache *cachep, gfp_t flags)
-+static void *cache_alloc_refill(struct kmem_cache *cachep, gfp_t flags,
-+							bool force_refill)
- {
- 	int batchcount;
- 	struct kmem_list3 *l3;
- 	struct array_cache *ac;
- 	int node;
- 
--retry:
- 	check_irq_off();
- 	node = numa_mem_id();
-+	if (unlikely(force_refill))
-+		goto force_grow;
-+retry:
- 	ac = cpu_cache_get(cachep);
- 	batchcount = ac->batchcount;
- 	if (!ac->touched && batchcount > BATCHREFILL_LIMIT) {
-@@ -3130,8 +3263,8 @@ retry:
- 			STATS_INC_ACTIVE(cachep);
- 			STATS_SET_HIGH(cachep);
- 
--			ac->entry[ac->avail++] = slab_get_obj(cachep, slabp,
--							    node);
-+			ac_put_obj(cachep, ac, slab_get_obj(cachep, slabp,
-+									node));
- 		}
- 		check_slabp(cachep, slabp);
- 
-@@ -3150,18 +3283,22 @@ alloc_done:
- 
- 	if (unlikely(!ac->avail)) {
- 		int x;
-+force_grow:
- 		x = cache_grow(cachep, flags | GFP_THISNODE, node, NULL);
- 
- 		/* cache_grow can reenable interrupts, then ac could change. */
- 		ac = cpu_cache_get(cachep);
--		if (!x && ac->avail == 0)	/* no objects in sight? abort */
-+
-+		/* no objects in sight? abort */
-+		if (!x && (ac->avail == 0 || force_refill))
- 			return NULL;
- 
- 		if (!ac->avail)		/* objects refilled by interrupt? */
- 			goto retry;
- 	}
- 	ac->touched = 1;
--	return ac->entry[--ac->avail];
-+
-+	return ac_get_obj(cachep, ac, flags, force_refill);
- }
- 
- static inline void cache_alloc_debugcheck_before(struct kmem_cache *cachep,
-@@ -3243,23 +3380,35 @@ static inline void *____cache_alloc(struct kmem_cache *cachep, gfp_t flags)
- {
- 	void *objp;
- 	struct array_cache *ac;
-+	bool force_refill = false;
- 
- 	check_irq_off();
- 
- 	ac = cpu_cache_get(cachep);
- 	if (likely(ac->avail)) {
--		STATS_INC_ALLOCHIT(cachep);
- 		ac->touched = 1;
--		objp = ac->entry[--ac->avail];
--	} else {
--		STATS_INC_ALLOCMISS(cachep);
--		objp = cache_alloc_refill(cachep, flags);
-+		objp = ac_get_obj(cachep, ac, flags, false);
-+
- 		/*
--		 * the 'ac' may be updated by cache_alloc_refill(),
--		 * and kmemleak_erase() requires its correct value.
-+		 * Allow for the possibility all avail objects are not allowed
-+		 * by the current flags
- 		 */
--		ac = cpu_cache_get(cachep);
-+		if (objp) {
-+			STATS_INC_ALLOCHIT(cachep);
-+			goto out;
-+		}
-+		force_refill = true;
- 	}
-+
-+	STATS_INC_ALLOCMISS(cachep);
-+	objp = cache_alloc_refill(cachep, flags, force_refill);
-+	/*
-+	 * the 'ac' may be updated by cache_alloc_refill(),
-+	 * and kmemleak_erase() requires its correct value.
-+	 */
-+	ac = cpu_cache_get(cachep);
-+
-+out:
- 	/*
- 	 * To avoid a false negative, if an object that is in one of the
- 	 * per-CPU caches is leaked, we need to make sure kmemleak doesn't
-@@ -3578,9 +3727,12 @@ static void free_block(struct kmem_cache *cachep, void **objpp, int nr_objects,
- 	struct kmem_list3 *l3;
- 
- 	for (i = 0; i < nr_objects; i++) {
--		void *objp = objpp[i];
-+		void *objp;
- 		struct slab *slabp;
- 
-+		clear_obj_pfmemalloc(&objpp[i]);
-+		objp = objpp[i];
-+
- 		slabp = virt_to_slab(objp);
- 		l3 = cachep->nodelists[node];
- 		list_del(&slabp->list);
-@@ -3693,12 +3845,12 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
- 
- 	if (likely(ac->avail < ac->limit)) {
- 		STATS_INC_FREEHIT(cachep);
--		ac->entry[ac->avail++] = objp;
-+		ac_put_obj(cachep, ac, objp);
- 		return;
- 	} else {
- 		STATS_INC_FREEMISS(cachep);
- 		cache_flusharray(cachep, ac);
--		ac->entry[ac->avail++] = objp;
-+		ac_put_obj(cachep, ac, objp);
- 	}
- }
- 
-diff --git a/mm/slub.c b/mm/slub.c
-index 4907563..8eed0de 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -32,6 +32,8 @@
- 
- #include <trace/events/kmem.h>
- 
-+#include "internal.h"
-+
- /*
-  * Lock order:
-  *   1. slub_lock (Global Semaphore)
-@@ -1364,6 +1366,8 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
- 	inc_slabs_node(s, page_to_nid(page), page->objects);
- 	page->slab = s;
- 	page->flags |= 1 << PG_slab;
-+	if (page->pfmemalloc)
-+		SetPageSlabPfmemalloc(page);
- 
- 	start = page_address(page);
- 
-@@ -1408,6 +1412,7 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
- 		-pages);
- 
- 	__ClearPageSlab(page);
-+	__ClearPageSlabPfmemalloc(page);
- 	reset_page_mapcount(page);
- 	if (current->reclaim_state)
- 		current->reclaim_state->reclaimed_slab += pages;
-@@ -2128,6 +2133,14 @@ static inline void *new_slab_objects(struct kmem_cache *s, gfp_t flags,
- 	return object;
- }
- 
-+static inline bool pfmemalloc_match(struct kmem_cache_cpu *c, gfp_t gfpflags)
-+{
-+	if (unlikely(PageSlabPfmemalloc(c->page)))
-+		return gfp_pfmemalloc_allowed(gfpflags);
-+
-+	return true;
-+}
-+
- /*
-  * Check the page->freelist of a page and either transfer the freelist to the per cpu freelist
-  * or deactivate the page.
-@@ -2200,6 +2213,16 @@ redo:
- 		goto new_slab;
- 	}
- 
-+	/*
-+	 * By rights, we should be searching for a slab page that was
-+	 * PFMEMALLOC but right now, we are losing the pfmemalloc
-+	 * information when the page leaves the per-cpu allocator
-+	 */
-+	if (unlikely(!pfmemalloc_match(c, gfpflags))) {
-+		deactivate_slab(s, c);
-+		goto new_slab;
-+	}
-+
- 	/* must check again c->freelist in case of cpu migration or IRQ */
- 	object = c->freelist;
- 	if (object)
-@@ -2304,8 +2327,8 @@ redo:
- 	barrier();
- 
- 	object = c->freelist;
--	if (unlikely(!object || !node_match(c, node)))
--
-+	if (unlikely(!object || !node_match(c, node) ||
-+					!pfmemalloc_match(c, gfpflags)))
- 		object = __slab_alloc(s, gfpflags, node, addr, c);
- 
- 	else {
+[   16.960579] Testing event cpu_idle: 
+[   16.961306] ------------[ cut here ]------------
+[   16.961316] WARNING: at include/linux/rcupdate.h:242 __atomic_notifier_call_chain+0xbc/0xf0()
+[   16.961319] Hardware name: 2669UYD
+[   16.961321] Modules linked in:
+[   16.961326] Pid: 0, comm: swapper/0 Not tainted 3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13
+[   16.961329] Call Trace:
+[   16.961337]  [<c104a372>] warn_slowpath_common+0x72/0xa0
+[   16.961341]  [<c17cb41c>] ? __atomic_notifier_call_chain+0xbc/0xf0
+[   16.961346]  [<c17cb41c>] ? __atomic_notifier_call_chain+0xbc/0xf0
+[   16.961350]  [<c104a3c0>] warn_slowpath_null+0x20/0x30
+[   16.961355]  [<c17cb41c>] __atomic_notifier_call_chain+0xbc/0xf0
+[   16.961360]  [<c136056e>] ? vgacon_scroll+0x5e/0x60
+[   16.961365]  [<c17cb46f>] atomic_notifier_call_chain+0x1f/0x30
+[   16.961371]  [<c13cdf23>] notify_write+0x23/0x30
+[   16.961375]  [<c13cdf7f>] lf+0x4f/0x70
+[   16.961379]  [<c13cefb9>] vt_console_print+0x249/0x380
+[   16.961384]  [<c13ced70>] ? con_shutdown+0x40/0x40
+[   16.961389]  [<c104a4fd>] __call_console_drivers+0x7d/0xa0
+[   16.961393]  [<c104a6ec>] _call_console_drivers+0x4c/0x90
+[   16.961398]  [<c104a94d>] call_console_drivers+0xdd/0x110
+[   16.961402]  [<c104aa47>] console_unlock+0x77/0x170
+[   16.961407]  [<c104accb>] vprintk+0x18b/0x490
+[   16.961414]  [<c17b11a8>] printk+0x1d/0x1f
+[   16.961420]  [<c10af9e2>] lockdep_rcu_suspicious+0x22/0xe0
+[   16.961427]  [<c150db78>] cpuidle_idle_call+0x238/0x300
+[   16.961433]  [<c10158df>] cpu_idle+0x6f/0xc0
+[   16.961439]  [<c1795caa>] rest_init+0x11e/0x124
+[   16.961443]  [<c1795bf3>] ? rest_init+0x67/0x124
+[   16.961450]  [<c1b5a76e>] start_kernel+0x325/0x32b
+[   16.961454]  [<c1b5a25a>] ? obsolete_checksetup+0x95/0x95
+[   16.961459]  [<c1b5a11e>] ? reserve_ebda_region+0x6b/0x6d
+[   16.961463]  [<c1b5a0ac>] i386_start_kernel+0x9b/0xa2
+[   16.961466] ---[ end trace d284d408f7ee228c ]---
+[   16.961468] ------------[ cut here ]------------
+[   16.961472] WARNING: at include/linux/rcupdate.h:248 __atomic_notifier_call_chain+0xe0/0xf0()
+[   16.961475] Hardware name: 2669UYD
+[   16.961477] Modules linked in:
+[   16.961481] Pid: 0, comm: swapper/0 Tainted: G        W    3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13
+[   16.961483] Call Trace:
+[   16.961488]  [<c104a372>] warn_slowpath_common+0x72/0xa0
+[   16.961492]  [<c17cb440>] ? __atomic_notifier_call_chain+0xe0/0xf0
+[   16.961496]  [<c17cb440>] ? __atomic_notifier_call_chain+0xe0/0xf0
+[   16.961501]  [<c104a3c0>] warn_slowpath_null+0x20/0x30
+[   16.961505]  [<c17cb440>] __atomic_notifier_call_chain+0xe0/0xf0
+[   16.961509]  [<c17cb387>] ? __atomic_notifier_call_chain+0x27/0xf0
+[   16.961514]  [<c17cb46f>] atomic_notifier_call_chain+0x1f/0x30
+[   16.961518]  [<c13cdf23>] notify_write+0x23/0x30
+[   16.961522]  [<c13cdf7f>] lf+0x4f/0x70
+[   16.961527]  [<c13cefb9>] vt_console_print+0x249/0x380
+[   16.961532]  [<c13ced70>] ? con_shutdown+0x40/0x40
+[   16.961536]  [<c104a4fd>] __call_console_drivers+0x7d/0xa0
+[   16.961540]  [<c104a6ec>] _call_console_drivers+0x4c/0x90
+[   16.961545]  [<c104a94d>] call_console_drivers+0xdd/0x110
+[   16.961549]  [<c104aa47>] console_unlock+0x77/0x170
+[   16.961554]  [<c104accb>] vprintk+0x18b/0x490
+[   16.961559]  [<c17b11a8>] printk+0x1d/0x1f
+[   16.961563]  [<c10af9e2>] lockdep_rcu_suspicious+0x22/0xe0
+[   16.961568]  [<c150db78>] cpuidle_idle_call+0x238/0x300
+[   16.961573]  [<c10158df>] cpu_idle+0x6f/0xc0
+[   16.961577]  [<c1795caa>] rest_init+0x11e/0x124
+[   16.961581]  [<c1795bf3>] ? rest_init+0x67/0x124
+[   16.961585]  [<c1b5a76e>] start_kernel+0x325/0x32b
+[   16.961590]  [<c1b5a25a>] ? obsolete_checksetup+0x95/0x95
+[   16.961594]  [<c1b5a11e>] ? reserve_ebda_region+0x6b/0x6d
+[   16.961599]  [<c1b5a0ac>] i386_start_kernel+0x9b/0xa2
+[   16.961601] ---[ end trace d284d408f7ee228d ]---
+[   16.965103] ===============================
+[   16.965156] [ INFO: suspicious RCU usage. ]
+[   16.965209] 3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13 Tainted: G        W   
+[   16.965268] -------------------------------
+[   16.965321] include/trace/events/power.h:35 suspicious rcu_dereference_check() usage!
+[   16.965409] 
+[   16.965410] other info that might help us debug this:
+[   16.965411] 
+[   16.965556] 
+[   16.965556] rcu_scheduler_active = 1, debug_locks = 1
+[   16.965656] RCU used illegally from extended quiescent state!
+[   16.965711] no locks held by swapper/0/0.
+[   16.965764] 
+[   16.965764] stack backtrace:
+[   16.965861] Pid: 0, comm: swapper/0 Tainted: G        W    3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13
+[   16.965951] Call Trace:
+[   16.966003]  [<c17b11a8>] ? printk+0x1d/0x1f
+[   16.966059]  [<c10afa78>] lockdep_rcu_suspicious+0xb8/0xe0
+[   16.966118]  [<c150db78>] cpuidle_idle_call+0x238/0x300
+[   16.966175]  [<c10158df>] cpu_idle+0x6f/0xc0
+[   16.966231]  [<c1795caa>] rest_init+0x11e/0x124
+[   16.966287]  [<c1795bf3>] ? rest_init+0x67/0x124
+[   16.966344]  [<c1b5a76e>] start_kernel+0x325/0x32b
+[   16.966400]  [<c1b5a25a>] ? obsolete_checksetup+0x95/0x95
+[   16.966458]  [<c1b5a11e>] ? reserve_ebda_region+0x6b/0x6d
+[   16.966516]  [<c1b5a0ac>] i386_start_kernel+0x9b/0xa2
+[   16.980655] OK
+[   16.980705] Testing event cpu_frequency: OK
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+
+And sirdev problem looks like this:
+
+
+[  177.805346] irda_init()
+[  177.805617] NET: Registered protocol family 23
+[  177.853523] warning: `hipd' uses 32-bit capabilities (legacy support in use)
+[  178.014559] sirdev_get_instance - ttyS1
+[  178.014689] device: 'irda0': device_add
+[  178.014943] PM: Adding info for No Bus:irda0
+[  178.060888] irtty_open - ttyS1: irda line discipline opened
+[  178.412690] alg: No test for authenc(hmac(sha1),cbc(aes)) (authenc(hmac(sha1-generic),cbc(aes-asm)))
+[  179.070690] irlap_change_speed(), setting speed to 9600
+[  182.070664] 
+[  182.073284] ======================================================
+[  182.075969] [ INFO: possible circular locking dependency detected ]
+[  182.078702] 3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13 Tainted: G        W   
+[  182.080017] -------------------------------------------------------
+[  182.080017] irq/3-serial/5887 is trying to acquire lock:
+[  182.080017]  (&(&dev->tx_lock)->rlock){..-...}, at: [<f869a883>] sirdev_write_complete+0x23/0x280 [sir_dev]
+[  182.080017] 
+[  182.080017] but task is already holding lock:
+[  182.080017]  (&port_lock_key){..-...}, at: [<c13dc0f7>] serial8250_handle_irq+0x37/0xa0
+[  182.080017] 
+[  182.080017] which lock already depends on the new lock.
+[  182.080017] 
+[  182.080017] 
+[  182.080017] the existing dependency chain (in reverse order) is:
+[  182.080017] 
+[  182.080017] -> #1 (&port_lock_key){..-...}:
+[  182.080017]        [<c10b0f1b>] check_prevs_add+0xcb/0x120
+[  182.080017]        [<c10b14c7>] validate_chain.isra.34+0x557/0x6d0
+[  182.080017]        [<c10b3945>] __lock_acquire+0x355/0x820
+[  182.080017]        [<c10b4467>] lock_acquire+0x87/0x1b0
+[  182.080017]        [<c17c762e>] _raw_spin_lock_irqsave+0x5e/0xa0
+[  182.080017]        [<c13d5f32>] uart_write_room+0x22/0x60
+[  182.080017]        [<c13c1c19>] tty_write_room+0x19/0x20
+[  182.080017]        [<f876b512>] irtty_do_write+0x42/0xa0 [irtty_sir]
+[  182.080017]        [<f869a455>] sirdev_hard_xmit+0xc5/0x280 [sir_dev]
+[  182.080017]        [<c159586f>] dev_hard_start_xmit+0x22f/0x690
+[  182.080017]        [<c15ba331>] sch_direct_xmit+0xa1/0x220
+[  182.080017]        [<c1595e45>] dev_queue_xmit+0x175/0x770
+[  182.080017]        [<f878e62a>] irlap_queue_xmit+0x9a/0xe0 [irda]
+[  182.080017]        [<f878ebeb>] irlap_send_discovery_xid_frame+0xdb/0x360 [irda]
+[  182.080017]        [<f878ca68>] irlap_state_ndm+0x308/0x4e0 [irda]
+[  182.080017]        [<f878cd7b>] irlap_do_event+0x4b/0xb0 [irda]
+[  182.080017]        [<f878964a>] irlap_discovery_request+0xda/0x230 [irda]
+[  182.080017]        [<f8786168>] irlmp_state_standby+0x78/0x170 [irda]
+[  182.080017]        [<f8786b59>] irlmp_do_lap_event+0x39/0xe0 [irda]
+[  182.080017]        [<f878546c>] irlmp_do_discovery+0xac/0x140 [irda]
+[  182.080017]        [<f8787603>] irlmp_discovery_timer_expired+0x23/0x60 [irda]
+[  182.080017]        [<c105abad>] call_timer_fn+0x6d/0x2e0
+[  182.080017]        [<c105af0a>] run_timer_softirq+0xea/0x260
+[  182.080017]        [<c10524cf>] __do_softirq+0x9f/0x360
+[  182.080017]        [<c1052887>] run_ksoftirqd+0xf7/0x1b0
+[  182.080017]        [<c10721f2>] kthread+0x72/0x80
+[  182.080017]        [<c17cfafa>] kernel_thread_helper+0x6/0x10
+[  182.080017] 
+[  182.080017] -> #0 (&(&dev->tx_lock)->rlock){..-...}:
+[  182.080017]        [<c10b0e45>] check_prev_add+0x605/0x610
+[  182.080017]        [<c10b0f1b>] check_prevs_add+0xcb/0x120
+[  182.080017]        [<c10b14c7>] validate_chain.isra.34+0x557/0x6d0
+[  182.080017]        [<c10b3945>] __lock_acquire+0x355/0x820
+[  182.080017]        [<c10b4467>] lock_acquire+0x87/0x1b0
+[  182.080017]        [<c17c762e>] _raw_spin_lock_irqsave+0x5e/0xa0
+[  182.080017]        [<f869a883>] sirdev_write_complete+0x23/0x280 [sir_dev]
+[  182.080017]        [<f876b671>] irtty_write_wakeup+0x31/0x90 [irtty_sir]
+[  182.080017]        [<c13ba332>] tty_wakeup+0x62/0x70
+[  182.080017]        [<c13d7686>] uart_write_wakeup+0x16/0x20
+[  182.080017]        [<c13daffe>] serial8250_tx_chars+0x8e/0x110
+[  182.080017]        [<c13dc157>] serial8250_handle_irq+0x97/0xa0
+[  182.080017]        [<c13dc17c>] serial8250_default_handle_irq+0x1c/0x20
+[  182.080017]        [<c13da1e5>] serial8250_interrupt+0x65/0xd0
+[  182.080017]        [<c10dfa26>] irq_forced_thread_fn+0x26/0x50
+[  182.080017]        [<c10df932>] irq_thread+0x152/0x1e0
+[  182.080017]        [<c10721f2>] kthread+0x72/0x80
+[  182.080017]        [<c17cfafa>] kernel_thread_helper+0x6/0x10
+[  182.080017] 
+[  182.080017] other info that might help us debug this:
+[  182.080017] 
+[  182.080017]  Possible unsafe locking scenario:
+[  182.080017] 
+[  182.080017]        CPU0                    CPU1
+[  182.080017]        ----                    ----
+[  182.080017]   lock(&port_lock_key);
+[  182.080017]                                lock(&(&dev->tx_lock)->rlock);
+[  182.080017]                                lock(&port_lock_key);
+[  182.080017]   lock(&(&dev->tx_lock)->rlock);
+[  182.080017] 
+[  182.080017]  *** DEADLOCK ***
+[  182.080017] 
+[  182.080017] 2 locks held by irq/3-serial/5887:
+[  182.080017]  #0:  (&(&i->lock)->rlock){+.....}, at: [<c13da1a3>] serial8250_interrupt+0x23/0xd0
+[  182.080017]  #1:  (&port_lock_key){..-...}, at: [<c13dc0f7>] serial8250_handle_irq+0x37/0xa0
+[  182.080017] 
+[  182.080017] stack backtrace:
+[  182.080017] Pid: 5887, comm: irq/3-serial Tainted: G        W    3.3.0-rc2-t43-devel-smp-00172-g23783f8 #13
+[  182.080017] Call Trace:
+[  182.080017]  [<c17b11a8>] ? printk+0x1d/0x1f
+[  182.080017]  [<c17b2506>] print_circular_bug+0xa7/0xb1
+[  182.080017]  [<c10b0e45>] check_prev_add+0x605/0x610
+[  182.080017]  [<c10b0f1b>] check_prevs_add+0xcb/0x120
+[  182.080017]  [<c10b14c7>] validate_chain.isra.34+0x557/0x6d0
+[  182.080017]  [<c10b3945>] __lock_acquire+0x355/0x820
+[  182.080017]  [<c10b4467>] lock_acquire+0x87/0x1b0
+[  182.080017]  [<f869a883>] ? sirdev_write_complete+0x23/0x280 [sir_dev]
+[  182.080017]  [<c17c75f9>] ? _raw_spin_lock_irqsave+0x29/0xa0
+[  182.080017]  [<c17c762e>] _raw_spin_lock_irqsave+0x5e/0xa0
+[  182.080017]  [<f869a883>] ? sirdev_write_complete+0x23/0x280 [sir_dev]
+[  182.080017]  [<f869a883>] sirdev_write_complete+0x23/0x280 [sir_dev]
+[  182.080017]  [<c10aea1b>] ? trace_hardirqs_off+0xb/0x10
+[  182.080017]  [<f876b671>] irtty_write_wakeup+0x31/0x90 [irtty_sir]
+[  182.080017]  [<c13c2991>] ? tty_ldisc_try+0x41/0x50
+[  182.080017]  [<c13c29ad>] ? tty_ldisc_ref+0xd/0x10
+[  182.080017]  [<c13ba332>] tty_wakeup+0x62/0x70
+[  182.080017]  [<c13d7686>] uart_write_wakeup+0x16/0x20
+[  182.080017]  [<c13daffe>] serial8250_tx_chars+0x8e/0x110
+[  182.080017]  [<c13dc157>] serial8250_handle_irq+0x97/0xa0
+[  182.080017]  [<c13dc17c>] serial8250_default_handle_irq+0x1c/0x20
+[  182.080017]  [<c13da1e5>] serial8250_interrupt+0x65/0xd0
+[  182.080017]  [<c108580b>] ? get_parent_ip+0xb/0x40
+[  182.080017]  [<c10dfa26>] irq_forced_thread_fn+0x26/0x50
+[  182.080017]  [<c10df932>] irq_thread+0x152/0x1e0
+[  182.080017]  [<c10dfa00>] ? irq_thread_fn+0x40/0x40
+[  182.080017]  [<c10df7e0>] ? irq_finalize_oneshot+0x20/0x20
+[  182.080017]  [<c10721f2>] kthread+0x72/0x80
+[  182.080017]  [<c1072180>] ? __init_kthread_worker+0x60/0x60
+[  182.080017]  [<c17cfafa>] kernel_thread_helper+0x6/0x10
+
+
+But I do not see how this locks can any problem.
+
+I do not know why lockdep is disabled, because I configured kernel to
+keep telling my about lock dependency problems even after showing first
+one. AFAIK.
+
+As of VirtualBox modules, they were not used for anything, just loaded.
+
+Regards,
+Witek
+
+
+
+
+-- 
+Witold Baryluk
