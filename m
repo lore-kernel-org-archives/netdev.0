@@ -1,78 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/7] e1000e: use true/false for bool autoneg_false
-Date: Fri, 10 Feb 2012 00:08:54 -0800
-Message-ID: <1328861337-12810-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Fix routing metrics
+Date: Fri, 10 Feb 2012 03:12:11 -0500 (EST)
+Message-ID: <20120210.031211.2297215055759518521.davem@davemloft.net>
+References: <20120210065031.GK23142@secunet.com>
+	<20120210.023815.192069104397847238.davem@davemloft.net>
+	<20120210075106.GL23142@secunet.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:3668 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755210Ab2BJIJC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 03:09:02 -0500
-In-Reply-To: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35176 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151Ab2BJIM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 03:12:29 -0500
+In-Reply-To: <20120210075106.GL23142@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 10 Feb 2012 08:51:07 +0100
 
-v2 - replaced mac->autoneg_failed == false with !mac->autoneg_failed
+> On Fri, Feb 10, 2012 at 02:38:15AM -0500, David Miller wrote:
+>> From: Steffen Klassert <steffen.klassert@secunet.com>
+>> > 
+>> > I fully agree with you here. But we check for the genid just in
+>> > rt_init_metrics() which is invoked only on route cache entry
+>> > creation. There is no check when the metrics are accessed,
+>> > because the metrics on the inetpeer are valid on every access.
+>> 
+>> Every routing cache entry we will use after the flush will be
+>> a newly created one!  All the old ones will be stop being used.
+> 
+> Yes, I know that. All inetpeer metrics are updated once with the
+> first new routing cache entry that binds that inetpeer to the route.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/mac.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+And after a routing cache flush, that will be all routing cache
+entries every used after that point.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 0d63c3e..a5eb0d4 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -513,8 +513,8 @@ s32 e1000e_check_for_fiber_link(struct e1000_hw *hw)
- 	/* (ctrl & E1000_CTRL_SWDPIN1) == 1 == have signal */
- 	if ((ctrl & E1000_CTRL_SWDPIN1) && !(status & E1000_STATUS_LU) &&
- 	    !(rxcw & E1000_RXCW_C)) {
--		if (mac->autoneg_failed == 0) {
--			mac->autoneg_failed = 1;
-+		if (!mac->autoneg_failed) {
-+			mac->autoneg_failed = true;
- 			return 0;
- 		}
- 		e_dbg("NOT Rx'ing /C/, disable AutoNeg and force link.\n");
-@@ -578,8 +578,8 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 	 */
- 	/* (ctrl & E1000_CTRL_SWDPIN1) == 1 == have signal */
- 	if (!(status & E1000_STATUS_LU) && !(rxcw & E1000_RXCW_C)) {
--		if (mac->autoneg_failed == 0) {
--			mac->autoneg_failed = 1;
-+		if (!mac->autoneg_failed) {
-+			mac->autoneg_failed = true;
- 			return 0;
- 		}
- 		e_dbg("NOT Rx'ing /C/, disable AutoNeg and force link.\n");
-@@ -855,7 +855,7 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
- 	}
- 	if (i == FIBER_LINK_UP_LIMIT) {
- 		e_dbg("Never got a valid link from auto-neg!!!\n");
--		mac->autoneg_failed = 1;
-+		mac->autoneg_failed = true;
- 		/*
- 		 * AutoNeg failed to achieve a link, so we'll call
- 		 * mac->check_for_link. This routine will force the
-@@ -867,9 +867,9 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
- 			e_dbg("Error while checking for link\n");
- 			return ret_val;
- 		}
--		mac->autoneg_failed = 0;
-+		mac->autoneg_failed = false;
- 	} else {
--		mac->autoneg_failed = 0;
-+		mac->autoneg_failed = false;
- 		e_dbg("Valid Link Found\n");
- 	}
- 
--- 
-1.7.7.6
+So since this happens, you don't need to check the inetpeer at every
+metric access.  The fact that all routing cache entries get recreated
+will do it for you.
