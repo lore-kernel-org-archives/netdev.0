@@ -1,38 +1,56 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [Bug 42754] New: BUG: sleeping function called from invalid
- context at mm/memory.c:3924
-Date: Fri, 10 Feb 2012 16:39:41 +0100
-Message-ID: <1328888381.25989.6.camel@laptop>
-References: <bug-42754-27@https.bugzilla.kernel.org/>
-	 <20120209191317.2fbad57b.akpm@linux-foundation.org>
-	 <20120210122657.GA9347@smp.if.uj.edu.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org
-To: Witold Baryluk <baryluk@smp.if.uj.edu.pl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH 1/3] netprio_cgroup: fix an off-by-one bug
+Date: Fri, 10 Feb 2012 10:43:36 -0500
+Message-ID: <1328888618-16208-2-git-send-email-nhorman@tuxdriver.com>
+References: <1328888618-16208-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Li Zefan <lizf@cn.fujitsu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:39725 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755107Ab2BJPjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 10:39:48 -0500
-Received: from canuck.infradead.org ([2001:4978:20e::1])
-	by merlin.infradead.org with esmtps (Exim 4.76 #1 (Red Hat Linux))
-	id 1RvsZd-0007ac-RC
-	for netdev@vger.kernel.org; Fri, 10 Feb 2012 15:39:45 +0000
-Received: from 178-85-86-190.dynamic.upc.nl ([178.85.86.190] helo=dyad.programming.kicks-ass.net)
-	by canuck.infradead.org with esmtpsa (Exim 4.76 #1 (Red Hat Linux))
-	id 1RvsZd-0005Pz-Hw
-	for netdev@vger.kernel.org; Fri, 10 Feb 2012 15:39:45 +0000
-In-Reply-To: <20120210122657.GA9347@smp.if.uj.edu.pl>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58490 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755175Ab2BJPoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 10:44:09 -0500
+In-Reply-To: <1328888618-16208-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-10 at 13:26 +0100, Witold Baryluk wrote:
-> Well, there is few problems before this message, they are already
-> reported:
+  # mount -t cgroup xxx /mnt
+  # mkdir /mnt/tmp
+  # cat /mnt/tmp/net_prio.ifpriomap
+  lo 0
+  eth0 0
+  virbr0 0
+  # echo 'lo 999' > /mnt/tmp/net_prio.ifpriomap
+  # cat /mnt/tmp/net_prio.ifpriomap
+  lo 999
+  eth0 0
+  virbr0 4101267344
 
-Never report a bug if it isn't the first -- yes it might be a real
-problem, but once we go splat you simply shouldn't trust the state of
-your system. Fix that problem, then get on with the next.
+We got weired output, because we exceeded the boundary of the array.
+We may even crash the kernel..
+
+Origionally-authored-by: Li Zefan <lizf@cn.fujitsu.com>
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ net/core/netprio_cgroup.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 9ae183a..72c6387 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -108,7 +108,7 @@ static void extend_netdev_table(struct net_device *dev, u32 new_len)
+ static void update_netdev_tables(void)
+ {
+ 	struct net_device *dev;
+-	u32 max_len = atomic_read(&max_prioidx);
++	u32 max_len = atomic_read(&max_prioidx) + 1;
+ 	struct netprio_map *map;
+ 
+ 	rtnl_lock();
+-- 
+1.7.7.6
