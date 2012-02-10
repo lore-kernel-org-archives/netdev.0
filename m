@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Fix routing metrics
-Date: Fri, 10 Feb 2012 03:12:11 -0500 (EST)
-Message-ID: <20120210.031211.2297215055759518521.davem@davemloft.net>
-References: <20120210065031.GK23142@secunet.com>
-	<20120210.023815.192069104397847238.davem@davemloft.net>
-	<20120210075106.GL23142@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel 2.6.31.8 panic in neigh_hh_output
+Date: Fri, 10 Feb 2012 09:16:42 +0100
+Message-ID: <1328861802.4030.5.camel@edumazet-laptop>
+References: <CAADzPW0U6JgSKFSD_q9RM_vv6x0RZ0-tOMZh8mrMk4d=fzZSYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?=E6=99=81=E6=B0=B8=E7=94=9F?= <chaoys155@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35176 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755151Ab2BJIM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 03:12:29 -0500
-In-Reply-To: <20120210075106.GL23142@secunet.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:48664 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754026Ab2BJIQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 03:16:45 -0500
+Received: by wics10 with SMTP id s10so1810676wic.19
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2012 00:16:44 -0800 (PST)
+In-Reply-To: <CAADzPW0U6JgSKFSD_q9RM_vv6x0RZ0-tOMZh8mrMk4d=fzZSYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 10 Feb 2012 08:51:07 +0100
+Le vendredi 10 f=C3=A9vrier 2012 =C3=A0 15:56 +0800, =E6=99=81=E6=B0=B8=
+=E7=94=9F a =C3=A9crit :
+> I got a kernel panic on my uniprocessor ARM machine. backtrace as fol=
+lows
+>=20
 
-> On Fri, Feb 10, 2012 at 02:38:15AM -0500, David Miller wrote:
->> From: Steffen Klassert <steffen.klassert@secunet.com>
->> > 
->> > I fully agree with you here. But we check for the genid just in
->> > rt_init_metrics() which is invoked only on route cache entry
->> > creation. There is no check when the metrics are accessed,
->> > because the metrics on the inetpeer are valid on every access.
->> 
->> Every routing cache entry we will use after the flush will be
->> a newly created one!  All the old ones will be stop being used.
-> 
-> Yes, I know that. All inetpeer metrics are updated once with the
-> first new routing cache entry that binds that inetpeer to the route.
+> I thought it was due to memory corruption. So
+> I checked the 64 bytes before hh_cache (0x98ba9580), it seems a nf_br=
+idge_info;
+> and the 64 bytes after hh_cache , it seems a pid.
+> But the nf_bridge_info and pid both seem ok.
+> I don't known what to do now. why the hh_cache was zeroed while
+> neighbour is reachable?
 
-And after a routing cache flush, that will be all routing cache
-entries every used after that point.
+There is very litle chance you can find help from us on this old kernel=
+=2E
 
-So since this happens, you don't need to check the inetpeer at every
-metric access.  The fact that all routing cache entries get recreated
-will do it for you.
+We already have lot of work to fix bugs in current kernels.
+
+You should at least use 2.6.32.56 kernel to find some help.
