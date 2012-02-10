@@ -1,106 +1,55 @@
-From: Gustavo Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: Fwd: Linux 3.3-rc3
-Date: Fri, 10 Feb 2012 16:24:56 -0200
-Message-ID: <20120210182456.GD5022@joana>
-References: <CA+55aFyDE+chjpt9N5yNG=+A_LL5qhZjPYfOjFGuZcXUPGEoOQ@mail.gmail.com>
- <20120210100809.GB28736@pcnci.linuxbox.cz>
- <CA+55aFw9wOUbJKm7vVZYzFfKucanX43T2RwKoEfvNiVeEJP-2A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000002c
+Date: Fri, 10 Feb 2012 19:25:28 +0100
+Message-ID: <1328898328.5661.2.camel@edumazet-laptop>
+References: <1328253972.2480.42.camel@edumazet-laptop>
+	 <4F2B963F.4020504@profihost.ag>
+	 <20120208.202651.97221367956126026.davem@davemloft.net>
+	 <20120209.171320.1013450846926790034.davem@davemloft.net>
+	 <4F34C17D.6070805@profihost.ag> <1328857670.2436.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFw9wOUbJKm7vVZYzFfKucanX43T2RwKoEfvNiVeEJP-2A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org,
+	jwboyer@gmail.com, hch@infradead.org, netdev@vger.kernel.org,
+	david@fromorbit.com, stable@vger.kernel.org
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:37770 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755028Ab2BJSZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 13:25:34 -0500
+In-Reply-To: <1328857670.2436.11.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
+Le vendredi 10 f=C3=A9vrier 2012 =C3=A0 08:07 +0100, Eric Dumazet a =C3=
+=A9crit :
+> Le vendredi 10 f=C3=A9vrier 2012 =C3=A0 08:04 +0100, Stefan Priebe - =
+Profihost AG
+> a =C3=A9crit :
+> > Hi,
+> >=20
+> > Am 09.02.2012 23:13, schrieb David Miller:
+> > > From: David Miller <davem@davemloft.net>
+> > > Date: Wed, 08 Feb 2012 20:26:51 -0500 (EST)
+> > >=20
+> > >> I'll work on coming up with something much more sensible tonight=
+=2E
+> > >=20
+> > > Ok, here's what I'm testing right now, please review and test.
+> >=20
+> > thanks for doing this work! I can't test asap as i can't do udpates=
+ just
+> > for fun. I had the "luck" that last time there was the security bug
+> > recarding /proc/mem so i was  able to schedule it pretty fast.
+> >=20
+> > At least the patch applies fine ;-)
+> >=20
+>=20
+> I'll do some build/run tests today, please Greg wait a bit before
+> applying this combo patch.
+>=20
 
-* Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> [2012-02-10 08:56:29 -=
-0800]:
-
-> This seems to have gotten lost somewhere - the lkml post was from the
-> middle of January.
-
-Actually not, the fix is in another tree and should be sent mainline so=
-on. I
-was away from development during January and the pull requests stopped =
-during
-that time. Things should be back to normal now.
-
-If you wanna go ahead and apply this patch directly you have my ack:
-
-Acked-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-
-	Gustavo
-
->=20
->                     Linus
->=20
-> ---------- Forwarded message ----------
-> From: Nikola Ciprich <nikola.ciprich-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org>
-> Date: Fri, Feb 10, 2012 at 2:08 AM
-> Subject: Re: Linux 3.3-rc3
-> To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-> geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
->=20
->=20
-> On Wed, Feb 08, 2012 at 07:36:37PM -0800, Linus Torvalds wrote:
-> > Another week, another -rc.
-> >
-> > No big surprises, which is just how I like it. About a third of the
-> > patches are in ARM, but the bulk of that is due to the removal of t=
-he
-> > unused DMA map code form the bcmring support. So no complaints.
-> >
-> > The rest is fairly flat in the diffstat (=3D=3D random small change=
-s all
-> > over), although mostly drivers. More sound/hda (and asoc) updates,
-> > some target and IB updates, etc etc.
-> >
-> > Shortlog appended for your perusal, you can see the kind of largely
-> > "fix small details" almost all of it is,
->=20
-> Hi,
->=20
-> just wanted to let You know, that following fix didn't make it into
-> Your tree yet:
-> https://lkml.org/lkml/2012/1/15/23
->=20
-> the bug is causing build failures with some GCC versions:
->=20
-> =C2=A0CC [M] =C2=A0net/bluetooth/l2cap_sock.o
-> net/bluetooth/l2cap_sock.c: In function =E2=80=98l2cap_sock_connect=E2=
-=80=99:
-> include/net/bluetooth/l2cap.h:838: sorry, unimplemented: inlining
-> failed in call to =E2=80=98l2cap_chan_connect=E2=80=99: function body=
- not available
-> net/bluetooth/l2cap_sock.c:126: sorry, unimplemented: called from her=
-e
-> make[2]: *** [net/bluetooth/l2cap_sock.o] Error 1
-> make[1]: *** [net/bluetooth] Error 2
-> make: *** [net] Error 2
->=20
-> BR
-> nik
->=20
->=20
-> --
-> -------------------------------------
-> Ing. Nikola CIPRICH
-> LinuxBox.cz, s.r.o.
-> 28. rijna 168, 709 01 Ostrava
->=20
-> tel.: =C2=A0 +420 596 603 142
-> fax: =C2=A0 =C2=A0+420 596 621 273
-> mobil: =C2=A0+420 777 093 799
-> www.linuxbox.cz
->=20
-> mobil servis: +420 737 238 656
-> email servis: servis-Jp3n8lUXroTtwjQa/ONI9g@public.gmane.org
-> -------------------------------------
+Tests done and no problem met.
