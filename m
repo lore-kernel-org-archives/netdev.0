@@ -1,211 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] e1000: Neaten e1000_config_dsp_after_link_change
-Date: Thu, 09 Feb 2012 20:01:51 -0800
-Message-ID: <1328846511.1936.4.camel@joe2Laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] e1000: Neaten
+ e1000_config_dsp_after_link_change
+Date: Thu, 09 Feb 2012 20:04:54 -0800
+Message-ID: <1328846694.2761.26.camel@jtkirshe-mobl>
+References: <1328846511.1936.4.camel@joe2Laptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ht6MyvRXUh9NMSNmGbK1"
 Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
 	netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:52999 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754556Ab2BJEBx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Feb 2012 23:01:53 -0500
+Received: from mga02.intel.com ([134.134.136.20]:2764 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758229Ab2BJEE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 23:04:56 -0500
+In-Reply-To: <1328846511.1936.4.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Separate a complicated bit of e1000_config_dsp_after_link_change
-into a new static function e1000_1000Mb_check_cable_length.
 
-Reduces indentation and adds a bit of clarity.
+--=-ht6MyvRXUh9NMSNmGbK1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/intel/e1000/e1000_hw.c |  156 +++++++++++++--------------
- 1 files changed, 73 insertions(+), 83 deletions(-)
+On Thu, 2012-02-09 at 20:01 -0800, Joe Perches wrote:
+> Separate a complicated bit of e1000_config_dsp_after_link_change
+> into a new static function e1000_1000Mb_check_cable_length.
+>=20
+> Reduces indentation and adds a bit of clarity.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_hw.c |  156
+> +++++++++++++--------------
+>  1 files changed, 73 insertions(+), 83 deletions(-)=20
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 36ee76b..c526279e4 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -5253,6 +5253,78 @@ static s32 e1000_check_downshift(struct e1000_hw *hw)
- 	return E1000_SUCCESS;
- }
- 
-+static const u16 dsp_reg_array[IGP01E1000_PHY_CHANNEL_NUM] = {
-+	IGP01E1000_PHY_AGC_PARAM_A,
-+	IGP01E1000_PHY_AGC_PARAM_B,
-+	IGP01E1000_PHY_AGC_PARAM_C,
-+	IGP01E1000_PHY_AGC_PARAM_D
-+};
-+
-+static s32 e1000_1000Mb_check_cable_length(struct e1000_hw *hw)
-+{
-+	u16 min_length, max_length;
-+	u16 phy_data, i;
-+	s32 ret_val;
-+
-+	ret_val = e1000_get_cable_length(hw, &min_length, &max_length);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (hw->dsp_config_state != e1000_dsp_config_enabled)
-+		return 0;
-+
-+	if (min_length >= e1000_igp_cable_length_50) {
-+		for (i = 0; i < IGP01E1000_PHY_CHANNEL_NUM; i++) {
-+			ret_val = e1000_read_phy_reg(hw, dsp_reg_array[i],
-+						     &phy_data);
-+			if (ret_val)
-+				return ret_val;
-+
-+			phy_data &= ~IGP01E1000_PHY_EDAC_MU_INDEX;
-+
-+			ret_val = e1000_write_phy_reg(hw, dsp_reg_array[i],
-+						      phy_data);
-+			if (ret_val)
-+				return ret_val;
-+		}
-+		hw->dsp_config_state = e1000_dsp_config_activated;
-+	} else {
-+		u16 ffe_idle_err_timeout = FFE_IDLE_ERR_COUNT_TIMEOUT_20;
-+		u32 idle_errs = 0;
-+
-+		/* clear previous idle error counts */
-+		ret_val = e1000_read_phy_reg(hw, PHY_1000T_STATUS, &phy_data);
-+		if (ret_val)
-+			return ret_val;
-+
-+		for (i = 0; i < ffe_idle_err_timeout; i++) {
-+			udelay(1000);
-+			ret_val = e1000_read_phy_reg(hw, PHY_1000T_STATUS,
-+						     &phy_data);
-+			if (ret_val)
-+				return ret_val;
-+
-+			idle_errs += (phy_data & SR_1000T_IDLE_ERROR_CNT);
-+			if (idle_errs > SR_1000T_PHY_EXCESSIVE_IDLE_ERR_COUNT) {
-+				hw->ffe_config_state = e1000_ffe_config_active;
-+
-+				ret_val = e1000_write_phy_reg(hw,
-+					      IGP01E1000_PHY_DSP_FFE,
-+					      IGP01E1000_PHY_DSP_FFE_CM_CP);
-+				if (ret_val)
-+					return ret_val;
-+				break;
-+			}
-+
-+			if (idle_errs)
-+				ffe_idle_err_timeout =
-+					    FFE_IDLE_ERR_COUNT_TIMEOUT_100;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- /**
-  * e1000_config_dsp_after_link_change
-  * @hw: Struct containing variables accessed by shared code
-@@ -5269,13 +5341,6 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- {
- 	s32 ret_val;
- 	u16 phy_data, phy_saved_data, speed, duplex, i;
--	static const u16 dsp_reg_array[IGP01E1000_PHY_CHANNEL_NUM] = {
--	       IGP01E1000_PHY_AGC_PARAM_A,
--	       IGP01E1000_PHY_AGC_PARAM_B,
--	       IGP01E1000_PHY_AGC_PARAM_C,
--	       IGP01E1000_PHY_AGC_PARAM_D
--	};
--	u16 min_length, max_length;
- 
- 	e_dbg("e1000_config_dsp_after_link_change");
- 
-@@ -5290,84 +5355,9 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- 		}
- 
- 		if (speed == SPEED_1000) {
--
--			ret_val =
--			    e1000_get_cable_length(hw, &min_length,
--						   &max_length);
-+			ret_val = e1000_1000Mb_check_cable_length(hw);
- 			if (ret_val)
- 				return ret_val;
--
--			if ((hw->dsp_config_state == e1000_dsp_config_enabled)
--			    && min_length >= e1000_igp_cable_length_50) {
--
--				for (i = 0; i < IGP01E1000_PHY_CHANNEL_NUM; i++) {
--					ret_val =
--					    e1000_read_phy_reg(hw,
--							       dsp_reg_array[i],
--							       &phy_data);
--					if (ret_val)
--						return ret_val;
--
--					phy_data &=
--					    ~IGP01E1000_PHY_EDAC_MU_INDEX;
--
--					ret_val =
--					    e1000_write_phy_reg(hw,
--								dsp_reg_array
--								[i], phy_data);
--					if (ret_val)
--						return ret_val;
--				}
--				hw->dsp_config_state =
--				    e1000_dsp_config_activated;
--			}
--
--			if ((hw->ffe_config_state == e1000_ffe_config_enabled)
--			    && (min_length < e1000_igp_cable_length_50)) {
--
--				u16 ffe_idle_err_timeout =
--				    FFE_IDLE_ERR_COUNT_TIMEOUT_20;
--				u32 idle_errs = 0;
--
--				/* clear previous idle error counts */
--				ret_val =
--				    e1000_read_phy_reg(hw, PHY_1000T_STATUS,
--						       &phy_data);
--				if (ret_val)
--					return ret_val;
--
--				for (i = 0; i < ffe_idle_err_timeout; i++) {
--					udelay(1000);
--					ret_val =
--					    e1000_read_phy_reg(hw,
--							       PHY_1000T_STATUS,
--							       &phy_data);
--					if (ret_val)
--						return ret_val;
--
--					idle_errs +=
--					    (phy_data &
--					     SR_1000T_IDLE_ERROR_CNT);
--					if (idle_errs >
--					    SR_1000T_PHY_EXCESSIVE_IDLE_ERR_COUNT)
--					{
--						hw->ffe_config_state =
--						    e1000_ffe_config_active;
--
--						ret_val =
--						    e1000_write_phy_reg(hw,
--									IGP01E1000_PHY_DSP_FFE,
--									IGP01E1000_PHY_DSP_FFE_CM_CP);
--						if (ret_val)
--							return ret_val;
--						break;
--					}
--
--					if (idle_errs)
--						ffe_idle_err_timeout =
--						    FFE_IDLE_ERR_COUNT_TIMEOUT_100;
--				}
--			}
- 		}
- 	} else {
- 		if (hw->dsp_config_state == e1000_dsp_config_activated) {
+Thank Joe, I have added the patch to my queue.
+
+--=-ht6MyvRXUh9NMSNmGbK1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPNJdmAAoJEOVv75VaS+3OWagP/iIO50/wCXamUszSSTD3WDpz
+3ORx+2nYQa+C+GSBvBMg72kVIjNCW5wss/GWwesaYJdBGIKHr6qgGJNcUgL+vb/q
+TYp4NXrsv23B9uYdcwVbn3Vp3voh2i39xp2gak9LcnPgSBeiJAWw7myvmRn097WF
+siunhMzLAHiJpfyTYZK5n0yWU7MBa2ZIgq0XqrQabq1I52X8c+KayQytlmO53JWb
+hq3yEi26zLltITRMJrUCwSVrqwviklJ2N83rH3rmixFp/wJXQioWT7ZwkPSrO5kr
+jB1XgDRJwf6ALu5am7us0fyRkf2okHxNCp0cLG3PP7SdJfeHgrysmorq7FZeqQeK
+p0+oUr5olbiD0Hj0xEHbmM4u/re0IMzX8pi4XZ/Y72Trm8i9aUXasJgZM7Q+x+L4
+RKu6i1tEglb3GK+Dw8oMSIOxIrN55vZIeSKXQYCog7HySahW1M73CKlwLYZTRZtL
+xxjhCoHSs7x/m9SQnKPDjXXAVWHWvXrd77s1aTdL89QZyPqnJKf4w8m9Rg3uXNYm
+Gww5Qnbbr2fyXWvrFd2xFZB7nNDF1sIk8Kunm67UDrKW/ESrCZKqcn8c4xZ6TbrT
+fDA5wSttbpbJ11BQ3Y+Z24USoDNiKXNtAPA20kweHGXgdRTNTZPMEJMODdrEaC6g
+AcXpAWbZRhOdo2XjNvOY
+=7kaD
+-----END PGP SIGNATURE-----
+
+--=-ht6MyvRXUh9NMSNmGbK1--
