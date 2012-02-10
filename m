@@ -1,73 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/7] e1000e: replace '1' with 'true' for boolean get_link_status
-Date: Fri, 10 Feb 2012 00:08:56 -0800
-Message-ID: <1328861337-12810-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/7] e1000e: remove unnecessary returns from void functions
+Date: Fri, 10 Feb 2012 00:08:52 -0800
+Message-ID: <1328861337-12810-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:3668 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:7659 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757927Ab2BJIJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 03:09:03 -0500
+	id S1755169Ab2BJIJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 03:09:00 -0500
 In-Reply-To: <1328861337-12810-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+...and convert some goto's which simply return to just return.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    6 +++---
- drivers/net/ethernet/intel/e1000e/phy.c    |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |    3 ---
+ drivers/net/ethernet/intel/e1000e/mac.c     |    8 ++------
+ drivers/net/ethernet/intel/e1000e/netdev.c  |    7 ++-----
+ 3 files changed, 4 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 7ccd5f3..f868fb8 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1652,7 +1652,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 	 */
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 5061d4d..942f4da 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -1762,7 +1762,6 @@ static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate)
+ 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_GATE_PHY_CFG;
  
- 	if (icr & E1000_ICR_LSC) {
--		hw->mac.get_link_status = 1;
-+		hw->mac.get_link_status = true;
- 		/*
- 		 * ICH8 workaround-- Call gig speed drop workaround on cable
- 		 * disconnect (LSC) before accessing any PHY registers
-@@ -1718,7 +1718,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	 */
+ 	ew32(EXTCNF_CTRL, extcnf_ctrl);
+-	return;
+ }
  
- 	if (icr & E1000_ICR_LSC) {
--		hw->mac.get_link_status = 1;
-+		hw->mac.get_link_status = true;
- 		/*
- 		 * ICH8 workaround-- Call gig speed drop workaround on cable
- 		 * disconnect (LSC) before accessing any PHY registers
-@@ -1775,7 +1775,7 @@ static irqreturn_t e1000_msix_other(int irq, void *data)
- 	if (icr & E1000_ICR_OTHER) {
- 		if (!(icr & E1000_ICR_LSC))
- 			goto no_link_interrupt;
--		hw->mac.get_link_status = 1;
-+		hw->mac.get_link_status = true;
- 		/* guard against interrupt when we're going down */
- 		if (!test_bit(__E1000_DOWN, &adapter->state))
- 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index e8ad080..6f44c3f 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -1141,7 +1141,7 @@ static s32 e1000_copper_link_autoneg(struct e1000_hw *hw)
- 		}
+ /**
+@@ -3768,8 +3767,6 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ 
+ release:
+ 	hw->phy.ops.release(hw);
+-
+-	return;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index 33d1b9e..be8335a 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -1661,7 +1661,7 @@ void e1000e_reset_adaptive(struct e1000_hw *hw)
+ 
+ 	if (!mac->adaptive_ifs) {
+ 		e_dbg("Not in Adaptive IFS mode!\n");
+-		goto out;
++		return;
  	}
  
--	hw->mac.get_link_status = 1;
-+	hw->mac.get_link_status = true;
+ 	mac->current_ifs_val = 0;
+@@ -1672,8 +1672,6 @@ void e1000e_reset_adaptive(struct e1000_hw *hw)
  
- 	return ret_val;
+ 	mac->in_ifs_mode = false;
+ 	ew32(AIT, 0);
+-out:
+-	return;
  }
+ 
+ /**
+@@ -1689,7 +1687,7 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
+ 
+ 	if (!mac->adaptive_ifs) {
+ 		e_dbg("Not in Adaptive IFS mode!\n");
+-		goto out;
++		return;
+ 	}
+ 
+ 	if ((mac->collision_delta * mac->ifs_ratio) > mac->tx_packet_delta) {
+@@ -1712,6 +1710,4 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
+ 			ew32(AIT, 0);
+ 		}
+ 	}
+-out:
+-	return;
+ }
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 293a760..7ccd5f3 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -221,7 +221,7 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 
+ 	/* Print Tx Ring Summary */
+ 	if (!netdev || !netif_running(netdev))
+-		goto exit;
++		return;
+ 
+ 	dev_info(&adapter->pdev->dev, "Tx Ring Summary\n");
+ 	pr_info("Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp\n");
+@@ -308,7 +308,7 @@ rx_ring_summary:
+ 
+ 	/* Print Rx Ring */
+ 	if (!netif_msg_rx_status(adapter))
+-		goto exit;
++		return;
+ 
+ 	dev_info(&adapter->pdev->dev, "Rx Ring Dump\n");
+ 	switch (adapter->rx_ps_pages) {
+@@ -449,9 +449,6 @@ rx_ring_summary:
+ 			}
+ 		}
+ 	}
+-
+-exit:
+-	return;
+ }
+ 
+ /**
 -- 
 1.7.7.6
