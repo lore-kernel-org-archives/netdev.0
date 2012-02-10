@@ -1,59 +1,42 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Thu, 09 Feb 2012 18:14:46 -0800
-Message-ID: <4F347D96.2020806@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [patch] bna: fix error handling of
+ bnad_get_flash_partition_by_offset()
+Date: Thu, 9 Feb 2012 17:53:20 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B1FB8B0A20@HQ1-EXCH01.corp.brocade.com>
+References: <20120209104934.GC5540@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: jhs@mojatatu.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1328821894.2089.3.camel@mojatatu>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"Adapter Linux Open SRC Team"
+	<adapter_linux_open_src_team@Brocade.COM>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:52025 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758142Ab2BJCoJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Feb 2012 21:44:09 -0500
+In-Reply-To: <20120209104934.GC5540@elgon.mountain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/9/2012 1:11 PM, jamal wrote:
-> On Thu, 2012-02-09 at 09:52 -0800, John Fastabend wrote:
-> 
->>>> By netlink_notifier do you mean adding a notifier_block and using atomic_notifier_call_chain()
->>>> probably in rtnl_notify()? Then drivers could register with the notifier chain with
->>>> atomic_notifier_chain_register() and receive the events correctly. Or did I miss
->>>> some notifier chain that already exists?
->>>
->>> Yes. that is what I mean. The callbacks you need may or may not already be present.
-> 
-> I'll go one step further.
-> This stuff shouldnt be in the kernel at all. 
-> The disadvantage is you need a user space app to update the hardware.
-> i.e, the same mechanism should be usable for either a switch embedded
-> in a NIC or a standalone hardware switch (with/out the s/ware bridge 
-> presence)
-> 
-> cheers,
-> jamal
-> 
+>From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+>Sent: Thursday, February 09, 2012 2:50 AM
+>
+>The current error handling doesn't work because we flash_part is a u32
+>so the checks for negative error codes don't work.  I considered making
+>things signed but I don't know the hardware enough to say if that's a
+>problem.  Really, we don't use the error codes so just returning zero
+>for all problems is fine.
 
-Hi Jamal,
+Hi Dan,
 
-The user space app in this case would listen for FDB updates to the SW
-bridge and then mirror them at the embedded NIC. In this case it seems
-easier to just add a notifier chain and let the kernel keep these in
-sync. Otherwise we need a daemon in user space to replicate these.
+We can't return 0 from the bnad_get_flash_partition_by_offset() on error as the flash partition 0 is a optrom partition. Also we got comments to return proper Linux error codes as ethtool application expects so.
 
-On the other hand if you could make the same RTM_NEWNEIGH, RTM_DELNEIGH,
-and RTM_GETNEIGH work for the bridge, embedded bridge, and macvlan you
-would have one common interface to drive these. But the bridge already
-has this protocol/msgtype so that would require either some demux or
-new protocol/msgtype pairs to be created. 
+What we can do is change the return type of the bnad_get_flash_partition_by_offset() to int.
 
-Let me think on it. I'm tempted by the simplicity of adding notifier
-hooks though.
-
-.John
-
-
+Thanks,
+Rasesh
