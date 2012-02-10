@@ -1,221 +1,76 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 52/60] rds: remove the second argument of k[un]map_atomic()
-Date: Fri, 10 Feb 2012 13:40:13 +0800
-Message-ID: <1328852421-19678-53-git-send-email-amwang@redhat.com>
-References: <1328852421-19678-1-git-send-email-amwang@redhat.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Cong Wang <amwang@redhat.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328852421-19678-1-git-send-email-amwang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 00/10] Low-level Ethernet debugging features.
+Date: Thu, 09 Feb 2012 21:52:07 -0800
+Message-ID: <1328853127.2761.45.camel@jtkirshe-mobl>
+References: <1328730885-10941-1-git-send-email-greearb@candelatech.com>
+	 <4F349DB0.1010903@gmail.com> <4F34AE62.6070409@candelatech.com>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-beuDTJX93ib7IiOfcd+c"
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>,
+	"Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:63497 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932308Ab2BJFwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Feb 2012 00:52:09 -0500
+In-Reply-To: <4F34AE62.6070409@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/rds/ib_recv.c  |    7 +++----
- net/rds/info.c     |    6 +++---
- net/rds/iw_recv.c  |    7 +++----
- net/rds/loop.c     |    2 +-
- net/rds/rds.h      |    2 +-
- net/rds/recv.c     |    2 +-
- net/rds/tcp_recv.c |   11 ++++-------
- 7 files changed, 16 insertions(+), 21 deletions(-)
 
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index e29e0ca..744a00d 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -763,7 +763,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
- 		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
- 		BUG_ON(to_copy & 7); /* Must be 64bit aligned. */
- 
--		addr = kmap_atomic(sg_page(&frag->f_sg), KM_SOFTIRQ0);
-+		addr = kmap_atomic(sg_page(&frag->f_sg));
- 
- 		src = addr + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
-@@ -773,7 +773,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
- 			uncongested |= ~(*src) & *dst;
- 			*dst++ = *src++;
- 		}
--		kunmap_atomic(addr, KM_SOFTIRQ0);
-+		kunmap_atomic(addr);
- 
- 		copied += to_copy;
- 
-@@ -919,8 +919,7 @@ static void rds_ib_process_recv(struct rds_connection *conn,
- 			rds_ib_cong_recv(conn, ibinc);
- 		else {
- 			rds_recv_incoming(conn, conn->c_faddr, conn->c_laddr,
--					  &ibinc->ii_inc, GFP_ATOMIC,
--					  KM_SOFTIRQ0);
-+					  &ibinc->ii_inc, GFP_ATOMIC);
- 			state->ack_next = be64_to_cpu(hdr->h_sequence);
- 			state->ack_next_valid = 1;
- 		}
-diff --git a/net/rds/info.c b/net/rds/info.c
-index f1c016c..9a6b4f6 100644
---- a/net/rds/info.c
-+++ b/net/rds/info.c
-@@ -104,7 +104,7 @@ EXPORT_SYMBOL_GPL(rds_info_deregister_func);
- void rds_info_iter_unmap(struct rds_info_iterator *iter)
- {
- 	if (iter->addr) {
--		kunmap_atomic(iter->addr, KM_USER0);
-+		kunmap_atomic(iter->addr);
- 		iter->addr = NULL;
- 	}
- }
-@@ -119,7 +119,7 @@ void rds_info_copy(struct rds_info_iterator *iter, void *data,
- 
- 	while (bytes) {
- 		if (!iter->addr)
--			iter->addr = kmap_atomic(*iter->pages, KM_USER0);
-+			iter->addr = kmap_atomic(*iter->pages);
- 
- 		this = min(bytes, PAGE_SIZE - iter->offset);
- 
-@@ -134,7 +134,7 @@ void rds_info_copy(struct rds_info_iterator *iter, void *data,
- 		iter->offset += this;
- 
- 		if (iter->offset == PAGE_SIZE) {
--			kunmap_atomic(iter->addr, KM_USER0);
-+			kunmap_atomic(iter->addr);
- 			iter->addr = NULL;
- 			iter->offset = 0;
- 			iter->pages++;
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-index 5e57347..0bd9b5e 100644
---- a/net/rds/iw_recv.c
-+++ b/net/rds/iw_recv.c
-@@ -598,7 +598,7 @@ static void rds_iw_cong_recv(struct rds_connection *conn,
- 		to_copy = min(RDS_FRAG_SIZE - frag_off, PAGE_SIZE - map_off);
- 		BUG_ON(to_copy & 7); /* Must be 64bit aligned. */
- 
--		addr = kmap_atomic(frag->f_page, KM_SOFTIRQ0);
-+		addr = kmap_atomic(frag->f_page);
- 
- 		src = addr + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
-@@ -608,7 +608,7 @@ static void rds_iw_cong_recv(struct rds_connection *conn,
- 			uncongested |= ~(*src) & *dst;
- 			*dst++ = *src++;
- 		}
--		kunmap_atomic(addr, KM_SOFTIRQ0);
-+		kunmap_atomic(addr);
- 
- 		copied += to_copy;
- 
-@@ -754,8 +754,7 @@ static void rds_iw_process_recv(struct rds_connection *conn,
- 			rds_iw_cong_recv(conn, iwinc);
- 		else {
- 			rds_recv_incoming(conn, conn->c_faddr, conn->c_laddr,
--					  &iwinc->ii_inc, GFP_ATOMIC,
--					  KM_SOFTIRQ0);
-+					  &iwinc->ii_inc, GFP_ATOMIC);
- 			state->ack_next = be64_to_cpu(hdr->h_sequence);
- 			state->ack_next_valid = 1;
- 		}
-diff --git a/net/rds/loop.c b/net/rds/loop.c
-index bca6761..87ff2a8 100644
---- a/net/rds/loop.c
-+++ b/net/rds/loop.c
-@@ -79,7 +79,7 @@ static int rds_loop_xmit(struct rds_connection *conn, struct rds_message *rm,
- 	rds_message_addref(rm);
- 
- 	rds_recv_incoming(conn, conn->c_laddr, conn->c_faddr, &rm->m_inc,
--			  GFP_KERNEL, KM_USER0);
-+			  GFP_KERNEL);
- 
- 	rds_send_drop_acked(conn, be64_to_cpu(rm->m_inc.i_hdr.h_sequence),
- 			    NULL);
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 7eaba18..ec1d731 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -704,7 +704,7 @@ void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
- 		  __be32 saddr);
- void rds_inc_put(struct rds_incoming *inc);
- void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
--		       struct rds_incoming *inc, gfp_t gfp, enum km_type km);
-+		       struct rds_incoming *inc, gfp_t gfp);
- int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 		size_t size, int msg_flags);
- void rds_clear_recv_queue(struct rds_sock *rs);
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index bc3f8cd..5c6e9f1 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -155,7 +155,7 @@ static void rds_recv_incoming_exthdrs(struct rds_incoming *inc, struct rds_sock
-  * tell us which roles the addrs in the conn are playing for this message.
-  */
- void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
--		       struct rds_incoming *inc, gfp_t gfp, enum km_type km)
-+		       struct rds_incoming *inc, gfp_t gfp)
- {
- 	struct rds_sock *rs = NULL;
- 	struct sock *sk;
-diff --git a/net/rds/tcp_recv.c b/net/rds/tcp_recv.c
-index 78205e2..6243258 100644
---- a/net/rds/tcp_recv.c
-+++ b/net/rds/tcp_recv.c
-@@ -169,7 +169,6 @@ static void rds_tcp_cong_recv(struct rds_connection *conn,
- struct rds_tcp_desc_arg {
- 	struct rds_connection *conn;
- 	gfp_t gfp;
--	enum km_type km;
- };
- 
- static int rds_tcp_data_recv(read_descriptor_t *desc, struct sk_buff *skb,
-@@ -255,7 +254,7 @@ static int rds_tcp_data_recv(read_descriptor_t *desc, struct sk_buff *skb,
- 			else
- 				rds_recv_incoming(conn, conn->c_faddr,
- 						  conn->c_laddr, &tinc->ti_inc,
--						  arg->gfp, arg->km);
-+						  arg->gfp);
- 
- 			tc->t_tinc_hdr_rem = sizeof(struct rds_header);
- 			tc->t_tinc_data_rem = 0;
-@@ -272,8 +271,7 @@ out:
- }
- 
- /* the caller has to hold the sock lock */
--static int rds_tcp_read_sock(struct rds_connection *conn, gfp_t gfp,
--			     enum km_type km)
-+static int rds_tcp_read_sock(struct rds_connection *conn, gfp_t gfp)
- {
- 	struct rds_tcp_connection *tc = conn->c_transport_data;
- 	struct socket *sock = tc->t_sock;
-@@ -283,7 +281,6 @@ static int rds_tcp_read_sock(struct rds_connection *conn, gfp_t gfp,
- 	/* It's like glib in the kernel! */
- 	arg.conn = conn;
- 	arg.gfp = gfp;
--	arg.km = km;
- 	desc.arg.data = &arg;
- 	desc.error = 0;
- 	desc.count = 1; /* give more than one skb per call */
-@@ -311,7 +308,7 @@ int rds_tcp_recv(struct rds_connection *conn)
- 	rdsdebug("recv worker conn %p tc %p sock %p\n", conn, tc, sock);
- 
- 	lock_sock(sock->sk);
--	ret = rds_tcp_read_sock(conn, GFP_KERNEL, KM_USER0);
-+	ret = rds_tcp_read_sock(conn, GFP_KERNEL);
- 	release_sock(sock->sk);
- 
- 	return ret;
-@@ -336,7 +333,7 @@ void rds_tcp_data_ready(struct sock *sk, int bytes)
- 	ready = tc->t_orig_data_ready;
- 	rds_tcp_stats_inc(s_tcp_data_ready_calls);
- 
--	if (rds_tcp_read_sock(conn, GFP_ATOMIC, KM_SOFTIRQ0) == -ENOMEM)
-+	if (rds_tcp_read_sock(conn, GFP_ATOMIC) == -ENOMEM)
- 		queue_delayed_work(rds_wq, &conn->c_recv_w, 0);
- out:
- 	read_unlock_bh(&sk->sk_callback_lock);
--- 
-1.7.7.6
+--=-beuDTJX93ib7IiOfcd+c
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2012-02-09 at 21:42 -0800, Ben Greear wrote:
+> On 02/09/2012 08:31 PM, Jeff Kirsher wrote:
+>=20
+> > Thanks Ben!
+> >
+> > I have applied the series of 10 patches to my queue.  I would like to
+> > have our validation team validate the e100, e1000 and e1000e patches
+> > (and in-directly the net patches).
+>=20
+> Just in case you can generate errored frames other than ones with just
+> bad FCS, I'm curious to know if rx-all logic works with them.
+>=20
+> I was thinking I might could get at least some NICs to generate Runt fram=
+es
+> by sending small pkts and disabling frame padding, but haven't looked int=
+o
+> it too hard yet.
+>=20
+> Thanks,
+> Ben
+>=20
+
+Thanks for the info Ben!  I or Aaron will let you know what we come up
+with.
+
+--=-beuDTJX93ib7IiOfcd+c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJPNLCHAAoJEOVv75VaS+3OFzIP/1etcAgQEmcfAzYXf9NbsuZj
+aRvJTzhv/KTJTHthePluc66ZDjn4wY9d6EEp+PPTll3DQm4z9inXwCWnCaP6YUxz
+PCP6oHz7DhI1dEv1+MHvEo1mz+ntjDcEfljY4BIwp/GfboFBFRD9ygHVWJ0oVb7U
+BpKDp5zJ1zPFZ0A2+eKMLT/QX0sBf7wkm99ve7NacaITQaNnGh5oRNiZQ8o3drBI
+CZ2v+bqJpkaKWuGesEl12T8Lj609MaeiXngviQmC4FJy5m8vEKGIEWGeeMi3xyAQ
+u7/kYHJhK2fn+UdZH96Df7BOTakxuHHNTiR3qGyoxsSJhYrLPh9YWVq2/hwc2Wdd
+z6WumbZB5Lf6xJ6Lh4YxLo15MqPdBZ5STBH5oCYqYb3UkPowNX25kHw/TQjcNMTl
+XIdzQISHGDcQ1sWFt3NcoWO5AgibSpDjwd3PS8TF2/2gg0bbujYErRdPHGR5CaVE
+oHR0LOEW+Vv66TB5I+gNOJ6tczwfksQ0WgjOaDmD4qVL2B5JAEDJWXnqFFSvg1iw
+UzS5xt1YdjruQtUStUlhEIlb2hSrdGjPnR3omOgswAk3nrp2eLh5D2JThUhEb/gu
+kvN6W7FhD+oBq9D7B0SWEdc23xq0bPuJSInDbNp/Y4Vmng6k3MAMmNwORN9QVcyj
+V2q8rSPq47zVVkfroA2B
+=VU+k
+-----END PGP SIGNATURE-----
+
+--=-beuDTJX93ib7IiOfcd+c--
