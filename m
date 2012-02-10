@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: Fix wrong order of ip_rt_get_source() and
- update iph->daddr.
-Date: Fri, 10 Feb 2012 15:12:40 -0500 (EST)
-Message-ID: <20120210.151240.26010371437547242.davem@davemloft.net>
-References: <4F34BDAD.8080608@cn.fujitsu.com>
-	<4F34C40D.5010503@cn.fujitsu.com>
+Subject: Re: [PATCH] net: Don't proxy arp respond if iif == rt->dst.dev if
+ private VLAN is disabled
+Date: Fri, 10 Feb 2012 15:13:54 -0500 (EST)
+Message-ID: <20120210.151354.1291294048972149354.davem@davemloft.net>
+References: <1328882831-15300-1-git-send-email-tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lw@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, hawk@comx.dk
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41468 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41512 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760091Ab2BJUMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 15:12:45 -0500
-In-Reply-To: <4F34C40D.5010503@cn.fujitsu.com>
+	with ESMTP id S1755209Ab2BJUPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 15:15:05 -0500
+In-Reply-To: <1328882831-15300-1-git-send-email-tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Wei <lw@cn.fujitsu.com>
-Date: Fri, 10 Feb 2012 15:15:25 +0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 10 Feb 2012 15:07:11 +0100
 
-> This patch fix a bug which introduced by commit ac8a4810 (ipv4: Save
-> nexthop address of LSRR/SSRR option to IPCB.).In that patch, we saved
-> the nexthop of SRR in ip_option->nexthop and update iph->daddr until
-> we get to ip_forward_options(), but we need to update it before 
-> ip_rt_get_source(), otherwise we may get a wrong src.
+> Commit 653241 (net: RFC3069, private VLAN proxy arp support) changed
+> the behavior of arp proxy to send arp replies back out on the interface
+> the request came in even if the private VLAN feature is disabled.
 > 
-> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> Previously we checked rt->dst.dev != skb->dev for in scenarios, when
+> proxy arp is enabled on for the netdevice and also when individual proxy
+> neighbour entries have been added.
+> 
+> This patch adds the check back for the pneigh_lookup() scenario.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied, thanks.
+Applied, thanks Thomas.
