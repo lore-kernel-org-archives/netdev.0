@@ -1,66 +1,35 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH] datagram: Extend the datagram queue MSG_PEEK-ing
-Date: Fri, 10 Feb 2012 18:52:16 +0400
-Message-ID: <4F352F20.8080807@parallels.com>
-References: <4F352182.6060601@parallels.com> <1328884902.2443.29.camel@edumazet-laptop>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: [PATCH] net: Don't proxy arp respond if iif == rt->dst.dev if
+ private VLAN is disabled
+Date: Fri, 10 Feb 2012 15:54:36 +0100
+Message-ID: <1328885676.13582.18.camel@probook>
+References: <1328882831-15300-1-git-send-email-tgraf@suug.ch>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:31007 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757911Ab2BJOw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Feb 2012 09:52:29 -0500
-In-Reply-To: <1328884902.2443.29.camel@edumazet-laptop>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40215 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759442Ab2BJOyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 09:54:39 -0500
+In-Reply-To: <1328882831-15300-1-git-send-email-tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/10/2012 06:41 PM, Eric Dumazet wrote:
-> Le vendredi 10 f=C3=A9vrier 2012 =C3=A0 17:54 +0400, Pavel Emelyanov =
-a =C3=A9crit :
->> We're working on the checkpoint-restore project. To checkpoint a uni=
-x socket
->> we need to read its skb queue. Analogous task for TCP sockets Tejun =
-proposed
->> to solve with parasite + recvmsg + MSG_PEEK. That's nice, but doesn'=
-t work
->> for unix sockets, because for them MSG_PEEK always peeks a single sk=
-b from the=20
->> head of the queue.
->>
->> I propose to extend the MSG_PEEK functionality with two more flags t=
-hat peek
->> either next not picked skb in queue or pick the last picked one. The=
- latter
->> ability is required to make it possible to re-read a message if MSG_=
-TRUNC
->> was reported on it.
->>
->> These two flags can be used for unix stream sockets, since making th=
-e MSG_PEEK
->> just report all data that fits the buffer length is bad -- we may ha=
-ve scms
->> in queue thus turning stream socket into dgram one.
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->>
->> ---
->=20
-> Nice !
->=20
-> So this CR stuff assumes an application wont use itself MSG_PEEK /
-> MORE / AGAIN ?
+On Fri, 2012-02-10 at 15:07 +0100, Thomas Graf wrote:
+> Commit 653241 (net: RFC3069, private VLAN proxy arp support) changed
+> the behavior of arp proxy to send arp replies back out on the interface
+> the request came in even if the private VLAN feature is disabled.
+> 
+> Previously we checked rt->dst.dev != skb->dev for in scenarios, when
+> proxy arp is enabled on for the netdevice and also when individual proxy
+> neighbour entries have been added.
+> 
+> This patch adds the check back for the pneigh_lookup() scenario.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-:( Not exactly. MSG_PEEK will still work, but PEEK_MORE/PEEK_AGAIN will=
- not.
-
-Hm... This means that the state of "what was peek-ed already" should be=
- on
-the user side. Can we pass some "offset" (in bytes for stream and in pa=
-ckets
-for datagram) to the recvmsg?
-
-> (skb->peeked can only be set, never unset)
+Acked-by: Jesper Dangaard Brouer <hawk@comx.dk>
