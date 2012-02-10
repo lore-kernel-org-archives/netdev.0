@@ -1,49 +1,52 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH] mISDN/hfcsusb: remove unused variable hfcsusb_rev
-Date: Fri, 10 Feb 2012 16:01:08 +0100
-Message-ID: <1328886068-22646-1-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH] orinoco_usb: fix -Wunused-variable, remove version
+Date: Fri, 10 Feb 2012 16:02:13 +0100
+Message-ID: <1328886133-22757-1-git-send-email-danny.kukawka@bisect.de>
 Cc: Danny Kukawka <dkukawka@suse.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jesper Juhl <jj@chaosbits.net>,
+	Jiri Pirko <jpirko@redhat.com>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wp188.webpack.hosteurope.de ([80.237.132.195]:42860 "EHLO
-	wp188.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751205Ab2BJPB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 10:01:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-wireless@vger.kernel.org,
+	orinoco-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Removed unused variable hfcsusb_rev (-Wunused-variable) and
-copied Revision info to file comment block above to keep the info.
+Commit d632eb1bf22e11def74e4e53cc47d790fbdba105 removed
+usage of version[], remove no longer needed variable and
+print version instead in ezusb_probe().
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/isdn/hardware/mISDN/hfcsusb.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/wireless/orinoco/orinoco_usb.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 0e1f4d5..43b4d29 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -27,6 +27,7 @@
-  *   poll=<n>, default 128
-  *     n : burst size of PH_DATA_IND at transparent rx data
-  *
-+ * Revision: 0.3.3 (socket), 2008-11-05
-  */
+diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/orinoco/orinoco_usb.c
+index ae8ce56..2b413cf 100644
+--- a/drivers/net/wireless/orinoco/orinoco_usb.c
++++ b/drivers/net/wireless/orinoco/orinoco_usb.c
+@@ -1583,6 +1583,8 @@ static int ezusb_probe(struct usb_interface *interface,
+ 	int retval = 0;
+ 	int i;
  
- #include <linux/module.h>
-@@ -36,8 +37,6 @@
- #include <linux/slab.h>
- #include "hfcsusb.h"
++	printk(KERN_DEBUG DRIVER_NAME " " DRIVER_VERSION);
++
+ 	priv = alloc_orinocodev(sizeof(*upriv), &udev->dev,
+ 				ezusb_hard_reset, NULL);
+ 	if (!priv) {
+@@ -1754,11 +1756,6 @@ static struct usb_driver orinoco_driver = {
+ 	.id_table = ezusb_table,
+ };
  
--static const char *hfcsusb_rev = "Revision: 0.3.3 (socket), 2008-11-05";
+-/* Can't be declared "const" or the whole __initdata section will
+- * become const */
+-static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+-	" (Manuel Estrada Sainz)";
 -
- static unsigned int debug;
- static int poll = DEFAULT_TRANSP_BURST_SZ;
+ module_usb_driver(orinoco_driver);
  
+ MODULE_AUTHOR("Manuel Estrada Sainz");
 -- 
 1.7.7.3
