@@ -1,47 +1,35 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] isdn: Fix typo in isdn_ppp.c
-Date: Sat, 11 Feb 2012 20:49:28 +0900
-Message-ID: <1328960968-1584-1-git-send-email-standby24x7@gmail.com>
-Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	standby24x7@gmail.com
-To: isdn@linux-pingi.de, netdev@vger.kernel.org
+From: "Rick Koshi" <netdev@more-right-rudder.com>
+Subject: Re: Multiple GRE tunnels on the same host, only one routes incoming packets
+Date: Sat, 11 Feb 2012 07:10:13 -0500
+Message-ID: <201202111210.q1BCADqU026660@hope.more-right-rudder.com>
+References: <201202111040.q1BAeESi014636@hope.more-right-rudder.com> <1328959799.5661.25.camel@edumazet-laptop>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from i118-21-156-233.s30.a048.ap.plala.or.jp ([118.21.156.233]:46736
-	"EHLO rinabert.homeip.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754736Ab2BKLuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 06:50:08 -0500
+Received: from nm23-vm0.access.bullet.mail.mud.yahoo.com ([66.94.236.141]:39178
+	"HELO nm23-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754427Ab2BKMKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 07:10:17 -0500
+In-reply-to: <1328959799.5661.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Correct spelling "reseting" to "resetting" in
-drivers/isdn/i4l/isdn_ppp.c
+Eric Dumazet writes:
+> 
+> check :
+> 
+> grep . `find /proc/sys -name rp_filter`
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/isdn/i4l/isdn_ppp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Thank you, thank you, thank you!  This is exactly right.
+CentOS by default sets reverse-path filtering (which I'd
+never even heard of before your message) partially on
+(value 1 in /proc/sys/net/ipv4/conf/default/rp_filter).
 
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 1b002b0..e38f674 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -1156,7 +1156,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
- 	if (!(is->active_filter
- 	      && sk_run_filter(skb, is->active_filter) == 0)) {
- 		if (is->debug & 0x2)
--			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
-+			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
- 		if (mlp)
- 			mlp->huptimer = 0;
-@@ -1302,7 +1302,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	if (!(ipt->active_filter
- 	      && sk_run_filter(skb, ipt->active_filter) == 0)) {
- 		if (ipt->debug & 0x4)
--			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
-+			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
- 	}
- 	skb_pull(skb, 4);
--- 
-1.7.6.5
+In my case, I need it completely off for my 2 tunnel
+interfaces.  A quick change to my setup script, and
+everything works now.
+
+Thank you so very much.  You have saved me hours
+of frustration and given me a good night's sleep.  :-)
+
+    -- Rick
