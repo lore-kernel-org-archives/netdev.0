@@ -1,54 +1,76 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 16/16] r8169:  Support RX-FCS flag.
-Date: Fri, 10 Feb 2012 17:04:34 -0800
-Message-ID: <1328922274-23993-17-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 12/16] e1000:  Support RX-FCS flag.
+Date: Fri, 10 Feb 2012 17:04:30 -0800
+Message-ID: <1328922274-23993-13-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55824 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55828 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755210Ab2BKBEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:04:49 -0500
+	with ESMTP id S1758578Ab2BKBEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:04:54 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to receive the Ethernet FCS
-and pass it up the stack, allowing sniffers and
-other interested programs to inspect the FCS.
+This allows the NIC to pass the Ethernet Frame Checksum
+(FCS) up the stack.  Useful when sniffing packets.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 0517a6a... fbd855b... M	drivers/net/ethernet/realtek/r8169.c
- drivers/net/ethernet/realtek/r8169.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+:100644 100644 59b8207... f4eec77... M	drivers/net/ethernet/intel/e1000/e1000_main.c
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 0517a6a..fbd855b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4186,6 +4186,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 59b8207..f4eec77 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1073,6 +1073,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	netdev->features |= netdev->hw_features;
+ 	netdev->hw_features |= NETIF_F_RXCSUM;
+ 	netdev->hw_features |= NETIF_F_RXALL;
++	netdev->hw_features |= NETIF_F_RXFCS;
  
- 	dev->hw_features |= NETIF_F_RXALL;
-+	dev->hw_features |= NETIF_F_RXFCS;
+ 	if (pci_using_dac) {
+ 		netdev->features |= NETIF_F_HIGHDMA;
+@@ -4158,10 +4159,9 @@ process_skb:
+ 		                  ((u32)(rx_desc->errors) << 24),
+ 		                  le16_to_cpu(rx_desc->csum), skb);
  
- 	tp->hw_start = cfg->hw_start;
- 	tp->event_slow = cfg->event_slow;
-@@ -5773,7 +5774,10 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+-		pskb_trim(skb, skb->len - 4);
+-
+-		/* probably a little skewed due to removing CRC */
+-		total_rx_bytes += skb->len;
++		total_rx_bytes += (skb->len - 4); /* don't count FCS */
++		if (likely(!(netdev->features & NETIF_F_RXFCS)))
++			pskb_trim(skb, skb->len - 4);
+ 		total_rx_packets++;
  
- process_pkt:
- 			addr = le64_to_cpu(desc->addr);
--			pkt_size = (status & 0x00003fff) - 4;
-+			if (likely(!(dev->features & NETIF_F_RXFCS)))
-+				pkt_size = (status & 0x00003fff) - 4;
-+			else
-+				pkt_size = status & 0x00003fff;
+ 		/* eth type trans needs skb->data to point to something */
+@@ -4318,14 +4318,14 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 		}
  
- 			/*
- 			 * The driver does not support incoming fragmented
+ process_skb:
+-		/* adjust length to remove Ethernet CRC, this must be
+-		 * done after the TBI_ACCEPT workaround above */
+-		length -= 4;
+-
+-		/* probably a little skewed due to removing CRC */
+-		total_rx_bytes += length;
++		total_rx_bytes += (length - 4); /* don't count FCS */
+ 		total_rx_packets++;
+ 
++		if (likely(!(netdev->features & NETIF_F_RXFCS)))
++			/* adjust length to remove Ethernet CRC, this must be
++			 * done after the TBI_ACCEPT workaround above */
++			length -= 4;
++
+ 		e1000_check_copybreak(netdev, buffer_info, length, &skb);
+ 
+ 		skb_put(skb, length);
 -- 
 1.7.3.4
