@@ -1,76 +1,82 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 12/16] e1000:  Support RX-FCS flag.
-Date: Fri, 10 Feb 2012 17:04:30 -0800
-Message-ID: <1328922274-23993-13-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 01/16] net: Support RXFCS feature flag.
+Date: Fri, 10 Feb 2012 17:04:19 -0800
+Message-ID: <1328922274-23993-2-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55828 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55826 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758578Ab2BKBEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:04:54 -0500
+	with ESMTP id S1758494Ab2BKBEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:04:52 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to pass the Ethernet Frame Checksum
-(FCS) up the stack.  Useful when sniffing packets.
+When set on hardware that supports the feature,
+this causes the Ethernet FCS to be appended
+to the end of the skb.
+
+Useful for sniffing packets.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 59b8207... f4eec77... M	drivers/net/ethernet/intel/e1000/e1000_main.c
- drivers/net/ethernet/intel/e1000/e1000_main.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+:100644 100644 4b1c0dc... 7d27812... M	Documentation/networking/netdev-features.txt
+:100644 100644 77f5202... d133186... M	include/linux/netdev_features.h
+:100644 100644 3f79db1... 0801619... M	net/core/ethtool.c
+ Documentation/networking/netdev-features.txt |    6 ++++++
+ include/linux/netdev_features.h              |    2 ++
+ net/core/ethtool.c                           |    1 +
+ 3 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 59b8207..f4eec77 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1073,6 +1073,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	netdev->features |= netdev->hw_features;
- 	netdev->hw_features |= NETIF_F_RXCSUM;
- 	netdev->hw_features |= NETIF_F_RXALL;
-+	netdev->hw_features |= NETIF_F_RXFCS;
- 
- 	if (pci_using_dac) {
- 		netdev->features |= NETIF_F_HIGHDMA;
-@@ -4158,10 +4159,9 @@ process_skb:
- 		                  ((u32)(rx_desc->errors) << 24),
- 		                  le16_to_cpu(rx_desc->csum), skb);
- 
--		pskb_trim(skb, skb->len - 4);
--
--		/* probably a little skewed due to removing CRC */
--		total_rx_bytes += skb->len;
-+		total_rx_bytes += (skb->len - 4); /* don't count FCS */
-+		if (likely(!(netdev->features & NETIF_F_RXFCS)))
-+			pskb_trim(skb, skb->len - 4);
- 		total_rx_packets++;
- 
- 		/* eth type trans needs skb->data to point to something */
-@@ -4318,14 +4318,14 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 		}
- 
- process_skb:
--		/* adjust length to remove Ethernet CRC, this must be
--		 * done after the TBI_ACCEPT workaround above */
--		length -= 4;
--
--		/* probably a little skewed due to removing CRC */
--		total_rx_bytes += length;
-+		total_rx_bytes += (length - 4); /* don't count FCS */
- 		total_rx_packets++;
- 
-+		if (likely(!(netdev->features & NETIF_F_RXFCS)))
-+			/* adjust length to remove Ethernet CRC, this must be
-+			 * done after the TBI_ACCEPT workaround above */
-+			length -= 4;
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index 4b1c0dc..7d27812 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -152,3 +152,9 @@ NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope with VLAN
+ headers. Some drivers set this because the cards can't handle the bigger MTU.
+ [FIXME: Those cases could be fixed in VLAN code by allowing only reduced-MTU
+ VLANs. This may be not useful, though.]
 +
- 		e1000_check_copybreak(netdev, buffer_info, length, &skb);
++*  rx-fcs
++
++This requests that the NIC append the Ethernet Frame Checksum (FCS)
++to the end of the skb data.  This allows sniffers and other tools to
++read the CRC recorded by the NIC on receipt of the packet.
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 77f5202..d133186 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -54,6 +54,7 @@ enum {
+ 	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
++	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
  
- 		skb_put(skb, length);
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -98,6 +99,7 @@ enum {
+ #define NETIF_F_TSO		__NETIF_F(TSO)
+ #define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
++#define NETIF_F_RXFCS		__NETIF_F(RXFCS)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 3f79db1..0801619 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -73,6 +73,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXCSUM_BIT] =           "rx-checksum",
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
++	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
+ };
+ 
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
 -- 
 1.7.3.4
