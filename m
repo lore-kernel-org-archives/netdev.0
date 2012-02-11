@@ -1,121 +1,98 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 08/16] e1000e:  Support RXALL feature flag.
-Date: Fri, 10 Feb 2012 17:04:26 -0800
-Message-ID: <1328922274-23993-9-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 09/16] e100:  Support RXALL feature flag.
+Date: Fri, 10 Feb 2012 17:04:27 -0800
+Message-ID: <1328922274-23993-10-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55868 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55874 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761219Ab2BKBF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:58 -0500
+	with ESMTP id S1761219Ab2BKBGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:06:07 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to receive all frames available, including
-those with bad FCS, un-matched vlans, ethernet control frames,
-and more.
-
-Tested by sending frames with bad FCS.
+This allows the NIC to receive packets with bad FCS
+and other errors.  Good for sniffing packets on flakey
+networks.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 1af30b9... 3a50259... M	drivers/net/ethernet/intel/e1000e/defines.h
-:100644 100644 4e45964... aec4286... M	drivers/net/ethernet/intel/e1000e/netdev.c
- drivers/net/ethernet/intel/e1000e/defines.h |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c  |   29 +++++++++++++++++++++++---
- 2 files changed, 26 insertions(+), 4 deletions(-)
+:100644 100644 249ca59... ae09414... M	drivers/net/ethernet/intel/e100.c
+ drivers/net/ethernet/intel/e100.c |   22 ++++++++++++++++++++--
+ 1 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 1af30b9..3a50259 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -177,6 +177,7 @@
- #define E1000_RCTL_VFE            0x00040000    /* vlan filter enable */
- #define E1000_RCTL_CFIEN          0x00080000    /* canonical form enable */
- #define E1000_RCTL_CFI            0x00100000    /* canonical form indicator */
-+#define E1000_RCTL_DPF            0x00400000    /* Discard Pause Frames */
- #define E1000_RCTL_PMCF           0x00800000    /* pass MAC control frames */
- #define E1000_RCTL_BSEX           0x02000000    /* Buffer size extension */
- #define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 4e45964..aec4286 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -926,7 +926,8 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 			goto next_desc;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 249ca59..ae09414 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -462,7 +462,7 @@ struct config {
+ /*5*/	u8 X(tx_dma_max_count:7, dma_max_count_enable:1);
+ /*6*/	u8 X(X(X(X(X(X(X(late_scb_update:1, direct_rx_dma:1),
+ 	   tno_intr:1), cna_intr:1), standard_tcb:1), standard_stat_counter:1),
+-	   rx_discard_overruns:1), rx_save_bad_frames:1);
++	   rx_save_overruns : 1), rx_save_bad_frames : 1);
+ /*7*/	u8 X(X(X(X(X(rx_discard_short_frames:1, tx_underrun_retry:2),
+ 	   pad7:2), rx_extended_rfd:1), tx_two_frames_in_fifo:1),
+ 	   tx_dynamic_tbd:1);
+@@ -1165,6 +1165,12 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
  		}
- 
--		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
-+		if (unlikely((staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) &&
-+			     !(netdev->features & NETIF_F_RXALL))) {
- 			/* recycle */
- 			buffer_info->skb = skb;
- 			goto next_desc;
-@@ -1255,7 +1256,8 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
- 			goto next_desc;
- 		}
- 
--		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
-+		if (unlikely((staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) &&
-+			     !(netdev->features & NETIF_F_RXALL))) {
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -1454,7 +1456,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 
- 		/* errors is only valid for DD + EOP descriptors */
- 		if (unlikely((staterr & E1000_RXD_STAT_EOP) &&
--			     (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK))) {
-+			     ((staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) &&
-+			      !(netdev->features & NETIF_F_RXALL)))) {
- 			/* recycle both page and skb */
- 			buffer_info->skb = skb;
- 			/* an error means any chain goes out the window too */
-@@ -2999,6 +3002,22 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 		ew32(PSRCTL, psrctl);
  	}
  
-+	/* This is useful for sniffing bad packets. */
-+	if (adapter->netdev->features & NETIF_F_RXALL) {
-+		/* UPE and MPE will be handled by normal PROMISC logic
-+		 * in e1000e_set_rx_mode */
-+		rctl |= (E1000_RCTL_SBP | /* Receive bad packets */
-+			 E1000_RCTL_BAM | /* RX All Bcast Pkts */
-+			 E1000_RCTL_PMCF); /* RX All MAC Ctrl Pkts */
-+
-+		rctl &= ~(E1000_RCTL_VFE | /* Disable VLAN filter */
-+			  E1000_RCTL_DPF | /* Allow filtered pause */
-+			  E1000_RCTL_CFIEN); /* Dis VLAN CFIEN Filter */
-+		/* Do not mess with E1000_CTRL_VME, it affects transmit as well,
-+		 * and that breaks VLANs.
-+		 */
++	if (netdev->features & NETIF_F_RXALL) {
++		config->rx_save_overruns = 0x1; /* 1=save, 0=discard */
++		config->rx_save_bad_frames = 0x1;       /* 1=save, 0=discard */
++		config->rx_discard_short_frames = 0x0;  /* 1=discard, 0=save */
 +	}
 +
- 	ew32(RFCTL, rfctl);
- 	ew32(RCTL, rctl);
- 	/* just started the receive unit, no need to restart */
-@@ -6007,7 +6026,8 @@ static int e1000_set_features(struct net_device *netdev,
- 		adapter->flags |= FLAG_TSO_FORCE;
+ 	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
+ 		     "[00-07]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
+ 		     c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
+@@ -1999,6 +2005,16 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	skb_put(skb, actual_size);
+ 	skb->protocol = eth_type_trans(skb, nic->netdev);
  
- 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
--			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS)))
-+			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS |
-+			 NETIF_F_RXALL)))
++	/* If we are receiving all frames, then don't bother
++	 * checking for errors.
++	 */
++	if (unlikely(dev->features & NETIF_F_RXALL)) {
++		if (actual_size > nic->netdev->mtu + VLAN_ETH_HLEN)
++			/* Received oversized frame */
++			dev->stats.rx_over_errors++;
++		goto process_skb;
++	}
++
+ 	if (unlikely(!(rfd_status & cb_ok))) {
+ 		/* Don't indicate if hardware indicates errors */
+ 		dev_kfree_skb_any(skb);
+@@ -2007,6 +2023,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 		nic->rx_over_length_errors++;
+ 		dev_kfree_skb_any(skb);
+ 	} else {
++process_skb:
+ 		dev->stats.rx_packets++;
+ 		dev->stats.rx_bytes += (actual_size - fcs_pad);
+ 		netif_receive_skb(skb);
+@@ -2757,7 +2774,7 @@ static int e100_set_features(struct net_device *netdev,
+ 	struct nic *nic = netdev_priv(netdev);
+ 	netdev_features_t changed = features ^ netdev->features;
+ 
+-	if (!(changed & (NETIF_F_RXFCS)))
++	if (!(changed & (NETIF_F_RXFCS | NETIF_F_RXALL)))
  		return 0;
  
- 	/*
-@@ -6235,6 +6255,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	netdev->hw_features = netdev->features;
+ 	netdev->features = features;
+@@ -2793,6 +2810,7 @@ static int __devinit e100_probe(struct pci_dev *pdev,
+ 
  	netdev->hw_features |= NETIF_F_RXFCS;
  	netdev->priv_flags |= IFF_SUPP_NOFCS;
 +	netdev->hw_features |= NETIF_F_RXALL;
  
- 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
- 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
+ 	netdev->netdev_ops = &e100_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
 -- 
 1.7.3.4
