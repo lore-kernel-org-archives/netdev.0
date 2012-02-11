@@ -1,127 +1,129 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 13/16] 8139too:  Support RX-ALL logic.
-Date: Fri, 10 Feb 2012 17:04:31 -0800
-Message-ID: <1328922274-23993-14-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 02/16] e100: Support RXFCS feature flag.
+Date: Fri, 10 Feb 2012 17:04:20 -0800
+Message-ID: <1328922274-23993-3-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55831 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55833 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761190Ab2BKBFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:02 -0500
+	with ESMTP id S1761211Ab2BKBFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:09 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to receive Runts and frames with bad
-Ethernet Frame Checksums (FCS).
+This allows e100 to be configured to append the
+Ethernet FCS to the skb.
 
-Useful to sniffing & diagnosing bad networks.
+Useful for sniffing networks.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 1c3feb0... 1b9a090... M	drivers/net/ethernet/realtek/8139too.c
- drivers/net/ethernet/realtek/8139too.c |   52 ++++++++++++++++++++++++++++++++
- 1 files changed, 52 insertions(+), 0 deletions(-)
+:100644 100644 485ab8c... 1fd4603... M	drivers/net/ethernet/intel/e100.c
+ drivers/net/ethernet/intel/e100.c |   32 ++++++++++++++++++++++++++++----
+ 1 files changed, 28 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-index 1c3feb0..1b9a090 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -907,6 +907,33 @@ err_out:
- 	return ERR_PTR(rc);
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 485ab8c..1fd4603 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ {
+ 	struct config *config = &cb->u.config;
+ 	u8 *c = (u8 *)config;
++	struct net_device *netdev = nic->netdev;
+ 
+ 	cb->command = cpu_to_le16(cb_config);
+ 
+@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
+ 	}
+ 
++	if (unlikely(netdev->features & NETIF_F_RXFCS))
++		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
++
+ 	if (nic->flags & multicast_all)
+ 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
+ 
+@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	struct sk_buff *skb = rx->skb;
+ 	struct rfd *rfd = (struct rfd *)skb->data;
+ 	u16 rfd_status, actual_size;
++	u16 fcs_pad = 0;
+ 
+ 	if (unlikely(work_done && *work_done >= work_to_do))
+ 		return -EAGAIN;
+@@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	}
+ 
+ 	/* Get actual data size */
++	if (unlikely(dev->features & NETIF_F_RXFCS))
++		fcs_pad = 4;
+ 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
+-	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
+-		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
++	if (unlikely(actual_size > RFD_BUF_LEN + fcs_pad - sizeof(struct rfd)))
++		actual_size = RFD_BUF_LEN + fcs_pad - sizeof(struct rfd);
+ 
+ 	/* Get data */
+ 	pci_unmap_single(nic->pdev, rx->dma_addr,
+@@ -1980,13 +1987,13 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	if (unlikely(!(rfd_status & cb_ok))) {
+ 		/* Don't indicate if hardware indicates errors */
+ 		dev_kfree_skb_any(skb);
+-	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
++	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
+ 		/* Don't indicate oversized frames */
+ 		nic->rx_over_length_errors++;
+ 		dev_kfree_skb_any(skb);
+ 	} else {
+ 		dev->stats.rx_packets++;
+-		dev->stats.rx_bytes += actual_size;
++		dev->stats.rx_bytes += (actual_size - fcs_pad);
+ 		netif_receive_skb(skb);
+ 		if (work_done)
+ 			(*work_done)++;
+@@ -2729,6 +2736,20 @@ static int e100_close(struct net_device *netdev)
+ 	return 0;
  }
  
-+static int rtl8139_set_features(struct net_device *dev, netdev_features_t features)
++static int e100_set_features(struct net_device *netdev,
++			     netdev_features_t features)
 +{
-+	struct rtl8139_private *tp = netdev_priv(dev);
-+	unsigned long flags;
-+	netdev_features_t changed = features ^ dev->features;
-+	void __iomem *ioaddr = tp->mmio_addr;
++	struct nic *nic = netdev_priv(netdev);
++	netdev_features_t changed = features ^ netdev->features;
 +
-+	if (!(changed & (NETIF_F_RXALL)))
++	if (!(changed & (NETIF_F_RXFCS)))
 +		return 0;
 +
-+	spin_lock_irqsave(&tp->lock, flags);
-+
-+	if (changed & NETIF_F_RXALL) {
-+		int rx_mode = tp->rx_config;
-+		if (features & NETIF_F_RXALL)
-+			rx_mode |= (AcceptErr | AcceptRunt);
-+		else
-+			rx_mode &= ~(AcceptErr | AcceptRunt);
-+		tp->rx_config = rtl8139_rx_config | rx_mode;
-+		RTL_W32_F(RxConfig, tp->rx_config);
-+	}
-+
-+	spin_unlock_irqrestore(&tp->lock, flags);
-+
++	netdev->features = features;
++	e100_exec_cb(nic, NULL, e100_configure);
 +	return 0;
 +}
 +
- static const struct net_device_ops rtl8139_netdev_ops = {
- 	.ndo_open		= rtl8139_open,
- 	.ndo_stop		= rtl8139_close,
-@@ -921,6 +948,7 @@ static const struct net_device_ops rtl8139_netdev_ops = {
+ static const struct net_device_ops e100_netdev_ops = {
+ 	.ndo_open		= e100_open,
+ 	.ndo_stop		= e100_close,
+@@ -2742,6 +2763,7 @@ static const struct net_device_ops e100_netdev_ops = {
  #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= rtl8139_poll_controller,
+ 	.ndo_poll_controller	= e100_netpoll,
  #endif
-+	.ndo_set_features	= rtl8139_set_features,
++	.ndo_set_features	= e100_set_features,
  };
  
- static int __devinit rtl8139_init_one (struct pci_dev *pdev,
-@@ -994,6 +1022,8 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
- 	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
- 	dev->vlan_features = dev->features;
+ static int __devinit e100_probe(struct pci_dev *pdev,
+@@ -2754,6 +2776,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
+ 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
+ 		return -ENOMEM;
  
-+	dev->hw_features |= NETIF_F_RXALL;
++	netdev->hw_features |= NETIF_F_RXFCS;
 +
- 	dev->irq = pdev->irq;
- 
- 	/* tp zeroed and aligned in alloc_etherdev */
-@@ -1978,11 +2008,30 @@ no_early_rx:
- 		if (unlikely((rx_size > (MAX_ETH_FRAME_SIZE+4)) ||
- 			     (rx_size < 8) ||
- 			     (!(rx_status & RxStatusOK)))) {
-+			if ((dev->features & NETIF_F_RXALL) &&
-+			    (rx_size <= (MAX_ETH_FRAME_SIZE + 4)) &&
-+			    (rx_size >= 8) &&
-+			    (!(rx_status & RxStatusOK))) {
-+				/* Length is at least mostly OK, but pkt has
-+				 * error.  I'm hoping we can handle some of these
-+				 * errors without resetting the chip. --Ben
-+				 */
-+				dev->stats.rx_errors++;
-+				if (rx_status & RxCRCErr) {
-+					dev->stats.rx_crc_errors++;
-+					goto keep_pkt;
-+				}
-+				if (rx_status & RxRunt) {
-+					dev->stats.rx_length_errors++;
-+					goto keep_pkt;
-+				}
-+			}
- 			rtl8139_rx_err (rx_status, dev, tp, ioaddr);
- 			received = -1;
- 			goto out;
- 		}
- 
-+keep_pkt:
- 		/* Malloc up new buffer, compatible with net-2e. */
- 		/* Omit the four octet CRC from the length. */
- 
-@@ -2515,6 +2564,9 @@ static void __set_rx_mode (struct net_device *dev)
- 		}
- 	}
- 
-+	if (dev->features & NETIF_F_RXALL)
-+		rx_mode |= (AcceptErr | AcceptRunt);
-+
- 	/* We can safely update without stopping the chip. */
- 	tmp = rtl8139_rx_config | rx_mode;
- 	if (tp->rx_config != tmp) {
+ 	netdev->netdev_ops = &e100_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
+ 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
 -- 
 1.7.3.4
