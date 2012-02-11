@@ -1,38 +1,52 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH v3 00/16] Low-level Ethernet debugging features.
-Date: Sat, 11 Feb 2012 08:20:24 -0800
-Message-ID: <4F369548.6010106@candelatech.com>
-References: <1328922274-23993-1-git-send-email-greearb@candelatech.com> <4F361F2B.9030908@gmail.com> <20120211105118.GB14335@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH v3 02/16] e100: Support RXFCS feature flag.
+Date: Sat, 11 Feb 2012 08:21:48 -0800
+Message-ID: <4F36959C.50902@candelatech.com>
+References: <1328922274-23993-1-git-send-email-greearb@candelatech.com> <1328922274-23993-3-git-send-email-greearb@candelatech.com> <CAHXqBFJHoFd5W+YRn9bVg6RsqjFsTdaEM-MMdQjSwVVSckwS=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:56397 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:56403 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189Ab2BKQU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 11:20:29 -0500
-In-Reply-To: <20120211105118.GB14335@electric-eye.fr.zoreil.com>
+	with ESMTP id S1751956Ab2BKQVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 11:21:50 -0500
+In-Reply-To: <CAHXqBFJHoFd5W+YRn9bVg6RsqjFsTdaEM-MMdQjSwVVSckwS=A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/11/2012 02:51 AM, Francois Romieu wrote:
-> Jeff Kirsher<tarbal@gmail.com>  :
+On 02/11/2012 08:07 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> 2012/2/11<greearb@candelatech.com>:
+>> From: Ben Greear<greearb@candelatech.com>
 > [...]
->> drivers.  But if the Realtek maintainer is fine with the changes, I will
+>> @@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, =
+struct rx *rx,
+>>         }
+>>
+>>         /* Get actual data size */
+>> +       if (unlikely(dev->features&  NETIF_F_RXFCS))
+>> +               fcs_pad =3D 4;
+>>         actual_size =3D le16_to_cpu(rfd->actual_size)&  0x3FFF;
+>> -       if (unlikely(actual_size>  RFD_BUF_LEN - sizeof(struct rfd))=
+)
+>> -               actual_size =3D RFD_BUF_LEN - sizeof(struct rfd);
+>> +       if (unlikely(actual_size>  RFD_BUF_LEN + fcs_pad - sizeof(st=
+ruct rfd)))
+>> +               actual_size =3D RFD_BUF_LEN + fcs_pad - sizeof(struc=
+t rfd);
 >
-> It seems ok.
->
-> I'll test during the WE and check the status of the 8139cp (not the 8139too).
-> It probably works like the 816x.
+> BTW, Is this even triggered? I looks like this would indicate
+> corruption in the descriptor.
 
-Yes, I think the 8139cp should be similar, but I don't have any hardware
-that uses that driver...
+No idea, but better safe than sorry unless someone can prove it never h=
+appens
+in all cases...
 
-Thanks,
 Ben
 
--- 
+--=20
 Ben Greear <greearb@candelatech.com>
 Candela Technologies Inc  http://www.candelatech.com
