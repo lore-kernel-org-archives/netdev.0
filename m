@@ -1,124 +1,156 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 15/16] r8169:  Support RX-ALL flag.
-Date: Fri, 10 Feb 2012 17:04:33 -0800
-Message-ID: <1328922274-23993-16-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 03/16] e1000e:  Support RXFCS feature flag.
+Date: Fri, 10 Feb 2012 17:04:21 -0800
+Message-ID: <1328922274-23993-4-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55835 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55840 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761210Ab2BKBFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:11 -0500
+	with ESMTP id S1761210Ab2BKBFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:20 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to receive packets with bad FCS and
-Runts, which can help when sniffing.
+This enables enabling/disabling reception of the Ethernet
+FCS.  This can be useful when sniffing packets.
 
-NOTE:  r8169, at least on my NIC, silently drops packets
-with bad FCS instead of counting them.  It seems they are
-only received in any fashion if the RxCRC flag is set
-(which this patch allows).
+For e1000e, enabling RXFCS can change the default
+behaviour for how the NIC handles CRC.  Disabling RXFCS
+will take the NIC back to defaults, which can be configured
+as part of the module options.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 5eb6858... 0517a6a... M	drivers/net/ethernet/realtek/r8169.c
- drivers/net/ethernet/realtek/r8169.c |   51 +++++++++++++++++++++++++--------
- 1 files changed, 38 insertions(+), 13 deletions(-)
+:100644 100644 45e5ae8... 04a21fc... M	drivers/net/ethernet/intel/e1000e/e1000.h
+:100644 100644 f868fb8... e121feb... M	drivers/net/ethernet/intel/e1000e/netdev.c
+:100644 100644 9c6a56d... ff796e4... M	drivers/net/ethernet/intel/e1000e/param.c
+ drivers/net/ethernet/intel/e1000e/e1000.h  |    1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c |   41 +++++++++++++++++++++++-----
+ drivers/net/ethernet/intel/e1000e/param.c  |    5 +++-
+ 3 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 5eb6858..0517a6a 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1626,21 +1626,32 @@ static void __rtl8169_set_features(struct net_device *dev,
- 				   netdev_features_t features)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--
-+	netdev_features_t changed = features ^ dev->features;
- 	void __iomem *ioaddr = tp->mmio_addr;
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 45e5ae8..04a21fc 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -461,6 +461,7 @@ struct e1000_info {
+ #define FLAG2_CHECK_PHY_HANG              (1 << 9)
+ #define FLAG2_NO_DISABLE_RX               (1 << 10)
+ #define FLAG2_PCIM2PCI_ARBITER_WA         (1 << 11)
++#define FLAG2_DFLT_CRC_STRIPPING          (1 << 12)
  
--	if (features & NETIF_F_RXCSUM)
--		tp->cp_cmd |= RxChkSum;
--	else
--		tp->cp_cmd &= ~RxChkSum;
-+	if (!(changed & (NETIF_F_RXALL | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)))
-+		return;
- 
--	if (dev->features & NETIF_F_HW_VLAN_RX)
--		tp->cp_cmd |= RxVlan;
--	else
--		tp->cp_cmd &= ~RxVlan;
-+	if (changed & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)) {
-+		if (features & NETIF_F_RXCSUM)
-+			tp->cp_cmd |= RxChkSum;
-+		else
-+			tp->cp_cmd &= ~RxChkSum;
- 
--	RTL_W16(CPlusCmd, tp->cp_cmd);
--	RTL_R16(CPlusCmd);
-+		if (dev->features & NETIF_F_HW_VLAN_RX)
-+			tp->cp_cmd |= RxVlan;
-+		else
-+			tp->cp_cmd &= ~RxVlan;
-+
-+		RTL_W16(CPlusCmd, tp->cp_cmd);
-+		RTL_R16(CPlusCmd);
-+	}
-+	if (changed & NETIF_F_RXALL) {
-+		int tmp = (RTL_R32(RxConfig) & ~(AcceptErr | AcceptRunt));
-+		if (features & NETIF_F_RXALL)
-+			tmp |= (AcceptErr | AcceptRunt);
-+		RTL_W32(RxConfig, tmp);
-+	}
- }
- 
- static int rtl8169_set_features(struct net_device *dev,
-@@ -4174,6 +4185,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
- 		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
- 
-+	dev->hw_features |= NETIF_F_RXALL;
-+
- 	tp->hw_start = cfg->hw_start;
- 	tp->event_slow = cfg->event_slow;
- 
-@@ -5747,11 +5760,20 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
- 				rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- 				dev->stats.rx_fifo_errors++;
- 			}
-+			if ((status & (RxRUNT | RxCRC)) &&
-+			    !(status & (RxRWT | RxFOVF)) &&
-+			    (dev->features & NETIF_F_RXALL))
-+				goto process_pkt;
-+
- 			rtl8169_mark_to_asic(desc, rx_buf_sz);
- 		} else {
- 			struct sk_buff *skb;
--			dma_addr_t addr = le64_to_cpu(desc->addr);
--			int pkt_size = (status & 0x00003fff) - 4;
-+			dma_addr_t addr;
-+			int pkt_size;
-+
-+process_pkt:
-+			addr = le64_to_cpu(desc->addr);
-+			pkt_size = (status & 0x00003fff) - 4;
- 
- 			/*
- 			 * The driver does not support incoming fragmented
-@@ -6025,6 +6047,9 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index f868fb8..e121feb 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -933,8 +933,16 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
  		}
+ 
+ 		/* adjust length to remove Ethernet CRC */
+-		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-			length -= 4;
++		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++			/* If configured to store CRC, don't subtract FCS,
++			 * but keep the FCS bytes out of the total_rx_bytes
++			 * counter
++			 */
++			if (netdev->features & NETIF_F_RXFCS)
++				total_rx_bytes -= 4;
++			else
++				length -= 4;
++		}
+ 
+ 		total_rx_bytes += length;
+ 		total_rx_packets++;
+@@ -1301,8 +1309,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
+ 							   DMA_FROM_DEVICE);
+ 
+ 				/* remove the CRC */
+-				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-					l1 -= 4;
++				if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++					if (!(netdev->features & NETIF_F_RXFCS))
++						l1 -= 4;
++				}
+ 
+ 				skb_put(skb, l1);
+ 				goto copydone;
+@@ -1328,8 +1338,10 @@ static bool e1000_clean_rx_irq_ps(struct e1000_ring *rx_ring, int *work_done,
+ 		/* strip the ethernet crc, problem is we're using pages now so
+ 		 * this whole operation can get a little cpu intensive
+ 		 */
+-		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING))
+-			pskb_trim(skb, skb->len - 4);
++		if (!(adapter->flags2 & FLAG2_CRC_STRIPPING)) {
++			if (!(netdev->features & NETIF_F_RXFCS))
++				pskb_trim(skb, skb->len - 4);
++		}
+ 
+ copydone:
+ 		total_rx_bytes += skb->len;
+@@ -5984,7 +5996,7 @@ static int e1000_set_features(struct net_device *netdev,
+ 		adapter->flags |= FLAG_TSO_FORCE;
+ 
+ 	if (!(changed & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX |
+-			 NETIF_F_RXCSUM | NETIF_F_RXHASH)))
++			 NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_RXFCS)))
+ 		return 0;
+ 
+ 	/*
+@@ -5998,6 +6010,20 @@ static int e1000_set_features(struct net_device *netdev,
+ 		return -EINVAL;
  	}
  
-+	if (dev->features & NETIF_F_RXALL)
-+		rx_mode |= (AcceptErr | AcceptRunt);
++	if (changed & NETIF_F_RXFCS) {
++		if (features & NETIF_F_RXFCS) {
++			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
++		} else {
++			/* We need to take it back to defaults, which might mean
++			 * stripping is still disabled at the adapter level.
++			 */
++			if (adapter->flags2 & FLAG2_DFLT_CRC_STRIPPING)
++				adapter->flags2 |= FLAG2_CRC_STRIPPING;
++			else
++				adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
++		}
++	}
 +
- 	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
+ 	netdev->features = features;
  
- 	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
+ 	if (netif_running(netdev))
+@@ -6196,6 +6222,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	/* Set user-changeable features (subset of all device features) */
+ 	netdev->hw_features = netdev->features;
++	netdev->hw_features |= NETIF_F_RXFCS;
+ 
+ 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
+ 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index 9c6a56d..ff796e4 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -463,10 +463,13 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		if (num_CrcStripping > bd) {
+ 			unsigned int crc_stripping = CrcStripping[bd];
+ 			e1000_validate_option(&crc_stripping, &opt, adapter);
+-			if (crc_stripping == OPTION_ENABLED)
++			if (crc_stripping == OPTION_ENABLED) {
+ 				adapter->flags2 |= FLAG2_CRC_STRIPPING;
++				adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
++			}
+ 		} else {
+ 			adapter->flags2 |= FLAG2_CRC_STRIPPING;
++			adapter->flags2 |= FLAG2_DFLT_CRC_STRIPPING;
+ 		}
+ 	}
+ 	{ /* Kumeran Lock Loss Workaround */
 -- 
 1.7.3.4
