@@ -1,129 +1,124 @@
 From: greearb@candelatech.com
-Subject: [PATCH v3 02/16] e100: Support RXFCS feature flag.
-Date: Fri, 10 Feb 2012 17:04:20 -0800
-Message-ID: <1328922274-23993-3-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v3 15/16] r8169:  Support RX-ALL flag.
+Date: Fri, 10 Feb 2012 17:04:33 -0800
+Message-ID: <1328922274-23993-16-git-send-email-greearb@candelatech.com>
 References: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55833 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:55835 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761211Ab2BKBFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:09 -0500
+	with ESMTP id S1761210Ab2BKBFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2012 20:05:11 -0500
 In-Reply-To: <1328922274-23993-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows e100 to be configured to append the
-Ethernet FCS to the skb.
+This allows the NIC to receive packets with bad FCS and
+Runts, which can help when sniffing.
 
-Useful for sniffing networks.
+NOTE:  r8169, at least on my NIC, silently drops packets
+with bad FCS instead of counting them.  It seems they are
+only received in any fashion if the RxCRC flag is set
+(which this patch allows).
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 485ab8c... 1fd4603... M	drivers/net/ethernet/intel/e100.c
- drivers/net/ethernet/intel/e100.c |   32 ++++++++++++++++++++++++++++----
- 1 files changed, 28 insertions(+), 4 deletions(-)
+:100644 100644 5eb6858... 0517a6a... M	drivers/net/ethernet/realtek/r8169.c
+ drivers/net/ethernet/realtek/r8169.c |   51 +++++++++++++++++++++++++--------
+ 1 files changed, 38 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 485ab8c..1fd4603 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 5eb6858..0517a6a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1626,21 +1626,32 @@ static void __rtl8169_set_features(struct net_device *dev,
+ 				   netdev_features_t features)
  {
- 	struct config *config = &cb->u.config;
- 	u8 *c = (u8 *)config;
-+	struct net_device *netdev = nic->netdev;
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-
++	netdev_features_t changed = features ^ dev->features;
+ 	void __iomem *ioaddr = tp->mmio_addr;
  
- 	cb->command = cpu_to_le16(cb_config);
+-	if (features & NETIF_F_RXCSUM)
+-		tp->cp_cmd |= RxChkSum;
+-	else
+-		tp->cp_cmd &= ~RxChkSum;
++	if (!(changed & (NETIF_F_RXALL | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)))
++		return;
  
-@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
- 	}
+-	if (dev->features & NETIF_F_HW_VLAN_RX)
+-		tp->cp_cmd |= RxVlan;
+-	else
+-		tp->cp_cmd &= ~RxVlan;
++	if (changed & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX)) {
++		if (features & NETIF_F_RXCSUM)
++			tp->cp_cmd |= RxChkSum;
++		else
++			tp->cp_cmd &= ~RxChkSum;
  
-+	if (unlikely(netdev->features & NETIF_F_RXFCS))
-+		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
+-	RTL_W16(CPlusCmd, tp->cp_cmd);
+-	RTL_R16(CPlusCmd);
++		if (dev->features & NETIF_F_HW_VLAN_RX)
++			tp->cp_cmd |= RxVlan;
++		else
++			tp->cp_cmd &= ~RxVlan;
 +
- 	if (nic->flags & multicast_all)
- 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
- 
-@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	struct sk_buff *skb = rx->skb;
- 	struct rfd *rfd = (struct rfd *)skb->data;
- 	u16 rfd_status, actual_size;
-+	u16 fcs_pad = 0;
- 
- 	if (unlikely(work_done && *work_done >= work_to_do))
- 		return -EAGAIN;
-@@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	}
- 
- 	/* Get actual data size */
-+	if (unlikely(dev->features & NETIF_F_RXFCS))
-+		fcs_pad = 4;
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
--	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
--		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
-+	if (unlikely(actual_size > RFD_BUF_LEN + fcs_pad - sizeof(struct rfd)))
-+		actual_size = RFD_BUF_LEN + fcs_pad - sizeof(struct rfd);
- 
- 	/* Get data */
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
-@@ -1980,13 +1987,13 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	if (unlikely(!(rfd_status & cb_ok))) {
- 		/* Don't indicate if hardware indicates errors */
- 		dev_kfree_skb_any(skb);
--	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
-+	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
- 		/* Don't indicate oversized frames */
- 		nic->rx_over_length_errors++;
- 		dev_kfree_skb_any(skb);
- 	} else {
- 		dev->stats.rx_packets++;
--		dev->stats.rx_bytes += actual_size;
-+		dev->stats.rx_bytes += (actual_size - fcs_pad);
- 		netif_receive_skb(skb);
- 		if (work_done)
- 			(*work_done)++;
-@@ -2729,6 +2736,20 @@ static int e100_close(struct net_device *netdev)
- 	return 0;
++		RTL_W16(CPlusCmd, tp->cp_cmd);
++		RTL_R16(CPlusCmd);
++	}
++	if (changed & NETIF_F_RXALL) {
++		int tmp = (RTL_R32(RxConfig) & ~(AcceptErr | AcceptRunt));
++		if (features & NETIF_F_RXALL)
++			tmp |= (AcceptErr | AcceptRunt);
++		RTL_W32(RxConfig, tmp);
++	}
  }
  
-+static int e100_set_features(struct net_device *netdev,
-+			     netdev_features_t features)
-+{
-+	struct nic *nic = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
-+
-+	if (!(changed & (NETIF_F_RXFCS)))
-+		return 0;
-+
-+	netdev->features = features;
-+	e100_exec_cb(nic, NULL, e100_configure);
-+	return 0;
-+}
-+
- static const struct net_device_ops e100_netdev_ops = {
- 	.ndo_open		= e100_open,
- 	.ndo_stop		= e100_close,
-@@ -2742,6 +2763,7 @@ static const struct net_device_ops e100_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= e100_netpoll,
- #endif
-+	.ndo_set_features	= e100_set_features,
- };
+ static int rtl8169_set_features(struct net_device *dev,
+@@ -4174,6 +4185,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
+ 		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
  
- static int __devinit e100_probe(struct pci_dev *pdev,
-@@ -2754,6 +2776,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
- 		return -ENOMEM;
- 
-+	netdev->hw_features |= NETIF_F_RXFCS;
++	dev->hw_features |= NETIF_F_RXALL;
 +
- 	netdev->netdev_ops = &e100_netdev_ops;
- 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
+ 	tp->hw_start = cfg->hw_start;
+ 	tp->event_slow = cfg->event_slow;
+ 
+@@ -5747,11 +5760,20 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+ 				rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
+ 				dev->stats.rx_fifo_errors++;
+ 			}
++			if ((status & (RxRUNT | RxCRC)) &&
++			    !(status & (RxRWT | RxFOVF)) &&
++			    (dev->features & NETIF_F_RXALL))
++				goto process_pkt;
++
+ 			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 		} else {
+ 			struct sk_buff *skb;
+-			dma_addr_t addr = le64_to_cpu(desc->addr);
+-			int pkt_size = (status & 0x00003fff) - 4;
++			dma_addr_t addr;
++			int pkt_size;
++
++process_pkt:
++			addr = le64_to_cpu(desc->addr);
++			pkt_size = (status & 0x00003fff) - 4;
+ 
+ 			/*
+ 			 * The driver does not support incoming fragmented
+@@ -6025,6 +6047,9 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ 		}
+ 	}
+ 
++	if (dev->features & NETIF_F_RXALL)
++		rx_mode |= (AcceptErr | AcceptRunt);
++
+ 	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
+ 
+ 	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
 -- 
 1.7.3.4
