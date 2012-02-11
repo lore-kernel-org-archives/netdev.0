@@ -1,60 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Multiple GRE tunnels on the same host, only one routes incoming
- packets
-Date: Sat, 11 Feb 2012 12:29:59 +0100
-Message-ID: <1328959799.5661.25.camel@edumazet-laptop>
-References: <201202111040.q1BAeESi014636@hope.more-right-rudder.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Rick Koshi <netdev@more-right-rudder.com>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] [trivial] isdn: Fix typo in isdn_ppp.c
+Date: Sat, 11 Feb 2012 20:49:28 +0900
+Message-ID: <1328960968-1584-1-git-send-email-standby24x7@gmail.com>
+Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
+	standby24x7@gmail.com
+To: isdn@linux-pingi.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:63290 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075Ab2BKLaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 06:30:06 -0500
-Received: by werb13 with SMTP id b13so2562826wer.19
-        for <netdev@vger.kernel.org>; Sat, 11 Feb 2012 03:30:04 -0800 (PST)
-In-Reply-To: <201202111040.q1BAeESi014636@hope.more-right-rudder.com>
+Received: from i118-21-156-233.s30.a048.ap.plala.or.jp ([118.21.156.233]:46736
+	"EHLO rinabert.homeip.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754736Ab2BKLuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 06:50:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 11 f=C3=A9vrier 2012 =C3=A0 05:40 -0500, Rick Koshi a =C3=A9c=
-rit :
-> I'm having a routing problem on CentOS 6.2 (kernel 2.6.32-220)
->=20
-> Here's the setup:  One host is on my local network.  It's talking
-> to two nearly identical hosts at a remote location.  The two remote
-> hosts are on all the same networks, acting as redundant backups
-> for each other.
->=20
-> I set up two GRE tunnels from the local host, one to each
-> remote host:
->     ip tunnel add name tunnel1 mode gre local 10.2.1.2 remote 10.2.1.=
-1
->     ip link set dev tunnel1 up
->     ip route add 172.16.1.0/24 dev tunnel1 metric 101
->=20
->     ip tunnel add name tunnel2 mode gre local 10.2.1.4 remote 10.2.1.=
-3
->     ip link set dev tunnel2 up
->     ip route add 172.16.1.0/24 dev tunnel2 metric 102
->=20
-> Outgoing packets route properly, no problem.  Incoming packets
-> are weird.  It appears that whichever tunnel has the route
-> with the higher metric (tunnel2 in the example above) will
-> ignore incoming packets.  They come in all right, and can be
-> seen on the local machine with 'tcpdump -i tunnel2', but they
-> are not routed properly to the local networks.  They're simply
-> dropped.  I can switch the two metrics, and then tunnel1 will
-> drop all incoming packets.  The tunnel with the lower route
-> metric will route packets properly, both incoming and outgoing.
->=20
-> Is this "working as designed?"  What I'd like to have happen,
-> of course, is for all packets on both tunnels to be properly
-> forwarded.  Is this possible?
+Correct spelling "reseting" to "resetting" in
+drivers/isdn/i4l/isdn_ppp.c
 
-check :
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ drivers/isdn/i4l/isdn_ppp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-grep . `find /proc/sys -name rp_filter`
+diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
+index 1b002b0..e38f674 100644
+--- a/drivers/isdn/i4l/isdn_ppp.c
++++ b/drivers/isdn/i4l/isdn_ppp.c
+@@ -1156,7 +1156,7 @@ isdn_ppp_push_higher(isdn_net_dev * net_dev, isdn_net_local * lp, struct sk_buff
+ 	if (!(is->active_filter
+ 	      && sk_run_filter(skb, is->active_filter) == 0)) {
+ 		if (is->debug & 0x2)
+-			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
++			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
+ 		lp->huptimer = 0;
+ 		if (mlp)
+ 			mlp->huptimer = 0;
+@@ -1302,7 +1302,7 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	if (!(ipt->active_filter
+ 	      && sk_run_filter(skb, ipt->active_filter) == 0)) {
+ 		if (ipt->debug & 0x4)
+-			printk(KERN_DEBUG "IPPP: link-active filter: reseting huptimer.\n");
++			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
+ 		lp->huptimer = 0;
+ 	}
+ 	skb_pull(skb, 4);
+-- 
+1.7.6.5
