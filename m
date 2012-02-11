@@ -1,54 +1,39 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [BUG?] bonding, slave selection, carrier loss, etc.
-Date: Sat, 11 Feb 2012 18:52:51 +0000
-Message-ID: <1328986371.325.7.camel@deadeye>
-References: <49CD5B93.7010407@nortel.com>
-	 <31087.1238198438@death.nxdomain.ibm.com> <4F35AC78.3010907@genband.com>
-	 <28766.1328925233@death.nxdomain>
+Subject: Re: [net-next 4/7] ixgbe: Add function for testing status bits in
+ Rx descriptor
+Date: Sat, 11 Feb 2012 19:06:14 +0000
+Message-ID: <1328987174.325.18.camel@deadeye>
+References: <1328918904-11511-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328918904-11511-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Chris Friesen <chris.friesen@genband.com>, <andy@greyhouse.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:7883 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754471Ab2BKSwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 13:52:51 -0500
-In-Reply-To: <28766.1328925233@death.nxdomain>
+Received: from exchange.solarflare.com ([216.237.3.220]:10643 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751335Ab2BKTGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2012 14:06:10 -0500
+In-Reply-To: <1328918904-11511-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-10 at 17:53 -0800, Jay Vosburgh wrote:
-> Chris Friesen <chris.friesen@genband.com> wrote:
+On Fri, 2012-02-10 at 16:08 -0800, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> >I'm resurrecting an ancient discussion I had with Jay, because I think
-> >the issue described below is still present and the code he talked about
-> >submitting to close it doesn't appear to have ever gone in.
-> 
-> 	Yah, I never got it to work quite right; I don't remember
-> exactly why.
-> 
-> >Basically in active/backup mode with mii monitoring there is a window
-> >between the active slave device losing carrier and calling
-> >netif_carrier_off() and the miimon code actually detecting the loss of
-> >the carrier and selecting a new active slave.
-> >
-> >The best solution would be for bonding to just register for notification
-> >of the link going down.  Presumably most drivers should be doing that
-> >properly by now, and for devices that get interrupt-driven notification
-> >of link status changes this would allow the bonding code to react much
-> >quicker.
-> 
-> 	A quick look at some drivers shows that at least acenic still
-> doesn't do netif_carrier_off, so converting entirely to a notifier-based
-> failover mechanism would break drivers that work today.
+> This change adds a small function for testing Rx status bits in the
+> descriptor.  The advantage to this is that we can avoid unnecessary
+> byte swaps on big endian systems.
+[...]
+> +	/* unmap the sg list when FCPRSP is received */
+> +	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
 [...]
 
-It might be worth having some sort of feature flag (in priv_flags) that
-indicates whether the driver updates the link state.  Alternately,
-disable polling of a device once you see a notification.
+cpu_to_le32() works as a compile-time constant when given a constant
+argument.  You shouldn't need this ugly __constant_ prefix.
 
 Ben.
 
