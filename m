@@ -1,82 +1,44 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: Re: [net-next-2.6 PATCH] enic: remove assignment of random mac on
- enic vf
-Date: Sun, 12 Feb 2012 01:13:37 -0800
-Message-ID: <CB5CC2C1.444BE%roprabhu@cisco.com>
-References: <20120212081243.7875.56830.stgit@savbu-pc100.cisco.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH] sfc: mtd: Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff
+Date: Sun, 12 Feb 2012 11:13:08 +0200
+Message-ID: <20120212111308.0267f200@pixies.home.jungo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Artem Bityutskiy <dedekind1@gmail.com>,
+	shmulik.ladkani@gmail.com
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	linux-net-drivers@solarflare.com, linux-mtd@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-3.cisco.com ([173.36.130.14]:30395 "EHLO
-	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274Ab2BLJNj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 04:13:39 -0500
-In-Reply-To: <20120212081243.7875.56830.stgit@savbu-pc100.cisco.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:41706 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751274Ab2BLJNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 04:13:19 -0500
+Received: by wics10 with SMTP id s10so2875704wic.19
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2012 01:13:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please apply this patch on top of recently submitted "enic: Fix address
-deregistration for sriov vf during port profile disassociate" patch. Thanks.
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
+As of bb0eb217, MTD_FAIL_ADDR_UNKNOWN should be used to indicate mtd
+erase failure not specific to any particular block.
 
-On 2/12/12 12:12 AM, "Roopa Prabhu" <roprabhu@cisco.com> wrote:
+Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff when setting
+'erase->fail_addr' in 'efx_mtd_erase()'.
 
-> From: Roopa Prabhu <roprabhu@cisco.com>
-> 
-> This patch removes random mac assignment on vf's. The vf's will start with
-> a zero mac and with upcoming support in fw/driver, a vf mac can be set
-> via the pf. vf's also support ndo_set_mac_address. This decision was made
-> based on the fact that a random mac on a vf is not really needed. And this
-> will reduce some of the problems with the vf's getting a new mac on
-> every driver load/unload (one of them being udev renaming the device on ever
-> load/unload and reboot).
-> 
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: Christian Benvenuti <benve@cisco.com>
-> Signed-off-by: sujith sankar <ssujith@cisco.com>
-> Signed-off-by: ChingWei Chang <cwchang@cisco.com>
-> ---
->  drivers/net/ethernet/cisco/enic/enic.h      |    2 +-
->  drivers/net/ethernet/cisco/enic/enic_main.c |    5 -----
->  2 files changed, 1 insertions(+), 6 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/ethernet/cisco/enic/enic.h
-> b/drivers/net/ethernet/cisco/enic/enic.h
-> index e65d431..f7c3067 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic.h
-> +++ b/drivers/net/ethernet/cisco/enic/enic.h
-> @@ -32,7 +32,7 @@
->  
->  #define DRV_NAME  "enic"
->  #define DRV_DESCRIPTION  "Cisco VIC Ethernet NIC Driver"
-> -#define DRV_VERSION  "2.1.1.34"
-> +#define DRV_VERSION  "2.1.1.35"
->  #define DRV_COPYRIGHT  "Copyright 2008-2011 Cisco Systems, Inc"
->  
->  #define ENIC_BARS_MAX  6
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c
-> b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index 2838891..dd7e24b 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -2463,11 +2463,6 @@ static int __devinit enic_probe(struct pci_dev *pdev,
-> enic->port_mtu = enic->config.mtu;
-> (void)enic_change_mtu(netdev, enic->port_mtu);
->  
-> -#ifdef CONFIG_PCI_IOV
-> - if (enic_is_sriov_vf(enic) && is_zero_ether_addr(enic->mac_addr))
-> -  random_ether_addr(enic->mac_addr);
-> -#endif
-> -
-> err = enic_set_mac_addr(netdev, enic->mac_addr);
-> if (err) {
-> dev_err(dev, "Invalid MAC address, aborting\n");
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+index 6622eca..c44a03e 100644
+--- a/drivers/net/ethernet/sfc/mtd.c
++++ b/drivers/net/ethernet/sfc/mtd.c
+@@ -193,7 +193,7 @@ static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
+ 		erase->state = MTD_ERASE_DONE;
+ 	} else {
+ 		erase->state = MTD_ERASE_FAILED;
+-		erase->fail_addr = 0xffffffff;
++		erase->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
+ 	}
+ 	mtd_erase_callback(erase);
+ 	return rc;
