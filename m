@@ -1,36 +1,30 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] trivial: typo hnalder -> handler
-Date: Sun, 12 Feb 2012 22:31:06 +0100
-Message-ID: <20120212213106.GE14173@pengutronix.de>
-References: <1329082146-644-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH] enic: remove assignment of random mac on
+ enic vf
+Date: Sun, 12 Feb 2012 17:00:45 -0500 (EST)
+Message-ID: <20120212.170045.1016180368887464175.davem@davemloft.net>
+References: <20120212081243.7875.56830.stgit@savbu-pc100.cisco.com>
+	<CB5CC2C1.444BE%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: trivial@kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: roprabhu@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50947 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754696Ab2BLVbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 16:31:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1329082146-644-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57001 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754169Ab2BLWAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 17:00:50 -0500
+In-Reply-To: <CB5CC2C1.444BE%roprabhu@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 12, 2012 at 10:29:06PM +0100, Uwe Kleine-K=F6nig wrote:
-(nothing in the changelog)
+From: Roopa Prabhu <roprabhu@cisco.com>
+Date: Sun, 12 Feb 2012 01:13:37 -0800
 
-I forgot to add my S-o-b. You can assume that.
+> Please apply this patch on top of recently submitted "enic: Fix
+> address deregistration for sriov vf during port profile
+> disassociate" patch. Thanks.
 
-Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+If you had properly numbered your patches, you wouldn't have to
+explicitly specify stuff like this.
