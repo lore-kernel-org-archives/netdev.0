@@ -1,41 +1,41 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] mlx4: Fix kcalloc parameters swapped
-Date: Mon, 13 Feb 2012 09:14:39 +0800
-Message-ID: <1329095679.3066.1.camel@phoenix>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: fix matching of fwmark templates during scheduling
+Date: Mon, 13 Feb 2012 11:33:33 +0900
+Message-ID: <20120213023331.GA30193@verge.net.au>
+References: <1327628727-22482-1-git-send-email-horms@verge.net.au>
+ <1327628727-22482-2-git-send-email-horms@verge.net.au>
+ <20120209151507.GA5842@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, stable@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120209151507.GA5842@1984>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first parameter should be "number of elements" and the second parameter
-should be "element size".
+On Thu, Feb 09, 2012 at 04:15:07PM +0100, Pablo Neira Ayuso wrote:
+> On Fri, Jan 27, 2012 at 10:45:27AM +0900, Simon Horman wrote:
+> > From: Julian Anastasov <ja@ssi.bg>
+> > 
+> > 	Commit f11017ec2d1859c661f4e2b12c4a8d250e1f47cf (2.6.37)
+> > moved the fwmark variable in subcontext that is invalidated before
+> > reaching the ip_vs_ct_in_get call. As vaddr is provided as pointer
+> > in the param structure make sure the fwmark variable is in
+> > same context. As the fwmark templates can not be matched,
+> > more and more template connections are created and the
+> > controlled connections can not go to single real server.
+> > 
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > Cc: stable@vger.kernel.org
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> Applied, thanks. I'll pass it to davem.
+> 
+> I'll pass it to stable once this hits Linus tree.
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- drivers/net/ethernet/mellanox/mlx4/eq.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 55d7bd4..8fa41f3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -815,8 +815,9 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
- 	int err;
- 	int i;
- 
--	priv->eq_table.uar_map = kcalloc(sizeof *priv->eq_table.uar_map,
--					 mlx4_num_eq_uar(dev), GFP_KERNEL);
-+	priv->eq_table.uar_map = kcalloc(mlx4_num_eq_uar(dev),
-+					 sizeof *priv->eq_table.uar_map,
-+					 GFP_KERNEL);
- 	if (!priv->eq_table.uar_map) {
- 		err = -ENOMEM;
- 		goto err_out_free;
--- 
-1.7.5.4
+Thanks
