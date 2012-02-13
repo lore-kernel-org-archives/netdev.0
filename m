@@ -1,35 +1,30 @@
-From: Michele Turpin <mturpin@ceres.k12.ca.us>
-Subject: RE: System Help Desk (Confirm Your E-mail Account Now)
-Date: Mon, 13 Feb 2012 07:25:42 -0800
-Message-ID: <E50C1D7736E05B42B2C80A1B708F05CF0E14D8BA38@cusdmx02>
-References: <E50C1D7736E05B42B2C80A1B708F05CF0E14D8BA29@cusdmx02>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH v7] ARM: net: JIT compiler for packet filters
+Date: Mon, 13 Feb 2012 16:02:49 +0000
+Message-ID: <20120213160248.GA25655@n2100.arm.linux.org.uk>
+References: <1325937154-2656-1-git-send-email-mgherzan@gmail.com> <4F392DFD.4070600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Michele Turpin <mturpin@ceres.k12.ca.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, davem@davemloft.net
+To: Mircea Gherzan <mgherzan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.ceres.k12.ca.us ([63.206.162.8]:38723 "EHLO
-	mx1.ceres.k12.ca.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754004Ab2BMPpz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 10:45:55 -0500
-In-Reply-To: <E50C1D7736E05B42B2C80A1B708F05CF0E14D8BA29@cusdmx02>
-Content-Language: en-US
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:55220 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753979Ab2BMQDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:03:05 -0500
+Content-Disposition: inline
+In-Reply-To: <4F392DFD.4070600@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Feb 13, 2012 at 04:36:29PM +0100, Mircea Gherzan wrote:
+> Gentle ping. This patch has been in the tracking system for over a
+> month. Is there any reason not to apply it in arm/for-next?
 
-________________________________
-From: Michele Turpin
-Sent: Monday, February 13, 2012 7:04 AM
-To: notice@domain.org
-Subject: System Help Desk (Confirm Your E-mail Account Now)
+Yes.  It needs quite a review to make sure that there's absolutely no
+possibility for userspace to be able to generate malicious ARM code
+and then have it executed.  Or put it another way: security paranoia.
 
-
-This message is from MESSAGING CENTER to all account owners. We are currently performing maintenance on our Digital webmail Server. We intend upgrading our Security Server for better online services due to spam mail and virus. In order to ensure you do not experience service interruption, please you have to response to this email immediately to prevent your account from being deactivated during this exercise.
-
-To Confirm Your E-mail Account click on the link below,
-
-http://checkverifymyemail.tk/webmail-verify/
-
-Thank you for your cooperation.
-System Help Desk
+I'm afraid that I've not been able to look at it at all yet, and I
+haven't seen anyone looking at the code from that aspect.
