@@ -1,88 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Mon, 13 Feb 2012 19:15:14 +0100
-Message-ID: <1329156914.2494.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1329113061-13026-1-git-send-email-mugunthanvnm@ti.com>
-	 <1329113061-13026-3-git-send-email-mugunthanvnm@ti.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: [BUG?] bonding, slave selection, carrier loss, etc.
+Date: Mon, 13 Feb 2012 12:16:59 -0600
+Message-ID: <4F39539B.5060507@genband.com>
+References: <49CD5B93.7010407@nortel.com>	 <31087.1238198438@death.nxdomain.ibm.com> <4F35AC78.3010907@genband.com>	 <28766.1328925233@death.nxdomain> <1328986371.325.7.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, andy@greyhouse.net,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:63222 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755601Ab2BMSPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 13:15:18 -0500
-Received: by wgbgn7 with SMTP id gn7so2606740wgb.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 10:15:16 -0800 (PST)
-In-Reply-To: <1329113061-13026-3-git-send-email-mugunthanvnm@ti.com>
+Received: from exprod7og113.obsmtp.com ([64.18.2.179]:52763 "EHLO
+	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755662Ab2BMSRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 13:17:24 -0500
+In-Reply-To: <1328986371.325.7.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 13 f=C3=A9vrier 2012 =C3=A0 11:34 +0530, Mugunthan V N a =C3=A9=
-crit :
-> This patch adds support for TI's CPSW driver.
->=20
-> The three port switch gigabit ethernet subsystem provides ethernet pa=
-cket
-> communication and can be configured as an ethernet switch. Supports
-> 10/100/1000 Mbps.
->=20
-> Signed-off-by: Cyril Chemparathy <cyril@ti.com>
-> Signed-off-by: Sriramakrishnan A G <srk@ti.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+On 02/11/2012 12:52 PM, Ben Hutchings wrote:
+> On Fri, 2012-02-10 at 17:53 -0800, Jay Vosburgh wrote:
+>> Chris Friesen<chris.friesen@genband.com>  wrote:
 
-=2E..
+>>> The best solution would be for bonding to just register for notification
+>>> of the link going down.  Presumably most drivers should be doing that
+>>> properly by now, and for devices that get interrupt-driven notification
+>>> of link status changes this would allow the bonding code to react much
+>>> quicker.
+>>
+>> 	A quick look at some drivers shows that at least acenic still
+>> doesn't do netif_carrier_off, so converting entirely to a notifier-based
+>> failover mechanism would break drivers that work today.
+> [...]
+>
+> It might be worth having some sort of feature flag (in priv_flags) that
+> indicates whether the driver updates the link state.  Alternately,
+> disable polling of a device once you see a notification.
 
-> +
-> +static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
-> +				       struct net_device *ndev)
-> +{
-> +	struct cpsw_priv *priv =3D netdev_priv(ndev);
-> +	int ret;
-> +
-> +	ndev->trans_start =3D jiffies;
+This makes a lot of sense to me...it is suboptimal to still be polling 
+when most people that care about bonding reliability are going to be 
+using ethernet hardware with interrupt-based link change notification.
 
-	Are you sure trans_start needs to  be updated ?
+Chris
 
-> +
-> +	ret =3D skb_padto(skb, CPSW_MIN_PACKET_SIZE);
-> +	if (unlikely(ret < 0)) {
-> +		msg(err, tx_err, "packet pad failed");
-> +		goto fail;
-
-Ouch... if skb_padto() fails, we stop queue forever, and skb is freed
-twice...
-
-correct sequence is :
-=09
-	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
-		priv->stats.tx_dropped++;
-		return NETDEV_TX_OK;
-	}
-
-By the way, skb_padto() doesnt change skb->len, be warned !
-
-
-> +	}
-> +
-> +	ret =3D cpdma_chan_submit(priv->txch, skb, skb->data,
-> +				skb->len, GFP_KERNEL);
-
-This GFP_KERNEL cannot be right, even if cpdma_chan_submit() ignores it=
-s
-last argument.
-
-> +	if (unlikely(ret !=3D 0)) {
-> +		msg(err, tx_err, "desc submit failed");
-> +		goto fail;
-> +	}
-> +
-> +	return NETDEV_TX_OK;
-> +fail:
-> +	priv->stats.tx_dropped++;
-> +	netif_stop_queue(ndev);
-> +	return NETDEV_TX_BUSY;
-> +}
-> +
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
