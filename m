@@ -1,51 +1,52 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: Re: [PATCH net-next] bnx2x: Disable LRO on FCoE or iSCSI boot device
-Date: Mon, 13 Feb 2012 15:20:02 +0400
-Message-ID: <4F38F1E2.5010807@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Dmitry Kravkov" <dmitry@broadcom.com>
-To: "Michael Chan" <mchan@broadcom.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 4/5] octeon: fix PHY name to match MDIO bus name
+Date: Mon, 13 Feb 2012 12:23:23 +0100
+Message-ID: <1329132204-27946-5-git-send-email-florian@openwrt.org>
+References: <1329132204-27946-1-git-send-email-florian@openwrt.org>
+Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
+	stable@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:36534 "EHLO relay.sw.ru"
+Received: from zmc.proxad.net ([212.27.53.206]:36785 "EHLO zmc.proxad.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751333Ab2BMLU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Feb 2012 06:20:26 -0500
+	id S1754763Ab2BMLX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Feb 2012 06:23:58 -0500
+In-Reply-To: <1329132204-27946-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael, Dmitry,
+Commit "d6c25be: mdio-octeon: use an unique MDIO bus name" changed the
+octeon MDIO bus name from "0" to "mdio-octeon-0", change the PHY
+formatting logic to account for that name change, so that PHY connection
+on this bus succeeds.
 
-Could you please clarify how you have fixed this issue?
-I've noticed very similar problem in CentOS6.2 environment,
-could you please clarify how it's possible to fix or workaround it? 
+CC: stable@vger.kernel.org
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+ drivers/net/ethernet/octeon/octeon_mgmt.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-thank you,
-	Vasily Averin
-
-On 10/27/2011 at 16:30 -0700, Michael Chan wrote:
-> On Wed, 2011-10-19 at 13:53 -0700, John Fastabend wrote:
->> As a reference point this works fine in both FCoE and iSCSI stacks
->> today. The device is reset or link is lost for whatever reason
->> when the link comes back up the stack logs back in, enumerates
->> the luns and the scsi stack recovers as expected.
->>
->> Firmware should do the equivalent login, lun enumeration, etc as
->> needed.
-> 
-> Just a quick follow-up on this issue.  Our firmware actually performs
-> the same logout before the reset and login after the reset.  For iSCSI,
-> the problem on our device was actually caused by our userspace daemon
-> logging events to a log file in the root fs.  The file I/O was blocked
-> and the daemon could not proceed to do the important operations during
-> the reset, and this caused filesystem I/O errors.  We have now fixed the
-> problem in the userspace daemon.
-> 
-> For FCoE, there is no logging issue and the root fs failure seems to
-> happen only in a multipath configuration with all paths going down for a
-> short time (caused by reset in this case).  We believe this also affects
-> other devices and not just ours.  We are now working with the multipath
-> maintainer to understand this issue.
-> 
-> So this confirms that the original patch for bnx2x is not needed.
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index 212f43b..cd827ff 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -670,7 +670,7 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ {
+ 	struct octeon_mgmt *p = netdev_priv(netdev);
+-	char phy_id[20];
++	char phy_id[MII_BUS_ID_SIZE + 3];
+ 
+ 	if (octeon_is_simulation()) {
+ 		/* No PHYs in the simulator. */
+@@ -678,7 +678,7 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ 		return 0;
+ 	}
+ 
+-	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "0", p->port);
++	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "mdio-octeon-0", p->port);
+ 
+ 	p->phydev = phy_connect(netdev, phy_id, octeon_mgmt_adjust_link, 0,
+ 				PHY_INTERFACE_MODE_MII);
+-- 
+1.7.5.4
