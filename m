@@ -1,9 +1,10 @@
 From: Mel Gorman <mgorman@suse.de>
 Subject: Re: [PATCH 02/15] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
  pages
-Date: Mon, 13 Feb 2012 10:12:39 +0000
-Message-ID: <20120213101239.GU5938@suse.de>
-References: <alpine.DEB.2.00.1202080907320.30248@router.home>
+Date: Mon, 13 Feb 2012 11:10:58 +0000
+Message-ID: <20120213111058.GW5938@suse.de>
+References: <20120208144506.GI5938@suse.de>
+ <alpine.DEB.2.00.1202080907320.30248@router.home>
  <20120208163421.GL5938@suse.de>
  <alpine.DEB.2.00.1202081338210.32060@router.home>
  <20120208212323.GM5938@suse.de>
@@ -12,7 +13,6 @@ References: <alpine.DEB.2.00.1202080907320.30248@router.home>
  <alpine.DEB.2.00.1202091345540.4413@router.home>
  <20120210102605.GO5938@suse.de>
  <alpine.DEB.2.00.1202101443570.31424@router.home>
- <alpine.DEB.2.00.1202101606530.3840@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
 Cc: Andrew Morton <akpm@linux-foundation.org>,
@@ -24,47 +24,188 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 To: Christoph Lameter <cl@linux.com>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1202101606530.3840@router.home>
+In-Reply-To: <alpine.DEB.2.00.1202101443570.31424@router.home>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2012 at 04:07:57PM -0600, Christoph Lameter wrote:
-> Proposal for a patch for slub to move the pfmemalloc handling out of the
-> fastpath by simply not assigning a per cpu slab when pfmemalloc processing
-> is going on.
+On Fri, Feb 10, 2012 at 03:01:37PM -0600, Christoph Lameter wrote:
+> On Fri, 10 Feb 2012, Mel Gorman wrote:
 > 
+> > I have an updated version of this 02/15 patch below. It passed testing
+> > and is a lot less invasive than the previous release. As you suggested,
+> > it uses page flags and the bulk of the complexity is only executed if
+> > someone is using network-backed storage.
 > 
+> Hmmm.. hmm... Still modifies the hotpaths of the allocators for a
+> pretty exotic feature.
 > 
-> Subject: [slub] Fix so that no mods are required for the fast path
+> > > On top of that you want to add
+> > > special code in various subsystems to also do that over the network.
+> > > Sigh. I think we agreed a while back that we want to limit the amount of
+> > > I/O triggered from reclaim paths?
+> >
+> > Specifically we wanted to reduce or stop page reclaim calling ->writepage()
+> > for file-backed pages because it generated awful IO patterns and deep
+> > call stacks. We still write anonymous pages from page reclaim because we
+> > do not have a dedicated thread for writing to swap. It is expected that
+> > the call stack for writing to network storage would be less than a
+> > filesystem.
+> >
+> > > AFAICT many filesystems do not support
+> > > writeout from reclaim anymore because of all the issues that arise at that
+> > > level.
+> > >
+> >
+> > NBD is a block device so filesystem restrictions like you mention do not
+> > apply. In NFS, the direct_IO paths are used to write pages not
+> > ->writepage so again the restriction does not apply.
 > 
-> Remove the check for pfmemalloc from the alloc hotpath and put the logic after
-> the election of a new per cpu slab.
-> 
-> For a pfmemalloc page do not use the fast path but force use of the slow
-> path (which is also used for the debug case).
-> 
-> Signed-off-by: Christoph Lameter <cl@linux.com>
+> Block devices are a little simpler ok. But it is still not a desirable
+> thing to do (just think about raid and other complex filesystems that may
+> also have to do allocations).
+
+Swap IO is never desirable but it has to happen somehow and right now, we
+only initiate swap IO from direct reclaim or kswapd. For complex filesystems,
+it is mandatory if they are using direct_IO like I do for NFS that they
+pin the necessary structures in advance to avoid any allocations in their
+reclaim path. I do not expect RAID to be used over network-based swap files.
+
+> I do not think that block device writers
+> code with the VM in mind. In the case of network devices as block devices
+> we have a pretty serious problem since the network subsystem is certainly
+> not designed to be called from VM reclaim code that may be triggered
+> arbitrarily from deeply nested other code in the kernel. Implementing
+> something like this invites breakage all over the place to show up.
 > 
 
-This weakens pfmemalloc processing in the following way
+The whole point of the series is to allow the possibility of using
+network-based swap devices starting with NBD and with NFS in the related
+series. swap-over-NFS has been used for the last few years by enterprise
+distros and while bugs do get reported, they are rare.
 
-1. Process that is performance network swap calls __slab_alloc.
-   pfmemalloc_match is true so the freelist is loaded and
-   c->freelist is now pointing to a pfmemalloc page
-2. Process that is attempting normal allocations calls slab_alloc,
-   finds the pfmemalloc page on the freelist and uses it because it
-   did not check pfmemalloc_match()
+As the person that introduced this, I would support it in mainline for
+NBD and NFS if it was merged.
 
-The patch allows non-pfmemalloc allocations to use pfmemalloc pages with
-the kmalloc slabs being the most vunerable caches on the grounds they are
-most likely to have a mix of pfmemalloc and !pfmemalloc requests. Patch
-14 will still protect the system as processes will get throttled if the
-pfmemalloc reserves get depleted so performance will not degrade as smoothly.
+> > index 8b3b8cf..6a3fa1c 100644
+> > --- a/mm/page_alloc.c
+> > +++ b/mm/page_alloc.c
+> > @@ -695,6 +695,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
+> >  	trace_mm_page_free(page, order);
+> >  	kmemcheck_free_shadow(page, order);
+> >
+> > +	page->pfmemalloc = false;
+> >  	if (PageAnon(page))
+> >  		page->mapping = NULL;
+> >  	for (i = 0; i < (1 << order); i++)
+> > @@ -1221,6 +1222,7 @@ void free_hot_cold_page(struct page *page, int cold)
+> >
+> >  	migratetype = get_pageblock_migratetype(page);
+> >  	set_page_private(page, migratetype);
+> > +	page->pfmemalloc = false;
+> >  	local_irq_save(flags);
+> >  	if (unlikely(wasMlocked))
+> >  		free_page_mlock(page);
+> 
+> page allocator hotpaths affected.
+> 
 
-Assuming this passes testing, I'll add the patch to the series with the
-information above included in the changelog.
+I can remove these but then page->pfmemalloc has to be set on the allocation
+side. It's a single write to a dirty cache line that is already local to
+the processor. It's not measurable although I accept that the page
+allocator paths could do with a diet in general.
 
-Thanks Christoph.
+> > diff --git a/mm/slab.c b/mm/slab.c
+> > index f0bd785..f322dc2 100644
+> > --- a/mm/slab.c
+> > +++ b/mm/slab.c
+> > @@ -123,6 +123,8 @@
+> >
+> >  #include <trace/events/kmem.h>
+> >
+> > +#include	"internal.h"
+> > +
+> >  /*
+> >   * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
+> >   *		  0 for faster, smaller code (especially in the critical paths).
+> > @@ -151,6 +153,12 @@
+> >  #define ARCH_KMALLOC_FLAGS SLAB_HWCACHE_ALIGN
+> >  #endif
+> >
+> > +/*
+> > + * true if a page was allocated from pfmemalloc reserves for network-based
+> > + * swap
+> > + */
+> > +static bool pfmemalloc_active;
+> 
+> Implying an additional cacheline use in critical slab paths?
+
+This was the alternative to altering the slub structures.
+
+> Hopefully grouped with other variables already in cache.
+> 
+
+This is the expectation. I considered tagging it read_mostly but didn't
+at the time. I will now because it is genuinely expected to be
+read-mostly and in the case where it is being written to, we're also
+using network-based swap and the cost of a cache miss will be negligible
+in comparison to swapping under memory pressure to a network.
+
+> > @@ -3243,23 +3380,35 @@ static inline void *____cache_alloc(struct kmem_cache *cachep, gfp_t flags)
+> >  {
+> >  	void *objp;
+> >  	struct array_cache *ac;
+> > +	bool force_refill = false;
+> 
+> ... hitting the hotpath here.
+> 
+> > @@ -3693,12 +3845,12 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
+> >
+> >  	if (likely(ac->avail < ac->limit)) {
+> >  		STATS_INC_FREEHIT(cachep);
+> > -		ac->entry[ac->avail++] = objp;
+> > +		ac_put_obj(cachep, ac, objp);
+> >  		return;
+> >  	} else {
+> >  		STATS_INC_FREEMISS(cachep);
+> >  		cache_flusharray(cachep, ac);
+> > -		ac->entry[ac->avail++] = objp;
+> > +		ac_put_obj(cachep, ac, objp);
+> >  	}
+> >  }
+> 
+> and here.
+> 
+
+The impact of ac_put_obj() is reduced in a later patch and becomes just
+an additional read of a global variable. There was not an obvious way to
+me to ensure pfmemalloc pages were not used for !pfmemalloc allocations
+without having some sort of impact.
+
+> 
+> > diff --git a/mm/slub.c b/mm/slub.c
+> > index 4907563..8eed0de 100644
+> > --- a/mm/slub.c
+> > +++ b/mm/slub.c
+> 
+> > @@ -2304,8 +2327,8 @@ redo:
+> >  	barrier();
+> >
+> >  	object = c->freelist;
+> > -	if (unlikely(!object || !node_match(c, node)))
+> > -
+> > +	if (unlikely(!object || !node_match(c, node) ||
+> > +					!pfmemalloc_match(c, gfpflags)))
+> >  		object = __slab_alloc(s, gfpflags, node, addr, c);
+> >
+> >  	else {
+> 
+> 
+> Modification to hotpath. That could be fixed here by forcing pfmemalloc
+> (like debug allocs) to always go to the slow path and checking in there
+> instead. Just keep c->freelist == NULL.
+> 
+
+I picked up your patch for this, thanks.
 
 -- 
 Mel Gorman
