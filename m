@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] e1000e: cleanup: always return 0
-Date: Mon, 13 Feb 2012 13:47:41 -0800
-Message-ID: <1329169670-5403-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] e1000e: potentially incorrect return for e1000_set_d3_lplu_state_ich8lan
+Date: Mon, 13 Feb 2012 13:47:42 -0800
+Message-ID: <1329169670-5403-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1329169670-5403-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,76 +10,45 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:40106 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755595Ab2BMVr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Feb 2012 16:47:56 -0500
+	id S1755644Ab2BMVr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Feb 2012 16:47:57 -0500
 In-Reply-To: <1329169670-5403-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-These are a few instances of returning a value that can only be 0 so just
-use a 'return 0' to make it more obvious.
+In the unlikely event that e1e_wphy() returns an error, the returned error
+code is not propogated to the caller of e1000_set_d3_lplu_state_ich8lan().
+With this change, there is a rare possibility that ret_val might not get
+set so it must be initialized.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c   |    2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c |    2 +-
- drivers/net/ethernet/intel/e1000e/mac.c     |    2 +-
- drivers/net/ethernet/intel/e1000e/phy.c     |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 024ac24..05e9a29 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -796,7 +796,7 @@ static s32 e1000_update_nvm_checksum_82571(struct e1000_hw *hw)
- 	 * otherwise, commit the checksum to the flash NVM.
- 	 */
- 	if (hw->nvm.type != e1000_nvm_flash_hw)
--		return ret_val;
-+		return 0;
- 
- 	/* Check for pending operations. */
- 	for (i = 0; i < E1000_FLASH_UPDATES; i++) {
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 6ab7254..ce348cd 100644
+index ce348cd..5a55a61 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1948,7 +1948,7 @@ static s32 e1000_set_d0_lplu_state_ich8lan(struct e1000_hw *hw, bool active)
+@@ -2030,7 +2030,7 @@ static s32 e1000_set_d3_lplu_state_ich8lan(struct e1000_hw *hw, bool active)
+ {
+ 	struct e1000_phy_info *phy = &hw->phy;
+ 	u32 phy_ctrl;
+-	s32 ret_val;
++	s32 ret_val = 0;
  	u16 data;
  
- 	if (phy->type == e1000_phy_ife)
--		return ret_val;
-+		return 0;
- 
  	phy_ctrl = er32(PHY_CTRL);
+@@ -2096,7 +2096,7 @@ static s32 e1000_set_d3_lplu_state_ich8lan(struct e1000_hw *hw, bool active)
+ 		ret_val = e1e_wphy(hw, IGP01E1000_PHY_PORT_CONFIG, data);
+ 	}
  
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index ce8a55a..b3b2f9e 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -444,7 +444,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- 		return ret_val;
- 
- 	if (!link)
--		return ret_val;	/* No link detected */
-+		return 0;	/* No link detected */
- 
- 	mac->get_link_status = false;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 323cb14..a8b99ba 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -1916,7 +1916,7 @@ s32 e1000e_get_cable_length_igp_2(struct e1000_hw *hw)
- 
- 	phy->cable_length = (phy->min_cable_length + phy->max_cable_length) / 2;
- 
--	return ret_val;
-+	return 0;
+-	return 0;
++	return ret_val;
  }
  
  /**
