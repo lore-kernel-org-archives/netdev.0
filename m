@@ -1,40 +1,58 @@
-From: Benoit Cousson <b-cousson@ti.com>
-Subject: [PATCH] ks8851: Fix NOHZ local_softirq_pending 08 warning
-Date: Mon, 13 Feb 2012 18:37:12 +0100
-Message-ID: <1329154632-12745-1-git-send-email-b-cousson@ti.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 4/7] ixgbe: Add function for testing status bits in
+ Rx descriptor
+Date: Mon, 13 Feb 2012 17:37:46 +0000
+Message-ID: <1329154666.2697.16.camel@bwh-desktop>
+References: <1328918904-11511-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	  <1328918904-11511-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1328987174.325.18.camel@deadeye> <4F39467D.9070409@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-omap@vger.kernel.org>, Benoit Cousson <b-cousson@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:8224 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755578Ab2BMRhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 12:37:51 -0500
+In-Reply-To: <4F39467D.9070409@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fix a similar problem as in 72092cc45378176ba700034c91b7af2db524df26
-and 481a8199142c050b72bff8a1956a49fd0a75bbe0 ("can:
-fix NOHZ local_softirq_pending 08 warning"). This fix replaces netif_rx()
-with netif_rx_ni() which has to be used from process/softirq context.
+On Mon, 2012-02-13 at 09:21 -0800, Alexander Duyck wrote:
+> On 02/11/2012 11:06 AM, Ben Hutchings wrote:
+> > On Fri, 2012-02-10 at 16:08 -0800, Jeff Kirsher wrote:
+> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> >>
+> >> This change adds a small function for testing Rx status bits in the
+> >> descriptor.  The advantage to this is that we can avoid unnecessary
+> >> byte swaps on big endian systems.
+> > [...]
+> >> +	/* unmap the sg list when FCPRSP is received */
+> >> +	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
+> > [...]
+> >
+> > cpu_to_le32() works as a compile-time constant when given a constant
+> > argument.  You shouldn't need this ugly __constant_ prefix.
+> >
+> > Ben.
+> >
+> 
+> If that is the case then what is the point of even having the
+> __constant_ prefixed version of these macros anyway?  I ask because I
+> know we have had people submit patches in the past replacing htons calls
+> with __constant_htons and the like and nobody has ever spoken up before
+> to indicate that these were unnecessary.
+[...]
 
-Signed-off-by: Benoit Cousson <b-cousson@ti.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/micrel/ks8851.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Probably for backward-compatibility, as this wasn't true before Linux
+2.6.22.
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 6b35e7d..0c3e400 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -583,7 +583,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
- 					ks8851_dbg_dumpkkt(ks, rxpkt);
- 
- 				skb->protocol = eth_type_trans(skb, ks->netdev);
--				netif_rx(skb);
-+				netif_rx_ni(skb);
- 
- 				ks->netdev->stats.rx_packets++;
- 				ks->netdev->stats.rx_bytes += rxlen;
+Ben.
+
 -- 
-1.7.0.4
-
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
