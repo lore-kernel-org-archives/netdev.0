@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ks8851: Fix NOHZ local_softirq_pending 08 warning
-Date: Mon, 13 Feb 2012 16:02:25 -0500 (EST)
-Message-ID: <20120213.160225.1376918979432253989.davem@davemloft.net>
-References: <1329154632-12745-1-git-send-email-b-cousson@ti.com>
+Subject: Re: [PATCH] mlx4: Fix kcalloc parameters swapped
+Date: Mon, 13 Feb 2012 16:02:40 -0500 (EST)
+Message-ID: <20120213.160240.316262527803124385.davem@davemloft.net>
+References: <1329095679.3066.1.camel@phoenix>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-To: b-cousson@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1329154632-12745-1-git-send-email-b-cousson@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, jackm@dev.mellanox.co.il,
+	netdev@vger.kernel.org
+To: axel.lin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329095679.3066.1.camel@phoenix>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benoit Cousson <b-cousson@ti.com>
-Date: Mon, 13 Feb 2012 18:37:12 +0100
+From: Axel Lin <axel.lin@gmail.com>
+Date: Mon, 13 Feb 2012 09:14:39 +0800
 
-> This fix a similar problem as in 72092cc45378176ba700034c91b7af2db524df26
-> and 481a8199142c050b72bff8a1956a49fd0a75bbe0 ("can:
-> fix NOHZ local_softirq_pending 08 warning"). This fix replaces netif_rx()
-> with netif_rx_ni() which has to be used from process/softirq context.
+> The first parameter should be "number of elements" and the second parameter
+> should be "element size".
 > 
-> Signed-off-by: Benoit Cousson <b-cousson@ti.com>
+> Signed-off-by: Axel Lin <axel.lin@gmail.com>
 
 Applied.
