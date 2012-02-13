@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sfc: mtd: Use MTD_FAIL_ADDR_UNKNOWN instead of
- 0xffffffff
-Date: Mon, 13 Feb 2012 00:51:31 -0500 (EST)
-Message-ID: <20120213.005131.707348228946745194.davem@davemloft.net>
-References: <20120212111308.0267f200@pixies.home.jungo.com>
+Subject: Re: [PATCH 1/2] tcp: allow tcp_sacktag_one() to tag ranges not
+ aligned with skbs
+Date: Mon, 13 Feb 2012 01:00:57 -0500 (EST)
+Message-ID: <20120213.010057.1117432957253511382.davem@davemloft.net>
+References: <1329107830-3351-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, linux-net-drivers@solarflare.com,
-	linux-mtd@lists.infradead.org, netdev@vger.kernel.org,
-	dedekind1@gmail.com
-To: shmulik.ladkani@gmail.com
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, ycheng@google.com, therbert@google.com,
+	subramanian.vijay@gmail.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59254 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59305 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796Ab2BMFxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 00:53:45 -0500
-In-Reply-To: <20120212111308.0267f200@pixies.home.jungo.com>
+	with ESMTP id S1750698Ab2BMGBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 01:01:16 -0500
+In-Reply-To: <1329107830-3351-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Sun, 12 Feb 2012 11:13:08 +0200
+From: Neal Cardwell <ncardwell@google.com>
+Date: Sun, 12 Feb 2012 23:37:09 -0500
 
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> This commit allows callers of tcp_sacktag_one() to pass in sequence
+> ranges that do not align with skb boundaries, as tcp_shifted_skb()
+> needs to do in an upcoming fix in this patch series.
 > 
-> As of bb0eb217, MTD_FAIL_ADDR_UNKNOWN should be used to indicate mtd
-> erase failure not specific to any particular block.
+> In fact, now tcp_sacktag_one() does not need to depend on an input skb
+> at all, which makes its semantics and dependencies more clear.
 > 
-> Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff when setting
-> 'erase->fail_addr' in 'efx_mtd_erase()'.
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Ben, what would you like me to do with this one?
+Applied and queued up for -stable.
