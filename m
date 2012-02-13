@@ -1,30 +1,27 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v7] ARM: net: JIT compiler for packet filters
-Date: Mon, 13 Feb 2012 16:02:49 +0000
-Message-ID: <20120213160248.GA25655@n2100.arm.linux.org.uk>
-References: <1325937154-2656-1-git-send-email-mgherzan@gmail.com> <4F392DFD.4070600@gmail.com>
+From: "Lourdes Oropeza" <LOropeza@fullcoll.edu>
+Subject: Urgent Notice
+Date: Mon, 13 Feb 2012 03:24:09 -0800
+Message-ID: <A950D8D8B59D1048810FB0E138E9516F13FE84D0__7122.13071897185$1329149719$gmane$org@FCEX02.fullcoll.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: Mircea Gherzan <mgherzan@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <info@msn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:55220 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979Ab2BMQDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:03:05 -0500
-Content-Disposition: inline
-In-Reply-To: <4F392DFD.4070600@gmail.com>
+Received: from fcpp02.fullcoll.edu ([207.233.83.3]:34966 "EHLO
+	FCPP02.fullcoll.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757085Ab2BMQPH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:15:07 -0500
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2012 at 04:36:29PM +0100, Mircea Gherzan wrote:
-> Gentle ping. This patch has been in the tracking system for over a
-> month. Is there any reason not to apply it in arm/for-next?
-
-Yes.  It needs quite a review to make sure that there's absolutely no
-possibility for userspace to be able to generate malicious ARM code
-and then have it executed.  Or put it another way: security paranoia.
-
-I'm afraid that I've not been able to look at it at all yet, and I
-haven't seen anyone looking at the code from that aspect.
+Your Email id has been A-warded 1million pounds,in the ongoing ESPN STAR CRICKET A-WARD to receive send your Requirements:
+1.Full Name:
+2.Residential Address:
+3.Age:
+4.Sex:
+5.Mobil Tel:
+6.Occupation:
+7.Nationality:
+8.Alternative Email :
+You most Send your response to (espnawardclaimsunit@london.com)
