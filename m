@@ -1,10 +1,10 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 2/2] bluetooth: Convert BT_DBG to pr_debug
-Date: Mon, 13 Feb 2012 08:19:18 +0100
-Message-ID: <1329117558.28848.53.camel@aeonflux>
+Subject: Re: [PATCH 1/2] bluetooth: Use more current logging styles
+Date: Mon, 13 Feb 2012 08:21:46 +0100
+Message-ID: <1329117706.28848.55.camel@aeonflux>
 References: <cover.1329102581.git.joe@perches.com>
-	 <90fbd8a0b800c83f5ad1df7889dc9b11d7d9c588.1329102581.git.joe@perches.com>
-	 <1329115057.28848.52.camel@aeonflux> <1329115904.30878.7.camel@joe2Laptop>
+	 <44b8744770a55924c68f8ad0ca274816d2d6148f.1329102581.git.joe@perches.com>
+	 <1329114913.28848.50.camel@aeonflux> <1329115573.30878.1.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -14,29 +14,30 @@ Cc: "Gustavo F. Padovan" <padovan@profusion.mobi>,
 	netdev@vger.kernel.org
 To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329115904.30878.7.camel@joe2Laptop>
+In-Reply-To: <1329115573.30878.1.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Joe,
 
-> > > No need to obfuscate, just use the normal debugging macro.
-> > > Add "\n" to uses, align arguments, coalesce formats.
-> > > Fix a typo and fix a bad format extended by a line continuation.
-> > what is this patch buying us.
+> > Why is this a good thing?
 > 
-> Easier greps of pr_debug.
-> BT_DBG is just an unnecessary useless wrapper.
+> It's more similar to the rest of the <foo>_<level> uses.
+> Other than that, it's a little smaller.
 > 
-> > The only useful change would be to move to dev_printk, but we are not
-> > there yet.
+> > And in your patch we have bt_err not having \n\n in the end.
 > 
-> Maybe dev_dbg, but there isn't always an
-> appropriate device * available.
+> There shouldn't be a newline at all with the
+> actual functions bt_err or bt_info except
+> at the uses.
 
-exactly. And that needs to be fixed first. People are working on getting
-some old legacy 2.4 leftovers out of this subsystem so we can have first
-call struct device everywhere.
+then you might wanna read your patch again ;)
+
+> This is the style used in pr_<level> so that
+> it becomes possible to use pr_cont.
+
+Since we don't have a bt_cont, I don't see why bother changing this
+right now.
 
 Regards
 
