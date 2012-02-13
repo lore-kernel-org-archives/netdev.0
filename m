@@ -1,54 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: mtd: Use MTD_FAIL_ADDR_UNKNOWN instead of
- 0xffffffff
-Date: Mon, 13 Feb 2012 16:15:39 +0000
-Message-ID: <1329149739.2697.0.camel@bwh-desktop>
-References: <20120212111308.0267f200@pixies.home.jungo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bnx2x: fix bnx2x_storm_stats_update() on big endian
+Date: Mon, 13 Feb 2012 17:23:12 +0100
+Message-ID: <1329150192.2494.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>,
-	<linux-mtd@lists.infradead.org>, <netdev@vger.kernel.org>,
-	Artem Bityutskiy <dedekind1@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12119 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757085Ab2BMQPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:15:47 -0500
-In-Reply-To: <20120212111308.0267f200@pixies.home.jungo.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:34158 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755308Ab2BMQXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:23:16 -0500
+Received: by wgbdt10 with SMTP id dt10so5052598wgb.1
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 08:23:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-02-12 at 11:13 +0200, Shmulik Ladkani wrote:
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> 
-> As of bb0eb217, MTD_FAIL_ADDR_UNKNOWN should be used to indicate mtd
-> erase failure not specific to any particular block.
-> 
-> Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff when setting
-> 'erase->fail_addr' in 'efx_mtd_erase()'.
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+commit 619c5cb6885 (New 7.0 FW: bnx2x, cnic, bnx2i, bnx2fc) added new
+sparse warnings.
 
-> ---
-> diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
-> index 6622eca..c44a03e 100644
-> --- a/drivers/net/ethernet/sfc/mtd.c
-> +++ b/drivers/net/ethernet/sfc/mtd.c
-> @@ -193,7 +193,7 @@ static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
->  		erase->state = MTD_ERASE_DONE;
->  	} else {
->  		erase->state = MTD_ERASE_FAILED;
-> -		erase->fail_addr = 0xffffffff;
-> +		erase->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
->  	}
->  	mtd_erase_callback(erase);
->  	return rc;
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+Cc: Vladislav Zolotarov <vladz@broadcom.com>
+Cc: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 7b9b304..320ecb8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1081,17 +1081,17 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 	       estats->rx_stat_ifhcinbadoctets_lo);
+ 
+ 	ADD_64(fstats->total_bytes_received_hi,
+-	       tfunc->rcv_error_bytes.hi,
++	       le32_to_cpu(tfunc->rcv_error_bytes.hi),
+ 	       fstats->total_bytes_received_lo,
+-	       tfunc->rcv_error_bytes.lo);
++	       le32_to_cpu(tfunc->rcv_error_bytes.lo));
+ 
+ 	memcpy(estats, &(fstats->total_bytes_received_hi),
+ 	       sizeof(struct host_func_stats) - 2*sizeof(u32));
+ 
+ 	ADD_64(estats->error_bytes_received_hi,
+-	       tfunc->rcv_error_bytes.hi,
++	       le32_to_cpu(tfunc->rcv_error_bytes.hi),
+ 	       estats->error_bytes_received_lo,
+-	       tfunc->rcv_error_bytes.lo);
++	       le32_to_cpu(tfunc->rcv_error_bytes.lo));
+ 
+ 	ADD_64(estats->etherstatsoverrsizepkts_hi,
+ 	       estats->rx_stat_dot3statsframestoolong_hi,
