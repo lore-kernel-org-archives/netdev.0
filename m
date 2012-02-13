@@ -1,27 +1,54 @@
-From: "Lourdes Oropeza" <LOropeza@fullcoll.edu>
-Subject: Urgent Notice
-Date: Mon, 13 Feb 2012 03:24:09 -0800
-Message-ID: <A950D8D8B59D1048810FB0E138E9516F13FE84D0__7122.13071897185$1329149719$gmane$org@FCEX02.fullcoll.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] sfc: mtd: Use MTD_FAIL_ADDR_UNKNOWN instead of
+ 0xffffffff
+Date: Mon, 13 Feb 2012 16:15:39 +0000
+Message-ID: <1329149739.2697.0.camel@bwh-desktop>
+References: <20120212111308.0267f200@pixies.home.jungo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <info@msn.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>,
+	<linux-mtd@lists.infradead.org>, <netdev@vger.kernel.org>,
+	Artem Bityutskiy <dedekind1@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fcpp02.fullcoll.edu ([207.233.83.3]:34966 "EHLO
-	FCPP02.fullcoll.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757085Ab2BMQPH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:15:07 -0500
-Content-class: urn:content-classes:message
+Received: from exchange.solarflare.com ([216.237.3.220]:12119 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757085Ab2BMQPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 11:15:47 -0500
+In-Reply-To: <20120212111308.0267f200@pixies.home.jungo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Email id has been A-warded 1million pounds,in the ongoing ESPN STAR CRICKET A-WARD to receive send your Requirements:
-1.Full Name:
-2.Residential Address:
-3.Age:
-4.Sex:
-5.Mobil Tel:
-6.Occupation:
-7.Nationality:
-8.Alternative Email :
-You most Send your response to (espnawardclaimsunit@london.com)
+On Sun, 2012-02-12 at 11:13 +0200, Shmulik Ladkani wrote:
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> 
+> As of bb0eb217, MTD_FAIL_ADDR_UNKNOWN should be used to indicate mtd
+> erase failure not specific to any particular block.
+> 
+> Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff when setting
+> 'erase->fail_addr' in 'efx_mtd_erase()'.
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+
+> ---
+> diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+> index 6622eca..c44a03e 100644
+> --- a/drivers/net/ethernet/sfc/mtd.c
+> +++ b/drivers/net/ethernet/sfc/mtd.c
+> @@ -193,7 +193,7 @@ static int efx_mtd_erase(struct mtd_info *mtd, struct erase_info *erase)
+>  		erase->state = MTD_ERASE_DONE;
+>  	} else {
+>  		erase->state = MTD_ERASE_FAILED;
+> -		erase->fail_addr = 0xffffffff;
+> +		erase->fail_addr = MTD_FAIL_ADDR_UNKNOWN;
+>  	}
+>  	mtd_erase_callback(erase);
+>  	return rc;
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
