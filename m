@@ -1,101 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: fix truesize calculation when merging active
- tail into lro skb
-Date: Mon, 13 Feb 2012 13:43:02 -0800
-Message-ID: <1329169382.2307.14.camel@jtkirshe-mobl>
-References: <20120213135248.GA23457@sir.fritz.box>
-	 <1329142322.2494.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-cyzzGJOgqhX1LWjBF7ML"
-Cc: Christian Brunner <chb@muc.de>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver updates
+Date: Mon, 13 Feb 2012 13:47:35 -0800
+Message-ID: <1329169670-5403-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:47177 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:3407 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753960Ab2BMVnG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Feb 2012 16:43:06 -0500
-In-Reply-To: <1329142322.2494.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id S1754273Ab2BMVry (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Feb 2012 16:47:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The following series contains updates to e1000e only.  All of the
+patches are cleanup of the e1000e driver.
 
---=-cyzzGJOgqhX1LWjBF7ML
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The following are changes since commit fafdbf84d7eb2cd7aee435cc381a0796e1a5ccb0:
+  trivial: typo hnalder -> handler
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-On Mon, 2012-02-13 at 15:12 +0100, Eric Dumazet wrote:
-> Le lundi 13 f=C3=A9vrier 2012 =C3=A0 14:52 +0100, Christian Brunner a =C3=
-=A9crit :
-> > I'm seeing some page allocation failures with the ixgbe driver under he=
-avy
-> > load. While looking after it, I came accoss the truesize handling. I su=
-spect,
-> > that there is a small misstake in ixgbe_merge_active_tail(). (But I'm n=
-ot
-> > really sure).
-> >=20
-> > Truesize allocation of the skb may be larger than skb->len, because
-> > ixgbe is allocating PAGE_SIZE/2 for received fragments. Hence we=20
-> > should use the truesize of the tail when merging.
-> >=20
-> > Signed-off-by: Christian Brunner <chb@muc.de>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/ne=
-t/ethernet/intel/ixgbe/ixgbe_main.c
-> > index a42b0b2..c4d25af 100644
-> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > @@ -1222,7 +1222,7 @@ static inline struct sk_buff *ixgbe_merge_active_=
-tail(struct sk_buff *tail)
-> > =20
-> >  	head->len +=3D tail->len;
-> >  	head->data_len +=3D tail->len;
-> > -	head->truesize +=3D tail->len;
-> > +	head->truesize +=3D tail->truesize;
-> > =20
-> >  	IXGBE_CB(tail)->head =3D NULL;
-> > =20
->=20
-> You forgot CC Intel guys, but they usually catch netdev traffic :)
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
->=20
->=20
+Bruce Allan (15):
+  e1000e: cleanup: use goto for common work needed by multiple exit
+    points
+  e1000e: cleanup: rename goto labels to be more meaningful
+  e1000e: potentially incorrect return for
+    e1000_cfg_kmrn_10_100_80003es2lan
+  e1000e: potential incorrect return for
+    e1000_setup_copper_link_80003es2lan
+  e1000e: cleanup: remove unnecessary assignments just before returning
+  e1000e: cleanup: always return 0
+  e1000e: potentially incorrect return for
+    e1000_set_d3_lplu_state_ich8lan
+  e1000e: cleanup: remove unreachable statement
+  e1000e: cleanup: remove unnecessary variable ret_val
+  e1000e: cleanup: remove unnecessary test and return
+  e1000e: cleanup: remove unnecessary variable initializations
+  e1000e: cleanup: minor whitespace addition (insert blank line
+    separator)
+  e1000e: potentially incorrect return for e1000_init_hw_ich8lan
+  e1000e: potentially incorrect return for
+    e1000e_setup_fiber_serdes_link
+  e1000e: cleanup goto statements to exit points without common work
 
-Thanks Eric for bringing this to my attention.
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |   36 +---
+ drivers/net/ethernet/intel/e1000e/82571.c       |   36 ++---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |  220 +++++++++------------
+ drivers/net/ethernet/intel/e1000e/mac.c         |   25 +--
+ drivers/net/ethernet/intel/e1000e/manage.c      |   32 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   16 +-
+ drivers/net/ethernet/intel/e1000e/nvm.c         |   32 ++--
+ drivers/net/ethernet/intel/e1000e/phy.c         |  241 ++++++++++-------------
+ 8 files changed, 265 insertions(+), 373 deletions(-)
 
-Thanks Christian for the patch, I have added it to my queue.
-
---=-cyzzGJOgqhX1LWjBF7ML
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPOYPmAAoJEOVv75VaS+3OlKsQAKCD3iT8m8TLuSSUeoJQT9jo
-sKEdPW8E2p8P17mBk4CnZFeFzTaNqkjEbxBZLVV7fcRmjR/SfpkYa2n96uy5OqJD
-bIpBmF/qXx+kaue3E5B8dnkFmm0aLizlKFzwv2B49Mm0PweMXn9SBRUlLmAypzkm
-OGIpOdTavCarD6XI4AwonlQwTZNx93wKVwYJIdbbRf1ikY4fk78S5HG7kSuJFAHV
-+UOATOiAeavSXbpvmGnuxeg/ph71nJOeZxLNzETyyyrvLeu/gtwyqZrswM1QGnVH
-5XHv7GO5jYLFKwzuSbbe4eNi+eaHGgPSPnU/baj5uqraUpirE3p6TzpgArAwWt01
-jBSsbcS2Xx6bL5o913m3PBzZx8IbSxugQgNt1sHdklEeIhp3AwjSFo++ihw5e/NG
-SoF/f/tD/YPb5lbbAScx5s11KLFaAf9gryN4Fwap9krqoOtY0dRwVHccqIonJuZw
-H3PGzh1+WvBZG2LKDKfvyGcnk/V1ZJPKI0Tybc24pjiSbazTrt2+WLMSVVZdkJMw
-OccTj47xrxszZzH9d/Q7WpX/iz1V3d+18s6s7vX6gU9x8YzVkNRML1fywgoUfgZn
-uz1oiZ3WtPgNIralR/n4OC2YadU0ntnEJh16DgAF1CpMKtXOOl4cSO2GtuHItMhR
-2GmqGrwwI0bUu1N56g5j
-=n3IV
------END PGP SIGNATURE-----
-
---=-cyzzGJOgqhX1LWjBF7ML--
+-- 
+1.7.7.6
