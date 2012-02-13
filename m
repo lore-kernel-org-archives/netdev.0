@@ -1,54 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Mon, 13 Feb 2012 08:54:31 -0500
-Message-ID: <1329141272.9867.4.camel@mojatatu>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-	 <4F34042F.6090806@intel.com>
-	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
-	 <4F347D96.2020806@intel.com> <4F3499BC.8020609@intel.com>
-	 <1328887111.2075.43.camel@mojatatu>
-	 <20120210083917.5c69637b@nehalam.linuxnetplumber.net>
-Reply-To: jhs@mojatatu.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] gro: fix truesize underestimation
+Date: Mon, 13 Feb 2012 15:09:20 +0100
+Message-ID: <1329142160.2494.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:55538 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755422Ab2BMNyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 08:54:39 -0500
-In-Reply-To: <20120210083917.5c69637b@nehalam.linuxnetplumber.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:49469 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106Ab2BMOJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 09:09:24 -0500
+Received: by wics10 with SMTP id s10so3483369wic.19
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 06:09:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-10 at 08:39 -0800, Stephen Hemminger wrote:
+skb_gro_receive() doesnt update truesize properly when adding one skb to
+frag_list.
 
-> Some related discussion points:
->  * the bridge needs to support control from both userspace (MSTP, TRILL, ...)
->    and kernel space (offload etc)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/core/skbuff.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I think all are pretty much covered if you let some controler (I prefer
-user space) ADD/DEL/GET/Event on the fdb 
-TRILL really is outside the scope of this; from an encap/decap it
-probably needs to be YAND (Yet another netdev) and from a control side
-of things you need to just provide the above netlink ops(ADD, etC) on
-the fdb and let the controller worry about things (Actually you _may_
-need to have learning done outside of the kernel for TRILL)
-
->  * the bridge forwarding database is simpler and different than the existing
->    neighbor table, don't remember the details but last time I checked it
->    using neighbor table in bridge would be putting square peg in round hole.
-
-Agreed.
-
-cheers,
-jamal
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index da0c97f..f3a5307 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2906,7 +2906,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	nskb->prev = p;
+ 
+ 	nskb->data_len += p->len;
+-	nskb->truesize += p->len;
++	nskb->truesize += p->truesize;
+ 	nskb->len += p->len;
+ 
+ 	*head = nskb;
+@@ -2916,6 +2916,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	p = nskb;
+ 
+ merge:
++	p->truesize += skb->truesize - len;
+ 	if (offset > headlen) {
+ 		unsigned int eat = offset - headlen;
+ 
