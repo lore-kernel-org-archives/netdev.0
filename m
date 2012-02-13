@@ -1,51 +1,42 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 4/7] ixgbe: Add function for testing status bits in
- Rx descriptor
-Date: Mon, 13 Feb 2012 09:21:01 -0800
-Message-ID: <4F39467D.9070409@intel.com>
-References: <1328918904-11511-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1328918904-11511-5-git-send-email-jeffrey.t.kirsher@intel.com> <1328987174.325.18.camel@deadeye>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Mon, 13 Feb 2012 09:28:51 -0800
+Message-ID: <20120213092851.61a3d1b1@nehalam.linuxnetplumber.net>
+References: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35411 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:51564 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755411Ab2BMRVD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Feb 2012 12:21:03 -0500
-In-Reply-To: <1328987174.325.18.camel@deadeye>
+	id S1755181Ab2BMR2z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Feb 2012 12:28:55 -0500
+In-Reply-To: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/11/2012 11:06 AM, Ben Hutchings wrote:
-> On Fri, 2012-02-10 at 16:08 -0800, Jeff Kirsher wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> This change adds a small function for testing Rx status bits in the
->> descriptor.  The advantage to this is that we can avoid unnecessary
->> byte swaps on big endian systems.
-> [...]
->> +	/* unmap the sg list when FCPRSP is received */
->> +	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
-> [...]
->
-> cpu_to_le32() works as a compile-time constant when given a constant
-> argument.  You shouldn't need this ugly __constant_ prefix.
->
-> Ben.
->
+On Sun, 12 Feb 2012 11:13:42 -0800
+Greg Rose <gregory.v.rose@intel.com> wrote:
 
-If that is the case then what is the point of even having the
-__constant_ prefixed version of these macros anyway?  I ask because I
-know we have had people submit patches in the past replacing htons calls
-with __constant_htons and the like and nobody has ever spoken up before
-to indicate that these were unnecessary.
+> Implement a new nlattr type IFLA_EXT_MASK.  The mask is a 32 bit
+> value that can be used to indicate to the kernel that certain
+> extended ifinfo values are requested by the user application.
+> At this time the only mask value created is RTEXT_FILTER_VF to
+> indicate that the user wants the ifinfo dump to send information
+> about the VFs belonging to the interface.
+> 
+> I have kept the NLM_F_EXT nlmsg_flags bit to indicate to the kernel
+> that the extended ifinfo dump filter mask is present.  It does not
+> act as the filter itself which has changed since the first submission
+> of this RFC.  Older versions of user applications won't set this
+> flag which should fix the problem of some applications not allocating
+> a large enough buffer for all the extended interface information.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 
-Why don't you submit patches to get rid of these calls from the kernel
-all together and just replace references to them with their non-prefixed
-counterparts?  Then you wouldn't have to worry about changes like this
-being submitted in the future.
-
-Alex
+Is u32 going to be enough in next 5 years?
+Since it is TLV value it should work with bigger value;
+could you try sending a oversize attribute and code kernel to ignore
+bits it doesn't understand?
