@@ -1,48 +1,54 @@
-From: Christian Brunner <chb@muc.de>
-Subject: [PATCH] ixgbe: fix truesize calculation when merging active tail
- into lro skb
-Date: Mon, 13 Feb 2012 14:52:48 +0100
-Message-ID: <20120213135248.GA23457@sir.fritz.box>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Mon, 13 Feb 2012 08:54:31 -0500
+Message-ID: <1329141272.9867.4.camel@mojatatu>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+	 <4F34042F.6090806@intel.com>
+	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+	 <4F347D96.2020806@intel.com> <4F3499BC.8020609@intel.com>
+	 <1328887111.2075.43.camel@mojatatu>
+	 <20120210083917.5c69637b@nehalam.linuxnetplumber.net>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59303 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756567Ab2BMNxd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 08:53:33 -0500
-Received: by bkcjm19 with SMTP id jm19so4551316bkc.19
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 05:53:32 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55538 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755422Ab2BMNyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 08:54:39 -0500
+In-Reply-To: <20120210083917.5c69637b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm seeing some page allocation failures with the ixgbe driver under heavy
-load. While looking after it, I came accoss the truesize handling. I suspect,
-that there is a small misstake in ixgbe_merge_active_tail(). (But I'm not
-really sure).
+On Fri, 2012-02-10 at 08:39 -0800, Stephen Hemminger wrote:
 
-Truesize allocation of the skb may be larger than skb->len, because
-ixgbe is allocating PAGE_SIZE/2 for received fragments. Hence we 
-should use the truesize of the tail when merging.
+> Some related discussion points:
+>  * the bridge needs to support control from both userspace (MSTP, TRILL, ...)
+>    and kernel space (offload etc)
 
-Signed-off-by: Christian Brunner <chb@muc.de>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I think all are pretty much covered if you let some controler (I prefer
+user space) ADD/DEL/GET/Event on the fdb 
+TRILL really is outside the scope of this; from an encap/decap it
+probably needs to be YAND (Yet another netdev) and from a control side
+of things you need to just provide the above netlink ops(ADD, etC) on
+the fdb and let the controller worry about things (Actually you _may_
+need to have learning done outside of the kernel for TRILL)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a42b0b2..c4d25af 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1222,7 +1222,7 @@ static inline struct sk_buff *ixgbe_merge_active_tail(struct sk_buff *tail)
- 
- 	head->len += tail->len;
- 	head->data_len += tail->len;
--	head->truesize += tail->len;
-+	head->truesize += tail->truesize;
- 
- 	IXGBE_CB(tail)->head = NULL;
- 
--- 
-1.7.1
+>  * the bridge forwarding database is simpler and different than the existing
+>    neighbor table, don't remember the details but last time I checked it
+>    using neighbor table in bridge would be putting square peg in round hole.
+
+Agreed.
+
+cheers,
+jamal
