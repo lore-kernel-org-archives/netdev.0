@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN/hfcsusb: remove unused variable hfcsusb_rev
-Date: Mon, 13 Feb 2012 00:50:56 -0500 (EST)
-Message-ID: <20120213.005056.2043302555069385577.davem@davemloft.net>
-References: <1328886068-22646-1-git-send-email-danny.kukawka@bisect.de>
+Subject: Re: [net-next-2.6 PATCH] enic: Fix address deregistration for
+ sriov vf during port profile disassociate
+Date: Mon, 13 Feb 2012 00:51:12 -0500 (EST)
+Message-ID: <20120213.005112.91394233269551585.davem@davemloft.net>
+References: <20120212073737.7768.99208.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, dkukawka@suse.de, jj@chaosbits.net,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: danny.kukawka@bisect.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1328886068-22646-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roprabhu@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59206 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478Ab2BMFvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 00:51:16 -0500
+In-Reply-To: <20120212073737.7768.99208.stgit@savbu-pc100.cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Date: Fri, 10 Feb 2012 16:01:08 +0100
+From: Roopa Prabhu <roprabhu@cisco.com>
+Date: Sat, 11 Feb 2012 23:37:37 -0800
 
-> Removed unused variable hfcsusb_rev (-Wunused-variable) and
-> copied Revision info to file comment block above to keep the info.
+> From: Roopa Prabhu <roprabhu@cisco.com>
 > 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> This patch fixes erroneous PF address deregistration in cases where
+> a port profile disassociate is called on an already disassociated interface.
+> 
+> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+> Signed-off-by: sujith sankar <ssujith@cisco.com>
+> Signed-off-by: ChingWei Chang <cwchang@cisco.com>
 
 Applied.
