@@ -1,9 +1,10 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 2/2] bluetooth: Convert BT_DBG to pr_debug
-Date: Mon, 13 Feb 2012 07:37:37 +0100
-Message-ID: <1329115057.28848.52.camel@aeonflux>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] bluetooth: Use more current logging styles
+Date: Sun, 12 Feb 2012 22:46:13 -0800
+Message-ID: <1329115573.30878.1.camel@joe2Laptop>
 References: <cover.1329102581.git.joe@perches.com>
-	 <90fbd8a0b800c83f5ad1df7889dc9b11d7d9c588.1329102581.git.joe@perches.com>
+	 <44b8744770a55924c68f8ad0ca274816d2d6148f.1329102581.git.joe@perches.com>
+	 <1329114913.28848.50.camel@aeonflux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,25 +12,28 @@ Cc: "Gustavo F. Padovan" <padovan@profusion.mobi>,
 	"David S. Miller" <davem@davemloft.net>,
 	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <90fbd8a0b800c83f5ad1df7889dc9b11d7d9c588.1329102581.git.joe@perches.com>
+In-Reply-To: <1329114913.28848.50.camel@aeonflux>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Joe,
+On Mon, 2012-02-13 at 07:35 +0100, Marcel Holtmann wrote:
+> Why is this a good thing?
 
-> No need to obfuscate, just use the normal debugging macro.
-> 
-> Add "\n" to uses, align arguments, coalesce formats.
-> Fix a typo and fix a bad format extended by a line continuation.
+It's more similar to the rest of the <foo>_<level> uses.
+Other than that, it's a little smaller.
 
-what is this patch buying us. Nothing at all. I rather not do this and
-leave BT_DBG in it.
+> And in your patch we have bt_err not having \n\n in the end.
 
-The only useful change would be to move to dev_printk, but we are not
-there yet.
+There shouldn't be a newline at all with the
+actual functions bt_err or bt_info except
+at the uses.
 
-Regards
+This is the style used in pr_<level> so that
+it becomes possible to use pr_cont.
 
-Marcel
+> Size numbers look good. So I am all for this, but not just in one big
+> patch.
+
+I think the size is more or less irrelevant.
