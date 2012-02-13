@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c and
- stmmac_platform.c
-Date: Mon, 13 Feb 2012 00:51:49 -0500 (EST)
-Message-ID: <20120213.005149.1850141406944544909.davem@davemloft.net>
-References: <1329054341-1786-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH] sfc: mtd: Use MTD_FAIL_ADDR_UNKNOWN instead of
+ 0xffffffff
+Date: Mon, 13 Feb 2012 00:51:31 -0500 (EST)
+Message-ID: <20120213.005131.707348228946745194.davem@davemloft.net>
+References: <20120212111308.0267f200@pixies.home.jungo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org, trivial@kernel.org,
-	linux-kernel@vger.kernel.org
-To: standby24x7@gmail.com
+Cc: bhutchings@solarflare.com, linux-net-drivers@solarflare.com,
+	linux-mtd@lists.infradead.org, netdev@vger.kernel.org,
+	dedekind1@gmail.com
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59233 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59254 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752712Ab2BMFv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 00:51:57 -0500
-In-Reply-To: <1329054341-1786-1-git-send-email-standby24x7@gmail.com>
+	with ESMTP id S1751796Ab2BMFxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 00:53:45 -0500
+In-Reply-To: <20120212111308.0267f200@pixies.home.jungo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Sun, 12 Feb 2012 22:45:41 +0900
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Sun, 12 Feb 2012 11:13:08 +0200
 
-> Correct spelling "drivr" to "driver" in
-> drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-> ---
+> As of bb0eb217, MTD_FAIL_ADDR_UNKNOWN should be used to indicate mtd
+> erase failure not specific to any particular block.
+> 
+> Use MTD_FAIL_ADDR_UNKNOWN instead of 0xffffffff when setting
+> 'erase->fail_addr' in 'efx_mtd_erase()'.
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Applied.
+Ben, what would you like me to do with this one?
