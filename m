@@ -1,51 +1,56 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 0/5] NET: PHY names vs MDIO bus names regression fixes
-Date: Mon, 13 Feb 2012 23:00:27 +0100
-Message-ID: <201202132300.27736.florian@openwrt.org>
-References: <1329132204-27946-1-git-send-email-florian@openwrt.org> <20120213.160204.622185887026096350.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bonding with 3c59x driver
+Date: Mon, 13 Feb 2012 14:13:11 -0800
+Message-ID: <22039.1329171191@death.nxdomain>
+References: <201202132253.16496.jdelvare@suse.de>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	netdev@vger.kernel.org
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64676 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755732Ab2BMWAf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 17:00:35 -0500
-Received: by wgbdt10 with SMTP id dt10so5298548wgb.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 14:00:34 -0800 (PST)
-In-Reply-To: <20120213.160204.622185887026096350.davem@davemloft.net>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:55261 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757266Ab2BMWNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 17:13:21 -0500
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Mon, 13 Feb 2012 15:13:21 -0700
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id C6B94C90056
+	for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 17:13:17 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q1DMDHha246602
+	for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 17:13:17 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q1DMDFXS016091
+	for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 17:13:17 -0500
+In-reply-to: <201202132253.16496.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 13 f=E9vrier 2012 22:02:04, David Miller a =E9crit :
-> From: Florian Fainelli <florian@openwrt.org>
-> Date: Mon, 13 Feb 2012 12:23:19 +0100
->=20
-> > This patch serie aims at fixing the regressions introduced with the
-> > "use an unique MDIO bus name" patchset. Some drivers still formatte=
-d
-> > the PHY id to use the old bus name (e.g: "0" or "1") and therefore
-> > the PHY probing logic gets broken because their underlying MDIO bus
-> > name was changed too from "0" to <foo>-<id>.
-> >=20
-> > The offending patches got introduced during 3.3-rc1.
->=20
-> Then why the heck are you CC:'ing -stable on these patches?
+Jean Delvare <jdelvare@suse.de> wrote:
+>I am trying to do network bonding on top of 3com 3C905C ethernet 
+>adapters. I am facing the problem that network cable removal isn't 
+>detected. It is detected when using Realtek hardware with driver 8139too 
+>or VIA hardware with driver via-rhine, but no luck with driver 3c59x. 
+>I'm using bonding option miimon=100 for link detection.
+>
+>Does anyone know if this is a hardware limitation, or a missing feature 
+>of the 3c59x driver, or a bug in that driver?
 
-There was no reason, just some bad habit.
+	It just so happens that I was looking at 3c59x earlier today for
+something else.  It appears to run its internal link state detection on
+a 5 second timer, after which (in theory) bonding's miimon would notice
+(provided that the driver notices and calls netif_carrier_off).
 
->=20
-> We're still in the 3.3-rcX phase, so there is no other tree in
-> the world these patches should be applied to.
->=20
-> In any event, for networking stuff, you shouldn't be adding
-> the stable CC: anyways, I take care of all networking stable
-> submissions myself.
+	If that's not working, did you try use_carrier=0 to probe the
+mii register state directly?
 
-Allright, do you want me to resend these without the CC or are they oka=
-y as=20
-is?
---=20
-=46lorian
+	I have used 3c59x with bonding in the distant past, but I don't
+recall exactly what tweaks were necessary; it may have required
+use_carrier=0 to work at all.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
