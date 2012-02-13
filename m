@@ -1,41 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: fix matching of fwmark templates during scheduling
-Date: Mon, 13 Feb 2012 11:33:33 +0900
-Message-ID: <20120213023331.GA30193@verge.net.au>
-References: <1327628727-22482-1-git-send-email-horms@verge.net.au>
- <1327628727-22482-2-git-send-email-horms@verge.net.au>
- <20120209151507.GA5842@1984>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, stable@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120209151507.GA5842@1984>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/2] bluetooth: logging cleanups and trivial object shrinking
+Date: Sun, 12 Feb 2012 19:15:52 -0800
+Message-ID: <cover.1329102581.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	linux-bluetooth@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 09, 2012 at 04:15:07PM +0100, Pablo Neira Ayuso wrote:
-> On Fri, Jan 27, 2012 at 10:45:27AM +0900, Simon Horman wrote:
-> > From: Julian Anastasov <ja@ssi.bg>
-> > 
-> > 	Commit f11017ec2d1859c661f4e2b12c4a8d250e1f47cf (2.6.37)
-> > moved the fwmark variable in subcontext that is invalidated before
-> > reaching the ip_vs_ct_in_get call. As vaddr is provided as pointer
-> > in the param structure make sure the fwmark variable is in
-> > same context. As the fwmark templates can not be matched,
-> > more and more template connections are created and the
-> > controlled connections can not go to single real server.
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> 
-> Applied, thanks. I'll pass it to davem.
-> 
-> I'll pass it to stable once this hits Linus tree.
+Joe Perches (2):
+  bluetooth: Use more current logging styles
+  bluetooth: Convert BT_DBG to pr_debug
 
-Thanks
+ drivers/bluetooth/ath3k.c          |   56 ++++----
+ drivers/bluetooth/bcm203x.c        |   34 ++--
+ drivers/bluetooth/bfusb.c          |  102 +++++++------
+ drivers/bluetooth/bluecard_cs.c    |   17 +-
+ drivers/bluetooth/bpa10x.c         |   48 +++---
+ drivers/bluetooth/bt3c_cs.c        |   36 +++--
+ drivers/bluetooth/btmrvl_debugfs.c |    2 +-
+ drivers/bluetooth/btmrvl_main.c    |  102 +++++++------
+ drivers/bluetooth/btmrvl_sdio.c    |  149 +++++++++---------
+ drivers/bluetooth/btsdio.c         |   26 ++--
+ drivers/bluetooth/btuart_cs.c      |   23 ++--
+ drivers/bluetooth/btusb.c          |   86 +++++-----
+ drivers/bluetooth/btwilink.c       |   46 +++---
+ drivers/bluetooth/dtl1_cs.c        |   19 ++-
+ drivers/bluetooth/hci_ath.c        |   14 +-
+ drivers/bluetooth/hci_bcsp.c       |   78 +++++-----
+ drivers/bluetooth/hci_h4.c         |   18 +-
+ drivers/bluetooth/hci_ldisc.c      |   37 +++---
+ drivers/bluetooth/hci_ll.c         |   83 ++++++-----
+ drivers/bluetooth/hci_vhci.c       |    6 +-
+ include/net/bluetooth/bluetooth.h  |   10 +-
+ include/net/bluetooth/hci_core.h   |    6 +-
+ include/net/bluetooth/l2cap.h      |    2 +-
+ net/bluetooth/af_bluetooth.c       |   20 ++--
+ net/bluetooth/bnep/core.c          |   30 ++--
+ net/bluetooth/bnep/netdev.c        |   14 +-
+ net/bluetooth/bnep/sock.c          |   10 +-
+ net/bluetooth/cmtp/capi.c          |   50 +++---
+ net/bluetooth/cmtp/core.c          |   31 ++--
+ net/bluetooth/cmtp/sock.c          |   10 +-
+ net/bluetooth/hci_conn.c           |   58 ++++----
+ net/bluetooth/hci_core.c           |  175 +++++++++++----------
+ net/bluetooth/hci_event.c          |  298 ++++++++++++++++++------------------
+ net/bluetooth/hci_sock.c           |   26 ++--
+ net/bluetooth/hci_sysfs.c          |   10 +-
+ net/bluetooth/hidp/core.c          |   58 ++++---
+ net/bluetooth/hidp/sock.c          |   10 +-
+ net/bluetooth/l2cap_core.c         |  221 ++++++++++++++-------------
+ net/bluetooth/l2cap_sock.c         |   40 +++---
+ net/bluetooth/lib.c                |   25 +++-
+ net/bluetooth/mgmt.c               |   95 ++++++------
+ net/bluetooth/rfcomm/core.c        |  180 +++++++++++-----------
+ net/bluetooth/rfcomm/sock.c        |   57 ++++----
+ net/bluetooth/rfcomm/tty.c         |  106 +++++++-------
+ net/bluetooth/sco.c                |   77 +++++-----
+ net/bluetooth/smp.c                |   47 +++---
+ 46 files changed, 1360 insertions(+), 1288 deletions(-)
+
+-- 
+1.7.8.111.gad25c.dirty
