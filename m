@@ -1,41 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tcp: fix range tcp_shifted_skb() passes to
- tcp_sacktag_one()
-Date: Mon, 13 Feb 2012 01:01:15 -0500 (EST)
-Message-ID: <20120213.010115.212510396679401761.davem@davemloft.net>
-References: <1329107830-3351-1-git-send-email-ncardwell@google.com>
-	<1329107830-3351-2-git-send-email-ncardwell@google.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 0/2] Adding new TI Common Platform ethernet SWitch driver
+Date: Mon, 13 Feb 2012 11:34:19 +0530
+Message-ID: <1329113061-13026-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	nanditad@google.com, ycheng@google.com, therbert@google.com,
-	subramanian.vijay@gmail.com
-To: ncardwell@google.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59311 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750875Ab2BMGBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2012 01:01:30 -0500
-In-Reply-To: <1329107830-3351-2-git-send-email-ncardwell@google.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:50481 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875Ab2BMGE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Feb 2012 01:04:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sun, 12 Feb 2012 23:37:10 -0500
+The following series contains driver implementation for TI Common Platform
+ethernet SWitch (CPSW) driver.
 
-> Fix the newly-SACKed range to be the range of newly-shifted bytes.
-> 
-> Previously - since 832d11c5cd076abc0aa1eaf7be96c81d1a59ce41 -
-> tcp_shifted_skb() incorrectly called tcp_sacktag_one() with the start
-> and end sequence numbers of the skb it passes in set to the range just
-> beyond the range that is newly-SACKed.
-> 
-> This commit also removes a special-case adjustment to lost_cnt_hint in
-> tcp_shifted_skb() since the pre-existing adjustment of lost_cnt_hint
-> in tcp_sacktag_one() now properly handles this things now that the
-> correct start sequence number is passed in.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+CPSW is found in following SoC.
+* AM335X - http://www.ti.com/litv/pdf/spruh73c
+* DM814X - http://www.ti.com/litv/pdf/sprugz8
 
-Looks great, applied and queued up for -stable.
+CPSW:
+The three port switch gigabit ethernet subsystem provides ethernet packet
+communication and can be configured as an ethernet switch.  It
+supports 10/100/1000 Mbps. It provides the gigabit media independent
+interface (G/MII), reduced gigabit media independent interface (RGMII),
+reduced media independent interface (RMII), the management data input
+output (MDIO) for physical layer device (PHY) management.
+
+Mugunthan V N (2):
+  netdev: driver: ethernet: add cpsw address lookup engine support
+  netdev: driver: ethernet: Add TI CPSW driver
+
+ drivers/net/ethernet/ti/Kconfig    |   11 +
+ drivers/net/ethernet/ti/Makefile   |    2 +
+ drivers/net/ethernet/ti/cpsw.c     | 1095 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.c |  505 +++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.h |   99 ++++
+ include/linux/platform_data/cpsw.h |   55 ++
+ 6 files changed, 1767 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/ti/cpsw.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.h
+ create mode 100644 include/linux/platform_data/cpsw.h
