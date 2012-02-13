@@ -1,39 +1,130 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: tcp: lost_cnt_hint is -1 due to tcp_shifted_skb() processing
-Date: Sun, 12 Feb 2012 22:47:32 -0500
-Message-ID: <CADVnQymZ-KDsvCW=G4V+GO2yAuU4_5oaZiHLno-ywv3+S0536g@mail.gmail.com>
-References: <CAGK4HS9HxYu6TKX=hvchuxHz7C0vgfhC+2xX2+z8RQTDT1E1Fw@mail.gmail.com>
+Subject: [PATCH 1/2] tcp: allow tcp_sacktag_one() to tag ranges not aligned with skbs
+Date: Sun, 12 Feb 2012 23:37:09 -0500
+Message-ID: <1329107830-3351-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:32877 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753298Ab2BMDrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 22:47:33 -0500
-Received: by qadc10 with SMTP id c10so1400753qad.19
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2012 19:47:32 -0800 (PST)
-In-Reply-To: <CAGK4HS9HxYu6TKX=hvchuxHz7C0vgfhC+2xX2+z8RQTDT1E1Fw@mail.gmail.com>
+Received: from mail-gy0-f202.google.com ([209.85.160.202]:49659 "EHLO
+	mail-gy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754793Ab2BMEh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2012 23:37:26 -0500
+Received: by ghrr17 with SMTP id r17so496162ghr.1
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2012 20:37:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 12, 2012 at 8:13 PM, Vijay Subramanian
-<subramanian.vijay@gmail.com> wrote:
-> Hi,
->
-> With the current net-next, I noticed tp->lost_cnt_hint is -1 in some cases which
-> looks like a bug.
+This commit allows callers of tcp_sacktag_one() to pass in sequence
+ranges that do not align with skb boundaries, as tcp_shifted_skb()
+needs to do in an upcoming fix in this patch series.
 
-Hi Vijay,
+In fact, now tcp_sacktag_one() does not need to depend on an input skb
+at all, which makes its semantics and dependencies more clear.
 
-I recently noticed the same issue, and our team has been working on a
-fix as well. I think your analysis is mostly correct, except that the
-suggested fix of moving the call to tcp_sacktag_one() earlier in
-tcp_shifted_skb() also will not work, since the end sequence number of
-the skb is not the correct value to use in tcp_sacktag_one() (in
-addition to the beginning sequence number being incorrect, as you
-noted). Tongith I'll send out the patch that we have been working
-with.
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c |   36 ++++++++++++++++++++++--------------
+ 1 files changed, 22 insertions(+), 14 deletions(-)
 
-neal
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 976034f..4e8a81f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1307,25 +1307,26 @@ static int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
+ 	return in_sack;
+ }
+ 
+-static u8 tcp_sacktag_one(const struct sk_buff *skb, struct sock *sk,
+-			  struct tcp_sacktag_state *state,
++/* Mark the given newly-SACKed range as such, adjusting counters and hints. */
++static u8 tcp_sacktag_one(struct sock *sk,
++			  struct tcp_sacktag_state *state, u8 sacked,
++			  u32 start_seq, u32 end_seq,
+ 			  int dup_sack, int pcount)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	u8 sacked = TCP_SKB_CB(skb)->sacked;
+ 	int fack_count = state->fack_count;
+ 
+ 	/* Account D-SACK for retransmitted packet. */
+ 	if (dup_sack && (sacked & TCPCB_RETRANS)) {
+ 		if (tp->undo_marker && tp->undo_retrans &&
+-		    after(TCP_SKB_CB(skb)->end_seq, tp->undo_marker))
++		    after(end_seq, tp->undo_marker))
+ 			tp->undo_retrans--;
+ 		if (sacked & TCPCB_SACKED_ACKED)
+ 			state->reord = min(fack_count, state->reord);
+ 	}
+ 
+ 	/* Nothing to do; acked frame is about to be dropped (was ACKed). */
+-	if (!after(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
++	if (!after(end_seq, tp->snd_una))
+ 		return sacked;
+ 
+ 	if (!(sacked & TCPCB_SACKED_ACKED)) {
+@@ -1344,13 +1345,13 @@ static u8 tcp_sacktag_one(const struct sk_buff *skb, struct sock *sk,
+ 				/* New sack for not retransmitted frame,
+ 				 * which was in hole. It is reordering.
+ 				 */
+-				if (before(TCP_SKB_CB(skb)->seq,
++				if (before(start_seq,
+ 					   tcp_highest_sack_seq(tp)))
+ 					state->reord = min(fack_count,
+ 							   state->reord);
+ 
+ 				/* SACK enhanced F-RTO (RFC4138; Appendix B) */
+-				if (!after(TCP_SKB_CB(skb)->end_seq, tp->frto_highmark))
++				if (!after(end_seq, tp->frto_highmark))
+ 					state->flag |= FLAG_ONLY_ORIG_SACKED;
+ 			}
+ 
+@@ -1368,8 +1369,7 @@ static u8 tcp_sacktag_one(const struct sk_buff *skb, struct sock *sk,
+ 
+ 		/* Lost marker hint past SACKed? Tweak RFC3517 cnt */
+ 		if (!tcp_is_fack(tp) && (tp->lost_skb_hint != NULL) &&
+-		    before(TCP_SKB_CB(skb)->seq,
+-			   TCP_SKB_CB(tp->lost_skb_hint)->seq))
++		    before(start_seq, TCP_SKB_CB(tp->lost_skb_hint)->seq))
+ 			tp->lost_cnt_hint += pcount;
+ 
+ 		if (fack_count > tp->fackets_out)
+@@ -1425,7 +1425,11 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	/* We discard results */
+-	tcp_sacktag_one(skb, sk, state, dup_sack, pcount);
++	tcp_sacktag_one(sk, state,
++			TCP_SKB_CB(skb)->sacked,
++			TCP_SKB_CB(skb)->seq,
++			TCP_SKB_CB(skb)->end_seq,
++			dup_sack, pcount);
+ 
+ 	/* Difference in this won't matter, both ACKed by the same cumul. ACK */
+ 	TCP_SKB_CB(prev)->sacked |= (TCP_SKB_CB(skb)->sacked & TCPCB_EVER_RETRANS);
+@@ -1664,10 +1668,14 @@ static struct sk_buff *tcp_sacktag_walk(struct sk_buff *skb, struct sock *sk,
+ 			break;
+ 
+ 		if (in_sack) {
+-			TCP_SKB_CB(skb)->sacked = tcp_sacktag_one(skb, sk,
+-								  state,
+-								  dup_sack,
+-								  tcp_skb_pcount(skb));
++			TCP_SKB_CB(skb)->sacked =
++				tcp_sacktag_one(sk,
++						state,
++						TCP_SKB_CB(skb)->sacked,
++						TCP_SKB_CB(skb)->seq,
++						TCP_SKB_CB(skb)->end_seq,
++						dup_sack,
++						tcp_skb_pcount(skb));
+ 
+ 			if (!before(TCP_SKB_CB(skb)->seq,
+ 				    tcp_highest_sack_seq(tp)))
+-- 
+1.7.7.3
