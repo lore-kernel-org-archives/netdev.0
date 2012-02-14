@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next RFC v2 0/2] Patch series to add VF privilege support
-Date: Tue, 14 Feb 2012 14:37:46 -0500 (EST)
-Message-ID: <20120214.143746.956650123702374199.davem@davemloft.net>
-References: <20120214192623.GA14138@akhaparde-VBox>
+Subject: Re: [PATCH] bnx2x: remove the 'poll' module option
+Date: Tue, 14 Feb 2012 14:40:08 -0500 (EST)
+Message-ID: <20120214.144008.1160894285989893230.davem@davemloft.net>
+References: <1329246346-9993-1-git-send-email-mschmidt@redhat.com>
+	<1329246842.30697.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajit.khaparde@Emulex.Com
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org, gideonn@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48474 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48496 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759964Ab2BNThw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:37:52 -0500
-In-Reply-To: <20120214192623.GA14138@akhaparde-VBox>
+	with ESMTP id S1754001Ab2BNTkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:40:13 -0500
+In-Reply-To: <1329246842.30697.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
-Date: Tue, 14 Feb 2012 13:26:23 -0600
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Tue, 14 Feb 2012 21:14:02 +0200
 
-> Adds support to configure privileges for VFs.
+> On Tue, 2012-02-14 at 20:05 +0100, Michal Schmidt wrote:
+>> 'poll' was a debugging option, but turning it on these days leads to
+>> kernel panic. Remove it.
+>> 
+>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> 
+> Michal - thanks for taking care of it. Your help is truly appreciated.
+> 
+> Acked-by Eilon Greenstein <eilong@broadcom.com>
 
-Thanks for not explaining what the hell VF privileges are nor
-why we're even interested in supporting it.
+Applied.
