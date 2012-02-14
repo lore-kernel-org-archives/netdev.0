@@ -1,33 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 (net.git)] stmmac update Feb_2012
-Date: Tue, 14 Feb 2012 14:16:20 -0500 (EST)
-Message-ID: <20120214.141620.1418537030681644675.davem@davemloft.net>
-References: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [net-next RFC v2 0/2] Patch series to add VF privilege support
+Date: Tue, 14 Feb 2012 13:26:23 -0600
+Message-ID: <20120214192623.GA14138@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757072Ab2BNTQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:16:30 -0500
-In-Reply-To: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
+Received: from exht1.emulex.com ([138.239.113.183]:31047 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757105Ab2BNT1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:27:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 14 Feb 2012 08:11:44 +0100
+Adds support to configure privileges for VFs.
 
-> This updates the stmmac adding some patches already reviewed in this
-> mailing list by D. Miller.  I've rebased these patches against this
-> recent patch: [PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c
-> and stmmac_platform.c applied by Maintainer (to avoid conflicts in
-> the plt and pci files).
-
-You're telling me in the subject line you want these patches applied
-to net.git but they don't actually apply cleanly to that tree.
-
-I can't tell you how insanely irritating this kind of thing is, it's
-where most of my time gets wasted.
+Thanks
+-Ajit
