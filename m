@@ -1,32 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: netpoll_poll_dev() should access dev->flags
-Date: Tue, 14 Feb 2012 15:25:04 -0500 (EST)
-Message-ID: <20120214.152504.555306961508318697.davem@davemloft.net>
-References: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120214.144251.1481952602061158777.davem@davemloft.net>
-	<1329250319.2555.4.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] 3c59x: shorten timer period for slave devices
+Date: Tue, 14 Feb 2012 21:27:09 +0100
+Message-ID: <1329251229.2555.10.camel@edumazet-laptop>
+References: <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <201202141350.57657.jdelvare@suse.de> <20120214133418.GJ32155@v3-1054>
+	 <20120214.144335.558771219791311889.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: eric.dumazet@gmail.com
+Cc: klassert@mathematik.tu-chemnitz.de, jdelvare@suse.de,
+	fubar@us.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48964 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755510Ab2BNU0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:26:12 -0500
-In-Reply-To: <1329250319.2555.4.camel@edumazet-laptop>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:40354 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757241Ab2BNU1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:27:14 -0500
+Received: by wics10 with SMTP id s10so89625wic.19
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 12:27:12 -0800 (PST)
+In-Reply-To: <20120214.144335.558771219791311889.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Feb 2012 21:11:59 +0100
+Jean Delvare reported bonding on top of 3c59x adapters was not detecting
+network cable removal fast enough.
 
-> commit 5a698af53f (bond: service netpoll arp queue on master device)
-> tested IFF_SLAVE flag against dev->priv_flags instead of dev->flags 
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: WANG Cong <amwang@redhat.com>
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+3c59x indeed uses a 60 seconds timer to check link status if carrier is
+on, and 5 seconds if carrier is off.
 
-Applied and queued up for -stable, thanks Eric.
+This patch reduces timer period to 5 seconds if device is a bonding
+slave.
+
+Reported-by: Jean Delvare <jdelvare@suse.de>
+Acked-by: Jean Delvare <jdelvare@suse.de>
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ethernet/3com/3c59x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 1282f04..e463d10 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
+ 		ok = 1;
+ 	}
+ 
+-	if (!netif_carrier_ok(dev))
++	if (dev->flags & IFF_SLAVE || !netif_carrier_ok(dev))
+ 		next_tick = 5*HZ;
+ 
+ 	if (vp->medialock)
