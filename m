@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] mlx4: Bug fixes and cleanups
-Date: Tue, 14 Feb 2012 15:22:38 -0500 (EST)
-Message-ID: <20120214.152238.470074857804516115.davem@davemloft.net>
-References: <4F3A8DB5.3020703@mellanox.co.il>
-	<20120214.143023.281327914225614215.davem@davemloft.net>
-	<74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
+Subject: Re: [PATCH] netpoll: netpoll_poll_dev() should access dev->flags
+Date: Tue, 14 Feb 2012 15:25:04 -0500 (EST)
+Message-ID: <20120214.152504.555306961508318697.davem@davemloft.net>
+References: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20120214.144251.1481952602061158777.davem@davemloft.net>
+	<1329250319.2555.4.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.com, netdev@vger.kernel.org
-To: eugenia@mellanox.com
+Cc: amwang@redhat.com, netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48927 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48964 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757071Ab2BNUWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:22:47 -0500
-In-Reply-To: <74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
+	with ESMTP id S1755510Ab2BNU0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:26:12 -0500
+In-Reply-To: <1329250319.2555.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
-Date: Tue, 14 Feb 2012 20:00:05 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Feb 2012 21:11:59 +0100
 
-> Some of the patches fix very harmful memory leaks and corruptions.
+> commit 5a698af53f (bond: service netpoll arp queue on master device)
+> tested IFF_SLAVE flag against dev->priv_flags instead of dev->flags 
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: WANG Cong <amwang@redhat.com>
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Then submit the patches properly, don't mix cleanups in there if it
-matters so much to you.
+Applied and queued up for -stable, thanks Eric.
