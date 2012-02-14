@@ -1,58 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ixgbe: fix truesize calculation when merging active
- tail into lro skb
-Date: Tue, 14 Feb 2012 18:39:32 +0100
-Message-ID: <1329241172.4818.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20120213135248.GA23457@sir.fritz.box>
-	  <1329142322.2494.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1329169382.2307.14.camel@jtkirshe-mobl> <4F3A9806.2000102@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [patch net-next] cxgb3: update firmware version
+Date: Tue, 14 Feb 2012 10:17:27 -0800
+Message-ID: <4F3AA537.4050700@hp.com>
+References: <20120213202846.631.30806.stgit@speedy5.asicdesigners.com> <1329165817.2092.62.camel@shinybook.infradead.org> <4F398303.1030606@chelsio.com> <1329184754.3048.33.camel@deadeye> <4F39E7C9.20901@chelsio.com> <1329196116.3048.66.camel@deadeye> <4F39F75D.6030107@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jeffrey.t.kirsher@intel.com, Christian Brunner <chb@muc.de>,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:55076 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759047Ab2BNRjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 12:39:36 -0500
-Received: by bkcjm19 with SMTP id jm19so217119bkc.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 09:39:35 -0800 (PST)
-In-Reply-To: <4F3A9806.2000102@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <divy@chelsio.com>,
+	David Woodhouse <dwmw2@infradead.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steve Wise <swise@opengridcomputing.com>, nhorman@tuxdriver.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F39F75D.6030107@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 14 f=C3=A9vrier 2012 =C3=A0 09:21 -0800, Alexander Duyck a =C3=
-=A9crit :
+What does an end-user/customer see and do?  When they are told that 
+version the firmware, specified down to the fix level, fixes a problem 
+they are having, how will they know that firmware blob filename 
+drvfw-X.bin on a download/archive site has that fix?  Yes, the support 
+folks can say "It is the drcfw-X.bin file which is 12345 bytes in size 
+with the MD5sum of <blah> but the principle of the telephone game 
+dictates the size and/or MD5sum information will drop as "the word" 
+passes from one person to another. And one cannot run 
+ethtool_ops::get_drvinfo against a website.  Two versions may indeed be 
+"compatible" in terms of interfaces, but they won't be identical in 
+terms of desirability.  As such, for them to be contained in files with 
+identical names just seems like asking for confusion.
 
-> The code itself is correct, but the comment isn't.  This code path is
-> applied only to the case where we are not using pages.  The default R=
-x
-> buffer size is actually about 3K when RSC is in use, which means
-> truesize is about 4.25K per buffer.
->=20
+Firmware is something of a tiny kernel no?  Would we have everyone name 
+vmlinux files with just a major number?
 
-Hmm... any reason its not 2.25K per buffer ? (assuming MTU=3D1500)
-
-Do you really need this code in ixgbe_set_rx_buffer_len() ?
-
-                /*
-                 * Make best use of allocation by using all but 1K of a
-                 * power of 2 allocation that will be used for skb->hea=
-d.
-                 */
-                else if (max_frame <=3D IXGBE_RXBUFFER_3K)
-                        rx_buf_len =3D IXGBE_RXBUFFER_3K;
-                else if (max_frame <=3D IXGBE_RXBUFFER_7K)
-                        rx_buf_len =3D IXGBE_RXBUFFER_7K;
-                else if (max_frame <=3D IXGBE_RXBUFFER_15K)
-                        rx_buf_len =3D IXGBE_RXBUFFER_15K;
-                else
-                        rx_buf_len =3D IXGBE_MAX_RXBUFFER;
-
-Why not using :
-		rx_buf_len =3D max_frame;
-
-and let kmalloc() do its best ?
+rick jones
