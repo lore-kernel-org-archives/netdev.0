@@ -1,51 +1,48 @@
 From: alekcejk@googlemail.com
-Subject: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Tue, 14 Feb 2012 16:09:59 +0200
-Message-ID: <2181120.DTPSTq3Adr@localhost.localdomain>
-References: <8633039.fHPLx6GNq3@localhost.localdomain> <2578783.aLeNzacy8Q@localhost.localdomain> <1329198902.24837.11.camel@edumazet-laptop>
+Subject: Re: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Tue, 14 Feb 2012 16:28:20 +0200
+Message-ID: <5133914.uYLb0gnNTc@localhost.localdomain>
+References: <8633039.fHPLx6GNq3@localhost.localdomain> <1920135.kl3o7Tt79c@localhost.localdomain> <1329228798.4818.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63898 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:36445 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755616Ab2BNOKU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:10:20 -0500
-Received: by bkcjm19 with SMTP id jm19so5480022bkc.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 06:10:19 -0800 (PST)
-In-Reply-To: <1329198902.24837.11.camel@edumazet-laptop>
+	with ESMTP id S1751337Ab2BNO2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:28:49 -0500
+Received: by bkcjm19 with SMTP id jm19so9279bkc.19
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 06:28:48 -0800 (PST)
+In-Reply-To: <1329228798.4818.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 01:49 +0200, alekcejk@googlemail=
-=2Ecom a
->=20
-> =C3=A9crit :
-> > =D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=
-=D1=82 =D0=9F=D0=BE=D0=BD=D0=B5=D0=B4=D0=B5=D0=BB=D1=8C=D0=BD=D0=B8=D0=BA=
- 13 =D1=84=D0=B5=D0=B2=D1=80=D0=B0=D0=BB=D1=8F 2012 23:44:16 =D0=B2=D1=8B=
- =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=D0=B8:
-> > > Le lundi 13 f=C3=A9vrier 2012 =C3=A0 21:18 +0100, Eric Dumazet a =
-=C3=A9crit :
-> > > I wonder if the other side of your link believes link is in half =
-duplex
-> > > mode... Could you please check ?
-> >=20
-> > I have no access to other side, the only I can check is ethtool and=
- mii-diag (kernel-3.2.3):
-> I have seen numerous duplex mismatches in some data centers after a
-> reboot. One side believes link is full duplex, the other side believe=
-s
-> its half duplex.
->=20
-
-Was no such problems here.
-
-> You could setup a pktgen/hping3 to send 2.000 small frames per second=
- to
-> your gateway and check if you still can download at normal speeds.
->=20
-> hping3 --udp -s 9 -p 9 -i u500 192.168.1.1
-
-Download speed not changed when running this command for my gw.
+0JIg0YHQvtC+0LHRidC10L3QuNC4INC+0YIg0JLRgtC+0YDQvdC40LogMTQg0YTQtdCy0YDQsNC7
+0Y8gMjAxMiAxNToxMzoxOCDQstGLINC90LDQv9C40YHQsNC70Lg6Cj4gTGUgbWFyZGkgMTQgZsOp
+dnJpZXIgMjAxMiDDoCAxNjowOCArMDIwMCwgYWxla2NlamtAZ29vZ2xlbWFpbC5jb20gYQo+IAo+
+IMOpY3JpdCA6Cj4gPiDQkiDRgdC+0L7QsdGJ0LXQvdC40Lgg0L7RgiDQktGC0L7RgNC90LjQuiAx
+NCDRhNC10LLRgNCw0LvRjyAyMDEyIDA2OjU1OjAyINCy0Ysg0L3QsNC/0LjRgdCw0LvQuDoKPiA+
+ID4gTGUgbWFyZGkgMTQgZsOpdnJpZXIgMjAxMiDDoCAwMTo0OSArMDIwMCwgYWxla2NlamtAZ29v
+Z2xlbWFpbC5jb20gYQo+ID4gPiAKPiA+ID4gw6ljcml0IDoKPiA+ID4gPiDQkiDRgdC+0L7QsdGJ
+0LXQvdC40Lgg0L7RgiDQn9C+0L3QtdC00LXQu9GM0L3QuNC6IDEzINGE0LXQstGA0LDQu9GPIDIw
+MTIgMjM6NDQ6MTYg0LLRiyDQvdCw0L/QuNGB0LDQu9C4Ogo+ID4gPiA+ID4gTGUgbHVuZGkgMTMg
+ZsOpdnJpZXIgMjAxMiDDoCAyMToxOCArMDEwMCwgRXJpYyBEdW1hemV0IGEgw6ljcml0IDoKPiA+
+ID4gPiA+IEkgd29uZGVyIGlmIHRoZSBvdGhlciBzaWRlIG9mIHlvdXIgbGluayBiZWxpZXZlcyBs
+aW5rIGlzIGluIGhhbGYgZHVwbGV4Cj4gPiA+ID4gPiBtb2RlLi4uIENvdWxkIHlvdSBwbGVhc2Ug
+Y2hlY2sgPwo+ID4gPiA+IAo+ID4gPiA+IEkgaGF2ZSBubyBhY2Nlc3MgdG8gb3RoZXIgc2lkZSwg
+dGhlIG9ubHkgSSBjYW4gY2hlY2sgaXMgZXRodG9vbCBhbmQgbWlpLWRpYWcgKGtlcm5lbC0zLjIu
+Myk6Cj4gPiA+IEkgaGF2ZSBzZWVuIG51bWVyb3VzIGR1cGxleCBtaXNtYXRjaGVzIGluIHNvbWUg
+ZGF0YSBjZW50ZXJzIGFmdGVyIGEKPiA+ID4gcmVib290LiBPbmUgc2lkZSBiZWxpZXZlcyBsaW5r
+IGlzIGZ1bGwgZHVwbGV4LCB0aGUgb3RoZXIgc2lkZSBiZWxpZXZlcwo+ID4gPiBpdHMgaGFsZiBk
+dXBsZXguCj4gPiAKPiA+IFdhcyBubyBzdWNoIHByb2JsZW1zIGhlcmUuCj4gPiAKPiA+ID4gWW91
+IGNvdWxkIHNldHVwIGEgcGt0Z2VuL2hwaW5nMyB0byBzZW5kIDIuMDAwIHNtYWxsIGZyYW1lcyBw
+ZXIgc2Vjb25kIHRvCj4gPiA+IHlvdXIgZ2F0ZXdheSBhbmQgY2hlY2sgaWYgeW91IHN0aWxsIGNh
+biBkb3dubG9hZCBhdCBub3JtYWwgc3BlZWRzLgo+ID4gPiAKPiA+ID4gaHBpbmczIC0tdWRwIC1z
+IDkgLXAgOSAtaSB1NTAwIDE5Mi4xNjguMS4xCj4gPiAKPiA+IERvd25sb2FkIHNwZWVkIG5vdCBj
+aGFuZ2VkIHdoZW4gcnVubmluZyB0aGlzIGNvbW1hbmQgZm9yIG15IGd3Lgo+IAo+IEkgbWVhbiB3
+aXRoIGEgMy4yIGtlcm5lbCBvZiBjb3Vyc2UgOykKClllcywgcmVzdWx0cyBhcmUgdGhlIHNhbWUg
+Zm9yIDMuMi4zIGtlcm5lbCB3aXRoIGFuZCB3aXRob3V0IHJ1bm5pbmcKdGhpcyBjb21tYW5kIGFu
+ZCBmb3IgZ2VvZ3JhcGhpY2FsbHkgY2xvc2UgdG8gbWUgc2VydmVyIChzcGVlZCBub3QgbGltaXRl
+ZCkKYW5kIGZvciBzZXJ2ZXIgbm90IGNsb3NlIHRvIG1lIHNwZWVkIGxpbWl0YXRpb24gdGhlIHNh
+bWUu
