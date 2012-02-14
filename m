@@ -1,52 +1,53 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] RxRPC: Fix kcalloc parameters swapped
-Date: Tue, 14 Feb 2012 14:19:14 +0800
-Message-ID: <1329200354.3806.1.camel@phoenix>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: fix tcp_shifted_skb() adjustment of lost_cnt_hint for FACK
+Date: Tue, 14 Feb 2012 01:22:08 -0500
+Message-ID: <1329200528-19718-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	David Howells <dhowells@redhat.com>,
-	Mimi Zohar <zohar@us.ibm.com>, Thomas Meyer <thomas@m3y3r.de>,
-	Anton Blanchard <anton@samba.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:61414 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396Ab2BNGTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 01:19:22 -0500
+Received: from mail-gy0-f202.google.com ([209.85.160.202]:63957 "EHLO
+	mail-gy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185Ab2BNGWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 01:22:11 -0500
+Received: by ghrr17 with SMTP id r17so631360ghr.1
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 22:22:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first parameter should be "number of elements" and the second parameter
-should be "element size".
+This commit ensures that lost_cnt_hint is correctly updated in
+tcp_shifted_skb() for FACK TCP senders. The lost_cnt_hint adjustment
+in tcp_sacktag_one() only applies to non-FACK senders, so FACK senders
+need their own adjustment.
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
+This applies the spirit of 1e5289e121372a3494402b1b131b41bfe1cf9b7f -
+except now that the sequence range passed into tcp_sacktag_one() is
+correct we need only have a special case adjustment for FACK.
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
 ---
- net/rxrpc/ar-key.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_input.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index 4cba13e..ae3a035 100644
---- a/net/rxrpc/ar-key.c
-+++ b/net/rxrpc/ar-key.c
-@@ -232,7 +232,7 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
- 	if (toklen <= (n_parts + 1) * 4)
- 		return -EINVAL;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8116d06..53c8ce4 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1403,6 +1403,10 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
  
--	princ->name_parts = kcalloc(sizeof(char *), n_parts, GFP_KERNEL);
-+	princ->name_parts = kcalloc(n_parts, sizeof(char *), GFP_KERNEL);
- 	if (!princ->name_parts)
- 		return -ENOMEM;
+ 	BUG_ON(!pcount);
  
-@@ -355,7 +355,7 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
++	/* Adjust hint for FACK. Non-FACK is handled in tcp_sacktag_one(). */
++	if (tcp_is_fack(tp) && (skb == tp->lost_skb_hint))
++		tp->lost_cnt_hint += pcount;
++
+ 	TCP_SKB_CB(prev)->end_seq += shifted;
+ 	TCP_SKB_CB(skb)->seq += shifted;
  
- 		_debug("n_elem %d", n_elem);
- 
--		td = kcalloc(sizeof(struct krb5_tagged_data), n_elem,
-+		td = kcalloc(n_elem, sizeof(struct krb5_tagged_data),
- 			     GFP_KERNEL);
- 		if (!td)
- 			return -ENOMEM;
 -- 
-1.7.5.4
+1.7.7.3
