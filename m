@@ -1,38 +1,31 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Question with commit 299b0767(ipv6: Fix IPsec slowpath
- fragmentation problem)
-Date: Tue, 14 Feb 2012 12:04:14 +0100
-Message-ID: <20120214110414.GA31660@secunet.com>
-References: <4F38C57F.5000706@cn.fujitsu.com>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: bonding with 3c59x driver
+Date: Tue, 14 Feb 2012 12:06:04 +0100
+Message-ID: <20120214110604.GI32155@v3-1054>
+References: <201202132253.16496.jdelvare@suse.de>
+ <22039.1329171191@death.nxdomain>
+ <201202141122.10705.jdelvare@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Li Wei <lw@cn.fujitsu.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45948 "EHLO a.mx.secunet.com"
+Received: from slnx.de ([79.140.41.54]:51451 "EHLO v3-1054.slnx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759664Ab2BNLES (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 06:04:18 -0500
+	id S1756592Ab2BNLDj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 06:03:39 -0500
 Content-Disposition: inline
-In-Reply-To: <4F38C57F.5000706@cn.fujitsu.com>
+In-Reply-To: <201202141122.10705.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2012 at 04:10:39PM +0800, Li Wei wrote:
-> Hi, Steffen!
+On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
 > 
-> I found some problem while doing networking tests with IPSec that
-> the first fragment doesn't use the max MTU to fill payload, but with
-> 20 bytes smaller. When I reverted your commit 299b0767(ipv6: Fix 
-> IPsec slowpath fragmentation problem), things goes well.
-> 
-> Would you so kindly to point me out what the commit did, because I
-> think the original implementation had taken IPSec header and tailer
-> into account.
+> Well I am still curious why the 3c59x driver has such slow polling when 
+> other drivers I have been testing are able to report almost instantly 
+> when I remove a network cable. Could it be that other network chips 
+> generate an interrupt on cable removal and the 3com chips do not?
 > 
 
-Without this patch we used always the slow path in ip6_fragment()
-due to a miscalculation of the packet lenght in ip6_append_data().
-
-This patch just makes use of the reduced IPsec mtu, and adapts
-the IPsec header handling to have enought headroom on the skb.
+Yes, at least some of the supported chips do not generate an interrupt
+on cable removal, so we have to check for this with a timer.
