@@ -1,76 +1,82 @@
 From: Sameer Nanda <snanda@chromium.org>
-Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by default
-Date: Tue, 14 Feb 2012 10:33:21 -0800
-Message-ID: <CANMivWZ9OsEVpqUHCG=GYz82rv6f31Ppkh_-f7+Uf_BKU4rwgA@mail.gmail.com>
-References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+Subject: Re: [PATCH 2/2] r8169: transition to D0 state at shutdown
+Date: Tue, 14 Feb 2012 10:33:52 -0800
+Message-ID: <CANMivWZqSNmh8BiZLi7bVw475-P-XkxPTx_eT3Lb5i87N3Krog@mail.gmail.com>
+References: <1329244275-28130-1-git-send-email-snanda@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
 	Sameer Nanda <snanda@chromium.org>
 To: romieu@fr.zoreil.com, jw@sisk.pl, hayeswang@realtek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:41497 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753487Ab2BNSdm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 13:33:42 -0500
-Received: by qafk1 with SMTP id k1so448941qaf.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 10:33:41 -0800 (PST)
-In-Reply-To: <1329244079-27842-1-git-send-email-snanda@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <1329244275-28130-1-git-send-email-snanda@chromium.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46ixed Francois Romieu email address.
-
-On Tue, Feb 14, 2012 at 10:27 AM, Sameer Nanda <snanda@chromium.org> wr=
-ote:
->
-> Set the WOL config registers to only enable WOL from magic packet by
-> default. Without this change in place, the WOL config register
-> settings on warm reboot come up in an inconsistent state since these
-> registers don't get reset on a warm reboot.
->
-> Signed-off-by: Sameer Nanda <snanda@chromium.org>
-> ---
-> =C2=A0drivers/net/ethernet/realtek/r8169.c | =C2=A0 11 ++++++-----
-> =C2=A01 files changed, 6 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index 7a0c800..a6921b7 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4073,12 +4073,13 @@ rtl8169_init_one(struct pci_dev *pdev, const =
-struct pci_device_id *ent)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0tp->txd_version =3D rtl_chip_infos[chipset=
-].txd_version;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0RTL_W8(Cfg9346, Cfg9346_Unlock);
-> +
-> + =C2=A0 =C2=A0 =C2=A0 /* Enable WOL from Magic Packet by default */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0RTL_W8(Config1, RTL_R8(Config1) | PMEnable=
-);
-> - =C2=A0 =C2=A0 =C2=A0 RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
-> - =C2=A0 =C2=A0 =C2=A0 if ((RTL_R8(Config3) & (LinkUp | MagicPacket))=
- !=3D 0)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp->features |=3D =
-RTL_FEATURE_WOL;
-> - =C2=A0 =C2=A0 =C2=A0 if ((RTL_R8(Config5) & (UWF | BWF | MWF)) !=3D=
- 0)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp->features |=3D =
-RTL_FEATURE_WOL;
-> + =C2=A0 =C2=A0 =C2=A0 RTL_W8(Config3, MagicPacket);
-> + =C2=A0 =C2=A0 =C2=A0 RTL_W8(Config5, PMEStatus);
-> + =C2=A0 =C2=A0 =C2=A0 tp->features |=3D RTL_FEATURE_WOL;
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0tp->features |=3D rtl_try_msi(tp, cfg);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0RTL_W8(Cfg9346, Cfg9346_Lock);
->
-> --
-> 1.7.7.3
->
-
-
-
---
-Sameer
+Rml4ZWQgRnJhbmNvaXMgUm9taWV1J3MgZW1haWwgYWRkcmVzcy4KCk9uIFR1ZSwgRmViIDE0LCAy
+MDEyIGF0IDEwOjMxIEFNLCBTYW1lZXIgTmFuZGEgPHNuYW5kYUBjaHJvbWl1bS5vcmc+IHdyb3Rl
+Ogo+IFdpdGggcnVudGltZSBQTSwgaWYgdGhlIGV0aGVybmV0IGNhYmxlIGlzIGRpc2Nvbm5lY3Rl
+ZCwgdGhlIGRldmljZSBpcwo+IHRyYW5zaXRpb25lZCB0byBEMyBzdGF0ZSB0byBjb25zZXJ2ZSBl
+bmVyZ3kuIElmIHRoZSBzeXN0ZW0gaXMgc2h1dGRvd24KPiBpbiB0aGlzIHN0YXRlLCBhbnkgcmVn
+aXN0ZXIgYWNjZXNzZXMgaW4gcnRsX3NodXRkb3duIGFyZSBkcm9wcGVkIG9uCj4gdGhlIGZsb29y
+Lgo+Cj4gVGhpcyBwYXRjaCB0cmFuc2l0aW9ucyB0aGUgZGV2aWNlIGJhY2sgdG8gRDAgc3RhdGUg
+aW4gcnRsX3NodXRkb3duIGlmCj4gdGhlIGRldmljZSB3YXMgcnVudGltZSBQTSBzdXNwZW5kZWQu
+IEluIGFkZGl0aW9uLCBzaW5jZSBydW50aW9tZSBQTQo+IGFsc28gbXVja3MgYXJvdW5kIHdpdGgg
+V09MIG9wdGlvbnMsIHRoZSBzYXZlZCBXT0wgb3B0aW9ucyBhcmUgYWxzbwo+IHJlc3RvcmVkIGlu
+IHJ0bF9zaHV0ZG93bi4KPgo+IFNpZ25lZC1vZmYtYnk6IFNhbWVlciBOYW5kYSA8c25hbmRhQGNo
+cm9taXVtLm9yZz4KPiAtLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjku
+YyB8IMKgIDEyICsrKysrKysrKysrKwo+IMKgMSBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRpb25z
+KCspLCAwIGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
+L3JlYWx0ZWsvcjgxNjkuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwo+
+IGluZGV4IGE2OTIxYjcuLjRhODk0ZTYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvcmVhbHRlay9yODE2OS5jCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9y
+ODE2OS5jCj4gQEAgLTY5MSw2ICs2OTEsNyBAQCBzdHJ1Y3QgcnRsODE2OV9wcml2YXRlIHsKPiDC
+oCDCoCDCoCDCoHUxNiBpbnRyX2V2ZW50Owo+IMKgIMKgIMKgIMKgdTE2IG5hcGlfZXZlbnQ7Cj4g
+wqAgwqAgwqAgwqB1MTYgaW50cl9tYXNrOwo+ICsgwqAgwqAgwqAgYm9vbCBydW50aW1lX3N1c3Bl
+bmRlZDsKPgo+IMKgIMKgIMKgIMKgc3RydWN0IG1kaW9fb3BzIHsKPiDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoHZvaWQgKCp3cml0ZSkodm9pZCBfX2lvbWVtICosIGludCwgaW50KTsKPiBAQCAtNDMw
+OCw2ICs0MzA5LDcgQEAgc3RhdGljIGludCBydGw4MTY5X29wZW4oc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldikKPiDCoCDCoCDCoCDCoHJ0bF9od19zdGFydChkZXYpOwo+Cj4gwqAgwqAgwqAgwqB0cC0+
+c2F2ZWRfd29sb3B0cyA9IDA7Cj4gKyDCoCDCoCDCoCB0cC0+cnVudGltZV9zdXNwZW5kZWQgPSBm
+YWxzZTsKPiDCoCDCoCDCoCDCoHBtX3J1bnRpbWVfcHV0X25vaWRsZSgmcGRldi0+ZGV2KTsKPgo+
+IMKgIMKgIMKgIMKgcnRsODE2OV9jaGVja19saW5rX3N0YXR1cyhkZXYsIHRwLCBpb2FkZHIpOwo+
+IEBAIC02MTA2LDYgKzYxMDgsNyBAQCBzdGF0aWMgaW50IHJ0bDgxNjlfcnVudGltZV9zdXNwZW5k
+KHN0cnVjdCBkZXZpY2UgKmRldmljZSkKPiDCoCDCoCDCoCDCoHNwaW5fbG9ja19pcnEoJnRwLT5s
+b2NrKTsKPiDCoCDCoCDCoCDCoHRwLT5zYXZlZF93b2xvcHRzID0gX19ydGw4MTY5X2dldF93b2wo
+dHApOwo+IMKgIMKgIMKgIMKgX19ydGw4MTY5X3NldF93b2wodHAsIFdBS0VfQU5ZKTsKPiArIMKg
+IMKgIMKgIHRwLT5ydW50aW1lX3N1c3BlbmRlZCA9IHRydWU7Cj4gwqAgwqAgwqAgwqBzcGluX3Vu
+bG9ja19pcnEoJnRwLT5sb2NrKTsKPgo+IMKgIMKgIMKgIMKgcnRsODE2OV9uZXRfc3VzcGVuZChk
+ZXYpOwo+IEBAIC02MTI1LDYgKzYxMjgsNyBAQCBzdGF0aWMgaW50IHJ0bDgxNjlfcnVudGltZV9y
+ZXN1bWUoc3RydWN0IGRldmljZSAqZGV2aWNlKQo+IMKgIMKgIMKgIMKgc3Bpbl9sb2NrX2lycSgm
+dHAtPmxvY2spOwo+IMKgIMKgIMKgIMKgX19ydGw4MTY5X3NldF93b2wodHAsIHRwLT5zYXZlZF93
+b2xvcHRzKTsKPiDCoCDCoCDCoCDCoHRwLT5zYXZlZF93b2xvcHRzID0gMDsKPiArIMKgIMKgIMKg
+IHRwLT5ydW50aW1lX3N1c3BlbmRlZCA9IGZhbHNlOwo+IMKgIMKgIMKgIMKgc3Bpbl91bmxvY2tf
+aXJxKCZ0cC0+bG9jayk7Cj4KPiDCoCDCoCDCoCDCoHJ0bDgxNjlfaW5pdF9waHkoZGV2LCB0cCk7
+Cj4gQEAgLTYxODgsNiArNjE5MiwxMCBAQCBzdGF0aWMgdm9pZCBydGxfc2h1dGRvd24oc3RydWN0
+IHBjaV9kZXYgKnBkZXYpCj4gwqAgwqAgwqAgwqBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gcGNp
+X2dldF9kcnZkYXRhKHBkZXYpOwo+IMKgIMKgIMKgIMKgc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAq
+dHAgPSBuZXRkZXZfcHJpdihkZXYpOwo+Cj4gKyDCoCDCoCDCoCAvKiBHZXQgdGhlIGRldmljZSBi
+YWNrIHRvIEQwIHN0YXRlIGlmIGl0IHdhcyBydW50aW1lIHN1c3BlbmRlZC4gKi8KPiArIMKgIMKg
+IMKgIGlmICh0cC0+cnVudGltZV9zdXNwZW5kZWQpCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBw
+Y2lfc2V0X3Bvd2VyX3N0YXRlKHBkZXYsIFBDSV9EMCk7Cj4gKwo+IMKgIMKgIMKgIMKgcnRsODE2
+OV9uZXRfc3VzcGVuZChkZXYpOwo+Cj4gwqAgwqAgwqAgwqAvKiBSZXN0b3JlIG9yaWdpbmFsIE1B
+QyBhZGRyZXNzICovCj4gQEAgLTYxOTUsNiArNjIwMywxMCBAQCBzdGF0aWMgdm9pZCBydGxfc2h1
+dGRvd24oc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4KPiDCoCDCoCDCoCDCoHNwaW5fbG9ja19pcnEo
+JnRwLT5sb2NrKTsKPgo+ICsgwqAgwqAgwqAgLyogUmVzdG9yZSBXT0wgZmxhZ3MgaWYgdGhleSB3
+ZXJlIG1lc3NlZCBhcm91bmQgd2l0aC4gKi8KPiArIMKgIMKgIMKgIGlmICh0cC0+c2F2ZWRfd29s
+b3B0cykKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIF9fcnRsODE2OV9zZXRfd29sKHRwLCB0cC0+
+c2F2ZWRfd29sb3B0cyk7Cj4gKwo+IMKgIMKgIMKgIMKgcnRsODE2OV9od19yZXNldCh0cCk7Cj4K
+PiDCoCDCoCDCoCDCoHNwaW5fdW5sb2NrX2lycSgmdHAtPmxvY2spOwo+IC0tCj4gMS43LjcuMwo+
+CgoKCi0tIApTYW1lZXIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KbGludXgtcG0gbWFpbGluZyBsaXN0CmxpbnV4LXBtQGxpc3RzLmxpbnV4LWZvdW5kYXRp
+b24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZv
+L2xpbnV4LXBt
