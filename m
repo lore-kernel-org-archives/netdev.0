@@ -1,121 +1,78 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 1/4] stmmac: do not discard frame on dribbling bit assert
-Date: Tue, 14 Feb 2012 08:11:45 +0100
-Message-ID: <1329203508-19612-2-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 2/4] stmmac: request_irq when use an ext wake irq line (v2)
+Date: Tue, 14 Feb 2012 08:11:46 +0100
+Message-ID: <1329203508-19612-3-git-send-email-peppe.cavallaro@st.com>
 References: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Francesco Virlinzi <francesco.virlinzi@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:46773 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755100Ab2BNHMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 02:12:09 -0500
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:40222 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754889Ab2BNHMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 02:12:14 -0500
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 09E3CC2
-	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:06 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 331ABCB
+	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:12 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C5FB617D5
-	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:06 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 022E917E5
+	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:11 +0000 (GMT)
 In-Reply-To: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If this bit is set and the CRC error is reset, then the packet is valid.
-Only report this as stat info.
+From: Francesco Virlinzi <francesco.virlinzi@st.com>
 
+In case of we use an external Wake-Up IRQ line
+(priv->wol_irq != dev->irq) we need to invoke the
+request_irq.
+
+Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |    1 +
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |    2 +-
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |    2 +-
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    7 ++++++-
- 4 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index d0b814e..0319d64 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -67,6 +67,7 @@ struct stmmac_extra_stats {
- 	unsigned long ipc_csum_error;
- 	unsigned long rx_collision;
- 	unsigned long rx_crc;
-+	unsigned long dribbling_bit;
- 	unsigned long rx_length;
- 	unsigned long rx_mii;
- 	unsigned long rx_multicast;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-index d879763..ad1b627 100644
---- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-@@ -201,7 +201,7 @@ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
- 
- 	if (unlikely(p->des01.erx.dribbling)) {
- 		CHIP_DBG(KERN_ERR "GMAC RX: dribbling error\n");
--		ret = discard_frame;
-+		x->dribbling_bit++;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 96fa2da..970a3f4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1047,6 +1047,17 @@ static int stmmac_open(struct net_device *dev)
+ 		goto open_error;
  	}
- 	if (unlikely(p->des01.erx.sa_filter_fail)) {
- 		CHIP_DBG(KERN_ERR "GMAC RX : Source Address filter fail\n");
-diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-index fda5d2b..25953bb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-@@ -104,7 +104,7 @@ static int ndesc_get_rx_status(void *data, struct stmmac_extra_stats *x,
- 		ret = discard_frame;
- 	}
- 	if (unlikely(p->des01.rx.dribbling))
--		ret = discard_frame;
-+		x->dribbling_bit++;
  
- 	if (unlikely(p->des01.rx.length_error)) {
- 		x->rx_length++;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 9573303..f98e151 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -47,23 +47,25 @@ struct stmmac_stats {
- 	offsetof(struct stmmac_priv, xstats.m)}
++	/* Request the Wake IRQ in case of another line is used for WoL */
++	if (priv->wol_irq != dev->irq) {
++		ret = request_irq(priv->wol_irq, stmmac_interrupt,
++				  IRQF_SHARED, dev->name, dev);
++		if (unlikely(ret < 0)) {
++			pr_err("%s: ERROR: allocating the ext WoL IRQ %d "
++			       "(error: %d)\n",	__func__, priv->wol_irq, ret);
++			goto open_error_wolirq;
++		}
++	}
++
+ 	/* Enable the MAC Rx/Tx */
+ 	stmmac_set_mac(priv->ioaddr, true);
  
- static const struct stmmac_stats stmmac_gstrings_stats[] = {
-+	/* Transmit errors */
- 	STMMAC_STAT(tx_underflow),
- 	STMMAC_STAT(tx_carrier),
- 	STMMAC_STAT(tx_losscarrier),
- 	STMMAC_STAT(vlan_tag),
- 	STMMAC_STAT(tx_deferred),
- 	STMMAC_STAT(tx_vlan),
--	STMMAC_STAT(rx_vlan),
- 	STMMAC_STAT(tx_jabber),
- 	STMMAC_STAT(tx_frame_flushed),
- 	STMMAC_STAT(tx_payload_error),
- 	STMMAC_STAT(tx_ip_header_error),
-+	/* Receive errors */
- 	STMMAC_STAT(rx_desc),
- 	STMMAC_STAT(sa_filter_fail),
- 	STMMAC_STAT(overflow_error),
- 	STMMAC_STAT(ipc_csum_error),
- 	STMMAC_STAT(rx_collision),
- 	STMMAC_STAT(rx_crc),
-+	STMMAC_STAT(dribbling_bit),
- 	STMMAC_STAT(rx_length),
- 	STMMAC_STAT(rx_mii),
- 	STMMAC_STAT(rx_multicast),
-@@ -73,6 +75,8 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(sa_rx_filter_fail),
- 	STMMAC_STAT(rx_missed_cntr),
- 	STMMAC_STAT(rx_overflow_cntr),
-+	STMMAC_STAT(rx_vlan),
-+	/* Tx/Rx IRQ errors */
- 	STMMAC_STAT(tx_undeflow_irq),
- 	STMMAC_STAT(tx_process_stopped_irq),
- 	STMMAC_STAT(tx_jabber_irq),
-@@ -82,6 +86,7 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(rx_watchdog_irq),
- 	STMMAC_STAT(tx_early_irq),
- 	STMMAC_STAT(fatal_bus_error_irq),
-+	/* Extra info */
- 	STMMAC_STAT(threshold),
- 	STMMAC_STAT(tx_pkt_n),
- 	STMMAC_STAT(rx_pkt_n),
+@@ -1087,6 +1098,9 @@ static int stmmac_open(struct net_device *dev)
+ 
+ 	return 0;
+ 
++open_error_wolirq:
++	free_irq(dev->irq, dev);
++
+ open_error:
+ #ifdef CONFIG_STMMAC_TIMER
+ 	kfree(priv->tm);
+@@ -1127,6 +1141,8 @@ static int stmmac_release(struct net_device *dev)
+ 
+ 	/* Free the IRQ lines */
+ 	free_irq(dev->irq, dev);
++	if (priv->wol_irq != dev->irq)
++		free_irq(priv->wol_irq, dev);
+ 
+ 	/* Stop TX/RX DMA and clear the descriptors */
+ 	priv->hw->dma->stop_tx(priv->ioaddr);
 -- 
 1.7.4.4
