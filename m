@@ -1,42 +1,103 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 4/4] stmmac: update the driver version to Feb 2012 (v2)
-Date: Tue, 14 Feb 2012 08:14:29 +0100
-Message-ID: <1329203669-20748-1-git-send-email-peppe.cavallaro@st.com>
-References: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:41412 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752874Ab2BNHOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 02:14:47 -0500
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 62A5ADB
-	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:14:45 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 27FBB174F
-	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:14:45 +0000 (GMT)
-In-Reply-To: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+Date: Tue, 14 Feb 2012 08:36:37 +0100
+Message-ID: <1329204997.24837.15.camel@edumazet-laptop>
+References: <1329063403.1449.14.camel@localhost.localdomain>
+	 <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Meyer <thomas@m3y3r.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	jcliburn@gmail.com, chris.snook@gmail.com,
+	netdev <netdev@vger.kernel.org>, Jay Cliburn <jcliburn@gmail.com>
+To: Josh Boyer <jwboyer@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Le lundi 13 f=C3=A9vrier 2012 =C3=A0 16:00 -0500, Josh Boyer a =C3=A9cr=
+it :
+> On Sun, Feb 12, 2012 at 11:16 AM, Thomas Meyer <thomas@m3y3r.de> wrot=
+e:
+> > abrt_version:   2.0.7
+> > cmdline:        BOOT_IMAGE=3D/vmlinuz-3.2.3 root=3D/dev/sda2 rootfs=
+type=3Dext4 rootflags=3Ddata=3Dwriteback ro quiet rhgb
+> > kernel:         3.2.3
+> > reason:         WARNING: at net/sched/sch_generic.c:255 dev_watchdo=
+g+0x1e7/0x1f0()
+> > time:           Sa 04 Feb 2012 15:31:22 CET
+> >
+> > backtrace:
+> > :WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x1e7/0x1f0()
+> > :Hardware name: Aspire 1810T
+> > :NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+> > :Modules linked in: vfat fat fuse bluetooth nf_conntrack_ipv6 nf_de=
+frag_ipv6 ip6t_REJECT ip6table_filter ip6_tables snd_hda_codec_hdmi snd=
+_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep uvcvideo snd_s=
+eq arc4 videodev usb_storage snd_seq_device v4l2_compat_ioctl32 snd_pcm=
+ snd_timer acer_wmi iwlwifi snd mac80211 sparse_keymap cfg80211 rfkill =
+soundcore snd_page_alloc joydev wmi acerhdf pcspkr virtio_net virtio at=
+l1c virtio_ring kvm_intel kvm uinput ipv6 [last unloaded: scsi_wait_sca=
+n]
+> > :Pid: 0, comm: swapper Not tainted 3.2.3 #5
+> > :Call Trace:
+> > : <IRQ>  [<ffffffff810322ca>] warn_slowpath_common+0x7a/0xb0
+> > : [<ffffffff81018a18>] ? lapic_next_event+0x18/0x20
+> > : [<ffffffff810323a1>] warn_slowpath_fmt+0x41/0x50
+> > : [<ffffffff8104e9be>] ? hrtimer_interrupt+0xfe/0x1f0
+> > : [<ffffffff8102c350>] ? wake_up_process+0x10/0x20
+> > : [<ffffffff813e9397>] dev_watchdog+0x1e7/0x1f0
+> > : [<ffffffff8103cfcf>] run_timer_softirq+0xef/0x210
+> > : [<ffffffff813e91b0>] ? qdisc_reset+0x50/0x50
+> > : [<ffffffff81037827>] __do_softirq+0x87/0x110
+> > : [<ffffffff814945fa>] call_softirq+0x1a/0x30
+> > : [<ffffffff810038bd>] do_softirq+0x4d/0x80
+> > : [<ffffffff81037a8e>] irq_exit+0x7e/0xa0
+> > : [<ffffffff8100375b>] do_IRQ+0x5b/0xd0
+> > : [<ffffffff8148de29>] common_interrupt+0x69/0x69
+> > : <EOI>  [<ffffffff8124e115>] ? acpi_idle_enter_bm+0x1c0/0x1ff
+> > : [<ffffffff8124e110>] ? acpi_idle_enter_bm+0x1bb/0x1ff
+> > : [<ffffffff813a24b4>] ? menu_select+0xd4/0x390
+> > : [<ffffffff813a150b>] cpuidle_idle_call+0x8b/0xe0
+> > : [<ffffffff810011ed>] cpu_idle+0x9d/0xe0
+> > : [<ffffffff8147d08e>] rest_init+0x62/0x64
+> > : [<ffffffff81699b54>] start_kernel+0x358/0x363
+> > : [<ffffffff81699322>] x86_64_start_reservations+0x132/0x136
+> > : [<ffffffff81699416>] x86_64_start_kernel+0xf0/0xf7
+> > : [<ffffffff81017e70>] ? acpi_suspend_lowlevel+0x1b0/0x1b0
+>=20
+> We've seen this in Fedora for a long time now.  As far as I know, nob=
+ody
+> really knows what is going on.
+>=20
+> https://bugzilla.redhat.com/show_bug.cgi?id=3D717211
+>=20
+> (Also, you probably should have sent this to netdev.)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 6ca2aa3..0e6a749 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -21,7 +21,7 @@
- *******************************************************************************/
- 
- #define STMMAC_RESOURCE_NAME   "stmmaceth"
--#define DRV_MODULE_VERSION	"Dec_2011"
-+#define DRV_MODULE_VERSION	"Feb_2012"
- #include <linux/stmmac.h>
- #include <linux/phy.h>
- #include "common.h"
--- 
-1.7.4.4
+CC netdev, Jay Cliburn <jcliburn@gmail.com>,=20
+
+It seems this driver has partial support for two TX rings.
+
+(TX completion only drains the first ring)
+
+Please try following patch.
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/=
+net/ethernet/atheros/atl1c/atl1c_main.c
+index b859124..1ff3c6d 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -2244,10 +2244,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_bu=
+ff *skb,
+ 			dev_info(&adapter->pdev->dev, "tx locked\n");
+ 		return NETDEV_TX_LOCKED;
+ 	}
+-	if (skb->mark =3D=3D 0x01)
+-		type =3D atl1c_trans_high;
+-	else
+-		type =3D atl1c_trans_normal;
+=20
+ 	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
+ 		/* no enough descriptor, just stop queue */
