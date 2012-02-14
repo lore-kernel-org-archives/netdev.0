@@ -1,116 +1,152 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net 7/7] mlx4: add unicast steering entries to resource_tracker
-Date: Tue, 14 Feb 2012 18:38:38 +0200
-Message-ID: <4F3A8E0E.2020908@mellanox.co.il>
+From: alekcejk@googlemail.com
+Subject: Re: Re: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Tue, 14 Feb 2012 18:43:51 +0200
+Message-ID: <5781419.24ZaHfTAxC@localhost.localdomain>
+References: <8633039.fHPLx6GNq3@localhost.localdomain> <5133914.uYLb0gnNTc@localhost.localdomain> <1329235210.4818.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<eugenia@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44899 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756885Ab2BNQmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 11:42:49 -0500
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:54833 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757366Ab2BNQoh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 11:44:37 -0500
+Received: by bkcjm19 with SMTP id jm19so152079bkc.19
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 08:44:35 -0800 (PST)
+In-Reply-To: <1329235210.4818.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.co.il>
+=D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=D1=
+=82 =D0=92=D1=82=D0=BE=D1=80=D0=BD=D0=B8=D0=BA 14 =D1=84=D0=B5=D0=B2=D1=
+=80=D0=B0=D0=BB=D1=8F 2012 17:00:10 =D0=B2=D1=8B =D0=BD=D0=B0=D0=BF=D0=B8=
+=D1=81=D0=B0=D0=BB=D0=B8:
+> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 16:28 +0200, alekcejk@googlemail=
+=2Ecom a
+>=20
+> =C3=A9crit :
+> > Yes, results are the same for 3.2.3 kernel with and without running
+> > this command and for geographically close to me server (speed not l=
+imited)
+> > and for server not close to me speed limitation the same.
+>=20
+> I wonder if "netstat -s" is telling the truth ...
+>=20
+> Could you post after a transfert on 3.2, "grep TcpExt /proc/net/netst=
+at"
 
-Add unicast steering entries to resource tracker.
-Do qp_detach also for these entries when VF doesn't shut down gracefully.
-Otherwise there is leakage of these resources, since they are not tracked.
+Kernel 3.2.6 (2.6.42.6-3.fc15.i686):
 
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
-Reviewed-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+Before downloading:
+TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts Pr=
+uneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilt=
+er TW TWRecycled TWKilled PAWSPassive=20
+PAWSActive PAWSEstab DelayedACKs DelayedACKLocked DelayedACKLost Listen=
+Overflows ListenDrops TCPPrequeued TCPDirectCopyFromBacklog TCPDirectCo=
+pyFromPrequeue TCPPrequeueDropped=20
+TCPHPHits TCPHPHitsToUser TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSack=
+Recovery TCPSACKReneging TCPFACKReorder TCPSACKReorder TCPRenoReorder T=
+CPTSReorder TCPFullUndo=20
+TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLoss TCPLostRetransmit TCPRe=
+noFailures TCPSackFailures TCPLossFailures TCPFastRetrans TCPForwardRet=
+rans TCPSlowStartRetrans TCPTimeouts=20
+TCPRenoRecoveryFail TCPSackRecoveryFail TCPSchedulerFailed TCPRcvCollap=
+sed TCPDSACKOldSent TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbo=
+rtOnSyn TCPAbortOnData=20
+TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger TCP=
+AbortFailed TCPMemoryPressures TCPSACKDiscard TCPDSACKIgnoredOld TCPDSA=
+CKIgnoredNoUndo=20
+TCPSpuriousRTOs TCPMD5NotFound TCPMD5Unexpected TCPSackShifted TCPSackM=
+erged TCPSackShiftFallback TCPBacklogDrop TCPMinTTLDrop TCPDeferAcceptD=
+rop IPReversePathFilter=20
+TCPTimeWaitOverflow TCPReqQFullDoCookies TCPReqQFullDrop
+TcpExt: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0=
+ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 =
+0 0 0 0 0 0 0 0 0 0 47 0 0 0
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 629cc30..bfdb7af 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -73,6 +73,7 @@ struct res_gid {
- 	struct list_head	list;
- 	u8			gid[16];
- 	enum mlx4_protocol	prot;
-+	enum mlx4_steer_type	steer;
- };
- 
- enum res_qp_states {
-@@ -2480,7 +2481,8 @@ static struct res_gid *find_gid(struct mlx4_dev *dev, int slave,
- }
- 
- static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
--		       u8 *gid, enum mlx4_protocol prot)
-+		       u8 *gid, enum mlx4_protocol prot,
-+		       enum mlx4_steer_type steer)
- {
- 	struct res_gid *res;
- 	int err;
-@@ -2496,6 +2498,7 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 	} else {
- 		memcpy(res->gid, gid, 16);
- 		res->prot = prot;
-+		res->steer = steer;
- 		list_add_tail(&res->list, &rqp->mcg_list);
- 		err = 0;
- 	}
-@@ -2505,14 +2508,15 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- }
- 
- static int rem_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
--		       u8 *gid, enum mlx4_protocol prot)
-+		       u8 *gid, enum mlx4_protocol prot,
-+		       enum mlx4_steer_type steer)
- {
- 	struct res_gid *res;
- 	int err;
- 
- 	spin_lock_irq(&rqp->mcg_spl);
- 	res = find_gid(dev, slave, rqp, gid);
--	if (!res || res->prot != prot)
-+	if (!res || res->prot != prot || res->steer != steer)
- 		err = -EINVAL;
- 	else {
- 		list_del(&res->list);
-@@ -2548,7 +2552,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	qp.qpn = qpn;
- 	if (attach) {
--		err = add_mcg_res(dev, slave, rqp, gid, prot);
-+		err = add_mcg_res(dev, slave, rqp, gid, prot, type);
- 		if (err)
- 			goto ex_put;
- 
-@@ -2557,7 +2561,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 		if (err)
- 			goto ex_rem;
- 	} else {
--		err = rem_mcg_res(dev, slave, rqp, gid, prot);
-+		err = rem_mcg_res(dev, slave, rqp, gid, prot, type);
- 		if (err)
- 			goto ex_put;
- 		err = mlx4_qp_detach_common(dev, &qp, gid, prot, type);
-@@ -2568,7 +2572,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- ex_rem:
- 	/* ignore error return below, already in error */
--	err1 = rem_mcg_res(dev, slave, rqp, gid, prot);
-+	err1 = rem_mcg_res(dev, slave, rqp, gid, prot, type);
- ex_put:
- 	put_res(dev, slave, qpn, RES_QP);
- 
-@@ -2607,7 +2611,7 @@ static void detach_qp(struct mlx4_dev *dev, int slave, struct res_qp *rqp)
- 	list_for_each_entry_safe(rgid, tmp, &rqp->mcg_list, list) {
- 		qp.qpn = rqp->local_qpn;
- 		err = mlx4_qp_detach_common(dev, &qp, rgid->gid, rgid->prot,
--					    MLX4_MC_STEER);
-+					    rgid->steer);
- 		list_del(&rgid->list);
- 		kfree(rgid);
- 	}
--- 
-1.5.4.3
+After downloading FreeBSD-8.2-RELEASE-i386-dvd1.iso.xz with speed 5,8 M=
+egabytes/s
+TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts Pr=
+uneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilt=
+er TW TWRecycled TWKilled PAWSPassive=20
+PAWSActive PAWSEstab DelayedACKs DelayedACKLocked DelayedACKLost Listen=
+Overflows ListenDrops TCPPrequeued TCPDirectCopyFromBacklog TCPDirectCo=
+pyFromPrequeue TCPPrequeueDropped=20
+TCPHPHits TCPHPHitsToUser TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSack=
+Recovery TCPSACKReneging TCPFACKReorder TCPSACKReorder TCPRenoReorder T=
+CPTSReorder TCPFullUndo=20
+TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLoss TCPLostRetransmit TCPRe=
+noFailures TCPSackFailures TCPLossFailures TCPFastRetrans TCPForwardRet=
+rans TCPSlowStartRetrans TCPTimeouts=20
+TCPRenoRecoveryFail TCPSackRecoveryFail TCPSchedulerFailed TCPRcvCollap=
+sed TCPDSACKOldSent TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbo=
+rtOnSyn TCPAbortOnData=20
+TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger TCP=
+AbortFailed TCPMemoryPressures TCPSACKDiscard TCPDSACKIgnoredOld TCPDSA=
+CKIgnoredNoUndo=20
+TCPSpuriousRTOs TCPMD5NotFound TCPMD5Unexpected TCPSackShifted TCPSackM=
+erged TCPSackShiftFallback TCPBacklogDrop TCPMinTTLDrop TCPDeferAcceptD=
+rop IPReversePathFilter=20
+TCPTimeWaitOverflow TCPReqQFullDoCookies TCPReqQFullDrop
+TcpExt: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 11 0 0 0 0 0 2896 0 0 1426425 2=
+ 1 9 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 =
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 47 0 0 0
+
+
+Kernel 3.1.10 (2.6.41.10-3.fc15.i686):
+
+Before downloading:
+TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts Pr=
+uneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilt=
+er TW TWRecycled TWKilled PAWSPassive=20
+PAWSActive PAWSEstab DelayedACKs DelayedACKLocked DelayedACKLost Listen=
+Overflows ListenDrops TCPPrequeued TCPDirectCopyFromBacklog TCPDirectCo=
+pyFromPrequeue TCPPrequeueDropped=20
+TCPHPHits TCPHPHitsToUser TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSack=
+Recovery TCPSACKReneging TCPFACKReorder TCPSACKReorder TCPRenoReorder T=
+CPTSReorder TCPFullUndo=20
+TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLoss TCPLostRetransmit TCPRe=
+noFailures TCPSackFailures TCPLossFailures TCPFastRetrans TCPForwardRet=
+rans TCPSlowStartRetrans TCPTimeouts=20
+TCPRenoRecoveryFail TCPSackRecoveryFail TCPSchedulerFailed TCPRcvCollap=
+sed TCPDSACKOldSent TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbo=
+rtOnSyn TCPAbortOnData=20
+TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger TCP=
+AbortFailed TCPMemoryPressures TCPSACKDiscard TCPDSACKIgnoredOld TCPDSA=
+CKIgnoredNoUndo=20
+TCPSpuriousRTOs TCPMD5NotFound TCPMD5Unexpected TCPSackShifted TCPSackM=
+erged TCPSackShiftFallback TCPBacklogDrop TCPMinTTLDrop TCPDeferAcceptD=
+rop IPReversePathFilter=20
+TCPTimeWaitOverflow TCPReqQFullDoCookies TCPReqQFullDrop
+TcpExt: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3 0 0 0 0 0 0 0 0 99 0 15 0 0 0=
+ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 =
+0 0 0 0 0 0 0 0 0 0 0 32 0 0 0
+
+After downloading FreeBSD-8.2-RELEASE-i386-dvd1.iso.xz with speed 11,2 =
+Megabytes/s
+TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts Pr=
+uneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilt=
+er TW TWRecycled TWKilled PAWSPassive=20
+PAWSActive PAWSEstab DelayedACKs DelayedACKLocked DelayedACKLost Listen=
+Overflows ListenDrops TCPPrequeued TCPDirectCopyFromBacklog TCPDirectCo=
+pyFromPrequeue TCPPrequeueDropped=20
+TCPHPHits TCPHPHitsToUser TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSack=
+Recovery TCPSACKReneging TCPFACKReorder TCPSACKReorder TCPRenoReorder T=
+CPTSReorder TCPFullUndo=20
+TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLoss TCPLostRetransmit TCPRe=
+noFailures TCPSackFailures TCPLossFailures TCPFastRetrans TCPForwardRet=
+rans TCPSlowStartRetrans TCPTimeouts=20
+TCPRenoRecoveryFail TCPSackRecoveryFail TCPSchedulerFailed TCPRcvCollap=
+sed TCPDSACKOldSent TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbo=
+rtOnSyn TCPAbortOnData=20
+TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger TCP=
+AbortFailed TCPMemoryPressures TCPSACKDiscard TCPDSACKIgnoredOld TCPDSA=
+CKIgnoredNoUndo=20
+TCPSpuriousRTOs TCPMD5NotFound TCPMD5Unexpected TCPSackShifted TCPSackM=
+erged TCPSackShiftFallback TCPBacklogDrop TCPMinTTLDrop TCPDeferAcceptD=
+rop IPReversePathFilter=20
+TCPTimeWaitOverflow TCPReqQFullDoCookies TCPReqQFullDrop
+TcpExt: 0 0 0 0 0 0 0 0 0 0 8 0 0 0 0 0 25 0 0 0 0 0 99912 0 0 1416306 =
+69 16 9 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0=
+ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 32 0 0 0
