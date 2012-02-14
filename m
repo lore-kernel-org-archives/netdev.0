@@ -1,48 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC] netpoll: netpoll_poll_dev() should access dev->flags
-Date: Tue, 14 Feb 2012 08:27:56 -0500
-Message-ID: <20120214132755.GA2434@neilslaptop.think-freely.org>
-References: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: bonding with 3c59x driver
+Date: Tue, 14 Feb 2012 14:34:18 +0100
+Message-ID: <20120214133418.GJ32155@v3-1054>
+References: <201202132253.16496.jdelvare@suse.de>
+ <20120214110604.GI32155@v3-1054>
+ <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <201202141350.57657.jdelvare@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Amerigo Wang <amwang@redhat.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42212 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754702Ab2BNN2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 08:28:14 -0500
+Received: from slnx.de ([79.140.41.54]:58861 "EHLO v3-1054.slnx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756554Ab2BNNbx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 08:31:53 -0500
 Content-Disposition: inline
-In-Reply-To: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+In-Reply-To: <201202141350.57657.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2012 at 12:10:21PM +0100, Eric Dumazet wrote:
-> commit 5a698af53f (bond: service netpoll arp queue on master device)
-> use a dubious test : if (dev->priv_flags & IFF_SLAVE)
+On Tue, Feb 14, 2012 at 01:50:57PM +0100, Jean Delvare wrote:
 > 
-> It seems to me IFF_SLAVE is present on dev->flags only ?
+> > We could have a 5 sec timer in case device is a slave.
+> > 
+> > diff --git a/drivers/net/ethernet/3com/3c59x.c
+> >  b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
+> > --- a/drivers/net/ethernet/3com/3c59x.c
+> > +++ b/drivers/net/ethernet/3com/3c59x.c
+> > @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
+> >  		ok = 1;
+> >  	}
+> > 
+> > -	if (!netif_carrier_ok(dev))
+> > +	if (dev->flags & IFF_SLAVE || !netif_carrier_ok(dev))
+> >  		next_tick = 5*HZ;
+> > 
+> >  	if (vp->medialock)
 > 
-> What am I missing ?
+> Yes I think this makes a lot of sense. If you send this upstream you can 
+> add:
 > 
-I want to say there was a reason for checking priv_flags, but if there was, it
-escapes me now.  Either way, ->flags is definately what we want now.  
+> Acked-by: Jean Delvare <jdelvare@suse.de>
+> 
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 4ce473e..3d84fb9 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -205,7 +205,7 @@ static void netpoll_poll_dev(struct net_device *dev)
->  
->  	poll_napi(dev);
->  
-> -	if (dev->priv_flags & IFF_SLAVE) {
-> +	if (dev->flags & IFF_SLAVE) {
->  		if (dev->npinfo) {
->  			struct net_device *bond_dev = dev->master;
->  			struct sk_buff *skb;
-> 
-> 
-> 
+I'm fine with this too.
