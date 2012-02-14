@@ -1,40 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [patch net-next] cxgb3: update firmware version
-Date: Tue, 14 Feb 2012 12:02:26 -0800
-Message-ID: <4F3ABDD2.4000207@hp.com>
-References: <20120213202846.631.30806.stgit@speedy5.asicdesigners.com> <1329165817.2092.62.camel@shinybook.infradead.org> <4F398303.1030606@chelsio.com> <1329184754.3048.33.camel@deadeye> <4F39E7C9.20901@chelsio.com> <1329196116.3048.66.camel@deadeye> <4F39F75D.6030107@chelsio.com> <4F3AA537.4050700@hp.com> <20120214182110.GO12704@decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netpoll: netpoll_poll_dev() should access dev->flags
+Date: Tue, 14 Feb 2012 21:11:59 +0100
+Message-ID: <1329250319.2555.4.camel@edumazet-laptop>
+References: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120214.144251.1481952602061158777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <divy@chelsio.com>,
-	David Woodhouse <dwmw2@infradead.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>, nhorman@tuxdriver.com
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120214182110.GO12704@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: amwang@redhat.com, netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60478 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755510Ab2BNUMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:12:05 -0500
+Received: by wgbdt10 with SMTP id dt10so262780wgb.1
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 12:12:03 -0800 (PST)
+In-Reply-To: <20120214.144251.1481952602061158777.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/14/2012 10:21 AM, Ben Hutchings wrote:
-> On Tue, Feb 14, 2012 at 10:17:27AM -0800, Rick Jones wrote:
->> What does an end-user/customer see and do?  When they are told that
->> version the firmware, specified down to the fix level, fixes a
->> problem they are having, how will they know that firmware blob
->> filename drvfw-X.bin on a download/archive site has that fix?
-> [...]
->
-> Customers currently can't get bug fixes by updating the firmware.
-> Think about it.
+commit 5a698af53f (bond: service netpoll arp queue on master device)
+tested IFF_SLAVE flag against dev->priv_flags instead of dev->flags 
 
-Because in this case at least the driver is requesting a specific 
-filename down to the minor and micro level and a change in the filename 
-requires a change in the driver?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: WANG Cong <amwang@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+---
+ net/core/netpoll.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-#define FW_VERSION __stringify(FW_VERSION_MAJOR) "."                    \
-         __stringify(FW_VERSION_MINOR) "." __stringify(FW_VERSION_MICRO)
-#define FW_FNAME "cxgb3/t3fw-" FW_VERSION ".bin"
-
-rather than the driver having logic to make it willing to accept later 
-minor/micro changes by being more sophisticated in its specification of 
-firmware file.
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 556b082..ddefc51 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -194,7 +194,7 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 
+ 	poll_napi(dev);
+ 
+-	if (dev->priv_flags & IFF_SLAVE) {
++	if (dev->flags & IFF_SLAVE) {
+ 		if (dev->npinfo) {
+ 			struct net_device *bond_dev = dev->master;
+ 			struct sk_buff *skb;
