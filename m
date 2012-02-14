@@ -1,8 +1,7 @@
 From: Sameer Nanda <snanda@chromium.org>
-Subject: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
-	default
-Date: Tue, 14 Feb 2012 10:27:59 -0800
-Message-ID: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+Subject: [PATCH 2/2] r8169: transition to D0 state at shutdown
+Date: Tue, 14 Feb 2012 10:31:15 -0800
+Message-ID: <1329244275-28130-1-git-send-email-snanda@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,38 +22,78 @@ Sender: linux-pm-bounces@lists.linux-foundation.org
 Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Set the WOL config registers to only enable WOL from magic packet by
-default. Without this change in place, the WOL config register
-settings on warm reboot come up in an inconsistent state since these
-registers don't get reset on a warm reboot.
+With runtime PM, if the ethernet cable is disconnected, the device is
+transitioned to D3 state to conserve energy. If the system is shutdown
+in this state, any register accesses in rtl_shutdown are dropped on
+the floor.
+
+This patch transitions the device back to D0 state in rtl_shutdown if
+the device was runtime PM suspended. In addition, since runtiome PM
+also mucks around with WOL options, the saved WOL options are also
+restored in rtl_shutdown.
 
 Signed-off-by: Sameer Nanda <snanda@chromium.org>
 ---
- drivers/net/ethernet/realtek/r8169.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 7a0c800..a6921b7 100644
+index a6921b7..4a894e6 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4073,12 +4073,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->txd_version = rtl_chip_infos[chipset].txd_version;
+@@ -691,6 +691,7 @@ struct rtl8169_private {
+ 	u16 intr_event;
+ 	u16 napi_event;
+ 	u16 intr_mask;
++	bool runtime_suspended;
  
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
-+
-+	/* Enable WOL from Magic Packet by default */
- 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
--	RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
--	if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
--		tp->features |= RTL_FEATURE_WOL;
--	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
--		tp->features |= RTL_FEATURE_WOL;
-+	RTL_W8(Config3, MagicPacket);
-+	RTL_W8(Config5, PMEStatus);
-+	tp->features |= RTL_FEATURE_WOL;
-+
- 	tp->features |= rtl_try_msi(tp, cfg);
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
+ 	struct mdio_ops {
+ 		void (*write)(void __iomem *, int, int);
+@@ -4308,6 +4309,7 @@ static int rtl8169_open(struct net_device *dev)
+ 	rtl_hw_start(dev);
  
+ 	tp->saved_wolopts = 0;
++	tp->runtime_suspended = false;
+ 	pm_runtime_put_noidle(&pdev->dev);
+ 
+ 	rtl8169_check_link_status(dev, tp, ioaddr);
+@@ -6106,6 +6108,7 @@ static int rtl8169_runtime_suspend(struct device *device)
+ 	spin_lock_irq(&tp->lock);
+ 	tp->saved_wolopts = __rtl8169_get_wol(tp);
+ 	__rtl8169_set_wol(tp, WAKE_ANY);
++	tp->runtime_suspended = true;
+ 	spin_unlock_irq(&tp->lock);
+ 
+ 	rtl8169_net_suspend(dev);
+@@ -6125,6 +6128,7 @@ static int rtl8169_runtime_resume(struct device *device)
+ 	spin_lock_irq(&tp->lock);
+ 	__rtl8169_set_wol(tp, tp->saved_wolopts);
+ 	tp->saved_wolopts = 0;
++	tp->runtime_suspended = false;
+ 	spin_unlock_irq(&tp->lock);
+ 
+ 	rtl8169_init_phy(dev, tp);
+@@ -6188,6 +6192,10 @@ static void rtl_shutdown(struct pci_dev *pdev)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
++	/* Get the device back to D0 state if it was runtime suspended. */
++	if (tp->runtime_suspended)
++		pci_set_power_state(pdev, PCI_D0);
++
+ 	rtl8169_net_suspend(dev);
+ 
+ 	/* Restore original MAC address */
+@@ -6195,6 +6203,10 @@ static void rtl_shutdown(struct pci_dev *pdev)
+ 
+ 	spin_lock_irq(&tp->lock);
+ 
++	/* Restore WOL flags if they were messed around with. */
++	if (tp->saved_wolopts)
++		__rtl8169_set_wol(tp, tp->saved_wolopts);
++
+ 	rtl8169_hw_reset(tp);
+ 
+ 	spin_unlock_irq(&tp->lock);
 -- 
 1.7.7.3
