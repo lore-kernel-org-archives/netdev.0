@@ -1,61 +1,60 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 10:27:05 -0800
-Message-ID: <4F3AA779.3080409@hp.com>
-References: <201202132253.16496.jdelvare@suse.de> <22039.1329171191@death.nxdomain> <201202141122.10705.jdelvare@suse.de> <20120214110604.GI32155@v3-1054> <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Sameer Nanda <snanda@chromium.org>
+Subject: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
+	default
+Date: Tue, 14 Feb 2012 10:27:59 -0800
+Message-ID: <1329244079-27842-1-git-send-email-snanda@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Jean Delvare <jdelvare@suse.de>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:15507 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756924Ab2BNS1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 13:27:07 -0500
-In-Reply-To: <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	Sameer Nanda <snanda@chromium.org>
+To: omieu@fr.zoreil.com,
+	jw@sisk.pl,
+	hayeswang@realtek.com
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/14/2012 03:13 AM, Eric Dumazet wrote:
-> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 12:06 +0100, Steffen Klassert a =
-=C3=A9crit :
->> On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
->>>
->>> Well I am still curious why the 3c59x driver has such slow polling =
-when
->>> other drivers I have been testing are able to report almost instant=
-ly
->>> when I remove a network cable. Could it be that other network chips
->>> generate an interrupt on cable removal and the 3com chips do not?
->>>
->>
->> Yes, at least some of the supported chips do not generate an interru=
-pt
->> on cable removal, so we have to check for this with a timer.
->> --
->
-> We could have a 5 sec timer in case device is a slave.
->
-> diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet=
-/3com/3c59x.c
-> index 1282f04..e463d10 100644
-> --- a/drivers/net/ethernet/3com/3c59x.c
-> +++ b/drivers/net/ethernet/3com/3c59x.c
-> @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
->   		ok =3D 1;
->   	}
->
-> -	if (!netif_carrier_ok(dev))
-> +	if (dev->flags&  IFF_SLAVE || !netif_carrier_ok(dev))
->   		next_tick =3D 5*HZ;
->
->   	if (vp->medialock)
+Set the WOL config registers to only enable WOL from magic packet by
+default. Without this change in place, the WOL config register
+settings on warm reboot come up in an inconsistent state since these
+registers don't get reset on a warm reboot.
 
-Does the device being a slave in a bond change the overheads of the=20
-check being performed?
+Signed-off-by: Sameer Nanda <snanda@chromium.org>
+---
+ drivers/net/ethernet/realtek/r8169.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-rick jones
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 7a0c800..a6921b7 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4073,12 +4073,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	tp->txd_version = rtl_chip_infos[chipset].txd_version;
+ 
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
++
++	/* Enable WOL from Magic Packet by default */
+ 	RTL_W8(Config1, RTL_R8(Config1) | PMEnable);
+-	RTL_W8(Config5, RTL_R8(Config5) & PMEStatus);
+-	if ((RTL_R8(Config3) & (LinkUp | MagicPacket)) != 0)
+-		tp->features |= RTL_FEATURE_WOL;
+-	if ((RTL_R8(Config5) & (UWF | BWF | MWF)) != 0)
+-		tp->features |= RTL_FEATURE_WOL;
++	RTL_W8(Config3, MagicPacket);
++	RTL_W8(Config5, PMEStatus);
++	tp->features |= RTL_FEATURE_WOL;
++
+ 	tp->features |= rtl_try_msi(tp, cfg);
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+ 
+-- 
+1.7.7.3
