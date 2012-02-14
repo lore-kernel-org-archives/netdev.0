@@ -1,132 +1,49 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [patch net-next] cxgb3: update firmware version
-Date: Tue, 14 Feb 2012 05:08:36 +0000
-Message-ID: <1329196116.3048.66.camel@deadeye>
-References: <20120213202846.631.30806.stgit@speedy5.asicdesigners.com>
-	 <1329165817.2092.62.camel@shinybook.infradead.org>
-	 <4F398303.1030606@chelsio.com> <1329184754.3048.33.camel@deadeye>
-	 <4F39E7C9.20901@chelsio.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Tue, 14 Feb 2012 06:55:02 +0100
+Message-ID: <1329198902.24837.11.camel@edumazet-laptop>
+References: <8633039.fHPLx6GNq3@localhost.localdomain>
+	 <3490386.xy2kafBK9b@localhost.localdomain>
+	 <1329173056.2523.14.camel@edumazet-laptop>
+	 <2578783.aLeNzacy8Q@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o8dUtXgdbcJ2K7I9fOCr"
-Cc: David Woodhouse <dwmw2@infradead.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>, nhorman@tuxdriver.com
-To: Divy Le Ray <divy@chelsio.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: alekcejk@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49758 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750744Ab2BNFIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 00:08:40 -0500
-In-Reply-To: <4F39E7C9.20901@chelsio.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:32976 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993Ab2BNFzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 00:55:07 -0500
+Received: by werb13 with SMTP id b13so3933386wer.19
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2012 21:55:05 -0800 (PST)
+In-Reply-To: <2578783.aLeNzacy8Q@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-o8dUtXgdbcJ2K7I9fOCr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2012-02-13 at 20:49 -0800, Divy Le Ray wrote:
-> On Monday, February 13, 2012 5:59:14 PM, Ben Hutchings wrote:
-> >
-> > On Mon, 2012-02-13 at 13:39 -0800, Divy Le Ray wrote:
-> >>
-> >> On Monday, February 13, 2012 12:43:37 PM, David Woodhouse wrote:
-> >>>
-> >>>
-> >>> On Mon, 2012-02-13 at 12:28 -0800, Divy Le Ray wrote:
-> >>>>
-> >>>>
-> >>>> This patch updates the firmware version cxgb3 is requesting to 7.12.=
-0.
-> >>>
-> >>>
-> >>>
-> >>> I'm confused. Your patch doesn't change anything in the driver, excep=
-t
-> >>> the firmware version. So why is it a "major" change?
-> >>
-> >>
-> >> Hi David,
-> >>
-> >> cxgb3 embeds the firmware file name it will request at load time.
-> >> It uses the FW_VERSION_* defs to construct the firmware name FW_FNAME
-> >> before calling request_firmware().
-> >> Hence the need to update the firmware minor version.
-> >>
-> >> On the other hand, the driver version update is not a strict requireme=
-nt
-> >> here.
-> >> I would prefer keeping it though.
-> >
-> >
-> > The problems with this are:
-> > 1. Older kernel versions don't benefit from the firmware update.
-> > 2. The old firmware has to be kept in linux-firmware to support those
-> > old kernel versions, and distributions may have to package more
-> > versions.
-> >
-> > To avoid this, the firmware filename should only be changed if you make
-> > incompatible changes in the driver/firmware interface.
+Le mardi 14 f=C3=A9vrier 2012 =C3=A0 01:49 +0200, alekcejk@googlemail.c=
+om a
+=C3=A9crit :
+> =D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=D1=
+=82 =D0=9F=D0=BE=D0=BD=D0=B5=D0=B4=D0=B5=D0=BB=D1=8C=D0=BD=D0=B8=D0=BA =
+13 =D1=84=D0=B5=D0=B2=D1=80=D0=B0=D0=BB=D1=8F 2012 23:44:16 =D0=B2=D1=8B=
+ =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=D0=B8:
+> > Le lundi 13 f=C3=A9vrier 2012 =C3=A0 21:18 +0100, Eric Dumazet a =C3=
+=A9crit :
+> > I wonder if the other side of your link believes link is in half du=
+plex
+> > mode... Could you please check ?
 >=20
-> Hi Ben,
->=20
-> The scheme for cxgb3 firmware update was designed in coordination with=
-=20
-> OEMs in the early stages of the driver existence back in 2007.
+> I have no access to other side, the only I can check is ethtool and m=
+ii-diag (kernel-3.2.3):
 
-I'm aware that some OEMs have specifications for flash firmware updates
-and version numbers.  I don't recall seeing anything about naming
-firmware files that are loaded by the driver at boot.
+I have seen numerous duplex mismatches in some data centers after a
+reboot. One side believes link is full duplex, the other side believes
+its half duplex.
 
-In any case, whatever your OEMs want in out-of-tree driver packages is
-not necessarily relevant to mainline Linux.
+You could setup a pktgen/hping3 to send 2.000 small frames per second t=
+o
+your gateway and check if you still can download at normal speeds.
 
-> Committing FW 7.12.0 under the name of t3fw-7.10.0.bin would be=20
-> confusing, in my mind.
-
-Indeed it would, but I was speaking in general terms - that it would be
-preferable to use something like t3fw-<major>.bin.
-
-I assume that the firmware blob has a version embedded in it, so that
-the driver would still be able to report the exact version through
-ethtool_ops::get_drvinfo.
-
-> Some distributions have explicitly requested the FW rev number to be=20
-> appended to the firmware file name.
-
-Did they really want the full version there or did they want you to
-distinguish incompatible versions?  Did they assume that the file would
-be installed by a package (so that the package carries a version number)
-or not?
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
-
---=-o8dUtXgdbcJ2K7I9fOCr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATznsVOe/yOyVhhEJAQqUDg//W3vYY+91SCM0xDD+7vUNmtnwRpTk+giL
-zRt3GJoDtfFEfJ+s0YysfFVPDnDvcQcuKS276Z1IEvEZboMn/HdsWeR2bo6L9pK9
-B7bUFLKmGpQqRZTf24+ukLfWQMmTy1d/Vv6EedfTExYNYmL1SU/b71R4bzSTY/d9
-g5A1tQcciYJDXs6Zb2RbRnzaJJcsCw0GeV5zYjLarqLb3ofPsxt2iX09yu2uuJea
-YkNzWc+bI7mN4tDdVuqUu6yxHrs+N8NRMViOsigCGGlXrUGeOSqWDwM3ZiXbyLww
-dV5miczlIheSDd2fyO3Amqxe3uS1w6BIFgZjLoYlfWUGneZ0wYQ7BEFSyisqMQYV
-vhiCtMpSP9Q9hW0jnHIIcfQ6ZVyvFFdLl3ViIYz9yXDXSsic+th93BYKGSNqccfY
-5glApn8v7zVFO3jnVG+iGEEMoigcN8gEI7kRfJefSB0vnVGlOF7f0q9vm6D/rbxa
-BjMsUvuq15JV3O9T//asbU833yHnrblbHYm2ElJm2Z5B6TdgoG9BrtKsb2iT0LO9
-nrj59Io5VB4ng0rckBWB3429WxSZriHHgOn48Em5FMPovVeSer4MqBQEx9ztRx+y
-VxHTT836Q2IYLEEJeYxIP9NBqQ75W6BwJ958/FqQW1QXNyc5SujL1Ulzok3YhNdp
-slsWYsRnEN0=
-=sAYl
------END PGP SIGNATURE-----
-
---=-o8dUtXgdbcJ2K7I9fOCr--
+hping3 --udp -s 9 -p 9 -i u500 192.168.1.1
