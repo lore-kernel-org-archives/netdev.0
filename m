@@ -1,73 +1,78 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Tue, 14 Feb 2012 11:05:04 -0800
-Message-ID: <20120214110504.418461bd@nehalam.linuxnetplumber.net>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-	<20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-	<4F34042F.6090806@intel.com>
-	<20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-	<4F3407F7.9000202@intel.com>
-	<1328821894.2089.3.camel@mojatatu>
-	<4F347D96.2020806@intel.com>
-	<4F3499BC.8020609@intel.com>
-	<1328887111.2075.43.camel@mojatatu>
-	<4F39287F.6030204@intel.com>
-	<1329225526.2806.34.camel@mojatatu>
-	<4F3AAE80.4040609@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, jamal <hadi@cyberus.ca>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4F3AAE80.4040609@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] bnx2x: remove the 'poll' module option
+Date: Tue, 14 Feb 2012 20:05:46 +0100
+Message-ID: <1329246346-9993-1-git-send-email-mschmidt@redhat.com>
+Cc: eilong@broadcom.com, gideonn@broadcom.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30368 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759293Ab2BNTFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 14:05:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Feb 2012 10:57:04 -0800
-John Fastabend <john.r.fastabend@intel.com> wrote:
+'poll' was a debugging option, but turning it on these days leads to
+kernel panic. Remove it.
 
-> On 2/14/2012 5:18 AM, jamal wrote:
-> > On Mon, 2012-02-13 at 07:13 -0800, John Fastabend wrote:
-> > 
-> >> The use case here is multiple VFs but the same solution should work with
-> >> multiple PFs as well. FDB controls should be independent of how the ports
-> >> are exposed VFs, PFs, VMDQ/queue pairs, macvlan, etc.
-> > 
-> > Makes sense.
-> > 
-> >> With events and ADD/DEL/GET FDB controls we can solve both cases. This also
-> >> solves Roopa's case with macvlan where she wants to add additional addresses
-> >> to macvlan ports.
-> > 
-> > Not familiar with that issue - I'll prowl the list.
-> 
-> Roopa was likely on the right track here,
-> 
-> http://patchwork.ozlabs.org/patch/123064/
-> 
-> But I think the proper syntax is to use the existing PF_BRIDGE:RTM_XXX
-> netlink messages. And if possible drive this without extending ndo_ops.
-> 
-> An ideal user space interaction IMHO would look like,
-> 
-> [root@jf-dev1-dcblab iproute2]# ./br/br fdb add 52:e5:62:7b:57:88 dev veth10
-> [root@jf-dev1-dcblab iproute2]# ./br/br fdb
-> port    mac addr                flags
-> veth2   36:a6:35:9b:96:c4       local
-> veth4   aa:54:b0:7b:42:ef       local
-> veth0   2a:e8:5c:95:6c:1b       local
-> veth6   6e:26:d5:43:a3:36       local
-> veth0   f2:c1:39:76:6a:fb
-> veth8   4e:35:16:af:87:13       local
-> veth10  52:e5:62:7b:57:88       static
-> veth10  aa:a9:35:21:15:c4       local
-> [root@jf-dev1-dcblab iproute2]# ./br/br fdb add dev eth3 to 52:e5:62:7b:57:88
-> RTNETLINK answers: Invalid argument
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   17 +----------------
+ 1 files changed, 1 insertions(+), 16 deletions(-)
 
-I am going to put bridge (nameclash with br) tool into iproute2 (soon).
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index ff19c3c..f4456ef 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -117,10 +117,6 @@ static int dropless_fc;
+ module_param(dropless_fc, int, 0);
+ MODULE_PARM_DESC(dropless_fc, " Pause on exhausted host ring");
+ 
+-static int poll;
+-module_param(poll, int, 0);
+-MODULE_PARM_DESC(poll, " Use polling (for debug)");
+-
+ static int mrrs = -1;
+ module_param(mrrs, int, 0);
+ MODULE_PARM_DESC(mrrs, " Force Max Read Req Size (0..3) (for debug)");
+@@ -4853,20 +4849,11 @@ void bnx2x_drv_pulse(struct bnx2x *bp)
+ 
+ static void bnx2x_timer(unsigned long data)
+ {
+-	u8 cos;
+ 	struct bnx2x *bp = (struct bnx2x *) data;
+ 
+ 	if (!netif_running(bp->dev))
+ 		return;
+ 
+-	if (poll) {
+-		struct bnx2x_fastpath *fp = &bp->fp[0];
+-
+-		for_each_cos_in_tx_queue(fp, cos)
+-			bnx2x_tx_int(bp, &fp->txdata[cos]);
+-		bnx2x_rx_int(fp, 1000);
+-	}
+-
+ 	if (!BP_NOMCP(bp)) {
+ 		int mb_idx = BP_FW_MB_IDX(bp);
+ 		u32 drv_pulse;
+@@ -10121,7 +10108,6 @@ static void __devinit bnx2x_set_modes_bitmap(struct bnx2x *bp)
+ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ {
+ 	int func;
+-	int timer_interval;
+ 	int rc;
+ 
+ 	mutex_init(&bp->port.phy_mutex);
+@@ -10189,8 +10175,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 	bp->tx_ticks = (50 / BNX2X_BTR) * BNX2X_BTR;
+ 	bp->rx_ticks = (25 / BNX2X_BTR) * BNX2X_BTR;
+ 
+-	timer_interval = (CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ);
+-	bp->current_interval = (poll ? poll : timer_interval);
++	bp->current_interval = CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ;
+ 
+ 	init_timer(&bp->timer);
+ 	bp->timer.expires = jiffies + bp->current_interval;
+-- 
+1.7.4.1
