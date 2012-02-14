@@ -1,57 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: shorten timer period for slave devices
-Date: Tue, 14 Feb 2012 16:28:05 -0500 (EST)
-Message-ID: <20120214.162805.235395266188685036.davem@davemloft.net>
-References: <1329251229.2555.10.camel@edumazet-laptop>
-	<1329252670.3054.85.camel@dcbw.foobar.com>
-	<1329253376.2555.14.camel@edumazet-laptop>
+Subject: Re: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Tue, 14 Feb 2012 16:31:38 -0500 (EST)
+Message-ID: <20120214.163138.447136245539138324.davem@davemloft.net>
+References: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
+	<1329253993.2443.30.camel@bwh-desktop>
+	<C5551D9AAB213A418B7FD5E4A6F30A0702F8C728@ORSMSX106.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dcbw@redhat.com, klassert@mathematik.tu-chemnitz.de,
-	jdelvare@suse.de, fubar@us.ibm.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: gregory.v.rose@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49500 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49524 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932104Ab2BNV2e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 16:28:34 -0500
-In-Reply-To: <1329253376.2555.14.camel@edumazet-laptop>
+	with ESMTP id S1760610Ab2BNVbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 16:31:41 -0500
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F8C728@ORSMSX106.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Feb 2012 22:02:56 +0100
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Date: Tue, 14 Feb 2012 21:27:59 +0000
 
-> Le mardi 14 f=E9vrier 2012 =E0 14:51 -0600, Dan Williams a =E9crit :
->> On Tue, 2012-02-14 at 21:27 +0100, Eric Dumazet wrote:
->> > Jean Delvare reported bonding on top of 3c59x adapters was not det=
-ecting
->> > network cable removal fast enough.
->> >=20
->> > 3c59x indeed uses a 60 seconds timer to check link status if carri=
-er is
->> > on, and 5 seconds if carrier is off.
->> >=20
->> > This patch reduces timer period to 5 seconds if device is a bondin=
-g
->> > slave.
->>=20
->> Maybe for posterity give some rationale as to why we feel we can red=
-uce
->> it to 5 seconds for slaves instead of reducing the timer period in
->> general?  If you weren't party to this discussion that won't be appa=
-rent
->> from the commit log.
->=20
-> Apparently, Andrew Morton considered firing a timer every 5 seconds w=
-as
-> too expensive. I am not sure we want to state this (probably old fact=
-)
-> in the changelog. Anyway are these slow NICS still used in 2011 ? ;)
+> That's a real sticky problem.  When the dump request comes in we
+> don't know how big the required buffer might actually get.  That's
+> why we used to have the min_ifinfo_dump_size.  However there were
+> problems with that also so Dave asked me to get rid of it.  The only
+> thing I could come up with just allocating a really big buffer.  If
+> someone could point out to me how to get a maximum ifinfo dump size
+> before rtnl_dump_ifinfo starts filtering through the matching
+> interfaces then that would really help.  But at the point the dump
+> request comes in we don't know beforehand how to calculate the info
+> dump size because if_nlmsg_size() requires a pointer to a netdevice.
 
-At least Jean Delvare is :-)
+Two quick ideas:
 
-I'm going to apply this as-is, if you configure bonding on one of these
-chips you expect it to work.  And working is more important than optima=
-l.
+1) Have a first pass which iterates over the devices and calculates
+   the maximum of all if_nlmsg_size() calculations over those devices
+   then uses that for the dump buffer allocation size.
+
+2) Replace min_ifinfo_dump_size() with an array of sizes, one for
+   each combination of extended features.  The only concern with this
+   one is that whilst it's practical to do this now with only 1 or
+   a few feature bits, in the future it may be a lot less practical.
