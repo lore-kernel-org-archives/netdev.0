@@ -1,63 +1,84 @@
-From: Sameer Nanda <snanda@chromium.org>
-Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
-	default
-Date: Tue, 14 Feb 2012 10:38:24 -0800
-Message-ID: <CANMivWa=WRh=5EeVG7_59s8JyXZGmWrch=fsg8KRmm5QAu3n3g@mail.gmail.com>
-References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
-	<CANMivWZ9OsEVpqUHCG=GYz82rv6f31Ppkh_-f7+Uf_BKU4rwgA@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] ixgbe: fix truesize calculation when merging active tail
+ into lro skb
+Date: Tue, 14 Feb 2012 10:47:39 -0800
+Message-ID: <4F3AAC4B.7070308@intel.com>
+References: <20120213135248.GA23457@sir.fritz.box>   <1329142322.2494.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <1329169382.2307.14.camel@jtkirshe-mobl> <4F3A9806.2000102@intel.com> <1329241172.4818.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
-	Sameer Nanda <snanda@chromium.org>
-To: romieu@fr.zoreil.com, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	hayeswang@realtek.com
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANMivWZ9OsEVpqUHCG=GYz82rv6f31Ppkh_-f7+Uf_BKU4rwgA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, Christian Brunner <chb@muc.de>,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:55822 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035Ab2BNSrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 13:47:40 -0500
+In-Reply-To: <1329241172.4818.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rml4ZWQgUmFmYWVsJ3MgZW1haWwgYWRkcmVzcy4gwqBTb3JyeSBhYm91dCB0aGUgZHVwZSBlbWFp
-bHMuCgpPbiBUdWUsIEZlYiAxNCwgMjAxMiBhdCAxMDozMyBBTSwgU2FtZWVyIE5hbmRhIDxzbmFu
-ZGFAY2hyb21pdW0ub3JnPiB3cm90ZToKPiBGaXhlZCBGcmFuY29pcyBSb21pZXUgZW1haWwgYWRk
-cmVzcy4KPgo+IE9uIFR1ZSwgRmViIDE0LCAyMDEyIGF0IDEwOjI3IEFNLCBTYW1lZXIgTmFuZGEg
-PHNuYW5kYUBjaHJvbWl1bS5vcmc+IHdyb3RlOgo+Pgo+PiBTZXQgdGhlIFdPTCBjb25maWcgcmVn
-aXN0ZXJzIHRvIG9ubHkgZW5hYmxlIFdPTCBmcm9tIG1hZ2ljIHBhY2tldCBieQo+PiBkZWZhdWx0
-LiBXaXRob3V0IHRoaXMgY2hhbmdlIGluIHBsYWNlLCB0aGUgV09MIGNvbmZpZyByZWdpc3Rlcgo+
-PiBzZXR0aW5ncyBvbiB3YXJtIHJlYm9vdCBjb21lIHVwIGluIGFuIGluY29uc2lzdGVudCBzdGF0
-ZSBzaW5jZSB0aGVzZQo+PiByZWdpc3RlcnMgZG9uJ3QgZ2V0IHJlc2V0IG9uIGEgd2FybSByZWJv
-b3QuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFNhbWVlciBOYW5kYSA8c25hbmRhQGNocm9taXVtLm9y
-Zz4KPj4gLS0tCj4+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIHwgwqAg
-MTEgKysrKysrLS0tLS0KPj4gwqAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgNSBk
-ZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0
-ZWsvcjgxNjkuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwo+PiBpbmRl
-eCA3YTBjODAwLi5hNjkyMWI3IDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9y
-ZWFsdGVrL3I4MTY5LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2
-OS5jCj4+IEBAIC00MDczLDEyICs0MDczLDEzIEBAIHJ0bDgxNjlfaW5pdF9vbmUoc3RydWN0IHBj
-aV9kZXYgKnBkZXYsIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkICplbnQpCj4+IMKgIMKgIMKg
-IMKgdHAtPnR4ZF92ZXJzaW9uID0gcnRsX2NoaXBfaW5mb3NbY2hpcHNldF0udHhkX3ZlcnNpb247
-Cj4+Cj4+IMKgIMKgIMKgIMKgUlRMX1c4KENmZzkzNDYsIENmZzkzNDZfVW5sb2NrKTsKPj4gKwo+
-PiArIMKgIMKgIMKgIC8qIEVuYWJsZSBXT0wgZnJvbSBNYWdpYyBQYWNrZXQgYnkgZGVmYXVsdCAq
-Lwo+PiDCoCDCoCDCoCDCoFJUTF9XOChDb25maWcxLCBSVExfUjgoQ29uZmlnMSkgfCBQTUVuYWJs
-ZSk7Cj4+IC0gwqAgwqAgwqAgUlRMX1c4KENvbmZpZzUsIFJUTF9SOChDb25maWc1KSAmIFBNRVN0
-YXR1cyk7Cj4+IC0gwqAgwqAgwqAgaWYgKChSVExfUjgoQ29uZmlnMykgJiAoTGlua1VwIHwgTWFn
-aWNQYWNrZXQpKSAhPSAwKQo+PiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHRwLT5mZWF0dXJlcyB8
-PSBSVExfRkVBVFVSRV9XT0w7Cj4+IC0gwqAgwqAgwqAgaWYgKChSVExfUjgoQ29uZmlnNSkgJiAo
-VVdGIHwgQldGIHwgTVdGKSkgIT0gMCkKPj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCB0cC0+ZmVh
-dHVyZXMgfD0gUlRMX0ZFQVRVUkVfV09MOwo+PiArIMKgIMKgIMKgIFJUTF9XOChDb25maWczLCBN
-YWdpY1BhY2tldCk7Cj4+ICsgwqAgwqAgwqAgUlRMX1c4KENvbmZpZzUsIFBNRVN0YXR1cyk7Cj4+
-ICsgwqAgwqAgwqAgdHAtPmZlYXR1cmVzIHw9IFJUTF9GRUFUVVJFX1dPTDsKPj4gKwo+PiDCoCDC
-oCDCoCDCoHRwLT5mZWF0dXJlcyB8PSBydGxfdHJ5X21zaSh0cCwgY2ZnKTsKPj4gwqAgwqAgwqAg
-wqBSVExfVzgoQ2ZnOTM0NiwgQ2ZnOTM0Nl9Mb2NrKTsKPj4KPj4gLS0KPj4gMS43LjcuMwo+Pgo+
-Cj4KPgo+IC0tCj4gU2FtZWVyCgoKCi0tIApTYW1lZXIKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KbGludXgtcG0gbWFpbGluZyBsaXN0CmxpbnV4LXBtQGxp
-c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LXBt
+On 02/14/2012 09:39 AM, Eric Dumazet wrote:
+> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 09:21 -0800, Alexander Duyck a =C3=
+=A9crit :
+>
+>> The code itself is correct, but the comment isn't.  This code path i=
+s
+>> applied only to the case where we are not using pages.  The default =
+Rx
+>> buffer size is actually about 3K when RSC is in use, which means
+>> truesize is about 4.25K per buffer.
+>>
+> Hmm... any reason its not 2.25K per buffer ? (assuming MTU=3D1500)
+>
+> Do you really need this code in ixgbe_set_rx_buffer_len() ?
+>
+>                 /*
+>                  * Make best use of allocation by using all but 1K of=
+ a
+>                  * power of 2 allocation that will be used for skb->h=
+ead.
+>                  */
+>                 else if (max_frame <=3D IXGBE_RXBUFFER_3K)
+>                         rx_buf_len =3D IXGBE_RXBUFFER_3K;
+>                 else if (max_frame <=3D IXGBE_RXBUFFER_7K)
+>                         rx_buf_len =3D IXGBE_RXBUFFER_7K;
+>                 else if (max_frame <=3D IXGBE_RXBUFFER_15K)
+>                         rx_buf_len =3D IXGBE_RXBUFFER_15K;
+>                 else
+>                         rx_buf_len =3D IXGBE_MAX_RXBUFFER;
+>
+> Why not using :
+> 		rx_buf_len =3D max_frame;
+>
+> and let kmalloc() do its best ?
+
+The reason for all of this is receive side coalescing.  RSC causes us t=
+o
+do full buffer size DMAs even if the max frame size is less than the Rx
+buffer length.  If RSC is disabled via the NETIF_F_LRO flag then the
+default will drop to a 1522 buffer allocation size, and kmalloc can do =
+a
+2K allocation.
+
+If I am not mistaken, kmalloc only allocates power of 2 sized blocks fo=
+r
+anything over 256 bytes.  I made the above code change a little while
+back when I realized that when RSC was enabled we were setting up a 2K
+buffer, which after adding padding and skb_shared_info was 2.375K
+resulting in a 4K allocation.  After see that I decided it was better
+for us to set the buffer size to 3K which reduced RSC descriptor
+processing overhead for the standard case by 50%, and made use of 1K of
+the wasted space.
+
+I already have patches in the works that will do away with all of this
+code pretty soon anyway, and replace it all with something similar to
+our page based packet split path.  It will also end up doing away with
+the current RSC code since page based receives end up not needing to be
+queued as we are just adding pages to frags.
+
+Thanks,
+
+Alex=20
