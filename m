@@ -1,66 +1,28 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 20:27:12 +0100
-Message-ID: <201202142027.13147.jdelvare@suse.de>
-References: <201202132253.16496.jdelvare@suse.de> <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F3AA779.3080409@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/7] mlx4: Bug fixes and cleanups
+Date: Tue, 14 Feb 2012 14:30:23 -0500 (EST)
+Message-ID: <20120214.143023.281327914225614215.davem@davemloft.net>
+References: <4F3A8DB5.3020703@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33132 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760076Ab2BNT1Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:27:16 -0500
-In-Reply-To: <4F3AA779.3080409@hp.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48387 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757110Ab2BNTac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:30:32 -0500
+In-Reply-To: <4F3A8DB5.3020703@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 14 February 2012 07:27:05 pm Rick Jones wrote:
-> On 02/14/2012 03:13 AM, Eric Dumazet wrote:
-> > Le mardi 14 f=C3=A9vrier 2012 =C3=A0 12:06 +0100, Steffen Klassert =
-a =C3=A9crit :
-> >> On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
-> >>> Well I am still curious why the 3c59x driver has such slow
-> >>> polling when other drivers I have been testing are able to report
-> >>> almost instantly when I remove a network cable. Could it be that
-> >>> other network chips generate an interrupt on cable removal and
-> >>> the 3com chips do not?
-> >>
-> >> Yes, at least some of the supported chips do not generate an
-> >> interrupt on cable removal, so we have to check for this with a
-> >> timer. --
-> >
-> > We could have a 5 sec timer in case device is a slave.
-> >
-> > diff --git a/drivers/net/ethernet/3com/3c59x.c
-> > b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
-> > --- a/drivers/net/ethernet/3com/3c59x.c
-> > +++ b/drivers/net/ethernet/3com/3c59x.c
-> > @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
-> >   		ok =3D 1;
-> >   	}
-> >
-> > -	if (!netif_carrier_ok(dev))
-> > +	if (dev->flags&  IFF_SLAVE || !netif_carrier_ok(dev))
-> >   		next_tick =3D 5*HZ;
-> >
-> >   	if (vp->medialock)
->=20
-> Does the device being a slave in a bond change the overheads of the
-> check being performed?
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 14 Feb 2012 18:37:09 +0200
 
-No, but it changes the interest in having faster polling. The overhead=20
-is the same but the interest/overhead trade-off is much higher.
+> This is a series of fixes and cleanups for mlx4_core driver,
+> Most of them related tracking of VF resources.
+> The fixes solve issues caused when the VF don't close gracefully (FLR for example)
 
-Without the patch above, doing bonding on top of 3c59x is simply not=20
-possible, at least not in active-backup mode. For other modes it depend=
-s=20
-if you are only interested in load balancing or also on redundancy.
-
---=20
-Jean Delvare
-Suse L3
+All applied to net-next, such cleanups are absolutely not appropriate
+for the net tree.
