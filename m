@@ -1,62 +1,38 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 10:44:40 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E6F@saturn3.aculab.com>
-References: <201202141122.10705.jdelvare@suse.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Question with commit 299b0767(ipv6: Fix IPsec slowpath
+ fragmentation problem)
+Date: Tue, 14 Feb 2012 12:04:14 +0100
+Message-ID: <20120214110414.GA31660@secunet.com>
+References: <4F38C57F.5000706@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Steffen Klassert" <klassert@mathematik.tu-chemnitz.de>,
-	<netdev@vger.kernel.org>
-To: "Jean Delvare" <jdelvare@suse.de>,
-	"Jay Vosburgh" <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Li Wei <lw@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34979 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751387Ab2BNKpM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 05:45:12 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20284-07 for <netdev@vger.kernel.org>;
- Tue, 14 Feb 2012 10:45:09 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <201202141122.10705.jdelvare@suse.de>
+Received: from a.mx.secunet.com ([195.81.216.161]:45948 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759664Ab2BNLES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 06:04:18 -0500
+Content-Disposition: inline
+In-Reply-To: <4F38C57F.5000706@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> Well I am still curious why the 3c59x driver has such slow 
-> polling when 
-> other drivers I have been testing are able to report almost instantly 
-> when I remove a network cable. Could it be that other network chips 
-> generate an interrupt on cable removal and the 3com chips do not?
+On Mon, Feb 13, 2012 at 04:10:39PM +0800, Li Wei wrote:
+> Hi, Steffen!
+> 
+> I found some problem while doing networking tests with IPSec that
+> the first fragment doesn't use the max MTU to fill payload, but with
+> 20 bytes smaller. When I reverted your commit 299b0767(ipv6: Fix 
+> IPsec slowpath fragmentation problem), things goes well.
+> 
+> Would you so kindly to point me out what the commit did, because I
+> think the original implementation had taken IPSec header and tailer
+> into account.
+> 
 
-Not sure about those specific cards, but detecting the
-link state might require software bit-banging of an MII
-(or similar) interface.
+Without this patch we used always the slow path in ip6_fragment()
+due to a miscalculation of the packet lenght in ip6_append_data().
 
-Since this needs delays between all the edges it can
-end up spinning the cpu for a noticable time, especially
-if the resolution (and minimim delay) of the delay()
-function used is significantly longer than the delays
-actually required - which might only be a few 100ns.
-
-Using a cpu spin for the delays is also slightly
-problematical because the writes might get 'posted'
-and delayed further - so the writes have to be forced
-out to the device itself (eg by a readback) prior to
-the delay() being requested.
-
-If the driver is polling the link status it might
-be valid to do one bit-bang transition on each timer
-interrupt. This would separate the edges without
-spinning the cpu - provided there is a fast method
-for being called on every timer tick.
-
-Another scheme I have used is to write each value
-to the bit-bang register multiple times - using
-the maximum speed of the IO writes to generate the
-required delays.
-
-	David
+This patch just makes use of the reduced IPsec mtu, and adapts
+the IPsec header handling to have enought headroom on the skb.
