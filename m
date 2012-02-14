@@ -1,70 +1,72 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 13:50:57 +0100
-Message-ID: <201202141350.57657.jdelvare@suse.de>
-References: <201202132253.16496.jdelvare@suse.de> <20120214110604.GI32155@v3-1054> <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Tue, 14 Feb 2012 08:18:46 -0500
+Message-ID: <1329225526.2806.34.camel@mojatatu>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+	 <4F34042F.6090806@intel.com>
+	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>
+	 <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33103 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756506Ab2BNMu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 07:50:59 -0500
-In-Reply-To: <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:50443 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753611Ab2BNNSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 08:18:54 -0500
+In-Reply-To: <4F39287F.6030204@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric, Steffen,
+On Mon, 2012-02-13 at 07:13 -0800, John Fastabend wrote:
 
-On Tuesday 14 February 2012 12:13:37 pm Eric Dumazet wrote:
-> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 12:06 +0100, Steffen Klassert a =
-=C3=A9crit :
-> > On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
-> > > Well I am still curious why the 3c59x driver has such slow
-> > > polling when other drivers I have been testing are able to report
-> > > almost instantly when I remove a network cable. Could it be that
-> > > other network chips generate an interrupt on cable removal and
-> > > the 3com chips do not?
-> >
-> > Yes, at least some of the supported chips do not generate an
-> > interrupt on cable removal, so we have to check for this with a
-> > timer.
+> The use case here is multiple VFs but the same solution should work with
+> multiple PFs as well. FDB controls should be independent of how the ports
+> are exposed VFs, PFs, VMDQ/queue pairs, macvlan, etc.
 
-Too bad. I confirm I can't see the interrupt count increase when I=20
-remove the network cable from my 3C905C (nor when I plug it back in),=20
-but I was hopping this was a matter of enabling this event as an=20
-interrupt source in the driver. If the hardware just can't do it then=20
-this is hopeless. Back in the days I used to consider the 3C905 as the=20
-best fast Ethernet cards around, apparently I was horribly wrong.
+Makes sense.
 
-Thanks for explaining anyway.
+> With events and ADD/DEL/GET FDB controls we can solve both cases. This also
+> solves Roopa's case with macvlan where he wants to add additional addresses
+> to macvlan ports.
 
-> We could have a 5 sec timer in case device is a slave.
->=20
-> diff --git a/drivers/net/ethernet/3com/3c59x.c
->  b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
-> --- a/drivers/net/ethernet/3com/3c59x.c
-> +++ b/drivers/net/ethernet/3com/3c59x.c
-> @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
->  		ok =3D 1;
->  	}
->=20
-> -	if (!netif_carrier_ok(dev))
-> +	if (dev->flags & IFF_SLAVE || !netif_carrier_ok(dev))
->  		next_tick =3D 5*HZ;
->=20
->  	if (vp->medialock)
+Not familiar with that issue - I'll prowl the list.
 
-Yes I think this makes a lot of sense. If you send this upstream you ca=
-n=20
-add:
+> Yes it should flood here, unless its acting as a 802.1Qbg VEB or VEPA.
 
-Acked-by: Jean Delvare <jdelvare@suse.de>
+Ok. So there is a toggle somewhere which controls how flooding should
+happen.
 
---=20
-Jean Delvare
-Suse L3
+> 
+> Maybe not. But the kernel already has the needed signals with one extra
+> hook we can save running a daemon in user space. Maybe that's not a great
+> argument to add kernel code though.
+
+You make a reasonable arguement to have it in the kernel but i think we
+win more if we separate the control. So while i empathize, I am hoping
+that youd go with the path that is hard to travel ;->
+
+> The PF_BRIDGE:RTM_GETNEIGH,RTM_NEWNEIGH,RTM_DELNEIGH are registered in the
+> br_netlink_init() path. 
+
+Hrm - hadnt paid attention to that before. Nasty.
+The bridge seems to be hard-coding policy on station movement, no? 
+This is a good example of the qualms i have on adding things to the
+kernel;->
+I may not want to auto update a MAC address moving ports as part of
+some policy i have. I can go and add YAK (Yet Another Knob) - but where
+is the line drawn?
+
+cheers,
+jamal
