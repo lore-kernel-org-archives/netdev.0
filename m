@@ -1,31 +1,40 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 12:06:04 +0100
-Message-ID: <20120214110604.GI32155@v3-1054>
-References: <201202132253.16496.jdelvare@suse.de>
- <22039.1329171191@death.nxdomain>
- <201202141122.10705.jdelvare@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] netpoll: netpoll_poll_dev() should access dev->flags
+Date: Tue, 14 Feb 2012 12:10:21 +0100
+Message-ID: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Jean Delvare <jdelvare@suse.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slnx.de ([79.140.41.54]:51451 "EHLO v3-1054.slnx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756592Ab2BNLDj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 06:03:39 -0500
-Content-Disposition: inline
-In-Reply-To: <201202141122.10705.jdelvare@suse.de>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:39305 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760010Ab2BNLKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 06:10:25 -0500
+Received: by wics10 with SMTP id s10so4069245wic.19
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 03:10:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
-> 
-> Well I am still curious why the 3c59x driver has such slow polling when 
-> other drivers I have been testing are able to report almost instantly 
-> when I remove a network cable. Could it be that other network chips 
-> generate an interrupt on cable removal and the 3com chips do not?
-> 
+commit 5a698af53f (bond: service netpoll arp queue on master device)
+use a dubious test : if (dev->priv_flags & IFF_SLAVE)
 
-Yes, at least some of the supported chips do not generate an interrupt
-on cable removal, so we have to check for this with a timer.
+It seems to me IFF_SLAVE is present on dev->flags only ?
+
+What am I missing ?
+
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 4ce473e..3d84fb9 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -205,7 +205,7 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 
+ 	poll_napi(dev);
+ 
+-	if (dev->priv_flags & IFF_SLAVE) {
++	if (dev->flags & IFF_SLAVE) {
+ 		if (dev->npinfo) {
+ 			struct net_device *bond_dev = dev->master;
+ 			struct sk_buff *skb;
