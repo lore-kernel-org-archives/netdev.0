@@ -1,55 +1,54 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 02/10] tg3: Fix stats while interface is down
-Date: Mon, 13 Feb 2012 17:20:09 -0800
-Message-ID: <1329182417-28223-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 04/10] tg3: Fix NVRAM page writes on newer
+ devices
+Date: Mon, 13 Feb 2012 17:20:11 -0800
+Message-ID: <1329182417-28223-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3513 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3515 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758410Ab2BNBVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751720Ab2BNBVD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Feb 2012 20:21:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the tg3 interface is down, the driver will return ethtool stats
-uninitialized.  This patch zeroes out the destination stat buffer in
-such a case.
+On newer devices, the hardware expects the NVRAM address register
+to be written only once per NVRAM page.  To do otherwise causes NVRAM
+corruption.  This patch fixes the problem.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 0a765f1..4a0b9af 100644
+index cb17885..67b6d61 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -10154,9 +10154,6 @@ static struct tg3_ethtool_stats *tg3_get_estats(struct tg3 *tp,
- 	struct tg3_ethtool_stats *old_estats = &tp->estats_prev;
- 	struct tg3_hw_stats *hw_stats = tp->hw_stats;
+@@ -3140,8 +3140,6 @@ static int tg3_nvram_write_block_buffered(struct tg3 *tp, u32 offset, u32 len,
  
--	if (!hw_stats)
--		return old_estats;
+ 		phy_addr = tg3_nvram_phys_addr(tp, offset);
+ 
+-		tw32(NVRAM_ADDR, phy_addr);
 -
- 	ESTAT_ADD(rx_octets);
- 	ESTAT_ADD(rx_fragments);
- 	ESTAT_ADD(rx_ucast_packets);
-@@ -11029,7 +11026,10 @@ static void tg3_get_ethtool_stats(struct net_device *dev,
- {
- 	struct tg3 *tp = netdev_priv(dev);
+ 		nvram_cmd = NVRAM_CMD_GO | NVRAM_CMD_DONE | NVRAM_CMD_WR;
  
--	tg3_get_estats(tp, (struct tg3_ethtool_stats *)tmp_stats);
-+	if (tp->hw_stats)
-+		tg3_get_estats(tp, (struct tg3_ethtool_stats *)tmp_stats);
-+	else
-+		memset(tmp_stats, 0, sizeof(struct tg3_ethtool_stats));
- }
+ 		if (page_off == 0 || i == 0)
+@@ -3152,6 +3150,11 @@ static int tg3_nvram_write_block_buffered(struct tg3 *tp, u32 offset, u32 len,
+ 		if (i == (len - 4))
+ 			nvram_cmd |= NVRAM_CMD_LAST;
  
- static __be32 *tg3_vpd_readblock(struct tg3 *tp, u32 *vpdlen)
++		if ((nvram_cmd & NVRAM_CMD_FIRST) ||
++		    !tg3_flag(tp, FLASH) ||
++		    !tg3_flag(tp, 57765_PLUS))
++			tw32(NVRAM_ADDR, phy_addr);
++
+ 		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5752 &&
+ 		    !tg3_flag(tp, 5755_PLUS) &&
+ 		    (tp->nvram_jedecnum == JEDEC_ST) &&
 -- 
 1.7.3.4
