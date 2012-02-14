@@ -1,57 +1,51 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: How to deal with a PHY configuration related to the board?
-Date: Tue, 14 Feb 2012 15:01:09 +0100
-Message-ID: <4F3A6925.2060601@atmel.com>
-References: <20120214092606.GE4723@ldesroches-Latitude-E6320> <20120214094339.GA4338@sapphire.tkos.co.il> <20120214103318.GF4723@ldesroches-Latitude-E6320> <20120214112248.GA20876@game.jcrosoft.org>
+From: alekcejk@googlemail.com
+Subject: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Tue, 14 Feb 2012 16:09:59 +0200
+Message-ID: <2181120.DTPSTq3Adr@localhost.localdomain>
+References: <8633039.fHPLx6GNq3@localhost.localdomain> <2578783.aLeNzacy8Q@localhost.localdomain> <1329198902.24837.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ludovic Desroches <ludovic.desroches@atmel.com>,
-	Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from newsmtp5.atmel.com ([204.2.163.5]:20987 "EHLO
-	sjogate2.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755380Ab2BNOBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:01:30 -0500
-In-Reply-To: <20120214112248.GA20876@game.jcrosoft.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:63898 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755616Ab2BNOKU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:10:20 -0500
+Received: by bkcjm19 with SMTP id jm19so5480022bkc.19
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 06:10:19 -0800 (PST)
+In-Reply-To: <1329198902.24837.11.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/14/2012 12:22 PM, Jean-Christophe PLAGNIOL-VILLARD :
-> On 11:33 Tue 14 Feb     , Ludovic Desroches wrote:
->> Hi Baruch,
->>
->> On Tue, Feb 14, 2012 at 11:43:39AM +0200, Baruch Siach wrote:
->>> Hi Ludovic,
->>>
->>> On Tue, Feb 14, 2012 at 10:26:06AM +0100, Ludovic Desroches wrote:
->>>> I am using a Micrel KSZ9021RN PHY and I would like to configure some 
->>>> registers
->>>> as 'RGMII Clock and Control Pad Skew' and 'RGMII RX Data Pad Skew'.
->>>> So the values of these registers are board dependant and I wondering what is
->>>> the proper way to set them.
->>>> It seems there is no platform data usable for this case. Having a quick look
->>>> to other PHYs, the situation seems the same.
->>>>
->>>> Can you give me some clues about how to do this? Did I miss anything which
->>>> allow to do this?
->>>
->>> See ksz9021rn_phy_fixup() in arch/arm/mach-imx/mach-imx6q.c.
->>>
->>
->> Thanks for your help.
->>
->> So the solution is to use phy_register_fixup function.
-> dts
+> Le mardi 14 f=C3=A9vrier 2012 =C3=A0 01:49 +0200, alekcejk@googlemail=
+=2Ecom a
+>=20
+> =C3=A9crit :
+> > =D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=
+=D1=82 =D0=9F=D0=BE=D0=BD=D0=B5=D0=B4=D0=B5=D0=BB=D1=8C=D0=BD=D0=B8=D0=BA=
+ 13 =D1=84=D0=B5=D0=B2=D1=80=D0=B0=D0=BB=D1=8F 2012 23:44:16 =D0=B2=D1=8B=
+ =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=D0=B8:
+> > > Le lundi 13 f=C3=A9vrier 2012 =C3=A0 21:18 +0100, Eric Dumazet a =
+=C3=A9crit :
+> > > I wonder if the other side of your link believes link is in half =
+duplex
+> > > mode... Could you please check ?
+> >=20
+> > I have no access to other side, the only I can check is ethtool and=
+ mii-diag (kernel-3.2.3):
+> I have seen numerous duplex mismatches in some data centers after a
+> reboot. One side believes link is full duplex, the other side believe=
+s
+> its half duplex.
+>=20
 
-?
+Was no such problems here.
 
-Can you please build sentences?
+> You could setup a pktgen/hping3 to send 2.000 small frames per second=
+ to
+> your gateway and check if you still can download at normal speeds.
+>=20
+> hping3 --udp -s 9 -p 9 -i u500 192.168.1.1
 
-(even if I suspect to know what you are talking about ;-))
-
-Bye,
--- 
-Nicolas Ferre
+Download speed not changed when running this command for my gw.
