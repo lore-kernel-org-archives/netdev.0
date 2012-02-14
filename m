@@ -1,48 +1,50 @@
-From: alekcejk@googlemail.com
-Subject: Re: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Tue, 14 Feb 2012 16:28:20 +0200
-Message-ID: <5133914.uYLb0gnNTc@localhost.localdomain>
-References: <8633039.fHPLx6GNq3@localhost.localdomain> <1920135.kl3o7Tt79c@localhost.localdomain> <1329228798.4818.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36445 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337Ab2BNO2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:28:49 -0500
-Received: by bkcjm19 with SMTP id jm19so9279bkc.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 06:28:48 -0800 (PST)
-In-Reply-To: <1329228798.4818.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 1/1] usb: cdc-ncm: Increase maximum allowed datagram size
+Date: Tue, 14 Feb 2012 14:39:35 +0000
+Message-ID: <1329230375-25508-1-git-send-email-toby.gray@realvnc.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
+To: Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-0JIg0YHQvtC+0LHRidC10L3QuNC4INC+0YIg0JLRgtC+0YDQvdC40LogMTQg0YTQtdCy0YDQsNC7
-0Y8gMjAxMiAxNToxMzoxOCDQstGLINC90LDQv9C40YHQsNC70Lg6Cj4gTGUgbWFyZGkgMTQgZsOp
-dnJpZXIgMjAxMiDDoCAxNjowOCArMDIwMCwgYWxla2NlamtAZ29vZ2xlbWFpbC5jb20gYQo+IAo+
-IMOpY3JpdCA6Cj4gPiDQkiDRgdC+0L7QsdGJ0LXQvdC40Lgg0L7RgiDQktGC0L7RgNC90LjQuiAx
-NCDRhNC10LLRgNCw0LvRjyAyMDEyIDA2OjU1OjAyINCy0Ysg0L3QsNC/0LjRgdCw0LvQuDoKPiA+
-ID4gTGUgbWFyZGkgMTQgZsOpdnJpZXIgMjAxMiDDoCAwMTo0OSArMDIwMCwgYWxla2NlamtAZ29v
-Z2xlbWFpbC5jb20gYQo+ID4gPiAKPiA+ID4gw6ljcml0IDoKPiA+ID4gPiDQkiDRgdC+0L7QsdGJ
-0LXQvdC40Lgg0L7RgiDQn9C+0L3QtdC00LXQu9GM0L3QuNC6IDEzINGE0LXQstGA0LDQu9GPIDIw
-MTIgMjM6NDQ6MTYg0LLRiyDQvdCw0L/QuNGB0LDQu9C4Ogo+ID4gPiA+ID4gTGUgbHVuZGkgMTMg
-ZsOpdnJpZXIgMjAxMiDDoCAyMToxOCArMDEwMCwgRXJpYyBEdW1hemV0IGEgw6ljcml0IDoKPiA+
-ID4gPiA+IEkgd29uZGVyIGlmIHRoZSBvdGhlciBzaWRlIG9mIHlvdXIgbGluayBiZWxpZXZlcyBs
-aW5rIGlzIGluIGhhbGYgZHVwbGV4Cj4gPiA+ID4gPiBtb2RlLi4uIENvdWxkIHlvdSBwbGVhc2Ug
-Y2hlY2sgPwo+ID4gPiA+IAo+ID4gPiA+IEkgaGF2ZSBubyBhY2Nlc3MgdG8gb3RoZXIgc2lkZSwg
-dGhlIG9ubHkgSSBjYW4gY2hlY2sgaXMgZXRodG9vbCBhbmQgbWlpLWRpYWcgKGtlcm5lbC0zLjIu
-Myk6Cj4gPiA+IEkgaGF2ZSBzZWVuIG51bWVyb3VzIGR1cGxleCBtaXNtYXRjaGVzIGluIHNvbWUg
-ZGF0YSBjZW50ZXJzIGFmdGVyIGEKPiA+ID4gcmVib290LiBPbmUgc2lkZSBiZWxpZXZlcyBsaW5r
-IGlzIGZ1bGwgZHVwbGV4LCB0aGUgb3RoZXIgc2lkZSBiZWxpZXZlcwo+ID4gPiBpdHMgaGFsZiBk
-dXBsZXguCj4gPiAKPiA+IFdhcyBubyBzdWNoIHByb2JsZW1zIGhlcmUuCj4gPiAKPiA+ID4gWW91
-IGNvdWxkIHNldHVwIGEgcGt0Z2VuL2hwaW5nMyB0byBzZW5kIDIuMDAwIHNtYWxsIGZyYW1lcyBw
-ZXIgc2Vjb25kIHRvCj4gPiA+IHlvdXIgZ2F0ZXdheSBhbmQgY2hlY2sgaWYgeW91IHN0aWxsIGNh
-biBkb3dubG9hZCBhdCBub3JtYWwgc3BlZWRzLgo+ID4gPiAKPiA+ID4gaHBpbmczIC0tdWRwIC1z
-IDkgLXAgOSAtaSB1NTAwIDE5Mi4xNjguMS4xCj4gPiAKPiA+IERvd25sb2FkIHNwZWVkIG5vdCBj
-aGFuZ2VkIHdoZW4gcnVubmluZyB0aGlzIGNvbW1hbmQgZm9yIG15IGd3Lgo+IAo+IEkgbWVhbiB3
-aXRoIGEgMy4yIGtlcm5lbCBvZiBjb3Vyc2UgOykKClllcywgcmVzdWx0cyBhcmUgdGhlIHNhbWUg
-Zm9yIDMuMi4zIGtlcm5lbCB3aXRoIGFuZCB3aXRob3V0IHJ1bm5pbmcKdGhpcyBjb21tYW5kIGFu
-ZCBmb3IgZ2VvZ3JhcGhpY2FsbHkgY2xvc2UgdG8gbWUgc2VydmVyIChzcGVlZCBub3QgbGltaXRl
-ZCkKYW5kIGZvciBzZXJ2ZXIgbm90IGNsb3NlIHRvIG1lIHNwZWVkIGxpbWl0YXRpb24gdGhlIHNh
-bWUu
+Some NCM devices exist which will send datagrams larger than 2k and
+don't support the GetMaxDatagramSize request, such as the Nokia 701
+Mobile Telephone.
+
+This sets the maximum limit of datagrams to the theoretical limit for
+16-bit NTBs, preventing dropping of large datagrams received from some
+devices.
+
+Signed-off-by: Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 3a539a9..d9be846 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -67,8 +67,10 @@
+ 
+ #define	CDC_NCM_MIN_TX_PKT			512	/* bytes */
+ 
+-/* Default value for MaxDatagramSize */
+-#define	CDC_NCM_MAX_DATAGRAM_SIZE		2048	/* bytes */
++/* Maximum value for MaxDatagramSize, this is 16k (max NTB size)
++ * minus NTH size (12 bytes) and minus the smallest possible NDP size
++ * (16 bytes). */
++#define	CDC_NCM_MAX_DATAGRAM_SIZE		16356	/* bytes */
+ 
+ /*
+  * Maximum amount of datagrams in NCM Datagram Pointer Table, not counting
+-- 
+1.7.0.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
