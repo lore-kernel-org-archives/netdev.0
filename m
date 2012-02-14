@@ -1,48 +1,57 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 14:34:18 +0100
-Message-ID: <20120214133418.GJ32155@v3-1054>
-References: <201202132253.16496.jdelvare@suse.de>
- <20120214110604.GI32155@v3-1054>
- <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <201202141350.57657.jdelvare@suse.de>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: How to deal with a PHY configuration related to the board?
+Date: Tue, 14 Feb 2012 15:01:09 +0100
+Message-ID: <4F3A6925.2060601@atmel.com>
+References: <20120214092606.GE4723@ldesroches-Latitude-E6320> <20120214094339.GA4338@sapphire.tkos.co.il> <20120214103318.GF4723@ldesroches-Latitude-E6320> <20120214112248.GA20876@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Jean Delvare <jdelvare@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ludovic Desroches <ludovic.desroches@atmel.com>,
+	Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slnx.de ([79.140.41.54]:58861 "EHLO v3-1054.slnx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756554Ab2BNNbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 08:31:53 -0500
-Content-Disposition: inline
-In-Reply-To: <201202141350.57657.jdelvare@suse.de>
+Received: from newsmtp5.atmel.com ([204.2.163.5]:20987 "EHLO
+	sjogate2.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755380Ab2BNOBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 09:01:30 -0500
+In-Reply-To: <20120214112248.GA20876@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2012 at 01:50:57PM +0100, Jean Delvare wrote:
-> 
-> > We could have a 5 sec timer in case device is a slave.
-> > 
-> > diff --git a/drivers/net/ethernet/3com/3c59x.c
-> >  b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
-> > --- a/drivers/net/ethernet/3com/3c59x.c
-> > +++ b/drivers/net/ethernet/3com/3c59x.c
-> > @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
-> >  		ok = 1;
-> >  	}
-> > 
-> > -	if (!netif_carrier_ok(dev))
-> > +	if (dev->flags & IFF_SLAVE || !netif_carrier_ok(dev))
-> >  		next_tick = 5*HZ;
-> > 
-> >  	if (vp->medialock)
-> 
-> Yes I think this makes a lot of sense. If you send this upstream you can 
-> add:
-> 
-> Acked-by: Jean Delvare <jdelvare@suse.de>
-> 
+On 02/14/2012 12:22 PM, Jean-Christophe PLAGNIOL-VILLARD :
+> On 11:33 Tue 14 Feb     , Ludovic Desroches wrote:
+>> Hi Baruch,
+>>
+>> On Tue, Feb 14, 2012 at 11:43:39AM +0200, Baruch Siach wrote:
+>>> Hi Ludovic,
+>>>
+>>> On Tue, Feb 14, 2012 at 10:26:06AM +0100, Ludovic Desroches wrote:
+>>>> I am using a Micrel KSZ9021RN PHY and I would like to configure some 
+>>>> registers
+>>>> as 'RGMII Clock and Control Pad Skew' and 'RGMII RX Data Pad Skew'.
+>>>> So the values of these registers are board dependant and I wondering what is
+>>>> the proper way to set them.
+>>>> It seems there is no platform data usable for this case. Having a quick look
+>>>> to other PHYs, the situation seems the same.
+>>>>
+>>>> Can you give me some clues about how to do this? Did I miss anything which
+>>>> allow to do this?
+>>>
+>>> See ksz9021rn_phy_fixup() in arch/arm/mach-imx/mach-imx6q.c.
+>>>
+>>
+>> Thanks for your help.
+>>
+>> So the solution is to use phy_register_fixup function.
+> dts
 
-I'm fine with this too.
+?
+
+Can you please build sentences?
+
+(even if I suspect to know what you are talking about ;-))
+
+Bye,
+-- 
+Nicolas Ferre
