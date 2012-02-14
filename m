@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix tcp_shifted_skb() adjustment of lost_cnt_hint
- for FACK
-Date: Tue, 14 Feb 2012 14:41:29 -0500 (EST)
-Message-ID: <20120214.144129.563139404903955823.davem@davemloft.net>
-References: <1329200528-19718-1-git-send-email-ncardwell@google.com>
-	<20120214.144033.848861752845052421.davem@davemloft.net>
+Subject: Re: [PATCH] RxRPC: Fix kcalloc parameters swapped
+Date: Tue, 14 Feb 2012 14:42:07 -0500 (EST)
+Message-ID: <20120214.144207.182139685565921136.davem@davemloft.net>
+References: <1329200354.3806.1.camel@phoenix>
+	<18099.1329235408@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	nanditad@google.com, ycheng@google.com, therbert@google.com,
-	subramanian.vijay@gmail.com
-To: ncardwell@google.com
+Cc: axel.lin@gmail.com, linux-kernel@vger.kernel.org, zohar@us.ibm.com,
+	thomas@m3y3r.de, anton@samba.org, netdev@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48519 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48535 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755510Ab2BNTlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:41:40 -0500
-In-Reply-To: <20120214.144033.848861752845052421.davem@davemloft.net>
+	with ESMTP id S1757123Ab2BNTnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:43:20 -0500
+In-Reply-To: <18099.1329235408@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 14 Feb 2012 14:40:33 -0500 (EST)
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 14 Feb 2012 16:03:28 +0000
 
-> Applied, and queued up for -stable, thanks Neil.
+> Axel Lin <axel.lin@gmail.com> wrote:
+> 
+>> The first parameter should be "number of elements" and the second parameter
+>> should be "element size".
+>> 
+>> Signed-off-by: Axel Lin <axel.lin@gmail.com>
+> 
+> Not that it matters, I think, but let's be consistent...
+> 
+> Acked-by: David Howells <dhowells@redhat.com>
 
-Sorry for the typo, I truly meant to say "Neal" :-)
+Applied.
