@@ -1,30 +1,33 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: remove the 'poll' module option
-Date: Tue, 14 Feb 2012 21:14:02 +0200
-Message-ID: <1329246842.30697.0.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1329246346-9993-1-git-send-email-mschmidt@redhat.com>
-Reply-To: eilong@broadcom.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 (net.git)] stmmac update Feb_2012
+Date: Tue, 14 Feb 2012 14:16:20 -0500 (EST)
+Message-ID: <20120214.141620.1418537030681644675.davem@davemloft.net>
+References: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gideonn@broadcom.com
-To: "Michal Schmidt" <mschmidt@redhat.com>
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1197 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759456Ab2BNTOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 14:14:15 -0500
-In-Reply-To: <1329246346-9993-1-git-send-email-mschmidt@redhat.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757072Ab2BNTQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:16:30 -0500
+In-Reply-To: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-02-14 at 20:05 +0100, Michal Schmidt wrote:
-> 'poll' was a debugging option, but turning it on these days leads to
-> kernel panic. Remove it.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Tue, 14 Feb 2012 08:11:44 +0100
 
-Michal - thanks for taking care of it. Your help is truly appreciated.
+> This updates the stmmac adding some patches already reviewed in this
+> mailing list by D. Miller.  I've rebased these patches against this
+> recent patch: [PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c
+> and stmmac_platform.c applied by Maintainer (to avoid conflicts in
+> the plt and pci files).
 
-Acked-by Eilon Greenstein <eilong@broadcom.com>
+You're telling me in the subject line you want these patches applied
+to net.git but they don't actually apply cleanly to that tree.
+
+I can't tell you how insanely irritating this kind of thing is, it's
+where most of my time gets wasted.
