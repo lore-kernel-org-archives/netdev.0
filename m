@@ -1,52 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bonding with 3c59x driver
-Date: Tue, 14 Feb 2012 14:43:35 -0500 (EST)
-Message-ID: <20120214.144335.558771219791311889.davem@davemloft.net>
-References: <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<201202141350.57657.jdelvare@suse.de>
-	<20120214133418.GJ32155@v3-1054>
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Subject: RE: [PATCH net 0/7] mlx4: Bug fixes and cleanups
+Date: Tue, 14 Feb 2012 20:00:05 +0000
+Message-ID: <74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
+References: <4F3A8DB5.3020703@mellanox.co.il>
+ <20120214.143023.281327914225614215.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jdelvare@suse.de, eric.dumazet@gmail.com, fubar@us.ibm.com,
-	netdev@vger.kernel.org
-To: klassert@mathematik.tu-chemnitz.de
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48626 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755135Ab2BNTui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:50:38 -0500
-In-Reply-To: <20120214133418.GJ32155@v3-1054>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:39710 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757123Ab2BNUCE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Feb 2012 15:02:04 -0500
+In-Reply-To: <20120214.143023.281327914225614215.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Date: Tue, 14 Feb 2012 14:34:18 +0100
+Hello Dave,
 
-> On Tue, Feb 14, 2012 at 01:50:57PM +0100, Jean Delvare wrote:
->> 
->> > We could have a 5 sec timer in case device is a slave.
->> > 
->> > diff --git a/drivers/net/ethernet/3com/3c59x.c
->> >  b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
->> > --- a/drivers/net/ethernet/3com/3c59x.c
->> > +++ b/drivers/net/ethernet/3com/3c59x.c
->> > @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
->> >  		ok = 1;
->> >  	}
->> > 
->> > -	if (!netif_carrier_ok(dev))
->> > +	if (dev->flags & IFF_SLAVE || !netif_carrier_ok(dev))
->> >  		next_tick = 5*HZ;
->> > 
->> >  	if (vp->medialock)
->> 
->> Yes I think this makes a lot of sense. If you send this upstream you can 
->> add:
->> 
->> Acked-by: Jean Delvare <jdelvare@suse.de>
->> 
-> 
-> I'm fine with this too.
+Some of the patches fix very harmful memory leaks and corruptions.
+Could you please apply only these 3 specific patches to the net tree?
+They are
+	[PATCH net 1/7] mlx4_core: fix buffer overrun
+	[PATCH net 2/7] mlx4: fix QP tree trashing
+	[PATCH net 7/7] mlx4: add unicast steering entries to resource_tracker
 
-Eric, please submit this formally.
+
+
+Best regards,
+Jenny (Eugenia) Emantayev
+
+SW Engineer
+Networking group
+Mellanox Technologies LTD 
+Tel: +972-74-7237250
+Mob: +972-54-7370475 
+Fax: +972-4-959-3245 
+P.O. Box 586 Yokneam 20692 ISRAEL
+
+
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, February 14, 2012 21:31
+To: Yevgeny Petrilin
+Cc: netdev@vger.kernel.org; Eugenia Emantayev
+Subject: Re: [PATCH net 0/7] mlx4: Bug fixes and cleanups
+
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 14 Feb 2012 18:37:09 +0200
+
+> This is a series of fixes and cleanups for mlx4_core driver,
+> Most of them related tracking of VF resources.
+> The fixes solve issues caused when the VF don't close gracefully (FLR for example)
+
+All applied to net-next, such cleanups are absolutely not appropriate
+for the net tree.
