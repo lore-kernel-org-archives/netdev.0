@@ -1,86 +1,66 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [RFC iproute 2/2] iproute2: Update ip-link manpage for new option to
- set VF privileges
-Date: Tue, 14 Feb 2012 13:26:39 -0600
-Message-ID: <20120214192639.GA14484@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: bonding with 3c59x driver
+Date: Tue, 14 Feb 2012 20:27:12 +0100
+Message-ID: <201202142027.13147.jdelvare@suse.de>
+References: <201202132253.16496.jdelvare@suse.de> <1329218017.2336.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F3AA779.3080409@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <shemminger@linux-foundation.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:31047 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757134Ab2BNT1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:27:04 -0500
-Content-Disposition: inline
+Received: from cantor2.suse.de ([195.135.220.15]:33132 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760076Ab2BNT1Q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:27:16 -0500
+In-Reply-To: <4F3AA779.3080409@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 14 February 2012 07:27:05 pm Rick Jones wrote:
+> On 02/14/2012 03:13 AM, Eric Dumazet wrote:
+> > Le mardi 14 f=C3=A9vrier 2012 =C3=A0 12:06 +0100, Steffen Klassert =
+a =C3=A9crit :
+> >> On Tue, Feb 14, 2012 at 11:22:10AM +0100, Jean Delvare wrote:
+> >>> Well I am still curious why the 3c59x driver has such slow
+> >>> polling when other drivers I have been testing are able to report
+> >>> almost instantly when I remove a network cable. Could it be that
+> >>> other network chips generate an interrupt on cable removal and
+> >>> the 3com chips do not?
+> >>
+> >> Yes, at least some of the supported chips do not generate an
+> >> interrupt on cable removal, so we have to check for this with a
+> >> timer. --
+> >
+> > We could have a 5 sec timer in case device is a slave.
+> >
+> > diff --git a/drivers/net/ethernet/3com/3c59x.c
+> > b/drivers/net/ethernet/3com/3c59x.c index 1282f04..e463d10 100644
+> > --- a/drivers/net/ethernet/3com/3c59x.c
+> > +++ b/drivers/net/ethernet/3com/3c59x.c
+> > @@ -1841,7 +1841,7 @@ vortex_timer(unsigned long data)
+> >   		ok =3D 1;
+> >   	}
+> >
+> > -	if (!netif_carrier_ok(dev))
+> > +	if (dev->flags&  IFF_SLAVE || !netif_carrier_ok(dev))
+> >   		next_tick =3D 5*HZ;
+> >
+> >   	if (vp->medialock)
+>=20
+> Does the device being a slave in a bond change the overheads of the
+> check being performed?
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- man/man8/ip-link.8 |   41 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+No, but it changes the interest in having faster polling. The overhead=20
+is the same but the interest/overhead trade-off is much higher.
 
-diff --git a/man/man8/ip-link.8 b/man/man8/ip-link.8
-index 8c63584..874b749 100644
---- a/man/man8/ip-link.8
-+++ b/man/man8/ip-link.8
-@@ -98,6 +98,9 @@ ip-link \- network device configuration
- .B rate
- .IR TXRATE " ] ["
- .B spoofchk { on | off }
-+] [
-+.B privilege
-+.IR PRIVILEGE
- ] |
- .br
- .B master
-@@ -305,6 +308,44 @@ parameter must be specified.
- .sp
- .BI spoofchk " on|off"
- - turn packet spoof checking on or off for the specified VF.
-+
-+.sp
-+.BI privilege " PRIVILEGE"
-+- change the privilege level for the specified VF. The argument to this option
-+is a hexadecimal value using one or a combination of the following privilege
-+categories :
-+.br
-+.in +8
-+.B 0x1
-+Default privileges. Local access only.
-+.br
-+.B 0x2
-+Privilege to gather statistics.
-+.br
-+.B 0x4
-+Privilege to manage link parameters.
-+.br
-+.B 0x8
-+Privilege to perform diagnostics.
-+.br
-+.B 0x10
-+Privilege to change MAC address.
-+.br
-+.B 0x20
-+Privilege to add or remove VLANs.
-+.br
-+.B 0x40
-+Unrestricted administrative access privileges to everything except access to
-+secure content.
-+.br
-+.B 0x80
-+Privilege to access secure content like debug resisters.
-+.br
-+.in -8
-+.br
-+The
-+.B vf
-+parameter must be specified.
- .in -8
- 
- .TP
--- 
-1.7.1
+Without the patch above, doing bonding on top of 3c59x is simply not=20
+possible, at least not in active-backup mode. For other modes it depend=
+s=20
+if you are only interested in load balancing or also on redundancy.
+
+--=20
+Jean Delvare
+Suse L3
