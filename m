@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] mlx4: Bug fixes and cleanups
-Date: Tue, 14 Feb 2012 14:30:23 -0500 (EST)
-Message-ID: <20120214.143023.281327914225614215.davem@davemloft.net>
-References: <4F3A8DB5.3020703@mellanox.co.il>
+Subject: Re: [net-next RFC v2 0/2] Patch series to add VF privilege support
+Date: Tue, 14 Feb 2012 14:37:46 -0500 (EST)
+Message-ID: <20120214.143746.956650123702374199.davem@davemloft.net>
+References: <20120214192623.GA14138@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
-To: yevgenyp@mellanox.co.il
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48387 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48474 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757110Ab2BNTac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:30:32 -0500
-In-Reply-To: <4F3A8DB5.3020703@mellanox.co.il>
+	with ESMTP id S1759964Ab2BNThw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 14:37:52 -0500
+In-Reply-To: <20120214192623.GA14138@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Tue, 14 Feb 2012 18:37:09 +0200
+From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
+Date: Tue, 14 Feb 2012 13:26:23 -0600
 
-> This is a series of fixes and cleanups for mlx4_core driver,
-> Most of them related tracking of VF resources.
-> The fixes solve issues caused when the VF don't close gracefully (FLR for example)
+> Adds support to configure privileges for VFs.
 
-All applied to net-next, such cleanups are absolutely not appropriate
-for the net tree.
+Thanks for not explaining what the hell VF privileges are nor
+why we're even interested in supporting it.
