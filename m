@@ -1,45 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netpoll: netpoll_poll_dev() should access dev->flags
-Date: Tue, 14 Feb 2012 21:11:59 +0100
-Message-ID: <1329250319.2555.4.camel@edumazet-laptop>
-References: <1329217821.2336.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120214.144251.1481952602061158777.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/7] mlx4: Bug fixes and cleanups
+Date: Tue, 14 Feb 2012 15:22:38 -0500 (EST)
+Message-ID: <20120214.152238.470074857804516115.davem@davemloft.net>
+References: <4F3A8DB5.3020703@mellanox.co.il>
+	<20120214.143023.281327914225614215.davem@davemloft.net>
+	<74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Cc: yevgenyp@mellanox.com, netdev@vger.kernel.org
+To: eugenia@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60478 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755510Ab2BNUMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:12:05 -0500
-Received: by wgbdt10 with SMTP id dt10so262780wgb.1
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 12:12:03 -0800 (PST)
-In-Reply-To: <20120214.144251.1481952602061158777.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48927 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757071Ab2BNUWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 15:22:47 -0500
+In-Reply-To: <74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 5a698af53f (bond: service netpoll arp queue on master device)
-tested IFF_SLAVE flag against dev->priv_flags instead of dev->flags 
+From: Eugenia Emantayev <eugenia@mellanox.com>
+Date: Tue, 14 Feb 2012 20:00:05 +0000
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: WANG Cong <amwang@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
----
- net/core/netpoll.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Some of the patches fix very harmful memory leaks and corruptions.
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 556b082..ddefc51 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -194,7 +194,7 @@ static void netpoll_poll_dev(struct net_device *dev)
- 
- 	poll_napi(dev);
- 
--	if (dev->priv_flags & IFF_SLAVE) {
-+	if (dev->flags & IFF_SLAVE) {
- 		if (dev->npinfo) {
- 			struct net_device *bond_dev = dev->master;
- 			struct sk_buff *skb;
+Then submit the patches properly, don't mix cleanups in there if it
+matters so much to you.
