@@ -1,135 +1,63 @@
 From: Sameer Nanda <snanda@chromium.org>
-Subject: Re: [PATCH 2/2] r8169: transition to D0 state at shutdown
-Date: Tue, 14 Feb 2012 10:37:38 -0800
-Message-ID: <CANMivWbK8KcOUqwhFzaGDBLQR60U23bJ6=ykdDarriV29TxKmQ@mail.gmail.com>
-References: <1329244275-28130-1-git-send-email-snanda@chromium.org> <CANMivWZqSNmh8BiZLi7bVw475-P-XkxPTx_eT3Lb5i87N3Krog@mail.gmail.com>
+Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
+	default
+Date: Tue, 14 Feb 2012 10:38:24 -0800
+Message-ID: <CANMivWa=WRh=5EeVG7_59s8JyXZGmWrch=fsg8KRmm5QAu3n3g@mail.gmail.com>
+References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+	<CANMivWZ9OsEVpqUHCG=GYz82rv6f31Ppkh_-f7+Uf_BKU4rwgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
 	Sameer Nanda <snanda@chromium.org>
 To: romieu@fr.zoreil.com, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	hayeswang@realtek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:62931 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab2BNSh7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 13:37:59 -0500
-Received: by qadc10 with SMTP id c10so2484318qad.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 10:37:58 -0800 (PST)
-In-Reply-To: <CANMivWZqSNmh8BiZLi7bVw475-P-XkxPTx_eT3Lb5i87N3Krog@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANMivWZ9OsEVpqUHCG=GYz82rv6f31Ppkh_-f7+Uf_BKU4rwgA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46ixed Rafael's email address.  Sorry about the dupe emails.
-
-On Tue, Feb 14, 2012 at 10:33 AM, Sameer Nanda <snanda@chromium.org> wr=
-ote:
-> Fixed Francois Romieu's email address.
->
-> On Tue, Feb 14, 2012 at 10:31 AM, Sameer Nanda <snanda@chromium.org> =
-wrote:
->> With runtime PM, if the ethernet cable is disconnected, the device i=
-s
->> transitioned to D3 state to conserve energy. If the system is shutdo=
-wn
->> in this state, any register accesses in rtl_shutdown are dropped on
->> the floor.
->>
->> This patch transitions the device back to D0 state in rtl_shutdown i=
-f
->> the device was runtime PM suspended. In addition, since runtiome PM
->> also mucks around with WOL options, the saved WOL options are also
->> restored in rtl_shutdown.
->>
->> Signed-off-by: Sameer Nanda <snanda@chromium.org>
->> ---
->> =C2=A0drivers/net/ethernet/realtek/r8169.c | =C2=A0 12 ++++++++++++
->> =C2=A01 files changed, 12 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethe=
-rnet/realtek/r8169.c
->> index a6921b7..4a894e6 100644
->> --- a/drivers/net/ethernet/realtek/r8169.c
->> +++ b/drivers/net/ethernet/realtek/r8169.c
->> @@ -691,6 +691,7 @@ struct rtl8169_private {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 intr_event;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 napi_event;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 intr_mask;
->> + =C2=A0 =C2=A0 =C2=A0 bool runtime_suspended;
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct mdio_ops {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0void (*write)=
-(void __iomem *, int, int);
->> @@ -4308,6 +4309,7 @@ static int rtl8169_open(struct net_device *dev=
-)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl_hw_start(dev);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0tp->saved_wolopts =3D 0;
->> + =C2=A0 =C2=A0 =C2=A0 tp->runtime_suspended =3D false;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0pm_runtime_put_noidle(&pdev->dev);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl8169_check_link_status(dev, tp, ioaddr=
-);
->> @@ -6106,6 +6108,7 @@ static int rtl8169_runtime_suspend(struct devi=
-ce *device)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_irq(&tp->lock);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0tp->saved_wolopts =3D __rtl8169_get_wol(t=
-p);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0__rtl8169_set_wol(tp, WAKE_ANY);
->> + =C2=A0 =C2=A0 =C2=A0 tp->runtime_suspended =3D true;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_irq(&tp->lock);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl8169_net_suspend(dev);
->> @@ -6125,6 +6128,7 @@ static int rtl8169_runtime_resume(struct devic=
-e *device)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_irq(&tp->lock);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0__rtl8169_set_wol(tp, tp->saved_wolopts);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0tp->saved_wolopts =3D 0;
->> + =C2=A0 =C2=A0 =C2=A0 tp->runtime_suspended =3D false;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_irq(&tp->lock);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl8169_init_phy(dev, tp);
->> @@ -6188,6 +6192,10 @@ static void rtl_shutdown(struct pci_dev *pdev=
-)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D pci_get_drvdat=
-a(pdev);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct rtl8169_private *tp =3D netdev_pri=
-v(dev);
->>
->> + =C2=A0 =C2=A0 =C2=A0 /* Get the device back to D0 state if it was =
-runtime suspended. */
->> + =C2=A0 =C2=A0 =C2=A0 if (tp->runtime_suspended)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pci_set_power_sta=
-te(pdev, PCI_D0);
->> +
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl8169_net_suspend(dev);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Restore original MAC address */
->> @@ -6195,6 +6203,10 @@ static void rtl_shutdown(struct pci_dev *pdev=
-)
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_irq(&tp->lock);
->>
->> + =C2=A0 =C2=A0 =C2=A0 /* Restore WOL flags if they were messed arou=
-nd with. */
->> + =C2=A0 =C2=A0 =C2=A0 if (tp->saved_wolopts)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 __rtl8169_set_wol=
-(tp, tp->saved_wolopts);
->> +
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0rtl8169_hw_reset(tp);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_irq(&tp->lock);
->> --
->> 1.7.7.3
->>
->
->
->
-> --
-> Sameer
-
-
-
---=20
-Sameer
+Rml4ZWQgUmFmYWVsJ3MgZW1haWwgYWRkcmVzcy4gwqBTb3JyeSBhYm91dCB0aGUgZHVwZSBlbWFp
+bHMuCgpPbiBUdWUsIEZlYiAxNCwgMjAxMiBhdCAxMDozMyBBTSwgU2FtZWVyIE5hbmRhIDxzbmFu
+ZGFAY2hyb21pdW0ub3JnPiB3cm90ZToKPiBGaXhlZCBGcmFuY29pcyBSb21pZXUgZW1haWwgYWRk
+cmVzcy4KPgo+IE9uIFR1ZSwgRmViIDE0LCAyMDEyIGF0IDEwOjI3IEFNLCBTYW1lZXIgTmFuZGEg
+PHNuYW5kYUBjaHJvbWl1bS5vcmc+IHdyb3RlOgo+Pgo+PiBTZXQgdGhlIFdPTCBjb25maWcgcmVn
+aXN0ZXJzIHRvIG9ubHkgZW5hYmxlIFdPTCBmcm9tIG1hZ2ljIHBhY2tldCBieQo+PiBkZWZhdWx0
+LiBXaXRob3V0IHRoaXMgY2hhbmdlIGluIHBsYWNlLCB0aGUgV09MIGNvbmZpZyByZWdpc3Rlcgo+
+PiBzZXR0aW5ncyBvbiB3YXJtIHJlYm9vdCBjb21lIHVwIGluIGFuIGluY29uc2lzdGVudCBzdGF0
+ZSBzaW5jZSB0aGVzZQo+PiByZWdpc3RlcnMgZG9uJ3QgZ2V0IHJlc2V0IG9uIGEgd2FybSByZWJv
+b3QuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFNhbWVlciBOYW5kYSA8c25hbmRhQGNocm9taXVtLm9y
+Zz4KPj4gLS0tCj4+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jIHwgwqAg
+MTEgKysrKysrLS0tLS0KPj4gwqAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgNSBk
+ZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0
+ZWsvcjgxNjkuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvcjgxNjkuYwo+PiBpbmRl
+eCA3YTBjODAwLi5hNjkyMWI3IDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9y
+ZWFsdGVrL3I4MTY5LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2
+OS5jCj4+IEBAIC00MDczLDEyICs0MDczLDEzIEBAIHJ0bDgxNjlfaW5pdF9vbmUoc3RydWN0IHBj
+aV9kZXYgKnBkZXYsIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkICplbnQpCj4+IMKgIMKgIMKg
+IMKgdHAtPnR4ZF92ZXJzaW9uID0gcnRsX2NoaXBfaW5mb3NbY2hpcHNldF0udHhkX3ZlcnNpb247
+Cj4+Cj4+IMKgIMKgIMKgIMKgUlRMX1c4KENmZzkzNDYsIENmZzkzNDZfVW5sb2NrKTsKPj4gKwo+
+PiArIMKgIMKgIMKgIC8qIEVuYWJsZSBXT0wgZnJvbSBNYWdpYyBQYWNrZXQgYnkgZGVmYXVsdCAq
+Lwo+PiDCoCDCoCDCoCDCoFJUTF9XOChDb25maWcxLCBSVExfUjgoQ29uZmlnMSkgfCBQTUVuYWJs
+ZSk7Cj4+IC0gwqAgwqAgwqAgUlRMX1c4KENvbmZpZzUsIFJUTF9SOChDb25maWc1KSAmIFBNRVN0
+YXR1cyk7Cj4+IC0gwqAgwqAgwqAgaWYgKChSVExfUjgoQ29uZmlnMykgJiAoTGlua1VwIHwgTWFn
+aWNQYWNrZXQpKSAhPSAwKQo+PiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHRwLT5mZWF0dXJlcyB8
+PSBSVExfRkVBVFVSRV9XT0w7Cj4+IC0gwqAgwqAgwqAgaWYgKChSVExfUjgoQ29uZmlnNSkgJiAo
+VVdGIHwgQldGIHwgTVdGKSkgIT0gMCkKPj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCB0cC0+ZmVh
+dHVyZXMgfD0gUlRMX0ZFQVRVUkVfV09MOwo+PiArIMKgIMKgIMKgIFJUTF9XOChDb25maWczLCBN
+YWdpY1BhY2tldCk7Cj4+ICsgwqAgwqAgwqAgUlRMX1c4KENvbmZpZzUsIFBNRVN0YXR1cyk7Cj4+
+ICsgwqAgwqAgwqAgdHAtPmZlYXR1cmVzIHw9IFJUTF9GRUFUVVJFX1dPTDsKPj4gKwo+PiDCoCDC
+oCDCoCDCoHRwLT5mZWF0dXJlcyB8PSBydGxfdHJ5X21zaSh0cCwgY2ZnKTsKPj4gwqAgwqAgwqAg
+wqBSVExfVzgoQ2ZnOTM0NiwgQ2ZnOTM0Nl9Mb2NrKTsKPj4KPj4gLS0KPj4gMS43LjcuMwo+Pgo+
+Cj4KPgo+IC0tCj4gU2FtZWVyCgoKCi0tIApTYW1lZXIKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KbGludXgtcG0gbWFpbGluZyBsaXN0CmxpbnV4LXBtQGxp
+c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LXBt
