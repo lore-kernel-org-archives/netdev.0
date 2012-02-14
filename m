@@ -1,47 +1,52 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: [PATCH] bnx2x: preserve net device stats across reload
-Date: Mon, 13 Feb 2012 23:08:48 -0800
-Message-ID: <FD96C117992C584DBC47231B1EB6F556B00B33AF39@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1329154898-17188-1-git-send-email-mschmidt@redhat.com>
- <D4345541C14421439B1167B74C9F3835371370@SJEXCHMB05.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
-To: "mschmidt@redhat.com" <mschmidt@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH 0/4 (net.git)] stmmac update Feb_2012
+Date: Tue, 14 Feb 2012 08:11:44 +0100
+Message-ID: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1429 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753131Ab2BNHJI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 02:09:08 -0500
-In-Reply-To: <D4345541C14421439B1167B74C9F3835371370@SJEXCHMB05.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:36421 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754806Ab2BNHMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 02:12:06 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 77C6BA7
+	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:02 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 1205317D5
+	for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 07:12:02 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The network device statistics were reset to zero when the bnx2x driver
-> reloaded the NIC, such as when changing the MTU.
-> 
-> To preserve the statistics across reloads, save the current values when
-> unloading. Add the saved values to the values read currently from the
-> hardware when updating the stats. Forget the saved values if the reason
-> for unloading is that the device is going down.
- 
-Thanks for this patch -  indeed there is currently a problem with statistics 
-reset during inner reloads such as MTU changes. 
+Hello
 
-However, notice that keeping the net_device_stats statistics consistent 
-across such changes is only a very partial solution, since most of the 
-statistics will still be reset. E.g., bp->eth_stats will be reset, causing ethtool 
-to output zero statistics after such an inner reload.
+This updates the stmmac adding some patches already reviewed in this mailing list by D. Miller.
+I've rebased these patches against this recent patch:
+[PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c and stmmac_platform.c
+applied by Maintainer (to avoid conflicts in the plt and pci files).
 
-I'm currently working on a patch to fix this issue. Since my patch will make
-the statistics in bnx2x_eth_stats consistent after an inner reload, 
-the changes made here will be unrequired, since all the net_device_stats 
-are direct products of bnx2x_eth_stats (with the exception of one field).
+Let me know if all is ok.
 
-I will try to submit it later on today.
+Best Regards
+Peppe
+
+Francesco Virlinzi (1):
+  stmmac: request_irq when use an ext wake irq line (v2)
+
+Giuseppe Cavallaro (3):
+  stmmac: do not discard frame on dribbling bit assert
+  stmmac: move hw init in the probe
+  stmmac: update the driver version to Feb 2012
+
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    5 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    7 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  205 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    4 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   21 +--
+ 8 files changed, 129 insertions(+), 118 deletions(-)
+
+-- 
+1.7.4.4
