@@ -1,127 +1,57 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Tue, 14 Feb 2012 21:27:59 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F8C728@ORSMSX106.amr.corp.intel.com>
-References: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
- <1329253993.2443.30.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 3c59x: shorten timer period for slave devices
+Date: Tue, 14 Feb 2012 16:28:05 -0500 (EST)
+Message-ID: <20120214.162805.235395266188685036.davem@davemloft.net>
+References: <1329251229.2555.10.camel@edumazet-laptop>
+	<1329252670.3054.85.camel@dcbw.foobar.com>
+	<1329253376.2555.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dcbw@redhat.com, klassert@mathematik.tu-chemnitz.de,
+	jdelvare@suse.de, fubar@us.ibm.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:52698 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755490Ab2BNV1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 16:27:38 -0500
-In-Reply-To: <1329253993.2443.30.camel@bwh-desktop>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:49500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932104Ab2BNV2e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2012 16:28:34 -0500
+In-Reply-To: <1329253376.2555.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkg
-MTQsIDIwMTIgMToxMyBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IFN1YmplY3Q6IFJlOiBbUkZDIFYy
-IFBBVENIXSBydG5ldGxpbms6IEZpeCBwcm9ibGVtIHdpdGggYnVmZmVyIGFsbG9jYXRpb24NCj4g
-DQo+IFRoYW5rcyBmb3IgcGVyc2lzdGluZywgR3JlZy4NCg0KV2UnbGwgc2xheSB0aGlzIGRyYWdv
-biBmb3IgZ29vZCBzb21lZGF5Lg0KDQo+IA0KPiBPbiBTdW4sIDIwMTItMDItMTIgYXQgMTE6MTMg
-LTA4MDAsIEdyZWcgUm9zZSB3cm90ZToNCj4gPiBJbXBsZW1lbnQgYSBuZXcgbmxhdHRyIHR5cGUg
-SUZMQV9FWFRfTUFTSy4gIFRoZSBtYXNrIGlzIGEgMzIgYml0DQo+ID4gdmFsdWUgdGhhdCBjYW4g
-YmUgdXNlZCB0byBpbmRpY2F0ZSB0byB0aGUga2VybmVsIHRoYXQgY2VydGFpbg0KPiA+IGV4dGVu
-ZGVkIGlmaW5mbyB2YWx1ZXMgYXJlIHJlcXVlc3RlZCBieSB0aGUgdXNlciBhcHBsaWNhdGlvbi4N
-Cj4gPiBBdCB0aGlzIHRpbWUgdGhlIG9ubHkgbWFzayB2YWx1ZSBjcmVhdGVkIGlzIFJURVhUX0ZJ
-TFRFUl9WRiB0bw0KPiA+IGluZGljYXRlIHRoYXQgdGhlIHVzZXIgd2FudHMgdGhlIGlmaW5mbyBk
-dW1wIHRvIHNlbmQgaW5mb3JtYXRpb24NCj4gPiBhYm91dCB0aGUgVkZzIGJlbG9uZ2luZyB0byB0
-aGUgaW50ZXJmYWNlLg0KPiA+DQo+ID4gSSBoYXZlIGtlcHQgdGhlIE5MTV9GX0VYVCBubG1zZ19m
-bGFncyBiaXQgdG8gaW5kaWNhdGUgdG8gdGhlIGtlcm5lbA0KPiA+IHRoYXQgdGhlIGV4dGVuZGVk
-IGlmaW5mbyBkdW1wIGZpbHRlciBtYXNrIGlzIHByZXNlbnQuICBJdCBkb2VzIG5vdA0KPiA+IGFj
-dCBhcyB0aGUgZmlsdGVyIGl0c2VsZiB3aGljaCBoYXMgY2hhbmdlZCBzaW5jZSB0aGUgZmlyc3Qg
-c3VibWlzc2lvbg0KPiA+IG9mIHRoaXMgUkZDLiAgT2xkZXIgdmVyc2lvbnMgb2YgdXNlciBhcHBs
-aWNhdGlvbnMgd29uJ3Qgc2V0IHRoaXMNCj4gPiBmbGFnIHdoaWNoIHNob3VsZCBmaXggdGhlIHBy
-b2JsZW0gb2Ygc29tZSBhcHBsaWNhdGlvbnMgbm90IGFsbG9jYXRpbmcNCj4gPiBhIGxhcmdlIGVu
-b3VnaCBidWZmZXIgZm9yIGFsbCB0aGUgZXh0ZW5kZWQgaW50ZXJmYWNlIGluZm9ybWF0aW9uLg0K
-PiBbLi4uXQ0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgvbmV0bGluay5oDQo+ID4gKysrIGIvaW5j
-bHVkZS9saW51eC9uZXRsaW5rLmgNCj4gPiBAQCAtNTksNiArNTksNyBAQCBzdHJ1Y3Qgbmxtc2do
-ZHIgew0KPiA+ICAjZGVmaW5lIE5MTV9GX01BVENICTB4MjAwCS8qIHJldHVybiBhbGwgbWF0Y2hp
-bmcJKi8NCj4gPiAgI2RlZmluZSBOTE1fRl9BVE9NSUMJMHg0MDAJLyogYXRvbWljIEdFVAkJKi8N
-Cj4gPiAgI2RlZmluZSBOTE1fRl9EVU1QCShOTE1fRl9ST09UfE5MTV9GX01BVENIKQ0KPiA+ICsj
-ZGVmaW5lIE5MTV9GX0VYVAkweDgwMAkvKiBHZXQgZXh0ZW5kZWQgaW50ZXJmYWNlIGluZm8gc3Vj
-aCBhcyBWRnMNCj4gKi8NCj4gPg0KPiA+ICAvKiBNb2RpZmllcnMgdG8gTkVXIHJlcXVlc3QgKi8N
-Cj4gPiAgI2RlZmluZSBOTE1fRl9SRVBMQUNFCTB4MTAwCS8qIE92ZXJyaWRlIGV4aXN0aW5nCQkq
-Lw0KPiA+IEBAIC0yMTUsNiArMjE2LDcgQEAgaW50IG5ldGxpbmtfc2VuZHNrYihzdHJ1Y3Qgc29j
-ayAqc2ssIHN0cnVjdCBza19idWZmDQo+ICpza2IpOw0KPiA+ICAjZWxzZQ0KPiA+ICAjZGVmaW5l
-IE5MTVNHX0dPT0RTSVpFCVNLQl9XSVRIX09WRVJIRUFEKDgxOTJVTCkNCj4gPiAgI2VuZGlmDQo+
-ID4gKyNkZWZpbmUgTkxNU0dfRVhUX0dPT0RTSVpFIFNLQl9XSVRIX09WRVJIRUFEKDMyNzY4VUwp
-DQo+IA0KPiBUaGlzIHdpbGwgcHJvYmFibHkgZG8gZm9yIG5vdywgYnV0IGl0IHdvdWxkIGJlIHBy
-ZWZlcmFibGUgdG8gcmVhbGx5DQo+IGNhbGN1bGF0ZSB0aGUgbWF4aW11bSBzaXplLg0KDQpUaGF0
-J3MgYSByZWFsIHN0aWNreSBwcm9ibGVtLiAgV2hlbiB0aGUgZHVtcCByZXF1ZXN0IGNvbWVzIGlu
-IHdlIGRvbid0IGtub3cgaG93IGJpZyB0aGUgcmVxdWlyZWQgYnVmZmVyIG1pZ2h0IGFjdHVhbGx5
-IGdldC4gIFRoYXQncyB3aHkgd2UgdXNlZCB0byBoYXZlIHRoZSBtaW5faWZpbmZvX2R1bXBfc2l6
-ZS4gIEhvd2V2ZXIgdGhlcmUgd2VyZSBwcm9ibGVtcyB3aXRoIHRoYXQgYWxzbyBzbyBEYXZlIGFz
-a2VkIG1lIHRvIGdldCByaWQgb2YgaXQuICBUaGUgb25seSB0aGluZyBJIGNvdWxkIGNvbWUgdXAg
-d2l0aCBqdXN0IGFsbG9jYXRpbmcgYSByZWFsbHkgYmlnIGJ1ZmZlci4gIElmIHNvbWVvbmUgY291
-bGQgcG9pbnQgb3V0IHRvIG1lIGhvdyB0byBnZXQgYSBtYXhpbXVtIGlmaW5mbyBkdW1wIHNpemUg
-YmVmb3JlIHJ0bmxfZHVtcF9pZmluZm8gc3RhcnRzIGZpbHRlcmluZyB0aHJvdWdoIHRoZSBtYXRj
-aGluZyBpbnRlcmZhY2VzIHRoZW4gdGhhdCB3b3VsZCByZWFsbHkgaGVscC4gIEJ1dCBhdCB0aGUg
-cG9pbnQgdGhlIGR1bXAgcmVxdWVzdCBjb21lcyBpbiB3ZSBkb24ndCBrbm93IGJlZm9yZWhhbmQg
-aG93IHRvIGNhbGN1bGF0ZSB0aGUgaW5mbyBkdW1wIHNpemUgYmVjYXVzZSBpZl9ubG1zZ19zaXpl
-KCkgcmVxdWlyZXMgYSBwb2ludGVyIHRvIGEgbmV0ZGV2aWNlLg0KDQo+IA0KPiBJIGZlYXIgdGhp
-cyBpcyBnb2luZyB0byBiZSB0b28gc21hbGwgaW4gc29tZSBjYXNlcyB3aGlsZSByZXN1bHRpbmcg
-aW4NCj4gYWxsb2NhdGlvbiBmYWlsdXJlcyBpbiBvdGhlcnMgKHRoYXQncyBhbiBvcmRlci00IHBh
-Z2UgYWxsb2NhdGlvbiEpLg0KPiBNYXliZSByZWR1Y2UgdGhlIG1lc3NhZ2Ugc2l6ZSBzbGlnaHRs
-eSBzbyB0aGF0IHRoZSBza2IgZGF0YSBhbGxvY2F0aW9uDQo+IGlzIHdpdGhpbiAzMks/DQoNClll
-YWgsIEkgY291bGQgY2VydGFpbmx5IGRvIHRoYXQuDQoNCj4gDQo+IFsuLi5dDQo+ID4gLS0tIGEv
-bmV0L2NvcmUvcnRuZXRsaW5rLmMNCj4gPiArKysgYi9uZXQvY29yZS9ydG5ldGxpbmsuYw0KPiBb
-Li4uXQ0KPiA+IEBAIC0xMDU1LDYgKzEwNTksMTcgQEAgc3RhdGljIGludCBydG5sX2R1bXBfaWZp
-bmZvKHN0cnVjdCBza19idWZmICpza2IsDQo+IHN0cnVjdCBuZXRsaW5rX2NhbGxiYWNrICpjYikN
-Cj4gPiAgCXJjdV9yZWFkX2xvY2soKTsNCj4gPiAgCWNiLT5zZXEgPSBuZXQtPmRldl9iYXNlX3Nl
-cTsNCj4gPg0KPiA+ICsJaWYgKGNiLT5ubGgtPm5sbXNnX2ZsYWdzICYmIE5MTV9GX0VYVCkgew0K
-PiANCj4gJiBub3QgJiYNCg0KT29wcy4gIE9LLg0KDQo+IA0KPiA+ICsJCXN0cnVjdCBydGF0dHIg
-KmV4dF9yZXE7DQo+ID4gKwkJdTMyICpleHRfcmVxX2RhdGE7DQo+ID4gKwkJcmVxID0gKHN0cnVj
-dCBydG5sX3JlcV9leHRlbmRlZCAqKWNiLT5ubGg7DQo+ID4gKwkJZXh0X3JlcSA9IChzdHJ1Y3Qg
-cnRhdHRyICopJnJlcS0+ZXh0Ow0KPiA+ICsJCWlmIChleHRfcmVxLT5ydGFfdHlwZSA9PSBJRkxB
-X0VYVF9NQVNLKSB7DQo+ID4gKwkJCWV4dF9yZXFfZGF0YSA9IFJUQV9EQVRBKGV4dF9yZXEpOw0K
-PiA+ICsJCQlleHRfZmlsdGVyX21hc2sgPSAqZXh0X3JlcV9kYXRhOw0KPiA+ICsJCX0NCj4gPiAr
-CX0NCj4gDQo+IFdlIGNhbm5vdCB0cnVzdCBhIGZsYWcgdG8gdGVsbCB1cyB3aGF0IHRoZSBsZW5n
-dGggb2YgdGhlIG1lc3NhZ2UgaXMuICBXZQ0KPiBoYXZlIHRvIGNoZWNrIHRoZSB2YWx1ZSBvZiBu
-bG1zZ19sZW4gKHdoaWNoIG5ldGxpbmsgaGFzIGFscmVhZHkNCj4gdmFsaWRhdGVkIGFzIGJlaW5n
-IHdpdGhpbiB0aGUgc2tiIGxlbmd0aCBhbmQgPj0gb3VyIGRlY2xhcmVkIHJlcXVlc3QNCj4gaGVh
-ZGVyIGxlbmd0aCkuICBJIHRoaW5rIHRoYXQgbWFrZXMgdGhlIGZsYWcgcmVkdW5kYW50Lg0KPiAN
-Cj4gSW4gZmFjdCwgSSB0aGluayB3ZSBzaG91bGQgcmVhbGx5IHVzZSBubG1zZ19wYXJzZSgpIGhl
-cmUuICBUaGF0IG1pZ2h0IGJlDQo+IG92ZXJraWxsIHdoZW4gdGhlcmUncyBvbmx5IGEgc2luZ2xl
-IHZhbGlkIGF0dHJpYnV0ZTsgSSBkb24ndCBrbm93Lg0KDQpIbW0sIGJ1dCB3ZSBkbyB3YW50IHRv
-IHBsYW4gZm9yIGZ1dHVyZSBleHBhbnNpb24gYW5kIG1vcmUgYXR0cmlidXRlcy4gIEkgdGhpbmsg
-dGhhdCBpcyBwcm9iYWJseSBhIGdvb2QgaWRlYS4NCg0KPiANCj4gWy4uLl0NCj4gPiBAQCAtMTg2
-MSwxMiArMTg3NiwxMiBAQCBzdGF0aWMgaW50IHJ0bmxfZ2V0bGluayhzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLA0KPiBzdHJ1Y3Qgbmxtc2doZHIqIG5saCwgdm9pZCAqYXJnKQ0KPiA+ICAJaWYgKGRldiA9
-PSBOVUxMKQ0KPiA+ICAJCXJldHVybiAtRU5PREVWOw0KPiA+DQo+ID4gLQluc2tiID0gbmxtc2df
-bmV3KGlmX25sbXNnX3NpemUoZGV2KSwgR0ZQX0tFUk5FTCk7DQo+ID4gKwluc2tiID0gbmxtc2df
-bmV3KGlmX25sbXNnX3NpemUoZGV2LCAwKSwgR0ZQX0tFUk5FTCk7DQo+ID4gIAlpZiAobnNrYiA9
-PSBOVUxMKQ0KPiA+ICAJCXJldHVybiAtRU5PQlVGUzsNCj4gPg0KPiA+ICAJZXJyID0gcnRubF9m
-aWxsX2lmaW5mbyhuc2tiLCBkZXYsIFJUTV9ORVdMSU5LLCBORVRMSU5LX0NCKHNrYikucGlkLA0K
-PiA+IC0JCQkgICAgICAgbmxoLT5ubG1zZ19zZXEsIDAsIDApOw0KPiA+ICsJCQkgICAgICAgbmxo
-LT5ubG1zZ19zZXEsIDAsIDAsIDApOw0KPiA+ICAJaWYgKGVyciA8IDApIHsNCj4gPiAgCQkvKiAt
-RU1TR1NJWkUgaW1wbGllcyBCVUcgaW4gaWZfbmxtc2dfc2l6ZSAqLw0KPiA+ICAJCVdBUk5fT04o
-ZXJyID09IC1FTVNHU0laRSk7DQo+IA0KPiBJdCBzZWVtcyBsaWtlIHRoaXMgb3VnaHQgdG8gc3Vw
-cG9ydCBJRkxBX0VYVF9NQVNLIGFzIHdlbGwsIHRob3VnaCBpdCdzDQo+IG1heWJlIGxlc3MgaW1w
-b3J0YW50ICgnaXAgbGluaycgZG9lc24ndCBuZWVkIGl0KS4NCg0KVGhhdCdzIGFsbCBJJ3ZlIGJl
-ZW4gdGVzdGluZyB3aXRoIGJ1dCBpZiB0aGVyZSBhcmUgb3RoZXIgY2FsbGVycyBJJ20gdW5hd2Fy
-ZSBvZiB0aGVuIEkgY2FuIGFkZCB0aGUgcGFyc2luZyBoZXJlIHRvby4NCg0KPiANCj4gPiBAQCAt
-MTg3Nyw5ICsxODkyLDI2IEBAIHN0YXRpYyBpbnQgcnRubF9nZXRsaW5rKHN0cnVjdCBza19idWZm
-ICpza2IsDQo+IHN0cnVjdCBubG1zZ2hkciogbmxoLCB2b2lkICphcmcpDQo+ID4gIAlyZXR1cm4g
-ZXJyOw0KPiA+ICB9DQo+ID4NCj4gPiAtc3RhdGljIHUxNiBydG5sX2NhbGNpdChzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKQ0KPiA+ICtzdGF0aWMgdTE2IHJ0bmxfY2FsY2l0KHN0cnVjdCBza19idWZmICpz
-a2IsIHN0cnVjdCBubG1zZ2hkciAqbmxoKQ0KPiA+ICB7DQo+ID4gLQlyZXR1cm4gbWluX2lmaW5m
-b19kdW1wX3NpemU7DQo+ID4gKwlzdHJ1Y3QgcnRubF9yZXFfZXh0ZW5kZWQgKnJlcTsNCj4gPiAr
-CXUzMiBleHRfZmlsdGVyX21hc2sgPSAwOw0KPiA+ICsNCj4gPiArCWlmIChubGgtPm5sbXNnX2Zs
-YWdzICYmIE5MTV9GX0VYVCkgew0KPiA+ICsJCXN0cnVjdCBydGF0dHIgKmV4dF9yZXE7DQo+ID4g
-KwkJdTMyICpleHRfcmVxX2RhdGE7DQo+ID4gKwkJcmVxID0gKHN0cnVjdCBydG5sX3JlcV9leHRl
-bmRlZCAqKSZubGg7DQo+ID4gKwkJZXh0X3JlcSA9IChzdHJ1Y3QgcnRhdHRyICopJnJlcS0+ZXh0
-Ow0KPiA+ICsJCWlmIChleHRfcmVxLT5ydGFfdHlwZSA9PSBJRkxBX0VYVF9NQVNLKSB7DQo+ID4g
-KwkJCWV4dF9yZXFfZGF0YSA9IFJUQV9EQVRBKGV4dF9yZXEpOw0KPiA+ICsJCQlleHRfZmlsdGVy
-X21hc2sgPSAqZXh0X3JlcV9kYXRhOw0KPiA+ICsJCX0NCj4gPiArCX0NCj4gWy4uLl0NCj4gDQo+
-IFRoaXMgaGFzIHRoZSBzYW1lIHBhcnNpbmcgcHJvYmxlbSBhcyBydG5sX2R1bXBfaWZpbmZvKCku
-DQoNCk9LLg0KDQpUaGFua3MgZm9yIHRoZSByZXZpZXcuICBJJ2xsIHdvcmsgaW4geW91ciBzdWdn
-ZXN0ZWQgY2hhbmdlcyBhbmQgcmVzdWJtaXQgdGhlIFJGQy4NCg0KLSBHcmVnDQoNCg==
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Feb 2012 22:02:56 +0100
+
+> Le mardi 14 f=E9vrier 2012 =E0 14:51 -0600, Dan Williams a =E9crit :
+>> On Tue, 2012-02-14 at 21:27 +0100, Eric Dumazet wrote:
+>> > Jean Delvare reported bonding on top of 3c59x adapters was not det=
+ecting
+>> > network cable removal fast enough.
+>> >=20
+>> > 3c59x indeed uses a 60 seconds timer to check link status if carri=
+er is
+>> > on, and 5 seconds if carrier is off.
+>> >=20
+>> > This patch reduces timer period to 5 seconds if device is a bondin=
+g
+>> > slave.
+>>=20
+>> Maybe for posterity give some rationale as to why we feel we can red=
+uce
+>> it to 5 seconds for slaves instead of reducing the timer period in
+>> general?  If you weren't party to this discussion that won't be appa=
+rent
+>> from the commit log.
+>=20
+> Apparently, Andrew Morton considered firing a timer every 5 seconds w=
+as
+> too expensive. I am not sure we want to state this (probably old fact=
+)
+> in the changelog. Anyway are these slow NICS still used in 2011 ? ;)
+
+At least Jean Delvare is :-)
+
+I'm going to apply this as-is, if you configure bonding on one of these
+chips you expect it to work.  And working is more important than optima=
+l.
