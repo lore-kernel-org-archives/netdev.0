@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ethernet: ks8851_mll fix irq handling
-Date: Wed, 15 Feb 2012 15:41:40 -0500 (EST)
-Message-ID: <20120215.154140.2082640267957831845.davem@davemloft.net>
-References: <1329291315-7973-1-git-send-email-j.weitzel@phytec.de>
+Subject: Re: [patch net-next] cxgb3: update firmware version
+Date: Wed, 15 Feb 2012 15:48:50 -0500 (EST)
+Message-ID: <20120215.154850.1941243697037866035.davem@davemloft.net>
+References: <20120213202846.631.30806.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: j.weitzel@phytec.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com, dwmw2@infradead.org,
+	nhorman@tuxdriver.com
+To: divy@chelsio.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329291315-7973-1-git-send-email-j.weitzel@phytec.de>
+In-Reply-To: <20120213202846.631.30806.stgit@speedy5.asicdesigners.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Weitzel <j.weitzel@phytec.de>
-Date: Wed, 15 Feb 2012 08:35:15 +0100
+From: Divy Le Ray <divy@chelsio.com>
+Date: Mon, 13 Feb 2012 12:28:46 -0800
 
-> There a two different irq variables ks->irq and netdev->irq.
-> Only ks->irq is set on probe, so disabling irq in ks_start_xmit fails.
+> This patch updates the firmware version cxgb3 is requesting to 7.12.0.
 > 
-> This patches remove ks->irq from private data and use only netdev->irq.
-> 
-> Tested on a kernel 3.0 based OMAP4430 SMP Board
-> 
-> Signed-off-by: Jan Weitzel <j.weitzel@phytec.de>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, thanks.
+While I agree with Ben Hutchings that how this is being handled is terrible,
+it's the current status-quo so I'll apply this.
