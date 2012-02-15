@@ -1,61 +1,904 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next 05/11] bnx2x: force 10G on 84833 phy should be
- autoneg with only 10G advertised
-Date: Wed, 15 Feb 2012 07:10:26 -0500
-Message-ID: <1329307832-32454-6-git-send-email-yuvalmin@broadcom.com>
+Subject: [net-next 01/11] bnx2x: consistent statistics after internal
+ driver reload
+Date: Wed, 15 Feb 2012 07:10:22 -0500
+Message-ID: <1329307832-32454-2-git-send-email-yuvalmin@broadcom.com>
 References: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4937 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3789 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751870Ab2BOFQP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 00:16:15 -0500
+	id S1750924Ab2BOFQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 00:16:08 -0500
 In-Reply-To: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mintz Yuval <yuvalmin@broadcom.com>
 
-From: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Currently bnx2x statistics are reset by inner driver reload, e.g. by MTU
+change. This patch fixes this issue - from now on statistics should only
+be reset upon device closure.
+Thanks to Michal Schmidt <mschmidt@redhat.com> for his initial patch
+regarding this issue.
 
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    6 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |   41 +---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |   73 +++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    2 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |  340 +++++++++------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h |  148 +++++++++-
+ 6 files changed, 374 insertions(+), 236 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index acc9649..57fe056 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -9492,13 +9492,8 @@ static int bnx2x_848xx_cmn_config_init(struct bnx2x_phy *phy,
- {
- 	struct bnx2x *bp = params->bp;
- 	u16 autoneg_val, an_1000_val, an_10_100_val, an_10g_val;
--	u16 tmp_req_line_speed;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 7d184fb..d60b5f0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -540,6 +540,7 @@ struct bnx2x_fastpath {
+ 	struct ustorm_per_queue_stats old_uclient;
+ 	struct xstorm_per_queue_stats old_xclient;
+ 	struct bnx2x_eth_q_stats eth_q_stats;
++	struct bnx2x_eth_q_stats_old eth_q_stats_old;
  
--	tmp_req_line_speed = phy->req_line_speed;
--	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
--		if (phy->req_line_speed == SPEED_10000)
--			phy->req_line_speed = SPEED_AUTO_NEG;
--	} else {
-+	if (phy->type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
- 		/* Save spirom version */
- 		bnx2x_save_848xx_spirom_version(phy, bp, params->port);
- 	}
-@@ -9642,8 +9637,6 @@ static int bnx2x_848xx_cmn_config_init(struct bnx2x_phy *phy,
- 				 MDIO_AN_REG_8481_10GBASE_T_AN_CTRL,
- 				 1);
+ 	/* The size is calculated using the following:
+ 	     sizeof name field from netdev structure +
+@@ -1046,7 +1047,6 @@ struct bnx2x_slowpath {
+ 	struct nig_stats		nig_stats;
+ 	struct host_port_stats		port_stats;
+ 	struct host_func_stats		func_stats;
+-	struct host_func_stats		func_stats_base;
  
--	phy->req_line_speed = tmp_req_line_speed;
+ 	u32				wb_comp;
+ 	u32				wb_data[4];
+@@ -1462,6 +1462,10 @@ struct bnx2x {
+ 
+ 	u16			stats_counter;
+ 	struct bnx2x_eth_stats	eth_stats;
++	struct bnx2x_eth_stats_old	eth_stats_old;
++	struct bnx2x_net_stats_old	net_stats_old;
++	struct bnx2x_fw_port_stats_old	fw_stats_old;
++	bool			stats_init;
+ 
+ 	struct z_stream_s	*strm;
+ 	void			*gunzip_buf;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 518ec5c..7f6a1b1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -32,46 +32,6 @@
+ 
+ 
+ /**
+- * bnx2x_bz_fp - zero content of the fastpath structure.
+- *
+- * @bp:		driver handle
+- * @index:	fastpath index to be zeroed
+- *
+- * Makes sure the contents of the bp->fp[index].napi is kept
+- * intact.
+- */
+-static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
+-{
+-	struct bnx2x_fastpath *fp = &bp->fp[index];
+-	struct napi_struct orig_napi = fp->napi;
+-	/* bzero bnx2x_fastpath contents */
+-	memset(fp, 0, sizeof(*fp));
 -
- 	return 0;
+-	/* Restore the NAPI object as it has been already initialized */
+-	fp->napi = orig_napi;
+-
+-	fp->bp = bp;
+-	fp->index = index;
+-	if (IS_ETH_FP(fp))
+-		fp->max_cos = bp->max_cos;
+-	else
+-		/* Special queues support only one CoS */
+-		fp->max_cos = 1;
+-
+-	/*
+-	 * set the tpa flag for each queue. The tpa flag determines the queue
+-	 * minimal size so it must be set prior to queue memory allocation
+-	 */
+-	fp->disable_tpa = ((bp->flags & TPA_ENABLE_FLAG) == 0);
+-
+-#ifdef BCM_CNIC
+-	/* We don't want TPA on an FCoE L2 ring */
+-	if (IS_FCOE_FP(fp))
+-		fp->disable_tpa = 1;
+-#endif
+-}
+-
+-/**
+  * bnx2x_move_fp - move content of the fastpath structure.
+  *
+  * @bp:		driver handle
+@@ -2084,6 +2044,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 	bnx2x_drv_pulse(bp);
+ 
+ 	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++	bnx2x_save_statistics(bp);
+ 
+ 	/* Cleanup the chip if needed */
+ 	if (unload_mode != UNLOAD_RECOVERY)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index c7c7bf1..69d347f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1493,6 +1493,79 @@ static inline u16 bnx2x_extract_max_cfg(struct bnx2x *bp, u32 mf_cfg)
  }
  
+ /**
++ * bnx2x_bz_fp - zero content of the fastpath structure.
++ *
++ * @bp:		driver handle
++ * @index:	fastpath index to be zeroed
++ *
++ * Makes sure the contents of the bp->fp[index].napi is kept
++ * intact.
++ */
++static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
++{
++	struct bnx2x_fastpath *fp = &bp->fp[index];
++	struct napi_struct orig_napi = fp->napi;
++	/* bzero bnx2x_fastpath contents */
++	if (bp->stats_init)
++		memset(fp, 0, sizeof(*fp));
++	else {
++		/* Keep Queue statistics */
++		struct bnx2x_eth_q_stats *tmp_eth_q_stats;
++		struct bnx2x_eth_q_stats_old *tmp_eth_q_stats_old;
++
++		tmp_eth_q_stats = kzalloc(sizeof(struct bnx2x_eth_q_stats),
++					  GFP_KERNEL);
++		if (tmp_eth_q_stats)
++			memcpy(tmp_eth_q_stats, &fp->eth_q_stats,
++			       sizeof(struct bnx2x_eth_q_stats));
++
++		tmp_eth_q_stats_old =
++			kzalloc(sizeof(struct bnx2x_eth_q_stats_old),
++				GFP_KERNEL);
++		if (tmp_eth_q_stats_old)
++			memcpy(tmp_eth_q_stats_old, &fp->eth_q_stats_old,
++			       sizeof(struct bnx2x_eth_q_stats_old));
++
++		memset(fp, 0, sizeof(*fp));
++
++		if (tmp_eth_q_stats) {
++			memcpy(&fp->eth_q_stats, tmp_eth_q_stats,
++				   sizeof(struct bnx2x_eth_q_stats));
++			kfree(tmp_eth_q_stats);
++		}
++
++		if (tmp_eth_q_stats_old) {
++			memcpy(&fp->eth_q_stats_old, tmp_eth_q_stats_old,
++			       sizeof(struct bnx2x_eth_q_stats_old));
++			kfree(tmp_eth_q_stats_old);
++		}
++
++	}
++
++	/* Restore the NAPI object as it has been already initialized */
++	fp->napi = orig_napi;
++
++	fp->bp = bp;
++	fp->index = index;
++	if (IS_ETH_FP(fp))
++		fp->max_cos = bp->max_cos;
++	else
++		/* Special queues support only one CoS */
++		fp->max_cos = 1;
++
++	/*
++	 * set the tpa flag for each queue. The tpa flag determines the queue
++	 * minimal size so it must be set prior to queue memory allocation
++	 */
++	fp->disable_tpa = (bp->flags & TPA_ENABLE_FLAG) == 0;
++#ifdef BCM_CNIC
++	/* We don't want TPA on an FCoE L2 ring */
++	if (IS_FCOE_FP(fp))
++		fp->disable_tpa = 1;
++#endif
++}
++
++/**
+  * bnx2x_get_iscsi_info - update iSCSI params according to licensing info.
+  *
+  * @bp:		driver handle
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index ff19c3c..e0d5f15 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10235,6 +10235,8 @@ static int bnx2x_open(struct net_device *dev)
+ 	int other_engine = BP_PATH(bp) ? 0 : 1;
+ 	bool other_load_status, load_status;
+ 
++	bp->stats_init = true;
++
+ 	netif_carrier_off(dev);
+ 
+ 	bnx2x_set_power_state(bp, PCI_D0);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 7b9b304..abd310d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -161,7 +161,7 @@ static void bnx2x_stats_pmf_update(struct bnx2x *bp)
+ 	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
+ 
+ 	/* sanity */
+-	if (!IS_MF(bp) || !bp->port.pmf || !bp->port.port_stx) {
++	if (!bp->port.pmf || !bp->port.port_stx) {
+ 		BNX2X_ERR("BUG!\n");
+ 		return;
+ 	}
+@@ -638,31 +638,30 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
+ 			tx_stat_dot3statsinternalmactransmiterrors);
+ 	ADD_STAT64(stats_tx.tx_gtufl, tx_stat_mac_ufl);
+ 
+-	ADD_64(estats->etherstatspkts1024octetsto1522octets_hi,
+-	       new->stats_tx.tx_gt1518_hi,
+-	       estats->etherstatspkts1024octetsto1522octets_lo,
+-	       new->stats_tx.tx_gt1518_lo);
++	estats->etherstatspkts1024octetsto1522octets_hi =
++	    pstats->mac_stx[1].tx_stat_etherstatspkts1024octetsto1522octets_hi;
++	estats->etherstatspkts1024octetsto1522octets_lo =
++	    pstats->mac_stx[1].tx_stat_etherstatspkts1024octetsto1522octets_lo;
+ 
+-	ADD_64(estats->etherstatspktsover1522octets_hi,
+-	       new->stats_tx.tx_gt2047_hi,
+-	       estats->etherstatspktsover1522octets_lo,
+-	       new->stats_tx.tx_gt2047_lo);
++	estats->etherstatspktsover1522octets_hi =
++	    pstats->mac_stx[1].tx_stat_mac_2047_hi;
++	estats->etherstatspktsover1522octets_lo =
++	    pstats->mac_stx[1].tx_stat_mac_2047_lo;
+ 
+ 	ADD_64(estats->etherstatspktsover1522octets_hi,
+-	       new->stats_tx.tx_gt4095_hi,
++	       pstats->mac_stx[1].tx_stat_mac_4095_hi,
+ 	       estats->etherstatspktsover1522octets_lo,
+-	       new->stats_tx.tx_gt4095_lo);
++	       pstats->mac_stx[1].tx_stat_mac_4095_lo);
+ 
+ 	ADD_64(estats->etherstatspktsover1522octets_hi,
+-	       new->stats_tx.tx_gt9216_hi,
++	       pstats->mac_stx[1].tx_stat_mac_9216_hi,
+ 	       estats->etherstatspktsover1522octets_lo,
+-	       new->stats_tx.tx_gt9216_lo);
+-
++	       pstats->mac_stx[1].tx_stat_mac_9216_lo);
+ 
+ 	ADD_64(estats->etherstatspktsover1522octets_hi,
+-	       new->stats_tx.tx_gt16383_hi,
++	       pstats->mac_stx[1].tx_stat_mac_16383_hi,
+ 	       estats->etherstatspktsover1522octets_lo,
+-	       new->stats_tx.tx_gt16383_lo);
++	       pstats->mac_stx[1].tx_stat_mac_16383_lo);
+ 
+ 	estats->pause_frames_received_hi =
+ 				pstats->mac_stx[1].rx_stat_mac_xpf_hi;
+@@ -817,6 +816,7 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 				&bp->fw_stats_data->pf.tstorm_pf_statistics;
+ 	struct host_func_stats *fstats = bnx2x_sp(bp, func_stats);
+ 	struct bnx2x_eth_stats *estats = &bp->eth_stats;
++	struct bnx2x_eth_stats_old *estats_old = &bp->eth_stats_old;
+ 	struct stats_counter *counters = &bp->fw_stats_data->storm_counters;
+ 	int i;
+ 	u16 cur_stats_counter;
+@@ -857,21 +857,8 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 		return -EAGAIN;
+ 	}
+ 
+-	memcpy(&(fstats->total_bytes_received_hi),
+-	       &(bnx2x_sp(bp, func_stats_base)->total_bytes_received_hi),
+-	       sizeof(struct host_func_stats) - 2*sizeof(u32));
+ 	estats->error_bytes_received_hi = 0;
+ 	estats->error_bytes_received_lo = 0;
+-	estats->etherstatsoverrsizepkts_hi = 0;
+-	estats->etherstatsoverrsizepkts_lo = 0;
+-	estats->no_buff_discard_hi = 0;
+-	estats->no_buff_discard_lo = 0;
+-	estats->total_tpa_aggregations_hi = 0;
+-	estats->total_tpa_aggregations_lo = 0;
+-	estats->total_tpa_aggregated_frames_hi = 0;
+-	estats->total_tpa_aggregated_frames_lo = 0;
+-	estats->total_tpa_bytes_hi = 0;
+-	estats->total_tpa_bytes_lo = 0;
+ 
+ 	for_each_eth_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+@@ -888,6 +875,8 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 			xstorm_queue_statistics;
+ 		struct xstorm_per_queue_stats *old_xclient = &fp->old_xclient;
+ 		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
++		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
++
+ 		u32 diff;
+ 
+ 		DP(BNX2X_MSG_STATS, "queue[%d]: ucast_sent 0x%x, "
+@@ -897,20 +886,12 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 
+ 		DP(BNX2X_MSG_STATS, "---------------\n");
+ 
+-		qstats->total_broadcast_bytes_received_hi =
+-			le32_to_cpu(tclient->rcv_bcast_bytes.hi);
+-		qstats->total_broadcast_bytes_received_lo =
+-			le32_to_cpu(tclient->rcv_bcast_bytes.lo);
+-
+-		qstats->total_multicast_bytes_received_hi =
+-			le32_to_cpu(tclient->rcv_mcast_bytes.hi);
+-		qstats->total_multicast_bytes_received_lo =
+-			le32_to_cpu(tclient->rcv_mcast_bytes.lo);
+-
+-		qstats->total_unicast_bytes_received_hi =
+-			le32_to_cpu(tclient->rcv_ucast_bytes.hi);
+-		qstats->total_unicast_bytes_received_lo =
+-			le32_to_cpu(tclient->rcv_ucast_bytes.lo);
++		UPDATE_QSTAT(tclient->rcv_bcast_bytes,
++			     total_broadcast_bytes_received);
++		UPDATE_QSTAT(tclient->rcv_mcast_bytes,
++			     total_multicast_bytes_received);
++		UPDATE_QSTAT(tclient->rcv_ucast_bytes,
++			     total_unicast_bytes_received);
+ 
+ 		/*
+ 		 * sum to total_bytes_received all
+@@ -943,9 +924,9 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 					total_multicast_packets_received);
+ 		UPDATE_EXTEND_TSTAT(rcv_bcast_pkts,
+ 					total_broadcast_packets_received);
+-		UPDATE_EXTEND_TSTAT(pkts_too_big_discard,
+-					etherstatsoverrsizepkts);
+-		UPDATE_EXTEND_TSTAT(no_buff_discard, no_buff_discard);
++		UPDATE_EXTEND_E_TSTAT(pkts_too_big_discard,
++				      etherstatsoverrsizepkts);
++		UPDATE_EXTEND_E_TSTAT(no_buff_discard, no_buff_discard);
+ 
+ 		SUB_EXTEND_USTAT(ucast_no_buff_pkts,
+ 					total_unicast_packets_received);
+@@ -953,24 +934,17 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 					total_multicast_packets_received);
+ 		SUB_EXTEND_USTAT(bcast_no_buff_pkts,
+ 					total_broadcast_packets_received);
+-		UPDATE_EXTEND_USTAT(ucast_no_buff_pkts, no_buff_discard);
+-		UPDATE_EXTEND_USTAT(mcast_no_buff_pkts, no_buff_discard);
+-		UPDATE_EXTEND_USTAT(bcast_no_buff_pkts, no_buff_discard);
+-
+-		qstats->total_broadcast_bytes_transmitted_hi =
+-			le32_to_cpu(xclient->bcast_bytes_sent.hi);
+-		qstats->total_broadcast_bytes_transmitted_lo =
+-			le32_to_cpu(xclient->bcast_bytes_sent.lo);
+-
+-		qstats->total_multicast_bytes_transmitted_hi =
+-			le32_to_cpu(xclient->mcast_bytes_sent.hi);
+-		qstats->total_multicast_bytes_transmitted_lo =
+-			le32_to_cpu(xclient->mcast_bytes_sent.lo);
+-
+-		qstats->total_unicast_bytes_transmitted_hi =
+-			le32_to_cpu(xclient->ucast_bytes_sent.hi);
+-		qstats->total_unicast_bytes_transmitted_lo =
+-			le32_to_cpu(xclient->ucast_bytes_sent.lo);
++		UPDATE_EXTEND_E_USTAT(ucast_no_buff_pkts, no_buff_discard);
++		UPDATE_EXTEND_E_USTAT(mcast_no_buff_pkts, no_buff_discard);
++		UPDATE_EXTEND_E_USTAT(bcast_no_buff_pkts, no_buff_discard);
++
++		UPDATE_QSTAT(xclient->bcast_bytes_sent,
++			     total_broadcast_bytes_transmitted);
++		UPDATE_QSTAT(xclient->mcast_bytes_sent,
++			     total_multicast_bytes_transmitted);
++		UPDATE_QSTAT(xclient->ucast_bytes_sent,
++			     total_unicast_bytes_transmitted);
++
+ 		/*
+ 		 * sum to total_bytes_transmitted all
+ 		 * unicast/multicast/broadcast
+@@ -1006,110 +980,54 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 				    total_transmitted_dropped_packets_error);
+ 
+ 		/* TPA aggregations completed */
+-		UPDATE_EXTEND_USTAT(coalesced_events, total_tpa_aggregations);
++		UPDATE_EXTEND_E_USTAT(coalesced_events, total_tpa_aggregations);
+ 		/* Number of network frames aggregated by TPA */
+-		UPDATE_EXTEND_USTAT(coalesced_pkts,
+-				    total_tpa_aggregated_frames);
++		UPDATE_EXTEND_E_USTAT(coalesced_pkts,
++				      total_tpa_aggregated_frames);
+ 		/* Total number of bytes in completed TPA aggregations */
+-		qstats->total_tpa_bytes_lo =
+-			le32_to_cpu(uclient->coalesced_bytes.lo);
+-		qstats->total_tpa_bytes_hi =
+-			le32_to_cpu(uclient->coalesced_bytes.hi);
+-
+-		/* TPA stats per-function */
+-		ADD_64(estats->total_tpa_aggregations_hi,
+-		       qstats->total_tpa_aggregations_hi,
+-		       estats->total_tpa_aggregations_lo,
+-		       qstats->total_tpa_aggregations_lo);
+-		ADD_64(estats->total_tpa_aggregated_frames_hi,
+-		       qstats->total_tpa_aggregated_frames_hi,
+-		       estats->total_tpa_aggregated_frames_lo,
+-		       qstats->total_tpa_aggregated_frames_lo);
+-		ADD_64(estats->total_tpa_bytes_hi,
+-		       qstats->total_tpa_bytes_hi,
+-		       estats->total_tpa_bytes_lo,
+-		       qstats->total_tpa_bytes_lo);
+-
+-		ADD_64(fstats->total_bytes_received_hi,
+-		       qstats->total_bytes_received_hi,
+-		       fstats->total_bytes_received_lo,
+-		       qstats->total_bytes_received_lo);
+-		ADD_64(fstats->total_bytes_transmitted_hi,
+-		       qstats->total_bytes_transmitted_hi,
+-		       fstats->total_bytes_transmitted_lo,
+-		       qstats->total_bytes_transmitted_lo);
+-		ADD_64(fstats->total_unicast_packets_received_hi,
+-		       qstats->total_unicast_packets_received_hi,
+-		       fstats->total_unicast_packets_received_lo,
+-		       qstats->total_unicast_packets_received_lo);
+-		ADD_64(fstats->total_multicast_packets_received_hi,
+-		       qstats->total_multicast_packets_received_hi,
+-		       fstats->total_multicast_packets_received_lo,
+-		       qstats->total_multicast_packets_received_lo);
+-		ADD_64(fstats->total_broadcast_packets_received_hi,
+-		       qstats->total_broadcast_packets_received_hi,
+-		       fstats->total_broadcast_packets_received_lo,
+-		       qstats->total_broadcast_packets_received_lo);
+-		ADD_64(fstats->total_unicast_packets_transmitted_hi,
+-		       qstats->total_unicast_packets_transmitted_hi,
+-		       fstats->total_unicast_packets_transmitted_lo,
+-		       qstats->total_unicast_packets_transmitted_lo);
+-		ADD_64(fstats->total_multicast_packets_transmitted_hi,
+-		       qstats->total_multicast_packets_transmitted_hi,
+-		       fstats->total_multicast_packets_transmitted_lo,
+-		       qstats->total_multicast_packets_transmitted_lo);
+-		ADD_64(fstats->total_broadcast_packets_transmitted_hi,
+-		       qstats->total_broadcast_packets_transmitted_hi,
+-		       fstats->total_broadcast_packets_transmitted_lo,
+-		       qstats->total_broadcast_packets_transmitted_lo);
+-		ADD_64(fstats->valid_bytes_received_hi,
+-		       qstats->valid_bytes_received_hi,
+-		       fstats->valid_bytes_received_lo,
+-		       qstats->valid_bytes_received_lo);
+-
+-		ADD_64(estats->etherstatsoverrsizepkts_hi,
+-		       qstats->etherstatsoverrsizepkts_hi,
+-		       estats->etherstatsoverrsizepkts_lo,
+-		       qstats->etherstatsoverrsizepkts_lo);
+-		ADD_64(estats->no_buff_discard_hi, qstats->no_buff_discard_hi,
+-		       estats->no_buff_discard_lo, qstats->no_buff_discard_lo);
++		UPDATE_QSTAT(uclient->coalesced_bytes, total_tpa_bytes);
++
++		UPDATE_ESTAT_QSTAT_64(total_tpa_bytes);
++
++		UPDATE_FSTAT_QSTAT(total_bytes_received);
++		UPDATE_FSTAT_QSTAT(total_bytes_transmitted);
++		UPDATE_FSTAT_QSTAT(total_unicast_packets_received);
++		UPDATE_FSTAT_QSTAT(total_multicast_packets_received);
++		UPDATE_FSTAT_QSTAT(total_broadcast_packets_received);
++		UPDATE_FSTAT_QSTAT(total_unicast_packets_transmitted);
++		UPDATE_FSTAT_QSTAT(total_multicast_packets_transmitted);
++		UPDATE_FSTAT_QSTAT(total_broadcast_packets_transmitted);
++		UPDATE_FSTAT_QSTAT(valid_bytes_received);
+ 	}
+ 
+-	ADD_64(fstats->total_bytes_received_hi,
++	ADD_64(estats->total_bytes_received_hi,
+ 	       estats->rx_stat_ifhcinbadoctets_hi,
+-	       fstats->total_bytes_received_lo,
++	       estats->total_bytes_received_lo,
+ 	       estats->rx_stat_ifhcinbadoctets_lo);
+ 
+-	ADD_64(fstats->total_bytes_received_hi,
++	ADD_64(estats->total_bytes_received_hi,
+ 	       tfunc->rcv_error_bytes.hi,
+-	       fstats->total_bytes_received_lo,
++	       estats->total_bytes_received_lo,
+ 	       tfunc->rcv_error_bytes.lo);
+ 
+-	memcpy(estats, &(fstats->total_bytes_received_hi),
+-	       sizeof(struct host_func_stats) - 2*sizeof(u32));
+-
+ 	ADD_64(estats->error_bytes_received_hi,
+ 	       tfunc->rcv_error_bytes.hi,
+ 	       estats->error_bytes_received_lo,
+ 	       tfunc->rcv_error_bytes.lo);
+ 
+-	ADD_64(estats->etherstatsoverrsizepkts_hi,
+-	       estats->rx_stat_dot3statsframestoolong_hi,
+-	       estats->etherstatsoverrsizepkts_lo,
+-	       estats->rx_stat_dot3statsframestoolong_lo);
++	UPDATE_ESTAT(etherstatsoverrsizepkts, rx_stat_dot3statsframestoolong);
++
+ 	ADD_64(estats->error_bytes_received_hi,
+ 	       estats->rx_stat_ifhcinbadoctets_hi,
+ 	       estats->error_bytes_received_lo,
+ 	       estats->rx_stat_ifhcinbadoctets_lo);
+ 
+ 	if (bp->port.pmf) {
+-		estats->mac_filter_discard =
+-				le32_to_cpu(tport->mac_filter_discard);
+-		estats->mf_tag_discard =
+-				le32_to_cpu(tport->mf_tag_discard);
+-		estats->brb_truncate_discard =
+-				le32_to_cpu(tport->brb_truncate_discard);
+-		estats->mac_discard = le32_to_cpu(tport->mac_discard);
++		struct bnx2x_fw_port_stats_old *fwstats = &bp->fw_stats_old;
++		UPDATE_FW_STAT(mac_filter_discard);
++		UPDATE_FW_STAT(mf_tag_discard);
++		UPDATE_FW_STAT(brb_truncate_discard);
++		UPDATE_FW_STAT(mac_discard);
+ 	}
+ 
+ 	fstats->host_func_stats_start = ++fstats->host_func_stats_end;
+@@ -1143,7 +1061,7 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
+ 	tmp = estats->mac_discard;
+ 	for_each_rx_queue(bp, i)
+ 		tmp += le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
+-	nstats->rx_dropped = tmp;
++	nstats->rx_dropped = tmp + bp->net_stats_old.rx_dropped;
+ 
+ 	nstats->tx_dropped = 0;
+ 
+@@ -1191,17 +1109,15 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
+ 	struct bnx2x_eth_stats *estats = &bp->eth_stats;
+ 	int i;
+ 
+-	estats->driver_xoff = 0;
+-	estats->rx_err_discard_pkt = 0;
+-	estats->rx_skb_alloc_failed = 0;
+-	estats->hw_csum_err = 0;
+ 	for_each_queue(bp, i) {
+ 		struct bnx2x_eth_q_stats *qstats = &bp->fp[i].eth_q_stats;
++		struct bnx2x_eth_q_stats_old *qstats_old =
++						&bp->fp[i].eth_q_stats_old;
+ 
+-		estats->driver_xoff += qstats->driver_xoff;
+-		estats->rx_err_discard_pkt += qstats->rx_err_discard_pkt;
+-		estats->rx_skb_alloc_failed += qstats->rx_skb_alloc_failed;
+-		estats->hw_csum_err += qstats->hw_csum_err;
++		UPDATE_ESTAT_QSTAT(driver_xoff);
++		UPDATE_ESTAT_QSTAT(rx_err_discard_pkt);
++		UPDATE_ESTAT_QSTAT(rx_skb_alloc_failed);
++		UPDATE_ESTAT_QSTAT(hw_csum_err);
+ 	}
+ }
+ 
+@@ -1446,33 +1362,6 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
+ 	bnx2x_stats_comp(bp);
+ }
+ 
+-static void bnx2x_func_stats_base_init(struct bnx2x *bp)
+-{
+-	int vn, vn_max = IS_MF(bp) ? BP_MAX_VN_NUM(bp) : E1VN_MAX;
+-	u32 func_stx;
+-
+-	/* sanity */
+-	if (!bp->port.pmf || !bp->func_stx) {
+-		BNX2X_ERR("BUG!\n");
+-		return;
+-	}
+-
+-	/* save our func_stx */
+-	func_stx = bp->func_stx;
+-
+-	for (vn = VN_0; vn < vn_max; vn++) {
+-		int mb_idx = BP_FW_MB_IDX_VN(bp, vn);
+-
+-		bp->func_stx = SHMEM_RD(bp, func_mb[mb_idx].fw_mb_param);
+-		bnx2x_func_stats_init(bp);
+-		bnx2x_hw_stats_post(bp);
+-		bnx2x_stats_comp(bp);
+-	}
+-
+-	/* restore our func_stx */
+-	bp->func_stx = func_stx;
+-}
+-
+ static void bnx2x_func_stats_base_update(struct bnx2x *bp)
+ {
+ 	struct dmae_command *dmae = &bp->stats_dmae;
+@@ -1491,8 +1380,8 @@ static void bnx2x_func_stats_base_update(struct bnx2x *bp)
+ 					 true, DMAE_COMP_PCI);
+ 	dmae->src_addr_lo = bp->func_stx >> 2;
+ 	dmae->src_addr_hi = 0;
+-	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats_base));
+-	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats_base));
++	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats));
++	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats));
+ 	dmae->len = sizeof(struct host_func_stats) >> 2;
+ 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
+ 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
+@@ -1653,6 +1542,10 @@ void bnx2x_stats_init(struct bnx2x *bp)
+ 	DP(BNX2X_MSG_STATS, "port_stx 0x%x  func_stx 0x%x\n",
+ 	   bp->port.port_stx, bp->func_stx);
+ 
++	/* pmf should retrieve port statistics from SP on a non-init*/
++	if (!bp->stats_init && bp->port.pmf && bp->port.port_stx)
++		bnx2x_stats_handle(bp, STATS_EVENT_PMF);
++
+ 	port = BP_PORT(bp);
+ 	/* port stats */
+ 	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
+@@ -1674,24 +1567,83 @@ void bnx2x_stats_init(struct bnx2x *bp)
+ 		memset(&fp->old_tclient, 0, sizeof(fp->old_tclient));
+ 		memset(&fp->old_uclient, 0, sizeof(fp->old_uclient));
+ 		memset(&fp->old_xclient, 0, sizeof(fp->old_xclient));
+-		memset(&fp->eth_q_stats, 0, sizeof(fp->eth_q_stats));
++		if (bp->stats_init) {
++			memset(&fp->eth_q_stats, 0, sizeof(fp->eth_q_stats));
++			memset(&fp->eth_q_stats_old, 0,
++			       sizeof(fp->eth_q_stats_old));
++		}
+ 	}
+ 
+ 	/* Prepare statistics ramrod data */
+ 	bnx2x_prep_fw_stats_req(bp);
+ 
+ 	memset(&bp->dev->stats, 0, sizeof(bp->dev->stats));
+-	memset(&bp->eth_stats, 0, sizeof(bp->eth_stats));
++	if (bp->stats_init) {
++		memset(&bp->net_stats_old, 0, sizeof(bp->net_stats_old));
++		memset(&bp->fw_stats_old, 0, sizeof(bp->fw_stats_old));
++		memset(&bp->eth_stats_old, 0, sizeof(bp->eth_stats_old));
++		memset(&bp->eth_stats, 0, sizeof(bp->eth_stats));
+ 
+-	bp->stats_state = STATS_STATE_DISABLED;
++		/* Clean SP from previous statistics */
++		if (bp->func_stx) {
++			memset(bnx2x_sp(bp, func_stats), 0,
++			       sizeof(struct host_func_stats));
++			bnx2x_func_stats_init(bp);
++			bnx2x_hw_stats_post(bp);
++			bnx2x_stats_comp(bp);
++		}
++	}
+ 
+-	if (bp->port.pmf) {
+-		if (bp->port.port_stx)
+-			bnx2x_port_stats_base_init(bp);
++	bp->stats_state = STATS_STATE_DISABLED;
+ 
+-		if (bp->func_stx)
+-			bnx2x_func_stats_base_init(bp);
++	if (bp->port.pmf && bp->port.port_stx)
++		bnx2x_port_stats_base_init(bp);
+ 
+-	} else if (bp->func_stx)
++	/* On a non-init, retrieve previous statistics from SP */
++	if (!bp->stats_init && bp->func_stx)
+ 		bnx2x_func_stats_base_update(bp);
++
++	/* mark the end of statistics initializiation */
++	bp->stats_init = false;
++}
++
++void bnx2x_save_statistics(struct bnx2x *bp)
++{
++	int i;
++	struct net_device_stats *nstats = &bp->dev->stats;
++
++	/* save queue statistics */
++	for_each_eth_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
++		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
++		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
++
++		UPDATE_QSTAT_OLD(total_unicast_bytes_received_hi);
++		UPDATE_QSTAT_OLD(total_unicast_bytes_received_lo);
++		UPDATE_QSTAT_OLD(total_broadcast_bytes_received_hi);
++		UPDATE_QSTAT_OLD(total_broadcast_bytes_received_lo);
++		UPDATE_QSTAT_OLD(total_multicast_bytes_received_hi);
++		UPDATE_QSTAT_OLD(total_multicast_bytes_received_lo);
++		UPDATE_QSTAT_OLD(total_unicast_bytes_transmitted_hi);
++		UPDATE_QSTAT_OLD(total_unicast_bytes_transmitted_lo);
++		UPDATE_QSTAT_OLD(total_broadcast_bytes_transmitted_hi);
++		UPDATE_QSTAT_OLD(total_broadcast_bytes_transmitted_lo);
++		UPDATE_QSTAT_OLD(total_multicast_bytes_transmitted_hi);
++		UPDATE_QSTAT_OLD(total_multicast_bytes_transmitted_lo);
++		UPDATE_QSTAT_OLD(total_tpa_bytes_hi);
++		UPDATE_QSTAT_OLD(total_tpa_bytes_lo);
++	}
++
++	/* save net_device_stats statistics */
++	bp->net_stats_old.rx_dropped = nstats->rx_dropped;
++
++	/* store port firmware statistics */
++	if (bp->port.pmf && IS_MF(bp)) {
++		struct bnx2x_eth_stats *estats = &bp->eth_stats;
++		struct bnx2x_fw_port_stats_old *fwstats = &bp->fw_stats_old;
++		UPDATE_FW_STAT_OLD(mac_filter_discard);
++		UPDATE_FW_STAT_OLD(mf_tag_discard);
++		UPDATE_FW_STAT_OLD(brb_truncate_discard);
++		UPDATE_FW_STAT_OLD(mac_discard);
++	}
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+index 7e97968..39ffd6d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+@@ -264,6 +264,69 @@ struct bnx2x_eth_q_stats {
+ 	u32 total_tpa_bytes_lo;
+ };
+ 
++struct bnx2x_eth_stats_old {
++	u32 rx_stat_dot3statsframestoolong_hi;
++	u32 rx_stat_dot3statsframestoolong_lo;
++};
++
++struct bnx2x_eth_q_stats_old {
++	/* Fields to perserve over fw reset*/
++	u32 total_unicast_bytes_received_hi;
++	u32 total_unicast_bytes_received_lo;
++	u32 total_broadcast_bytes_received_hi;
++	u32 total_broadcast_bytes_received_lo;
++	u32 total_multicast_bytes_received_hi;
++	u32 total_multicast_bytes_received_lo;
++	u32 total_unicast_bytes_transmitted_hi;
++	u32 total_unicast_bytes_transmitted_lo;
++	u32 total_broadcast_bytes_transmitted_hi;
++	u32 total_broadcast_bytes_transmitted_lo;
++	u32 total_multicast_bytes_transmitted_hi;
++	u32 total_multicast_bytes_transmitted_lo;
++	u32 total_tpa_bytes_hi;
++	u32 total_tpa_bytes_lo;
++
++	/* Fields to perserve last of */
++	u32 total_bytes_received_hi;
++	u32 total_bytes_received_lo;
++	u32 total_bytes_transmitted_hi;
++	u32 total_bytes_transmitted_lo;
++	u32 total_unicast_packets_received_hi;
++	u32 total_unicast_packets_received_lo;
++	u32 total_multicast_packets_received_hi;
++	u32 total_multicast_packets_received_lo;
++	u32 total_broadcast_packets_received_hi;
++	u32 total_broadcast_packets_received_lo;
++	u32 total_unicast_packets_transmitted_hi;
++	u32 total_unicast_packets_transmitted_lo;
++	u32 total_multicast_packets_transmitted_hi;
++	u32 total_multicast_packets_transmitted_lo;
++	u32 total_broadcast_packets_transmitted_hi;
++	u32 total_broadcast_packets_transmitted_lo;
++	u32 valid_bytes_received_hi;
++	u32 valid_bytes_received_lo;
++
++	u32 total_tpa_bytes_hi_old;
++	u32 total_tpa_bytes_lo_old;
++
++	u32 driver_xoff_old;
++	u32 rx_err_discard_pkt_old;
++	u32 rx_skb_alloc_failed_old;
++	u32 hw_csum_err_old;
++};
++
++struct bnx2x_net_stats_old {
++	 u32 rx_dropped;
++};
++
++struct bnx2x_fw_port_stats_old {
++	 u32 mac_filter_discard;
++	 u32 mf_tag_discard;
++	 u32 brb_truncate_discard;
++	 u32 mac_discard;
++};
++
++
+ /****************************************************************************
+ * Macros
+ ****************************************************************************/
+@@ -348,11 +411,28 @@ struct bnx2x_eth_q_stats {
+ 		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
+ 	} while (0)
+ 
++#define UPDATE_EXTEND_E_TSTAT(s, t) \
++	do { \
++		UPDATE_EXTEND_TSTAT(s, t); \
++		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
++	} while (0)
++
+ #define UPDATE_EXTEND_USTAT(s, t) \
+ 	do { \
+ 		diff = le32_to_cpu(uclient->s) - le32_to_cpu(old_uclient->s); \
+ 		old_uclient->s = uclient->s; \
+-		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
++	} while (0)
++
++#define UPDATE_EXTEND_E_USTAT(s, t) \
++	do { \
++		UPDATE_EXTEND_USTAT(s, t); \
++		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
++	} while (0)
++
++#define UPDATE_EXTEND_E_USTAT(s, t) \
++	do { \
++		UPDATE_EXTEND_USTAT(s, t); \
++		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
+ 	} while (0)
+ 
+ #define UPDATE_EXTEND_XSTAT(s, t) \
+@@ -362,6 +442,66 @@ struct bnx2x_eth_q_stats {
+ 		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
+ 	} while (0)
+ 
++#define UPDATE_QSTAT(s, t) \
++	do { \
++		qstats->t##_hi = qstats_old->t##_hi + le32_to_cpu(s.hi); \
++		qstats->t##_lo = qstats_old->t##_lo + le32_to_cpu(s.lo); \
++	} while (0)
++
++#define UPDATE_QSTAT_OLD(f) \
++	do { \
++		qstats_old->f = qstats->f; \
++	} while (0)
++
++#define UPDATE_ESTAT_QSTAT_64(s) \
++	do { \
++		ADD_64(estats->s##_hi, qstats->s##_hi, \
++		       estats->s##_lo, qstats->s##_lo); \
++		SUB_64(estats->s##_hi, qstats_old->s##_hi_old, \
++		       estats->s##_lo, qstats_old->s##_lo_old); \
++		qstats_old->s##_hi_old = qstats->s##_hi; \
++		qstats_old->s##_lo_old = qstats->s##_lo; \
++	} while (0)
++
++#define UPDATE_ESTAT_QSTAT(s) \
++	do { \
++		estats->s += qstats->s; \
++		estats->s -= qstats_old->s##_old; \
++		qstats_old->s##_old = qstats->s; \
++	} while (0)
++
++#define UPDATE_FSTAT_QSTAT(s) \
++	do { \
++		ADD_64(fstats->s##_hi, qstats->s##_hi, \
++		       fstats->s##_lo, qstats->s##_lo); \
++		SUB_64(fstats->s##_hi, qstats_old->s##_hi, \
++		       fstats->s##_lo, qstats_old->s##_lo); \
++		estats->s##_hi = fstats->s##_hi; \
++		estats->s##_lo = fstats->s##_lo; \
++		qstats_old->s##_hi = qstats->s##_hi; \
++		qstats_old->s##_lo = qstats->s##_lo; \
++	} while (0)
++
++#define UPDATE_FW_STAT(s) \
++	do { \
++		estats->s = le32_to_cpu(tport->s) + fwstats->s; \
++	} while (0)
++
++#define UPDATE_FW_STAT_OLD(f) \
++	do { \
++		fwstats->f = estats->f; \
++	} while (0)
++
++#define UPDATE_ESTAT(s, t) \
++	do { \
++		SUB_64(estats->s##_hi, estats_old->t##_hi, \
++		       estats->s##_lo, estats_old->t##_lo); \
++		ADD_64(estats->s##_hi, estats->t##_hi, \
++		       estats->s##_lo, estats->t##_lo); \
++		estats_old->t##_hi = estats->t##_hi; \
++		estats_old->t##_lo = estats->t##_lo; \
++	} while (0)
++
+ /* minuend -= subtrahend */
+ #define SUB_64(m_hi, s_hi, m_lo, s_lo) \
+ 	do { \
+@@ -388,4 +528,10 @@ void bnx2x_stats_init(struct bnx2x *bp);
+ 
+ void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event);
+ 
++/**
++ * bnx2x_save_statistics - save statistics when unloading.
++ *
++ * @bp:		driver handle
++ */
++void bnx2x_save_statistics(struct bnx2x *bp);
+ #endif /* BNX2X_STATS_H */
 -- 
 1.7.9.rc2
