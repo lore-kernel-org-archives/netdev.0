@@ -1,66 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Eliminate spurious argument to __ipv4_neigh_lookup
-Date: Wed, 15 Feb 2012 17:55:46 -0500 (EST)
-Message-ID: <20120215.175546.1765200851698890734.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Matt Tierney <tierney@cs.nyu.edu>
+Subject: [PATCH iproute2] ss: Close file descriptors in tcp_show_netlink.
+Date: Wed, 15 Feb 2012 18:20:38 -0500
+Message-ID: <1329348038-12646-1-git-send-email-tierney@cs.nyu.edu>
+Cc: netdev@vger.kernel.org, Matt Tierney <tierney@cs.nyu.edu>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33287 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472Ab2BOWzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 17:55:48 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q1FMtk6F030933
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 14:55:47 -0800
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:41903 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963Ab2BOXUp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 18:20:45 -0500
+Received: by qadc10 with SMTP id c10so3746192qad.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 15:20:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ss: Close file descriptors in tcp_show_netlink.
 
-'tbl' is always arp_tbl, so specifying it is pointless.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Matt Tierney <tierney@cs.nyu.edu>
 ---
- include/net/arp.h |    4 ++--
- net/ipv4/route.c  |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ misc/ss.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 0013dc8..4a1f3fb 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -15,14 +15,14 @@ static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd
- 	return val * hash_rnd;
+diff --git a/misc/ss.c b/misc/ss.c
+index eb42fd6..2caac4a 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1563,6 +1563,7 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 		}
+ 		if (status == 0) {
+ 			fprintf(stderr, "EOF on netlink\n");
++			close(fd);
+ 			return 0;
+ 		}
+
+@@ -1578,8 +1579,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 			    h->nlmsg_seq != 123456)
+ 				goto skip_it;
+
+-			if (h->nlmsg_type == NLMSG_DONE)
++			if (h->nlmsg_type == NLMSG_DONE) {
++				close(fd);
+ 				return 0;
++			}
+ 			if (h->nlmsg_type == NLMSG_ERROR) {
+ 				struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+ 				if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+@@ -1588,6 +1591,7 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 					errno = -err->error;
+ 					perror("TCPDIAG answers");
+ 				}
++				close(fd);
+ 				return 0;
+ 			}
+ 			if (!dump_fp) {
+@@ -1596,8 +1600,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 					continue;
+ 				}
+ 				err = tcp_show_sock(h, NULL);
+-				if (err < 0)
++				if (err < 0) {
++					close(fd);
+ 					return err;
++				}
+ 			}
+
+ skip_it:
+@@ -1612,6 +1618,7 @@ skip_it:
+ 			exit(1);
+ 		}
+ 	}
++	close(fd);
+ 	return 0;
  }
- 
--static inline struct neighbour *__ipv4_neigh_lookup(struct neigh_table *tbl, struct net_device *dev, u32 key)
-+static inline struct neighbour *__ipv4_neigh_lookup(struct net_device *dev, u32 key)
- {
- 	struct neigh_hash_table *nht;
- 	struct neighbour *n;
- 	u32 hash_val;
- 
- 	rcu_read_lock_bh();
--	nht = rcu_dereference_bh(tbl->nht);
-+	nht = rcu_dereference_bh(arp_tbl.nht);
- 	hash_val = arp_hashfn(key, dev, nht->hash_rnd[0]) >> (32 - nht->hash_shift);
- 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
- 	     n != NULL;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4eeb8ce..0489ced 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1127,7 +1127,7 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst, const vo
- 	else if (rt->rt_gateway)
- 		pkey = (const __be32 *) &rt->rt_gateway;
- 
--	n = __ipv4_neigh_lookup(&arp_tbl, dev, *(__force u32 *)pkey);
-+	n = __ipv4_neigh_lookup(dev, *(__force u32 *)pkey);
- 	if (n)
- 		return n;
- 	return neigh_create(&arp_tbl, pkey, dev);
--- 
-1.7.7.6
+
+--
+1.7.5.4
