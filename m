@@ -1,36 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH V4 12/13] netfront: multi page ring support.
-Date: Wed, 15 Feb 2012 17:52:12 -0500 (EST)
-Message-ID: <20120215.175212.1236819573371947275.davem@davemloft.net>
-References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
-	<1328201363-13915-13-git-send-email-wei.liu2@citrix.com>
-	<20120215224253.GA18762@phenom.dumpdata.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Bogus frames transmitted with r8169 & fragmentation & large mtu
+Date: Wed, 15 Feb 2012 23:41:22 +0100
+Message-ID: <20120215224122.GA31463@electric-eye.fr.zoreil.com>
+References: <20120215163748.GA3998@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, ian.campbell@citrix.com
-To: konrad.wilk@oracle.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Nick Bowler <nbowler@elliptictech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33262 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963Ab2BOWwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 17:52:25 -0500
-In-Reply-To: <20120215224253.GA18762@phenom.dumpdata.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39431 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472Ab2BOWxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 17:53:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20120215163748.GA3998@elliptictech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date: Wed, 15 Feb 2012 17:42:53 -0500
+Nick Bowler <nbowler@elliptictech.com> :
+[...]
+> Let me know if you need any more info,
 
-> @@ -29,6 +29,8 @@
->   * IN THE SOFTWARE.
->   */
->  
-> +#define DEBUG 1
-> +
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  #include <linux/netdevice.h>
+Please send the XID line from the r8169 driver for this device.
 
-This is never appropriate.
+Did you enable some offload feature (see 'ethtool -k') ?
+
+-- 
+Ueimor
