@@ -1,86 +1,64 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next 11/11] bnx2x: allow all functions to display the phy
- FW version
-Date: Wed, 15 Feb 2012 07:10:32 -0500
-Message-ID: <1329307832-32454-12-git-send-email-yuvalmin@broadcom.com>
+Subject: [net-next 02/11] bnx2x: half duplex support added for several
+ boards
+Date: Wed, 15 Feb 2012 07:10:23 -0500
+Message-ID: <1329307832-32454-3-git-send-email-yuvalmin@broadcom.com>
 References: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>
+Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4937 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3823 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752936Ab2BOFQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 00:16:25 -0500
+	id S1752544Ab2BOFQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 00:16:16 -0500
 In-Reply-To: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mintz Yuval <yuvalmin@broadcom.com>
 
-The phy FW version is stored in regular memory, no MDC-MDIO access or
-any special locks are required to read it in the current implementation.
+From: Yaniv Rosner <yaniv.rosner@broadcom.com>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Several boards require an additional HW bit written in-order to enable
+half duplex.
+
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   10 ++--------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |    4 ++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |    4 ++--
- 3 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index c18dc1d..7e57fa4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -806,14 +806,8 @@ static void bnx2x_get_drvinfo(struct net_device *dev,
- 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
- 
- 	phy_fw_ver[0] = '\0';
--	if (bp->port.pmf) {
--		bnx2x_acquire_phy_lock(bp);
--		bnx2x_get_ext_phy_fw_version(&bp->link_params,
--					     (bp->state != BNX2X_STATE_CLOSED),
--					     phy_fw_ver, PHY_FW_VER_LEN);
--		bnx2x_release_phy_lock(bp);
--	}
--
-+	bnx2x_get_ext_phy_fw_version(&bp->link_params,
-+				     phy_fw_ver, PHY_FW_VER_LEN);
- 	strlcpy(info->fw_version, bp->fw_ver, sizeof(info->fw_version));
- 	snprintf(info->fw_version + strlen(bp->fw_ver), 32 - strlen(bp->fw_ver),
- 		 "bc %d.%d.%d%s%s",
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    3 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 57fe056..beb4cdb 100644
+index 2102ad5..e7b0baf 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -6042,8 +6042,8 @@ static int bnx2x_null_format_ver(u32 spirom_ver, u8 *str, u16 *len)
- 	return 0;
- }
+@@ -1612,6 +1612,9 @@ static void bnx2x_umac_enable(struct link_params *params,
+ 	if (!(vars->flow_ctrl & BNX2X_FLOW_CTRL_RX))
+ 		val |= UMAC_COMMAND_CONFIG_REG_PAUSE_IGNORE;
  
--int bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
--				 u8 *version, u16 len)
-+int bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 *version,
-+				 u16 len)
- {
- 	struct bnx2x *bp;
- 	u32 spirom_ver = 0;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 9cc7baf..7ba557a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -337,8 +337,8 @@ int bnx2x_phy_write(struct link_params *params, u8 phy_addr,
- void bnx2x_link_status_update(struct link_params *input,
- 			    struct link_vars *output);
- /* returns string representing the fw_version of the external phy */
--int bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
--				 u8 *version, u16 len);
-+int bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 *version,
-+				 u16 len);
++	if (vars->duplex == DUPLEX_HALF)
++		val |= UMAC_COMMAND_CONFIG_REG_HD_ENA;
++
+ 	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
+ 	udelay(50);
  
- /* Set/Unset the led
-    Basically, the CLC takes care of the led for the link, but in case one needs
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index c95d9dc..2feaca5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -4812,6 +4812,7 @@
+    The fields are: [4:0] - tail pointer; 10:5] - Link List size; 15:11] -
+    header pointer. */
+ #define UCM_REG_XX_TABLE					 0xe0300
++#define UMAC_COMMAND_CONFIG_REG_HD_ENA				 (0x1<<10)
+ #define UMAC_COMMAND_CONFIG_REG_IGNORE_TX_PAUSE			 (0x1<<28)
+ #define UMAC_COMMAND_CONFIG_REG_LOOP_ENA			 (0x1<<15)
+ #define UMAC_COMMAND_CONFIG_REG_NO_LGTH_CHECK			 (0x1<<24)
 -- 
 1.7.9.rc2
