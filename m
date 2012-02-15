@@ -1,80 +1,125 @@
-From: Jan Weitzel <j.weitzel@phytec.de>
-Subject: [PATCH] net/ethernet: ks8851_mll fix irq handling
-Date: Wed, 15 Feb 2012 08:35:15 +0100
-Message-ID: <1329291315-7973-1-git-send-email-j.weitzel@phytec.de>
-Cc: Jan Weitzel <j.weitzel@phytec.de>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Wed, 15 Feb 2012 09:00:20 +0100
+Message-ID: <1329292820.2555.47.camel@edumazet-laptop>
+References: <8633039.fHPLx6GNq3@localhost.localdomain>
+	 <5133914.uYLb0gnNTc@localhost.localdomain>
+	 <1329235210.4818.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <5781419.24ZaHfTAxC@localhost.localdomain>
+	 <1329280993.2555.21.camel@edumazet-laptop>
+	 <CADVnQykxiGBXCKdr=G+T190EA14RnAs0HJ69imsN0h8JKMS4jw@mail.gmail.com>
+	 <1329286016.2555.41.camel@edumazet-laptop>
+	 <20120215025200.6e6f02a2.billfink@mindspring.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neal Cardwell <ncardwell@google.com>, alekcejk@googlemail.com,
+	netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:63574 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757624Ab2BOIAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 03:00:25 -0500
+Received: by wics10 with SMTP id s10so324879wic.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 00:00:24 -0800 (PST)
+In-Reply-To: <20120215025200.6e6f02a2.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There a two different irq variables ks->irq and netdev->irq.
-Only ks->irq is set on probe, so disabling irq in ks_start_xmit fails.
+Le mercredi 15 f=C3=A9vrier 2012 =C3=A0 02:52 -0500, Bill Fink a =C3=A9=
+crit :
 
-This patches remove ks->irq from private data and use only netdev->irq.
+> Would it be useful to check if there was any difference in
+> TCP parameters between the 3.1 and 3.2 kernels by performing
+> the following on each:
+>=20
+> 	grep . /sys/module/tcp_*/parameters/*
+>=20
+> 					-Bill
 
-Tested on a kernel 3.0 based OMAP4430 SMP Board
+I did yesterday and found nothing interesting.
 
-Signed-off-by: Jan Weitzel <j.weitzel@phytec.de>
+# diff SYSCTL1 SYSCTL2
+13a14
+> kernel.sched_cfs_bandwidth_slice_us =3D 5000
+18c19
+< kernel.tainted =3D 513
 ---
- drivers/net/ethernet/micrel/ks8851_mll.c |   14 ++++++--------
- 1 files changed, 6 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index e58e78e..231176f 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -394,7 +394,6 @@ union ks_tx_hdr {
-  * @msg_enable	: The message flags controlling driver output (see ethtool).
-  * @frame_cnt  	: number of frames received.
-  * @bus_width  	: i/o bus width.
-- * @irq    	: irq number assigned to this device.
-  * @rc_rxqcr	: Cached copy of KS_RXQCR.
-  * @rc_txcr	: Cached copy of KS_TXCR.
-  * @rc_ier	: Cached copy of KS_IER.
-@@ -441,7 +440,6 @@ struct ks_net {
- 	u32			msg_enable;
- 	u32			frame_cnt;
- 	int			bus_width;
--	int             	irq;
- 
- 	u16			rc_rxqcr;
- 	u16			rc_txcr;
-@@ -907,10 +905,10 @@ static int ks_net_open(struct net_device *netdev)
- 	netif_dbg(ks, ifup, ks->netdev, "%s - entry\n", __func__);
- 
- 	/* reset the HW */
--	err = request_irq(ks->irq, ks_irq, KS_INT_FLAGS, DRV_NAME, netdev);
-+	err = request_irq(netdev->irq, ks_irq, KS_INT_FLAGS, DRV_NAME, netdev);
- 
- 	if (err) {
--		pr_err("Failed to request IRQ: %d: %d\n", ks->irq, err);
-+		pr_err("Failed to request IRQ: %d: %d\n", netdev->irq, err);
- 		return err;
- 	}
- 
-@@ -955,7 +953,7 @@ static int ks_net_stop(struct net_device *netdev)
- 
- 	/* set powermode to soft power down to save power */
- 	ks_set_powermode(ks, PMECR_PM_SOFTDOWN);
--	free_irq(ks->irq, netdev);
-+	free_irq(netdev->irq, netdev);
- 	mutex_unlock(&ks->lock);
- 	return 0;
- }
-@@ -1545,10 +1543,10 @@ static int __devinit ks8851_probe(struct platform_device *pdev)
- 	if (!ks->hw_addr_cmd)
- 		goto err_ioremap1;
- 
--	ks->irq = platform_get_irq(pdev, 0);
-+	netdev->irq = platform_get_irq(pdev, 0);
- 
--	if (ks->irq < 0) {
--		err = ks->irq;
-+	if (netdev->irq < 0) {
-+		err = netdev->irq;
- 		goto err_get_irq;
- 	}
- 
--- 
-1.7.0.4
+> kernel.tainted =3D 4609
+33c34
+< kernel.threads-max =3D 48402
+---
+> kernel.threads-max =3D 48398
+35c36
+< kernel.random.entropy_avail =3D 2200
+---
+> kernel.random.entropy_avail =3D 1715
+38,39c39,40
+< kernel.random.boot_id =3D da6427fc-eb8e-40a8-8809-8cae94a65fb5
+< kernel.random.uuid =3D 118c4362-a2a2-4973-ab3e-a09a0ed306ff
+---
+> kernel.random.boot_id =3D 2f77031a-9e65-4358-9c02-09058831507a
+> kernel.random.uuid =3D 44cdd730-9c00-4a85-87c3-0a5b1c7c1278
+52a54
+> kernel.cap_last_cap =3D 35
+102,103c104,105
+< kernel.osrelease =3D 2.6.41.10-3.fc15.i686
+< kernel.version =3D #1 SMP Mon Jan 23 15:44:18 UTC 2012
+---
+> kernel.osrelease =3D 2.6.42.3-2.fc15.i686
+> kernel.version =3D #1 SMP Thu Feb 9 01:39:19 UTC 2012
+111c113
+< kernel.msgmni =3D 1675
+---
+> kernel.msgmni =3D 1674
+116c118
+< kernel.pty.nr =3D 2
+---
+> kernel.pty.nr =3D 3
+152,155c154,157
+< fs.inode-nr =3D 9875	61
+< fs.inode-state =3D 9875	61	0	0	0	0	0
+< fs.file-nr =3D 7328	0	309733
+< fs.file-max =3D 309733
+---
+> fs.inode-nr =3D 23853	1607
+> fs.inode-state =3D 23853	1607	0	0	0	0	0
+> fs.file-nr =3D 6112	0	309720
+> fs.file-max =3D 309720
+157c159
+< fs.dentry-state =3D 9913	1327	45	0	0	0
+---
+> fs.dentry-state =3D 27730	17922	45	0	0	0
+168c170
+< fs.epoll.max_user_watches =3D 337762
+---
+> fs.epoll.max_user_watches =3D 337644
+272c274
+< net.netfilter.nf_conntrack_count =3D 62
+---
+> net.netfilter.nf_conntrack_count =3D 26
+284,285c286,287
+< net.core.wmem_default =3D 114688
+< net.core.rmem_default =3D 114688
+---
+> net.core.wmem_default =3D 163840
+> net.core.rmem_default =3D 163840
+301d302
+< net.ipv4.route.gc_interval =3D 60
+601c602
+< net.ipv6.conf.all.regen_max_retry =3D 5
+---
+> net.ipv6.conf.all.regen_max_retry =3D 3
+630c631
+< net.ipv6.conf.default.regen_max_retry =3D 5
+---
+> net.ipv6.conf.default.regen_max_retry =3D 3
+659c660
+< net.ipv6.conf.lo.regen_max_retry =3D 5
+---
+> net.ipv6.conf.lo.regen_max_retry =3D 3
+688c689
+< net.ipv6.conf.eth0.regen_max_retry =3D 5
+---
+> net.ipv6.conf.eth0.regen_max_retry =3D 3
