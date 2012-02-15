@@ -1,29 +1,52 @@
-From: Ann Adams <Ann.Adams@smilebrands.com>
-Subject: (unknown)
-Date: Wed, 15 Feb 2012 11:18:15 -0800
-Message-ID: <62F82CB44658DF47AFBF4FC7BF35DEFE355A31EE8C@EXCMBX.bnd.corp>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 4/5] usb: usbnet: Add validation of dev->maxpacket to usbnet
+Date: Wed, 15 Feb 2012 20:34:02 +0100
+Message-ID: <201202152034.03000.oliver@neukum.org>
+References: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com> <1329317261-3406-5-git-send-email-toby.gray@realvnc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Toby Gray <tg@realvnc.com>, Oliver Neukum <oliver@neukum.name>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	alexey.orishko@gmail.com
+To: Toby Gray <toby.gray@realvnc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.smilebrands.com ([66.104.72.207]:58671 "EHLO
-	snaex01.bnd.corp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754859Ab2BOTST convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 14:18:19 -0500
-Subject: 
-Content-Language: en-US
+Received: from smtp-out003.kontent.com ([81.88.40.217]:54285 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488Ab2BOTbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 14:31:35 -0500
+In-Reply-To: <1329317261-3406-5-git-send-email-toby.gray@realvnc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Am Mittwoch, 15. Februar 2012, 15:47:40 schrieb Toby Gray:
+> Several parts of usbnet rely on dev->maxpacket not being set to 0 to
+> prevent division by zero errors.
+> 
+> This adds validation of the dev->maxpacket value being non-zero before
+> treating the device probe as successful.
+> 
+> Signed-off-by: Toby Gray <toby.gray@realvnc.com>
+> ---
+>  drivers/net/usb/usbnet.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 4ccd316..1491c90 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -1427,6 +1427,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+>  		dev->rx_urb_size = dev->hard_mtu;
+>  	if (!dev->maxpacket)
+>  		dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
+> +	if (!dev->maxpacket) {
+> +		status = -ENODEV;
+> +		goto out3;
 
+Hm. I am sceptical. If this happens a subdriver is buggy. We should
+not hide that. I am afraid I have to reject this patch.
 
-
-Hi
-  Sorry for the sudden contact with you via email, but please i have looked
-  For you in the past few months now without any good result that is why i
-  am using this medium, i would appreciate if you did contact me for a brief
-  Discussion my Phone number is (+44) 703 595 6471 and email is michaelachambers@live.co.uk
-    Thanks In Advance
-    Michael Aiden
-Note: All corresponding email should be sent to michaelachambers@live.co.uk  for an immediate attention.
+	Regards
+		Oliver
