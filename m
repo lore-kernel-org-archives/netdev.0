@@ -1,80 +1,190 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: 3.0: unexpected route cache entry for wrong segment?
-Date: Wed, 15 Feb 2012 16:10:37 +0400
-Message-ID: <4F3BA0BD.9010501@msgid.tls.msk.ru>
-References: <4F33FC0E.4020701@msgid.tls.msk.ru> <1328809519.6099.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F341283.1020904@msgid.tls.msk.ru>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: [patch] iproute: fix dangerous /tmp/ handling
+Date: Wed, 15 Feb 2012 16:32:23 +0400
+Message-ID: <20120215123223.GA14094@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Solar Designer <solar@openwall.com>
+To: netdev@vger.kernel.org, security@kernel.org, shemminger@osdl.org,
+	kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:54247 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752250Ab2BOMKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 07:10:40 -0500
-In-Reply-To: <4F341283.1020904@msgid.tls.msk.ru>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:55017 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758036Ab2BOMhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 07:37:14 -0500
+Received: by bkcjm19 with SMTP id jm19so869879bkc.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 04:37:12 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.02.2012 22:37, Michael Tokarev wrote:
-> On 09.02.2012 21:45, Eric Dumazet wrote:
-[]
->> Did you try to apply by hand commits :
->>
->> 7cc9150ebe8ec06cafea9f1c10d92ddacf88d8ae   // added in 3.2
->> (route: fix ICMP redirect validation)
->>
->> and
->> 9cc20b268a5a14f5e57b8ad405a83513ab0d78dc
->> (ipv4: fix redirect handling)
->
-> I haven't tried anything yet, as mentioned above: this prob
-> just appeared today, out of the sudden, and what's the most
-> important (imho) is that I can not reproduce it.  The host
-> hasn't been rebooted, I were thinking about maybe some
-> experiments with it before doing anything else.
->
-> But I blocked this specific IP address on the gateway and the
-> cached entry expired after 10 minutes (that host tried to
-> check mail every minute so no doubt the inactivity timer
-> never triggered).  So at least one difference in behavour is
-> now gone.
->
-> What bothers me more are 3 other issues I see around this:
->
-> 1. Why this specific IP were cached to start with?  I don't
->    expect any ICMP redirects for that network at all, and no
->    spoofing or malicious traffic either.
->
-> 2. I can't reproduce the issue while forcing ICMP redirects.
->   Maybe my original prob was not due to a redirect but due to
->   something else?  I dunno.
->
-> 3. Why it affects whole host and all numerous different/separate
->   network namespaces on it?  _All_ lxc containers started thinking
->   this IP is reachable on the local subnet, at once, even those
->   who never ever tried to send any packets to that IP before!
+Using "/tmp/file" without checking file owner is dangerous.
+It could be a symlink pointing to user's file.  If one creates
+such symlink and makes victim do "./configure", gcc executed with
+UID=victim would compile attacker's source file into arbitrary
+location (e.g. into ~victim/bin/).
 
-Do you have any insight about all this?  That smells.. fishy
-somehow.  Or maybe not, since all lxc guests here are connected
-to the same bridge on the host, so it is the host who does the
-bad thing, apparently, hence affecting all the guests (guest
-routes packets over veth to host which does further bridging/routing).
+Instead use a directory created with mktemp and handle all temporary
+files in this directory only.
 
-> And in another email you wrote:
->
->> David is currently working on backporting to 3.0 all necessary fixes for
->> this exact problem.
+The same with dhcp-client-script sample script.
 
-David, any progress with these?
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+--
+ configure                   |   34 +++++++++++++++++++---------------
+ examples/dhcp-client-script |    2 +-
+ 2 files changed, 20 insertions(+), 16 deletions(-)
 
-7cc9150ebe8ec06cafea9f1c10d92ddacf88d8ae "route: fix ICMP redirect validation"
-applies correctly to 3.0, but 9cc20b268a5a14f5e57b8ad405a83513ab0d78dc
-"ipv4: fix redirect handling" does not, due to some changes in-between,
-but these should be easy to sort out.  Should I perhaps refresh this
-patch myself?  It should be doable, I think.
-
-Thank you!
-
-/mjt
+--
+diff -uNp -r iproute2-3.2.0.old/configure iproute2-3.2.0/configure
+--- iproute2-3.2.0.old/configure	2012-01-05 16:34:31 +0000
++++ iproute2-3.2.0/configure	2012-02-15 12:29:16 +0000
+@@ -3,9 +3,13 @@
+ #
+ INCLUDE=${1:-"$PWD/include"}
+ 
++TMPDIR="`mktemp -dt iproute.XXXXXXXXXX`" || exit
++trap 'rm -rf -- "$TMPDIR"' EXIT
++trap 'trap - EXIT; rm -rf -- "$TMPDIR"; exit 1' HUP INT QUIT TERM
++
+ check_atm()
+ {
+-cat >/tmp/atmtest.c <<EOF
++cat >$TMPDIR/atmtest.c <<EOF
+ #include <atm.h>
+ int main(int argc, char **argv) {
+ 	struct atm_qos qos;
+@@ -13,7 +17,7 @@ int main(int argc, char **argv) {
+ 	return 0;
+ }
+ EOF
+-gcc -I$INCLUDE -o /tmp/atmtest /tmp/atmtest.c -latm >/dev/null 2>&1 
++gcc -I$INCLUDE -o $TMPDIR/atmtest $TMPDIR/atmtest.c -latm >/dev/null 2>&1 
+ if [ $? -eq 0 ]
+ then
+     echo "TC_CONFIG_ATM:=y" >>Config
+@@ -21,13 +25,13 @@ then
+ else
+     echo no
+ fi
+-rm -f /tmp/atmtest.c /tmp/atmtest
++rm -f $TMPDIR/atmtest.c $TMPDIR/atmtest
+ }
+ 
+ check_xt()
+ {
+ #check if we have xtables from iptables >= 1.4.5.
+-cat >/tmp/ipttest.c <<EOF
++cat >$TMPDIR/ipttest.c <<EOF
+ #include <xtables.h>
+ #include <linux/netfilter.h>
+ static struct xtables_globals test_globals = {
+@@ -47,12 +51,12 @@ int main(int argc, char **argv)
+ 
+ EOF
+ 
+-if gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL $(pkg-config xtables --cflags --libs) -ldl >/dev/null 2>&1
++if gcc -I$INCLUDE $IPTC -o $TMPDIR/ipttest $TMPDIR/ipttest.c $IPTL $(pkg-config xtables --cflags --libs) -ldl >/dev/null 2>&1
+ then
+ 	echo "TC_CONFIG_XT:=y" >>Config
+ 	echo "using xtables"
+ fi
+-rm -f /tmp/ipttest.c /tmp/ipttest
++rm -f $TMPDIR/ipttest.c $TMPDIR/ipttest
+ }
+ 
+ check_xt_old()
+@@ -64,7 +68,7 @@ then
+ fi
+ 
+ #check if we dont need our internal header ..
+-cat >/tmp/ipttest.c <<EOF
++cat >$TMPDIR/ipttest.c <<EOF
+ #include <xtables.h>
+ char *lib_dir;
+ unsigned int global_option_offset = 0;
+@@ -84,14 +88,14 @@ int main(int argc, char **argv) {
+ }
+ 
+ EOF
+-gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
++gcc -I$INCLUDE $IPTC -o $TMPDIR/ipttest $TMPDIR/ipttest.c $IPTL -ldl >/dev/null 2>&1
+ 
+ if [ $? -eq 0 ]
+ then
+ 	echo "TC_CONFIG_XT_OLD:=y" >>Config
+ 	echo "using old xtables (no need for xt-internal.h)"
+ fi
+-rm -f /tmp/ipttest.c /tmp/ipttest
++rm -f $TMPDIR/ipttest.c $TMPDIR/ipttest
+ }
+ 
+ check_xt_old_internal_h()
+@@ -103,7 +107,7 @@ then
+ fi
+ 
+ #check if we need our own internal.h
+-cat >/tmp/ipttest.c <<EOF
++cat >$TMPDIR/ipttest.c <<EOF
+ #include <xtables.h>
+ #include "xt-internal.h"
+ char *lib_dir;
+@@ -124,14 +128,14 @@ int main(int argc, char **argv) {
+ }
+ 
+ EOF
+-gcc -I$INCLUDE $IPTC -o /tmp/ipttest /tmp/ipttest.c $IPTL -ldl >/dev/null 2>&1
++gcc -I$INCLUDE $IPTC -o $TMPDIR/ipttest $TMPDIR/ipttest.c $IPTL -ldl >/dev/null 2>&1
+ 
+ if [ $? -eq 0 ]
+ then
+ 	echo "using old xtables with xt-internal.h"
+ 	echo "TC_CONFIG_XT_OLD_H:=y" >>Config
+ fi
+-rm -f /tmp/ipttest.c /tmp/ipttest
++rm -f $TMPDIR/ipttest.c $TMPDIR/ipttest
+ }
+ 
+ check_ipt()
+@@ -160,7 +164,7 @@ check_ipt_lib_dir()
+ 
+ check_setns()
+ {
+-cat >/tmp/setnstest.c <<EOF
++cat >$TMPDIR/setnstest.c <<EOF
+ #include <sched.h>
+ int main(int argc, char **argv) 
+ {
+@@ -168,7 +172,7 @@ int main(int argc, char **argv) 
+ 	return 0;
+ }
+ EOF
+-gcc -I$INCLUDE -o /tmp/setnstest /tmp/setnstest.c >/dev/null 2>&1
++gcc -I$INCLUDE -o $TMPDIR/setnstest $TMPDIR/setnstest.c >/dev/null 2>&1
+ if [ $? -eq 0 ]
+ then
+ 	echo "IP_CONFIG_SETNS:=y" >>Config
+@@ -176,7 +180,7 @@ then
+ else
+ 	echo "no"
+ fi
+-rm -f /tmp/setnstest.c /tmp/setnstest
++rm -f $TMPDIR/setnstest.c $TMPDIR/setnstest
+ }
+ 
+ echo "# Generated config based on" $INCLUDE >Config
+diff -uNp -r iproute2-3.2.0.old/examples/dhcp-client-script iproute2-3.2.0/examples/dhcp-client-script
+--- iproute2-3.2.0.old/examples/dhcp-client-script	2012-01-05 16:34:31 +0000
++++ iproute2-3.2.0/examples/dhcp-client-script	2012-02-15 12:29:37 +0000
+@@ -14,7 +14,7 @@
+ # we should install and preserve.
+ #
+ 
+-exec >> /tmp/DHS.log 2>&1
++exec >> /var/log/DHS.log 2>&1
+ 
+ echo dhc-script $* reason=$reason
+ set | grep "^\(old_\|new_\|check_\)"
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
