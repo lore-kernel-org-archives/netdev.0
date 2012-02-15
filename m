@@ -1,37 +1,77 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/1] usb: cdc-ncm: Increase maximum allowed datagram size
-Date: Wed, 15 Feb 2012 15:40:00 +0100
-Message-ID: <CAL_Kpj0oN883qGhAD2pO4zOHvYt1=VmQHOJx970UF0TcqG06OA@mail.gmail.com>
-References: <1329230375-25508-1-git-send-email-toby.gray@realvnc.com>
-	<20120214.144622.678577766818888054.davem@davemloft.net>
-	<CAL_Kpj0VSu-ByUEwTeVG5-5psab3h38bTL=ot7vYD8A+Oeb_Ug@mail.gmail.com>
-	<201202150953.20341.oneukum@suse.de>
+From: WCS BIG5 <elsamoya@coomevamail.com>
+Subject: YOU HAVE BEEN SELECTED A WINNER!!!
+Date: Wed, 15 Feb 2012 05:14:08 -0500
+Message-ID: <20120215051408.289013l1sly17fxs@www.coomevamail.com>
+Reply-To: munir_bassem1957@gala.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org,
-	oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201202150953.20341.oneukum-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.coomevamail.com ([200.1.126.66]:34337 "HELO coomevamail.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1758451Ab2BOOmT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 09:42:19 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2012 at 9:53 AM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
-> Have you tried that under severe memory presssure?
 
-Well, it is a simplistic view upon host configuration.
-Developing of NCM spec was done with mind set, that host must be more
-capable than device.
 
-However, proposal above doesn't solve problem completely due to usbnet.
-Currently I'm testing some improvements/fixes related to data handling
-and driver latency with the plan to post it in the near future.
+2nd Floor United Building
+20 Goldman Street, Florida
+Johannesburg, South Africa.
 
-Regards,
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Congratulations!!!! "You have won One Million Nine Hundred and Fifty  
+Thousand United States Dollars (US$1,950,000.00) from WCS Big5  
+Promotions."
+
+For Claiming, Urgently contact;
+Mr. Munir Bassem
+Tel: +27-735-324-797
+E-mail: munir_bassem1957@gala.net
+
+CONGRATULATIONS!!!!
+
+We wish you success in our WCS Big5 Promotions/Email Internet Program  
+made today, which was held on 31st of January 2012.Your Email Address  
+was attached to Ticket No: 07-12-35-54-55-02 Drew the Lucky No:  
+15-19-24-27-47 + 12 from 800,000 Email Addresses consequently won in  
+the 2nd Category. You have therefore been approved to claim a Star  
+Prize of One Million Nine Hundred and Fifty Thousand United States  
+Dollars (US$1,950,000.00) in cash credited to File Number:  
+M1/2010/8/011.
+
+Below are your Winning Details;
+
+Reference Number: ZAR/POP-677152/ZA2012
+Batch Number: ZAR/002831323/M222-23
+Amount Won: One Million Nine Hundred and Fifty Thousand United States  
+Dollars (US$1,950,000.00)
+
+"The Validity period of the winnings is (10) Working Days, of your  
+reply to the Agency; hence you are expected to make your claims  
+immediately, any claim not made before this date will be returned as  
+UNCLAIMED."
+
+To claim your winning prize, you are to contact the appointed agent  
+for the immediate release of your winnings.
+
+Congratulations from all our Staff and thank you for being part of our  
+Promotions.
+
+Yours Truly,
+
+Mr. Ahmed Ibrahim
+Claims Department
+Copyrights (C) WCS Big5 Promotions (Pty) Ltd.
+Company Registration number: 2012/026290/12
+WCS Big5 Promotions, All rights reserved.
+Developed and maintained by RHVenter.com
+http://www.wcsbig5.co.za
+
+----------------------------------------------------------------
+Mensaje enviado usando correoweb http://www.calipso.com.co
