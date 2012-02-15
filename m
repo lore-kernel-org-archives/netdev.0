@@ -1,46 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] net: replace random_ether_addr() with
-	eth_hw_addr_random()
-Date: Wed, 15 Feb 2012 15:34:45 -0500 (EST)
-Message-ID: <20120215.153445.1279062916210043775.davem@davemloft.net>
-References: <1329324340-13461-1-git-send-email-danny.kukawka@bisect.de>
-	<1329324340-13461-2-git-send-email-danny.kukawka@bisect.de>
+Subject: Re: [PATCH] net/ethernet: ks8851_mll fix irq handling
+Date: Wed, 15 Feb 2012 15:41:40 -0500 (EST)
+Message-ID: <20120215.154140.2082640267957831845.davem@davemloft.net>
+References: <1329291315-7973-1-git-send-email-j.weitzel@phytec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, venza@brownhat.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	dkukawka@suse.de, linux-kernel@vger.kernel.org,
-	nicolas.ferre@atmel.com, rl@hellgate.ch,
-	hsweeten@visionengravers.com, gregkh@linuxfoundation.org,
-	peppe.cavallaro@st.com, steve.glendinning@smsc.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	virtualization@lists.linux-foundation.org, florian@openwrt.org,
-	khc@pm.waw.pl
-To: danny.kukawka@bisect.de
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1329324340-13461-2-git-send-email-danny.kukawka@bisect.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: j.weitzel@phytec.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329291315-7973-1-git-send-email-j.weitzel@phytec.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Date: Wed, 15 Feb 2012 17:45:39 +0100
+From: Jan Weitzel <j.weitzel@phytec.de>
+Date: Wed, 15 Feb 2012 08:35:15 +0100
 
-> Replace usage of random_ether_addr() with eth_hw_addr_random()
-> to set addr_assign_type correctly to NET_ADDR_RANDOM.
+> There a two different irq variables ks->irq and netdev->irq.
+> Only ks->irq is set on probe, so disabling irq in ks_start_xmit fails.
 > 
-> Change the trivial cases.
+> This patches remove ks->irq from private data and use only netdev->irq.
 > 
-> v2: adapt to renamed eth_hw_addr_random()
+> Tested on a kernel 3.0 based OMAP4430 SMP Board
 > 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> Signed-off-by: Jan Weitzel <j.weitzel@phytec.de>
 
-Applied.
+Applied, thanks.
