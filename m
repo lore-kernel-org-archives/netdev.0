@@ -1,56 +1,41 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] cc770: linux/can/dev.h included twice
-Date: Wed, 15 Feb 2012 20:37:47 +0100
-Message-ID: <4F3C098B.4050308@pengutronix.de>
-References: <1329328501-4737-1-git-send-email-danny.kukawka@bisect.de>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH 2/2] Netfilter: xt_LOG: Add timestamp support
+Date: Wed, 15 Feb 2012 20:39:40 +0100
+Message-ID: <4F3C09FC.2020800@nod.at>
+References: <1329314115-6899-1-git-send-email-richard@nod.at>  <1329314115-6899-2-git-send-email-richard@nod.at> <1329314492.2437.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F3BBC11.1030308@nod.at> <alpine.LNX.2.01.1202151815270.15357@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig66A4AFC2ED99B78C6F209036"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Danny Kukawka <dkukawka@suse.de>,
-	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+	pablo@netfilter.org, basti@b-bl.de
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329328501-4737-1-git-send-email-danny.kukawka@bisect.de>
+In-Reply-To: <alpine.LNX.2.01.1202151815270.15357@frira.zrqbmnf.qr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig66A4AFC2ED99B78C6F209036
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Am 15.02.2012 18:16, schrieb Jan Engelhardt:
+>
+> On Wednesday 2012-02-15 15:07, Richard Weinberger wrote:
+>>>> +		struct timespec tv;
+>>>> +		unsigned int msec;
+>>>> +
+>>>> +		getnstimeofday(&tv);
+>>>> +		msec = tv.tv_nsec / NSEC_PER_MSEC;
+>>>> +		sb_add(m, "TIMESTAMP=%li.%03li ", tv.tv_sec, msec);
+>>>
+>>> Since you want to use this temp variable "unsigned int msec" (I have no
+>>> idea why...), you must change printf format accordingly : %03u instead
+>>> of %03li
+>>
+>> *grml*.
+>> I'll remove the temp variable and use %03u.
+>
+> Why not just print the nsecs directly (with %09 of course)?
 
-On 02/15/2012 06:55 PM, Danny Kukawka wrote:
-> drivers/net/can/cc770/cc770.c included 'linux/can/dev.h' twice,
-> remove the duplicate.
->=20
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+I don't think that a nanosecond resolution is useful.
 
-Thanks, applied to can-next.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig66A4AFC2ED99B78C6F209036
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk88CY4ACgkQjTAFq1RaXHMYQACgjRVbyF5L1w3ZJ5DRBDhCYedb
-A34AnRTM/RxyM9R99EfxxiCq9aBREh7r
-=Dof9
------END PGP SIGNATURE-----
-
---------------enig66A4AFC2ED99B78C6F209036--
+Thanks,
+//richard
