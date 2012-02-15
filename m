@@ -1,43 +1,41 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Wed, 15 Feb 2012 09:08:14 -0500
-Message-ID: <20120215140814.GA29673@canuck.infradead.org>
-References: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
- <1329253993.2443.30.camel@bwh-desktop>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Wed, 15 Feb 2012 14:08:29 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293178AAD1@DBDE01.ent.ti.com>
+References: <1329113061-13026-1-git-send-email-mugunthanvnm@ti.com>
+	<1329113061-13026-3-git-send-email-mugunthanvnm@ti.com>
+ <20120213093421.06ca60a7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:39240 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754406Ab2BOOIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 09:08:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1329253993.2443.30.camel@bwh-desktop>
+Received: from devils.ext.ti.com ([198.47.26.153]:47497 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758385Ab2BOOIe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 09:08:34 -0500
+In-Reply-To: <20120213093421.06ca60a7@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2012 at 09:13:13PM +0000, Ben Hutchings wrote:
-> > +		struct rtattr *ext_req;
-> > +		u32 *ext_req_data;
-> > +		req = (struct rtnl_req_extended *)cb->nlh;
-> > +		ext_req = (struct rtattr *)&req->ext;
-> > +		if (ext_req->rta_type == IFLA_EXT_MASK) {
-> > +			ext_req_data = RTA_DATA(ext_req);
-> > +			ext_filter_mask = *ext_req_data;
-> > +		}
-> > +	}
-> 
-> We cannot trust a flag to tell us what the length of the message is.  We
-> have to check the value of nlmsg_len (which netlink has already
-> validated as being within the skb length and >= our declared request
-> header length).  I think that makes the flag redundant.
-> 
-> In fact, I think we should really use nlmsg_parse() here.  That might be
-> overkill when there's only a single valid attribute; I don't know.
+Stephen Hemminger
 
-I think it's worth the effort. You get all the validation for free. And
-please use the netlink interface in <net/netlink.h>, the rtattr based
-interface has been deprecated a while ago.
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Monday, February 13, 2012 11:04 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [PATCH 2/2] netdev: driver: ethernet: Add TI CPSW driver
+> 
+
+...
+
+> 
+> These stats belong in ethtool, not sysfs.
+Yes, will remove this and will add it with ethtool support patches set.
+
+With regards
+Mugunthan V N
