@@ -1,60 +1,72 @@
-From: Dongsoo Nathaniel Kim <dongsoo.kim@gmail.com>
-Subject: Re: About bnx2-mips-09-6.2.1b.fw (Broadcom ethernet) firmware
-Date: Wed, 15 Feb 2012 15:25:09 +0900
-Message-ID: <CAP+Vy9cVmfEsp5h2u1iCd589SpLkuRCcgKnRkc05nP-Ni+NZkg@mail.gmail.com>
-References: <CAP+Vy9cSK7kWbfYGT566BshozaQ-NqH0UpeuXEErLRLMP9Tt0g@mail.gmail.com>
- <CAHLZz11wU4sKtq6wD_ZFaOH+6QU-JTYgXFV6Vs1qucMa26a0fw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] igb: output register's information related to RX/TX
+ queue[4-15]
+Date: Tue, 14 Feb 2012 22:40:57 -0800
+Message-ID: <1329288057.2697.32.camel@jtkirshe-mobl>
+References: <4F3B4E78.3060804@jp.fujitsu.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Harvey Harrison <harvey.harrison@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Jzfi4wvyHDGZ0BHhZyMc"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	e1000-devel@lists.sourceforge.net
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:34022 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751945Ab2BOGZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 01:25:30 -0500
-Received: by obcva7 with SMTP id va7so1043620obc.19
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2012 22:25:29 -0800 (PST)
-In-Reply-To: <CAHLZz11wU4sKtq6wD_ZFaOH+6QU-JTYgXFV6Vs1qucMa26a0fw@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:62513 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754752Ab2BOGk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 01:40:58 -0500
+In-Reply-To: <4F3B4E78.3060804@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Harvey,
 
-So, now user has to include his or her own firmware manually?
+--=-Jzfi4wvyHDGZ0BHhZyMc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I may need a post-it not to forget, cause sometimes I build kernel
-from scratch ;-( (then I will have to download firmware again in that
-case)
+On Wed, 2012-02-15 at 15:19 +0900, Koki Sanagi wrote:
+> Current igb outputs registers related to TX/RX queues(ex. RDT, RDH,
+> TDT, TDH).
+> But it thinks the number of RX/TX queues is 4. But 82576 has 16 RX/TX
+> queues.
+> This patch modifies igb to output the rest of the registers if the
+> device is
+> 82576.
+>=20
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |   38
+> +++++++++++++++++++++++++-
+>  1 files changed, 37 insertions(+), 1 deletions(-)=20
 
+Thanks Koki, I have added the patch to my queue.
 
+--=-Jzfi4wvyHDGZ0BHhZyMc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-On Wed, Feb 15, 2012 at 2:50 PM, Harvey Harrison
-<harvey.harrison@gmail.com> wrote:
-> On Tue, Feb 14, 2012 at 9:26 PM, Dongsoo Nathaniel Kim
-> <dongsoo.kim@gmail.com> wrote:
->> Hello folks,
->>
->> I'm wondering if it is ok to send a patch which includes
->> bnx2-mips-09-6.2.1b.fw.ihex.
->>
->
-> firmware is no longer distributed with kernel source, there is a
-> separate firmware repo:
->
-> git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
->
-> Where you'll find the above file is already incuded in the bnx2/ folder
->
-> Cheers,
->
-> Harvey
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
+iQIcBAABCgAGBQJPO1N5AAoJEOVv75VaS+3ORXsQAJLtvXS2vczCL7zo82suUKY+
+DJ8LJZFdoDJpTHa5wDB+MjFZkluKgiIlnF98UBEnA0OshnkWF+jLKqSUc4aw0Qd3
+nIlm5oR/5woK1wyrHS3zZCAJjpgZm83FcDvee/MBO4WQsb2plCQ8ec1xFl5nwsoV
+D2lVYFC7RWEtANcQhO9WynR33/5lvF7SGP4hO0lJSxOnQK4xn5BBqas/InxtUWwA
+9+p57UAvlEu/IgTdzX2ufu5aFKqviOGnkn9BGtAdhVn4/Im5+9Va0haeKrfif/HH
+MC+045EwpDYSMGIBs8APlwlaCGPVKHjLL72g49vX/npwoLfQwuc36pxd09DFfwmC
+xRg798iHRiB93fOpzQiB/zNJKAydV7ul8JCHljaJ/6GgfH4JTnnMrL+hpxbYdYu6
+ViuUA37FmRXdnkeU82AhYXGGKkVboo1D82lktOupHbXbCXU1c+jKEl8S7Gou1qak
+DVbmCNqR7rTwIWumFHPOoBL63CIQLGq0Z1QbiykasHBKiUuXn/0aK+Mc9A2yg+5i
+739gG4xxiF/Z5Rini3m4OV5a1Yk/e+x9GENbWezBp86+dkLCFzo4+FKBVD6B49J3
+kzy4y2YDFSZ1AR12Y4wWiyXflSMtMgG1Df0XUGwidogqVSpmZ+9zLnDrCnfDiNA+
+pFSnlPQvcCBnLrE6zAhL
+=gcEL
+-----END PGP SIGNATURE-----
 
-
--- 
-=
-Dongsoo Nathaniel Kim
-Linux kernel, media device S/W engineer / Ph.D Student
-Dept. of Computer Science, KAIST
-Real-time & Embedded Systems Lab.
+--=-Jzfi4wvyHDGZ0BHhZyMc--
