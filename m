@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] mlx4: Bug fixes in VFs resource management.
-Date: Wed, 15 Feb 2012 14:50:48 -0500 (EST)
-Message-ID: <20120215.145048.1858166436773662176.davem@davemloft.net>
-References: <4F3BDBCA.2060008@mellanox.co.il>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] ipheth: Add iPhone 4S
+Date: Wed, 15 Feb 2012 14:50:59 -0500 (EST)
+Message-ID: <20120215.145059.1458317244770544786.davem@davemloft.net>
+References: <1329328215-102360-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59890 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab2BOTu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 14:50:56 -0500
-In-Reply-To: <4F3BDBCA.2060008@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	till.kamppeter-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1329328215-102360-1-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Wed, 15 Feb 2012 18:22:34 +0200
+From: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Wed, 15 Feb 2012 10:50:15 -0700
 
-> Hello Dave.
+> BugLink: http://bugs.launchpad.net/bugs/900802
 > 
-> This is a subset of the patches that were submitted yesterday, and were accepted to net-next.
-> These 3 are bug fixes and need to be included in net.
-> 
->  mlx4: fix buffer overrun
->  mlx4: fix QP tree trashing
->  mlx4: add unicast steering entries to resource tracker
+> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org 3.2+
+> Signed-off-by: Till Kamppeter <till.kamppeter-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-All applied.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
