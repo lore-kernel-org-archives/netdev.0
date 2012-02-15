@@ -1,59 +1,39 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 2/2] Netfilter: xt_LOG: Add timestamp support
-Date: Wed, 15 Feb 2012 00:36:13 +0100
-Message-ID: <1329262573-22048-2-git-send-email-richard@nod.at>
-References: <1329262573-22048-1-git-send-email-richard@nod.at>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, jengelh@medozas.de, rostedt@goodmis.org,
-	pablo@netfilter.org, basti@b-bl.de,
-	Richard Weinberger <richard@nod.at>
-To: netfilter-devel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329262573-22048-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
+	default
+Date: Wed, 15 Feb 2012 01:13:42 +0100
+Message-ID: <20120215001342.GA11453@electric-eye.fr.zoreil.com>
+References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	hayeswang@realtek.com
+To: Sameer Nanda <snanda@chromium.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Using XT_LOG_ADD_TIMESTAMP it is possible to have a timestamp
-directly in the log message.
+Sameer Nanda <snanda@chromium.org> :
+> Set the WOL config registers to only enable WOL from magic packet by
+> default. Without this change in place, the WOL config register
+> settings on warm reboot come up in an inconsistent state since these
+> registers don't get reset on a warm reboot.
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- include/linux/netfilter/xt_LOG.h |    1 +
- net/netfilter/xt_LOG.c           |   10 ++++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+I am not completely convinced, especially as the change of behavior
+could be noticed.
 
-diff --git a/include/linux/netfilter/xt_LOG.h b/include/linux/netfilter/xt_LOG.h
-index e4b1177..d84710c 100644
---- a/include/linux/netfilter/xt_LOG.h
-+++ b/include/linux/netfilter/xt_LOG.h
-@@ -8,6 +8,7 @@
- #define XT_LOG_UID		0x08	/* Log UID owning local socket */
- #define XT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
- #define XT_LOG_MACDECODE	0x20	/* Decode MAC header */
-+#define XT_LOG_ADD_TIMESTAMP	0x40	/* Add a timestamp */
- #define XT_LOG_MASK		0x6f
- 
- struct xt_log_info {
-diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index 211d341..bd59dfd 100644
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@ -490,6 +490,16 @@ log_packet_common(struct sbuff *m,
- 	if (loginfo->type == NF_LOG_TYPE_LOG)
- 		sb_add(m, "<%d>", loginfo->u.log.level);
- 
-+	if (loginfo->u.log.logflags & XT_LOG_ADD_TIMESTAMP) {
-+		static struct timespec tv;
-+		unsigned int msec;
-+
-+		getnstimeofday(&tv);
-+		msec = tv.tv_nsec;
-+		do_div(msec, 1000000);
-+		sb_add(m, "TIMESTAMP=%li.%03li ", tv.tv_sec, msec);
-+	}
-+
- 	sb_add(m, "%sIN=%s OUT=%s ", prefix, in ? in->name : "",
- 	       out ? out->name : "");
- #ifdef CONFIG_BRIDGE_NETFILTER
+Can you elaborate why the previous WoL settings should be ignored ?
+
 -- 
-1.7.7.3
+Ueimor
