@@ -1,9 +1,8 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
-	default
-Date: Wed, 15 Feb 2012 01:13:42 +0100
-Message-ID: <20120215001342.GA11453@electric-eye.fr.zoreil.com>
-References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+Subject: Re: [PATCH 2/2] r8169: transition to D0 state at shutdown
+Date: Wed, 15 Feb 2012 01:14:53 +0100
+Message-ID: <20120215001453.GB11453@electric-eye.fr.zoreil.com>
+References: <1329244275-28130-1-git-send-email-snanda@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +11,7 @@ Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
 To: Sameer Nanda <snanda@chromium.org>
 Return-path: <linux-pm-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+In-Reply-To: <1329244275-28130-1-git-send-email-snanda@chromium.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
 	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
@@ -25,15 +24,20 @@ Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 Sameer Nanda <snanda@chromium.org> :
-> Set the WOL config registers to only enable WOL from magic packet by
-> default. Without this change in place, the WOL config register
-> settings on warm reboot come up in an inconsistent state since these
-> registers don't get reset on a warm reboot.
+> With runtime PM, if the ethernet cable is disconnected, the device is
+> transitioned to D3 state to conserve energy. If the system is shutdown
+> in this state, any register accesses in rtl_shutdown are dropped on
+> the floor.
+> 
+> This patch transitions the device back to D0 state in rtl_shutdown if
+> the device was runtime PM suspended. In addition, since runtiome PM
+> also mucks around with WOL options, the saved WOL options are also
+> restored in rtl_shutdown.
 
-I am not completely convinced, especially as the change of behavior
-could be noticed.
+Ok.
 
-Can you elaborate why the previous WoL settings should be ignored ?
+I'll leave Rafael choose if he prefers the runtime pm layer to handle it
+or not.
 
 -- 
 Ueimor
