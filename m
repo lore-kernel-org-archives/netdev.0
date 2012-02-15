@@ -1,71 +1,47 @@
 From: Toby Gray <toby.gray@realvnc.com>
-Subject: [PATCH 1/5] usb: cdc-ncm: Change alternate setting magic numbers into #defines
-Date: Wed, 15 Feb 2012 14:47:37 +0000
-Message-ID: <1329317261-3406-2-git-send-email-toby.gray@realvnc.com>
-References: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
+Subject: [PATCH 0/5] Delay selecting alternate setting in CDC NCM until network interface is raised
+Date: Wed, 15 Feb 2012 14:47:36 +0000
+Message-ID: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
 Cc: netdev@vger.kernel.org, alexey.orishko@gmail.com,
 	Toby Gray <toby.gray@realvnc.com>
 To: Toby Gray <tg@realvnc.com>, Oliver Neukum <oliver@neukum.name>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from realvnc.com ([146.101.152.142]:53032 "EHLO realvnc.com"
+Received: from realvnc.com ([146.101.152.142]:53042 "EHLO realvnc.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758451Ab2BOOr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 09:47:57 -0500
-In-Reply-To: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
+	id S1759354Ab2BOOsD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 09:48:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CDC NCM specification describes the alternate settings that a CDC
-NCM interface must support. Alternate setting 0 does not allow any
-network traffic but allows configuration of the interface. Alternate 1
-allows network traffic but doesn't allow configuration of some of the
-interface properties.
+This patch series moves the setting of the alternate setting used
+for the CDC NCM data interface until the network interface is
+raised. Before this patch series the CDC NCM driver would select
+the alternate setting which allows data to be sent and received
+as soon as the device was probed.
 
-This change provides #defines for there two numbers to clarify why
-usb_set_interface is being called.
+While the previous behaviour was not against the CDC NCM
+specification it is problematic with some CDC NCM devices,
+e.g. Nokia 701 Mobile Telephone. These devices will only send the
+network connection status notification to the host if the control
+interrupt endpoint is read from within a few seconds of the data
+enabled alternate setting being selected.
 
-Signed-off-by: Toby Gray <toby.gray@realvnc.com>
----
- drivers/net/usb/cdc_ncm.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+This behaviour means that the network connection notification
+would never be received and so the network interface would stay
+in a disconnected state indefinitely, unless the interface was
+marked as 'up' almost immediately after the CDC NCM device was
+probed.
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 3a539a9..3df51ee 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -87,6 +87,13 @@
- 	(sizeof(struct usb_cdc_ncm_nth16) + sizeof(struct usb_cdc_ncm_ndp16) + \
- 	(CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe16))
- 
-+/* CDC NCM ch. 5.3 describes alternate setting 0 as having no
-+ * endpoints and therefore not allowing any networking traffic. */
-+#define	CDC_NCM_ALTSETTING_RESET	0
-+/* CDC NCM ch. 5.3 describes alternate setting 1 as having the
-+ * required bulk endpoints for normal operation. */
-+#define	CDC_NCM_ALTSETTING_DATA		1
-+
- struct cdc_ncm_data {
- 	struct usb_cdc_ncm_nth16 nth16;
- 	struct usb_cdc_ncm_ndp16 ndp16;
-@@ -549,7 +556,7 @@ advance:
- 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
- 
- 	/* reset data interface */
--	temp = usb_set_interface(dev->udev, iface_no, 0);
-+	temp = usb_set_interface(dev->udev, iface_no, CDC_NCM_ALTSETTING_RESET);
- 	if (temp)
- 		goto error2;
- 
-@@ -558,7 +565,7 @@ advance:
- 		goto error2;
- 
- 	/* configure data interface */
--	temp = usb_set_interface(dev->udev, iface_no, 1);
-+	temp = usb_set_interface(dev->udev, iface_no, CDC_NCM_ALTSETTING_DATA);
- 	if (temp)
- 		goto error2;
- 
--- 
-1.7.0.4
+Toby Gray (5):
+  usb: cdc-ncm: Change alternate setting magic numbers into #defines
+  usb: cdc-ncm: Set altsetting only when network interface is opened
+  usb: usbnet: Allow drivers using usbnet to specify maximum packet
+    size
+  usb: usbnet: Add validation of dev->maxpacket to usbnet
+  usb: cdc-ncm: Allow NCM driver to determine dev->maxpacket
+
+ drivers/net/usb/cdc_ncm.c |   46 ++++++++++++++++++++++++++++++++++++--------
+ drivers/net/usb/usbnet.c  |    7 +++++-
+ 2 files changed, 43 insertions(+), 10 deletions(-)
