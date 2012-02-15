@@ -1,31 +1,45 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: Re: [PATCH 0/3] netprio_cgroup: some miscelaneous off by one fixes
-Date: Wed, 15 Feb 2012 10:22:28 +0800
-Message-ID: <4F3B16E4.5020507@cn.fujitsu.com>
-References: <1328888618-16208-1-git-send-email-nhorman@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by
+	default
+Date: Tue, 14 Feb 2012 22:37:46 -0500 (EST)
+Message-ID: <20120214.223746.419009242484406948.davem@davemloft.net>
+References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
+	<20120215001342.GA11453@electric-eye.fr.zoreil.com>
+	<CANMivWax5jGNJLkjZWi2F5iaM+bnK0Ti1qZzQx4CGgkzeQqt7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53250 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757499Ab2BOCTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Feb 2012 21:19:39 -0500
-In-Reply-To: <1328888618-16208-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	hayeswang@realtek.com, romieu@fr.zoreil.com
+To: snanda@chromium.org
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <CANMivWax5jGNJLkjZWi2F5iaM+bnK0Ti1qZzQx4CGgkzeQqt7Q@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman wrote:
-> About 2 weeks ago, Li Zefan posted a series of cleanups and fixes for cls_cgroup
-> and netprio_cgroup.  It was requested that the cleanups and fixes be separated
-> into two different series and reposted.  Its been about 2 weeks, and after
-> pinging the author a few times and getting no response, I've decided to repost
-> the fixes for netprio myself, as they're important and I don't want them to be
-> forgotten or otherwise fall through the cracks.
+From: Sameer Nanda <snanda@chromium.org>
+Date: Tue, 14 Feb 2012 17:00:04 -0800
+
+> On Tue, Feb 14, 2012 at 4:13 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+>> Sameer Nanda <snanda@chromium.org> :
+>>> Set the WOL config registers to only enable WOL from magic packet by
+>>> default. Without this change in place, the WOL config register
+>>> settings on warm reboot come up in an inconsistent state since these
+>>> registers don't get reset on a warm reboot.
+>>
+>> I am not completely convinced, especially as the change of behavior
+>> could be noticed.
 > 
+> Agreed that this change could be noticed.  Maybe a module parameter
+> might be a better way to handle this?
 
-Thanks for the reposting.
-
-I was off office for a few days for some reason, and just came back to work.
+Please no random module parameters, something ethtool based is
+what you should shoot for.
