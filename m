@@ -1,52 +1,52 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 0/4 (net.git)] stmmac update Feb_2012
-Date: Wed, 15 Feb 2012 10:55:13 +0100
-Message-ID: <4F3B8101.1090509@st.com>
-References: <1329203508-19612-1-git-send-email-peppe.cavallaro@st.com> <20120214.141620.1418537030681644675.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: dedicatedhk@yahoo.com.hk
+Subject: Dedicated Server
+Date: Wed, 15 Feb 2012 17:16:48 +0800 (HKT)
+Message-ID: <QA8fPes6cBH0NM__21809.0812712491$1329299766$gmane$org@giga.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:34390 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751227Ab2BOJzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 04:55:22 -0500
-In-Reply-To: <20120214.141620.1418537030681644675.davem@davemloft.net>
+Received: from 124-248-200-46.sunnyvision.com ([124.248.200.46]:43454 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751647Ab2BOJzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 04:55:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/14/2012 8:16 PM, David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Tue, 14 Feb 2012 08:11:44 +0100
-> 
->> This updates the stmmac adding some patches already reviewed in this
->> mailing list by D. Miller.  I've rebased these patches against this
->> recent patch: [PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c
->> and stmmac_platform.c applied by Maintainer (to avoid conflicts in
->> the plt and pci files).
-> 
-> You're telling me in the subject line you want these patches applied
-> to net.git but they don't actually apply cleanly to that tree.
-> 
-> I can't tell you how insanely irritating this kind of thing is, it's
-> where most of my time gets wasted.
+ear All,
 
-Sorry for that. I actually wanted to avoid just this.
+We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
 
-Erroneously, I prepared these patches against the net.git plus the patch
-named : [PATCH] [trivial] stmicro: Fix typo in stmmac_pci.c
-I believed you had locally applied it (14/Feb/2012).
+Dell=3F PowerEdge=3F EnterpriseRack Mount Server
+-Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
+-8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
+-500GB, 3.5", 6Gbps SAS x 2
+-Raid 1 Mirroring Protection
+-Remote KVM (iDRAC6 Enterprise)
 
-I am reworking these patches against the net.git at once promising you
-that they will apply perfectly!
+Dell(TM) PowerEdge(TM) R410 Rack Mount Server
+-Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
+-4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
+-500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
+-iDRAC6 Enterprise or Express (Remote KVM Management)
 
-Regards
-Peppe
+Every Dedicated Server Hosting Solution Also Includes: 
+ 
+Software Specification 
+- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
+- Full root-level access 
+- Data Center Facilities 
+- Shared Local & International Bandwidth 
+- 2 IP Addresses Allocation 
+- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
+- FM200=A1=A7based fire suppression system 
+- 24x7 CRAC Air Conditioning and Humidity Control 
+- 24x7 Security Control 
+- 24x7 Remote Hand Service 
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Pls send us email for further information.Thanks,
+
+Boris 
+boris@dedicatedserver.com.hk 
+
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
