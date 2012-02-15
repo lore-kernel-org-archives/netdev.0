@@ -1,904 +1,536 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next 01/11] bnx2x: consistent statistics after internal
- driver reload
-Date: Wed, 15 Feb 2012 07:10:22 -0500
-Message-ID: <1329307832-32454-2-git-send-email-yuvalmin@broadcom.com>
+Subject: [net-next 03/11] bnx2x: ethtool publishes link partners speed
+ and FC
+Date: Wed, 15 Feb 2012 07:10:24 -0500
+Message-ID: <1329307832-32454-4-git-send-email-yuvalmin@broadcom.com>
 References: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>
+Cc: eilong@broadcom.com, "Mintz Yuval" <yuvalmin@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3789 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3822 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924Ab2BOFQI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 00:16:08 -0500
+	id S1751941Ab2BOFQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 00:16:16 -0500
 In-Reply-To: <1329307832-32454-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mintz Yuval <yuvalmin@broadcom.com>
 
-Currently bnx2x statistics are reset by inner driver reload, e.g. by MTU
-change. This patch fixes this issue - from now on statistics should only
-be reset upon device closure.
-Thanks to Michal Schmidt <mschmidt@redhat.com> for his initial patch
-regarding this issue.
+Following the changes in the ethtool source code, this patch enables
+the bnx2x driver to publish the Link partner's capabilities s, when ethtool 
+is used on an interface which completed autoneg.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    6 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |   41 +---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |   73 +++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |  340 +++++++++------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h |  148 +++++++++-
- 6 files changed, 374 insertions(+), 236 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   39 +++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |  304 +++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h    |    8 +-
+ 3 files changed, 272 insertions(+), 79 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 7d184fb..d60b5f0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -540,6 +540,7 @@ struct bnx2x_fastpath {
- 	struct ustorm_per_queue_stats old_uclient;
- 	struct xstorm_per_queue_stats old_xclient;
- 	struct bnx2x_eth_q_stats eth_q_stats;
-+	struct bnx2x_eth_q_stats_old eth_q_stats_old;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 137968d..4cbd474 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -246,6 +246,34 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	else
+ 		cmd->autoneg = AUTONEG_DISABLE;
  
- 	/* The size is calculated using the following:
- 	     sizeof name field from netdev structure +
-@@ -1046,7 +1047,6 @@ struct bnx2x_slowpath {
- 	struct nig_stats		nig_stats;
- 	struct host_port_stats		port_stats;
- 	struct host_func_stats		func_stats;
--	struct host_func_stats		func_stats_base;
- 
- 	u32				wb_comp;
- 	u32				wb_data[4];
-@@ -1462,6 +1462,10 @@ struct bnx2x {
- 
- 	u16			stats_counter;
- 	struct bnx2x_eth_stats	eth_stats;
-+	struct bnx2x_eth_stats_old	eth_stats_old;
-+	struct bnx2x_net_stats_old	net_stats_old;
-+	struct bnx2x_fw_port_stats_old	fw_stats_old;
-+	bool			stats_init;
- 
- 	struct z_stream_s	*strm;
- 	void			*gunzip_buf;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 518ec5c..7f6a1b1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -32,46 +32,6 @@
- 
- 
- /**
-- * bnx2x_bz_fp - zero content of the fastpath structure.
-- *
-- * @bp:		driver handle
-- * @index:	fastpath index to be zeroed
-- *
-- * Makes sure the contents of the bp->fp[index].napi is kept
-- * intact.
-- */
--static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
--{
--	struct bnx2x_fastpath *fp = &bp->fp[index];
--	struct napi_struct orig_napi = fp->napi;
--	/* bzero bnx2x_fastpath contents */
--	memset(fp, 0, sizeof(*fp));
--
--	/* Restore the NAPI object as it has been already initialized */
--	fp->napi = orig_napi;
--
--	fp->bp = bp;
--	fp->index = index;
--	if (IS_ETH_FP(fp))
--		fp->max_cos = bp->max_cos;
--	else
--		/* Special queues support only one CoS */
--		fp->max_cos = 1;
--
--	/*
--	 * set the tpa flag for each queue. The tpa flag determines the queue
--	 * minimal size so it must be set prior to queue memory allocation
--	 */
--	fp->disable_tpa = ((bp->flags & TPA_ENABLE_FLAG) == 0);
--
--#ifdef BCM_CNIC
--	/* We don't want TPA on an FCoE L2 ring */
--	if (IS_FCOE_FP(fp))
--		fp->disable_tpa = 1;
--#endif
--}
--
--/**
-  * bnx2x_move_fp - move content of the fastpath structure.
-  *
-  * @bp:		driver handle
-@@ -2084,6 +2044,7 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 	bnx2x_drv_pulse(bp);
- 
- 	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
-+	bnx2x_save_statistics(bp);
- 
- 	/* Cleanup the chip if needed */
- 	if (unload_mode != UNLOAD_RECOVERY)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index c7c7bf1..69d347f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -1493,6 +1493,79 @@ static inline u16 bnx2x_extract_max_cfg(struct bnx2x *bp, u32 mf_cfg)
- }
- 
- /**
-+ * bnx2x_bz_fp - zero content of the fastpath structure.
-+ *
-+ * @bp:		driver handle
-+ * @index:	fastpath index to be zeroed
-+ *
-+ * Makes sure the contents of the bp->fp[index].napi is kept
-+ * intact.
-+ */
-+static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
-+{
-+	struct bnx2x_fastpath *fp = &bp->fp[index];
-+	struct napi_struct orig_napi = fp->napi;
-+	/* bzero bnx2x_fastpath contents */
-+	if (bp->stats_init)
-+		memset(fp, 0, sizeof(*fp));
-+	else {
-+		/* Keep Queue statistics */
-+		struct bnx2x_eth_q_stats *tmp_eth_q_stats;
-+		struct bnx2x_eth_q_stats_old *tmp_eth_q_stats_old;
++	/* Publish LP advertised speeds and FC */
++	if (bp->link_vars.link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) {
++		u32 status = bp->link_vars.link_status;
 +
-+		tmp_eth_q_stats = kzalloc(sizeof(struct bnx2x_eth_q_stats),
-+					  GFP_KERNEL);
-+		if (tmp_eth_q_stats)
-+			memcpy(tmp_eth_q_stats, &fp->eth_q_stats,
-+			       sizeof(struct bnx2x_eth_q_stats));
++		cmd->lp_advertising |= ADVERTISED_Autoneg;
++		if (status & LINK_STATUS_LINK_PARTNER_SYMMETRIC_PAUSE)
++			cmd->lp_advertising |= ADVERTISED_Pause;
++		if (status & LINK_STATUS_LINK_PARTNER_ASYMMETRIC_PAUSE)
++			cmd->lp_advertising |= ADVERTISED_Asym_Pause;
 +
-+		tmp_eth_q_stats_old =
-+			kzalloc(sizeof(struct bnx2x_eth_q_stats_old),
-+				GFP_KERNEL);
-+		if (tmp_eth_q_stats_old)
-+			memcpy(tmp_eth_q_stats_old, &fp->eth_q_stats_old,
-+			       sizeof(struct bnx2x_eth_q_stats_old));
-+
-+		memset(fp, 0, sizeof(*fp));
-+
-+		if (tmp_eth_q_stats) {
-+			memcpy(&fp->eth_q_stats, tmp_eth_q_stats,
-+				   sizeof(struct bnx2x_eth_q_stats));
-+			kfree(tmp_eth_q_stats);
-+		}
-+
-+		if (tmp_eth_q_stats_old) {
-+			memcpy(&fp->eth_q_stats_old, tmp_eth_q_stats_old,
-+			       sizeof(struct bnx2x_eth_q_stats_old));
-+			kfree(tmp_eth_q_stats_old);
-+		}
-+
++		if (status & LINK_STATUS_LINK_PARTNER_10THD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_10baseT_Half;
++		if (status & LINK_STATUS_LINK_PARTNER_10TFD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_10baseT_Full;
++		if (status & LINK_STATUS_LINK_PARTNER_100TXHD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_100baseT_Half;
++		if (status & LINK_STATUS_LINK_PARTNER_100TXFD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_100baseT_Full;
++		if (status & LINK_STATUS_LINK_PARTNER_1000THD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_1000baseT_Half;
++		if (status & LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_1000baseT_Full;
++		if (status & LINK_STATUS_LINK_PARTNER_2500XFD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_2500baseX_Full;
++		if (status & LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE)
++			cmd->lp_advertising |= ADVERTISED_10000baseT_Full;
 +	}
 +
-+	/* Restore the NAPI object as it has been already initialized */
-+	fp->napi = orig_napi;
-+
-+	fp->bp = bp;
-+	fp->index = index;
-+	if (IS_ETH_FP(fp))
-+		fp->max_cos = bp->max_cos;
-+	else
-+		/* Special queues support only one CoS */
-+		fp->max_cos = 1;
-+
-+	/*
-+	 * set the tpa flag for each queue. The tpa flag determines the queue
-+	 * minimal size so it must be set prior to queue memory allocation
-+	 */
-+	fp->disable_tpa = (bp->flags & TPA_ENABLE_FLAG) == 0;
-+#ifdef BCM_CNIC
-+	/* We don't want TPA on an FCoE L2 ring */
-+	if (IS_FCOE_FP(fp))
-+		fp->disable_tpa = 1;
-+#endif
-+}
-+
-+/**
-  * bnx2x_get_iscsi_info - update iSCSI params according to licensing info.
-  *
-  * @bp:		driver handle
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index ff19c3c..e0d5f15 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10235,6 +10235,8 @@ static int bnx2x_open(struct net_device *dev)
- 	int other_engine = BP_PATH(bp) ? 0 : 1;
- 	bool other_load_status, load_status;
+ 	cmd->maxtxpkt = 0;
+ 	cmd->maxrxpkt = 0;
  
-+	bp->stats_init = true;
-+
- 	netif_carrier_off(dev);
- 
- 	bnx2x_set_power_state(bp, PCI_D0);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 7b9b304..abd310d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -161,7 +161,7 @@ static void bnx2x_stats_pmf_update(struct bnx2x *bp)
- 	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
- 
- 	/* sanity */
--	if (!IS_MF(bp) || !bp->port.pmf || !bp->port.port_stx) {
-+	if (!bp->port.pmf || !bp->port.port_stx) {
- 		BNX2X_ERR("BUG!\n");
- 		return;
- 	}
-@@ -638,31 +638,30 @@ static void bnx2x_mstat_stats_update(struct bnx2x *bp)
- 			tx_stat_dot3statsinternalmactransmiterrors);
- 	ADD_STAT64(stats_tx.tx_gtufl, tx_stat_mac_ufl);
- 
--	ADD_64(estats->etherstatspkts1024octetsto1522octets_hi,
--	       new->stats_tx.tx_gt1518_hi,
--	       estats->etherstatspkts1024octetsto1522octets_lo,
--	       new->stats_tx.tx_gt1518_lo);
-+	estats->etherstatspkts1024octetsto1522octets_hi =
-+	    pstats->mac_stx[1].tx_stat_etherstatspkts1024octetsto1522octets_hi;
-+	estats->etherstatspkts1024octetsto1522octets_lo =
-+	    pstats->mac_stx[1].tx_stat_etherstatspkts1024octetsto1522octets_lo;
- 
--	ADD_64(estats->etherstatspktsover1522octets_hi,
--	       new->stats_tx.tx_gt2047_hi,
--	       estats->etherstatspktsover1522octets_lo,
--	       new->stats_tx.tx_gt2047_lo);
-+	estats->etherstatspktsover1522octets_hi =
-+	    pstats->mac_stx[1].tx_stat_mac_2047_hi;
-+	estats->etherstatspktsover1522octets_lo =
-+	    pstats->mac_stx[1].tx_stat_mac_2047_lo;
- 
- 	ADD_64(estats->etherstatspktsover1522octets_hi,
--	       new->stats_tx.tx_gt4095_hi,
-+	       pstats->mac_stx[1].tx_stat_mac_4095_hi,
- 	       estats->etherstatspktsover1522octets_lo,
--	       new->stats_tx.tx_gt4095_lo);
-+	       pstats->mac_stx[1].tx_stat_mac_4095_lo);
- 
- 	ADD_64(estats->etherstatspktsover1522octets_hi,
--	       new->stats_tx.tx_gt9216_hi,
-+	       pstats->mac_stx[1].tx_stat_mac_9216_hi,
- 	       estats->etherstatspktsover1522octets_lo,
--	       new->stats_tx.tx_gt9216_lo);
--
-+	       pstats->mac_stx[1].tx_stat_mac_9216_lo);
- 
- 	ADD_64(estats->etherstatspktsover1522octets_hi,
--	       new->stats_tx.tx_gt16383_hi,
-+	       pstats->mac_stx[1].tx_stat_mac_16383_hi,
- 	       estats->etherstatspktsover1522octets_lo,
--	       new->stats_tx.tx_gt16383_lo);
-+	       pstats->mac_stx[1].tx_stat_mac_16383_lo);
- 
- 	estats->pause_frames_received_hi =
- 				pstats->mac_stx[1].rx_stat_mac_xpf_hi;
-@@ -817,6 +816,7 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 				&bp->fw_stats_data->pf.tstorm_pf_statistics;
- 	struct host_func_stats *fstats = bnx2x_sp(bp, func_stats);
- 	struct bnx2x_eth_stats *estats = &bp->eth_stats;
-+	struct bnx2x_eth_stats_old *estats_old = &bp->eth_stats_old;
- 	struct stats_counter *counters = &bp->fw_stats_data->storm_counters;
- 	int i;
- 	u16 cur_stats_counter;
-@@ -857,21 +857,8 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 		return -EAGAIN;
- 	}
- 
--	memcpy(&(fstats->total_bytes_received_hi),
--	       &(bnx2x_sp(bp, func_stats_base)->total_bytes_received_hi),
--	       sizeof(struct host_func_stats) - 2*sizeof(u32));
- 	estats->error_bytes_received_hi = 0;
- 	estats->error_bytes_received_lo = 0;
--	estats->etherstatsoverrsizepkts_hi = 0;
--	estats->etherstatsoverrsizepkts_lo = 0;
--	estats->no_buff_discard_hi = 0;
--	estats->no_buff_discard_lo = 0;
--	estats->total_tpa_aggregations_hi = 0;
--	estats->total_tpa_aggregations_lo = 0;
--	estats->total_tpa_aggregated_frames_hi = 0;
--	estats->total_tpa_aggregated_frames_lo = 0;
--	estats->total_tpa_bytes_hi = 0;
--	estats->total_tpa_bytes_lo = 0;
- 
- 	for_each_eth_queue(bp, i) {
- 		struct bnx2x_fastpath *fp = &bp->fp[i];
-@@ -888,6 +875,8 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 			xstorm_queue_statistics;
- 		struct xstorm_per_queue_stats *old_xclient = &fp->old_xclient;
- 		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
-+		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
-+
- 		u32 diff;
- 
- 		DP(BNX2X_MSG_STATS, "queue[%d]: ucast_sent 0x%x, "
-@@ -897,20 +886,12 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 
- 		DP(BNX2X_MSG_STATS, "---------------\n");
- 
--		qstats->total_broadcast_bytes_received_hi =
--			le32_to_cpu(tclient->rcv_bcast_bytes.hi);
--		qstats->total_broadcast_bytes_received_lo =
--			le32_to_cpu(tclient->rcv_bcast_bytes.lo);
--
--		qstats->total_multicast_bytes_received_hi =
--			le32_to_cpu(tclient->rcv_mcast_bytes.hi);
--		qstats->total_multicast_bytes_received_lo =
--			le32_to_cpu(tclient->rcv_mcast_bytes.lo);
--
--		qstats->total_unicast_bytes_received_hi =
--			le32_to_cpu(tclient->rcv_ucast_bytes.hi);
--		qstats->total_unicast_bytes_received_lo =
--			le32_to_cpu(tclient->rcv_ucast_bytes.lo);
-+		UPDATE_QSTAT(tclient->rcv_bcast_bytes,
-+			     total_broadcast_bytes_received);
-+		UPDATE_QSTAT(tclient->rcv_mcast_bytes,
-+			     total_multicast_bytes_received);
-+		UPDATE_QSTAT(tclient->rcv_ucast_bytes,
-+			     total_unicast_bytes_received);
- 
- 		/*
- 		 * sum to total_bytes_received all
-@@ -943,9 +924,9 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 					total_multicast_packets_received);
- 		UPDATE_EXTEND_TSTAT(rcv_bcast_pkts,
- 					total_broadcast_packets_received);
--		UPDATE_EXTEND_TSTAT(pkts_too_big_discard,
--					etherstatsoverrsizepkts);
--		UPDATE_EXTEND_TSTAT(no_buff_discard, no_buff_discard);
-+		UPDATE_EXTEND_E_TSTAT(pkts_too_big_discard,
-+				      etherstatsoverrsizepkts);
-+		UPDATE_EXTEND_E_TSTAT(no_buff_discard, no_buff_discard);
- 
- 		SUB_EXTEND_USTAT(ucast_no_buff_pkts,
- 					total_unicast_packets_received);
-@@ -953,24 +934,17 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 					total_multicast_packets_received);
- 		SUB_EXTEND_USTAT(bcast_no_buff_pkts,
- 					total_broadcast_packets_received);
--		UPDATE_EXTEND_USTAT(ucast_no_buff_pkts, no_buff_discard);
--		UPDATE_EXTEND_USTAT(mcast_no_buff_pkts, no_buff_discard);
--		UPDATE_EXTEND_USTAT(bcast_no_buff_pkts, no_buff_discard);
--
--		qstats->total_broadcast_bytes_transmitted_hi =
--			le32_to_cpu(xclient->bcast_bytes_sent.hi);
--		qstats->total_broadcast_bytes_transmitted_lo =
--			le32_to_cpu(xclient->bcast_bytes_sent.lo);
--
--		qstats->total_multicast_bytes_transmitted_hi =
--			le32_to_cpu(xclient->mcast_bytes_sent.hi);
--		qstats->total_multicast_bytes_transmitted_lo =
--			le32_to_cpu(xclient->mcast_bytes_sent.lo);
--
--		qstats->total_unicast_bytes_transmitted_hi =
--			le32_to_cpu(xclient->ucast_bytes_sent.hi);
--		qstats->total_unicast_bytes_transmitted_lo =
--			le32_to_cpu(xclient->ucast_bytes_sent.lo);
-+		UPDATE_EXTEND_E_USTAT(ucast_no_buff_pkts, no_buff_discard);
-+		UPDATE_EXTEND_E_USTAT(mcast_no_buff_pkts, no_buff_discard);
-+		UPDATE_EXTEND_E_USTAT(bcast_no_buff_pkts, no_buff_discard);
-+
-+		UPDATE_QSTAT(xclient->bcast_bytes_sent,
-+			     total_broadcast_bytes_transmitted);
-+		UPDATE_QSTAT(xclient->mcast_bytes_sent,
-+			     total_multicast_bytes_transmitted);
-+		UPDATE_QSTAT(xclient->ucast_bytes_sent,
-+			     total_unicast_bytes_transmitted);
-+
- 		/*
- 		 * sum to total_bytes_transmitted all
- 		 * unicast/multicast/broadcast
-@@ -1006,110 +980,54 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
- 				    total_transmitted_dropped_packets_error);
- 
- 		/* TPA aggregations completed */
--		UPDATE_EXTEND_USTAT(coalesced_events, total_tpa_aggregations);
-+		UPDATE_EXTEND_E_USTAT(coalesced_events, total_tpa_aggregations);
- 		/* Number of network frames aggregated by TPA */
--		UPDATE_EXTEND_USTAT(coalesced_pkts,
--				    total_tpa_aggregated_frames);
-+		UPDATE_EXTEND_E_USTAT(coalesced_pkts,
-+				      total_tpa_aggregated_frames);
- 		/* Total number of bytes in completed TPA aggregations */
--		qstats->total_tpa_bytes_lo =
--			le32_to_cpu(uclient->coalesced_bytes.lo);
--		qstats->total_tpa_bytes_hi =
--			le32_to_cpu(uclient->coalesced_bytes.hi);
--
--		/* TPA stats per-function */
--		ADD_64(estats->total_tpa_aggregations_hi,
--		       qstats->total_tpa_aggregations_hi,
--		       estats->total_tpa_aggregations_lo,
--		       qstats->total_tpa_aggregations_lo);
--		ADD_64(estats->total_tpa_aggregated_frames_hi,
--		       qstats->total_tpa_aggregated_frames_hi,
--		       estats->total_tpa_aggregated_frames_lo,
--		       qstats->total_tpa_aggregated_frames_lo);
--		ADD_64(estats->total_tpa_bytes_hi,
--		       qstats->total_tpa_bytes_hi,
--		       estats->total_tpa_bytes_lo,
--		       qstats->total_tpa_bytes_lo);
--
--		ADD_64(fstats->total_bytes_received_hi,
--		       qstats->total_bytes_received_hi,
--		       fstats->total_bytes_received_lo,
--		       qstats->total_bytes_received_lo);
--		ADD_64(fstats->total_bytes_transmitted_hi,
--		       qstats->total_bytes_transmitted_hi,
--		       fstats->total_bytes_transmitted_lo,
--		       qstats->total_bytes_transmitted_lo);
--		ADD_64(fstats->total_unicast_packets_received_hi,
--		       qstats->total_unicast_packets_received_hi,
--		       fstats->total_unicast_packets_received_lo,
--		       qstats->total_unicast_packets_received_lo);
--		ADD_64(fstats->total_multicast_packets_received_hi,
--		       qstats->total_multicast_packets_received_hi,
--		       fstats->total_multicast_packets_received_lo,
--		       qstats->total_multicast_packets_received_lo);
--		ADD_64(fstats->total_broadcast_packets_received_hi,
--		       qstats->total_broadcast_packets_received_hi,
--		       fstats->total_broadcast_packets_received_lo,
--		       qstats->total_broadcast_packets_received_lo);
--		ADD_64(fstats->total_unicast_packets_transmitted_hi,
--		       qstats->total_unicast_packets_transmitted_hi,
--		       fstats->total_unicast_packets_transmitted_lo,
--		       qstats->total_unicast_packets_transmitted_lo);
--		ADD_64(fstats->total_multicast_packets_transmitted_hi,
--		       qstats->total_multicast_packets_transmitted_hi,
--		       fstats->total_multicast_packets_transmitted_lo,
--		       qstats->total_multicast_packets_transmitted_lo);
--		ADD_64(fstats->total_broadcast_packets_transmitted_hi,
--		       qstats->total_broadcast_packets_transmitted_hi,
--		       fstats->total_broadcast_packets_transmitted_lo,
--		       qstats->total_broadcast_packets_transmitted_lo);
--		ADD_64(fstats->valid_bytes_received_hi,
--		       qstats->valid_bytes_received_hi,
--		       fstats->valid_bytes_received_lo,
--		       qstats->valid_bytes_received_lo);
--
--		ADD_64(estats->etherstatsoverrsizepkts_hi,
--		       qstats->etherstatsoverrsizepkts_hi,
--		       estats->etherstatsoverrsizepkts_lo,
--		       qstats->etherstatsoverrsizepkts_lo);
--		ADD_64(estats->no_buff_discard_hi, qstats->no_buff_discard_hi,
--		       estats->no_buff_discard_lo, qstats->no_buff_discard_lo);
-+		UPDATE_QSTAT(uclient->coalesced_bytes, total_tpa_bytes);
-+
-+		UPDATE_ESTAT_QSTAT_64(total_tpa_bytes);
-+
-+		UPDATE_FSTAT_QSTAT(total_bytes_received);
-+		UPDATE_FSTAT_QSTAT(total_bytes_transmitted);
-+		UPDATE_FSTAT_QSTAT(total_unicast_packets_received);
-+		UPDATE_FSTAT_QSTAT(total_multicast_packets_received);
-+		UPDATE_FSTAT_QSTAT(total_broadcast_packets_received);
-+		UPDATE_FSTAT_QSTAT(total_unicast_packets_transmitted);
-+		UPDATE_FSTAT_QSTAT(total_multicast_packets_transmitted);
-+		UPDATE_FSTAT_QSTAT(total_broadcast_packets_transmitted);
-+		UPDATE_FSTAT_QSTAT(valid_bytes_received);
- 	}
- 
--	ADD_64(fstats->total_bytes_received_hi,
-+	ADD_64(estats->total_bytes_received_hi,
- 	       estats->rx_stat_ifhcinbadoctets_hi,
--	       fstats->total_bytes_received_lo,
-+	       estats->total_bytes_received_lo,
- 	       estats->rx_stat_ifhcinbadoctets_lo);
- 
--	ADD_64(fstats->total_bytes_received_hi,
-+	ADD_64(estats->total_bytes_received_hi,
- 	       tfunc->rcv_error_bytes.hi,
--	       fstats->total_bytes_received_lo,
-+	       estats->total_bytes_received_lo,
- 	       tfunc->rcv_error_bytes.lo);
- 
--	memcpy(estats, &(fstats->total_bytes_received_hi),
--	       sizeof(struct host_func_stats) - 2*sizeof(u32));
--
- 	ADD_64(estats->error_bytes_received_hi,
- 	       tfunc->rcv_error_bytes.hi,
- 	       estats->error_bytes_received_lo,
- 	       tfunc->rcv_error_bytes.lo);
- 
--	ADD_64(estats->etherstatsoverrsizepkts_hi,
--	       estats->rx_stat_dot3statsframestoolong_hi,
--	       estats->etherstatsoverrsizepkts_lo,
--	       estats->rx_stat_dot3statsframestoolong_lo);
-+	UPDATE_ESTAT(etherstatsoverrsizepkts, rx_stat_dot3statsframestoolong);
-+
- 	ADD_64(estats->error_bytes_received_hi,
- 	       estats->rx_stat_ifhcinbadoctets_hi,
- 	       estats->error_bytes_received_lo,
- 	       estats->rx_stat_ifhcinbadoctets_lo);
- 
- 	if (bp->port.pmf) {
--		estats->mac_filter_discard =
--				le32_to_cpu(tport->mac_filter_discard);
--		estats->mf_tag_discard =
--				le32_to_cpu(tport->mf_tag_discard);
--		estats->brb_truncate_discard =
--				le32_to_cpu(tport->brb_truncate_discard);
--		estats->mac_discard = le32_to_cpu(tport->mac_discard);
-+		struct bnx2x_fw_port_stats_old *fwstats = &bp->fw_stats_old;
-+		UPDATE_FW_STAT(mac_filter_discard);
-+		UPDATE_FW_STAT(mf_tag_discard);
-+		UPDATE_FW_STAT(brb_truncate_discard);
-+		UPDATE_FW_STAT(mac_discard);
- 	}
- 
- 	fstats->host_func_stats_start = ++fstats->host_func_stats_end;
-@@ -1143,7 +1061,7 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
- 	tmp = estats->mac_discard;
- 	for_each_rx_queue(bp, i)
- 		tmp += le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
--	nstats->rx_dropped = tmp;
-+	nstats->rx_dropped = tmp + bp->net_stats_old.rx_dropped;
- 
- 	nstats->tx_dropped = 0;
- 
-@@ -1191,17 +1109,15 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
- 	struct bnx2x_eth_stats *estats = &bp->eth_stats;
- 	int i;
- 
--	estats->driver_xoff = 0;
--	estats->rx_err_discard_pkt = 0;
--	estats->rx_skb_alloc_failed = 0;
--	estats->hw_csum_err = 0;
- 	for_each_queue(bp, i) {
- 		struct bnx2x_eth_q_stats *qstats = &bp->fp[i].eth_q_stats;
-+		struct bnx2x_eth_q_stats_old *qstats_old =
-+						&bp->fp[i].eth_q_stats_old;
- 
--		estats->driver_xoff += qstats->driver_xoff;
--		estats->rx_err_discard_pkt += qstats->rx_err_discard_pkt;
--		estats->rx_skb_alloc_failed += qstats->rx_skb_alloc_failed;
--		estats->hw_csum_err += qstats->hw_csum_err;
-+		UPDATE_ESTAT_QSTAT(driver_xoff);
-+		UPDATE_ESTAT_QSTAT(rx_err_discard_pkt);
-+		UPDATE_ESTAT_QSTAT(rx_skb_alloc_failed);
-+		UPDATE_ESTAT_QSTAT(hw_csum_err);
- 	}
- }
- 
-@@ -1446,33 +1362,6 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
- 	bnx2x_stats_comp(bp);
- }
- 
--static void bnx2x_func_stats_base_init(struct bnx2x *bp)
--{
--	int vn, vn_max = IS_MF(bp) ? BP_MAX_VN_NUM(bp) : E1VN_MAX;
--	u32 func_stx;
--
--	/* sanity */
--	if (!bp->port.pmf || !bp->func_stx) {
--		BNX2X_ERR("BUG!\n");
--		return;
--	}
--
--	/* save our func_stx */
--	func_stx = bp->func_stx;
--
--	for (vn = VN_0; vn < vn_max; vn++) {
--		int mb_idx = BP_FW_MB_IDX_VN(bp, vn);
--
--		bp->func_stx = SHMEM_RD(bp, func_mb[mb_idx].fw_mb_param);
--		bnx2x_func_stats_init(bp);
--		bnx2x_hw_stats_post(bp);
--		bnx2x_stats_comp(bp);
--	}
--
--	/* restore our func_stx */
--	bp->func_stx = func_stx;
--}
--
- static void bnx2x_func_stats_base_update(struct bnx2x *bp)
+@@ -1415,12 +1443,19 @@ static void bnx2x_get_pauseparam(struct net_device *dev,
  {
- 	struct dmae_command *dmae = &bp->stats_dmae;
-@@ -1491,8 +1380,8 @@ static void bnx2x_func_stats_base_update(struct bnx2x *bp)
- 					 true, DMAE_COMP_PCI);
- 	dmae->src_addr_lo = bp->func_stx >> 2;
- 	dmae->src_addr_hi = 0;
--	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats_base));
--	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats_base));
-+	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats));
-+	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats));
- 	dmae->len = sizeof(struct host_func_stats) >> 2;
- 	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
- 	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
-@@ -1653,6 +1542,10 @@ void bnx2x_stats_init(struct bnx2x *bp)
- 	DP(BNX2X_MSG_STATS, "port_stx 0x%x  func_stx 0x%x\n",
- 	   bp->port.port_stx, bp->func_stx);
- 
-+	/* pmf should retrieve port statistics from SP on a non-init*/
-+	if (!bp->stats_init && bp->port.pmf && bp->port.port_stx)
-+		bnx2x_stats_handle(bp, STATS_EVENT_PMF);
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 	int cfg_idx = bnx2x_get_link_cfg_idx(bp);
++	int cfg_reg;
 +
- 	port = BP_PORT(bp);
- 	/* port stats */
- 	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
-@@ -1674,24 +1567,83 @@ void bnx2x_stats_init(struct bnx2x *bp)
- 		memset(&fp->old_tclient, 0, sizeof(fp->old_tclient));
- 		memset(&fp->old_uclient, 0, sizeof(fp->old_uclient));
- 		memset(&fp->old_xclient, 0, sizeof(fp->old_xclient));
--		memset(&fp->eth_q_stats, 0, sizeof(fp->eth_q_stats));
-+		if (bp->stats_init) {
-+			memset(&fp->eth_q_stats, 0, sizeof(fp->eth_q_stats));
-+			memset(&fp->eth_q_stats_old, 0,
-+			       sizeof(fp->eth_q_stats_old));
-+		}
- 	}
+ 	epause->autoneg = (bp->link_params.req_flow_ctrl[cfg_idx] ==
+ 			   BNX2X_FLOW_CTRL_AUTO);
  
- 	/* Prepare statistics ramrod data */
- 	bnx2x_prep_fw_stats_req(bp);
+-	epause->rx_pause = ((bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_RX) ==
++	if (!epause->autoneg)
++		cfg_reg = bp->link_vars.flow_ctrl;
++	else
++		cfg_reg = bp->link_params.req_fc_auto_adv;
++
++	epause->rx_pause = ((cfg_reg & BNX2X_FLOW_CTRL_RX) ==
+ 			    BNX2X_FLOW_CTRL_RX);
+-	epause->tx_pause = ((bp->link_vars.flow_ctrl & BNX2X_FLOW_CTRL_TX) ==
++	epause->tx_pause = ((cfg_reg & BNX2X_FLOW_CTRL_TX) ==
+ 			    BNX2X_FLOW_CTRL_TX);
  
- 	memset(&bp->dev->stats, 0, sizeof(bp->dev->stats));
--	memset(&bp->eth_stats, 0, sizeof(bp->eth_stats));
-+	if (bp->stats_init) {
-+		memset(&bp->net_stats_old, 0, sizeof(bp->net_stats_old));
-+		memset(&bp->fw_stats_old, 0, sizeof(bp->fw_stats_old));
-+		memset(&bp->eth_stats_old, 0, sizeof(bp->eth_stats_old));
-+		memset(&bp->eth_stats, 0, sizeof(bp->eth_stats));
+ 	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index e7b0baf..fba4c41 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -3638,45 +3638,50 @@ static void bnx2x_pause_resolve(struct link_vars *vars, u32 pause_result)
+ 		vars->link_status |= LINK_STATUS_LINK_PARTNER_ASYMMETRIC_PAUSE;
+ }
  
--	bp->stats_state = STATS_STATE_DISABLED;
-+		/* Clean SP from previous statistics */
-+		if (bp->func_stx) {
-+			memset(bnx2x_sp(bp, func_stats), 0,
-+			       sizeof(struct host_func_stats));
-+			bnx2x_func_stats_init(bp);
-+			bnx2x_hw_stats_post(bp);
-+			bnx2x_stats_comp(bp);
-+		}
+-static u8 bnx2x_ext_phy_resolve_fc(struct bnx2x_phy *phy,
+-				   struct link_params *params,
+-				   struct link_vars *vars)
++static void bnx2x_ext_phy_update_adv_fc(struct bnx2x_phy *phy,
++					struct link_params *params,
++					struct link_vars *vars)
+ {
+-	struct bnx2x *bp = params->bp;
+ 	u16 ld_pause;		/* local */
+ 	u16 lp_pause;		/* link partner */
+ 	u16 pause_result;
+-	u8 ret = 0;
+-	/* read twice */
++	struct bnx2x *bp = params->bp;
++	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) {
++		bnx2x_cl22_read(bp, phy, 0x4, &ld_pause);
++		bnx2x_cl22_read(bp, phy, 0x5, &lp_pause);
++	} else {
++		bnx2x_cl45_read(bp, phy,
++				MDIO_AN_DEVAD,
++				MDIO_AN_REG_ADV_PAUSE, &ld_pause);
++		bnx2x_cl45_read(bp, phy,
++				MDIO_AN_DEVAD,
++				MDIO_AN_REG_LP_AUTO_NEG, &lp_pause);
 +	}
++	pause_result = (ld_pause &
++			MDIO_AN_REG_ADV_PAUSE_MASK) >> 8;
++	pause_result |= (lp_pause &
++			 MDIO_AN_REG_ADV_PAUSE_MASK) >> 10;
++	DP(NETIF_MSG_LINK, "Ext PHY pause result 0x%x\n", pause_result);
++	bnx2x_pause_resolve(vars, pause_result);
  
--	if (bp->port.pmf) {
--		if (bp->port.port_stx)
--			bnx2x_port_stats_base_init(bp);
-+	bp->stats_state = STATS_STATE_DISABLED;
++}
++static u8 bnx2x_ext_phy_resolve_fc(struct bnx2x_phy *phy,
++				   struct link_params *params,
++				   struct link_vars *vars)
++{
++	u8 ret = 0;
+ 	vars->flow_ctrl = BNX2X_FLOW_CTRL_NONE;
+-
+-	if (phy->req_flow_ctrl != BNX2X_FLOW_CTRL_AUTO)
++	if (phy->req_flow_ctrl != BNX2X_FLOW_CTRL_AUTO) {
++		/* Update the advertised flow-controled of LD/LP in AN */
++		if (phy->req_line_speed == SPEED_AUTO_NEG)
++			bnx2x_ext_phy_update_adv_fc(phy, params, vars);
++		/* But set the flow-control result as the requested one */
+ 		vars->flow_ctrl = phy->req_flow_ctrl;
+-	else if (phy->req_line_speed != SPEED_AUTO_NEG)
++	} else if (phy->req_line_speed != SPEED_AUTO_NEG)
+ 		vars->flow_ctrl = params->req_fc_auto_adv;
+ 	else if (vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) {
+ 		ret = 1;
+-		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) {
+-			bnx2x_cl22_read(bp, phy,
+-					0x4, &ld_pause);
+-			bnx2x_cl22_read(bp, phy,
+-					0x5, &lp_pause);
+-		} else {
+-			bnx2x_cl45_read(bp, phy,
+-					MDIO_AN_DEVAD,
+-					MDIO_AN_REG_ADV_PAUSE, &ld_pause);
+-			bnx2x_cl45_read(bp, phy,
+-					MDIO_AN_DEVAD,
+-					MDIO_AN_REG_LP_AUTO_NEG, &lp_pause);
+-		}
+-		pause_result = (ld_pause &
+-				MDIO_AN_REG_ADV_PAUSE_MASK) >> 8;
+-		pause_result |= (lp_pause &
+-				 MDIO_AN_REG_ADV_PAUSE_MASK) >> 10;
+-		DP(NETIF_MSG_LINK, "Ext PHY pause result 0x%x\n",
+-		   pause_result);
+-		bnx2x_pause_resolve(vars, pause_result);
++		bnx2x_ext_phy_update_adv_fc(phy, params, vars);
+ 	}
+ 	return ret;
+ }
+@@ -5219,22 +5224,69 @@ static int bnx2x_direct_parallel_detect_used(struct bnx2x_phy *phy,
+ 	return 0;
+ }
  
--		if (bp->func_stx)
--			bnx2x_func_stats_base_init(bp);
-+	if (bp->port.pmf && bp->port.port_stx)
-+		bnx2x_port_stats_base_init(bp);
- 
--	} else if (bp->func_stx)
-+	/* On a non-init, retrieve previous statistics from SP */
-+	if (!bp->stats_init && bp->func_stx)
- 		bnx2x_func_stats_base_update(bp);
++static void bnx2x_update_adv_fc(struct bnx2x_phy *phy,
++				struct link_params *params,
++				struct link_vars *vars,
++				u32 gp_status)
++{
++	u16 ld_pause;   /* local driver */
++	u16 lp_pause;   /* link partner */
++	u16 pause_result;
++	struct bnx2x *bp = params->bp;
++	if ((gp_status &
++	     (MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_AUTONEG_COMPLETE |
++	      MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_MR_LP_NP_AN_ABLE)) ==
++	    (MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_AUTONEG_COMPLETE |
++	     MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_MR_LP_NP_AN_ABLE)) {
 +
-+	/* mark the end of statistics initializiation */
-+	bp->stats_init = false;
++		CL22_RD_OVER_CL45(bp, phy,
++				  MDIO_REG_BANK_CL73_IEEEB1,
++				  MDIO_CL73_IEEEB1_AN_ADV1,
++				  &ld_pause);
++		CL22_RD_OVER_CL45(bp, phy,
++				  MDIO_REG_BANK_CL73_IEEEB1,
++				  MDIO_CL73_IEEEB1_AN_LP_ADV1,
++				  &lp_pause);
++		pause_result = (ld_pause &
++				MDIO_CL73_IEEEB1_AN_ADV1_PAUSE_MASK) >> 8;
++		pause_result |= (lp_pause &
++				 MDIO_CL73_IEEEB1_AN_LP_ADV1_PAUSE_MASK) >> 10;
++		DP(NETIF_MSG_LINK, "pause_result CL73 0x%x\n", pause_result);
++	} else {
++		CL22_RD_OVER_CL45(bp, phy,
++				  MDIO_REG_BANK_COMBO_IEEE0,
++				  MDIO_COMBO_IEEE0_AUTO_NEG_ADV,
++				  &ld_pause);
++		CL22_RD_OVER_CL45(bp, phy,
++			MDIO_REG_BANK_COMBO_IEEE0,
++			MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1,
++			&lp_pause);
++		pause_result = (ld_pause &
++				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>5;
++		pause_result |= (lp_pause &
++				 MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>7;
++		DP(NETIF_MSG_LINK, "pause_result CL37 0x%x\n", pause_result);
++	}
++	bnx2x_pause_resolve(vars, pause_result);
++
 +}
 +
-+void bnx2x_save_statistics(struct bnx2x *bp)
-+{
-+	int i;
-+	struct net_device_stats *nstats = &bp->dev->stats;
-+
-+	/* save queue statistics */
-+	for_each_eth_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
-+		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
-+		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
-+
-+		UPDATE_QSTAT_OLD(total_unicast_bytes_received_hi);
-+		UPDATE_QSTAT_OLD(total_unicast_bytes_received_lo);
-+		UPDATE_QSTAT_OLD(total_broadcast_bytes_received_hi);
-+		UPDATE_QSTAT_OLD(total_broadcast_bytes_received_lo);
-+		UPDATE_QSTAT_OLD(total_multicast_bytes_received_hi);
-+		UPDATE_QSTAT_OLD(total_multicast_bytes_received_lo);
-+		UPDATE_QSTAT_OLD(total_unicast_bytes_transmitted_hi);
-+		UPDATE_QSTAT_OLD(total_unicast_bytes_transmitted_lo);
-+		UPDATE_QSTAT_OLD(total_broadcast_bytes_transmitted_hi);
-+		UPDATE_QSTAT_OLD(total_broadcast_bytes_transmitted_lo);
-+		UPDATE_QSTAT_OLD(total_multicast_bytes_transmitted_hi);
-+		UPDATE_QSTAT_OLD(total_multicast_bytes_transmitted_lo);
-+		UPDATE_QSTAT_OLD(total_tpa_bytes_hi);
-+		UPDATE_QSTAT_OLD(total_tpa_bytes_lo);
-+	}
-+
-+	/* save net_device_stats statistics */
-+	bp->net_stats_old.rx_dropped = nstats->rx_dropped;
-+
-+	/* store port firmware statistics */
-+	if (bp->port.pmf && IS_MF(bp)) {
-+		struct bnx2x_eth_stats *estats = &bp->eth_stats;
-+		struct bnx2x_fw_port_stats_old *fwstats = &bp->fw_stats_old;
-+		UPDATE_FW_STAT_OLD(mac_filter_discard);
-+		UPDATE_FW_STAT_OLD(mf_tag_discard);
-+		UPDATE_FW_STAT_OLD(brb_truncate_discard);
-+		UPDATE_FW_STAT_OLD(mac_discard);
-+	}
+ static void bnx2x_flow_ctrl_resolve(struct bnx2x_phy *phy,
+ 				    struct link_params *params,
+ 				    struct link_vars *vars,
+ 				    u32 gp_status)
+ {
+ 	struct bnx2x *bp = params->bp;
+-	u16 ld_pause;   /* local driver */
+-	u16 lp_pause;   /* link partner */
+-	u16 pause_result;
+-
+ 	vars->flow_ctrl = BNX2X_FLOW_CTRL_NONE;
+ 
+ 	/* resolve from gp_status in case of AN complete and not sgmii */
+-	if (phy->req_flow_ctrl != BNX2X_FLOW_CTRL_AUTO)
++	if (phy->req_flow_ctrl != BNX2X_FLOW_CTRL_AUTO) {
++		/* Update the advertised flow-controled of LD/LP in AN */
++		if (phy->req_line_speed == SPEED_AUTO_NEG)
++			bnx2x_update_adv_fc(phy, params, vars, gp_status);
++		/* But set the flow-control result as the requested one */
+ 		vars->flow_ctrl = phy->req_flow_ctrl;
+-	else if (phy->req_line_speed != SPEED_AUTO_NEG)
++	} else if (phy->req_line_speed != SPEED_AUTO_NEG)
+ 		vars->flow_ctrl = params->req_fc_auto_adv;
+ 	else if ((gp_status & MDIO_AN_CL73_OR_37_COMPLETE) &&
+ 		 (!(vars->phy_flags & PHY_SGMII_FLAG))) {
+@@ -5242,45 +5294,7 @@ static void bnx2x_flow_ctrl_resolve(struct bnx2x_phy *phy,
+ 			vars->flow_ctrl = params->req_fc_auto_adv;
+ 			return;
+ 		}
+-		if ((gp_status &
+-		    (MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_AUTONEG_COMPLETE |
+-		     MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_MR_LP_NP_AN_ABLE)) ==
+-		    (MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_AUTONEG_COMPLETE |
+-		     MDIO_GP_STATUS_TOP_AN_STATUS1_CL73_MR_LP_NP_AN_ABLE)) {
+-
+-			CL22_RD_OVER_CL45(bp, phy,
+-					  MDIO_REG_BANK_CL73_IEEEB1,
+-					  MDIO_CL73_IEEEB1_AN_ADV1,
+-					  &ld_pause);
+-			CL22_RD_OVER_CL45(bp, phy,
+-					  MDIO_REG_BANK_CL73_IEEEB1,
+-					  MDIO_CL73_IEEEB1_AN_LP_ADV1,
+-					  &lp_pause);
+-			pause_result = (ld_pause &
+-					MDIO_CL73_IEEEB1_AN_ADV1_PAUSE_MASK)
+-					>> 8;
+-			pause_result |= (lp_pause &
+-					MDIO_CL73_IEEEB1_AN_LP_ADV1_PAUSE_MASK)
+-					>> 10;
+-			DP(NETIF_MSG_LINK, "pause_result CL73 0x%x\n",
+-				 pause_result);
+-		} else {
+-			CL22_RD_OVER_CL45(bp, phy,
+-					  MDIO_REG_BANK_COMBO_IEEE0,
+-					  MDIO_COMBO_IEEE0_AUTO_NEG_ADV,
+-					  &ld_pause);
+-			CL22_RD_OVER_CL45(bp, phy,
+-				MDIO_REG_BANK_COMBO_IEEE0,
+-				MDIO_COMBO_IEEE0_AUTO_NEG_LINK_PARTNER_ABILITY1,
+-				&lp_pause);
+-			pause_result = (ld_pause &
+-				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>5;
+-			pause_result |= (lp_pause &
+-				MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK)>>7;
+-			DP(NETIF_MSG_LINK, "pause_result CL37 0x%x\n",
+-				 pause_result);
+-		}
+-		bnx2x_pause_resolve(vars, pause_result);
++		bnx2x_update_adv_fc(phy, params, vars, gp_status);
+ 	}
+ 	DP(NETIF_MSG_LINK, "flow_ctrl 0x%x\n", vars->flow_ctrl);
  }
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-index 7e97968..39ffd6d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-@@ -264,6 +264,69 @@ struct bnx2x_eth_q_stats {
- 	u32 total_tpa_bytes_lo;
- };
+@@ -5499,6 +5513,33 @@ static int bnx2x_link_settings_status(struct bnx2x_phy *phy,
+ 		}
+ 	}
  
-+struct bnx2x_eth_stats_old {
-+	u32 rx_stat_dot3statsframestoolong_hi;
-+	u32 rx_stat_dot3statsframestoolong_lo;
-+};
++	/* Read LP advertised speeds*/
++	if (SINGLE_MEDIA_DIRECT(params) &&
++	    (vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE)) {
++		u16 val;
 +
-+struct bnx2x_eth_q_stats_old {
-+	/* Fields to perserve over fw reset*/
-+	u32 total_unicast_bytes_received_hi;
-+	u32 total_unicast_bytes_received_lo;
-+	u32 total_broadcast_bytes_received_hi;
-+	u32 total_broadcast_bytes_received_lo;
-+	u32 total_multicast_bytes_received_hi;
-+	u32 total_multicast_bytes_received_lo;
-+	u32 total_unicast_bytes_transmitted_hi;
-+	u32 total_unicast_bytes_transmitted_lo;
-+	u32 total_broadcast_bytes_transmitted_hi;
-+	u32 total_broadcast_bytes_transmitted_lo;
-+	u32 total_multicast_bytes_transmitted_hi;
-+	u32 total_multicast_bytes_transmitted_lo;
-+	u32 total_tpa_bytes_hi;
-+	u32 total_tpa_bytes_lo;
++		CL22_RD_OVER_CL45(bp, phy, MDIO_REG_BANK_CL73_IEEEB1,
++				  MDIO_CL73_IEEEB1_AN_LP_ADV2, &val);
 +
-+	/* Fields to perserve last of */
-+	u32 total_bytes_received_hi;
-+	u32 total_bytes_received_lo;
-+	u32 total_bytes_transmitted_hi;
-+	u32 total_bytes_transmitted_lo;
-+	u32 total_unicast_packets_received_hi;
-+	u32 total_unicast_packets_received_lo;
-+	u32 total_multicast_packets_received_hi;
-+	u32 total_multicast_packets_received_lo;
-+	u32 total_broadcast_packets_received_hi;
-+	u32 total_broadcast_packets_received_lo;
-+	u32 total_unicast_packets_transmitted_hi;
-+	u32 total_unicast_packets_transmitted_lo;
-+	u32 total_multicast_packets_transmitted_hi;
-+	u32 total_multicast_packets_transmitted_lo;
-+	u32 total_broadcast_packets_transmitted_hi;
-+	u32 total_broadcast_packets_transmitted_lo;
-+	u32 valid_bytes_received_hi;
-+	u32 valid_bytes_received_lo;
++		if (val & MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX)
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
++		if (val & (MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KX4 |
++			   MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KR))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
 +
-+	u32 total_tpa_bytes_hi_old;
-+	u32 total_tpa_bytes_lo_old;
++		CL22_RD_OVER_CL45(bp, phy, MDIO_REG_BANK_OVER_1G,
++				  MDIO_OVER_1G_LP_UP1, &val);
 +
-+	u32 driver_xoff_old;
-+	u32 rx_err_discard_pkt_old;
-+	u32 rx_skb_alloc_failed_old;
-+	u32 hw_csum_err_old;
-+};
++		if (val & MDIO_OVER_1G_UP1_2_5G)
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_2500XFD_CAPABLE;
++		if (val & (MDIO_OVER_1G_UP1_10G | MDIO_OVER_1G_UP1_10GH))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
++	}
 +
-+struct bnx2x_net_stats_old {
-+	 u32 rx_dropped;
-+};
-+
-+struct bnx2x_fw_port_stats_old {
-+	 u32 mac_filter_discard;
-+	 u32 mf_tag_discard;
-+	 u32 brb_truncate_discard;
-+	 u32 mac_discard;
-+};
-+
-+
- /****************************************************************************
- * Macros
- ****************************************************************************/
-@@ -348,11 +411,28 @@ struct bnx2x_eth_q_stats {
- 		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
- 	} while (0)
+ 	DP(NETIF_MSG_LINK, "duplex %x  flow_ctrl 0x%x link_status 0x%x\n",
+ 		   vars->duplex, vars->flow_ctrl, vars->link_status);
+ 	return rc;
+@@ -5556,6 +5597,34 @@ static int bnx2x_warpcore_read_status(struct bnx2x_phy *phy,
+ 		}
+ 	}
  
-+#define UPDATE_EXTEND_E_TSTAT(s, t) \
-+	do { \
-+		UPDATE_EXTEND_TSTAT(s, t); \
-+		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
-+	} while (0)
++	if ((vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) &&
++	    SINGLE_MEDIA_DIRECT(params)) {
++		u16 val;
 +
- #define UPDATE_EXTEND_USTAT(s, t) \
- 	do { \
- 		diff = le32_to_cpu(uclient->s) - le32_to_cpu(old_uclient->s); \
- 		old_uclient->s = uclient->s; \
--		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
-+	} while (0)
++		bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
++				MDIO_AN_REG_LP_AUTO_NEG2, &val);
 +
-+#define UPDATE_EXTEND_E_USTAT(s, t) \
-+	do { \
-+		UPDATE_EXTEND_USTAT(s, t); \
-+		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
-+	} while (0)
++		if (val & MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX)
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
++		if (val & (MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KX4 |
++			   MDIO_CL73_IEEEB1_AN_ADV2_ADVR_10G_KR))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
 +
-+#define UPDATE_EXTEND_E_USTAT(s, t) \
-+	do { \
-+		UPDATE_EXTEND_USTAT(s, t); \
-+		ADD_EXTEND_64(estats->t##_hi, estats->t##_lo, diff); \
- 	} while (0)
++		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++				MDIO_WC_REG_DIGITAL3_LP_UP1, &val);
++
++		if (val & MDIO_OVER_1G_UP1_2_5G)
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_2500XFD_CAPABLE;
++		if (val & (MDIO_OVER_1G_UP1_10G | MDIO_OVER_1G_UP1_10GH))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
++
++	}
++
++
+ 	if (lane < 2) {
+ 		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
+ 				MDIO_WC_REG_GP2_STATUS_GP_2_2, &gp_speed);
+@@ -6421,7 +6490,9 @@ static int bnx2x_update_link_down(struct link_params *params,
+ 			       LINK_STATUS_AUTO_NEGOTIATE_COMPLETE |
+ 			       LINK_STATUS_RX_FLOW_CONTROL_FLAG_MASK |
+ 			       LINK_STATUS_TX_FLOW_CONTROL_FLAG_MASK |
+-			       LINK_STATUS_PARALLEL_DETECTION_FLAG_MASK);
++			       LINK_STATUS_PARALLEL_DETECTION_FLAG_MASK |
++			       LINK_STATUS_LINK_PARTNER_SYMMETRIC_PAUSE |
++			       LINK_STATUS_LINK_PARTNER_ASYMMETRIC_PAUSE);
+ 	vars->line_speed = 0;
+ 	bnx2x_update_mng(params, vars->link_status);
  
- #define UPDATE_EXTEND_XSTAT(s, t) \
-@@ -362,6 +442,66 @@ struct bnx2x_eth_q_stats {
- 		ADD_EXTEND_64(qstats->t##_hi, qstats->t##_lo, diff); \
- 	} while (0)
+@@ -7370,6 +7441,19 @@ static u8 bnx2x_8073_read_status(struct bnx2x_phy *phy,
+ 		bnx2x_8073_resolve_fc(phy, params, vars);
+ 		vars->duplex = DUPLEX_FULL;
+ 	}
++
++	if (vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) {
++		bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
++				MDIO_AN_REG_LP_AUTO_NEG2, &val1);
++
++		if (val1 & (1<<5))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
++		if (val1 & (1<<7))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
++	}
++
+ 	return link_up;
+ }
  
-+#define UPDATE_QSTAT(s, t) \
-+	do { \
-+		qstats->t##_hi = qstats_old->t##_hi + le32_to_cpu(s.hi); \
-+		qstats->t##_lo = qstats_old->t##_lo + le32_to_cpu(s.lo); \
-+	} while (0)
+@@ -9951,6 +10035,42 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
+ 		DP(NETIF_MSG_LINK, "BCM84823: link speed is %d\n",
+ 			   vars->line_speed);
+ 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
 +
-+#define UPDATE_QSTAT_OLD(f) \
-+	do { \
-+		qstats_old->f = qstats->f; \
-+	} while (0)
++		/* Read LP advertised speeds */
++		bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
++				MDIO_AN_REG_CL37_FC_LP, &val);
++		if (val & (1<<5))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10THD_CAPABLE;
++		if (val & (1<<6))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10TFD_CAPABLE;
++		if (val & (1<<7))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_100TXHD_CAPABLE;
++		if (val & (1<<8))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_100TXFD_CAPABLE;
++		if (val & (1<<9))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_100T4_CAPABLE;
 +
-+#define UPDATE_ESTAT_QSTAT_64(s) \
-+	do { \
-+		ADD_64(estats->s##_hi, qstats->s##_hi, \
-+		       estats->s##_lo, qstats->s##_lo); \
-+		SUB_64(estats->s##_hi, qstats_old->s##_hi_old, \
-+		       estats->s##_lo, qstats_old->s##_lo_old); \
-+		qstats_old->s##_hi_old = qstats->s##_hi; \
-+		qstats_old->s##_lo_old = qstats->s##_lo; \
-+	} while (0)
++		bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
++				MDIO_AN_REG_1000T_STATUS, &val);
 +
-+#define UPDATE_ESTAT_QSTAT(s) \
-+	do { \
-+		estats->s += qstats->s; \
-+		estats->s -= qstats_old->s##_old; \
-+		qstats_old->s##_old = qstats->s; \
-+	} while (0)
++		if (val & (1<<10))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_1000THD_CAPABLE;
++		if (val & (1<<11))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
 +
-+#define UPDATE_FSTAT_QSTAT(s) \
-+	do { \
-+		ADD_64(fstats->s##_hi, qstats->s##_hi, \
-+		       fstats->s##_lo, qstats->s##_lo); \
-+		SUB_64(fstats->s##_hi, qstats_old->s##_hi, \
-+		       fstats->s##_lo, qstats_old->s##_lo); \
-+		estats->s##_hi = fstats->s##_hi; \
-+		estats->s##_lo = fstats->s##_lo; \
-+		qstats_old->s##_hi = qstats->s##_hi; \
-+		qstats_old->s##_lo = qstats->s##_lo; \
-+	} while (0)
++		bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
++				MDIO_AN_REG_MASTER_STATUS, &val);
 +
-+#define UPDATE_FW_STAT(s) \
-+	do { \
-+		estats->s = le32_to_cpu(tport->s) + fwstats->s; \
-+	} while (0)
-+
-+#define UPDATE_FW_STAT_OLD(f) \
-+	do { \
-+		fwstats->f = estats->f; \
-+	} while (0)
-+
-+#define UPDATE_ESTAT(s, t) \
-+	do { \
-+		SUB_64(estats->s##_hi, estats_old->t##_hi, \
-+		       estats->s##_lo, estats_old->t##_lo); \
-+		ADD_64(estats->s##_hi, estats->t##_hi, \
-+		       estats->s##_lo, estats->t##_lo); \
-+		estats_old->t##_hi = estats->t##_hi; \
-+		estats_old->t##_lo = estats->t##_lo; \
-+	} while (0)
-+
- /* minuend -= subtrahend */
- #define SUB_64(m_hi, s_hi, m_lo, s_lo) \
- 	do { \
-@@ -388,4 +528,10 @@ void bnx2x_stats_init(struct bnx2x *bp);
++		if (val & (1<<11))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
+ 	}
  
- void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event);
+ 	return link_up;
+@@ -10574,6 +10694,35 @@ static u8 bnx2x_54618se_read_status(struct bnx2x_phy *phy,
+ 		}
  
-+/**
-+ * bnx2x_save_statistics - save statistics when unloading.
-+ *
-+ * @bp:		driver handle
-+ */
-+void bnx2x_save_statistics(struct bnx2x *bp);
- #endif /* BNX2X_STATS_H */
+ 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
++
++		if (vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE) {
++			/* report LP advertised speeds */
++			bnx2x_cl22_read(bp, phy, 0x5, &val);
++
++			if (val & (1<<5))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_10THD_CAPABLE;
++			if (val & (1<<6))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_10TFD_CAPABLE;
++			if (val & (1<<7))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_100TXHD_CAPABLE;
++			if (val & (1<<8))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_100TXFD_CAPABLE;
++			if (val & (1<<9))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_100T4_CAPABLE;
++
++			bnx2x_cl22_read(bp, phy, 0xa, &val);
++			if (val & (1<<10))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_1000THD_CAPABLE;
++			if (val & (1<<11))
++				vars->link_status |=
++				  LINK_STATUS_LINK_PARTNER_1000TFD_CAPABLE;
++		}
+ 	}
+ 	return link_up;
+ }
+@@ -10702,6 +10851,11 @@ static u8 bnx2x_7101_read_status(struct bnx2x_phy *phy,
+ 			   val2, (val2 & (1<<14)));
+ 		bnx2x_ext_phy_10G_an_resolve(bp, phy, vars);
+ 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
++
++		/* read LP advertised speeds */
++		if (val2 & (1<<11))
++			vars->link_status |=
++				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
+ 	}
+ 	return link_up;
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 2feaca5..fd7fb45 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -6406,6 +6406,7 @@
+ #define MDIO_CL73_IEEEB1_AN_LP_ADV1_ASYMMETRIC		0x0800
+ #define MDIO_CL73_IEEEB1_AN_LP_ADV1_PAUSE_BOTH		0x0C00
+ #define MDIO_CL73_IEEEB1_AN_LP_ADV1_PAUSE_MASK		0x0C00
++#define MDIO_CL73_IEEEB1_AN_LP_ADV2			0x04
+ 
+ #define MDIO_REG_BANK_RX0				0x80b0
+ #define MDIO_RX0_RX_STATUS				0x10
+@@ -6799,14 +6800,16 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_AN_REG_ADV_PAUSE_MASK		0x0C00
+ #define MDIO_AN_REG_ADV 		0x0011
+ #define MDIO_AN_REG_ADV2		0x0012
+-#define MDIO_AN_REG_LP_AUTO_NEG 	0x0013
++#define MDIO_AN_REG_LP_AUTO_NEG		0x0013
++#define MDIO_AN_REG_LP_AUTO_NEG2	0x0014
+ #define MDIO_AN_REG_MASTER_STATUS	0x0021
+ /*bcm*/
+ #define MDIO_AN_REG_LINK_STATUS 	0x8304
+ #define MDIO_AN_REG_CL37_CL73		0x8370
+ #define MDIO_AN_REG_CL37_AN		0xffe0
+ #define MDIO_AN_REG_CL37_FC_LD		0xffe4
+-#define MDIO_AN_REG_CL37_FC_LP		0xffe5
++#define		MDIO_AN_REG_CL37_FC_LP		0xffe5
++#define		MDIO_AN_REG_1000T_STATUS	0xffea
+ 
+ #define MDIO_AN_REG_8073_2_5G		0x8329
+ #define MDIO_AN_REG_8073_BAM		0x8350
+@@ -6971,6 +6974,7 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_WC_REG_SERDESDIGITAL_MISC1			0x8308
+ #define MDIO_WC_REG_SERDESDIGITAL_MISC2			0x8309
+ #define MDIO_WC_REG_DIGITAL3_UP1			0x8329
++#define MDIO_WC_REG_DIGITAL3_LP_UP1			 0x832c
+ #define MDIO_WC_REG_DIGITAL4_MISC3			0x833c
+ #define MDIO_WC_REG_DIGITAL5_MISC6			0x8345
+ #define MDIO_WC_REG_DIGITAL5_MISC7			0x8349
 -- 
 1.7.9.rc2
