@@ -1,42 +1,56 @@
-From: Tim Gardner <rtg.canonical@gmail.com>
-Subject: Re: [PATCH v3] rtlwifi: rtl8192se firmware load can overflow target
- buffer
-Date: Wed, 15 Feb 2012 12:34:12 -0700
-Message-ID: <4F3C08B4.8010103@canonical.com>
-References: <1328833192-10681-1-git-send-email-Larry.Finger@lwfinger.net> <20120215185525.GE4379@tuxdriver.com> <4F3C0421.20506@lwfinger.net>
-Reply-To: tim.gardner@canonical.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] cc770: linux/can/dev.h included twice
+Date: Wed, 15 Feb 2012 20:37:47 +0100
+Message-ID: <4F3C098B.4050308@pengutronix.de>
+References: <1329328501-4737-1-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig66A4AFC2ED99B78C6F209036"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Danny Kukawka <dkukawka@suse.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F3C0421.20506@lwfinger.net>
+In-Reply-To: <1329328501-4737-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/15/2012 12:14 PM, Larry Finger wrote:
-> On 02/15/2012 12:55 PM, John W. Linville wrote:
->> Is this a fix that should go to 3.3?
->
-> That code has been in the driver since 3.0 and it should probably be
-> packported. On the other hand, Tim's report is the first one. My
-> suggestion is that it go into 3.4.
->
-> In addition, I am working on a fix that will completely eliminate all
-> this fixed storage.
->
-> Larry
->
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig66A4AFC2ED99B78C6F209036
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I'm fine with it being 3.4 material. The patch addresses an unlikely 
-scenario.
+On 02/15/2012 06:55 PM, Danny Kukawka wrote:
+> drivers/net/can/cc770/cc770.c included 'linux/can/dev.h' twice,
+> remove the duplicate.
+>=20
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-rtg
--- 
-Tim Gardner tim.gardner@canonical.com
+Thanks, applied to can-next.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig66A4AFC2ED99B78C6F209036
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk88CY4ACgkQjTAFq1RaXHMYQACgjRVbyF5L1w3ZJ5DRBDhCYedb
+A34AnRTM/RxyM9R99EfxxiCq9aBREh7r
+=Dof9
+-----END PGP SIGNATURE-----
+
+--------------enig66A4AFC2ED99B78C6F209036--
