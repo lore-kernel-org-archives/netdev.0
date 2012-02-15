@@ -1,116 +1,57 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net 3/3] mlx4: add unicast steering entries to resource_tracker
-Date: Wed, 15 Feb 2012 18:23:16 +0200
-Message-ID: <4F3BDBF4.2070308@mellanox.co.il>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Wed, 15 Feb 2012 16:32:01 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F8D2A9@ORSMSX106.amr.corp.intel.com>
+References: <20120212191342.1458.70498.stgit@gitlad.jf.intel.com>
+ <1329253993.2443.30.camel@bwh-desktop>
+ <20120215140814.GA29673@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<eugenia@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Thomas Graf <tgraf@infradead.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:43809 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751648Ab2BOQZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 11:25:48 -0500
+Received: from mga01.intel.com ([192.55.52.88]:63018 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752054Ab2BOQb5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 11:31:57 -0500
+In-Reply-To: <20120215140814.GA29673@canuck.infradead.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.co.il>
+> -----Original Message-----
+> From: Thomas Graf [mailto:tgr@infradead.org] On Behalf Of Thomas Graf
+> Sent: Wednesday, February 15, 2012 6:08 AM
+> To: Ben Hutchings
+> Cc: Rose, Gregory V; netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [RFC V2 PATCH] rtnetlink: Fix problem with buffer allocation
+> 
+> On Tue, Feb 14, 2012 at 09:13:13PM +0000, Ben Hutchings wrote:
+> > > +		struct rtattr *ext_req;
+> > > +		u32 *ext_req_data;
+> > > +		req = (struct rtnl_req_extended *)cb->nlh;
+> > > +		ext_req = (struct rtattr *)&req->ext;
+> > > +		if (ext_req->rta_type == IFLA_EXT_MASK) {
+> > > +			ext_req_data = RTA_DATA(ext_req);
+> > > +			ext_filter_mask = *ext_req_data;
+> > > +		}
+> > > +	}
+> >
+> > We cannot trust a flag to tell us what the length of the message is.  We
+> > have to check the value of nlmsg_len (which netlink has already
+> > validated as being within the skb length and >= our declared request
+> > header length).  I think that makes the flag redundant.
+> >
+> > In fact, I think we should really use nlmsg_parse() here.  That might be
+> > overkill when there's only a single valid attribute; I don't know.
+> 
+> I think it's worth the effort. You get all the validation for free. And
+> please use the netlink interface in <net/netlink.h>, the rtattr based
+> interface has been deprecated a while ago.
 
-Add unicast steering entries to resource tracker.
-Do qp_detach also for these entries when VF doesn't shut down gracefully.
-Otherwise there is leakage of these resources, since they are not tracked.
+Yes, I'm changing it to use nlmsg_parse.  Didn't know about the deprecation of rtattr though, thanks for the tip.
 
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
-Reviewed-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 629cc30..bfdb7af 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -73,6 +73,7 @@ struct res_gid {
- 	struct list_head	list;
- 	u8			gid[16];
- 	enum mlx4_protocol	prot;
-+	enum mlx4_steer_type	steer;
- };
- 
- enum res_qp_states {
-@@ -2480,7 +2481,8 @@ static struct res_gid *find_gid(struct mlx4_dev *dev, int slave,
- }
- 
- static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
--		       u8 *gid, enum mlx4_protocol prot)
-+		       u8 *gid, enum mlx4_protocol prot,
-+		       enum mlx4_steer_type steer)
- {
- 	struct res_gid *res;
- 	int err;
-@@ -2496,6 +2498,7 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 	} else {
- 		memcpy(res->gid, gid, 16);
- 		res->prot = prot;
-+		res->steer = steer;
- 		list_add_tail(&res->list, &rqp->mcg_list);
- 		err = 0;
- 	}
-@@ -2505,14 +2508,15 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- }
- 
- static int rem_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
--		       u8 *gid, enum mlx4_protocol prot)
-+		       u8 *gid, enum mlx4_protocol prot,
-+		       enum mlx4_steer_type steer)
- {
- 	struct res_gid *res;
- 	int err;
- 
- 	spin_lock_irq(&rqp->mcg_spl);
- 	res = find_gid(dev, slave, rqp, gid);
--	if (!res || res->prot != prot)
-+	if (!res || res->prot != prot || res->steer != steer)
- 		err = -EINVAL;
- 	else {
- 		list_del(&res->list);
-@@ -2548,7 +2552,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	qp.qpn = qpn;
- 	if (attach) {
--		err = add_mcg_res(dev, slave, rqp, gid, prot);
-+		err = add_mcg_res(dev, slave, rqp, gid, prot, type);
- 		if (err)
- 			goto ex_put;
- 
-@@ -2557,7 +2561,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 		if (err)
- 			goto ex_rem;
- 	} else {
--		err = rem_mcg_res(dev, slave, rqp, gid, prot);
-+		err = rem_mcg_res(dev, slave, rqp, gid, prot, type);
- 		if (err)
- 			goto ex_put;
- 		err = mlx4_qp_detach_common(dev, &qp, gid, prot, type);
-@@ -2568,7 +2572,7 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- ex_rem:
- 	/* ignore error return below, already in error */
--	err1 = rem_mcg_res(dev, slave, rqp, gid, prot);
-+	err1 = rem_mcg_res(dev, slave, rqp, gid, prot, type);
- ex_put:
- 	put_res(dev, slave, qpn, RES_QP);
- 
-@@ -2607,7 +2611,7 @@ static void detach_qp(struct mlx4_dev *dev, int slave, struct res_qp *rqp)
- 	list_for_each_entry_safe(rgid, tmp, &rqp->mcg_list, list) {
- 		qp.qpn = rqp->local_qpn;
- 		err = mlx4_qp_detach_common(dev, &qp, rgid->gid, rgid->prot,
--					    MLX4_MC_STEER);
-+					    rgid->steer);
- 		list_del(&rgid->list);
- 		kfree(rgid);
- 	}
--- 
-1.5.4.3
+- Greg
