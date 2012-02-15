@@ -1,45 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.0: unexpected route cache entry for wrong segment?
-Date: Wed, 15 Feb 2012 14:03:33 +0100
-Message-ID: <1329311013.2437.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4F33FC0E.4020701@msgid.tls.msk.ru>
-	  <1328809519.6099.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <4F341283.1020904@msgid.tls.msk.ru> <4F3BA0BD.9010501@msgid.tls.msk.ru>
-	 <1329310007.2437.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4F3BABD3.5070404@msgid.tls.msk.ru>
+From: alekcejk@googlemail.com
+Subject: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Wed, 15 Feb 2012 15:44:12 +0200
+Message-ID: <13034586.QWW6sxlFmp@localhost.localdomain>
+References: <8633039.fHPLx6GNq3@localhost.localdomain> <1329286016.2555.41.camel@edumazet-laptop> <20120215025200.6e6f02a2.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=koi8-r
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Michael Tokarev <mjt@tls.msk.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:62523 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754591Ab2BONDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 08:03:37 -0500
-Received: by werb13 with SMTP id b13so600211wer.19
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 05:03:35 -0800 (PST)
-In-Reply-To: <4F3BABD3.5070404@msgid.tls.msk.ru>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61385 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754566Ab2BONoc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 08:44:32 -0500
+Received: by bkcjm19 with SMTP id jm19so927135bkc.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 05:44:31 -0800 (PST)
+In-Reply-To: <20120215025200.6e6f02a2.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 15 f=C3=A9vrier 2012 =C3=A0 16:57 +0400, Michael Tokarev a =
-=C3=A9crit :
+=F7 =D3=CF=CF=C2=DD=C5=CE=C9=C9 =CF=D4 =F3=D2=C5=C4=C1 15 =C6=C5=D7=D2=C1=
+=CC=D1 2012 02:52:00 =D7=D9 =CE=C1=D0=C9=D3=C1=CC=C9:
+> Would it be useful to check if there was any difference in
+> TCP parameters between the 3.1 and 3.2 kernels by performing
+> the following on each:
+>=20
+> 	grep . /sys/module/tcp_*/parameters/*
+>=20
+> 					-Bill
 
-> 3.0.21 included "net: fix NULL dereferences in check_peer_redir()" pa=
-tch
-> (which is somewhat large(ish) - I wonder why it has been rolled into
-> single patch while in reality it consists of 7 commits; and I wonder
-> why the final result is different from current version in check_peer_=
-redir()
-> routine, which I mentioned in my other email in this thread), but tha=
-t
-> one does not seem to address this very issue - from a quick view anyw=
-ay.
+Looks like no difference.
 
-That was the tricky part handled by David.
+3.1.10:
+/sys/module/tcp_cubic/parameters/beta:717
+/sys/module/tcp_cubic/parameters/bic_scale:41
+/sys/module/tcp_cubic/parameters/fast_convergence:1
+/sys/module/tcp_cubic/parameters/hystart:1
+/sys/module/tcp_cubic/parameters/hystart_ack_delta:2
+/sys/module/tcp_cubic/parameters/hystart_detect:3
+/sys/module/tcp_cubic/parameters/hystart_low_window:16
+/sys/module/tcp_cubic/parameters/initial_ssthresh:0
+/sys/module/tcp_cubic/parameters/tcp_friendliness:1
 
-We couldnt apply all needed commits without bringing too many things
-from recent kernels to 3.0  (out of stable scope)
-
-If you believe a fix is needed, just shout :)
+3.2.6:
+/sys/module/tcp_cubic/parameters/beta:717
+/sys/module/tcp_cubic/parameters/bic_scale:41
+/sys/module/tcp_cubic/parameters/fast_convergence:1
+/sys/module/tcp_cubic/parameters/hystart:1
+/sys/module/tcp_cubic/parameters/hystart_ack_delta:2
+/sys/module/tcp_cubic/parameters/hystart_detect:3
+/sys/module/tcp_cubic/parameters/hystart_low_window:16
+/sys/module/tcp_cubic/parameters/initial_ssthresh:0
+/sys/module/tcp_cubic/parameters/tcp_friendliness:1
