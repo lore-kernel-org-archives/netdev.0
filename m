@@ -1,43 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: limited network bandwidth with 3.2.x kernels
-Date: Wed, 15 Feb 2012 09:31:51 +0100
-Message-ID: <1329294711.2555.52.camel@edumazet-laptop>
-References: <8633039.fHPLx6GNq3@localhost.localdomain>
-	 <5133914.uYLb0gnNTc@localhost.localdomain>
-	 <1329235210.4818.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <5781419.24ZaHfTAxC@localhost.localdomain>
-	 <1329280993.2555.21.camel@edumazet-laptop>
-	 <CADVnQykxiGBXCKdr=G+T190EA14RnAs0HJ69imsN0h8JKMS4jw@mail.gmail.com>
-	 <1329286016.2555.41.camel@edumazet-laptop>
-	 <20120215025200.6e6f02a2.billfink@mindspring.com>
-	 <1329292820.2555.47.camel@edumazet-laptop>
-	 <20120215031816.7afeef08.billfink@mindspring.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 1/1] usb: cdc-ncm: Increase maximum allowed datagram size
+Date: Wed, 15 Feb 2012 09:53:20 +0100
+Message-ID: <201202150953.20341.oneukum@suse.de>
+References: <1329230375-25508-1-git-send-email-toby.gray@realvnc.com> <20120214.144622.678577766818888054.davem@davemloft.net> <CAL_Kpj0VSu-ByUEwTeVG5-5psab3h38bTL=ot7vYD8A+Oeb_Ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>, alekcejk@googlemail.com,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44226 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757470Ab2BOIbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 03:31:55 -0500
-Received: by wgbdt10 with SMTP id dt10so686585wgb.1
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 00:31:54 -0800 (PST)
-In-Reply-To: <20120215031816.7afeef08.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org,
+	oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_Kpj0VSu-ByUEwTeVG5-5psab3h38bTL=ot7vYD8A+Oeb_Ug-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 15 f=C3=A9vrier 2012 =C3=A0 03:18 -0500, Bill Fink a =C3=A9=
-crit :
+Am Dienstag, 14. Februar 2012, 23:27:29 schrieb Alexey Orishko:
+> On Tue, Feb 14, 2012 at 8:46 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> >
+> > Can a USB expert please sanity check this before I apply it?
+> 
+> I would recommend to change CDC_NCM_NTB_MAX_SIZE_TX(RX) to 32K and
+> simply set MAX_DATAGRAM_SIZE to 16K
 
-> Do your SYSCTL1 and SYSCTL2 files include /sys/module/tcp_*
-> as well as /proc/sys?  Not that I know of anything that might
-> have changed in /sys/module/tcp_* between 3.1 and 3.2, but
-> you never know what a particular distro might have tweaked.
->=20
+Have you tried that under severe memory presssure?
 
-
-=46edora doesnt change these, and kernel version change is in TCP
-receiver, where these congestion params dont apply.
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
