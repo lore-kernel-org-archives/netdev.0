@@ -1,41 +1,71 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 2/2] Netfilter: xt_LOG: Add timestamp support
-Date: Wed, 15 Feb 2012 20:39:40 +0100
-Message-ID: <4F3C09FC.2020800@nod.at>
-References: <1329314115-6899-1-git-send-email-richard@nod.at>  <1329314115-6899-2-git-send-email-richard@nod.at> <1329314492.2437.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F3BBC11.1030308@nod.at> <alpine.LNX.2.01.1202151815270.15357@frira.zrqbmnf.qr>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Re: Re: Re: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Wed, 15 Feb 2012 14:44:10 -0500
+Message-ID: <CADVnQy=UOvC06TBOE7d7WvuKm1Tdkzu7M4dfvm6VRcRJaDMyLw@mail.gmail.com>
+References: <8633039.fHPLx6GNq3@localhost.localdomain>
+	<4249109.nLB9JCi9YF@localhost.localdomain>
+	<1329313785.2437.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<2687521.3ztN17SHUf@localhost.localdomain>
+	<1329318481.2437.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	pablo@netfilter.org, basti@b-bl.de
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1202151815270.15357@frira.zrqbmnf.qr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: Netdev <netdev@vger.kernel.org>, alekcejk@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:43081 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754987Ab2BOToL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 14:44:11 -0500
+Received: by qadc10 with SMTP id c10so3505408qad.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 11:44:10 -0800 (PST)
+In-Reply-To: <1329318481.2437.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 15.02.2012 18:16, schrieb Jan Engelhardt:
->
-> On Wednesday 2012-02-15 15:07, Richard Weinberger wrote:
->>>> +		struct timespec tv;
->>>> +		unsigned int msec;
->>>> +
->>>> +		getnstimeofday(&tv);
->>>> +		msec = tv.tv_nsec / NSEC_PER_MSEC;
->>>> +		sb_add(m, "TIMESTAMP=%li.%03li ", tv.tv_sec, msec);
->>>
->>> Since you want to use this temp variable "unsigned int msec" (I have no
->>> idea why...), you must change printf format accordingly : %03u instead
->>> of %03li
->>
->> *grml*.
->> I'll remove the temp variable and use %03u.
->
-> Why not just print the nsecs directly (with %09 of course)?
+Thanks, Eric, for the clarification.
 
-I don't think that a nanosecond resolution is useful.
+I am still intrigued by these aspects of the issue:
 
-Thanks,
-//richard
+> Also I want to pay attention that limited speed stays constant - always
+> 5.5 MB/s with straight line on traffic plotter as if was network bandwidth shaping.
+> With 3.1 kernels this never happens - speed can vary in some ranges
+> but at maximum it is about 11 MB/s, no limitations such as 5.5 MB/s.
+...
+
+> But I can say that probably there is really 100Mb/s
+> with Full duplex because as I wrote in first mail
+> there is some servers which have almost the same
+> speed with 3.2.3 kernel as with 3.1.10.
+> They are mostly located geographically close to me
+> (maybe there are other servers, not close, but I not found such one).
+> Here example of such server ftp.linux.kiev.ua,
+> download speed 11,1 Megabytes/s with both kernels.
+...
+
+To me, these symptoms smell like a receiver window issue that is
+capping bandwidth at some receive_window/RTT value:
+
+1) when there is a problem bandwidth is a "straight line" instead of
+typically variable TCP performance
+
+2) when there is a problem, it is with geographically remote
+(high-RTT) sites and not local sites
+
+3) the problem only shows up when certain versions of the kernel act
+as a receiver
+
+I would be intrigued to see the following pieces of info for a slow
+transfer (from a geographically distant server) with the problematic
+3.2 kernel:
+
+- tcpdump of first 300 or so packets to see SYN/SYNACK and RTT
+
+- tcpdump of last 300 or so packets, to see the steady-state dynamics
+  with receiver window and packet inter-arrival times
+
+- summary of overall throughput wget sees
+
+(I apologize if this is already in the thread somewhere... there are
+now a lot of traces in the thread and it's hard to scan them all...
+:-)
+
+neal
