@@ -1,52 +1,49 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Question with commit 299b0767(ipv6: Fix IPsec slowpath
- fragmentation problem)
-Date: Wed, 15 Feb 2012 11:40:21 +0100
-Message-ID: <20120215104021.GC31660@secunet.com>
-References: <4F38C57F.5000706@cn.fujitsu.com>
- <20120214110414.GA31660@secunet.com>
- <4F3B57F4.10106@cn.fujitsu.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Traffic shaping with netkey
+Date: Wed, 15 Feb 2012 05:40:14 -0500
+Message-ID: <1329302414.6479.18.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Li Wei <lw@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:59715 "EHLO a.mx.secunet.com"
+Received: from mout.perfora.net ([74.208.4.194]:63154 "EHLO mout.perfora.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758173Ab2BOKka (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 05:40:30 -0500
-Content-Disposition: inline
-In-Reply-To: <4F3B57F4.10106@cn.fujitsu.com>
+	id S1755978Ab2BOKkV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 05:40:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2012 at 03:00:04PM +0800, Li Wei wrote:
-> 
-> Hi Steffen,
-> 
-> Thank you for your reply!
-> 
-> I see in your patch that you use the "mtu" of &rt->dst (which taken IPSec
-> into account) instead of rt->dst.path, but the "exthdrlen" and "dst_exthdrlen"
-> things process IPSec again. Does some duplication there?
-> 
-> After reverted the patch and put some "printk" things in the slow_path of
-> ip6_fragment(), setup IPSec transport mode between two hosts, when sending
-> some echo request which exceeds the MTU, I don't see any "printk" in slow_path
-> outputed. Could you tell me how to reproduce the slow_path things?
-> 
+Hello, all.  I'm finally making some progress on our 95 percentile
+traffic shaping project.  The last major area of exploration has been
+handling all kinds of VPN traffic - netkey, KLIPS, OpenVPN.  netkey has
+proven the most challenging with its double pass through the same
+interface.  After several days playing in the lab, I'd like to share my
+observations to see if they are as they should be or if I mangled my
+testing!
 
-Ok, I see what's going on. The slowpath fragmentation problem appeared
-in tunnel mode. This is because commit ad0081e43a 
-"ipv6: Fragment locally generated tunnel-mode IPSec6 packets as needed"
-changed tunnel mode to do fragmentation before the transformation
-while transport mode still does fragmentation after transformation.
-Now, tunnel mode needs IPsec headers and trailer for all fragments,
-while on transport mode it is sufficient to add the headers to the
-first fragment and the trailer to the last.
+The challenge has been classifying the netkey traffic.  Ingress has
+proven easier than egress surprisingly.  I redirected all ingress to an
+ifb interface.  I needed to create a separate, relatively unlimited HFSC
+service curve for the ESP traffic, but then was able to use a tc filter
+to properly classify the decrypted packets.  I find I can also use
+CONNMARK to classify the decrypted packets on ingress.
 
-Not quite sure what to do here. We would have the information
-to check for tunnel/transport mode when we calculate the packet
-lenght in ip6_append_data(), but it would look quite ugly to
-search through the xfrm state bundle to figure out which mode
-this is using.
+Egress has been a challenge.  Perhaps it is extra complicated because I
+needed to redirect all egress traffic to an ifb interface, too, so that
+traffic coming off the tun and ipsec interfaces would land in the same
+queues as the netkey traffic.  The only was I could do this for egress
+was to use the iptables CLASSIFY target. That seemed to properly
+classify the netkey traffic before it was encrypted.  tc filters did not
+seem to catch the packet before it was encrypted; perhaps this is
+because the filters are operating on the ifb interface and the packet
+has been encrypted/encapsulated before handing it off to ifb.
+
+Most surprisingly, I found I could not use CONNMARK for egress netkey
+traffic.  I could see that SYN packet triggered the rule to mark the
+connection and I see tons of packets hitting the restore mark rule but
+all the traffic is going to the default HFSC queue rather than being
+properly classified.
+
+Is this to be expected, viz., that CLASSIFY works on ifb redirected
+netkey egress traffic but tc filters and CONNMARK do not? Thanks - John
