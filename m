@@ -1,7 +1,7 @@
 From: Toby Gray <toby.gray@realvnc.com>
-Subject: [PATCH 5/5] usb: cdc-ncm: Allow NCM driver to determine dev->maxpacket
-Date: Wed, 15 Feb 2012 14:47:41 +0000
-Message-ID: <1329317261-3406-6-git-send-email-toby.gray@realvnc.com>
+Subject: [PATCH 3/5] usb: usbnet: Allow drivers using usbnet to specify maximum packet size
+Date: Wed, 15 Feb 2012 14:47:39 +0000
+Message-ID: <1329317261-3406-4-git-send-email-toby.gray@realvnc.com>
 References: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
 Cc: netdev@vger.kernel.org, alexey.orishko@gmail.com,
 	Toby Gray <toby.gray@realvnc.com>
@@ -9,36 +9,40 @@ To: Toby Gray <tg@realvnc.com>, Oliver Neukum <oliver@neukum.name>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from realvnc.com ([146.101.152.142]:53036 "EHLO realvnc.com"
+Received: from realvnc.com ([146.101.152.142]:53050 "EHLO realvnc.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759233Ab2BOOsA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 09:48:00 -0500
+	id S1759354Ab2BOOsG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 09:48:06 -0500
 In-Reply-To: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the NCM driver does not necessarily select the alternate setting
-which presents the data bulk endpoints, dev->maxpacket can't be set
-correctly by usbnet.
+The usbnet driver always attempts to set dev->maxpacket from the out
+endpoint. For this to function correctly it relies on the alternate
+setting containg the bulk out endpoint to be selected. This isn't
+necessarily always the case.
 
-This fixes this by getting the NCM driver to set the dev->maxpacket itself.
+This change allows drivers that make use of usbnet to specify the
+value for dev->maxpacket themselves.
 
 Signed-off-by: Toby Gray <toby.gray@realvnc.com>
 ---
- drivers/net/usb/cdc_ncm.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/usb/usbnet.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index e1b2d5d..158c3d8 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -600,6 +600,7 @@ advance:
- 		ctx->out_ep->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
- 	dev->status = ctx->status_ep;
- 	dev->rx_urb_size = ctx->rx_max;
-+	dev->maxpacket = usb_endpoint_maxp(&ctx->out_ep->desc);
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index fae0fbd..4ccd316 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1425,7 +1425,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
  
- 	/*
- 	 * We should get an event when network connection is "connected" or
+ 	if (!dev->rx_urb_size)
+ 		dev->rx_urb_size = dev->hard_mtu;
+-	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
++	if (!dev->maxpacket)
++		dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
+ 
+ 	if ((dev->driver_info->flags & FLAG_WLAN) != 0)
+ 		SET_NETDEV_DEVTYPE(net, &wlan_type);
 -- 
 1.7.0.4
