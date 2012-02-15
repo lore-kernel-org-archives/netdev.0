@@ -1,72 +1,33 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] igb: output register's information related to RX/TX
- queue[4-15]
-Date: Tue, 14 Feb 2012 22:40:57 -0800
-Message-ID: <1329288057.2697.32.camel@jtkirshe-mobl>
-References: <4F3B4E78.3060804@jp.fujitsu.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net 0/7] mlx4: Bug fixes and cleanups
+Date: Wed, 15 Feb 2012 06:54:07 +0000
+Message-ID: <953B660C027164448AE903364AC447D25D0B68A1@MTLDAG02.mtl.com>
+References: <4F3A8DB5.3020703@mellanox.co.il>
+	<20120214.143023.281327914225614215.davem@davemloft.net>
+	<74A0102445410646AFACC089FD94803A5CEEACB5@MTLDAG02.mtl.com>
+ <20120214.152238.470074857804516115.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Jzfi4wvyHDGZ0BHhZyMc"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Eugenia Emantayev <eugenia@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62513 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754752Ab2BOGk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 01:40:58 -0500
-In-Reply-To: <4F3B4E78.3060804@jp.fujitsu.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:59904 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751370Ab2BOG43 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 01:56:29 -0500
+In-Reply-To: <20120214.152238.470074857804516115.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> 
+> > Some of the patches fix very harmful memory leaks and corruptions.
+> 
+> Then submit the patches properly, don't mix cleanups in there if it matters so much to you.
 
---=-Jzfi4wvyHDGZ0BHhZyMc
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+We will split the series in 2 parts, 1 for net and the other for net-next
 
-On Wed, 2012-02-15 at 15:19 +0900, Koki Sanagi wrote:
-> Current igb outputs registers related to TX/RX queues(ex. RDT, RDH,
-> TDT, TDH).
-> But it thinks the number of RX/TX queues is 4. But 82576 has 16 RX/TX
-> queues.
-> This patch modifies igb to output the rest of the registers if the
-> device is
-> 82576.
->=20
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_ethtool.c |   38
-> +++++++++++++++++++++++++-
->  1 files changed, 37 insertions(+), 1 deletions(-)=20
-
-Thanks Koki, I have added the patch to my queue.
-
---=-Jzfi4wvyHDGZ0BHhZyMc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPO1N5AAoJEOVv75VaS+3ORXsQAJLtvXS2vczCL7zo82suUKY+
-DJ8LJZFdoDJpTHa5wDB+MjFZkluKgiIlnF98UBEnA0OshnkWF+jLKqSUc4aw0Qd3
-nIlm5oR/5woK1wyrHS3zZCAJjpgZm83FcDvee/MBO4WQsb2plCQ8ec1xFl5nwsoV
-D2lVYFC7RWEtANcQhO9WynR33/5lvF7SGP4hO0lJSxOnQK4xn5BBqas/InxtUWwA
-9+p57UAvlEu/IgTdzX2ufu5aFKqviOGnkn9BGtAdhVn4/Im5+9Va0haeKrfif/HH
-MC+045EwpDYSMGIBs8APlwlaCGPVKHjLL72g49vX/npwoLfQwuc36pxd09DFfwmC
-xRg798iHRiB93fOpzQiB/zNJKAydV7ul8JCHljaJ/6GgfH4JTnnMrL+hpxbYdYu6
-ViuUA37FmRXdnkeU82AhYXGGKkVboo1D82lktOupHbXbCXU1c+jKEl8S7Gou1qak
-DVbmCNqR7rTwIWumFHPOoBL63CIQLGq0Z1QbiykasHBKiUuXn/0aK+Mc9A2yg+5i
-739gG4xxiF/Z5Rini3m4OV5a1Yk/e+x9GENbWezBp86+dkLCFzo4+FKBVD6B49J3
-kzy4y2YDFSZ1AR12Y4wWiyXflSMtMgG1Df0XUGwidogqVSpmZ+9zLnDrCnfDiNA+
-pFSnlPQvcCBnLrE6zAhL
-=gcEL
------END PGP SIGNATURE-----
-
---=-Jzfi4wvyHDGZ0BHhZyMc--
+Yevgeny
