@@ -1,57 +1,53 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 2/2] Netfilter: xt_LOG: Add timestamp support
-Date: Thu, 16 Feb 2012 00:28:00 +0100
-Message-ID: <1329348480-11147-2-git-send-email-richard@nod.at>
-References: <1329348480-11147-1-git-send-email-richard@nod.at>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, jengelh@medozas.de, rostedt@goodmis.org,
-	pablo@netfilter.org, basti@b-bl.de,
-	Richard Weinberger <richard@nod.at>
-To: netfilter-devel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329348480-11147-1-git-send-email-richard@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: Bogus frames transmitted with r8169 & fragmentation & large mtu
+Date: Wed, 15 Feb 2012 18:34:08 -0500
+Message-ID: <20120215233408.GA8389@elliptictech.com>
+References: <20120215163748.GA3998@elliptictech.com>
+ <20120215224122.GA31463@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.scalarmail.ca ([98.158.95.75]:33946 "EHLO
+	ironport-01.sms.scalar.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753457Ab2BOXeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 18:34:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20120215224122.GA31463@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Using XT_LOG_ADD_TIMESTAMP it is possible to have a timestamp
-directly in the log message.
+On 2012-02-15 23:41 +0100, Francois Romieu wrote:
+> Nick Bowler <nbowler@elliptictech.com> :
+> [...]
+> > Let me know if you need any more info,
+> 
+> Please send the XID line from the r8169 driver for this device.
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- include/linux/netfilter/xt_LOG.h |    1 +
- net/netfilter/xt_LOG.c           |    8 ++++++++
- 2 files changed, 9 insertions(+), 0 deletions(-)
+This one?
 
-diff --git a/include/linux/netfilter/xt_LOG.h b/include/linux/netfilter/xt_LOG.h
-index e4b1177..d84710c 100644
---- a/include/linux/netfilter/xt_LOG.h
-+++ b/include/linux/netfilter/xt_LOG.h
-@@ -8,6 +8,7 @@
- #define XT_LOG_UID		0x08	/* Log UID owning local socket */
- #define XT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
- #define XT_LOG_MACDECODE	0x20	/* Decode MAC header */
-+#define XT_LOG_ADD_TIMESTAMP	0x40	/* Add a timestamp */
- #define XT_LOG_MASK		0x6f
- 
- struct xt_log_info {
-diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index 211d341..4e392cf 100644
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@ -490,6 +490,14 @@ log_packet_common(struct sbuff *m,
- 	if (loginfo->type == NF_LOG_TYPE_LOG)
- 		sb_add(m, "<%d>", loginfo->u.log.level);
- 
-+	if (loginfo->u.log.logflags & XT_LOG_ADD_TIMESTAMP) {
-+		struct timespec tv;
-+
-+		getnstimeofday(&tv);
-+		sb_add(m, "TIMESTAMP=%li.%03u ", tv.tv_sec,
-+			(unsigned int)tv.tv_nsec / NSEC_PER_MSEC);
-+	}
-+
- 	sb_add(m, "%sIN=%s OUT=%s ", prefix, in ? in->name : "",
- 	       out ? out->name : "");
- #ifdef CONFIG_BRIDGE_NETFILTER
+  [   10.344571] r8169 0000:02:00.0: eth0: RTL8168d/8111d at 0xf8064000, bc:ae:c5:27:19:6f, XID 083000c0 IRQ 41
+
+> Did you enable some offload feature (see 'ethtool -k') ?
+
+Not beyond the defaults as far as I know.  Here's the ethtool -k output:
+
+  Offload parameters for p10p1:
+  rx-checksumming: on
+  tx-checksumming: off
+  scatter-gather: off
+  tcp-segmentation-offload: off
+  udp-fragmentation-offload: off
+  generic-segmentation-offload: off
+  generic-receive-offload: on
+  large-receive-offload: off
+  rx-vlan-offload: on
+  tx-vlan-offload: on
+  ntuple-filters: off
+  receive-hashing: off
+
+Thanks,
 -- 
-1.7.7.3
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
