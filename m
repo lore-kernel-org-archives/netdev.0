@@ -1,49 +1,58 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Traffic shaping with netkey
-Date: Wed, 15 Feb 2012 05:40:14 -0500
-Message-ID: <1329302414.6479.18.camel@denise.theartistscloset.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: dedicatedhk@yahoo.com.hk
+Subject: Dedicated Server
+Date: Wed, 15 Feb 2012 17:16:50 +0800 (HKT)
+Message-ID: <6ysZltt@mail.ht.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:63154 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755978Ab2BOKkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Feb 2012 05:40:21 -0500
+Received: from 124-248-200-43.sunnyvision.com ([124.248.200.43]:43890 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751903Ab2BOKnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 05:43:10 -0500
+Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
+	by teamb04.edmhongkong.com (Postfix) with ESMTP id A92C954C9A
+	for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 17:16:52 +0800 (HKT)
+Received: from sample (unknown [124.248.200.17])
+	by smtp1.edmhongkong.com (Postfix) with SMTP id 25B604FAF9
+	for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 17:16:50 +0800 (HKT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  I'm finally making some progress on our 95 percentile
-traffic shaping project.  The last major area of exploration has been
-handling all kinds of VPN traffic - netkey, KLIPS, OpenVPN.  netkey has
-proven the most challenging with its double pass through the same
-interface.  After several days playing in the lab, I'd like to share my
-observations to see if they are as they should be or if I mangled my
-testing!
+ear All,
 
-The challenge has been classifying the netkey traffic.  Ingress has
-proven easier than egress surprisingly.  I redirected all ingress to an
-ifb interface.  I needed to create a separate, relatively unlimited HFSC
-service curve for the ESP traffic, but then was able to use a tc filter
-to properly classify the decrypted packets.  I find I can also use
-CONNMARK to classify the decrypted packets on ingress.
+We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
 
-Egress has been a challenge.  Perhaps it is extra complicated because I
-needed to redirect all egress traffic to an ifb interface, too, so that
-traffic coming off the tun and ipsec interfaces would land in the same
-queues as the netkey traffic.  The only was I could do this for egress
-was to use the iptables CLASSIFY target. That seemed to properly
-classify the netkey traffic before it was encrypted.  tc filters did not
-seem to catch the packet before it was encrypted; perhaps this is
-because the filters are operating on the ifb interface and the packet
-has been encrypted/encapsulated before handing it off to ifb.
+Dell=3F PowerEdge=3F EnterpriseRack Mount Server
+-Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
+-8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
+-500GB, 3.5", 6Gbps SAS x 2
+-Raid 1 Mirroring Protection
+-Remote KVM (iDRAC6 Enterprise)
 
-Most surprisingly, I found I could not use CONNMARK for egress netkey
-traffic.  I could see that SYN packet triggered the rule to mark the
-connection and I see tons of packets hitting the restore mark rule but
-all the traffic is going to the default HFSC queue rather than being
-properly classified.
+Dell(TM) PowerEdge(TM) R410 Rack Mount Server
+-Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
+-4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
+-500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
+-iDRAC6 Enterprise or Express (Remote KVM Management)
 
-Is this to be expected, viz., that CLASSIFY works on ifb redirected
-netkey egress traffic but tc filters and CONNMARK do not? Thanks - John
+Every Dedicated Server Hosting Solution Also Includes: 
+ 
+Software Specification 
+- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
+- Full root-level access 
+- Data Center Facilities 
+- Shared Local & International Bandwidth 
+- 2 IP Addresses Allocation 
+- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
+- FM200=A1=A7based fire suppression system 
+- 24x7 CRAC Air Conditioning and Humidity Control 
+- 24x7 Security Control 
+- 24x7 Remote Hand Service 
+
+Pls send us email for further information.Thanks,
+
+Boris 
+boris@dedicatedserver.com.hk 
+
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
