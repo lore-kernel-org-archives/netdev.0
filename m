@@ -1,35 +1,39 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 1/1] usb: cdc-ncm: Increase maximum allowed datagram size
-Date: Wed, 15 Feb 2012 09:53:20 +0100
-Message-ID: <201202150953.20341.oneukum@suse.de>
-References: <1329230375-25508-1-git-send-email-toby.gray@realvnc.com> <20120214.144622.678577766818888054.davem@davemloft.net> <CAL_Kpj0VSu-ByUEwTeVG5-5psab3h38bTL=ot7vYD8A+Oeb_Ug@mail.gmail.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: bonding with 3c59x driver
+Date: Wed, 15 Feb 2012 10:53:14 +0100
+Message-ID: <201202151053.14384.jdelvare@suse.de>
+References: <201202132253.16496.jdelvare@suse.de> <201202142027.13147.jdelvare@suse.de> <4F3ACCEE.6070701@genband.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org,
-	oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL_Kpj0VSu-ByUEwTeVG5-5psab3h38bTL=ot7vYD8A+Oeb_Ug-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:41337 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751647Ab2BOJxR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 04:53:17 -0500
+In-Reply-To: <4F3ACCEE.6070701@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, 14. Februar 2012, 23:27:29 schrieb Alexey Orishko:
-> On Tue, Feb 14, 2012 at 8:46 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> >
-> > Can a USB expert please sanity check this before I apply it?
+On Tuesday 14 February 2012 10:06:54 pm Chris Friesen wrote:
+> On 02/14/2012 01:27 PM, Jean Delvare wrote:
+> > Without the patch above, doing bonding on top of 3c59x is simply
+> > not possible, at least not in active-backup mode. For other modes
+> > it depends if you are only interested in load balancing or also on
+> > redundancy.
 > 
-> I would recommend to change CDC_NCM_NTB_MAX_SIZE_TX(RX) to 32K and
-> simply set MAX_DATAGRAM_SIZE to 16K
+> Could you just use arp monitoring instead of mii?
 
-Have you tried that under severe memory presssure?
+If it was just for me, I could, and probably would. But when I am trying 
+to reproduce a customer bug, I have to use exactly the same options the 
+customer is using.
 
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Jean Delvare
+Suse L3
