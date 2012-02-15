@@ -1,49 +1,34 @@
-From: Till Kamppeter <till.kamppeter@gmail.com>
-Subject: Re: Wiki page for Ethernet drivers
-Date: Wed, 15 Feb 2012 18:08:17 +0100
-Message-ID: <4F3BE681.4040607@gmail.com>
-References: <CAB=NE6WdaPPVmq7+oSsjbN+4mcH4zTqXHqu5iAAOFzJfhL8AkQ@mail.gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 2/2] Netfilter: xt_LOG: Add timestamp support
+Date: Wed, 15 Feb 2012 18:16:12 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1202151815270.15357@frira.zrqbmnf.qr>
+References: <1329314115-6899-1-git-send-email-richard@nod.at>  <1329314115-6899-2-git-send-email-richard@nod.at> <1329314492.2437.32.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4F3BBC11.1030308@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@frijolero.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Licquia <jeff@licquia.org>,
-	Eric Searcy <eric@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6WdaPPVmq7+oSsjbN+4mcH4zTqXHqu5iAAOFzJfhL8AkQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+	pablo@netfilter.org, basti@b-bl.de
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4F3BBC11.1030308@nod.at>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff, Eric, can someone of you help here? Thanks.
 
-    Till
+On Wednesday 2012-02-15 15:07, Richard Weinberger wrote:
+>>> +		struct timespec tv;
+>>> +		unsigned int msec;
+>>> +
+>>> +		getnstimeofday(&tv);
+>>> +		msec = tv.tv_nsec / NSEC_PER_MSEC;
+>>> +		sb_add(m, "TIMESTAMP=%li.%03li ", tv.tv_sec, msec);
+>>
+>> Since you want to use this temp variable "unsigned int msec" (I have no
+>> idea why...), you must change printf format accordingly : %03u instead
+>> of %03li
+>
+> *grml*.
+> I'll remove the temp variable and use %03u.
 
-On 02/15/2012 05:58 PM, Luis R. Rodriguez wrote:
-> Folks,
->
-> can I get edit rights to edit this page:
->
-> https://www.linuxfoundation.org/collaborate/workgroups/networking/mainpage
->
-> or any subsection under networking? I'd like to make a home page for
-> Ethernet drivers. So far I've stuffed this under the wireless wiki but
-> this is not the appropriate place for it:
->
-> http://wireless.kernel.org/en/users/Drivers/ethernet
->
-> A few of our guys would also use this to keep editing specifically the
-> new alx driver documentation. If this is not the right place can you
-> please point me to where we can add Ethernet driver documentation
-> updates? As I have noted before, the Documentation/ directory of the
-> kernel does not seem appropriate for this. We have had quite a bit of
-> success in documenting Wireless drivers through the wireless wiki and
-> I'd like to continue that tradition.
->
->    Luis
->
+Why not just print the nsecs directly (with %09 of course)?
