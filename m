@@ -1,64 +1,127 @@
-From: Sameer Nanda <snanda@chromium.org>
-Subject: Re: [PATCH 1/2] r8169: Enable WOL from Magic Packet by default
-Date: Thu, 16 Feb 2012 12:47:00 -0800
-Message-ID: <CANMivWbccWrz=bVhKA8=yDj+RVURiUNFZZpQTix0oD6Ld7+4Gw@mail.gmail.com>
-References: <1329244079-27842-1-git-send-email-snanda@chromium.org>
- <20120215001342.GA11453@electric-eye.fr.zoreil.com> <CANMivWax5jGNJLkjZWi2F5iaM+bnK0Ti1qZzQx4CGgkzeQqt7Q@mail.gmail.com>
- <20120214.223746.419009242484406948.davem@davemloft.net>
+From: Will Drewry <wad@chromium.org>
+Subject: [PATCH v9 5/8] seccomp: Add SECCOMP_RET_TRAP
+Date: Thu, 16 Feb 2012 15:11:45 -0600
+Message-ID: <1329426706-26562-1-git-send-email-wad@chromium.org>
+References: <CABqD9hZSLqn+=jr6sWwp_eJ5WsuGpH2Khoc_7aRmYt+1ZaEGoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, rjw@sisk.pl, hayeswang@realtek.com,
-	netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:62564 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755884Ab2BPUrV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 15:47:21 -0500
-Received: by qafk1 with SMTP id k1so2834774qaf.19
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 12:47:20 -0800 (PST)
-In-Reply-To: <20120214.223746.419009242484406948.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org, keescook@chromium.org,
+	Will Drewry <wad@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CABqD9hZSLqn+=jr6sWwp_eJ5WsuGpH2Khoc_7aRmYt+1ZaEGoA@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 14, 2012 at 7:37 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Sameer Nanda <snanda@chromium.org>
-> Date: Tue, 14 Feb 2012 17:00:04 -0800
->
->> On Tue, Feb 14, 2012 at 4:13 PM, Francois Romieu <romieu@fr.zoreil.c=
-om> wrote:
->>> Sameer Nanda <snanda@chromium.org> :
->>>> Set the WOL config registers to only enable WOL from magic packet =
-by
->>>> default. Without this change in place, the WOL config register
->>>> settings on warm reboot come up in an inconsistent state since the=
-se
->>>> registers don't get reset on a warm reboot.
->>>
->>> I am not completely convinced, especially as the change of behavior
->>> could be noticed.
->>
->> Agreed that this change could be noticed. =C2=A0Maybe a module param=
-eter
->> might be a better way to handle this?
->
-> Please no random module parameters, something ethtool based is
-> what you should shoot for.
+Adds a new return value to seccomp filters that triggers a SIGILL to be
+delivered with the new ILL_SECCOMP si_code.
 
-With the existing code, WOL from PHY, unicast, multicast and broadcast
-packets may get accidentally enabled.  The probability of seeing such
-packets/events in the wild is quite high and this can cause unintended
-wakes from S3 or reboots.
+This allows in-process system call emulation, including just specifying
+an errno or cleanly dumping core, rather than just dying.  It also
+avoids interfering with normal debugger operation (injecting SIGTRAPs).
 
-The probability of seeing matching MagicPackets in the wild is
-vanishingly small.  Therefore, setting MagicPacket as the only default
-WOL mechanism seems like the safer option.
+v9: - changes to SIGILL (markus@chromium.org)
+v8: - clean up based on changes to dependent patches
+v7: - introduction
 
-Since ethtool already supports setting of WOL options from userland, I
-guess we don't need a new module parameter as the user can set WOL
-options according to his own desires.
+Signed-off-by: Will Drewry <wad@chromium.org>
+---
+ arch/Kconfig                  |    8 ++++----
+ include/asm-generic/siginfo.h |    3 ++-
+ include/linux/seccomp.h       |    1 +
+ kernel/seccomp.c              |   20 ++++++++++++++++++++
+ 4 files changed, 27 insertions(+), 5 deletions(-)
 
---=20
-Sameer
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 3f3052b..a01c151 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -203,10 +203,10 @@ config HAVE_ARCH_SECCOMP_FILTER
+ 	bool
+ 	help
+ 	  This symbol should be selected by an architecure if it provides
+-	  asm/syscall.h, specifically syscall_get_arguments() and
+-	  syscall_set_return_value().  Additionally, its system call
+-	  entry path must respect a return value of -1 from
+-	  __secure_computing_int() and/or secure_computing().
++	  asm/syscall.h, specifically syscall_get_arguments(),
++	  syscall_set_return_value(), and syscall_rollback().
++	  Additionally, its system call entry path must respect a return
++	  value of -1 from __secure_computing_int() and/or secure_computing().
+ 
+ config SECCOMP_FILTER
+ 	def_bool y
+diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
+index 0dd4e87..e565662 100644
+--- a/include/asm-generic/siginfo.h
++++ b/include/asm-generic/siginfo.h
+@@ -166,7 +166,8 @@ typedef struct siginfo {
+ #define ILL_PRVREG	(__SI_FAULT|6)	/* privileged register */
+ #define ILL_COPROC	(__SI_FAULT|7)	/* coprocessor error */
+ #define ILL_BADSTK	(__SI_FAULT|8)	/* internal stack error */
+-#define NSIGILL		8
++#define ILL_SECCOMP	(__SI_FAULT|9)	/* illegal syscall via seccomp */
++#define NSIGILL		9
+ 
+ /*
+  * SIGFPE si_codes
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index 879ece2..1be562f 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -19,6 +19,7 @@
+  * selects the least permissive choice.
+  */
+ #define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
++#define SECCOMP_RET_TRAP	0x00020000U /* disallow and send sigtrap */
+ #define SECCOMP_RET_ERRNO	0x00030000U /* returns an errno */
+ #define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
+ 
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 55d000d..a7b6510 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -290,6 +290,21 @@ void copy_seccomp(struct seccomp *child,
+ 	child->mode = prev->mode;
+ 	child->filter = get_seccomp_filter(prev->filter);
+ }
++
++/**
++ * seccomp_send_sigill - signals the task to allow in-process syscall emulation
++ *
++ * Forces a SIGILL with si_code of ILL_SECCOMP.
++ */
++static void seccomp_send_sigill(void)
++{
++	struct siginfo info;
++	memset(&info, 0, sizeof(info));
++	info.si_signo = SIGILL;
++	info.si_code = ILL_SECCOMP;
++	info.si_addr = (void __user *)KSTK_EIP(current);
++	force_sig_info(SIGILL, &info, current);
++}
+ #endif	/* CONFIG_SECCOMP_FILTER */
+ 
+ /*
+@@ -343,6 +358,11 @@ int __secure_computing_int(int this_syscall)
+ 						 -(action & SECCOMP_RET_DATA),
+ 						 0);
+ 			return -1;
++		case SECCOMP_RET_TRAP:
++			/* Show the handler the original registers. */
++			syscall_rollback(current, task_pt_regs(current));
++			seccomp_send_sigill();
++			return -1;
+ 		case SECCOMP_RET_ALLOW:
+ 			return 0;
+ 		case SECCOMP_RET_KILL:
+-- 
+1.7.5.4
+
