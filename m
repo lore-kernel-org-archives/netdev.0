@@ -1,59 +1,77 @@
-From: Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 4/5] usb: usbnet: Add validation of dev->maxpacket to
- usbnet
-Date: Thu, 16 Feb 2012 10:55:05 +0000
-Message-ID: <4F3CE089.5000105@realvnc.com>
-References: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com> <1329317261-3406-5-git-send-email-toby.gray@realvnc.com> <201202152034.03000.oliver@neukum.org>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net
+ tree
+Date: Thu, 16 Feb 2012 13:24:10 +0200
+Message-ID: <1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201202152034.03000.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eilong@broadcom.com, eric.dumazet@gmail.com
+To: sfr@canb.auug.org.au, davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15/02/12 19:34, Oliver Neukum wrote:
-> Am Mittwoch, 15. Februar 2012, 15:47:40 schrieb Toby Gray:
->> Several parts of usbnet rely on dev->maxpacket not being set to 0 to
->> prevent division by zero errors.
->>
->> This adds validation of the dev->maxpacket value being non-zero before
->> treating the device probe as successful.
->>
->> Signed-off-by: Toby Gray<toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
->> ---
->>   drivers/net/usb/usbnet.c |    4 ++++
->>   1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->> index 4ccd316..1491c90 100644
->> --- a/drivers/net/usb/usbnet.c
->> +++ b/drivers/net/usb/usbnet.c
->> @@ -1427,6 +1427,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
->>   		dev->rx_urb_size = dev->hard_mtu;
->>   	if (!dev->maxpacket)
->>   		dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
->> +	if (!dev->maxpacket) {
->> +		status = -ENODEV;
->> +		goto out3;
-> Hm. I am sceptical. If this happens a subdriver is buggy. We should
-> not hide that. I am afraid I have to reject this patch.
+On Wed, 2012-02-15 at 17:38 -0800, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c between commit
+> 66d885cba670 ("bnx2x: fix bnx2x_storm_stats_update() on big endian") from
+> the net tree and commit 1355b704b9ba ("bnx2x: consistent statistics after
+> internal driver reload") from the net-next tree.
+> 
+> I fixed it up (see below) but suspect that there may be more needed.
 
-That's understandable, I almost didn't include it in the series. The 
-only reason I added this to the patch series was because I spent a while 
-trying to track down a division by zero, when it turns out it was 
-actually due to dev->maxpacket being zero when usbnet_start_xmit tried 
-to calculate length % dev->maxpacket.
+Hey Stephen,
 
-Would you prefer that I drop this patch entirely or just change it to 
-something like a BUG_ON?
+I don't fully understand your merge - it seems to create a mash between
+the "bnx2x: fix bnx2x_storm_stats_update() on big endian" patch in net,
+and the "bnx2x: consistent statistics after internal driver reload"
+patch in net-next.
 
-Regards,
+If the purpose of this merge is simply to update net-next tree with the
+changes from "bnx2x: fix bnx2x_storm_stats_update() on big endian", you
+might consider the following patch:
 
-Toby
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Subject: [PATCH 1/1] bnx2x: merge net --> net-next
+From: Mintz Yuval <yuvalmin@broadcom.com>
+
+This patch applies the changes made in the patch
+"bnx2x: fix bnx2x_storm_stats_update() on big endian" to net into net-next.
+
+Signed-off-by: Mintz Yuval <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index abd310d..14c961b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1006,14 +1006,14 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 	       estats->rx_stat_ifhcinbadoctets_lo);
+ 
+ 	ADD_64(estats->total_bytes_received_hi,
+-	       tfunc->rcv_error_bytes.hi,
++	       le32_to_cpu(tfunc->rcv_error_bytes.hi),
+ 	       estats->total_bytes_received_lo,
+-	       tfunc->rcv_error_bytes.lo);
++	       le32_to_cpu(tfunc->rcv_error_bytes.lo));
+ 
+ 	ADD_64(estats->error_bytes_received_hi,
+-	       tfunc->rcv_error_bytes.hi,
++	       le32_to_cpu(tfunc->rcv_error_bytes.hi),
+ 	       estats->error_bytes_received_lo,
+-	       tfunc->rcv_error_bytes.lo);
++	       le32_to_cpu(tfunc->rcv_error_bytes.lo));
+ 
+ 	UPDATE_ESTAT(etherstatsoverrsizepkts, rx_stat_dot3statsframestoolong);
+ 
+-- 
+1.7.9.rc2
