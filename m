@@ -1,113 +1,55 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH] bnx2x: tx-switching module parameter
-Date: Thu, 16 Feb 2012 11:38:47 -0800
-Message-ID: <4F3D5B47.6030505@intel.com>
-References: <1329401112-9542-1-git-send-email-ariele@broadcom.com> <20120216094936.3449e6ef@nehalam.linuxnetplumber.net> <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 20:44:52 +0100
+Message-ID: <1329421492.2645.23.camel@edumazet-laptop>
+References: <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1329400265.3048.178.camel@deadeye>
+	 <1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120216.120149.437368615973561397.davem@davemloft.net>
+	 <CADVnQykm==YJZbdCbLxgJ236jD2yN0xT99gmeYX-FGnyBvfEGA@mail.gmail.com>
+	 <1329416523.2645.7.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Ariel Elior <ariele@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: eilong@broadcom.com
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, alekcejk@googlemail.com
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:61859 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751791Ab2BPTjE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Feb 2012 14:39:04 -0500
-In-Reply-To: <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:37157 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800Ab2BPTo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 14:44:58 -0500
+Received: by bkcjm19 with SMTP id jm19so2355633bkc.19
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 11:44:57 -0800 (PST)
+In-Reply-To: <1329416523.2645.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/2012 10:35 AM, Eilon Greenstein wrote:
-> On Thu, 2012-02-16 at 09:49 -0800, Stephen Hemminger wrote:
->> On Thu, 16 Feb 2012 16:05:12 +0200
->> "Ariel Elior" <ariele@broadcom.com> wrote:
->>
->>> In 57712 and 578xx the tx-switching module parameter allows the user to control
->>> whether outgoing traffic can be loopbacked into the device in case there is a
->>> relevant client for the data using the same device for rx.
->>> A classic example where this is necessary is for virtualization purposes, where
->>> one vm is transmitting data to another, while both use different pci functions of
->>> the same port of the same nic.
->>>
->>> In case there is a promiscuous client in the rx (which wants to receive all
->>> data) or if the traffic is broadcast, traffic may be sent on both the loopback
->>> channel and the physical wire.
->>>
->>> The reason tx-switching is controlled by a module parameter is twofold:
->>> 1. There is a certain performance penalty for tx-switching because:
->>>    a. every packet must be compared against the receiver clients.
->>>    b. duplicated traffic being loopbacked can consume a significant portion of
->>>    the overall bandwidth, depending on the scenario.
->>> 2. Tx-switching doesn't make much sense as a per function parameter, but should
->>> rather be controlled uniformly for the  entire device. The reason is that if one
->>> interface wants to be able to send data on the loopback it is not enough to
->>> enable tx-switching for that interface, as the target interface must also
->>> register its rx classification information where the transmitting interface can
->>> find it. One would still have to use the module parameter in each VM, though.
->>>
->>> Signed-off-by: Ariel Elior <ariele@broadcom.com>
->>> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->>
->> Module parameters are the hardware vendors friend, but the system
->> integrators nightmare. Although you think your hardware is special
->> but it isn't some other vendor will have same idea, how is user and
->> distribution supposed to control it?
-> 
-> Actually, module parameters require more explanations and cause more
-> questions since they are unique to the device than any standard way - so
-> we do prefer a standard way of doing things. In this case, we looked at
-> other driver and scanned the mailing list history to see if we missed
-> some discussion - but could not found anything. It is possible that for
-> some HW the cost of doing this internal switching is low and therefore
-> enabled by default and it is possible that some HW do not support it.
-> This applies only to multi-functions (more than one PF sharing the same
-> network port) devices and is usually required in VMs which are using
-> physical device assignment since most multi-function environments are
-> controlled by the switch which is looping back the packets.
-> 
+Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 19:22 +0100, Eric Dumazet a =C3=A9=
+crit :
 
-It should be relevant to any case where your doing hardware switching and
-the mechanism to configure this should be independent of how you expose
-multiple MAC services (mac/vlan pairs) realized as net devices in Linux.
-Specifically the mechanism should work for a PF and many VFs, multiple PFs,
-or queue based filtering mechanisms (Intel's VMDq).
-
-The 82599 Intel devices support disabling loopback. This is needed to support
-VEPA modes as defined in the 802.1Qbg standard which should be ratified
-shortly. Typically you would expect the peer to support a hairpin forwarding
-so that PF-VF, VF-VF, and PF-PF communication still works.
-
-> But netdev is a great place to ask - are there other vendors out there
-> that requires this control over internal switching? If so, we can define
-> a new ethtool command. The alternative of using the ethtool private
-> flags seems just as inconvenient from administrators point of view and
-> also seem less appropriate since this configuration is more likely to be
-> the same for all PFs on the same machine.
-> 
-
-This needs to be configurable at runtime. Because the 802.1Qbg spec defines
-a protocol to learn which mode we should use and we want to be able to support
-this. 'lldpad' and 'libvirt' already have some support for this. Also macvlan's
-may be stacked on top of the PF and depending on the macvlan mode VEB or VEPA
-you may need to configure the hardware switch to be compatible.
-
-My thought on this is it should be a netlink command because it will be helpful
-in userspace to get events when this is changed. A module parameter should be
-a non-starter here because that would require any management application to start
-loading and unloading modules which is a pain and bounces the link. Ethtool is
-better than a modparam but I would prefer to get an event so that I can keep
-lldpad (or any other app for that matter) in sync.
-
-Thanks,
-John
+> On sender side, there are also issues, because if I have TSO on or of=
+f
+> on my 'netem delay 50ms' machine, performance is completely different=
+=2E
 
 
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, my sender is a 32bit kernel, so tcp_wmem[2] was less than
+1Mbytes..
+
+$ cat /proc/sys/net/ipv4/tcp_wmem
+4096	16384	903780
+
+Socket cwnd is then capped to ~400 with TSO=3Doff, and ~1500 with TSO=3D=
+on
+
+
+TSO off, a 1500 bytes frame now has truesize=3D2048+192, while in previ=
+ous
+kernel it had truesize=3D1500+192 before linux 3.2
+
+(903780/2240 =3D 403)
+
+(TSO permits a better truesize/len ratio, close to 1)
+
+With 50ms RTT, 400 packets in flight means no more than 90Mbit/s
