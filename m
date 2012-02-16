@@ -1,59 +1,60 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Thu, 16 Feb 2012 13:19:58 -0500
-Message-ID: <CADVnQyknYYaduh4nnc27=oGofBqpExJzqA-ToXufZxbtm0xs6Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 19:22:03 +0100
+Message-ID: <1329416523.2645.7.camel@edumazet-laptop>
 References: <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120216.120149.437368615973561397.davem@davemloft.net>
-	<CADVnQykm==YJZbdCbLxgJ236jD2yN0xT99gmeYX-FGnyBvfEGA@mail.gmail.com>
-	<1461927.R8CTCUdqT9@localhost.localdomain>
+	 <1329400265.3048.178.camel@deadeye>
+	 <1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120216.120149.437368615973561397.davem@davemloft.net>
+	 <CADVnQykm==YJZbdCbLxgJ236jD2yN0xT99gmeYX-FGnyBvfEGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: alekcejk@googlemail.com
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, alekcejk@googlemail.com
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:43147 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752127Ab2BPSUA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 13:20:00 -0500
-Received: by qadc10 with SMTP id c10so4711198qad.19
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 10:20:00 -0800 (PST)
-In-Reply-To: <1461927.R8CTCUdqT9@localhost.localdomain>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:64638 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753312Ab2BPSWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 13:22:08 -0500
+Received: by bkcjm19 with SMTP id jm19so2252661bkc.19
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 10:22:07 -0800 (PST)
+In-Reply-To: <CADVnQykm==YJZbdCbLxgJ236jD2yN0xT99gmeYX-FGnyBvfEGA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2012 at 12:54 PM,  <alekcejk@googlemail.com> wrote:
+Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 12:22 -0500, Neal Cardwell a =C3=A9=
+crit :
+> Our team has also run into issues with GRO/LRO "stretch ACKs", and
+> their negative impact on TCP performance. We have a patch that we've
+> been working with that deals with the sender-side issues. It turns ou=
+t
+> that neither the ABC nor non-ABC byte counting quite fixes the stretc=
+h
+> ACKs issues.
+>=20
+> On the receiver side, the approach of changing tcp_grow_window() and
+> __tcp_grow_window() to adjust things in terms of actual packet size
+> rather than a fixed 2*MSS sounds great to me as well.
+>=20
+> In terms of the original 3.1 vs 3.2 issue report that started this
+> thread, I didn't see any evidence of LRO or GRO causing stretch ACKs.
+> (Alexey, would you be able to confim by running "ethtool -k eth0" on
+> both kernels?) So it seems that probably the original issue is
+> unrelated to stretch ACKs?
+>=20
 
-> Looks like =A0"ethtool -k eth0" shows the same with both kernels:
->
-> Offload parameters for eth0:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp-segmentation-offload: off
-> udp-fragmentation-offload: off
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off
-> rx-vlan-offload: off
-> tx-vlan-offload: off
-> ntuple-filters: off
-> receive-hashing: off
+I do believe the "3.1 vs 3.2" issue is a matter of how skb truesize
+fixes uncover prior bugs in tcp stack. Some drivers were lying about sk=
+b
+truesize in hope to avoid these bugs...
 
-Great. Thanks, Alexey.
+=46or instance, I think we dont open receiver window fast enough in thi=
+s
+case, (and we probably enter the slow __tcp_grow_window() path)
 
-I still think it would be useful to have these three pieces of data
-for a slow/3.2.x transfer (from a geographically distant server) if
-you have a sec:
+On sender side, there are also issues, because if I have TSO on or off
+on my 'netem delay 50ms' machine, performance is completely different.
 
-- tcpdump of first 300 or so packets to see SYN/SYNACK options and RTT
-
-- tcpdump of _last_ 300 or so packets, to see the steady-state dynamics
-=A0with receiver window and packet inter-arrival times
-
-- summary of overall throughput wget sees on that transfer
-
-This should help establish whether the receiver window is really the
-limiting factor in the slow cases.
-
-neal
+It might have something to do with BQL. More testings needed.
