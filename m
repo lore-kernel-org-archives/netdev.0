@@ -1,55 +1,35 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v8 3/8] seccomp: add system call filtering using BPF
-Date: Thu, 16 Feb 2012 14:06:12 -0800
-Message-ID: <4F3D7DD4.6070103@zytor.com>
-References: <1329422549-16407-1-git-send-email-wad@chromium.org> <1329422549-16407-3-git-send-email-wad@chromium.org> <4F3D61CB.2000301@zytor.com> <CABqD9hb3WxKxLZ2GuUrbDM--koW+a3ser5TU8y6+e0sAhOT9dw@mail.gmail.com> <4F3D7250.6040504@zytor.com> <CAE6n16kweRehdozft0tKOB1P5LtGFJDCLQP=2EXfm8P0enyH=A@mail.gmail.com> <4F3D766E.7040205@zytor.com> <CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: sfc-next 2012-02-16
+Date: Thu, 16 Feb 2012 17:08:25 -0500 (EST)
+Message-ID: <20120216.170825.1403615739826000085.davem@davemloft.net>
+References: <1329352938.2565.26.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Markus Gutschke <markus@chromium.org>,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
-	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-	corbet@lwn.net, eric.dumazet@gmail.com, keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	sshah@solarflare.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43879 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753981Ab2BPWIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 17:08:31 -0500
+In-Reply-To: <1329352938.2565.26.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/16/2012 01:51 PM, Will Drewry wrote:
->>
->> Put the bloody bit in there and let the pattern program make that decision.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 16 Feb 2012 00:42:18 +0000
+
+> The following changes since commit eb40d89276705a35c9a2e05793ae63411ae357eb:
 > 
-> Easy enough to add a bit for the mode: 32-bit or 64-bit.  It seemed
-> like a waste of cycles for every 32-bit program or every 64-bit
-> program to check to see that its calling convention hadn't changed,
-> but it does take away a valid decision the pattern program should be
-> making.
+>   mlx4: add unicast steering entries to resource_tracker (2012-02-14 14:11:59 -0500)
 > 
-> I'll add a flag for 32bit/64bit while cleaning up seccomp_data. I
-> think that will properly encapsulate the is_compat_task() behavior in
-> a way that is stable for compat and non-compat tasks to use.  If
-> there's a more obvious way, I'm all ears.
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 > 
+> (commit cd2d5b529cdb9bd274f3e4bc68d37d4d63b7f383)
+> 
+> The main change here is the addition of SR-IOV support.
 
-is_compat_task() is not going to be the right thing for x86 going
-forward, as we're introducing the x32 ABI (which uses the normal x86-64
-entry point, but with different eax numbers, and bit 30 set.)
-
-The actual state is the TS_COMPAT flag in the thread_info structure,
-which currently matches is_compat_task(), but perhaps we should add a
-new helper function syscall_namespace() or something like that...
-
-Either that or we can just use another bit in the syscall number field...
-
-	-hpa
-
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+Pulled, thanks Ben.
