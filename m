@@ -1,117 +1,141 @@
-From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v8 3/8] seccomp: add system call filtering using BPF
-Date: Thu, 16 Feb 2012 17:00:19 -0600
-Message-ID: <CABqD9hZd41AWZub+wxGWwxJtGWfk+pVWQhn7DM_0q0tS9r_wDA@mail.gmail.com>
-References: <1329422549-16407-1-git-send-email-wad@chromium.org>
-	<1329422549-16407-3-git-send-email-wad@chromium.org>
-	<4F3D61CB.2000301@zytor.com>
-	<CABqD9hb3WxKxLZ2GuUrbDM--koW+a3ser5TU8y6+e0sAhOT9dw@mail.gmail.com>
-	<4F3D7250.6040504@zytor.com>
-	<CAE6n16kweRehdozft0tKOB1P5LtGFJDCLQP=2EXfm8P0enyH=A@mail.gmail.com>
-	<4F3D766E.7040205@zytor.com>
-	<CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
-	<4F3D7DD4.6070103@zytor.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [RFC PATCH V4 12/13] netfront: multi page ring support.
+Date: Thu, 16 Feb 2012 17:57:13 -0500
+Message-ID: <20120216225713.GC2795@phenom.dumpdata.com>
+References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
+ <1328201363-13915-13-git-send-email-wei.liu2@citrix.com>
+ <20120215224253.GA18762@phenom.dumpdata.com>
+ <1329386571.4520.44.camel@leeds.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Markus Gutschke <markus@chromium.org>,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
-	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-	corbet@lwn.net, eric.dumazet@gmail.com, keescook@chromium.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <4F3D7DD4.6070103@zytor.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:45232 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753267Ab2BPXAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 18:00:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1329386571.4520.44.camel@leeds.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2012 at 4:06 PM, H. Peter Anvin <hpa@zytor.com> wrote:
-> On 02/16/2012 01:51 PM, Will Drewry wrote:
->>>
->>> Put the bloody bit in there and let the pattern program make that d=
-ecision.
->>
->> Easy enough to add a bit for the mode: 32-bit or 64-bit. =A0It seeme=
-d
->> like a waste of cycles for every 32-bit program or every 64-bit
->> program to check to see that its calling convention hadn't changed,
->> but it does take away a valid decision the pattern program should be
->> making.
->>
->> I'll add a flag for 32bit/64bit while cleaning up seccomp_data. I
->> think that will properly encapsulate the is_compat_task() behavior i=
-n
->> a way that is stable for compat and non-compat tasks to use. =A0If
->> there's a more obvious way, I'm all ears.
->>
->
-> is_compat_task() is not going to be the right thing for x86 going
-> forward, as we're introducing the x32 ABI (which uses the normal x86-=
-64
-> entry point, but with different eax numbers, and bit 30 set.)
->
-> The actual state is the TS_COMPAT flag in the thread_info structure,
-> which currently matches is_compat_task(), but perhaps we should add a
-> new helper function syscall_namespace() or something like that...
+On Thu, Feb 16, 2012 at 10:02:51AM +0000, Wei Liu wrote:
+> On Wed, 2012-02-15 at 22:42 +0000, Konrad Rzeszutek Wilk wrote:
+> > On Thu, Feb 02, 2012 at 04:49:22PM +0000, Wei Liu wrote:
+> > > 
+> > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> > 
+> > It also needs this:
+> > 
+> > From 4cf97c025792cf073edc4d312b962ecc0b3b67ab Mon Sep 17 00:00:00 2001
+> > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Date: Wed, 15 Feb 2012 17:39:46 -0500
+> > Subject: [PATCH] xen/net: Don't try to use all of the rings if we are not
+> >  built for it.
+> > 
+> > Otherwise we end up:
+> > 
+> > BUG: unable to handle kernel paging request at ffff88004000c0c8
+> > IP: [<ffffffff810f1ee4>] free_one_page+0x144/0x410
+> > PGD 1806063 PUD 0
+> > 22:22:34 tst007 logger: /etc/xen/scripts/vif-bridge: offline XENBUS_PATH=backend/vif/1/0
+> > 00 [#1] SMP
+> > CPU 0
+> > Modules linked in:
+> > 
+> > Pid: 17, comm: xenwatch Not tainted 3.2.0upstream #2 Xen HVM domU
+> > RIP: 0010:[<ffffffff810f1ee4>]  [<ffffffff810f1ee4>] free_one_page+0x144/0x410
+> > RSP: 0018:ffff88003bea3c40  EFLAGS: 00010046
+> > .. snip.
+> > Call Trace:
+> >  [<ffffffff810f2c7f>] __free_pages_ok+0x9f/0xe0
+> >  [<ffffffff810f4eab>] __free_pages+0x1b/0x40
+> >  [<ffffffff810f4f1a>] free_pages+0x4a/0x60
+> >  [<ffffffff8138b33d>] xennet_disconnect_backend+0xbd/0x130
+> >  [<ffffffff8138bd88>] talk_to_netback+0x8e8/0x1160
+> >  [<ffffffff812f4e28>] ? xenbus_gather+0xd8/0x170
+> >  [<ffffffff8138e3bd>] netback_changed+0xcd/0x550
+> >  [<ffffffff812f5bb8>] xenbus_otherend_changed+0xa8/0xb0
+> > 
+> > Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > ---
+> >  drivers/net/xen-netfront.c |   14 +++++++++++++-
+> >  1 files changed, 13 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > index 0223552..1eadd90 100644
+> > --- a/drivers/net/xen-netfront.c
+> > +++ b/drivers/net/xen-netfront.c
+> > @@ -29,6 +29,8 @@
+> >   * IN THE SOFTWARE.
+> >   */
+> >  
+> > +#define DEBUG 1
+> > +
+> >  #include <linux/module.h>
+> >  #include <linux/kernel.h>
+> >  #include <linux/netdevice.h>
+> > @@ -66,7 +68,7 @@ struct netfront_cb {
+> >  
+> >  #define GRANT_INVALID_REF	0
+> >  
+> > -#define XENNET_MAX_RING_PAGE_ORDER 2
+> > +#define XENNET_MAX_RING_PAGE_ORDER 4
+> 
+> I guess this is you tuning with page order? And here is not the only one
+> place you changed?
 
-Without the addition of x32, it is still the intersection of
-is_compat_task()/TS_COMPAT and CONFIG_64BIT for all arches to
-determine if the call is 32-bit or 64-bit, but this will add another
-wrinkle.  Would it make sense to assume that system call namespaces
-may be ever expanding and offer up an unsigned integer value?
+Yup. Was playing with it and saw this blow up.
+> 
+> As a matter of fact, in the previous patch 8 I encode hard limit 2 on
+> the ring page order, your change here will stop FE / BE from connecting.
 
-struct seccomp_data {
-  int nr;
-  u32 namespace;
-  u64 instruction_pointer;
-  u64 args[6];
-}
+I think it will work OK - it will just use up to 4 instead of the default two.
 
-Then syscall_namespace(current, regs) returns
-* 0 - SYSCALL_NS_32 (for existing 32 and config_compat)
-* 1 - SYSCALL_NS_64 (for existing 64 bit)
-* 2 - SYSCALL_NS_X32 (everything after 2 is arch specific)
-* ..
+> 
+> I think I will also need to change this to something like
+> 
+>   #define XENNET_MAX_RING_PAGE_ORDER XENBUS_MAX_RING_PAGE_ORDER
+> 
+> to remind people to modify that value. 
 
-This patch series is pegged to x86 right now, so it's not a big deal
-to add a simple syscall_namespace to asm/syscall.h.  Of course, the
-code is always the easy part.  Even easier would be to only assign 0
-and 1 in the seccomp_data for 32-bit or 64-bit, then leave the rest of
-the u32 untouched until x32 stabilizes and the TS_COMPAT interactions
-are sorted.
+<nods>
 
-The other option, of course, is to hide it from the users and peg to
-is_compat_task and later to however x32 is exposed, but that might
-just be me trying to avoid adding more dependencies to this patch
-series :)
+> 
+> >  #define XENNET_MAX_RING_PAGES      (1U << XENNET_MAX_RING_PAGE_ORDER)
+> >  
+> >  #define NET_TX_RING_SIZE(_nr_pages)					\
+> > @@ -1611,6 +1613,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+> >  		info->tx_ring_page_order = 0;
+> >  		dev_info(&dev->dev, "single tx ring\n");
+> >  	} else {
+> > +		if (max_tx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
+> > +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
+> > +				max_tx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
+> > +			max_tx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
+> > +		}
+> >  		info->tx_ring_page_order = max_tx_ring_page_order;
+> >  		dev_info(&dev->dev, "multi page tx ring, order = %d\n",
+> >  			 max_tx_ring_page_order);
+> > @@ -1642,6 +1649,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+> >  		dev_info(&dev->dev, "single rx ring\n");
+> >  	} else {
+> >  		info->rx_ring_page_order = max_rx_ring_page_order;
+> > +		if (max_rx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
+> > +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
+> > +				max_rx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
+> > +			max_rx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
+> > +		}
+> >  		dev_info(&dev->dev, "multi page rx ring, order = %d\n",
+> >  			 max_rx_ring_page_order);
+> >  	}
+> 
+> Thanks for this, I will squash it into my patch.
 
-> Either that or we can just use another bit in the syscall number fiel=
-d...
-
-That would simplify the case here. The seccomp_data bit would say the
-call is 64-bit and then the syscall number with the extra bit would
-say that it is x32 and wouldn't collide with the existing 64-bit
-numbering, and the filter program author wouldn't make a filter
-program that allows a call that it shouldn't.
-
-Another option could be to expose the task_user_regset_view() of
-e_machine and e_osabi for the current/active calling convention
-assuming x32 gets a new marker there.  (There is a small amount
-pain[1] there since x86 uses TIF_IA32 and not TS_COMPAT for regset's
-e_machine value and not the current calling convention.  It's not
-clear to me if TS_COMPAT would be set during a core
-dump/fill_note_info, and not many people use ptrace's GET/SETREGSET,
-but I'm not super confident unraveling that mystery myself. Perhaps,
-current_user_regset_view() )
-
-=46or now, I'll just drop in a u32 for the calling convention.
-
-Thanks!
-will
-
-1 - http://lxr.linux.no/linux+v3.2.6/arch/x86/kernel/ptrace.c#L1310
+Thanks.
+> 
+> 
+> Wei.
