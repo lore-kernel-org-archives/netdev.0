@@ -1,93 +1,112 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: SR-IOV setup race between PCI and rtnetlink
-Date: Thu, 16 Feb 2012 19:55:25 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F8FB96@ORSMSX106.amr.corp.intel.com>
-References: <1329416552.2601.37.camel@bwh-desktop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: tx-switching module parameter
+Date: Thu, 16 Feb 2012 21:57:35 +0200
+Message-ID: <1329422255.30697.5.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+ <20120216094936.3449e6ef@nehalam.linuxnetplumber.net>
+ <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4F3D5B47.6030505@intel.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Shradha Shah <sshah@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Ariel Elior" <ariele@broadcom.com>, netdev@vger.kernel.org
+To: "John Fastabend" <john.r.fastabend@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46517 "EHLO mga03.intel.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3688 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752902Ab2BPTz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Feb 2012 14:55:27 -0500
-In-Reply-To: <1329416552.2601.37.camel@bwh-desktop>
-Content-Language: en-US
+	id S1753731Ab2BPT5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 14:57:50 -0500
+In-Reply-To: <4F3D5B47.6030505@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIEZlYnJ1YXJ5IDE2LCAyMDEy
-IDEwOjIzIEFNDQo+IFRvOiBuZXRkZXYNCj4gQ2M6IFNocmFkaGEgU2hhaA0KPiBTdWJqZWN0OiBT
-Ui1JT1Ygc2V0dXAgcmFjZSBiZXR3ZWVuIFBDSSBhbmQgcnRuZXRsaW5rDQo+IA0KPiBBIGN1c3Rv
-bWVyIGhpdCB0aGlzIFdBUk5JTkcgZnJvbSBydG5ldGxpbms6DQo+IA0KPiAtLS0tLS0tLS0tLS1b
-IGN1dCBoZXJlIF0tLS0tLS0tLS0tLS0NCj4gV0FSTklORzogYXQgbmV0L2NvcmUvcnRuZXRsaW5r
-LmM6MTU2OCBydG1zZ19pZmluZm8rMHgyNWEvMHgyNjAoKSAoTm90DQo+IHRhaW50ZWQpDQo+IEhh
-cmR3YXJlIG5hbWU6IFByb0xpYW50IERMMzgwIEc3DQo+IE1vZHVsZXMgbGlua2VkIGluOiBib25k
-aW5nIGlwdjYgZG1fbWlycm9yIGRtX3JlZ2lvbl9oYXNoIGRtX2xvZw0KPiBwb3dlcl9tZXRlcg0K
-PiBocGlsbyBocHdkdCBibngyIG9ubG9hZChVKSBzZmNfY2hhcihVKSBzZmNfcmVzb3VyY2UoVSkg
-c2ZjX2FmZmluaXR5KFUpDQo+IHNmY190dW5lKFUpIHNmYyhVKSBtZGlvIHNnIG1pY3JvY29kZSBz
-ZXJpb19yYXcgaVRDT193ZHQNCj4gaVRDT192ZW5kb3Jfc3VwcG9ydA0KPiBpN2NvcmVfZWRhYyBl
-ZGFjX2NvcmUgc2hwY2hwIGV4dDQgbWJjYWNoZSBqYmQyIHNkX21vZCBjcmNfdDEwZGlmIGhwc2EN
-Cj4gcmFkZW9uDQo+IHR0bSBkcm1fa21zX2hlbHBlciBkcm0gaHdtb24gaTJjX2FsZ29fYml0IGky
-Y19jb3JlIGRtX211bHRpcGF0aCBkbV9tb2QNCj4gW2xhc3QNCj4gdW5sb2FkZWQ6IHNjc2lfd2Fp
-dF9zY2FuXQ0KPiBQaWQ6IDE5MjcsIGNvbW06IGlmdXAtZXRoIE5vdCB0YWludGVkIDIuNi4zMi0x
-MzEuNi4xLmVsNi54ODZfNjQgIzENCj4gQ2FsbCBUcmFjZToNCj4gWzxmZmZmZmZmZjgxMDY3MGY3
-Pl0gPyB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDg3LzB4YzANCj4gWzxmZmZmZmZmZjgxMDY3MTRh
-Pl0gPyB3YXJuX3Nsb3dwYXRoX251bGwrMHgxYS8weDIwDQo+IFs8ZmZmZmZmZmY4MTQyZGE5YT5d
-ID8gcnRtc2dfaWZpbmZvKzB4MjVhLzB4MjYwDQo+IFs8ZmZmZmZmZmY4MTA4YTkyOD5dID8gc3lu
-Y2hyb25pemVfc2NoZWQrMHg1OC8weDYwDQo+IFs8ZmZmZmZmZmY4MTA4YThiMD5dID8gd2FrZW1l
-X2FmdGVyX3JjdSsweDAvMHgyMA0KPiBbPGZmZmZmZmZmODE0MWM0MmU+XSA/IG5ldGRldl9zZXRf
-bWFzdGVyKzB4NmUvMHhkMA0KPiBbPGZmZmZmZmZmYTA0MTE5MWY+XSA/IGJvbmRfZW5zbGF2ZSsw
-eDIyZi8weGQwMCBbYm9uZGluZ10NCj4gWzxmZmZmZmZmZjgxNGRhNjI0Pl0gPyBwcmludGsrMHg0
-MS8weDQ1DQo+IFs8ZmZmZmZmZmZhMDQxYWZkNz5dID8gYm9uZGluZ19zdG9yZV9zbGF2ZXMrMHgy
-YTcvMHg0MjAgW2JvbmRpbmddDQo+IFs8ZmZmZmZmZmY4MTMzNjkwMD5dID8gZGV2X2F0dHJfc3Rv
-cmUrMHgyMC8weDMwDQo+IFs8ZmZmZmZmZmY4MTFlNGQ5NT5dID8gc3lzZnNfd3JpdGVfZmlsZSsw
-eGU1LzB4MTcwDQo+IFs8ZmZmZmZmZmY4MTE3Mjc0OD5dID8gdmZzX3dyaXRlKzB4YjgvMHgxYTAN
-Cj4gWzxmZmZmZmZmZjgxMGQxYWQyPl0gPyBhdWRpdF9zeXNjYWxsX2VudHJ5KzB4MjcyLzB4MmEw
-DQo+IFs8ZmZmZmZmZmY4MTE3MzE4MT5dID8gc3lzX3dyaXRlKzB4NTEvMHg5MA0KPiBbPGZmZmZm
-ZmZmODEwMGIxNzI+XSA/IHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYg0KPiAtLS1bIGVu
-ZCB0cmFjZSA3Njc2YTVhMzRhZDdiOGVlIF0tLS0NCj4gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBd
-LS0tLS0tLS0tLS0tDQo+IA0KPiBUaGlzIHdhcyBzZWVuIHdpdGggT3Blbk9ubG9hZCBvbiBSSEVM
-IDYuMSwgYnV0IEkgYmVsaWV2ZSB0aGUgc2FtZSBpc3N1ZQ0KPiBleGlzdHMgd2l0aCB0aGUgY2hh
-bmdlcyBJIGp1c3Qgc3VibWl0dGVkIGFnYWluc3QgbmV0LW5leHQuDQo+IA0KPiBUaGUgV0FSTklO
-RyBpcyBwcm9kdWNlZCBieToNCj4gCQkvKiAtRU1TR1NJWkUgaW1wbGllcyBCVUcgaW4gaWZfbmxt
-c2dfc2l6ZSgpICovDQo+IAkJV0FSTl9PTihlcnIgPT0gLUVNU0dTSVpFKTsNCj4gDQo+IHJ0bmxf
-dmZpbmZvX3NpemUoKSwgcnRubF9maWxsX2lmaW5mbygpLCBldGMuIHVzZSBkZXZfbnVtX3ZmKCkg
-dG8gZ2V0IHRoZQ0KPiBudW1iZXIgb2YgVkZzIHRoYXQgd2lsbCBiZSBpbmNsdWRlZCBpbiB0aGUg
-bWVzc2FnZSwgaS5lLiB0aGV5IGFzayB0aGUNCj4gUENJIGRldmljZSBhbmQgbm90IHRoZSBuZXQg
-ZGV2aWNlLg0KPiANCj4gVGhlIG51bWJlciBvZiBWRnMgaXMgY2hhbmdlZCBieSBwY2lfZW5hYmxl
-X3NyaW92KCksIHdoaWNoIG9idmlvdXNseSBkb2VzDQo+IG5vdCBhY3F1aXJlIHRoZSBSVE5MIGxv
-Y2suICBGdXJ0aGVyLCBpdCBpcyB1bnNhZmUgZm9yIGl0cyBjYWxsZXJzIHRvDQo+IGhvbGQgdGhl
-IFJUTkwgbG9jaywgYmVjYXVzZSBpdCBtYXkgc3luY2hyb25vdXNseSBiaW5kIHRoZSBuZXcgVkZz
-IHRvDQo+IGRyaXZlcnMgdGhhdCB0aGVtc2VsdmVzIGFjcXVpcmUgdGhlIFJUTkwgaW4gdGhlaXIg
-cHJvYmUgZnVuY3Rpb25zLiAgU28NCj4gdGhlIG51bWJlciBvZiBWRnMgbWF5IGNoYW5nZSBiZXR3
-ZWVuIHRoZSB0aW1lIGF0IHdoaWNoIHRoZSBtZXNzYWdlIHNpemUNCj4gaXMgY2FsY3VsYXRlZCBh
-bmQgdGhlIHRpbWUgYXQgd2hpY2ggaXQgaXMgYnVpbHQuDQo+IA0KPiBOb3cgcnRubF9maWxsX2lm
-aW5mbygpIHdpbGwgc3RvcCB0cnlpbmcgdG8gYWRkIFZGIGluZm9ybWF0aW9uIGFzIHNvb24gYXMN
-Cj4gbmRvX2dldF92Zl9jb25maWcoKSByZXR1cm5zIGFuIGVycm9yLiAgSWYgdGhlIGRyaXZlciBp
-bXBsZW1lbnRhdGlvbg0KPiBlbnN1cmVzIHRoYXQgaXQgcmV0dXJucyBlcnJvcnMgdW50aWwgYWZ0
-ZXIgcGNpX2VuYWJsZV9zcmlvdigpIHJldHVybnMNCj4gYW5kIGl0IGhhcyByZWFjcXVpcmVkIHRo
-ZSBSVE5MIGxvY2ssIHRoZSBtZXNzYWdlIGRvZXNuJ3QgYWN0dWFsbHkgZ2V0DQo+IGFueSBiaWdn
-ZXIgYW5kIHRoZSBXQVJOSU5HIHdvbid0IGJlIGhpdC4NCj4gDQo+IEhvd2V2ZXIgd2UgcmVhbGx5
-IG5lZWQgdGhlIFZGcyB0byBiZSBjb25maWd1cmFibGUgaW1tZWRpYXRlbHksIHNvIHRoYXQNCj4g
-dGhlIFZGIGRyaXZlciBjYW4gY29tbXVuaWNhdGUgd2l0aCB0aGUgUEYgZHJpdmVyIChzZmMpLiAg
-SSBjb3VsZCBhZGQgYW4NCj4gc2VwYXJhdGUgZmxhZyB0byBrZWVwIHRoZSBSVE5MIGludGVyZmFj
-ZSBkaXNhYmxlZCB3aGlsZSB0aGUgaW50ZXItZHJpdmVyDQo+IGludGVyZmFjZSBpcyBlbmFibGVk
-LCBidXQgdGhhdCBkb2Vzbid0IHNlZW0gbGlrZSB0aGUgcmlnaHQgdGhpbmcgdG8gZG8uDQo+IA0K
-PiBQZXJoYXBzIHRoZXJlIHNob3VsZCBiZSBhIG5ldCBkZXZpY2Ugb3AgdG8gcmV0dXJuIHRoZSBu
-dW1iZXIgb2YgVkZzLA0KPiB3aGljaCB0aGUgbmV0IGRyaXZlciBtdXN0IHRoZW4gb25seSBjaGFu
-Z2Ugd2hpbGUgaG9sZGluZyB0aGUgUlROTCBsb2NrPw0KPiBSVE5MIHdvdWxkIHRoZW4gdXNlIHRo
-YXQgaW5zdGVhZCBvZiBkZXZfbnVtX3ZmKCkuDQoNCkludGVsIGRyaXZlcnMgYXJlbid0IHN1Ympl
-Y3QgdG8gdGhpcyBwcm9ibGVtIGF0IHRoaXMgdGltZSBiZWNhdXNlIHRoZSBudW1iZXIgb2YgVkZz
-IGFyZSBjb25maWd1cmVkIG9uIGRyaXZlciBsb2FkIGFuZCBkb24ndCBjaGFuZ2UgdW50aWwgeW91
-IHVubG9hZCB0aGUgZHJpdmVyIGFuZCB0aGVuIHJlbG9hZCBpdCB3aXRoIGEgbmV3IG1heF92ZnMg
-cGFyYW1ldGVyLiAgSG93ZXZlciwgaWYvd2hlbiBJIGdldCBzb21lIHBhdGNoZXMgZG9uZSB0aGF0
-IGFsbG93IHRoZSB1c2VyIHRvIHNldCB0aGUgbnVtYmVyIG9mIFZGcyB2aWEgZXRodG9vbCBpbnN0
-ZWFkIG9mIGp1c3QgdGhlIG1vZHVsZSBwYXJhbWV0ZXIgdGhhdCB3aWxsIGNoYW5nZSBhbmQgdGhp
-cyBjaGFuZ2Ugd291bGQgYmUgdmVyeSBoZWxwZnVsIGluIHRoYXQgY2lyY3Vtc3RhbmNlIGFsc28u
-DQoNClNvdW5kcyBsaWtlIGEgZ29vZCBpZGVhIHRvIG1lLg0KDQotIEdyZWcNCg0K
+On Thu, 2012-02-16 at 11:38 -0800, John Fastabend wrote:
+> On 2/16/2012 10:35 AM, Eilon Greenstein wrote:
+> > On Thu, 2012-02-16 at 09:49 -0800, Stephen Hemminger wrote:
+> >> On Thu, 16 Feb 2012 16:05:12 +0200
+> >> "Ariel Elior" <ariele@broadcom.com> wrote:
+> >>
+> >>> In 57712 and 578xx the tx-switching module parameter allows the user to control
+> >>> whether outgoing traffic can be loopbacked into the device in case there is a
+> >>> relevant client for the data using the same device for rx.
+> >>> A classic example where this is necessary is for virtualization purposes, where
+> >>> one vm is transmitting data to another, while both use different pci functions of
+> >>> the same port of the same nic.
+> >>>
+> >>> In case there is a promiscuous client in the rx (which wants to receive all
+> >>> data) or if the traffic is broadcast, traffic may be sent on both the loopback
+> >>> channel and the physical wire.
+> >>>
+> >>> The reason tx-switching is controlled by a module parameter is twofold:
+> >>> 1. There is a certain performance penalty for tx-switching because:
+> >>>    a. every packet must be compared against the receiver clients.
+> >>>    b. duplicated traffic being loopbacked can consume a significant portion of
+> >>>    the overall bandwidth, depending on the scenario.
+> >>> 2. Tx-switching doesn't make much sense as a per function parameter, but should
+> >>> rather be controlled uniformly for the  entire device. The reason is that if one
+> >>> interface wants to be able to send data on the loopback it is not enough to
+> >>> enable tx-switching for that interface, as the target interface must also
+> >>> register its rx classification information where the transmitting interface can
+> >>> find it. One would still have to use the module parameter in each VM, though.
+> >>>
+> >>> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> >>> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> >>
+> >> Module parameters are the hardware vendors friend, but the system
+> >> integrators nightmare. Although you think your hardware is special
+> >> but it isn't some other vendor will have same idea, how is user and
+> >> distribution supposed to control it?
+> > 
+> > Actually, module parameters require more explanations and cause more
+> > questions since they are unique to the device than any standard way - so
+> > we do prefer a standard way of doing things. In this case, we looked at
+> > other driver and scanned the mailing list history to see if we missed
+> > some discussion - but could not found anything. It is possible that for
+> > some HW the cost of doing this internal switching is low and therefore
+> > enabled by default and it is possible that some HW do not support it.
+> > This applies only to multi-functions (more than one PF sharing the same
+> > network port) devices and is usually required in VMs which are using
+> > physical device assignment since most multi-function environments are
+> > controlled by the switch which is looping back the packets.
+> > 
+> 
+> It should be relevant to any case where your doing hardware switching and
+> the mechanism to configure this should be independent of how you expose
+> multiple MAC services (mac/vlan pairs) realized as net devices in Linux.
+> Specifically the mechanism should work for a PF and many VFs, multiple PFs,
+> or queue based filtering mechanisms (Intel's VMDq).
+> 
+> The 82599 Intel devices support disabling loopback. This is needed to support
+> VEPA modes as defined in the 802.1Qbg standard which should be ratified
+> shortly. Typically you would expect the peer to support a hairpin forwarding
+> so that PF-VF, VF-VF, and PF-PF communication still works.
+> 
+> > But netdev is a great place to ask - are there other vendors out there
+> > that requires this control over internal switching? If so, we can define
+> > a new ethtool command. The alternative of using the ethtool private
+> > flags seems just as inconvenient from administrators point of view and
+> > also seem less appropriate since this configuration is more likely to be
+> > the same for all PFs on the same machine.
+> > 
+> 
+> This needs to be configurable at runtime. Because the 802.1Qbg spec defines
+> a protocol to learn which mode we should use and we want to be able to support
+> this. 'lldpad' and 'libvirt' already have some support for this. Also macvlan's
+> may be stacked on top of the PF and depending on the macvlan mode VEB or VEPA
+> you may need to configure the hardware switch to be compatible.
+> 
+> My thought on this is it should be a netlink command because it will be helpful
+> in userspace to get events when this is changed. A module parameter should be
+> a non-starter here because that would require any management application to start
+> loading and unloading modules which is a pain and bounces the link. Ethtool is
+> better than a modparam but I would prefer to get an event so that I can keep
+> lldpad (or any other app for that matter) in sync.
+
+OK, thanks John. Dave - please do not apply this patch. We need to look
+at the alternatives suggested by John.
+
+Thanks,
+Eilon
