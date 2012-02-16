@@ -1,110 +1,158 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH V4 12/13] netfront: multi page ring support.
-Date: Thu, 16 Feb 2012 10:16:19 +0000
-Message-ID: <1329387379.4520.54.camel@leeds.uk.xensource.com>
-References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
-	 <1328201363-13915-13-git-send-email-wei.liu2@citrix.com>
-	 <20120215224253.GA18762@phenom.dumpdata.com>
-	 <1329386571.4520.44.camel@leeds.uk.xensource.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [v9 PATCH 0/3] NETFILTER new target module, HMARK
+Date: Thu, 16 Feb 2012 11:21:09 +0100
+Message-ID: <1329387672-23683-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"Ian Campbell" <Ian.Campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:38508 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619Ab2BPKQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 05:16:55 -0500
-In-Reply-To: <1329386571.4520.44.camel@leeds.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-02-16 at 10:02 +0000, Wei Liu (Intern) wrote:
-> On Wed, 2012-02-15 at 22:42 +0000, Konrad Rzeszutek Wilk wrote:
-> > On Thu, Feb 02, 2012 at 04:49:22PM +0000, Wei Liu wrote:
-> > > 
-> > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > 
-> > It also needs this:
-> > 
-> > From 4cf97c025792cf073edc4d312b962ecc0b3b67ab Mon Sep 17 00:00:00 2001
-> > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Date: Wed, 15 Feb 2012 17:39:46 -0500
-> > Subject: [PATCH] xen/net: Don't try to use all of the rings if we are not
-> >  built for it.
-> > 
-> > Otherwise we end up:
-> > 
-> > BUG: unable to handle kernel paging request at ffff88004000c0c8
-> > IP: [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> > PGD 1806063 PUD 0
-> > 22:22:34 tst007 logger: /etc/xen/scripts/vif-bridge: offline XENBUS_PATH=backend/vif/1/0
-> > 00 [#1] SMP
-> > CPU 0
-> > Modules linked in:
-> > 
-> > Pid: 17, comm: xenwatch Not tainted 3.2.0upstream #2 Xen HVM domU
-> > RIP: 0010:[<ffffffff810f1ee4>]  [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> > RSP: 0018:ffff88003bea3c40  EFLAGS: 00010046
-> > .. snip.
-> > Call Trace:
-> >  [<ffffffff810f2c7f>] __free_pages_ok+0x9f/0xe0
-> >  [<ffffffff810f4eab>] __free_pages+0x1b/0x40
-> >  [<ffffffff810f4f1a>] free_pages+0x4a/0x60
-> >  [<ffffffff8138b33d>] xennet_disconnect_backend+0xbd/0x130
-> >  [<ffffffff8138bd88>] talk_to_netback+0x8e8/0x1160
-> >  [<ffffffff812f4e28>] ? xenbus_gather+0xd8/0x170
-> >  [<ffffffff8138e3bd>] netback_changed+0xcd/0x550
-> >  [<ffffffff812f5bb8>] xenbus_otherend_changed+0xa8/0xb0
-> > 
-> > Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > ---
-> >  drivers/net/xen-netfront.c |   14 +++++++++++++-
-> >  1 files changed, 13 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > index 0223552..1eadd90 100644
-> > --- a/drivers/net/xen-netfront.c
-> > +++ b/drivers/net/xen-netfront.c
-> > @@ -29,6 +29,8 @@
-> >   * IN THE SOFTWARE.
-> >   */
-> >  
-> > +#define DEBUG 1
-> > +
-> >  #include <linux/module.h>
-> >  #include <linux/kernel.h>
-> >  #include <linux/netdevice.h>
-> > @@ -66,7 +68,7 @@ struct netfront_cb {
-> >  
-> >  #define GRANT_INVALID_REF	0
-> >  
-> > -#define XENNET_MAX_RING_PAGE_ORDER 2
-> > +#define XENNET_MAX_RING_PAGE_ORDER 4
-> 
-> I guess this is you tuning with page order? And here is not the only one
-> place you changed?
-> 
-> As a matter of fact, in the previous patch 8 I encode hard limit 2 on
-> the ring page order, your change here will stop FE / BE from connecting.
-> 
-> I think I will also need to change this to something like
-> 
->   #define XENNET_MAX_RING_PAGE_ORDER XENBUS_MAX_RING_PAGE_ORDER
-> 
-> to remind people to modify that value. 
-> 
+The target allows you to create rules in the "raw" and "mangle" tables
+which alter the netfilter mark (nfmark) field within a given range.
+First a 32 bit hash value is generated then modulus by <limit> and
+finally an offset is added before it's written to nfmark.
+Prior to routing, the nfmark can influence the routing method (see
+"Use netfilter MARK value as routing key") and can also be used by
+other subsystems to change their behavior.
 
-To be more precise on this, tangling with RING_PAGE_ORDER will not
-affect FE, because the mapping is done in BE. However if you make
-RING_PAGE_ORDER larger than BE limit, it will fail.
+The mark match can also be used to match nfmark produced by this module.
+See the kernel module for more info.
 
-So the above #define is actually asking people playing with FE to check
-BE limit. :-(
+REVISION
+Version 9
+        Simpliefied nat handling in IPv4, some formating
+        checkentry() used in kernel. 
+        Most changes are base on Pablos review.
+
+Version 8
+        method L3 / L3-4 added i.e. Fragment handling changed to:
+        - don't handle in "method L3-4"
+        Syntax change in user mode to be more NF compatible.
+        Most changes are base on Pablos review.
+
+Version 7
+	ahuum, IPv6 descending into icmp error hdr didn't work as expected
+        with ipv6_find_hdr() Now it works as expected.
+
+Version 6
+        Removed ipv6_find_hdr() wrapper (Pablo)
+	NAT / Conntrack compilation switches.
+
+Version 5
+	Use length of mask an smask and dmask and whole IPv6 addr (Jan E)
+	Modify ipv6_find_hdr() and use it while traversing the IPv6 header.
+        Manual changes.
+	More or less all comments implemented.
+
+Version 4
+	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
+	removed one pskb_may_pull()
+	xtoption parse used in the user space part.
+
+Version 3
+        Handling of SCTP for IPv6 added.
+
+Version 2
+	NAT Added for IPv4
+	IPv6 ICMP handling enhanced.
+	Usage example added
+
+Version 1
+	Initial RFC
 
 
-Wei.
+We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
+handles up to 70 ipvs running in parallel in clusters.
+However hmark is not restricted to run in front of IPVS it can also be used as
+"poor mans" load balancer.
+With this version is also NAT supported as an option, with very high flows
+you might not want to use conntrack.
+
+The idea is to generate a direction independent fw mark range to use as input to
+the routing (i.e. ip rule add fwmark ...).
+Pretty straight forward and simple.
+
+
+Example:
+                                      App Server (Real Server)
+
+                                           +---------+
+                                        -->| Service |
+     Gateway A                             +---------+
+                          /
+            +----------+ /     +----+      +---------+
+--- if -A---| selector |---->  |ipvs|  --->| Service |
+            +----------+ \     +----+      +---------+
+                          \
+                               +----+      +---------+
+                               |ipvs|   -->| Service |
+                               +----+      +---------+
+      Gateway C
+            +----------+ /     +----+
+--- if-B ---| selector | --->  |ipvs|
+            +----------+ \     +----+      +---------+
+                                           | Service |
+                                           +---------+
+                          /
+            +----------+ /     +----+     ..
+--- if-B ---| selector | --->  |ipvs|      +---------+
+            +----------+ \     +----+      | Service |
+                          \                +---------+
+#
+# Example with four ipvs loadbalancers
+#
+iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
+
+ip rule add fwmark 100 table 100
+ip rule add fwmark 101 table 101
+ip rule add fwmark 102 table 102
+ip rule add fwmark 103 table 103
+
+ip ro ad table 100 default via x.y.z.1 dev bond1
+ip ro ad table 101 default via x.y.z.2 dev bond1
+ip ro ad table 102 default via x.y.z.3 dev bond1
+ip ro ad table 103 default via x.y.z.4 dev bond1
+
+
+If conntrack doesn't handle the return path,
+do the oposite with HMARK and send it back right to ipvs.
+
+Another exmaple of usage could be if you have cluster originated connections
+and want to spread the connections over a number of interfaces
+(NAT will complpicate things for you in this case)
+
+
+
+                     \  Blade 1
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+   +------+
+-- | Gw-A |          \  Blade 2
+   +------+           \ +----------+      +---------+
+   +------+         <-- | selector | <--- | Service |
+-- | Gw-B |           / +----------+      +---------+
+   +------+          /
+   +------+
+-- | Gw-C |          \
+   +------+           \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+                     \  Blande -n
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
+
