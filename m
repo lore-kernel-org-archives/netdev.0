@@ -1,86 +1,66 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 07/19] sfc: Correct MAC filter bitfield definitions
-Date: Thu, 16 Feb 2012 00:47:11 +0000
-Message-ID: <1329353231.2565.33.camel@bwh-desktop>
+Subject: [PATCH net-next 04/19] sfc: Warn if unable to create MTDs
+Date: Thu, 16 Feb 2012 00:45:26 +0000
+Message-ID: <1329353126.2565.30.camel@bwh-desktop>
 References: <1329352938.2565.26.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Shradha Shah <sshah@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail.solarflare.com ([216.237.3.220]:27607 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754782Ab2BPAr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 19:47:57 -0500
+	by vger.kernel.org with ESMTP id S1753354Ab2BPAr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 19:47:56 -0500
 In-Reply-To: <1329352938.2565.26.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RMFT_DEST_MAC and TMFT_SRC_MAC register fields were previously
-documented as 44 bits wide, whereas a MAC address has 48 bits.
-Thankfully the hardware uses the correct width and the driver has
-used separate definitions that divide each of these into 32-bit and
-16-bit fields.
-
-Fix the initial definitions for these fields and rewrite the latter
-definitions to use them.
+Log an explicit warning if we are unable to create MTDs for a net
+device.  Also correct the comment about why mtd_device_register() may
+fail; there is no longer an MTD table to fill up.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/regs.h |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sfc/efx.c |    7 ++++++-
+ drivers/net/ethernet/sfc/mtd.c |    2 +-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/regs.h b/drivers/net/ethernet/sfc/regs.h
-index cc2c86b..ade4c4d 100644
---- a/drivers/net/ethernet/sfc/regs.h
-+++ b/drivers/net/ethernet/sfc/regs.h
-@@ -2446,8 +2446,8 @@
- #define	FRF_CZ_RMFT_RXQ_ID_WIDTH 12
- #define	FRF_CZ_RMFT_WILDCARD_MATCH_LBN 60
- #define	FRF_CZ_RMFT_WILDCARD_MATCH_WIDTH 1
--#define	FRF_CZ_RMFT_DEST_MAC_LBN 16
--#define	FRF_CZ_RMFT_DEST_MAC_WIDTH 44
-+#define	FRF_CZ_RMFT_DEST_MAC_LBN 12
-+#define	FRF_CZ_RMFT_DEST_MAC_WIDTH 48
- #define	FRF_CZ_RMFT_VLAN_ID_LBN 0
- #define	FRF_CZ_RMFT_VLAN_ID_WIDTH 12
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 2e6389c..ce07aa5 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2502,9 +2502,14 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
  
-@@ -2523,8 +2523,8 @@
- #define	FRF_CZ_TMFT_TXQ_ID_WIDTH 12
- #define	FRF_CZ_TMFT_WILDCARD_MATCH_LBN 60
- #define	FRF_CZ_TMFT_WILDCARD_MATCH_WIDTH 1
--#define	FRF_CZ_TMFT_SRC_MAC_LBN 16
--#define	FRF_CZ_TMFT_SRC_MAC_WIDTH 44
-+#define	FRF_CZ_TMFT_SRC_MAC_LBN 12
-+#define	FRF_CZ_TMFT_SRC_MAC_WIDTH 48
- #define	FRF_CZ_TMFT_VLAN_ID_LBN 0
- #define	FRF_CZ_TMFT_VLAN_ID_WIDTH 12
+ 	netif_dbg(efx, probe, efx->net_dev, "initialisation successful\n");
  
-@@ -2895,17 +2895,17 @@
++	/* Try to create MTDs, but allow this to fail */
+ 	rtnl_lock();
+-	efx_mtd_probe(efx); /* allowed to fail */
++	rc = efx_mtd_probe(efx);
+ 	rtnl_unlock();
++	if (rc)
++		netif_warn(efx, probe, efx->net_dev,
++			   "failed to create MTDs (%d)\n", rc);
++
+ 	return 0;
  
- /* RX_MAC_FILTER_TBL0 */
- /* RMFT_DEST_MAC is wider than 32 bits */
--#define FRF_CZ_RMFT_DEST_MAC_LO_LBN 12
-+#define FRF_CZ_RMFT_DEST_MAC_LO_LBN FRF_CZ_RMFT_DEST_MAC_LBN
- #define FRF_CZ_RMFT_DEST_MAC_LO_WIDTH 32
--#define FRF_CZ_RMFT_DEST_MAC_HI_LBN 44
--#define FRF_CZ_RMFT_DEST_MAC_HI_WIDTH 16
-+#define FRF_CZ_RMFT_DEST_MAC_HI_LBN (FRF_CZ_RMFT_DEST_MAC_LBN + 32)
-+#define FRF_CZ_RMFT_DEST_MAC_HI_WIDTH (FRF_CZ_RMFT_DEST_MAC_WIDTH - 32)
+  fail4:
+diff --git a/drivers/net/ethernet/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+index 79c1922..26b3c23 100644
+--- a/drivers/net/ethernet/sfc/mtd.c
++++ b/drivers/net/ethernet/sfc/mtd.c
+@@ -280,7 +280,7 @@ fail:
+ 		--part;
+ 		efx_mtd_remove_partition(part);
+ 	}
+-	/* mtd_device_register() returns 1 if the MTD table is full */
++	/* Failure is unlikely here, but probably means we're out of memory */
+ 	return -ENOMEM;
+ }
  
- /* TX_MAC_FILTER_TBL0 */
- /* TMFT_SRC_MAC is wider than 32 bits */
--#define FRF_CZ_TMFT_SRC_MAC_LO_LBN 12
-+#define FRF_CZ_TMFT_SRC_MAC_LO_LBN FRF_CZ_TMFT_SRC_MAC_LBN
- #define FRF_CZ_TMFT_SRC_MAC_LO_WIDTH 32
--#define FRF_CZ_TMFT_SRC_MAC_HI_LBN 44
--#define FRF_CZ_TMFT_SRC_MAC_HI_WIDTH 16
-+#define FRF_CZ_TMFT_SRC_MAC_HI_LBN (FRF_CZ_TMFT_SRC_MAC_LBN + 32)
-+#define FRF_CZ_TMFT_SRC_MAC_HI_WIDTH (FRF_CZ_TMFT_SRC_MAC_WIDTH - 32)
- 
- /* TX_PACE_TBL */
- /* Values >20 are documented as reserved, but will result in a queue going
 -- 
 1.7.7.6
 
