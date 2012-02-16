@@ -1,73 +1,82 @@
-From: dedicatedhk@yahoo.com.hk
-Subject: Cloud server
-Date: Thu, 16 Feb 2012 23:13:57 +0800 (HKT)
-Message-ID: <DT6vvV__28668.2538608604$1329419360$gmane$org@ibm.com>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-49.sunnyvision.com ([124.248.200.49]:56433 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1754792Ab2BPTJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 14:09:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
+Date: Thu, 16 Feb 2012 19:18:57 +0000
+Message-ID: <4F3D56A1.3030502@solarflare.com>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>	 <4F34042F.6090806@intel.com>	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>	 <1328887111.2075.43.camel@mojatatu> <1329364728.3048.159.camel@deadeye>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <jhs@mojatatu.com>, John Fastabend <john.r.fastabend@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	<roprabhu@cisco.com>, <netdev@vger.kernel.org>, <mst@redhat.com>,
+	<chrisw@redhat.com>, <davem@davemloft.net>,
+	<gregory.v.rose@intel.com>, <kvm@vger.kernel.org>, <sri@us.ibm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1329364728.3048.159.camel@deadeye>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cloud Server=88m=C6=D8
-Advantages of Cloud Server =88m
-Cloud Server provides you with the same function as a traditional dedicated server, plus the high availability, scalability and flexibility that a dedicated server cannot offer to you.  =88m=3F=3F=3F"=A1=C2=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=8F=90=3F=3F=3F=88o=C6=D9=3F=3F=3F=3F=3F=3F=A1=D3=3F=A2X=C6=D9=3F=A1=D3=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=90=3F=3F-=3F=3F=3F"=3Fo=C6=D9=88o=3F=3F=3F=3F=3F=88o=A3=E1=3F=3F=3F"=88m=3F=8D=3F=3F-=3F=3F"=88m"=3F=3F=8F=A1=C2=3F"=C6=D8=3F=A3=E1=A1=B1=3F=A3=E1=81=3F"=3F=3F=A1=D3o=3F=A3=E1=A1=B1=3F=8F=3F=3F=3F=C6=D9=3F=A3=E1=A1=B1=3F=3F=3F=3F=3F=C6=D8=3F=A1=C2"=3F=3F=3F=3F=3F=A1=D3=3F=A2X=C6=D9=3F=A1=D3=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=3F=3F=3F=3F=3F=3F=3F"=3F-=3F=3F=3F=3F=3F=A3=E1=3F
+Hello,
 
-a. Costing Saving
-With Cloud Server, there is zero setup cost! All you need is to pay for a regular service fee only. And saved up to 50-70% maintenance costs compared with traditional dedicated server hosting solutions. Without a huge cost-saving, you can handle your IT budget more efficiently.  
-=88o=C6=D8
-b. High Flexibility & Scalability=88m
-Cloud Server is invented and designed to allow you to scale up your server specifications easily and conveniently. The simplified steps in spinning up your server minimize your time and processes; therefore, you can make adjustment at the very last moment.
+Please find my comments inline.
 
-c. High Availability & Reliability=88m
-Cloud Server could be deployed for both High Availability & High Reliability with clustering features. Your business is still running even if there is an unlikely primary server down issue, the secondary servers inside the cloud will take over the role to serve and ensure your service continues to perform as usual.
+Regards,
+Shradha Shah
 
-d. Self-owned World-class Data Center=88o
-ISO certified data center on the backend with fully redundant facilities, high level security and 24x7 manpower support.
+On 02/16/2012 03:58 AM, Ben Hutchings wrote:
+> [I'm just catching up with this after getting my own driver changes into
+> shape.]
+> 
+> On Fri, 2012-02-10 at 10:18 -0500, jamal wrote:
+>> Hi John,
+>>
+>> I went backwards to summarize at the top after going through your email.
+>>
+>> TL;DR version 0.1: 
+>> you provide a good use case where it makes sense to do things in the
+>> kernel. IMO, you could make the same arguement if your embedded switch
+>> could do ACLs, IPv4 forwarding etc. And the kernel bloats.
+>> I am always bigoted to move all policy control to user space instead of
+>> bloating in the kernel.
+> [...]
+>>> Now here is the potential issue,
+>>>
+>>> (G) The frame transmitted from ethx.y with the destination address of
+>>>     veth0 but the embedded switch is not a learning switch. If the FDB
+>>>     update is done in user space its possible (likely?) that the FDB
+>>>     entry for veth0 has not been added to the embedded switch yet. 
+>>
+>> Ok, got it - so the catch here is the switch is not capable of learning.
+>> I think this depends on where learning is done. Your intent is to
+>> use the S/W bridge as something that does the learning for you i.e in
+>> the kernel. This makes the s/w bridge part of MUST-have-for-this-to-run.
+>> And that maybe the case for your use case.
+> [...]
+> 
+> Well, in addition, there are SR-IOV network adapters that don't have any
+> bridge.  For these, the software bridge is necessary to handle
+> multicast, broadcast and forwarding between local ports, not only to do
+> learning.
+> 
+> Solarflare's implementation of accelerated guest networking (which
+> Shradha and I are gradually sending upstream) builds on libvirt's
+> existing support for software bridges and assigns VFs to guests as a
+> means to offload some of the forwarding.
 
-Dell PowerEdge Powered Cloud Server
-Hardware Configuration
-- CPU: 2vCPU
-- RAM: 4G RAM
-- HardDisk: 100GB Storage
-- IP Address: 2 IP Addresses
+I am also trying to work with bridging using macvtap. Libvirt supports
+macvtap in four modes; vepa, bridge, private and passthrough mode.
+Macvtap used in the bridge mode will work similar to a software bridge and 
+will improve performance.
 
-Software Configuration
-- OS: Linux CentOS / RHEL / Debian / Fedora
-- Plesk Control Panel 
+> 
+> If and when we implement a hardware bridge, we would probably still want
+> to keep the software bridge as a fallback.  If a guest is dependent on a
+> VF that's connected to a hardware bridge, it becomes impossible or at
+> least very disruptive to migrate it to another host that doesn't have a
+> compatible VF available.
+> 
+> Ben.
+> 
 
-Data Center Facilities
-- Applying to Internet Backbone
-  2Gbps to HKIX (Local) + 300Mbps to Int'l Carrier (Oversea)
-- TIA945 Standard Tier 3+=09
 
-Data Center Facilities
-- Applying to Internet Backbone
-  2Gbps to HKIX (Local) + 300Mbps to Int'l Carrier (Oversea)
-- TIA945 Standard Tier 3+
-
-We are a leading total ISP and Data Center Service Provider in HK, with 13 years experience in Internet and IT Solutions, we offers one-stop service to our clients with satisfaction.
-
-Data Center Co-location 
-Dedicated Server Rental and Managed 
-VPS & Cloud Server Computing
-Web & Email Hosting
-Exchange 2010 Enterprise Email
-Web Development (Design & Programming)
-Online Marketing
-
-Our main mission is to provide the best and reliability services to help our clients to achieve their business objectives.
-
-We would like to ask if your side considering to revamp your website, upgrade your email system, co-locate or make a server site in Hong Kong.
-Should you have any queries or quotation request, please feel free to email to boris@dedicatedserver.com.hk
-
-Your prompt feedback and response will be highly appreciated.
-Best Regards,
-Boris Lam
-Senior Sales Executive
-Mobile: 9408 8762
-Email: boris@dedicatedserver.com.hk
