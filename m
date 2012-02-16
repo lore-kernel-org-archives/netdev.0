@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: sfc-next 2012-02-16
-Date: Thu, 16 Feb 2012 17:08:25 -0500 (EST)
-Message-ID: <20120216.170825.1403615739826000085.davem@davemloft.net>
-References: <1329352938.2565.26.camel@bwh-desktop>
+Subject: Re: [PATCH net-next 1/5] net: sh_eth: add the value of tsu to the
+ SH7757's GETHER
+Date: Thu, 16 Feb 2012 17:08:45 -0500 (EST)
+Message-ID: <20120216.170845.406136620478964761.davem@davemloft.net>
+References: <4F3C7E0B.1080001@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	sshah@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com
+To: yoshihiro.shimoda.uh@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43879 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43885 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981Ab2BPWIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 17:08:31 -0500
-In-Reply-To: <1329352938.2565.26.camel@bwh-desktop>
+	with ESMTP id S1753981Ab2BPWIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 17:08:51 -0500
+In-Reply-To: <4F3C7E0B.1080001@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 16 Feb 2012 00:42:18 +0000
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Date: Thu, 16 Feb 2012 12:54:51 +0900
 
-> The following changes since commit eb40d89276705a35c9a2e05793ae63411ae357eb:
+> The SH7757's GETHER has TSU registers. So, this patch adds the value
+> of ".tsu = 1" in the sh_eth_cpu_data.
 > 
->   mlx4: add unicast steering entries to resource_tracker (2012-02-14 14:11:59 -0500)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-> 
-> (commit cd2d5b529cdb9bd274f3e4bc68d37d4d63b7f383)
-> 
-> The main change here is the addition of SR-IOV support.
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-Pulled, thanks Ben.
+Applied.
