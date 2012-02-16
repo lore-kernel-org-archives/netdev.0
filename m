@@ -1,65 +1,307 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 17 Feb 2012 10:30:11 +1100
-Message-ID: <20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
-References: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
-	<1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: [RFC V3 PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Thu, 16 Feb 2012 15:52:18 -0800
+Message-ID: <20120216235218.6381.51539.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eilong@broadcom.com, eric.dumazet@gmail.com
-To: "Yuval Mintz" <yuvalmin@broadcom.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:30702 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751896Ab2BPXwK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 18:52:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Implement a new netlink attribute type IFLA_EXT_MASK.  The mask
+is a 32 bit value that can be used to indicate to the kernel that
+certain extended ifinfo values are requested by the user application.
+At this time the only mask value defined is RTEXT_FILTER_VF to
+indicate that the user wants the ifinfo dump to send information
+about the VFs belonging to the interface.
 
-Hi,
+This patch fixes a bug in which certain applications do not have
+large enough buffers to accommodate the extra information returned
+by the kernel with large numbers of SR-IOV virtual functions.
+Those applications will not send the new netlink attribute with
+the interface info dump request netlink messages so they will
+not get unexpectedly large request buffers returned by the kernel.
 
-On Thu, 16 Feb 2012 13:24:10 +0200 "Yuval Mintz" <yuvalmin@broadcom.com> wr=
-ote:
->
-> I don't fully understand your merge - it seems to create a mash between
-> the "bnx2x: fix bnx2x_storm_stats_update() on big endian" patch in net,
-> and the "bnx2x: consistent statistics after internal driver reload"
-> patch in net-next.
+Modifies the rtnl_calcit function to traverse the list of net
+devices and compute the minimum buffer size that can hold the
+info dumps of all matching devices based upon the filter passed
+in via the new netlink attribute filter mask.  If no filter
+mask is sent then the buffer allocation defaults to NLMSG_GOODSIZE.
 
-That is exactly what the merge conflict resolution did.  i.e. the patch
-you supplied below is not needed in linux-next because that is
-effectively what I did.  It is the same as Dave will do when he merges
-the net tree into the net-next tree as well, I assume.
+With this change it is possible to add yet to be defined netlink
+attributes to the dump request which should make it fairly extensible
+in the future.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+---
 
---Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/
-Content-Type: application/pgp-signature
+ include/linux/if_link.h   |    1 +
+ include/linux/rtnetlink.h |    3 ++
+ include/net/rtnetlink.h   |    2 +
+ net/core/rtnetlink.c      |   84 ++++++++++++++++++++++++++++++++++-----------
+ 4 files changed, 68 insertions(+), 22 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPPZGDAAoJEECxmPOUX5FELbMP/ji5hCU6x69EkPJpjn8jy7Nx
-+hF802yCYxJgdg+dtnm2nWYKtHJbpVhFlov++Gm/U632LkltXhne/stdtXkpfUCy
-huEAr5wYWcRCLScNkQ3Dy3AFN1BQkmUo5L9J/XWyGgK2Sv+poEdchOIXvqgdITJP
-EPtqAACAaFWc130LGZiephxycO9nBj+6SV/N05c345pWPGOUobPWlT3v/cN83ETx
-sH89WYLDyutyMoH3dG43fr77iKze+xVjoxTT/j+nV161QLphf00M+LfZ5RYEWUbS
-FIWHtrzUblBxu3zonZ3IKC76goKsGygXrjL6+jokqASEqGsr77SpHmU7Ee4qlFJ9
-YzJuu8mYXFf9UzrdiCWyJg5fYtHcSqTAdft40wSTWIcojhTXIvJIICHmddlIvLv2
-mv2y0mxiw76M8EYHfXyO3b/fFWfhLlPvIGr9A++e6PJYtSeuoduAn6t4lejIOves
-TyJ9ty3GMYcIpaQ6tT1k3vUEkuc+db8c5srlavTI3GV5/WBPJIXxx1xMePYBYTQX
-SOOI8AMuqQ51zwcF6sxIqI8vRSzTlT1mbw0cnkwyYnZ71fYt0XZLtuwTI7ep4vki
-JVzn8YwdD2BmyPhtTUhMkT8GBA+Aljf8Ha1cddU4kZqmSG4FkDBo3Jrygx7uusVL
-ephc5i/DxLPstpyzKMcI
-=6nhC
------END PGP SIGNATURE-----
-
---Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/--
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index c52d4b5..4b24ff4 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -137,6 +137,7 @@ enum {
+ 	IFLA_AF_SPEC,
+ 	IFLA_GROUP,		/* Group the device belongs to */
+ 	IFLA_NET_NS_FD,
++	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 8e872ea..577592e 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -602,6 +602,9 @@ struct tcamsg {
+ #define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+ #define TCAA_MAX 1
+ 
++/* New extended info filters for IFLA_EXT_MASK */
++#define RTEXT_FILTER_VF		(1 << 0)
++
+ /* End of information exported to user level */
+ 
+ #ifdef __KERNEL__
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 678f1ff..3702939 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -6,7 +6,7 @@
+ 
+ typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *, void *);
+ typedef int (*rtnl_dumpit_func)(struct sk_buff *, struct netlink_callback *);
+-typedef u16 (*rtnl_calcit_func)(struct sk_buff *);
++typedef u16 (*rtnl_calcit_func)(struct sk_buff *, struct nlmsghdr *);
+ 
+ extern int	__rtnl_register(int protocol, int msgtype,
+ 				rtnl_doit_func, rtnl_dumpit_func,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 65aebd4..34f1d1d 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -60,7 +60,6 @@ struct rtnl_link {
+ };
+ 
+ static DEFINE_MUTEX(rtnl_mutex);
+-static u16 min_ifinfo_dump_size;
+ 
+ void rtnl_lock(void)
+ {
+@@ -724,10 +723,11 @@ static void copy_rtnl_link_stats64(void *v, const struct rtnl_link_stats64 *b)
+ }
+ 
+ /* All VF info */
+-static inline int rtnl_vfinfo_size(const struct net_device *dev)
++static inline int rtnl_vfinfo_size(const struct net_device *dev,
++				   u32 ext_filter_mask)
+ {
+-	if (dev->dev.parent && dev_is_pci(dev->dev.parent)) {
+-
++	if (dev->dev.parent && dev_is_pci(dev->dev.parent) &&
++	    (ext_filter_mask & RTEXT_FILTER_VF)) {
+ 		int num_vfs = dev_num_vf(dev->dev.parent);
+ 		size_t size = nla_total_size(sizeof(struct nlattr));
+ 		size += nla_total_size(num_vfs * sizeof(struct nlattr));
+@@ -766,7 +766,8 @@ static size_t rtnl_port_size(const struct net_device *dev)
+ 		return port_self_size;
+ }
+ 
+-static noinline size_t if_nlmsg_size(const struct net_device *dev)
++static noinline size_t if_nlmsg_size(const struct net_device *dev,
++				     u32 ext_filter_mask)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_IFNAME */
+@@ -784,8 +785,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_MASTER */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+-	       + nla_total_size(4) /* IFLA_NUM_VF */
+-	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
++	       + nla_total_size(ext_filter_mask
++			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
++	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
+@@ -868,7 +870,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+-			    unsigned int flags)
++			    unsigned int flags, u32 ext_filter_mask)
+ {
+ 	struct ifinfomsg *ifm;
+ 	struct nlmsghdr *nlh;
+@@ -941,10 +943,11 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		goto nla_put_failure;
+ 	copy_rtnl_link_stats64(nla_data(attr), stats);
+ 
+-	if (dev->dev.parent)
++	if (dev->dev.parent && (ext_filter_mask & RTEXT_FILTER_VF))
+ 		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+ 
+-	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
++	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent
++	    && (ext_filter_mask & RTEXT_FILTER_VF)) {
+ 		int i;
+ 
+ 		struct nlattr *vfinfo, *vf;
+@@ -1048,6 +1051,8 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net_device *dev;
+ 	struct hlist_head *head;
+ 	struct hlist_node *node;
++	struct nlattr *tb[IFLA_MAX+1];
++	u32 ext_filter_mask = 0;
+ 
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
+@@ -1055,6 +1060,12 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	rcu_read_lock();
+ 	cb->seq = net->dev_base_seq;
+ 
++	nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
++		    ifla_policy);
++
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
+ 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
+ 		idx = 0;
+ 		head = &net->dev_index_head[h];
+@@ -1064,7 +1075,8 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+ 					     NETLINK_CB(cb->skb).pid,
+ 					     cb->nlh->nlmsg_seq, 0,
+-					     NLM_F_MULTI) <= 0)
++					     NLM_F_MULTI,
++					     ext_filter_mask) <= 0)
+ 				goto out;
+ 
+ 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+@@ -1100,6 +1112,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
+ 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
+ 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
++	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -1509,8 +1522,6 @@ errout:
+ 
+ 	if (send_addr_notify)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+-	min_ifinfo_dump_size = max_t(u16, if_nlmsg_size(dev),
+-				     min_ifinfo_dump_size);
+ 
+ 	return err;
+ }
+@@ -1842,6 +1853,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct net_device *dev = NULL;
+ 	struct sk_buff *nskb;
+ 	int err;
++	u32 ext_filter_mask = 0;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+@@ -1850,6 +1862,9 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (tb[IFLA_IFNAME])
+ 		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
+ 
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
+ 	ifm = nlmsg_data(nlh);
+ 	if (ifm->ifi_index > 0)
+ 		dev = __dev_get_by_index(net, ifm->ifi_index);
+@@ -1861,12 +1876,12 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (dev == NULL)
+ 		return -ENODEV;
+ 
+-	nskb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
++	nskb = nlmsg_new(if_nlmsg_size(dev, ext_filter_mask), GFP_KERNEL);
+ 	if (nskb == NULL)
+ 		return -ENOBUFS;
+ 
+ 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).pid,
+-			       nlh->nlmsg_seq, 0, 0);
++			       nlh->nlmsg_seq, 0, 0, ext_filter_mask);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -1877,8 +1892,37 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	return err;
+ }
+ 
+-static u16 rtnl_calcit(struct sk_buff *skb)
++static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
++	struct net *net = sock_net(skb->sk);
++	int h;
++	struct net_device *dev;
++	struct hlist_head *head;
++	struct hlist_node *node;
++	struct nlattr *tb[IFLA_MAX+1];
++	u32 ext_filter_mask = 0;
++	u16 min_ifinfo_dump_size = 0;
++
++	nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX, ifla_policy);
++
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
++	if (!ext_filter_mask)
++		return NLMSG_GOODSIZE;
++	/*
++	 * traverse the list of net devices and compute the minimum
++	 * buffer size based upon the filter mask.
++	 */
++	for (h = 0; h < NETDEV_HASHENTRIES; h++) {
++		head = &net->dev_index_head[h];
++		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
++			min_ifinfo_dump_size =
++				max_t(u16, min_ifinfo_dump_size,
++				      if_nlmsg_size(dev, ext_filter_mask));
++		}
++	}
++
+ 	return min_ifinfo_dump_size;
+ }
+ 
+@@ -1913,13 +1957,11 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ 	int err = -ENOBUFS;
+ 	size_t if_info_size;
+ 
+-	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev)), GFP_KERNEL);
++	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), GFP_KERNEL);
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	min_ifinfo_dump_size = max_t(u16, if_info_size, min_ifinfo_dump_size);
+-
+-	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0);
++	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -1977,7 +2019,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			return -EOPNOTSUPP;
+ 		calcit = rtnl_get_calcit(family, type);
+ 		if (calcit)
+-			min_dump_alloc = calcit(skb);
++			min_dump_alloc = calcit(skb, nlh);
+ 
+ 		__rtnl_unlock();
+ 		rtnl = net->rtnl;
