@@ -1,62 +1,61 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Thu, 16 Feb 2012 13:38:01 +0100
-Message-ID: <1329395881.3915.7.camel@jlt3.sipsolutions.net>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
-	 <1326621743.3448.1.camel@jlt3.sipsolutions.net>
-	 <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
-	 ( sfid-20120115_163411_716244_29DE7A13) <1326704259.3510.3.camel@jlt3.sipsolutions.net>
-	 <4F3CF0C1.3090304@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kay Sievers <kay.sievers@vrfy.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
-To: Arend van Spriel <arend@broadcom.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] bnx2x: make bnx2x_close() static again
+Date: Thu, 16 Feb 2012 13:38:48 +0100
+Message-ID: <1329395928-998-1-git-send-email-mschmidt@redhat.com>
+Cc: ariele@broadcom.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:34288 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907Ab2BPMiG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 07:38:06 -0500
-In-Reply-To: <4F3CF0C1.3090304@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46884 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751047Ab2BPMi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 07:38:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-16 at 13:04 +0100, Arend van Spriel wrote:
-> On 01/16/2012 09:57 AM, Johannes Berg wrote:
-> >> Now the problem, the pcidev event is blocking in modprobe and waits
-> >> >  for the child event it has generated to finish, but udev does not
-> >> >  start the event because the parent still blocks in modprobe ->
-> >> >  deadlock until default firmware timeout of 60 sec. What we want here,
-> >> >  for several reasons not only udev's dependency logic, is that modprobe
-> >> >  never waits for userspace transactions to finish.
-> > Ok, thanks for the description. I guess to me that means nothing really
-> > changes much in the situation I'm thinking of.
-> 
-> I am working on changes in brcm80211 driver and the behaviour changes 
-> slightly. The async firmware request basically kicks of a kernel thread 
-> to do the actual request. So the probe finishes successfully regardless 
-> what the results will be of the actual firmware request. Hence the 
-> driver is associated with the hardware.
+Commit 8304859a "bnx2x: add fan failure event handling" made the function
+bnx2x_close() non-static unnecessarily. The function is not called from
+other sources. Make it static again.
 
-This is true.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    2 --
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 +++-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-> >> >  If userspace is not responding, the firmware request times out after
-> >> >  60 seconds and the driver is not associated with any hardware. To
-> >> >  retry the firmware loading, the module needs to be unloaded and
-> >> >  reloaded, or the driver needs to be asked to bind to a device again by
-> >> >  writing to the 'bind' in file in the sysfs driver directory.
-> > Right.
-> >
-> 
-> If my previous statement is true, what does it mean regarding retrying 
-> the firmware loading?
-
-When the firmware loading fails, the driver should unbind from the
-device that it failed for, and the retrying behaviour doesn't change
-(and requires a rebind)
-
-johannes
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 7d184fb..5d7e4bc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2074,8 +2074,6 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define BNX2X_VPD_LEN			128
+ #define VENDOR_ID_LEN			4
+ 
+-int bnx2x_close(struct net_device *dev);
+-
+ /* Congestion management fairness mode */
+ #define CMNG_FNS_NONE		0
+ #define CMNG_FNS_MINMAX		1
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index ff19c3c..80cae51 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -8719,6 +8719,8 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ 	}
+ }
+ 
++static int bnx2x_close(struct net_device *dev);
++
+ /* bnx2x_nic_unload() flushes the bnx2x_wq, thus reset task is
+  * scheduled on a general queue in order to prevent a dead lock.
+  */
+@@ -10291,7 +10293,7 @@ static int bnx2x_open(struct net_device *dev)
+ }
+ 
+ /* called with rtnl_lock */
+-int bnx2x_close(struct net_device *dev)
++static int bnx2x_close(struct net_device *dev)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+-- 
+1.7.4.1
