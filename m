@@ -1,69 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: SR-IOV setup race between PCI and rtnetlink
-Date: Thu, 16 Feb 2012 21:25:24 +0000
-Message-ID: <1329427524.2601.58.camel@bwh-desktop>
-References: <1329416552.2601.37.camel@bwh-desktop>
-	 <C5551D9AAB213A418B7FD5E4A6F30A0702F8FB96@ORSMSX106.amr.corp.intel.com>
+From: Markus Gutschke <markus@chromium.org>
+Subject: Re: [PATCH v8 3/8] seccomp: add system call filtering using BPF
+Date: Thu, 16 Feb 2012 13:28:49 -0800
+Message-ID: <CAE6n16kweRehdozft0tKOB1P5LtGFJDCLQP=2EXfm8P0enyH=A@mail.gmail.com>
+References: <1329422549-16407-1-git-send-email-wad@chromium.org>
+ <1329422549-16407-3-git-send-email-wad@chromium.org> <4F3D61CB.2000301@zytor.com>
+ <CABqD9hb3WxKxLZ2GuUrbDM--koW+a3ser5TU8y6+e0sAhOT9dw@mail.gmail.com> <4F3D7250.6040504@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Shradha Shah <sshah@solarflare.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:55107 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754131Ab2BPVZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 16:25:28 -0500
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F8FB96@ORSMSX106.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, keescook@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <4F3D7250.6040504@zytor.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-02-16 at 19:55 +0000, Rose, Gregory V wrote:
-[...]
-> > However we really need the VFs to be configurable immediately, so that
-> > the VF driver can communicate with the PF driver (sfc).  I could add an
-> > separate flag to keep the RTNL interface disabled while the inter-driver
-> > interface is enabled, but that doesn't seem like the right thing to do.
-> > 
-> > Perhaps there should be a net device op to return the number of VFs,
-> > which the net driver must then only change while holding the RTNL lock?
-> > RTNL would then use that instead of dev_num_vf().
-> 
-> Intel drivers aren't subject to this problem at this time because the
-> number of VFs are configured on driver load and don't change until you
-> unload the driver and then reload it with a new max_vfs parameter. 
+On Thu, Feb 16, 2012 at 13:17, H. Peter Anvin <hpa@zytor.com> wrote:
+> The other thing that you really need in addition to system call numbe=
+r is
+> ABI identifier, since a syscall number may mean different things for
+> different entry points. =C2=A0For example, on x86-64 system call numb=
+er 4 is
+> write() if called via int $0x80 but stat() if called via syscall64. T=
+his is
+> a local property of the system call, not a global per process.
 
-sfc also fixes the number of VFs at driver load, but this race can occur
-*during* driver load if the driver calls pci_enable_sriov() after
-register_netdevice().
+I think, the documentation said that as soon as prctl() is used to set
+a bpf filter for system calls, it automatically disallows system calls
+using an entry point other than the one used by this particular
+prctl().
 
-It looks like most other drivers with SR-IOV capability avoid this
-problem by calling pci_enable_sriov() before registering the net device.
-(cxgb4 is an exception and should also suffer from this.)
+I was trying to come up with scenarios where this particular approach
+causes problem, but I can't think of any off the top of my head. So,
+it might actually turn out to be a very elegant way to reduce the
+attack surface of the kernel. If we are really worried about userspace
+compatibility, we could make the kernel send a signal instead of
+terminating the program, if the wrong entry point was used; not sure
+if that is needed, though.
 
-The reason for the current ordering in sfc is that we also use VFs for
-user-level networking and in that case the VF driver's probe function
-needs to identify the corresponding net device.  If the net device isn't
-registered until later then we'll have to defer that to a netdevice
-notifier.
 
-> However, if/when I get some patches done that allow the user to set
-> the number of VFs via ethtool instead of just the module parameter
-> that will change and this change would be very helpful in that
-> circumstance also.
-
-Wouldn't it make more sense to do that through rtnetlink, along with the
-configuration of the individual VFs?
-
-Ben.
-
-> Sounds like a good idea to me.
-> 
-> - Greg
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Markus
