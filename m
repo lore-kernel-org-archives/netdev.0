@@ -1,55 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Bogus frames transmitted with r8169 & fragmentation & large mtu
-Date: Thu, 16 Feb 2012 13:04:48 +0100
-Message-ID: <20120216120448.GB9504@electric-eye.fr.zoreil.com>
-References: <20120215163748.GA3998@elliptictech.com> <1329333239.2469.3.camel@edumazet-laptop> <20120215232303.GB31463@electric-eye.fr.zoreil.com> <33249D172FBD4AE09E24D4F24E973BD9@realtek.com.tw> <20120216074637.GA6208@electric-eye.fr.zoreil.com>
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: Re: [PATCH] atl1c: dont use highprio tx queue
+Date: Thu, 16 Feb 2012 07:36:09 -0500
+Message-ID: <CA+5PVA74bejZhPxUAFHaeHLB0NBd7PCRc1sQvmSY7QdmarCWEw@mail.gmail.com>
+References: <1329063403.1449.14.camel@localhost.localdomain>
+	<CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
+	<1329204997.24837.15.camel@edumazet-laptop>
+	<1329366846.5646.1.camel@edumazet-laptop>
+	<C6B7BB6C-D1B8-4454-A2B2-558FCA5B0BBD@m3y3r.de>
+	<1329373082.5646.9.camel@edumazet-laptop>
+	<21390AB8-BD9B-44D7-B2CE-B20AF7605CE7@m3y3r.de>
+	<1329374591.5646.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
-	"'Nick Bowler'" <nbowler@elliptictech.com>, netdev@vger.kernel.org
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41506 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994Ab2BPMRQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 07:17:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20120216074637.GA6208@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Thomas Meyer <thomas@m3y3r.de>, David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+	"chris.snook@gmail.com" <chris.snook@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329374591.5646.23.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> I am testing it now.
+On Thu, Feb 16, 2012 at 1:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> This driver attempts to use two TX rings but lacks proper support :
+>
+> 1) IRQ handler only takes care of TX completion on first TX ring
+> 2) the stop/start logic uses the legacy functions (for non multiqueue
+> drivers)
+>
+> This means all packets witk skb mark set to 1 are sent through high
+> queue but are never cleaned and queue eventualy fills and block the
+> device, triggering the infamous "NETDEV WATCHDOG" message.
+>
+> Lets use a single TX ring to fix the problem, this driver is not a real
+> multiqueue one yet.
+>
+> Minimal fix for stable kernels.
+>
+> Reported-by: Thomas Meyer <thomas@m3y3r.de>
+> Tested-by: Thomas Meyer <thomas@m3y3r.de>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jay Cliburn <jcliburn@gmail.com>
+> Cc: Chris Snook <chris.snook@gmail.com>
 
-It does not fix the problem. It seems to make a difference but I still
-see a few percents packet loss. The pattern has changed a bit too: there
-are more bogus IP fragment offsets.
+As I think David handles netdev patches a bit differently for stable releases,
+I'd like to suggest this get included in the next batch for the 3.2 kernel.
+We've been seeing the bug this patch fixes in Fedora for quite a while now.
 
-Trying with 'ping -qf -c 100 -l 2 -s 65507 10.0.7.1'
-
-Good:
-
-239   0.020107     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=0, ID=9f97)
-240   0.020116     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=8976, ID=9f97)
-241   0.020122     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=17952, ID=9f97)
-242   0.020128     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=26928, ID=9f97)
-243   0.020134     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=35904, ID=9f97)
-244   0.020139     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=44880, ID=9f97)
-245   0.020145     10.0.7.1 -> 10.0.7.5     IP Fragmented IP protocol (proto=ICMP 0x01, off=53856, ID=9f97)
-246   0.020150     10.0.7.1 -> 10.0.7.5     ICMP Echo (ping) reply    (id=0x04c7, seq(be/le)=16/4096, ttl=64)
-
-Bad:
-
-247   0.020809     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=0, ID=dce9)
-248   0.020977     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=8976, ID=dce9)
-249   0.021046     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=17952, ID=dce9)
-250   0.021192     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=26928, ID=dce9)
-251   0.021199     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=35904, ID=dce9)
-252   0.021291     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=44880, ID=dce9)
-253   0.021298     10.0.7.5 -> 10.0.7.1     IP Fragmented IP protocol (proto=ICMP 0x01, off=62832, ID=dce9)
-
-So far I have only seen it with the 2nd and last fragment.
-
--- 
-Ueimor
+josh
