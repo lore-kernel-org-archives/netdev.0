@@ -1,41 +1,76 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] usb: cdc-ncm: Change alternate setting magic numbers
- into #defines
-Date: Thu, 16 Feb 2012 19:34:10 +0100
-Message-ID: <CAL_Kpj2+oZiQV8PFuAVRpMYwUciG_7gJLQJ73vRYEUBC2SfpBA@mail.gmail.com>
-References: <1329317261-3406-1-git-send-email-toby.gray@realvnc.com>
-	<1329317261-3406-2-git-send-email-toby.gray@realvnc.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: tx-switching module parameter
+Date: Thu, 16 Feb 2012 20:35:13 +0200
+Message-ID: <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+ <20120216094936.3449e6ef@nehalam.linuxnetplumber.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Toby Gray <tg-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>, Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1329317261-3406-2-git-send-email-toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ariel Elior" <ariele@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4609 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754212Ab2BPSfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 13:35:25 -0500
+In-Reply-To: <20120216094936.3449e6ef@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 15, 2012 at 3:47 PM, Toby Gray <toby.gray-BiNz9QiKYoNBDgjK7y7TUQ@public.gmane.org> wrot=
-e:
+On Thu, 2012-02-16 at 09:49 -0800, Stephen Hemminger wrote:
+> On Thu, 16 Feb 2012 16:05:12 +0200
+> "Ariel Elior" <ariele@broadcom.com> wrote:
+> 
+> > In 57712 and 578xx the tx-switching module parameter allows the user to control
+> > whether outgoing traffic can be loopbacked into the device in case there is a
+> > relevant client for the data using the same device for rx.
+> > A classic example where this is necessary is for virtualization purposes, where
+> > one vm is transmitting data to another, while both use different pci functions of
+> > the same port of the same nic.
+> > 
+> > In case there is a promiscuous client in the rx (which wants to receive all
+> > data) or if the traffic is broadcast, traffic may be sent on both the loopback
+> > channel and the physical wire.
+> > 
+> > The reason tx-switching is controlled by a module parameter is twofold:
+> > 1. There is a certain performance penalty for tx-switching because:
+> >    a. every packet must be compared against the receiver clients.
+> >    b. duplicated traffic being loopbacked can consume a significant portion of
+> >    the overall bandwidth, depending on the scenario.
+> > 2. Tx-switching doesn't make much sense as a per function parameter, but should
+> > rather be controlled uniformly for the  entire device. The reason is that if one
+> > interface wants to be able to send data on the loopback it is not enough to
+> > enable tx-switching for that interface, as the target interface must also
+> > register its rx classification information where the transmitting interface can
+> > find it. One would still have to use the module parameter in each VM, though.
+> > 
+> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> 
+> Module parameters are the hardware vendors friend, but the system
+> integrators nightmare. Although you think your hardware is special
+> but it isn't some other vendor will have same idea, how is user and
+> distribution supposed to control it?
 
-> +/* CDC NCM ch. 5.3 describes alternate setting 0 as having no
-> + * endpoints and therefore not allowing any networking traffic. */
-> +#define =A0 =A0 =A0 =A0CDC_NCM_ALTSETTING_RESET =A0 =A0 =A0 =A00
+Actually, module parameters require more explanations and cause more
+questions since they are unique to the device than any standard way - so
+we do prefer a standard way of doing things. In this case, we looked at
+other driver and scanned the mailing list history to see if we missed
+some discussion - but could not found anything. It is possible that for
+some HW the cost of doing this internal switching is low and therefore
+enabled by default and it is possible that some HW do not support it.
+This applies only to multi-functions (more than one PF sharing the same
+network port) devices and is usually required in VMs which are using
+physical device assignment since most multi-function environments are
+controlled by the switch which is looping back the packets.
 
-Please, use bulk in the both define names to distinguish from control
-ep alt settings in the next version of the specification, i.e.
-something like CDC_NCM_BULK_ALTSETTING_NO_DATA
-This is the setting with no endpoints (no data).
-
-> +/* CDC NCM ch. 5.3 describes alternate setting 1 as having the
-> + * required bulk endpoints for normal operation. */
-> +#define =A0 =A0 =A0 =A0CDC_NCM_ALTSETTING_DATA =A0 =A0 =A0 =A0 1
-
-Regards,
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But netdev is a great place to ask - are there other vendors out there
+that requires this control over internal switching? If so, we can define
+a new ethtool command. The alternative of using the ethtool private
+flags seems just as inconvenient from administrators point of view and
+also seem less appropriate since this configuration is more likely to be
+the same for all PFs on the same machine.
