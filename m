@@ -1,49 +1,80 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: Bogus frames transmitted with r8169 & fragmentation & large mtu
-Date: Thu, 16 Feb 2012 11:14:42 -0500
-Message-ID: <20120216161442.GA10857@elliptictech.com>
-References: <20120215163748.GA3998@elliptictech.com>
- <20120215224122.GA31463@electric-eye.fr.zoreil.com>
- <20120215233408.GA8389@elliptictech.com>
- <1329365963.2469.8.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 16:37:52 +0000
+Message-ID: <1329410272.2601.10.camel@bwh-desktop>
+References: <8633039.fHPLx6GNq3@localhost.localdomain>
+	 <4249109.nLB9JCi9YF@localhost.localdomain>
+	 <1329313785.2437.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <2687521.3ztN17SHUf@localhost.localdomain>
+	 <1329318481.2437.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADVnQy=UOvC06TBOE7d7WvuKm1Tdkzu7M4dfvm6VRcRJaDMyLw@mail.gmail.com>
+	 <1329377352.5646.32.camel@edumazet-laptop>
+	 <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1329400265.3048.178.camel@deadeye>
+	 <1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neal Cardwell <ncardwell@google.com>,
+	Netdev <netdev@vger.kernel.org>, <alekcejk@googlemail.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.scalarmail.ca ([98.158.95.75]:18805 "EHLO
-	ironport-01.sms.scalar.ca" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751797Ab2BPQOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 11:14:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1329365963.2469.8.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:57212 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751589Ab2BPQiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 11:38:21 -0500
+In-Reply-To: <1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2012-02-16 05:19 +0100, Eric Dumazet wrote:
-> 1) Are you using SLUB, SLAB, or SLOB ?
+On Thu, 2012-02-16 at 16:09 +0100, Eric Dumazet wrote:
+> Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 13:51 +0000, Ben Hutchings a =C3=
+=A9crit :
+>=20
+> > I'm aware of this problem and I believe it exists with most
+> > implementations of LRO.
+> >=20
+> > The out-of-tree version of the sfc driver has its own soft-LRO
+> > implementation (SSR) which does some limited connection tracking to
+> > detect slow start and disable aggregation temporarily.  I've been
+> > meaning to look into enhancing GRO to match SSR, but haven't got ro=
+und
+> > to it yet.
+>=20
+>=20
+> Not sure why we cant change tcp_grow_window() to take into account
+> number of segments in skb ?
 
-SLUB.
+Maybe it's as simple as that.  I don't pretend to understand the detail=
+s
+of TCP flow control.
 
-> 2) Problem with MTU=9000 is that frames span several 4K pages.
-> 
-> Maybe some versions of r8169 hardware have problems with that ...
+I checked with David Riddoch who originally implemented SSR.  His
+concern was that each aggregated packet received results in at most one
+ACK and some senders then won't grow their congestion window as fast as
+they would if we were ACKing each wire-level packet (or every 2
+packets).  But since current Linux *as a sender* counts the ACKed bytes
+and not the packets, I don't think it's relevant to this particular
+problem.
 
-Could be, but probably not the whole story.  I tested some >4k MTU values
-(all with 60K packets here because it failed more reliably than 30K).
-6500 byte MTU appears to work OK (<1% loss).  7500 fails (>99% loss).
-A largish range of MTU settings inbetween achieve a roughly 50% loss
-rate.
+Ben.
 
-The corruption is not always as significant as the original trace: some
-of my tests had all the fragments correct but a mere two bytes of payload
-were zero (resulting in the reassembled datagram being dropped due to a
-checksum failure).
+> It currently increments rcv_ssthresh by a fixed amount (2 * advmss)
+>=20
+>         if (tcp_win_from_space(skb->truesize) <=3D skb->len)
+>                 incr =3D 2 * tp->advmss;
+>         else
+>                 incr =3D __tcp_grow_window(sk, skb);
+>         if (incr) {
+>                 tp->rcv_ssthresh =3D min(tp->rcv_ssthresh + incr,
+>                                        tp->window_clamp);
+>                 inet_csk(sk)->icsk_ack.quick |=3D 1;
+>                 }
+>=20
+>=20
+>=20
 
-Recall that the original trace also had this "two bytes zeroed" problem
-in the second fragment, in addition to all its other problems.
-
-Cheers,
--- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
