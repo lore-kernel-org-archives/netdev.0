@@ -1,66 +1,377 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH net-next 2/5] net: sh_eth: change the condition of
- initialization
-Date: Thu, 16 Feb 2012 12:54:56 +0900
-Message-ID: <4F3C7E10.3060905@renesas.com>
+Subject: [PATCH net-next 4/5] net: sh_eth: add support for multicast filtering
+Date: Thu, 16 Feb 2012 12:55:03 +0900
+Message-ID: <4F3C7E17.5040005@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor4.renesas.com ([210.160.252.174]:57939 "EHLO
-	relmlor4.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995Ab2BPDy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:54:58 -0500
+Received: from relmlor3.renesas.com ([210.160.252.173]:57964 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963Ab2BPDzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:55:07 -0500
 Received: from relmlir2.idc.renesas.com ([10.200.68.152])
- by relmlor4.idc.renesas.com ( SJSMS)
- with ESMTP id <0LZG00M5DW7K0E40@relmlor4.idc.renesas.com> for
- netdev@vger.kernel.org; Thu, 16 Feb 2012 12:54:56 +0900 (JST)
-Received: from relmlac2.idc.renesas.com ([10.200.69.22])
+ by relmlor3.idc.renesas.com ( SJSMS)
+ with ESMTP id <0LZG00MIDW7S6V30@relmlor3.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:04 +0900 (JST)
+Received: from relmlac1.idc.renesas.com ([10.200.69.21])
  by relmlir2.idc.renesas.com ( SJSMS)
- with ESMTP id <0LZG00905W7K3S10@relmlir2.idc.renesas.com> for
- netdev@vger.kernel.org; Thu, 16 Feb 2012 12:54:56 +0900 (JST)
+ with ESMTP id <0LZG0091FW7S3S10@relmlir2.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:04 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SH7757 has 2 Fast Ethernet and 2 Gigabit Ethernet, and the first
-Gigabit channel needs the initialization. So, this patch adds the
-parameter of "needs_init", and if the sh_eth_plat_data is set it
-to 1, the driver will initialize the channel.
+Some controllers have TSU. It can filter multicast by hardware.
+This patch supports it.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- include/linux/sh_eth.h                |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |  282 ++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/renesas/sh_eth.h |    9 +
+ 2 files changed, 286 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 8f53b5a..5a5afbc 100644
+index 8bd0e58..99d8ce8 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1859,8 +1859,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	/* read and set MAC address */
- 	read_mac_address(ndev, pd->mac_addr);
+@@ -1604,18 +1604,289 @@ static int sh_eth_do_ioctl(struct net_device *ndev, struct ifreq *rq,
+ }
 
--	/* First device only init */
--	if (!devno) {
-+	/* initialize first or needed device */
-+	if (!devno || pd->needs_init) {
- 		if (mdp->cd->tsu) {
- 			struct resource *rtsu;
- 			rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
-index 2076acf..b17d765 100644
---- a/include/linux/sh_eth.h
-+++ b/include/linux/sh_eth.h
-@@ -20,6 +20,7 @@ struct sh_eth_plat_data {
- 	unsigned char mac_addr[6];
+ #if defined(SH_ETH_HAS_TSU)
++/* For TSU_POSTn. Please refer to the manual about this (strange) bitfields */
++static void *sh_eth_tsu_get_post_reg_offset(struct sh_eth_private *mdp,
++					    int entry)
++{
++	return sh_eth_tsu_get_offset(mdp, TSU_POST1) + (entry / 8 * 4);
++}
++
++static u32 sh_eth_tsu_get_post_mask(int entry)
++{
++	return 0x0f << (28 - ((entry % 8) * 4));
++}
++
++static u32 sh_eth_tsu_get_post_bit(struct sh_eth_private *mdp, int entry)
++{
++	return (0x08 >> (mdp->port << 1)) << (28 - ((entry % 8) * 4));
++}
++
++static void sh_eth_tsu_enable_cam_entry_post(struct net_device *ndev,
++					     int entry)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	u32 tmp;
++	void *reg_offset;
++
++	reg_offset = sh_eth_tsu_get_post_reg_offset(mdp, entry);
++	tmp = ioread32(reg_offset);
++	iowrite32(tmp | sh_eth_tsu_get_post_bit(mdp, entry), reg_offset);
++}
++
++static bool sh_eth_tsu_disable_cam_entry_post(struct net_device *ndev,
++					      int entry)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	u32 post_mask, ref_mask, tmp;
++	void *reg_offset;
++
++	reg_offset = sh_eth_tsu_get_post_reg_offset(mdp, entry);
++	post_mask = sh_eth_tsu_get_post_mask(entry);
++	ref_mask = sh_eth_tsu_get_post_bit(mdp, entry) & ~post_mask;
++
++	tmp = ioread32(reg_offset);
++	iowrite32(tmp & ~post_mask, reg_offset);
++
++	/* If other port enables, the function returns "true" */
++	return tmp & ref_mask;
++}
++
++static int sh_eth_tsu_busy(struct net_device *ndev)
++{
++	int timeout = SH_ETH_TSU_TIMEOUT_MS * 100;
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++
++	while ((sh_eth_tsu_read(mdp, TSU_ADSBSY) & TSU_ADSBSY_0)) {
++		udelay(10);
++		timeout--;
++		if (timeout <= 0) {
++			dev_err(&ndev->dev, "%s: timeout\n", __func__);
++			return -ETIMEDOUT;
++		}
++	}
++
++	return 0;
++}
++
++static int sh_eth_tsu_write_entry(struct net_device *ndev, void *reg,
++				  const u8 *addr)
++{
++	u32 val;
++
++	val = addr[0] << 24 | addr[1] << 16 | addr[2] << 8 | addr[3];
++	iowrite32(val, reg);
++	if (sh_eth_tsu_busy(ndev) < 0)
++		return -EBUSY;
++
++	val = addr[4] << 8 | addr[5];
++	iowrite32(val, reg + 4);
++	if (sh_eth_tsu_busy(ndev) < 0)
++		return -EBUSY;
++
++	return 0;
++}
++
++static void sh_eth_tsu_read_entry(void *reg, u8 *addr)
++{
++	u32 val;
++
++	val = ioread32(reg);
++	addr[0] = (val >> 24) & 0xff;
++	addr[1] = (val >> 16) & 0xff;
++	addr[2] = (val >> 8) & 0xff;
++	addr[3] = val & 0xff;
++	val = ioread32(reg + 4);
++	addr[4] = (val >> 8) & 0xff;
++	addr[5] = val & 0xff;
++}
++
++
++static int sh_eth_tsu_find_entry(struct net_device *ndev, const u8 *addr)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
++	int i;
++	u8 c_addr[ETH_ALEN];
++
++	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++, reg_offset += 8) {
++		sh_eth_tsu_read_entry(reg_offset, c_addr);
++		if (memcmp(addr, c_addr, ETH_ALEN) == 0)
++			return i;
++	}
++
++	return -ENOENT;
++}
++
++static int sh_eth_tsu_find_empty(struct net_device *ndev)
++{
++	u8 blank[ETH_ALEN];
++	int entry;
++
++	memset(blank, 0, sizeof(blank));
++	entry = sh_eth_tsu_find_entry(ndev, blank);
++	return (entry < 0) ? -ENOMEM : entry;
++}
++
++static int sh_eth_tsu_disable_cam_entry_table(struct net_device *ndev,
++					      int entry)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
++	int ret;
++	u8 blank[ETH_ALEN];
++
++	sh_eth_tsu_write(mdp, sh_eth_tsu_read(mdp, TSU_TEN) &
++			 ~(1 << (31 - entry)), TSU_TEN);
++
++	memset(blank, 0, sizeof(blank));
++	ret = sh_eth_tsu_write_entry(ndev, reg_offset + entry * 8, blank);
++	if (ret < 0)
++		return ret;
++	return 0;
++}
++
++static int sh_eth_tsu_add_entry(struct net_device *ndev, const u8 *addr)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
++	int i, ret;
++
++	if (!mdp->cd->tsu)
++		return 0;
++
++	i = sh_eth_tsu_find_entry(ndev, addr);
++	if (i < 0) {
++		/* No entry found, create one */
++		i = sh_eth_tsu_find_empty(ndev);
++		if (i < 0)
++			return -ENOMEM;
++		ret = sh_eth_tsu_write_entry(ndev, reg_offset + i * 8, addr);
++		if (ret < 0)
++			return ret;
++
++		/* Enable the entry */
++		sh_eth_tsu_write(mdp, sh_eth_tsu_read(mdp, TSU_TEN) |
++				 (1 << (31 - i)), TSU_TEN);
++	}
++
++	/* Entry found or created, enable POST */
++	sh_eth_tsu_enable_cam_entry_post(ndev, i);
++
++	return 0;
++}
++
++static int sh_eth_tsu_del_entry(struct net_device *ndev, const u8 *addr)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	int i, ret;
++
++	if (!mdp->cd->tsu)
++		return 0;
++
++	i = sh_eth_tsu_find_entry(ndev, addr);
++	if (i) {
++		/* Entry found */
++		if (sh_eth_tsu_disable_cam_entry_post(ndev, i))
++			goto done;
++
++		/* Disable the entry if both ports was disabled */
++		ret = sh_eth_tsu_disable_cam_entry_table(ndev, i);
++		if (ret < 0)
++			return ret;
++	}
++done:
++	return 0;
++}
++
++static int sh_eth_tsu_purge_all(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	int i, ret;
++
++	if (unlikely(!mdp->cd->tsu))
++		return 0;
++
++	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++) {
++		if (sh_eth_tsu_disable_cam_entry_post(ndev, i))
++			continue;
++
++		/* Disable the entry if both ports was disabled */
++		ret = sh_eth_tsu_disable_cam_entry_table(ndev, i);
++		if (ret < 0)
++			return ret;
++	}
++
++	return 0;
++}
++
++static void sh_eth_tsu_purge_mcast(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	u8 addr[ETH_ALEN];
++	void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
++	int i;
++
++	if (unlikely(!mdp->cd->tsu))
++		return;
++
++	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++, reg_offset += 8) {
++		sh_eth_tsu_read_entry(reg_offset, addr);
++		if (is_multicast_ether_addr(addr))
++			sh_eth_tsu_del_entry(ndev, addr);
++	}
++}
++
+ /* Multicast reception directions set */
+ static void sh_eth_set_multicast_list(struct net_device *ndev)
+ {
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	u32 ecmr_bits;
++	int mcast_all = 0;
++	unsigned long flags;
++
++	spin_lock_irqsave(&mdp->lock, flags);
++	/*
++	 * Initial condition is MCT = 1, PRM = 0.
++	 * Depending on ndev->flags, set PRM or clear MCT
++	 */
++	ecmr_bits = (sh_eth_read(ndev, ECMR) & ~ECMR_PRM) | ECMR_MCT;
++
++	if (!(ndev->flags & IFF_MULTICAST)) {
++		sh_eth_tsu_purge_mcast(ndev);
++		mcast_all = 1;
++	}
++	if (ndev->flags & IFF_ALLMULTI) {
++		sh_eth_tsu_purge_mcast(ndev);
++		ecmr_bits &= ~ECMR_MCT;
++		mcast_all = 1;
++	}
++
+ 	if (ndev->flags & IFF_PROMISC) {
+-		/* Set promiscuous. */
+-		sh_eth_write(ndev, (sh_eth_read(ndev, ECMR) & ~ECMR_MCT) |
+-				ECMR_PRM, ECMR);
++		sh_eth_tsu_purge_all(ndev);
++		ecmr_bits = (ecmr_bits & ~ECMR_MCT) | ECMR_PRM;
++	} else if (mdp->cd->tsu) {
++		struct netdev_hw_addr *ha;
++		netdev_for_each_mc_addr(ha, ndev) {
++			if (mcast_all && is_multicast_ether_addr(ha->addr))
++				continue;
++
++			if (sh_eth_tsu_add_entry(ndev, ha->addr) < 0) {
++				if (!mcast_all) {
++					sh_eth_tsu_purge_mcast(ndev);
++					ecmr_bits &= ~ECMR_MCT;
++					mcast_all = 1;
++				}
++			}
++		}
+ 	} else {
+ 		/* Normal, unicast/broadcast-only mode. */
+-		sh_eth_write(ndev, (sh_eth_read(ndev, ECMR) & ~ECMR_PRM) |
+-				ECMR_MCT, ECMR);
++		ecmr_bits = (ecmr_bits & ~ECMR_PRM) | ECMR_MCT;
+ 	}
++
++	/* update the ethernet mode */
++	sh_eth_write(ndev, ecmr_bits, ECMR);
++
++	spin_unlock_irqrestore(&mdp->lock, flags);
+ }
+ #endif /* SH_ETH_HAS_TSU */
+
+@@ -1869,6 +2140,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 		}
+ 		mdp->tsu_addr = ioremap(rtsu->start,
+ 					resource_size(rtsu));
++		mdp->port = devno % 2;
+ 	}
+
+ 	/* initialize first or needed device */
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index cb07add..86b392e 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -29,6 +29,8 @@
+ #define RX_RING_SIZE	64	/* Rx ring size */
+ #define ETHERSMALL		60
+ #define PKT_BUF_SZ		1538
++#define SH_ETH_TSU_TIMEOUT_MS	500
++#define SH_ETH_TSU_CAM_ENTRIES	32
+
+ enum {
+ 	/* E-DMAC registers */
+@@ -778,6 +780,7 @@ struct sh_eth_private {
+ 	char post_rx;		/* POST receive */
+ 	char post_fw;		/* POST forward */
+ 	struct net_device_stats tsu_stats;	/* TSU forward status */
++	int port;		/* for TSU */
+
  	unsigned no_ether_link:1;
  	unsigned ether_link_active_low:1;
-+	unsigned needs_init:1;
- };
+@@ -811,6 +814,12 @@ static inline unsigned long sh_eth_read(struct net_device *ndev,
+ 	return ioread32(mdp->addr + mdp->reg_offset[enum_index]);
+ }
 
- #endif
++static inline void *sh_eth_tsu_get_offset(struct sh_eth_private *mdp,
++					  int enum_index)
++{
++	return mdp->tsu_addr + mdp->reg_offset[enum_index];
++}
++
+ static inline void sh_eth_tsu_write(struct sh_eth_private *mdp,
+ 				unsigned long data, int enum_index)
+ {
 -- 
 1.7.1
