@@ -1,141 +1,65 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [RFC PATCH V4 12/13] netfront: multi page ring support.
-Date: Thu, 16 Feb 2012 17:57:13 -0500
-Message-ID: <20120216225713.GC2795@phenom.dumpdata.com>
-References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
- <1328201363-13915-13-git-send-email-wei.liu2@citrix.com>
- <20120215224253.GA18762@phenom.dumpdata.com>
- <1329386571.4520.44.camel@leeds.uk.xensource.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 17 Feb 2012 10:30:11 +1100
+Message-ID: <20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
+References: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
+	<1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:45232 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753267Ab2BPXAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 18:00:31 -0500
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eilong@broadcom.com, eric.dumazet@gmail.com
+To: "Yuval Mintz" <yuvalmin@broadcom.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <1329386571.4520.44.camel@leeds.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, Feb 16, 2012 at 10:02:51AM +0000, Wei Liu wrote:
-> On Wed, 2012-02-15 at 22:42 +0000, Konrad Rzeszutek Wilk wrote:
-> > On Thu, Feb 02, 2012 at 04:49:22PM +0000, Wei Liu wrote:
-> > > 
-> > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > 
-> > It also needs this:
-> > 
-> > From 4cf97c025792cf073edc4d312b962ecc0b3b67ab Mon Sep 17 00:00:00 2001
-> > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Date: Wed, 15 Feb 2012 17:39:46 -0500
-> > Subject: [PATCH] xen/net: Don't try to use all of the rings if we are not
-> >  built for it.
-> > 
-> > Otherwise we end up:
-> > 
-> > BUG: unable to handle kernel paging request at ffff88004000c0c8
-> > IP: [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> > PGD 1806063 PUD 0
-> > 22:22:34 tst007 logger: /etc/xen/scripts/vif-bridge: offline XENBUS_PATH=backend/vif/1/0
-> > 00 [#1] SMP
-> > CPU 0
-> > Modules linked in:
-> > 
-> > Pid: 17, comm: xenwatch Not tainted 3.2.0upstream #2 Xen HVM domU
-> > RIP: 0010:[<ffffffff810f1ee4>]  [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> > RSP: 0018:ffff88003bea3c40  EFLAGS: 00010046
-> > .. snip.
-> > Call Trace:
-> >  [<ffffffff810f2c7f>] __free_pages_ok+0x9f/0xe0
-> >  [<ffffffff810f4eab>] __free_pages+0x1b/0x40
-> >  [<ffffffff810f4f1a>] free_pages+0x4a/0x60
-> >  [<ffffffff8138b33d>] xennet_disconnect_backend+0xbd/0x130
-> >  [<ffffffff8138bd88>] talk_to_netback+0x8e8/0x1160
-> >  [<ffffffff812f4e28>] ? xenbus_gather+0xd8/0x170
-> >  [<ffffffff8138e3bd>] netback_changed+0xcd/0x550
-> >  [<ffffffff812f5bb8>] xenbus_otherend_changed+0xa8/0xb0
-> > 
-> > Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > ---
-> >  drivers/net/xen-netfront.c |   14 +++++++++++++-
-> >  1 files changed, 13 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > index 0223552..1eadd90 100644
-> > --- a/drivers/net/xen-netfront.c
-> > +++ b/drivers/net/xen-netfront.c
-> > @@ -29,6 +29,8 @@
-> >   * IN THE SOFTWARE.
-> >   */
-> >  
-> > +#define DEBUG 1
-> > +
-> >  #include <linux/module.h>
-> >  #include <linux/kernel.h>
-> >  #include <linux/netdevice.h>
-> > @@ -66,7 +68,7 @@ struct netfront_cb {
-> >  
-> >  #define GRANT_INVALID_REF	0
-> >  
-> > -#define XENNET_MAX_RING_PAGE_ORDER 2
-> > +#define XENNET_MAX_RING_PAGE_ORDER 4
-> 
-> I guess this is you tuning with page order? And here is not the only one
-> place you changed?
+Hi,
 
-Yup. Was playing with it and saw this blow up.
-> 
-> As a matter of fact, in the previous patch 8 I encode hard limit 2 on
-> the ring page order, your change here will stop FE / BE from connecting.
+On Thu, 16 Feb 2012 13:24:10 +0200 "Yuval Mintz" <yuvalmin@broadcom.com> wr=
+ote:
+>
+> I don't fully understand your merge - it seems to create a mash between
+> the "bnx2x: fix bnx2x_storm_stats_update() on big endian" patch in net,
+> and the "bnx2x: consistent statistics after internal driver reload"
+> patch in net-next.
 
-I think it will work OK - it will just use up to 4 instead of the default two.
+That is exactly what the merge conflict resolution did.  i.e. the patch
+you supplied below is not needed in linux-next because that is
+effectively what I did.  It is the same as Dave will do when he merges
+the net tree into the net-next tree as well, I assume.
 
-> 
-> I think I will also need to change this to something like
-> 
->   #define XENNET_MAX_RING_PAGE_ORDER XENBUS_MAX_RING_PAGE_ORDER
-> 
-> to remind people to modify that value. 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-<nods>
+--Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/
+Content-Type: application/pgp-signature
 
-> 
-> >  #define XENNET_MAX_RING_PAGES      (1U << XENNET_MAX_RING_PAGE_ORDER)
-> >  
-> >  #define NET_TX_RING_SIZE(_nr_pages)					\
-> > @@ -1611,6 +1613,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
-> >  		info->tx_ring_page_order = 0;
-> >  		dev_info(&dev->dev, "single tx ring\n");
-> >  	} else {
-> > +		if (max_tx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
-> > +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
-> > +				max_tx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
-> > +			max_tx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
-> > +		}
-> >  		info->tx_ring_page_order = max_tx_ring_page_order;
-> >  		dev_info(&dev->dev, "multi page tx ring, order = %d\n",
-> >  			 max_tx_ring_page_order);
-> > @@ -1642,6 +1649,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
-> >  		dev_info(&dev->dev, "single rx ring\n");
-> >  	} else {
-> >  		info->rx_ring_page_order = max_rx_ring_page_order;
-> > +		if (max_rx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
-> > +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
-> > +				max_rx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
-> > +			max_rx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
-> > +		}
-> >  		dev_info(&dev->dev, "multi page rx ring, order = %d\n",
-> >  			 max_rx_ring_page_order);
-> >  	}
-> 
-> Thanks for this, I will squash it into my patch.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Thanks.
-> 
-> 
-> Wei.
+iQIcBAEBCAAGBQJPPZGDAAoJEECxmPOUX5FELbMP/ji5hCU6x69EkPJpjn8jy7Nx
++hF802yCYxJgdg+dtnm2nWYKtHJbpVhFlov++Gm/U632LkltXhne/stdtXkpfUCy
+huEAr5wYWcRCLScNkQ3Dy3AFN1BQkmUo5L9J/XWyGgK2Sv+poEdchOIXvqgdITJP
+EPtqAACAaFWc130LGZiephxycO9nBj+6SV/N05c345pWPGOUobPWlT3v/cN83ETx
+sH89WYLDyutyMoH3dG43fr77iKze+xVjoxTT/j+nV161QLphf00M+LfZ5RYEWUbS
+FIWHtrzUblBxu3zonZ3IKC76goKsGygXrjL6+jokqASEqGsr77SpHmU7Ee4qlFJ9
+YzJuu8mYXFf9UzrdiCWyJg5fYtHcSqTAdft40wSTWIcojhTXIvJIICHmddlIvLv2
+mv2y0mxiw76M8EYHfXyO3b/fFWfhLlPvIGr9A++e6PJYtSeuoduAn6t4lejIOves
+TyJ9ty3GMYcIpaQ6tT1k3vUEkuc+db8c5srlavTI3GV5/WBPJIXxx1xMePYBYTQX
+SOOI8AMuqQ51zwcF6sxIqI8vRSzTlT1mbw0cnkwyYnZ71fYt0XZLtuwTI7ep4vki
+JVzn8YwdD2BmyPhtTUhMkT8GBA+Aljf8Ha1cddU4kZqmSG4FkDBo3Jrygx7uusVL
+ephc5i/DxLPstpyzKMcI
+=6nhC
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__17_Feb_2012_10_30_11_+1100_qVTHZNImqUhwVK3/--
