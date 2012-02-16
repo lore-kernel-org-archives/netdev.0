@@ -1,56 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Thu, 16 Feb 2012 22:59:33 +0100
-Message-ID: <1329429573.5450.2.camel@edumazet-laptop>
-References: <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1461927.R8CTCUdqT9@localhost.localdomain>
-	 <CADVnQyknYYaduh4nnc27=oGofBqpExJzqA-ToXufZxbtm0xs6Q@mail.gmail.com>
-	 <16215291.4ftfQWZto1@localhost.localdomain>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH v8 3/8] seccomp: add system call filtering using BPF
+Date: Thu, 16 Feb 2012 14:06:12 -0800
+Message-ID: <4F3D7DD4.6070103@zytor.com>
+References: <1329422549-16407-1-git-send-email-wad@chromium.org> <1329422549-16407-3-git-send-email-wad@chromium.org> <4F3D61CB.2000301@zytor.com> <CABqD9hb3WxKxLZ2GuUrbDM--koW+a3ser5TU8y6+e0sAhOT9dw@mail.gmail.com> <4F3D7250.6040504@zytor.com> <CAE6n16kweRehdozft0tKOB1P5LtGFJDCLQP=2EXfm8P0enyH=A@mail.gmail.com> <4F3D766E.7040205@zytor.com> <CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org
-To: alekcejk@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48420 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288Ab2BPV7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 16:59:40 -0500
-Received: by bkcjm19 with SMTP id jm19so2509059bkc.19
-        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 13:59:39 -0800 (PST)
-In-Reply-To: <16215291.4ftfQWZto1@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Markus Gutschke <markus@chromium.org>,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
+	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 23:49 +0200, alekcejk@googlemail.c=
-om a
-=C3=A9crit :
-> =D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=D1=
-=82 =D0=A7=D0=B5=D1=82=D0=B2=D0=B5=D1=80=D0=B3 16 =D1=84=D0=B5=D0=B2=D1=
-=80=D0=B0=D0=BB=D1=8F 2012 13:19:58 =D0=B2=D1=8B =D0=BD=D0=B0=D0=BF=D0=B8=
-=D1=81=D0=B0=D0=BB=D0=B8:
-> > On Thu, Feb 16, 2012 at 12:54 PM,  <alekcejk@googlemail.com> wrote:
-> > I still think it would be useful to have these three pieces of data
-> > for a slow/3.2.x transfer (from a geographically distant server) if
-> > you have a sec:
-> >=20
-> > - tcpdump of first 300 or so packets to see SYN/SYNACK options and =
-RTT
->=20
+On 02/16/2012 01:51 PM, Will Drewry wrote:
+>>
+>> Put the bloody bit in there and let the pattern program make that decision.
+> 
+> Easy enough to add a bit for the mode: 32-bit or 64-bit.  It seemed
+> like a waste of cycles for every 32-bit program or every 64-bit
+> program to check to see that its calling convention hadn't changed,
+> but it does take away a valid decision the pattern program should be
+> making.
+> 
+> I'll add a flag for 32bit/64bit while cleaning up seccomp_data. I
+> think that will properly encapsulate the is_compat_task() behavior in
+> a way that is stable for compat and non-compat tasks to use.  If
+> there's a more obvious way, I'm all ears.
+> 
 
-> > - summary of overall throughput wget sees on that transfer
->=20
-> --2012-02-16 23:33:30--  http://speedtest.tele2.net/1GB.zip
-> 100%[=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D>] 1 073 741 824 5,02M/s   in 3m 29s
-> 2012-02-16 23:36:59 (4,90 MB/s) - =C2=AB/dev/null=C2=BB saved [107374=
-1824/1073741824]
->=20
-> > This should help establish whether the receiver window is really th=
-e
-> > limiting factor in the slow cases.
-> >=20
+is_compat_task() is not going to be the right thing for x86 going
+forward, as we're introducing the x32 ABI (which uses the normal x86-64
+entry point, but with different eax numbers, and bit 30 set.)
 
-Is tweaking /proc/sys/net/ipv4/tcp_adv_win_scale changes the numbers ?
+The actual state is the TS_COMPAT flag in the thread_info structure,
+which currently matches is_compat_task(), but perhaps we should add a
+new helper function syscall_namespace() or something like that...
 
-try 1, -1 or -2
+Either that or we can just use another bit in the syscall number field...
+
+	-hpa
+
+-- 
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
