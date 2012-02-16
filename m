@@ -1,76 +1,154 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: tx-switching module parameter
-Date: Thu, 16 Feb 2012 20:35:13 +0200
-Message-ID: <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
- <20120216094936.3449e6ef@nehalam.linuxnetplumber.net>
-Reply-To: eilong@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Ariel Elior" <ariele@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+From: greearb@candelatech.com
+Subject: [PATCH v4 02/16] e100: Support RXFCS feature flag.
+Date: Thu, 16 Feb 2012 10:53:40 -0800
+Message-ID: <1329418421-31574-1-git-send-email-greearb@candelatech.com>
+Cc: jeffrey.t.kirsher@intel.com, Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4609 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754212Ab2BPSfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Feb 2012 13:35:25 -0500
-In-Reply-To: <20120216094936.3449e6ef@nehalam.linuxnetplumber.net>
+Received: from mail.candelatech.com ([208.74.158.172]:59103 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752650Ab2BPSyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 13:54:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-16 at 09:49 -0800, Stephen Hemminger wrote:
-> On Thu, 16 Feb 2012 16:05:12 +0200
-> "Ariel Elior" <ariele@broadcom.com> wrote:
-> 
-> > In 57712 and 578xx the tx-switching module parameter allows the user to control
-> > whether outgoing traffic can be loopbacked into the device in case there is a
-> > relevant client for the data using the same device for rx.
-> > A classic example where this is necessary is for virtualization purposes, where
-> > one vm is transmitting data to another, while both use different pci functions of
-> > the same port of the same nic.
-> > 
-> > In case there is a promiscuous client in the rx (which wants to receive all
-> > data) or if the traffic is broadcast, traffic may be sent on both the loopback
-> > channel and the physical wire.
-> > 
-> > The reason tx-switching is controlled by a module parameter is twofold:
-> > 1. There is a certain performance penalty for tx-switching because:
-> >    a. every packet must be compared against the receiver clients.
-> >    b. duplicated traffic being loopbacked can consume a significant portion of
-> >    the overall bandwidth, depending on the scenario.
-> > 2. Tx-switching doesn't make much sense as a per function parameter, but should
-> > rather be controlled uniformly for the  entire device. The reason is that if one
-> > interface wants to be able to send data on the loopback it is not enough to
-> > enable tx-switching for that interface, as the target interface must also
-> > register its rx classification information where the transmitting interface can
-> > find it. One would still have to use the module parameter in each VM, though.
-> > 
-> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> 
-> Module parameters are the hardware vendors friend, but the system
-> integrators nightmare. Although you think your hardware is special
-> but it isn't some other vendor will have same idea, how is user and
-> distribution supposed to control it?
+From: Ben Greear <greearb@candelatech.com>
 
-Actually, module parameters require more explanations and cause more
-questions since they are unique to the device than any standard way - so
-we do prefer a standard way of doing things. In this case, we looked at
-other driver and scanned the mailing list history to see if we missed
-some discussion - but could not found anything. It is possible that for
-some HW the cost of doing this internal switching is low and therefore
-enabled by default and it is possible that some HW do not support it.
-This applies only to multi-functions (more than one PF sharing the same
-network port) devices and is usually required in VMs which are using
-physical device assignment since most multi-function environments are
-controlled by the switch which is looping back the packets.
+This allows e100 to be configured to append the
+Ethernet FCS to the skb.
 
-But netdev is a great place to ask - are there other vendors out there
-that requires this control over internal switching? If so, we can define
-a new ethtool command. The alternative of using the ethtool private
-flags seems just as inconvenient from administrators point of view and
-also seem less appropriate since this configuration is more likely to be
-the same for all PFs on the same machine.
+Useful for sniffing networks.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+
+v4:  Incorporated Eric's suggestions regarding RFD.  Tested
+   with mtu-sized VLAN packets + rx-all + rx-fcs.
+
+:100644 100644 485ab8c... 3ecbded... M	drivers/net/ethernet/intel/e100.c
+ drivers/net/ethernet/intel/e100.c |   35 ++++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 485ab8c..3ecbded 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -1075,7 +1075,7 @@ static void e100_get_defaults(struct nic *nic)
+ 	/* Template for a freshly allocated RFD */
+ 	nic->blank_rfd.command = 0;
+ 	nic->blank_rfd.rbd = cpu_to_le32(0xFFFFFFFF);
+-	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
++	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN);
+ 
+ 	/* MII setup */
+ 	nic->mii.phy_id_mask = 0x1F;
+@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ {
+ 	struct config *config = &cb->u.config;
+ 	u8 *c = (u8 *)config;
++	struct net_device *netdev = nic->netdev;
+ 
+ 	cb->command = cpu_to_le16(cb_config);
+ 
+@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
+ 	}
+ 
++	if (unlikely(netdev->features & NETIF_F_RXFCS))
++		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
++
+ 	if (nic->flags & multicast_all)
+ 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
+ 
+@@ -1881,7 +1885,7 @@ static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
+ 	}
+ }
+ 
+-#define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN)
++#define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
+ static int e100_rx_alloc_skb(struct nic *nic, struct rx *rx)
+ {
+ 	if (!(rx->skb = netdev_alloc_skb_ip_align(nic->netdev, RFD_BUF_LEN)))
+@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	struct sk_buff *skb = rx->skb;
+ 	struct rfd *rfd = (struct rfd *)skb->data;
+ 	u16 rfd_status, actual_size;
++	u16 fcs_pad = 0;
+ 
+ 	if (unlikely(work_done && *work_done >= work_to_do))
+ 		return -EAGAIN;
+@@ -1951,6 +1956,8 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	}
+ 
+ 	/* Get actual data size */
++	if (unlikely(dev->features & NETIF_F_RXFCS))
++		fcs_pad = 4;
+ 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
+ 	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
+ 		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
+@@ -1980,13 +1987,13 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	if (unlikely(!(rfd_status & cb_ok))) {
+ 		/* Don't indicate if hardware indicates errors */
+ 		dev_kfree_skb_any(skb);
+-	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
++	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
+ 		/* Don't indicate oversized frames */
+ 		nic->rx_over_length_errors++;
+ 		dev_kfree_skb_any(skb);
+ 	} else {
+ 		dev->stats.rx_packets++;
+-		dev->stats.rx_bytes += actual_size;
++		dev->stats.rx_bytes += (actual_size - fcs_pad);
+ 		netif_receive_skb(skb);
+ 		if (work_done)
+ 			(*work_done)++;
+@@ -2058,7 +2065,8 @@ static void e100_rx_clean(struct nic *nic, unsigned int *work_done,
+ 		pci_dma_sync_single_for_device(nic->pdev,
+ 			old_before_last_rx->dma_addr, sizeof(struct rfd),
+ 			PCI_DMA_BIDIRECTIONAL);
+-		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
++		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN
++							+ ETH_FCS_LEN);
+ 		pci_dma_sync_single_for_device(nic->pdev,
+ 			old_before_last_rx->dma_addr, sizeof(struct rfd),
+ 			PCI_DMA_BIDIRECTIONAL);
+@@ -2729,6 +2737,20 @@ static int e100_close(struct net_device *netdev)
+ 	return 0;
+ }
+ 
++static int e100_set_features(struct net_device *netdev,
++			     netdev_features_t features)
++{
++	struct nic *nic = netdev_priv(netdev);
++	netdev_features_t changed = features ^ netdev->features;
++
++	if (!(changed & (NETIF_F_RXFCS)))
++		return 0;
++
++	netdev->features = features;
++	e100_exec_cb(nic, NULL, e100_configure);
++	return 0;
++}
++
+ static const struct net_device_ops e100_netdev_ops = {
+ 	.ndo_open		= e100_open,
+ 	.ndo_stop		= e100_close,
+@@ -2742,6 +2764,7 @@ static const struct net_device_ops e100_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= e100_netpoll,
+ #endif
++	.ndo_set_features	= e100_set_features,
+ };
+ 
+ static int __devinit e100_probe(struct pci_dev *pdev,
+@@ -2754,6 +2777,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
+ 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
+ 		return -ENOMEM;
+ 
++	netdev->hw_features |= NETIF_F_RXFCS;
++
+ 	netdev->netdev_ops = &e100_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
+ 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
+-- 
+1.7.3.4
