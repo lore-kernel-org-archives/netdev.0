@@ -1,130 +1,46 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH V4 12/13] netfront: multi page ring support.
-Date: Thu, 16 Feb 2012 10:02:51 +0000
-Message-ID: <1329386571.4520.44.camel@leeds.uk.xensource.com>
-References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
-	 <1328201363-13915-13-git-send-email-wei.liu2@citrix.com>
-	 <20120215224253.GA18762@phenom.dumpdata.com>
+From: joeyli <jlee@suse.com>
+Subject: Re: Bogus frames transmitted with r8169 & fragmentation & large mtu
+Date: Thu, 16 Feb 2012 18:15:55 +0800
+Message-ID: <1329387355.5525.49.camel@linux-s257.site>
+References: <20120215163748.GA3998@elliptictech.com>
+	 <20120215224122.GA31463@electric-eye.fr.zoreil.com>
+	 <20120215233408.GA8389@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"Ian Campbell" <Ian.Campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Nick Bowler <nbowler@elliptictech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:37821 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361Ab2BPKD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 05:03:29 -0500
-In-Reply-To: <20120215224253.GA18762@phenom.dumpdata.com>
+Received: from victor.provo.novell.com ([137.65.250.26]:48430 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884Ab2BPKQo (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:0:0>);
+	Thu, 16 Feb 2012 05:16:44 -0500
+In-Reply-To: <20120215233408.GA8389@elliptictech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-02-15 at 22:42 +0000, Konrad Rzeszutek Wilk wrote:
-> On Thu, Feb 02, 2012 at 04:49:22PM +0000, Wei Liu wrote:
-> > 
-> > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> 
-> It also needs this:
-> 
-> From 4cf97c025792cf073edc4d312b962ecc0b3b67ab Mon Sep 17 00:00:00 2001
-> From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Date: Wed, 15 Feb 2012 17:39:46 -0500
-> Subject: [PATCH] xen/net: Don't try to use all of the rings if we are not
->  built for it.
-> 
-> Otherwise we end up:
-> 
-> BUG: unable to handle kernel paging request at ffff88004000c0c8
-> IP: [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> PGD 1806063 PUD 0
-> 22:22:34 tst007 logger: /etc/xen/scripts/vif-bridge: offline XENBUS_PATH=backend/vif/1/0
-> 00 [#1] SMP
-> CPU 0
-> Modules linked in:
-> 
-> Pid: 17, comm: xenwatch Not tainted 3.2.0upstream #2 Xen HVM domU
-> RIP: 0010:[<ffffffff810f1ee4>]  [<ffffffff810f1ee4>] free_one_page+0x144/0x410
-> RSP: 0018:ffff88003bea3c40  EFLAGS: 00010046
-> .. snip.
-> Call Trace:
->  [<ffffffff810f2c7f>] __free_pages_ok+0x9f/0xe0
->  [<ffffffff810f4eab>] __free_pages+0x1b/0x40
->  [<ffffffff810f4f1a>] free_pages+0x4a/0x60
->  [<ffffffff8138b33d>] xennet_disconnect_backend+0xbd/0x130
->  [<ffffffff8138bd88>] talk_to_netback+0x8e8/0x1160
->  [<ffffffff812f4e28>] ? xenbus_gather+0xd8/0x170
->  [<ffffffff8138e3bd>] netback_changed+0xcd/0x550
->  [<ffffffff812f5bb8>] xenbus_otherend_changed+0xa8/0xb0
-> 
-> Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> ---
->  drivers/net/xen-netfront.c |   14 +++++++++++++-
->  1 files changed, 13 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 0223552..1eadd90 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -29,6 +29,8 @@
->   * IN THE SOFTWARE.
->   */
->  
-> +#define DEBUG 1
-> +
->  #include <linux/module.h>
->  #include <linux/kernel.h>
->  #include <linux/netdevice.h>
-> @@ -66,7 +68,7 @@ struct netfront_cb {
->  
->  #define GRANT_INVALID_REF	0
->  
-> -#define XENNET_MAX_RING_PAGE_ORDER 2
-> +#define XENNET_MAX_RING_PAGE_ORDER 4
+Hi Nick,=20
 
-I guess this is you tuning with page order? And here is not the only one
-place you changed?
+=E6=96=BC =E4=B8=89=EF=BC=8C2012-02-15 =E6=96=BC 18:34 -0500=EF=BC=8CNi=
+ck Bowler =E6=8F=90=E5=88=B0=EF=BC=9A
+> On 2012-02-15 23:41 +0100, Francois Romieu wrote:
+> > Nick Bowler <nbowler@elliptictech.com> :
+> > [...]
+> > > Let me know if you need any more info,
+> >=20
+> > Please send the XID line from the r8169 driver for this device.
+>=20
+> This one?
+>=20
+>   [   10.344571] r8169 0000:02:00.0: eth0: RTL8168d/8111d at 0xf80640=
+00, bc:ae:c5:27:19:6f, XID 083000c0 IRQ 41
+>=20
 
-As a matter of fact, in the previous patch 8 I encode hard limit 2 on
-the ring page order, your change here will stop FE / BE from connecting.
-
-I think I will also need to change this to something like
-
-  #define XENNET_MAX_RING_PAGE_ORDER XENBUS_MAX_RING_PAGE_ORDER
-
-to remind people to modify that value. 
-
->  #define XENNET_MAX_RING_PAGES      (1U << XENNET_MAX_RING_PAGE_ORDER)
->  
->  #define NET_TX_RING_SIZE(_nr_pages)					\
-> @@ -1611,6 +1613,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  		info->tx_ring_page_order = 0;
->  		dev_info(&dev->dev, "single tx ring\n");
->  	} else {
-> +		if (max_tx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
-> +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
-> +				max_tx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
-> +			max_tx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
-> +		}
->  		info->tx_ring_page_order = max_tx_ring_page_order;
->  		dev_info(&dev->dev, "multi page tx ring, order = %d\n",
->  			 max_tx_ring_page_order);
-> @@ -1642,6 +1649,11 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  		dev_info(&dev->dev, "single rx ring\n");
->  	} else {
->  		info->rx_ring_page_order = max_rx_ring_page_order;
-> +		if (max_rx_ring_page_order > XENNET_MAX_RING_PAGE_ORDER) {
-> +			dev_warn(&dev->dev, "Backend can do %d pages but we can only do %d!\n",
-> +				max_rx_ring_page_order, XENNET_MAX_RING_PAGE_ORDER);
-> +			max_rx_ring_page_order = XENNET_MAX_RING_PAGE_ORDER;
-> +		}
->  		dev_info(&dev->dev, "multi page rx ring, order = %d\n",
->  			 max_rx_ring_page_order);
->  	}
-
-Thanks for this, I will squash it into my patch.
+Did you see any message from r8169 in dmesg said lost firmware file on
+your system?
 
 
-Wei.
+Thanks
+Joey Lee
