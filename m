@@ -1,43 +1,73 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Thu, 16 Feb 2012 15:39:05 +0100
-Message-ID: <1329403145.3915.10.camel@jlt3.sipsolutions.net>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
-	 <1326621743.3448.1.camel@jlt3.sipsolutions.net>
-	 <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
-	 ( sfid-20120115_163411_716244_29DE7A13) <1326704259.3510.3.camel@jlt3.sipsolutions.net>
-	 <4F3CF0C1.3090304@broadcom.com>
-	 <1329395881.3915.7.camel@jlt3.sipsolutions.net>
-	 <4F3D0012.9070808@broadcom.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [RFC PATCH] SUNRPC: connect local transports synchronously
+Date: Thu, 16 Feb 2012 19:06:25 +0400
+Message-ID: <20120216150507.19081.28659.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>, Andy Whitcroft <apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F3D0012.9070808-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-02-16 at 14:09 +0100, Arend van Spriel wrote:
+Local tranports uses UNIX sockets and connecting of these sockets is done in
+context of file system namespace (i.e. task file system root).
+Currenly, all sockets connect operations are performed by rpciod work queue,
+which actually means, that any service will be registered in the same rpcbind
+instance regardless to process file system root.
+This is not containers, which usually have it's own nested root. There are 2
+approaches, how to solve the problem. First one is to store proper root in
+tranport and switch to it in rpciod workqueue function for connect operations.
+But this looks ugly. The second one is to connect to unix sockets
+synchronously. This aptch implements the last one.
 
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-> > When the firmware loading fails, the driver should unbind from the
-> > device that it failed for, and the retrying behaviour doesn't change
-> > (and requires a rebind)
+---
+ net/sunrpc/xprtsock.c |   22 +++++++++++++++++++++-
+ 1 files changed, 21 insertions(+), 1 deletions(-)
 
-> That helps. My driver was happily bound to the device until unloading 
-> the driver or unplugging the device.
-
-Right, if it fails you should call device_release_driver()
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 55472c4..365cd6d 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -2177,6 +2177,26 @@ out:
+ }
+ 
+ /**
++ * xs_local_connect - connect a local (unix) socket to a remote endpoint
++ * @task: address of RPC task that manages state of connect request
++ *
++ * We have to connect unix sockets synchronously. Otherwise this connection
++ * will be done in file system context of rpciod queue, which is not suitable
++ * for processes with other root (changed root is a usual part of environment
++ * for containers).
++ */
++
++static void xs_local_connect(struct rpc_task *task)
++{
++	struct rpc_xprt *xprt = task->tk_xprt;
++	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
++	struct work_struct *work = &transport->connect_worker.work;
++
++	dprintk("RPC:       xs_local_connect xprt %p\n", xprt);
++	work->func(work);
++}
++
++/**
+  * xs_connect - connect a socket to a remote endpoint
+  * @task: address of RPC task that manages state of connect request
+  *
+@@ -2414,7 +2434,7 @@ static struct rpc_xprt_ops xs_local_ops = {
+ 	.release_xprt		= xs_tcp_release_xprt,
+ 	.rpcbind		= xs_local_rpcbind,
+ 	.set_port		= xs_local_set_port,
+-	.connect		= xs_connect,
++	.connect		= xs_local_connect,
+ 	.buf_alloc		= rpc_malloc,
+ 	.buf_free		= rpc_free,
+ 	.send_request		= xs_local_send_request,
