@@ -1,82 +1,113 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Thu, 16 Feb 2012 19:18:57 +0000
-Message-ID: <4F3D56A1.3030502@solarflare.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>	 <4F34042F.6090806@intel.com>	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>	 <1328887111.2075.43.camel@mojatatu> <1329364728.3048.159.camel@deadeye>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH] bnx2x: tx-switching module parameter
+Date: Thu, 16 Feb 2012 11:38:47 -0800
+Message-ID: <4F3D5B47.6030505@intel.com>
+References: <1329401112-9542-1-git-send-email-ariele@broadcom.com> <20120216094936.3449e6ef@nehalam.linuxnetplumber.net> <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <jhs@mojatatu.com>, John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	<roprabhu@cisco.com>, <netdev@vger.kernel.org>, <mst@redhat.com>,
-	<chrisw@redhat.com>, <davem@davemloft.net>,
-	<gregory.v.rose@intel.com>, <kvm@vger.kernel.org>, <sri@us.ibm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1329364728.3048.159.camel@deadeye>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ariel Elior <ariele@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:61859 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751791Ab2BPTjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 14:39:04 -0500
+In-Reply-To: <1329417315.30697.3.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-Please find my comments inline.
-
-Regards,
-Shradha Shah
-
-On 02/16/2012 03:58 AM, Ben Hutchings wrote:
-> [I'm just catching up with this after getting my own driver changes into
-> shape.]
-> 
-> On Fri, 2012-02-10 at 10:18 -0500, jamal wrote:
->> Hi John,
+On 2/16/2012 10:35 AM, Eilon Greenstein wrote:
+> On Thu, 2012-02-16 at 09:49 -0800, Stephen Hemminger wrote:
+>> On Thu, 16 Feb 2012 16:05:12 +0200
+>> "Ariel Elior" <ariele@broadcom.com> wrote:
 >>
->> I went backwards to summarize at the top after going through your email.
->>
->> TL;DR version 0.1: 
->> you provide a good use case where it makes sense to do things in the
->> kernel. IMO, you could make the same arguement if your embedded switch
->> could do ACLs, IPv4 forwarding etc. And the kernel bloats.
->> I am always bigoted to move all policy control to user space instead of
->> bloating in the kernel.
-> [...]
->>> Now here is the potential issue,
+>>> In 57712 and 578xx the tx-switching module parameter allows the user to control
+>>> whether outgoing traffic can be loopbacked into the device in case there is a
+>>> relevant client for the data using the same device for rx.
+>>> A classic example where this is necessary is for virtualization purposes, where
+>>> one vm is transmitting data to another, while both use different pci functions of
+>>> the same port of the same nic.
 >>>
->>> (G) The frame transmitted from ethx.y with the destination address of
->>>     veth0 but the embedded switch is not a learning switch. If the FDB
->>>     update is done in user space its possible (likely?) that the FDB
->>>     entry for veth0 has not been added to the embedded switch yet. 
+>>> In case there is a promiscuous client in the rx (which wants to receive all
+>>> data) or if the traffic is broadcast, traffic may be sent on both the loopback
+>>> channel and the physical wire.
+>>>
+>>> The reason tx-switching is controlled by a module parameter is twofold:
+>>> 1. There is a certain performance penalty for tx-switching because:
+>>>    a. every packet must be compared against the receiver clients.
+>>>    b. duplicated traffic being loopbacked can consume a significant portion of
+>>>    the overall bandwidth, depending on the scenario.
+>>> 2. Tx-switching doesn't make much sense as a per function parameter, but should
+>>> rather be controlled uniformly for the  entire device. The reason is that if one
+>>> interface wants to be able to send data on the loopback it is not enough to
+>>> enable tx-switching for that interface, as the target interface must also
+>>> register its rx classification information where the transmitting interface can
+>>> find it. One would still have to use the module parameter in each VM, though.
+>>>
+>>> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+>>> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 >>
->> Ok, got it - so the catch here is the switch is not capable of learning.
->> I think this depends on where learning is done. Your intent is to
->> use the S/W bridge as something that does the learning for you i.e in
->> the kernel. This makes the s/w bridge part of MUST-have-for-this-to-run.
->> And that maybe the case for your use case.
-> [...]
+>> Module parameters are the hardware vendors friend, but the system
+>> integrators nightmare. Although you think your hardware is special
+>> but it isn't some other vendor will have same idea, how is user and
+>> distribution supposed to control it?
 > 
-> Well, in addition, there are SR-IOV network adapters that don't have any
-> bridge.  For these, the software bridge is necessary to handle
-> multicast, broadcast and forwarding between local ports, not only to do
-> learning.
-> 
-> Solarflare's implementation of accelerated guest networking (which
-> Shradha and I are gradually sending upstream) builds on libvirt's
-> existing support for software bridges and assigns VFs to guests as a
-> means to offload some of the forwarding.
-
-I am also trying to work with bridging using macvtap. Libvirt supports
-macvtap in four modes; vepa, bridge, private and passthrough mode.
-Macvtap used in the bridge mode will work similar to a software bridge and 
-will improve performance.
-
-> 
-> If and when we implement a hardware bridge, we would probably still want
-> to keep the software bridge as a fallback.  If a guest is dependent on a
-> VF that's connected to a hardware bridge, it becomes impossible or at
-> least very disruptive to migrate it to another host that doesn't have a
-> compatible VF available.
-> 
-> Ben.
+> Actually, module parameters require more explanations and cause more
+> questions since they are unique to the device than any standard way - so
+> we do prefer a standard way of doing things. In this case, we looked at
+> other driver and scanned the mailing list history to see if we missed
+> some discussion - but could not found anything. It is possible that for
+> some HW the cost of doing this internal switching is low and therefore
+> enabled by default and it is possible that some HW do not support it.
+> This applies only to multi-functions (more than one PF sharing the same
+> network port) devices and is usually required in VMs which are using
+> physical device assignment since most multi-function environments are
+> controlled by the switch which is looping back the packets.
 > 
 
+It should be relevant to any case where your doing hardware switching and
+the mechanism to configure this should be independent of how you expose
+multiple MAC services (mac/vlan pairs) realized as net devices in Linux.
+Specifically the mechanism should work for a PF and many VFs, multiple PFs,
+or queue based filtering mechanisms (Intel's VMDq).
 
+The 82599 Intel devices support disabling loopback. This is needed to support
+VEPA modes as defined in the 802.1Qbg standard which should be ratified
+shortly. Typically you would expect the peer to support a hairpin forwarding
+so that PF-VF, VF-VF, and PF-PF communication still works.
+
+> But netdev is a great place to ask - are there other vendors out there
+> that requires this control over internal switching? If so, we can define
+> a new ethtool command. The alternative of using the ethtool private
+> flags seems just as inconvenient from administrators point of view and
+> also seem less appropriate since this configuration is more likely to be
+> the same for all PFs on the same machine.
+> 
+
+This needs to be configurable at runtime. Because the 802.1Qbg spec defines
+a protocol to learn which mode we should use and we want to be able to support
+this. 'lldpad' and 'libvirt' already have some support for this. Also macvlan's
+may be stacked on top of the PF and depending on the macvlan mode VEB or VEPA
+you may need to configure the hardware switch to be compatible.
+
+My thought on this is it should be a netlink command because it will be helpful
+in userspace to get events when this is changed. A module parameter should be
+a non-starter here because that would require any management application to start
+loading and unloading modules which is a pain and bounces the link. Ethtool is
+better than a modparam but I would prefer to get an event so that I can keep
+lldpad (or any other app for that matter) in sync.
+
+Thanks,
+John
+
+
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
