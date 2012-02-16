@@ -1,57 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netem: fix dequeue
-Date: Thu, 16 Feb 2012 07:28:25 +0100
-Message-ID: <1329373705.5646.13.camel@edumazet-laptop>
+Subject: [PATCH] atl1c: dont use highprio tx queue
+Date: Thu, 16 Feb 2012 07:43:11 +0100
+Message-ID: <1329374591.5646.23.camel@edumazet-laptop>
+References: <1329063403.1449.14.camel@localhost.localdomain>
+	 <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
+	 <1329204997.24837.15.camel@edumazet-laptop>
+	 <1329366846.5646.1.camel@edumazet-laptop>
+	 <C6B7BB6C-D1B8-4454-A2B2-558FCA5B0BBD@m3y3r.de>
+	 <1329373082.5646.9.camel@edumazet-laptop>
+	 <21390AB8-BD9B-44D7-B2CE-B20AF7605CE7@m3y3r.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61763 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753942Ab2BPG2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 01:28:30 -0500
-Received: by wgbdt10 with SMTP id dt10so1631660wgb.1
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 22:28:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+	"chris.snook@gmail.com" <chris.snook@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Josh Boyer <jwboyer@gmail.com>
+To: Thomas Meyer <thomas@m3y3r.de>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <21390AB8-BD9B-44D7-B2CE-B20AF7605CE7@m3y3r.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 50612537e9 (netem: fix classful handling) added two errors in
-netem_dequeue() 
+This driver attempts to use two TX rings but lacks proper support :
 
-1) After checking skb at the head of tfifo queue for time constraints,
-   it dequeues tail skb, thus adding unwanted reordering.
+1) IRQ handler only takes care of TX completion on first TX ring
+2) the stop/start logic uses the legacy functions (for non multiqueue
+drivers)
 
-2) qdisc stats are updated twice per packet
-   (one when packet dequeued from tfifo, once when delivered)
+This means all packets witk skb mark set to 1 are sent through high
+queue but are never cleaned and queue eventualy fills and block the
+device, triggering the infamous "NETDEV WATCHDOG" message. 
 
+Lets use a single TX ring to fix the problem, this driver is not a real
+multiqueue one yet.
+
+Minimal fix for stable kernels.
+
+Reported-by: Thomas Meyer <thomas@m3y3r.de>
+Tested-by: Thomas Meyer <thomas@m3y3r.de>
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jay Cliburn <jcliburn@gmail.com>
+Cc: Chris Snook <chris.snook@gmail.com>
 ---
- net/sched/sch_netem.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index e83d61c..5da548f 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -501,9 +501,8 @@ tfifo_dequeue:
- 
- 		/* if more time remaining? */
- 		if (cb->time_to_send <= psched_get_time()) {
--			skb = qdisc_dequeue_tail(sch);
--			if (unlikely(!skb))
--				goto qdisc_dequeue;
-+			__skb_unlink(skb, &sch->q);
-+			sch->qstats.backlog -= qdisc_pkt_len(skb);
- 
- #ifdef CONFIG_NET_CLS_ACT
- 			/*
-@@ -539,7 +538,6 @@ deliver:
- 		qdisc_watchdog_schedule(&q->watchdog, cb->time_to_send);
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index b859124..1ff3c6d 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -2244,10 +2244,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
+ 			dev_info(&adapter->pdev->dev, "tx locked\n");
+ 		return NETDEV_TX_LOCKED;
  	}
+-	if (skb->mark == 0x01)
+-		type = atl1c_trans_high;
+-	else
+-		type = atl1c_trans_normal;
  
--qdisc_dequeue:
- 	if (q->qdisc) {
- 		skb = q->qdisc->ops->dequeue(q->qdisc);
- 		if (skb)
+ 	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
+ 		/* no enough descriptor, just stop queue */
