@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/19] sfc: Add support for configuring RX
- unicast/multicast default filters
-Date: Thu, 16 Feb 2012 00:46:12 +0000
-Message-ID: <1329353172.2565.31.camel@bwh-desktop>
+Subject: [PATCH net-next 09/19] sfc: Generate RX fill events based on RX
+ queues, not channels
+Date: Thu, 16 Feb 2012 00:47:42 +0000
+Message-ID: <1329353262.2565.35.camel@bwh-desktop>
 References: <1329352938.2565.26.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -12,495 +12,110 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail.solarflare.com ([216.237.3.220]:27607 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751572Ab2BPArz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 19:47:55 -0500
+	by vger.kernel.org with ESMTP id S1751572Ab2BPAr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 19:47:57 -0500
 In-Reply-To: <1329352938.2565.26.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Siena all received packets that don't match a more specific filter
-will match the unicast or multicast default filter.  Currently we
-leave these set to the default values (RSS with base queue number of
-0).  Allow them to be reconfigured to select a single RX queue.
-
-These default filters are programmed through the FILTER_CTL register,
-but we represent them internally as an additional table of size 2.
+This makes it harder to accidentally send such events to TX-only
+channels.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ethtool.c |   59 ++++++++---
- drivers/net/ethernet/sfc/filter.c  |  196 ++++++++++++++++++++++++++++++------
- drivers/net/ethernet/sfc/filter.h  |    6 +
- 3 files changed, 214 insertions(+), 47 deletions(-)
+ drivers/net/ethernet/sfc/nic.c |   17 +++++++++++------
+ drivers/net/ethernet/sfc/nic.h |    2 +-
+ drivers/net/ethernet/sfc/rx.c  |    3 +--
+ 3 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index f887f65..8319115 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -808,11 +808,16 @@ static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
- 	return efx_reset(efx, rc);
- }
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 0a46b1c..2b33afd 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -66,8 +66,9 @@
  
-+/* MAC address mask including only MC flag */
-+static const u8 mac_addr_mc_mask[ETH_ALEN] = { 0x01, 0, 0, 0, 0, 0 };
-+
- static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 				      struct ethtool_rx_flow_spec *rule)
- {
- 	struct ethtool_tcpip4_spec *ip_entry = &rule->h_u.tcp_ip4_spec;
- 	struct ethtool_tcpip4_spec *ip_mask = &rule->m_u.tcp_ip4_spec;
-+	struct ethhdr *mac_entry = &rule->h_u.ether_spec;
-+	struct ethhdr *mac_mask = &rule->m_u.ether_spec;
- 	struct efx_filter_spec spec;
- 	u16 vid;
- 	u8 proto;
-@@ -828,11 +833,18 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
- 	else
- 		rule->ring_cookie = spec.dmaq_id;
+ #define EFX_CHANNEL_MAGIC_TEST(_channel)				\
+ 	_EFX_CHANNEL_MAGIC(_EFX_CHANNEL_MAGIC_TEST, (_channel)->channel)
+-#define EFX_CHANNEL_MAGIC_FILL(_channel)				\
+-	_EFX_CHANNEL_MAGIC(_EFX_CHANNEL_MAGIC_FILL, (_channel)->channel)
++#define EFX_CHANNEL_MAGIC_FILL(_rx_queue)				\
++	_EFX_CHANNEL_MAGIC(_EFX_CHANNEL_MAGIC_FILL,			\
++			   efx_rx_queue_index(_rx_queue))
  
--	rc = efx_filter_get_eth_local(&spec, &vid,
--				      rule->h_u.ether_spec.h_dest);
-+	if (spec.type == EFX_FILTER_MC_DEF || spec.type == EFX_FILTER_UC_DEF) {
-+		rule->flow_type = ETHER_FLOW;
-+		memcpy(mac_mask->h_dest, mac_addr_mc_mask, ETH_ALEN);
-+		if (spec.type == EFX_FILTER_MC_DEF)
-+			memcpy(mac_entry->h_dest, mac_addr_mc_mask, ETH_ALEN);
-+		return 0;
-+	}
-+
-+	rc = efx_filter_get_eth_local(&spec, &vid, mac_entry->h_dest);
- 	if (rc == 0) {
- 		rule->flow_type = ETHER_FLOW;
--		memset(rule->m_u.ether_spec.h_dest, ~0, ETH_ALEN);
-+		memset(mac_mask->h_dest, ~0, ETH_ALEN);
- 		if (vid != EFX_FILTER_VID_UNSPEC) {
- 			rule->flow_type |= FLOW_EXT;
- 			rule->h_ext.vlan_tci = htons(vid);
-@@ -1001,27 +1013,40 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
- 	}
- 
- 	case ETHER_FLOW | FLOW_EXT:
--		/* Must match all or none of VID */
--		if (rule->m_ext.vlan_tci != htons(0xfff) &&
--		    rule->m_ext.vlan_tci != 0)
--			return -EINVAL;
--	case ETHER_FLOW:
--		/* Must match all of destination */
--		if (!is_broadcast_ether_addr(mac_mask->h_dest))
--			return -EINVAL;
--		/* and nothing else */
-+	case ETHER_FLOW: {
-+		u16 vlan_tag_mask = (rule->flow_type & FLOW_EXT ?
-+				     ntohs(rule->m_ext.vlan_tci) : 0);
-+
-+		/* Must not match on source address or Ethertype */
- 		if (!is_zero_ether_addr(mac_mask->h_source) ||
- 		    mac_mask->h_proto)
- 			return -EINVAL;
- 
--		rc = efx_filter_set_eth_local(
--			&spec,
--			(rule->flow_type & FLOW_EXT && rule->m_ext.vlan_tci) ?
--			ntohs(rule->h_ext.vlan_tci) : EFX_FILTER_VID_UNSPEC,
--			mac_entry->h_dest);
-+		/* Is it a default UC or MC filter? */
-+		if (!compare_ether_addr(mac_mask->h_dest, mac_addr_mc_mask) &&
-+		    vlan_tag_mask == 0) {
-+			if (is_multicast_ether_addr(mac_entry->h_dest))
-+				rc = efx_filter_set_mc_def(&spec);
-+			else
-+				rc = efx_filter_set_uc_def(&spec);
-+		}
-+		/* Otherwise, it must match all of destination and all
-+		 * or none of VID.
-+		 */
-+		else if (is_broadcast_ether_addr(mac_mask->h_dest) &&
-+			 (vlan_tag_mask == 0xfff || vlan_tag_mask == 0)) {
-+			rc = efx_filter_set_eth_local(
-+				&spec,
-+				vlan_tag_mask ?
-+				ntohs(rule->h_ext.vlan_tci) : EFX_FILTER_VID_UNSPEC,
-+				mac_entry->h_dest);
-+		} else {
-+			rc = -EINVAL;
-+		}
- 		if (rc)
- 			return rc;
- 		break;
-+	}
- 
- 	default:
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index 1fbbbee..92517ea 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -35,9 +35,16 @@
- enum efx_filter_table_id {
- 	EFX_FILTER_TABLE_RX_IP = 0,
- 	EFX_FILTER_TABLE_RX_MAC,
-+	EFX_FILTER_TABLE_RX_DEF,
- 	EFX_FILTER_TABLE_COUNT,
- };
- 
-+enum efx_filter_index {
-+	EFX_FILTER_INDEX_UC_DEF,
-+	EFX_FILTER_INDEX_MC_DEF,
-+	EFX_FILTER_SIZE_RX_DEF,
-+};
-+
- struct efx_filter_table {
- 	enum efx_filter_table_id id;
- 	u32		offset;		/* address of table relative to BAR */
-@@ -109,7 +116,7 @@ static void efx_filter_table_reset_search_depth(struct efx_filter_table *table)
- 	memset(table->search_depth, 0, sizeof(table->search_depth));
- }
- 
--static void efx_filter_push_rx_limits(struct efx_nic *efx)
-+static void efx_filter_push_rx_config(struct efx_nic *efx)
- {
- 	struct efx_filter_state *state = efx->filter_state;
- 	struct efx_filter_table *table;
-@@ -143,6 +150,32 @@ static void efx_filter_push_rx_limits(struct efx_nic *efx)
- 			FILTER_CTL_SRCH_FUDGE_WILD);
- 	}
- 
-+	table = &state->table[EFX_FILTER_TABLE_RX_DEF];
-+	if (table->size) {
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_UNICAST_NOMATCH_Q_ID,
-+			table->spec[EFX_FILTER_INDEX_UC_DEF].dmaq_id);
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_UNICAST_NOMATCH_RSS_ENABLED,
-+			!!(table->spec[EFX_FILTER_INDEX_UC_DEF].flags &
-+			   EFX_FILTER_FLAG_RX_RSS));
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_UNICAST_NOMATCH_IP_OVERRIDE,
-+			!!(table->spec[EFX_FILTER_INDEX_UC_DEF].flags &
-+			   EFX_FILTER_FLAG_RX_OVERRIDE_IP));
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_MULTICAST_NOMATCH_Q_ID,
-+			table->spec[EFX_FILTER_INDEX_MC_DEF].dmaq_id);
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_MULTICAST_NOMATCH_RSS_ENABLED,
-+			!!(table->spec[EFX_FILTER_INDEX_MC_DEF].flags &
-+			   EFX_FILTER_FLAG_RX_RSS));
-+		EFX_SET_OWORD_FIELD(
-+			filter_ctl, FRF_CZ_MULTICAST_NOMATCH_IP_OVERRIDE,
-+			!!(table->spec[EFX_FILTER_INDEX_MC_DEF].flags &
-+			   EFX_FILTER_FLAG_RX_OVERRIDE_IP));
-+	}
-+
- 	efx_writeo(efx, &filter_ctl, FR_BZ_RX_FILTER_CTL);
- }
- 
-@@ -319,6 +352,52 @@ int efx_filter_set_eth_local(struct efx_filter_spec *spec,
- 	return 0;
- }
- 
-+/**
-+ * efx_filter_set_uc_def - specify matching otherwise-unmatched unicast
-+ * @spec: Specification to initialise
-+ */
-+int efx_filter_set_uc_def(struct efx_filter_spec *spec)
-+{
-+	EFX_BUG_ON_PARANOID(!(spec->flags &
-+			      (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_TX)));
-+
-+	if (spec->type != EFX_FILTER_UNSPEC)
-+		return -EINVAL;
-+
-+	spec->type = EFX_FILTER_UC_DEF;
-+	memset(spec->data, 0, sizeof(spec->data)); /* ensure equality */
-+	return 0;
-+}
-+
-+/**
-+ * efx_filter_set_mc_def - specify matching otherwise-unmatched multicast
-+ * @spec: Specification to initialise
-+ */
-+int efx_filter_set_mc_def(struct efx_filter_spec *spec)
-+{
-+	EFX_BUG_ON_PARANOID(!(spec->flags &
-+			      (EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_TX)));
-+
-+	if (spec->type != EFX_FILTER_UNSPEC)
-+		return -EINVAL;
-+
-+	spec->type = EFX_FILTER_MC_DEF;
-+	memset(spec->data, 0, sizeof(spec->data)); /* ensure equality */
-+	return 0;
-+}
-+
-+static void efx_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
-+{
-+	struct efx_filter_state *state = efx->filter_state;
-+	struct efx_filter_table *table = &state->table[EFX_FILTER_TABLE_RX_DEF];
-+	struct efx_filter_spec *spec = &table->spec[filter_idx];
-+
-+	efx_filter_init_rx(spec, EFX_FILTER_PRI_MANUAL,
-+			   EFX_FILTER_FLAG_RX_RSS, 0);
-+	spec->type = EFX_FILTER_UC_DEF + filter_idx;
-+	table->used_bitmap[0] |= 1 << filter_idx;
-+}
-+
- int efx_filter_get_eth_local(const struct efx_filter_spec *spec,
- 			     u16 *vid, u8 *addr)
- {
-@@ -366,6 +445,13 @@ static u32 efx_filter_build(efx_oword_t *filter, struct efx_filter_spec *spec)
- 		break;
- 	}
- 
-+	case EFX_FILTER_TABLE_RX_DEF:
-+		/* One filter spec per type */
-+		BUILD_BUG_ON(EFX_FILTER_INDEX_UC_DEF != 0);
-+		BUILD_BUG_ON(EFX_FILTER_INDEX_MC_DEF !=
-+			     EFX_FILTER_MC_DEF - EFX_FILTER_UC_DEF);
-+		return spec->type - EFX_FILTER_UC_DEF;
-+
- 	case EFX_FILTER_TABLE_RX_MAC: {
- 		bool is_wild = spec->type == EFX_FILTER_MAC_WILD;
- 		EFX_POPULATE_OWORD_8(
-@@ -448,23 +534,40 @@ static int efx_filter_search(struct efx_filter_table *table,
-  * MAC filters without overriding behaviour.
-  */
- 
-+#define EFX_FILTER_MATCH_PRI_RX_MAC_OVERRIDE_IP	0
-+#define EFX_FILTER_MATCH_PRI_RX_DEF_OVERRIDE_IP	1
-+#define EFX_FILTER_MATCH_PRI_NORMAL_BASE	2
-+
- #define EFX_FILTER_INDEX_WIDTH	13
- #define EFX_FILTER_INDEX_MASK	((1 << EFX_FILTER_INDEX_WIDTH) - 1)
- 
- static inline u32 efx_filter_make_id(enum efx_filter_table_id table_id,
- 				     unsigned int index, u8 flags)
- {
--	return (table_id == EFX_FILTER_TABLE_RX_MAC &&
--		flags & EFX_FILTER_FLAG_RX_OVERRIDE_IP) ?
--		index :
--		(table_id + 1) << EFX_FILTER_INDEX_WIDTH | index;
-+	unsigned int match_pri = EFX_FILTER_MATCH_PRI_NORMAL_BASE + table_id;
-+
-+	if (flags & EFX_FILTER_FLAG_RX_OVERRIDE_IP) {
-+		if (table_id == EFX_FILTER_TABLE_RX_MAC)
-+			match_pri = EFX_FILTER_MATCH_PRI_RX_MAC_OVERRIDE_IP;
-+		else if (table_id == EFX_FILTER_TABLE_RX_DEF)
-+			match_pri = EFX_FILTER_MATCH_PRI_RX_DEF_OVERRIDE_IP;
-+	}
-+
-+	return match_pri << EFX_FILTER_INDEX_WIDTH | index;
- }
- 
- static inline enum efx_filter_table_id efx_filter_id_table_id(u32 id)
- {
--	return (id <= EFX_FILTER_INDEX_MASK) ?
--		EFX_FILTER_TABLE_RX_MAC :
--		(id >> EFX_FILTER_INDEX_WIDTH) - 1;
-+	unsigned int match_pri = id >> EFX_FILTER_INDEX_WIDTH;
-+
-+	switch (match_pri) {
-+	case EFX_FILTER_MATCH_PRI_RX_MAC_OVERRIDE_IP:
-+		return EFX_FILTER_TABLE_RX_MAC;
-+	case EFX_FILTER_MATCH_PRI_RX_DEF_OVERRIDE_IP:
-+		return EFX_FILTER_TABLE_RX_DEF;
-+	default:
-+		return match_pri - EFX_FILTER_MATCH_PRI_NORMAL_BASE;
-+	}
- }
- 
- static inline unsigned int efx_filter_id_index(u32 id)
-@@ -474,23 +577,27 @@ static inline unsigned int efx_filter_id_index(u32 id)
- 
- static inline u8 efx_filter_id_flags(u32 id)
- {
--	return (id <= EFX_FILTER_INDEX_MASK) ?
--		EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_OVERRIDE_IP :
--		EFX_FILTER_FLAG_RX;
-+	unsigned int match_pri = id >> EFX_FILTER_INDEX_WIDTH;
-+
-+	if (match_pri < EFX_FILTER_MATCH_PRI_NORMAL_BASE)
-+		return EFX_FILTER_FLAG_RX | EFX_FILTER_FLAG_RX_OVERRIDE_IP;
-+	else
-+		return EFX_FILTER_FLAG_RX;
- }
- 
- u32 efx_filter_get_rx_id_limit(struct efx_nic *efx)
- {
- 	struct efx_filter_state *state = efx->filter_state;
-+	unsigned int table_id = EFX_FILTER_TABLE_RX_DEF;
- 
--	if (state->table[EFX_FILTER_TABLE_RX_MAC].size != 0)
--		return ((EFX_FILTER_TABLE_RX_MAC + 1) << EFX_FILTER_INDEX_WIDTH)
--			+ state->table[EFX_FILTER_TABLE_RX_MAC].size;
--	else if (state->table[EFX_FILTER_TABLE_RX_IP].size != 0)
--		return ((EFX_FILTER_TABLE_RX_IP + 1) << EFX_FILTER_INDEX_WIDTH)
--			+ state->table[EFX_FILTER_TABLE_RX_IP].size;
--	else
--		return 0;
-+	do {
-+		if (state->table[table_id].size != 0)
-+			return ((EFX_FILTER_MATCH_PRI_NORMAL_BASE + table_id)
-+				<< EFX_FILTER_INDEX_WIDTH) +
-+				state->table[table_id].size;
-+	} while (table_id--);
-+
-+	return 0;
- }
- 
- /**
-@@ -548,12 +655,17 @@ s32 efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
- 	}
- 	*saved_spec = *spec;
- 
--	if (table->search_depth[spec->type] < depth) {
--		table->search_depth[spec->type] = depth;
--		efx_filter_push_rx_limits(efx);
--	}
-+	if (table->id == EFX_FILTER_TABLE_RX_DEF) {
-+		efx_filter_push_rx_config(efx);
-+	} else {
-+		if (table->search_depth[spec->type] < depth) {
-+			table->search_depth[spec->type] = depth;
-+			efx_filter_push_rx_config(efx);
-+		}
- 
--	efx_writeo(efx, &filter, table->offset + table->step * filter_idx);
-+		efx_writeo(efx, &filter,
-+			   table->offset + table->step * filter_idx);
-+	}
- 
- 	netif_vdbg(efx, hw, efx->net_dev,
- 		   "%s: filter type %d index %d rxq %u set",
-@@ -571,7 +683,11 @@ static void efx_filter_table_clear_entry(struct efx_nic *efx,
- {
- 	static efx_oword_t filter;
- 
--	if (test_bit(filter_idx, table->used_bitmap)) {
-+	if (table->id == EFX_FILTER_TABLE_RX_DEF) {
-+		/* RX default filters must always exist */
-+		efx_filter_reset_rx_def(efx, filter_idx);
-+		efx_filter_push_rx_config(efx);
-+	} else if (test_bit(filter_idx, table->used_bitmap)) {
- 		__clear_bit(filter_idx, table->used_bitmap);
- 		--table->used;
- 		memset(&table->spec[filter_idx], 0, sizeof(table->spec[0]));
-@@ -617,7 +733,8 @@ int efx_filter_remove_id_safe(struct efx_nic *efx,
- 	spin_lock_bh(&state->lock);
- 
- 	if (test_bit(filter_idx, table->used_bitmap) &&
--	    spec->priority == priority && spec->flags == filter_flags) {
-+	    spec->priority == priority &&
-+	    !((spec->flags ^ filter_flags) & EFX_FILTER_FLAG_RX_OVERRIDE_IP)) {
- 		efx_filter_table_clear_entry(efx, table, filter_idx);
- 		if (table->used == 0)
- 			efx_filter_table_reset_search_depth(table);
-@@ -668,7 +785,8 @@ int efx_filter_get_filter_safe(struct efx_nic *efx,
- 	spin_lock_bh(&state->lock);
- 
- 	if (test_bit(filter_idx, table->used_bitmap) &&
--	    spec->priority == priority && spec->flags == filter_flags) {
-+	    spec->priority == priority &&
-+	    !((spec->flags ^ filter_flags) & EFX_FILTER_FLAG_RX_OVERRIDE_IP)) {
- 		*spec_buf = *spec;
- 		rc = 0;
- 	} else {
-@@ -722,7 +840,7 @@ u32 efx_filter_count_rx_used(struct efx_nic *efx,
- 	spin_lock_bh(&state->lock);
- 
- 	for (table_id = EFX_FILTER_TABLE_RX_IP;
--	     table_id <= EFX_FILTER_TABLE_RX_MAC;
-+	     table_id <= EFX_FILTER_TABLE_RX_DEF;
- 	     table_id++) {
- 		table = &state->table[table_id];
- 		for (filter_idx = 0; filter_idx < table->size; filter_idx++) {
-@@ -750,7 +868,7 @@ s32 efx_filter_get_rx_ids(struct efx_nic *efx,
- 	spin_lock_bh(&state->lock);
- 
- 	for (table_id = EFX_FILTER_TABLE_RX_IP;
--	     table_id <= EFX_FILTER_TABLE_RX_MAC;
-+	     table_id <= EFX_FILTER_TABLE_RX_DEF;
- 	     table_id++) {
- 		table = &state->table[table_id];
- 		for (filter_idx = 0; filter_idx < table->size; filter_idx++) {
-@@ -785,6 +903,11 @@ void efx_restore_filters(struct efx_nic *efx)
- 
- 	for (table_id = 0; table_id < EFX_FILTER_TABLE_COUNT; table_id++) {
- 		table = &state->table[table_id];
-+
-+		/* Check whether this is a regular register table */
-+		if (table->step == 0)
-+			continue;
-+
- 		for (filter_idx = 0; filter_idx < table->size; filter_idx++) {
- 			if (!test_bit(filter_idx, table->used_bitmap))
- 				continue;
-@@ -794,7 +917,7 @@ void efx_restore_filters(struct efx_nic *efx)
- 		}
- 	}
- 
--	efx_filter_push_rx_limits(efx);
-+	efx_filter_push_rx_config(efx);
- 
- 	spin_unlock_bh(&state->lock);
- }
-@@ -833,6 +956,10 @@ int efx_probe_filters(struct efx_nic *efx)
- 		table->offset = FR_CZ_RX_MAC_FILTER_TBL0;
- 		table->size = FR_CZ_RX_MAC_FILTER_TBL0_ROWS;
- 		table->step = FR_CZ_RX_MAC_FILTER_TBL0_STEP;
-+
-+		table = &state->table[EFX_FILTER_TABLE_RX_DEF];
-+		table->id = EFX_FILTER_TABLE_RX_DEF;
-+		table->size = EFX_FILTER_SIZE_RX_DEF;
- 	}
- 
- 	for (table_id = 0; table_id < EFX_FILTER_TABLE_COUNT; table_id++) {
-@@ -849,6 +976,15 @@ int efx_probe_filters(struct efx_nic *efx)
- 			goto fail;
- 	}
- 
-+	if (state->table[EFX_FILTER_TABLE_RX_DEF].size) {
-+		/* RX default filters must always exist */
-+		unsigned i;
-+		for (i = 0; i < EFX_FILTER_SIZE_RX_DEF; i++)
-+			efx_filter_reset_rx_def(efx, i);
-+	}
-+
-+	efx_filter_push_rx_config(efx);
-+
- 	return 0;
- 
- fail:
-diff --git a/drivers/net/ethernet/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
-index 3d4108c..4519978 100644
---- a/drivers/net/ethernet/sfc/filter.h
-+++ b/drivers/net/ethernet/sfc/filter.h
-@@ -20,6 +20,8 @@
-  * @EFX_FILTER_UDP_WILD: Matching UDP/IPv4 destination (host, port)
-  * @EFX_FILTER_MAC_FULL: Matching Ethernet destination MAC address, VID
-  * @EFX_FILTER_MAC_WILD: Matching Ethernet destination MAC address
-+ * @EFX_FILTER_UC_DEF: Matching all otherwise unmatched unicast
-+ * @EFX_FILTER_MC_DEF: Matching all otherwise unmatched multicast
-  * @EFX_FILTER_UNSPEC: Match type is unspecified
+ /**************************************************************************
   *
-  * Falcon NICs only support the TCP/IPv4 and UDP/IPv4 filter types.
-@@ -31,6 +33,8 @@ enum efx_filter_type {
- 	EFX_FILTER_UDP_WILD,
- 	EFX_FILTER_MAC_FULL = 4,
- 	EFX_FILTER_MAC_WILD,
-+	EFX_FILTER_UC_DEF = 8,
-+	EFX_FILTER_MC_DEF,
- 	EFX_FILTER_TYPE_COUNT,		/* number of specific types */
- 	EFX_FILTER_UNSPEC = 0xf,
- };
-@@ -117,6 +121,8 @@ extern int efx_filter_set_eth_local(struct efx_filter_spec *spec,
- 				    u16 vid, const u8 *addr);
- extern int efx_filter_get_eth_local(const struct efx_filter_spec *spec,
- 				    u16 *vid, u8 *addr);
-+extern int efx_filter_set_uc_def(struct efx_filter_spec *spec);
-+extern int efx_filter_set_mc_def(struct efx_filter_spec *spec);
- enum {
- 	EFX_FILTER_VID_UNSPEC = 0xffff,
- };
+@@ -912,17 +913,20 @@ static void
+ efx_handle_generated_event(struct efx_channel *channel, efx_qword_t *event)
+ {
+ 	struct efx_nic *efx = channel->efx;
++	struct efx_rx_queue *rx_queue =
++		efx_channel_has_rx_queue(channel) ?
++		efx_channel_get_rx_queue(channel) : NULL;
+ 	unsigned magic;
+ 
+ 	magic = EFX_QWORD_FIELD(*event, FSF_AZ_DRV_GEN_EV_MAGIC);
+ 
+ 	if (magic == EFX_CHANNEL_MAGIC_TEST(channel))
+ 		; /* ignore */
+-	else if (magic == EFX_CHANNEL_MAGIC_FILL(channel))
++	else if (rx_queue && magic == EFX_CHANNEL_MAGIC_FILL(rx_queue))
+ 		/* The queue must be empty, so we won't receive any rx
+ 		 * events, so efx_process_channel() won't refill the
+ 		 * queue. Refill it here */
+-		efx_fast_push_rx_descriptors(efx_channel_get_rx_queue(channel));
++		efx_fast_push_rx_descriptors(rx_queue);
+ 	else
+ 		netif_dbg(efx, hw, efx->net_dev, "channel %d received "
+ 			  "generated event "EFX_QWORD_FMT"\n",
+@@ -1150,9 +1154,10 @@ void efx_nic_generate_test_event(struct efx_channel *channel)
+ 	efx_magic_event(channel, EFX_CHANNEL_MAGIC_TEST(channel));
+ }
+ 
+-void efx_nic_generate_fill_event(struct efx_channel *channel)
++void efx_nic_generate_fill_event(struct efx_rx_queue *rx_queue)
+ {
+-	efx_magic_event(channel, EFX_CHANNEL_MAGIC_FILL(channel));
++	efx_magic_event(efx_rx_queue_channel(rx_queue),
++			EFX_CHANNEL_MAGIC_FILL(rx_queue));
+ }
+ 
+ /**************************************************************************
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 4f9d18a..aeca4e8 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -195,6 +195,7 @@ extern void efx_nic_init_rx(struct efx_rx_queue *rx_queue);
+ extern void efx_nic_fini_rx(struct efx_rx_queue *rx_queue);
+ extern void efx_nic_remove_rx(struct efx_rx_queue *rx_queue);
+ extern void efx_nic_notify_rx_desc(struct efx_rx_queue *rx_queue);
++extern void efx_nic_generate_fill_event(struct efx_rx_queue *rx_queue);
+ 
+ /* Event data path */
+ extern int efx_nic_probe_eventq(struct efx_channel *channel);
+@@ -216,7 +217,6 @@ extern void falcon_update_stats_xmac(struct efx_nic *efx);
+ extern int efx_nic_init_interrupt(struct efx_nic *efx);
+ extern void efx_nic_enable_interrupts(struct efx_nic *efx);
+ extern void efx_nic_generate_test_event(struct efx_channel *channel);
+-extern void efx_nic_generate_fill_event(struct efx_channel *channel);
+ extern void efx_nic_generate_interrupt(struct efx_nic *efx);
+ extern void efx_nic_disable_interrupts(struct efx_nic *efx);
+ extern void efx_nic_fini_interrupt(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 1dfda5e..76fb521 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -405,10 +405,9 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
+ void efx_rx_slow_fill(unsigned long context)
+ {
+ 	struct efx_rx_queue *rx_queue = (struct efx_rx_queue *)context;
+-	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
+ 
+ 	/* Post an event to cause NAPI to run and refill the queue */
+-	efx_nic_generate_fill_event(channel);
++	efx_nic_generate_fill_event(rx_queue);
+ 	++rx_queue->slow_fill_count;
+ }
+ 
 -- 
 1.7.7.6
 
