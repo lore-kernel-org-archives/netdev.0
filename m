@@ -1,43 +1,54 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH] renesas/sh_eth.c: fix linux/interrupt.h included twice
-Date: Thu, 16 Feb 2012 09:58:11 +0900
-Message-ID: <4F3C54A3.4000007@renesas.com>
-References: <1329328483-4682-1-git-send-email-danny.kukawka@bisect.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: rx-over-length stats problem with e100
+Date: Wed, 15 Feb 2012 16:57:53 -0800
+Message-ID: <4F3C5491.7090600@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1329328483-4682-1-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>,
+	e1000-devel list <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+While testing my rx-all patches, I triggered a code branch
+that caused the rx_over_length_errors counter to increment
+in the e100_rx_indicate path (it can already increment there
+w/out my patch, it appears).
 
-Danny Kukawka さんは書きました:
-> Remove double include of linux/interrupt.h.
-> 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 87b6501..59524f1 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -34,7 +34,6 @@
->  #include <linux/phy.h>
->  #include <linux/cache.h>
->  #include <linux/io.h>
-> -#include <linux/interrupt.h>
->  #include <linux/pm_runtime.h>
->  #include <linux/slab.h>
->  #include <linux/ethtool.h>
+The problem is that then the stats go weird because the code in
+e100_update_stats adds the total rx_over_length_errors each time
+it's called, and does not reset the rx_over_length_errors to zero:
 
-Acked-by: Nobuhiro Iwamatsu <Nobuhiro.iwamatsu.yj@renesas.com>
+		ns->rx_length_errors += le32_to_cpu(s->rx_short_frame_errors) +
+			nic->rx_over_length_errors;
 
-Nobuhiro
+
+So, should we zero out that counter after reading it (although that
+might race)?  Any idea how this is supposed to work?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
