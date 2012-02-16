@@ -1,87 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: SR-IOV setup race between PCI and rtnetlink
-Date: Thu, 16 Feb 2012 18:22:32 +0000
-Message-ID: <1329416552.2601.37.camel@bwh-desktop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: tx-switching module parameter
+Date: Thu, 16 Feb 2012 20:28:38 +0200
+Message-ID: <1329416919.30697.2.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+ <1329412840.2601.13.camel@bwh-desktop>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Shradha Shah <sshah@solarflare.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: "Ariel Elior" <ariele@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:34956 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753312Ab2BPSWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 13:22:36 -0500
+Received: from mms2.broadcom.com ([216.31.210.18]:2078 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751178Ab2BPS2x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 13:28:53 -0500
+In-Reply-To: <1329412840.2601.13.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A customer hit this WARNING from rtnetlink:
+On Thu, 2012-02-16 at 17:20 +0000, Ben Hutchings wrote:
+> On Thu, 2012-02-16 at 16:05 +0200, Ariel Elior wrote:
+> > In 57712 and 578xx the tx-switching module parameter allows the user to control
+> > whether outgoing traffic can be loopbacked into the device in case there is a
+> > relevant client for the data using the same device for rx.
+> > A classic example where this is necessary is for virtualization purposes, where
+> > one vm is transmitting data to another, while both use different pci functions of
+> > the same port of the same nic.
+> > 
+> > In case there is a promiscuous client in the rx (which wants to receive all
+> > data) or if the traffic is broadcast, traffic may be sent on both the loopback
+> > channel and the physical wire.
+> > 
+> > The reason tx-switching is controlled by a module parameter is twofold:
+> > 1. There is a certain performance penalty for tx-switching because:
+> >    a. every packet must be compared against the receiver clients.
+> >    b. duplicated traffic being loopbacked can consume a significant portion of
+> >    the overall bandwidth, depending on the scenario.
+> 
+> So you really want the driver/firmware/hardware to know all the local
+> addresses (as John Fastabend was proposing).
 
-------------[ cut here ]------------
-WARNING: at net/core/rtnetlink.c:1568 rtmsg_ifinfo+0x25a/0x260() (Not tainted)
-Hardware name: ProLiant DL380 G7
-Modules linked in: bonding ipv6 dm_mirror dm_region_hash dm_log power_meter
-hpilo hpwdt bnx2 onload(U) sfc_char(U) sfc_resource(U) sfc_affinity(U)
-sfc_tune(U) sfc(U) mdio sg microcode serio_raw iTCO_wdt iTCO_vendor_support
-i7core_edac edac_core shpchp ext4 mbcache jbd2 sd_mod crc_t10dif hpsa radeon
-ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core dm_multipath dm_mod [last
-unloaded: scsi_wait_scan]
-Pid: 1927, comm: ifup-eth Not tainted 2.6.32-131.6.1.el6.x86_64 #1
-Call Trace:
-[<ffffffff810670f7>] ? warn_slowpath_common+0x87/0xc0
-[<ffffffff8106714a>] ? warn_slowpath_null+0x1a/0x20
-[<ffffffff8142da9a>] ? rtmsg_ifinfo+0x25a/0x260
-[<ffffffff8108a928>] ? synchronize_sched+0x58/0x60
-[<ffffffff8108a8b0>] ? wakeme_after_rcu+0x0/0x20
-[<ffffffff8141c42e>] ? netdev_set_master+0x6e/0xd0
-[<ffffffffa041191f>] ? bond_enslave+0x22f/0xd00 [bonding]
-[<ffffffff814da624>] ? printk+0x41/0x45
-[<ffffffffa041afd7>] ? bonding_store_slaves+0x2a7/0x420 [bonding]
-[<ffffffff81336900>] ? dev_attr_store+0x20/0x30
-[<ffffffff811e4d95>] ? sysfs_write_file+0xe5/0x170
-[<ffffffff81172748>] ? vfs_write+0xb8/0x1a0
-[<ffffffff810d1ad2>] ? audit_syscall_entry+0x272/0x2a0
-[<ffffffff81173181>] ? sys_write+0x51/0x90
-[<ffffffff8100b172>] ? system_call_fastpath+0x16/0x1b
----[ end trace 7676a5a34ad7b8ee ]---
-------------[ cut here ]------------
+We need the HW to know the MAC addresses - L2 information only and each
+PF is only configuring the addresses it owns (same addresses which are
+used for Rx filtering anyway).
 
-This was seen with OpenOnload on RHEL 6.1, but I believe the same issue
-exists with the changes I just submitted against net-next.
+> > 2. Tx-switching doesn't make much sense as a per function parameter, but should
+> > rather be controlled uniformly for the  entire device.
+> [...]
+> 
+> What if there are multiple such cards in the same system, and this is
+> only wanted for one of them?
 
-The WARNING is produced by:
-		/* -EMSGSIZE implies BUG in if_nlmsg_size() */
-		WARN_ON(err == -EMSGSIZE);
-
-rtnl_vfinfo_size(), rtnl_fill_ifinfo(), etc. use dev_num_vf() to get the
-number of VFs that will be included in the message, i.e. they ask the
-PCI device and not the net device.
-
-The number of VFs is changed by pci_enable_sriov(), which obviously does
-not acquire the RTNL lock.  Further, it is unsafe for its callers to
-hold the RTNL lock, because it may synchronously bind the new VFs to
-drivers that themselves acquire the RTNL in their probe functions.  So
-the number of VFs may change between the time at which the message size
-is calculated and the time at which it is built.
-
-Now rtnl_fill_ifinfo() will stop trying to add VF information as soon as
-ndo_get_vf_config() returns an error.  If the driver implementation
-ensures that it returns errors until after pci_enable_sriov() returns
-and it has reacquired the RTNL lock, the message doesn't actually get
-any bigger and the WARNING won't be hit.
-
-However we really need the VFs to be configurable immediately, so that
-the VF driver can communicate with the PF driver (sfc).  I could add an
-separate flag to keep the RTNL interface disabled while the inter-driver
-interface is enabled, but that doesn't seem like the right thing to do.
-
-Perhaps there should be a net device op to return the number of VFs,
-which the net driver must then only change while holding the RTNL lock?
-RTNL would then use that instead of dev_num_vf().
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Using this parameter is more likely in a physical device assignment in a
+VM - having multiple devices that this rule apply to some but not all,
+is possible - but less likely. It seem more convenient than using the
+ethtool private flag and forcing the administrator to go over all PFs
+(which sounds more common).
