@@ -1,66 +1,56 @@
-From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v8 3/8] seccomp: add system call filtering using BPF
-Date: Thu, 16 Feb 2012 15:51:23 -0600
-Message-ID: <CABqD9haWxRLac1w3m9rSmyDvcg8jxYcxdmAAsgB7pEEBMHr=2g@mail.gmail.com>
-References: <1329422549-16407-1-git-send-email-wad@chromium.org>
-	<1329422549-16407-3-git-send-email-wad@chromium.org>
-	<4F3D61CB.2000301@zytor.com>
-	<CABqD9hb3WxKxLZ2GuUrbDM--koW+a3ser5TU8y6+e0sAhOT9dw@mail.gmail.com>
-	<4F3D7250.6040504@zytor.com>
-	<CAE6n16kweRehdozft0tKOB1P5LtGFJDCLQP=2EXfm8P0enyH=A@mail.gmail.com>
-	<4F3D766E.7040205@zytor.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 22:59:33 +0100
+Message-ID: <1329429573.5450.2.camel@edumazet-laptop>
+References: <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1461927.R8CTCUdqT9@localhost.localdomain>
+	 <CADVnQyknYYaduh4nnc27=oGofBqpExJzqA-ToXufZxbtm0xs6Q@mail.gmail.com>
+	 <16215291.4ftfQWZto1@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Markus Gutschke <markus@chromium.org>,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
-	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-	corbet@lwn.net, eric.dumazet@gmail.com, keescook@chromium.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <4F3D766E.7040205@zytor.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org
+To: alekcejk@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48420 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288Ab2BPV7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 16:59:40 -0500
+Received: by bkcjm19 with SMTP id jm19so2509059bkc.19
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 13:59:39 -0800 (PST)
+In-Reply-To: <16215291.4ftfQWZto1@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 16, 2012 at 3:34 PM, H. Peter Anvin <hpa@zytor.com> wrote:
-> On 02/16/2012 01:28 PM, Markus Gutschke wrote:
->>
->> I think, the documentation said that as soon as prctl() is used to set
->> a bpf filter for system calls, it automatically disallows system calls
->> using an entry point other than the one used by this particular
->> prctl().
->>
->> I was trying to come up with scenarios where this particular approach
->> causes problem, but I can't think of any off the top of my head. So,
->> it might actually turn out to be a very elegant way to reduce the
->> attack surface of the kernel. If we are really worried about userspace
->> compatibility, we could make the kernel send a signal instead of
->> terminating the program, if the wrong entry point was used; not sure
->> if that is needed, though.
->>
->
-> Let's see... we're building an entire pattern-matching engine and then
-> randomly disallowing its use because we didn't build in the right bits?
->
-> Sorry, that's asinine.
->
-> Put the bloody bit in there and let the pattern program make that decision.
+Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 23:49 +0200, alekcejk@googlemail.c=
+om a
+=C3=A9crit :
+> =D0=92 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B8 =D0=BE=D1=
+=82 =D0=A7=D0=B5=D1=82=D0=B2=D0=B5=D1=80=D0=B3 16 =D1=84=D0=B5=D0=B2=D1=
+=80=D0=B0=D0=BB=D1=8F 2012 13:19:58 =D0=B2=D1=8B =D0=BD=D0=B0=D0=BF=D0=B8=
+=D1=81=D0=B0=D0=BB=D0=B8:
+> > On Thu, Feb 16, 2012 at 12:54 PM,  <alekcejk@googlemail.com> wrote:
+> > I still think it would be useful to have these three pieces of data
+> > for a slow/3.2.x transfer (from a geographically distant server) if
+> > you have a sec:
+> >=20
+> > - tcpdump of first 300 or so packets to see SYN/SYNACK options and =
+RTT
+>=20
 
-Easy enough to add a bit for the mode: 32-bit or 64-bit.  It seemed
-like a waste of cycles for every 32-bit program or every 64-bit
-program to check to see that its calling convention hadn't changed,
-but it does take away a valid decision the pattern program should be
-making.
+> > - summary of overall throughput wget sees on that transfer
+>=20
+> --2012-02-16 23:33:30--  http://speedtest.tele2.net/1GB.zip
+> 100%[=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D>] 1 073 741 824 5,02M/s   in 3m 29s
+> 2012-02-16 23:36:59 (4,90 MB/s) - =C2=AB/dev/null=C2=BB saved [107374=
+1824/1073741824]
+>=20
+> > This should help establish whether the receiver window is really th=
+e
+> > limiting factor in the slow cases.
+> >=20
 
-I'll add a flag for 32bit/64bit while cleaning up seccomp_data. I
-think that will properly encapsulate the is_compat_task() behavior in
-a way that is stable for compat and non-compat tasks to use.  If
-there's a more obvious way, I'm all ears.
+Is tweaking /proc/sys/net/ipv4/tcp_adv_win_scale changes the numbers ?
 
-thanks!
-will
+try 1, -1 or -2
