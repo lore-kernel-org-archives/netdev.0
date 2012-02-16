@@ -1,67 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 19/19] sfc: Add SR-IOV back-end support for
- SFC9000 family
-Date: Thu, 16 Feb 2012 01:57:19 +0000
-Message-ID: <1329357439.3048.115.camel@deadeye>
-References: <1329352938.2565.26.camel@bwh-desktop>
-	 <1329353550.2565.45.camel@bwh-desktop> <4F3C595A.3020401@intel.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: net: Regression in tg3 driver
+Date: Wed, 15 Feb 2012 19:01:28 -0800
+Message-ID: <CAGK4HS_wT+6mwH6xdji3c-H3w5vOWpgL=_fq=eFLDamybxzB-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>,
-	Shradha Shah <sshah@solarflare.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>, mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:58172 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756668Ab2BPB5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 20:57:18 -0500
-In-Reply-To: <4F3C595A.3020401@intel.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:57503 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab2BPDBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:01:30 -0500
+Received: by vbjk17 with SMTP id k17so1198271vbj.19
+        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 19:01:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-02-15 at 17:18 -0800, John Fastabend wrote:
-> On 2/15/2012 4:52 PM, Ben Hutchings wrote:
-> > On the SFC9000 family, each port has 1024 Virtual Interfaces (VIs),
-> > each with an RX queue, a TX queue, an event queue and a mailbox
-> > register.  These may be assigned to up to 127 SR-IOV virtual functions
-> > per port, with up to 64 VIs per VF.
-> > 
-> > We allocate an extra channel (IRQ and event queue only) to receive
-> > requests from VF drivers.
-> > 
-> > There is a per-port limit of 4 concurrent RX queue flushes, and queue
-> > flushes may be initiated by the MC in response to a Function Level
-> > Reset (FLR) of a VF.  Therefore, when SR-IOV is in use, we submit all
-> > flush requests via the MC.
-> > 
-> > The RSS indirection table is shared with VFs, so the number of RX
-> > queues used in the PF is limited to the number of VIs per VF.
-> > 
-> > This is almost entirely the work of Steve Hodgson, formerly
-> > shodgson@solarflare.com.
-> > 
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > ---
-> 
-> Hi Ben,
-> 
-> So how would multiple VIs per VF work? Looks like each VI has a TX/RX
-> pair all bundled under a single netdev with some set of TX MAC filters.
+Hi,
 
-They can be used to provide a multiqueue net device for use in multi-
-processor guests.
+My Ethernet card stopped working after I pulled to the latest net-next
+kernel. lspci shows the Broadcom cards and so does ifconfig but
+dhclient does not work on the cards. Also, the lights on the card never come on.
 
-> Do you expect users to build tc rules and edit the queue_mapping to get
-> the skb headed at the correct tx queue? Would it be better to model each
-> VI has its own net device.
+lspci output
+02:03.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
+Gigabit Ethernet (rev 10)
+02:03.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
+Gigabit Ethernet (rev 10)
 
-No, we expect users to assign the VF into the guest.
+# lsmod | grep tg3
+tg3                   129451  0
 
-Ben.
+The following commit may be the cause:
+e740522e6d3a6c3014da30f65fe254bc7f6410d7 (tg3: Use *_UNKNOWN ethtool
+definitions)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It seems to be the first commit that causes this.
+
+I am not running ethtool though AFAIK. Please let me know if you need
+any other information help in debugging.
+
+Thanks,
+Vijay Subramanian
