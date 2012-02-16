@@ -1,54 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] bnx2x: tx-switching module parameter
-Date: Thu, 16 Feb 2012 17:20:40 +0000
-Message-ID: <1329412840.2601.13.camel@bwh-desktop>
-References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 12:22:29 -0500
+Message-ID: <CADVnQykm==YJZbdCbLxgJ236jD2yN0xT99gmeYX-FGnyBvfEGA@mail.gmail.com>
+References: <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1329400265.3048.178.camel@deadeye>
+	<1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20120216.120149.437368615973561397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Ariel Elior <ariele@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, alekcejk@googlemail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39162 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753471Ab2BPRUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 12:20:43 -0500
-In-Reply-To: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:51832 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837Ab2BPRWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 12:22:30 -0500
+Received: by qadc10 with SMTP id c10so4642146qad.19
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 09:22:29 -0800 (PST)
+In-Reply-To: <20120216.120149.437368615973561397.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-16 at 16:05 +0200, Ariel Elior wrote:
-> In 57712 and 578xx the tx-switching module parameter allows the user to control
-> whether outgoing traffic can be loopbacked into the device in case there is a
-> relevant client for the data using the same device for rx.
-> A classic example where this is necessary is for virtualization purposes, where
-> one vm is transmitting data to another, while both use different pci functions of
-> the same port of the same nic.
-> 
-> In case there is a promiscuous client in the rx (which wants to receive all
-> data) or if the traffic is broadcast, traffic may be sent on both the loopback
-> channel and the physical wire.
-> 
-> The reason tx-switching is controlled by a module parameter is twofold:
-> 1. There is a certain performance penalty for tx-switching because:
->    a. every packet must be compared against the receiver clients.
->    b. duplicated traffic being loopbacked can consume a significant portion of
->    the overall bandwidth, depending on the scenario.
+Our team has also run into issues with GRO/LRO "stretch ACKs", and
+their negative impact on TCP performance. We have a patch that we've
+been working with that deals with the sender-side issues. It turns out
+that neither the ABC nor non-ABC byte counting quite fixes the stretch
+ACKs issues.
 
-So you really want the driver/firmware/hardware to know all the local
-addresses (as John Fastabend was proposing).
+On the receiver side, the approach of changing tcp_grow_window() and
+__tcp_grow_window() to adjust things in terms of actual packet size
+rather than a fixed 2*MSS sounds great to me as well.
 
-> 2. Tx-switching doesn't make much sense as a per function parameter, but should
-> rather be controlled uniformly for the  entire device.
-[...]
+In terms of the original 3.1 vs 3.2 issue report that started this
+thread, I didn't see any evidence of LRO or GRO causing stretch ACKs.
+(Alexey, would you be able to confim by running "ethtool -k eth0" on
+both kernels?) So it seems that probably the original issue is
+unrelated to stretch ACKs?
 
-What if there are multiple such cards in the same system, and this is
-only wanted for one of them?
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+neal
