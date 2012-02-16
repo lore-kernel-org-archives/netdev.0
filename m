@@ -1,43 +1,48 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: net: Regression in tg3 driver
-Date: Wed, 15 Feb 2012 19:01:28 -0800
-Message-ID: <CAGK4HS_wT+6mwH6xdji3c-H3w5vOWpgL=_fq=eFLDamybxzB-g@mail.gmail.com>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH net-next 1/5] net: sh_eth: add the value of tsu to the SH7757's
+ GETHER
+Date: Thu, 16 Feb 2012 12:54:51 +0900
+Message-ID: <4F3C7E0B.1080001@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>, mcarlson@broadcom.com
+Content-Transfer-Encoding: 7bit
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:57503 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592Ab2BPDBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:01:30 -0500
-Received: by vbjk17 with SMTP id k17so1198271vbj.19
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 19:01:29 -0800 (PST)
+Received: from relmlor1.renesas.com ([210.160.252.171]:47347 "EHLO
+	relmlor1.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995Ab2BPDyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:54:54 -0500
+Received: from relmlir1.idc.renesas.com ([10.200.68.151])
+ by relmlor1.idc.renesas.com ( SJSMS)
+ with ESMTP id <0LZG00D5RW7FYR40@relmlor1.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:54:51 +0900 (JST)
+Received: from relmlac4.idc.renesas.com ([10.200.69.24])
+ by relmlir1.idc.renesas.com (SJSMS)
+ with ESMTP id <0LZG008JDW7FY730@relmlir1.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:54:51 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The SH7757's GETHER has TSU registers. So, this patch adds the value
+of ".tsu = 1" in the sh_eth_cpu_data.
 
-My Ethernet card stopped working after I pulled to the latest net-next
-kernel. lspci shows the Broadcom cards and so does ifconfig but
-dhclient does not work on the cards. Also, the lights on the card never come on.
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ drivers/net/ethernet/renesas/sh_eth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-lspci output
-02:03.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
-Gigabit Ethernet (rev 10)
-02:03.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
-Gigabit Ethernet (rev 10)
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 98062bf..8f53b5a 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -268,6 +268,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
+ 	.rpadir_value   = 2 << 16,
+ 	.no_trimd	= 1,
+ 	.no_ade		= 1,
++	.tsu		= 1,
+ };
 
-# lsmod | grep tg3
-tg3                   129451  0
-
-The following commit may be the cause:
-e740522e6d3a6c3014da30f65fe254bc7f6410d7 (tg3: Use *_UNKNOWN ethtool
-definitions)
-
-It seems to be the first commit that causes this.
-
-I am not running ethtool though AFAIK. Please let me know if you need
-any other information help in debugging.
-
-Thanks,
-Vijay Subramanian
+ static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
+-- 
+1.7.1
