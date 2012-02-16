@@ -1,26 +1,56 @@
-From: Jinghao Printing - CHINA <harrison5ewt@gmail.com>
-Subject: hi
-Date: Thu, 16 Feb 2012 09:17:22 +0800
-Message-ID: <CAO4BeY9oLggEr=O4ASYYDBW07RuPXuHkObt10KjmtC=nDPCF5Q@mail.gmail.com>
-References: <CAO4BeY9V6OSH9SPC-mehc5q5fwgm7QZjqCx=tO14unuGw0gF3Q@mail.gmail.com>
-	<CAO4BeY-2fY9QPcwsL-axLCzODVFoh7XP4pTHVj06eMsq+VSjQA@mail.gmail.com>
-	<CAO4BeY9YG0h2a7NGMWA8BYA7oWkVam-zwpuNUuSd5nXCSumG7Q@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 19/19] sfc: Add SR-IOV back-end support for SFC9000
+ family
+Date: Wed, 15 Feb 2012 17:18:18 -0800
+Message-ID: <4F3C595A.3020401@intel.com>
+References: <1329352938.2565.26.camel@bwh-desktop> <1329353550.2565.45.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com,
+	Shradha Shah <sshah@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:54963 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751891Ab2BPBRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 20:17:43 -0500
-Received: by wics10 with SMTP id s10so903507wic.19
-        for <netdev@vger.kernel.org>; Wed, 15 Feb 2012 17:17:41 -0800 (PST)
-In-Reply-To: <CAO4BeY9YG0h2a7NGMWA8BYA7oWkVam-zwpuNUuSd5nXCSumG7Q@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:22552 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751891Ab2BPBRx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Feb 2012 20:17:53 -0500
+In-Reply-To: <1329353550.2565.45.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, we are a printing company, we can print hang tags, color box,
-labels. Please reply if you need it.
+On 2/15/2012 4:52 PM, Ben Hutchings wrote:
+> On the SFC9000 family, each port has 1024 Virtual Interfaces (VIs),
+> each with an RX queue, a TX queue, an event queue and a mailbox
+> register.  These may be assigned to up to 127 SR-IOV virtual functions
+> per port, with up to 64 VIs per VF.
+> 
+> We allocate an extra channel (IRQ and event queue only) to receive
+> requests from VF drivers.
+> 
+> There is a per-port limit of 4 concurrent RX queue flushes, and queue
+> flushes may be initiated by the MC in response to a Function Level
+> Reset (FLR) of a VF.  Therefore, when SR-IOV is in use, we submit all
+> flush requests via the MC.
+> 
+> The RSS indirection table is shared with VFs, so the number of RX
+> queues used in the PF is limited to the number of VIs per VF.
+> 
+> This is almost entirely the work of Steve Hodgson, formerly
+> shodgson@solarflare.com.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
 
-Best regards,
-David Wu
+Hi Ben,
+
+So how would multiple VIs per VF work? Looks like each VI has a TX/RX
+pair all bundled under a single netdev with some set of TX MAC filters.
+
+Do you expect users to build tc rules and edit the queue_mapping to get
+the skb headed at the correct tx queue? Would it be better to model each
+VI has its own net device.
+
+Thanks,
+John
