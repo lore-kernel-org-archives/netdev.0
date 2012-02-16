@@ -1,73 +1,93 @@
-From: dedicatedhk@yahoo.com.hk
-Subject: Cloud server
-Date: Thu, 16 Feb 2012 23:13:57 +0800 (HKT)
-Message-ID: <mdBIDR@tpts4.seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: SR-IOV setup race between PCI and rtnetlink
+Date: Thu, 16 Feb 2012 19:55:25 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F8FB96@ORSMSX106.amr.corp.intel.com>
+References: <1329416552.2601.37.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Shradha Shah <sshah@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-52.sunnyvision.com ([124.248.200.52]:46373 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751114Ab2BPTsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 14:48:05 -0500
+Received: from mga03.intel.com ([143.182.124.21]:46517 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752902Ab2BPTz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Feb 2012 14:55:27 -0500
+In-Reply-To: <1329416552.2601.37.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cloud Server=88m=C6=D8
-Advantages of Cloud Server =88m
-Cloud Server provides you with the same function as a traditional dedicated server, plus the high availability, scalability and flexibility that a dedicated server cannot offer to you.  =88m=3F=3F=3F"=A1=C2=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=8F=90=3F=3F=3F=88o=C6=D9=3F=3F=3F=3F=3F=3F=A1=D3=3F=A2X=C6=D9=3F=A1=D3=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=90=3F=3F-=3F=3F=3F"=3Fo=C6=D9=88o=3F=3F=3F=3F=3F=88o=A3=E1=3F=3F=3F"=88m=3F=8D=3F=3F-=3F=3F"=88m"=3F=3F=8F=A1=C2=3F"=C6=D8=3F=A3=E1=A1=B1=3F=A3=E1=81=3F"=3F=3F=A1=D3o=3F=A3=E1=A1=B1=3F=8F=3F=3F=3F=C6=D9=3F=A3=E1=A1=B1=3F=3F=3F=3F=3F=C6=D8=3F=A1=C2"=3F=3F=3F=3F=3F=A1=D3=3F=A2X=C6=D9=3F=A1=D3=3F=3F=3F=3F=C8=FA=8D=3F=3F=C6=D8=3F=3F=3F=3F=3F=3F=3F=3F"=3F-=3F=3F=3F=3F=3F=A3=E1=3F
-
-a. Costing Saving
-With Cloud Server, there is zero setup cost! All you need is to pay for a regular service fee only. And saved up to 50-70% maintenance costs compared with traditional dedicated server hosting solutions. Without a huge cost-saving, you can handle your IT budget more efficiently.  
-=88o=C6=D8
-b. High Flexibility & Scalability=88m
-Cloud Server is invented and designed to allow you to scale up your server specifications easily and conveniently. The simplified steps in spinning up your server minimize your time and processes; therefore, you can make adjustment at the very last moment.
-
-c. High Availability & Reliability=88m
-Cloud Server could be deployed for both High Availability & High Reliability with clustering features. Your business is still running even if there is an unlikely primary server down issue, the secondary servers inside the cloud will take over the role to serve and ensure your service continues to perform as usual.
-
-d. Self-owned World-class Data Center=88o
-ISO certified data center on the backend with fully redundant facilities, high level security and 24x7 manpower support.
-
-Dell PowerEdge Powered Cloud Server
-Hardware Configuration
-- CPU: 2vCPU
-- RAM: 4G RAM
-- HardDisk: 100GB Storage
-- IP Address: 2 IP Addresses
-
-Software Configuration
-- OS: Linux CentOS / RHEL / Debian / Fedora
-- Plesk Control Panel 
-
-Data Center Facilities
-- Applying to Internet Backbone
-  2Gbps to HKIX (Local) + 300Mbps to Int'l Carrier (Oversea)
-- TIA945 Standard Tier 3+=09
-
-Data Center Facilities
-- Applying to Internet Backbone
-  2Gbps to HKIX (Local) + 300Mbps to Int'l Carrier (Oversea)
-- TIA945 Standard Tier 3+
-
-We are a leading total ISP and Data Center Service Provider in HK, with 13 years experience in Internet and IT Solutions, we offers one-stop service to our clients with satisfaction.
-
-Data Center Co-location 
-Dedicated Server Rental and Managed 
-VPS & Cloud Server Computing
-Web & Email Hosting
-Exchange 2010 Enterprise Email
-Web Development (Design & Programming)
-Online Marketing
-
-Our main mission is to provide the best and reliability services to help our clients to achieve their business objectives.
-
-We would like to ask if your side considering to revamp your website, upgrade your email system, co-locate or make a server site in Hong Kong.
-Should you have any queries or quotation request, please feel free to email to boris@dedicatedserver.com.hk
-
-Your prompt feedback and response will be highly appreciated.
-Best Regards,
-Boris Lam
-Senior Sales Executive
-Mobile: 9408 8762
-Email: boris@dedicatedserver.com.hk
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIEZlYnJ1YXJ5IDE2LCAyMDEy
+IDEwOjIzIEFNDQo+IFRvOiBuZXRkZXYNCj4gQ2M6IFNocmFkaGEgU2hhaA0KPiBTdWJqZWN0OiBT
+Ui1JT1Ygc2V0dXAgcmFjZSBiZXR3ZWVuIFBDSSBhbmQgcnRuZXRsaW5rDQo+IA0KPiBBIGN1c3Rv
+bWVyIGhpdCB0aGlzIFdBUk5JTkcgZnJvbSBydG5ldGxpbms6DQo+IA0KPiAtLS0tLS0tLS0tLS1b
+IGN1dCBoZXJlIF0tLS0tLS0tLS0tLS0NCj4gV0FSTklORzogYXQgbmV0L2NvcmUvcnRuZXRsaW5r
+LmM6MTU2OCBydG1zZ19pZmluZm8rMHgyNWEvMHgyNjAoKSAoTm90DQo+IHRhaW50ZWQpDQo+IEhh
+cmR3YXJlIG5hbWU6IFByb0xpYW50IERMMzgwIEc3DQo+IE1vZHVsZXMgbGlua2VkIGluOiBib25k
+aW5nIGlwdjYgZG1fbWlycm9yIGRtX3JlZ2lvbl9oYXNoIGRtX2xvZw0KPiBwb3dlcl9tZXRlcg0K
+PiBocGlsbyBocHdkdCBibngyIG9ubG9hZChVKSBzZmNfY2hhcihVKSBzZmNfcmVzb3VyY2UoVSkg
+c2ZjX2FmZmluaXR5KFUpDQo+IHNmY190dW5lKFUpIHNmYyhVKSBtZGlvIHNnIG1pY3JvY29kZSBz
+ZXJpb19yYXcgaVRDT193ZHQNCj4gaVRDT192ZW5kb3Jfc3VwcG9ydA0KPiBpN2NvcmVfZWRhYyBl
+ZGFjX2NvcmUgc2hwY2hwIGV4dDQgbWJjYWNoZSBqYmQyIHNkX21vZCBjcmNfdDEwZGlmIGhwc2EN
+Cj4gcmFkZW9uDQo+IHR0bSBkcm1fa21zX2hlbHBlciBkcm0gaHdtb24gaTJjX2FsZ29fYml0IGky
+Y19jb3JlIGRtX211bHRpcGF0aCBkbV9tb2QNCj4gW2xhc3QNCj4gdW5sb2FkZWQ6IHNjc2lfd2Fp
+dF9zY2FuXQ0KPiBQaWQ6IDE5MjcsIGNvbW06IGlmdXAtZXRoIE5vdCB0YWludGVkIDIuNi4zMi0x
+MzEuNi4xLmVsNi54ODZfNjQgIzENCj4gQ2FsbCBUcmFjZToNCj4gWzxmZmZmZmZmZjgxMDY3MGY3
+Pl0gPyB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDg3LzB4YzANCj4gWzxmZmZmZmZmZjgxMDY3MTRh
+Pl0gPyB3YXJuX3Nsb3dwYXRoX251bGwrMHgxYS8weDIwDQo+IFs8ZmZmZmZmZmY4MTQyZGE5YT5d
+ID8gcnRtc2dfaWZpbmZvKzB4MjVhLzB4MjYwDQo+IFs8ZmZmZmZmZmY4MTA4YTkyOD5dID8gc3lu
+Y2hyb25pemVfc2NoZWQrMHg1OC8weDYwDQo+IFs8ZmZmZmZmZmY4MTA4YThiMD5dID8gd2FrZW1l
+X2FmdGVyX3JjdSsweDAvMHgyMA0KPiBbPGZmZmZmZmZmODE0MWM0MmU+XSA/IG5ldGRldl9zZXRf
+bWFzdGVyKzB4NmUvMHhkMA0KPiBbPGZmZmZmZmZmYTA0MTE5MWY+XSA/IGJvbmRfZW5zbGF2ZSsw
+eDIyZi8weGQwMCBbYm9uZGluZ10NCj4gWzxmZmZmZmZmZjgxNGRhNjI0Pl0gPyBwcmludGsrMHg0
+MS8weDQ1DQo+IFs8ZmZmZmZmZmZhMDQxYWZkNz5dID8gYm9uZGluZ19zdG9yZV9zbGF2ZXMrMHgy
+YTcvMHg0MjAgW2JvbmRpbmddDQo+IFs8ZmZmZmZmZmY4MTMzNjkwMD5dID8gZGV2X2F0dHJfc3Rv
+cmUrMHgyMC8weDMwDQo+IFs8ZmZmZmZmZmY4MTFlNGQ5NT5dID8gc3lzZnNfd3JpdGVfZmlsZSsw
+eGU1LzB4MTcwDQo+IFs8ZmZmZmZmZmY4MTE3Mjc0OD5dID8gdmZzX3dyaXRlKzB4YjgvMHgxYTAN
+Cj4gWzxmZmZmZmZmZjgxMGQxYWQyPl0gPyBhdWRpdF9zeXNjYWxsX2VudHJ5KzB4MjcyLzB4MmEw
+DQo+IFs8ZmZmZmZmZmY4MTE3MzE4MT5dID8gc3lzX3dyaXRlKzB4NTEvMHg5MA0KPiBbPGZmZmZm
+ZmZmODEwMGIxNzI+XSA/IHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYg0KPiAtLS1bIGVu
+ZCB0cmFjZSA3Njc2YTVhMzRhZDdiOGVlIF0tLS0NCj4gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBd
+LS0tLS0tLS0tLS0tDQo+IA0KPiBUaGlzIHdhcyBzZWVuIHdpdGggT3Blbk9ubG9hZCBvbiBSSEVM
+IDYuMSwgYnV0IEkgYmVsaWV2ZSB0aGUgc2FtZSBpc3N1ZQ0KPiBleGlzdHMgd2l0aCB0aGUgY2hh
+bmdlcyBJIGp1c3Qgc3VibWl0dGVkIGFnYWluc3QgbmV0LW5leHQuDQo+IA0KPiBUaGUgV0FSTklO
+RyBpcyBwcm9kdWNlZCBieToNCj4gCQkvKiAtRU1TR1NJWkUgaW1wbGllcyBCVUcgaW4gaWZfbmxt
+c2dfc2l6ZSgpICovDQo+IAkJV0FSTl9PTihlcnIgPT0gLUVNU0dTSVpFKTsNCj4gDQo+IHJ0bmxf
+dmZpbmZvX3NpemUoKSwgcnRubF9maWxsX2lmaW5mbygpLCBldGMuIHVzZSBkZXZfbnVtX3ZmKCkg
+dG8gZ2V0IHRoZQ0KPiBudW1iZXIgb2YgVkZzIHRoYXQgd2lsbCBiZSBpbmNsdWRlZCBpbiB0aGUg
+bWVzc2FnZSwgaS5lLiB0aGV5IGFzayB0aGUNCj4gUENJIGRldmljZSBhbmQgbm90IHRoZSBuZXQg
+ZGV2aWNlLg0KPiANCj4gVGhlIG51bWJlciBvZiBWRnMgaXMgY2hhbmdlZCBieSBwY2lfZW5hYmxl
+X3NyaW92KCksIHdoaWNoIG9idmlvdXNseSBkb2VzDQo+IG5vdCBhY3F1aXJlIHRoZSBSVE5MIGxv
+Y2suICBGdXJ0aGVyLCBpdCBpcyB1bnNhZmUgZm9yIGl0cyBjYWxsZXJzIHRvDQo+IGhvbGQgdGhl
+IFJUTkwgbG9jaywgYmVjYXVzZSBpdCBtYXkgc3luY2hyb25vdXNseSBiaW5kIHRoZSBuZXcgVkZz
+IHRvDQo+IGRyaXZlcnMgdGhhdCB0aGVtc2VsdmVzIGFjcXVpcmUgdGhlIFJUTkwgaW4gdGhlaXIg
+cHJvYmUgZnVuY3Rpb25zLiAgU28NCj4gdGhlIG51bWJlciBvZiBWRnMgbWF5IGNoYW5nZSBiZXR3
+ZWVuIHRoZSB0aW1lIGF0IHdoaWNoIHRoZSBtZXNzYWdlIHNpemUNCj4gaXMgY2FsY3VsYXRlZCBh
+bmQgdGhlIHRpbWUgYXQgd2hpY2ggaXQgaXMgYnVpbHQuDQo+IA0KPiBOb3cgcnRubF9maWxsX2lm
+aW5mbygpIHdpbGwgc3RvcCB0cnlpbmcgdG8gYWRkIFZGIGluZm9ybWF0aW9uIGFzIHNvb24gYXMN
+Cj4gbmRvX2dldF92Zl9jb25maWcoKSByZXR1cm5zIGFuIGVycm9yLiAgSWYgdGhlIGRyaXZlciBp
+bXBsZW1lbnRhdGlvbg0KPiBlbnN1cmVzIHRoYXQgaXQgcmV0dXJucyBlcnJvcnMgdW50aWwgYWZ0
+ZXIgcGNpX2VuYWJsZV9zcmlvdigpIHJldHVybnMNCj4gYW5kIGl0IGhhcyByZWFjcXVpcmVkIHRo
+ZSBSVE5MIGxvY2ssIHRoZSBtZXNzYWdlIGRvZXNuJ3QgYWN0dWFsbHkgZ2V0DQo+IGFueSBiaWdn
+ZXIgYW5kIHRoZSBXQVJOSU5HIHdvbid0IGJlIGhpdC4NCj4gDQo+IEhvd2V2ZXIgd2UgcmVhbGx5
+IG5lZWQgdGhlIFZGcyB0byBiZSBjb25maWd1cmFibGUgaW1tZWRpYXRlbHksIHNvIHRoYXQNCj4g
+dGhlIFZGIGRyaXZlciBjYW4gY29tbXVuaWNhdGUgd2l0aCB0aGUgUEYgZHJpdmVyIChzZmMpLiAg
+SSBjb3VsZCBhZGQgYW4NCj4gc2VwYXJhdGUgZmxhZyB0byBrZWVwIHRoZSBSVE5MIGludGVyZmFj
+ZSBkaXNhYmxlZCB3aGlsZSB0aGUgaW50ZXItZHJpdmVyDQo+IGludGVyZmFjZSBpcyBlbmFibGVk
+LCBidXQgdGhhdCBkb2Vzbid0IHNlZW0gbGlrZSB0aGUgcmlnaHQgdGhpbmcgdG8gZG8uDQo+IA0K
+PiBQZXJoYXBzIHRoZXJlIHNob3VsZCBiZSBhIG5ldCBkZXZpY2Ugb3AgdG8gcmV0dXJuIHRoZSBu
+dW1iZXIgb2YgVkZzLA0KPiB3aGljaCB0aGUgbmV0IGRyaXZlciBtdXN0IHRoZW4gb25seSBjaGFu
+Z2Ugd2hpbGUgaG9sZGluZyB0aGUgUlROTCBsb2NrPw0KPiBSVE5MIHdvdWxkIHRoZW4gdXNlIHRo
+YXQgaW5zdGVhZCBvZiBkZXZfbnVtX3ZmKCkuDQoNCkludGVsIGRyaXZlcnMgYXJlbid0IHN1Ympl
+Y3QgdG8gdGhpcyBwcm9ibGVtIGF0IHRoaXMgdGltZSBiZWNhdXNlIHRoZSBudW1iZXIgb2YgVkZz
+IGFyZSBjb25maWd1cmVkIG9uIGRyaXZlciBsb2FkIGFuZCBkb24ndCBjaGFuZ2UgdW50aWwgeW91
+IHVubG9hZCB0aGUgZHJpdmVyIGFuZCB0aGVuIHJlbG9hZCBpdCB3aXRoIGEgbmV3IG1heF92ZnMg
+cGFyYW1ldGVyLiAgSG93ZXZlciwgaWYvd2hlbiBJIGdldCBzb21lIHBhdGNoZXMgZG9uZSB0aGF0
+IGFsbG93IHRoZSB1c2VyIHRvIHNldCB0aGUgbnVtYmVyIG9mIFZGcyB2aWEgZXRodG9vbCBpbnN0
+ZWFkIG9mIGp1c3QgdGhlIG1vZHVsZSBwYXJhbWV0ZXIgdGhhdCB3aWxsIGNoYW5nZSBhbmQgdGhp
+cyBjaGFuZ2Ugd291bGQgYmUgdmVyeSBoZWxwZnVsIGluIHRoYXQgY2lyY3Vtc3RhbmNlIGFsc28u
+DQoNClNvdW5kcyBsaWtlIGEgZ29vZCBpZGVhIHRvIG1lLg0KDQotIEdyZWcNCg0K
