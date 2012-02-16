@@ -1,52 +1,54 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH v2 0/2] Part 3: handle random addresses on blackfin
-Date: Thu, 16 Feb 2012 18:09:29 +0100
-Message-ID: <1329412171-20704-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bob Liu <bob.liu@analog.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Scott Jiang <scott.jiang@analog.com>,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Steven Miao <realmz6@gmail.com>,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] bnx2x: tx-switching module parameter
+Date: Thu, 16 Feb 2012 17:20:40 +0000
+Message-ID: <1329412840.2601.13.camel@bwh-desktop>
+References: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Ariel Elior <ariele@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:39162 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753471Ab2BPRUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 12:20:43 -0500
+In-Reply-To: <1329401112-9542-1-git-send-email-ariele@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The third part of my patch series to fix the handling of 
-addr_assign_type for random MAC addresses. This contains the 
-changes for the blackfin architecture and the adi ethernet
-driver.
+On Thu, 2012-02-16 at 16:05 +0200, Ariel Elior wrote:
+> In 57712 and 578xx the tx-switching module parameter allows the user to control
+> whether outgoing traffic can be loopbacked into the device in case there is a
+> relevant client for the data using the same device for rx.
+> A classic example where this is necessary is for virtualization purposes, where
+> one vm is transmitting data to another, while both use different pci functions of
+> the same port of the same nic.
+> 
+> In case there is a promiscuous client in the rx (which wants to receive all
+> data) or if the traffic is broadcast, traffic may be sent on both the loopback
+> channel and the physical wire.
+> 
+> The reason tx-switching is controlled by a module parameter is twofold:
+> 1. There is a certain performance penalty for tx-switching because:
+>    a. every packet must be compared against the receiver clients.
+>    b. duplicated traffic being loopbacked can consume a significant portion of
+>    the overall bandwidth, depending on the scenario.
 
-Please make sure you do a short compile test before pushing them.
+So you really want the driver/firmware/hardware to know all the local
+addresses (as John Fastabend was proposing).
 
-Thanks!
+> 2. Tx-switching doesn't make much sense as a per function parameter, but should
+> rather be controlled uniformly for the  entire device.
+[...]
 
-Danny Kukawka (2):
-  arch/blackfin: don't generate random mac in bfin_get_ether_addr()
-  adi: adapt to eth_hw_addr_random() and changes in arch/blackfin
+What if there are multiple such cards in the same system, and this is
+only wanted for one of them?
 
- arch/blackfin/mach-bf518/boards/ezbrd.c      |    3 ++-
- arch/blackfin/mach-bf518/boards/tcm-bf518.c  |    5 ++---
- arch/blackfin/mach-bf527/boards/ad7160eval.c |    3 ++-
- arch/blackfin/mach-bf527/boards/cm_bf527.c   |    5 ++---
- arch/blackfin/mach-bf527/boards/ezbrd.c      |    3 ++-
- arch/blackfin/mach-bf527/boards/ezkit.c      |    3 ++-
- arch/blackfin/mach-bf527/boards/tll6527m.c   |    3 ++-
- arch/blackfin/mach-bf537/boards/cm_bf537e.c  |    5 ++---
- arch/blackfin/mach-bf537/boards/cm_bf537u.c  |    5 ++---
- arch/blackfin/mach-bf537/boards/dnp5370.c    |    3 ++-
- arch/blackfin/mach-bf537/boards/pnav10.c     |    5 ++---
- arch/blackfin/mach-bf537/boards/stamp.c      |    3 ++-
- arch/blackfin/mach-bf537/boards/tcm_bf537.c  |    5 ++---
- drivers/net/ethernet/adi/bfin_mac.c          |   15 +++++++++------
- drivers/net/ethernet/adi/bfin_mac.h          |    2 +-
- 15 files changed, 36 insertions(+), 32 deletions(-)
+Ben.
 
 -- 
-1.7.8.3
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
