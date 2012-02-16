@@ -1,73 +1,58 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH] SUNRPC: connect local transports synchronously
-Date: Thu, 16 Feb 2012 19:06:25 +0400
-Message-ID: <20120216150507.19081.28659.stgit@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 16 Feb 2012 16:09:35 +0100
+Message-ID: <1329404975.10004.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <8633039.fHPLx6GNq3@localhost.localdomain>
+	 <4249109.nLB9JCi9YF@localhost.localdomain>
+	 <1329313785.2437.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <2687521.3ztN17SHUf@localhost.localdomain>
+	 <1329318481.2437.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CADVnQy=UOvC06TBOE7d7WvuKm1Tdkzu7M4dfvm6VRcRJaDMyLw@mail.gmail.com>
+	 <1329377352.5646.32.camel@edumazet-laptop>
+	 <1329399616.9395.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1329400265.3048.178.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neal Cardwell <ncardwell@google.com>,
+	Netdev <netdev@vger.kernel.org>, alekcejk@googlemail.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:52690 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751627Ab2BPPJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Feb 2012 10:09:48 -0500
+Received: by lagu2 with SMTP id u2so2522085lag.19
+        for <netdev@vger.kernel.org>; Thu, 16 Feb 2012 07:09:47 -0800 (PST)
+In-Reply-To: <1329400265.3048.178.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Local tranports uses UNIX sockets and connecting of these sockets is done in
-context of file system namespace (i.e. task file system root).
-Currenly, all sockets connect operations are performed by rpciod work queue,
-which actually means, that any service will be registered in the same rpcbind
-instance regardless to process file system root.
-This is not containers, which usually have it's own nested root. There are 2
-approaches, how to solve the problem. First one is to store proper root in
-tranport and switch to it in rpciod workqueue function for connect operations.
-But this looks ugly. The second one is to connect to unix sockets
-synchronously. This aptch implements the last one.
+Le jeudi 16 f=C3=A9vrier 2012 =C3=A0 13:51 +0000, Ben Hutchings a =C3=A9=
+crit :
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> I'm aware of this problem and I believe it exists with most
+> implementations of LRO.
+>=20
+> The out-of-tree version of the sfc driver has its own soft-LRO
+> implementation (SSR) which does some limited connection tracking to
+> detect slow start and disable aggregation temporarily.  I've been
+> meaning to look into enhancing GRO to match SSR, but haven't got roun=
+d
+> to it yet.
 
----
- net/sunrpc/xprtsock.c |   22 +++++++++++++++++++++-
- 1 files changed, 21 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 55472c4..365cd6d 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -2177,6 +2177,26 @@ out:
- }
- 
- /**
-+ * xs_local_connect - connect a local (unix) socket to a remote endpoint
-+ * @task: address of RPC task that manages state of connect request
-+ *
-+ * We have to connect unix sockets synchronously. Otherwise this connection
-+ * will be done in file system context of rpciod queue, which is not suitable
-+ * for processes with other root (changed root is a usual part of environment
-+ * for containers).
-+ */
-+
-+static void xs_local_connect(struct rpc_task *task)
-+{
-+	struct rpc_xprt *xprt = task->tk_xprt;
-+	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-+	struct work_struct *work = &transport->connect_worker.work;
-+
-+	dprintk("RPC:       xs_local_connect xprt %p\n", xprt);
-+	work->func(work);
-+}
-+
-+/**
-  * xs_connect - connect a socket to a remote endpoint
-  * @task: address of RPC task that manages state of connect request
-  *
-@@ -2414,7 +2434,7 @@ static struct rpc_xprt_ops xs_local_ops = {
- 	.release_xprt		= xs_tcp_release_xprt,
- 	.rpcbind		= xs_local_rpcbind,
- 	.set_port		= xs_local_set_port,
--	.connect		= xs_connect,
-+	.connect		= xs_local_connect,
- 	.buf_alloc		= rpc_malloc,
- 	.buf_free		= rpc_free,
- 	.send_request		= xs_local_send_request,
+Not sure why we cant change tcp_grow_window() to take into account
+number of segments in skb ?
+
+It currently increments rcv_ssthresh by a fixed amount (2 * advmss)
+
+        if (tcp_win_from_space(skb->truesize) <=3D skb->len)
+                incr =3D 2 * tp->advmss;
+        else
+                incr =3D __tcp_grow_window(sk, skb);
+        if (incr) {
+                tp->rcv_ssthresh =3D min(tp->rcv_ssthresh + incr,
+                                       tp->window_clamp);
+                inet_csk(sk)->icsk_ack.quick |=3D 1;
+                }
