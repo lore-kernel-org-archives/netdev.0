@@ -1,145 +1,80 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH net-next 5/5] net: sh_eth: add support for VLAN tag filtering
-Date: Thu, 16 Feb 2012 12:55:06 +0900
-Message-ID: <4F3C7E1A.4040806@renesas.com>
+Subject: [PATCH net-next 3/5] net: sh_eth: modify a condition of ioremap for TSU
+Date: Thu, 16 Feb 2012 12:55:01 +0900
+Message-ID: <4F3C7E15.7020504@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:57964 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995Ab2BPDzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:55:09 -0500
+Received: from relmlor2.renesas.com ([210.160.252.172]:47400 "EHLO
+	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995Ab2BPDzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Feb 2012 22:55:16 -0500
 Received: from relmlir4.idc.renesas.com ([10.200.68.154])
- by relmlor3.idc.renesas.com ( SJSMS)
- with ESMTP id <0LZG00MIHW7U6V30@relmlor3.idc.renesas.com> for
- netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:06 +0900 (JST)
-Received: from relmlac1.idc.renesas.com ([10.200.69.21])
+ by relmlor2.idc.renesas.com ( SJSMS)
+ with ESMTP id <0LZG00D61W7PYT40@relmlor2.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:01 +0900 (JST)
+Received: from relmlac4.idc.renesas.com ([10.200.69.24])
  by relmlir4.idc.renesas.com ( SJSMS)
- with ESMTP id <0LZG000PFW7TNWC0@relmlir4.idc.renesas.com> for
- netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:06 +0900 (JST)
+ with ESMTP id <0LZG000OJW7PNWC0@relmlir4.idc.renesas.com> for
+ netdev@vger.kernel.org; Thu, 16 Feb 2012 12:55:01 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some controllers have TSU. It can register one VLAN tag, and it can
-filter other VLAN tag by hardware.
-If vlan_rx_add_vid() is called twice or more, the driver will disable
-the filtering.
+If the controller has TSU, the each channel needs TSU registers.
+This patch also fixes the iounmap condition in the sh_eth_drv_remove().
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |   59 +++++++++++++++++++++++++++++++++
- drivers/net/ethernet/renesas/sh_eth.h |    5 +++
- 2 files changed, 64 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 99d8ce8..8615961 100644
+index 5a5afbc..8bd0e58 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1888,6 +1888,62 @@ static void sh_eth_set_multicast_list(struct net_device *ndev)
+@@ -1859,18 +1859,20 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* read and set MAC address */
+ 	read_mac_address(ndev, pd->mac_addr);
 
- 	spin_unlock_irqrestore(&mdp->lock, flags);
- }
-+
-+static int sh_eth_get_vtag_index(struct sh_eth_private *mdp)
-+{
-+	if (!mdp->port)
-+		return TSU_VTAG0;
-+	else
-+		return TSU_VTAG1;
-+}
-+
-+static int sh_eth_vlan_rx_add_vid(struct net_device *ndev, u16 vid)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+	int vtag_reg_index = sh_eth_get_vtag_index(mdp);
-+
-+	if (unlikely(!mdp->cd->tsu))
-+		return -EPERM;
-+
-+	/* No filtering if vid = 0 */
-+	if (!vid)
-+		return 0;
-+
-+	mdp->vlan_num_ids++;
-+
-+	/*
-+	 * The controller has one VLAN tag HW filter. So, if the filter is
-+	 * already enabled, the driver disables it and the filte
-+	 */
-+	if (mdp->vlan_num_ids > 1) {
-+		/* disable VLAN filter */
-+		sh_eth_tsu_write(mdp, 0, vtag_reg_index);
-+		return 0;
++	/* ioremap the TSU registers */
++	if (mdp->cd->tsu) {
++		struct resource *rtsu;
++		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++		if (!rtsu) {
++			dev_err(&pdev->dev, "Not found TSU resource\n");
++			goto out_release;
++		}
++		mdp->tsu_addr = ioremap(rtsu->start,
++					resource_size(rtsu));
 +	}
 +
-+	sh_eth_tsu_write(mdp, TSU_VTAG_ENABLE | (vid & TSU_VTAG_VID_MASK),
-+			 vtag_reg_index);
-+
-+	return 0;
-+}
-+
-+static int sh_eth_vlan_rx_kill_vid(struct net_device *ndev, u16 vid)
-+{
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+	int vtag_reg_index = sh_eth_get_vtag_index(mdp);
-+
-+	if (unlikely(!mdp->cd->tsu))
-+		return -EPERM;
-+
-+	/* No filtering if vid = 0 */
-+	if (!vid)
-+		return 0;
-+
-+	mdp->vlan_num_ids--;
-+	sh_eth_tsu_write(mdp, 0, vtag_reg_index);
-+
-+	return 0;
-+}
- #endif /* SH_ETH_HAS_TSU */
-
- /* SuperH's TSU register init function */
-@@ -2037,6 +2093,8 @@ static const struct net_device_ops sh_eth_netdev_ops = {
- 	.ndo_get_stats		= sh_eth_get_stats,
- #if defined(SH_ETH_HAS_TSU)
- 	.ndo_set_rx_mode	= sh_eth_set_multicast_list,
-+	.ndo_vlan_rx_add_vid	= sh_eth_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid	= sh_eth_vlan_rx_kill_vid,
- #endif
- 	.ndo_tx_timeout		= sh_eth_tx_timeout,
- 	.ndo_do_ioctl		= sh_eth_do_ioctl,
-@@ -2141,6 +2199,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 		mdp->tsu_addr = ioremap(rtsu->start,
- 					resource_size(rtsu));
- 		mdp->port = devno % 2;
-+		ndev->features = NETIF_F_HW_VLAN_FILTER;
- 	}
-
  	/* initialize first or needed device */
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 86b392e..57dc262 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -679,6 +679,10 @@ enum TSU_FWSLC_BIT {
- 	TSU_FWSLC_CAMSEL11 = 0x0002, TSU_FWSLC_CAMSEL10 = 0x0001,
- };
+ 	if (!devno || pd->needs_init) {
+-		if (mdp->cd->tsu) {
+-			struct resource *rtsu;
+-			rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-			if (!rtsu) {
+-				dev_err(&pdev->dev, "Not found TSU resource\n");
+-				goto out_release;
+-			}
+-			mdp->tsu_addr = ioremap(rtsu->start,
+-						resource_size(rtsu));
+-		}
+ 		if (mdp->cd->chip_reset)
+ 			mdp->cd->chip_reset(ndev);
 
-+/* TSU_VTAGn */
-+#define TSU_VTAG_ENABLE		0x80000000
-+#define TSU_VTAG_VID_MASK	0x00000fff
-+
- /*
-  * The sh ether Tx buffer descriptors.
-  * This structure should be 20 bytes.
-@@ -781,6 +785,7 @@ struct sh_eth_private {
- 	char post_fw;		/* POST forward */
- 	struct net_device_stats tsu_stats;	/* TSU forward status */
- 	int port;		/* for TSU */
-+	int vlan_num_ids;	/* for VLAN tag filter */
+@@ -1919,7 +1921,8 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
 
- 	unsigned no_ether_link:1;
- 	unsigned ether_link_active_low:1;
+-	iounmap(mdp->tsu_addr);
++	if (mdp->cd->tsu)
++		iounmap(mdp->tsu_addr);
+ 	sh_mdio_release(ndev);
+ 	unregister_netdev(ndev);
+ 	pm_runtime_disable(&pdev->dev);
 -- 
 1.7.1
