@@ -1,75 +1,80 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: [PATCH] 8139cp: reject invalid MTU values
-Date: Fri, 17 Feb 2012 13:33:15 +0100
-Message-ID: <1329481995-28384-1-git-send-email-pbonzini@redhat.com>
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: sysfs^H^H^H^H^Hsysctl warnings, reserved names
+Date: Fri, 17 Feb 2012 14:05:34 +0100
+Message-ID: <1329483934.2861.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <41230e67c273dde6b60cfc7110f496e2@visp.net.lb>
+	 <1329475042.2861.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1329476631.2861.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <m1k43lhdeh.fsf_-_@fess.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:38098 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751464Ab2BQNFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 08:05:37 -0500
+Received: by wics10 with SMTP id s10so1530110wic.19
+        for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 05:05:36 -0800 (PST)
+In-Reply-To: <m1k43lhdeh.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The 8139cp driver has a change_mtu function that has not been
-enabled since the dawn of the git repository.  However, the
-generic eth_change_mtu is not used in its place, so that
-invalid MTU values can be set on the interface.
+Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 04:07 -0800, Eric W. Biederman =
+a =C3=A9crit :
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>=20
+> > Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 11:37 +0100, Eric Dumazet a=
+ =C3=A9crit :
+> >> Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 12:14 +0200, Denys Fedorys=
+hchenko a
+> >> =C3=A9crit :
+> >> > Hi
+> >> >=20
+> >> > Just did a test:
+> >> >=20
+> >> > ip link set dev eth1 name default
+> >> >=20
+> >> > And got a lot of (expected) sysfs warnings:
+> >> > [1068625.677143] sysctl table check failed:=20
+> >> > /net/ipv4/conf/default/promote_secondaries  Sysctl already exist=
+s
+> >> > [1068625.677151] Pid: 18106, comm: ip Not tainted 3.2.4-centaur =
+#1
+> >> > and etc
+> >> >=20
+> >> > Kernel 3.2.4, but i guess it doesn't matter much.
+> >> > Maybe such names (as all and default) should be "reserved"?
+> >> > Or it is ok like that?
+> >> >=20
+> >>=20
+> >> You're right, we should forbid this to happen.
+> >>=20
+> >>=20
+> >
+> > Following is a quick hack, I CC Eric because its probaly better to
+> > address this in sysfs.
+>=20
+> Well we are talking about sysctl not sysfs but same difference, I kee=
+p
+> an on eye on them.
+>=20
+> I expect renaming a network device to "all" or "default" would be a
+> problem in any kernel supporting renaming of networking devices.
+>=20
+> At the basic level of handling it.  sysctl checks for this sometimes
+> now and as soon as my sysctl tree is merged the checks will become
+> unconditionally present.  In what sense were you thinking it would
+> be better to address this in the sysctl?
+>=20
 
-This patch salvages the broken code for the single case of
-setting the MTU while the interface is down, which is safe
-and also includes the range check.
----
- drivers/net/ethernet/realtek/8139cp.c |   21 +--------------------
- 1 files changed, 1 insertions(+), 20 deletions(-)
+Because problem is : it seems a rename() of "eth3" to "default" is
+allowed by sysctl, yet "default" is already in directory.
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index cc6b391..c140b8c 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1188,12 +1188,9 @@ static void cp_tx_timeout(struct net_device *dev)
- 	spin_unlock_irqrestore(&cp->lock, flags);
- }
- 
--#ifdef BROKEN
- static int cp_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct cp_private *cp = netdev_priv(dev);
--	int rc;
--	unsigned long flags;
- 
- 	/* check for invalid MTU, according to hardware limits */
- 	if (new_mtu < CP_MIN_MTU || new_mtu > CP_MAX_MTU)
-@@ -1206,22 +1203,8 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
- 		return 0;
- 	}
- 
--	spin_lock_irqsave(&cp->lock, flags);
--
--	cp_stop_hw(cp);			/* stop h/w and free rings */
--	cp_clean_rings(cp);
--
--	dev->mtu = new_mtu;
--	cp_set_rxbufsize(cp);		/* set new rx buf size */
--
--	rc = cp_init_rings(cp);		/* realloc and restart h/w */
--	cp_start_hw(cp);
--
--	spin_unlock_irqrestore(&cp->lock, flags);
--
--	return rc;
-+	return -EBUSY;
- }
--#endif /* BROKEN */
- 
- static const char mii_2_8139_map[8] = {
- 	BasicModeCtrl,
-@@ -1797,9 +1780,7 @@ static const struct net_device_ops cp_netdev_ops = {
- 	.ndo_start_xmit		= cp_start_xmit,
- 	.ndo_tx_timeout		= cp_tx_timeout,
- 	.ndo_set_features	= cp_set_features,
--#ifdef BROKEN
- 	.ndo_change_mtu		= cp_change_mtu,
--#endif
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cp_poll_controller,
--- 
-1.7.7.6
+It seems sysfs_rename_link() / sysfs_rename_dir() / sysfs_rename() migh=
+t
+have a problem ?
+
+Sorry, I leave for vacations and can check all this before 5 days.
