@@ -1,53 +1,48 @@
-From: "MICROSOFT PROMOTIONS" <info@africaonline.com.gh>
-Subject: Congratulations!!!Winner
-Date: Fri, 17 Feb 2012 15:26:22 -0000 (GMT)
-Message-ID: <assp.0394a722f5.32470.41.203.64.129.1329492382.squirrel@41.203.64.129>
-Reply-To: microsoft_claimsoffice@yahoo.com.hk
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Regression in skge that started around acb42a3 (so past
+ v3.3-rc1)
+Date: Fri, 17 Feb 2012 07:53:48 -0800
+Message-ID: <20120217075348.171e3476@nehalam.linuxnetplumber.net>
+References: <20120130155816.GA1400@phenom.dumpdata.com>
+	<20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
+	<20120130175738.GA4002@phenom.dumpdata.com>
+	<20120130.130259.1190745234966440677.davem@davemloft.net>
+	<20120130182230.GA4122@phenom.dumpdata.com>
+	<20120217141005.GA27808@phenom.dumpdata.com>
+	<20120217074511.61efe78c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from av1.africaonline.com.gh ([212.85.196.22]:32852 "EHLO
-	smtp1.africaonline.com.gh" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863Ab2BQPtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 10:49:32 -0500
-Received: from ANTI-SPAM (av1.africaonline.com.gh [212.85.196.22])
-	by smtp1.africaonline.com.gh (Postfix) with SMTP id CC7253ED659
-	for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 15:23:10 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120217074511.61efe78c@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 17 Feb 2012 07:45:11 -0800
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
+> On Fri, 17 Feb 2012 09:10:05 -0500
+> Konrad Rzeszutek Wilk <konrad.wilk@oracle.com> wrote:
+> 
+> > On Mon, Jan 30, 2012 at 01:22:30PM -0500, Konrad Rzeszutek Wilk wrote:
+> > > On Mon, Jan 30, 2012 at 01:02:59PM -0500, David Miller wrote:
+> > > > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > > Date: Mon, 30 Jan 2012 12:57:38 -0500
+> > > > 
+> > > > > Ah, so you are saying that the problem above is already fixed in 3.3-rc1.
+> > > > 
+> > > > No he's not saying that, he says somewhere we probably need a fix
+> > > > "like" the commit he mentioned.
+> > > > 
+> > > > He did not say that commit fixes this bug.
+> > > 
+> > > Ayee. Sounds you guys have an idea about this bug then. If you want me to run
+> > > a test-patch I can certainly do so. Thanks!
+> > 
 
-
-Congratulations!!!
-
-This 31st day of January the entire staff of Microsoft Corporation
-(Promotion Department) wish to inform you that you have just been selected
-as a lucky winner from the Microsoft New-Year email draws that is usually
-held twice in every year.
-
-Microsoft Corporation organize this promotion offer in other to compensate
-consumers of the product in the world at large for their infinite supports
-towards the growth of the company.
-
-Hence you have won $1,900,000 USD (One Million Nine Hundred Thousand
-Dollars) and you are expected to fill and send back the following
-following for claims:
-
-Full Name.............
-Address...............
-Sex...................
-Marital Status........
-Age...................
-Country...............
-Occupation............
-Telephone Numbers.....
-
-TO: microsoft_claimsoffice@yahoo.com.hk
-Congratulations!! Once again.
-
-Yours in service,
-The Award Team
-(Microsoft Corporation
+Actually, I was confused, that was another skge change.
+The checksum issue still exists and it is not a driver problem.
