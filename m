@@ -1,24 +1,36 @@
-From: LEUNG Cheung <brunog@inpi.gov.br>
-Subject: Attention!
-Date: Fri, 17 Feb 2012 08:29:02 -0200 (BRST)
-Message-ID: <d72b50f3-47a2-40cf-b9ea-5ad3dc72fe73@mail.inpi.gov.br>
-Reply-To: LEUNG Cheung <leung02cheung@kimo.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: Regression in skge that started around acb42a3 (so past v3.3-rc1)
+Date: Fri, 17 Feb 2012 09:10:05 -0500
+Message-ID: <20120217141005.GA27808@phenom.dumpdata.com>
+References: <20120130155816.GA1400@phenom.dumpdata.com>
+ <20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
+ <20120130175738.GA4002@phenom.dumpdata.com>
+ <20120130.130259.1190745234966440677.davem@davemloft.net>
+ <20120130182230.GA4122@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.inpi.gov.br ([189.3.205.182]:30164 "EHLO smtp.inpi.gov.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752740Ab2BQNsk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Feb 2012 08:48:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120130182230.GA4122@phenom.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Jan 30, 2012 at 01:22:30PM -0500, Konrad Rzeszutek Wilk wrote:
+> On Mon, Jan 30, 2012 at 01:02:59PM -0500, David Miller wrote:
+> > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Date: Mon, 30 Jan 2012 12:57:38 -0500
+> > 
+> > > Ah, so you are saying that the problem above is already fixed in 3.3-rc1.
+> > 
+> > No he's not saying that, he says somewhere we probably need a fix
+> > "like" the commit he mentioned.
+> > 
+> > He did not say that commit fixes this bug.
+> 
+> Ayee. Sounds you guys have an idea about this bug then. If you want me to run
+> a test-patch I can certainly do so. Thanks!
 
-
-I need your assistance of the transfer an abandoned $22.5 Million Dollars from hong-kong to your country. You will get more info when i receive a positivereply from you.
-
-Best Regards,
-Mr. LEUNG Cheung
-Email: leung02cheung@kimo.com
+ping?
