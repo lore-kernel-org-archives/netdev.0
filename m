@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Fri, 17 Feb 2012 13:33:27 -0500 (EST)
-Message-ID: <20120217.133327.1178765872497293871.davem@davemloft.net>
-References: <1329466694.12669.2976.camel@debian>
-	<1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Cleaning up code formatting errors in net/wireless
+ pointed out by checkpatch.
+Date: Fri, 17 Feb 2012 10:45:44 -0800
+Message-ID: <1329504344.584.18.camel@joe2Laptop>
+References: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alex.shi@intel.com, linux-kernel@vger.kernel.org,
-	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Luis Felipe Strano Moraes <lfelipe@profusion.mobi>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+In-Reply-To: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 17 Feb 2012 10:50:39 +0100
+On Fri, 2012-02-17 at 07:30 -0800, Luis Felipe Strano Moraes wrote:
+> These are mostly minor changes and they are being sent as one patch only in
+> order to cause the smallest amount of disruption.
+[]
+> diff --git a/net/wireless/core.c b/net/wireless/core.c
+[]
+> @@ -668,7 +668,7 @@ void wiphy_unregister(struct wiphy *wiphy)
+>  		mutex_lock(&rdev->devlist_mtx);
+>  		__count = rdev->opencount;
+>  		mutex_unlock(&rdev->devlist_mtx);
+> -		__count == 0;}));
+> +		__count == 0; }));
 
-> Le vendredi 17 f=E9vrier 2012 =E0 16:18 +0800, Alex,Shi a =E9crit :
->> The tcp_stream loop back performance has about 10% drop on the
->> commitment on our core2 2 sockets server. This commit has 2
->> parents(7505afe28, 5983fe), but both of them have no regression. So
->> guess the impact just happened when this 2 parents joint. That beyon=
-d
->> our capability to dig it more.
->>=20
->> Any ideas?=20
->=20
-> Most probably the more accurate truesize determination is responsible=
- of
-> this tcp regression, since some prior assumptions might be wrong.
->=20
-> Want to give more information on the workload ?
-> Is it a 32 or 64 bit kernel ?
+Inline statement expressions are pretty unusual
+for kernel sources.  Normally these are used via
+macro.
 
-And let's start CC:'ing netdev too.
+I'd try to make the statement expression visually
+distinct.  Something like:
+
+	wait_event(rdev->dev_wait,
+		   ({
+			   int __count;
+			   mutex_lock(&rdev->devlist_mtx);
+			   __count = rdev->opencount;
+			   mutex_unlock(&rdev->devlist_mtx);
+			   __count == 0;
+		   })
+		  );
