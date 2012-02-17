@@ -1,103 +1,272 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Fri, 17 Feb 2012 09:10:25 -0800
-Message-ID: <4F3E8A01.5000205@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>  <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>  <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>  <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>  <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com> <1329488932.2272.19.camel@mojatatu>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Program to test/use the 'low level Ethernet debugging features'
+Date: Fri, 17 Feb 2012 10:12:10 -0800
+Message-ID: <4F3E987A.8000906@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed;
+ boundary="------------080103020507050000090707"
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brown, Aaron F" <aaron.f.brown@intel.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:52962 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599Ab2BQSMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 13:12:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------080103020507050000090707
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com
-To: jhs@mojatatu.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1329488932.2272.19.camel@mojatatu>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On 2/17/2012 6:28 AM, jamal wrote:
-> On Wed, 2012-02-15 at 17:26 -0800, John Fastabend wrote:
->> On 2/15/2012 6:10 AM, Jamal Hadi Salim wrote:
->>> On Tue, 2012-02-14 at 10:57 -0800, John Fastabend wrote:
->>>
->>>> Roopa was likely on the right track here,
->>>>
->>>> http://patchwork.ozlabs.org/patch/123064/
->>>
->>> Doesnt seem related to the bridging stuff - the modeling looks
->>> reasonable however.
->>>
->>
->> The operations are really the same ADD/DEL/GET additional MAC
->> addresses to a port, in this case a macvlan type port. The
->> difference is the  macvlan port type drops any packet with an
->> address not in the FDB where the bridge type floods these.
-> 
-> Ok.
-> [the vlan piece really should have been an integrated part of bridging;
-> in the early days this was the case]
-> 
-> 
->> [root@jf-dev1-dcblab src]# br fdb help
->> Usage: br fdb { add | del | replace } ADDR dev DEV
->>        br fdb {show} [ dev DEV ]
->>
->> In my example I just dumped all bridge devices,
->>
-> 
-> Ok, makes sense.
-> 
-> 
->> Seems we need both a synchronize and a { add | del | replace } option.
-> 
-> I am conflicted on this.
-> Not sure if that is a command line thing or something built into a user
-> space daemon. It may be useful to have the command line variant but i
-> feel having a daemon take care of things helps in faster
-> synchronization.
-> I think user space is a good spot to add such functionality (as opposed
-> to the kernel). That way user space can work with h/ware switching such
-> as yours as well as a standalone switching chips (from sillicon vendors
-> like Marvel etc).
-> IMO, the average user doesnt need to be aware of such low level stuff;
-> so the default should be for the user not to be responsible for
-> configuration of synchronization. IOW, I want to just run well
-> understood user interface tools things like ifconfig, ip link etc, the
-> new br tool and not even need to be aware that we are offloading.
-> So as long as s/w br0 is mapping to the bridge on ixgb-0 i dont need
-> to know ixgb0 h/w bridge exists.
-> 
+I'm attaching a small program I wrote to test the 'send custom fcs'
+patches.  You can also test the rx-fcs and rx-all logic by making
+sure that the NIC properly handles the packets with bad FCS.
 
-Yes I agree that is the goal.
+For those that might have seen a previous version of this, I added
+the ability to specify the dest mac address which means you don't
+have to put the receiving NIC into PROMISC mode now.
 
-> One last comment:
-> With synchronization there are other challenges when the entry in the
-> hardware conflicts with the entry in software when you intend the
-> behavior to be the same. This is not such a big deal with bridging but
-> becomes more apparent when you start offloading ACLs etc.
-> 
+Thanks,
+Ben
 
-OK and these sorts of conflicts certainly don't need to be resolved
-by kernel code. So I think this is a reasonable reason to drive the
-synchronization into a user space daemon.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-> 
->> So I think what your saying is a per port bit to disable learning...
->> hmm but if you start tweaking it too much it looks less and less like a
->> 802.1D bridge and more like something you would want to build with tc or
->> openvswitch or tc+bridge or tc+macvlan.
-> 
-> These are pretty commodity features in most silicon switching chips ive
-> come across. You have a knob to control learning and another to control
-> flooding.
-> 
 
-All right this looks like a follow up patch to me. First build the interface
-to configure the HW FDB. Then a second series to add a flooding knob which
-works for both embedded switches and software switches.
+--------------080103020507050000090707
+Content-Type: text/plain;
+ name="nofcs.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="nofcs.c"
 
-> cheers,
-> jamal
-> 
+/**  This tool can be used to send packets with custom (ie, bad) Ethernet
+ * Frame Checksum.
+ *
+ * This requires the 'Low-level Ethernet debugging features.' patch series,
+ * which supports e100, e1000, and e1000e drivers.  Support for igb and
+ * hopefully ixgbe will be added soon.
+ *
+ * To compile:  gcc -Wall nofcs.c -o nofcs
+ *
+ * Usage:
+ *  Send 10 packets out eth0 with bad FCS:
+ *    ./nofcs -i eth0 -dm 00:11:22:33:44:55
+ *
+ * To receive the packets, you could use a version of ethtool that supports
+ * the feature strings logic posted by Michal Miroslaw and enable 'rx-all'
+ * and optionally: 'rx-fcs'.
+ *
+ * The patch for ethtool is posted here:
+ *    http://patchwork.ozlabs.org/patch/96374/
+ *
+ * This code was written by Ben Greear <greearb@candelatech.com>
+ * and is hereby released into the public domain with no restrictions.
+ * February 17, 2012.
+ *
+ */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <linux/if_packet.h>
+#include <ctype.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+
+
+static char* dev = NULL;
+static int count = 10;
+static int bytes = 128; // not counting fcs
+static unsigned int fcs = 0xdeadbeef;
+static char* dst_mac = NULL;
+
+static void print_usage() {
+   printf("usage: -i [dev-name] -b [byte-count] -c [packet-count] -f [fcs] -dm [dest-mac]\n"
+          "Example: nofcs -i eth0 -b 128 -c 10 -dm 00:11:22:33:44:55 -f 0xdeadbeef\n\n");
+}
+
+
+int createPacketSocket(const char* dev_name, int ether_type) {
+   int s = socket(PF_PACKET, SOCK_RAW, htons(ether_type));
+   int r; //retval
+   struct sockaddr_ll myaddr;
+
+   if (s < 0) {
+      perror("socket(PF_PACKET)");
+      exit(1);
+   }
+
+   memset(&myaddr, '\0', sizeof(myaddr));
+   myaddr.sll_family = AF_PACKET;
+   myaddr.sll_protocol = htons(ether_type);
+   myaddr.sll_ifindex = if_nametoindex(dev_name);
+   if (myaddr.sll_ifindex == 0) {
+      perror("if_nametoindex");
+      exit(1);
+   }
+      
+   r = bind(s, (struct sockaddr*)(&myaddr), sizeof(myaddr));
+   if (r < 0) {
+      perror("bind");
+      exit(1);
+   }
+   return s;
+}
+
+static int toMacString(unsigned char* rslt_mac, const char* raw_mac) {
+   /* Turn HEX into bytes.  First, gather all the useful HEX */
+   char tmp[12]; /* More than 12 is useless, at least right now */
+   char c;
+   int j = 0; /* tmp's index. */
+   int i;
+   char tmp_bt[3];
+
+   for (i = 0; i<strlen(raw_mac); i++) {
+      c = toupper(raw_mac[i]);
+      if (((c >= '0') && (c <= '9')) || ((c >= 'A') && (c <= 'F'))) {
+         tmp[j] = c;
+         if (j == 11) {
+            break; /* done */
+         }
+         j++;
+      }
+      else {
+         if ((c == ':') || (c == ' ') || (c == '.')) {
+            /* Ok, valid divider */
+         }
+         else {
+            printf("ERROR:  Invalid characters found in the MAC input string: %s index: %i  character: %c\n",
+                   raw_mac, i, c);
+            exit(1);
+         }
+      }
+   }
+
+   if (j != 11) {
+      printf("ERROR:  Not enough HEX values in the input string.\n");
+      exit(1);
+   }
+
+   for (i = 0; i<6; i++) {
+      tmp_bt[0] = tmp[i*2];
+      tmp_bt[1] = tmp[i*2 +1];
+      tmp_bt[2] = 0;
+      rslt_mac[i] = (char)(strtol(tmp_bt, NULL, 16) & 0xFF); /* base 16 (HEX) */
+   }
+   return 0;
+}//toMacString
+
+int main(int argc, char **argv) {
+   int i;
+   int s;
+   unsigned char* buf;
+   unsigned int opt = 1;
+
+   dev = strdup("eth0");
+   dst_mac = strdup("00:11:22:33:44:55");
+
+   for (i = 1; i<argc; i++) {
+
+      /* Each argument requires a value */
+      if (argc < i+1) {
+         printf("ERROR:  Not enough arguments, argc: %i  i: %i\n",
+                argc, i);
+         print_usage();
+         exit(1);
+      }
+      
+      if (strcasecmp(argv[i], "-i") == 0) {
+         free(dev);
+         dev = strdup(argv[i + 1]);
+      }
+      else if (strcasecmp(argv[i], "-c") == 0) {
+         count = strtoll(argv[i + 1], NULL, 0);
+      }
+      else if (strcasecmp(argv[i], "-b") == 0) {
+         bytes = strtoll(argv[i + 1], NULL, 0);
+      }
+      else if (strcasecmp(argv[i], "-f") == 0) {
+         fcs = strtoll(argv[i + 1], NULL, 0);
+      }
+      else if (strcasecmp(argv[i], "-dm") == 0) {
+         free(dst_mac);
+         dst_mac = strdup(argv[i + 1]);
+      }
+      else {
+         printf("Unknown argument: %s\n", argv[i]);
+         print_usage();
+         exit(1);
+      }
+      i++;
+   }
+
+   if (bytes < 14) {
+      printf("ERROR: Need at least 14 bytes of payload for ether header.\n");
+      exit(1);
+   }
+
+   if (bytes < 60) {
+      printf("WARNING: Most drivers require Ethernet frame of at least 60 bytes.\n");
+   }
+
+   /* Just use some made-up eth type */
+   s = createPacketSocket(dev, 0x1111);
+
+   if (setsockopt(s, SOL_SOCKET, 42 /* SO_NOFCS, see asm-x86/socket.h in linux kernel*/,
+                  (char*)&opt, sizeof(opt)) < 0) {
+      perror("setsockopt SO_NOFCS");
+      printf("Kernel doesn't support the NO_FCS feature it seems.\n");
+      exit(2);
+   }
+
+   buf = malloc(bytes + 4);
+
+   /* mostly hard-code an ether header */
+   toMacString(buf, dst_mac);
+
+   /* src 00:22:22:22:22:22 */
+   buf[6] = 0;
+   for (i = 7; i<11; i++)
+      buf[i] = 0x22;
+
+   /* ether type */
+   buf[12] = 0x11;
+   buf[13] = 0x11;
+
+   for (i = 14; i<bytes; i++) {
+      buf[i] = i;
+   }
+
+   /* append our FCS */
+   buf[bytes] = (fcs >> 24) & 0xff;
+   buf[bytes + 1] = (fcs >> 16) & 0xff;
+   buf[bytes + 2] = (fcs >> 8) & 0xff;
+   buf[bytes + 3] = fcs & 0xff;
+
+   for (i = 0; i<count; i++) {
+      if (sendto(s, buf, bytes + 4, 0, NULL, 0) < 0) {
+         perror("sendto");
+         exit(1);
+      }
+   }
+   
+   printf("Sent %i packets.\n", count);
+
+   /* Clean up, just to be nice */
+   free(dst_mac);
+   free(dev);
+   free(buf);
+   close(s);
+   
+   exit(0);
+}
+
+--------------080103020507050000090707--
