@@ -1,62 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Cleaning up code formatting errors in net/wireless
- pointed out by checkpatch.
-Date: Fri, 17 Feb 2012 11:06:02 -0800
-Message-ID: <20120217110602.2c4e762a@nehalam.linuxnetplumber.net>
-References: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
-	<1329504344.584.18.camel@joe2Laptop>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [RFC PATCH V4 01/13] netback: page pool version 1
+Date: Fri, 17 Feb 2012 14:19:02 -0500
+Message-ID: <20120217191902.GD20584@phenom.dumpdata.com>
+References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
+ <1328201363-13915-2-git-send-email-wei.liu2@citrix.com>
+ <1328203565.13262.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Luis Felipe Strano Moraes <lfelipe@profusion.mobi>,
-	linville@tuxdriver.com, johannes@sipsolutions.net,
-	davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329504344.584.18.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xensource.com, ian.campbell@citrix.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:35760 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752101Ab2BQTWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 14:22:16 -0500
+Content-Disposition: inline
+In-Reply-To: <1328203565.13262.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Feb 2012 10:45:44 -0800
-Joe Perches <joe@perches.com> wrote:
-
-> On Fri, 2012-02-17 at 07:30 -0800, Luis Felipe Strano Moraes wrote:
-> > These are mostly minor changes and they are being sent as one patch only in
-> > order to cause the smallest amount of disruption.
-> []
-> > diff --git a/net/wireless/core.c b/net/wireless/core.c
-> []
-> > @@ -668,7 +668,7 @@ void wiphy_unregister(struct wiphy *wiphy)
-> >  		mutex_lock(&rdev->devlist_mtx);
-> >  		__count = rdev->opencount;
-> >  		mutex_unlock(&rdev->devlist_mtx);
-> > -		__count == 0;}));
-> > +		__count == 0; }));
 > 
-> Inline statement expressions are pretty unusual
-> for kernel sources.  Normally these are used via
-> macro.
+> Hmm, this kind of stuff should be discussed on lkml.
 > 
-> I'd try to make the statement expression visually
-> distinct.  Something like:
-> 
-> 	wait_event(rdev->dev_wait,
-> 		   ({
-> 			   int __count;
-> 			   mutex_lock(&rdev->devlist_mtx);
-> 			   __count = rdev->opencount;
-> 			   mutex_unlock(&rdev->devlist_mtx);
-> 			   __count == 0;
-> 		   })
-> 		  );
-> 
+> I doubt we want yet another memory allocator, with a global lock
+> (contended), and no NUMA properties.
 
-I prefer to see this done as an inline function
+That should be fixed. Are there any existing memory pools that could be used
+instead? I (And I think everybody) is all for using the existing APIs if  they
+can do the job. I was lookign a bit at the dmapool code, but that requires something
+we don't have  - the 'struct device'. We could manufacture a fake one, but that just
+stinks of hack.
 
-wait_event(rdev->dev_wait, is_foo_ready(rdev))
-
-Also, in this case wrapping a condition with a mutex really is
-meaningless because the state is longer protected out side the
-protected region; in other words the mutex here is bogus and
-provides no additional protection.
+It [pagepool] also should use the shrinker API I think.
