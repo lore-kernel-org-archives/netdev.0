@@ -1,42 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sysfs warnings, reserved names
-Date: Fri, 17 Feb 2012 11:37:22 +0100
-Message-ID: <1329475042.2861.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <41230e67c273dde6b60cfc7110f496e2@visp.net.lb>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: Re: [PATCH v2 2/2] adi: adapt to eth_hw_addr_random() and changes in arch/blackfin
+Date: Fri, 17 Feb 2012 11:57:54 +0100
+Message-ID: <201202171157.55585.danny.kukawka@bisect.de>
+References: <1329412171-20704-1-git-send-email-danny.kukawka@bisect.de> <1329412171-20704-3-git-send-email-danny.kukawka@bisect.de> <CAMjpGUdAe66Nw16EyM1_dv4e8uHV02tcfqiuWL8ipeUrQ=HThg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:45413 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814Ab2BQKh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 05:37:26 -0500
-Received: by wics10 with SMTP id s10so1445862wic.19
-        for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 02:37:25 -0800 (PST)
-In-Reply-To: <41230e67c273dde6b60cfc7110f496e2@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bob Liu <bob.liu@analog.com>,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMjpGUdAe66Nw16EyM1_dv4e8uHV02tcfqiuWL8ipeUrQ=HThg@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 12:14 +0200, Denys Fedoryshchen=
-ko a
-=C3=A9crit :
-> Hi
->=20
-> Just did a test:
->=20
-> ip link set dev eth1 name default
->=20
-> And got a lot of (expected) sysfs warnings:
-> [1068625.677143] sysctl table check failed:=20
-> /net/ipv4/conf/default/promote_secondaries  Sysctl already exists
-> [1068625.677151] Pid: 18106, comm: ip Not tainted 3.2.4-centaur #1
-> and etc
->=20
-> Kernel 3.2.4, but i guess it doesn't matter much.
-> Maybe such names (as all and default) should be "reserved"?
-> Or it is ok like that?
->=20
+On Freitag, 17. Februar 2012, Mike Frysinger wrote:
+> On Thu, Feb 16, 2012 at 12:09, Danny Kukawka wrote:
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 netdev_warn(ndev, "Setting Ethernet MAC to a
+> > random one\n"); + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 eth_hw_addr_random(ndev);
+>
+> would it make sense to have the core dump the warning ?
 
-You're right, we should forbid this to happen.
+Maybe. Many drivers already print information about setting a random ma=
+c=20
+address to a netdevice. Some with printk, some via=20
+netdev_warn/netdev_info/netdev_dbg or netif_dbg and other with costum=20
+methods. I could unify this, in a next step with a netdev_info in=20
+eth_hw_addr_random(), if it's okay for David.=20
+
+Danny
