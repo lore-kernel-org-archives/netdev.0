@@ -1,73 +1,63 @@
-From: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH v2 06/10] batman-adv: use
-	eth_hw_addr_random() instead of random_ether_addr()
-Date: Fri, 17 Feb 2012 16:43:27 +0100
-Message-ID: <1329493411-25750-7-git-send-email-danny.kukawka@bisect.de>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: [PATCH v2 05/10] igbvf: reset netdevice
+	addr_assign_type if changed
+Date: Fri, 17 Feb 2012 16:43:26 +0100
+Message-ID: <1329493411-25750-6-git-send-email-danny.kukawka@bisect.de>
 References: <1329493411-25750-1-git-send-email-danny.kukawka@bisect.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1329493411-25750-1-git-send-email-danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Danny Kukawka <dkukawka@suse.de>, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1329493411-25750-1-git-send-email-danny.kukawka@bisect.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use eth_hw_addr_random() instead of calling random_ether_addr()
-to set addr_assign_type correctly to NET_ADDR_RANDOM.
+Reset the state of addr_assign_type to NET_ADDR_PERM as soon as
+the MAC get changed via .ndo_set_mac_address.
 
-Remove dev_addr in interface_setup(), it's not needed anymore.
+v2: use bitops to reset addr_assign_type
 
-Reset the state to NET_ADDR_PERM as soon as the MAC get
-changed via .ndo_set_mac_address.
-
-v2: use bitops, adapt to eth_hw_addr_random()
-
-Signed-off-by: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- net/batman-adv/soft-interface.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 987c75a..fd1d327 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -541,6 +541,7 @@ static int interface_set_mac_addr(struct net_device *dev, void *p)
- 	}
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 9e335f7..d5faf99 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1695,6 +1695,7 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
+ 		return -EADDRNOTAVAIL;
  
- 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-+	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
  	return 0;
  }
- 
-@@ -783,7 +784,6 @@ static const struct net_device_ops bat_netdev_ops = {
- static void interface_setup(struct net_device *dev)
- {
- 	struct bat_priv *priv = netdev_priv(dev);
--	char dev_addr[ETH_ALEN];
- 
- 	ether_setup(dev);
- 
-@@ -800,8 +800,7 @@ static void interface_setup(struct net_device *dev)
- 	dev->hard_header_len = BAT_HEADER_LEN;
- 
- 	/* generate random address */
--	random_ether_addr(dev_addr);
--	memcpy(dev->dev_addr, dev_addr, ETH_ALEN);
-+	eth_hw_addr_random(dev);
- 
- 	SET_ETHTOOL_OPS(dev, &bat_ethtool_ops);
- 
 -- 
 1.7.8.3
+
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
