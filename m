@@ -1,29 +1,78 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: [PATCH] net: ethernet: xilinx: Convert xilinx_axienet to module_platform_driver
-Date: Fri, 17 Feb 2012 16:54:02 +0100
-Message-ID: <4F3E781A.30402@iogearbox.net>
+From: Luis Felipe Strano Moraes <lfelipe@profusion.mobi>
+Subject: Re: [PATCH] Cleaning up code formatting errors in net/wireless
+ pointed out by checkpatch.
+Date: Fri, 17 Feb 2012 13:56:33 -0200
+Message-ID: <CAHPwkG0yFX7Cac0NVc8obZ8N-07gck7bkTTCZvpCzY27wj1nzg@mail.gmail.com>
+References: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6E75@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
-	netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34826 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371Ab2BQPyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 10:54:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E75@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tobias Klauser <tklauser@distanz.ch> wrote:
-> Follow commit db62f684. Convert the driver to use the
-> module_platform_driver() macro which makes the code a bit smaller and
-> simpler.
+On 17 February 2012 13:47, David Laight <David.Laight@aculab.com> wrote=
+:
 >
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+>> These are mostly minor changes and they are being sent as one
+>> patch only in order to cause the smallest amount of disruption.
+>
+> A lot of these changes don't seem to match what I thought the
+> linux kernel code style is.
+>
+> eg:
+>> =A0void cfg80211_bss_age(struct cfg80211_registered_device *dev,
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0unsigned long age_secs)=
+;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned long age_secs);
+> Args no longer lined up.
 
-Acked-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+It's ligned up here, perhaps mine (or yours) mail client is screwing
+something up. This one was basically using tabs where they were
+supposed to be.
 
-Thanks!
+>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 pos =3D (u8 *) & hdr->addr4;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 pos =3D (u8 *) &hdr->addr4;
+> no space after cast?
+
+There is a space there. The problem pointed by checkpatch was the
+space between '&' and hdr.
+
+>
+>> - =A0 =A0 p1 =3D (u8*)(ht_capa);
+>> + =A0 =A0 p1 =3D (u8 *)(ht_capa);
+> Still extra ().
+>
+> I'm also not sure (personally) this sort of churn is useful.
+
+As mentioned, those are mostly minor changes based on checkpatch's
+output. Cleaning up only things that were specifically marked as
+errors (so the extra parentheses there were not reported).
+
+I don't think having lots of this kind of churn useful, thats why I
+sent one patch only for the entire directory trying to clean up as
+much as possible. There are some errors that I didn't clean up, but
+they are mostly where an option was made on the source code to keep
+code in a more readable way.
+
+--lf
+
+
+>
+> =A0 =A0 =A0 =A0David
+>
+>
+
+
+
+--=20
+Lu=EDs Felipe Strano Moraes
+Project Manager @ ProFUSION embedded systems
+http://profusion.mobi
