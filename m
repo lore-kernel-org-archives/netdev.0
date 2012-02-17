@@ -1,57 +1,68 @@
-From: Jan Weitzel <J.Weitzel@phytec.de>
-Subject: Antwort: [patch] net/ethernet: ks8851_mll: signedness bug in ks8851_probe()
-Date: Fri, 17 Feb 2012 09:00:51 +0100
-Message-ID: <OF305A41EA.D95E3D10-ONC12579A7.002BCB7F-C12579A7.002C05CA@phytec.de>
-References: <20120217064433.GC3666@elgon.mountain>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [RFC PATCH] SUNRPC: connect local transports synchronously
+Date: Fri, 17 Feb 2012 12:25:45 +0400
+Message-ID: <4F3E0F09.8020200@parallels.com>
+References: <20120216150507.19081.28659.stgit@localhost6.localdomain6> <1329405232.4279.4.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Danny Kukawka <danny.kukawka@bisect.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Thomas Meyer <thomas@m3y3r.de>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.visioncatalog.de ([217.6.246.34]:60463 "EHLO
-	root.phytec.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751317Ab2BQIAx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Feb 2012 03:00:53 -0500
-In-Reply-To: <20120217064433.GC3666@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329405232.4279.4.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dan Carpenter <dan.carpenter@oracle.com> schrieb am 17.02.2012 07:44:33:
+16.02.2012 19:13, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, 2012-02-16 at 19:06 +0400, Stanislav Kinsbursky wrote:
+>> Local tranports uses UNIX sockets and connecting of these sockets is=
+ done in
+>> context of file system namespace (i.e. task file system root).
+>> Currenly, all sockets connect operations are performed by rpciod wor=
+k queue,
+>> which actually means, that any service will be registered in the sam=
+e rpcbind
+>> instance regardless to process file system root.
+>> This is not containers, which usually have it's own nested root. The=
+re are 2
+>> approaches, how to solve the problem. First one is to store proper r=
+oot in
+>> tranport and switch to it in rpciod workqueue function for connect o=
+perations.
+>> But this looks ugly. The second one is to connect to unix sockets
+>> synchronously. This aptch implements the last one.
+>
+> That approach can fall afoul of the selinux restrictions on the proce=
+ss
+> context. Processes that are allowed to write data, may not be allowed=
+ to
+> create sockets or call connect(). That is the main reason for doing i=
+t
+> in the rpciod context, which is a clean kernel process context.
+>
 
-> Von: Dan Carpenter <dan.carpenter@oracle.com>
-> An: Jan Weitzel <j.weitzel@phytec.de>
-> Kopie: Alexey Dobriyan <adobriyan@gmail.com>, "David S. Miller" 
-> <davem@davemloft.net>, Paul Gortmaker 
-> <paul.gortmaker@windriver.com>, Thomas Meyer <thomas@m3y3r.de>, 
-> Danny Kukawka <danny.kukawka@bisect.de>, netdev@vger.kernel.org, 
-> kernel-janitors@vger.kernel.org
-> Datum: 17.02.2012 07:45
-> Betreff: [patch] net/ethernet: ks8851_mll: signedness bug in 
-ks8851_probe()
-> 
-> netdev->irq is unsigned, so it's never less than zero.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Thanks for explanation, Trond.
+So, this connect have to be done in kernel process context.
+Now I can see 2 ways how to meet this requirement and reach the goal:
 
-Tested-by: Jan Weitzel <j.weitzel@phytec.de>
+1) Change the fs root for rpciod while connecting.
+2) Do not touch rpciod and launch special "connect" kernel thread to pe=
+rform=20
+connect operations for unix sockets.
 
-> diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/
-> ethernet/micrel/ks8851_mll.c
-> index 10d5798..b8104d9 100644
-> --- a/drivers/net/ethernet/micrel/ks8851_mll.c
-> +++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-> @@ -1544,7 +1544,7 @@ static int __devinit ks8851_probe(struct 
-> platform_device *pdev)
-> 
->     netdev->irq = platform_get_irq(pdev, 0);
-> 
-> -   if (netdev->irq < 0) {
-> +   if ((int)netdev->irq < 0) {
->        err = netdev->irq;
->        goto err_get_irq;
->     }
+What do you think about this 2 ways above? Which one is less worse from=
+ your POW?
+Maybe you have even a better solution for the problem?
+
+--=20
+Best regards,
+Stanislav Kinsbursky
