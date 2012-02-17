@@ -1,68 +1,73 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFT] nf_contrack_udp: handle packets with padding and hwchecksum
-Date: Fri, 17 Feb 2012 10:16:48 -0800
-Message-ID: <20120217101648.01f31fcd@nehalam.linuxnetplumber.net>
-References: <20120130155816.GA1400@phenom.dumpdata.com>
-	<20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
-	<1327944148.3303.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Knut Petersen <Knut_Petersen@t-online.de>
+Subject: Re: [REGRESSION, PATCH] sky2 WOL fix
+Date: Fri, 17 Feb 2012 19:21:53 +0100
+Message-ID: <4F3E9AC1.6060704@t-online.de>
+References: <4F3A1A5E.9090803@t-online.de> <20120215091622.429fe9c3@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1327944148.3303.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, dilieto@lineone.net,
+	Mirko Lindner <mlindner@syskonnect.de>,
+	Ralph Roesler <rroesler@syskonnect.de>, arekm@maven.pl,
+	nitro@legroom.net, Andrew Morton <akpm@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout11.t-online.de ([194.25.134.85]:39504 "EHLO
+	mailout11.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752084Ab2BQSWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 13:22:00 -0500
+In-Reply-To: <20120215091622.429fe9c3@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If UDP packet with extra padding is received on a device that
-does hardware checksumming (but not checking) is processed
-by netfilter conntrack, it would generate a bogus warning
-about the checksum being incorrect.
+Am 15.02.2012 18:16, schrieb Stephen Hemminger:
+> On Tue, 14 Feb 2012 09:25:02 +0100
+> Knut Petersen<Knut_Petersen@t-online.de>  wrote:
+>
+>>  From f3a7086638b0ee1f9d9e9028a188d96646671088 Mon Sep 17 00:00:00 2=
+001
+>> From: Knut Petersen<Knut_Petersen@t-online.de>
+>> Date: Tue, 14 Feb 2012 08:35:17 +0100
+>> Subject: [PATCH] Fix an old sky2 WOL regression
+>>
+>> Wake-On-Lan was broken for a few systems with commit
+>> 87b09f1f25cd1e01d7c50bf423c7fe33027d7511 more than a
+>> year ago.
+>>
+>> This commit fixes the regression for the AOpen i915GMm-HFS
+>> motherboard. It reintroduces the old code, but that code is
+>> only executed for those system included in a dmi_system_id
+>> list. Currently there is only one entry in that list, but
+>> it probably will grow.
+>>
+>> Signed-off-by: Knut Petersen<Knut_Petersen@t-online.de>
+> You might also want to check with AOpen to see if there is a BIOS
+> update. Often the BIOS programs bits on the onboard card to deal
+> with power management issues.
+>
 
-There were two possible solutions. The netfilter conntrack
-code could trim the packet, discarding the extra padding
-and adjusting the checksum. Or it can force regular
-non-offloaded checksum. This patch implements the latter
-on the principal that is better for firewall code to not
-modify the packet.
+[I added some people to the cc list that commented on bug #19492]
 
-Compile tested only; haven't been able to reproduce the
-problem yet.
+The last BIOS AOpen published for that board is more than six years old=
+=2E
+No. I will not bother them with this problem.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Your commit broke existing support for WOL on a number of boards.
+This is known to you and to bugzilla.kernel org since 2010.  A number o=
+f
+people complained about that, but nothing happened.
 
----
-Patch against -net tree, after review/test it should go
-to stable as well.
+Neither your original commit description nor the description of the
+PXE_LegNat_Sel I found at other places indicate that setting
+PXE_LegNat_Sel could do any harm.
 
---- a/net/netfilter/nf_conntrack_proto_udp.c	2012-01-10 10:57:00.407196614 -0800
-+++ b/net/netfilter/nf_conntrack_proto_udp.c	2012-02-17 10:06:18.038472559 -0800
-@@ -125,12 +125,17 @@ static int udp_error(struct net *net, st
- 	 * We skip checking packets on the outgoing path
- 	 * because the checksum is assumed to be correct.
- 	 * FIXME: Source route IP option packets --RR */
--	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
--	    nf_checksum(skb, hooknum, dataoff, IPPROTO_UDP, pf)) {
--		if (LOG_INVALID(net, IPPROTO_UDP))
--			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
--				"nf_ct_udp: bad UDP checksum ");
--		return -NF_ACCEPT;
-+	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING) {
-+		/* Special case for hardware checksum offload with padding */
-+		if (skb->ip_summed == CHECKSUM_COMPLETE && udplen > ntohs(hdr->len))
-+			skb->ip_summed = CHECKSUM_NONE;
-+
-+		if (nf_checksum(skb, hooknum, dataoff, IPPROTO_UDP, pf)) {
-+			if (LOG_INVALID(net, IPPROTO_UDP))
-+				nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
-+					      "nf_ct_udp: bad UDP checksum ");
-+			return -NF_ACCEPT;
-+		}
- 	}
- 
- 	return NF_ACCEPT;
+Stephen: It=B4s a real regression, the fix is known. If you do not want
+to go back to setting PXE_LegNat_Sel, you really should allow
+dmi_matched fixes.
+
+Mirko, Ralph: Any comments from Marvell?
+
+cu,
+  Knut
