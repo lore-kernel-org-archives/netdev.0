@@ -1,44 +1,53 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] Cleaning up code formatting errors in net/wireless pointed out by checkpatch.
-Date: Fri, 17 Feb 2012 15:47:36 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E75@saturn3.aculab.com>
-References: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
+From: "MICROSOFT PROMOTIONS" <info@africaonline.com.gh>
+Subject: Congratulations!!!Winner
+Date: Fri, 17 Feb 2012 15:26:22 -0000 (GMT)
+Message-ID: <assp.0394a722f5.32470.41.203.64.129.1329492382.squirrel@41.203.64.129>
+Reply-To: microsoft_claimsoffice@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <johannes@sipsolutions.net>, <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Luis Felipe Strano Moraes" <lfelipe@profusion.mobi>,
-	<linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from av1.africaonline.com.gh ([212.85.196.22]:32852 "EHLO
+	smtp1.africaonline.com.gh" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752863Ab2BQPtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 10:49:32 -0500
+Received: from ANTI-SPAM (av1.africaonline.com.gh [212.85.196.22])
+	by smtp1.africaonline.com.gh (Postfix) with SMTP id CC7253ED659
+	for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 15:23:10 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
-> These are mostly minor changes and they are being sent as one 
-> patch only in order to cause the smallest amount of disruption.
 
-A lot of these changes don't seem to match what I thought the
-linux kernel code style is.
 
-eg:
->  void cfg80211_bss_age(struct cfg80211_registered_device *dev,
-> -                      unsigned long age_secs);
-> +		      unsigned long age_secs);
-Args no longer lined up.
 
-> -		pos = (u8 *) & hdr->addr4;
-> +		pos = (u8 *) &hdr->addr4;
-no space after cast?
+Congratulations!!!
 
-> -	p1 = (u8*)(ht_capa);
-> +	p1 = (u8 *)(ht_capa);
-Still extra ().
+This 31st day of January the entire staff of Microsoft Corporation
+(Promotion Department) wish to inform you that you have just been selected
+as a lucky winner from the Microsoft New-Year email draws that is usually
+held twice in every year.
 
-I'm also not sure (personally) this sort of churn is useful.
+Microsoft Corporation organize this promotion offer in other to compensate
+consumers of the product in the world at large for their infinite supports
+towards the growth of the company.
 
-	David
+Hence you have won $1,900,000 USD (One Million Nine Hundred Thousand
+Dollars) and you are expected to fill and send back the following
+following for claims:
+
+Full Name.............
+Address...............
+Sex...................
+Marital Status........
+Age...................
+Country...............
+Occupation............
+Telephone Numbers.....
+
+TO: microsoft_claimsoffice@yahoo.com.hk
+Congratulations!! Once again.
+
+Yours in service,
+The Award Team
+(Microsoft Corporation
