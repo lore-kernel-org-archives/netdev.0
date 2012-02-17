@@ -1,48 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Regression in skge that started around acb42a3 (so past
- v3.3-rc1)
-Date: Fri, 17 Feb 2012 07:53:48 -0800
-Message-ID: <20120217075348.171e3476@nehalam.linuxnetplumber.net>
-References: <20120130155816.GA1400@phenom.dumpdata.com>
-	<20120130083843.160ffe5e@nehalam.linuxnetplumber.net>
-	<20120130175738.GA4002@phenom.dumpdata.com>
-	<20120130.130259.1190745234966440677.davem@davemloft.net>
-	<20120130182230.GA4122@phenom.dumpdata.com>
-	<20120217141005.GA27808@phenom.dumpdata.com>
-	<20120217074511.61efe78c@nehalam.linuxnetplumber.net>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [PATCH] net: ethernet: xilinx: Convert xilinx_axienet to module_platform_driver
+Date: Fri, 17 Feb 2012 16:54:02 +0100
+Message-ID: <4F3E781A.30402@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120217074511.61efe78c@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
+	netdev@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:34826 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371Ab2BQPyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 10:54:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Feb 2012 07:45:11 -0800
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+Tobias Klauser <tklauser@distanz.ch> wrote:
+> Follow commit db62f684. Convert the driver to use the
+> module_platform_driver() macro which makes the code a bit smaller and
+> simpler.
+>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-> On Fri, 17 Feb 2012 09:10:05 -0500
-> Konrad Rzeszutek Wilk <konrad.wilk@oracle.com> wrote:
-> 
-> > On Mon, Jan 30, 2012 at 01:22:30PM -0500, Konrad Rzeszutek Wilk wrote:
-> > > On Mon, Jan 30, 2012 at 01:02:59PM -0500, David Miller wrote:
-> > > > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > > > Date: Mon, 30 Jan 2012 12:57:38 -0500
-> > > > 
-> > > > > Ah, so you are saying that the problem above is already fixed in 3.3-rc1.
-> > > > 
-> > > > No he's not saying that, he says somewhere we probably need a fix
-> > > > "like" the commit he mentioned.
-> > > > 
-> > > > He did not say that commit fixes this bug.
-> > > 
-> > > Ayee. Sounds you guys have an idea about this bug then. If you want me to run
-> > > a test-patch I can certainly do so. Thanks!
-> > 
+Acked-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 
-Actually, I was confused, that was another skge change.
-The checksum issue still exists and it is not a driver problem.
+Thanks!
