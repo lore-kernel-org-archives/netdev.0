@@ -1,77 +1,123 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2 0/3] bluetooth: Shrink object size, use current logging style
-Date: Thu, 16 Feb 2012 23:32:41 -0800
-Message-ID: <cover.1329461202.git.joe@perches.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Subject: [PATCH V2 1/3] bluetooth: Add logging functions bt_info and bt_err
+Date: Thu, 16 Feb 2012 23:32:42 -0800
+Message-ID: <5c5e8180081e57e6098139fadd9275073048f448.1329461203.git.joe@perches.com>
+References: <cover.1329461202.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	linux-bluetooth@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:39580 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751143Ab2BQHdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Feb 2012 02:33:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1329461202.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Save some small amount of text and use more common logging styles.
+Use specific logging functions instead of a generic
+bt_printk function can save some text.
 
-V2:
-Separate the logging function patch from the BT_INFO/BT_ERR macro conversion.
-At some point, the BT_INFO/BT_ERR/BT_DBG macros could be removed.
+Remove now unused bt_printk function.
+Add compatibility BT_INFO and BT_ERR macros.
 
-Joe Perches (3):
-  bluetooth: Add logging functions bt_info and bt_err
-  bluetooth: Convert BT_ERR/BT_INFO to bt_err/bt_info
-  bluetooth: Convert BT_DBG to pr_debug
+(compiled x86 and defconfig with bluetooth and all bluetooth drivers)
 
- drivers/bluetooth/ath3k.c          |   56 ++++----
- drivers/bluetooth/bcm203x.c        |   34 ++--
- drivers/bluetooth/bfusb.c          |  102 +++++++------
- drivers/bluetooth/bluecard_cs.c    |   17 +-
- drivers/bluetooth/bpa10x.c         |   48 +++---
- drivers/bluetooth/bt3c_cs.c        |   36 +++--
- drivers/bluetooth/btmrvl_debugfs.c |    2 +-
- drivers/bluetooth/btmrvl_main.c    |  102 +++++++------
- drivers/bluetooth/btmrvl_sdio.c    |  149 +++++++++---------
- drivers/bluetooth/btsdio.c         |   26 ++--
- drivers/bluetooth/btuart_cs.c      |   23 ++--
- drivers/bluetooth/btusb.c          |   86 +++++-----
- drivers/bluetooth/btwilink.c       |   46 +++---
- drivers/bluetooth/dtl1_cs.c        |   19 ++-
- drivers/bluetooth/hci_ath.c        |   14 +-
- drivers/bluetooth/hci_bcsp.c       |   78 +++++-----
- drivers/bluetooth/hci_h4.c         |   18 +-
- drivers/bluetooth/hci_ldisc.c      |   37 +++---
- drivers/bluetooth/hci_ll.c         |   83 ++++++-----
- drivers/bluetooth/hci_vhci.c       |    6 +-
- include/net/bluetooth/bluetooth.h  |   14 +-
- include/net/bluetooth/hci_core.h   |    6 +-
- include/net/bluetooth/l2cap.h      |    2 +-
- net/bluetooth/af_bluetooth.c       |   20 ++--
- net/bluetooth/bnep/core.c          |   30 ++--
- net/bluetooth/bnep/netdev.c        |   14 +-
- net/bluetooth/bnep/sock.c          |   10 +-
- net/bluetooth/cmtp/capi.c          |   50 +++---
- net/bluetooth/cmtp/core.c          |   31 ++--
- net/bluetooth/cmtp/sock.c          |   10 +-
- net/bluetooth/hci_conn.c           |   58 ++++----
- net/bluetooth/hci_core.c           |  175 +++++++++++----------
- net/bluetooth/hci_event.c          |  298 ++++++++++++++++++------------------
- net/bluetooth/hci_sock.c           |   26 ++--
- net/bluetooth/hci_sysfs.c          |   10 +-
- net/bluetooth/hidp/core.c          |   58 ++++---
- net/bluetooth/hidp/sock.c          |   10 +-
- net/bluetooth/l2cap_core.c         |  221 ++++++++++++++-------------
- net/bluetooth/l2cap_sock.c         |   40 +++---
- net/bluetooth/lib.c                |   27 +++-
- net/bluetooth/mgmt.c               |   95 ++++++------
- net/bluetooth/rfcomm/core.c        |  180 +++++++++++-----------
- net/bluetooth/rfcomm/sock.c        |   57 ++++----
- net/bluetooth/rfcomm/tty.c         |  106 +++++++-------
- net/bluetooth/sco.c                |   77 +++++-----
- net/bluetooth/smp.c                |   47 +++---
- 46 files changed, 1366 insertions(+), 1288 deletions(-)
+$ size net/bluetooth/built-in.o*
+   text	   data	    bss	    dec	    hex	filename
+ 381662	  20072	 100416	 502150	  7a986	net/bluetooth/built-in.o.allyesconfig.new
+ 382463	  20072	 100400	 502935	  7ac97	net/bluetooth/built-in.o.allyesconfig.old
+ 126635	   1388	    132	 128155	  1f49b	net/bluetooth/built-in.o.defconfig.new
+ 127175	   1388	    132	 128695	  1f6b7	net/bluetooth/built-in.o.defconfig.old
 
+$ size drivers/bluetooth/built-in.o*
+ 127575	   8976	  29476	 166027	  2888b	drivers/bluetooth/built-in.o.allyesconfig.new
+ 129512	   8976	  29516	 168004	  29044	drivers/bluetooth/built-in.o.allyesconfig.old
+  52998	   3292	    156	  56446	   dc7e	drivers/bluetooth/built-in.o.defconfig.new
+  54358	   3292	    156	  57806	   e1ce	drivers/bluetooth/built-in.o.defconfig.old
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/net/bluetooth/bluetooth.h |   14 ++++++++------
+ net/bluetooth/lib.c               |   27 ++++++++++++++++++++++++---
+ 2 files changed, 32 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 4a82ca0..9f5f2c1 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -109,12 +109,14 @@ struct bt_power {
+  */
+ #define BT_CHANNEL_POLICY_AMP_PREFERRED		2
+ 
+-__printf(2, 3)
+-int bt_printk(const char *level, const char *fmt, ...);
+-
+-#define BT_INFO(fmt, arg...)   bt_printk(KERN_INFO, pr_fmt(fmt), ##arg)
+-#define BT_ERR(fmt, arg...)    bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
+-#define BT_DBG(fmt, arg...)    pr_debug(fmt "\n", ##arg)
++__printf(1, 2)
++int bt_info(const char *fmt, ...);
++__printf(1, 2)
++int bt_err(const char *fmt, ...);
++
++#define BT_INFO(fmt, ...)	bt_info(fmt "\n", ##__VA_ARGS__)
++#define BT_ERR(fmt, ...)	bt_err(fmt "\n", ##__VA_ARGS__)
++#define BT_DBG(fmt, ...)	pr_debug(fmt "\n", ##__VA_ARGS__)
+ 
+ /* Connection and socket states */
+ enum {
+diff --git a/net/bluetooth/lib.c b/net/bluetooth/lib.c
+index 86a6bed..5066288 100644
+--- a/net/bluetooth/lib.c
++++ b/net/bluetooth/lib.c
+@@ -24,6 +24,8 @@
+ 
+ /* Bluetooth kernel library. */
+ 
++#define pr_fmt(fmt) "Bluetooth: " fmt
++
+ #include <linux/module.h>
+ 
+ #include <linux/kernel.h>
+@@ -151,7 +153,26 @@ int bt_to_errno(__u16 code)
+ }
+ EXPORT_SYMBOL(bt_to_errno);
+ 
+-int bt_printk(const char *level, const char *format, ...)
++int bt_info(const char *format, ...)
++{
++	struct va_format vaf;
++	va_list args;
++	int r;
++
++	va_start(args, format);
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	r = pr_info("%pV", &vaf);
++
++	va_end(args);
++
++	return r;
++}
++EXPORT_SYMBOL(bt_info);
++
++int bt_err(const char *format, ...)
+ {
+ 	struct va_format vaf;
+ 	va_list args;
+@@ -162,10 +183,10 @@ int bt_printk(const char *level, const char *format, ...)
+ 	vaf.fmt = format;
+ 	vaf.va = &args;
+ 
+-	r = printk("%sBluetooth: %pV\n", level, &vaf);
++	r = pr_err("%pV", &vaf);
+ 
+ 	va_end(args);
+ 
+ 	return r;
+ }
+-EXPORT_SYMBOL(bt_printk);
++EXPORT_SYMBOL(bt_err);
 -- 
 1.7.8.111.gad25c.dirty
