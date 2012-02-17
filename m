@@ -1,78 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 4/4] ethtool.8: Improve description of RX NFC options
-Date: Fri, 17 Feb 2012 20:55:32 +0000
-Message-ID: <1329512132.2822.8.camel@bwh-desktop>
-References: <1329512042.2822.4.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 01/10] au1000_eth: use eth_hw_addr_random() instead
+ of random_ether_addr()
+Date: Fri, 17 Feb 2012 15:59:30 -0500 (EST)
+Message-ID: <20120217.155930.1401463574783963868.davem@davemloft.net>
+References: <1329493411-25750-1-git-send-email-danny.kukawka@bisect.de>
+	<1329493411-25750-2-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:15513 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754469Ab2BQUzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 15:55:35 -0500
-In-Reply-To: <1329512042.2822.4.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dkukawka@suse.de, jeffrey.t.kirsher@intel.com, jpirko@redhat.com,
+	mcuos.com@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: danny.kukawka@bisect.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329493411-25750-2-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-State explicitly that arguments beginning with 'flow-type' will
-insert or update a rule.
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Fri, 17 Feb 2012 16:43:22 +0100
 
-Refer consistently to 'flow type' rather than 'network traffic type'.
+> Use eth_hw_addr_random() instead of calling random_ether_addr()
+> to set addr_assign_type correctly to NET_ADDR_RANDOM.
+> 
+> v2: adapt to eth_hw_addr_random()
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-Refer to 'options and rules', covering both flow hashing and
-steering/filtering.
+Please don't shit up the comments:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.8.in |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+> -	/* set a random MAC now in case platform_data doesn't provide one */
+ ...
+> +			/*set a random MAC since no valid provided by platform_data*/
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 4c46096..3567352 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -590,10 +590,10 @@ The precise meanings of these type flags differ between drivers.
- .RE
- .TP
- .B \-n \-u \-\-show\-nfc \-\-show\-ntuple
--Retrieves the receive network flow classification configurations.
-+Retrieves receive network flow classification options or rules.
- .TP
- .BR rx\-flow\-hash \ \*(FL
--Retrieves the hash options for the specified network traffic type.
-+Retrieves the hash options for the specified flow type.
- .TS
- nokeep;
- lB	l.
-@@ -615,10 +615,10 @@ Retrieves the RX classification rule with the given ID.
- .RE
- .TP
- .B \-N \-U \-\-config\-nfc \-\-config\-ntuple
--Configures the receive network flow classification.
-+Configures receive network flow classification options or rules.
- .TP
- .BR rx\-flow\-hash \ \*(FL \: \*(HO
--Configures the hash options for the specified network traffic type.
-+Configures the hash options for the specified flow type.
- .TS
- nokeep;
- lB	l.
-@@ -636,6 +636,7 @@ T}
- .TE
- .TP
- .B flow\-type \*(NC
-+Inserts or updates a classification rule for the specified flow type.
- .TS
- nokeep;
- lB	l.
--- 
-1.7.7.6
+You had to work to make that comment look worse than it originally
+did in the code, spaces around the sentence and if you can be so
+bothered capitalize sentences and put proper punctionation at the
+end.
 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I took care of this, but I will not next time.
