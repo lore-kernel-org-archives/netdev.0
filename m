@@ -1,35 +1,69 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [RFC PATCH V4 01/13] netback: page pool version 1
-Date: Fri, 17 Feb 2012 14:19:02 -0500
-Message-ID: <20120217191902.GD20584@phenom.dumpdata.com>
-References: <1328201363-13915-1-git-send-email-wei.liu2@citrix.com>
- <1328201363-13915-2-git-send-email-wei.liu2@citrix.com>
- <1328203565.13262.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite
+ thread injection and TCP connection hijacking
+Date: Fri, 17 Feb 2012 20:28:59 +0100
+Message-ID: <20120217192859.GG2707@elf.ucw.cz>
+References: <20110806121247.GC23937@htj.dyndns.org>
+	<20111030044821.GA23741@spacedout.fries.net>
+	<20111030201618.GA7696@google.com>
+	<CAJ0PZbSRX6Rqn5NnnMkVGrPovtSuc2NWasysOYnjr3j9rON1VQ@mail.gmail.com>
+	<20111102151039.GA12543@dhcp-172-17-108-109.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xensource.com, ian.campbell@citrix.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:35760 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101Ab2BQTWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 14:22:16 -0500
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, David Fries <david@fries.net>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1328203565.13262.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111102151039.GA12543@dhcp-172-17-108-109.mtv.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> 
-> Hmm, this kind of stuff should be discussed on lkml.
-> 
-> I doubt we want yet another memory allocator, with a global lock
-> (contended), and no NUMA properties.
+On Wed 2011-11-02 08:10:39, Tejun Heo wrote:
+> Hello,
+> =
 
-That should be fixed. Are there any existing memory pools that could be used
-instead? I (And I think everybody) is all for using the existing APIs if  they
-can do the job. I was lookign a bit at the dmapool code, but that requires something
-we don't have  - the 'struct device'. We could manufacture a fake one, but that just
-stinks of hack.
+> On Wed, Nov 02, 2011 at 06:44:31PM +0900, MyungJoo Ham wrote:
+> > > Hmmm... sounds like taking down network interfaces before starting
+> > > hibernation sequence should be enough, which shouldn't be too
+> > > difficult to implement from userland. =A0Rafael, what do you think?
+> > >
+> > > Thanks.
+> > =
 
-It [pagepool] also should use the shrinker API I think.
+> > Um... it seems that the "thaw" callbacks of network interfaces or TCP
+> > should do something on this.
+> > =
+
+> > Probably, the "thaw" callbacks should make sure that the TCP
+> > connections are closed?
+> =
+
+> I don't think it's a good idea to diddle with TCP connections from
+> that layer.  From what I understand, it seem all we need is plugging
+> tx/rx while preparing for hibernation.  That shouldn't be too
+> difficult.
+
+Yes, that should be done. =
+
+
+If someone has uswsusp setup where they talk over the network, it
+might break them, but hopefully noone is doing that.
+
+Also hopefully noone does hibernation on /dev/nbd.
+
+      	    							Pavel
+-- =
+
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
