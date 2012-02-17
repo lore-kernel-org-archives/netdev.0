@@ -1,41 +1,62 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 1/2] bluetooth: Use more current logging styles
-Date: Fri, 17 Feb 2012 09:58:23 +0100
-Message-ID: <1329469103.28848.147.camel@aeonflux>
-References: <1329184963.8143.2.camel@joe2Laptop>
-	 <1329410631.10890.3.camel@joe2Laptop> <20120216180507.GA5280@joana>
-	 <20120216.163303.443981736744424334.davem@davemloft.net>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: Re: [PATCH V2 1/3] bluetooth: Add logging functions bt_info and
+ bt_err
+Date: Fri, 17 Feb 2012 11:38:47 +0200
+Message-ID: <20120217093847.GA12814@x220>
+References: <cover.1329461202.git.joe@perches.com>
+ <5c5e8180081e57e6098139fadd9275073048f448.1329461203.git.joe@perches.com>
+ <1329467859.28848.130.camel@aeonflux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: padovan@profusion.mobi, joe@perches.com,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120216.163303.443981736744424334.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <1329467859.28848.130.camel@aeonflux>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hi,
 
-> > Such a change will require rebase from all our developers and we already have
-> > enough issues to solve, I don't wanna add one more here. Change what BT_*
-> > stands for is ok, but there is no need to change the macros names. 
+On Fri, Feb 17, 2012, Marcel Holtmann wrote:
+> Hi Joe,
 > 
-> I would never push back on Joe on a change like this, the way that
-> you are, and changes in my tree have an effect on 100 times more
-> people than your's.
+> > Use specific logging functions instead of a generic
+> > bt_printk function can save some text.
+> > 
+> > Remove now unused bt_printk function.
+> > Add compatibility BT_INFO and BT_ERR macros.
+> > 
+> > (compiled x86 and defconfig with bluetooth and all bluetooth drivers)
+> > 
+> > $ size net/bluetooth/built-in.o*
+> >    text	   data	    bss	    dec	    hex	filename
+> >  381662	  20072	 100416	 502150	  7a986	net/bluetooth/built-in.o.allyesconfig.new
+> >  382463	  20072	 100400	 502935	  7ac97	net/bluetooth/built-in.o.allyesconfig.old
+> >  126635	   1388	    132	 128155	  1f49b	net/bluetooth/built-in.o.defconfig.new
+> >  127175	   1388	    132	 128695	  1f6b7	net/bluetooth/built-in.o.defconfig.old
+> > 
+> > $ size drivers/bluetooth/built-in.o*
+> >  127575	   8976	  29476	 166027	  2888b	drivers/bluetooth/built-in.o.allyesconfig.new
+> >  129512	   8976	  29516	 168004	  29044	drivers/bluetooth/built-in.o.allyesconfig.old
+> >   52998	   3292	    156	  56446	   dc7e	drivers/bluetooth/built-in.o.defconfig.new
+> >   54358	   3292	    156	  57806	   e1ce	drivers/bluetooth/built-in.o.defconfig.old
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> > ---
+> >  include/net/bluetooth/bluetooth.h |   14 ++++++++------
+> >  net/bluetooth/lib.c               |   27 ++++++++++++++++++++++++---
+> >  2 files changed, 32 insertions(+), 9 deletions(-)
 > 
-> You're being completely unreasonable, and I'm rather confident that in
-> response to what I'm saying you will simply start pulling more reasons
-> out of thin air simply because you just don't want the change and the
-> merge hassles.
+> lets try to get at least this patch merged. I hope we don't have too
+> many conflicts.
+> 
+> Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
-I am actually fine with his reworked patchset, except the last patch
-with the BT_DBG change. That will step on too many people toes right now
-and I am also failing to see the benefit of that one.
+Applied to my bluetooth-next tree. Thanks.
 
-Regards
-
-Marcel
+Johan
