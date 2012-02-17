@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: xilinx: Convert xilinx_axienet to
- module_platform_driver
-Date: Fri, 17 Feb 2012 16:09:37 -0500 (EST)
-Message-ID: <20120217.160937.2049555376655405188.davem@davemloft.net>
-References: <4F3E781A.30402@iogearbox.net>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: Re: [PATCH 02/10] lantiq_etop: set addr_assign_type if random_ether_addr() used
+Date: Fri, 17 Feb 2012 22:24:35 +0100
+Message-ID: <201202172224.35902.danny.kukawka@bisect.de>
+References: <1329493411-25750-1-git-send-email-danny.kukawka@bisect.de> <1329493411-25750-3-git-send-email-danny.kukawka@bisect.de> <20120217.160006.1000847808550095794.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: tklauser@distanz.ch, ariane.keller@tik.ee.ethz.ch,
-	netdev@vger.kernel.org
-To: danborkmann@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54851 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251Ab2BQVK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 16:10:26 -0500
-In-Reply-To: <4F3E781A.30402@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: blogic@openwrt.org, ralf@linux-mips.org,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120217.160006.1000847808550095794.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Date: Fri, 17 Feb 2012 16:54:02 +0100
+On Freitag, 17. Februar 2012, David Miller wrote:
+> From: Danny Kukawka <danny.kukawka@bisect.de>
+> Date: Fri, 17 Feb 2012 16:43:23 +0100
+>
+> > Set addr_assign_type correctly to NET_ADDR_RANDOM in case
+> > a random MAC address was generated and assigned to the netdevice.
+> >
+> > v2: added comment, renamed bool variable to random_mac
+> >
+> > Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+>
+> More bad comment formatting.
+>
+> > +	/*set addr_assign_type here, ltq_etop_set_mac_address would reset it*/
+>
+> Again, I fixed it up but I will not next time.
 
-> Tobias Klauser <tklauser@distanz.ch> wrote:
->> Follow commit db62f684. Convert the driver to use the
->> module_platform_driver() macro which makes the code a bit smaller and
->> simpler.
->>
->> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> 
-> Acked-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+Thanks. I fixed it but accidently send the unfixed version of the patches 
+without noticing. Sorry.
 
-Applied.
+Danny
