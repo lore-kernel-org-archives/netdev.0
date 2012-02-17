@@ -1,34 +1,40 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [B.A.T.M.A.N.] pull request: batman-adv 2012-02-17
-Date: Fri, 17 Feb 2012 21:01:48 +0000
-Message-ID: <20120217210148.GA9935@sirena.org.uk>
-References: <1329463110-856-1-git-send-email-lindner_marek@yahoo.de>
- <20120217.152323.2251437927591117547.davem@davemloft.net>
- <1990573.JisbTKXt7B@sven-laptop.home.narfation.org>
- <20120217.155049.1321221133602638857.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 07/10] cisco/enic: use eth_hw_addr_random() instead
+ of random_ether_addr()
+Date: Fri, 17 Feb 2012 16:01:47 -0500 (EST)
+Message-ID: <20120217.160147.1731660099441103969.davem@davemloft.net>
+References: <1329493411-25750-1-git-send-email-danny.kukawka@bisect.de>
+	<1329493411-25750-8-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sven@narfation.org, b.a.t.m.a.n@lists.open-mesh.org,
-	lindner_marek@yahoo.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:52526 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772Ab2BQVBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 16:01:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20120217.155049.1321221133602638857.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: benve@cisco.com, dkukawka@suse.de, roprabhu@cisco.com,
+	dwang2@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: danny.kukawka@bisect.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329493411-25750-8-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 17, 2012 at 03:50:49PM -0500, David Miller wrote:
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Fri, 17 Feb 2012 16:43:28 +0100
 
-> I'm reluctant to pull tags which are signed, I certainly don't have
-> your personal keys in my key ring for example.  And distributions
-> ship with GIT versions that don't support signed tags, so...
+> Use dev_hw_addr_random() instead of calling random_ether_addr()
+> to set addr_assign_type correctly to NET_ADDR_RANDOM.
+> 
+> Couldn't replace random_ether_addr() in enic_probe() since
+> enic_set_mac_addr() is used which would reset addr_assign_type.
+> Instead set addr_assign_type directly to NET_ADDR_RANDOM in
+> case of random mac after call enic_set_mac_addr().
+> 
+> Reset the state to NET_ADDR_PERM as soon as the MAC get
+> changed via .ndo_set_mac_address.
+> 
+> v2: use bitops, adapt to eth_hw_addr_random(), add a comment
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-The signed tags interoperate fine with old versions, you won't be able
-to validate them but they shouldn't cause any hassle.  If the key can't
-be verified then that might be more of an issue but if you're OK with
-pulling something that's completely unsigned you're not loosing
-anything, it'll just record the signature.
+This patch doesn't apply at all to the current net-next tree,
+please always validate that your patches actually apply to the
+tree before submission.
