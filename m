@@ -1,93 +1,107 @@
 From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: pull request: batman-adv 2012-02-17
-Date: Fri, 17 Feb 2012 15:18:20 +0800
-Message-ID: <1329463110-856-1-git-send-email-lindner_marek@yahoo.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 01/10] batman-adv: add tt_initialised flag to the orig_node struct
+Date: Fri, 17 Feb 2012 15:18:21 +0800
+Message-ID: <1329463110-856-2-git-send-email-lindner_marek@yahoo.de>
+References: <1329463110-856-1-git-send-email-lindner_marek@yahoo.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <ordex@autistici.org>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm13-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.248]:41685
-	"HELO nm13-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751163Ab2BQHSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 02:18:41 -0500
+Received: from nm17.bullet.mail.ukl.yahoo.com ([217.146.183.191]:23977 "HELO
+	nm17.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751163Ab2BQHSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 02:18:49 -0500
+In-Reply-To: <1329463110-856-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+From: Antonio Quartulli <ordex@autistici.org>
 
-this is the first patch set I'd like you to pull into net-next-2.6/3.4.=
-=20
-It mainly brings infrastructure to dynamically change the routing alori=
-thm
-and a couple of fixes / style improvements.
-=46ollowing the "sign your git tag" trend this is our first pull reques=
-t which
-is signed with my key. Let me know if there any problems.
+(ttvn == 0) is currently used as initial condition. However this is not a good
+idea because ttvn gets the vale zero each time after reaching the maximum value
+(wrap around). For this reason a new flag is added in order to define whether a
+node has an initialised table or not. Moreover, after invoking
+tt_global_del_orig(), tt_initialised has to be set to false
 
-Thanks,
-Marek
+Reported-by: Alexey Fisher <bug-track@fisher-privat.net>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Tested-by: Alexey Fisher <bug-track@fisher-privat.net>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+---
+ net/batman-adv/originator.c        |    1 +
+ net/batman-adv/translation-table.c |   11 ++++++++---
+ net/batman-adv/types.h             |    1 +
+ 3 files changed, 10 insertions(+), 3 deletions(-)
 
-
-The following changes since commit dcd6c92267155e70a94b3927bce681ce74b8=
-0d1f:
-
-  Linux 3.3-rc1 (2012-01-19 15:04:48 -0800)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git batman-adv-for-davem
-
-for you to fetch changes up to ea3d2fd1b11fb3ef8706a48ece0a49a61bcd08bc=
-:
-
-  batman-adv: export used routing algorithm via sysfs (2012-02-17 02:50=
-:20 +0800)
-
-----------------------------------------------------------------
-infrastructure to change routing algorithm at runtime & fixes
-
-----------------------------------------------------------------
-Antonio Quartulli (1):
-      batman-adv: add tt_initialised flag to the orig_node struct
-
-Marek Lindner (6):
-      batman-adv: simplify bat_ogm_receive API call
-      batman-adv: warn if added interface is part of a bridge
-      batman-adv: add infrastructure to change routing algorithm at run=
-time
-      batman-adv: convert batman iv algorithm to use dynamic infrastruc=
-ture
-      batman-adv: allowing changing the routing algorithm via module pa=
-rameter
-      batman-adv: export used routing algorithm via sysfs
-
-Martin Hundeb=C3=B8ll (2):
-      batman-adv: Rm empty line from is_my_mac() in main.c
-      batman-adv: Move is_out_of_time() to main.h for general use
-
-Sven Eckelmann (1):
-      batman-adv: Explicitly mark the common header structure
-
- Documentation/ABI/testing/sysfs-class-net-mesh |    7 +
- net/batman-adv/{bat_ogm.h =3D> bat_algo.h}       |   20 +--
- net/batman-adv/bat_debugfs.c                   |   22 ++
- net/batman-adv/bat_iv_ogm.c                    |  245 +++++++++++++---=
---------
- net/batman-adv/bat_sysfs.c                     |    9 +
- net/batman-adv/hard-interface.c                |   24 ++-
- net/batman-adv/icmp_socket.c                   |    6 +-
- net/batman-adv/main.c                          |  107 ++++++++++
- net/batman-adv/main.h                          |   15 ++
- net/batman-adv/originator.c                    |    1 +
- net/batman-adv/packet.h                        |   38 ++---
- net/batman-adv/routing.c                       |   24 +--
- net/batman-adv/send.c                          |    7 +-
- net/batman-adv/soft-interface.c                |   18 +-
- net/batman-adv/translation-table.c             |   67 +++----
- net/batman-adv/types.h                         |   21 ++
- net/batman-adv/unicast.c                       |   16 +-
- net/batman-adv/vis.c                           |   14 +-
- 18 files changed, 426 insertions(+), 235 deletions(-)
- rename net/batman-adv/{bat_ogm.h =3D> bat_algo.h} (51%)
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 0bc2045..847ff7e 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -219,6 +219,7 @@ struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr)
+ 	/* extra reference for return */
+ 	atomic_set(&orig_node->refcount, 2);
+ 
++	orig_node->tt_initialised = false;
+ 	orig_node->tt_poss_change = false;
+ 	orig_node->bat_priv = bat_priv;
+ 	memcpy(orig_node->orig, addr, ETH_ALEN);
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index ab8dea8..c632475 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -733,6 +733,7 @@ void tt_global_del_orig(struct bat_priv *bat_priv,
+ 		spin_unlock_bh(list_lock);
+ 	}
+ 	atomic_set(&orig_node->tt_size, 0);
++	orig_node->tt_initialised = false;
+ }
+ 
+ static void tt_global_roam_purge(struct bat_priv *bat_priv)
+@@ -1450,6 +1451,7 @@ static void _tt_update_changes(struct bat_priv *bat_priv,
+ 				 */
+ 				return;
+ 	}
++	orig_node->tt_initialised = true;
+ }
+ 
+ static void tt_fill_gtable(struct bat_priv *bat_priv,
+@@ -1854,8 +1856,10 @@ void tt_update_orig(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 	uint8_t orig_ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
+ 	bool full_table = true;
+ 
+-	/* the ttvn increased by one -> we can apply the attached changes */
+-	if (ttvn - orig_ttvn == 1) {
++	/* orig table not initialised AND first diff is in the OGM OR the ttvn
++	 * increased by one -> we can apply the attached changes */
++	if ((!orig_node->tt_initialised && ttvn == 1) ||
++	    ttvn - orig_ttvn == 1) {
+ 		/* the OGM could not contain the changes due to their size or
+ 		 * because they have already been sent TT_OGM_APPEND_MAX times.
+ 		 * In this case send a tt request */
+@@ -1889,7 +1893,8 @@ void tt_update_orig(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 	} else {
+ 		/* if we missed more than one change or our tables are not
+ 		 * in sync anymore -> request fresh tt data */
+-		if (ttvn != orig_ttvn || orig_node->tt_crc != tt_crc) {
++		if (!orig_node->tt_initialised || ttvn != orig_ttvn ||
++		    orig_node->tt_crc != tt_crc) {
+ request_table:
+ 			bat_dbg(DBG_TT, bat_priv, "TT inconsistency for %pM. "
+ 				"Need to retrieve the correct information "
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index e9eb043..35085f41 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -81,6 +81,7 @@ struct orig_node {
+ 	int16_t tt_buff_len;
+ 	spinlock_t tt_buff_lock; /* protects tt_buff */
+ 	atomic_t tt_size;
++	bool tt_initialised;
+ 	/* The tt_poss_change flag is used to detect an ongoing roaming phase.
+ 	 * If true, then I sent a Roaming_adv to this orig_node and I have to
+ 	 * inspect every packet directed to it to check whether it is still
+-- 
+1.7.9
