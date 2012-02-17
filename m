@@ -1,68 +1,57 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [RFC PATCH] SUNRPC: connect local transports synchronously
-Date: Fri, 17 Feb 2012 12:25:45 +0400
-Message-ID: <4F3E0F09.8020200@parallels.com>
-References: <20120216150507.19081.28659.stgit@localhost6.localdomain6> <1329405232.4279.4.camel@lade.trondhjem.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH V2 1/3] bluetooth: Add logging functions bt_info and
+ bt_err
+Date: Fri, 17 Feb 2012 09:37:39 +0100
+Message-ID: <1329467859.28848.130.camel@aeonflux>
+References: <cover.1329461202.git.joe@perches.com>
+	 <5c5e8180081e57e6098139fadd9275073048f448.1329461203.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329405232.4279.4.camel@lade.trondhjem.org>
+In-Reply-To: <5c5e8180081e57e6098139fadd9275073048f448.1329461203.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-16.02.2012 19:13, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, 2012-02-16 at 19:06 +0400, Stanislav Kinsbursky wrote:
->> Local tranports uses UNIX sockets and connecting of these sockets is=
- done in
->> context of file system namespace (i.e. task file system root).
->> Currenly, all sockets connect operations are performed by rpciod wor=
-k queue,
->> which actually means, that any service will be registered in the sam=
-e rpcbind
->> instance regardless to process file system root.
->> This is not containers, which usually have it's own nested root. The=
-re are 2
->> approaches, how to solve the problem. First one is to store proper r=
-oot in
->> tranport and switch to it in rpciod workqueue function for connect o=
-perations.
->> But this looks ugly. The second one is to connect to unix sockets
->> synchronously. This aptch implements the last one.
->
-> That approach can fall afoul of the selinux restrictions on the proce=
-ss
-> context. Processes that are allowed to write data, may not be allowed=
- to
-> create sockets or call connect(). That is the main reason for doing i=
-t
-> in the rpciod context, which is a clean kernel process context.
->
+Hi Joe,
 
-Thanks for explanation, Trond.
-So, this connect have to be done in kernel process context.
-Now I can see 2 ways how to meet this requirement and reach the goal:
+> Use specific logging functions instead of a generic
+> bt_printk function can save some text.
+> 
+> Remove now unused bt_printk function.
+> Add compatibility BT_INFO and BT_ERR macros.
+> 
+> (compiled x86 and defconfig with bluetooth and all bluetooth drivers)
+> 
+> $ size net/bluetooth/built-in.o*
+>    text	   data	    bss	    dec	    hex	filename
+>  381662	  20072	 100416	 502150	  7a986	net/bluetooth/built-in.o.allyesconfig.new
+>  382463	  20072	 100400	 502935	  7ac97	net/bluetooth/built-in.o.allyesconfig.old
+>  126635	   1388	    132	 128155	  1f49b	net/bluetooth/built-in.o.defconfig.new
+>  127175	   1388	    132	 128695	  1f6b7	net/bluetooth/built-in.o.defconfig.old
+> 
+> $ size drivers/bluetooth/built-in.o*
+>  127575	   8976	  29476	 166027	  2888b	drivers/bluetooth/built-in.o.allyesconfig.new
+>  129512	   8976	  29516	 168004	  29044	drivers/bluetooth/built-in.o.allyesconfig.old
+>   52998	   3292	    156	  56446	   dc7e	drivers/bluetooth/built-in.o.defconfig.new
+>   54358	   3292	    156	  57806	   e1ce	drivers/bluetooth/built-in.o.defconfig.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  include/net/bluetooth/bluetooth.h |   14 ++++++++------
+>  net/bluetooth/lib.c               |   27 ++++++++++++++++++++++++---
+>  2 files changed, 32 insertions(+), 9 deletions(-)
 
-1) Change the fs root for rpciod while connecting.
-2) Do not touch rpciod and launch special "connect" kernel thread to pe=
-rform=20
-connect operations for unix sockets.
+lets try to get at least this patch merged. I hope we don't have too
+many conflicts.
 
-What do you think about this 2 ways above? Which one is less worse from=
- your POW?
-Maybe you have even a better solution for the problem?
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 
---=20
-Best regards,
-Stanislav Kinsbursky
+Regards
+
+Marcel
