@@ -1,55 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: tg3: Use *_UNKNOWN ethtool definitions
-Date: Sat, 18 Feb 2012 01:03:05 +0000
-Message-ID: <1329526985.2822.29.camel@bwh-desktop>
-References: <20120217064830.GA14483@mwanda>
-	 <20120218005445.GA14067@mcarlson.broadcom.com>
+From: Arun Sharma <asharma@fb.com>
+Subject: route add default fails with ESRCH?
+Date: Fri, 17 Feb 2012 17:39:36 -0800
+Message-ID: <4F3F0158.2020406@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <dan.carpenter@oracle.com>, <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:21700 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752248Ab2BRBDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 20:03:08 -0500
-In-Reply-To: <20120218005445.GA14067@mcarlson.broadcom.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60661 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752264Ab2BRBjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Feb 2012 20:39:44 -0500
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.4/8.14.4) with SMTP id q1I1dhgK001537
+	for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 17:39:43 -0800
+Received: from mail.thefacebook.com (corpout1.snc1.tfbnw.net [66.220.144.38])
+	by mx0b-00082601.pphosted.com with ESMTP id 131xn709rf-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 17 Feb 2012 17:39:43 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-17 at 16:54 -0800, Matt Carlson wrote:
-> On Fri, Feb 17, 2012 at 09:48:30AM +0300, Dan Carpenter wrote:
-> > Hello Matt Carlson,
-> > 
-> > The patch e740522e6d3a: "tg3: Use *_UNKNOWN ethtool definitions" from 
-> > Feb 13, 2012, leads to the following Smatch warning:
-> > drivers/net/ethernet/broadcom/tg3.c:1822 tg3_adjust_link()
-> > 	 error: tp->link_config.active_speed is never equal to -1 (wrong type 0 - 65535).
-> > 
-> > -       if ((phydev->link && tp->link_config.active_speed == SPEED_INVALID) ||
-> > -           (!phydev->link && tp->link_config.active_speed != SPEED_INVALID) ||
-> > +       if ((phydev->link && tp->link_config.active_speed == SPEED_UNKNOWN) ||
-> > +           (!phydev->link && tp->link_config.active_speed != SPEED_UNKNOWN) ||
-> > 
-> > Since tp->link_config.active_speed is an unsigned short, it never is
-> > equal to SPEED_UNKNOWN (-1).
-> > 
-> > I introduced the SPEED_UNKNOWN so I feel bad that it's causing trouble
-> > now.  :/
-> > 
-> > Also this warning:
-> > drivers/net/ethernet/broadcom/tg3.c:3909 tg3_phy_copper_begin(14)
-> > error: tp->link_config.speed is never equal to -1 (wrong type 0 - 65535).
-> 
-> Do you have any problems with changing SPEED_UNKNOWN from -1 to 0xffff?
 
-I have a big problem with that - speed values are 32-bit in the ethtool
-API.
+I've been trying to debug this strange problem with recent 3.2 kernels:
 
-Ben.
+# boot to single user mode
+# service network start
+# ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr <blah>
+           inet addr:10.47.46.39  Bcast:10.47.46.255  Mask:255.255.255.0
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+<Link is up>
+# strace route add default gw 10.47.46.1
+ioctl(3, SIOCADDRT, 0x7fff1fd4db80)     = -1 ESRCH (No such process)
+
+Couple of data points:
+
+* This didn't happen with 2.6.3x kernels
+* This doesn't happen on all machines. Only a small subset
+
+I tried to debug using perf probe points:
+
+# cmdline : /usr/bin/perf record -e 
+probe:fib_get_table,probe:fib_new_table,probe:fib_table_insert route add 
+default gw 10.47.46.1
+
+            route  7800 [001]  4170.916261: fib_get_table: 
+(ffffffff81406528 <- ffffffff814065a6) ret=ffff8802142605c0
+            route  7800 [001]  4170.916265: fib_get_table: 
+(ffffffff81406528 <- ffffffff814067d3) ret=ffff880212a36680
+            route  7800 [001]  4170.916266: fib_new_table: 
+(ffffffff814067b6 <- ffffffff81406f04) ret=ffff880212a36680
+            route  7800 [001]  4170.916270: fib_get_table: 
+(ffffffff81406528 <- ffffffff8140d7fa) ret=ffff8802142605c0
+            route  7800 [001]  4170.916271: fib_get_table: 
+(ffffffff81406528 <- ffffffff8140d7fa) ret=ffff880212a36680
+            route  7800 [001]  4170.916272: fib_get_table: 
+(ffffffff81406528 <- ffffffff8140d7fa) ret=0
+            route  7800 [001]  4170.916273: fib_table_insert: 
+(ffffffff8140a60f <- ffffffff81406f18) ret=fffffffd
+
+Any ideas on why fib_table_insert() is failing with -ESRCH?
+
+  -Arun
