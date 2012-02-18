@@ -1,73 +1,55 @@
-From: otto@dedicatedserver.com.hk
-Subject: Web Design Service
-Date: Sat, 18 Feb 2012 14:39:58 +0800 (HKT)
-Message-ID: <3VNOAwjg2__20458.5517560647$1329550410$gmane$org@yahoo.com>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: otto@europeconcern.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Sat, 18 Feb 2012 07:41:40 -0500
+Message-ID: <1329568900.3027.0.camel@mojatatu>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+	 <4F34042F.6090806@intel.com>
+	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>
+	 <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>
+	 <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>
+	 <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>
+	 <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com>
+Reply-To: jhs@mojatatu.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-49.sunnyvision.com ([124.248.200.49]:51823 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050Ab2BRHcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2012 02:32:55 -0500
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:39504 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588Ab2BRMlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2012 07:41:47 -0500
+In-Reply-To: <4F3E8A01.5000205@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir / Madam, 
+On Fri, 2012-02-17 at 09:10 -0800, John Fastabend wrote:
 
-Good morning, this is Otto from DS Hong Kong. 
-
-We are a web design house and programming service provider. As 14 years experience, we are professional to develop a website for your business. 
-
-In the Chinese New Year Festival, we have the following offer for your corporate. Please check. 
-
-Service=09Package
-
-Web Development and Programing Service
-*********************************************************
-1)=09Website Design Service =09=09=09($13,000)
-
-=09Maximum 10 Web Pages Development                                                 
-=09(Site Map will be confirmed later)
-=09All the tailor-made webpage design is included:
--=09Theme / Visual Concept Development;
--=09Design Study and Analysis / Art Direction;
--=09Original Artwork & Layout Design;
--=09Steady Web page development;
--=09HTML Development for Search Engine Applicable;
-
-2)=09Web Programing Service =09=09=09($15,000)
-
-Content Management System (For 5 web pages)                                 
--=09Standard CMS function for add / edit fields 
--=09Max. 10 fields per each CMS section
--=09CMS fields only for Text fields and photos upload fields
--=09Photos upload only support (.jpg / .png / .bmp) 
--=09Each field for one photos
--=0920 pages / section for CMS function
--=09Database support with un-limit data create;
--=09Admin Panel with Login function (1 login account)
+> Yes I agree that is the goal.
+> 
+> > One last comment:
+> > With synchronization there are other challenges when the entry in the
+> > hardware conflicts with the entry in software when you intend the
+> > behavior to be the same. This is not such a big deal with bridging but
+> > becomes more apparent when you start offloading ACLs etc.
+> > 
+> 
+> OK and these sorts of conflicts certainly don't need to be resolved
+> by kernel code. So I think this is a reasonable reason to drive the
+> synchronization into a user space daemon.
 
 
-*********************************************************
+Yep. 
+Thanks for listening John. Waiting to see them patches.
 
-Promotion Price: =09HKD $28,000.00
-Lead Time: =09=0932 working days
-
-If you have more special requirement, please let us know and we will provide more detail to you. 
-
-Please feel free to contact me.The following is my contact information. 
-
-Contact No: (852) 5108 9664
-
-Skype: yschiu2001 (yschiu2001@yahoo.com.hk)
-
-MSN: yschiu2001@yahoo.com.hk
-
-Email: otto@dedicatedserver.com.hk
-
-If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or remove your email from the list. 
-
-Best Regards
-Otto Chiu
-Dedicated Server Hong Kong
+cheers,
+jamal
