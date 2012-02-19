@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8139cp: reject invalid MTU values
-Date: Sun, 19 Feb 2012 18:54:20 -0500 (EST)
-Message-ID: <20120219.185420.1710587455826987655.davem@davemloft.net>
-References: <1329481995-28384-1-git-send-email-pbonzini@redhat.com>
+Subject: Re: [PATCH] b44: remove __exit from b44_pci_exit()
+Date: Sun, 19 Feb 2012 18:58:11 -0500 (EST)
+Message-ID: <20120219.185811.1602965172431248468.davem@davemloft.net>
+References: <74eccdc061524ad9ab6aae1ca0dd7a020921b1fe.1329684207.git.n.pajkovsky@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: pbonzini@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329481995-28384-1-git-send-email-pbonzini@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: n.pajkovsky@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40612 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194Ab2BSX6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2012 18:58:23 -0500
+In-Reply-To: <74eccdc061524ad9ab6aae1ca0dd7a020921b1fe.1329684207.git.n.pajkovsky@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Bonzini <pbonzini@redhat.com>
-Date: Fri, 17 Feb 2012 13:33:15 +0100
+From: Nikola Pajkovsky <n.pajkovsky@gmail.com>
+Date: Sun, 19 Feb 2012 21:47:43 +0100
 
-> The 8139cp driver has a change_mtu function that has not been
-> enabled since the dawn of the git repository.  However, the
-> generic eth_change_mtu is not used in its place, so that
-> invalid MTU values can be set on the interface.
+> WARNING: drivers/net/ethernet/broadcom/built-in.o(.init.text+0x5d): Section mismatch in reference from the function b44_init() to the function .exit.text:b44_pci_exit()
 > 
-> This patch salvages the broken code for the single case of
-> setting the MTU while the interface is down, which is safe
-> and also includes the range check.
+> module exits with b44_cleanup()
+> 
+> Signed-off-by: Nikola Pajkovsky <n.pajkovsky@gmail.com>
 
-Well, now you can't change the MTU while the device is up
-which to me is a worse problem than MTU validation because
-this breaks valid things that potentially worked previously.
-
-Also you didn't bother to give your patch a proper signoff.
-
-You're going to have to fix cp_change_mtu() so that it does the
-correct HW reset sequence when the MTU changes, otherwise I am not
-going to apply this patch.
+Applied.
