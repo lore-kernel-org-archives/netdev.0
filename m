@@ -1,115 +1,63 @@
-From: Piergiorgio Beruto <piergiorgio.beruto@gmail.com>
-Subject: Re: Possible bugfix for AF_UNIX, SOCK_SEQPACKET sockets
-Date: Sat, 18 Feb 2012 22:23:39 +0100
-Message-ID: <CAFJW8X8GzyLCH+ybUcMn7ugB1fkn0pYb53Di6yJDQEH7Cdo-Sw@mail.gmail.com>
-References: <1329287109.2555.44.camel@edumazet-laptop>
-	<CAFJW8X_1CNxe0PhxyaBjYSu0xNw0ymyDVFmsA0C5XsHK9F2D8Q@mail.gmail.com>
-	<1329309727.2437.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20120215.145511.1269077904303781879.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH linux-firmware 0/1] bnx2x: adding fw 7.2.16
+Date: Sun, 19 Feb 2012 01:10:10 +0000
+Message-ID: <1329613810.3258.46.camel@deadeye>
+References: <1329397677.13643.13.camel@lb-tlvb-barak.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-gXgFb4H6X8x2PRmXKyTe"
+Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org
+To: barak@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:64533 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753352Ab2BRVXl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2012 16:23:41 -0500
-Received: by qafk1 with SMTP id k1so4741343qaf.19
-        for <netdev@vger.kernel.org>; Sat, 18 Feb 2012 13:23:39 -0800 (PST)
-In-Reply-To: <20120215.145511.1269077904303781879.davem@davemloft.net>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39606 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753315Ab2BSBKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2012 20:10:11 -0500
+In-Reply-To: <1329397677.13643.13.camel@lb-tlvb-barak.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I've tested the patch on my Linux box running kernel 3.2.6 and rich of
-userspace apps and everything seems to work fine.
 
-Then I used the following test program to verify the patch effects:
+--=-gXgFb4H6X8x2PRmXKyTe
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-// ---------------------------------------------------
+On Thu, 2012-02-16 at 15:07 +0200, Barak Witkowski wrote:
+> Hi,
+>=20
+> This patch series is actually only a single patch, but since it is too
+> big for the mailing list, you can also find it at the following link:
+> http://linux.broadcom.com/eilong/FW-7.2.16.0/
+[...]
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/un.h>
-#include <stdio.h>
-#include <errno.h>
+Applied, thanks.  And thanks especially for the detailed changelog.
 
-int main()
-{
-   int sv[2];
-   if(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sv) !=3D 0)
-   {
-      printf("socketpair() error %d\n", errno);
-      return 1;
-   }
+Ben.
 
-   // write two messages of size 3 and 2
-   const char msg[] =3D "abc";
-   send(sv[1], msg, 2, 0);
-   send(sv[1], msg, 3, 0);
+--=20
+Ben Hutchings
+Every program is either trivial or else contains at least one bug
 
-   int sz =3D 0;
-   if(ioctl(sv[0], FIONREAD, &sz) !=3D 0)
-   {
-      printf("ioctl() error %d\n", errno);
-      return 1;
-   }
+--=-gXgFb4H6X8x2PRmXKyTe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-   printf("ioctl(SIOCINQ) returned %d\n", sz);
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-   char dummy;
-   sz =3D recv(sv[0], &dummy, 0, MSG_PEEK | MSG_TRUNC);
-   printf("recv(MSG_TRUNC) returned %d\n", sz);
+iQIVAwUAT0BL8ue/yOyVhhEJAQom7xAAyLjDgAEGl6+n3eXF+4/UcTNPuUgHZDqN
+QRkWrHLniVp3hiCYvHbGLWtjHoHbhp+/TiGTB1o2gGBPWOkk007ttE+xVTiOVDzR
+urV0QxTvrpxKr6lrEYlFtnLRWExfklnyzUXjKNanCt4kMkONpkxl9TD2me25/onB
+yYKxjd7Z+EYpzqodkh0YYiRNdKU3gZyGGque0sysAesgT5wvYw5OorKbGNjX9/3K
+EYYsERucuCZVrc4muH+c4TMcKZhidK0HerOJCS2J3nXZ8Vn0ucdgpFNKT8eGyWm0
+EeoGms1U8+YSogq6h/u4k5Z4q/VnyLM/gmLiY8Jy9JlYEENP9tywSyxhSGJqvATZ
+xmWVFEmoeoR+6jRb82SGMxP24YkPuiM4bF1cI3+ps0Fux+3kX8Yfcn8Jl4rdbjIL
+M2A0ZIZmiVzHBrSffZ8yKjOM9k/hfaFg1IS5OLu/f0BnA+daIHnWUfyquBD1spzf
+ZwbEE6b4REqspvYV8ragOciQ7BwHZjMQhWAVyn24KD4i+py37iTmbal/xJewF74v
+U/Rn6cPN1rd/patqzyzw+ByRz+xcqTDY0Jp00qdnWQA+vXayfyrBuiVsKBvfzziL
+snEWW9T5IePGtJNXW+TLPJR298U4NBWJRjHIvbf98BFhAEF8FYbF8LfOcLcuTyEO
+2EGGiLG62II=
+=hJFC
+-----END PGP SIGNATURE-----
 
-   return 0;
-}
-
-// ----------------------------------------------------------
-
-the output of this program with the patched kernel is, as expected:
-ioctl(SIOCINQ) returned 5
-recv(MSG_TRUNC) returned 2
-
-which validates the test.
-
-=46urthermore, I found this in the man page of recv:
-
-MSG_TRUNC (since Linux 2.2)
-              For raw (AF_PACKET), Internet datagram (since Linux
-2.4.27/2.6.8), and netlink (since Linux 2.6.22) sockets: return
-              the  real  length  of  the packet or datagram, even when
-it was longer than the passed buffer.  Not implemented for
-              UNIX domain (unix(7)) sockets.
-
-The "not implemented for unix domain sockets" sounds to me such as no
-userland applications should have used this flag, but I wonder why it
-was not implemented since kernel 2.2 (?)
-
-Thank you again,
-Regards,
-
-Piergiorgio
-
-
-Il 15 febbraio 2012 20:55, David Miller <davem@davemloft.net> ha scritt=
-o:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 15 Feb 2012 13:42:07 +0100
->
->> @@ -1824,7 +1824,7 @@ static int unix_dgram_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (UNIXCB(skb).fp)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 siocb->scm->fp =3D scm_f=
-p_dup(UNIXCB(skb).fp);
->> =A0 =A0 =A0 }
->> - =A0 =A0 err =3D size;
->> + =A0 =A0 err =3D (flags & MSG_TRUNC) ? skb->len : size;
->>
->> =A0 =A0 =A0 scm_recv(sock, msg, siocb->scm, flags);
->
-> I'm ok with this, but if it is found to break even one userland appli=
-cation
-> I'm reverting with impunity.
+--=-gXgFb4H6X8x2PRmXKyTe--
