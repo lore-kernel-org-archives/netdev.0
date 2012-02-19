@@ -1,63 +1,74 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH linux-firmware 0/1] bnx2x: adding fw 7.2.16
-Date: Sun, 19 Feb 2012 01:10:10 +0000
-Message-ID: <1329613810.3258.46.camel@deadeye>
-References: <1329397677.13643.13.camel@lb-tlvb-barak.il.broadcom.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH v2 2/2] adi: adapt to eth_hw_addr_random() and changes in arch/blackfin
+Date: Sat, 18 Feb 2012 21:47:01 -0500
+Message-ID: <201202182147.10920.vapier@gentoo.org>
+References: <1329412171-20704-1-git-send-email-danny.kukawka@bisect.de> <1329521263.584.50.camel@joe2Laptop> <201202181428.07491.danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-gXgFb4H6X8x2PRmXKyTe"
-Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org
-To: barak@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39606 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753315Ab2BSBKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Feb 2012 20:10:11 -0500
-In-Reply-To: <1329397677.13643.13.camel@lb-tlvb-barak.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart1915165.d0OskjkLuK";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bob Liu <bob.liu@analog.com>,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201202181428.07491.danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-gXgFb4H6X8x2PRmXKyTe
-Content-Type: text/plain; charset="UTF-8"
+--nextPart1915165.d0OskjkLuK
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2012-02-16 at 15:07 +0200, Barak Witkowski wrote:
-> Hi,
+On Saturday 18 February 2012 08:28:06 Danny Kukawka wrote:
+> On Samstag, 18. Februar 2012, Joe Perches wrote:
+> > On Fri, 2012-02-17 at 18:15 -0500, Mike Frysinger wrote:
+> > > On Friday 17 February 2012 05:57:54 Danny Kukawka wrote:
+> > > > Maybe. Many drivers already print information about setting a random
+> > > > mac address to a netdevice. Some with printk, some via
+> > > > netdev_warn/netdev_info/netdev_dbg or netif_dbg and other with cost=
+um
+> > > > methods. I could unify this, in a next step with a netdev_info in
+> > > > eth_hw_addr_random(), if it's okay for David.
+> > >=20
+> > > i think unification in the core makes sense.  it enforces consistency
+> > > and removes duplication.
+> >=20
+> > It's a good idea.
 >=20
-> This patch series is actually only a single patch, but since it is too
-> big for the mailing list, you can also find it at the following link:
-> http://linux.broadcom.com/eilong/FW-7.2.16.0/
-[...]
+> Okay ... I'll send a patch to print a message via netdev_info from
+> eth_hw_addr_random() and to cleanup the drivers.
 
-Applied, thanks.  And thanks especially for the detailed changelog.
+thanks!
+=2Dmike
 
-Ben.
-
---=20
-Ben Hutchings
-Every program is either trivial or else contains at least one bug
-
---=-gXgFb4H6X8x2PRmXKyTe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+--nextPart1915165.d0OskjkLuK
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Version: GnuPG v2.0.17 (GNU/Linux)
 
-iQIVAwUAT0BL8ue/yOyVhhEJAQom7xAAyLjDgAEGl6+n3eXF+4/UcTNPuUgHZDqN
-QRkWrHLniVp3hiCYvHbGLWtjHoHbhp+/TiGTB1o2gGBPWOkk007ttE+xVTiOVDzR
-urV0QxTvrpxKr6lrEYlFtnLRWExfklnyzUXjKNanCt4kMkONpkxl9TD2me25/onB
-yYKxjd7Z+EYpzqodkh0YYiRNdKU3gZyGGque0sysAesgT5wvYw5OorKbGNjX9/3K
-EYYsERucuCZVrc4muH+c4TMcKZhidK0HerOJCS2J3nXZ8Vn0ucdgpFNKT8eGyWm0
-EeoGms1U8+YSogq6h/u4k5Z4q/VnyLM/gmLiY8Jy9JlYEENP9tywSyxhSGJqvATZ
-xmWVFEmoeoR+6jRb82SGMxP24YkPuiM4bF1cI3+ps0Fux+3kX8Yfcn8Jl4rdbjIL
-M2A0ZIZmiVzHBrSffZ8yKjOM9k/hfaFg1IS5OLu/f0BnA+daIHnWUfyquBD1spzf
-ZwbEE6b4REqspvYV8ragOciQ7BwHZjMQhWAVyn24KD4i+py37iTmbal/xJewF74v
-U/Rn6cPN1rd/patqzyzw+ByRz+xcqTDY0Jp00qdnWQA+vXayfyrBuiVsKBvfzziL
-snEWW9T5IePGtJNXW+TLPJR298U4NBWJRjHIvbf98BFhAEF8FYbF8LfOcLcuTyEO
-2EGGiLG62II=
-=hJFC
+iQIcBAABAgAGBQJPQGKuAAoJEEFjO5/oN/WBfgYP/3q2g7dEfFDv+cUOZWXfOFZ9
+uFWNv1I8v6kRHhIKSdpEydJMA+MBEi5DXoJmuAsIlX+GWqbxCIIAv4yMR0PHpU+U
+hUTi4zt3HcSLY79rG+x2vwuFVdqJA/GRQcK5HVAuGLLg8SxPZwOKv5OMUF6klZyJ
+p0oKWvqFxfdewKN4fW4Y8MmM9HZheDDunJyDPBrZGzGmCy9UzrLa9NP90vCZR/IJ
+ggAaXtutCX1F5WqZsx0EaM3ltO9+ZdsM/nSKIBe+P3bF9FHmtKRXHHwayE6RzQig
+u07xjqaZr17uaLvrePg4SZuCUhsBJp75dHayF0t69UveFvS5zrK7j9/eSECznDve
+CUd0r6yysPcXnK0XKbiFYspoQFJ/vqtQPkxt1Inmud3XRAI8O58Y7g/Y/FzPDR0P
+RCeDC9nIvdA3yvBxTlzIUaiaRLG2FBVbC7wxHsCH42BvNEABHQsMOmzK1qoaUOEj
+JtPwwmwRCk/mApXJqAsU+skheyM2SXzfKB6GfiZptYef/FRzgGJGWeyzC6ProBOy
+q4tCH/uriHEetyagPk2UwG90i1Z+o+axB3iljIidzM6v9dT4F9j4E7MQhDfHzUUh
+1ZCJBlM3Wnh4N5L87Z8XAOg5+iJeYBkHT4Kjv1lp3XQPD7Uhw+MivdxAQHUxQ6Mr
+q9ZOGy4q+6c1ujhcBJc4
+=G3EI
 -----END PGP SIGNATURE-----
 
---=-gXgFb4H6X8x2PRmXKyTe--
+--nextPart1915165.d0OskjkLuK--
