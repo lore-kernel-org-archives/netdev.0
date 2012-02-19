@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Sun, 19 Feb 2012 17:41:00 -0500 (EST)
-Message-ID: <20120219.174100.25858072359685481.davem@davemloft.net>
-References: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
-	<1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
-	<20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
+Subject: Re: [PATCH] 8139cp: reject invalid MTU values
+Date: Sun, 19 Feb 2012 18:54:20 -0500 (EST)
+Message-ID: <20120219.185420.1710587455826987655.davem@davemloft.net>
+References: <1329481995-28384-1-git-send-email-pbonzini@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eilong@broadcom.com, eric.dumazet@gmail.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: pbonzini@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329481995-28384-1-git-send-email-pbonzini@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 17 Feb 2012 10:30:11 +1100
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 17 Feb 2012 13:33:15 +0100
 
-> Hi,
+> The 8139cp driver has a change_mtu function that has not been
+> enabled since the dawn of the git repository.  However, the
+> generic eth_change_mtu is not used in its place, so that
+> invalid MTU values can be set on the interface.
 > 
-> On Thu, 16 Feb 2012 13:24:10 +0200 "Yuval Mintz" <yuvalmin@broadcom.com> wrote:
->>
->> I don't fully understand your merge - it seems to create a mash between
->> the "bnx2x: fix bnx2x_storm_stats_update() on big endian" patch in net,
->> and the "bnx2x: consistent statistics after internal driver reload"
->> patch in net-next.
-> 
-> That is exactly what the merge conflict resolution did.  i.e. the patch
-> you supplied below is not needed in linux-next because that is
-> effectively what I did.  It is the same as Dave will do when he merges
-> the net tree into the net-next tree as well, I assume.
+> This patch salvages the broken code for the single case of
+> setting the MTU while the interface is down, which is safe
+> and also includes the range check.
 
-I've taken care of this.
+Well, now you can't change the MTU while the device is up
+which to me is a worse problem than MTU validation because
+this breaks valid things that potentially worked previously.
+
+Also you didn't bother to give your patch a proper signoff.
+
+You're going to have to fix cp_change_mtu() so that it does the
+correct HW reset sequence when the MTU changes, otherwise I am not
+going to apply this patch.
