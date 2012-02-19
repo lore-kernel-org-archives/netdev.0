@@ -1,53 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: sysfs^H^H^H^H^Hsysctl warnings, reserved names
-Date: Sun, 19 Feb 2012 13:11:41 -0800
-Message-ID: <m1aa4e5y0i.fsf@fess.ebiederm.org>
-References: <41230e67c273dde6b60cfc7110f496e2@visp.net.lb>
-	<1329475042.2861.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1329476631.2861.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<m1k43lhdeh.fsf_-_@fess.ebiederm.org>
-	<1329483934.2861.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Sun, 19 Feb 2012 17:41:00 -0500 (EST)
+Message-ID: <20120219.174100.25858072359685481.davem@davemloft.net>
+References: <20120216123803.8efe3d23eee5c3a80aceef61@canb.auug.org.au>
+	<1329391450.16698.27.camel@lb-tlvb-eilong.il.broadcom.com>
+	<20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:35559 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115Ab2BSVIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2012 16:08:43 -0500
-In-Reply-To: <1329483934.2861.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	(Eric Dumazet's message of "Fri, 17 Feb 2012 14:05:34 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eilong@broadcom.com, eric.dumazet@gmail.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120217103011.b2223e28a89839d09a4a4053@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 17 Feb 2012 10:30:11 +1100
 
->> Well we are talking about sysctl not sysfs but same difference, I keep
->> an on eye on them.
->> 
->> I expect renaming a network device to "all" or "default" would be a
->> problem in any kernel supporting renaming of networking devices.
->> 
->> At the basic level of handling it.  sysctl checks for this sometimes
->> now and as soon as my sysctl tree is merged the checks will become
->> unconditionally present.  In what sense were you thinking it would
->> be better to address this in the sysctl?
->> 
->
-> Because problem is : it seems a rename() of "eth3" to "default" is
-> allowed by sysctl, yet "default" is already in directory.
->
-> It seems sysfs_rename_link() / sysfs_rename_dir() / sysfs_rename() might
-> have a problem ?
+> Hi,
+> 
+> On Thu, 16 Feb 2012 13:24:10 +0200 "Yuval Mintz" <yuvalmin@broadcom.com> wrote:
+>>
+>> I don't fully understand your merge - it seems to create a mash between
+>> the "bnx2x: fix bnx2x_storm_stats_update() on big endian" patch in net,
+>> and the "bnx2x: consistent statistics after internal driver reload"
+>> patch in net-next.
+> 
+> That is exactly what the merge conflict resolution did.  i.e. the patch
+> you supplied below is not needed in linux-next because that is
+> effectively what I did.  It is the same as Dave will do when he merges
+> the net tree into the net-next tree as well, I assume.
 
-The files are under /proc/sys so we are talking about sysctls, which
-means that the error is reported from register_net_sysctl_table.
-
-The path is:
-NETDEV_CHANGENAME
-	devinet_sysctl_unregister() -> void
-	devinet_sysctl_register() -> void
-return NOTIFY_DONE;
-
-Eric
+I've taken care of this.
