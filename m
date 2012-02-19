@@ -1,51 +1,39 @@
 From: Nikola Pajkovsky <n.pajkovsky@gmail.com>
-Subject: Re: [PATCH] b44: fix section mismatch warnings in b44.c
-Date: Sun, 19 Feb 2012 21:28:02 +0100
-Message-ID: <m5sji6zhyl.fsf@redhat.com>
-References: <c8f624fdb13dcf32d82b1abb70a423abc4a2359a.1329662367.git.n.pajkovsky@gmail.com>
-	<20120219201332.GF2855@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Gary Zambrano <zambrano@broadcom.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
+Subject: [PATCH] b44: remove __exit from b44_pci_exit()
+Date: Sun, 19 Feb 2012 21:47:43 +0100
+Message-ID: <74eccdc061524ad9ab6aae1ca0dd7a020921b1fe.1329684207.git.n.pajkovsky@gmail.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
 	Nikola Pajkovsky <n.pajkovsky@gmail.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+To: Gary Zambrano <zambrano@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:64989 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754739Ab2BSU06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2012 15:26:58 -0500
-In-Reply-To: <20120219201332.GF2855@mwanda> (Dan Carpenter's message of "Sun,
-	19 Feb 2012 23:13:32 +0300")
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:55944 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754924Ab2BSUqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2012 15:46:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter <dan.carpenter@oracle.com> writes:
+WARNING: drivers/net/ethernet/broadcom/built-in.o(.init.text+0x5d): Section mismatch in reference from the function b44_init() to the function .exit.text:b44_pci_exit()
 
-> On Sun, Feb 19, 2012 at 03:45:54PM +0100, Nikola Pajkovsky wrote:
->> From: Nikola Pajkovsky <n.pajkovsky@gmail.com>
->> 
->
-> This changelog is not really helpful.
->
-> Why did you remove an __exit anotation instead changing the callers?
-> Obviously I looked at the code, so I can answer that question, but I
-> shouldn't have to.  It should be explained in the changelog.
+module exits with b44_cleanup()
 
-I will rephrase comment
+Signed-off-by: Nikola Pajkovsky <n.pajkovsky@gmail.com>
+---
+ drivers/net/ethernet/broadcom/b44.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Sometimes I add in information about when the error message was
-> introduced.
->
-> It might also be nice to mention what the bad effects of this
-> problem are.
->
->> Signed-off-by: Nikola Pajkovsky <n.pajkovsky@gmail.com>
->                                    ^^^^^^^^^^^^^^^^^^^^^
-> You're sending the patch from your redhat address; it's best to sign
-> it with the redhat address as well.
-
-oops, it should be from gmail
-
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 66f53c7..46b8b7d8 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -2338,7 +2338,7 @@ static inline int __init b44_pci_init(void)
+ 	return err;
+ }
+ 
+-static inline void __exit b44_pci_exit(void)
++static inline void b44_pci_exit(void)
+ {
+ #ifdef CONFIG_B44_PCI
+ 	ssb_pcihost_unregister(&b44_pci_driver);
 -- 
-Nikola
+1.7.9.1.244.gb0d66b
