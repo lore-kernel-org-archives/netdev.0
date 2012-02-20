@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] adi: adapt to eth_hw_addr_random() and changes
- in arch/blackfin
-Date: Sun, 19 Feb 2012 19:05:36 -0500 (EST)
-Message-ID: <20120219.190536.1601398467747959636.davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] arch/blackfin: don't generate random mac in
+ bfin_get_ether_addr()
+Date: Sun, 19 Feb 2012 19:05:19 -0500 (EST)
+Message-ID: <20120219.190519.2247992297753168519.davem@davemloft.net>
 References: <1329412171-20704-1-git-send-email-danny.kukawka@bisect.de>
-	<1329412171-20704-3-git-send-email-danny.kukawka@bisect.de>
+	<1329412171-20704-2-git-send-email-danny.kukawka@bisect.de>
+	<CAMjpGUdJjG3OExzHWd8+FwWsG-vCsL-NVe=ivS5VeeV6G0-_Tw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dkukawka@suse.de, vapier@gentoo.org, sonic.zhang@analog.com,
-	jeffrey.t.kirsher@intel.com, bob.liu@analog.com,
-	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: danny.kukawka@bisect.de
+Cc: danny.kukawka@bisect.de, linux-kernel@vger.kernel.org,
+	dkukawka@suse.de, uclinux-dist-devel@blackfin.uclinux.org,
+	lliubbo@gmail.com, sonic.zhang@analog.com,
+	paul.gortmaker@windriver.com, realmz6@gmail.com, lars@metafoo.de,
+	scott.jiang@analog.com, netdev@vger.kernel.org
+To: vapier@gentoo.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329412171-20704-3-git-send-email-danny.kukawka@bisect.de>
+In-Reply-To: <CAMjpGUdJjG3OExzHWd8+FwWsG-vCsL-NVe=ivS5VeeV6G0-_Tw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Date: Thu, 16 Feb 2012 18:09:31 +0100
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Thu, 16 Feb 2012 23:38:11 -0500
 
-> Adapt adi ethernet driver to changes in bfin_get_ether_addr()
-> from arch/blackfin. bfin_get_ether_addr() returns now a state.
-> Set a random mac address via new eth_hw_addr_random() in case
-> the return value is not 0.
+> On Thu, Feb 16, 2012 at 12:09, Danny Kukawka wrote:
+>> Changed bfin_get_ether_addr() to return a state and to
+>> set no random mac address if the board don't provide one.
+>>
+>> Let the caller of bfin_get_ether_addr() set a random mac
+>> address if the return value is not 0.
 > 
-> Reset the state to NET_ADDR_PERM as soon as the MAC get
-> changed via .ndo_set_mac_address.
-> 
-> v2: change the logic to reduce unneeded checks
-> 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> Acked-by: Mike Frysinger <vapier@gentoo.org>
 
 Applied.
