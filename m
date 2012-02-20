@@ -1,63 +1,76 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 4/4] enic: Add support for fw init command on
-	sriov vf's
-Date: Mon, 20 Feb 2012 02:12:04 -0800
-Message-ID: <20120220101203.5794.32375.stgit@rhel6.1>
-References: <20120220101140.5794.60233.stgit@rhel6.1>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: Re: [PATCH 1/2] r8169: Rx FIFO overflow fixes.
+Date: Sun, 19 Feb 2012 20:37:40 -0600
+Message-ID: <20120220023740.GA4433@burratino>
+References: <20111127092808.GE21635@elie.hsd1.il.comcast.net>
+ <4ED2A573.1020807@wolke7.net>
+ <20111127231147.GA1784@electric-eye.fr.zoreil.com>
+ <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw>
+ <20111129105440.GA2410@electric-eye.fr.zoreil.com>
+ <4ED538EC.4010509@wolke7.net>
+ <20111201102000.GA14013@electric-eye.fr.zoreil.com>
+ <4ED7E6AB.6050308@wolke7.net>
+ <20111201222612.GA27998@electric-eye.fr.zoreil.com>
+ <20111205063045.GA3103@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:42850 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753525Ab2BTCSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Feb 2012 21:18:12 -0500
-In-Reply-To: <20120220101140.5794.60233.stgit@rhel6.1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: booster@wolke7.net, hayeswang <hayeswang@realtek.com>,
+	'Eric Dumazet' <eric.dumazet@gmail.com>,
+	netdev@vger.kernel.org, 'nic_swsd' <nic_swsd@realtek.com>,
+	linux-kernel@vger.kernel.org,
+	'Armin Kazmi' <armin.kazmi@tu-dortmund.de>,
+	Lucas Stach <dev@lynxeye.de>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111205063045.GA3103@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+Hi Fran=C3=A7ois, Gerd, et al,
 
-This patch fixes enic_probe to do a fw init devcmd for sriov vfs.
-This enables vf driver in the guest to get into adapter init state without
-having to explicitly issue an init fw cmd with portprofile info. But a
-successful init on the vf will require the port profile information to be
-pre-provisioned by the hypervisor via the pf
+=46rancois Romieu wrote:
 
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: Sujith Sankar <ssujith@cisco.com>
----
- drivers/net/ethernet/cisco/enic/enic.h      |    2 +-
- drivers/net/ethernet/cisco/enic/enic_main.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+> Realtek has specified that the post 8168c gigabit chips and the post
+> 8105e fast ethernet chips recover automatically from a Rx FIFO overfl=
+ow.
+> The driver does not need to clear the RxFIFOOver bit of IntrStatus an=
+d
+> it should rather avoid messing it.
+>
+> The implementation deserves some explanation:
 
+I would be interested in some subset of these fixes for 3.0.y and
+2.6.32.y.  In particular:
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 922b646..99998c6 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -32,7 +32,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.37"
-+#define DRV_VERSION		"2.1.1.38"
- #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 2278c43..e27ec1d 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2452,7 +2452,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	 * called later by an upper layer.
- 	 */
- 
--	if (!enic_is_dynamic(enic) && !enic_is_sriov_vf(enic)) {
-+	if (!enic_is_dynamic(enic)) {
- 		err = vnic_dev_init(enic->vdev, 0);
- 		if (err) {
- 			dev_err(dev, "vNIC dev init failed, aborting\n");
+> 1. events outside of the intr_event bit mask are now ignored.
+>    a no-processing policy for the events that either should not be th=
+ere
+>    or should be ignored.
+
+This seems like a valuable and unrisky change.
+
+> 2. RxFIFOOver was already ignored in rtl_cfg_infos[RTL_CFG_1] for the
+>    whole 8168 line of chips with two exceptions:
+>    - RTL_GIGA_MAC_VER_22 since b5ba6d12bdac21bc0620a5089e0f24e362645e=
+fd
+>      ("use RxFIFO overflow workaround for 8168c chipset.").
+>      This one should now be correctly handled.
+
+This seems useful if we can test it.
+
+[...]
+> 3. RxFIFOOver is masked for post 8105e 810x chips, namely the sole 81=
+05e
+>    (RTL_GIGA_MAC_VER_30) itself.
+
+This also seems useful if we can test it.
+
+What do you think?  Is there any way I can help?  (E.g., given rough
+guidelines about what approach is acceptable I'd be happy to work with
+Gerd to produce a tested patch that does (1) and (2) but not (3) for
+3.0.y.)
+
+Thanks for your hard work,
+Jonathan
