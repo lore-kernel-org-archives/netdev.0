@@ -1,43 +1,46 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 5/5] bnx2x: update driver version to 1.72.10-0
-Date: Mon, 20 Feb 2012 21:59:12 +0200
-Message-ID: <1329767952-12605-6-git-send-email-dmitry@broadcom.com>
-References: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Mon, 20 Feb 2012 15:31:07 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1202201524290.11040-100000@netrider.rowland.org>
+References: <4F4277DD.3090204@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4839 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753086Ab2BTUCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 15:02:30 -0500
-In-Reply-To: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F4277DD.3090204-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Mon, 20 Feb 2012, Sebastian Andrzej Siewior wrote:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index b9b9888..e005271 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -23,8 +23,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
- 
--#define DRV_MODULE_VERSION      "1.72.00-0"
--#define DRV_MODULE_RELDATE      "2012/01/26"
-+#define DRV_MODULE_VERSION      "1.72.10-0"
-+#define DRV_MODULE_RELDATE      "2012/02/20"
- #define BNX2X_BC_VER            0x040200
- 
- #if defined(CONFIG_DCB)
--- 
-1.7.7.2
+> On 02/20/2012 05:21 PM, Oliver Neukum wrote:
+> >> defer_bh() takes the lok which is hold during unlink_urbs(). The safe
+> >> walk suggest that the skb will be removed from the list and this is done
+> >> by defer_bh() so it seems to be okay to drop the lock here.
+> >
+> > I am afraid there's something wrong in the hcd driver. Async unlink must
+> > be possible with a lock held. I cannot approve this patch.
+> 
+> Hmmm. The comment above unlink() says that. Looking through other hcds
+> it seems that musb is not the only one doing it wrong. Oh well...
+
+What's the issue here?
+
+If a driver calls usb_unlink_urb() while holding a lock, and the 
+completion routine tries to acquire the same lock, then deadlock is 
+possible.  The fact that usb_unlink_urb() is asynchronous is not a 
+guarantee of anything; the HCD is allowed to call the completion 
+handler from within usb_unlink_urb().
+
+It's true that the kerneldoc for usb_unlink_urb() says "This request is 
+always asynchronous".  It might be a good idea to remove the word 
+"always", because it seems to give people the wrong idea.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
