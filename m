@@ -1,88 +1,705 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 2/5] bnx2fc: HSI dependent changes for 7.2.xx FW
-Date: Mon, 20 Feb 2012 21:59:09 +0200
-Message-ID: <1329767952-12605-3-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 1/5] use FW 7.2.16
+Date: Mon, 20 Feb 2012 21:59:08 +0200
+Message-ID: <1329767952-12605-2-git-send-email-dmitry@broadcom.com>
 References: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Bhanu Prakash Gollapudi" <bprakash@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3378 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4108 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134Ab2BTT7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 14:59:13 -0500
+	id S1752134Ab2BTT7P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Feb 2012 14:59:15 -0500
 In-Reply-To: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
+The patch integrates FW 7.2.16 HSI and implements driver
+part of GRO flow.
 
->From FW version 7.2.x, firwmare expects the driver to set Rx only section along
-with Tx only section for single cached SGEs.
+FW 7.2.16 adds the ability to aggregate packets for GRO
+(and not just LRO) and also fixes some bugs.
 
-Signed-off-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
+1. Added new aggregation mode: GRO. In this mode packets are aggregated
+   such that the original packets can be reconstructed by the OS.
+2. 57712 HW bug workaround - initialized all CAM TM registers to 0x32.
+3. Adding the FCoE statistics structures to the BNX2X HSI.
+4. Wrong configuration of TX HW input buffer size may cause theoretical
+   performance effect. Performed configuration fix.
+5. FCOE - Arrival of packets beyond task IO size can lead to crash.
+   Fix firmware data-in flow.
+6. iSCSI - In rare cases of on-chip termination the graceful termination
+   timer hangs, and the termination doesn't complete. Firmware fix to MSL
+   timer tolerance.
+7. iSCSI - Chip hangs when target sends FIN out-of-order or with isles
+   open at the initiator side. Firmware implementation corrected to drop
+   FIN received out-of-order or with isles still open.
+8. iSCSI - Chip hangs when in case of retransmission not aligned to 4-bytes
+   from the beginning of iSCSI PDU. Firmware implementation corrected
+   to support arbitrary aligned retransmissions.
+9. iSCSI - Arrival of target-initiated NOP-IN during intense ISCSI traffic
+   might lead to crash. Firmware fix to relevant flow.
+
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/scsi/bnx2fc/bnx2fc_constants.h |    2 +-
- drivers/scsi/bnx2fc/bnx2fc_hwi.c       |   12 +++++++++---
- 2 files changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   12 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  149 ++++++++++++++------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   24 +++-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |   57 ++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   11 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |    3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |    1 +
+ 8 files changed, 177 insertions(+), 82 deletions(-)
 
-diff --git a/drivers/scsi/bnx2fc/bnx2fc_constants.h b/drivers/scsi/bnx2fc/bnx2fc_constants.h
-index 399cda0..c12702b 100644
---- a/drivers/scsi/bnx2fc/bnx2fc_constants.h
-+++ b/drivers/scsi/bnx2fc/bnx2fc_constants.h
-@@ -7,7 +7,7 @@
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index d60b5f0..26cc954 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -445,6 +445,8 @@ struct bnx2x_agg_info {
+ 	u16			vlan_tag;
+ 	u16			len_on_bd;
+ 	u32			rxhash;
++	u16			gro_size;
++	u16			full_page;
+ };
  
- /* Current FCoE HSI version number composed of two fields (16 bit) */
- /* Implies on a change broken previous HSI */
--#define FCOE_HSI_MAJOR_VERSION (1)
-+#define FCOE_HSI_MAJOR_VERSION (2)
- /* Implies on a change which does not broken previous HSI */
- #define FCOE_HSI_MINOR_VERSION (1)
+ #define Q_STATS_OFFSET32(stat_name) \
+@@ -473,6 +475,11 @@ struct bnx2x_fp_txdata {
+ 	int			txq_index;
+ };
  
-diff --git a/drivers/scsi/bnx2fc/bnx2fc_hwi.c b/drivers/scsi/bnx2fc/bnx2fc_hwi.c
-index 1923a25..afd5709 100644
---- a/drivers/scsi/bnx2fc/bnx2fc_hwi.c
-+++ b/drivers/scsi/bnx2fc/bnx2fc_hwi.c
-@@ -1716,15 +1716,19 @@ void bnx2fc_init_task(struct bnx2fc_cmd *io_req,
- 
- 	/* Tx only */
- 	bd_count = bd_tbl->bd_valid;
-+	cached_sge = &task->rxwr_only.union_ctx.read_info.sgl_ctx.cached_sge;
- 	if (task_type == FCOE_TASK_TYPE_WRITE) {
- 		if ((dev_type == TYPE_DISK) && (bd_count == 1)) {
- 			struct fcoe_bd_ctx *fcoe_bd_tbl = bd_tbl->bd_tbl;
- 
- 			task->txwr_only.sgl_ctx.cached_sge.cur_buf_addr.lo =
-+			cached_sge->cur_buf_addr.lo =
- 					fcoe_bd_tbl->buf_addr_lo;
- 			task->txwr_only.sgl_ctx.cached_sge.cur_buf_addr.hi =
-+			cached_sge->cur_buf_addr.hi =
- 					fcoe_bd_tbl->buf_addr_hi;
- 			task->txwr_only.sgl_ctx.cached_sge.cur_buf_rem =
-+			cached_sge->cur_buf_rem =
- 					fcoe_bd_tbl->buf_len;
- 
- 			task->txwr_rxrd.const_ctx.init_flags |= 1 <<
-@@ -1790,11 +1794,13 @@ void bnx2fc_init_task(struct bnx2fc_cmd *io_req,
- 	task->rxwr_txrd.var_ctx.rx_id = 0xffff;
- 
- 	/* Rx Only */
--	cached_sge = &task->rxwr_only.union_ctx.read_info.sgl_ctx.cached_sge;
-+	if (task_type != FCOE_TASK_TYPE_READ)
-+		return;
++enum bnx2x_tpa_mode_t {
++	TPA_MODE_LRO,
++	TPA_MODE_GRO
++};
 +
- 	sgl = &task->rxwr_only.union_ctx.read_info.sgl_ctx.sgl;
- 	bd_count = bd_tbl->bd_valid;
--	if (task_type == FCOE_TASK_TYPE_READ &&
--	    dev_type == TYPE_DISK) {
-+
-+	if (dev_type == TYPE_DISK) {
- 		if (bd_count == 1) {
+ struct bnx2x_fastpath {
+ 	struct bnx2x		*bp; /* parent */
  
- 			struct fcoe_bd_ctx *fcoe_bd_tbl = bd_tbl->bd_tbl;
+@@ -489,6 +496,8 @@ struct bnx2x_fastpath {
+ 
+ 	dma_addr_t		status_blk_mapping;
+ 
++	enum bnx2x_tpa_mode_t	mode;
++
+ 	u8			max_cos; /* actual number of active tx coses */
+ 	struct bnx2x_fp_txdata	txdata[BNX2X_MULTI_TX_COS];
+ 
+@@ -1199,6 +1208,8 @@ struct bnx2x {
+ #define ETH_MIN_PACKET_SIZE		60
+ #define ETH_MAX_PACKET_SIZE		1500
+ #define ETH_MAX_JUMBO_PACKET_SIZE	9600
++/* TCP with Timestamp Option (32) + IPv6 (40) */
++#define ETH_MAX_TPA_HEADER_SIZE		72
+ 
+ 	/* Max supported alignment is 256 (8 shift) */
+ #define BNX2X_RX_ALIGN_SHIFT		min(8, L1_CACHE_SHIFT)
+@@ -1269,6 +1280,7 @@ struct bnx2x {
+ #define NO_MCP_FLAG			(1 << 9)
+ 
+ #define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
++#define GRO_ENABLE_FLAG			(1 << 10)
+ #define MF_FUNC_DIS			(1 << 11)
+ #define OWN_CNIC_IRQ			(1 << 12)
+ #define NO_ISCSI_OOO_FLAG		(1 << 13)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index aa14502..0a45251 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -209,13 +209,11 @@ static inline void bnx2x_update_last_max_sge(struct bnx2x_fastpath *fp,
+ 		fp->last_max_sge = idx;
+ }
+ 
+-static void bnx2x_update_sge_prod(struct bnx2x_fastpath *fp,
+-				  struct eth_fast_path_rx_cqe *fp_cqe)
++static inline void bnx2x_update_sge_prod(struct bnx2x_fastpath *fp,
++					 u16 sge_len,
++					 struct eth_end_agg_rx_cqe *cqe)
+ {
+ 	struct bnx2x *bp = fp->bp;
+-	u16 sge_len = SGE_PAGE_ALIGN(le16_to_cpu(fp_cqe->pkt_len) -
+-				     le16_to_cpu(fp_cqe->len_on_bd)) >>
+-		      SGE_PAGE_SHIFT;
+ 	u16 last_max, last_elem, first_elem;
+ 	u16 delta = 0;
+ 	u16 i;
+@@ -226,15 +224,15 @@ static void bnx2x_update_sge_prod(struct bnx2x_fastpath *fp,
+ 	/* First mark all used pages */
+ 	for (i = 0; i < sge_len; i++)
+ 		BIT_VEC64_CLEAR_BIT(fp->sge_mask,
+-			RX_SGE(le16_to_cpu(fp_cqe->sgl_or_raw_data.sgl[i])));
++			RX_SGE(le16_to_cpu(cqe->sgl_or_raw_data.sgl[i])));
+ 
+ 	DP(NETIF_MSG_RX_STATUS, "fp_cqe->sgl[%d] = %d\n",
+-	   sge_len - 1, le16_to_cpu(fp_cqe->sgl_or_raw_data.sgl[sge_len - 1]));
++	   sge_len - 1, le16_to_cpu(cqe->sgl_or_raw_data.sgl[sge_len - 1]));
+ 
+ 	/* Here we assume that the last SGE index is the biggest */
+ 	prefetch((void *)(fp->sge_mask));
+ 	bnx2x_update_last_max_sge(fp,
+-		le16_to_cpu(fp_cqe->sgl_or_raw_data.sgl[sge_len - 1]));
++		le16_to_cpu(cqe->sgl_or_raw_data.sgl[sge_len - 1]));
+ 
+ 	last_max = RX_SGE(fp->last_max_sge);
+ 	last_elem = last_max >> BIT_VEC64_ELEM_SHIFT;
+@@ -328,6 +326,12 @@ static void bnx2x_tpa_start(struct bnx2x_fastpath *fp, u16 queue,
+ 	tpa_info->len_on_bd = le16_to_cpu(cqe->len_on_bd);
+ 	tpa_info->placement_offset = cqe->placement_offset;
+ 	tpa_info->rxhash = bnx2x_get_rxhash(bp, cqe);
++	if (fp->mode == TPA_MODE_GRO) {
++		u16 gro_size = le16_to_cpu(cqe->pkt_len_or_gro_seg_len);
++		tpa_info->full_page =
++			SGE_PAGE_SIZE * PAGES_PER_SGE / gro_size * gro_size;
++		tpa_info->gro_size = gro_size;
++	}
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	fp->tpa_queue_used |= (1 << queue);
+@@ -384,25 +388,40 @@ static inline u16 bnx2x_set_lro_mss(struct bnx2x *bp, u16 parsing_flags,
+ }
+ 
+ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-			       u16 queue, struct sk_buff *skb,
++			       struct bnx2x_agg_info *tpa_info,
++			       u16 pages,
++			       struct sk_buff *skb,
+ 			       struct eth_end_agg_rx_cqe *cqe,
+ 			       u16 cqe_idx)
+ {
+ 	struct sw_rx_page *rx_pg, old_rx_pg;
+-	u32 i, frag_len, frag_size, pages;
+-	int err;
+-	int j;
+-	struct bnx2x_agg_info *tpa_info = &fp->tpa_info[queue];
++	u32 i, frag_len, frag_size;
++	int err, j, frag_id = 0;
+ 	u16 len_on_bd = tpa_info->len_on_bd;
++	u16 full_page = 0, gro_size = 0;
+ 
+ 	frag_size = le16_to_cpu(cqe->pkt_len) - len_on_bd;
+-	pages = SGE_PAGE_ALIGN(frag_size) >> SGE_PAGE_SHIFT;
++
++	if (fp->mode == TPA_MODE_GRO) {
++		gro_size = tpa_info->gro_size;
++		full_page = tpa_info->full_page;
++	}
+ 
+ 	/* This is needed in order to enable forwarding support */
+-	if (frag_size)
++	if (frag_size) {
+ 		skb_shinfo(skb)->gso_size = bnx2x_set_lro_mss(bp,
+ 					tpa_info->parsing_flags, len_on_bd);
+ 
++		/* set for GRO */
++		if (fp->mode == TPA_MODE_GRO)
++			skb_shinfo(skb)->gso_type =
++			    (GET_FLAG(tpa_info->parsing_flags,
++				      PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
++						PRS_FLAG_OVERETH_IPV6) ?
++				SKB_GSO_TCPV6 : SKB_GSO_TCPV4;
++	}
++
++
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (pages > min_t(u32, 8, MAX_SKB_FRAGS)*SGE_PAGE_SIZE*PAGES_PER_SGE) {
+ 		BNX2X_ERR("SGL length is too long: %d. CQE index is %d\n",
+@@ -419,7 +438,12 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 
+ 		/* FW gives the indices of the SGE as if the ring is an array
+ 		   (meaning that "next" element will consume 2 indices) */
+-		frag_len = min(frag_size, (u32)(SGE_PAGE_SIZE*PAGES_PER_SGE));
++		if (fp->mode == TPA_MODE_GRO)
++			frag_len = min_t(u32, frag_size, (u32)full_page);
++		else /* LRO */
++			frag_len = min_t(u32, frag_size,
++					 (u32)(SGE_PAGE_SIZE * PAGES_PER_SGE));
++
+ 		rx_pg = &fp->rx_page_ring[sge_idx];
+ 		old_rx_pg = *rx_pg;
+ 
+@@ -435,9 +459,21 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		dma_unmap_page(&bp->pdev->dev,
+ 			       dma_unmap_addr(&old_rx_pg, mapping),
+ 			       SGE_PAGE_SIZE*PAGES_PER_SGE, DMA_FROM_DEVICE);
+-
+ 		/* Add one frag and update the appropriate fields in the skb */
+-		skb_fill_page_desc(skb, j, old_rx_pg.page, 0, frag_len);
++		if (fp->mode == TPA_MODE_LRO)
++			skb_fill_page_desc(skb, j, old_rx_pg.page, 0, frag_len);
++		else { /* GRO */
++			int rem;
++			int offset = 0;
++			for (rem = frag_len; rem > 0; rem -= gro_size) {
++				int len = rem > gro_size ? gro_size : rem;
++				skb_fill_page_desc(skb, frag_id++,
++						   old_rx_pg.page, offset, len);
++				if (offset)
++					get_page(old_rx_pg.page);
++				offset += len;
++			}
++		}
+ 
+ 		skb->data_len += frag_len;
+ 		skb->truesize += SGE_PAGE_SIZE * PAGES_PER_SGE;
+@@ -449,18 +485,17 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 	return 0;
+ }
+ 
+-static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-			   u16 queue, struct eth_end_agg_rx_cqe *cqe,
+-			   u16 cqe_idx)
++static inline void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
++				  struct bnx2x_agg_info *tpa_info,
++				  u16 pages,
++				  struct eth_end_agg_rx_cqe *cqe,
++				  u16 cqe_idx)
+ {
+-	struct bnx2x_agg_info *tpa_info = &fp->tpa_info[queue];
+ 	struct sw_rx_bd *rx_buf = &tpa_info->first_buf;
+-	u32 pad = tpa_info->placement_offset;
++	u8 pad = tpa_info->placement_offset;
+ 	u16 len = tpa_info->len_on_bd;
+ 	struct sk_buff *skb = NULL;
+-	u8 *data = rx_buf->data;
+-	/* alloc new skb */
+-	u8 *new_data;
++	u8 *new_data, *data = rx_buf->data;
+ 	u8 old_tpa_state = tpa_info->tpa_state;
+ 
+ 	tpa_info->tpa_state = BNX2X_TPA_STOP;
+@@ -500,7 +535,8 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		skb->protocol = eth_type_trans(skb, bp->dev);
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+-		if (!bnx2x_fill_frag_skb(bp, fp, queue, skb, cqe, cqe_idx)) {
++		if (!bnx2x_fill_frag_skb(bp, fp, tpa_info, pages,
++					 skb, cqe, cqe_idx)) {
+ 			if (tpa_info->parsing_flags & PARSING_FLAGS_VLAN)
+ 				__vlan_hwaccel_put_tag(skb, tpa_info->vlan_tag);
+ 			napi_gro_receive(&fp->napi, skb);
+@@ -565,7 +601,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 		struct eth_fast_path_rx_cqe *cqe_fp;
+ 		u8 cqe_fp_flags;
+ 		enum eth_rx_cqe_type cqe_fp_type;
+-		u16 len, pad;
++		u16 len, pad, queue;
+ 		u8 *data;
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+@@ -586,17 +622,21 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 		   "  queue %x  vlan %x  len %u\n", CQE_TYPE(cqe_fp_flags),
+ 		   cqe_fp_flags, cqe_fp->status_flags,
+ 		   le32_to_cpu(cqe_fp->rss_hash_result),
+-		   le16_to_cpu(cqe_fp->vlan_tag), le16_to_cpu(cqe_fp->pkt_len));
++		   le16_to_cpu(cqe_fp->vlan_tag),
++		   le16_to_cpu(cqe_fp->pkt_len_or_gro_seg_len));
+ 
+ 		/* is this a slowpath msg? */
+ 		if (unlikely(CQE_TYPE_SLOW(cqe_fp_type))) {
+ 			bnx2x_sp_event(fp, cqe);
+ 			goto next_cqe;
+ 		}
++
+ 		rx_buf = &fp->rx_buf_ring[bd_cons];
+ 		data = rx_buf->data;
+ 
+ 		if (!CQE_TYPE_FAST(cqe_fp_type)) {
++			struct bnx2x_agg_info *tpa_info;
++			u16 frag_size, pages;
+ #ifdef BNX2X_STOP_ON_ERROR
+ 			/* sanity check */
+ 			if (fp->disable_tpa &&
+@@ -616,28 +656,38 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 				bnx2x_tpa_start(fp, queue,
+ 						bd_cons, bd_prod,
+ 						cqe_fp);
++
+ 				goto next_rx;
+-			} else {
+-				u16 queue =
+-					cqe->end_agg_cqe.queue_index;
+-				DP(NETIF_MSG_RX_STATUS,
+-				   "calling tpa_stop on queue %d\n",
+-				   queue);
+ 
+-				bnx2x_tpa_stop(bp, fp, queue,
+-					       &cqe->end_agg_cqe,
+-					       comp_ring_cons);
++			}
++			queue = cqe->end_agg_cqe.queue_index;
++			tpa_info = &fp->tpa_info[queue];
++			DP(NETIF_MSG_RX_STATUS,
++			   "calling tpa_stop on queue %d\n",
++			   queue);
++
++			frag_size = le16_to_cpu(cqe->end_agg_cqe.pkt_len) -
++				    tpa_info->len_on_bd;
++
++			if (fp->mode == TPA_MODE_GRO)
++				pages = (frag_size + tpa_info->full_page - 1) /
++					 tpa_info->full_page;
++			else
++				pages = SGE_PAGE_ALIGN(frag_size) >>
++					SGE_PAGE_SHIFT;
++
++			bnx2x_tpa_stop(bp, fp, tpa_info, pages,
++				       &cqe->end_agg_cqe, comp_ring_cons);
+ #ifdef BNX2X_STOP_ON_ERROR
+-				if (bp->panic)
+-					return 0;
++			if (bp->panic)
++				return 0;
+ #endif
+ 
+-				bnx2x_update_sge_prod(fp, cqe_fp);
+-				goto next_cqe;
+-			}
++			bnx2x_update_sge_prod(fp, pages, &cqe->end_agg_cqe);
++			goto next_cqe;
+ 		}
+ 		/* non TPA */
+-		len = le16_to_cpu(cqe_fp->pkt_len);
++		len = le16_to_cpu(cqe_fp->pkt_len_or_gro_seg_len);
+ 		pad = cqe_fp->placement_offset;
+ 		dma_sync_single_for_cpu(&bp->pdev->dev,
+ 					dma_unmap_addr(rx_buf, mapping),
+@@ -3440,13 +3490,15 @@ int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
+ }
+ 
+ netdev_features_t bnx2x_fix_features(struct net_device *dev,
+-	netdev_features_t features)
++				     netdev_features_t features)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+ 	/* TPA requires Rx CSUM offloading */
+-	if (!(features & NETIF_F_RXCSUM) || bp->disable_tpa)
++	if (!(features & NETIF_F_RXCSUM) || bp->disable_tpa) {
+ 		features &= ~NETIF_F_LRO;
++		features &= ~NETIF_F_GRO;
++	}
+ 
+ 	return features;
+ }
+@@ -3462,6 +3514,11 @@ int bnx2x_set_features(struct net_device *dev, netdev_features_t features)
+ 	else
+ 		flags &= ~TPA_ENABLE_FLAG;
+ 
++	if (features & NETIF_F_GRO)
++		flags |= GRO_ENABLE_FLAG;
++	else
++		flags &= ~GRO_ENABLE_FLAG;
++
+ 	if (features & NETIF_F_LOOPBACK) {
+ 		if (bp->link_params.loopback_mode != LOOPBACK_BMAC) {
+ 			bp->link_params.loopback_mode = LOOPBACK_BMAC;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index f978c6a..d2093ee 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -534,8 +534,9 @@ int bnx2x_change_mtu(struct net_device *dev, int new_mtu);
+  */
+ int bnx2x_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type);
+ #endif
++
+ netdev_features_t bnx2x_fix_features(struct net_device *dev,
+-	netdev_features_t features);
++				     netdev_features_t features);
+ int bnx2x_set_features(struct net_device *dev, netdev_features_t features);
+ 
+ /**
+@@ -1491,6 +1492,18 @@ static inline u16 bnx2x_extract_max_cfg(struct bnx2x *bp, u32 mf_cfg)
+ 	return max_cfg;
+ }
+ 
++/* checks if HW supports GRO for given MTU */
++static inline bool bnx2x_mtu_allows_gro(int mtu)
++{
++	/* gro frags per page */
++	int fpp = SGE_PAGE_SIZE / (mtu - ETH_MAX_TPA_HEADER_SIZE);
++
++	/*
++	 * 1. number of frags should not grow above MAX_SKB_FRAGS
++	 * 2. frag must fit the page
++	 */
++	return mtu <= SGE_PAGE_SIZE && (U_ETH_SGL_SIZE * fpp) <= MAX_SKB_FRAGS;
++}
+ /**
+  * bnx2x_bz_fp - zero content of the fastpath structure.
+  *
+@@ -1556,7 +1569,14 @@ static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
+ 	 * set the tpa flag for each queue. The tpa flag determines the queue
+ 	 * minimal size so it must be set prior to queue memory allocation
+ 	 */
+-	fp->disable_tpa = (bp->flags & TPA_ENABLE_FLAG) == 0;
++	fp->disable_tpa = !(bp->flags & TPA_ENABLE_FLAG ||
++				  (bp->flags & GRO_ENABLE_FLAG &&
++				   bnx2x_mtu_allows_gro(bp->dev->mtu)));
++	if (bp->flags & TPA_ENABLE_FLAG)
++		fp->mode = TPA_MODE_LRO;
++	else if (bp->flags & GRO_ENABLE_FLAG)
++		fp->mode = TPA_MODE_GRO;
++
+ #ifdef BCM_CNIC
+ 	/* We don't want TPA on an FCoE L2 ring */
+ 	if (IS_FCOE_FP(fp))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 7e57fa4..9c24d53 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1931,7 +1931,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 	if (!CQE_TYPE_FAST(cqe_fp_type) || (cqe_fp_flags & ETH_RX_ERROR_FALGS))
+ 		goto test_loopback_rx_exit;
+ 
+-	len = le16_to_cpu(cqe->fast_path_cqe.pkt_len);
++	len = le16_to_cpu(cqe->fast_path_cqe.pkt_len_or_gro_seg_len);
+ 	if (len != pkt_size)
+ 		goto test_loopback_rx_exit;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index 78b77de..a1413ad 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -34,9 +34,10 @@ struct license_key {
+ };
+ 
+ 
+-#define PORT_0              0
+-#define PORT_1              1
+-#define PORT_MAX            2
++#define PORT_0			0
++#define PORT_1			1
++#define PORT_MAX		2
++#define NVM_PATH_MAX		2
+ 
+ /****************************************************************************
+  * Shared HW configuration                                                  *
+@@ -618,12 +619,6 @@ struct port_hw_cfg {		    /* port 0: 0x12c  port 1: 0x2bc */
+ 	#define PORT_HW_CFG_ENABLE_CMS_DISABLED                      0x00000000
+ 	#define PORT_HW_CFG_ENABLE_CMS_ENABLED                       0x00200000
+ 
+-	/*  Enable RJ45 magjack pair swapping on 10GBase-T PHY, 84833 only */
+-	#define PORT_HW_CFG_RJ45_PR_SWP_MASK                0x00400000
+-	#define PORT_HW_CFG_RJ45_PR_SWP_SHIFT			     22
+-	#define PORT_HW_CFG_RJ45_PR_SWP_DISABLED		     0x00000000
+-	#define PORT_HW_CFG_RJ45_PR_SWP_ENABLED			     0x00400000
+-
+ 	/*  Determine the Serdes electrical interface   */
+ 	#define PORT_HW_CFG_NET_SERDES_IF_MASK              0x0F000000
+ 	#define PORT_HW_CFG_NET_SERDES_IF_SHIFT                      24
+@@ -898,11 +893,6 @@ struct port_feat_cfg {		    /* port 0: 0x454  port 1: 0x4c8 */
+ 		#define PORT_FEAT_CFG_DCBX_DISABLED                  0x00000000
+ 		#define PORT_FEAT_CFG_DCBX_ENABLED                   0x00000100
+ 
+-	#define PORT_FEAT_CFG_AUTOGREEN_MASK                0x00000200
+-	#define PORT_FEAT_CFG_AUTOGREEN_SHIFT                        9
+-	#define PORT_FEAT_CFG_AUTOGREEN_DISABLED                     0x00000000
+-	#define PORT_FEAT_CFG_AUTOGREEN_ENABLED                      0x00000200
+-
+ 	#define PORT_FEATURE_EN_SIZE_MASK                   0x0f000000
+ 	#define PORT_FEATURE_EN_SIZE_SHIFT                           24
+ 	#define PORT_FEATURE_WOL_ENABLED                             0x01000000
+@@ -1139,9 +1129,6 @@ struct shm_dev_info {				/* size */
+ 
+ #define FW_ACK_NUM_OF_POLL  (FW_ACK_TIME_OUT_MS/FW_ACK_POLL_TIME_MS)
+ 
+-/* LED Blink rate that will achieve ~15.9Hz */
+-#define LED_BLINK_RATE_VAL      480
+-
+ /****************************************************************************
+  * Driver <-> FW Mailbox                                                    *
+  ****************************************************************************/
+@@ -1407,7 +1394,7 @@ struct port_mf_cfg {
+ 	#define PORT_MF_CFG_E1HOV_TAG_SHIFT             0
+ 	#define PORT_MF_CFG_E1HOV_TAG_DEFAULT         PORT_MF_CFG_E1HOV_TAG_MASK
+ 
+-	u32 reserved[3];
++	u32 reserved[1];
+ 
+ };
+ 
+@@ -1493,7 +1480,8 @@ struct func_ext_cfg {
+ struct mf_cfg {
+ 
+ 	struct shared_mf_cfg    shared_mf_config;       /* 0x4 */
+-	struct port_mf_cfg  port_mf_config[PORT_MAX];   /* 0x10 * 2 = 0x20 */
++							/* 0x8*2*2=0x20 */
++	struct port_mf_cfg  port_mf_config[NVM_PATH_MAX][PORT_MAX];
+ 	/* for all chips, there are 8 mf functions */
+ 	struct func_mf_cfg  func_mf_config[E1H_FUNC_MAX]; /* 0x18 * 8 = 0xc0 */
+ 	/*
+@@ -2002,6 +1990,7 @@ struct shmem2_region {
+ #define DRV_INFO_CONTROL_VER_SHIFT         0
+ #define DRV_INFO_CONTROL_OP_CODE_MASK      0x0000ff00
+ #define DRV_INFO_CONTROL_OP_CODE_SHIFT     8
++	u32 ibft_host_addr; /* initialized by option ROM */
+ };
+ 
+ 
+@@ -2700,8 +2689,8 @@ union drv_info_to_mcp {
+ 	struct iscsi_stats_info	iscsi_stat;
+ };
+ #define BCM_5710_FW_MAJOR_VERSION			7
+-#define BCM_5710_FW_MINOR_VERSION			0
+-#define BCM_5710_FW_REVISION_VERSION		29
++#define BCM_5710_FW_MINOR_VERSION			2
++#define BCM_5710_FW_REVISION_VERSION		16
+ #define BCM_5710_FW_ENGINEERING_VERSION		0
+ #define BCM_5710_FW_COMPILE_FLAGS			1
+ 
+@@ -3308,8 +3297,10 @@ struct client_init_rx_data {
+ #define CLIENT_INIT_RX_DATA_TPA_EN_IPV4_SHIFT 0
+ #define CLIENT_INIT_RX_DATA_TPA_EN_IPV6 (0x1<<1)
+ #define CLIENT_INIT_RX_DATA_TPA_EN_IPV6_SHIFT 1
+-#define CLIENT_INIT_RX_DATA_RESERVED5 (0x3F<<2)
+-#define CLIENT_INIT_RX_DATA_RESERVED5_SHIFT 2
++#define CLIENT_INIT_RX_DATA_TPA_MODE (0x1<<2)
++#define CLIENT_INIT_RX_DATA_TPA_MODE_SHIFT 2
++#define CLIENT_INIT_RX_DATA_RESERVED5 (0x1F<<3)
++#define CLIENT_INIT_RX_DATA_RESERVED5_SHIFT 3
+ 	u8 vmqueue_mode_en_flg;
+ 	u8 extra_data_over_sgl_en_flg;
+ 	u8 cache_line_alignment_log_size;
+@@ -3324,7 +3315,7 @@ struct client_init_rx_data {
+ 	u8 outer_vlan_removal_enable_flg;
+ 	u8 status_block_id;
+ 	u8 rx_sb_index_number;
+-	u8 reserved0;
++	u8 dont_verify_rings_pause_thr_flg;
+ 	u8 max_tpa_queues;
+ 	u8 silent_vlan_removal_flg;
+ 	__le16 max_bytes_on_bd;
+@@ -3657,7 +3648,7 @@ struct eth_fast_path_rx_cqe {
+ 	u8 placement_offset;
+ 	__le32 rss_hash_result;
+ 	__le16 vlan_tag;
+-	__le16 pkt_len;
++	__le16 pkt_len_or_gro_seg_len;
+ 	__le16 len_on_bd;
+ 	struct parsing_flags pars_flags;
+ 	union eth_sgl_or_raw_data sgl_or_raw_data;
+@@ -4215,6 +4206,15 @@ enum set_mac_action_type {
+ 
+ 
+ /*
++ * Ethernet TPA Modes
++ */
++enum tpa_mode {
++	TPA_LRO,
++	TPA_GRO,
++	MAX_TPA_MODE};
++
++
++/*
+  * tpa update ramrod data
+  */
+ struct tpa_update_ramrod_data {
+@@ -4224,7 +4224,8 @@ struct tpa_update_ramrod_data {
+ 	u8 max_tpa_queues;
+ 	u8 max_sges_for_packet;
+ 	u8 complete_on_both_clients;
+-	__le16 reserved1;
++	u8 dont_verify_rings_pause_thr_flg;
++	u8 tpa_mode;
+ 	__le16 sge_buff_size;
+ 	__le16 max_agg_size;
+ 	__le32 sge_page_base_lo;
+@@ -4447,13 +4448,13 @@ enum common_spqe_cmd_id {
+ 	RAMROD_CMD_ID_COMMON_UNUSED,
+ 	RAMROD_CMD_ID_COMMON_FUNCTION_START,
+ 	RAMROD_CMD_ID_COMMON_FUNCTION_STOP,
++	RAMROD_CMD_ID_COMMON_FUNCTION_UPDATE,
+ 	RAMROD_CMD_ID_COMMON_CFC_DEL,
+ 	RAMROD_CMD_ID_COMMON_CFC_DEL_WB,
+ 	RAMROD_CMD_ID_COMMON_STAT_QUERY,
+ 	RAMROD_CMD_ID_COMMON_STOP_TRAFFIC,
+ 	RAMROD_CMD_ID_COMMON_START_TRAFFIC,
+ 	RAMROD_CMD_ID_COMMON_RESERVED1,
+-	RAMROD_CMD_ID_COMMON_RESERVED2,
+ 	MAX_COMMON_SPQE_CMD_ID
+ };
+ 
+@@ -4733,8 +4734,8 @@ enum event_ring_opcode {
+ 	EVENT_RING_OPCODE_MALICIOUS_VF,
+ 	EVENT_RING_OPCODE_FORWARD_SETUP,
+ 	EVENT_RING_OPCODE_RSS_UPDATE_RULES,
++	EVENT_RING_OPCODE_FUNCTION_UPDATE,
+ 	EVENT_RING_OPCODE_RESERVED1,
+-	EVENT_RING_OPCODE_RESERVED2,
+ 	EVENT_RING_OPCODE_SET_MAC,
+ 	EVENT_RING_OPCODE_CLASSIFICATION_RULES,
+ 	EVENT_RING_OPCODE_FILTERS_RULES,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 8e809c1..e9a6ffe 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2706,6 +2706,8 @@ static inline unsigned long bnx2x_get_q_flags(struct bnx2x *bp,
+ 	if (!fp->disable_tpa) {
+ 		__set_bit(BNX2X_Q_FLG_TPA, &flags);
+ 		__set_bit(BNX2X_Q_FLG_TPA_IPV6, &flags);
++		if (fp->mode == TPA_MODE_GRO)
++			__set_bit(BNX2X_Q_FLG_TPA_GRO, &flags);
+ 	}
+ 
+ 	if (leading) {
+@@ -10179,10 +10181,10 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 
+ 	/* Set TPA flags */
+ 	if (bp->disable_tpa) {
+-		bp->flags &= ~TPA_ENABLE_FLAG;
++		bp->flags &= ~(TPA_ENABLE_FLAG | GRO_ENABLE_FLAG);
+ 		bp->dev->features &= ~NETIF_F_LRO;
+ 	} else {
+-		bp->flags |= TPA_ENABLE_FLAG;
++		bp->flags |= (TPA_ENABLE_FLAG | GRO_ENABLE_FLAG);
+ 		bp->dev->features |= NETIF_F_LRO;
+ 	}
+ 
+@@ -10729,8 +10731,9 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_LRO |
+-		NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_HW_VLAN_TX;
++		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
++		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO |
++		NETIF_F_RXHASH | NETIF_F_HW_VLAN_TX;
+ 
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index ac15f74..adfae6b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -4431,9 +4431,10 @@ static void bnx2x_q_fill_init_rx_data(struct bnx2x_queue_sp_obj *o,
+ 				struct client_init_rx_data *rx_data,
+ 				unsigned long *flags)
+ {
+-		/* Rx data */
+ 	rx_data->tpa_en = test_bit(BNX2X_Q_FLG_TPA, flags) *
+ 				CLIENT_INIT_RX_DATA_TPA_EN_IPV4;
++	rx_data->tpa_en |= test_bit(BNX2X_Q_FLG_TPA_GRO, flags) *
++				CLIENT_INIT_RX_DATA_TPA_MODE;
+ 	rx_data->vmqueue_mode_en_flg = 0;
+ 
+ 	rx_data->cache_line_alignment_log_size =
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 71e039b..685d42e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -774,6 +774,7 @@ enum bnx2x_queue_cmd {
+ enum {
+ 	BNX2X_Q_FLG_TPA,
+ 	BNX2X_Q_FLG_TPA_IPV6,
++	BNX2X_Q_FLG_TPA_GRO,
+ 	BNX2X_Q_FLG_STATS,
+ 	BNX2X_Q_FLG_ZERO_STATS,
+ 	BNX2X_Q_FLG_ACTIVE,
 -- 
 1.7.7.2
