@@ -1,148 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Mon, 20 Feb 2012 15:03:49 -0800
-Message-ID: <1329779029.8318.21.camel@joe2Laptop>
-References: <1329763023-29580-1-git-send-email-mugunthanvnm@ti.com>
-	 <1329763023-29580-3-git-send-email-mugunthanvnm@ti.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] r8169: Rx FIFO overflow fixes.
+Date: Tue, 21 Feb 2012 00:22:19 +0100
+Message-ID: <20120220232219.GB13960@electric-eye.fr.zoreil.com>
+References: <4ED2A573.1020807@wolke7.net> <20111127231147.GA1784@electric-eye.fr.zoreil.com> <D95C09DB1A7E493E89FE5A0B3879CEB0@realtek.com.tw> <20111129105440.GA2410@electric-eye.fr.zoreil.com> <4ED538EC.4010509@wolke7.net> <20111201102000.GA14013@electric-eye.fr.zoreil.com> <4ED7E6AB.6050308@wolke7.net> <20111201222612.GA27998@electric-eye.fr.zoreil.com> <20111205063045.GA3103@electric-eye.fr.zoreil.com> <20120220023740.GA4433@burratino>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:43264 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752193Ab2BTXDu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 18:03:50 -0500
-In-Reply-To: <1329763023-29580-3-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: booster@wolke7.net, hayeswang <hayeswang@realtek.com>,
+	"'Eric Dumazet'" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"'nic_swsd'" <nic_swsd@realtek.com>, linux-kernel@vger.kernel.org,
+	"'Armin Kazmi'" <armin.kazmi@tu-dortmund.de>,
+	Lucas Stach <dev@lynxeye.de>
+To: Jonathan Nieder <jrnieder@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120220023740.GA4433@burratino>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-02-21 at 00:07 +0530, Mugunthan V N wrote:
-> This patch adds support for TI's CPSW driver.
-> 
-> The three port switch gigabit ethernet subsystem provides ethernet packet
-> communication and can be configured as an ethernet switch. Supports
-> 10/100/1000 Mbps.
+Jonathan Nieder <jrnieder@gmail.com> :
+[...]
+> What do you think?  Is there any way I can help?  (E.g., given rough
+> guidelines about what approach is acceptable I'd be happy to work with
+> Gerd to produce a tested patch that does (1) and (2) but not (3) for
+> 3.0.y.)
 
-some more notes.
+Few guidelines are needed: go for it.
 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-[]
-> +#define msg(level, type, format, ...)				\
-> +do {								\
-> +	if (netif_msg_##type(priv) && net_ratelimit())		\
-> +		dev_##level(priv->dev, format, ## __VA_ARGS__);	\
-> +} while (0)
+I would trust the manufacturer for (3) though.
 
-This hides an always used priv variable.
+If you still have time to help, you should really try to break davem-next
+branch. I won't claim it's bug-free but the IRQ / napi / Tx processing in
+the r8169 driver should now be easier to read and maintain.
 
-I suggest you expand this to multiple #defines like:
-
-#define cpsw_info(priv, type, format, ...)			\
-do {								\
-	if (netif_msg_##type(priv) && net_ratelimit())		\
-		dev_info(priv->dev, format, ##__VA_ARGS__);	\
-} while (0)
-
-and change the uses from
-	msg(info,...)
-to
-	cpsw_info(priv, type, format, ...)
-
-[]
-
-> +struct cpsw_priv {
-> +	spinlock_t			lock;
-> +	struct platform_device		*pdev;
-> +	struct net_device		*ndev;
-> +	struct resource			*cpsw_res;
-> +	struct resource			*cpsw_ss_res;
-> +	struct napi_struct		napi;
-> +#define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
-
-I still think embedded #defines in structs are hard to read.
-
-[]
-> +static int cpsw_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct cpsw_priv	*priv = napi_to_priv(napi);
-> +	int			num_tx, num_rx;
-> +
-> +	num_tx = cpdma_chan_process(priv->txch, 128);
-> +	num_rx = cpdma_chan_process(priv->rxch, budget);
-> +
-> +	if (num_rx || num_tx)
-> +		msg(dbg, intr, "poll %d rx, %d tx pkts\n", num_rx, num_tx);
-
-		cpsw_dbg(priv, intr, etc...)
-[]
-> +		*link = true;
-> +	} else {
-> +		mac_control = 0;
-> +		/* diable forwarding */
-
-disable tyop
-
-> +	if (IS_ERR(slave->phy)) {
-> +		msg(err, ifup, "phy %s not found on slave %d\n",
-> +		    slave->data->phy_id, slave->slave_num);
-> +		slave->phy = NULL;
-> +	} else {
-> +		printk(KERN_ERR "\nCPSW phy found : id is : 0x%x\n",
-> +			slave->phy->phy_id);
-
-Using leading newlines doesn't help much.
-I suggest dev_err.
-[]
-
-> +	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
-> +	if (!ndev) {
-> +		pr_err("cpsw: error allocating net_device\n");
-
-Add
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-before all #includes and remove the embedded prefix
-from all pr_<level> uses.
-
-> +	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
-> +		memcpy(priv->mac_addr, data->slave_data[0].mac_addr, ETH_ALEN);
-> +		printk(KERN_INFO"Detected MACID=%x:%x:%x:%x:%x:%x\n",
-> +			priv->mac_addr[0], priv->mac_addr[1],
-> +			priv->mac_addr[2], priv->mac_addr[3],
-> +			priv->mac_addr[4], priv->mac_addr[5]);
-
-Use printf extension %pM to print the MAC address
-
-		pr_info("Detected MAC=%pM\n", priv->mac_addr);
-
-> +	priv->slaves = kzalloc(sizeof(struct cpsw_slave) * data->slaves,
-> +			       GFP_KERNEL);
-> +	if (!priv->slaves) {
-> +		dev_err(priv->dev, "failed to allocate slave ports\n");
-
-No real need for this dev_err
-[]
-> +	memset(&dma_params, 0, sizeof(dma_params));
-> +	dma_params.dev			= &pdev->dev;
-> +	dma_params.dmaregs		= (void __iomem *)(((u32)priv->regs) +
-> +						data->cpdma_reg_ofs);
-> +	dma_params.rxthresh		= (void __iomem *)(((u32)priv->regs) +
-> +					data->cpdma_reg_ofs + CPDMA_RXTHRESH);
-> +	dma_params.rxfree		= (void __iomem *)(((u32)priv->regs) +
-> +					data->cpdma_reg_ofs + CPDMA_RXFREE);
-> +
-> +	dma_params.txhdp	= (void __iomem *)(((u32)priv->regs) +
-> +				data->cpdma_sram_ofs + CPDMA_TXHDP);
-> +	dma_params.rxhdp	= (void __iomem *)(((u32)priv->regs) +
-> +				data->cpdma_sram_ofs + CPDMA_RXHDP);
-> +	dma_params.txcp		= (void __iomem *)(((u32)priv->regs) +
-> +				data->cpdma_sram_ofs + CPDMA_TXCP);
-> +	dma_params.rxcp		= (void __iomem *)(((u32)priv->regs) +
-> +				data->cpdma_sram_ofs + CPDMA_RXCP);
-
-These might be more readable if you didn't try to align it
-or maybe add macros or inline functions like:
-
-#define cpsw_sram_addr(priv, data, offset)			\
-	(void __iomem *)(((u32)(priv)->regs) + (data)->cpdma_sram_ofs + offset)
+-- 
+Ueimor
