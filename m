@@ -1,44 +1,86 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
-Date: Mon, 20 Feb 2012 16:40:49 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1202201638330.13111-100000@netrider.rowland.org>
-References: <4F42B4E4.5090100@linutronix.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 1/2] netdev: driver: ethernet: add cpsw address
+ lookup engine support
+Date: Mon, 20 Feb 2012 14:37:32 -0800
+Message-ID: <1329777452.8318.5.camel@joe2Laptop>
+References: <1329763023-29580-1-git-send-email-mugunthanvnm@ti.com>
+	 <1329763023-29580-2-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F42B4E4.5090100-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:33102 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754442Ab2BTWhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Feb 2012 17:37:34 -0500
+In-Reply-To: <1329763023-29580-2-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Feb 2012, Sebastian Andrzej Siewior wrote:
+On Tue, 2012-02-21 at 00:07 +0530, Mugunthan V N wrote:
+> TI CPSW ethernet switch has a built-in address lookup engine.  This patch adds
+> the code necessary for programming this module.
 
-> > What's the issue here?
-> >
-> > If a driver calls usb_unlink_urb() while holding a lock, and the
-> > completion routine tries to acquire the same lock, then deadlock is
-> > possible.  The fact that usb_unlink_urb() is asynchronous is not a
-> > guarantee of anything; the HCD is allowed to call the completion
-> > handler from within usb_unlink_urb().
-> >
-> > It's true that the kerneldoc for usb_unlink_urb() says "This request is
-> > always asynchronous".  It might be a good idea to remove the word
-> > "always", because it seems to give people the wrong idea.
-> 
-> I see. So you approve that patch and suggest to remove the "always"
-> wording plus adding something like "the hcd might call complete routine
-> during unlink" ?
+just some style notes.
 
-Well, I haven't read the patch and don't really understand what issue 
-it tries to solve.  But if that issue is the one I talked about above 
-then yes, it makes sense.  And changing the documentation as you 
-suggest would be a good thing to do in any case.
+> diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+[]
+> +struct ale_control_info {
+> +	const char	*name;
+> +	int		offset, port_offset;
+> +	int		shift, port_shift;
+> +	int		bits;
+> +};
+> +
+> +#define CTRL_GLOBAL(name, bit)		{#name, ALE_CONTROL, 0, bit, 0, 1}
+> +#define CTRL_UNK(name, shift, bits)	{#name, ALE_UNKNOWNVLAN, 0, shift, \
+> +						0, bits}
+> +#define CTRL_PORTCTL(name, start, bits)	{#name, ALE_PORTCTL, 4, start, 0, bits}
 
-Alan Stern
+named initializers might be more readable,
+embedding the index might be too.
+[]
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +struct cpsw_ale *cpsw_ale_create(struct cpsw_ale_params *params)
+> +{
+> +	struct cpsw_ale *ale;
+> +	int ret;
+> +
+> +	ret = -ENOMEM;
+> +	ale = kzalloc(sizeof(*ale), GFP_KERNEL);
+> +	if (WARN_ON(!ale))
+> +		return NULL;
+
+The WARN_ON is unnecessary.  alloc failures get a dump_stack.
+
+> diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+[]
+> +struct cpsw_ale {
+> +	struct cpsw_ale_params	params;
+> +	struct timer_list	timer;
+> +	unsigned long		ageout;
+> +	struct device_attribute ale_control_attr;
+> +#define control_attr_to_ale(attr)	\
+> +	container_of(attr, struct cpsw_ale, ale_control_attr);
+> +	struct device_attribute ale_table_attr;
+> +#define table_attr_to_ale(attr)		\
+> +	container_of(attr, struct cpsw_ale, ale_table_attr);
+> +};
+
+Embedding the #defines in a struct makes it difficult to read.
+Perhaps this is simpler:
+
+struct cpsw_ale {
+	struct cpsw_ale_params	params;
+	struct timer_list	timer;
+	unsigned long		ageout;
+	struct device_attribute ale_control_attr;
+	struct device_attribute ale_table_attr;
+};
+
+#define control_attr_to_ale(attr)	\
+	container_of(attr, struct cpsw_ale, ale_control_attr);
+#define table_attr_to_ale(attr)		\
+	container_of(attr, struct cpsw_ale, ale_table_attr);
