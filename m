@@ -1,82 +1,216 @@
-From: Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
-Date: Mon, 20 Feb 2012 17:01:48 +0100
-Message-ID: <20120220160148.GA7910@linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Javier Martinez Canillas <javier@collabora.co.uk>
+Subject: [PATCH 01/10] af_unix: Documentation on multicast unix sockets
+Date: Mon, 20 Feb 2012 16:57:26 +0100
+Message-ID: <1329753455-1106-2-git-send-email-javier@collabora.co.uk>
+References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Alban Crequy <alban.crequy@collabora.co.uk>,
+	Bart Cerneels <bart.cerneels@collabora.co.uk>,
+	Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-|kernel BUG at kernel/rtmutex.c:724!
-|[<c029599c>] (rt_spin_lock_slowlock+0x108/0x2bc) from [<c01c2330>] (de=
-fer_bh+0x1c/0xb4)
-|[<c01c2330>] (defer_bh+0x1c/0xb4) from [<c01c3afc>] (rx_complete+0x14c=
-/0x194)
-|[<c01c3afc>] (rx_complete+0x14c/0x194) from [<c01cac88>] (usb_hcd_give=
-back_urb+0xa0/0xf0)
-|[<c01cac88>] (usb_hcd_giveback_urb+0xa0/0xf0) from [<c01e1ff4>] (musb_=
-giveback+0x34/0x40)
-|[<c01e1ff4>] (musb_giveback+0x34/0x40) from [<c01e2b1c>] (musb_advance=
-_schedule+0xb4/0x1c0)
-|[<c01e2b1c>] (musb_advance_schedule+0xb4/0x1c0) from [<c01e2ca8>] (mus=
-b_cleanup_urb.isra.9+0x80/0x8c)
-|[<c01e2ca8>] (musb_cleanup_urb.isra.9+0x80/0x8c) from [<c01e2ed0>] (mu=
-sb_urb_dequeue+0xec/0x108)
-|[<c01e2ed0>] (musb_urb_dequeue+0xec/0x108) from [<c01cbb90>] (unlink1+=
-0xbc/0xcc)
-|[<c01cbb90>] (unlink1+0xbc/0xcc) from [<c01cc2ec>] (usb_hcd_unlink_urb=
-+0x54/0xa8)
-|[<c01cc2ec>] (usb_hcd_unlink_urb+0x54/0xa8) from [<c01c2a84>] (unlink_=
-urbs.isra.17+0x2c/0x58)
-|[<c01c2a84>] (unlink_urbs.isra.17+0x2c/0x58) from [<c01c2b44>] (usbnet=
-_terminate_urbs+0x94/0x10c)
-|[<c01c2b44>] (usbnet_terminate_urbs+0x94/0x10c) from [<c01c2d68>] (usb=
-net_stop+0x100/0x15c)
-|[<c01c2d68>] (usbnet_stop+0x100/0x15c) from [<c020f718>] (__dev_close_=
-many+0x94/0xc8)
+From: Alban Crequy <alban.crequy@collabora.co.uk>
 
-defer_bh() takes the lok which is hold during unlink_urbs(). The safe
-walk suggest that the skb will be removed from the list and this is don=
-e
-by defer_bh() so it seems to be okay to drop the lock here.
-
-Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Reported-by: An=C3=ADbal Almeida Pinto <anibal.pinto-K2AfXPJZHq/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Reviewed-by: Ian Molton <ian.molton@collabora.co.uk>
 ---
- drivers/net/usb/usbnet.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ .../networking/multicast-unix-sockets.txt          |  180 ++++++++++++++++++++
+ 1 files changed, 180 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/multicast-unix-sockets.txt
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index fae0fbd..81b96e3 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -589,6 +589,7 @@ static int unlink_urbs (struct usbnet *dev, struct =
-sk_buff_head *q)
- 		entry =3D (struct skb_data *) skb->cb;
- 		urb =3D entry->urb;
-=20
-+		spin_unlock_irqrestore(&q->lock, flags);
- 		// during some PM-driven resume scenarios,
- 		// these (async) unlinks complete immediately
- 		retval =3D usb_unlink_urb (urb);
-@@ -596,6 +597,7 @@ static int unlink_urbs (struct usbnet *dev, struct =
-sk_buff_head *q)
- 			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
- 		else
- 			count++;
-+		spin_lock_irqsave(&q->lock, flags);
- 	}
- 	spin_unlock_irqrestore (&q->lock, flags);
- 	return count;
---=20
-1.7.9
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/networking/multicast-unix-sockets.txt b/Documentation/networking/multicast-unix-sockets.txt
+new file mode 100644
+index 0000000..ec9a19c
+--- /dev/null
++++ b/Documentation/networking/multicast-unix-sockets.txt
+@@ -0,0 +1,180 @@
++Multicast Unix sockets
++======================
++
++Multicast is implemented on SOCK_DGRAM and SOCK_SEQPACKET Unix sockets.
++
++An userspace application can create a multicast group with:
++
++  struct unix_mreq mreq = {0,};
++  mreq.address.sun_family = AF_UNIX;
++  mreq.address.sun_path[0] = '\0';
++  strcpy(mreq.address.sun_path + 1, "socket-address");
++
++  sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
++  ret = setsockopt(sockfd, SOL_UNIX, UNIX_CREATE_GROUP, &mreq, sizeof(mreq));
++
++This allocates a struct unix_mcast_group, which is reference counted and exists
++as long as the socket who created it exists or the group has at least one
++member.
++
++SOCK_DGRAM sockets can join a multicast group with:
++
++  ret = setsockopt(sockfd, SOL_UNIX, UNIX_JOIN_GROUP, &mreq, sizeof(mreq));
++
++This allocates a struct unix_mcast, which holds the settings of the membership,
++mainly whether loopback is enabled. A socket can be a member of several
++multicast groups.
++
++Since SOCK_SEQPACKET sockets are connection-oriented the semantics are
++different. A client cannot join a group but it can only connect and the
++multicast accept socket is used to allow the peer to join the group with:
++
++  ret = setsockopt(groupfd, SOL_UNIX, UNIX_CREATE_GROUP, &val, vallen);
++  ret = listen(groupfd, 10);
++  connfd = accept(sockfd, NULL, 0);
++  ret = setsockopt(connfd, SOL_UNIX, UNIX_ACCEPT_GROUP, &mreq, sizeof(mreq));
++
++The socket is part of the multicast group until it is released, shutdown with
++RCV_SHUTDOWN or it leaves explicitely the group:
++
++  ret = setsockopt(sockfd, SOL_UNIX, UNIX_LEAVE_GROUP, &mreq, sizeof(mreq));
++
++Struct unix_mcast nodes are linked in two RCU lists:
++- (struct unix_sock)->mcast_subscriptions
++- (struct unix_mcast_group)->mcast_members
++
++              unix_mcast_group  unix_mcast_group
++                      |                 |
++                      v                 v
++unix_sock  ---->  unix_mcast  ----> unix_mcast
++                      |
++                      v
++unix_sock  ---->  unix_mcast
++                      |
++                      v
++unix_sock  ---->  unix_mcast
++
++
++SOCK_DGRAM semantics
++====================
++
++          G          The socket which created the group
++       /  |  \
++     P1  P2  P3      The member sockets
++
++Messages sent to the group are received by all members except the sender itself
++unless the sending socket has UNIX_MREQ_LOOPBACK set.
++
++Non-members can also send to the group socket G and the message will be
++broadcast to the group members, however socket G does not receive messages sent
++to the group, via it, itself.
++
++
++SOCK_SEQPACKET semantics
++========================
++
++When a connection is performed on a SOCK_SEQPACKET multicast socket, a new
++socket is created and its file descriptor is received by accept().
++
++          L          The listening socket
++       /  |  \
++     A1  A2  A3      The accepted sockets
++      |   |   |
++     C1  C2  C3      The connected sockets
++
++Messages sent on the C1 socket are received by:
++- C1 itself if UNIX_MREQ_LOOPBACK is set.
++- The peer socket A1 if UNIX_MREQ_SEND_TO_PEER is set.
++- The other members of the multicast group C2 and C3.
++
++Only members can send to the group in this case.
++
++
++Atomic delivery and ordering
++============================
++
++Each message sent is delivered atomically to either none of the recipients or
++all the recipients, even with interruptions and errors.
++
++Locking is used in order to keep the ordering consistent on all recipients. We
++want to avoid the following scenario. Two emitters A and B, and 2 recipients, C
++and D:
++
++           C    D
++A -------->|    |    Step 1: A's message is delivered to C
++B -------->|    |    Step 2: B's message is delivered to C
++B ---------|--->|    Step 3: B's message is delivered to D
++A ---------|--->|    Step 4: A's message is delivered to D
++
++Result: - C received (A, B)
++        - D received (B, A)
++
++Although A and B had a list of recipients (C, D) in the same order, C and D
++received the messages in a different order. To avoid this scenario, we need a
++locking mechanism while the messages are being delivered with skb_queue_tail().
++
++Solution 1:
++The easiest implementation would be to use a global spinlock on the group, but
++it creates an avoidable contention, especially when there are two independent
++streams set up with socket filters; e.g. if A sends messages received only by
++C, and B sends messages received only by D.
++
++Solution 2:
++Fine-grained locking could be implemented with a spinlock on each recipient.
++Before delivering the message to the recipients, the sender takes a spinlock on
++each recipient at the same time.
++
++Taking several spinlocks on the same struct can be dangerous and leads to
++deadlocks. This is prevented by sorting the list of sockets by memory address
++and taking the spinlocks in that order. The ordered list of recipients is
++computed on demand when a message is sent and the list is cached for
++performance. When the group membership changes, the generation of the
++membership is incremented and the ordered recipient list is invalidated.
++
++With this solution, the number of spinlocks taken simultaneously can be
++arbitrary big. Whilst it works, it breaks the lockdep mechanism.
++
++Solution 3:
++The current implementation is similar to solution 2 but with a limit on the
++number of spinlocks taken simultaneously (8), so lockdep works fine. A hash
++function and bit array with n=8 specifies which spinlocks to take.  Contention
++on independent streams can still happen but it is less likely.
++
++
++Flow control
++============
++
++When a socket's receiving queue is full, the default behavior is to block
++senders (or to return -EAGAIN on non-blocking sockets). The socket can also
++join a multicast group with the flag UNIX_MREQ_DROP_WHEN_FULL. In this case,
++messages sent to the group will not be delivered to that socket when its
++receiving queue is full.
++
++Messages are still delivered atomically to all members who don't have the flag
++UNIX_MREQ_DROP_WHEN_FULL. If send() returns -EAGAIN, nobody received the
++message. If send() blocks because of one member, the other members don't
++receive the message until all sockets (except those with
++UNIX_MREQ_DROP_WHEN_FULL set) can receive at the same time.
++
++poll/epoll/select on POLLOUT events have a consistent behavior; they block if
++at least one member of the multicast group without UNIX_MREQ_DROP_WHEN_FULL has
++a full receiving queue.
++
++
++Multicast socket reference counting
++===================================
++
++A poller for POLLOUT events can block for any member of the group. The poller
++can use the wait queue "peer_wait" of any member. So it is important that Unix
++sockets are not released before all pollers exit. This is achieved by:
++
++- Incrementing the reference counter of a socket when it joins a multicast
++  group.
++- Decrementing it when the group is destroyed, that is when all
++  sockets keeping a reference on the group released their reference on the
++  group.
++
++struct unix_mcast_group keeps track of both current members and previous
++members. When a socket leaves a group, it is removed from the members list and
++put in the dead members list. This is done in order to take advantage of RCU
++lists, which reduces lock contention.
+-- 
+1.7.7.6
