@@ -1,59 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Mon, 20 Feb 2012 00:46:31 -0500 (EST)
-Message-ID: <20120220.004631.1816710786293972830.davem@davemloft.net>
-References: <20120220161545.0078a76d8050c56955427455@canb.auug.org.au>
+Subject: Re: [RFC V3 PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Mon, 20 Feb 2012 00:54:51 -0500 (EST)
+Message-ID: <20120220.005451.548532173290909435.davem@davemloft.net>
+References: <20120216235218.6381.51539.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, danny.kukawka@bisect.de
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120220161545.0078a76d8050c56955427455@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gregory.v.rose@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42787 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932Ab2BTFyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 00:54:53 -0500
+In-Reply-To: <20120216235218.6381.51539.stgit@gitlad.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 20 Feb 2012 16:15:45 +1100
+From: Greg Rose <gregory.v.rose@intel.com>
+Date: Thu, 16 Feb 2012 15:52:18 -0800
 
-> Hi all,
-> 
-> After merging the final tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-> 
-> drivers/net/ethernet/xilinx/ll_temac_main.c: In function 'temac_set_mac_address':
-> drivers/net/ethernet/xilinx/ll_temac_main.c:332:3: error: 'dev' undeclared (first use in this function)
-> 
-> Caused by commit 5a5e7c364486 ("xilinx ll_temac: use eth_hw_addr_random()
-> instead of random_ether_addr()").
-> 
-> I have reverted that commit for today.
+> +	for (h = 0; h < NETDEV_HASHENTRIES; h++) {
+> +		head = &net->dev_index_head[h];
+> +		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
 
-I've fixed it as follows:
-
---------------------
-ll_temac: Fix build.
-
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index eb28541..d21591a 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -329,7 +329,7 @@ static int temac_set_mac_address(struct net_device *ndev, void *address)
- 	if (!is_valid_ether_addr(ndev->dev_addr))
- 		eth_hw_addr_random(ndev);
- 	else
--		dev->addr_assign_type &= ~NET_ADDR_RANDOM;
-+		ndev->addr_assign_type &= ~NET_ADDR_RANDOM;
- 
- 	/* set up unicast MAC address filter set its mac address */
- 	mutex_lock(&lp->indirect_mutex);
--- 
-1.7.7.6
+list_for_each_entry_rcu(dev, &net->dev_base_head, dev_list)
