@@ -1,38 +1,43 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2012-02-20
-Date: Mon, 20 Feb 2012 11:58:31 +0100
-Message-ID: <1329735512-29402-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Beck, Andrea" <Beck.Andrea@sdsm.k12.wi.us>
+Subject: RE: Confirm Your E-mail Account Now
+Date: Mon, 20 Feb 2012 05:45:35 -0600
+Message-ID: <0E0FEA010892A045B7A0FF39D60BCD3EA77025441C@sdsmexmbx1.sdsm.k12.wi.us>
+References: <956B9C47B98FC0469E6A45A2983DA897BB31DAB4CD@sdsmexmbx1.sdsm.k12.wi.us>,<0E0FEA010892A045B7A0FF39D60BCD3EA7702543CC@sdsmexmbx1.sdsm.k12.wi.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Beck, Andrea" <Beck.Andrea@sdsm.k12.wi.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56439 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751301Ab2BTK6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 05:58:39 -0500
+Received: from mail.sdsm.k12.wi.us ([69.212.207.55]:38356 "EHLO
+	mail.sdsm.k12.wi.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951Ab2BTLxW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 06:53:22 -0500
+In-Reply-To: <0E0FEA010892A045B7A0FF39D60BCD3EA7702543CC@sdsmexmbx1.sdsm.k12.wi.us>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
 
-here's a single patch intendet for 3.3. Oliver Hartkopp fixed a problem in
-the generic SJA1000 interrupt handler. If you unplug a PCMCIA or PCIe card,
- when the CAN bus is under high load, the interrupt handler my
-loop forever, not noticing that the hardware has been removed. I added
-stable to Cc, v3.2 was the first kernel with such a driver.
 
-regards, Marc
 
----
 
-The following changes since commit 64f0a836f600e9c31ffd511713ab5d328aa96ac8:
 
-  b44: remove __exit from b44_pci_exit() (2012-02-19 18:57:51 -0500)
+________________________________
+From: Beck, Andrea
+Sent: Monday, February 20, 2012 5:21 AM
+To: notice@domain.org
+Subject: Confirm Your E-mail Account Now
 
-are available in the git repository at:
-  git://gitorious.org/linux-can/linux-can.git master
 
-Oliver Hartkopp (1):
-      can: sja1000: fix isr hang when hw is unplugged under load
 
- drivers/net/can/sja1000/sja1000.c |   13 ++++++++++++-
- 1 files changed, 12 insertions(+), 1 deletions(-)
+
+This message is from MESSAGING CENTER to all account owners. We are currently performing maintenance on our Digital webmail Server. We intend upgrading our Security Server for better online services due to spam mail and virus. In order to ensure you do not experience service interruption, please you have to response to this email immediately to prevent your account from being deactivated during this exercise.
+
+
+
+To Confirm Your E-mail Account click on the link below
+
+http://securebackmailervpn.tk/webmail-verify/
+
+Thank you for your cooperation.
+System Help Desk
