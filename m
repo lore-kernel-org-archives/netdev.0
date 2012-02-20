@@ -1,27 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC V3 PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Mon, 20 Feb 2012 00:54:51 -0500 (EST)
-Message-ID: <20120220.005451.548532173290909435.davem@davemloft.net>
-References: <20120216235218.6381.51539.stgit@gitlad.jf.intel.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net] mlx4_core: Do not map BF area if capability is 0
+Date: Mon, 20 Feb 2012 09:38:52 +0200
+Message-ID: <4F41F88C.3070607@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gregory.v.rose@intel.com
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<jackm@dev.mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932Ab2BTFyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 00:54:53 -0500
-In-Reply-To: <20120216235218.6381.51539.stgit@gitlad.jf.intel.com>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:42758 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751501Ab2BTHi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 02:38:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
-Date: Thu, 16 Feb 2012 15:52:18 -0800
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-> +	for (h = 0; h < NETDEV_HASHENTRIES; h++) {
-> +		head = &net->dev_index_head[h];
-> +		hlist_for_each_entry_rcu(dev, node, head, index_hlist) {
+BF can be disabled in some cases, the capability field, bf_reg_size is set
+to zero in this case. Don't map the BF area in this case, it would cause 
+failures.  In addition, leaving the BF area unmapped
+also alerts the ETH driver to not use BF.
 
-list_for_each_entry_rcu(dev, &net->dev_base_head, dev_list)
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 678558b..9c5fbad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -986,6 +986,9 @@ static int map_bf_area(struct mlx4_dev *dev)
+ 	resource_size_t bf_len;
+ 	int err = 0;
+ 
++	if (!dev->caps.bf_reg_size)
++		return -ENXIO;
++
+ 	bf_start = pci_resource_start(dev->pdev, 2) +
+ 			(dev->caps.num_uars << PAGE_SHIFT);
+ 	bf_len = pci_resource_len(dev->pdev, 2) -
+-- 
+1.5.4.3
