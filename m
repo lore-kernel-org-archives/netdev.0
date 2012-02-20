@@ -1,46 +1,73 @@
-From: "Alex,Shi" <alex.shi@intel.com>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Mon, 20 Feb 2012 09:44:13 +0800
-Message-ID: <1329702253.14084.22.camel@debian>
-References: <1329466694.12669.2976.camel@debian>
-	 <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120217.133327.1178765872497293871.davem@davemloft.net>
+From: Scott Talbert <talbert@techie.net>
+Subject: [PATCH] cdc_ether/zaurus: Move Harmony 900 from cdc_ether to
+ zaurus
+Date: Sun, 19 Feb 2012 20:35:29 -0500 (EST)
+Message-ID: <alpine.LRH.2.02.1202192018500.16782@bear.techie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120217.133327.1178765872497293871.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.techie.net ([205.134.185.202]:59051 "EHLO bear.techie.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751327Ab2BTCH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Feb 2012 21:07:57 -0500
+Received: from bear.techie.net (localhost.localdomain [127.0.0.1])
+	by bear.techie.net (8.13.8/8.13.8) with ESMTP id q1K1ZThn016842
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 19 Feb 2012 20:35:29 -0500
+Received: from localhost (talbert@localhost)
+	by bear.techie.net (8.13.8/8.13.8/Submit) with ESMTP id q1K1ZTCB016839
+	for <netdev@vger.kernel.org>; Sun, 19 Feb 2012 20:35:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-17 at 13:33 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 17 Feb 2012 10:50:39 +0100
->=20
-> > Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 16:18 +0800, Alex,Shi a =C3=
-=A9crit :
-> >> The tcp_stream loop back performance has about 10% drop on the
-> >> commitment on our core2 2 sockets server. This commit has 2
-> >> parents(7505afe28, 5983fe), but both of them have no regression. S=
-o
-> >> guess the impact just happened when this 2 parents joint. That bey=
-ond
-> >> our capability to dig it more.
-> >>=20
-> >> Any ideas?=20
-> >=20
-> > Most probably the more accurate truesize determination is responsib=
-le of
-> > this tcp regression, since some prior assumptions might be wrong.
-> >=20
-> > Want to give more information on the workload ?
-> > Is it a 32 or 64 bit kernel ?
+Hello,
 
-It is 64 bit kernel. Currently we only care 64bit.=20
+The Logitech Harmony 900 remote control appears to use the pseudo-MDLM 
+driver, rather than the standard one.  This patch simply moves the device 
+so that it gets picked up by the correct driver.
 
-Will try to bring more statistic after our lab recovered.=20
->=20
-> And let's start CC:'ing netdev too.
+Signed-off-by: Scott Talbert <talbert@techie.net>
+---
+  drivers/net/usb/cdc_ether.c |    7 +++++++
+  drivers/net/usb/zaurus.c    |    7 +++++++
+  2 files changed, 14 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index c924ea2..13919dd 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -570,6 +570,13 @@ static const struct usb_device_id	products [] = {
+  	.driver_info = (unsigned long)&wwan_info,
+  },
+
++/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info		= 0,
++},
++
+  /*
+   * WHITELIST!!!
+   *
+diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
+index 1a2234c..246b3bb 100644
+--- a/drivers/net/usb/zaurus.c
++++ b/drivers/net/usb/zaurus.c
+@@ -349,6 +349,13 @@ static const struct usb_device_id	products [] = {
+  	ZAURUS_MASTER_INTERFACE,
+  	.driver_info = OLYMPUS_MXL_INFO,
+  },
++
++/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &bogus_mdlm_info,
++},
+  	{ },		// END
+  };
+  MODULE_DEVICE_TABLE(usb, products);
+-- 
+1.7.5.4
