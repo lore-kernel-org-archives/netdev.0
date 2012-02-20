@@ -1,8 +1,7 @@
 From: Javier Martinez Canillas <javier@collabora.co.uk>
-Subject: [PATCH 10/10] af_unix: Add a peer BPF for multicast Unix sockets
-Date: Mon, 20 Feb 2012 17:33:49 +0100
-Message-ID: <1329755629-10644-7-git-send-email-javier@collabora.co.uk>
-References: <1329755629-10644-1-git-send-email-javier@collabora.co.uk>
+Subject: [PATCH 04/10] af_unix: create, join and leave multicast groups with setsockopt
+Date: Mon, 20 Feb 2012 17:33:43 +0100
+Message-ID: <1329755629-10644-1-git-send-email-javier@collabora.co.uk>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Lennart Poettering <lennart@poettering.net>,
 	Kay Sievers <kay.sievers@vrfy.org>,
@@ -13,335 +12,579 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329755629-10644-1-git-send-email-javier@collabora.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Multicast Unix domain sockets has an UNIX_ATTACH_FILTER setsockopt() operation
-to attach a Berkeley Packet Filter to a remote peer.
+From: Alban Crequy <alban.crequy@collabora.co.uk>
 
-This remote peer socket filter has to be a separate filter than the local one.
-So the peer cannot replace it.
+Multicast is implemented on SOCK_DGRAM and SOCK_SEQPACKET unix sockets.
 
-If local and peer filters are attached, both should be executed. First the peer
-BPF and then the local one. Filters can have state and this shouldn't be
-accesible to local filters.
+An userspace application can create a multicast group with:
+  struct unix_mreq mreq;
+  mreq.address.sun_family = AF_UNIX;
+  mreq.address.sun_path[0] = '\0';
+  strcpy(mreq.address.sun_path + 1, "socket-address");
+  mreq.flags = 0;
 
+  sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_CREATE_GROUP, &mreq, sizeof(mreq));
+
+Then a multicast group can be joined and left with:
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_JOIN_GROUP, &mreq, sizeof(mreq));
+  ret = setsockopt(sockfd, SOL_UNIX, UNIX_LEAVE_GROUP, &mreq, sizeof(mreq));
+
+A socket can be a member of several multicast group.
+
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Signed-off-by: Ian Molton <ian.molton@collabora.co.uk>
 Signed-off-by: Javier Martinez Canillas <javier@collabora.co.uk>
 ---
- include/linux/filter.h |    4 ++
- include/net/af_unix.h  |    1 +
- include/net/sock.h     |    4 ++
- net/core/filter.c      |  118 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/unix/af_unix.c     |   70 +++++++++++++++++++++++++---
- 5 files changed, 189 insertions(+), 8 deletions(-)
+ include/net/af_unix.h |   76 +++++++++++
+ net/unix/Kconfig      |    9 ++
+ net/unix/af_unix.c    |  339 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 422 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8eeb205..1af808a 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -155,6 +155,10 @@ extern unsigned int sk_run_filter(const struct sk_buff *skb,
- 				  const struct sock_filter *filter);
- extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- extern int sk_detach_filter(struct sock *sk);
-+#ifdef CONFIG_UNIX_MULTICAST
-+extern int sk_attach_peer_filter(struct sock_fprog *fprog, struct sock *sk);
-+extern int sk_detach_peer_filter(struct sock *sk);
-+#endif
- extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
- 
- #ifdef CONFIG_BPF_JIT
 diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 80e793d..307852c 100644
+index 5a4e29b..c543f76 100644
 --- a/include/net/af_unix.h
 +++ b/include/net/af_unix.h
-@@ -49,6 +49,7 @@ struct unix_skb_parms {
- #define UNIX_JOIN_GROUP		2
- #define UNIX_LEAVE_GROUP	3
- #define UNIX_ACCEPT_GROUP	4
-+#define UNIX_ATTACH_FILTER	5
+@@ -44,6 +44,60 @@ struct unix_skb_parms {
+ 				spin_lock_nested(&unix_sk(s)->lock, \
+ 				SINGLE_DEPTH_NESTING)
  
- /* Flags on unix_mreq */
++/* UNIX socket options */
++#define UNIX_CREATE_GROUP	1
++#define UNIX_JOIN_GROUP		2
++#define UNIX_LEAVE_GROUP	3
++
++/* Flags on unix_mreq */
++
++/* On UNIX_JOIN_GROUP: the socket will receive its own messages */
++#define UNIX_MREQ_LOOPBACK		0x01
++
++/* ON UNIX_JOIN_GROUP: the messages will also be received by the peer */
++#define UNIX_MREQ_SEND_TO_PEER		0x02
++
++/* ON UNIX_JOIN_GROUP: just drop the message instead of blocking if the
++ * receiving queue is full */
++#define UNIX_MREQ_DROP_WHEN_FULL	0x04
++
++struct unix_mreq {
++	struct sockaddr_un	address;
++	unsigned int		flags;
++};
++
++struct unix_mcast_group {
++	/* RCU list of (struct unix_mcast)->member_node
++	 * Messages sent to the multicast group are delivered to this list of
++	 * members */
++	struct hlist_head	mcast_members;
++
++	/* RCU list of (struct unix_mcast)->member_dead_node
++	 * When the group dies, previous members' reference counters must be
++	 * decremented */
++	struct hlist_head	mcast_dead_members;
++
++	/* RCU list of (struct sock_set)->list */
++	struct hlist_head	mcast_members_lists;
++
++	atomic_t		mcast_members_cnt;
++
++	/* The generation is incremented each time a peer joins or
++	 * leaves the group. It is used to invalidate old lists
++	 * struct sock_set */
++	atomic_t		mcast_membership_generation;
++
++	/* Locks to guarantee causal order in deliveries */
++#define MCAST_LOCK_CLASS_COUNT	8
++	spinlock_t		lock[MCAST_LOCK_CLASS_COUNT];
++
++	/* The group is referenced by:
++	 * - the socket who created the multicast group
++	 * - the accepted sockets (SOCK_SEQPACKET only)
++	 * - the current members of the group */
++	atomic_t		refcnt;
++};
++
+ /* The AF_UNIX socket */
+ struct unix_sock {
+ 	/* WARNING: sk has to be the first member */
+@@ -59,9 +113,31 @@ struct unix_sock {
+ 	spinlock_t		lock;
+ 	unsigned int		gc_candidate : 1;
+ 	unsigned int		gc_maybe_cycle : 1;
++	unsigned int		mcast_send_to_peer : 1;
++	unsigned int		mcast_drop_when_peer_full : 1;
+ 	unsigned char		recursion_level;
++	struct unix_mcast_group	*mcast_group;
++
++	/* RCU List of (struct unix_mcast)->subscription_node
++	 * A socket can subscribe to several multicast group
++	 */
++	struct hlist_head	mcast_subscriptions;
++
+ 	struct socket_wq	peer_wq;
+ };
++
++struct unix_mcast {
++	struct unix_sock	*member;
++	struct unix_mcast_group	*group;
++	unsigned int		flags;
++	struct hlist_node	subscription_node;
++	/* A subscription cannot be both alive and dead but we cannot use the
++	 * same field because RCU readers run lockless. member_dead_node is
++	 * not read by lockless RCU readers. */
++	struct hlist_node	member_node;
++	struct hlist_node	member_dead_node;
++};
++
+ #define unix_sk(__sk) ((struct unix_sock *)__sk)
  
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 91c1c8b..e502107 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -237,6 +237,7 @@ struct cg_proto;
-   *	@sk_sndtimeo: %SO_SNDTIMEO setting
-   *	@sk_rxhash: flow hash received from netif layer
-   *	@sk_filter: socket filtering instructions
-+  *     @sk_peer_filter: peer socket filtering instructions
-   *	@sk_protinfo: private area, net family specific, when not using slab
-   *	@sk_timer: sock cleanup timer
-   *	@sk_stamp: time stamp of last packet received
-@@ -303,6 +304,9 @@ struct sock {
- 	int			sk_rcvbuf;
+ #define peer_wait peer_wq.wait
+diff --git a/net/unix/Kconfig b/net/unix/Kconfig
+index 8b31ab8..289d854 100644
+--- a/net/unix/Kconfig
++++ b/net/unix/Kconfig
+@@ -19,6 +19,15 @@ config UNIX
  
- 	struct sk_filter __rcu	*sk_filter;
+ 	  Say Y unless you know what you are doing.
+ 
++config UNIX_MULTICAST
++       depends on UNIX && EXPERIMENTAL
++       bool "Multicast over Unix domain sockets"
++       ---help---
++         If you say Y here, you will include support for multicasting on Unix
++         domain sockets. Support is available for SOCK_DGRAM and
++         SOCK_SEQPACKET. Certain types of delivery synchronisation are
++         provided, see Documentation/networking/multicast-unix-sockets.txt
++
+ config UNIX_DIAG
+ 	tristate "UNIX: socket monitoring interface"
+ 	depends on UNIX
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 3537f20..6f8fe57 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -119,6 +119,9 @@ struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
+ EXPORT_SYMBOL_GPL(unix_socket_table);
+ DEFINE_SPINLOCK(unix_table_lock);
+ EXPORT_SYMBOL_GPL(unix_table_lock);
 +#ifdef CONFIG_UNIX_MULTICAST
-+	struct sk_filter __rcu	*sk_peer_filter;
++static DEFINE_SPINLOCK(unix_multicast_lock);
 +#endif
- 	struct socket_wq __rcu	*sk_wq;
+ static atomic_long_t unix_nr_socks;
  
- #ifdef CONFIG_NET_DMA
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5dea452..5dd0890 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -587,6 +587,122 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
+ #define unix_sockets_unbound	(&unix_socket_table[UNIX_HASH_SIZE])
+@@ -374,6 +377,28 @@ static void unix_sock_destructor(struct sock *sk)
+ #endif
  }
- EXPORT_SYMBOL(sk_filter_release_rcu);
  
 +#ifdef CONFIG_UNIX_MULTICAST
-+
-+int __sk_attach_filter(struct sock_fprog *fprog, struct sock *sk, bool local)
++static void
++destroy_mcast_group(struct unix_mcast_group *group)
 +{
-+	struct sk_filter *fp, *old_fp;
-+	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
-+	int err;
++	struct unix_mcast *node;
++	struct hlist_node *pos;
++	struct hlist_node *pos_tmp;
 +
-+	/* Make sure new filter is there and in the right amounts. */
-+	if (fprog->filter == NULL)
++	BUG_ON(atomic_read(&group->refcnt) != 0);
++	BUG_ON(!hlist_empty(&group->mcast_members));
++
++	hlist_for_each_entry_safe(node, pos, pos_tmp,
++				  &group->mcast_dead_members,
++				  member_dead_node) {
++		hlist_del_rcu(&node->member_dead_node);
++		sock_put(&node->member->sk);
++		kfree(node);
++	}
++	kfree(group);
++}
++#endif
++
+ static int unix_release_sock(struct sock *sk, int embrion)
+ {
+ 	struct unix_sock *u = unix_sk(sk);
+@@ -382,6 +407,11 @@ static int unix_release_sock(struct sock *sk, int embrion)
+ 	struct sock *skpair;
+ 	struct sk_buff *skb;
+ 	int state;
++#ifdef CONFIG_UNIX_MULTICAST
++	struct unix_mcast *node;
++	struct hlist_node *pos;
++	struct hlist_node *pos_tmp;
++#endif
+ 
+ 	unix_remove_socket(sk);
+ 
+@@ -395,6 +425,23 @@ static int unix_release_sock(struct sock *sk, int embrion)
+ 	u->mnt	     = NULL;
+ 	state = sk->sk_state;
+ 	sk->sk_state = TCP_CLOSE;
++#ifdef CONFIG_UNIX_MULTICAST
++	spin_lock(&unix_multicast_lock);
++	hlist_for_each_entry_safe(node, pos, pos_tmp, &u->mcast_subscriptions,
++				  subscription_node) {
++		hlist_del_rcu(&node->member_node);
++		hlist_del_rcu(&node->subscription_node);
++		atomic_dec(&node->group->mcast_members_cnt);
++		atomic_inc(&node->group->mcast_membership_generation);
++		hlist_add_head_rcu(&node->member_dead_node,
++				   &node->group->mcast_dead_members);
++		if (atomic_dec_and_test(&node->group->refcnt))
++			destroy_mcast_group(node->group);
++	}
++	if (u->mcast_group && atomic_dec_and_test(&u->mcast_group->refcnt))
++		destroy_mcast_group(u->mcast_group);
++	spin_unlock(&unix_multicast_lock);
++#endif
+ 	unix_state_unlock(sk);
+ 
+ 	wake_up_interruptible_all(&u->peer_wait);
+@@ -636,6 +683,9 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
+ 	atomic_long_set(&u->inflight, 0);
+ 	INIT_LIST_HEAD(&u->link);
+ 	mutex_init(&u->readlock); /* single task reading lock */
++#ifdef CONFIG_UNIX_MULTICAST
++	INIT_HLIST_HEAD(&u->mcast_subscriptions);
++#endif
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(unix_sockets_unbound, sk);
+ out:
+@@ -1056,6 +1106,10 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	struct sock *newsk = NULL;
+ 	struct sock *other = NULL;
+ 	struct sk_buff *skb = NULL;
++#ifdef CONFIG_UNIX_MULTICAST
++	struct unix_mcast *node;
++	struct hlist_node *pos;
++#endif
+ 	unsigned hash;
+ 	int st;
+ 	int err;
+@@ -1083,6 +1137,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	newsk = unix_create1(sock_net(sk), NULL);
+ 	if (newsk == NULL)
+ 		goto out;
++	newu = unix_sk(newsk);
+ 
+ 	/* Allocate skb for sending to listening sock */
+ 	skb = sock_wmalloc(newsk, 1, 0, GFP_KERNEL);
+@@ -1095,6 +1150,8 @@ restart:
+ 	if (!other)
+ 		goto out;
+ 
++	otheru = unix_sk(other);
++
+ 	/* Latch state of peer */
+ 	unix_state_lock(other);
+ 
+@@ -1166,6 +1223,18 @@ restart:
+ 		goto out_unlock;
+ 	}
+ 
++#ifdef CONFIG_UNIX_MULTICAST
++	/* Multicast sockets */
++	hlist_for_each_entry_rcu(node, pos, &u->mcast_subscriptions,
++				 subscription_node) {
++		if (node->group == otheru->mcast_group) {
++			atomic_inc(&otheru->mcast_group->refcnt);
++			newu->mcast_group = otheru->mcast_group;
++			break;
++		}
++	}
++#endif
++
+ 	/* The way is open! Fastly set all the necessary fields... */
+ 
+ 	sock_hold(sk);
+@@ -1173,9 +1242,7 @@ restart:
+ 	newsk->sk_state		= TCP_ESTABLISHED;
+ 	newsk->sk_type		= sk->sk_type;
+ 	init_peercred(newsk);
+-	newu = unix_sk(newsk);
+ 	RCU_INIT_POINTER(newsk->sk_wq, &newu->peer_wq);
+-	otheru = unix_sk(other);
+ 
+ 	/* copy address information from listening to new sock*/
+ 	if (otheru->addr) {
+@@ -1585,10 +1652,278 @@ out:
+ }
+ 
+ 
++#ifdef CONFIG_UNIX_MULTICAST
++static int unix_mc_create(struct socket *sock, struct unix_mreq *mreq)
++{
++	struct sock *other;
++	int err;
++	unsigned hash;
++	int namelen;
++	struct unix_mcast_group *mcast_group;
++	int i;
++
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
 +		return -EINVAL;
 +
-+	fp = sock_kmalloc(sk, fsize+sizeof(*fp), GFP_KERNEL);
-+	if (!fp)
-+		return -ENOMEM;
-+	if (copy_from_user(fp->insns, fprog->filter, fsize)) {
-+		sock_kfree_s(sk, fp, fsize+sizeof(*fp));
-+		return -EFAULT;
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (other) {
++		sock_put(other);
++		return -EADDRINUSE;
 +	}
 +
-+	atomic_set(&fp->refcnt, 1);
-+	fp->len = fprog->len;
-+	fp->bpf_func = sk_run_filter;
++	mcast_group = kmalloc(sizeof(struct unix_mcast_group), GFP_KERNEL);
++	if (!mcast_group)
++		return -ENOBUFS;
 +
-+	err = sk_chk_filter(fp->insns, fp->len);
-+	if (err) {
-+		sk_filter_uncharge(sk, fp);
++	INIT_HLIST_HEAD(&mcast_group->mcast_members);
++	INIT_HLIST_HEAD(&mcast_group->mcast_dead_members);
++	INIT_HLIST_HEAD(&mcast_group->mcast_members_lists);
++	atomic_set(&mcast_group->mcast_members_cnt, 0);
++	atomic_set(&mcast_group->mcast_membership_generation, 1);
++	atomic_set(&mcast_group->refcnt, 1);
++	for (i = 0 ; i < MCAST_LOCK_CLASS_COUNT ; i++) {
++		spin_lock_init(&mcast_group->lock[i]);
++		lockdep_set_subclass(&mcast_group->lock[i], i);
++	}
++
++	err = sock->ops->bind(sock,
++		(struct sockaddr *)&mreq->address,
++		sizeof(struct sockaddr_un));
++	if (err < 0) {
++		kfree(mcast_group);
 +		return err;
 +	}
 +
-+	bpf_jit_compile(fp);
++	unix_state_lock(sock->sk);
++	unix_sk(sock->sk)->mcast_group = mcast_group;
++	unix_state_unlock(sock->sk);
 +
-+	if (local) {
-+		old_fp = rcu_dereference_protected(sk->sk_filter,
-+						   sock_owned_by_user(sk));
-+		rcu_assign_pointer(sk->sk_filter, fp);
-+	} else {
-+		old_fp = rcu_dereference_protected(sk->sk_peer_filter,
-+						   sock_owned_by_user(sk));
-+		rcu_assign_pointer(sk->sk_peer_filter, fp);
-+	}
-+
-+	if (old_fp)
-+		sk_filter_uncharge(sk, old_fp);
 +	return 0;
 +}
 +
-+/**
-+ *	sk_attach_filter - attach a socket filter
-+ *	@fprog: the filter program
-+ *	@sk: the socket to use
-+ *
-+ * Attach the user's filter code. We first run some sanity checks on
-+ * it to make sure it does not explode on us later. If an error
-+ * occurs or there is insufficient memory for the filter a negative
-+ * errno code is returned. On success the return is zero.
-+ */
-+int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
++
++static int unix_mc_join(struct socket *sock, struct unix_mreq *mreq)
 +{
-+	return __sk_attach_filter(fprog, sk, true);
-+}
-+EXPORT_SYMBOL_GPL(sk_attach_filter);
++	struct unix_sock *u = unix_sk(sock->sk);
++	struct sock *other, *peer;
++	struct unix_mcast_group *group;
++	struct unix_mcast *node;
++	int err;
++	unsigned hash;
++	int namelen;
 +
-+int __sk_detach_filter(struct sock *sk, bool local)
-+{
-+	int ret = -ENOENT;
-+	struct sk_filter *filter;
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
++		return -EINVAL;
 +
-+	if (local)
-+		filter = rcu_dereference_protected(sk->sk_filter,
-+						   sock_owned_by_user(sk));
-+	else
-+		filter = rcu_dereference_protected(sk->sk_peer_filter,
-+						   sock_owned_by_user(sk));
++	/* sockets which represent a group are not allowed to join another
++	 * group */
++	if (u->mcast_group)
++		return -EINVAL;
 +
-+	if (filter) {
-+		if (local)
-+			RCU_INIT_POINTER(sk->sk_filter, NULL);
-+		else
-+			RCU_INIT_POINTER(sk->sk_peer_filter, NULL);
-+		sk_filter_uncharge(sk, filter);
-+		ret = 0;
-+	}
-+	return ret;
-+}
-+
-+int sk_detach_filter(struct sock *sk)
-+{
-+	return __sk_detach_filter(sk, true);
-+}
-+EXPORT_SYMBOL_GPL(sk_detach_filter);
-+
-+/**
-+ *	sk_attach_peer_filter - attach a remote socket filter
-+ *	@fprog: the filter program
-+ *	@sk: the socket to use
-+ *
-+ * Attach the user's filter code. We first run some sanity checks on
-+ * it to make sure it does not explode on us later. If an error
-+ * occurs or there is insufficient memory for the filter a negative
-+ * errno code is returned. On success the return is zero.
-+ */
-+int sk_attach_peer_filter(struct sock_fprog *fprog, struct sock *sk)
-+{
-+	return __sk_attach_filter(fprog, sk, false);
-+}
-+EXPORT_SYMBOL_GPL(sk_attach_peer_filter);
-+
-+int sk_detach_peer_filter(struct sock *sk)
-+{
-+	return __sk_detach_filter(sk, false);
-+}
-+EXPORT_SYMBOL_GPL(sk_detach_peer_filter);
-+
-+#else
-+
- /**
-  *	sk_attach_filter - attach a socket filter
-  *	@fprog: the filter program
-@@ -652,3 +768,5 @@ int sk_detach_filter(struct sock *sk)
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(sk_detach_filter);
-+
-+#endif
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 330c0a2..9439206 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -121,6 +121,7 @@ DEFINE_SPINLOCK(unix_table_lock);
- EXPORT_SYMBOL_GPL(unix_table_lock);
- #ifdef CONFIG_UNIX_MULTICAST
- #include <linux/sort.h>
-+#include <linux/filter.h>
- 
- static DEFINE_SPINLOCK(unix_multicast_lock);
- #endif
-@@ -1767,8 +1768,10 @@ static int unix_dgram_sendmsg_multicast(struct sock_iocb *siocb,
- restart:
- 	for (i = others_set->offset ; i < others_set->cnt ; i++) {
- 		struct sock *cur = others_set->items[i].s;
--		unsigned int pkt_len;
-+		unsigned int pkt_len = 0xffffffff;
-+		unsigned int pkt_peer_len = 0xffffffff;
- 		struct sk_filter *filter;
-+		struct sk_filter *peer_filter;
- 
- 		if (!others_set->items[i].to_deliver)
- 			continue;
-@@ -1777,14 +1780,15 @@ restart:
- 		BUG_ON(cur == NULL);
- 
- 		rcu_read_lock();
--		filter = rcu_dereference(cur->sk_filter);
--		if (filter)
--			pkt_len = sk_run_filter(skb, filter->insns);
--		else
--			pkt_len = 0xffffffff;
-+
-+		peer_filter = rcu_dereference(cur->sk_peer_filter);
-+
-+		if (peer_filter)
-+			pkt_peer_len = sk_run_filter(skb, peer_filter->insns);
-+
- 		rcu_read_unlock();
- 
--		if (pkt_len == 0) {
-+		if (!pkt_peer_len) {
- 			others_set->items[i].to_deliver = 0;
- 			continue;
- 		}
-@@ -1795,13 +1799,33 @@ restart:
- 			err = -ENOMEM;
- 			goto out_free;
- 		}
-+
-+		if (peer_filter)
-+			pskb_trim(others_set->items[i].skb, pkt_peer_len);
-+
-+		rcu_read_lock();
-+
-+		filter = rcu_dereference(cur->sk_filter);
-+
-+		if (filter)
-+			pkt_len = sk_run_filter(others_set->items[i].skb,
-+						filter->insns);
-+		rcu_read_unlock();
-+
-+		if (!pkt_len) {
-+			others_set->items[i].to_deliver = 0;
-+			continue;
-+		}
-+
-+		if (filter)
-+			pskb_trim(others_set->items[i].skb, pkt_len);
-+
- 		skb_set_owner_w(others_set->items[i].skb, sk);
- 		err = unix_scm_to_skb(siocb->scm, others_set->items[i].skb,
- 				      true);
- 		if (err < 0)
- 			goto out_free;
- 		unix_get_secdata(siocb->scm, others_set->items[i].skb);
--		pskb_trim(others_set->items[i].skb, pkt_len);
- 	}
- 
- 	for (i = others_set->offset ; i < others_set->cnt ; i++) {
-@@ -2443,6 +2467,7 @@ static int unix_setsockopt(struct socket *sock, int level, int optname,
- #ifdef CONFIG_UNIX_MULTICAST
- 	struct unix_mreq mreq;
- 	int err = 0;
-+	struct sock *other = NULL;
- 
- 	if (level != SOL_UNIX)
- 		return -ENOPROTOOPT;
-@@ -2458,6 +2483,35 @@ static int unix_setsockopt(struct socket *sock, int level, int optname,
- 			return -EFAULT;
- 		break;
- 
-+	case UNIX_ATTACH_FILTER:
-+		err = -EINVAL;
-+		if (sock->sk->sk_type != SOCK_SEQPACKET)
-+			return err;
-+
-+		if (!unix_sk(sock->sk)->mcast_group)
-+			return err;
-+
-+		other = unix_peer_get(sock->sk);
-+		if (!other)
-+			return err;
-+
-+		BUG_ON(unix_sk(other)->mcast_group);
-+
-+		if (optlen == sizeof(struct sock_fprog)) {
-+			struct sock_fprog fprog;
-+
-+			err = -EFAULT;
-+			if (copy_from_user(&fprog, optval, sizeof(fprog))) {
-+				sock_put(other);
-+				return err;
-+			}
-+
-+			err = sk_attach_peer_filter(&fprog, other);
-+		}
-+		sock_put(other);
++	err = unix_autobind(sock);
++	if (err < 0)
 +		return err;
++
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (!other)
++		return -EINVAL;
++
++	group = unix_sk(other)->mcast_group;
++
++	if (!group) {
++		err = -EADDRINUSE;
++		goto sock_put_out;
++	}
++
++	node = kmalloc(sizeof(struct unix_mcast), GFP_KERNEL);
++	if (!node) {
++		err = -ENOMEM;
++		goto sock_put_out;
++	}
++	node->member = u;
++	node->group = group;
++	node->flags = mreq->flags;
++
++	if (sock->sk->sk_type == SOCK_SEQPACKET) {
++		peer = unix_peer_get(sock->sk);
++		if (peer) {
++			atomic_inc(&group->refcnt);
++			unix_sk(peer)->mcast_group = group;
++			sock_put(peer);
++		}
++	}
++
++	unix_state_lock(sock->sk);
++	unix_sk(sock->sk)->mcast_send_to_peer =
++		!!(mreq->flags & UNIX_MREQ_SEND_TO_PEER);
++	unix_sk(sock->sk)->mcast_drop_when_peer_full =
++		!!(mreq->flags & UNIX_MREQ_DROP_WHEN_FULL);
++	unix_state_unlock(sock->sk);
++
++	/* Keep a reference */
++	sock_hold(sock->sk);
++	atomic_inc(&group->refcnt);
++
++	spin_lock(&unix_multicast_lock);
++	hlist_add_head_rcu(&node->member_node,
++			   &group->mcast_members);
++	hlist_add_head_rcu(&node->subscription_node, &u->mcast_subscriptions);
++	atomic_inc(&group->mcast_members_cnt);
++	atomic_inc(&group->mcast_membership_generation);
++	spin_unlock(&unix_multicast_lock);
++
++	return 0;
++
++sock_put_out:
++	sock_put(other);
++	return err;
++}
++
++
++static int unix_mc_leave(struct socket *sock, struct unix_mreq *mreq)
++{
++	struct unix_sock *u = unix_sk(sock->sk);
++	struct sock *other;
++	struct unix_mcast_group *group;
++	struct unix_mcast *node;
++	struct hlist_node *pos;
++	int err;
++	unsigned hash;
++	int namelen;
++
++	if (mreq->address.sun_family != AF_UNIX ||
++	    mreq->address.sun_path[0] != '\0')
++		return -EINVAL;
++
++	err = unix_mkname(&mreq->address, sizeof(struct sockaddr_un), &hash);
++	if (err < 0)
++		return err;
++
++	namelen = err;
++	other = unix_find_other(sock_net(sock->sk), &mreq->address, namelen,
++				sock->type, hash, &err);
++	if (!other)
++		return -EINVAL;
++
++	group = unix_sk(other)->mcast_group;
++
++	if (!group) {
++		err = -EINVAL;
++		goto sock_put_out;
++	}
++
++	spin_lock(&unix_multicast_lock);
++
++	hlist_for_each_entry_rcu(node, pos, &u->mcast_subscriptions,
++			     subscription_node) {
++		if (node->group == group)
++			break;
++	}
++
++	if (!pos) {
++		spin_unlock(&unix_multicast_lock);
++		err = -EINVAL;
++		goto sock_put_out;
++	}
++
++	hlist_del_rcu(&node->member_node);
++	hlist_del_rcu(&node->subscription_node);
++	atomic_dec(&group->mcast_members_cnt);
++	atomic_inc(&group->mcast_membership_generation);
++	hlist_add_head_rcu(&node->member_dead_node,
++			   &group->mcast_dead_members);
++	spin_unlock(&unix_multicast_lock);
++
++	if (sock->sk->sk_type == SOCK_SEQPACKET) {
++		struct sock *peer = unix_peer_get(sock->sk);
++		if (peer) {
++			unix_sk(peer)->mcast_group = NULL;
++			atomic_dec(&group->refcnt);
++			sock_put(peer);
++		}
++	}
++
++	synchronize_rcu();
++
++	if (atomic_dec_and_test(&group->refcnt)) {
++		spin_lock(&unix_multicast_lock);
++		destroy_mcast_group(group);
++		spin_unlock(&unix_multicast_lock);
++	}
++
++	err = 0;
++
++	/* If the receiving queue of that socket was full, some writers on the
++	 * multicast group may be blocked */
++	wake_up_interruptible_sync_poll(&u->peer_wait,
++					POLLOUT | POLLWRNORM | POLLWRBAND);
++
++sock_put_out:
++	sock_put(other);
++	return err;
++}
++#endif
++
+ static int unix_setsockopt(struct socket *sock, int level, int optname,
+ 			   char __user *optval, unsigned int optlen)
+ {
++#ifdef CONFIG_UNIX_MULTICAST
++	struct unix_mreq mreq;
++	int err = 0;
++
++	if (level != SOL_UNIX)
++		return -ENOPROTOOPT;
++
++	switch (optname) {
++	case UNIX_CREATE_GROUP:
++	case UNIX_JOIN_GROUP:
++	case UNIX_LEAVE_GROUP:
++		if (optlen < sizeof(struct unix_mreq))
++			return -EINVAL;
++		if (copy_from_user(&mreq, optval, sizeof(struct unix_mreq)))
++			return -EFAULT;
 +		break;
 +
- 	default:
- 		break;
- 	}
++	default:
++		break;
++	}
++
++	switch (optname) {
++	case UNIX_CREATE_GROUP:
++		err = unix_mc_create(sock, &mreq);
++		break;
++
++	case UNIX_JOIN_GROUP:
++		err = unix_mc_join(sock, &mreq);
++		break;
++
++	case UNIX_LEAVE_GROUP:
++		err = unix_mc_leave(sock, &mreq);
++		break;
++
++	default:
++		err = -ENOPROTOOPT;
++		break;
++	}
++
++	return err;
++#else
+ 	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ 
 -- 
 1.7.7.6
