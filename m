@@ -1,62 +1,77 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] Cleaning up code formatting errors in net/wireless
- pointed out by checkpatch.
-Date: Mon, 20 Feb 2012 11:45:22 +0100
-Message-ID: <1329734722.3458.7.camel@jlt3.sipsolutions.net>
-References: <1329492603-3972-1-git-send-email-lfelipe@profusion.mobi>
-	 <1329504344.584.18.camel@joe2Laptop>
-	 <20120217110602.2c4e762a@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Luis Felipe Strano Moraes <lfelipe-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120217110602.2c4e762a-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] can: sja1000: fix isr hang when hw is unplugged under load
+Date: Mon, 20 Feb 2012 11:58:32 +0100
+Message-ID: <1329735512-29402-2-git-send-email-mkl@pengutronix.de>
+References: <1329735512-29402-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56443 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255Ab2BTK6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 05:58:40 -0500
+In-Reply-To: <1329735512-29402-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-02-17 at 11:06 -0800, Stephen Hemminger wrote:
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-> > I'd try to make the statement expression visually
-> > distinct.  Something like:
-> > 
-> > 	wait_event(rdev->dev_wait,
-> > 		   ({
-> > 			   int __count;
-> > 			   mutex_lock(&rdev->devlist_mtx);
-> > 			   __count = rdev->opencount;
-> > 			   mutex_unlock(&rdev->devlist_mtx);
-> > 			   __count == 0;
-> > 		   })
-> > 		  );
-> > 
-> 
-> I prefer to see this done as an inline function
-> 
-> wait_event(rdev->dev_wait, is_foo_ready(rdev))
-> 
-> Also, in this case wrapping a condition with a mutex really is
-> meaningless because the state is longer protected out side the
-> protected region; in other words the mutex here is bogus and
-> provides no additional protection.
+In the case of hotplug enabled devices (PCMCIA/PCIeC) the removal of the
+hardware can cause an infinite loop in the common sja1000 isr.
 
-I don't really care about all the changes suggested here -- feel free to
-make them. One thing I'd like to point out though is that generally the
-mutex might serve a purpose even here. In this specific case, it
-currently doesn't, but I still think it's safer to keep it in case
-somebody modifies other code. The case where it matters is when the
-modification of the "opencount" variable isn't the last thing that
-happens in a locked section, but you here want or need to wait for
-everything happening in that section to be done.
+Use the already retrieved status register to indicate a possible hardware
+removal and double check by reading the mode register in sja1000_is_absent.
 
-johannes
+Cc: stable@kernel.org [3.2+]
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/sja1000/sja1000.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 04a3f1b..192b0d1 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -95,11 +95,16 @@ static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
+ 	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
+ }
+ 
++static int sja1000_is_absent(struct sja1000_priv *priv)
++{
++	return (priv->read_reg(priv, REG_MOD) == 0xFF);
++}
++
+ static int sja1000_probe_chip(struct net_device *dev)
+ {
+ 	struct sja1000_priv *priv = netdev_priv(dev);
+ 
+-	if (priv->reg_base && (priv->read_reg(priv, 0) == 0xFF)) {
++	if (priv->reg_base && sja1000_is_absent(priv)) {
+ 		printk(KERN_INFO "%s: probing @0x%lX failed\n",
+ 		       DRV_NAME, dev->base_addr);
+ 		return 0;
+@@ -493,6 +498,9 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+ 	while ((isrc = priv->read_reg(priv, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
+ 		n++;
+ 		status = priv->read_reg(priv, REG_SR);
++		/* check for absent controller due to hw unplug */
++		if (status == 0xFF && sja1000_is_absent(priv))
++			return IRQ_NONE;
+ 
+ 		if (isrc & IRQ_WUI)
+ 			dev_warn(dev->dev.parent, "wakeup interrupt\n");
+@@ -509,6 +517,9 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+ 			while (status & SR_RBS) {
+ 				sja1000_rx(dev);
+ 				status = priv->read_reg(priv, REG_SR);
++				/* check for absent controller */
++				if (status == 0xFF && sja1000_is_absent(priv))
++					return IRQ_NONE;
+ 			}
+ 		}
+ 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
+-- 
+1.7.4.1
