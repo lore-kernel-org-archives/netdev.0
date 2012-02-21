@@ -1,128 +1,41 @@
-From: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
-Subject: RE: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
- "-c" xmitted, and "-c" was exceeded for flood ping
-Date: Tue, 21 Feb 2012 08:08:46 -0600
-Message-ID: <7D3B6706FA74174B8C1AC24710890745136FEF3DE6@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
-References: <4F438C54.6070100@linux-ipv6.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless 2012-02-20
+Date: Tue, 21 Feb 2012 10:14:36 -0500
+Message-ID: <20120221151435.GA19354@tuxdriver.com>
+References: <20120220203740.GD6740@tuxdriver.com>
+ <20120220.192324.498901675497866305.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'Linus Torvalds'" <torvalds@linux-foundation.org>
-To: "'YOSHIFUJI Hideaki'" <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ihemail1.lucent.com ([135.245.0.33]:57492 "EHLO
-	ihemail1.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647Ab2BUOJH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 09:09:07 -0500
-In-Reply-To: <4F438C54.6070100@linux-ipv6.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120220.192324.498901675497866305.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I tried "ping -f -c 1000 -s 1472 -l 20 135.112.91.184 -W 5" and it seems "-W 5" is not working;  it might be disabled by "-f".
+On Mon, Feb 20, 2012 at 07:23:24PM -0500, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Mon, 20 Feb 2012 15:37:40 -0500
+> 
+> > Here is another batch of fixes intended for 3.3.  Most of the fixes
+> > this time are for Bluetooth.
+> 
+> Pulled, but please read the bluetooth changes more carefully in the
+> future, there were a lot of coding style errors introduced this
+> time around.
 
-I will submit a change using a new feature "-ww".  I agree it is probably best not to try to redefine an existing option.
+I pinged Johan about this, and he tells me that he spoke to Marcel
+as well.  They were a bit unsure about the issue.  Is your concern
+primarily about some excessive tabbing for indentation of parameters
+and such?
 
-Yoshfuji- I am giving a talk to our major Customer Thursday and they are asking about this.  Can I say that we will be adding a new command line option to Linux ping that will give them the feature they need?
-
-Thanks, Joe
-
------Original Message-----
-From: YOSHIFUJI Hideaki [mailto:yoshfuji@linux-ipv6.org]
-Sent: Tuesday, February 21, 2012 7:22 AM
-To: Cloutier, Joseph (Joseph)
-Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'; YOSHIFUJI Hideaki
-Subject: Re: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts
-after "-c" xmitted, and "-c" was exceeded for flood ping
-
-
-Joseph,
-
-Cloutier, Joseph (Joseph) wrote:
-> Hideaki, can you give me any status on this request?  Was it rejected, is it pending?  Thanks, Joe Cloutier
-
-I asked you to tell me if -W is okay for your purpose.
-
-If -W is not suitable, please introduce new option
-(maybe -ww?).
-
-Regards,
-
---yoshfuji
-
-> -----Original Message-----
-> From: Cloutier, Joseph (Joseph)
-> Sent: Tuesday, January 10, 2012 1:01 PM
-> To: 'YOSHIFUJI Hideaki'
-> Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'
-> Subject: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
-> "-c" xmitted, and "-c" was exceeded for flood ping
->
->
-> From: Joseph Cloutier<jcloutier@alcatel-lucent.com>
->
-> 2 changes to ping&  ping6.  Only ping_common.c affected.
->    1- changed "-w deadline" to start deadline after "-c" pings have been transmitted, instead of from start of run.
->    2- fixed bug where>  "-c" pings are sent in flood ping mode when "-w deadline" option is also used.
-> Reason:
->    Linux flood ping is an invaluable tool to finding duplex bugs, fiber problems, NE config problems-  especially
->    when used to trouble shoot wireless system backhaul problems.  ANY dropped pings are red flag indicators.
->    Current ping problem is that it terminates sometimes when outstanding pings are in transit, giving FALSE red
->    flags.  Change "-w deadline" to start after last "-c" transmitted ping allows cleanup of stragglers.  Second fix is
->    when "-f" option is running, "-c" is not rigorously checked when generating pings  A more rigorous check was
->    added.
->
-> Signed-off-by: Joseph Cloutier<jcloutier@alcatel-lucent.com>
->
-> ---
-> --- iputils-s20101006/ping_common.c.orig        2012-01-10 10:37:40.399719858 -0500
-> +++ iputils-s20101006/ping_common.c     2012-01-10 11:33:37.084662882 -0500
-> @@ -523,16 +523,6 @@ void setup(int icmp_sock)
->
->          gettimeofday(&start_time, NULL);
->
-> -       if (deadline) {
-> -               struct itimerval it;
-> -
-> -               it.it_interval.tv_sec = 0;
-> -               it.it_interval.tv_usec = 0;
-> -               it.it_value.tv_sec = deadline;
-> -               it.it_value.tv_usec = 0;
-> -               setitimer(ITIMER_REAL,&it, NULL);
-> -       }
-> -
->          if (isatty(STDOUT_FILENO)) {
->                  struct winsize w;
->
-> @@ -553,6 +543,7 @@ void main_loop(int icmp_sock, __u8 *pack
->          int cc;
->          int next;
->          int polling;
-> +       int sig_deadline = 0;
->
->          iov.iov_base = (char *)packet;
->
-> @@ -567,9 +558,22 @@ void main_loop(int icmp_sock, __u8 *pack
->                  /* Check for and do special actions. */
->                  if (status_snapshot)
->                          status();
-> +               if((npackets == ntransmitted)&&  deadline&&
-> +                       (sig_deadline == 0)){
-> +                       sig_deadline++;
-> +                       struct itimerval it;
-> +
-> +                       it.it_interval.tv_sec = 0;
-> +                       it.it_interval.tv_usec = 0;
-> +                       it.it_value.tv_sec = deadline;
-> +                       it.it_value.tv_usec = 0;
-> +                       setitimer(ITIMER_REAL,&it, NULL);
-> +               }
->
->                  /* Send probes scheduled to this time. */
->                  do {
-> +                       if(npackets == ntransmitted)
-> +                               break;
->                          next = pinger();
->                          next = schedule_exit(next);
->                  } while (next<= 0);
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
