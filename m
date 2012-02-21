@@ -1,52 +1,51 @@
-From: Michel Machado <michel@digirati.com.br>
-Subject: [PATCH 1/1] neighbour: Fixed race condition at tbl->nht
-Date: Tue, 21 Feb 2012 16:04:13 -0500
-Message-ID: <1329858253.2563.51.camel@Thor>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Tue, 21 Feb 2012 21:28:17 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F95D79@ORSMSX106.amr.corp.intel.com>
+References: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
+	<20120221.161630.1122203779408129070.davem@davemloft.net>
+ <20120221.162125.1533105883101299190.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta115.f1.k8.com.br ([187.73.32.187]:49048 "EHLO
-	mta115.f1.k8.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022Ab2BUV1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:27:51 -0500
+Received: from mga14.intel.com ([143.182.124.37]:31174 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753033Ab2BUV2T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 16:28:19 -0500
+In-Reply-To: <20120221.162125.1533105883101299190.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the fixed race condition happens:
-
-1. While function neigh_periodic_work scans the neighbor hash table
-pointed by field tbl->nht, it unlocks and locks tbl->lock between
-buckets in order to call cond_resched.
-
-2. Assume that function neigh_periodic_work calls cond_resched, that is,
-the lock tbl->lock is available, and function neigh_hash_grow runs.
-
-3. Once function neigh_hash_grow finishes, and RCU calls
-neigh_hash_free_rcu, the original struct neigh_hash_table that function
-neigh_periodic_work was using doesn't exist anymore.
-
-4. Once back at neigh_periodic_work, whenever the old struct
-neigh_hash_table is accessed, things can go badly.
-
-Signed-off-by: Michel Machado <michel@digirati.com.br>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index e287346..2a83914 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -826,6 +826,8 @@ next_elt:
- 		write_unlock_bh(&tbl->lock);
- 		cond_resched();
- 		write_lock_bh(&tbl->lock);
-+		nht = rcu_dereference_protected(tbl->nht,
-+						lockdep_is_held(&tbl->lock));
- 	}
- 	/* Cycle through all hash buckets every base_reachable_time/2 ticks.
- 	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIERhdmlkIE1pbGxlcg0KPiBTZW50OiBUdWVzZGF5LCBGZWJydWFyeSAyMSwgMjAxMiAx
+OjIxIFBNDQo+IFRvOiBSb3NlLCBHcmVnb3J5IFYNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gcnRuZXRsaW5rOiBGaXggcHJvYmxlbSB3aXRoIGJ1
+ZmZlciBhbGxvY2F0aW9uDQo+IA0KPiBGcm9tOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9m
+dC5uZXQ+DQo+IERhdGU6IFR1ZSwgMjEgRmViIDIwMTIgMTY6MTY6MzAgLTA1MDAgKEVTVCkNCj4g
+DQo+ID4NCj4gPiBHcmVnLCB3aGVyZSBpcyB0aGUgY29kZSB0aGF0IGd1YXJkcyB0aGUgYWN0dWFs
+IGR1bXBpbmcgb2YgdGhlIFZGDQo+ID4gaW5mb3JtYXRpb24gYmFzZWQgdXBvbiB0aGUgZXh0IG1h
+c2s/DQo+ID4NCj4gPiBJIG9ubHkgc2VlIHRoZSBleHQgbWFzayBjb250cm9sbGluZyB0aGUgc2l6
+aW5nIG9mIHRoZSBTS0IuICBXaGF0IGdvb2QNCj4gPiBpcyB0aGF0IGlmIHdlIHN0aWxsIGR1bXAg
+dGhlIFZGcz8NCj4gDQo+IEFjdHVhbGx5LCBpdCdzIGV2ZW4gd29yc2UsIHRoaXMgdGhpbmcgZG9l
+c24ndCBldmVuIGNvbXBpbGUgYmVjYXVzZQ0KPiB5b3UgaGF2ZW4ndCB1cGRhdGVkIHRoZSBhY3R1
+YWwgaW1wbGVtZW50YXRpb24gb2YgcnRubF92ZmluZm9fc2l6ZSgpDQo+IHRvIHRha2UgdGhlIG5l
+dyBtYXNrIGFyZ3VtZW50Lg0KPiANCj4gWW91IGRpZG4ndCBldmVuIGNvbXBpbGUgdGVzdCB0aGlz
+LCBhcmUgeW91IGZ1Y2tpbmcga2lkZGluZyBtZT8NCj4gDQo+IG5ldC9jb3JlL3J0bmV0bGluay5j
+OiBJbiBmdW5jdGlvbiDKvWlmX25sbXNnX3NpemXKvDoNCj4gbmV0L2NvcmUvcnRuZXRsaW5rLmM6
+Nzg5Ojk6IGVycm9yOiB0b28gbWFueSBhcmd1bWVudHMgdG8gZnVuY3Rpb24NCj4gyr1ydG5sX3Zm
+aW5mb19zaXplyrwNCj4gbmV0L2NvcmUvcnRuZXRsaW5rLmM6NzI2OjE5OiBub3RlOiBkZWNsYXJl
+ZCBoZXJlDQo+IG1ha2VbMV06ICoqKiBbbmV0L2NvcmUvcnRuZXRsaW5rLm9dIEVycm9yIDENCj4g
+bWFrZTogKioqIFtuZXQvY29yZS9ydG5ldGxpbmsub10gRXJyb3IgMg0KDQpJIGNvbXBpbGUgdGVz
+dGVkIGl0IG9uIG15IGRldmVsb3BtZW50IG1hY2hpbmUgYW5kIHRoZW4gZXhwb3J0ZWQgaXQgdG8g
+YSBtYWNoaW5lIHRoYXQgY2FuIGNvbm5lY3QgdG8gdGhlIGludGVybmV0IGFuZCBtYWlsIHBhdGNo
+ZXMuICBJIG11c3QgaGF2ZSBzY3Jld2VkIHNvbWV0aGluZyB1cCBhdCB0aGF0IHBvaW50Lg0KDQpM
+ZXQgbWUgc2VlIHdoYXQgdGhlIGhlY2sgSSBkaWQuDQoNCi0gR3JlZw0KDQo+IATOuM6Key5uzpcr
+wonCt8Kf75+FwonCrcKGKyXCis6bbHp3bcKFzrliwp3Ou8KnwrLOts68cs6Iwpt6d8Ktdc67zrLC
+ns6oXm7Ch3LKvc+GwqZ6zpsawoHOu2jCmcKozrjCrc6qJsq8z4ge75+FR8Krwp3OuWjvn4UDKA0K
+PiDCrc65wprCjsKKzq3KvGoiwp3PihrOhhttwqfvn4fOv8KBzrrOtHrOic6uwpbCis6wz45mwqPK
+vMK3aMKawojCp37CiG3Cmg0K
