@@ -1,50 +1,39 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net] macvlan: Disable LRO on lowerdev; warn if it's turned
- back on
-Date: Tue, 21 Feb 2012 12:01:26 -0800
-Message-ID: <4F43F816.6070908@intel.com>
-References: <1329851622.2689.6.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/6] datagram: Factor out sk queue referencing
+Date: Tue, 21 Feb 2012 15:04:14 -0500 (EST)
+Message-ID: <20120221.150414.1927921232746819822.davem@davemloft.net>
+References: <4F43D49E.3010401@parallels.com>
+	<4F43D4B9.8030005@parallels.com>
+	<1329845959.18384.21.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Shradha Shah <sshah@solarflare.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xemul@parallels.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:23406 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756195Ab2BUUB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Feb 2012 15:01:27 -0500
-In-Reply-To: <1329851622.2689.6.camel@bwh-desktop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60114 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755935Ab2BUUEU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 15:04:20 -0500
+In-Reply-To: <1329845959.18384.21.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/21/2012 11:13 AM, Ben Hutchings wrote:
-> Large Receive Offload (LRO) is only appropriate for packets that are
-> destined for the host, and should be disabled if received packets may
-> be forwarded.
-> 
-> Further, macvtap_skb_to_vnet_hdr() will BUG() on a packet received
-> with LRO (but not GRO).
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> I'm not really familiar with macvlan so I'm not certain that this should
-> be applied to all modes.
-> 
-> Ben.
-> 
->  drivers/net/macvlan.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
-> 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Feb 2012 18:39:19 +0100
 
-But this patch assumes the macvlan is forwarding traffic to a guest
-via macvtap. Which is an assumption that may not be true.
+> Le mardi 21 f=E9vrier 2012 =E0 21:30 +0400, Pavel Emelyanov a =E9crit=
+ :
+>> This makes lines shorter and simplifies further patching.
+>>=20
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>>=20
+>> ---
+>>  net/core/datagram.c |    9 +++++----
+>>  1 files changed, 5 insertions(+), 4 deletions(-)
+>>=20
+>> diff --git a/net/core/datagram.c b/net/core/datagram.c
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-It seems more appropriate for the macvtap driver to do these checks
-after all its the driver that may BUG() with LRO.
-
-Thanks,
-John
+Applied.
