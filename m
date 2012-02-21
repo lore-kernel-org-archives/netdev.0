@@ -1,50 +1,74 @@
-From: Joe Perches <joe@perches.com>
-Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Tue, 21 Feb 2012 15:16:11 -0800
-Message-ID: <1329866171.5143.16.camel@joe2Laptop>
-References: <20120221151435.GA19354@tuxdriver.com>
-	 <20120221.144417.1445117001833888214.davem@davemloft.net>
-	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
-	 <20120221.154053.2103818562080068513.davem@davemloft.net>
-	 <1329857959.5143.11.camel@joe2Laptop>
-	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
+From: Scott Talbert <talbert@techie.net>
+Subject: [PATCHv3] Move Logitech Harmony 900 from cdc_ether to zaurus
+Date: Tue, 21 Feb 2012 18:06:00 -0500
+Message-ID: <20120221230600.GA17347@bear.techie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andy Whitcroft <apw@shadowen.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"andrei.emeltchenko.news@gmail.com"
-	<andrei.emeltchenko.news@gmail.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.techie.net ([205.134.185.202]:38917 "EHLO bear.techie.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755116Ab2BVAH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 19:07:58 -0500
+Received: from bear.techie.net (localhost.localdomain [127.0.0.1])
+	by bear.techie.net (8.13.8/8.13.8) with ESMTP id q1LN60dO017357
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 18:06:00 -0500
+Received: (from talbert@localhost)
+	by bear.techie.net (8.13.8/8.13.8/Submit) id q1LN60of017356
+	for netdev@vger.kernel.org; Tue, 21 Feb 2012 18:06:00 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-02-21 at 22:09 +0000, Allan, Bruce W wrote:
-> This appears to falsely complain about parenthesis alignment in
-> conditional statements with multiple opening parentheses.  For
-> example, these will report a check condition:
-> 
-> 	if (test_and_set_bit(nr,
-> 				   addr))
-> 		baz();
-> 
-> 	if (!(func_a(x) &&
-> 		func_b(y)))
-> 		baz();
-> 
-> Assuming my stupid mailer will screw up the indentation above, the 'a'
-> in addr in the first example is meant to be immediately below the 'n'
-> in nr, and the two 'f's in func_* are meant to be vertically lined up
-> in the second example.
+In the current kernel implementation, the Logitech Harmony 900 remote
+control is matched to the cdc_ether driver through the generic
+USB_CDC_SUBCLASS_MDLM entry.  However, this device appears to be of the
+pseudo-MDLM (Belcarra) type, rather than the standard one.  This patch
+blacklists the Harmony 900 from the cdc_ether driver and whitelists it for
+the pseudo-MDLM driver in zaurus.
 
-You're right, thanks for testing.
-The logic I used is too trivial.
+Signed-off-by: Scott Talbert <talbert@techie.net>
+---
+ drivers/net/usb/cdc_ether.c |    7 +++++++
+ drivers/net/usb/zaurus.c    |    7 +++++++
+ 2 files changed, 14 insertions(+), 0 deletions(-)
 
-Andrew, please ditch this one for awhile.
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index c924ea2..13919dd 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -570,6 +570,13 @@ static const struct usb_device_id	products [] = {
+ 	.driver_info = (unsigned long)&wwan_info,
+ },
+ 
++/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info		= 0,
++},
++
+ /*
+  * WHITELIST!!!
+  *
+diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
+index 1a2234c..246b3bb 100644
+--- a/drivers/net/usb/zaurus.c
++++ b/drivers/net/usb/zaurus.c
+@@ -349,6 +349,13 @@ static const struct usb_device_id	products [] = {
+ 	ZAURUS_MASTER_INTERFACE,
+ 	.driver_info = OLYMPUS_MXL_INFO,
+ },
++
++/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &bogus_mdlm_info,
++},
+ 	{ },		// END
+ };
+ MODULE_DEVICE_TABLE(usb, products);
+-- 
+1.7.5.4
