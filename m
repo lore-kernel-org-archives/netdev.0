@@ -1,54 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cdc_ether/zaurus: Move Harmony 900 from cdc_ether to
- zaurus
-Date: Mon, 20 Feb 2012 20:22:55 -0500 (EST)
-Message-ID: <20120220.202255.541297654389940326.davem@davemloft.net>
-References: <alpine.LRH.2.02.1202192018500.16782@bear.techie.net>
-	<20120220.192915.1058416494686295446.davem@davemloft.net>
-	<alpine.LRH.2.02.1202201943040.31081@bear.techie.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [next][pull request] isdn: Whitespace style reformatting
+Date: Mon, 20 Feb 2012 17:29:51 -0800
+Message-ID: <1329787791.8318.28.camel@joe2Laptop>
+References: <1329712694.30026.42.camel@joe2Laptop>
+	 <20120220.193146.55696380871971232.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: talbert@techie.net
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51274 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023Ab2BUBW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 20:22:59 -0500
-In-Reply-To: <alpine.LRH.2.02.1202201943040.31081@bear.techie.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:58171 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752023Ab2BUB3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Feb 2012 20:29:51 -0500
+In-Reply-To: <20120220.193146.55696380871971232.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Talbert <talbert@techie.net>
-Date: Mon, 20 Feb 2012 19:50:57 -0500 (EST)
+On Mon, 2012-02-20 at 19:31 -0500, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Sun, 19 Feb 2012 20:38:14 -0800
+> > The following changes since commit 8ac57b29bb947f00cce7c9736589af8ca74d0fa4:
+> >   Add linux-next specific files for 20120217 (2012-02-17 16:41:11 +1100)
+> > are available in the git repository at:
+> >   git://repo.or.cz/linux-2.6/trivial-mods.git 20120219_isdn
+> Joe, give me something against net-next that I can really pull
+> from, not this thing with all the rest of the linux-next crap
+> in it that I cannot pull from.
 
-> On Mon, 20 Feb 2012, David Miller wrote:
-> 
->> From: Scott Talbert <talbert@techie.net>
->> Date: Sun, 19 Feb 2012 20:35:29 -0500 (EST)
->>
->>> The Logitech Harmony 900 remote control appears to use the pseudo-MDLM
->>> driver, rather than the standard one.  This patch simply moves the
->>> device so that it gets picked up by the correct driver.
->>>
->>> Signed-off-by: Scott Talbert <talbert@techie.net>
->>
->> You're not moving anything, you're adding the ID to not one but two
->> different drivers.
->>
->> That doesn't make any sense to me, so either this patch is completely
->> wrong or you need to rewrite your commit message to explain things
->> better and more accurately.
-> 
-> Sorry, to clarify...in the current baseline, the Harmony 900 gets
-> picked up by the cdc_ether driver by this generic line in cdc_ether.c:
-> 
-> 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MDLM,
-> 			USB_CDC_PROTO_NONE),
-> 	.driver_info = (unsigned long)&wwan_info,
-> 
-> The intent of my patch is to blacklist the Harmony 900 from cdc_ether
-> and whitelist it in zaurus.
+OK.  I'll do that maybe tonight or tomorrow.
 
-Please freshly repost your patch with an updated commit message.
+There are some more logical comparisons that could use some tweaking.
+I'll add them (and verify the allyesconfig built-in.o's are still
+the same) before sending the pull request.
