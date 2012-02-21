@@ -1,66 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Fix routing metrics
-Date: Tue, 21 Feb 2012 01:36:23 -0500 (EST)
-Message-ID: <20120221.013623.263612018908941497.davem@davemloft.net>
-References: <20120210084424.GM23142@secunet.com>
-	<20120210.132557.396788563105190450.davem@davemloft.net>
-	<20120221061922.GE31660@secunet.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 2/2] vhost-net: add a spin_threshold parameter
+Date: Tue, 21 Feb 2012 14:38:13 +0800
+Message-ID: <4F433BD5.1070400@redhat.com>
+References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>  <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>  <20120219145100.GB16620@redhat.com>  <1329788131.13141.14.camel@localhost.localdomain>  <4F432CDC.4090107@redhat.com> <1329805716.24119.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Anthony Liguori <aliguori@us.ibm.com>, netdev@vger.kernel.org,
+	Tom Lendacky <toml@us.ibm.com>,
+	Cristian Viana <vianac@br.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804Ab2BUGgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 01:36:42 -0500
-In-Reply-To: <20120221061922.GE31660@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29490 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804Ab2BUGiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 01:38:19 -0500
+In-Reply-To: <1329805716.24119.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 21 Feb 2012 07:19:22 +0100
+On 02/21/2012 02:28 PM, Shirley Ma wrote:
+> On Tue, 2012-02-21 at 13:34 +0800, Jason Wang wrote:
+>> On 02/21/2012 09:35 AM, Shirley Ma wrote:
+>>> We tried similar approach before by using a minimum timer for
+>> handle_tx
+>>> to stay in the loop to accumulate more packets before enabling the
+>> guest
+>>> notification. It did have better TCP_RRs, UDP_RRs results. However,
+>> we
+>>> think this is just a debug patch. We really need to understand why
+>>> handle_tx can't see more packets to process for multiple instances
+>>> request/response type of workload first. Spinning in this loop is
+>> not a
+>>> good solution.
+>> Spinning help for the latency, but looks like we need some adaptive
+>> method to adjust the threshold dynamically such as monitor the
+>> minimum
+>> time gap between two packets. For throughput, if we can improve the
+>> batching of small packets we can improve it. I've tired to use event
+>> index to delay the tx kick until a specified number of packets were
+>> batched in the virtqueue. Test shows improvement of throughput in
+>> small
+>> packets as the number of #exit were reduced greatly ( the
+>> packets/#exit
+>> and cpu utilization were increased), but it damages the performance
+>> of
+>> other. This is only for debug, but it confirms that there's something
+>> we
+>> need to improve the batching.
+> Our test case was 60 instances 256/256 bytes tcp_rrs or udp_rrs. In
+> theory there should be multiple packets in the queue by the time vhost
+> gets notified, but from debugging output, there was only a few or even
+> one packet in the queue. So the questions here why the time gap between
+> two packets is that big?
+>
+> Shirley
 
-> On Fri, Feb 10, 2012 at 01:25:57PM -0500, David Miller wrote:
->> From: Steffen Klassert <steffen.klassert@secunet.com>
->> Date: Fri, 10 Feb 2012 09:44:25 +0100
->> 
->> > On Fri, Feb 10, 2012 at 03:12:11AM -0500, David Miller wrote:
->> >> 
->> >> So since this happens, you don't need to check the inetpeer at every
->> >> metric access.  The fact that all routing cache entries get recreated
->> >> will do it for you.
->> > 
->> > So if rt_init_metrics() is not the right place to check for genid
->> > changes, where would you suggest to do it?
->> 
->> It is the right place, and since it will happen there for every routing
->> cache entry we use after a flush, the inetpeer issues will be taken
->> care of by it.  Therefore you don't need to check anything at metrics
->> access time.
-> 
-> Ok, apparently I looked at the wrong place. The only checks at metrics
-> access that might be superfluous are the inet_metrics_new() checks in
-> ipv4_metrics() and ipv6_metrics(). If these are the checks you mean,
-> I'd remove them and resend the patchset.
-
-I'm saying you shouldn't need a metrics access callback nor the rest
-of your patch at all.
-
-Look, when routes change, the routing cache is flushed and the gen ID
-is incremented.
-
-Every single existing routing cache entry is therefore instantly
-invalid, and will not be used another time.
-
-Therefore every route usage afterwards will go through the routing
-cache entry creation path.  And in this path the inetpeer and it's
-metrics can be validated, out of date metrics freed and replaced with
-new ones, etc.  Whatever might be necessary can all be done here.
-
-There is no need to every have special handling at metric access time
-on a valid routing cache entry, the fact that it's valid and it's gen
-ID matches up, means there has been no route table changes meanwhile
-and that the inetpeer metrics have been validated since the last route
-table change.
+Not sure whether it's related but did you try to disable the nagle 
+algorithm during the test?
