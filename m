@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v10 03/11] asm/syscall.h: add syscall_get_arch
-Date: Tue, 21 Feb 2012 11:30:27 -0600
-Message-ID: <1329845435-2313-3-git-send-email-wad@chromium.org>
+Subject: [PATCH v10 10/11] x86: Enable HAVE_ARCH_SECCOMP_FILTER
+Date: Tue, 21 Feb 2012 11:30:34 -0600
+Message-ID: <1329845435-2313-10-git-send-email-wad@chromium.org>
 References: <1329845435-2313-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
@@ -33,7 +33,7 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-880-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-883-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -41,45 +41,67 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1329845435-2313-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-Adds a stub for a function that will return the AUDIT_ARCH_*
-value appropriate to the supplied task based on the system
-call convention.
+Enable support for seccomp filter on x86:
+- asm/tracehook.h exists and seccomp_tracer_done called.
+- asm/syscall.h functions work
+- secure_computing() return value is honored (see below)
 
-For audit's use, the value can generally be hard-coded at the
-audit-site.  However, for other functionality not inlined into
-syscall entry/exit, this makes that information available.
-seccomp_filter is the first planned consumer and, as such,
-the comment indicates a tie to HAVE_ARCH_SECCOMP_FILTER.  That
-is probably an unneeded detail.
+This changes adds support for honoring the return
+value from secure_computing().
 
-Suggested-by: Roland McGrath <mcgrathr@chromium.org>
+SECCOMP_RET_TRACE and SECCOMP_RET_TRAP may result in seccomp needing to
+skip a system call without killing the process.  This is done by
+returning a non-zero (-1) value from secure_computing.  This change
+makes x86 respect that return value.
+
+To ensure that minimal kernel code is exposed, a non-zero return value
+results in an immediate return to user space (with an invalid syscall
+number).
+
+v10: no change
+
 Signed-off-by: Will Drewry <wad@chromium.org>
 ---
- include/asm-generic/syscall.h |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ arch/x86/Kconfig         |    1 +
+ arch/x86/kernel/ptrace.c |    7 ++++++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/include/asm-generic/syscall.h b/include/asm-generic/syscall.h
-index 5c122ae..13edfa2 100644
---- a/include/asm-generic/syscall.h
-+++ b/include/asm-generic/syscall.h
-@@ -142,4 +142,18 @@ void syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 			   unsigned int i, unsigned int n,
- 			   const unsigned long *args);
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 5bed94e..4c9012b 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -82,6 +82,7 @@ config X86
+ 	select CLKEVT_I8253
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
++	select HAVE_ARCH_SECCOMP_FILTER
  
-+/**
-+ * syscall_get_arch - return the AUDIT_ARCH for the current system call
-+ * @task:	task of interest, must be in system call entry tracing
-+ * @regs:	task_pt_regs() of @task
-+ *
-+ * Returns the AUDIT_ARCH_* based on the system call convention in use.
-+ *
-+ * It's only valid to call this when @task is stopped on entry to a system
-+ * call, due to %TIF_SYSCALL_TRACE, %TIF_SYSCALL_AUDIT, or %TIF_SECCOMP.
-+ *
-+ * Note, at present this function is only required with
-+ * CONFIG_HAVE_ARCH_SECCOMP_FILTER.
-+ */
-+void syscall_get_arch(struct task_struct *task, struct pt_regs *regs);
- #endif	/* _ASM_SYSCALL_H */
+ config INSTRUCTION_DECODER
+ 	def_bool (KPROBES || PERF_EVENTS)
+diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
+index 5026738..90d465a 100644
+--- a/arch/x86/kernel/ptrace.c
++++ b/arch/x86/kernel/ptrace.c
+@@ -1380,7 +1380,11 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 		regs->flags |= X86_EFLAGS_TF;
+ 
+ 	/* do the secure computing check first */
+-	secure_computing(regs->orig_ax);
++	if (secure_computing(regs->orig_ax)) {
++		/* seccomp failures shouldn't expose any additional code. */
++		ret = -1L;
++		goto out;
++	}
+ 
+ 	if (unlikely(test_thread_flag(TIF_SYSCALL_EMU)))
+ 		ret = -1L;
+@@ -1405,6 +1409,7 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 				    regs->dx, regs->r10);
+ #endif
+ 
++out:
+ 	return ret ?: regs->orig_ax;
+ }
+ 
 -- 
 1.7.5.4
