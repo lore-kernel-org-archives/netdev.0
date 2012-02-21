@@ -1,36 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [next][pull request] isdn: Whitespace style reformatting
-Date: Mon, 20 Feb 2012 17:29:51 -0800
-Message-ID: <1329787791.8318.28.camel@joe2Laptop>
-References: <1329712694.30026.42.camel@joe2Laptop>
-	 <20120220.193146.55696380871971232.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH 2/2] vhost-net: add a spin_threshold parameter
+Date: Mon, 20 Feb 2012 17:35:31 -0800
+Message-ID: <1329788131.13141.14.camel@localhost.localdomain>
+References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>
+	 <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>
+	 <20120219145100.GB16620@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Anthony Liguori <aliguori@us.ibm.com>, netdev@vger.kernel.org,
+	Tom Lendacky <toml@us.ibm.com>,
+	Cristian Viana <vianac@br.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:58171 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752023Ab2BUB3v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 20:29:51 -0500
-In-Reply-To: <20120220.193146.55696380871971232.davem@davemloft.net>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:53721 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103Ab2BUBfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 20:35:39 -0500
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
+	Mon, 20 Feb 2012 18:35:38 -0700
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 762313E40048
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 18:35:36 -0700 (MST)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q1L1Zalj111850
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 18:35:36 -0700
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q1L1ZZ67029796
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 18:35:36 -0700
+In-Reply-To: <20120219145100.GB16620@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-02-20 at 19:31 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Sun, 19 Feb 2012 20:38:14 -0800
-> > The following changes since commit 8ac57b29bb947f00cce7c9736589af8ca74d0fa4:
-> >   Add linux-next specific files for 20120217 (2012-02-17 16:41:11 +1100)
-> > are available in the git repository at:
-> >   git://repo.or.cz/linux-2.6/trivial-mods.git 20120219_isdn
-> Joe, give me something against net-next that I can really pull
-> from, not this thing with all the rest of the linux-next crap
-> in it that I cannot pull from.
+We tried similar approach before by using a minimum timer for handle_tx
+to stay in the loop to accumulate more packets before enabling the guest
+notification. It did have better TCP_RRs, UDP_RRs results. However, we
+think this is just a debug patch. We really need to understand why
+handle_tx can't see more packets to process for multiple instances
+request/response type of workload first. Spinning in this loop is not a
+good solution.
 
-OK.  I'll do that maybe tonight or tomorrow.
-
-There are some more logical comparisons that could use some tweaking.
-I'll add them (and verify the allyesconfig built-in.o's are still
-the same) before sending the pull request.
+Thanks
+Shirley
