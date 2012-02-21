@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [next][pull request] isdn: Whitespace style reformatting
-Date: Mon, 20 Feb 2012 19:31:46 -0500 (EST)
-Message-ID: <20120220.193146.55696380871971232.davem@davemloft.net>
-References: <1329712694.30026.42.camel@joe2Laptop>
+Subject: Re: [PATCH 0/5] bnx2x: fw update
+Date: Mon, 20 Feb 2012 19:34:20 -0500 (EST)
+Message-ID: <20120220.193420.34028067318693331.davem@davemloft.net>
+References: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50998 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51022 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754747Ab2BUAbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 19:31:53 -0500
-In-Reply-To: <1329712694.30026.42.camel@joe2Laptop>
+	with ESMTP id S1754747Ab2BUAeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 19:34:22 -0500
+In-Reply-To: <1329767952-12605-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 19 Feb 2012 20:38:14 -0800
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Mon, 20 Feb 2012 21:59:07 +0200
 
-> The following changes since commit 8ac57b29bb947f00cce7c9736589af8ca74d0fa4:
+> The series updates bnx2x driver to use FW 7.2.16 which, was
+> recently applied in linux-firmware tree.
 > 
->   Add linux-next specific files for 20120217 (2012-02-17 16:41:11 +1100)
+> The firmware introduces GRO implementation in FW as long as
+> some fixes toward storage drivers.
 > 
-> are available in the git repository at:
->   git://repo.or.cz/linux-2.6/trivial-mods.git 20120219_isdn
+> Please consider applying the series to net-next.
 
-Joe, give me something against net-next that I can really pull
-from, not this thing with all the rest of the linux-next crap
-in it that I cannot pull from.
+All applied, thanks.
