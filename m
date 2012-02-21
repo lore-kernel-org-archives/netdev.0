@@ -1,53 +1,73 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC V3 PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Tue, 21 Feb 2012 19:51:54 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F95B64@ORSMSX106.amr.corp.intel.com>
-References: <20120220.005451.548532173290909435.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F950C8@ORSMSX106.amr.corp.intel.com>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F9537C@ORSMSX106.amr.corp.intel.com>
- <20120221.144926.1106286806287642272.davem@davemloft.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 19/19] sfc: Add SR-IOV back-end support for SFC9000
+ family
+Date: Tue, 21 Feb 2012 11:52:04 -0800
+Message-ID: <4F43F5E4.5000902@intel.com>
+References: <1329352938.2565.26.camel@bwh-desktop>  <1329353550.2565.45.camel@bwh-desktop> <4F3C595A.3020401@intel.com> <1329357439.3048.115.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com,
+	Shradha Shah <sshah@solarflare.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:12872 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:30231 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753236Ab2BUTv4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 14:51:56 -0500
-In-Reply-To: <20120221.144926.1106286806287642272.davem@davemloft.net>
-Content-Language: en-US
+	id S1752611Ab2BUTwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 14:52:06 -0500
+In-Reply-To: <1329357439.3048.115.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, February 21, 2012 11:49 AM
-> To: Rose, Gregory V
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [RFC V3 PATCH] rtnetlink: Fix problem with buffer allocation
+On 2/15/2012 5:57 PM, Ben Hutchings wrote:
+> On Wed, 2012-02-15 at 17:18 -0800, John Fastabend wrote:
+>> On 2/15/2012 4:52 PM, Ben Hutchings wrote:
+>>> On the SFC9000 family, each port has 1024 Virtual Interfaces (VIs),
+>>> each with an RX queue, a TX queue, an event queue and a mailbox
+>>> register.  These may be assigned to up to 127 SR-IOV virtual functions
+>>> per port, with up to 64 VIs per VF.
+>>>
+>>> We allocate an extra channel (IRQ and event queue only) to receive
+>>> requests from VF drivers.
+>>>
+>>> There is a per-port limit of 4 concurrent RX queue flushes, and queue
+>>> flushes may be initiated by the MC in response to a Function Level
+>>> Reset (FLR) of a VF.  Therefore, when SR-IOV is in use, we submit all
+>>> flush requests via the MC.
+>>>
+>>> The RSS indirection table is shared with VFs, so the number of RX
+>>> queues used in the PF is limited to the number of VIs per VF.
+>>>
+>>> This is almost entirely the work of Steve Hodgson, formerly
+>>> shodgson@solarflare.com.
+>>>
+>>> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+>>> ---
+>>
+>> Hi Ben,
+>>
+>> So how would multiple VIs per VF work? Looks like each VI has a TX/RX
+>> pair all bundled under a single netdev with some set of TX MAC filters.
 > 
-> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-> Date: Tue, 21 Feb 2012 17:46:27 +0000
-> 
-> > Having seen no other review comments on this RFC or the related
-> > iproute2 RFC I'll go ahead and work with Jeff Kirsher to get these
-> > patches pushed for application.
-> 
-> What do you mean by this?  Simply repost this patch with the fix I
-> asked for, and do it ASAP.
-> 
-> These are not Intel device driver specific changes, there is absolutely
-> no need to get Jeff involved at all.  It can only make things take more
-> time and add more red tape to the process of getting this urgent fix
-> propagated.
-> 
-> I've been extremely patient allowing you to take more than a week or
-> two to code up this fix for something which causes very serious
-> regressions for users, don't add any new things that will consume even
-> more time.
+> They can be used to provide a multiqueue net device for use in multi-
+> processor guests.
 
-OK, I'll post it ASAP.
+OK thanks its really just a multiqueue VF then. Calling it a virtual
+interface seems a bit confusing here. For example it doesn't resemble
+a VSI (Virtual Station Interface) per 802.1Q spec at all.
 
-- Greg
+I'm guessing using this with a TX MAC/VLAN filter looks something like
+Intel's VMDQ solutions.
+
+> 
+>> Do you expect users to build tc rules and edit the queue_mapping to get
+>> the skb headed at the correct tx queue? Would it be better to model each
+>> VI has its own net device.
+> 
+> No, we expect users to assign the VF into the guest.
+> 
+
+Got it.
+
+.John
