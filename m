@@ -1,44 +1,109 @@
-From: alekcejk@googlemail.com
-Subject: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Tue, 21 Feb 2012 06:21:08 +0200
-Message-ID: <5196304.nDv69tPK8W@localhost.localdomain>
-References: <8633039.fHPLx6GNq3@localhost.localdomain> <1329164293.2523.0.camel@edumazet-laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 1/2] vhost: allow multiple workers threads
+Date: Tue, 21 Feb 2012 12:32:44 +0800
+Message-ID: <4F431E6C.9080706@redhat.com>
+References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>	<1329519726-25763-2-git-send-email-aliguori@us.ibm.com>	<20120219144145.GA16620@redhat.com>	<OFC071CE44.FE2F733D-ON862579AA.0055FCA0-862579AA.0057082B@us.ibm.com> <20120220192708.GA18308@redhat.com> <4F42A2FB.7000501@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Lendacky <toml@us.ibm.com>, netdev@vger.kernel.org,
+	Cristian Viana <vianac@br.ibm.com>
+To: Anthony Liguori <aliguori@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:60007 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905Ab2BUEVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 23:21:50 -0500
-Received: by bkcjm19 with SMTP id jm19so5016842bkc.19
-        for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 20:21:49 -0800 (PST)
-In-Reply-To: <1329164293.2523.0.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:47592 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752629Ab2BUEcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Feb 2012 23:32:52 -0500
+In-Reply-To: <4F42A2FB.7000501@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > I noticed that with 3.2.x kernels download speed from some internet resources
-> > became about half of speed that was with previous kernels (3.1 and older).
-> > I tested Fedora 15 kernels 2.6.41.10 = 3.1.10 and 2.6.42.3 = 3.2.3
-> > (many times rebooted for testing with first and second kernels).
-> > See bug https://bugzilla.redhat.com/show_bug.cgi?id=789659
+On 02/21/2012 03:46 AM, Anthony Liguori wrote:
+> On 02/20/2012 01:27 PM, Michael S. Tsirkin wrote:
+>> On Mon, Feb 20, 2012 at 09:50:37AM -0600, Tom Lendacky wrote:
+>>> "Michael S. Tsirkin"<mst@redhat.com>  wrote on 02/19/2012 08:41:45 AM:
+>>>
+>>>> From: "Michael S. Tsirkin"<mst@redhat.com>
+>>>> To: Anthony Liguori/Austin/IBM@IBMUS
+>>>> Cc: netdev@vger.kernel.org, Tom Lendacky/Austin/IBM@IBMUS, Cristian
+>>>> Viana<vianac@br.ibm.com>
+>>>> Date: 02/19/2012 08:42 AM
+>>>> Subject: Re: [PATCH 1/2] vhost: allow multiple workers threads
+>>>>
+>>>> On Fri, Feb 17, 2012 at 05:02:05PM -0600, Anthony Liguori wrote:
+>>>>> This patch allows vhost to have multiple worker threads for devices
+>>> such as
+>>>>> virtio-net which may have multiple virtqueues.
+>>>>>
+>>>>> Since virtqueues are a lockless ring queue, in an ideal world data is
+>>> being
+>>>>> produced by the producer as fast as data is being consumed by the
+>>> consumer.
+>>>>> These loops will continue to consume data until none is left.
+>>>>>
+>>>>> vhost currently multiplexes the consumer side of the queue on a
+>>>> single thread
+>>>>> by attempting to read from the queue until everything is read or it
+>>> cannot
+>>>>> process anymore.  This means that activity on one queue may stall
+>>>> another queue.
+>>>>
+>>>> There's actually an attempt to address this: look up
+>>>> VHOST_NET_WEIGHT in the code. I take it, this isn't effective?
+>>>>
+>>>>> This is exacerbated when using any form of polling to read from
+>>>> the queues (as
+>>>>> we'll introduce in the next patch).  By spawning a thread per-
+>>>> virtqueue, this
+>>>>> is addressed.
+>>>>>
+>>>>> The only problem with this patch right now is how the wake up of
+>>>> the threads is
+>>>>> done.  It's essentially a broadcast and we have seen lock 
+>>>>> contention as
+>>> a
+>>>>> result.
+>>>>
+>>>> On which lock?
+>>>
+>>> The mutex lock in the vhost_virtqueue struct.  This really shows up 
+>>> when
+>>> running with patch 2/2 and increasing the spin_threshold. Both 
+>>> threads wake
+>>> up and try to acquire the mutex.  As the spin_threshold increases 
+>>> you end
+>>> up
+>>> with one of the threads getting blocked for a longer and longer time 
+>>> and
+>>> unable to do any RX processing that might be needed.
+>>>
+>>> Tom
+>>
+>> Weird, I had the impression each thread handles one vq.
+>> Isn't this the design?
+>
+> Not the way the code is structured today.  There is a single 
+> consumer/producer work queue and either the vq notification or other 
+> actions may get placed on it.
+>
+> It would be possible to do three threads, one for background tasks and 
+> then one for each queue with a more invasive refactoring.
+>
+> But I assumed that the reason the code was structured this was 
+> originally was because you saw some value in having a single 
+> producer/consumer queue for everything...
+>
+> Regards,
+>
+> Anthony Liguori
 
-Hi,
-
-I tested last released 3.2.7 kernel (2.6.42.7-1.fc15.i686).
-Speed problems in 3.2.7 the same as in 3.2.6.
-
-I also have Fedora Rawhide installed in virtual machine (e1000 driver used there)
-running on host with 3.1.10 kernel.
-And I noticed that after one of 3.3 rc's (or even rc's of 3.2) kernel updates download speed of
-updates from dl.fedoraproject.org in VM became extremely slow - about 160 kilobytes/sec
-instead of 1,2 megabytes/sec as it was before.
-But recently (somewhere between 3.3 rc3 and rc4) speed became again
-as it should 1,2 MB/s.
-
-Don't know is this problem related with speed in 3.2.x kernels
-and it is hard to debug this now.
-
--- 
-Alexey Kurov <nucleo@fedoraproject.org>
+Not sure I'm reading the code correctly, looks like with this series, 
+two worker threads can try to handle the work of a same virtqueue? Looks 
+strange as the notification from other side (guest/net) should be 
+disabled even if vhost thread is spinning.
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
