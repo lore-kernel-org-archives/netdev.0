@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 6/6] unix: Support peeking offset for stream sockets
-Date: Tue, 21 Feb 2012 21:32:06 +0400
-Message-ID: <4F43D516.9060102@parallels.com>
+Subject: [PATCH 4/6] sock: Introduce the SO_PEEK_OFF sock option
+Date: Tue, 21 Feb 2012 21:31:34 +0400
+Message-ID: <4F43D4F6.6030104@parallels.com>
 References: <4F43D49E.3010401@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,107 +10,143 @@ To: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:2991 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:6341 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752225Ab2BURcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Feb 2012 12:32:16 -0500
+	id S1754049Ab2BURbn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 12:31:43 -0500
 In-Reply-To: <4F43D49E.3010401@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The same here -- we can protect the sk_peek_off manipulations with
-the unix_sk->readlock mutex.
+This one specifies where to start MSG_PEEK-ing queue data from. When
+set to negative value means that MSG_PEEK works as ususally -- peeks
+from the head of the queue always.
 
-The peeking of data from a stream socket is done in the datagram style,
-i.e. even if there's enough room for more data in the user buffer, only
-the head skb's data is copied in there. This feature is preserved when
-peeking data from a given offset -- the data is read till the nearest
-skb's boundary.
+When some bytes are peeked from queue and the peeking offset is non
+negative it is moved forward so that the next peek will return next
+portion of data.
+
+When non-peeking recvmsg occurs and the peeking offset is non negative
+is is moved backward so that the next peek will still peek the proper
+data (i.e. the one that would have been picked if there were no non
+peeking recv in between).
+
+The offset is set using per-proto opteration to let the protocol handle
+the locking issues and to check whether the peeking offset feature is
+supported by the protocol the socket belongs to.
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
 ---
- net/unix/af_unix.c |   20 ++++++++++++++++++--
- 1 files changed, 18 insertions(+), 2 deletions(-)
+ include/asm-generic/socket.h |    1 +
+ include/linux/net.h          |    1 +
+ include/net/sock.h           |   25 +++++++++++++++++++++++++
+ net/core/sock.c              |   13 +++++++++++++
+ 4 files changed, 40 insertions(+), 0 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 3d9481d..0be4d24 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -559,6 +559,7 @@ static const struct proto_ops unix_stream_ops = {
- 	.recvmsg =	unix_stream_recvmsg,
- 	.mmap =		sock_no_mmap,
- 	.sendpage =	sock_no_sendpage,
-+	.set_peek_off =	unix_set_peek_off,
+diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
+index 49c1704..832c270 100644
+--- a/include/asm-generic/socket.h
++++ b/include/asm-generic/socket.h
+@@ -66,5 +66,6 @@
+ #define SO_RXQ_OVFL             40
+ 
+ #define SO_WIFI_STATUS		41
++#define SO_PEEK_OFF		42
+ #define SCM_WIFI_STATUS	SO_WIFI_STATUS
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/include/linux/net.h b/include/linux/net.h
+index b299230..be60c7f 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -206,6 +206,7 @@ struct proto_ops {
+ 				      int offset, size_t size, int flags);
+ 	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
+ 				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
++	void		(*set_peek_off)(struct sock *sk, int val);
  };
  
- static const struct proto_ops unix_dgram_ops = {
-@@ -1904,6 +1905,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	int target;
- 	int err = 0;
- 	long timeo;
-+	int skip;
+ #define DECLARE_SOCKADDR(type, dst, src)	\
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 91c1c8b..9c0553b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -357,6 +357,7 @@ struct sock {
+ 	struct page		*sk_sndmsg_page;
+ 	struct sk_buff		*sk_send_head;
+ 	__u32			sk_sndmsg_off;
++	__s32			sk_peek_off;
+ 	int			sk_write_pending;
+ #ifdef CONFIG_SECURITY
+ 	void			*sk_security;
+@@ -373,6 +374,30 @@ struct sock {
+ 	void                    (*sk_destruct)(struct sock *sk);
+ };
  
- 	err = -EINVAL;
- 	if (sk->sk_state != TCP_ESTABLISHED)
-@@ -1933,12 +1935,15 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		goto out;
++static inline int sk_peek_offset(struct sock *sk, int flags)
++{
++	if ((flags & MSG_PEEK) && (sk->sk_peek_off >= 0))
++		return sk->sk_peek_off;
++	else
++		return 0;
++}
++
++static inline void sk_peek_offset_bwd(struct sock *sk, int val)
++{
++	if (sk->sk_peek_off >= 0) {
++		if (sk->sk_peek_off >= val)
++			sk->sk_peek_off -= val;
++		else
++			sk->sk_peek_off = 0;
++	}
++}
++
++static inline void sk_peek_offset_fwd(struct sock *sk, int val)
++{
++	if (sk->sk_peek_off >= 0)
++		sk->sk_peek_off += val;
++}
++
+ /*
+  * Hashed lists helper routines
+  */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 02f8dfe..19942d4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -793,6 +793,12 @@ set_rcvbuf:
+ 		sock_valbool_flag(sk, SOCK_WIFI_STATUS, valbool);
+ 		break;
+ 
++	case SO_PEEK_OFF:
++		if (sock->ops->set_peek_off)
++			sock->ops->set_peek_off(sk, val);
++		else
++			ret = -EOPNOTSUPP;
++		break;
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+@@ -1018,6 +1024,12 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = !!sock_flag(sk, SOCK_WIFI_STATUS);
+ 		break;
+ 
++	case SO_PEEK_OFF:
++		if (!sock->ops->set_peek_off)
++			return -EOPNOTSUPP;
++
++		v.val = sk->sk_peek_off;
++		break;
+ 	default:
+ 		return -ENOPROTOOPT;
  	}
+@@ -2092,6 +2104,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
  
-+	skip = sk_peek_offset(sk, flags);
-+
- 	do {
- 		int chunk;
- 		struct sk_buff *skb;
+ 	sk->sk_sndmsg_page	=	NULL;
+ 	sk->sk_sndmsg_off	=	0;
++	sk->sk_peek_off		=	-1;
  
- 		unix_state_lock(sk);
- 		skb = skb_peek(&sk->sk_receive_queue);
-+again:
- 		if (skb == NULL) {
- 			unix_sk(sk)->recursion_level = 0;
- 			if (copied >= target)
-@@ -1973,6 +1978,13 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			unix_state_unlock(sk);
- 			break;
- 		}
-+
-+		if (skip >= skb->len) {
-+			skip -= skb->len;
-+			skb = skb_peek_next(skb, &sk->sk_receive_queue);
-+			goto again;
-+		}
-+
- 		unix_state_unlock(sk);
- 
- 		if (check_creds) {
-@@ -1992,8 +2004,8 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			sunaddr = NULL;
- 		}
- 
--		chunk = min_t(unsigned int, skb->len, size);
--		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
-+		chunk = min_t(unsigned int, skb->len - skip, size);
-+		if (memcpy_toiovec(msg->msg_iov, skb->data + skip, chunk)) {
- 			if (copied == 0)
- 				copied = -EFAULT;
- 			break;
-@@ -2005,6 +2017,8 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		if (!(flags & MSG_PEEK)) {
- 			skb_pull(skb, chunk);
- 
-+			sk_peek_offset_bwd(sk, chunk);
-+
- 			if (UNIXCB(skb).fp)
- 				unix_detach_fds(siocb->scm, skb);
- 
-@@ -2022,6 +2036,8 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			if (UNIXCB(skb).fp)
- 				siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
- 
-+			sk_peek_offset_fwd(sk, chunk);
-+
- 			break;
- 		}
- 	} while (size);
+ 	sk->sk_peer_pid 	=	NULL;
+ 	sk->sk_peer_cred	=	NULL;
 -- 
 1.5.5.6
