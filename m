@@ -1,75 +1,42 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v10 06/11] seccomp: add SECCOMP_RET_ERRNO
-Date: Tue, 21 Feb 2012 14:41:28 -0800
-Message-ID: <20120221224128.GJ3990@outflux.net>
-References: <1329845435-2313-1-git-send-email-wad@chromium.org>
- <1329845435-2313-6-git-send-email-wad@chromium.org>
-Reply-To: kernel-hardening@lists.openwall.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.3-rc3+ Crash in __neigh_for_each_release
+Date: Tue, 21 Feb 2012 17:46:26 -0500 (EST)
+Message-ID: <20120221.174626.483958348601999244.davem@davemloft.net>
+References: <20120221.140716.1396286389544946379.davem@davemloft.net>
+	<1329851756.18384.47.camel@edumazet-laptop>
+	<1329857209.18384.53.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com, oleg@redhat.com,
-        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-894-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <1329845435-2313-6-git-send-email-wad@chromium.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mroos@linux.ee, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33214 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756195Ab2BUWqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 17:46:31 -0500
+In-Reply-To: <1329857209.18384.53.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 21, 2012 at 11:30:30AM -0600, Will Drewry wrote:
-> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-> index 0043b7e..23f1844 100644
-> --- a/kernel/seccomp.c
-> +++ b/kernel/seccomp.c
-> @@ -136,22 +136,18 @@ static void *bpf_load(const void *nr, int off, unsigned int size, void *buf)
->  static u32 seccomp_run_filters(int syscall)
->  {
->  	struct seccomp_filter *f;
-> -	u32 ret = SECCOMP_RET_KILL;
->  	static const struct bpf_load_fn fns = {
->  		bpf_load,
->  		sizeof(struct seccomp_data),
->  	};
-> +	u32 ret = SECCOMP_RET_ALLOW;
->  	const void *sc_ptr = (const void *)(uintptr_t)syscall;
-> -
->  	/*
->  	 * All filters are evaluated in order of youngest to oldest. The lowest
->  	 * BPF return value always takes priority.
->  	 */
-> -	for (f = current->seccomp.filter; f; f = f->prev) {
-> -		ret = bpf_run_filter(sc_ptr, f->insns, &fns);
-> -		if (ret != SECCOMP_RET_ALLOW)
-> -			break;
-> -	}
-> +	for (f = current->seccomp.filter; f; f = f->prev)
-> +		ret = min_t(u32, ret, bpf_run_filter(sc_ptr, f->insns, &fns));
->  	return ret;
->  }
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Feb 2012 21:46:49 +0100
 
-I'd like to see this fail closed in the (theoretically impossible, but
-why risk it) case of there being no filters at all. Could do something
-like this:
+> [PATCH] atm: clip: remove clip_tbl
+> 
+> Commit 32092ecf0644 (atm: clip: Use device neigh support on top of
+> "arp_tbl".) introduced a bug since clip_tbl is zeroed : Crash occurs in
+> __neigh_for_each_release()
+> 
+> idle_timer_check() must use instead arp_tbl and neigh_check_cb() should
+> ignore non clip neighbours.
+> 
+> Idea from David Miller.
+> 
+> Reported-by: Meelis Roos <mroos@linux.ee>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-	u32 ret = current->seccomp.filter ? SECCOMP_RET_ALLOW : SECCOMP_RET_KILL;
+Yep, this looks a lot better, once we have positive testing from
+Meelis I'll apply this.
 
-Or, just this, to catch the misbehavior:
-
-	if (unlikely(current->seccomp.filter == NULL))
-		return SECCOMP_RET_KILL;
-
--Kees
-
--- 
-Kees Cook
-ChromeOS Security
+Thanks.
