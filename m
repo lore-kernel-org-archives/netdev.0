@@ -1,53 +1,68 @@
-From: Toralf =?utf-8?q?F=C3=B6rster?= <toralf.foerster@gmx.de>
-Subject: Kconfig: unmet direct dependencies in 3.3-rc4
-Date: Tue, 21 Feb 2012 22:21:26 +0100
-Message-ID: <201202212221.27202.toralf.foerster@gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] neighbour: Fixed race condition at tbl->nht
+Date: Tue, 21 Feb 2012 22:25:22 +0100
+Message-ID: <1329859522.18384.57.camel@edumazet-laptop>
+References: <1329858253.2563.51.camel@Thor>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	dri-devel@lists.freedesktop.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Michel Machado <michel@digirati.com.br>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57071 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245Ab2BUVZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:25:27 -0500
+Received: by wgbdt10 with SMTP id dt10so6070277wgb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 13:25:26 -0800 (PST)
+In-Reply-To: <1329858253.2563.51.camel@Thor>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Le mardi 21 f=C3=A9vrier 2012 =C3=A0 16:04 -0500, Michel Machado a =C3=A9=
+crit :
+> When the fixed race condition happens:
+>=20
+> 1. While function neigh_periodic_work scans the neighbor hash table
+> pointed by field tbl->nht, it unlocks and locks tbl->lock between
+> buckets in order to call cond_resched.
+>=20
+> 2. Assume that function neigh_periodic_work calls cond_resched, that =
+is,
+> the lock tbl->lock is available, and function neigh_hash_grow runs.
+>=20
+> 3. Once function neigh_hash_grow finishes, and RCU calls
+> neigh_hash_free_rcu, the original struct neigh_hash_table that functi=
+on
+> neigh_periodic_work was using doesn't exist anymore.
+>=20
+> 4. Once back at neigh_periodic_work, whenever the old struct
+> neigh_hash_table is accessed, things can go badly.
+>=20
+> Signed-off-by: Michel Machado <michel@digirati.com.br>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>=20
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index e287346..2a83914 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -826,6 +826,8 @@ next_elt:
+>  		write_unlock_bh(&tbl->lock);
+>  		cond_resched();
+>  		write_lock_bh(&tbl->lock);
+> +		nht =3D rcu_dereference_protected(tbl->nht,
+> +						lockdep_is_held(&tbl->lock));
+>  	}
+>  	/* Cycle through all hash buckets every base_reachable_time/2 ticks=
+=2E
+>  	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
+>=20
 
-running a few "make randconfigs" gave warnings (seen below) for the cur=
-rent=20
-git kernel tree. Are there already patches in -next for all ?
+Nice catch !
 
+Bug introduced in 2.6.37 in commit d6bf781712a (net neigh: RCU
+conversion of neigh hash table)
 
-warning: (HAVE_TEXT_POKE_SMP) selects STOP_MACHINE which has unmet dire=
-ct=20
-dependencies (SMP && MODULE_UNLOAD ||=20
-HOTPLUG_CPU)
-
-
-warning: (DRM_RADEON_KMS && DRM_I915 && STUB_POULSBO && FB_BACKLIGHT &&=
-=20
-USB_APPLEDISPLAY && FB_OLPC_DCON &&=20
-ASUS_LAPTOP && SONY_LAPTOP && THINKPAD_ACPI && EEEPC_LAPTOP && ACPI_ASU=
-S &&=20
-ACPI_CMPC && SAMSUNG_Q10) selects=20
-BACKLIGHT_CLASS_DEVICE which has unmet direct dependencies (HAS_IOMEM &=
-&=20
-BACKLIGHT_LCD_SUPPORT)
-
-
-warning: (WIMAX_IWMC3200_SDIO) selects IWMC3200TOP which has unmet dire=
-ct=20
-dependencies (MMC && EXPERIMENTAL)
-
-
-warning: (BRIDGE_NF_EBTABLES) selects NETFILTER_XTABLES which has unmet=
- direct=20
-dependencies (NET && INET && NETFILTER)
-
-
-
---=20
-MfG/Sincerely
-Toralf F=C3=B6rster
-pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
