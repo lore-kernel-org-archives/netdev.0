@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: zaurus: Add ID for C-750/C-760/C-860/SL-C3000 PDA in MDLM mode
-Date: Tue, 21 Feb 2012 15:29:05 -0500 (EST)
-Message-ID: <20120221.152905.2176553875935353729.davem@davemloft.net>
-References: <20120221032813.GA14228@redhat.com>
+Subject: Re: [PATCH v2] cdc_ether/zaurus: Move Harmony 900 from cdc_ether
+ to zaurus
+Date: Tue, 21 Feb 2012 15:29:55 -0500 (EST)
+Message-ID: <20120221.152955.249474042996682217.davem@davemloft.net>
+References: <alpine.LRH.2.02.1202202114180.382@bear.techie.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davej@redhat.com
+To: talbert@techie.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60353 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60367 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754298Ab2BUU3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 15:29:16 -0500
-In-Reply-To: <20120221032813.GA14228@redhat.com>
+	with ESMTP id S1752148Ab2BUUaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 15:30:01 -0500
+In-Reply-To: <alpine.LRH.2.02.1202202114180.382@bear.techie.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Mon, 20 Feb 2012 22:28:13 -0500
+From: Scott Talbert <talbert@techie.net>
+Date: Mon, 20 Feb 2012 21:29:29 -0500 (EST)
 
-> In 16adf5d07987d93675945f3cecf0e33706566005 I removed an over-broad
-> alias that caused zaurus.ko to bind to unrelated devices.
-> I had a report that at least one valid case no longer auto-loads because of this.
-> This patch adds an ID for that case.
+> In the current kernel implementation, the Logitech Harmony 900 remote
+> control is matched to the cdc_ether driver through the generic
+> USB_CDC_SUBCLASS_MDLM entry.  However, this device appears to be of
+> the pseudo-MDLM (Belcarra) type, rather than the standard one.  This
+> patch blacklists the Harmony 900 from the cdc_ether driver and
+> whitelists it for the pseudo-MDLM driver in zaurus.
 > 
-> Reported-by: Raphael Wimmer <raphael.wimmer@ur.de>
-> Signed-off-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Scott Talbert <talbert@techie.net>
 
-Applied.
+This patch doesn't apply because your email client corrupted the
+patch.
+
+Please freshly resubmit a fixed version of this patch, but only
+after you have successfully emailed this patch to yourself and
+are successfully able to apply the patch you receive in that
+email.
+
+Thanks.
