@@ -1,95 +1,37 @@
-From: Jongman Heo <jongman.heo@samsung.com>
-Subject: WARNING: at kernel/softirq.c:159 _local_bh_enable_ip+0x35/0x71()
-Date: Tue, 21 Feb 2012 07:22:40 +0000 (GMT)
-Message-ID: <6280313.121891329808960531.JavaMail.weblogic@epml01>
-Reply-To: jongman.heo@samsung.com
+From: Rodrigo Moya <rodrigo.moya@collabora.co.uk>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Tue, 21 Feb 2012 09:07:01 +0100
+Message-ID: <1329811621.17703.5.camel@chamonix>
+References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
+	 <1329765252.22425.3.camel@lenny>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=euc-kr
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:27728 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593Ab2BUHWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 02:22:49 -0500
-Received: from epcpsbge8.samsung.com (mailout1.samsung.com [203.254.224.24])
- by mailout1.samsung.com
- (Oracle Communications Messaging Exchange Server 7u4-19.01 64bit (built Sep  7
- 2010)) with ESMTP id <0LZQ00KINF59YXF0@mailout1.samsung.com> for
- netdev@vger.kernel.org; Tue, 21 Feb 2012 16:22:41 +0900 (KST)
-MIME-version: 1.0
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Javier Martinez Canillas <javier@collabora.co.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Lennart Poettering <lennart@poettering.net>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Alban Crequy <alban.crequy@collabora.co.uk>,
+	Bart Cerneels <bart.cerneels@collabora.co.uk>,
+	Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin Walters <walters@verbum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329765252.22425.3.camel@lenny>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpIaSBhbGwsDQoNCkhvc3QgOiB3aW5kb3dzIDcgMzJiaXQNClZNV2FyZSBHdWVzdCA6IEZlZG9y
-YSAxNiwgd2l0aCBsYXRlc3QgbGludXMgZ2l0IGtlcm5lbCAoMy4zLjAtcmM0KykuIA0KICAgICAg
-ICAgICAgICAgICAgICAgICAgdm14bmV0MyBldGhlcm5ldCBkcml2ZXIsIHJ1bm5pbmcgTkZTIHNl
-cnZlcg0KDQpGb2xsb3dpbmcgd2FybmluZyB0cmlnZ2VyZWQgd2l0aCBteSBWTXdhcmUgTGludXgg
-Z3Vlc3QsIHdoZW4gTkZTIGNvbm5lY3Rpb24gaXMgcmVxdWVzdGVkIGZyb20gb3V0c2lkZS4NCg0K
-WyAgMjE4Ljk5NTI2Nl0gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tDQpbICAy
-MTguOTk1Mjc5XSBXQVJOSU5HOiBhdCBrZXJuZWwvc29mdGlycS5jOjE1OSBfbG9jYWxfYmhfZW5h
-YmxlX2lwKzB4MzUvMHg3MSgpDQpbICAyMTguOTk1MjgyXSBIYXJkd2FyZSBuYW1lOiBWTXdhcmUg
-VmlydHVhbCBQbGF0Zm9ybQ0KWyAgMjE4Ljk5NTI4NF0gTW9kdWxlcyBsaW5rZWQgaW46IGlwNnRh
-YmxlX2ZpbHRlciBpcDZfdGFibGVzIGVidGFibGVfbmF0IGVidGFibGVzIGJyaWRnZSBzdHAgbGxj
-IGJueDJpIGxpYmlzY3NpIHNjc2lfdHJhbnNwb3J0X2lzY3NpIGNuaWMgdWlvIHNuZF9lbnMxMzcx
-IGdhbWVwb3J0IHNuZF9yYXdtaWRpIHNuZF9hYzk3X2NvZGVjIGFjOTdfYnVzIHNuZF9zZXEgc25k
-X3NlcV9kZXZpY2Ugc25kX3BjbSBzbmRfdGltZXIgc25kIHNvdW5kY29yZSB2bXhuZXQzIHZtd19i
-YWxsb29uIGkyY19waWl4NCBtaWNyb2NvZGUgc25kX3BhZ2VfYWxsb2MgbmZzZCBsb2NrZCBuZnNf
-YWNsIHVpbnB1dCBhdXRoX3JwY2dzcyBzdW5ycGMgaXB2NiBtcHRzcGkgbXB0c2NzaWggbXB0YmFz
-ZSBzY3NpX3RyYW5zcG9ydF9zcGkgW2xhc3QgdW5sb2FkZWQ6IHNjc2lfd2FpdF9zY2FuXQ0KWyAg
-MjE4Ljk5NTMzMl0gUGlkOiA4MzUsIGNvbW06IG5mc2QgTm90IHRhaW50ZWQgMy4zLjAtcmM0KyAj
-NTINClsgIDIxOC45OTUzMzRdIENhbGwgVHJhY2U6DQpbICAyMTguOTk1MzQxXSAgWzxjMDdkN2I1
-Nj5dID8gcHJpbnRrKzB4MTgvMHgxYQ0KWyAgMjE4Ljk5NTM0N10gIFs8YzA0MjZlODI+XSB3YXJu
-X3Nsb3dwYXRoX2NvbW1vbisweDc3LzB4OGMNClsgIDIxOC45OTUzNTFdICBbPGMwNDJiYmMyPl0g
-PyBfbG9jYWxfYmhfZW5hYmxlX2lwKzB4MzUvMHg3MQ0KWyAgMjE4Ljk5NTM1NF0gIFs8YzA0MmJi
-YzI+XSA/IF9sb2NhbF9iaF9lbmFibGVfaXArMHgzNS8weDcxDQpbICAyMTguOTk1MzU4XSAgWzxj
-MDQyNmViND5dIHdhcm5fc2xvd3BhdGhfbnVsbCsweDFkLzB4MWYNClsgIDIxOC45OTUzNjFdICBb
-PGMwNDJiYmMyPl0gX2xvY2FsX2JoX2VuYWJsZV9pcCsweDM1LzB4NzENClsgIDIxOC45OTUzNjVd
-ICBbPGMwNDJiYzEzPl0gbG9jYWxfYmhfZW5hYmxlKzB4Yi8weGQNClsgIDIxOC45OTUzNzBdICBb
-PGMwNzRjZWIzPl0ga3VubWFwX3NrYl9mcmFnKzB4ZC8weGYNClsgIDIxOC45OTUzNzNdICBbPGMw
-NzRkZTNmPl0gc2tiX2NvcHlfYml0cysweGRjLzB4MThiDQpbICAyMTguOTk1Mzc3XSAgWzxjMDc0
-ZjYwZT5dIF9fcHNrYl9wdWxsX3RhaWwrMHg2NC8weDIxMQ0KWyAgMjE4Ljk5NTM4Ml0gIFs8YzA0
-NjY4YjQ+XSA/IGFyY2hfbG9jYWxfaXJxX3NhdmUrMHgxMi8weDE3DQpbICAyMTguOTk1Mzg5XSAg
-WzxmOGI3ODQxYj5dIHZteG5ldDNfeG1pdF9mcmFtZSsweDNmYS8weDlmNyBbdm14bmV0M10NClsg
-IDIxOC45OTUzOTNdICBbPGMwNDJiYmE1Pl0gPyBfbG9jYWxfYmhfZW5hYmxlX2lwKzB4MTgvMHg3
-MQ0KWyAgMjE4Ljk5NTM5Nl0gIFs8YzA0MmJjMDY+XSA/IGxvY2FsX2JoX2VuYWJsZV9pcCsweDgv
-MHhhDQpbICAyMTguOTk1NDAyXSAgWzxjMDdkZDZhND5dID8gX3Jhd19zcGluX3VubG9ja19iaCsw
-eGUvMHgxMA0KWyAgMjE4Ljk5NTQzMV0gIFs8Zjg1OGVhOTQ+XSA/IHN2Y194cHJ0X2VucXVldWUr
-MHgxNWMvMHgxNjQgW3N1bnJwY10NClsgIDIxOC45OTU0MzZdICBbPGMwNDMyMTg1Pl0gPyBtb2Rf
-dGltZXJfcGVuZGluZysweDE1LzB4MTcNClsgIDIxOC45OTU0NDFdICBbPGMwNzU3ODM4Pl0gZGV2
-X2hhcmRfc3RhcnRfeG1pdCsweDM2YS8weDQ3Nw0KWyAgMjE4Ljk5NTQ0Nl0gIFs8YzA3NjdlNTQ+
-XSBzY2hfZGlyZWN0X3htaXQrMHg0ZS8weDExMA0KWyAgMjE4Ljk5NTQ1MF0gIFs8YzA3NTdiOTE+
-XSBkZXZfcXVldWVfeG1pdCsweDI0Yy8weDNjOA0KWyAgMjE4Ljk5NTQ1M10gIFs8YzA3Njc0ZDM+
-XSA/IGV0aF9yZWJ1aWxkX2hlYWRlcisweDViLzB4NWINClsgIDIxOC45OTU0NTddICBbPGMwNzVl
-ZDNmPl0gbmVpZ2hfcmVzb2x2ZV9vdXRwdXQrMHgxMDcvMHgxMzUNClsgIDIxOC45OTU0NjJdICBb
-PGMwNzcwZTE1Pl0gPyBuZl9ob29rX3Nsb3crMHg1MS8weGU0DQpbICAyMTguOTk1NDcwXSAgWzxj
-MDc3ZmM0ZT5dIGlwX2ZpbmlzaF9vdXRwdXQyKzB4MWM5LzB4MWY1DQpbICAyMTguOTk1NDc0XSAg
-WzxjMDc4MGE5YT5dIGlwX2ZpbmlzaF9vdXRwdXQrMHgzNS8weDM5DQpbICAyMTguOTk1NDc3XSAg
-WzxjMDc4MTE0MT5dIGlwX291dHB1dCsweDgwLzB4ODUNClsgIDIxOC45OTU0ODFdICBbPGMwNzgw
-YTY1Pl0gPyBfX2lwX2FwcGVuZF9kYXRhKzB4NzA0LzB4NzA0DQpbICAyMTguOTk1NDg0XSAgWzxj
-MDc3ZjZiZD5dIGRzdF9vdXRwdXQrMHhjLzB4ZQ0KWyAgMjE4Ljk5NTQ4N10gIFs8YzA3ODBiMzk+
-XSBpcF9sb2NhbF9vdXQrMHgxNy8weDFhDQpbICAyMTguOTk1NDkxXSAgWzxjMDc4MTdjOT5dIGlw
-X3NlbmRfc2tiKzB4MTAvMHg1Nw0KWyAgMjE4Ljk5NTQ5Nl0gIFs8YzA3OTk4YTY+XSB1ZHBfc2Vu
-ZF9za2IrMHgyMTYvMHgyNjQNClsgIDIxOC45OTU1MDBdICBbPGMwNzk5OTJiPl0gdWRwX3B1c2hf
-cGVuZGluZ19mcmFtZXMrMHgzNy8weDRmDQpbICAyMTguOTk1NTAzXSAgWzxjMDc5YWUzYT5dIHVk
-cF9zZW5kcGFnZSsweDExMy8weDEyYg0KWyAgMjE4Ljk5NTUwN10gIFs8YzA3OWFkMjc+XSA/IHVk
-cF9zZW5kbXNnKzB4NzI0LzB4NzI0DQpbICAyMTguOTk1NTEwXSAgWzxjMDdhMDQwNj5dIGluZXRf
-c2VuZHBhZ2UrMHg2Ny8weDc4DQpbICAyMTguOTk1NTE1XSAgWzxjMDc0NzIzZj5dIGtlcm5lbF9z
-ZW5kcGFnZSsweDNlLzB4NGQNClsgIDIxOC45OTU1MThdICBbPGMwN2EwMzlmPl0gPyBpbmV0X2Rn
-cmFtX2Nvbm5lY3QrMHg1ZS8weDVlDQpbICAyMTguOTk1NTM3XSAgWzxmODU4NzlhZD5dIHN2Y19z
-ZW5kX2NvbW1vbisweDRjLzB4MTA4IFtzdW5ycGNdDQpbICAyMTguOTk1NTU2XSAgWzxmODU4N2Jh
-MD5dIHN2Y19zZW5kdG8rMHgxMzcvMHgxYTcgW3N1bnJwY10NClsgIDIxOC45OTU1NjBdICBbPGMw
-NzRlOTYwPl0gPyBfX2tmcmVlX3NrYisweDZjLzB4NmYNClsgIDIxOC45OTU1NjNdICBbPGMwNzRl
-OTYwPl0gPyBfX2tmcmVlX3NrYisweDZjLzB4NmYNClsgIDIxOC45OTU1NjddICBbPGMwNzUwZWMx
-Pl0gPyBza2JfZnJlZV9kYXRhZ3JhbV9sb2NrZWQrMHg4NS8weDk4DQpbICAyMTguOTk1NTg2XSAg
-WzxmODU4N2MyND5dIHN2Y191ZHBfc2VuZHRvKzB4MTQvMHgyNiBbc3VucnBjXQ0KWyAgMjE4Ljk5
-NTYwNl0gIFs8Zjg1OGZhZTg+XSBzdmNfc2VuZCsweDRmLzB4OGMgW3N1bnJwY10NClsgIDIxOC45
-OTU2MjRdICBbPGY4NTg1MjhjPl0gc3ZjX3Byb2Nlc3MrMHhlYS8weGZiIFtzdW5ycGNdDQpbICAy
-MTguOTk1NjM3XSAgWzxmOGEyMjBkOD5dIG5mc2QrMHhkOC8weDExMiBbbmZzZF0NClsgIDIxOC45
-OTU2NDJdICBbPGMwNDQ0YWFjPl0gPyBjb21wbGV0ZSsweDQyLzB4NDkNClsgIDIxOC45OTU2NDVd
-ICBbPGY4YTIyMDAwPl0gPyAweGY4YTIxZmZmDQpbICAyMTguOTk1NjQ5XSAgWzxjMDQzZGQ3Mz5d
-IGt0aHJlYWQrMHg2Ny8weDZjDQpbICAyMTguOTk1NjUyXSAgWzxjMDQzZGQwYz5dID8ga3RocmVh
-ZF9mcmVlemFibGVfc2hvdWxkX3N0b3ArMHgzYi8weDNiDQpbICAyMTguOTk1NjU2XSAgWzxjMDdl
-MzAzZT5dIGtlcm5lbF90aHJlYWRfaGVscGVyKzB4Ni8weGQNClsgIDIxOC45OTU2NTldIC0tLVsg
-ZW5kIHRyYWNlIDdhMDVjNjA3Y2FkZjZmNjEgXS0tLQ0KDQoNClJlZ2FyZHMsDQpKb25nbWFuIEhl
-by4=
+On Mon, 2012-02-20 at 14:13 -0500, Colin Walters wrote:
+> On Mon, 2012-02-20 at 16:57 +0100, Javier Martinez Canillas wrote:
+> > This patch-set add multicast support to Unix domain socket familiy for datagram
+> > and seqpacket sockets. This work was made by Alban Crequy as a result of a
+> > research we have been doing to improve the performance of the D-bus IPC system.
+> 
+> Do you have links to any modifications to userspace dbus to take
+> advantage of this?
+
+we have a work in progress at
+http://cgit.collabora.com/git/user/rodrigo/dbus.git/ in the
+unix-sockets-multicast branch
