@@ -1,83 +1,50 @@
-From: "Allan, Bruce W" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Tue, 21 Feb 2012 22:09:09 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
-References: <20120221151435.GA19354@tuxdriver.com>
-	 <20120221.144417.1445117001833888214.davem@davemloft.net>
-	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
-	 <20120221.154053.2103818562080068513.davem@davemloft.net>
- <1329857959.5143.11.camel@joe2Laptop>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [net-next RFC v2 0/2] Patch series to add VF privilege support
+Date: Tue, 21 Feb 2012 14:05:35 -0800
+Message-ID: <49395329523DD64492581B505F80C86D5BDCF681FF@EXMAIL.ad.emulex.com>
+References: <20120214192623.GA14138@akhaparde-VBox>
+ <20120214.143746.956650123702374199.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org"
-	<andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andy Whitcroft <apw-26w3C0LaAnFg9hUCZPvPmw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1329857959.5143.11.camel@joe2Laptop>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht2.emulex.com ([138.239.113.184]:39999 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752998Ab2BUWLU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 17:11:20 -0500
+In-Reply-To: <20120214.143746.956650123702374199.davem@davemloft.net>
 Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1rZXJuZWwtb3duZXJA
-dmdlci5rZXJuZWwub3JnIFttYWlsdG86bGludXgta2VybmVsLQ0KPiBvd25lckB2Z2VyLmtlcm5l
-bC5vcmddIE9uIEJlaGFsZiBPZiBKb2UgUGVyY2hlcw0KPiBTZW50OiBUdWVzZGF5LCBGZWJydWFy
-eSAyMSwgMjAxMiAxMjo1OSBQTQ0KPiBUbzogRGF2aWQgTWlsbGVyOyBBbmR5IFdoaXRjcm9mdDsg
-QW5kcmV3IE1vcnRvbg0KPiBDYzogYW5kcmVpLmVtZWx0Y2hlbmtvLm5ld3NAZ21haWwuY29tOyBs
-aW52aWxsZUB0dXhkcml2ZXIuY29tOyBsaW51eC0NCj4gd2lyZWxlc3NAdmdlci5rZXJuZWwub3Jn
-OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9y
-Zw0KPiBTdWJqZWN0OiBbUEFUQ0hdIGNoZWNrcGF0Y2g6IEFkZCBzb21lIC0tc3RyaWN0IGNvZGlu
-ZyBzdHlsZSBjaGVja3MNCj4gDQo+IEFyZ3VtZW50IGFsaWdubWVudCBhY3Jvc3MgbXVsdGlwbGUg
-bGluZXMgc2hvdWxkDQo+IG1hdGNoIHRoZSBvcGVuIHBhcmVudGhlc2lzLg0KPiANCj4gTG9naWNh
-bCBjb250aW51YXRpb25zIHNob3VsZCBiZSBhdCB0aGUgZW5kIG9mDQo+IHRoZSBwcmV2aW91cyBs
-aW5lLCBub3QgdGhlIHN0YXJ0IG9mIGEgbmV3IGxpbmUuDQo+IA0KPiBUaGVzZSBhcmUgbm90IHJl
-cXVpcmVkIGJ5IENvZGluZ1N0eWxlIHNvIG1ha2UgdGhlDQo+IHRlc3RzIGFjdGl2ZSBvbmx5IHdo
-ZW4gdXNpbmcgLS1zdHJpY3QuDQo+IA0KPiBUZXN0ZWQgd2l0aDoNCj4gaW50IGZvbyh2b2lkKQ0K
-PiB7DQo+IAlpZiAoZm9vICYmDQo+IAkgICAgYmFyKCkpDQo+IAkJYmF6KCk7DQo+IA0KPiAJaWYg
-KGZvbyAmJg0KPiAJICAgICBiYXIoKSkNCj4gCQliYXooKTsNCj4gDQo+IAlmb29fc29tZV9sb25n
-X2Z1bmN0aW9uKGJhciwNCj4gCQkJICAgICAgIGJheik7DQo+IA0KPiAJZm9vX3NvbWVfbG9uZ19m
-dW5jdGlvbihiYXIsDQo+IAkJYmF6KTsNCj4gDQo+IAlyZXR1cm4gMDsNCj4gfQ0KPiANCj4gU2ln
-bmVkLW9mZi1ieTogSm9lIFBlcmNoZXMgPGpvZUBwZXJjaGVzLmNvbT4NCj4gLS0tDQo+ICBzY3Jp
-cHRzL2NoZWNrcGF0Y2gucGwgfCAgIDIyICsrKysrKysrKysrKysrKysrKysrKysNCj4gIDEgZmls
-ZXMgY2hhbmdlZCwgMjIgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYg
-LS1naXQgYS9zY3JpcHRzL2NoZWNrcGF0Y2gucGwgYi9zY3JpcHRzL2NoZWNrcGF0Y2gucGwNCj4g
-aW5kZXggYTNiOTc4Mi4uNjI5OTQ0ZSAxMDA3NTUNCj4gLS0tIGEvc2NyaXB0cy9jaGVja3BhdGNo
-LnBsDQo+ICsrKyBiL3NjcmlwdHMvY2hlY2twYXRjaC5wbA0KPiBAQCAtMTc4Myw2ICsxNzgzLDI4
-IEBAIHN1YiBwcm9jZXNzIHsNCj4gIAkJCSAgICAgInBsZWFzZSwgbm8gc3BhY2UgYmVmb3JlIHRh
-YnNcbiIgLiAkaGVyZXZldCk7DQo+ICAJCX0NCj4gDQo+ICsjIGNoZWNrIGZvciAmJiBvciB8fCBh
-dCB0aGUgc3RhcnQgb2YgYSBsaW5lDQo+ICsJCWlmICgkcmF3bGluZSA9fiAvXlwrXHMqKCYmfFx8
-XHwpLykgew0KPiArCQkJQ0hLKCJMT0dJQ0FMX0NPTlRJTlVBVElPTlMiLA0KPiArCQkJICAgICJM
-b2dpY2FsIGNvbnRpbnVhdGlvbnMgc2hvdWxkIGJlIG9uIHRoZSBwcmV2aW91cw0KPiBsaW5lXG4i
-IC4gJGhlcmVwcmV2KTsNCj4gKwkJfQ0KPiArDQo+ICsjIGNoZWNrIG11bHRpLWxpbmUgc3RhdGVt
-ZW50IGluZGVudGF0aW9uIG1hdGNoZXMgcHJldmlvdXMgbGluZQ0KPiArCQlpZiAoJHByZXZsaW5l
-ID1+IC9eXCsoXHQqKShpZg0KPiBcKHwkSWRlbnRcKCkuKihcJlwmfFx8XHx8LClccyokLyAmJiAk
-cmF3bGluZSA9fiAvXlwrKFsgXHRdKikvKSB7DQo+ICsJCQkkcHJldmxpbmUgPX4gL15cKyhcdCop
-KGlmDQo+IFwofCRJZGVudFwoKS4qKFwmXCZ8XHxcfHwsKVxzKiQvOw0KPiArCQkJbXkgJG9sZGlu
-ZGVudCA9ICQxOw0KPiArCQkJbXkgJGlmX29yX2Z1bmMgPSAkMjsNCj4gKwkJCSRyYXdsaW5lID1+
-IC9eXCsoWyBcdF0qKS87DQo+ICsJCQlteSAkbmV3aW5kZW50ID0gJDE7DQo+ICsJCQlteSAkZ29v
-ZGluZGVudCA9ICRvbGRpbmRlbnQgLg0KPiArCQkJCQkgIlx0IiB4IChsZW5ndGgoJGlmX29yX2Z1
-bmMpIC8gOCkgLg0KPiArCQkJCQkgIiAiICB4IChsZW5ndGgoJGlmX29yX2Z1bmMpICUgOCk7DQo+
-ICsJCQlpZiAoJG5ld2luZGVudCBuZSAiJGdvb2RpbmRlbnQiKSB7DQo+ICsJCQkJQ0hLKCJQQVJF
-TlRIRVNJU19BTElHTk1FTlQiLA0KPiArCQkJCSAgICAiQWxpZ25tZW50IHNob3VsZCBtYXRjaCBv
-cGVuDQo+IHBhcmVudGhlc2lzXG4iIC4gJGhlcmVwcmV2KTsNCj4gKwkJCX0NCj4gKwkJfQ0KPiAr
-DQo+ICAjIGNoZWNrIGZvciBzcGFjZXMgYXQgdGhlIGJlZ2lubmluZyBvZiBhIGxpbmUuDQo+ICAj
-IEV4Y2VwdGlvbnM6DQo+ICAjICAxKSB3aXRoaW4gY29tbWVudHMNCg0KVGhpcyBhcHBlYXJzIHRv
-IGZhbHNlbHkgY29tcGxhaW4gYWJvdXQgcGFyZW50aGVzaXMgYWxpZ25tZW50IGluIGNvbmRpdGlv
-bmFsIHN0YXRlbWVudHMgd2l0aCBtdWx0aXBsZSBvcGVuaW5nIHBhcmVudGhlc2VzLiAgRm9yIGV4
-YW1wbGUsIHRoZXNlIHdpbGwgcmVwb3J0IGEgY2hlY2sgY29uZGl0aW9uOg0KDQoJaWYgKHRlc3Rf
-YW5kX3NldF9iaXQobnIsDQoJCQkJICAgYWRkcikpDQoJCWJheigpOw0KDQoJaWYgKCEoZnVuY19h
-KHgpICYmDQoJCWZ1bmNfYih5KSkpDQoJCWJheigpOw0KDQpBc3N1bWluZyBteSBzdHVwaWQgbWFp
-bGVyIHdpbGwgc2NyZXcgdXAgdGhlIGluZGVudGF0aW9uIGFib3ZlLCB0aGUgJ2EnIGluIGFkZHIg
-aW4gdGhlIGZpcnN0IGV4YW1wbGUgaXMgbWVhbnQgdG8gYmUgaW1tZWRpYXRlbHkgYmVsb3cgdGhl
-ICduJyBpbiBuciwgYW5kIHRoZSB0d28gJ2YncyBpbiBmdW5jXyogYXJlIG1lYW50IHRvIGJlIHZl
-cnRpY2FsbHkgbGluZWQgdXAgaW4gdGhlIHNlY29uZCBleGFtcGxlLg0KDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, February 14, 2012 1:38 PM
+> To: Khaparde, Ajit
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [net-next RFC v2 0/2] Patch series to add VF privilege support
+> 
+> From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
+> Date: Tue, 14 Feb 2012 13:26:23 -0600
+> 
+> > Adds support to configure privileges for VFs.
+> 
+> Thanks for not explaining what the hell VF privileges are nor
+> why we're even interested in supporting it.
+
+Sorry about that.
+
+Privilege is a bit mask that defines what operations the VF is permitted.
+The capabilities of the CNA can be categorized under various Privileges.
+When SRIOV is enabled, while a PF will have unrestricted access to all the capabilities of the CNA,
+the scope of access of a VF can be limited to the subset of the capabilities that a PF can access.
+And the capabilities of a VF can be controlled by these privileges.
+
+Sorry for the delay. I was out of action for a while.
+
+Thanks
+-Ajt
