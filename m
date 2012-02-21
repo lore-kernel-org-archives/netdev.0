@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] datagram: Extend the datagram queue MSG_PEEK-ing
-Date: Tue, 21 Feb 2012 00:01:01 -0500 (EST)
-Message-ID: <20120221.000101.921848983774820950.davem@davemloft.net>
-References: <4F352182.6060601@parallels.com>
-	<20120215.155226.1446930776120577759.davem@davemloft.net>
-	<4F4239C7.6040905@parallels.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 2/2] vhost-net: add a spin_threshold parameter
+Date: Tue, 21 Feb 2012 13:34:20 +0800
+Message-ID: <4F432CDC.4090107@redhat.com>
+References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>  <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>  <20120219145100.GB16620@redhat.com> <1329788131.13141.14.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, tj@kernel.org, netdev@vger.kernel.org
-To: xemul@parallels.com
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Anthony Liguori <aliguori@us.ibm.com>, netdev@vger.kernel.org,
+	Tom Lendacky <toml@us.ibm.com>,
+	Cristian Viana <vianac@br.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52523 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750696Ab2BUFBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 00:01:11 -0500
-In-Reply-To: <4F4239C7.6040905@parallels.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38568 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750808Ab2BUFeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 00:34:25 -0500
+In-Reply-To: <1329788131.13141.14.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Mon, 20 Feb 2012 16:17:11 +0400
+On 02/21/2012 09:35 AM, Shirley Ma wrote:
+> We tried similar approach before by using a minimum timer for handle_tx
+> to stay in the loop to accumulate more packets before enabling the guest
+> notification. It did have better TCP_RRs, UDP_RRs results. However, we
+> think this is just a debug patch. We really need to understand why
+> handle_tx can't see more packets to process for multiple instances
+> request/response type of workload first. Spinning in this loop is not a
+> good solution.
 
-> I was thinking about another option of doing the same, how about introducing
-> the peek offset member on sock (get/set via sockopt) which works like
-> 
-> * if == -1, then peek works as before
-> * if >= 0, then each peek/recvmsg will increase/decrease the value so that
->   the next peek peeks next data
-> 
-> It's questionable what to do if the peek_off points into the middle of a
-> datagram however. Here's an example of how this looks for datagram sockets
-> (tested on pf_unix), for stream this requires more patching.
-> 
-> What do you think? Does it make sense to go on with this making other 
-> ->recvmsg handlers support peeking offset?
+Spinning help for the latency, but looks like we need some adaptive 
+method to adjust the threshold dynamically such as monitor the minimum 
+time gap between two packets. For throughput, if we can improve the 
+batching of small packets we can improve it. I've tired to use event 
+index to delay the tx kick until a specified number of packets were 
+batched in the virtqueue. Test shows improvement of throughput in small 
+packets as the number of #exit were reduced greatly ( the packets/#exit 
+and cpu utilization were increased), but it damages the performance of 
+other. This is only for debug, but it confirms that there's something we 
+need to improve the batching.
 
-I think you need to add some kind of locking to this for sanity, for
-example right now you're doing test/decide/store decisions over
-sk_peek_off inside of __skb_recv_datagram() without the socket lock,
-yet another thread can set the SO_PEEK_OFF in parallel.
-
-The locking decision will probably be worse for stream sockets.
+>
+> Thanks
+> Shirley
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
