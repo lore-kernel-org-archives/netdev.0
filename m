@@ -1,61 +1,95 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/2] vhost-net: add a spin_threshold parameter
-Date: Tue, 21 Feb 2012 14:38:13 +0800
-Message-ID: <4F433BD5.1070400@redhat.com>
-References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>  <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>  <20120219145100.GB16620@redhat.com>  <1329788131.13141.14.camel@localhost.localdomain>  <4F432CDC.4090107@redhat.com> <1329805716.24119.3.camel@localhost.localdomain>
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: WARNING: at kernel/softirq.c:159 _local_bh_enable_ip+0x35/0x71()
+Date: Tue, 21 Feb 2012 07:22:40 +0000 (GMT)
+Message-ID: <6280313.121891329808960531.JavaMail.weblogic@epml01>
+Reply-To: jongman.heo@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Anthony Liguori <aliguori@us.ibm.com>, netdev@vger.kernel.org,
-	Tom Lendacky <toml@us.ibm.com>,
-	Cristian Viana <vianac@br.ibm.com>
-To: Shirley Ma <mashirle@us.ibm.com>
+Content-Type: text/plain; charset=euc-kr
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29490 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750804Ab2BUGiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Feb 2012 01:38:19 -0500
-In-Reply-To: <1329805716.24119.3.camel@localhost.localdomain>
+Received: from mailout1.samsung.com ([203.254.224.24]:27728 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751593Ab2BUHWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 02:22:49 -0500
+Received: from epcpsbge8.samsung.com (mailout1.samsung.com [203.254.224.24])
+ by mailout1.samsung.com
+ (Oracle Communications Messaging Exchange Server 7u4-19.01 64bit (built Sep  7
+ 2010)) with ESMTP id <0LZQ00KINF59YXF0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Tue, 21 Feb 2012 16:22:41 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/21/2012 02:28 PM, Shirley Ma wrote:
-> On Tue, 2012-02-21 at 13:34 +0800, Jason Wang wrote:
->> On 02/21/2012 09:35 AM, Shirley Ma wrote:
->>> We tried similar approach before by using a minimum timer for
->> handle_tx
->>> to stay in the loop to accumulate more packets before enabling the
->> guest
->>> notification. It did have better TCP_RRs, UDP_RRs results. However,
->> we
->>> think this is just a debug patch. We really need to understand why
->>> handle_tx can't see more packets to process for multiple instances
->>> request/response type of workload first. Spinning in this loop is
->> not a
->>> good solution.
->> Spinning help for the latency, but looks like we need some adaptive
->> method to adjust the threshold dynamically such as monitor the
->> minimum
->> time gap between two packets. For throughput, if we can improve the
->> batching of small packets we can improve it. I've tired to use event
->> index to delay the tx kick until a specified number of packets were
->> batched in the virtqueue. Test shows improvement of throughput in
->> small
->> packets as the number of #exit were reduced greatly ( the
->> packets/#exit
->> and cpu utilization were increased), but it damages the performance
->> of
->> other. This is only for debug, but it confirms that there's something
->> we
->> need to improve the batching.
-> Our test case was 60 instances 256/256 bytes tcp_rrs or udp_rrs. In
-> theory there should be multiple packets in the queue by the time vhost
-> gets notified, but from debugging output, there was only a few or even
-> one packet in the queue. So the questions here why the time gap between
-> two packets is that big?
->
-> Shirley
-
-Not sure whether it's related but did you try to disable the nagle 
-algorithm during the test?
+DQpIaSBhbGwsDQoNCkhvc3QgOiB3aW5kb3dzIDcgMzJiaXQNClZNV2FyZSBHdWVzdCA6IEZlZG9y
+YSAxNiwgd2l0aCBsYXRlc3QgbGludXMgZ2l0IGtlcm5lbCAoMy4zLjAtcmM0KykuIA0KICAgICAg
+ICAgICAgICAgICAgICAgICAgdm14bmV0MyBldGhlcm5ldCBkcml2ZXIsIHJ1bm5pbmcgTkZTIHNl
+cnZlcg0KDQpGb2xsb3dpbmcgd2FybmluZyB0cmlnZ2VyZWQgd2l0aCBteSBWTXdhcmUgTGludXgg
+Z3Vlc3QsIHdoZW4gTkZTIGNvbm5lY3Rpb24gaXMgcmVxdWVzdGVkIGZyb20gb3V0c2lkZS4NCg0K
+WyAgMjE4Ljk5NTI2Nl0gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tDQpbICAy
+MTguOTk1Mjc5XSBXQVJOSU5HOiBhdCBrZXJuZWwvc29mdGlycS5jOjE1OSBfbG9jYWxfYmhfZW5h
+YmxlX2lwKzB4MzUvMHg3MSgpDQpbICAyMTguOTk1MjgyXSBIYXJkd2FyZSBuYW1lOiBWTXdhcmUg
+VmlydHVhbCBQbGF0Zm9ybQ0KWyAgMjE4Ljk5NTI4NF0gTW9kdWxlcyBsaW5rZWQgaW46IGlwNnRh
+YmxlX2ZpbHRlciBpcDZfdGFibGVzIGVidGFibGVfbmF0IGVidGFibGVzIGJyaWRnZSBzdHAgbGxj
+IGJueDJpIGxpYmlzY3NpIHNjc2lfdHJhbnNwb3J0X2lzY3NpIGNuaWMgdWlvIHNuZF9lbnMxMzcx
+IGdhbWVwb3J0IHNuZF9yYXdtaWRpIHNuZF9hYzk3X2NvZGVjIGFjOTdfYnVzIHNuZF9zZXEgc25k
+X3NlcV9kZXZpY2Ugc25kX3BjbSBzbmRfdGltZXIgc25kIHNvdW5kY29yZSB2bXhuZXQzIHZtd19i
+YWxsb29uIGkyY19waWl4NCBtaWNyb2NvZGUgc25kX3BhZ2VfYWxsb2MgbmZzZCBsb2NrZCBuZnNf
+YWNsIHVpbnB1dCBhdXRoX3JwY2dzcyBzdW5ycGMgaXB2NiBtcHRzcGkgbXB0c2NzaWggbXB0YmFz
+ZSBzY3NpX3RyYW5zcG9ydF9zcGkgW2xhc3QgdW5sb2FkZWQ6IHNjc2lfd2FpdF9zY2FuXQ0KWyAg
+MjE4Ljk5NTMzMl0gUGlkOiA4MzUsIGNvbW06IG5mc2QgTm90IHRhaW50ZWQgMy4zLjAtcmM0KyAj
+NTINClsgIDIxOC45OTUzMzRdIENhbGwgVHJhY2U6DQpbICAyMTguOTk1MzQxXSAgWzxjMDdkN2I1
+Nj5dID8gcHJpbnRrKzB4MTgvMHgxYQ0KWyAgMjE4Ljk5NTM0N10gIFs8YzA0MjZlODI+XSB3YXJu
+X3Nsb3dwYXRoX2NvbW1vbisweDc3LzB4OGMNClsgIDIxOC45OTUzNTFdICBbPGMwNDJiYmMyPl0g
+PyBfbG9jYWxfYmhfZW5hYmxlX2lwKzB4MzUvMHg3MQ0KWyAgMjE4Ljk5NTM1NF0gIFs8YzA0MmJi
+YzI+XSA/IF9sb2NhbF9iaF9lbmFibGVfaXArMHgzNS8weDcxDQpbICAyMTguOTk1MzU4XSAgWzxj
+MDQyNmViND5dIHdhcm5fc2xvd3BhdGhfbnVsbCsweDFkLzB4MWYNClsgIDIxOC45OTUzNjFdICBb
+PGMwNDJiYmMyPl0gX2xvY2FsX2JoX2VuYWJsZV9pcCsweDM1LzB4NzENClsgIDIxOC45OTUzNjVd
+ICBbPGMwNDJiYzEzPl0gbG9jYWxfYmhfZW5hYmxlKzB4Yi8weGQNClsgIDIxOC45OTUzNzBdICBb
+PGMwNzRjZWIzPl0ga3VubWFwX3NrYl9mcmFnKzB4ZC8weGYNClsgIDIxOC45OTUzNzNdICBbPGMw
+NzRkZTNmPl0gc2tiX2NvcHlfYml0cysweGRjLzB4MThiDQpbICAyMTguOTk1Mzc3XSAgWzxjMDc0
+ZjYwZT5dIF9fcHNrYl9wdWxsX3RhaWwrMHg2NC8weDIxMQ0KWyAgMjE4Ljk5NTM4Ml0gIFs8YzA0
+NjY4YjQ+XSA/IGFyY2hfbG9jYWxfaXJxX3NhdmUrMHgxMi8weDE3DQpbICAyMTguOTk1Mzg5XSAg
+WzxmOGI3ODQxYj5dIHZteG5ldDNfeG1pdF9mcmFtZSsweDNmYS8weDlmNyBbdm14bmV0M10NClsg
+IDIxOC45OTUzOTNdICBbPGMwNDJiYmE1Pl0gPyBfbG9jYWxfYmhfZW5hYmxlX2lwKzB4MTgvMHg3
+MQ0KWyAgMjE4Ljk5NTM5Nl0gIFs8YzA0MmJjMDY+XSA/IGxvY2FsX2JoX2VuYWJsZV9pcCsweDgv
+MHhhDQpbICAyMTguOTk1NDAyXSAgWzxjMDdkZDZhND5dID8gX3Jhd19zcGluX3VubG9ja19iaCsw
+eGUvMHgxMA0KWyAgMjE4Ljk5NTQzMV0gIFs8Zjg1OGVhOTQ+XSA/IHN2Y194cHJ0X2VucXVldWUr
+MHgxNWMvMHgxNjQgW3N1bnJwY10NClsgIDIxOC45OTU0MzZdICBbPGMwNDMyMTg1Pl0gPyBtb2Rf
+dGltZXJfcGVuZGluZysweDE1LzB4MTcNClsgIDIxOC45OTU0NDFdICBbPGMwNzU3ODM4Pl0gZGV2
+X2hhcmRfc3RhcnRfeG1pdCsweDM2YS8weDQ3Nw0KWyAgMjE4Ljk5NTQ0Nl0gIFs8YzA3NjdlNTQ+
+XSBzY2hfZGlyZWN0X3htaXQrMHg0ZS8weDExMA0KWyAgMjE4Ljk5NTQ1MF0gIFs8YzA3NTdiOTE+
+XSBkZXZfcXVldWVfeG1pdCsweDI0Yy8weDNjOA0KWyAgMjE4Ljk5NTQ1M10gIFs8YzA3Njc0ZDM+
+XSA/IGV0aF9yZWJ1aWxkX2hlYWRlcisweDViLzB4NWINClsgIDIxOC45OTU0NTddICBbPGMwNzVl
+ZDNmPl0gbmVpZ2hfcmVzb2x2ZV9vdXRwdXQrMHgxMDcvMHgxMzUNClsgIDIxOC45OTU0NjJdICBb
+PGMwNzcwZTE1Pl0gPyBuZl9ob29rX3Nsb3crMHg1MS8weGU0DQpbICAyMTguOTk1NDcwXSAgWzxj
+MDc3ZmM0ZT5dIGlwX2ZpbmlzaF9vdXRwdXQyKzB4MWM5LzB4MWY1DQpbICAyMTguOTk1NDc0XSAg
+WzxjMDc4MGE5YT5dIGlwX2ZpbmlzaF9vdXRwdXQrMHgzNS8weDM5DQpbICAyMTguOTk1NDc3XSAg
+WzxjMDc4MTE0MT5dIGlwX291dHB1dCsweDgwLzB4ODUNClsgIDIxOC45OTU0ODFdICBbPGMwNzgw
+YTY1Pl0gPyBfX2lwX2FwcGVuZF9kYXRhKzB4NzA0LzB4NzA0DQpbICAyMTguOTk1NDg0XSAgWzxj
+MDc3ZjZiZD5dIGRzdF9vdXRwdXQrMHhjLzB4ZQ0KWyAgMjE4Ljk5NTQ4N10gIFs8YzA3ODBiMzk+
+XSBpcF9sb2NhbF9vdXQrMHgxNy8weDFhDQpbICAyMTguOTk1NDkxXSAgWzxjMDc4MTdjOT5dIGlw
+X3NlbmRfc2tiKzB4MTAvMHg1Nw0KWyAgMjE4Ljk5NTQ5Nl0gIFs8YzA3OTk4YTY+XSB1ZHBfc2Vu
+ZF9za2IrMHgyMTYvMHgyNjQNClsgIDIxOC45OTU1MDBdICBbPGMwNzk5OTJiPl0gdWRwX3B1c2hf
+cGVuZGluZ19mcmFtZXMrMHgzNy8weDRmDQpbICAyMTguOTk1NTAzXSAgWzxjMDc5YWUzYT5dIHVk
+cF9zZW5kcGFnZSsweDExMy8weDEyYg0KWyAgMjE4Ljk5NTUwN10gIFs8YzA3OWFkMjc+XSA/IHVk
+cF9zZW5kbXNnKzB4NzI0LzB4NzI0DQpbICAyMTguOTk1NTEwXSAgWzxjMDdhMDQwNj5dIGluZXRf
+c2VuZHBhZ2UrMHg2Ny8weDc4DQpbICAyMTguOTk1NTE1XSAgWzxjMDc0NzIzZj5dIGtlcm5lbF9z
+ZW5kcGFnZSsweDNlLzB4NGQNClsgIDIxOC45OTU1MThdICBbPGMwN2EwMzlmPl0gPyBpbmV0X2Rn
+cmFtX2Nvbm5lY3QrMHg1ZS8weDVlDQpbICAyMTguOTk1NTM3XSAgWzxmODU4NzlhZD5dIHN2Y19z
+ZW5kX2NvbW1vbisweDRjLzB4MTA4IFtzdW5ycGNdDQpbICAyMTguOTk1NTU2XSAgWzxmODU4N2Jh
+MD5dIHN2Y19zZW5kdG8rMHgxMzcvMHgxYTcgW3N1bnJwY10NClsgIDIxOC45OTU1NjBdICBbPGMw
+NzRlOTYwPl0gPyBfX2tmcmVlX3NrYisweDZjLzB4NmYNClsgIDIxOC45OTU1NjNdICBbPGMwNzRl
+OTYwPl0gPyBfX2tmcmVlX3NrYisweDZjLzB4NmYNClsgIDIxOC45OTU1NjddICBbPGMwNzUwZWMx
+Pl0gPyBza2JfZnJlZV9kYXRhZ3JhbV9sb2NrZWQrMHg4NS8weDk4DQpbICAyMTguOTk1NTg2XSAg
+WzxmODU4N2MyND5dIHN2Y191ZHBfc2VuZHRvKzB4MTQvMHgyNiBbc3VucnBjXQ0KWyAgMjE4Ljk5
+NTYwNl0gIFs8Zjg1OGZhZTg+XSBzdmNfc2VuZCsweDRmLzB4OGMgW3N1bnJwY10NClsgIDIxOC45
+OTU2MjRdICBbPGY4NTg1MjhjPl0gc3ZjX3Byb2Nlc3MrMHhlYS8weGZiIFtzdW5ycGNdDQpbICAy
+MTguOTk1NjM3XSAgWzxmOGEyMjBkOD5dIG5mc2QrMHhkOC8weDExMiBbbmZzZF0NClsgIDIxOC45
+OTU2NDJdICBbPGMwNDQ0YWFjPl0gPyBjb21wbGV0ZSsweDQyLzB4NDkNClsgIDIxOC45OTU2NDVd
+ICBbPGY4YTIyMDAwPl0gPyAweGY4YTIxZmZmDQpbICAyMTguOTk1NjQ5XSAgWzxjMDQzZGQ3Mz5d
+IGt0aHJlYWQrMHg2Ny8weDZjDQpbICAyMTguOTk1NjUyXSAgWzxjMDQzZGQwYz5dID8ga3RocmVh
+ZF9mcmVlemFibGVfc2hvdWxkX3N0b3ArMHgzYi8weDNiDQpbICAyMTguOTk1NjU2XSAgWzxjMDdl
+MzAzZT5dIGtlcm5lbF90aHJlYWRfaGVscGVyKzB4Ni8weGQNClsgIDIxOC45OTU2NTldIC0tLVsg
+ZW5kIHRyYWNlIDdhMDVjNjA3Y2FkZjZmNjEgXS0tLQ0KDQoNClJlZ2FyZHMsDQpKb25nbWFuIEhl
+by4=
