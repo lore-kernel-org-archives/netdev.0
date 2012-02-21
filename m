@@ -1,34 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Tue, 21 Feb 2012 13:11:15 -0800
-Message-ID: <1329858675.5143.13.camel@joe2Laptop>
-References: <20120221151435.GA19354@tuxdriver.com>
-	 <20120221.144417.1445117001833888214.davem@davemloft.net>
-	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
-	 <20120221.154053.2103818562080068513.davem@davemloft.net>
-	 <1329857959.5143.11.camel@joe2Laptop>
-	 <20120221130917.e41491d4.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Tue, 21 Feb 2012 16:16:30 -0500 (EST)
+Message-ID: <20120221.161630.1122203779408129070.davem@davemloft.net>
+References: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andy Whitcroft <apw@shadowen.org>,
-	andrei.emeltchenko.news@gmail.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120221130917.e41491d4.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gregory.v.rose@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60722 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707Ab2BUVQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:16:46 -0500
+In-Reply-To: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-02-21 at 13:09 -0800, Andrew Morton wrote:
-> Speaking of which, I just got this:
-> 
-> WARNING: %Ld/%Lu are not-standard C, use %lld/%llu
-> #142: FILE: fs/locks.c:2335:
-> +                       seq_printf(f, "Start-end:\t %Ld-EOF\n\n", fl->fl_start);
-> 
-> But %L saves a byte!  Why did we do this?  Don't you like puppies?
 
-Beats me and I prefer kittens.
+Greg, where is the code that guards the actual dumping of the VF
+information based upon the ext mask?
+
+I only see the ext mask controlling the sizing of the SKB.  What good
+is that if we still dump the VFs?
