@@ -1,74 +1,88 @@
-From: Scott Talbert <talbert@techie.net>
-Subject: [PATCH v2] cdc_ether/zaurus: Move Harmony 900 from cdc_ether to
- zaurus
-Date: Mon, 20 Feb 2012 21:29:29 -0500 (EST)
-Message-ID: <alpine.LRH.2.02.1202202114180.382@bear.techie.net>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: Bogus frames transmitted with r8169 & fragmentation & large mtu
+Date: Tue, 21 Feb 2012 10:58:55 +0800
+Message-ID: <39C5DD558BB9499FB0D7CA7AEF943376@realtek.com.tw>
+References: <20120215163748.GA3998@elliptictech.com> <1329333239.2469.3.camel@edumazet-laptop> <20120215232303.GB31463@electric-eye.fr.zoreil.com> <33249D172FBD4AE09E24D4F24E973BD9@realtek.com.tw> <20120216074637.GA6208@electric-eye.fr.zoreil.com> <20120216120448.GB9504@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0003_01CCF087.CE0D6FA0"
+Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	'Nick Bowler' <nbowler@elliptictech.com>,
+	<netdev@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.techie.net ([205.134.185.202]:34908 "EHLO bear.techie.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751472Ab2BUC3a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 21:29:30 -0500
-Received: from bear.techie.net (localhost.localdomain [127.0.0.1])
-	by bear.techie.net (8.13.8/8.13.8) with ESMTP id q1L2TTCr000537
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 21:29:29 -0500
-Received: from localhost (talbert@localhost)
-	by bear.techie.net (8.13.8/8.13.8/Submit) with ESMTP id q1L2TTrR000534
-	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 21:29:29 -0500
+Received: from rtits2.realtek.com ([60.250.210.242]:59627 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750761Ab2BUC7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Feb 2012 21:59:11 -0500
+In-Reply-To: <20120216120448.GB9504@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the current kernel implementation, the Logitech Harmony 900 remote 
-control is matched to the cdc_ether driver through the generic 
-USB_CDC_SUBCLASS_MDLM entry.  However, this device appears to be of the 
-pseudo-MDLM (Belcarra) type, rather than the standard one.  This 
-patch blacklists the Harmony 900 from the cdc_ether driver and whitelists 
-it for the pseudo-MDLM driver in zaurus.
+------=_NextPart_000_0003_01CCF087.CE0D6FA0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Scott Talbert <talbert@techie.net>
----
-  drivers/net/usb/cdc_ether.c |    7 +++++++
-  drivers/net/usb/zaurus.c    |    7 +++++++
-  2 files changed, 14 insertions(+), 0 deletions(-)
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Thursday, February 16, 2012 8:05 PM
+> To: Hayeswang
+> Cc: 'Eric Dumazet'; 'Nick Bowler'; netdev@vger.kernel.org
+> Subject: Re: Bogus frames transmitted with r8169 & 
+> fragmentation & large mtu
+> 
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+> > I am testing it now.
+> 
+> It does not fix the problem. It seems to make a difference but I still
+> see a few percents packet loss. The pattern has changed a bit 
+> too: there
+> are more bogus IP fragment offsets.
+> 
+> Trying with 'ping -qf -c 100 -l 2 -s 65507 10.0.7.1'
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index c924ea2..13919dd 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -570,6 +570,13 @@ static const struct usb_device_id	products [] = {
-  	.driver_info = (unsigned long)&wwan_info,
-  },
+It works fine for me. I use Linux platform (Fedora 16 with kernel 3.2.0 with
+that patch) with the realtek nic to ping Windows platform with the NVIDIA nic,
+and I connect the two PCs directly without the switch. It works well except for
+the first packet after I set the new mtu.
 
-+/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info		= 0,
-+},
-+
-  /*
-   * WHITELIST!!!
-   *
-diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
-index 1a2234c..246b3bb 100644
---- a/drivers/net/usb/zaurus.c
-+++ b/drivers/net/usb/zaurus.c
-@@ -349,6 +349,13 @@ static const struct usb_device_id	products [] = {
-  	ZAURUS_MASTER_INTERFACE,
-  	.driver_info = OLYMPUS_MXL_INFO,
-  },
-+
-+/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &bogus_mdlm_info,
-+},
-  	{ },		// END
-  };
-  MODULE_DEVICE_TABLE(usb, products);
--- 
-1.7.5.4
+> 
+> So far I have only seen it with the 2nd and last fragment.
+> 
+ 
+Best Regards,
+Hayes
+
+------=_NextPart_000_0003_01CCF087.CE0D6FA0
+Content-Type: application/octet-stream; name="ping.log"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="ping.log"
+
+[   45.415894] r8169 0000:04:00.0: eth0: RTL8168d/8111d at 0xf7e58000, =
+00:e0:4c:68:00:04, XID 083000c0 IRQ 46=0A=
+p33p1     Link encap:Ethernet  HWaddr 00:E0:4C:68:00:04  =0A=
+          inet addr:192.168.94.44  Bcast:192.168.94.255  =
+Mask:255.255.255.0=0A=
+          inet6 addr: fe80::2e0:4cff:fe68:4/64 Scope:Link=0A=
+          UP BROADCAST RUNNING MULTICAST  MTU:9000  Metric:1=0A=
+          RX packets:3714 errors:0 dropped:0 overruns:0 frame:0=0A=
+          TX packets:3670 errors:0 dropped:0 overruns:0 carrier:0=0A=
+          collisions:0 txqueuelen:1000 =0A=
+          RX bytes:28794250 (27.4 MiB)  TX bytes:28919110 (27.5 MiB)=0A=
+          Interrupt:46 Base address:0x8000 =0A=
+PING 192.168.94.20 (192.168.94.20) 65507(65535) bytes of data.=0A=
+=0A=
+--- 192.168.94.20 ping statistics ---=0A=
+100 packets transmitted, 100 received, 0% packet loss, time 89ms=0A=
+rtt min/avg/max/mdev =3D 1.368/1.643/1.954/0.099 ms, pipe 2, ipg/ewma =
+0.904/1.705 ms=0A=
+PING 192.168.94.20 (192.168.94.20) 65507(65535) bytes of data.=0A=
+=0A=
+--- 192.168.94.20 ping statistics ---=0A=
+100 packets transmitted, 100 received, 0% packet loss, time 90ms=0A=
+rtt min/avg/max/mdev =3D 1.419/1.658/1.943/0.078 ms, pipe 2, ipg/ewma =
+0.912/1.673 ms=0A=
+Linux fc16.localdomain 3.2.0 #1 SMP Tue Jan 10 16:11:29 CST 2012 i686 =
+i686 i386 GNU/Linux=0A=
+
+------=_NextPart_000_0003_01CCF087.CE0D6FA0--
