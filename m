@@ -1,67 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net] macvlan: Disable LRO on lowerdev; warn if it's turned
- back on
-Date: Tue, 21 Feb 2012 13:46:47 -0800
-Message-ID: <4F4410C7.2000500@candelatech.com>
-References: <1329851622.2689.6.camel@bwh-desktop>  <4F43F816.6070908@intel.com> <1329856136.2689.46.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] rtnetlink: Fix problem with buffer allocation
+Date: Tue, 21 Feb 2012 22:48:16 +0100
+Message-ID: <1329860896.18384.61.camel@edumazet-laptop>
+References: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Shradha Shah <sshah@solarflare.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:34870 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755346Ab2BUVrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:47:02 -0500
-In-Reply-To: <1329856136.2689.46.camel@bwh-desktop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:65109 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752038Ab2BUVsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:48:21 -0500
+Received: by werb13 with SMTP id b13so4103523wer.19
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 13:48:20 -0800 (PST)
+In-Reply-To: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/21/2012 12:28 PM, Ben Hutchings wrote:
-> On Tue, 2012-02-21 at 12:01 -0800, John Fastabend wrote:
->> On 2/21/2012 11:13 AM, Ben Hutchings wrote:
->>> Large Receive Offload (LRO) is only appropriate for packets that are
->>> destined for the host, and should be disabled if received packets may
->>> be forwarded.
->>>
->>> Further, macvtap_skb_to_vnet_hdr() will BUG() on a packet received
->>> with LRO (but not GRO).
->>>
->>> Signed-off-by: Ben Hutchings<bhutchings@solarflare.com>
->>> ---
->>> I'm not really familiar with macvlan so I'm not certain that this should
->>> be applied to all modes.
->>>
->>> Ben.
->>>
->>>   drivers/net/macvlan.c |    7 +++++++
->>>   1 files changed, 7 insertions(+), 0 deletions(-)
->>>
->>
->> But this patch assumes the macvlan is forwarding traffic to a guest
->> via macvtap. Which is an assumption that may not be true.
->>
->> It seems more appropriate for the macvtap driver to do these checks
->> after all its the driver that may BUG() with LRO.
->
-> That's what I thought at first, but then I looked through what macvlan
-> was doing and it certainly appears to re-transmit skbs in all modes.
-> That's not valid when gso_size != 0 and gso_type == 0.
+Le mardi 21 f=C3=A9vrier 2012 =C3=A0 12:47 -0800, Greg Rose a =C3=A9cri=
+t :
 
-You can put an IP on a mac-vlan and receive packets on it like
-normal Ethernet interfaces.  They wouldn't be re-transmitted
-in that case, would they?
+> Modifies the rtnl_calcit function to traverse the list of net
+> devices and compute the minimum buffer size that can hold the
+> info dumps of all matching devices based upon the filter passed
+> in via the new netlink attribute filter mask.  If no filter
+> mask is sent then the buffer allocation defaults to NLMSG_GOODSIZE.
+>=20
 
->
-> Ben.
->
+=2E..
 
+> +	/*
+> +	 * traverse the list of net devices and compute the minimum
+> +	 * buffer size based upon the filter mask.
+> +	 */
+> +	list_for_each_entry_rcu(dev, &net->dev_base_head, dev_list) {
+> +		min_ifinfo_dump_size =3D max_t(u16, min_ifinfo_dump_size,
+> +					     if_nlmsg_size(dev,
+> +						           ext_filter_mask));
+> +	}
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thats going to hurt some setups (thousand of devices on a server).
+
+Also why are you using _rcu() variant here, we hold rtnl I presume ?
