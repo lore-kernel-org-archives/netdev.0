@@ -1,32 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Tue, 21 Feb 2012 17:02:10 -0500 (EST)
-Message-ID: <20120221.170210.1476576306533944488.davem@davemloft.net>
-References: <1329860896.18384.61.camel@edumazet-laptop>
-	<20120221.165013.133683072829070307.davem@davemloft.net>
-	<C5551D9AAB213A418B7FD5E4A6F30A0702F96E22@ORSMSX106.amr.corp.intel.com>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [RFC net-next 1/2] if_link : add support for VF privileges
+Date: Tue, 21 Feb 2012 14:02:27 -0800
+Message-ID: <49395329523DD64492581B505F80C86D5BDCF681FD@EXMAIL.ad.emulex.com>
+References: <20120214192627.GA14163@akhaparde-VBox>
+ <1329261897.2443.60.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: gregory.v.rose@intel.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <shemminger@linux-foundation.org>,
+	<netdev@vger.kernel.org>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32855 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755655Ab2BUWCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 17:02:14 -0500
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0702F96E22@ORSMSX106.amr.corp.intel.com>
+Received: from exht1.emulex.com ([138.239.113.183]:49872 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752905Ab2BUWCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 17:02:49 -0500
+In-Reply-To: <1329261897.2443.60.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Date: Tue, 21 Feb 2012 21:56:14 +0000
-
-> In rtnl_fill_ifinfo the code there uses hlist_for_each_entry_rcu()
-> so I think that's why it got carried over here.  I can remove it.
-
-It does so because rtnl_fill_ifinfo() runs within an rcu_read_lock()
-sequence.
-
-I fixed up the calcit case when I applied your patch, so we're good
-now.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkg
+MTQsIDIwMTIgNToyNSBQTQ0KPiBUbzogS2hhcGFyZGUsIEFqaXQNCj4gQ2M6IGRhdmVtQGRhdmVt
+bG9mdC5uZXQ7IHNoZW1taW5nZXJAbGludXgtZm91bmRhdGlvbi5vcmc7DQo+IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgbmV0LW5leHQgMS8yXSBpZl9saW5rIDog
+YWRkIHN1cHBvcnQgZm9yIFZGIHByaXZpbGVnZXMNCj4gDQo+IE9uIFR1ZSwgMjAxMi0wMi0xNCBh
+dCAxMzoyNiAtMDYwMCwgQWppdCBLaGFwYXJkZSB3cm90ZToNCj4gPiBTaWduZWQtb2ZmLWJ5OiBB
+aml0IEtoYXBhcmRlIDxhaml0LmtoYXBhcmRlQGVtdWxleC5jb20+DQo+ID4gLS0tDQo+ID4gIGlu
+Y2x1ZGUvbGludXgvaWZfbGluay5oICAgfCAgIDIxICsrKysrKysrKysrKysrKysrKysrKw0KPiA+
+ICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgMyArKysNCj4gPiAgbmV0L2NvcmUvcnRu
+ZXRsaW5rLmMgICAgICB8ICAgMTcgKysrKysrKysrKysrKysrKy0NCj4gPiAgMyBmaWxlcyBjaGFu
+Z2VkLCA0MCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdp
+dCBhL2luY2x1ZGUvbGludXgvaWZfbGluay5oIGIvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCj4g
+PiBpbmRleCBjNTJkNGI1Li45YzkzYThlIDEwMDY0NA0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgv
+aWZfbGluay5oDQo+ID4gKysrIGIvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCj4gPiBAQCAtMjgw
+LDExICsyODAsMjYgQEAgZW51bSB7DQo+ID4gIAlJRkxBX1ZGX1ZMQU4sDQo+ID4gIAlJRkxBX1ZG
+X1RYX1JBVEUsCS8qIFRYIEJhbmR3aWR0aCBBbGxvY2F0aW9uICovDQo+ID4gIAlJRkxBX1ZGX1NQ
+T09GQ0hLLAkvKiBTcG9vZiBDaGVja2luZyBvbi9vZmYgc3dpdGNoICovDQo+ID4gKwlJRkxBX1ZG
+X1BSSVZJTEVHRSwJLyogVkYgUHJpdmlsZWdlIGxldmVsIHNldHRpbmcgKi8NCj4gPiAgCV9fSUZM
+QV9WRl9NQVgsDQo+ID4gIH07DQo+ID4NCj4gPiAgI2RlZmluZSBJRkxBX1ZGX01BWCAoX19JRkxB
+X1ZGX01BWCAtIDEpDQo+ID4NCj4gPiArZW51bSB7DQo+ID4gKwlJRkxBX1ZGX1BSSVZJTEVHRV9E
+RUZBVUxUID0gMSwJLyogRGVmYXVsdCBwcml2aWxlZ2VzICovDQo+IA0KPiBXaGF0IGFyZSB0aGUg
+ZGVmYXVsdCBwcml2aWxlZ2VzPyAgU2hvdWxkIGV4aXN0aW5nIGRyaXZlcnMgcmVwb3J0IHRoYXQN
+Cj4gdGhlaXIgVkZzIGhhdmUgdGhpcz8NClllcy4gVmVuZG9ycyBjYW4gZGVjaWRlIHdoYXQgcHJp
+dmlsZWdlcyB0aGV5IHdhbnQgdG8gZ3JhbnQgZm9yIFZGcyBieSBkZWZhdWx0Lg0KDQo+IA0KPiA+
+ICsJSUZMQV9WRl9QUklWSUxFR0VfU1RBVFMJPSAyLAkvKiBQcml2aWxlZ2UgdG8gZ2F0aGVyIHN0
+YXRpc3RpY3MgKi8NCj4gDQo+IEkgYXNzdW1lIHRoYXQgbWVhbnMgcG9ydCBvciBib2FyZCBzdGF0
+aXN0aWNzIGFzIG9wcG9zZWQgdG8gc3RhdGlzdGljcw0KPiBmb3IgdGhlIFZGPw0KWWVzLCBQb3J0
+IHN0YXRpc3RpY3MuDQoNCj4gDQo+ID4gKwlJRkxBX1ZGX1BSSVZJTEVHRV9MTktfTUdNVCA9IDQs
+CS8qIFByaXZpbGVnZSB0byBtYW5hZ2UgbGluaw0KPiBwYXJhbXMgKi8NCj4gPiArCUlGTEFfVkZf
+UFJJVklMRUdFX0RJQUcJPSA4LAkvKiBQcml2aWxlZ2UgdG8gcGVyZm9ybQ0KPiBkaWFnbm9zdGlj
+cyAqLw0KPiA+ICsJSUZMQV9WRl9QUklWSUxFR0VfTUFDCT0gMTYsCS8qIFByaXZpbGVnZSB0byBt
+b2RpZnkgTUFDDQo+IGFkZHJlc3MgKi8NCj4gPiArCUlGTEFfVkZfUFJJVklMRUdFX1ZMQU4JPSAz
+MiwJLyogUHJpdmlsZWdlIHRvIGFkZCBvciByZW1vdmUNCj4gVkxBTnMgKi8NCj4gDQo+IEkgYXNz
+dW1lIHRoZXNlIHR3byBhcHBseSB0byBSWCBmaWx0ZXJpbmcgb2YgdGhlIFZGIGl0c2VsZi4gIEhv
+dyBhYm91dA0KPiBjb250cm9sIG92ZXIgVFggZmlsdGVyaW5nPw0KWWVzLiBUaGlzIGlzIGZvciBS
+eCBmaWx0ZXJpbmcuIFR4IGZpbHRlcmluZyBwcml2aWxlZ2VzIGNhbiBiZSBhZGRlZCBpZiBuZWVk
+ZWQuDQoNCj4gDQo+ID4gKwlJRkxBX1ZGX1BSSVZJTEVHRV9ERVZfQ0ZHID0gNjQsCS8qIFVucmVz
+dHJpY3RlZCBhZG1pbiBhY2Nlc3MNCj4gcHJpdmxlZ2UgKi8NCj4gDQo+IERvZXMgdGhhdCBpbmNs
+dWRlIGFsbCB0aGUgb3RoZXIgcHJpdmlsZWdlcywgb3IgZG9lcyBpdCBtZWFuICdldmVyeXRoaW5n
+DQo+IGVsc2UnPw0KQWxsIG90aGVyIHByaXZpbGVnZXMgd2l0aCB0aGUgZXhjZXB0aW9uIG9mICJz
+ZWN1cmUgY29udGVudCIgKGRlZmluZWQgYmVsb3cpLg0KDQo+IA0KPiA+ICsJSUZMQV9WRl9QUklW
+SUxFR0VfU0VDVVJFID0gMTI4LAkvKiBQcml2aWxlZ2UgdG8gYWNjZXNzIHNlY3VyZQ0KPiBjb250
+ZW50ICovDQo+IA0KPiBXaGF0IGRvZXMgdGhhdCBtZWFuPw0KUHJpdmlsZWdlIHRvIGFjY2VzcyBz
+ZWN1cmUgaW5mb3JtYXRpb24gb24gdGhlIEFTSUMgbGlrZSBkZWJ1ZyByZWdpc3RlcnMsDQpkdW1w
+IGluZm9ybWF0aW9uLg0KDQo+IA0KPiA+ICsJX19JRkxBX1ZGX1BSSVZJTEVHRV9NQVgsDQo+ID4g
+K307DQo+ID4gKw0KPiA+ICsjZGVmaW5lIElGTEFfVkZfUFJJVklMRUdFX01BWCAoX19JRkxBX1ZG
+X1BSSVZJTEVHRV9NQVggLSAxKQ0KPiBbLi4uXQ0KPiANCj4gVGhpcyBkb2Vzbid0IHNlZW0gdG8g
+bWFrZSBzZW5zZSBmb3IgYW4gZW51bWVyYXRpb24gb2YgZmxhZ3MuDQpZZXMuIFdpbGwgdGFrZSBj
+YXJlLg0KDQpUaGFua3MNCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0
+YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7
+IHRoYXQncyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMg
+dG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoN
+Cg==
