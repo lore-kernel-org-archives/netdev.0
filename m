@@ -1,111 +1,119 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
- "-c" xmitted, and "-c" was exceeded for flood ping
-Date: Tue, 21 Feb 2012 21:21:40 +0900
-Message-ID: <4F438C54.6070100@linux-ipv6.org>
-References: <7D3B6706FA74174B8C1AC24710890745136F61C577@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net] mlx4: Replacing pool_lock with mutex
+Date: Tue, 21 Feb 2012 15:39:32 +0200
+Message-ID: <4F439E94.60807@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	'Linus Torvalds' <torvalds@linux-foundation.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: "Cloutier, Joseph (Joseph)" <joseph.cloutier@alcatel-lucent.com>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51743 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755195Ab2BUMVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 07:21:42 -0500
-In-Reply-To: <7D3B6706FA74174B8C1AC24710890745136F61C577@USNAVSXCHMBSA1.ndc.alcatel-lucent.com>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:45009 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752647Ab2BUNjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 08:39:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joseph,
 
-Cloutier, Joseph (Joseph) wrote:
-> Hideaki, can you give me any status on this request?  Was it rejected, is it pending?  Thanks, Joe Cloutier
+Under the spinlock we call request_irq(), which allocates memory with GFP_KERNEL,
+This causes the following trace when DEBUG_SPINLOCK is enabled, it can cause
+the following trace:
 
-I asked you to tell me if -W is okay for your purpose.
+ BUG: spinlock wrong CPU on CPU#2, ethtool/2595
+ lock: ffff8801f9cbc2b0, .magic: dead4ead, .owner: ethtool/2595, .owner_cpu: 0
+ Pid: 2595, comm: ethtool Not tainted 3.0.18 #2
+ Call Trace:
+ spin_bug+0xa2/0xf0
+ do_raw_spin_unlock+0x71/0xa0
+ _raw_spin_unlock+0xe/0x10
+ mlx4_assign_eq+0x12b/0x190 [mlx4_core]
+ mlx4_en_activate_cq+0x252/0x2d0 [mlx4_en]
+ ? mlx4_en_activate_rx_rings+0x227/0x370 [mlx4_en]
+ mlx4_en_start_port+0x189/0xb90 [mlx4_en]
+ mlx4_en_set_ringparam+0x29a/0x340 [mlx4_en]
+ dev_ethtool+0x816/0xb10
+ ? dev_get_by_name_rcu+0xa4/0xe0
+ dev_ioctl+0x2b5/0x470
+ handle_mm_fault+0x1cd/0x2d0
+ sock_do_ioctl+0x5d/0x70
+ sock_ioctl+0x79/0x2f0
+ do_vfs_ioctl+0x8c/0x340
+ sys_ioctl+0xa1/0xb0
+ system_call_fastpath+0x16/0x1b
 
-If -W is not suitable, please introduce new option
-(maybe -ww?).
+Replacing with mutex, which is enough in this case.
 
-Regards,
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/eq.c   |    8 ++++----
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
---yoshfuji
-
-> -----Original Message-----
-> From: Cloutier, Joseph (Joseph)
-> Sent: Tuesday, January 10, 2012 1:01 PM
-> To: 'YOSHIFUJI Hideaki'
-> Cc: 'netdev@vger.kernel.org'; 'Linus Torvalds'
-> Subject: [PATCH] iputils-s20101006.tar.bz2: "-w deadline" starts after
-> "-c" xmitted, and "-c" was exceeded for flood ping
->
->
-> From: Joseph Cloutier<jcloutier@alcatel-lucent.com>
->
-> 2 changes to ping&  ping6.  Only ping_common.c affected.
->    1- changed "-w deadline" to start deadline after "-c" pings have been transmitted, instead of from start of run.
->    2- fixed bug where>  "-c" pings are sent in flood ping mode when "-w deadline" option is also used.
-> Reason:
->    Linux flood ping is an invaluable tool to finding duplex bugs, fiber problems, NE config problems-  especially
->    when used to trouble shoot wireless system backhaul problems.  ANY dropped pings are red flag indicators.
->    Current ping problem is that it terminates sometimes when outstanding pings are in transit, giving FALSE red
->    flags.  Change "-w deadline" to start after last "-c" transmitted ping allows cleanup of stragglers.  Second fix is
->    when "-f" option is running, "-c" is not rigorously checked when generating pings  A more rigorous check was
->    added.
->
-> Signed-off-by: Joseph Cloutier<jcloutier@alcatel-lucent.com>
->
-> ---
-> --- iputils-s20101006/ping_common.c.orig        2012-01-10 10:37:40.399719858 -0500
-> +++ iputils-s20101006/ping_common.c     2012-01-10 11:33:37.084662882 -0500
-> @@ -523,16 +523,6 @@ void setup(int icmp_sock)
->
->          gettimeofday(&start_time, NULL);
->
-> -       if (deadline) {
-> -               struct itimerval it;
-> -
-> -               it.it_interval.tv_sec = 0;
-> -               it.it_interval.tv_usec = 0;
-> -               it.it_value.tv_sec = deadline;
-> -               it.it_value.tv_usec = 0;
-> -               setitimer(ITIMER_REAL,&it, NULL);
-> -       }
-> -
->          if (isatty(STDOUT_FILENO)) {
->                  struct winsize w;
->
-> @@ -553,6 +543,7 @@ void main_loop(int icmp_sock, __u8 *pack
->          int cc;
->          int next;
->          int polling;
-> +       int sig_deadline = 0;
->
->          iov.iov_base = (char *)packet;
->
-> @@ -567,9 +558,22 @@ void main_loop(int icmp_sock, __u8 *pack
->                  /* Check for and do special actions. */
->                  if (status_snapshot)
->                          status();
-> +               if((npackets == ntransmitted)&&  deadline&&
-> +                       (sig_deadline == 0)){
-> +                       sig_deadline++;
-> +                       struct itimerval it;
-> +
-> +                       it.it_interval.tv_sec = 0;
-> +                       it.it_interval.tv_usec = 0;
-> +                       it.it_value.tv_sec = deadline;
-> +                       it.it_value.tv_usec = 0;
-> +                       setitimer(ITIMER_REAL,&it, NULL);
-> +               }
->
->                  /* Send probes scheduled to this time. */
->                  do {
-> +                       if(npackets == ntransmitted)
-> +                               break;
->                          next = pinger();
->                          next = schedule_exit(next);
->                  } while (next<= 0);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 8fa41f3..9129ace 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -1036,7 +1036,7 @@ int mlx4_assign_eq(struct mlx4_dev *dev, char* name, int * vector)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int vec = 0, err = 0, i;
+ 
+-	spin_lock(&priv->msix_ctl.pool_lock);
++	mutex_lock(&priv->msix_ctl.pool_lock);
+ 	for (i = 0; !vec && i < dev->caps.comp_pool; i++) {
+ 		if (~priv->msix_ctl.pool_bm & 1ULL << i) {
+ 			priv->msix_ctl.pool_bm |= 1ULL << i;
+@@ -1058,7 +1058,7 @@ int mlx4_assign_eq(struct mlx4_dev *dev, char* name, int * vector)
+ 			eq_set_ci(&priv->eq_table.eq[vec], 1);
+ 		}
+ 	}
+-	spin_unlock(&priv->msix_ctl.pool_lock);
++	mutex_unlock(&priv->msix_ctl.pool_lock);
+ 
+ 	if (vec) {
+ 		*vector = vec;
+@@ -1079,13 +1079,13 @@ void mlx4_release_eq(struct mlx4_dev *dev, int vec)
+ 	if (likely(i >= 0)) {
+ 		/*sanity check , making sure were not trying to free irq's
+ 		  Belonging to a legacy EQ*/
+-		spin_lock(&priv->msix_ctl.pool_lock);
++		mutex_lock(&priv->msix_ctl.pool_lock);
+ 		if (priv->msix_ctl.pool_bm & 1ULL << i) {
+ 			free_irq(priv->eq_table.eq[vec].irq,
+ 				 &priv->eq_table.eq[vec]);
+ 			priv->msix_ctl.pool_bm &= ~(1ULL << i);
+ 		}
+-		spin_unlock(&priv->msix_ctl.pool_lock);
++		mutex_unlock(&priv->msix_ctl.pool_lock);
+ 	}
+ 
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 9c5fbad..5c655a2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1828,7 +1828,7 @@ slave_start:
+ 		goto err_master_mfunc;
+ 
+ 	priv->msix_ctl.pool_bm = 0;
+-	spin_lock_init(&priv->msix_ctl.pool_lock);
++	mutex_init(&priv->msix_ctl.pool_lock);
+ 
+ 	mlx4_enable_msi_x(dev);
+ 	if ((mlx4_is_mfunc(dev)) &&
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index c92269f..28f8251 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -697,7 +697,7 @@ struct mlx4_sense {
+ 
+ struct mlx4_msix_ctl {
+ 	u64		pool_bm;
+-	spinlock_t	pool_lock;
++	struct mutex	pool_lock;
+ };
+ 
+ struct mlx4_steer {
+-- 
+1.5.4.3
