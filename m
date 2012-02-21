@@ -1,54 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] vhost: allow multiple workers threads
-Date: Tue, 21 Feb 2012 05:21:48 +0200
-Message-ID: <20120221032147.GB2502@redhat.com>
-References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com>
- <1329519726-25763-2-git-send-email-aliguori@us.ibm.com>
- <20120219144145.GA16620@redhat.com>
- <OFC071CE44.FE2F733D-ON862579AA.0055FCA0-862579AA.0057082B@us.ibm.com>
- <20120220192708.GA18308@redhat.com>
- <4F42A2FB.7000501@us.ibm.com>
- <20120220210005.GA19278@redhat.com>
- <1329786250.13141.9.camel@localhost.localdomain>
+From: Dave Jones <davej@redhat.com>
+Subject: zaurus: Add ID for C-750/C-760/C-860/SL-C3000 PDA in MDLM mode
+Date: Mon, 20 Feb 2012 22:28:13 -0500
+Message-ID: <20120221032813.GA14228@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anthony Liguori <aliguori@us.ibm.com>,
-	Tom Lendacky <toml@us.ibm.com>, netdev@vger.kernel.org,
-	Cristian Viana <vianac@br.ibm.com>
-To: Shirley Ma <mashirle@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19658 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1026 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751478Ab2BUDVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Feb 2012 22:21:49 -0500
+	id S1751800Ab2BUD2R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Feb 2012 22:28:17 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q1L3SGcg022633
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 22:28:16 -0500
+Received: from gelk.kernelslacker.org (ovpn-113-139.phx2.redhat.com [10.3.113.139])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q1L3SF3M022949
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 22:28:16 -0500
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id q1L3SEsv014238
+	for <netdev@vger.kernel.org>; Mon, 20 Feb 2012 22:28:14 -0500
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id q1L3SEq3014236
+	for netdev@vger.kernel.org; Mon, 20 Feb 2012 22:28:14 -0500
 Content-Disposition: inline
-In-Reply-To: <1329786250.13141.9.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 20, 2012 at 05:04:10PM -0800, Shirley Ma wrote:
-> On Mon, 2012-02-20 at 23:00 +0200, Michael S. Tsirkin wrote:
-> > 
-> > The point was really to avoid scheduler overhead
-> > as with tcp, tx and rx tend to run on the same cpu.
-> 
-> We have tried different approaches in the past, like splitting vhost
-> thread to separate TX, RX threads; create per cpu vhost thread instead
-> of creating per VM per virtio_net vhost thread... 
-> 
-> We think per cpu vhost thread is a better approach based on the data we
-> have collected. It will reduce both vhost resource and scheduler
-> overhead. It will not depend on host scheduler, has less various. The
-> patch is under testing, we hope we can post it soon.
-> 
-> Thanks
-> Shirley
+In 16adf5d07987d93675945f3cecf0e33706566005 I removed an over-broad
+alias that caused zaurus.ko to bind to unrelated devices.
+I had a report that at least one valid case no longer auto-loads because of this.
+This patch adds an ID for that case.
 
-Yes, great, this is definitely interesting. I actually started with
-a per-cpu one - it did not perform well but I did not
-figure out why, switching to a single thread fixed it
-and I did not dig into it.
+Reported-by: Raphael Wimmer <raphael.wimmer@ur.de>
+Signed-off-by: Dave Jones <davej@redhat.com>
 
-
--- 
-MST
+diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
+index f701d41..ed2caed 100644
+--- a/drivers/net/usb/zaurus.c
++++ b/drivers/net/usb/zaurus.c
+@@ -316,6 +316,11 @@ static const struct usb_device_id	products [] = {
+ 	ZAURUS_MASTER_INTERFACE,
+ 	.driver_info = ZAURUS_PXA_INFO,
+ }, {
++	/* C-750/C-760/C-860/SL-C3000 PDA in MDLM mode */
++	USB_DEVICE_AND_INTERFACE_INFO(0x04DD, 0x9031, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long) &bogus_mdlm_info,
++}, {
+ 	.match_flags    =   USB_DEVICE_ID_MATCH_INT_INFO
+ 		 | USB_DEVICE_ID_MATCH_DEVICE,
+ 	.idVendor               = 0x04DD,
