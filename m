@@ -1,70 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net] macvlan: Disable LRO on lowerdev; warn if it's turned
- back on
-Date: Tue, 21 Feb 2012 19:13:42 +0000
-Message-ID: <1329851622.2689.6.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.3-rc3+ Crash in __neigh_for_each_release
+Date: Tue, 21 Feb 2012 20:15:56 +0100
+Message-ID: <1329851756.18384.47.camel@edumazet-laptop>
+References: <alpine.SOC.1.00.1202201359190.8004@math.ut.ee>
+	 <1329851004.18384.45.camel@edumazet-laptop>
+	 <20120221.140716.1396286389544946379.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Shradha Shah <sshah@solarflare.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mroos@linux.ee, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:27524 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754074Ab2BUTNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 14:13:52 -0500
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61846 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755818Ab2BUTQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 14:16:01 -0500
+Received: by wgbdt10 with SMTP id dt10so5989396wgb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 11:16:00 -0800 (PST)
+In-Reply-To: <20120221.140716.1396286389544946379.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Large Receive Offload (LRO) is only appropriate for packets that are
-destined for the host, and should be disabled if received packets may
-be forwarded.
+Le mardi 21 f=C3=A9vrier 2012 =C3=A0 14:07 -0500, David Miller a =C3=A9=
+crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 21 Feb 2012 20:03:24 +0100
+>=20
+> > But I dont know enough this code to know if the following patch is =
+the
+> > way to fix this. (and __neigh_for_each_release() can also be delete=
+d if
+> > no users left in tree)
+>=20
+> I think instead of removing the code, we need to have it iterate over
+> "arp_tbl" but only invoke the callback for devices which are of type
+> ATM.
 
-Further, macvtap_skb_to_vnet_hdr() will BUG() on a packet received
-with LRO (but not GRO).
+That makes sense...
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-I'm not really familiar with macvlan so I'm not certain that this should
-be applied to all modes.
-
-Ben.
-
- drivers/net/macvlan.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 9ea9921..c64e26c 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -168,6 +168,11 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 	unsigned int len = 0;
- 	int ret = NET_RX_DROP;
- 
-+	if (skb_warn_if_lro(skb)) {
-+		kfree_skb(skb);
-+		return RX_HANDLER_CONSUMED;
-+	}
-+
- 	port = macvlan_port_get_rcu(skb->dev);
- 	if (is_multicast_ether_addr(eth->h_dest)) {
- 		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
-@@ -717,6 +722,8 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
- 	}
- 
-+	dev_disable_lro(lowerdev);
-+
- 	port->count += 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
--- 
-1.7.7.6
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Or invoke callback for all entries, and filter in callback non ATM ones=
+=2E
