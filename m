@@ -1,59 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC net-next 1/2] if_link : add support for VF privileges
-Date: Tue, 21 Feb 2012 22:43:22 +0000
-Message-ID: <1329864202.2689.56.camel@bwh-desktop>
-References: <20120214192627.GA14163@akhaparde-VBox>
-	 <1329261897.2443.60.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5BDCF681FD@EXMAIL.ad.emulex.com>
-	 <20120221.170441.1552294498786802979.davem@davemloft.net>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v10 06/11] seccomp: add SECCOMP_RET_ERRNO
+Date: Tue, 21 Feb 2012 14:41:28 -0800
+Message-ID: <20120221224128.GJ3990@outflux.net>
+References: <1329845435-2313-1-git-send-email-wad@chromium.org>
+ <1329845435-2313-6-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <Ajit.Khaparde@Emulex.Com>, <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:61651 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753462Ab2BUWn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 17:43:26 -0500
-In-Reply-To: <20120221.170441.1552294498786802979.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com, oleg@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-894-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <1329845435-2313-6-git-send-email-wad@chromium.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-02-21 at 17:04 -0500, David Miller wrote:
-> From: <Ajit.Khaparde@Emulex.Com>
-> Date: Tue, 21 Feb 2012 14:02:27 -0800
-> 
-> >> -----Original Message-----
-> >> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >> Sent: Tuesday, February 14, 2012 5:25 PM
-> >> To: Khaparde, Ajit
-> >> Cc: davem@davemloft.net; shemminger@linux-foundation.org;
-> >> netdev@vger.kernel.org
-> >> Subject: Re: [RFC net-next 1/2] if_link : add support for VF privileges
-> >> 
-> >> On Tue, 2012-02-14 at 13:26 -0600, Ajit Khaparde wrote:
-> >> > +enum {
-> >> > +	IFLA_VF_PRIVILEGE_DEFAULT = 1,	/* Default privileges */
-> >> 
-> >> What are the default privileges?  Should existing drivers report that
-> >> their VFs have this?
-> > Yes. Vendors can decide what privileges they want to grant for VFs by default.
-> 
-> That's terrible and a very bad interface for users.  It means every system
-> can have different defaults, from which we'll derive zero consistency.
+On Tue, Feb 21, 2012 at 11:30:30AM -0600, Will Drewry wrote:
+> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> index 0043b7e..23f1844 100644
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -136,22 +136,18 @@ static void *bpf_load(const void *nr, int off, unsigned int size, void *buf)
+>  static u32 seccomp_run_filters(int syscall)
+>  {
+>  	struct seccomp_filter *f;
+> -	u32 ret = SECCOMP_RET_KILL;
+>  	static const struct bpf_load_fn fns = {
+>  		bpf_load,
+>  		sizeof(struct seccomp_data),
+>  	};
+> +	u32 ret = SECCOMP_RET_ALLOW;
+>  	const void *sc_ptr = (const void *)(uintptr_t)syscall;
+> -
+>  	/*
+>  	 * All filters are evaluated in order of youngest to oldest. The lowest
+>  	 * BPF return value always takes priority.
+>  	 */
+> -	for (f = current->seccomp.filter; f; f = f->prev) {
+> -		ret = bpf_run_filter(sc_ptr, f->insns, &fns);
+> -		if (ret != SECCOMP_RET_ALLOW)
+> -			break;
+> -	}
+> +	for (f = current->seccomp.filter; f; f = f->prev)
+> +		ret = min_t(u32, ret, bpf_run_filter(sc_ptr, f->insns, &fns));
+>  	return ret;
+>  }
 
-Aside from this, my concern is that if we assign privilege flags to
-capabilities that VFs normally have now then the value reported where
-the driver doesn't support this new operation should not be 0.
+I'd like to see this fail closed in the (theoretically impossible, but
+why risk it) case of there being no filters at all. Could do something
+like this:
 
-(Also, if a privilege is assigned by default, is it really a privilege?
-Wouldn't 'capability' or 'permission' be a better term?)
+	u32 ret = current->seccomp.filter ? SECCOMP_RET_ALLOW : SECCOMP_RET_KILL;
 
-Ben.
+Or, just this, to catch the misbehavior:
+
+	if (unlikely(current->seccomp.filter == NULL))
+		return SECCOMP_RET_KILL;
+
+-Kees
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Kees Cook
+ChromeOS Security
