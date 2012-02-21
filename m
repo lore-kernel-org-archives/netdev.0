@@ -1,46 +1,54 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH] rtnetlink: Fix problem with buffer allocation
-Date: Tue, 21 Feb 2012 21:56:14 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702F96E22@ORSMSX106.amr.corp.intel.com>
-References: <20120221204715.22575.21711.stgit@gitlad.jf.intel.com>
-	<1329860896.18384.61.camel@edumazet-laptop>
- <20120221.165013.133683072829070307.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2] rtnetlink: Fix problem with buffer allocation
+Date: Tue, 21 Feb 2012 16:57:50 -0500 (EST)
+Message-ID: <20120221.165750.2246668899195223381.davem@davemloft.net>
+References: <20120221215127.30280.30853.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gregory.v.rose@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:37181 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752249Ab2BUV41 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:56:27 -0500
-In-Reply-To: <20120221.165013.133683072829070307.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:32819 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755341Ab2BUV5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 16:57:52 -0500
+In-Reply-To: <20120221215127.30280.30853.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, February 21, 2012 1:50 PM
-> To: eric.dumazet@gmail.com
-> Cc: Rose, Gregory V; netdev@vger.kernel.org
-> Subject: Re: [PATCH] rtnetlink: Fix problem with buffer allocation
-> 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 21 Feb 2012 22:48:16 +0100
-> 
-> > Thats going to hurt some setups (thousand of devices on a server).
-> 
-> This logic only triggers when the VF attribute is explicitly asked
-> for.
-> 
-> > Also why are you using _rcu() variant here, we hold rtnl I presume ?
-> 
-> Because that's what I told him to use probably :-)  Indeed, I think
-> we can use the non-RCU variant in this spot.
+From: Greg Rose <gregory.v.rose@intel.com>
+Date: Tue, 21 Feb 2012 13:51:28 -0800
 
-In rtnl_fill_ifinfo the code there uses hlist_for_each_entry_rcu() so I think that's why it got carried over here.  I can remove it.
+> Implement a new netlink attribute type IFLA_EXT_MASK.  The mask
+> is a 32 bit value that can be used to indicate to the kernel that
+> certain extended ifinfo values are requested by the user application.
+> At this time the only mask value defined is RTEXT_FILTER_VF to
+> indicate that the user wants the ifinfo dump to send information
+> about the VFs belonging to the interface.
+> 
+> This patch fixes a bug in which certain applications do not have
+> large enough buffers to accommodate the extra information returned
+> by the kernel with large numbers of SR-IOV virtual functions.
+> Those applications will not send the new netlink attribute with
+> the interface info dump request netlink messages so they will
+> not get unexpectedly large request buffers returned by the kernel.
+> 
+> Modifies the rtnl_calcit function to traverse the list of net
+> devices and compute the minimum buffer size that can hold the
+> info dumps of all matching devices based upon the filter passed
+> in via the new netlink attribute filter mask.  If no filter
+> mask is sent then the buffer allocation defaults to NLMSG_GOODSIZE.
+> 
+> With this change it is possible to add yet to be defined netlink
+> attributes to the dump request which should make it fairly extensible
+> in the future.
+> 
+> CC: stable@vger.kernel.org
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 
-- Greg
+Applied, with the minor change suggested by Eric in that we can
+use the non-RCU list traversal in the calcit function because
+we hold the RTNL always when this is invoked.
+
+Thanks!
