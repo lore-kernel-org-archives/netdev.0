@@ -1,7 +1,8 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v10 01/11] sk_run_filter: add support for custom load_pointer
-Date: Tue, 21 Feb 2012 11:30:25 -0600
-Message-ID: <1329845435-2313-1-git-send-email-wad@chromium.org>
+Subject: [PATCH v10 08/11] seccomp: Add SECCOMP_RET_TRAP
+Date: Tue, 21 Feb 2012 11:30:32 -0600
+Message-ID: <1329845435-2313-8-git-send-email-wad@chromium.org>
+References: <1329845435-2313-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Cc: linux-arch@vger.kernel.org,
@@ -32,390 +33,117 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-877-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-879-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1329845435-2313-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-This change allows CONFIG_SECCOMP to make use of BPF programs for
-user-controlled system call filtering (as shown in this patch series).
+Adds a new return value to seccomp filters that triggers a SIGSYS to be
+delivered with the new SYS_SECCOMP si_code.
 
-To minimize the impact on existing BPF evaluation, function pointer
-use must be declared at sk_chk_filter-time.  This allows ancillary
-load instructions to be generated that use the function pointer rather
-than adding _any_ code to the existing LD_* instruction paths.
+This allows in-process system call emulation, including just specifying
+an errno or cleanly dumping core, rather than just dying.
 
-(v8) Crude performance numbers using udpflood -l 10000000 against
-dummy0.  3 trials for baseline, 3 for with tcpdump. Averaged then
-differenced.  Hard to believe trials were repeated at least a couple
-more times.
+v10: - use SIGSYS, syscall_get_arch, updates arch/Kconfig
+       note suggested-by (though original suggestion had other behaviors)
+v9:  - changes to SIGILL
+v8:  - clean up based on changes to dependent patches
+v7:  - introduction
 
-* x86 32-bit (Atom N570 @ 1.66 GHz 2 core HT) [stackprot]:
-- Without:  94.05s - 76.36s = 17.68s
-- With:     86.22s - 73.30s = 12.92s
-- Slowdown per call: -476 nanoseconds
-
-* x86 32-bit (Atom N570 @ 1.66 GHz 2 core HT) [no stackprot]:
-- Without:  92.06s - 77.81s = 14.25s
-- With:     91.77s - 76.91s = 14.86s
-- Slowdown per call: +61 nanoseconds
-
-* x86 64-bit (Atom N570 @ 1.66 GHz 2 core HT) [stackprot]:
-- Without: 122.58s - 99.54s = 23.04s
-- With:    115.52s - 98.99s = 16.53s
-- Slowdown per call:  -651 nanoseconds
-
-* x86 64-bit (Atom N570 @ 1.66 GHz 2 core HT) [no stackprot]:
-- Without: 114.95s - 91.92s = 23.03s
-- With:    110.47s - 90.79s = 19.68s
-- Slowdown per call: -335 nanoseconds
-
-This makes the x86-32-nossp make sense.  Added register pressure always
-makes x86-32 sad.  If this is a concern, I could change the call
-approach to bpf_run_filter to see if I can alleviate it a bit.
-
-That said, the x86-*-ssp numbers show a marked increase in performance.
-I've tested and retested and I keep getting these results. I'm also
-suprised by the nossp speed up on 64-bit, but I dunno. I haven't looked
-at the full disassembly of the call path. If that is required for the
-performance differences I'm seeing, please let me know. Or if I there is
-a preferred cpu to run this against - atoms can be a little weird.
-
-v10: - converted length to a u32 on the struct because it is passed in
-       at bpf_run_filter time anyway. (indan@nul.nu)
-     - added a comment about the LD_*_ falling through (joe@perches.com)
-     - more clean up (pointer->load, drop SKB macro, comments) (indan@nul.nu)
-v9: - n/a
-v8: - fixed variable positioning and bad cast (eric.dumazet@gmail.com)
-    - no longer passes A as a pointer (inspection of x86 asm shows A is
-      %ebx again; thanks eric.dumazet@gmail.com)
-    - cleaned up switch macros and expanded use
-      (joe@perches.com, indan@nul.nu)
-    - added length fn pointer and handled LD_W_LEN/LDX_W_LEN
-    - moved from a wrapping struct to a typedef for the function
-      pointer. (matches existing function pointer style)
-    - added comprehensive comment above the typedef.
-    - benchmarks
-v7: - first cut
-
+Suggested-by: Markus Gutschke <markus@chromium.org>
+Suggested-by: Julien Tinnes <jln@chromium.org>
 Signed-off-by: Will Drewry <wad@chromium.org>
 ---
- include/linux/filter.h |   67 ++++++++++++++++++++++++++++-
- net/core/filter.c      |  108 ++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 160 insertions(+), 15 deletions(-)
+ arch/Kconfig            |   14 +++++++++-----
+ include/linux/seccomp.h |    1 +
+ kernel/seccomp.c        |   28 ++++++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8eeb205..184ef99 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -110,6 +110,9 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+diff --git a/arch/Kconfig b/arch/Kconfig
+index aa00571..6d6d9dc 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -202,11 +202,15 @@ config HAVE_CMPXCHG_DOUBLE
+ config HAVE_ARCH_SECCOMP_FILTER
+ 	bool
+ 	help
+-	  This symbol should be selected by an architecure if it provides
+-	  asm/syscall.h, specifically syscall_get_arguments(),
+-	  syscall_get_arch(), and syscall_set_return_value().  Additionally,
+-	  its system call entry path must respect a return value of -1 from
+-	  __secure_computing_int() and/or secure_computing().
++	  This symbol should be selected by an architecure if it provides:
++	  asm/syscall.h:
++	  - syscall_get_arch()
++	  - syscall_get_arguments()
++	  - syscall_rollback()
++	  - syscall_set_return_value()
++	  SIGSYS siginfo_t support must be implemented.
++	  __secure_computing_int()/secure_computing()'s return value must be
++	  checked, with -1 resulting in the syscall being skipped.
+ 
+ config SECCOMP_FILTER
+ 	def_bool y
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index 54ecb61..d039b7b 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -19,6 +19,7 @@
+  * selects the least permissive choice.
   */
- #define BPF_MEMWORDS 16
+ #define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
++#define SECCOMP_RET_TRAP	0x00020000U /* disallow and send sigtrap */
+ #define SECCOMP_RET_ERRNO	0x00030000U /* returns an errno */
+ #define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
  
-+/* BPF program (checking) flags */
-+#define BPF_CHK_FLAGS_NO_SKB	1
-+
- /* RATIONALE. Negative offsets are invalid in BPF.
-    We use them to reference ancillary data.
-    Unlike introduction new instructions, it does not break
-@@ -145,17 +148,65 @@ struct sk_filter
- 	struct sock_filter     	insns[0];
- };
- 
-+/**
-+ * struct bpf_load_fn - callback and data for bpf_run_filter
-+ * This structure is used by bpf_run_filter if bpf_chk_filter
-+ * was invoked with BPF_CHK_FLAGS_NO_SKB.
-+ *
-+ * @load:
-+ *   @data: const pointer to the data passed into bpf_run_filter
-+ *   @k: offset into @skb's data
-+ *   @size: the size of the requested data in bytes: 1, 2, or 4.
-+ *   @buffer: If non-NULL, a 32-bit buffer for staging data.
-+ *
-+ * Returns a pointer to the requested data.
-+ *
-+ * This function operates similarly to load_pointer in net/core/filter.c
-+ * except that the pointer to the returned data must already be
-+ * byteswapped as appropriate to the source data and endianness.
-+ * @buffer may be used if the data needs to be staged.
-+ *
-+ * @length: the length of the supplied data for use by the LD*_LEN
-+ *          instructions.
-+ */
-+struct bpf_load_fn {
-+	void *(*load)(const void *data, int k, unsigned int size,
-+			 void *buffer);
-+	u32 length;
-+};
-+
- static inline unsigned int sk_filter_len(const struct sk_filter *fp)
- {
- 	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 23f1844..fc25d3a 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -279,6 +279,26 @@ void copy_seccomp(struct seccomp *child,
+ 	child->mode = prev->mode;
+ 	child->filter = get_seccomp_filter(prev->filter);
  }
- 
-+extern unsigned int bpf_run_filter(const void *data,
-+				   const struct sock_filter *filter,
-+				   const struct bpf_load_fn *load_fn);
 +
 +/**
-+ *	sk_run_filter - run a filter on a socket
-+ *	@skb: buffer to run the filter on
-+ *	@fentry: filter to apply
++ * seccomp_send_sigsys - signals the task to allow in-process syscall emulation
++ * @syscall: syscall number to send to userland
++ * @reason: filter-supplied reason code to send to userland (via si_errno)
 + *
-+ * Runs bpf_run_filter with the struct sk_buff-specific data
-+ * accessor behavior.
++ * Forces a SIGSYS with a code of SYS_SECCOMP and related sigsys info.
 + */
-+static inline unsigned int sk_run_filter(const struct sk_buff *skb,
-+					 const struct sock_filter *filter)
++static void seccomp_send_sigsys(int syscall, int reason)
 +{
-+	return bpf_run_filter(skb, filter, NULL);
++	struct siginfo info;
++	memset(&info, 0, sizeof(info));
++	info.si_signo = SIGSYS;
++	info.si_code = SYS_SECCOMP;
++	info.si_call_addr = (void __user *)KSTK_EIP(current);
++	info.si_errno = reason;
++	info.si_arch = syscall_get_arch(current, task_pt_regs(current));
++	info.si_syscall = syscall;
++	force_sig_info(SIGSYS, &info, current);
 +}
-+
- extern int sk_filter(struct sock *sk, struct sk_buff *skb);
--extern unsigned int sk_run_filter(const struct sk_buff *skb,
--				  const struct sock_filter *filter);
- extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- extern int sk_detach_filter(struct sock *sk);
--extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-+extern int bpf_chk_filter(struct sock_filter *filter, unsigned int flen, u32 flags);
-+
-+static inline int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
-+{
-+	return bpf_chk_filter(filter, flen, 0);
-+}
- 
- #ifdef CONFIG_BPF_JIT
- extern void bpf_jit_compile(struct sk_filter *fp);
-@@ -228,6 +279,16 @@ enum {
- 	BPF_S_ANC_HATYPE,
- 	BPF_S_ANC_RXHASH,
- 	BPF_S_ANC_CPU,
-+	/* Used to differentiate SKB data and generic data */
-+	BPF_S_ANC_LD_W_ABS,
-+	BPF_S_ANC_LD_H_ABS,
-+	BPF_S_ANC_LD_B_ABS,
-+	BPF_S_ANC_LD_W_LEN,
-+	BPF_S_ANC_LD_W_IND,
-+	BPF_S_ANC_LD_H_IND,
-+	BPF_S_ANC_LD_B_IND,
-+	BPF_S_ANC_LDX_W_LEN,
-+	BPF_S_ANC_LDX_B_MSH,
- };
- 
- #endif /* __KERNEL__ */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5dea452..6b995a1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -98,9 +98,10 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- EXPORT_SYMBOL(sk_filter);
- 
- /**
-- *	sk_run_filter - run a filter on a socket
-- *	@skb: buffer to run the filter on
-+ *	bpf_run_filter - run a BPF filter program on @data
-+ *	@data: buffer to run the filter on
-  *	@fentry: filter to apply
-+ *	@load_fn: custom data accessor
-  *
-  * Decode and apply filter instructions to the skb->data.
-  * Return length to keep, 0 for none. @skb is the data we are
-@@ -109,8 +110,9 @@ EXPORT_SYMBOL(sk_filter);
-  * and last instruction guaranteed to be a RET, we dont need to check
-  * flen. (We used to pass to this function the length of filter)
-  */
--unsigned int sk_run_filter(const struct sk_buff *skb,
--			   const struct sock_filter *fentry)
-+unsigned int bpf_run_filter(const void *data,
-+			    const struct sock_filter *fentry,
-+			    const struct bpf_load_fn *load_fn)
- {
- 	void *ptr;
- 	u32 A = 0;			/* Accumulator */
-@@ -118,6 +120,7 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
- 	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
- 	u32 tmp;
- 	int k;
-+	const struct sk_buff *skb = data;
- 
- 	/*
- 	 * Process array of filter instructions.
-@@ -213,7 +216,7 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
- 		case BPF_S_LD_W_ABS:
- 			k = K;
- load_w:
--			ptr = load_pointer(skb, k, 4, &tmp);
-+			ptr = load_pointer(data, k, 4, &tmp);
- 			if (ptr != NULL) {
- 				A = get_unaligned_be32(ptr);
- 				continue;
-@@ -222,7 +225,7 @@ load_w:
- 		case BPF_S_LD_H_ABS:
- 			k = K;
- load_h:
--			ptr = load_pointer(skb, k, 2, &tmp);
-+			ptr = load_pointer(data, k, 2, &tmp);
- 			if (ptr != NULL) {
- 				A = get_unaligned_be16(ptr);
- 				continue;
-@@ -231,7 +234,7 @@ load_h:
- 		case BPF_S_LD_B_ABS:
- 			k = K;
- load_b:
--			ptr = load_pointer(skb, k, 1, &tmp);
-+			ptr = load_pointer(data, k, 1, &tmp);
- 			if (ptr != NULL) {
- 				A = *(u8 *)ptr;
- 				continue;
-@@ -253,7 +256,7 @@ load_b:
- 			k = X + K;
- 			goto load_b;
- 		case BPF_S_LDX_B_MSH:
--			ptr = load_pointer(skb, K, 1, &tmp);
-+			ptr = load_pointer(data, K, 1, &tmp);
- 			if (ptr != NULL) {
- 				X = (*(u8 *)ptr & 0xf) << 2;
- 				continue;
-@@ -350,6 +353,55 @@ load_b:
- 				A = 0;
- 			continue;
- 		}
-+		case BPF_S_ANC_LD_W_ABS:
-+			k = K;
-+load_fn_w:
-+			ptr = load_fn->load(data, k, 4, &tmp);
-+			if (ptr) {
-+				A = *(u32 *)ptr;
-+				continue;
-+			}
-+			return 0;
-+		case BPF_S_ANC_LD_H_ABS:
-+			k = K;
-+load_fn_h:
-+			ptr = load_fn->load(data, k, 2, &tmp);
-+			if (ptr) {
-+				A = *(u16 *)ptr;
-+				continue;
-+			}
-+			return 0;
-+		case BPF_S_ANC_LD_B_ABS:
-+			k = K;
-+load_fn_b:
-+			ptr = load_fn->load(data, k, 1, &tmp);
-+			if (ptr) {
-+				A = *(u8 *)ptr;
-+				continue;
-+			}
-+			return 0;
-+		case BPF_S_ANC_LDX_B_MSH:
-+			ptr = load_fn->load(data, K, 1, &tmp);
-+			if (ptr) {
-+				X = (*(u8 *)ptr & 0xf) << 2;
-+				continue;
-+			}
-+			return 0;
-+		case BPF_S_ANC_LD_W_IND:
-+			k = X + K;
-+			goto load_fn_w;
-+		case BPF_S_ANC_LD_H_IND:
-+			k = X + K;
-+			goto load_fn_h;
-+		case BPF_S_ANC_LD_B_IND:
-+			k = X + K;
-+			goto load_fn_b;
-+		case BPF_S_ANC_LD_W_LEN:
-+			A = load_fn->length;
-+			continue;
-+		case BPF_S_ANC_LDX_W_LEN:
-+			X = load_fn->length;
-+			continue;
- 		default:
- 			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
- 				       fentry->code, fentry->jt,
-@@ -360,7 +412,7 @@ load_b:
- 
- 	return 0;
- }
--EXPORT_SYMBOL(sk_run_filter);
-+EXPORT_SYMBOL(bpf_run_filter);
+ #endif	/* CONFIG_SECCOMP_FILTER */
  
  /*
-  * Security :
-@@ -423,9 +475,10 @@ error:
- }
- 
- /**
-- *	sk_chk_filter - verify socket filter code
-+ *	bpf_chk_filter - verify socket filter BPF code
-  *	@filter: filter to verify
-  *	@flen: length of filter
-+ *	@flags: May be BPF_CHK_FLAGS_NO_SKB or 0
-  *
-  * Check the user's filter code. If we let some ugly
-  * filter code slip through kaboom! The filter must contain
-@@ -434,9 +487,13 @@ error:
-  *
-  * All jumps are forward as they are not signed.
-  *
-+ * If BPF_CHK_FLAGS_NO_SKB is set in flags, any SKB-specific
-+ * rules become illegal and a bpf_load_fn will be expected by
-+ * bpf_run_filter.
-+ *
-  * Returns 0 if the rule set is legal or -EINVAL if not.
-  */
--int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
-+int bpf_chk_filter(struct sock_filter *filter, unsigned int flen, u32 flags)
- {
- 	/*
- 	 * Valid instructions are initialized to non-0.
-@@ -542,9 +599,36 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			    pc + ftest->jf + 1 >= flen)
- 				return -EINVAL;
- 			break;
-+#define MAYBE_USE_LOAD_FN(CODE) \
-+			if (flags & BPF_CHK_FLAGS_NO_SKB) { \
-+				code = BPF_S_ANC_##CODE; \
-+				break; \
-+			}
-+		case BPF_S_LD_W_LEN:
-+			MAYBE_USE_LOAD_FN(LD_W_LEN);
-+			break;
-+		case BPF_S_LDX_W_LEN:
-+			MAYBE_USE_LOAD_FN(LDX_W_LEN);
-+			break;
-+		case BPF_S_LD_W_IND:
-+			MAYBE_USE_LOAD_FN(LD_W_IND);
-+			break;
-+		case BPF_S_LD_H_IND:
-+			MAYBE_USE_LOAD_FN(LD_H_IND);
-+			break;
-+		case BPF_S_LD_B_IND:
-+			MAYBE_USE_LOAD_FN(LD_B_IND);
-+			break;
-+		case BPF_S_LDX_B_MSH:
-+			MAYBE_USE_LOAD_FN(LDX_B_MSH);
-+			break;
- 		case BPF_S_LD_W_ABS:
-+			MAYBE_USE_LOAD_FN(LD_W_ABS);
-+			/* Falls through to BPF_S_LD_B_ABS. */
- 		case BPF_S_LD_H_ABS:
-+			MAYBE_USE_LOAD_FN(LD_H_ABS);
- 		case BPF_S_LD_B_ABS:
-+			MAYBE_USE_LOAD_FN(LD_B_ABS);
- #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
- 				code = BPF_S_ANC_##CODE;	\
- 				break
-@@ -572,7 +656,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 	}
- 	return -EINVAL;
- }
--EXPORT_SYMBOL(sk_chk_filter);
-+EXPORT_SYMBOL(bpf_chk_filter);
- 
- /**
-  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+@@ -332,6 +352,14 @@ int __secure_computing_int(int this_syscall)
+ 						 -(action & SECCOMP_RET_DATA),
+ 						 0);
+ 			return -1;
++		case SECCOMP_RET_TRAP: {
++			int reason_code = action & SECCOMP_RET_DATA;
++			/* Show the handler the original registers. */
++			syscall_rollback(current, task_pt_regs(current));
++			/* Let the filter pass back 16 bits of data. */
++			seccomp_send_sigsys(this_syscall, reason_code);
++			return -1;
++		}
+ 		case SECCOMP_RET_ALLOW:
+ 			return 0;
+ 		case SECCOMP_RET_KILL:
 -- 
 1.7.5.4
