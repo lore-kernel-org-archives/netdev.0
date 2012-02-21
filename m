@@ -1,81 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-02-20
-Date: Tue, 21 Feb 2012 15:40:53 -0500 (EST)
-Message-ID: <20120221.154053.2103818562080068513.davem@davemloft.net>
-References: <20120221151435.GA19354@tuxdriver.com>
-	<20120221.144417.1445117001833888214.davem@davemloft.net>
-	<CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: [PATCH] iproute2: Add netlink attribute to filter dump requests
+Date: Tue, 21 Feb 2012 12:43:09 -0800
+Message-ID: <20120221204309.22274.53890.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andrei.emeltchenko.news@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:43996 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755532Ab2BUUnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Feb 2012 15:43:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
-Date: Tue, 21 Feb 2012 22:38:16 +0200
+Add a new netlink attribute type to the dump request to allow
+filtering of the information returned for the respective matching
+interfaces.  At this time the only filter defined is to request
+virtual function (VF) device info for interfaces that attached VFs.
 
-> Hi David,
->=20
-> On Tue, Feb 21, 2012 at 9:44 PM, David Miller <davem@davemloft.net> w=
-rote:
->> From: "John W. Linville" <linville@tuxdriver.com>
->> Date: Tue, 21 Feb 2012 10:14:36 -0500
->>
->>> On Mon, Feb 20, 2012 at 07:23:24PM -0500, David Miller wrote:
->>>> From: "John W. Linville" <linville@tuxdriver.com>
->>>> Date: Mon, 20 Feb 2012 15:37:40 -0500
->>>>
->>>> > Here is another batch of fixes intended for 3.3. =A0Most of the =
-fixes
->>>> > this time are for Bluetooth.
->>>>
->>>> Pulled, but please read the bluetooth changes more carefully in th=
-e
->>>> future, there were a lot of coding style errors introduced this
->>>> time around.
->>>
->>> I pinged Johan about this, and he tells me that he spoke to Marcel
->>> as well. =A0They were a bit unsure about the issue. =A0Is your conc=
-ern
->>> primarily about some excessive tabbing for indentation of parameter=
-s
->>> and such?
->>
->> So you actually looked at the changes you pushed to me and you are
->> telling me you personally can't find anything that looks like garbag=
-e?
->>
->> Really? =A0Do I really have to point out such obvious stuff like thi=
-s?
->> Are you serious?
->>
->> Look at ca0d6c7ece0e78268cd7c5c378d6b1b610625085 ("Bluetooth: Add
->> missing QUIRK_NO_RESET test to hci_dev_do_close")
->>
->> You tell me what the heck you think of this thing.
->>
->> - =A0 =A0 =A0 if (!test_bit(HCI_RAW, &hdev->flags)) {
->> + =A0 =A0 =A0 if (!test_bit(HCI_RAW, &hdev->flags) &&
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 test_b=
-it(HCI_QUIRK_NO_RESET, &hdev->quirks)) {
->>
->> That's disgusting, it jumps off the screen and says "Hello, I am ugl=
-y
->> as sin". =A0How in the world can you miss something like this? =A0Fo=
-ur
->> TABs on the second line? =A0Why? =A0I can't believe we even have to =
-discuss
->> something like this, seriously.
->=20
-> Sorry did we understand wrong text of Linux coding style? Or do we ne=
-ed
-> right interpretation of it?
+It will also be possible to extend the request with other yet to be
+defined netlink attributes in the future.
 
-I'm not engaging in this conversation any more, I don't care what Codin=
-gStyle
-says, the quoted code is garbage.
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+---
+
+ include/linux/if_link.h   |    1 +
+ include/linux/rtnetlink.h |    5 +++--
+ lib/libnetlink.c          |    7 +++++++
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index d3bc04c..06a3a47 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -137,6 +137,7 @@ enum {
+ 	IFLA_AF_SPEC,
+ 	IFLA_GROUP,		/* Group the device belongs to */
+ 	IFLA_NET_NS_FD,
++	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 12b19e6..1d30f85 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -600,8 +600,9 @@ struct tcamsg {
+ #define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+ #define TCAA_MAX 1
+ 
+-/* End of information exported to user level */
+-
++/* New extended info filters for IFLA_EXT_MASK */
++#define RTEXT_FILTER_VF		(1 << 0)
+ 
++/* End of information exported to user level */
+ 
+ #endif	/* __LINUX_RTNETLINK_H */
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index c581e11..878911e 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -94,6 +94,9 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
+ 	struct {
+ 		struct nlmsghdr nlh;
+ 		struct rtgenmsg g;
++		__u16 align_rta;	/* attribute has to be 32bit aligned */
++		struct rtattr ext_req;
++		__u32 ext_filter_mask;
+ 	} req;
+ 
+ 	memset(&req, 0, sizeof(req));
+@@ -104,6 +107,10 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
+ 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
+ 	req.g.rtgen_family = family;
+ 
++	req.ext_req.rta_type = IFLA_EXT_MASK;
++	req.ext_req.rta_len = RTA_LENGTH(sizeof(__u32));
++	req.ext_filter_mask = RTEXT_FILTER_VF;
++
+ 	return send(rth->fd, (void*)&req, sizeof(req), 0);
+ }
+ 
