@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][pull request V2] isdn: Whitespace style reformatting
-Date: Tue, 21 Feb 2012 15:25:25 -0500 (EST)
-Message-ID: <20120221.152525.1977320304782754187.davem@davemloft.net>
-References: <1329848059.24206.6.camel@joe2Laptop>
-	<20120221.145207.1788708214909998854.davem@davemloft.net>
-	<1329855559.5143.4.camel@joe2Laptop>
+Subject: Re: [PATCH net] mlx4: Replacing pool_lock with mutex
+Date: Tue, 21 Feb 2012 15:28:26 -0500 (EST)
+Message-ID: <20120221.152826.28693031857253840.davem@davemloft.net>
+References: <4F439E94.60807@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org, admin@repo.or.cz
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60325 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60338 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754071Ab2BUU0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 15:26:34 -0500
-In-Reply-To: <1329855559.5143.4.camel@joe2Laptop>
+	with ESMTP id S1754298Ab2BUU2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 15:28:38 -0500
+In-Reply-To: <4F439E94.60807@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 21 Feb 2012 12:19:19 -0800
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 21 Feb 2012 15:39:32 +0200
 
-> On Tue, 2012-02-21 at 14:52 -0500, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Tue, 21 Feb 2012 10:14:19 -0800
->> > The following changes since commit 0b0a635f79f91f3755b6518627ea06dd0dbfd523:
->> >   bnx2x: update driver version to 1.72.10-0 (2012-02-20 19:34:08 -0500)
->> > are available in the git repository at:
->> >   git://repo.or.cz/linux-2.6/trivial-mods.git 20120221_isdn
->> I don't know if this is actually your fault or not, but frankly
->> this is very tiring:
->> [davem@bql net-next]$ git pull git://repo.or.cz/linux-2.6/trivial-mods.git 20120221_isdn
->> fatal: read error: Connection reset by peer
->> [davem@bql net-next]$ 
 > 
-> That's happened to me as well.  I just try again later.
-> It's not my hosting site. (The admin's cc'd)
+> Under the spinlock we call request_irq(), which allocates memory with GFP_KERNEL,
+> This causes the following trace when DEBUG_SPINLOCK is enabled, it can cause
+> the following trace:
+ ...
+> Replacing with mutex, which is enough in this case.
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Ok, it seems to work now.  Pulled, thanks.
+Applied.
