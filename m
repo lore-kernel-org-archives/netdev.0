@@ -1,56 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Fix routing metrics
-Date: Tue, 21 Feb 2012 14:24:55 -0500 (EST)
-Message-ID: <20120221.142455.1647947327897905941.davem@davemloft.net>
-References: <20120221061922.GE31660@secunet.com>
-	<20120221.013623.263612018908941497.davem@davemloft.net>
-	<20120221081827.GF31660@secunet.com>
+Subject: Re: pull request: wireless 2012-02-20
+Date: Tue, 21 Feb 2012 14:44:17 -0500 (EST)
+Message-ID: <20120221.144417.1445117001833888214.davem@davemloft.net>
+References: <20120220203740.GD6740@tuxdriver.com>
+	<20120220.192324.498901675497866305.davem@davemloft.net>
+	<20120221151435.GA19354@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59600 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59842 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334Ab2BUTZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 14:25:11 -0500
-In-Reply-To: <20120221081827.GF31660@secunet.com>
+	with ESMTP id S1753033Ab2BUTp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 14:45:26 -0500
+In-Reply-To: <20120221151435.GA19354@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 21 Feb 2012 09:18:27 +0100
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 21 Feb 2012 10:14:36 -0500
 
-> I need the dst->ops->metrics() method because I removed the direct
-> reference to the inetpeer metrics from the dst_entry. I had to
-> remove this direct reference to be able to free the old metrics
-> safely. A dst_entry with a direct reference to old metrics
-> could leave the rcu protected region and might then try to access
-> already freed metrics (i.e. if a dst_entry with old metrics is already
-> attached to a skb when the routing cache is flushed and the skb is queued
-> for asynchronous processing). With this patchset we access the interpeer
-> metrics via the inetpeer itself on every metrics access, so we ensure
-> the metrics are not freed in the meantime.
+> On Mon, Feb 20, 2012 at 07:23:24PM -0500, David Miller wrote:
+>> From: "John W. Linville" <linville@tuxdriver.com>
+>> Date: Mon, 20 Feb 2012 15:37:40 -0500
+>> 
+>> > Here is another batch of fixes intended for 3.3.  Most of the fixes
+>> > this time are for Bluetooth.
+>> 
+>> Pulled, but please read the bluetooth changes more carefully in the
+>> future, there were a lot of coding style errors introduced this
+>> time around.
+> 
+> I pinged Johan about this, and he tells me that he spoke to Marcel
+> as well.  They were a bit unsure about the issue.  Is your concern
+> primarily about some excessive tabbing for indentation of parameters
+> and such?
 
-Then a callback still seems like extreme overkill just to ensure the
-RCU safety of metric pointer accesses.
+So you actually looked at the changes you pushed to me and you are
+telling me you personally can't find anything that looks like garbage?
 
-It seems much simpler to me to just kill the inetpeer when we find out
-we actually do need to change the metrics, instead of trying to change
-the metric memory from underneath it.  Just make a new inetpeer and let
-the old one with the old outdated metrics simply die off as the stray
-references disappear.
+Really?  Do I really have to point out such obvious stuff like this?
+Are you serious?
 
-Remove the old inetpeer from the tree (so it cannot be found in a
-lookup), and then any dangling old, invalid, routing cache entries
-referring to it will hold a reference count.  And once that final
-reference drops, we'll know we can safely free the inetpeer up.  So
-we'll use stale metrics for a while from these old invalid routing
-cache entries, but that's perfectly fine.
+Look at ca0d6c7ece0e78268cd7c5c378d6b1b610625085 ("Bluetooth: Add
+missing QUIRK_NO_RESET test to hci_dev_do_close")
 
-The whole thing is about not doing something non-trivial in the fast
-path, which is what your patch does.  Your approach causes us to incur
-a cost every single metric access just because we "might" access stale
-metrics from a old invalid routing cache entry.  This is not the
-common case at all.
+You tell me what the heck you think of this thing.
+
+-	if (!test_bit(HCI_RAW, &hdev->flags)) {
++	if (!test_bit(HCI_RAW, &hdev->flags) &&
++				test_bit(HCI_QUIRK_NO_RESET, &hdev->quirks)) {
+
+That's disgusting, it jumps off the screen and says "Hello, I am ugly
+as sin".  How in the world can you miss something like this?  Four
+TABs on the second line?  Why?  I can't believe we even have to discuss
+something like this, seriously.
+
+Commit 6e1da683f79a22fafaada62d547138daaa9e3456 ("Bluetooth: l2cap_set_timer
+needs jiffies as timeout value"):
+
+-		__set_chan_timer(chan, L2CAP_DISC_REJ_TIMEOUT);
++		__set_chan_timer(chan,
++				msecs_to_jiffies(L2CAP_DISC_REJ_TIMEOUT));
+
+You can't see that mis-tabbed thing on the second new line?  Really?
+
+The list goes on and on, just walk through the bluetooth commits from
+the other day, stuff like this is all over the place.
