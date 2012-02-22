@@ -1,120 +1,38 @@
-From: Andrei Warkentin <andrey.warkentin@gmail.com>
-Subject: [PATCHv2 1/2] NETPOLL: Extend rx_hook support.
-Date: Sun, 26 Feb 2012 21:05:36 -0500
-Message-ID: <1330308337-21365-2-git-send-email-andrey.warkentin@gmail.com>
-References: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
-	<1330308337-21365-1-git-send-email-andrey.warkentin@gmail.com>
+From: Coca-cola promo <info@coca-cola.com>
+Subject: Confirmation Letter Contact Via Email
+	cocacolaclaimsboard12@hotmail.co.uk
+Date: Wed, 22 Feb 2012 12:13:10 -0700
+Message-ID: <20120222121310.bc8g75fbuso0go0k@webmail.myxmail.net>
+Reply-To: cocacolaclaimsboard12@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: kgdb-bugreport@lists.sourceforge.net, Matt Mackall <mpm@selenic.com>,
-	Andrei Warkentin <andreiw@vmware.com>,
-	Andrei Warkentin <andrey.warkentin@gmail.com>,
-	Jason Wessel <jason.wessel@windriver.com>
-To: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
-In-Reply-To: <1330308337-21365-1-git-send-email-andrey.warkentin@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kgdb-bugreport>
-List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
-List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-From: Andrei Warkentin <andreiw@vmware.com>
-
-Pass down source information to rx_hook, useful
-for accepting connections from unspecified clients.
-
-Cc: kgdb-bugreport@lists.sourceforge.net
-Cc: Jason Wessel <jason.wessel@windriver.com>
-Cc: Matt Mackall <mpm@selenic.com>
-Signed-off-by: Andrei Warkentin <andrey.warkentin@gmail.com>
-Signed-off-by: Andrei Warkentin <andreiw@vmware.com>
----
- include/linux/netpoll.h |   10 +++++++++-
- net/core/netpoll.c      |   10 ++++------
- 2 files changed, 13 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 5dfa091..9a9cfa1 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -11,12 +11,19 @@
- #include <linux/interrupt.h>
- #include <linux/rcupdate.h>
- #include <linux/list.h>
-+#include <linux/if_ether.h>
-+#include <net/tcp.h>
-+#include <net/udp.h>
- 
- struct netpoll {
- 	struct net_device *dev;
- 	char dev_name[IFNAMSIZ];
- 	const char *name;
--	void (*rx_hook)(struct netpoll *, int, char *, int);
-+	void (*rx_hook)(struct netpoll *,
-+			u8 *h_source,
-+			__be32 saddr,
-+			struct udphdr *,
-+			char *, int);
- 
- 	__be32 local_ip, remote_ip;
- 	u16 local_port, remote_port;
-@@ -40,6 +47,7 @@ struct netpoll_info {
- 	struct netpoll *netpoll;
- };
- 
-+void netpoll_poll_dev(struct net_device *dev);
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
- void netpoll_print_options(struct netpoll *np);
- int netpoll_parse_options(struct netpoll *np, char *opt);
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 3d84fb9..c182bb2 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -26,8 +26,6 @@
- #include <linux/workqueue.h>
- #include <linux/slab.h>
- #include <linux/export.h>
--#include <net/tcp.h>
--#include <net/udp.h>
- #include <asm/unaligned.h>
- #include <trace/events/napi.h>
- 
-@@ -189,7 +187,7 @@ static void service_arp_queue(struct netpoll_info *npi)
- 	}
- }
- 
--static void netpoll_poll_dev(struct net_device *dev)
-+void netpoll_poll_dev(struct net_device *dev)
- {
- 	const struct net_device_ops *ops;
- 
-@@ -615,9 +613,9 @@ int __netpoll_rx(struct sk_buff *skb)
- 		if (np->local_port && np->local_port != ntohs(uh->dest))
- 			continue;
- 
--		np->rx_hook(np, ntohs(uh->source),
--			       (char *)(uh+1),
--			       ulen - sizeof(struct udphdr));
-+		np->rx_hook(np, eth_hdr(skb)->h_source,
-+			    iph->saddr, uh, (char *)(uh+1),
-+			    ulen - sizeof(struct udphdr));
- 		hits++;
- 	}
- 
--- 
-1.7.8.3
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dv35.xtremehighspeed.com ([64.13.250.202]:44060 "EHLO
+	dv35.xtremehighspeed.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753263Ab2B0EAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 23:00:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
-Try before you buy = See our experts in action!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-dev2
+
+
+Your E-mail address won 1,000,000.00 GBP in the 2012 COCA-COLA ONLINE LOTTERY
+held in UK.Contact Dr Nigel Brown Via email  
+cocacolaclaimsboard12@hotmail.co.uk
+Fill The claims verification Form Below
+First name....
+Address.....
+Sex .....
+Marital status .....
+country of Resident....
+Age....
+Cell phone....
+Contact Name:Dr Nigel Brown
+Phone no: +447010056989,
