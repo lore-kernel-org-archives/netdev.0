@@ -1,41 +1,32 @@
-From: Davidlohr Bueso <dave@gnu.org>
-Subject: [PATCH] tg3: remove IRQF_SAMPLE_RANDOM flag
-Date: Wed, 22 Feb 2012 14:06:54 +0100
-Message-ID: <1329916014.2586.2.camel@offbook>
-Reply-To: dave@gnu.org
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH 2/2] net/ieee802154/6lowpan.c: reuse eth_mac_addr()
+Date: Wed, 22 Feb 2012 17:30:10 +0400
+Message-ID: <CALT56yNcW5rAJ7N7SmJuPu_cQvvO=V_L9YOq80THdx2v6tumFw@mail.gmail.com>
+References: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
+	<1329914199-30862-3-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Danny Kukawka <dkukawka@suse.de>,
+	Sergey Lapin <slapin@ossfans.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329914199-30862-3-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Davidlohr Bueso <dave@gnu.org>
+On Wed, Feb 22, 2012 at 4:36 PM, Danny Kukawka <danny.kukawka@bisect.de> wrote:
+> Use eth_mac_addr() for .ndo_set_mac_address, remove
+> lowpan_set_address since it do currently the same as
+> eth_mac_addr(). Additional advantage: eth_mac_addr() already
+> checks if the given address is valid
+>
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-This driver is the last user of the IRQF_SAMPLE_RANDOM flag for net drivers, and since add_*_randomness
-interfaces have now deprecated the flag as a source of external noise, we can remove it.
+Acked-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 
-Signed-off-by: Davidlohr Bueso <dave@gnu.org>
----
- drivers/net/ethernet/broadcom/tg3.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index a1f2e0f..2badfc3 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -9401,7 +9401,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
- 	}
- 
- 	err = request_irq(tnapi->irq_vec, tg3_test_isr,
--			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, tnapi);
-+			  IRQF_SHARED, dev->name, tnapi);
- 	if (err)
- 		return err;
- 
 -- 
-1.7.4.1
+With best wishes
+Dmitry
