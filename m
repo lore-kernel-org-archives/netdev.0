@@ -1,78 +1,82 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: route add default fails with ESRCH?
-Date: Wed, 22 Feb 2012 13:52:11 -0800
-Message-ID: <4F45638B.30305@fb.com>
-References: <4F3F0158.2020406@fb.com> <4F4541E5.5040700@fb.com> <alpine.LFD.2.00.1202222319150.1603@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1202222319150.1603@ja.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: design@dedicatedserver.com.hk
+Subject: Cloud server Promotion!!
+Date: Thu, 23 Feb 2012 01:53:27 +0800 (HKT)
+Message-ID: <P2go4asW2yk8n__37343.0695072331$1329949715$gmane$org@tpts6.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-58.sunnyvision.com ([124.248.200.58]:34333 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751134Ab2BVW2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 17:28:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/22/12 1:27 PM, Julian Anastasov wrote:
+Dear all, 
 
-> 	Why the subnet is deleted from table main (254) in
-> the same second ?
+Please see below price list for cloud server package.
 
-The machine was in single user mode. All I did was execute
+SuperCloud 512
+=A1E Dedicated CPU: 1.8GHZ
+=A1E Dedicated RAM: 512MB
+=A1E Disk Space: 20GB
+=A1E Bandwidth: 200GB
+HK$199/month
 
-# service network start
+SuperCloud 768
+=A1E Dedicated CPU: 2.4GHZ
+=A1E Dedicated RAM: 768MB
+=A1E Disk Space: 40GB
+=A1E Bandwidth: 300GB
+HK$399/month
 
-dhclient is the only user process I see running on the system.
+SuperCloud 1024
+=A1E Dedicated CPU: 3.0GHZ
+=A1E Dedicated RAM: 1024MB
+=A1E Disk Space: 60GB
+=A1E Bandwidth: 400GB
+HK$599/month
 
->
-> 	First default route is removed:
->
-> [   44.351839] Deleting 00000000/0 tos=0 t=ffff880212b846a0
-> [   44.351843] entering trie_leaf_remove(ffff880213d120e0)
-> [   44.351846] In tnode_resize ffff880213d0a5a0 inflate_threshold=50
-> threshold=25
->
-> 	Then link route 10.47.46.0/24:
->
-> [   44.351852] Deleting 0a2f2e00/24 tos=0 t=ffff880212b846a0
-> [   44.351855] entering trie_leaf_remove(ffff880211585150)
->
-> 	Insert tries to find if GW 10.47.46.1 is reachable,
-> there must be 10.47.46.0/24 in table main but it was
-> deleted just before adding the IP.
->
-> [   69.189627] Insert table=254 00000000/0
->
+SuperCloud 1536
+=A1E Dedicated CPU: 3.6GHZ
+=A1E Dedicated RAM: 1536MB
+=A1E Disk Space: 80GB
+=A1E Bandwidth: 600GB
+HK$699/month
 
-All of this was done by my network startup scripts. These scripts should 
-be fairly standard and used by lots of other people. The only thing 
-that's special about my setup is:
+SuperCloud 2048
+=A1E Dedicated CPU: 4.2GHZ
+=A1E Dedicated RAM: 2048MB
+=A1E Disk Space: 100GB
+=A1E Bandwidth: 800GB
+HK$799/month
 
-# grep LINKDELAY /etc/sysconfig/network
-LINKDELAY=20
+SuperCoud 4096
+=A1E Dedicated CPU: 5.4GHZ
+=A1E Dedicated RAM: 4096MB
+=A1E Disk Space: 150GB
+=A1E Bandwidth: 1600GB
+HK$999/month
 
-Without this my eth0 driver complains about link not being ready.
+SuperCloud 8G
+=A1E Dedicated CPU: 9.6GHZ
+=A1E Dedicated RAM: 8GB
+=A1E Disk Space: 300GB
+=A1E Bandwidth: 3000GB
+HK$1,299/month
 
->> # cat /proc/net/fib_trie
->
-> 	Where is "Main:" here?
+SuperCloud 12G
+=A1E Dedicated CPU: 12GHZ
+=A1E Dedicated RAM: 12GB
+=A1E Disk Space: 500GB
+=A1E Bandwidth: 5000GB
+HK$1,499/month
 
-I think answering this is key.
+Should you have any need. Please feel free to contact me, Thanks.
 
-This is the main difference between systems that work and the ones that 
-don't. Systems that work have a non-empty Main table:
+Best Regards,
+Eric Chan
+Senior Sales Executive
 
-# cat /proc/net/fib_trie
-Main:
-   +-- 0.0.0.0/0 4 3 10
-      +-- 0.0.0.0/4 1 0 0
-         |-- 0.0.0.0
-            /0 universe THROW
-
-I'll try to figure out why my RT_TABLE_MAIN was empty after my network 
-startup scripts finished. But given my experience with 2.6.38, fib_hash 
-handled this case just fine and fib_trie broke it :(
-
-  -Arun
+If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message or remove your email from the list.
