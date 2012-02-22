@@ -1,116 +1,61 @@
-From: Xie Xiaobo <X.Xie@freescale.com>
-Subject: [PATCH] powerpc/dts: Add magic-packet properties for etsec
-Date: Wed, 22 Feb 2012 15:53:29 +0800
-Message-ID: <1329897209-17209-1-git-send-email-X.Xie@freescale.com>
-References: <y>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <galak@kernel.crashing.org>, <timur@freescale.com>,
-	Xie Xiaobo <X.Xie@freescale.com>
-To: <netdev@vger.kernel.org>
+From: roy.qing.li@gmail.com
+Subject: [PATCH 1/3] ipv6: ip6_route_output() never returns NULL.
+Date: Wed, 22 Feb 2012 16:10:49 +0800
+Message-ID: <1329898251-5357-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:13102
-	"EHLO AM1EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751153Ab2BVH6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 02:58:53 -0500
-In-Reply-To: <y>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:36193 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788Ab2BVILc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 03:11:32 -0500
+Received: by eaah12 with SMTP id h12so2996352eaa.19
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2012 00:11:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The properties indicates that the hardware supports waking up via magic packet.
+From: RongQing.Li <roy.qing.li@gmail.com> 
 
-Signed-off-by: Xie Xiaobo <X.Xie@freescale.com>
+ip6_route_output() never returns NULL, so it is wrong to
+check if the return value is NULL.
+
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 ---
-This patch already submitted to linuxppc-dev mail-list for reviewing.
- arch/powerpc/boot/dts/fsl/pq3-etsec1-0.dtsi |    3 ++-
- arch/powerpc/boot/dts/fsl/pq3-etsec1-1.dtsi |    3 ++-
- arch/powerpc/boot/dts/fsl/pq3-etsec1-2.dtsi |    3 ++-
- arch/powerpc/boot/dts/fsl/pq3-etsec1-3.dtsi |    3 ++-
- 4 files changed, 8 insertions(+), 4 deletions(-)
+ net/ipv6/ip6mr.c |    4 +++-
+ net/ipv6/ndisc.c |    5 +++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/arch/powerpc/boot/dts/fsl/pq3-etsec1-0.dtsi b/arch/powerpc/boot/dts/fsl/pq3-etsec1-0.dtsi
-index a1979ae..3b0650a 100644
---- a/arch/powerpc/boot/dts/fsl/pq3-etsec1-0.dtsi
-+++ b/arch/powerpc/boot/dts/fsl/pq3-etsec1-0.dtsi
-@@ -1,7 +1,7 @@
- /*
-  * PQ3 eTSEC device tree stub [ @ offsets 0x24000 ]
-  *
-- * Copyright 2011 Freescale Semiconductor Inc.
-+ * Copyright 2011-2012 Freescale Semiconductor Inc.
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -41,6 +41,7 @@ ethernet@24000 {
- 	compatible = "gianfar";
- 	reg = <0x24000 0x1000>;
- 	ranges = <0x0 0x24000 0x1000>;
-+	fsl,magic-packet;
- 	local-mac-address = [ 00 00 00 00 00 00 ];
- 	interrupts = <29 2 0 0 30 2 0 0 34 2 0 0>;
- };
-diff --git a/arch/powerpc/boot/dts/fsl/pq3-etsec1-1.dtsi b/arch/powerpc/boot/dts/fsl/pq3-etsec1-1.dtsi
-index 4c4fdde..96693b4 100644
---- a/arch/powerpc/boot/dts/fsl/pq3-etsec1-1.dtsi
-+++ b/arch/powerpc/boot/dts/fsl/pq3-etsec1-1.dtsi
-@@ -1,7 +1,7 @@
- /*
-  * PQ3 eTSEC device tree stub [ @ offsets 0x25000 ]
-  *
-- * Copyright 2011 Freescale Semiconductor Inc.
-+ * Copyright 2011-2012 Freescale Semiconductor Inc.
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -41,6 +41,7 @@ ethernet@25000 {
- 	compatible = "gianfar";
- 	reg = <0x25000 0x1000>;
- 	ranges = <0x0 0x25000 0x1000>;
-+	fsl,magic-packet;
- 	local-mac-address = [ 00 00 00 00 00 00 ];
- 	interrupts = <35 2 0 0 36 2 0 0 40 2 0 0>;
- };
-diff --git a/arch/powerpc/boot/dts/fsl/pq3-etsec1-2.dtsi b/arch/powerpc/boot/dts/fsl/pq3-etsec1-2.dtsi
-index 4b8ab43..6b3fab1 100644
---- a/arch/powerpc/boot/dts/fsl/pq3-etsec1-2.dtsi
-+++ b/arch/powerpc/boot/dts/fsl/pq3-etsec1-2.dtsi
-@@ -1,7 +1,7 @@
- /*
-  * PQ3 eTSEC device tree stub [ @ offsets 0x26000 ]
-  *
-- * Copyright 2011 Freescale Semiconductor Inc.
-+ * Copyright 2011-2012 Freescale Semiconductor Inc.
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -41,6 +41,7 @@ ethernet@26000 {
- 	compatible = "gianfar";
- 	reg = <0x26000 0x1000>;
- 	ranges = <0x0 0x26000 0x1000>;
-+	fsl,magic-packet;
- 	local-mac-address = [ 00 00 00 00 00 00 ];
- 	interrupts = <31 2 0 0 32 2 0 0 33 2 0 0>;
- };
-diff --git a/arch/powerpc/boot/dts/fsl/pq3-etsec1-3.dtsi b/arch/powerpc/boot/dts/fsl/pq3-etsec1-3.dtsi
-index 40c9137..0da592d 100644
---- a/arch/powerpc/boot/dts/fsl/pq3-etsec1-3.dtsi
-+++ b/arch/powerpc/boot/dts/fsl/pq3-etsec1-3.dtsi
-@@ -1,7 +1,7 @@
- /*
-  * PQ3 eTSEC device tree stub [ @ offsets 0x27000 ]
-  *
-- * Copyright 2011 Freescale Semiconductor Inc.
-+ * Copyright 2011-2012 Freescale Semiconductor Inc.
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -41,6 +41,7 @@ ethernet@27000 {
- 	compatible = "gianfar";
- 	reg = <0x27000 0x1000>;
- 	ranges = <0x0 0x27000 0x1000>;
-+	fsl,magic-packet;
- 	local-mac-address = [ 00 00 00 00 00 00 ];
- 	interrupts = <37 2 0 0 38 2 0 0 39 2 0 0>;
- };
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index c7e95c8..5aa3981 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1926,8 +1926,10 @@ static int ip6mr_forward2(struct net *net, struct mr6_table *mrt,
+ 	};
+ 
+ 	dst = ip6_route_output(net, NULL, &fl6);
+-	if (!dst)
++	if (dst->error) {
++		dst_release(dst);
+ 		goto out_free;
++	}
+ 
+ 	skb_dst_drop(skb);
+ 	skb_dst_set(skb, dst);
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 8d81701..3dcdb81 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1550,9 +1550,10 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 			 &saddr_buf, &ipv6_hdr(skb)->saddr, dev->ifindex);
+ 
+ 	dst = ip6_route_output(net, NULL, &fl6);
+-	if (dst == NULL)
++	if (dst->error) {
++		dst_release(dst);
+ 		return;
+-
++	}
+ 	dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), NULL, 0);
+ 	if (IS_ERR(dst))
+ 		return;
 -- 
-1.7.5.1
+1.7.1
