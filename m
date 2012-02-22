@@ -1,54 +1,115 @@
-From: alekcejk@googlemail.com
-Subject: Re: Re: Re: Re: limited network bandwidth with 3.2.x kernels
-Date: Wed, 22 Feb 2012 03:26:19 +0200
-Message-ID: <6857224.s9gmvGgyqq@localhost.localdomain>
-References: <8633039.fHPLx6GNq3@localhost.localdomain> <2604639.CVkfrWv5sk@localhost.localdomain> <1329845484.18384.20.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
+Date: Tue, 21 Feb 2012 17:36:21 -0800
+Message-ID: <1329874581.5143.22.camel@joe2Laptop>
+References: <20120221151435.GA19354@tuxdriver.com>
+	 <20120221.144417.1445117001833888214.davem@davemloft.net>
+	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
+	 <20120221.154053.2103818562080068513.davem@davemloft.net>
+	 <1329857959.5143.11.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33399 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921Ab2BVB1X convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 20:27:23 -0500
-Received: by bkcjm19 with SMTP id jm19so5848980bkc.19
-        for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 17:27:22 -0800 (PST)
-In-Reply-To: <1329845484.18384.20.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Andy Whitcroft <apw@shadowen.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"andrei.emeltchenko.news@gmail.com"
+	<andrei.emeltchenko.news@gmail.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=C2 =F1=EE=EE=E1=F9=E5=ED=E8=E8 =EE=F2 =C2=F2=EE=F0=ED=E8=EA 21 =F4=E5=E2=
-=F0=E0=EB=FF 2012 18:31:24 =E2=FB =ED=E0=EF=E8=F1=E0=EB=E8:
-> > But maximum speed in 3.1.10 kernel (without this sysctl settings) s=
-till
-> > a bit more than in 3.2.7 - 11 MB/s instead of 10.3 MB/s.
-> >=20
-> > --2012-02-21 18:56:36--  ftp://ftp3.de.freebsd.org/pub/FreeBSD/ISO-=
-IMAGES-i386/8.2/FreeBSD-8.2-RELEASE-i386-dvd1.iso.xz
-> > 100%[=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D>] 2 066 424 512 11,=
-0M/s   in 3m 30s
-> > 2012-02-21 19:13:55 (9,39 MB/s) - =AB/dev/null=BB saved [2066424512=
-]
->=20
-> Thats one measure, you'll have to make a lot of different measures to
-> make this significant, preferably in a lab to rule out different
-> external network conditions.
+On Tue, 2012-02-21 at 22:09 +0000, Allan, Bruce W wrote:
+> This appears to falsely complain about parenthesis alignment in
+> conditional statements with multiple opening parentheses.
 
-So, I did a couple of download tests from ftp3.de.freebsd.org with kern=
-el 3.1.10.
+Hey Allan.
 
-Here traffic plot for net.ipv4.tcp_rmem=3D"4096 87380 897664":
-http://img848.imageshack.us/img848/2425/net897664.png
+Can you try this one please?
+---
+ scripts/checkpatch.pl |   58 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 58 insertions(+), 0 deletions(-)
 
-Here plot for net.ipv4.tcp_rmem=3D"4096 87380 4127616":
-http://img14.imageshack.us/img14/311/net4127616.png
-
-And comparison of both plots:
-http://img684.imageshack.us/img684/7163/netoh.png
-
-The main notable difference is that with 4127616 there is
-never stright line (when wget shows 11 M/s ) as with  897664.
-Speed with 4127616 is close to 11 M/s but never constant.
-I was able to reproduce this at least 3 times.
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index a3b9782..e95419e 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -1330,6 +1330,35 @@ sub check_absolute_file {
+ 	}
+ }
+ 
++sub pos_last_openparen {
++
++	my ($args) = @_;
++
++	my $pos = 0;
++	my $len = length($args);
++
++	my $opens = $args =~ tr/\(/\(/;
++	my $closes = $args =~ tr/\)/\)/;
++
++	my $last_openparen = 0;
++
++	if (($opens == 0) || ($closes >= $opens)) {
++		return 0;
++	}
++
++	for ($pos = 0; $pos < $len; $pos++) {
++		if (substr($args, $pos) =~ /^($FuncArg)/) {
++			$pos += length($1);
++		}
++
++		if (substr($args, $pos, 1) eq '(') {
++			$last_openparen = $pos;
++		}
++	}
++
++	return $last_openparen + 1;
++}
++
+ sub process {
+ 	my $filename = shift;
+ 
+@@ -1783,6 +1812,35 @@ sub process {
+ 			     "please, no space before tabs\n" . $herevet);
+ 		}
+ 
++# check for && or || at the start of a line
++		if ($rawline =~ /^\+\s*(&&|\|\|)/) {
++			CHK("LOGICAL_CONTINUATIONS",
++			    "Logical continuations should be on the previous line\n" . $hereprev);
++		}
++
++# check multi-line statement indentation matches previous line
++		if ($prevline =~ /^\+(\t*)(if \(|$Ident\().*(\&\&|\|\||,)\s*$/ && $rawline =~ /^\+([ \t]*)/) {
++			$prevline =~ /^\+(\t*)(if \(|$Ident\()(.*)(\&\&|\|\||,)\s*$/;
++			my $oldindent = $1;
++			my $if_or_func = $2;
++			my $args = $3;
++
++			my $pos = pos_last_openparen($args);
++
++			my $len = length($if_or_func) + $pos;
++			$rawline =~ /^\+([ \t]*)/;
++			my $newindent = $1;
++
++			my $goodindent = $oldindent .
++					 "\t" x ($len / 8) .
++					 " "  x ($len % 8);
++
++			if ($newindent ne $goodindent) {
++				CHK("PARENTHESIS_ALIGNMENT",
++				    "Alignment should match open parenthesis\n" . $hereprev);
++			}
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
