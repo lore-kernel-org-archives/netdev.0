@@ -1,82 +1,74 @@
-From: design@dedicatedserver.com.hk
-Subject: Cloud server Promotion!!
-Date: Thu, 23 Feb 2012 01:53:27 +0800 (HKT)
-Message-ID: <P2go4asW2yk8n__37343.0695072331$1329949715$gmane$org@tpts6.seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/4] tg3: Fix link check in tg3_adjust_link
+Date: Wed, 22 Feb 2012 14:35:18 -0800
+Message-ID: <1329950121-18577-2-git-send-email-mcarlson@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-58.sunnyvision.com ([124.248.200.58]:34333 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751134Ab2BVW2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 17:28:20 -0500
+Received: from mms2.broadcom.com ([216.31.210.18]:1672 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751224Ab2BVWgS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Feb 2012 17:36:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear all, 
+The tg3 driver tried to detect link changes by comparing the tg3 local
+active_speed member with SPEED_UNKNOWN (or formerly SPEED_INVALID).
+This check is not correct, since phylib will never set its speed member
+to either of these two values.  The code only appeared to work because
+tg3 initializes active_speed to SPEED_INVALID during tg3_init_one.  This
+patch introduces a new "old_link" tg3 member and then compares the
+phy_device's link member against it to detect link state changes.
 
-Please see below price list for cloud server package.
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    6 ++++--
+ drivers/net/ethernet/broadcom/tg3.h |    1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-SuperCloud 512
-=A1E Dedicated CPU: 1.8GHZ
-=A1E Dedicated RAM: 512MB
-=A1E Disk Space: 20GB
-=A1E Bandwidth: 200GB
-HK$199/month
-
-SuperCloud 768
-=A1E Dedicated CPU: 2.4GHZ
-=A1E Dedicated RAM: 768MB
-=A1E Disk Space: 40GB
-=A1E Bandwidth: 300GB
-HK$399/month
-
-SuperCloud 1024
-=A1E Dedicated CPU: 3.0GHZ
-=A1E Dedicated RAM: 1024MB
-=A1E Disk Space: 60GB
-=A1E Bandwidth: 400GB
-HK$599/month
-
-SuperCloud 1536
-=A1E Dedicated CPU: 3.6GHZ
-=A1E Dedicated RAM: 1536MB
-=A1E Disk Space: 80GB
-=A1E Bandwidth: 600GB
-HK$699/month
-
-SuperCloud 2048
-=A1E Dedicated CPU: 4.2GHZ
-=A1E Dedicated RAM: 2048MB
-=A1E Disk Space: 100GB
-=A1E Bandwidth: 800GB
-HK$799/month
-
-SuperCoud 4096
-=A1E Dedicated CPU: 5.4GHZ
-=A1E Dedicated RAM: 4096MB
-=A1E Disk Space: 150GB
-=A1E Bandwidth: 1600GB
-HK$999/month
-
-SuperCloud 8G
-=A1E Dedicated CPU: 9.6GHZ
-=A1E Dedicated RAM: 8GB
-=A1E Disk Space: 300GB
-=A1E Bandwidth: 3000GB
-HK$1,299/month
-
-SuperCloud 12G
-=A1E Dedicated CPU: 12GHZ
-=A1E Dedicated RAM: 12GB
-=A1E Disk Space: 500GB
-=A1E Bandwidth: 5000GB
-HK$1,499/month
-
-Should you have any need. Please feel free to contact me, Thanks.
-
-Best Regards,
-Eric Chan
-Senior Sales Executive
-
-If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message or remove your email from the list.
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index d604664..c56523e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -1819,13 +1819,13 @@ static void tg3_adjust_link(struct net_device *dev)
+ 		      (6 << TX_LENGTHS_IPG_SHIFT) |
+ 		      (32 << TX_LENGTHS_SLOT_TIME_SHIFT)));
+ 
+-	if ((phydev->link && tp->link_config.active_speed == SPEED_UNKNOWN) ||
+-	    (!phydev->link && tp->link_config.active_speed != SPEED_UNKNOWN) ||
++	if (phydev->link != tp->old_link ||
+ 	    phydev->speed != tp->link_config.active_speed ||
+ 	    phydev->duplex != tp->link_config.active_duplex ||
+ 	    oldflowctrl != tp->link_config.active_flowctrl)
+ 		linkmesg = 1;
+ 
++	tp->old_link = phydev->link;
+ 	tp->link_config.active_speed = phydev->speed;
+ 	tp->link_config.active_duplex = phydev->duplex;
+ 
+@@ -13352,6 +13352,8 @@ static void __devinit tg3_phy_init_link_config(struct tg3 *tp)
+ 	tp->link_config.autoneg = AUTONEG_ENABLE;
+ 	tp->link_config.active_speed = SPEED_UNKNOWN;
+ 	tp->link_config.active_duplex = DUPLEX_UNKNOWN;
++
++	tp->old_link = -1;
+ }
+ 
+ static int __devinit tg3_phy_probe(struct tg3 *tp)
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index 22cbe74..66bcfca 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -3064,6 +3064,7 @@ struct tg3 {
+ 
+ 	struct mii_bus			*mdio_bus;
+ 	int				mdio_irq[PHY_MAX_ADDR];
++	int				old_link;
+ 
+ 	u8				phy_addr;
+ 
+-- 
+1.7.3.4
