@@ -1,74 +1,38 @@
-From: Scott Talbert <talbert@techie.net>
-Subject: [PATCHv3] Move Logitech Harmony 900 from cdc_ether to zaurus
-Date: Tue, 21 Feb 2012 18:06:00 -0500
-Message-ID: <20120221230600.GA17347@bear.techie.net>
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: Re: Re: WARNING: at kernel/softirq.c:159
+ _local_bh_enable_ip+0x35/0x71()
+Date: Wed, 22 Feb 2012 01:03:05 +0000 (GMT)
+Message-ID: <1422860.157191329872584374.JavaMail.weblogic@epml01>
+Reply-To: jongman.heo@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=euc-kr
+Content-Transfer-Encoding: base64
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.techie.net ([205.134.185.202]:38917 "EHLO bear.techie.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755116Ab2BVAH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Feb 2012 19:07:58 -0500
-Received: from bear.techie.net (localhost.localdomain [127.0.0.1])
-	by bear.techie.net (8.13.8/8.13.8) with ESMTP id q1LN60dO017357
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 21 Feb 2012 18:06:00 -0500
-Received: (from talbert@localhost)
-	by bear.techie.net (8.13.8/8.13.8/Submit) id q1LN60of017356
-	for netdev@vger.kernel.org; Tue, 21 Feb 2012 18:06:00 -0500
-Content-Disposition: inline
+Received: from mailout3.samsung.com ([203.254.224.33]:32259 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751838Ab2BVBDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Feb 2012 20:03:18 -0500
+Received: from epcpsbge5.samsung.com (mailout3.samsung.com [203.254.224.33])
+ by mailout3.samsung.com
+ (Oracle Communications Messaging Exchange Server 7u4-19.01 64bit (built Sep  7
+ 2010)) with ESMTP id <0LZR006O8S1Y8ZA0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Wed, 22 Feb 2012 10:03:05 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the current kernel implementation, the Logitech Harmony 900 remote
-control is matched to the cdc_ether driver through the generic
-USB_CDC_SUBCLASS_MDLM entry.  However, this device appears to be of the
-pseudo-MDLM (Belcarra) type, rather than the standard one.  This patch
-blacklists the Harmony 900 from the cdc_ether driver and whitelists it for
-the pseudo-MDLM driver in zaurus.
-
-Signed-off-by: Scott Talbert <talbert@techie.net>
----
- drivers/net/usb/cdc_ether.c |    7 +++++++
- drivers/net/usb/zaurus.c    |    7 +++++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index c924ea2..13919dd 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -570,6 +570,13 @@ static const struct usb_device_id	products [] = {
- 	.driver_info = (unsigned long)&wwan_info,
- },
- 
-+/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info		= 0,
-+},
-+
- /*
-  * WHITELIST!!!
-  *
-diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
-index 1a2234c..246b3bb 100644
---- a/drivers/net/usb/zaurus.c
-+++ b/drivers/net/usb/zaurus.c
-@@ -349,6 +349,13 @@ static const struct usb_device_id	products [] = {
- 	ZAURUS_MASTER_INTERFACE,
- 	.driver_info = OLYMPUS_MXL_INFO,
- },
-+
-+/* Logitech Harmony 900 - uses the pseudo-MDLM (BLAN) driver */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(0x046d, 0xc11f, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &bogus_mdlm_info,
-+},
- 	{ },		// END
- };
- MODULE_DEVICE_TABLE(usb, products);
--- 
-1.7.5.4
+PiBTZW5kZXIgOiBGcmFuY29pcyBSb21pZXU8cm9taWV1QGZyLnpvcmVpbC5jb20+DQo+IERhdGUg
+OiAyMDEyLTAyLTIxIDE4OjU2IChHTVQrMDk6MDApDQo+IFRpdGxlIDogUmU6IFdBUk5JTkc6IGF0
+IGtlcm5lbC9zb2Z0aXJxLmM6MTU5IF9sb2NhbF9iaF9lbmFibGVfaXArMHgzNS8weDcxKCkNCj4g
+DQo+IEpvbmdtYW4gSGVvIDoNCj4gWy4uLl0NCj4gPiBIb3N0IDogd2luZG93cyA3IDMyYml0DQo+
+ID4gVk1XYXJlIEd1ZXN0IDogRmVkb3JhIDE2LCB3aXRoIGxhdGVzdCBsaW51cyBnaXQga2VybmVs
+ICgzLjMuMC1yYzQrKS4gDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgdm14bmV0MyBldGhl
+cm5ldCBkcml2ZXIsIHJ1bm5pbmcgTkZTIHNlcnZlcg0KPiANCj4gVGhpcyBpcyBhIDMyYml0IEhJ
+R0hNRU0ga2VybmVsLCByaWdodCA/DQoNClJpZ2h0LCAzMmJpdCBISUdITUVNIGlzIHNldC4NCg0K
+PiANCj4gPiBGb2xsb3dpbmcgd2FybmluZyB0cmlnZ2VyZWQgd2l0aCBteSBWTXdhcmUgTGludXgg
+Z3Vlc3QsIHdoZW4gTkZTIGNvbm5lY3Rpb24gaXMgcmVxdWVzdGVkIGZyb20gb3V0c2lkZS4NCj4g
+DQo+IEknZCB0cnkgcmV2ZXJ0aW5nIDM5ZDRhOTZmZDdkMjkyNmU0NjE1MWFkYmQxOGI4MTBhZWVl
+YThlYzAuDQo+IA0KPiAtLSANCj4gVWVpbW9yDQoNCkkgY29uZmlybSB0aGF0IHJldmVydGluZyB0
+aGUgY29tbWl0IGZpeGVzIHRoZSB3YXJuaW5nLg0KDQpSZWdhcmRzLA0KSm9uZ21hbi4NCg==
