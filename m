@@ -1,62 +1,41 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 1/2] 3com/typhoon: reuse eth_mac_addr()
-Date: Wed, 22 Feb 2012 13:36:38 +0100
-Message-ID: <1329914199-30862-2-git-send-email-danny.kukawka@bisect.de>
-References: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wp188.webpack.hosteurope.de ([80.237.132.195]:44643 "EHLO
-	wp188.webpack.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751599Ab2BVMgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 07:36:55 -0500
-In-Reply-To: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Davidlohr Bueso <dave@gnu.org>
+Subject: [PATCH] tg3: remove IRQF_SAMPLE_RANDOM flag
+Date: Wed, 22 Feb 2012 14:06:54 +0100
+Message-ID: <1329916014.2586.2.camel@offbook>
+Reply-To: dave@gnu.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use eth_mac_addr() for .ndo_set_mac_address, remove
-typhoon_set_mac_address() since it do currently the same as
-eth_mac_addr(). Additional advantage: eth_mac_addr() already
-checks if the given address is valid.
+From: Davidlohr Bueso <dave@gnu.org>
 
-Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+This driver is the last user of the IRQF_SAMPLE_RANDOM flag for net drivers, and since add_*_randomness
+interfaces have now deprecated the flag as a source of external noise, we can remove it.
+
+Signed-off-by: Davidlohr Bueso <dave@gnu.org>
 ---
- drivers/net/ethernet/3com/typhoon.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-index f7d622e..1234a14 100644
---- a/drivers/net/ethernet/3com/typhoon.c
-+++ b/drivers/net/ethernet/3com/typhoon.c
-@@ -966,18 +966,6 @@ typhoon_get_stats(struct net_device *dev)
- 	return stats;
- }
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index a1f2e0f..2badfc3 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -9401,7 +9401,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
+ 	}
  
--static int
--typhoon_set_mac_address(struct net_device *dev, void *addr)
--{
--	struct sockaddr *saddr = (struct sockaddr *) addr;
--
--	if(netif_running(dev))
--		return -EBUSY;
--
--	memcpy(dev->dev_addr, saddr->sa_data, dev->addr_len);
--	return 0;
--}
--
- static void
- typhoon_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
-@@ -2266,7 +2254,7 @@ static const struct net_device_ops typhoon_netdev_ops = {
- 	.ndo_tx_timeout		= typhoon_tx_timeout,
- 	.ndo_get_stats		= typhoon_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address	= typhoon_set_mac_address,
-+	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- };
+ 	err = request_irq(tnapi->irq_vec, tg3_test_isr,
+-			  IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, tnapi);
++			  IRQF_SHARED, dev->name, tnapi);
+ 	if (err)
+ 		return err;
  
 -- 
-1.7.8.3
+1.7.4.1
