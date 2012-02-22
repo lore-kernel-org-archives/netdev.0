@@ -1,40 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Wed, 22 Feb 2012 10:46:14 +0100
-Message-ID: <1329903974.4657.0.camel@jlt3.sipsolutions.net>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E77@saturn3.aculab.com>
-	 (sfid-20120222_103559_848738_672B22CE)
+From: Zefir Kurtisi <zefir.kurtisi-ASv44eHyqLVBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: pull request: wireless 2012-02-20
+Date: Wed, 22 Feb 2012 11:07:55 +0100
+Message-ID: <4F44BE7B.8000501@neratec.com>
+References: <20120221151435.GA19354@tuxdriver.com>	<20120221.144417.1445117001833888214.davem@davemloft.net>	<CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com> <20120221.154053.2103818562080068513.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>,
-	Andy Whitcroft <apw@shadowen.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	andrei.emeltchenko.news@gmail.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E77@saturn3.aculab.com> (sfid-20120222_103559_848738_672B22CE)
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120221.154053.2103818562080068513.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-22 at 09:35 +0000, David Laight wrote:
-> > 	if (!(func_a(x) &&
-> > 		func_b(y)))
-> > 		baz();
+On 02/21/2012 09:40 PM, David Miller wrote:
+> From: Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue, 21 Feb 2012 22:38:16 +0200
 > 
-> Gah - that is horrid for the 'preferred style'.
-> A quick glance at the code puts both the func_b()
-> and baz() calls as inside the if.
+>> Hi David,
+>>
+>> On Tue, Feb 21, 2012 at 9:44 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+>>> Date: Tue, 21 Feb 2012 10:14:36 -0500
+>>> [...]
+>>
+>> Sorry did we understand wrong text of Linux coding style? Or do we need
+>> right interpretation of it?
+> 
+> I'm not engaging in this conversation any more, I don't care what CodingStyle
+> says, the quoted code is garbage.
 
-You forgot to read/quote the rest of Allan's email:
+This is not really helpful, David.
 
-> Assuming my stupid mailer will screw up the indentation above, the 'a'
-> in addr in the first example is meant to be immediately below the 'n'
-> in nr, and the two 'f's in func_* are meant to be vertically lined up
-> in the second example.
+Andrei's question was fully reasonable here, i.e. the Documentation/CodingStyle is the only binding reference given to potential contributors -- the common 'how-to-contribute-kernel-patches' docs non-24/7-kernel-folks usually find and follow on the way preparing patches end exactly there.
 
-johannes
+I recently learned the hard way when my patches were ignored just because of some missing spaces. That would be perfectly fair if some formal rules were broken, but not telling people about additional informal ones is not motivating.
+
+
+I might be fully blind and just missed the related coding style document that covers the issues discussed here. But even then your answer should be 'RTFM' instead of just ending the conversation.
+
+
+Cheers, Zefir
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
