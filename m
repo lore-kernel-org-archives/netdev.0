@@ -1,16 +1,17 @@
-From: Joe Perches <joe@perches.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Tue, 21 Feb 2012 17:36:21 -0800
-Message-ID: <1329874581.5143.22.camel@joe2Laptop>
+Date: Wed, 22 Feb 2012 01:56:25 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>
 References: <20120221151435.GA19354@tuxdriver.com>
 	 <20120221.144417.1445117001833888214.davem@davemloft.net>
 	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
 	 <20120221.154053.2103818562080068513.davem@davemloft.net>
 	 <1329857959.5143.11.camel@joe2Laptop>
 	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
+ <1329874581.5143.22.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: David Miller <davem@davemloft.net>,
 	Andy Whitcroft <apw@shadowen.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -20,96 +21,62 @@ Cc: David Miller <davem@davemloft.net>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
+In-Reply-To: <1329874581.5143.22.camel@joe2Laptop>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-02-21 at 22:09 +0000, Allan, Bruce W wrote:
-> This appears to falsely complain about parenthesis alignment in
-> conditional statements with multiple opening parentheses.
-
-Hey Allan.
-
-Can you try this one please?
----
- scripts/checkpatch.pl |   58 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 58 insertions(+), 0 deletions(-)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index a3b9782..e95419e 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -1330,6 +1330,35 @@ sub check_absolute_file {
- 	}
- }
- 
-+sub pos_last_openparen {
-+
-+	my ($args) = @_;
-+
-+	my $pos = 0;
-+	my $len = length($args);
-+
-+	my $opens = $args =~ tr/\(/\(/;
-+	my $closes = $args =~ tr/\)/\)/;
-+
-+	my $last_openparen = 0;
-+
-+	if (($opens == 0) || ($closes >= $opens)) {
-+		return 0;
-+	}
-+
-+	for ($pos = 0; $pos < $len; $pos++) {
-+		if (substr($args, $pos) =~ /^($FuncArg)/) {
-+			$pos += length($1);
-+		}
-+
-+		if (substr($args, $pos, 1) eq '(') {
-+			$last_openparen = $pos;
-+		}
-+	}
-+
-+	return $last_openparen + 1;
-+}
-+
- sub process {
- 	my $filename = shift;
- 
-@@ -1783,6 +1812,35 @@ sub process {
- 			     "please, no space before tabs\n" . $herevet);
- 		}
- 
-+# check for && or || at the start of a line
-+		if ($rawline =~ /^\+\s*(&&|\|\|)/) {
-+			CHK("LOGICAL_CONTINUATIONS",
-+			    "Logical continuations should be on the previous line\n" . $hereprev);
-+		}
-+
-+# check multi-line statement indentation matches previous line
-+		if ($prevline =~ /^\+(\t*)(if \(|$Ident\().*(\&\&|\|\||,)\s*$/ && $rawline =~ /^\+([ \t]*)/) {
-+			$prevline =~ /^\+(\t*)(if \(|$Ident\()(.*)(\&\&|\|\||,)\s*$/;
-+			my $oldindent = $1;
-+			my $if_or_func = $2;
-+			my $args = $3;
-+
-+			my $pos = pos_last_openparen($args);
-+
-+			my $len = length($if_or_func) + $pos;
-+			$rawline =~ /^\+([ \t]*)/;
-+			my $newindent = $1;
-+
-+			my $goodindent = $oldindent .
-+					 "\t" x ($len / 8) .
-+					 " "  x ($len % 8);
-+
-+			if ($newindent ne $goodindent) {
-+				CHK("PARENTHESIS_ALIGNMENT",
-+				    "Alignment should match open parenthesis\n" . $hereprev);
-+			}
-+		}
-+
- # check for spaces at the beginning of a line.
- # Exceptions:
- #  1) within comments
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2UgUGVyY2hlcyBbbWFpbHRv
+OmpvZUBwZXJjaGVzLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkgMjEsIDIwMTIgNToz
+NiBQTQ0KPiBUbzogQWxsYW4sIEJydWNlIFcNCj4gQ2M6IERhdmlkIE1pbGxlcjsgQW5keSBXaGl0
+Y3JvZnQ7IEFuZHJldyBNb3J0b247DQo+IGFuZHJlaS5lbWVsdGNoZW5rby5uZXdzQGdtYWlsLmNv
+bTsgbGludmlsbGVAdHV4ZHJpdmVyLmNvbTsgbGludXgtDQo+IHdpcmVsZXNzQHZnZXIua2VybmVs
+Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5l
+bC5vcmcNCj4gU3ViamVjdDogUkU6IFtQQVRDSF0gY2hlY2twYXRjaDogQWRkIHNvbWUgLS1zdHJp
+Y3QgY29kaW5nIHN0eWxlIGNoZWNrcw0KPiANCj4gT24gVHVlLCAyMDEyLTAyLTIxIGF0IDIyOjA5
+ICswMDAwLCBBbGxhbiwgQnJ1Y2UgVyB3cm90ZToNCj4gPiBUaGlzIGFwcGVhcnMgdG8gZmFsc2Vs
+eSBjb21wbGFpbiBhYm91dCBwYXJlbnRoZXNpcyBhbGlnbm1lbnQgaW4NCj4gPiBjb25kaXRpb25h
+bCBzdGF0ZW1lbnRzIHdpdGggbXVsdGlwbGUgb3BlbmluZyBwYXJlbnRoZXNlcy4NCj4gDQo+IEhl
+eSBBbGxhbi4NCj4gDQo+IENhbiB5b3UgdHJ5IHRoaXMgb25lIHBsZWFzZT8NCj4gLS0tDQo+ICBz
+Y3JpcHRzL2NoZWNrcGF0Y2gucGwgfCAgIDU4DQo+ICsrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysNCj4gIDEgZmlsZXMgY2hhbmdlZCwgNTggaW5zZXJ0aW9u
+cygrKSwgMCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9zY3JpcHRzL2NoZWNrcGF0
+Y2gucGwgYi9zY3JpcHRzL2NoZWNrcGF0Y2gucGwNCj4gaW5kZXggYTNiOTc4Mi4uZTk1NDE5ZSAx
+MDA3NTUNCj4gLS0tIGEvc2NyaXB0cy9jaGVja3BhdGNoLnBsDQo+ICsrKyBiL3NjcmlwdHMvY2hl
+Y2twYXRjaC5wbA0KPiBAQCAtMTMzMCw2ICsxMzMwLDM1IEBAIHN1YiBjaGVja19hYnNvbHV0ZV9m
+aWxlIHsNCj4gIAl9DQo+ICB9DQo+IA0KPiArc3ViIHBvc19sYXN0X29wZW5wYXJlbiB7DQo+ICsN
+Cj4gKwlteSAoJGFyZ3MpID0gQF87DQo+ICsNCj4gKwlteSAkcG9zID0gMDsNCj4gKwlteSAkbGVu
+ID0gbGVuZ3RoKCRhcmdzKTsNCj4gKw0KPiArCW15ICRvcGVucyA9ICRhcmdzID1+IHRyL1woL1wo
+LzsNCj4gKwlteSAkY2xvc2VzID0gJGFyZ3MgPX4gdHIvXCkvXCkvOw0KPiArDQo+ICsJbXkgJGxh
+c3Rfb3BlbnBhcmVuID0gMDsNCj4gKw0KPiArCWlmICgoJG9wZW5zID09IDApIHx8ICgkY2xvc2Vz
+ID49ICRvcGVucykpIHsNCj4gKwkJcmV0dXJuIDA7DQo+ICsJfQ0KPiArDQo+ICsJZm9yICgkcG9z
+ID0gMDsgJHBvcyA8ICRsZW47ICRwb3MrKykgew0KPiArCQlpZiAoc3Vic3RyKCRhcmdzLCAkcG9z
+KSA9fiAvXigkRnVuY0FyZykvKSB7DQo+ICsJCQkkcG9zICs9IGxlbmd0aCgkMSk7DQo+ICsJCX0N
+Cj4gKw0KPiArCQlpZiAoc3Vic3RyKCRhcmdzLCAkcG9zLCAxKSBlcSAnKCcpIHsNCj4gKwkJCSRs
+YXN0X29wZW5wYXJlbiA9ICRwb3M7DQo+ICsJCX0NCj4gKwl9DQo+ICsNCj4gKwlyZXR1cm4gJGxh
+c3Rfb3BlbnBhcmVuICsgMTsNCj4gK30NCj4gKw0KPiAgc3ViIHByb2Nlc3Mgew0KPiAgCW15ICRm
+aWxlbmFtZSA9IHNoaWZ0Ow0KPiANCj4gQEAgLTE3ODMsNiArMTgxMiwzNSBAQCBzdWIgcHJvY2Vz
+cyB7DQo+ICAJCQkgICAgICJwbGVhc2UsIG5vIHNwYWNlIGJlZm9yZSB0YWJzXG4iIC4gJGhlcmV2
+ZXQpOw0KPiAgCQl9DQo+IA0KPiArIyBjaGVjayBmb3IgJiYgb3IgfHwgYXQgdGhlIHN0YXJ0IG9m
+IGEgbGluZQ0KPiArCQlpZiAoJHJhd2xpbmUgPX4gL15cK1xzKigmJnxcfFx8KS8pIHsNCj4gKwkJ
+CUNISygiTE9HSUNBTF9DT05USU5VQVRJT05TIiwNCj4gKwkJCSAgICAiTG9naWNhbCBjb250aW51
+YXRpb25zIHNob3VsZCBiZSBvbiB0aGUgcHJldmlvdXMNCj4gbGluZVxuIiAuICRoZXJlcHJldik7
+DQo+ICsJCX0NCj4gKw0KPiArIyBjaGVjayBtdWx0aS1saW5lIHN0YXRlbWVudCBpbmRlbnRhdGlv
+biBtYXRjaGVzIHByZXZpb3VzIGxpbmUNCj4gKwkJaWYgKCRwcmV2bGluZSA9fiAvXlwrKFx0Kiko
+aWYNCj4gXCh8JElkZW50XCgpLiooXCZcJnxcfFx8fCwpXHMqJC8gJiYgJHJhd2xpbmUgPX4gL15c
+KyhbIFx0XSopLykgew0KPiArCQkJJHByZXZsaW5lID1+IC9eXCsoXHQqKShpZg0KPiBcKHwkSWRl
+bnRcKCkoLiopKFwmXCZ8XHxcfHwsKVxzKiQvOw0KPiArCQkJbXkgJG9sZGluZGVudCA9ICQxOw0K
+PiArCQkJbXkgJGlmX29yX2Z1bmMgPSAkMjsNCj4gKwkJCW15ICRhcmdzID0gJDM7DQo+ICsNCj4g
+KwkJCW15ICRwb3MgPSBwb3NfbGFzdF9vcGVucGFyZW4oJGFyZ3MpOw0KPiArDQo+ICsJCQlteSAk
+bGVuID0gbGVuZ3RoKCRpZl9vcl9mdW5jKSArICRwb3M7DQo+ICsJCQkkcmF3bGluZSA9fiAvXlwr
+KFsgXHRdKikvOw0KPiArCQkJbXkgJG5ld2luZGVudCA9ICQxOw0KPiArDQo+ICsJCQlteSAkZ29v
+ZGluZGVudCA9ICRvbGRpbmRlbnQgLg0KPiArCQkJCQkgIlx0IiB4ICgkbGVuIC8gOCkgLg0KPiAr
+CQkJCQkgIiAiICB4ICgkbGVuICUgOCk7DQo+ICsNCj4gKwkJCWlmICgkbmV3aW5kZW50IG5lICRn
+b29kaW5kZW50KSB7DQo+ICsJCQkJQ0hLKCJQQVJFTlRIRVNJU19BTElHTk1FTlQiLA0KPiArCQkJ
+CSAgICAiQWxpZ25tZW50IHNob3VsZCBtYXRjaCBvcGVuDQo+IHBhcmVudGhlc2lzXG4iIC4gJGhl
+cmVwcmV2KTsNCj4gKwkJCX0NCj4gKwkJfQ0KPiArDQo+ICAjIGNoZWNrIGZvciBzcGFjZXMgYXQg
+dGhlIGJlZ2lubmluZyBvZiBhIGxpbmUuDQo+ICAjIEV4Y2VwdGlvbnM6DQo+ICAjICAxKSB3aXRo
+aW4gY29tbWVudHMNCj4gDQoNCkl0J3MgYmV0dGVyLCBidXQgdGhlcmUgYXJlIHN0aWxsIGluc3Rh
+bmNlcyBvZiBmYWxzZSBoaXRzIEFGQUlDVC4NCg0KQnJ1Y2UuDQoNCg==
