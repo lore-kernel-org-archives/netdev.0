@@ -1,56 +1,42 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v10 05/11] seccomp: add system call filtering using BPF
-Date: Wed, 22 Feb 2012 11:53:42 -0800
-Message-ID: <4F4547C6.8050001@zytor.com>
-References: <1329845435-2313-1-git-send-email-wad@chromium.org> <1329845435-2313-5-git-send-email-wad@chromium.org> <38d58caa17befe422065efe5dc451a34.squirrel@webmail.greenhost.nl> <CABqD9hYTLNrQKzYiRV6yN-z_mYyfPR=3W1P6nC+VmYmFGE1vQg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] net/ieee802154/6lowpan.c:
+	reuse eth_mac_addr()
+Date: Wed, 22 Feb 2012 14:56:35 -0500 (EST)
+Message-ID: <20120222.145635.1104728256772204371.davem@davemloft.net>
+References: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
+	<1329914199-30862-3-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
-        linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-        kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-        x86@kernel.org, arnd@arndb.de, davem@davemloft.net, mingo@redhat.com,
-        oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-        mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-        eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-        scarybeasts@gmail.com, pmoore@redhat.com, akpm@linux-foundation.org,
-        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-        keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-914-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CABqD9hYTLNrQKzYiRV6yN-z_mYyfPR=3W1P6nC+VmYmFGE1vQg@mail.gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dkukawka-l3A5Bk7waGM@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1329914199-30862-3-git-send-email-danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 02/22/2012 11:47 AM, Will Drewry wrote:
->>
->> I highly disagree with every filter having to check the mode: Filters that
->> don't check the arch on e.g. x86 are buggy, so they have to check it, even
->> if it's a 32-bit or 64-bit only system, the filters can't know that and
->> needs to check the arch at every syscall entry. All other info in the data
->> depends on the arch, because of this there isn't much code to share between
->> the two archs, so you can as well have one filter for each arch.
->>
->> Alternative approach: Tell the arch at filter install time and only run the
->> filters with the same arch as the current system call. If no filters are run,
->> deny the systemcall.
+From: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
+Date: Wed, 22 Feb 2012 13:36:39 +0100
+
+> Use eth_mac_addr() for .ndo_set_mac_address, remove
+> lowpan_set_address since it do currently the same as
+> eth_mac_addr(). Additional advantage: eth_mac_addr() already
+> checks if the given address is valid
 > 
-> This was roughly how I first implemented compat and non-compat
-> support.  It causes some implicit behavior across inheritance that is
-> not nice though.
-> 
+> Signed-off-by: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
 
-This is trivially doable at the BPF level, right?  Just make this the
-first instruction in the program (either deny or jump to a separate
-program branch)... and then there is still "one program" without any
-weird inheritance issues?
+Applied.
 
-	-hpa
-
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
