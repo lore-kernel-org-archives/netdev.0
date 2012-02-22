@@ -1,34 +1,74 @@
-From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
-Subject: Re: [Bug 42809] New: kernel panic when receiving an ipsec packet
-Date: Wed, 22 Feb 2012 18:41:34 +0100
-Message-ID: <4F4528CE.7080702@linuxsystems.it>
-References: <bug-42809-100@https.bugzilla.kernel.org/> <20120222092056.5fca788b@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH] jme: Fix FIFO flush issue
+Date: Thu, 23 Feb 2012 02:58:10 +0800
+Message-ID: <1329937090-20779-1-git-send-email-cooldavid@cooldavid.org>
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	"linux-netdev" <netdev@vger.kernel.org>,
+	"Steven Chen" <stevenchen@jmicron.com>,
+	"Devinchiu" <devinchiu@jmicron.com>, angelli@jmicron.com,
+	"Federico Quagliata" <federico@quagliata.org>, stable@kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxsystems.it ([2.119.245.41]:56888 "EHLO
-	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882Ab2BVRv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 12:51:29 -0500
-In-Reply-To: <20120222092056.5fca788b@nehalam.linuxnetplumber.net>
+Received: from bbs.cooldavid.org ([114.34.16.17]:53799 "EHLO bbs.cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752479Ab2BVTFB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Feb 2012 14:05:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for CCing netdev, I was thinking about doing the same.
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-Il 22/02/2012 18:20, Stephen Hemminger ha scritto:
-> That is a really old kernel now. Could you try with later kernel?
+Set the RX FIFO flush watermark lower.
+According to Federico and JMicron's reply,
+setting it to 16QW would be stable on most platforms.
+Otherwise, user might experience packet drop issue.
 
-I can (a few minutes during night) but I really need a fix for 2.6.32.=20
-This is a production server with dozens of Xen virtual machines and a=20
-heavily patched kernel (xen dom0, layer 7, imq, esfq, advanced routing=20
-etc). I did test a "vanilla" kernel last night (not really vanilla, but=
-=20
-a clean official debian kernel) and I had the same problem.
+CC: stable@kernel.org
+Reported-by: Federico Quagliata <federico@quagliata.org>
+Fixed-by: Federico Quagliata <federico@quagliata.org>
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+---
+ drivers/net/ethernet/jme.c |   10 +---------
+ drivers/net/ethernet/jme.h |    2 +-
+ 2 files changed, 2 insertions(+), 10 deletions(-)
 
-Thanks,
-Niccol=F2
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 1b86d0b..4ea6580 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -2328,19 +2328,11 @@ jme_change_mtu(struct net_device *netdev, int new_mtu)
+ 		((new_mtu) < IPV6_MIN_MTU))
+ 		return -EINVAL;
+ 
+-	if (new_mtu > 4000) {
+-		jme->reg_rxcs &= ~RXCS_FIFOTHNP;
+-		jme->reg_rxcs |= RXCS_FIFOTHNP_64QW;
+-		jme_restart_rx_engine(jme);
+-	} else {
+-		jme->reg_rxcs &= ~RXCS_FIFOTHNP;
+-		jme->reg_rxcs |= RXCS_FIFOTHNP_128QW;
+-		jme_restart_rx_engine(jme);
+-	}
+ 
+ 	netdev->mtu = new_mtu;
+ 	netdev_update_features(netdev);
+ 
++	jme_restart_rx_engine(jme);
+ 	jme_reset_link(jme);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/jme.h b/drivers/net/ethernet/jme.h
+index 4304072..3efc897 100644
+--- a/drivers/net/ethernet/jme.h
++++ b/drivers/net/ethernet/jme.h
+@@ -730,7 +730,7 @@ enum jme_rxcs_values {
+ 	RXCS_RETRYCNT_60	= 0x00000F00,
+ 
+ 	RXCS_DEFAULT		= RXCS_FIFOTHTP_128T |
+-				  RXCS_FIFOTHNP_128QW |
++				  RXCS_FIFOTHNP_16QW |
+ 				  RXCS_DMAREQSZ_128B |
+ 				  RXCS_RETRYGAP_256ns |
+ 				  RXCS_RETRYCNT_32,
+-- 
+1.7.3.4
