@@ -1,48 +1,39 @@
-From: "Naveen B N (nbn)" <nbn@cisco.com>
-Subject: Compile xfrm has module
-Date: Wed, 22 Feb 2012 15:03:54 +0530
-Message-ID: <A2354B6A9F807641B21EEABD666ECEEA02B81E4B@XMB-BGL-416.cisco.com>
-References: <A2354B6A9F807641B21EEABD666ECEEA02B81E31@XMB-BGL-416.cisco.com>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
+Date: Wed, 22 Feb 2012 09:35:14 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E77@saturn3.aculab.com>
+References: <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bgl-iport-2.cisco.com ([72.163.197.26]:16833 "EHLO
-	bgl-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab2BVJd5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 04:33:57 -0500
-Received: from xbh-bgl-412.cisco.com (xbh-bgl-412.cisco.com [72.163.129.202])
-	by bgl-core-4.cisco.com (8.14.3/8.14.3) with ESMTP id q1M9XtZX004655
-	for <netdev@vger.kernel.org>; Wed, 22 Feb 2012 09:33:55 GMT
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Allan, Bruce W" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Joe Perches" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Andy Whitcroft" <apw-26w3C0LaAnFg9hUCZPvPmw@public.gmane.org>,
+	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <A2354B6A9F807641B21EEABD666ECEEA02B81E31@XMB-BGL-416.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A18429B3EE-P5GAC/sN6hlcIJlls4ac1rfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi=20
-I am trying to compile xfrm has modules that can be inserted during run=
- time ,=20
-I am able to compile but compile it But I found there are few issue ins=
-erting the modules.
-I have edited the Make file in net/xfrm to refelect the below , there a=
-re few undefined references .
-Is it polible to build XFRM itself has a module , please guide me on th=
-e same.
+ 
+> 	if (!(func_a(x) &&
+> 		func_b(y)))
+> 		baz();
 
-root@qabng249c:/usr/src/linux-2.6.34# cat net/xfrm/Makefile
-#
-# Makefile for the XFRM subsystem.
-#
+Gah - that is horrid for the 'preferred style'.
+A quick glance at the code puts both the func_b()
+and baz() calls as inside the if.
 
-obj-m :=3D xfrm_policy.o xfrm_state.o xfrm_hash.o \
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 xfrm_in=
-put.o xfrm_output.o xfrm_algo.o \
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 xfrm_sy=
-sctl.o
-obj-n +=3D xfrm_proc.o
-obj-m +=3D xfrm_user.o
-obj-m +=3D xfrm_ipcomp.o
+	David
 
-Thanks and Regards
-Naveen
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
