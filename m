@@ -1,80 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc-next 2012-02-23
-Date: Thu, 23 Feb 2012 17:38:54 +0000
-Message-ID: <1330018734.2511.1.camel@bwh-desktop>
+From: Roland McGrath <mcgrathr@google.com>
+Subject: Re: [PATCH v10 07/11] signal, x86: add SIGSYS info and make it synchronous.
+Date: Thu, 23 Feb 2012 09:38:57 -0800
+Message-ID: <CAB=4xhqndEw3tMPaUcdZh_jcjQcoK_=7GwOc5gVhnz5o_4eWzQ@mail.gmail.com>
+References: <1329845435-2313-1-git-send-email-wad@chromium.org>
+ <1329845435-2313-7-git-send-email-wad@chromium.org> <9edbabb2262e3d91a7b8c75dbec03d7f.squirrel@webmail.greenhost.nl>
+ <CABqD9hY1n9EOAKKT0r9Ev+azhBMnLMAM_FgDNe5we9upVePk_A@mail.gmail.com>
+ <CAObL_7Gc0U2JMBQr_kbcVUJwyJq7LRfgdFr+84LR=ec4kSCwEA@mail.gmail.com>
+ <CAGXu5jJQrnkCZtcLqK8NEihRgB25C12b0nKp+XWXV_=4QfcVoA@mail.gmail.com>
+ <CABqD9hbC8v-rUBW+4T_-EwDwe1+VDohQZweQ-cxOg2A-iDH5CQ@mail.gmail.com>
+ <CAGXu5j+fQqkrrKSm3kmCkCcZJKo-VZjL6kkrOD81LZYBY7tf2g@mail.gmail.com>
+ <4F45887A.5010809@zytor.com> <CAB=4xhq1sm_ewZ_8Kerf2aN7nGx+DEENse7Lqg5N0wuvqtzUAw@mail.gmail.com>
+ <4F459109.1060205@zytor.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-8NcNnCC2gSYtYY0QNsaW"
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Kees Cook <keescook@chromium.org>, Will Drewry <wad@chromium.org>,
+	Andrew Lutomirski <luto@mit.edu>,
+	Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, tglx@linutronix.de, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:7208 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752207Ab2BWRjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:39:07 -0500
+Received: from mail-qw0-f53.google.com ([209.85.216.53]:48502 "EHLO
+	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753443Ab2BWRjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:39:19 -0500
+Received: by qafk1 with SMTP id k1so1665185qaf.19
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 09:39:18 -0800 (PST)
+In-Reply-To: <4F459109.1060205@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-8NcNnCC2gSYtYY0QNsaW
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On Wed, Feb 22, 2012 at 5:06 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+> I meant whether or not a signal can be blocked/caught and the fact that
+> the signal exists at all.
+>
+> Now I guess we could have "blockable" and "unblockable" SIGSYS, but that
+> would seem to have its own set of issues...
 
-The following changes since commit 0b0a635f79f91f3755b6518627ea06dd0dbfd523=
-:
+Oh.  I certainly don't think we should ever add any new signals to the set
+that cannot be caught, blocked, or ignored.  That has been just SIGKILL and
+SIGSTOP since 4.2BSD, which first introduced the modern concept of blocking
+signals.  There are lots of reasons not to change that, which I won't go
+into unless someone really wants me to.
 
-  bnx2x: update driver version to 1.72.10-0 (2012-02-20 19:34:08 -0500)
+However, I don't think there is anything really wrong with having certain
+cases that generate a signal and at the same time unblock it and reset it
+to SIG_DFL.  That's just an implementation detail of a policy of "dump core
+right now, no other option".  (Conversely, directly calling do_exit won't
+ever dump core, though it can be made to look signalesque to the parent and
+tracers.)
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+For seccomp-filter, I personally don't see any problem with simply
+generating SIGSYS in the normal way (and aborting the syscall, of course).
+If someone wants to ensure that SIGSYS is never caught or blocked, they can
+just do that by having a filter that doesn't allow it to be caught or
+blocked (and of course make sure to reset its inherited state).  It is a
+bit tricky to cover all the ways, since it's not just sigaction and
+sigprocmask but also sigreturn, where the blocked signal set to be restored
+is in a slightly arcane location--but it ain't rocket science.
 
-(commit 73e0026fb2bee4f2ca85c702040e143ec504eaa6)
-
-Just some small fixes this time.
-
-Ben.
-
-Ben Hutchings (5):
-      sfc: Specify that the VFDI status page has page alignment and size
-      sfc: Correct validation of peer_page_count in efx_vfdi_set_status_pag=
-e()
-      sfc: Reverse initial buffer table allocation to allow for later resiz=
-ing
-      sfc: Minor formatting cleanup
-      sfc: Correct efx_for_each_possible_channel_tx_queue() to skip non-TX =
-channels
-
- drivers/net/ethernet/sfc/bitfield.h    |    4 ++--
- drivers/net/ethernet/sfc/efx.c         |    7 ++++++-
- drivers/net/ethernet/sfc/mcdi_mon.c    |    2 +-
- drivers/net/ethernet/sfc/net_driver.h  |    9 ++++++---
- drivers/net/ethernet/sfc/siena_sriov.c |   11 ++++++-----
- drivers/net/ethernet/sfc/tx.c          |    2 +-
- drivers/net/ethernet/sfc/vfdi.h        |    3 ++-
- 7 files changed, 24 insertions(+), 14 deletions(-)
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+But I don't really have any strong opinion about what seccomp-filter should
+do.  (Though it does seem worthwhile not to rule out the possibility of
+dumping core on a policy violation, since that will be useful for people to
+debug their code.)
 
 
-
---=-8NcNnCC2gSYtYY0QNsaW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQEcBAABCAAGBQJPRnmuAAoJEGkILBsOca60+IoIAMaz9GVS23qdjyljc4Cpdyyz
-O7QINjqLqyH7PzZ4BEShBvJo8zEhal55YHyDfuyFpfhAc6t4zzoBSRUH+WeYwQyb
-LHw4pkCYIM9H7Wqbt45SA/VxpLKfoL7KvgP1Lo/R8t7tTfRaFJPqffn+a/fmt9+N
-/RAe2TqV5AkqmTfnO1288a+W2g4pZfQEiL6jOqenXSP7HriGl71LSRXx2hS9mN2i
-Rmd7j2l7G0/+Yscy7tcuKMzdUHz1jKHOcVYZ4tIpNe3Pjv0cE9pSjtlS1vpT1Bnx
-QqrLC4cNjWSBC9m3totK/hUcgI+eaPU+0kZb+VsR0xpcLka5+VmlysWDSGqiKtM=
-=Z1CE
------END PGP SIGNATURE-----
-
---=-8NcNnCC2gSYtYY0QNsaW--
+Thanks,
+Roland
