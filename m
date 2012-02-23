@@ -1,122 +1,63 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/4] netfilter: nf_queue: fix queueing of bridged gro skbs
-Date: Thu, 23 Feb 2012 01:02:24 +0100
-Message-ID: <1329955346-2615-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/4] netfilter: ebtables: fix alignment problem in ppc
+Date: Thu, 23 Feb 2012 01:02:25 +0100
+Message-ID: <1329955346-2615-4-git-send-email-pablo@netfilter.org>
 References: <1329955346-2615-1-git-send-email-pablo@netfilter.org>
 Cc: netdev@vger.kernel.org, davem@davemloft.net
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48648 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48651 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753057Ab2BWACo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Feb 2012 19:02:44 -0500
+	id S1752971Ab2BWACq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Feb 2012 19:02:46 -0500
 In-Reply-To: <1329955346-2615-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Joerg Willmann <joe@clnt.de>
 
-When trying to nf_queue GRO/GSO skbs, nf_queue uses skb_gso_segment
-to split the skb.
+ebt_among extension of ebtables uses __alignof__(_xt_align) while the
+corresponding kernel module uses __alignof__(ebt_replace) to determine
+the alignment in EBT_ALIGN().
 
-However, if nf_queue is called via bridge netfilter, the mac header
-won't be preserved -- packets will thus contain a bogus mac header.
+These are the results of these values on different platforms:
 
-Fix this by setting skb->data to the mac header when skb->nf_bridge
-is set and restoring skb->data afterwards for all segments.
+x86 x86_64 ppc
+__alignof__(_xt_align) 4 8 8
+__alignof__(ebt_replace) 4 8 4
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+ebtables fails to add rules which use the among extension.
+
+I'm using kernel 2.6.33 and ebtables 2.0.10-4
+
+According to Bart De Schuymer, userspace alignment was changed to
+_xt_align to fix an alignment issue on a userspace32-kernel64 system
+(he thinks it was for an ARM device). So userspace must be right.
+The kernel alignment macro needs to change so it also uses _xt_align
+instead of ebt_replace. The userspace changes date back from
+June 29, 2009.
+
+Signed-off-by: Joerg Willmann <joe@clnt.de>
+Signed-off by: Bart De Schuymer <bdschuym@pandora.be>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_queue.c |   40 ++++++++++++++++++++++++++++++++--------
- 1 files changed, 32 insertions(+), 8 deletions(-)
+ include/linux/netfilter_bridge/ebtables.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index b3a7db6..ce60cf0 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -203,6 +203,27 @@ err:
- 	return status;
- }
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 8797ed1..4dd5bd6 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -285,8 +285,8 @@ struct ebt_table {
+ 	struct module *me;
+ };
  
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+/* When called from bridge netfilter, skb->data must point to MAC header
-+ * before calling skb_gso_segment(). Else, original MAC header is lost
-+ * and segmented skbs will be sent to wrong destination.
-+ */
-+static void nf_bridge_adjust_skb_data(struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge)
-+		__skb_push(skb, skb->network_header - skb->mac_header);
-+}
-+
-+static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
-+{
-+	if (skb->nf_bridge)
-+		__skb_pull(skb, skb->network_header - skb->mac_header);
-+}
-+#else
-+#define nf_bridge_adjust_skb_data(s) do {} while (0)
-+#define nf_bridge_adjust_segmented_data(s) do {} while (0)
-+#endif
-+
- int nf_queue(struct sk_buff *skb,
- 	     struct list_head *elem,
- 	     u_int8_t pf, unsigned int hook,
-@@ -212,7 +233,7 @@ int nf_queue(struct sk_buff *skb,
- 	     unsigned int queuenum)
- {
- 	struct sk_buff *segs;
--	int err;
-+	int err = -EINVAL;
- 	unsigned int queued;
- 
- 	if (!skb_is_gso(skb))
-@@ -228,23 +249,25 @@ int nf_queue(struct sk_buff *skb,
- 		break;
- 	}
- 
-+	nf_bridge_adjust_skb_data(skb);
- 	segs = skb_gso_segment(skb, 0);
- 	/* Does not use PTR_ERR to limit the number of error codes that can be
- 	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to mean
- 	 * 'ignore this hook'.
- 	 */
- 	if (IS_ERR(segs))
--		return -EINVAL;
--
-+		goto out_err;
- 	queued = 0;
- 	err = 0;
- 	do {
- 		struct sk_buff *nskb = segs->next;
- 
- 		segs->next = NULL;
--		if (err == 0)
-+		if (err == 0) {
-+			nf_bridge_adjust_segmented_data(segs);
- 			err = __nf_queue(segs, elem, pf, hook, indev,
- 					   outdev, okfn, queuenum);
-+		}
- 		if (err == 0)
- 			queued++;
- 		else
-@@ -252,11 +275,12 @@ int nf_queue(struct sk_buff *skb,
- 		segs = nskb;
- 	} while (segs);
- 
--	/* also free orig skb if only some segments were queued */
--	if (unlikely(err && queued))
--		err = 0;
--	if (err == 0)
-+	if (queued) {
- 		kfree_skb(skb);
-+		return 0;
-+	}
-+  out_err:
-+	nf_bridge_adjust_segmented_data(skb);
- 	return err;
- }
- 
+-#define EBT_ALIGN(s) (((s) + (__alignof__(struct ebt_replace)-1)) & \
+-		     ~(__alignof__(struct ebt_replace)-1))
++#define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
++		     ~(__alignof__(struct _xt_align)-1))
+ extern struct ebt_table *ebt_register_table(struct net *net,
+ 					    const struct ebt_table *table);
+ extern void ebt_unregister_table(struct net *net, struct ebt_table *table);
 -- 
 1.7.7.3
