@@ -1,61 +1,53 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next 2/3] mlx4_en: moderate frequency of TX completions
-Date: Thu, 23 Feb 2012 15:34:27 +0200
-Message-ID: <4F464063.1010001@mellanox.co.il>
+From: =?UTF-8?B?TmljY29sw7IgQmVsbGk=?= <darkbasic@linuxsystems.it>
+Subject: Re: [Bug 42809] New: kernel panic when receiving an ipsec packet
+Date: Thu, 23 Feb 2012 14:45:49 +0100
+Message-ID: <4F46430D.3060802@linuxsystems.it>
+References: <bug-42809-100@https.bugzilla.kernel.org/>   <20120222092056.5fca788b@nehalam.linuxnetplumber.net>   <4F4528CE.7080702@linuxsystems.it> <4F458F82.3060808@linuxsystems.it>  <1329961083.15610.2.camel@edumazet-laptop>  <4F459E37.9010507@linuxsystems.it> <1329962785.15610.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>,
+	openadsl-users@lists.sourceforge.net,
+	openadsl-devel@lists.sourceforge.net, 660804@bugs.debian.org,
+	support@traverse.com.au, support@rocksolidelectronics.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:38041 "HELO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754195Ab2BWNf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 08:35:28 -0500
+Received: from mail.linuxsystems.it ([2.119.245.41]:43265 "EHLO
+	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753281Ab2BWNpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 08:45:42 -0500
+In-Reply-To: <1329962785.15610.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Il 23/02/2012 03:06, Eric Dumazet ha scritto:
+> Thanks !
+>
+> Please try following patch.
+>
+> diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunne=
+l.c
+> index 534972e..f170933 100644
+> --- a/net/ipv4/xfrm4_mode_tunnel.c
+> +++ b/net/ipv4/xfrm4_mode_tunnel.c
+> @@ -84,9 +84,11 @@ static int xfrm4_mode_tunnel_input(struct xfrm_sta=
+te *x, struct sk_buff *skb)
+>   	if (!(x->props.flags&  XFRM_STATE_NOECN))
+>   		ipip_ecn_decapsulate(skb);
+>
+> -	old_mac =3D skb_mac_header(skb);
+> -	skb_set_mac_header(skb, -skb->mac_len);
+> -	memmove(skb_mac_header(skb), old_mac, skb->mac_len);
+> +	if (skb_mac_header_was_set(skb)) {
+> +		old_mac =3D skb_mac_header(skb);
+> +		skb_set_mac_header(skb, -skb->mac_len);
+> +		memmove(skb_mac_header(skb), old_mac, skb->mac_len);
+> +	}
+>   	skb_reset_network_header(skb);
+>   	err =3D 0;
+>
 
-No need to ask for completion for every packet being sent.
-So the method is to ask for a completion every 16 packets,
-or when the queue is about to be full.
+Your patch does solve the problem, thanks!
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index ff32505..e452bba 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -615,6 +615,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int lso_header_size;
- 	void *fragptr;
- 	bool bounce = false;
-+	int ring_busy;
- 
- 	if (!priv->port_up)
- 		goto tx_drop;
-@@ -638,8 +639,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vlan_tag = vlan_tx_tag_get(skb);
- 
- 	/* Check available TXBBs And 2K spare for prefetch */
--	if (unlikely(((int)(ring->prod - ring->cons)) >
--		     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
-+	ring_busy = (int)(ring->prod - ring->cons) - (ring->size - HEADROOM - MAX_DESC_TXBBS);
-+	if (unlikely(ring_busy > 0)) {
- 		/* every full Tx ring stops queue */
- 		netif_tx_stop_queue(netdev_get_tx_queue(dev, tx_ind));
- 		ring->blocked = 1;
-@@ -680,6 +681,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		!!vlan_tx_tag_present(skb);
- 	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
- 	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
-+	if (!(!(index & 0xf) || vlan_tag || (ring_busy > -MAX_DESC_TXBBS)))
-+		tx_desc->ctrl.srcrb_flags &= cpu_to_be32(~MLX4_WQE_CTRL_CQ_UPDATE);
- 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
- 		tx_desc->ctrl.srcrb_flags |= cpu_to_be32(MLX4_WQE_CTRL_IP_CSUM |
- 							 MLX4_WQE_CTRL_TCP_UDP_CSUM);
--- 
-1.5.4.3
+Niccol=C3=B2
