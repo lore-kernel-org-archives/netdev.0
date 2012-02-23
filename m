@@ -1,43 +1,47 @@
-From: Roland McGrath <mcgrathr@google.com>
-Subject: Re: [PATCH v10 07/11] signal, x86: add SIGSYS info and make it synchronous.
-Date: Wed, 22 Feb 2012 16:50:40 -0800
-Message-ID: <CAB=4xhq1sm_ewZ_8Kerf2aN7nGx+DEENse7Lqg5N0wuvqtzUAw@mail.gmail.com>
-References: <1329845435-2313-1-git-send-email-wad@chromium.org>
- <1329845435-2313-7-git-send-email-wad@chromium.org> <9edbabb2262e3d91a7b8c75dbec03d7f.squirrel@webmail.greenhost.nl>
- <CABqD9hY1n9EOAKKT0r9Ev+azhBMnLMAM_FgDNe5we9upVePk_A@mail.gmail.com>
- <CAObL_7Gc0U2JMBQr_kbcVUJwyJq7LRfgdFr+84LR=ec4kSCwEA@mail.gmail.com>
- <CAGXu5jJQrnkCZtcLqK8NEihRgB25C12b0nKp+XWXV_=4QfcVoA@mail.gmail.com>
- <CABqD9hbC8v-rUBW+4T_-EwDwe1+VDohQZweQ-cxOg2A-iDH5CQ@mail.gmail.com>
- <CAGXu5j+fQqkrrKSm3kmCkCcZJKo-VZjL6kkrOD81LZYBY7tf2g@mail.gmail.com> <4F45887A.5010809@zytor.com>
+From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
+Subject: Re: [Bug 42809] New: kernel panic when receiving an ipsec packet
+Date: Thu, 23 Feb 2012 01:59:46 +0100
+Message-ID: <4F458F82.3060808@linuxsystems.it>
+References: <bug-42809-100@https.bugzilla.kernel.org/> <20120222092056.5fca788b@nehalam.linuxnetplumber.net> <4F4528CE.7080702@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Kees Cook <keescook@chromium.org>, Will Drewry <wad@chromium.org>,
-	Andrew Lutomirski <luto@mit.edu>,
-	Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, tglx@linutronix.de, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <4F45887A.5010809@zytor.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>,
+	openadsl-users@lists.sourceforge.net,
+	openadsl-devel@lists.sourceforge.net, support@traverse.com.au,
+	support@rocksolidelectronics.com, 660804@bugs.debian.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxsystems.it ([2.119.245.41]:51546 "EHLO
+	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753413Ab2BWA7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 19:59:40 -0500
+In-Reply-To: <4F4528CE.7080702@linuxsystems.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2012 at 4:29 PM, H. Peter Anvin <hpa@zytor.com> wrote:
-> Can we really introduce force-kill semantics for a POSIX-defined signal?
-> Other user space programs might use it for other purposes.
+Hi,
+The bug is still present in latest 3.2.7 vanilla kernel. I wasted the=20
+whole day debugging that damn thing and I finally discovered the root c=
+ause.
+The problem is with my Traverse Solos multi-port ADSL2+ PCI card[1]=20
+(which has open source drivers included in the kernel) when using RFC=20
+2684 routed.
+I have two adsl lines, the first one connected using RFC 2684 routed,=20
+the second one using PPPoA.
+If I create a vpn toward the PPPoA line it works flawlessly, while if I=
+=20
+create a vpn toward the RFC 2684 routed line the whole system hangs in =
+a=20
+kernel panic (with both 2.6.32.54 and 3.2.7).
+I really don't know how to fix it and I need to setup that damn ipsec v=
+pn :(
 
-The semantics are based on how the signal was generated, not what signal
-number it was.  The only thing that depends on the signal number is
-SYNCHRONOUS_MASK, which just determines in which order pending signals are
-dequeued (POSIX says it may be any order).  We only have that so your state
-doesn't get unhelpfully warped to another signal handler entry point
-(including fiddling the stack) before you dump core.
+This is the bug on bugzilla.kernel.org:
+https://bugzilla.kernel.org/show_bug.cgi?id=3D42809
 
-No use of SIGSYS is specified by POSIX at all, of course, since "system
-call" is an implementation concept below the level POSIX specifies.
+Niccol=F2
+
+
+[1]http://www.traverse.com.au/productview.php?product_id=3D116
