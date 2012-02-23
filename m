@@ -1,42 +1,52 @@
-From: "WESTERN UNION MONEY TRANSFER" <info@wumt.com>
-Subject: UNCC PAYMENT!
-Date: Thu, 23 Feb 2012 00:45:11 -0700 (MST)
-Message-ID: <10108.41.203.64.128.1329983111.squirrel@webmail.nmt.edu>
-Reply-To: westernunionmoneytransfer_w@yahoo.cn
+From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Subject: [PATCH] davinci_cpdma: Fix channel number written to teardown
+	registers
+Date: Thu, 23 Feb 2012 08:58:00 +0100
+Message-ID: <1329983880-23921-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhost.nmt.edu ([129.138.4.52]:60954 "EHLO mailhost.nmt.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752207Ab2BWHuc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 02:50:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        Ameya Palande
+	<ameya.palande-l0cyMroinI0@public.gmane.org>, Ilya Yanok <yanok-qv+LCo8X3VpBDgjK7y7TUQ@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dear UNCC Beneficiary,
+chan->chan_num is 0..CPDMA_MAX_CHANNELS-1 for tx channels and
+CPDMA_MAX_CHANNELS..2*CPDMA_MAX_CHANNELS-1 for rx channels. However,
+the rx and tx teardown registers expect zero based channel numbering.
 
-On behalf of the United Nations Compensation Commission (UNCC) in
-affiliation with Western Union Campaign for Global Economic Crisis
-eradication, we wish to notify you that your E-mail Address has won you
-$1.400,000,00USD (One million Four Hundred Thousand United States Dolla=
-rs)
-in the UNCC 2012 Ongoing Lottery Jackpot.
+Since the upper bits of the registers are reserved, the teardown also
+worked before, this patch is cleanup only.
 
-=46or security reasons and proper verification you are to provide the
-details below for claim.
+Signed-off-by: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Receiver's Full Name:....
-Home Address/Country:....
-Telephone Number: .......
-Occupation:..............
-
-Note: All participants were selected through their internet around the
-Globe from over 25,000 internet websites.
-
-Congratulate you once again on your winnings.
-
-Customer Service
-Mrs. Brenda Ortiz.
-=AEWestern Union Payment Coordinator NG.
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index c97d2f5..3455876 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -822,7 +822,7 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
+ 	dma_reg_write(ctlr, chan->int_clear, chan->mask);
+ 
+ 	/* trigger teardown */
+-	dma_reg_write(ctlr, chan->td, chan->chan_num);
++	dma_reg_write(ctlr, chan->td, chan_linear(chan));
+ 
+ 	/* wait for teardown complete */
+ 	timeout = jiffies + HZ/10;	/* 100 msec */
+-- 
+1.7.0.4
