@@ -1,33 +1,38 @@
-From: "Mr. Vincent Cheng Hoi" <info@yahoo.com>
-Subject: (unknown)
-Date: Thu, 23 Feb 2012 14:15:43 -0200
-Message-ID: <20120223141543.58844fsjjimvwkdr@webmail.iqm.unicamp.br>
-Reply-To: choi_chu15@yahoo.co.jp
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net] mlx4_core: Fixing array indexes when setting port types
+Date: Thu, 23 Feb 2012 19:04:35 +0200
+Message-ID: <4F4671A3.60600@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from power.iqm.unicamp.br ([143.106.51.18]:55974 "EHLO
-	webmail.iqm.unicamp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799Ab2BWQv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 11:51:57 -0500
-Subject: 
-Content-Disposition: inline
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:37537 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752891Ab2BWREl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:04:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Good Day,
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I have a business proposal of USD $22,500,000.00 only for you to  
-transact with me from my bank to your country. All confirmable  
-documents to back up the claims will be made available to you prior to  
-your acceptance.Reply to address:choi_chu15@yahoo.co.jp and I will let  
-you know what is required of you.
-
-Best Regards,
-Mr. Vincent Cheng
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 32f8799..d498f04 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -538,7 +538,7 @@ int mlx4_change_port_types(struct mlx4_dev *dev,
+ 		mlx4_unregister_device(dev);
+ 		for (port = 1; port <= dev->caps.num_ports; port++) {
+ 			mlx4_CLOSE_PORT(dev, port);
+-			dev->caps.port_type[port + 1] = port_types[port];
++			dev->caps.port_type[port] = port_types[port - 1];
+ 			err = mlx4_SET_PORT(dev, port);
+ 			if (err) {
+ 				mlx4_err(dev, "Failed to set port %d, "
+-- 
+1.7.7
