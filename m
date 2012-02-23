@@ -1,63 +1,55 @@
-From: otto@dedicatedserver.com.hk
-Subject: Professional Web Design Service
-Date: Thu, 23 Feb 2012 12:39:34 +0800 (HKT)
-Message-ID: <Q0AsIb__7538.05591161853$1330016969$gmane$org@tpts7.seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: Andy Whitcroft <apw@shadowen.org>
+Subject: Re: [PATCH v2 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Thu, 23 Feb 2012 16:38:32 +0000
+Message-ID: <20120223163832.GB3236@shadowen.org>
+References: <1329763023-29580-1-git-send-email-mugunthanvnm@ti.com>
+ <1329763023-29580-3-git-send-email-mugunthanvnm@ti.com>
+ <1329779029.8318.21.camel@joe2Laptop>
+ <EB1619762EAF8B4E97A227FB77B7E0293178F468@DBDE01.ent.ti.com>
+ <1330011962.5143.50.camel@joe2Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-59.sunnyvision.com ([124.248.200.59]:38471 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753665Ab2BWRJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:09:18 -0500
+Received: from waldorf.bytemark.co.uk ([212.110.162.22]:32941 "EHLO
+	waldorf.bytemark.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752501Ab2BWRM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:12:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1330011962.5143.50.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir / Madam, 
+On Thu, Feb 23, 2012 at 07:46:02AM -0800, Joe Perches wrote:
+> On Thu, 2012-02-23 at 12:47 +0000, N, Mugunthan V wrote:
+> > Joe/David
+> > > > -----Original Message-----
+> > > > From: Joe Perches [mailto:joe@perches.com]
+> > > > Sent: Tuesday, February 21, 2012 4:34 AM
+> > [...]
+> > > > Add
+> > > > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> > > > before all #includes and remove the embedded prefix
+> > > > from all pr_<level> uses.
+> > > Agreed, will make use of pr_fmt and remove embedded prefix in pr_<level>
+> > > uses
+> > Adding 
+> > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> > in the driver gives a checkpatch error as follows
+> > #77: FILE: drivers/net/ethernet/ti/cpsw.c:16:
+> > +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> > total: 1 errors, 0 warnings, 1137 lines checked
+> > Is it ok to ignore the checkpatch error as most of the drivers use it.
+> 
+> Yes.
+> 
+> Andy Whitcroft has a pending checkpatch fix
+> for this.  I hope he pushes it out soon.
 
-Good morning, this is Otto from DS Hong Kong. 
+Bah good reminder.  Will get those re-tested and out as soon as I can
+...
 
-We are a web design house and programming service provider. As 14 years experience, we are professional to develop a website for your business. 
-
-If you are looking for the web design or related programming service, we are offering the following special offer for our client. 
-
-*********************************************************
-1) Web Page Development
-- Maximum 20 Web Page 
-- Art and Theme Design Include
-- Unlimited web layout revise
-
-2) Content Management System
-- HTML Editor 
-- Support Product, Photo and Text updating. 
-- Maximum 10 Web Page 
-- Admin Panel with 1 Admin Login
-
-
-*********************************************************
-
-Promotion Price: =09HKD $28,000.00
-Lead Time: =09=0932 working days
-
-Our Reference
-http://mirabell.com.hk/slideshow/index.html
-http://www.gome.com.hk/
-http://www.joy-peace.com/
-
-If you have more special requirement, please let us know and we will provide more detail to you. 
-
-Please feel free to contact me.The following is my contact information. 
-
-Contact No: (852) 5108 9664
-
-Skype: yschiu2001 (yschiu2001@yahoo.com.hk)
-
-MSN: yschiu2001@yahoo.com.hk
-
-Email: otto@dedicatedserver.com.hk
-
-If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or remove your email from the list. 
-
-Best Regards
-Otto Chiu
-Dedicated Server Hong Kong
+-apw
