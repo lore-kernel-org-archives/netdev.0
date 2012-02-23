@@ -1,99 +1,81 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH v2] davinci_emac: Do not free all rx dma descriptors during init
-Date: Thu, 23 Feb 2012 12:14:17 +0100
-Message-ID: <1329995657-7051-1-git-send-email-christian.riesch@omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: WARNING: at kernel/softirq.c:159
+ _local_bh_enable_ip+0x35/0x71()
+Date: Thu, 23 Feb 2012 12:53:48 +0100
+Message-ID: <1329998028.15610.14.camel@edumazet-laptop>
+References: <1422860.157191329872584374.JavaMail.weblogic@epml01>
+	 <20120223104237.GA2127@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davinci-linux-open-source@linux.davincidsp.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	<stable@vger.kernel.org>, "Hegde, Vinay" <vinay.hegde@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	Jongman Heo <jongman.heo@samsung.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Scott J. Goldman" <scottjg@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:58774 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755175Ab2BWLOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Feb 2012 06:14:30 -0500
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:62487 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785Ab2BWLyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 06:54:02 -0500
+Received: by wgbgn7 with SMTP id gn7so5766385wgb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 03:54:00 -0800 (PST)
+In-Reply-To: <20120223104237.GA2127@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a regression that was introduced by
+Le jeudi 23 f=C3=A9vrier 2012 =C3=A0 11:42 +0100, Francois Romieu a =C3=
+=A9crit :
+> (Heo, your mua broke threading)
+>=20
+> Jongman Heo <jongman.heo@samsung.com> :
+> > Francois Romieu<romieu@fr.zoreil.com>
+> > > > Jongman Heo <jongman.heo@samsung.com> :
+> > > > Following warning triggered with my VMware Linux guest, when NF=
+S connection is requested from outside.
+> > >=20
+> > > I'd try reverting 39d4a96fd7d2926e46151adbd18b810aeeea8ec0.
+> [...]
+> > I confirm that reverting the commit fixes the warning.
+>=20
+> Shreyas, can you provide a proper fix for this bug (see
+> http://www.spinics.net/lists/netdev/msg189554.html for details).
+>=20
+> As far as I understand it you can not claim a fake transport layer he=
+ader
+> size for udp and blindly check the available buffer size through
+> pskb_may_pull later. With a 32 bits HIGHMEM guest config (yuck...) it=
+ ends
+> up enabling bh within a network device start_xmit context.
+>=20
 
-commit 0a5f38467765ee15478db90d81e40c269c8dda20
-davinci_emac: Add Carrier Link OK check in Davinci RX Handler
+Hmm, I am not sure we still need local_bh_disable()/local_bh_enable() i=
+n
+kmap_skb_frag()/ kunmap_skb_frag() anymore after commit 3e4d3af501ccc
+(mm: stack based kmap_atomic() )
 
-Said commit adds a check whether the carrier link is ok. If the link is
-not ok, the skb is freed and no new dma descriptor added to the rx dma
-channel. This causes trouble during initialization when the carrier
-status has not yet been updated. If a lot of packets are received while
-netif_carrier_ok returns false, all dma descriptors are freed and the
-rx dma transfer is stopped.
-
-The bug occurs when the board is connected to a network with lots of
-traffic and the ifconfig down/up is done, e.g., when reconfiguring
-the interface with DHCP.
-
-The bug can be reproduced by flood pinging the davinci board while doing
-ifconfig eth0 down
-ifconfig eth0 up
-on the board.
-
-After that, the rx path stops working and the overrun value reported
-by ifconfig is counting up.
-
-This patch reverts commit 0a5f38467765ee15478db90d81e40c269c8dda20
-and instead issues warnings only if cpdma_chan_submit returns -ENOMEM.
-
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
-Cc: <stable@vger.kernel.org>
-Cc: Hegde, Vinay <vinay.hegde@ti.com>
-Cc: Cyril Chemparathy <cyril@ti.com>
-Cc: Sascha Hauer <s.hauer@pengutronix.de>
----
-
-Hi,
-Since my first submission of this patch yesterday I did additional tests
-with suspend/rtcwake. My tests confirmed that the solution in this
-patch solves the problem that was addressed by commit
-0a5f38467765ee15478db90d81e40c269c8dda20 while not destroying the
-rx communication channel. 
-
-Changes since v1:
-- Removed the 'RFC' from subject line
-- Added more information to the commit message
-- Added stable tag, I think this patch meets the rules in
-  Documentation/stable_kernel_rules.txt
-
-Regards, Christian
-
- drivers/net/ethernet/ti/davinci_emac.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 4fa0bcb..4b2f545 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1009,7 +1009,7 @@ static void emac_rx_handler(void *token, int len, int status)
- 	int			ret;
- 
- 	/* free and bail if we are shutting down */
--	if (unlikely(!netif_running(ndev) || !netif_carrier_ok(ndev))) {
-+	if (unlikely(!netif_running(ndev))) {
- 		dev_kfree_skb_any(skb);
- 		return;
- 	}
-@@ -1038,7 +1038,9 @@ static void emac_rx_handler(void *token, int len, int status)
- recycle:
- 	ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
- 			skb_tailroom(skb), GFP_KERNEL);
--	if (WARN_ON(ret < 0))
-+
-+	WARN_ON(ret == -ENOMEM);
-+	if (unlikely(ret < 0))
- 		dev_kfree_skb_any(skb);
+diff --git a/net/core/kmap_skb.h b/net/core/kmap_skb.h
+index 81e1ed7..06be5ee 100644
+--- a/net/core/kmap_skb.h
++++ b/net/core/kmap_skb.h
+@@ -2,18 +2,10 @@
+=20
+ static inline void *kmap_skb_frag(const skb_frag_t *frag)
+ {
+-#ifdef CONFIG_HIGHMEM
+-	BUG_ON(in_irq());
+-
+-	local_bh_disable();
+-#endif
+ 	return kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ);
  }
- 
--- 
-1.7.0.4
+=20
+ static inline void kunmap_skb_frag(void *vaddr)
+ {
+ 	kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
+-#ifdef CONFIG_HIGHMEM
+-	local_bh_enable();
+-#endif
+ }
