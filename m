@@ -1,63 +1,39 @@
-From: otto@dedicatedserver.com.hk
-Subject: Professional Web Design Service
-Date: Thu, 23 Feb 2012 12:39:34 +0800 (HKT)
-Message-ID: <9rk98OHyL__28347.2530929886$1329973449$gmane$org@ibm.com>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] netfilter updates for net tree
+Date: Thu, 23 Feb 2012 00:20:47 -0500 (EST)
+Message-ID: <20120223.002047.1508425424024898432.davem@davemloft.net>
+References: <1329955346-2615-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-58.sunnyvision.com ([124.248.200.58]:37794 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750705Ab2BWFDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 00:03:43 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:48647 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750843Ab2BWFV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 00:21:57 -0500
+In-Reply-To: <1329955346-2615-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir / Madam, 
+From: pablo@netfilter.org
+Date: Thu, 23 Feb 2012 01:02:22 +0100
 
-Good morning, this is Otto from DS Hong Kong. 
+> The following are four fixes for your net tree:
+> 
+> * One fix for NFQUEUE if used in bridge mode when GRO/GSO skbs
+>   are enqueued from Florian Westphal.
+> 
+> * One fix from Joerg Willmann to fix wrong alignment in ebtables
+>   on PPC.
+> 
+> * One fix for soft lockup for ctnetlink from Jozsef Kadlecsik.
+> 
+> * One fix for IPVS from Simon Horman.
+> 
+> Please, pull these changes from:
+> 
+> 	git://1984.lsi.us.es/net nf
 
-We are a web design house and programming service provider. As 14 years experience, we are professional to develop a website for your business. 
-
-If you are looking for the web design or related programming service, we are offering the following special offer for our client. 
-
-*********************************************************
-1) Web Page Development
-- Maximum 20 Web Page 
-- Art and Theme Design Include
-- Unlimited web layout revise
-
-2) Content Management System
-- HTML Editor 
-- Support Product, Photo and Text updating. 
-- Maximum 10 Web Page 
-- Admin Panel with 1 Admin Login
-
-
-*********************************************************
-
-Promotion Price: =09HKD $28,000.00
-Lead Time: =09=0932 working days
-
-Our Reference
-http://mirabell.com.hk/slideshow/index.html
-http://www.gome.com.hk/
-http://www.joy-peace.com/
-
-If you have more special requirement, please let us know and we will provide more detail to you. 
-
-Please feel free to contact me.The following is my contact information. 
-
-Contact No: (852) 5108 9664
-
-Skype: yschiu2001 (yschiu2001@yahoo.com.hk)
-
-MSN: yschiu2001@yahoo.com.hk
-
-Email: otto@dedicatedserver.com.hk
-
-If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or remove your email from the list. 
-
-Best Regards
-Otto Chiu
-Dedicated Server Hong Kong
+Pulled, thanks Pablo.
