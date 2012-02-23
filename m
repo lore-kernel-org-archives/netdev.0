@@ -1,55 +1,74 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH V2 4/6] NET: MIPS: lantiq: convert etop to managed gpio
-Date: Thu, 23 Feb 2012 17:01:51 +0100
-Message-ID: <1330012913-13293-4-git-send-email-blogic@openwrt.org>
-References: <1330012913-13293-1-git-send-email-blogic@openwrt.org>
+Subject: [PATCH V2 2/3] NET: MIPS: lantiq: use module_platform_driver inside lantiq ethernet driver
+Date: Thu, 23 Feb 2012 17:03:43 +0100
+Message-ID: <1330013024-13622-2-git-send-email-blogic@openwrt.org>
+References: <1330013024-13622-1-git-send-email-blogic@openwrt.org>
 Cc: linux-mips@linux-mips.org, John Crispin <blogic@openwrt.org>,
 	netdev@vger.kernel.org
 To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:42747 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:42915 "EHLO nbd.name"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751851Ab2BWQCR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Feb 2012 11:02:17 -0500
-In-Reply-To: <1330012913-13293-1-git-send-email-blogic@openwrt.org>
+	id S1753401Ab2BWQEF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Feb 2012 11:04:05 -0500
+In-Reply-To: <1330013024-13622-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ltq_gpio_request() now uses devres to manage the gpios. We need to pass a
-struct device pointer to make it work.
+Reduce boilerplate code by converting driver to module_platform_driver.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/lantiq_etop.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/lantiq_etop.c |   22 +++-------------------
+ 1 files changed, 3 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 66ec54a..e5ec8b1 100644
+index 6b2e4b4..584794f 100644
 --- a/drivers/net/ethernet/lantiq_etop.c
 +++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -292,9 +292,6 @@ ltq_etop_gbit_init(void)
+@@ -839,7 +839,7 @@ static const struct net_device_ops ltq_eth_netdev_ops = {
+ 	.ndo_tx_timeout = ltq_etop_tx_timeout,
+ };
+ 
+-static int __init
++static int __devinit
+ ltq_etop_probe(struct platform_device *pdev)
  {
- 	ltq_pmu_enable(PMU_SWITCH);
+ 	struct net_device *dev;
+@@ -959,6 +959,7 @@ ltq_etop_remove(struct platform_device *pdev)
+ }
  
--	ltq_gpio_request(42, 2, 1, "MDIO");
--	ltq_gpio_request(43, 2, 1, "MDC");
+ static struct platform_driver ltq_mii_driver = {
++	.probe = ltq_etop_probe,
+ 	.remove = __devexit_p(ltq_etop_remove),
+ 	.driver = {
+ 		.name = "ltq_etop",
+@@ -966,24 +967,7 @@ static struct platform_driver ltq_mii_driver = {
+ 	},
+ };
+ 
+-int __init
+-init_ltq_etop(void)
+-{
+-	int ret = platform_driver_probe(&ltq_mii_driver, ltq_etop_probe);
 -
- 	ltq_gbit_w32_mask(0, GCTL0_SE, LTQ_GBIT_GCTL0);
- 	/** Disable MDIO auto polling mode */
- 	ltq_gbit_w32_mask(0, PX_CTL_DMDIO, LTQ_GBIT_P0_CTL);
-@@ -873,6 +870,12 @@ ltq_etop_probe(struct platform_device *pdev)
- 			err = -ENOMEM;
- 			goto err_out;
- 		}
-+		if (ltq_gpio_request(&pdev->dev, 42, 2, 1, "MDIO") ||
-+				ltq_gpio_request(&pdev->dev, 43, 2, 1, "MDC")) {
-+			dev_err(&pdev->dev, "failed to request MDIO gpios\n");
-+			err = -EBUSY;
-+			goto err_out;
-+		}
- 	}
+-	if (ret)
+-		pr_err("ltq_etop: Error registering platfom driver!");
+-	return ret;
+-}
+-
+-static void __exit
+-exit_ltq_etop(void)
+-{
+-	platform_driver_unregister(&ltq_mii_driver);
+-}
+-
+-module_init(init_ltq_etop);
+-module_exit(exit_ltq_etop);
++module_platform_driver(ltq_mii_driver);
  
- 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
+ MODULE_AUTHOR("John Crispin <blogic@openwrt.org>");
+ MODULE_DESCRIPTION("Lantiq SoC ETOP");
 -- 
 1.7.7.1
