@@ -1,52 +1,42 @@
-From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Subject: [PATCH] davinci_cpdma: Fix channel number written to teardown
-	registers
-Date: Thu, 23 Feb 2012 08:58:00 +0100
-Message-ID: <1329983880-23921-1-git-send-email-christian.riesch@omicron.at>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: [PATCH] davinci_mdio: Correct bitmask for clock divider value
+Date: Thu, 23 Feb 2012 09:07:58 +0100
+Message-ID: <1329984478-24090-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        Ameya Palande
-	<ameya.palande-l0cyMroinI0@public.gmane.org>, Ilya Yanok <yanok-qv+LCo8X3VpBDgjK7y7TUQ@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Cyril Chemparathy <cyril@ti.com>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Christian Riesch <christian.riesch@omicron.at>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.omicron.at ([212.183.10.25]:51776 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752231Ab2BWIID (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Feb 2012 03:08:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-chan->chan_num is 0..CPDMA_MAX_CHANNELS-1 for tx channels and
-CPDMA_MAX_CHANNELS..2*CPDMA_MAX_CHANNELS-1 for rx channels. However,
-the rx and tx teardown registers expect zero based channel numbering.
+The CLKDIV bitfield in the MDIO Control Register is a 16 bit field,
+therefore the CLKDIV value may range from 0 to 0xffff.
 
-Since the upper bits of the registers are reserved, the teardown also
-worked before, this patch is cleanup only.
-
-Signed-off-by: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c |    2 +-
+ drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index c97d2f5..3455876 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -822,7 +822,7 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
- 	dma_reg_write(ctlr, chan->int_clear, chan->mask);
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index af8b8fc..2757c7d 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -53,7 +53,7 @@ struct davinci_mdio_regs {
+ 	u32	control;
+ #define CONTROL_IDLE		BIT(31)
+ #define CONTROL_ENABLE		BIT(30)
+-#define CONTROL_MAX_DIV		(0xff)
++#define CONTROL_MAX_DIV		(0xffff)
  
- 	/* trigger teardown */
--	dma_reg_write(ctlr, chan->td, chan->chan_num);
-+	dma_reg_write(ctlr, chan->td, chan_linear(chan));
- 
- 	/* wait for teardown complete */
- 	timeout = jiffies + HZ/10;	/* 100 msec */
+ 	u32	alive;
+ 	u32	link;
 -- 
 1.7.0.4
