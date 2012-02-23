@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Part 1: unify return value of
- .ndo_set_mac_address if address is invalid
-Date: Thu, 23 Feb 2012 17:12:01 -0500 (EST)
-Message-ID: <20120223.171201.453882925963706554.davem@davemloft.net>
-References: <1329826072-14689-1-git-send-email-danny.kukawka@bisect.de>
+Subject: Re: [PATCH 1/2] netdev/phy/icplus: Correct broken phy_init code
+Date: Thu, 23 Feb 2012 17:14:39 -0500 (EST)
+Message-ID: <20120223.171439.490391422998418894.davem@davemloft.net>
+References: <1329895498-5810-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, dm@chelsio.com, leedom@chelsio.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	dkukawka@suse.de, linux-kernel@vger.kernel.org,
-	cmetcalf@tilera.com, mcarlson@broadcom.com, olof@lixom.net,
-	linux-usb@vger.kernel.org, buytenh@wantstofly.org,
-	gregkh@linuxfoundation.org, linux-driver@qlogic.com,
-	mark.einon@gmail.com, mchan@broadcom.com, jdmason@kudzu.us,
-	kristoffer@gaisler.com, shemminger@vyatta.com, divy@chelsio.com
-To: danny.kukawka@bisect.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1329826072-14689-1-git-send-email-danny.kukawka@bisect.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, david.mckay@st.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56889 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754575Ab2BWWOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 17:14:46 -0500
+In-Reply-To: <1329895498-5810-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Date: Tue, 21 Feb 2012 13:07:48 +0100
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Wed, 22 Feb 2012 08:24:57 +0100
 
-> Here a series of patches to unifiy the return value of 
-> .ndo_set_mac_address if the given address isn't valid. 
-> Return -EADDRNOTAVAIL as eth_mac_addr() and other 
-> .ndo_set_mac_address functions already do if is_valid_ether_addr() 
-> fails.
+> From: David McKay <david.mckay@st.com>
 > 
-> Other patches will follow if this set gets accepted.
+> The code for ip1001_config_init() was totally broken if you were not
+> using RGMII. Instead of returning an error code or zero it actually
+> returned the value in the IP1001_SPEC_CTRL_STATUS_2 register. It was
+> also trying to set the IP1001_APS_ON bit , but never actually wrote
+> back the register.
+> 
+> The error checking was also incorrect in both this function and the
+> reset function, so this patch fixes that up in a consistent fashion.
+> 
+> Signed-off-by: David McKay <david.mckay@st.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-All applied to net-next, thanks.
+Applied.
