@@ -1,50 +1,96 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Bug#660804: [Bug 42809] New: kernel panic when receiving an ipsec packet
-Date: Thu, 23 Feb 2012 08:48:53 -0500
-Message-ID: <20120223084853.2110605c@thirdoffive.cmf.nrl.navy.mil>
-References: <bug-42809-100@https.bugzilla.kernel.org/>
-	<20120222092056.5fca788b@nehalam.linuxnetplumber.net>
-	<4F4528CE.7080702@linuxsystems.it>
-	<4F458F82.3060808@linuxsystems.it>
-	<1329961083.15610.2.camel@edumazet-laptop>
-	<1329962079.15610.6.camel@edumazet-laptop>
-Reply-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>, 660804@bugs.debian.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: WARNING: at kernel/softirq.c:159
+ _local_bh_enable_ip+0x35/0x71()
+Date: Thu, 23 Feb 2012 15:21:06 +0100
+Message-ID: <1330006866.15610.18.camel@edumazet-laptop>
+References: <1422860.157191329872584374.JavaMail.weblogic@epml01>
+	 <20120223104237.GA2127@electric-eye.fr.zoreil.com>
+	 <1329998028.15610.14.camel@edumazet-laptop>
+	 <1330003354.11248.9.camel@twins>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Niccol=C3=B2?= Belli <darkbasic@linuxsystems.it>,
-        Stephen
- Hemminger <shemminger@vyatta.com>,
-        Linux Networking Developer Mailing List
-  <netdev@vger.kernel.org>,
-        openadsl-users@lists.sourceforge.net,
-        openadsl-devel@lists.sourceforge.net, support@traverse.com.au,
-        support@rocksolidelectronics.com, 660804@bugs.debian.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.660804.B660804.133000503831695@bugs.debian.org>
-In-Reply-To: <1329962079.15610.6.camel@edumazet-laptop>
-List-URL: <http://lists.debian.org/debian-kernel/>
-List-Post: <mailto:debian-kernel@lists.debian.org>
-List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	Jongman Heo <jongman.heo@samsung.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Scott J. Goldman" <scottjg@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:42656 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754003Ab2BWOVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 09:21:15 -0500
+Received: by wics10 with SMTP id s10so780740wic.19
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 06:21:13 -0800 (PST)
+In-Reply-To: <1330003354.11248.9.camel@twins>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Feb 2012 02:54:39 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Le jeudi 23 f=C3=A9vrier 2012 =C3=A0 14:22 +0100, Peter Zijlstra a =C3=A9=
+crit :
+> On Thu, 2012-02-23 at 12:53 +0100, Eric Dumazet wrote:
+> > Hmm, I am not sure we still need local_bh_disable()/local_bh_enable=
+() in
+> > kmap_skb_frag()/ kunmap_skb_frag() anymore after commit 3e4d3af501c=
+cc
+> > (mm: stack based kmap_atomic() )
+>=20
+> The only thing to consider is keeping the total stack size under
+> control, this is somewhat non-trivial since its non-obvious what all
+> nests.
+>=20
+> That said, you're probably right, and we do have a WARN in there
+> (dependent on CONFIG_DEBUG_HIGHMEM) that yells if we exceed the
+> available stack size.
+>=20
+> The more 'interesting' exercise is determining a better upper bound o=
+n
+> the stack size and updating kmap_types.h accordingly.
+>=20
 
-> Le jeudi 23 f=C3=A9vrier 2012 =C3=A0 02:38 +0100, Eric Dumazet a =C3=A9cr=
-it :
->=20
-> > Which driver handles this Traverse Solos card ?
->=20
-> If br2684_push() is used, it seems it lacks proper call to
-> skb_reset_mac_header(skb) in paths where eth_type_trans() is not called.
->=20
-> Later in xfrm4_mode_tunnel_input() we crash because we assume
-> skb_mac_header() is valid.
+I would say its the same logic than crypto : We might use at most two
+contexts for SKB frags : USER or SOFTIRQ
 
-when br2684_push() doesnt call eth_type_trans() the underlying packet
-doesnt have a mac address header -- just an llc header that says 'ip
-packet is next'.
+We probably can remove KM_SKB_DATA_SOFTIRQ slot and use fact that this
+kmap user can reuse existing USER/SOFTIRQ slots
+
+> > diff --git a/net/core/kmap_skb.h b/net/core/kmap_skb.h
+> > index 81e1ed7..06be5ee 100644
+> > --- a/net/core/kmap_skb.h
+> > +++ b/net/core/kmap_skb.h
+> > @@ -2,18 +2,10 @@
+> > =20
+> >  static inline void *kmap_skb_frag(const skb_frag_t *frag)
+> >  {
+> > -#ifdef CONFIG_HIGHMEM
+> > -       BUG_ON(in_irq());
+> > -
+> > -       local_bh_disable();
+> > -#endif
+> >         return kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ=
+);
+> >  }
+> > =20
+> >  static inline void kunmap_skb_frag(void *vaddr)
+> >  {
+> >         kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
+> > -#ifdef CONFIG_HIGHMEM
+> > -       local_bh_enable();
+> > -#endif
+> >  }=20
+>=20
+> The nicer patch would of course be a patch that does:
+>=20
+>  s/kunmap_skb_frag/kunmap_atomic/
+>  s/kmap_skb_frag(\([^)]*\))/kmap_atomic(skb_frag_page(\1))/
+>=20
+> There is no need to retain the KM_* argument and the 'helper' functio=
+ns
+> are quite pointless at that point.
+>=20
+>=20
+
+Well, definitely a cleanup is possible, but probably not suitable for
+3.3 and stable kernels ?
