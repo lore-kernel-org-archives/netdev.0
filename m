@@ -1,59 +1,74 @@
-From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH v2 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Thu, 23 Feb 2012 12:47:55 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293178F468@DBDE01.ent.ti.com>
-References: <1329763023-29580-1-git-send-email-mugunthanvnm@ti.com>
-	 <1329763023-29580-3-git-send-email-mugunthanvnm@ti.com>
- <1329779029.8318.21.camel@joe2Laptop>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: Re: WARNING: at kernel/softirq.c:159
+ _local_bh_enable_ip+0x35/0x71()
+Date: Thu, 23 Feb 2012 14:22:34 +0100
+Message-ID: <1330003354.11248.9.camel@twins>
+References: <1422860.157191329872584374.JavaMail.weblogic@epml01>
+	 <20120223104237.GA2127@electric-eye.fr.zoreil.com>
+	 <1329998028.15610.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	Jongman Heo <jongman.heo@samsung.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Scott J. Goldman" <scottjg@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:48258 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752277Ab2BWMsE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 07:48:04 -0500
-Content-Language: en-US
+Received: from merlin.infradead.org ([205.233.59.134]:37251 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753805Ab2BWNWn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 08:22:43 -0500
+In-Reply-To: <1329998028.15610.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe/David
+On Thu, 2012-02-23 at 12:53 +0100, Eric Dumazet wrote:
+> Hmm, I am not sure we still need local_bh_disable()/local_bh_enable() in
+> kmap_skb_frag()/ kunmap_skb_frag() anymore after commit 3e4d3af501ccc
+> (mm: stack based kmap_atomic() )
 
-> -----Original Message-----
-> From: N, Mugunthan V
-> Sent: Wednesday, February 22, 2012 10:13 PM
-> To: 'Joe Perches'
-> Cc: netdev@vger.kernel.org; davem@davemloft.net
-> Subject: RE: [PATCH v2 2/2] netdev: driver: ethernet: Add TI CPSW driver
-> 
-> Joe
-> 
-> > -----Original Message-----
-> > From: Joe Perches [mailto:joe@perches.com]
-> > Sent: Tuesday, February 21, 2012 4:34 AM
-[...]
-> > Add
-> > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> > before all #includes and remove the embedded prefix
-> > from all pr_<level> uses.
-> 
-> Agreed, will make use of pr_fmt and remove embedded prefix in pr_<level>
-> uses
-Adding 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-in the driver gives a checkpatch error as follows
+The only thing to consider is keeping the total stack size under
+control, this is somewhat non-trivial since its non-obvious what all
+nests.
 
-#77: FILE: drivers/net/ethernet/ti/cpsw.c:16:
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+That said, you're probably right, and we do have a WARN in there
+(dependent on CONFIG_DEBUG_HIGHMEM) that yells if we exceed the
+available stack size.
 
-total: 1 errors, 0 warnings, 1137 lines checked
+The more 'interesting' exercise is determining a better upper bound on
+the stack size and updating kmap_types.h accordingly.
 
-Is it ok to ignore the checkpatch error as most of the drivers use it.
+> diff --git a/net/core/kmap_skb.h b/net/core/kmap_skb.h
+> index 81e1ed7..06be5ee 100644
+> --- a/net/core/kmap_skb.h
+> +++ b/net/core/kmap_skb.h
+> @@ -2,18 +2,10 @@
+>  
+>  static inline void *kmap_skb_frag(const skb_frag_t *frag)
+>  {
+> -#ifdef CONFIG_HIGHMEM
+> -       BUG_ON(in_irq());
+> -
+> -       local_bh_disable();
+> -#endif
+>         return kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ);
+>  }
+>  
+>  static inline void kunmap_skb_frag(void *vaddr)
+>  {
+>         kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
+> -#ifdef CONFIG_HIGHMEM
+> -       local_bh_enable();
+> -#endif
+>  } 
 
-[...] 
+The nicer patch would of course be a patch that does:
 
-With regards
-Mugunthan V N
+ s/kunmap_skb_frag/kunmap_atomic/
+ s/kmap_skb_frag(\([^)]*\))/kmap_atomic(skb_frag_page(\1))/
+
+There is no need to retain the KM_* argument and the 'helper' functions
+are quite pointless at that point.
