@@ -1,56 +1,58 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: route add default fails with ESRCH?
-Date: Wed, 22 Feb 2012 17:26:26 -0800
-Message-ID: <4F4595C2.8000809@fb.com>
-References: <alpine.LFD.2.00.1202222319150.1603@ja.ssi.bg> <4F45638B.30305@fb.com> <4F45742F.1070605@fb.com> <20120222.185625.1452176745900047968.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 42809] New: kernel panic when receiving an ipsec packet
+Date: Thu, 23 Feb 2012 02:38:03 +0100
+Message-ID: <1329961083.15610.2.camel@edumazet-laptop>
+References: <bug-42809-100@https.bugzilla.kernel.org/>
+	 <20120222092056.5fca788b@nehalam.linuxnetplumber.net>
+	 <4F4528CE.7080702@linuxsystems.it> <4F458F82.3060808@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ja@ssi.bg>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>, openadsl-users@lists.sourceforge.net,
+	openadsl-devel@lists.sourceforge.net, support@traverse.com.au,
+	support@rocksolidelectronics.com, 660804@bugs.debian.org
+To: =?ISO-8859-1?Q?Niccol=F2?= Belli <darkbasic@linuxsystems.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49133 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752978Ab2BWB0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 20:26:40 -0500
-In-Reply-To: <20120222.185625.1452176745900047968.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:57114 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752288Ab2BWBiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Feb 2012 20:38:11 -0500
+Received: by wics10 with SMTP id s10so428703wic.19
+        for <netdev@vger.kernel.org>; Wed, 22 Feb 2012 17:38:10 -0800 (PST)
+In-Reply-To: <4F458F82.3060808@linuxsystems.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/22/12 3:56 PM, David Miller wrote:
->
-> It breaks because that script sequence quoted above depends upon the
-> order in which the routes are listed.  Since fib_hash and fib_trie use
-> different datastructures, the order in which route entries are dumped
-> will not be the same and this is completely unavoidable.
+Le jeudi 23 f=C3=A9vrier 2012 =C3=A0 01:59 +0100, Niccol=C3=B2 Belli a =
+=C3=A9crit :
+> Hi,
+> The bug is still present in latest 3.2.7 vanilla kernel. I wasted the=
+=20
+> whole day debugging that damn thing and I finally discovered the root=
+ cause.
+> The problem is with my Traverse Solos multi-port ADSL2+ PCI card[1]=20
+> (which has open source drivers included in the kernel) when using RFC=
+=20
+> 2684 routed.
+> I have two adsl lines, the first one connected using RFC 2684 routed,=
+=20
+> the second one using PPPoA.
+> If I create a vpn toward the PPPoA line it works flawlessly, while if=
+ I=20
+> create a vpn toward the RFC 2684 routed line the whole system hangs i=
+n a=20
+> kernel panic (with both 2.6.32.54 and 3.2.7).
+> I really don't know how to fix it and I need to setup that damn ipsec=
+ vpn :(
+>=20
+> This is the bug on bugzilla.kernel.org:
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D42809
+>=20
+> Niccol=C3=B2
+>=20
+>=20
+> [1]http://www.traverse.com.au/productview.php?product_id=3D116
 
-Here's a minimal repro case:
-
-# ip route flush default
-# route add default gw 192.168.143.2
-SIOCADDRT: No such process
-
-This fails for me on both 2.6.38 and 3.2.
-
-I think the dependency we have is the actual format of the default route 
-entry:
-
-fib_hash:
-
-# ip route
-<bunch of routes>
-throw default
-
-fib_trie:
-
-# ip route
-default via 192.168.143.2 dev eth0  proto static
-<bunch of routes>
-
-when the output was piped to awk '{ print $1 }' we ended up deleting the 
-default route for fib_trie case, but not the fib_hash case.
-
-I'll just fix up our scripts. Thanks for looking into it.
-
-  -Arun
+Which driver handles this Traverse Solos card ?
