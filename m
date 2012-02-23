@@ -1,93 +1,56 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH] NET: MIPS: lantiq: introduce missing locking of dma irq
-Date: Thu, 23 Feb 2012 18:39:03 +0100
-Message-ID: <1330018743-26383-1-git-send-email-blogic@openwrt.org>
-Cc: netdev@vger.kernel.org, John Crispin <blogic@openwrt.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 1/5] sfc: Specify that the VFDI status page has
+ page alignment and size
+Date: Thu, 23 Feb 2012 17:40:14 +0000
+Message-ID: <1330018814.2511.2.camel@bwh-desktop>
+References: <1330018734.2511.1.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:50746 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752199Ab2BWRj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Feb 2012 12:39:27 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:7232 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752207Ab2BWRkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:40:17 -0500
+In-Reply-To: <1330018734.2511.1.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Access to the DMA irq was not properly locked, causing RX deadlocks under load.
+This requirement was meant to be implied in the name 'status page'.
+One out-of-tree VF driver allocates a buffer using the structure size
+and not a full page - hence the current odd specification - but in
+practice that allocation will be padded and aligned to at least 4KB.
+Therefore, we can specify this and have the option to extend the
+structure up to 4KB without worrying about VF drivers using odd-shaped
+buffers.
 
-Signed-off-by: John Crispin <blogic@openwrt.org>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/lantiq_etop.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/sfc/vfdi.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 584794f..f1eb335 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -207,8 +207,10 @@ ltq_etop_poll_rx(struct napi_struct *napi, int budget)
- {
- 	struct ltq_etop_chan *ch = container_of(napi,
- 				struct ltq_etop_chan, napi);
-+	struct ltq_etop_priv *priv = netdev_priv(ch->netdev);
- 	int rx = 0;
- 	int complete = 0;
-+	unsigned long flags;
- 
- 	while ((rx < budget) && !complete) {
- 		struct ltq_dma_desc *desc = &ch->dma.desc_base[ch->dma.desc];
-@@ -222,7 +224,9 @@ ltq_etop_poll_rx(struct napi_struct *napi, int budget)
- 	}
- 	if (complete || !rx) {
- 		napi_complete(&ch->napi);
-+		spin_lock_irqsave(&priv->lock, flags);
- 		ltq_dma_ack_irq(&ch->dma);
-+		spin_unlock_irqrestore(&priv->lock, flags);
- 	}
- 	return rx;
- }
-@@ -252,7 +256,9 @@ ltq_etop_poll_tx(struct napi_struct *napi, int budget)
- 	if (netif_tx_queue_stopped(txq))
- 		netif_tx_start_queue(txq);
- 	napi_complete(&ch->napi);
-+	spin_lock_irqsave(&priv->lock, flags);
- 	ltq_dma_ack_irq(&ch->dma);
-+	spin_unlock_irqrestore(&priv->lock, flags);
- 	return 1;
- }
- 
-@@ -624,13 +630,16 @@ ltq_etop_open(struct net_device *dev)
- {
- 	struct ltq_etop_priv *priv = netdev_priv(dev);
- 	int i;
-+	unsigned long flags;
- 
- 	for (i = 0; i < MAX_DMA_CHAN; i++) {
- 		struct ltq_etop_chan *ch = &priv->ch[i];
- 
- 		if (!IS_TX(i) && (!IS_RX(i)))
- 			continue;
-+		spin_lock_irqsave(&priv->lock, flags);
- 		ltq_dma_open(&ch->dma);
-+		spin_unlock_irqrestore(&priv->lock, flags);
- 		napi_enable(&ch->napi);
- 	}
- 	if (priv->phydev)
-@@ -644,6 +653,7 @@ ltq_etop_stop(struct net_device *dev)
- {
- 	struct ltq_etop_priv *priv = netdev_priv(dev);
- 	int i;
-+	unsigned long flags;
- 
- 	netif_tx_stop_all_queues(dev);
- 	if (priv->phydev)
-@@ -654,7 +664,9 @@ ltq_etop_stop(struct net_device *dev)
- 		if (!IS_RX(i) && !IS_TX(i))
- 			continue;
- 		napi_disable(&ch->napi);
-+		spin_lock_irqsave(&priv->lock, flags);
- 		ltq_dma_close(&ch->dma);
-+		spin_unlock_irqrestore(&priv->lock, flags);
- 	}
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/sfc/vfdi.h b/drivers/net/ethernet/sfc/vfdi.h
+index 656fa70..225557c 100644
+--- a/drivers/net/ethernet/sfc/vfdi.h
++++ b/drivers/net/ethernet/sfc/vfdi.h
+@@ -152,7 +152,8 @@ enum vfdi_op {
+  *	all traffic at this receive queue.
+  * @u.mac_filter.flags: MAC filter flags.
+  * @u.set_status_page.dma_addr: Base address for the &struct vfdi_status.
+- *	This address must be such that the structure fits within a page.
++ *	This address must be page-aligned and the PF may write up to a
++ *	whole page (allowing for extension of the structure).
+  * @u.set_status_page.peer_page_count: Number of additional pages the VF
+  *	has provided into which peer addresses may be DMAd.
+  * @u.set_status_page.peer_page_addr: Array of DMA addresses of pages.
 -- 
-1.7.7.1
+1.7.7.6
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
