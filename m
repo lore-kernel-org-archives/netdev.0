@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] ipsec: be careful of non existing mac headers
-Date: Thu, 23 Feb 2012 16:53:58 -0500 (EST)
-Message-ID: <20120223.165358.2006843858723707510.davem@davemloft.net>
-References: <1330028243.15610.40.camel@edumazet-laptop>
-	<20120223.152314.1111200746248162115.davem@davemloft.net>
-	<1330030502.15610.44.camel@edumazet-laptop>
+Subject: Re: [PATCH 0/4] Part 1: unify return value of
+ .ndo_set_mac_address if address is invalid
+Date: Thu, 23 Feb 2012 17:12:01 -0500 (EST)
+Message-ID: <20120223.171201.453882925963706554.davem@davemloft.net>
+References: <1329826072-14689-1-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: darkbasic@linuxsystems.it, netdev@vger.kernel.org,
-	openadsl-users@lists.sourceforge.net,
-	openadsl-devel@lists.sourceforge.net, 660804@bugs.debian.org,
-	support@traverse.com.au, support@rocksolidelectronics.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56761 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170Ab2BWVyf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 16:54:35 -0500
-In-Reply-To: <1330030502.15610.44.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, dm@chelsio.com, leedom@chelsio.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	dkukawka@suse.de, linux-kernel@vger.kernel.org,
+	cmetcalf@tilera.com, mcarlson@broadcom.com, olof@lixom.net,
+	linux-usb@vger.kernel.org, buytenh@wantstofly.org,
+	gregkh@linuxfoundation.org, linux-driver@qlogic.com,
+	mark.einon@gmail.com, mchan@broadcom.com, jdmason@kudzu.us,
+	kristoffer@gaisler.com, shemminger@vyatta.com, divy@chelsio.com
+To: danny.kukawka@bisect.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1329826072-14689-1-git-send-email-danny.kukawka@bisect.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Feb 2012 21:55:02 +0100
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Tue, 21 Feb 2012 13:07:48 +0100
 
-> Niccolo Belli reported ipsec crashes in case we handle a frame withou=
-t
-> mac header (atm in his case)
->=20
-> Before copying mac header, better make sure it is present.
->=20
-> Bugzilla reference:  https://bugzilla.kernel.org/show_bug.cgi?id=3D42=
-809
->=20
-> Reported-by: Niccol=F2 Belli <darkbasic@linuxsystems.it>
-> Tested-by: Niccol=F2 Belli <darkbasic@linuxsystems.it>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Here a series of patches to unifiy the return value of 
+> .ndo_set_mac_address if the given address isn't valid. 
+> Return -EADDRNOTAVAIL as eth_mac_addr() and other 
+> .ndo_set_mac_address functions already do if is_valid_ether_addr() 
+> fails.
+> 
+> Other patches will follow if this set gets accepted.
 
-Applied and queued up for -stable, thanks.
-
-BTW, if anyone wants to see what's queued up for -stable I have a publi=
-c
-patchwork bundle for it:
-
-	http://patchwork.ozlabs.org/bundle/davem/stable/
-
-Just FYI.
+All applied to net-next, thanks.
