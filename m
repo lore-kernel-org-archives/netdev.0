@@ -1,60 +1,53 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: route add default fails with ESRCH?
-Date: Thu, 23 Feb 2012 02:02:16 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1202230129440.1603@ja.ssi.bg>
-References: <4F3F0158.2020406@fb.com> <4F4541E5.5040700@fb.com> <alpine.LFD.2.00.1202222319150.1603@ja.ssi.bg> <4F45638B.30305@fb.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Arun Sharma <asharma@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F45638B.30305@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/4] netfilter updates for net tree
+Date: Thu, 23 Feb 2012 01:02:22 +0100
+Message-ID: <1329955346-2615-1-git-send-email-pablo@netfilter.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-	Hello,
+Hi David,
 
-On Wed, 22 Feb 2012, Arun Sharma wrote:
+The following are four fixes for your net tree:
 
-> Without this my eth0 driver complains about link not being ready.
-> 
-> > > # cat /proc/net/fib_trie
-> > 
-> > 	Where is "Main:" here?
-> 
-> I think answering this is key.
+* One fix for NFQUEUE if used in bridge mode when GRO/GSO skbs
+  are enqueued from Florian Westphal.
 
-	Main is not printed only when the main table is
-empty. The table name is printed only if there are nodes
-in the table. May be all rules (ESRCH) and all routes (no Main)
-are flushed.
+* One fix from Joerg Willmann to fix wrong alignment in ebtables
+  on PPC.
 
-> This is the main difference between systems that work and the ones that don't.
-> Systems that work have a non-empty Main table:
-> 
-> # cat /proc/net/fib_trie
-> Main:
->   +-- 0.0.0.0/0 4 3 10
->      +-- 0.0.0.0/4 1 0 0
->         |-- 0.0.0.0
->            /0 universe THROW
-> 
-> I'll try to figure out why my RT_TABLE_MAIN was empty after my network startup
-> scripts finished. But given my experience with 2.6.38, fib_hash handled this
-> case just fine and fib_trie broke it :(
+* One fix for soft lockup for ctnetlink from Jozsef Kadlecsik.
 
-	printk for current->comm should show the process name
-that removes the routes. If problem is ifup-local I remember
-only for one difference: fib_trie can list 0.0.0.0/0 before
-other routes but ip route flush default simply removes all
-routes, even on old kernels. May be route del default gw...
-does not delete the default route and then
-'ip route flush default' does the bad job.
+* One fix for IPVS from Simon Horman.
 
-Regards
+Please, pull these changes from:
 
---
-Julian Anastasov <ja@ssi.bg>
+	git://1984.lsi.us.es/net nf
+
+Thanks!
+
+Florian Westphal (1):
+  netfilter: nf_queue: fix queueing of bridged gro skbs
+
+Joerg Willmann (1):
+  netfilter: ebtables: fix alignment problem in ppc
+
+Jozsef Kadlecsik (1):
+  netfilter: ctnetlink: fix soft lockup when netlink adds new entries
+
+Simon Horman (1):
+  ipvs: fix matching of fwmark templates during scheduling
+
+ include/linux/netfilter_bridge/ebtables.h |    4 +-
+ net/netfilter/ipvs/ip_vs_core.c           |    2 +-
+ net/netfilter/nf_conntrack_netlink.c      |   43 +++++++++++------------------
+ net/netfilter/nf_queue.c                  |   40 +++++++++++++++++++++-----
+ 4 files changed, 51 insertions(+), 38 deletions(-)
+
+-- 
+1.7.7.3
+
