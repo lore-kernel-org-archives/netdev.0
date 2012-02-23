@@ -1,75 +1,93 @@
-From: Roland McGrath <mcgrathr@google.com>
-Subject: Re: [PATCH v10 07/11] signal, x86: add SIGSYS info and make it synchronous.
-Date: Thu, 23 Feb 2012 09:38:57 -0800
-Message-ID: <CAB=4xhqndEw3tMPaUcdZh_jcjQcoK_=7GwOc5gVhnz5o_4eWzQ@mail.gmail.com>
-References: <1329845435-2313-1-git-send-email-wad@chromium.org>
- <1329845435-2313-7-git-send-email-wad@chromium.org> <9edbabb2262e3d91a7b8c75dbec03d7f.squirrel@webmail.greenhost.nl>
- <CABqD9hY1n9EOAKKT0r9Ev+azhBMnLMAM_FgDNe5we9upVePk_A@mail.gmail.com>
- <CAObL_7Gc0U2JMBQr_kbcVUJwyJq7LRfgdFr+84LR=ec4kSCwEA@mail.gmail.com>
- <CAGXu5jJQrnkCZtcLqK8NEihRgB25C12b0nKp+XWXV_=4QfcVoA@mail.gmail.com>
- <CABqD9hbC8v-rUBW+4T_-EwDwe1+VDohQZweQ-cxOg2A-iDH5CQ@mail.gmail.com>
- <CAGXu5j+fQqkrrKSm3kmCkCcZJKo-VZjL6kkrOD81LZYBY7tf2g@mail.gmail.com>
- <4F45887A.5010809@zytor.com> <CAB=4xhq1sm_ewZ_8Kerf2aN7nGx+DEENse7Lqg5N0wuvqtzUAw@mail.gmail.com>
- <4F459109.1060205@zytor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Kees Cook <keescook@chromium.org>, Will Drewry <wad@chromium.org>,
-	Andrew Lutomirski <luto@mit.edu>,
-	Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, tglx@linutronix.de, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org
-To: "H. Peter Anvin" <hpa@zytor.com>
+From: John Crispin <blogic@openwrt.org>
+Subject: [PATCH] NET: MIPS: lantiq: introduce missing locking of dma irq
+Date: Thu, 23 Feb 2012 18:39:03 +0100
+Message-ID: <1330018743-26383-1-git-send-email-blogic@openwrt.org>
+Cc: netdev@vger.kernel.org, John Crispin <blogic@openwrt.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f53.google.com ([209.85.216.53]:48502 "EHLO
-	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753443Ab2BWRjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:39:19 -0500
-Received: by qafk1 with SMTP id k1so1665185qaf.19
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 09:39:18 -0800 (PST)
-In-Reply-To: <4F459109.1060205@zytor.com>
+Received: from nbd.name ([46.4.11.11]:50746 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752199Ab2BWRj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Feb 2012 12:39:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 22, 2012 at 5:06 PM, H. Peter Anvin <hpa@zytor.com> wrote:
-> I meant whether or not a signal can be blocked/caught and the fact that
-> the signal exists at all.
->
-> Now I guess we could have "blockable" and "unblockable" SIGSYS, but that
-> would seem to have its own set of issues...
+Access to the DMA irq was not properly locked, causing RX deadlocks under load.
 
-Oh.  I certainly don't think we should ever add any new signals to the set
-that cannot be caught, blocked, or ignored.  That has been just SIGKILL and
-SIGSTOP since 4.2BSD, which first introduced the modern concept of blocking
-signals.  There are lots of reasons not to change that, which I won't go
-into unless someone really wants me to.
+Signed-off-by: John Crispin <blogic@openwrt.org>
+---
+ drivers/net/ethernet/lantiq_etop.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-However, I don't think there is anything really wrong with having certain
-cases that generate a signal and at the same time unblock it and reset it
-to SIG_DFL.  That's just an implementation detail of a policy of "dump core
-right now, no other option".  (Conversely, directly calling do_exit won't
-ever dump core, though it can be made to look signalesque to the parent and
-tracers.)
-
-For seccomp-filter, I personally don't see any problem with simply
-generating SIGSYS in the normal way (and aborting the syscall, of course).
-If someone wants to ensure that SIGSYS is never caught or blocked, they can
-just do that by having a filter that doesn't allow it to be caught or
-blocked (and of course make sure to reset its inherited state).  It is a
-bit tricky to cover all the ways, since it's not just sigaction and
-sigprocmask but also sigreturn, where the blocked signal set to be restored
-is in a slightly arcane location--but it ain't rocket science.
-
-But I don't really have any strong opinion about what seccomp-filter should
-do.  (Though it does seem worthwhile not to rule out the possibility of
-dumping core on a policy violation, since that will be useful for people to
-debug their code.)
-
-
-Thanks,
-Roland
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index 584794f..f1eb335 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -207,8 +207,10 @@ ltq_etop_poll_rx(struct napi_struct *napi, int budget)
+ {
+ 	struct ltq_etop_chan *ch = container_of(napi,
+ 				struct ltq_etop_chan, napi);
++	struct ltq_etop_priv *priv = netdev_priv(ch->netdev);
+ 	int rx = 0;
+ 	int complete = 0;
++	unsigned long flags;
+ 
+ 	while ((rx < budget) && !complete) {
+ 		struct ltq_dma_desc *desc = &ch->dma.desc_base[ch->dma.desc];
+@@ -222,7 +224,9 @@ ltq_etop_poll_rx(struct napi_struct *napi, int budget)
+ 	}
+ 	if (complete || !rx) {
+ 		napi_complete(&ch->napi);
++		spin_lock_irqsave(&priv->lock, flags);
+ 		ltq_dma_ack_irq(&ch->dma);
++		spin_unlock_irqrestore(&priv->lock, flags);
+ 	}
+ 	return rx;
+ }
+@@ -252,7 +256,9 @@ ltq_etop_poll_tx(struct napi_struct *napi, int budget)
+ 	if (netif_tx_queue_stopped(txq))
+ 		netif_tx_start_queue(txq);
+ 	napi_complete(&ch->napi);
++	spin_lock_irqsave(&priv->lock, flags);
+ 	ltq_dma_ack_irq(&ch->dma);
++	spin_unlock_irqrestore(&priv->lock, flags);
+ 	return 1;
+ }
+ 
+@@ -624,13 +630,16 @@ ltq_etop_open(struct net_device *dev)
+ {
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
++	unsigned long flags;
+ 
+ 	for (i = 0; i < MAX_DMA_CHAN; i++) {
+ 		struct ltq_etop_chan *ch = &priv->ch[i];
+ 
+ 		if (!IS_TX(i) && (!IS_RX(i)))
+ 			continue;
++		spin_lock_irqsave(&priv->lock, flags);
+ 		ltq_dma_open(&ch->dma);
++		spin_unlock_irqrestore(&priv->lock, flags);
+ 		napi_enable(&ch->napi);
+ 	}
+ 	if (priv->phydev)
+@@ -644,6 +653,7 @@ ltq_etop_stop(struct net_device *dev)
+ {
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
++	unsigned long flags;
+ 
+ 	netif_tx_stop_all_queues(dev);
+ 	if (priv->phydev)
+@@ -654,7 +664,9 @@ ltq_etop_stop(struct net_device *dev)
+ 		if (!IS_RX(i) && !IS_TX(i))
+ 			continue;
+ 		napi_disable(&ch->napi);
++		spin_lock_irqsave(&priv->lock, flags);
+ 		ltq_dma_close(&ch->dma);
++		spin_unlock_irqrestore(&priv->lock, flags);
+ 	}
+ 	return 0;
+ }
+-- 
+1.7.7.1
