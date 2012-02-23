@@ -1,22 +1,42 @@
-From: Lisa Flanagan <lflanagan@brynmawr.edu>
-Subject: My Business Proposal
-Date: Thu, 23 Feb 2012 00:46:32 -0500 (EST)
-Message-ID: <1b30dc4f-9124-4d28-bf9c-2c15aae44ec7@ganesh.brynmawr.edu>
-Reply-To: Lisa Flanagan <eric_mr.cheung@yahoo.com.hk>
+From: "WESTERN UNION MONEY TRANSFER" <info@wumt.com>
+Subject: UNCC PAYMENT!
+Date: Wed, 22 Feb 2012 23:52:47 -0700 (MST)
+Message-ID: <9081.41.203.64.128.1329979967.squirrel__19637.3960855$1329982080$gmane$org@webmail.nmt.edu>
+Reply-To: westernunionmoneytransfer_w@yahoo.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod8ob101.obsmtp.com ([64.18.3.81]:42668 "HELO
-	exprod8ob101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750715Ab2BWHD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 02:03:58 -0500
+Received: from mailhost.nmt.edu ([129.138.4.52]:49266 "EHLO mailhost.nmt.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751955Ab2BWH1h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 02:27:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am Mr. Cheung Eric and I work with the Hang Seng Bank Hong Kong, I have a business transaction to share with you of my late client worth $20.5m Dollars, if interested get back to me via my personal e-mail (eric_mr.cheung@yahoo.com.hk) for more details.
+Dear UNCC Beneficiary,
 
-Sincerely,
-Mr.Cheung Eric
-eric_mr.cheung@yahoo.com.hk
+On behalf of the United Nations Compensation Commission (UNCC) in
+affiliation with Western Union Campaign for Global Economic Crisis
+eradication, we wish to notify you that your E-mail Address has won you
+$1.400,000,00USD (One million Four Hundred Thousand United States Dolla=
+rs)
+in the UNCC 2012 Ongoing Lottery Jackpot.
+
+=46or security reasons and proper verification you are to provide the
+details below for claim.
+
+Receiver's Full Name:....
+Home Address/Country:....
+Telephone Number: .......
+Occupation:..............
+
+Note: All participants were selected through their internet around the
+Globe from over 25,000 internet websites.
+
+Congratulate you once again on your winnings.
+
+Customer Service
+Mrs. Brenda Ortiz.
+=AEWestern Union Payment Coordinator NG.
