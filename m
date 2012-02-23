@@ -1,38 +1,198 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next 1/3] mlx4_en: TX ring size default to 1024
-Date: Thu, 23 Feb 2012 15:34:05 +0200
-Message-ID: <4F46404D.10509@mellanox.co.il>
+Subject: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
+Date: Thu, 23 Feb 2012 15:34:44 +0200
+Message-ID: <4F464074.9050901@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:35377 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754115Ab2BWNeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 08:34:10 -0500
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:59285 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754008Ab2BWNet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 08:34:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Localized the pdev->dev, and using dma_map instead of pci_map
+There are multiple map/unmap operations on data path,
+optimizing those by saving redundant pointer access.
+
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   14 +++++---------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   13 ++++++-------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 +
+ 4 files changed, 13 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9fe4f94..31b455a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1062,6 +1062,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	memset(priv, 0, sizeof(struct mlx4_en_priv));
+ 	priv->dev = dev;
+ 	priv->mdev = mdev;
++	priv->ddev = &mdev->pdev->dev;
+ 	priv->prof = prof;
+ 	priv->port = port;
+ 	priv->port_up = false;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d703ef2..c881712 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -48,7 +48,6 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+ 			      struct mlx4_en_rx_alloc *ring_alloc,
+ 			      int i)
+ {
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_frag_info *frag_info = &priv->frag_info[i];
+ 	struct mlx4_en_rx_alloc *page_alloc = &ring_alloc[i];
+ 	struct page *page;
+@@ -72,7 +71,7 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+ 		skb_frags[i].offset = page_alloc->offset;
+ 		page_alloc->offset += frag_info->frag_stride;
+ 	}
+-	dma = pci_map_single(mdev->pdev, page_address(skb_frags[i].page) +
++	dma = dma_map_single(priv->ddev, page_address(skb_frags[i].page) +
+ 			     skb_frags[i].offset, frag_info->frag_size,
+ 			     PCI_DMA_FROMDEVICE);
+ 	rx_desc->data[i].addr = cpu_to_be64(dma);
+@@ -186,7 +185,6 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
+ 				 struct mlx4_en_rx_ring *ring,
+ 				 int index)
+ {
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct page_frag *skb_frags;
+ 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index << ring->log_stride);
+ 	dma_addr_t dma;
+@@ -198,7 +196,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
+ 		dma = be64_to_cpu(rx_desc->data[nr].addr);
+ 
+ 		en_dbg(DRV, priv, "Unmapping buffer at dma:0x%llx\n", (u64) dma);
+-		pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
++		dma_unmap_single(priv->ddev, dma, skb_frags[nr].size,
+ 				 PCI_DMA_FROMDEVICE);
+ 		put_page(skb_frags[nr].page);
+ 	}
+@@ -412,7 +410,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 				    int length)
+ {
+ 	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_frag_info *frag_info;
+ 	int nr;
+ 	dma_addr_t dma;
+@@ -435,7 +432,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 			goto fail;
+ 
+ 		/* Unmap buffer */
+-		pci_unmap_single(mdev->pdev, dma, skb_frag_size(&skb_frags_rx[nr]),
++		dma_unmap_single(priv->ddev, dma, skb_frag_size(&skb_frags_rx[nr]),
+ 				 PCI_DMA_FROMDEVICE);
+ 	}
+ 	/* Adjust size of last fragment to match actual length */
+@@ -461,7 +458,6 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 				      struct mlx4_en_rx_alloc *page_alloc,
+ 				      unsigned int length)
+ {
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct sk_buff *skb;
+ 	void *va;
+ 	int used_frags;
+@@ -483,10 +479,10 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		/* We are copying all relevant data to the skb - temporarily
+ 		 * synch buffers for the copy */
+ 		dma = be64_to_cpu(rx_desc->data[0].addr);
+-		dma_sync_single_for_cpu(&mdev->pdev->dev, dma, length,
++		dma_sync_single_for_cpu(priv->ddev, dma, length,
+ 					DMA_FROM_DEVICE);
+ 		skb_copy_to_linear_data(skb, va, length);
+-		dma_sync_single_for_device(&mdev->pdev->dev, dma, length,
++		dma_sync_single_for_device(priv->ddev, dma, length,
+ 					   DMA_FROM_DEVICE);
+ 		skb->tail += length;
+ 	} else {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index e452bba..829d0cf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -198,7 +198,6 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_tx_ring *ring,
+ 				int index, u8 owner)
+ {
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
+ 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
+ 	struct mlx4_wqe_data_seg *data = (void *) tx_desc + tx_info->data_offset;
+@@ -214,7 +213,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
+ 		if (!tx_info->inl) {
+ 			if (tx_info->linear) {
+-				pci_unmap_single(mdev->pdev,
++				dma_unmap_single(priv->ddev,
+ 					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 be32_to_cpu(data->byte_count),
+ 					 PCI_DMA_TODEVICE);
+@@ -223,7 +222,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 
+ 			for (i = 0; i < frags; i++) {
+ 				frag = &skb_shinfo(skb)->frags[i];
+-				pci_unmap_page(mdev->pdev,
++				dma_unmap_page(priv->ddev,
+ 					(dma_addr_t) be64_to_cpu(data[i].addr),
+ 					skb_frag_size(frag), PCI_DMA_TODEVICE);
+ 			}
+@@ -241,7 +240,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 			}
+ 
+ 			if (tx_info->linear) {
+-				pci_unmap_single(mdev->pdev,
++				dma_unmap_single(priv->ddev,
+ 					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 be32_to_cpu(data->byte_count),
+ 					 PCI_DMA_TODEVICE);
+@@ -253,7 +252,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 				if ((void *) data >= end)
+ 					data = ring->buf;
+ 				frag = &skb_shinfo(skb)->frags[i];
+-				pci_unmap_page(mdev->pdev,
++				dma_unmap_page(priv->ddev,
+ 					(dma_addr_t) be64_to_cpu(data->addr),
+ 					 skb_frag_size(frag), PCI_DMA_TODEVICE);
+ 				++data;
+@@ -745,7 +744,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Map fragments */
+ 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+ 			frag = &skb_shinfo(skb)->frags[i];
+-			dma = skb_frag_dma_map(&mdev->dev->pdev->dev, frag,
++			dma = skb_frag_dma_map(priv->ddev, frag,
+ 					       0, skb_frag_size(frag),
+ 					       DMA_TO_DEVICE);
+ 			data->addr = cpu_to_be64(dma);
+@@ -757,7 +756,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		/* Map linear part */
+ 		if (tx_info->linear) {
+-			dma = pci_map_single(mdev->dev->pdev, skb->data + lso_header_size,
++			dma = dma_map_single(priv->ddev, skb->data + lso_header_size,
+ 					     skb_headlen(skb) - lso_header_size, PCI_DMA_TODEVICE);
+ 			data->addr = cpu_to_be64(dma);
+ 			data->lkey = cpu_to_be32(mdev->mr.key);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d60335f..174dc38 100644
+index 174dc38..135200e 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -110,7 +110,7 @@ enum {
- #define MLX4_EN_NUM_TX_RINGS		8
- #define MLX4_EN_NUM_PPP_RINGS		8
- #define MAX_TX_RINGS			(MLX4_EN_NUM_TX_RINGS + MLX4_EN_NUM_PPP_RINGS)
--#define MLX4_EN_DEF_TX_RING_SIZE	512
-+#define MLX4_EN_DEF_TX_RING_SIZE	1024
- #define MLX4_EN_DEF_RX_RING_SIZE  	1024
+@@ -482,6 +482,7 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_stat_out_mbox hw_stats;
+ 	int vids[128];
+ 	bool wol;
++	struct device *ddev;
+ };
  
- /* Target number of packets to coalesce with interrupt moderation */
+ enum mlx4_en_wol {
 -- 
 1.5.4.3
