@@ -1,73 +1,33 @@
-From: design@dedicatedserver.com.hk
-Subject: Web Development Service~~~
-Date: Thu, 23 Feb 2012 23:24:07 +0800 (HKT)
-Message-ID: <PajoE8X8__15537.4339818538$1330011278$gmane$org@pavo.seed.net.tw>
+From: "Mr. Vincent Cheng Hoi" <info@yahoo.com>
+Subject: (unknown)
+Date: Thu, 23 Feb 2012 13:17:27 -0200
+Message-ID: <20120223131727.11725fq6ko7l6pon@webmail.iqm.unicamp.br>
+Reply-To: choi_chu15@yahoo.co.jp
+Mime-Version: 1.0
 Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-59.sunnyvision.com ([124.248.200.59]:43458 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756437Ab2BWPeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 10:34:16 -0500
+Received: from power.iqm.unicamp.br ([143.106.51.18]:49384 "EHLO
+	webmail.iqm.unicamp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754003Ab2BWPlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 10:41:44 -0500
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear all,
-Please see below is our general job reference and web design package, 
 
-Total 12 pages web design service
-- Two language version
-- All the webpage design is included:
-- Theme development;
-- Design Study;
-- Original Layout / Artwork Design;
-- Steady HTML / Flash Web page development;
-- Search Engine Applicable;
-- Basic Graphic Flash Banner x1;
-- All text contents, logos and related product photos should be provided by client
- Product eCatalogue (Product Page)
+Good Day,
 
-- CMS Function of add /edit Products with Contents & Photos
-- Maximum 10 fields include Photos and Contents
-- Text Editor for Detail Contents (if need)
-- Support text descriptions and photos updating
-- 1 Level categories management
-- Database support with un-limit Products create
-- Not include Data input
-- Standard Admin panel with login function (1 admin account)
-Content management system (Activities page)
+I have a business proposal of USD $22,500,000.00 only for you to  
+transact with me from my bank to your country. All confirmable  
+documents to back up the claims will be made available to you prior to  
+your acceptance.Reply to address:choi_chu15@yahoo.co.jp and I will let  
+you know what is required of you.
 
-- Basic CMS function of add / edit items
-- Max. 5 fields per item
-- Support photos and text descriptions
-- Front-end support 1 page only (Comapny activities page)
-- Database support with un-limit Products create
-- Not include Data input
-- Integrated Admin Panel
-Enquiry form function (Contact Us)
-- Form to mail
-Package price : $38,000
-
-Yoy may click the hyperlink to see some of our design reference.
-
-Job reference
-
-http://www.hk-belle.com/
-http://www.mirabell.com.hk/
-http://www.nikijodi.com/
-http://www.joy-peace.com/
-http://www.staccato.com
-http://www.chicks.com.hk/
-
-
-Program reference
-http://www.gloryskygroup.com/index.aspx=3Flang=3Dbig5
-http://www.mydriver.com.hk/
- 
 Best Regards,
-Eric Chan
-Senior Sales Executive
-Mobile: 9533 6486
-
-If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message
+Mr. Vincent Cheng
