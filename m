@@ -1,72 +1,80 @@
-From: otto@cloudluca.com
-Subject: Web Design Service
-Date: Fri, 24 Feb 2012 01:13:10 +0800 (HKT)
-Message-ID: <gZg8B@ksts.seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next 2012-02-23
+Date: Thu, 23 Feb 2012 17:38:54 +0000
+Message-ID: <1330018734.2511.1.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-8NcNnCC2gSYtYY0QNsaW"
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-54.sunnyvision.com ([124.248.200.54]:49628 "EHLO
-	teamb02.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950Ab2BWRZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:25:10 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:7208 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752207Ab2BWRjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:39:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir / Madam, 
+--=-8NcNnCC2gSYtYY0QNsaW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Good morning, this is Otto from Cloudluca.com. 
+The following changes since commit 0b0a635f79f91f3755b6518627ea06dd0dbfd523=
+:
 
-We are a web design house and programming service provider. As 14 years experience, we are professional to develop a website for your business. 
+  bnx2x: update driver version to 1.72.10-0 (2012-02-20 19:34:08 -0500)
 
-In the Chinese New Year Festival, we have the following offer for your corporate. Please check. 
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
-Service=09Package
+(commit 73e0026fb2bee4f2ca85c702040e143ec504eaa6)
 
-Web Development and Programing Service
-*********************************************************
-1)=09Website Design Service =09=09=09($13,000)
+Just some small fixes this time.
 
-=09Maximum 10 Web Pages Development                                                 
-=09(Site Map will be confirmed later)
-=09All the tailor-made webpage design is included:
--=09Theme / Visual Concept Development;
--=09Design Study and Analysis / Art Direction;
--=09Original Artwork & Layout Design;
--=09Steady Web page development;
--=09HTML Development for Search Engine Applicable;
+Ben.
 
-2)=09Web Programing Service =09=09=09($15,000)
+Ben Hutchings (5):
+      sfc: Specify that the VFDI status page has page alignment and size
+      sfc: Correct validation of peer_page_count in efx_vfdi_set_status_pag=
+e()
+      sfc: Reverse initial buffer table allocation to allow for later resiz=
+ing
+      sfc: Minor formatting cleanup
+      sfc: Correct efx_for_each_possible_channel_tx_queue() to skip non-TX =
+channels
 
-Content Management System (For 5 web pages)                                 
--=09Standard CMS function for add / edit fields 
--=09Max. 10 fields per each CMS section
--=09CMS fields only for Text fields and photos upload fields
--=09Photos upload only support (.jpg / .png / .bmp) 
--=09Each field for one photos
--=0920 pages / section for CMS function
--=09Database support with un-limit data create;
--=09Admin Panel with Login function (1 login account)
+ drivers/net/ethernet/sfc/bitfield.h    |    4 ++--
+ drivers/net/ethernet/sfc/efx.c         |    7 ++++++-
+ drivers/net/ethernet/sfc/mcdi_mon.c    |    2 +-
+ drivers/net/ethernet/sfc/net_driver.h  |    9 ++++++---
+ drivers/net/ethernet/sfc/siena_sriov.c |   11 ++++++-----
+ drivers/net/ethernet/sfc/tx.c          |    2 +-
+ drivers/net/ethernet/sfc/vfdi.h        |    3 ++-
+ 7 files changed, 24 insertions(+), 14 deletions(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
-*********************************************************
 
-Promotion Price: =09HKD $28,000.00
-Lead Time: =09=0932 working days
+--=-8NcNnCC2gSYtYY0QNsaW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-If you have more special requirement, please let us know and we will provide more detail to you. 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Please feel free to contact me.The following is my contact information. 
+iQEcBAABCAAGBQJPRnmuAAoJEGkILBsOca60+IoIAMaz9GVS23qdjyljc4Cpdyyz
+O7QINjqLqyH7PzZ4BEShBvJo8zEhal55YHyDfuyFpfhAc6t4zzoBSRUH+WeYwQyb
+LHw4pkCYIM9H7Wqbt45SA/VxpLKfoL7KvgP1Lo/R8t7tTfRaFJPqffn+a/fmt9+N
+/RAe2TqV5AkqmTfnO1288a+W2g4pZfQEiL6jOqenXSP7HriGl71LSRXx2hS9mN2i
+Rmd7j2l7G0/+Yscy7tcuKMzdUHz1jKHOcVYZ4tIpNe3Pjv0cE9pSjtlS1vpT1Bnx
+QqrLC4cNjWSBC9m3totK/hUcgI+eaPU+0kZb+VsR0xpcLka5+VmlysWDSGqiKtM=
+=Z1CE
+-----END PGP SIGNATURE-----
 
-Contact No: (852) 5108 9664
-
-Skype: yschiu2001 (yschiu2001@yahoo.com.hk)
-
-MSN: yschiu2001@yahoo.com.hk
-
-Email: otto@dedicatedserver.com.hk
-
-If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or remove your email from the list. 
-
-Best Regards
-Otto Chiu
+--=-8NcNnCC2gSYtYY0QNsaW--
