@@ -1,55 +1,72 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Subject: Re: [PATCH v2 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Thu, 23 Feb 2012 16:38:32 +0000
-Message-ID: <20120223163832.GB3236@shadowen.org>
-References: <1329763023-29580-1-git-send-email-mugunthanvnm@ti.com>
- <1329763023-29580-3-git-send-email-mugunthanvnm@ti.com>
- <1329779029.8318.21.camel@joe2Laptop>
- <EB1619762EAF8B4E97A227FB77B7E0293178F468@DBDE01.ent.ti.com>
- <1330011962.5143.50.camel@joe2Laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+From: otto@cloudluca.com
+Subject: Web Design Service
+Date: Fri, 24 Feb 2012 01:13:10 +0800 (HKT)
+Message-ID: <gZg8B@ksts.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waldorf.bytemark.co.uk ([212.110.162.22]:32941 "EHLO
-	waldorf.bytemark.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501Ab2BWRM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:12:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1330011962.5143.50.camel@joe2Laptop>
+Received: from 124-248-200-54.sunnyvision.com ([124.248.200.54]:49628 "EHLO
+	teamb02.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751950Ab2BWRZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:25:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 23, 2012 at 07:46:02AM -0800, Joe Perches wrote:
-> On Thu, 2012-02-23 at 12:47 +0000, N, Mugunthan V wrote:
-> > Joe/David
-> > > > -----Original Message-----
-> > > > From: Joe Perches [mailto:joe@perches.com]
-> > > > Sent: Tuesday, February 21, 2012 4:34 AM
-> > [...]
-> > > > Add
-> > > > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> > > > before all #includes and remove the embedded prefix
-> > > > from all pr_<level> uses.
-> > > Agreed, will make use of pr_fmt and remove embedded prefix in pr_<level>
-> > > uses
-> > Adding 
-> > #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> > in the driver gives a checkpatch error as follows
-> > #77: FILE: drivers/net/ethernet/ti/cpsw.c:16:
-> > +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> > total: 1 errors, 0 warnings, 1137 lines checked
-> > Is it ok to ignore the checkpatch error as most of the drivers use it.
-> 
-> Yes.
-> 
-> Andy Whitcroft has a pending checkpatch fix
-> for this.  I hope he pushes it out soon.
+Dear Sir / Madam, 
 
-Bah good reminder.  Will get those re-tested and out as soon as I can
-...
+Good morning, this is Otto from Cloudluca.com. 
 
--apw
+We are a web design house and programming service provider. As 14 years experience, we are professional to develop a website for your business. 
+
+In the Chinese New Year Festival, we have the following offer for your corporate. Please check. 
+
+Service=09Package
+
+Web Development and Programing Service
+*********************************************************
+1)=09Website Design Service =09=09=09($13,000)
+
+=09Maximum 10 Web Pages Development                                                 
+=09(Site Map will be confirmed later)
+=09All the tailor-made webpage design is included:
+-=09Theme / Visual Concept Development;
+-=09Design Study and Analysis / Art Direction;
+-=09Original Artwork & Layout Design;
+-=09Steady Web page development;
+-=09HTML Development for Search Engine Applicable;
+
+2)=09Web Programing Service =09=09=09($15,000)
+
+Content Management System (For 5 web pages)                                 
+-=09Standard CMS function for add / edit fields 
+-=09Max. 10 fields per each CMS section
+-=09CMS fields only for Text fields and photos upload fields
+-=09Photos upload only support (.jpg / .png / .bmp) 
+-=09Each field for one photos
+-=0920 pages / section for CMS function
+-=09Database support with un-limit data create;
+-=09Admin Panel with Login function (1 login account)
+
+
+*********************************************************
+
+Promotion Price: =09HKD $28,000.00
+Lead Time: =09=0932 working days
+
+If you have more special requirement, please let us know and we will provide more detail to you. 
+
+Please feel free to contact me.The following is my contact information. 
+
+Contact No: (852) 5108 9664
+
+Skype: yschiu2001 (yschiu2001@yahoo.com.hk)
+
+MSN: yschiu2001@yahoo.com.hk
+
+Email: otto@dedicatedserver.com.hk
+
+If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or remove your email from the list. 
+
+Best Regards
+Otto Chiu
