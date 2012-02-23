@@ -1,218 +1,241 @@
-From: Hangwani Modiba <hmandpartners@gmail.com>
-Subject: Partnership Investment Deal file Attached.From:Mr. Modiba
-Date: Thu, 23 Feb 2012 00:11:49 -0800 (PST)
-Message-ID: <1329984709.88836.YahooMailClassic@web1112.biz.mail.sk1.yahoo.com>
-Reply-To: pandpartner1084@gala.net
+From: Li Yu <raise.sail@gmail.com>
+Subject: [PATCH] extend taskstats API to support networking accounts
+Date: Thu, 23 Feb 2012 16:22:23 +0800
+Message-ID: <4F45F73F.3000708@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-1670907701-1329984709=:88836"
-To: undisclosed recipients:;
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm9-vm1.access.bullet.mail.sp2.yahoo.com ([98.139.44.121]:46120
-	"HELO nm9-vm1.access.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750861Ab2BWILu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 03:11:50 -0500
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:55620 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065Ab2BWIWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 03:22:33 -0500
+Received: by iacb35 with SMTP id b35so1213576iac.19
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 00:22:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0-1670907701-1329984709=:88836
-Content-Type: text/plain; charset=us-ascii
+
+This patch adds L7 traffic accounting in taskstats API, so
+the iotop like applications can receive these statistics data.
+In fact, I also have an iotop patch for this change.
+
+It ignores any protocol header overhead, so results of this
+patch should be saw as the application-aware data statistics
+instead of traffic statistics on wire. And it also ignores any
+IPC traffic on local host.
+
+This patch only records TCP/UDP/Raw-IP traffic so far, and adding
+other protocol support is easy.
+
+Signed-off-by: Li Yu <bingtian.ly@taobao.com>
+
+ include/linux/sched.h     |    2 ++
+ include/linux/taskstats.h |    7 ++++++-
+ include/net/sock.h        |   10 ++++++++++
+ kernel/fork.c             |    1 +
+ kernel/taskstats.c        |    6 ++++++
+ net/ipv4/raw.c            |    3 +++
+ net/ipv4/tcp.c            |    8 +++++++-
+ net/ipv4/udp.c            |   10 ++++++++--
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 7d379a6..5b2dbc5 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1590,6 +1590,8 @@ struct task_struct {
+ #ifdef CONFIG_HAVE_HW_BREAKPOINT
+ 	atomic_t ptrace_bp_refcnt;
+ #endif
++       u64 rx_bytes;
++       u64 tx_bytes;
+ };
+
+ /* Future-safe accessor for struct task_struct's cpus_allowed. */
+diff --git a/include/linux/taskstats.h b/include/linux/taskstats.h
+index 2466e55..39b356c 100644
+--- a/include/linux/taskstats.h
++++ b/include/linux/taskstats.h
+@@ -33,7 +33,7 @@
+  */
 
 
---0-1670907701-1329984709=:88836
-Content-Type: application/msword; name=Partnership
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="Partnership Investment.rtf"
+-#define TASKSTATS_VERSION	8
++#define TASKSTATS_VERSION	9
+ #define TS_COMM_LEN		32	/* should be >= TASK_COMM_LEN
+ 					 * in linux/sched.h */
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcdWMxXGRlZmYwXHN0c2hmZGJjaDBc
-c3RzaGZsb2NoMFxzdHNoZmhpY2gwXHN0c2hmYmkwXGRlZmxhbmcxMDMzXGRl
-ZmxhbmdmZTEwMzN7XGZvbnR0Ymx7XGYwXGZyb21hblxmY2hhcnNldDBcZnBy
-cTJ7XCpccGFub3NlIDAyMDIwNjAzMDUwNDA1MDIwMzA0fVRpbWVzIE5ldyBS
-b21hbjt9e1xmMVxmc3dpc3NcZmNoYXJzZXQwXGZwcnEye1wqXHBhbm9zZSAw
-MjBiMDYwNDAyMDIwMjAyMDIwNH1BcmlhbDt9DQp7XGYzNlxmc3dpc3NcZmNo
-YXJzZXQwXGZwcnEye1wqXHBhbm9zZSAwMjBiMDYwNDAzMDUwNDA0MDIwNH1W
-ZXJkYW5hO317XGYzN1xmcm9tYW5cZmNoYXJzZXQyMzhcZnBycTIgVGltZXMg
-TmV3IFJvbWFuIENFO317XGYzOFxmcm9tYW5cZmNoYXJzZXQyMDRcZnBycTIg
-VGltZXMgTmV3IFJvbWFuIEN5cjt9e1xmNDBcZnJvbWFuXGZjaGFyc2V0MTYx
-XGZwcnEyIFRpbWVzIE5ldyBSb21hbiBHcmVlazt9DQp7XGY0MVxmcm9tYW5c
-ZmNoYXJzZXQxNjJcZnBycTIgVGltZXMgTmV3IFJvbWFuIFR1cjt9e1xmNDJc
-ZnJvbWFuXGZjaGFyc2V0MTc3XGZwcnEyIFRpbWVzIE5ldyBSb21hbiAoSGVi
-cmV3KTt9e1xmNDNcZnJvbWFuXGZjaGFyc2V0MTc4XGZwcnEyIFRpbWVzIE5l
-dyBSb21hbiAoQXJhYmljKTt9e1xmNDRcZnJvbWFuXGZjaGFyc2V0MTg2XGZw
-cnEyIFRpbWVzIE5ldyBSb21hbiBCYWx0aWM7fQ0Ke1xmNDVcZnJvbWFuXGZj
-aGFyc2V0MTYzXGZwcnEyIFRpbWVzIE5ldyBSb21hbiAoVmlldG5hbWVzZSk7
-fXtcZjQ3XGZzd2lzc1xmY2hhcnNldDIzOFxmcHJxMiBBcmlhbCBDRTt9e1xm
-NDhcZnN3aXNzXGZjaGFyc2V0MjA0XGZwcnEyIEFyaWFsIEN5cjt9e1xmNTBc
-ZnN3aXNzXGZjaGFyc2V0MTYxXGZwcnEyIEFyaWFsIEdyZWVrO317XGY1MVxm
-c3dpc3NcZmNoYXJzZXQxNjJcZnBycTIgQXJpYWwgVHVyO30NCntcZjUyXGZz
-d2lzc1xmY2hhcnNldDE3N1xmcHJxMiBBcmlhbCAoSGVicmV3KTt9e1xmNTNc
-ZnN3aXNzXGZjaGFyc2V0MTc4XGZwcnEyIEFyaWFsIChBcmFiaWMpO317XGY1
-NFxmc3dpc3NcZmNoYXJzZXQxODZcZnBycTIgQXJpYWwgQmFsdGljO317XGY1
-NVxmc3dpc3NcZmNoYXJzZXQxNjNcZnBycTIgQXJpYWwgKFZpZXRuYW1lc2Up
-O317XGYzOTdcZnN3aXNzXGZjaGFyc2V0MjM4XGZwcnEyIFZlcmRhbmEgQ0U7
-fQ0Ke1xmMzk4XGZzd2lzc1xmY2hhcnNldDIwNFxmcHJxMiBWZXJkYW5hIEN5
-cjt9e1xmNDAwXGZzd2lzc1xmY2hhcnNldDE2MVxmcHJxMiBWZXJkYW5hIEdy
-ZWVrO317XGY0MDFcZnN3aXNzXGZjaGFyc2V0MTYyXGZwcnEyIFZlcmRhbmEg
-VHVyO317XGY0MDRcZnN3aXNzXGZjaGFyc2V0MTg2XGZwcnEyIFZlcmRhbmEg
-QmFsdGljO317XGY0MDVcZnN3aXNzXGZjaGFyc2V0MTYzXGZwcnEyIFZlcmRh
-bmEgKFZpZXRuYW1lc2UpO319DQp7XGNvbG9ydGJsO1xyZWQwXGdyZWVuMFxi
-bHVlMDtccmVkMFxncmVlbjBcYmx1ZTI1NTtccmVkMFxncmVlbjI1NVxibHVl
-MjU1O1xyZWQwXGdyZWVuMjU1XGJsdWUwO1xyZWQyNTVcZ3JlZW4wXGJsdWUy
-NTU7XHJlZDI1NVxncmVlbjBcYmx1ZTA7XHJlZDI1NVxncmVlbjI1NVxibHVl
-MDtccmVkMjU1XGdyZWVuMjU1XGJsdWUyNTU7XHJlZDBcZ3JlZW4wXGJsdWUx
-Mjg7XHJlZDBcZ3JlZW4xMjhcYmx1ZTEyODtccmVkMFxncmVlbjEyOFxibHVl
-MDsNClxyZWQxMjhcZ3JlZW4wXGJsdWUxMjg7XHJlZDEyOFxncmVlbjBcYmx1
-ZTA7XHJlZDEyOFxncmVlbjEyOFxibHVlMDtccmVkMTI4XGdyZWVuMTI4XGJs
-dWUxMjg7XHJlZDE5MlxncmVlbjE5MlxibHVlMTkyO317XHN0eWxlc2hlZXR7
-XHFsIFxsaTBccmkwXHdpZGN0bHBhclxhc3BhbHBoYVxhc3BudW1cZmFhdXRv
-XGFkanVzdHJpZ2h0XHJpbjBcbGluMFxpdGFwMCANClxmczI0XGxhbmcxMDMz
-XGxhbmdmZTEwMzNcY2dyaWRcbGFuZ25wMTAzM1xsYW5nZmVucDEwMzMgXHNu
-ZXh0MCBOb3JtYWw7fXtcKlxjczEwIFxhZGRpdGl2ZSBcc3NlbWloaWRkZW4g
-RGVmYXVsdCBQYXJhZ3JhcGggRm9udDt9e1wqDQpcdHMxMVx0c3Jvd2RcdHJm
-dHNXaWR0aEIzXHRycGFkZGwxMDhcdHJwYWRkcjEwOFx0cnBhZGRmbDNcdHJw
-YWRkZnQzXHRycGFkZGZiM1x0cnBhZGRmcjNcdHJjYnBhdDFcdHJjZnBhdDFc
-dHNjZWxsd2lkdGhmdHMwXHRzdmVydGFsdFx0c2JyZHJ0XHRzYnJkcmxcdHNi
-cmRyYlx0c2JyZHJyXHRzYnJkcmRnbFx0c2JyZHJkZ3JcdHNicmRyaFx0c2Jy
-ZHJ2IA0KXHFsIFxsaTBccmkwXHdpZGN0bHBhclxhc3BhbHBoYVxhc3BudW1c
-ZmFhdXRvXGFkanVzdHJpZ2h0XHJpbjBcbGluMFxpdGFwMCBcZnMyMFxsYW5n
-MTAyNFxsYW5nZmUxMDI0XGNncmlkXGxhbmducDEwMjRcbGFuZ2ZlbnAxMDI0
-IFxzbmV4dDExIFxzc2VtaWhpZGRlbiBOb3JtYWwgVGFibGU7fXtcKlxjczE1
-IFxhZGRpdGl2ZSBcc2Jhc2Vkb24xMCBcc3R5cnNpZDk3MDEzNzcgYXBwbGUt
-c3R5bGUtc3Bhbjt9fQ0Ke1wqXGxhdGVudHN0eWxlc1xsc2RzdGltYXgxNTZc
-bHNkbG9ja2VkZGVmMH17XCpccnNpZHRibCBccnNpZDEwMzEzXHJzaWQxOTgw
-OTFccnNpZDEzODAyOTFccnNpZDI0NTM3MjBccnNpZDI1NzcwMjlccnNpZDMw
-MjI1NzFccnNpZDM0MTU1OTBccnNpZDM1NDc3NDVccnNpZDM4OTE5NDNccnNp
-ZDY1NzYyMDFccnNpZDc0ODgxMDFccnNpZDkxMzIzNTBccnNpZDk3MDEzNzdc
-cnNpZDEwODg0MTE1XHJzaWQxMTk1NzAyOFxyc2lkMTIwODgzMDkNClxyc2lk
-MTIxOTk3MDZccnNpZDEzNTg2MTc4XHJzaWQxNTI5NDE5OFxyc2lkMTU3NDYy
-MDVccnNpZDE2NjU5Mzc4fXtcKlxnZW5lcmF0b3IgTWljcm9zb2Z0IFdvcmQg
-MTEuMC41NjA0O317XGluZm97XHRpdGxlIERlYXIgU2lyLH17XGF1dGhvciB1
-c2VyfXtcb3BlcmF0b3IgdXNlcn17XGNyZWF0aW1ceXIyMDExXG1vN1xkeTE5
-XGhyN1xtaW4yNn17XHJldnRpbVx5cjIwMTJcbW8yXGR5MTdcaHI4XG1pbjV9
-e1x2ZXJzaW9uMTd9e1xlZG1pbnMxMn0NCntcbm9mcGFnZXMyfXtcbm9md29y
-ZHM0OTR9e1xub2ZjaGFyczI4MjF9e1xub2ZjaGFyc3dzMzMwOX17XHZlcm4y
-NDY4OX19XHdpZG93Y3RybFxmdG5ialxhZW5kZG9jXG5veGxhdHRveWVuXGV4
-cHNocnRuXG5vdWx0cmxzcGNcZG50Ymxuc2JkYlxub3NwYWNlZm9ydWxcaHlw
-aGNhcHMwXGhvcnpkb2NcZGdoc3BhY2UxMjBcZGd2c3BhY2UxMjBcZGdob3Jp
-Z2luMTcwMVxkZ3ZvcmlnaW4xOTg0XGRnaHNob3cwXGRndnNob3czDQpcamNv
-bXByZXNzXHZpZXdraW5kNFx2aWV3c2NhbGUxMDBcbm9sbmh0YWRqdGJsXHJz
-aWRyb290NjU3NjIwMSBcZmV0MFxzZWN0ZCBcbGluZXgwXHNlY3RkZWZhdWx0
-Y2xcc2Z0bmJqIHtcKlxwbnNlY2x2bDFccG51Y3JtXHBuc3RhcnQxXHBuaW5k
-ZW50NzIwXHBuaGFuZyB7XHBudHh0YSAufX17XCpccG5zZWNsdmwyXHBudWNs
-dHJccG5zdGFydDFccG5pbmRlbnQ3MjBccG5oYW5nIHtccG50eHRhIC59fXtc
-KlxwbnNlY2x2bDMNClxwbmRlY1xwbnN0YXJ0MVxwbmluZGVudDcyMFxwbmhh
-bmcge1xwbnR4dGEgLn19e1wqXHBuc2VjbHZsNFxwbmxjbHRyXHBuc3RhcnQx
-XHBuaW5kZW50NzIwXHBuaGFuZyB7XHBudHh0YSApfX17XCpccG5zZWNsdmw1
-XHBuZGVjXHBuc3RhcnQxXHBuaW5kZW50NzIwXHBuaGFuZyB7XHBudHh0YiAo
-fXtccG50eHRhICl9fXtcKlxwbnNlY2x2bDZccG5sY2x0clxwbnN0YXJ0MVxw
-bmluZGVudDcyMFxwbmhhbmcge1xwbnR4dGIgKH17XHBudHh0YSApfX0NCntc
-KlxwbnNlY2x2bDdccG5sY3JtXHBuc3RhcnQxXHBuaW5kZW50NzIwXHBuaGFu
-ZyB7XHBudHh0YiAofXtccG50eHRhICl9fXtcKlxwbnNlY2x2bDhccG5sY2x0
-clxwbnN0YXJ0MVxwbmluZGVudDcyMFxwbmhhbmcge1xwbnR4dGIgKH17XHBu
-dHh0YSApfX17XCpccG5zZWNsdmw5XHBubGNybVxwbnN0YXJ0MVxwbmluZGVu
-dDcyMFxwbmhhbmcge1xwbnR4dGIgKH17XHBudHh0YSApfX1ccGFyZFxwbGFp
-biANClxxbCBcbGkwXHJpMFxzYjEwMFxzYTEwMFxzbDI4OFxzbG11bHQwXG5v
-d2lkY3RscGFyXGZhYXV0b1xyaW4wXGxpbjBcaXRhcDAgXGZzMjRcbGFuZzEw
-MzNcbGFuZ2ZlMTAzM1xjZ3JpZFxsYW5nbnAxMDMzXGxhbmdmZW5wMTAzMyB7
-XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2MjAxIERlYXIgU2lyLA0KXHBhciBB
-ZnRlciBteSBlbnF1aXJ5IGZyb20gdGhlXH5pbnRlcm5hdGlvbmFsIHRyYWRl
-IGNlbnRlclx+Sm9oYW5uZXNidXJnIFNvdXRoIEFmcmljYSwgSSBmb3VuZCB5
-b3VyIGluZm9ybWF0aW9uIHZlcnkgaW50ZXJlc3RpbmcgYW5kIGRlY2lkZWQg
-dG8gcmVhY2ggeW91IGRpcmVjdGx5IHRvIHNvbGljaXQgZm9yIHlvdXIgYXNz
-aXN0YW5jZSBhbmQgZ3VpZGVsaW5lcyBpbiBtYWtpbmcgYSBidXNpbmVzcyBp
-fXsNClxmMVxmczIwXGNmMVxpbnNyc2lkMjQ1MzcyMCBudmVzdG1lbnQgYW5k
-IHRyYW5zZmVyIG9mIChVUyQzMX17XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2
-MjAxICw1MDAsMDAwLjAwKSB0byB5b3VyIGNvdW50cnkgd2l0aGluIHRoZSBu
-ZXh0IGZldyBkYXlzLg0KXHBhciBQbGVhc2UgSSBtdXN0IHBsZWFkIGZvciB5
-b3VyIGNvbmZpZGVuY2UgaW4gdGhpcyB0cmFuc2FjdGlvbi4gSSBhbSBhIGhp
-Z2ggcGxhY2VkIG9mZmljaWFsIHdvcmtpbmcgd2l0aCBEZXBhcnRtZW50IG9m
-IChGaW5hbmNlICYgRWNvbm9taWMgQWZmYWlycyksIGluXH5Kb2hhbm5lc2J1
-cmcuIEkgYW5kIG9uZSBvdGhlciBjb2xsZWFndWUgYXJlIGN1cnJlbnRseSBp
-biBuZWVkIG9mIGEgc2lsZW50IGZvcmVpZ24gcGFydG5lciB3aG9zZSBpZGVu
-dGl0eSANCndlIGNhbiB1c2UgdG8gdHJhbnNmZXIgdGhpcyBzdW0gb2YgbW9u
-ZXksIGJ1dCBhdCB0aGlzIG1vbWVudCwgSSBhbSBjb25zdHJhaW5lZCBub3Qg
-dG8gaXNzdWUgbW9yZSBkZXRhaWxzIGFib3V0IHRoaXMgcHJvZml0YWJsZSBi
-dXNpbmVzcyBpbnZlc3RtZW50IHVudGlsIEkgZ2V0IHlvdXIgcmVzcG9uc2Ug
-YnkgZW1haWwsIHBsZWFzZSBpZiB5b3UgY2FuIHRha2Ugb3V0IGEgbW9tZW50
-IG9mIHlvdXIgdmVyeSBidXN5IHNjaGVkdWxlIHRvZGF5IHRvIA0KcmVzcG9u
-ZCBiYWNrIHRvIG15IHByaXZhdGUgZW1haWwgZm9yIG1vcmUgZGV0YWlscyBh
-bmQgaW5jbHVkZSB5b3VyIHByaXZhdGUgdGVsZXBob25lIG51bWJlciBpbiB5
-b3VyIHJlc3BvbnNlIHdoaWNoIEkgYW5kIG15IGNvbGxlYWd1ZSB3aWxsIGhp
-Z2hseSBhcHByZWNpYXRlLn17XGYzNlxmczIwXGNmMVxpbnNyc2lkNjU3NjIw
-MSANClxwYXIgfXtcZjFcZnMyMFxjZjFcaW5zcnNpZDY1NzYyMDEgVGhpcyBm
-dW5kIGFjY3J1ZWQgdG8gdXMgYXMgY29tbWlzc2lvbiBmcm9tIGZvcmVpZ24g
-Y29udHJhY3RzLCB0aHJvdWdoIG91ciBwcml2YXRlIGNvbm5lY3Rpb25zLiBU
-aGUgZnVuZCBpcyBwcmVzZW50bHkgd2FpdGluZyB0byBiZSByZW1pdHRlZCBm
-cm9tIHRoZSBiYW5rIGhlcmUgaW5cflNvdXRoIEFmcmljYVx+DQp0byBhbnkg
-b3ZlcnNlYXMgYmVuZWZpY2lhcnkgY29uZmlybWVkIGJ5IHVzIGFzIGFzc29j
-aWF0ZS9yZWNlaXZlci4gQnkgdmlydHVlIG9mIG91ciBwb3NpdGlvbnMgYXMg
-Y2l2aWwgc2VydmFudHMgaW4gbXkgY291bnRyeSwgd2UgY2Fubm90IGFjcXVp
-cmUgdGhpcyBtb25leSBpbiBvdXIgbmFtZXMuIEJlY2F1c2UgYXMNCiBoaWdo
-IHBsYWNlZCBjaXZpbCBzZXJ2YW50cywgd2UgYXJlIG5vdCBhbGxvd2VkIGJ5
-IHRoZSBjaXZpbCBzZXJ2aWNlIGNvZGUgb2YgY29uZHVjdCB0byBvd24gb3Ig
-b317XGYxXGZzMjBcY2YxXGluc3JzaWQyNTc3MDI5IHBlcmF0ZVx+YmFuayBh
-Y2NvdW50cyBvdXRzaWRlIH17XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2MjAx
-IA0Kb3VyIHNob3Jlcy4gT24gdGhlIG90aGVyIGhhbmQsIGl0IGlzIG5vdCBz
-YWZlIGZvciB1cyB0byBrZWVwIHRoZSBtb25leSBoZXJlIGR1ZSB0byB1bnN0
-YWJsZSBwb2xpdGljYWwgZW52aXJvbm1lbnQufXtcZjM2XGZzMjBcY2YxXGlu
-c3JzaWQ2NTc2MjAxIA0KXHBhciB9e1xmMVxmczIwXGNmMVxpbnNyc2lkNjU3
-NjIwMSBJIGhhdmUgYmVlbiBtYW5kDQphdGVkIGFzIGEgbWF0dGVyIG9mIHRy
-dXN0IGJ5IG15IGNvbGxlYWd1ZSwgdG8gbG9vayBmb3IgYW4gb3ZlcnNlYXMg
-c2lsZW50IHBhcnRuZXIgd2hvIGNvdWxkIHdvcmsgd2l0aCB1cyB0byBmYWNp
-bGl0YXRlIHRyYW5zZmVyIG9mIHRoaXMgZnVuZCBmb3Igb3VyIG11dHVhbCBi
-ZW5lZml0LCBoZW5jZSB0aGUgcmVhc29uIGZvciB0aGlzIGxldHRlci4gTXkg
-cHJvcG9zYWwgaXMgdGhhdCBhZnRlciB5b3UgcmVjZWl2ZSB0aGUgZnVuZHMs
-IGl0IHdvdWwNCmQgYmUgc2hhcmVkIGFzIGZvbGxvd3M6ICgxKSAyNSUgdG8g
-eW91IGFzIGNvbW1pc3Npb24gZm9yIHlvdXIgY28tb3BlcmF0aW9uIGFuZFx+
-YXNzaXN0YW5jZSBpbiBmYWNpbGl0YXRpbmcgdGhlIHRyYW5zZmVyLCB3aGls
-ZSB0aGUgcmVtYWluaW5nIDc1JSBiZWxvbmdzIHRvIG1lIGFuZCBteSBjb2xs
-ZWFndWUuXH59e1xmMzZcZnMyMFxjZjFcaW5zcnNpZDY1NzYyMDEgDQpccGFy
-IH17XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2MjAxIFlvdSB3aWxsIGJlIGZy
-ZWUgdG8gdGFrZSBvdXQgeW91ciBjb21taXNzaW9uIGltbWVkaWF0ZWx5IGFm
-dGVyIHRoZSBtb25leSBoaXRzIHlvDQp1ciBhY2NvdW50IGluIHlvdXIgY291
-bnRyeS4gU2luY2Ugb3VyIG9iamVjdGl2ZSBpcyB0byBpbnZlc3QgdGhlIG1v
-bmV5IGluIGEgZm9yZWlnbiBjb3VudHJ5LCBpdCB3b3VsZCBiZSBhcHByZWNp
-YXRlZCBpZiB5b3UgY291bGQgYWxzbyBoZWxwIHVzIHdpdGggYWR2aWNlcyBh
-bmQgZGlyZWN0aW9uIG9uIGludmVzdGluZyBpbnRvIHByb2ZpdGFibGUgdmVu
-dHVyZXMgaW4geW91ciBjb3VudHJ5LiBIb3dldmVyLCB0aGlzIGlzIG9wdGlv
-bmFsLCBhbmQNCiANCmlmIGl0IGlzIG5vdCBjb252ZW5pZW50IGZvciB5b3Ug
-dG8gZnVydGhlciBhc3Npc3QgdXMgd2l0aCBpbnZlc3RpbmcgdGhlIG1vbmV5
-LCB3ZSBjYW4gZW5kIG91ciBjb29wZXJhdGlvbiBhZnRlciB5b3UgbWFrZSBh
-dmFpbGFibGUgdG8gbWUgb3VyIHBhcnQgb2YgdGhlIG1vbmV5LiBUaGUgdHJh
-bnNhY3Rpb24sIGFsdGhvdWdoIGRpc2NyZXRlLCBpcyBsZWdpdGltYXRlIGFu
-ZCB0aGUgbW9uZXkgd2lsbCBiZSB0cmFuc2ZlcnJlZCBzdWNjZXNzZnVsIA0K
-d2l0aCBhbGwgbmVjZXNzYXJ5IGJhY2stdXAgb2ZmaWNpYWwgZG9jdW1lbnRz
-IHNob3dpbmcgdGhlIGxlZ2l0aW1hdGUgc291cmNlL29yaWdpbiBvZiBmdW5k
-LiBUaGUgdHJhbnNmZXIgd2lsbCBiZSBhZmZlY3RlZCB3aXRoaW4gYSBwZXJp
-b2Qgbm90IGxvbmdlciB0aGFuIG9uZSB3ZWVrIGFzIHNvb24gYXMgd2UgcmVh
-Y2ggYW4gYWdyZWVtZW50XH4NCmFuZCB5b3UgZnVybmlzaCBtZSB3aXRoIGEg
-c3VpdGFibGUgcmVzcG9uc2UgaW5kaWNhdGluZyB5b3VyIGludGVyZXN0IGZv
-ciBwcm9jZXNzaW5nIHRoZSB0cmFuc2Zlci59e1xmMzZcZnMyMFxjZjFcaW5z
-cnNpZDY1NzYyMDEgDQpccGFyIH17XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2
-MjAxIEkgcGxlYWQgd2l0aCB5b3Ugb24gb25lIGlzc3VlLCB3aGV0aGVyIHlv
-dSBhcmUgaW50ZXJlc3RlZCBvciBub3QsIGtpbmRseSBkbyBub3QgZXhwb3Nl
-IHRoaXMgaW5mb3JtYXRpb24gdG8gYW55IG9uZSBlbHNlLiBJIGNvbmZpcm0g
-dGhhdCB0aGUgdHJhbnNhY3Rpb24gaXMgbGVnaXRpbWF0ZSBhbmQgd2l0aG91
-dCBhbnkgcmlzayBlaXRoZXIgdG8geW91cnNlbGYgb3IgdXMuIFBsZWFzZQ0K
-LCBnaXZlIG1lIHlvdXIgcmVzcG99e1xmMVxmczIwXGNmMVxpbnNyc2lkMjU3
-NzAyOSBuc2UgaW1tZWRpYXRlbHkgYnl9e1xmMVxmczIwXGNmMVxpbnNyc2lk
-NjU3NjIwMSAgfXtcZjFcZnMyMFxjZjFcaW5zcnNpZDk3MDEzNzcgdGhpcyB9
-e1xmMVxmczIwXGNmMVxpbnNyc2lkNjU3NjIwMSBlbWFpbH17XGYxXGZzMjBc
-Y2YxXGluc3JzaWQyNTc3MDI5IC59e1xmMVxmczIwXGNmMVxpbnNyc2lkOTcw
-MTM3NyAgKH17DQpcY3MxNVxmMVxmczIwXGNmMVxpbnNyc2lkMTUyOTQxOTgg
-cGFuZHBhcn17XGNzMTVcZjFcZnMyMFxjZjFcaW5zcnNpZDE1NzQ2MjA1IHRu
-ZXIxMDg0fXtcY3MxNVxmMVxmczIwXGNmMVxpbnNyc2lkOTcwMTM3N1xjaGFy
-cnNpZDk3MDEzNzcgQGdhbGEubmV0KX17XGYzNlxmczIwXGNmMVxpbnNyc2lk
-NjU3NjIwMSANClxwYXIgfXtcZjFcZnMyMFxjZjFcaW5zcnNpZDY1NzYyMDEg
-XGxpbmUgWW91cnMgRmFpdGhmdWxseSx9e1xmMzZcZnMyMFxjZjFcaW5zcnNp
-ZDY1NzYyMDEgDQpccGFyIH1ccGFyZCBccWwgXGxpMFxyaTBcbm93aWRjdGxw
-YXJcZmFhdXRvXHJpbjBcbGluMFxpdGFwMCB7XGYxXGZzMjBcY2YxXGluc3Jz
-aWQ2NTc2MjAxIE1yLn17XGYxXGZzMjBcY2YxXGluc3JzaWQyNTc3MDI5ICB9
-e1xmMVxmczIwXGluc3JzaWQ2NTc2MjAxIEhhbmd3YW5pIE1vZGliYX17XGYx
-XGZzMjBcaW5zcnNpZDkxMzIzNTAgLn17XGYxXGZzMjBcY2YxXGluc3JzaWQ2
-NTc2MjAxIFxsaW5lIEZpbmFuY2UgJiBFY29ub21pYyBBZmZhaXJzIERlcHQu
-IA0KfXtcZjFcZnMyMFxpbnNyc2lkNjU3NjIwMVxjaGFycnNpZDY1NzYyMDEg
-DQpccGFyIH17XGYxXGZzMjBcY2YxXGluc3JzaWQ2NTc2MjAxIEpvaGFubmVz
-YnVyZywgU291dGggQWZyaWNhfXtcZjFcZnMyMFxjZjFcaW5zcnNpZDI1Nzcw
-MjkgLn17XGYxXGZzMjBcaW5zcnNpZDY1NzYyMDEgDQpccGFyIH19
+@@ -163,6 +163,11 @@ struct taskstats {
+ 	/* Delay waiting for memory reclaim */
+ 	__u64	freepages_count;
+ 	__u64	freepages_delay_total;
++	 /* Version 8 ends here */
++
++	/* Net accounting */
++	__u64   rx_bytes;
++	__u64   tx_bytes;
+ };
 
---0-1670907701-1329984709=:88836--
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 91c1c8b..7b4f3b0 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1735,6 +1735,16 @@ static inline int skb_copy_to_page(struct sock
+*sk, char __user *from,
+ 	return 0;
+ }
+
++static inline void task_net_accounting_rx(unsigned int len)
++{
++       current->rx_bytes += len; /* Ignore PDU header */
++}
++
++static inline void task_net_accounting_tx(unsigned int len)
++{
++       current->tx_bytes += len; /* Ignore PDU header */
++}
++
+ /**
+  * sk_wmem_alloc_get - returns write allocations
+  * @sk: socket
+diff --git a/kernel/fork.c b/kernel/fork.c
+index b77fd55..5788f3e 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1168,6 +1168,7 @@ static struct task_struct *copy_process(unsigned
+long clone_flags,
+ 	p->default_timer_slack_ns = current->timer_slack_ns;
+
+ 	task_io_accounting_init(&p->ioac);
++	p->rx_bytes = p->tx_bytes = 0;
+ 	acct_clear_integrals(p);
+
+ 	posix_cpu_timers_init(p);
+diff --git a/kernel/taskstats.c b/kernel/taskstats.c
+index e660464..4d1fcd2 100644
+--- a/kernel/taskstats.c
++++ b/kernel/taskstats.c
+@@ -194,6 +194,9 @@ static void fill_stats(struct task_struct *tsk,
+struct taskstats *stats)
+
+ 	/* fill in extended acct fields */
+ 	xacct_add_tsk(stats, tsk);
++
++	stats->rx_bytes = tsk->rx_bytes;
++	stats->tx_bytes = tsk->tx_bytes;
+ }
+
+ static int fill_stats_for_pid(pid_t pid, struct taskstats *stats)
+@@ -247,6 +250,9 @@ static int fill_stats_for_tgid(pid_t tgid, struct
+taskstats *stats)
+
+ 		stats->nvcsw += tsk->nvcsw;
+ 		stats->nivcsw += tsk->nivcsw;
++
++		stats->rx_bytes += tsk->rx_bytes;
++		stats->tx_bytes += tsk->tx_bytes;
+ 	} while_each_thread(first, tsk);
+
+ 	unlock_task_sighand(first, &flags);
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index ab46630..6d62190 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -622,6 +622,7 @@ done:
+ out:
+ 	if (err < 0)
+ 		return err;
++	task_net_accounting_tx(len);
+ 	return len;
+
+ do_confirm:
+@@ -729,6 +730,8 @@ done:
+ out:
+ 	if (err)
+ 		return err;
++	if (!(flags & MSG_PEEK))
++		task_net_accounting_rx(copied);
+ 	return copied;
+ }
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 37755cc..240384d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -682,8 +682,10 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t
+*ppos,
+
+ 	release_sock(sk);
+
+-	if (spliced)
++	if (spliced) {
++		task_net_accounting_rx(spliced);
+ 		return spliced;
++	}
+
+ 	return ret;
+ }
+@@ -860,6 +862,7 @@ wait_for_memory:
+ out:
+ 	if (copied)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle);
++	task_net_accounting_tx(copied);
+ 	return copied;
+
+ do_error:
+@@ -1114,6 +1117,7 @@ out:
+ 	if (copied)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle);
+ 	release_sock(sk);
++	task_net_accounting_tx(copied);
+ 	return copied;
+
+ do_fault:
+@@ -1771,6 +1775,8 @@ skip_copy:
+ 	tcp_cleanup_rbuf(sk, copied);
+
+ 	release_sock(sk);
++	if (!(flags & MSG_PEEK))
++		task_net_accounting_rx(copied);
+ 	return copied;
+
+ out:
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index cd99f1a..d2d09a3 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1006,8 +1006,10 @@ out:
+ 	ip_rt_put(rt);
+ 	if (free)
+ 		kfree(ipc.opt);
+-	if (!err)
++	if (!err) {
++		task_net_accounting_tx(len);
+ 		return len;
++	}
+ 	/*
+ 	 * ENOBUFS = no kernel mem, SOCK_NOSPACE = no sndbuf space.  Reporting
+ 	 * ENOBUFS might not be good (it's not tunable per se), but otherwise
+@@ -1073,8 +1075,10 @@ int udp_sendpage(struct sock *sk, struct page
+*page, int offset,
+ 	up->len += size;
+ 	if (!(up->corkflag || (flags&MSG_MORE)))
+ 		ret = udp_push_pending_frames(sk);
+-	if (!ret)
++	if (!ret) {
+ 		ret = size;
++		task_net_accounting_tx(size);
++	}
+ out:
+ 	release_sock(sk);
+ 	return ret;
+@@ -1237,6 +1241,8 @@ try_again:
+ 		ip_cmsg_recv(msg, skb);
+
+ 	err = copied;
++	if (!(flags & MSG_PEEK))
++		task_net_accounting_rx(copied);
+ 	if (flags & MSG_TRUNC)
+ 		err = ulen;
