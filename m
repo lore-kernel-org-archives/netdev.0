@@ -1,48 +1,41 @@
-From: Florian Mickler <florian@mickler.org>
-Subject: Re: Regression tracking
-Date: Fri, 24 Feb 2012 00:22:10 +0100
-Message-ID: <20120224002210.0f59ff53@schatten>
-References: <201201222031.51116.maciej.rutecki@gmail.com>
-	<201201222052.02135.maciej.rutecki@gmail.com>
-	<20120122.150707.1411449164435920150.davem@davemloft.net>
-	<201201230152.25575.rjw@sisk.pl>
-	<20120223235213.37735af8@schatten>
-	<20120223230531.GA6589@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.3-rc4+: Reported regressions from 3.2
+Date: Thu, 23 Feb 2012 18:28:25 -0500 (EST)
+Message-ID: <20120223.182825.1031311733171854243.davem@davemloft.net>
+References: <y44pDJ8xoDC.A.08E.h8rRPB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120223230531.GA6589@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-scsi@vger.kernel.org, linux-acpi@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	florian@mickler.org, akpm@linux-foundation.org,
+	kernel-testers@vger.kernel.org, torvalds@linux-foundation.org,
+	linux-pm@lists.linux-foundation.org, maciej.rutecki@gmail.com
+To: rjw@sisk.pl
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <y44pDJ8xoDC.A.08E.h8rRPB@chimera>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Feb 2012 18:05:32 -0500
-Dave Jones <davej@redhat.com> wrote:
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Thu, 23 Feb 2012 23:51:20 +0100 (CET)
 
-> On Thu, Feb 23, 2012 at 11:52:13PM +0100, Florian Mickler wrote:
-> 
->  > If you don't do that, I fear that I will annoy you from time to time
->  > with: "is this issue fixed already?" or "hey, what about that 4 month
->  > old regression? Is it already fixed?".
-> 
-> If you intend to do this, please add me to your "do not mail" list.
-> 
-> For people working at distributions acting as middle-man, this isn't
-> helpful at all. And it's just not feasible for me to go dig out every
-> thread I posted to just to reply with "fixed".
-> 
-> 	Dave
-> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=42776
+> Subject		: OF-related boot crash in 3.3.0-rc3-00188-g3ec1e88
+> Submitter	: Meelis Roos <mroos@linux.ee>
+> Date		: 2012-02-13 7:45 (11 days old)
+> Message-ID	: <alpine.SOC.1.00.1202130942030.1488@math.ut.ee>
+> References	: http://marc.info/?l=linux-kernel&m=132911916331615&w=2
 
-You are not on my go-to-guy list since you do not maintain a kernel
-subsystem and I don't expect you to keep track of anything. If you post
-a link to a rh-bugzilla, I will of course check if that one is still
-open or how it is closed. I'm not stupid, I just need some
-silver linen threads to find how a regression is solved.
+Potential workaround/fix at:
 
-I.e. I don't want a "fixed". I want a "commit xyz fixed this"
-or a "I can't reproduce the bug anymore". Either is fine. 
+http://marc.info/?l=linux-kernel&m=132993294018762&w=2
