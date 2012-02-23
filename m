@@ -1,58 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 5/5] sfc: Correct
- efx_for_each_possible_channel_tx_queue() to skip non-TX channels
-Date: Thu, 23 Feb 2012 17:41:56 +0000
-Message-ID: <1330018916.2511.6.camel@bwh-desktop>
-References: <1330018734.2511.1.camel@bwh-desktop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: limited network bandwidth with 3.2.x kernels
+Date: Thu, 23 Feb 2012 13:39:00 -0500
+Message-ID: <CADVnQyk+ujAXPh1=59TB-Pb6ZcQX8NWCN5pWoNvXXLBnr6qOhg@mail.gmail.com>
+References: <20120222055139.GB8026@google.com>
+	<1329896195.18384.83.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:7318 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752154Ab2BWRmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 12:42:00 -0500
-In-Reply-To: <1330018734.2511.1.camel@bwh-desktop>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:50438 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756Ab2BWSjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 13:39:02 -0500
+Received: by qadc10 with SMTP id c10so7011925qad.19
+        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 10:39:01 -0800 (PST)
+In-Reply-To: <1329896195.18384.83.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-efx_for_each_possible_channel_tx_queue() should do nothing for RX-only
-or extra channels.  The current definition results in allocating
-additional unused hardware TX queues when using the mqprio qdisc and
-either separate_tx_channels or SR-IOV.
+On Wed, Feb 22, 2012 at 2:36 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> This skb->truesize/skb->len affair is suspect if you ask me.
+>
+> We increase rcv_ssthresh if we receive a 'good skb', but we have no
+> guarantee of future skbs.
+>
+> When we are close to the converged value, we might spend some time in
+> tcp_grow_window() and decide not to increase rcv_sshthresh
+>
+> IMHO a better way would be to look at integration values
+> (sk->sk_rmem_alloc) to not increase rcv_sshthresh if socket receive
+> queue is full of 'bad skbs'
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/net_driver.h |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+I agree that using a single skb->truesize/skb->len sample is
+unfortunate, and it would be nice to have a larger sample size.
 
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 3fbec45..0b95505 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1030,9 +1030,12 @@ static inline bool efx_tx_queue_used(struct efx_tx_queue *tx_queue)
- 
- /* Iterate over all possible TX queues belonging to a channel */
- #define efx_for_each_possible_channel_tx_queue(_tx_queue, _channel)	\
--	for (_tx_queue = (_channel)->tx_queue;				\
--	     _tx_queue < (_channel)->tx_queue + EFX_TXQ_TYPES;		\
--	     _tx_queue++)
-+	if (!efx_channel_has_tx_queues(_channel))			\
-+		;							\
-+	else								\
-+		for (_tx_queue = (_channel)->tx_queue;			\
-+		     _tx_queue < (_channel)->tx_queue + EFX_TXQ_TYPES;	\
-+		     _tx_queue++)
- 
- static inline bool efx_channel_has_rx_queue(struct efx_channel *channel)
- {
--- 
-1.7.7.6
+Looking at sk->sk_rmem_alloc would be an improvement, though I'm
+guessing that often this will still be a small sample of just a couple
+of packets, for the case of well-behaved apps that mostly keep up with
+reading everything that arrives in their read buffer.
 
+If we wanted a larger sample of truesize/len ratios, perhaps we'd want
+some sort of exponentially weighted moving average of skb->truesize
+and skb->len, or the ratio of the two. That could give us a larger
+sample even for well-behaved apps that keep their read queues short.
+But that is starting to seem like it's perhaps overkill.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Note that with your patch and 'good skb', rcv_ssthresh increases slower
+> than before (MSS increases instead of 2*MSS)
+
+Good point. How about:
+
+  u32 incr = max(skb->len, 2U * tp->advmss);
+
+Or do you think we'd want:
+
+  u32 incr = 2U * max(skb->len, tp->advmss);
+
+neal
