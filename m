@@ -1,34 +1,73 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: Re: WARNING: at kernel/softirq.c:159
- _local_bh_enable_ip+0x35/0x71()
-Date: Thu, 23 Feb 2012 16:30:55 +0100
-Message-ID: <1330011055.11248.21.camel@twins>
-References: <1422860.157191329872584374.JavaMail.weblogic@epml01>
-	 <20120223104237.GA2127@electric-eye.fr.zoreil.com>
-	 <1329998028.15610.14.camel@edumazet-laptop>
-	 <1330003354.11248.9.camel@twins>
-	 <1330006866.15610.18.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	Jongman Heo <jongman.heo@samsung.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Scott J. Goldman" <scottjg@vmware.com>,
-	VMware PV-Drivers <pv-drivers@vmware.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: design@dedicatedserver.com.hk
+Subject: Web Development Service~~~
+Date: Thu, 23 Feb 2012 23:24:07 +0800 (HKT)
+Message-ID: <PajoE8X8__15537.4339818538$1330011278$gmane$org@pavo.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:39919 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728Ab2BWPbD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 10:31:03 -0500
-In-Reply-To: <1330006866.15610.18.camel@edumazet-laptop>
+Received: from 124-248-200-59.sunnyvision.com ([124.248.200.59]:43458 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756437Ab2BWPeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 10:34:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-02-23 at 15:21 +0100, Eric Dumazet wrote:
-> Well, definitely a cleanup is possible, but probably not suitable for
-> 3.3 and stable kernels ? 
+Dear all,
+Please see below is our general job reference and web design package, 
 
-Nah, that'd be better suited for a development branch like :-)
+Total 12 pages web design service
+- Two language version
+- All the webpage design is included:
+- Theme development;
+- Design Study;
+- Original Layout / Artwork Design;
+- Steady HTML / Flash Web page development;
+- Search Engine Applicable;
+- Basic Graphic Flash Banner x1;
+- All text contents, logos and related product photos should be provided by client
+ Product eCatalogue (Product Page)
+
+- CMS Function of add /edit Products with Contents & Photos
+- Maximum 10 fields include Photos and Contents
+- Text Editor for Detail Contents (if need)
+- Support text descriptions and photos updating
+- 1 Level categories management
+- Database support with un-limit Products create
+- Not include Data input
+- Standard Admin panel with login function (1 admin account)
+Content management system (Activities page)
+
+- Basic CMS function of add / edit items
+- Max. 5 fields per item
+- Support photos and text descriptions
+- Front-end support 1 page only (Comapny activities page)
+- Database support with un-limit Products create
+- Not include Data input
+- Integrated Admin Panel
+Enquiry form function (Contact Us)
+- Form to mail
+Package price : $38,000
+
+Yoy may click the hyperlink to see some of our design reference.
+
+Job reference
+
+http://www.hk-belle.com/
+http://www.mirabell.com.hk/
+http://www.nikijodi.com/
+http://www.joy-peace.com/
+http://www.staccato.com
+http://www.chicks.com.hk/
+
+
+Program reference
+http://www.gloryskygroup.com/index.aspx=3Flang=3Dbig5
+http://www.mydriver.com.hk/
+ 
+Best Regards,
+Eric Chan
+Senior Sales Executive
+Mobile: 9533 6486
+
+If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message
