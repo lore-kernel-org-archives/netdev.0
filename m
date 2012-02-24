@@ -1,148 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH v2] checkpatch: Add some --strict coding style checks
-Date: Fri, 24 Feb 2012 10:37:55 -0800
-Message-ID: <1330108675.18464.21.camel@joe2Laptop>
-References: <20120221151435.GA19354@tuxdriver.com>
-	 <20120221.144417.1445117001833888214.davem@davemloft.net>
-	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
-	 <20120221.154053.2103818562080068513.davem@davemloft.net>
-	 <1329857959.5143.11.camel@joe2Laptop>
-	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
-	 <1329874581.5143.22.camel@joe2Laptop>
-	 <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>
-	 <1329875935.5143.24.camel@joe2Laptop>
-	 <804857E1F29AAC47BF68C404FC60A18429B98A@ORSMSX102.amr.corp.intel.com>
-	 <1329968622.5143.46.camel@joe2Laptop>
-	 <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2] enic: Silence Sparse Warning: "dubious: x | !y"
+Date: Fri, 24 Feb 2012 19:10:50 +0000
+Message-ID: <1330110650.2397.8.camel@bwh-desktop>
+References: <1330102654-2474-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"andrei.emeltchenko.news@gmail.com"
-	<andrei.emeltchenko.news@gmail.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Andy Whitcroft <apw@shadowen.org>
+Cc: <benve@cisco.com>, <roprabhu@cisco.com>, <neepatel@cisco.com>,
+	<nistrive@cisco.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: santosh nayak <santoshprasadnayak@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
+In-Reply-To: <1330102654-2474-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Argument alignment across multiple lines should
-match the open parenthesis.
+On Fri, 2012-02-24 at 22:27 +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> 
+> Sparse is giving the following warning:
+> "warning: dubious: x | !y"
+> 
+> "enic_are_pp_different" is static and expected to return true or false.
+> Logical or is indended here. With logical or, in best case, execution will be
+> faster because if leftmost operand is true then no need to check other operands.
 
-Logical continuations should be at the end of
-the previous line, not the start of a new line.
+The shortcut behaviour of logical-or means more conditional jumps to be
+predicted and more potential for pipeline stalls.  So bitwise-or can in
+some cases be more efficient.  But this function appears to be
+control-path code where micro-optimisation just doesn't matter.  Use of
+logical-or can be justified purely on the grounds of clarity.
 
-These are not required by CodingStyle so make the
-tests active only when using --strict.
+Ben.
 
-Improved_by_examples_from: "Bruce W. Allen" <bruce.w.allan@intel.com>
-Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> ---
+>  drivers/net/ethernet/cisco/enic/enic_pp.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
+> index dafea1e..3a6de22 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_pp.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_pp.c
+> @@ -159,10 +159,10 @@ static int enic_unset_port_profile(struct enic *enic, int vf)
+>  static int enic_are_pp_different(struct enic_port_profile *pp1,
+>  		struct enic_port_profile *pp2)
+>  {
+> -	return strcmp(pp1->name, pp2->name) | !!memcmp(pp1->instance_uuid,
+> -		pp2->instance_uuid, PORT_UUID_MAX) |
+> -		!!memcmp(pp1->host_uuid, pp2->host_uuid, PORT_UUID_MAX) |
+> -		!!memcmp(pp1->mac_addr, pp2->mac_addr, ETH_ALEN);
+> +	return strcmp(pp1->name, pp2->name) || !!memcmp(pp1->instance_uuid,
+> +		pp2->instance_uuid, PORT_UUID_MAX) ||
+> +		!!memcmp(pp1->host_uuid, pp2->host_uuid, PORT_UUID_MAX) ||
+> +		!!memcmp(pp1->mac_addr, pp2->mac_addr, ETH_ALEN);
+>  }
+>  
+>  static int enic_pp_preassociate(struct enic *enic, int vf,
 
----
-
-V2: Scan the entire line for balanced parentheses,
-    use the position of the last non-balanced open parenthesis.
-    Allow all space indentation too, checkpatch will complain
-    in a different message about that if it's too long.
-
- scripts/checkpatch.pl |   65 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 63 insertions(+), 2 deletions(-)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 89d24b3..7a0514b 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -330,10 +330,11 @@ sub build_types {
- }
- build_types();
- 
--our $match_balanced_parentheses = qr/(\((?:[^\(\)]+|(-1))*\))/;
-+our $balanced_parens = qr/(\((?:[^\(\)]++|(?-1))*\))/;
-+our $lval_parens = qr/(\((?:[^\(\)]+|(-1))*\))/;
- 
- our $Typecast	= qr{\s*(\(\s*$NonptrType\s*\)){0,1}\s*};
--our $LvalOrFunc	= qr{($Lval)\s*($match_balanced_parentheses{0,1})\s*};
-+our $LvalOrFunc	= qr{($Lval)\s*($lval_parens{0,1})\s*};
- our $FuncArg = qr{$Typecast{0,1}($LvalOrFunc|$Constant)};
- 
- sub deparenthesize {
-@@ -1330,6 +1331,36 @@ sub check_absolute_file {
- 	}
- }
- 
-+sub pos_last_openparen {
-+	my ($line) = @_;
-+
-+	my $pos = 0;
-+
-+	my $opens = $line =~ tr/\(/\(/;
-+	my $closes = $line =~ tr/\)/\)/;
-+
-+	my $last_openparen = 0;
-+
-+	if (($opens == 0) || ($closes >= $opens)) {
-+		return -1;
-+	}
-+
-+	my $len = length($line);
-+
-+	for ($pos = 0; $pos < $len; $pos++) {
-+		my $string = substr($line, $pos);
-+		if ($string =~ /^($FuncArg|$balanced_parens)/) {
-+			$pos += length($1);
-+		}
-+
-+		if (substr($line, $pos, 1) eq '(') {
-+			$last_openparen = $pos;
-+		}
-+	}
-+
-+	return $last_openparen + 1;
-+}
-+
- sub process {
- 	my $filename = shift;
- 
-@@ -1783,6 +1814,36 @@ sub process {
- 			     "please, no space before tabs\n" . $herevet);
- 		}
- 
-+# check for && or || at the start of a line
-+		if ($rawline =~ /^\+\s*(&&|\|\|)/) {
-+			CHK("LOGICAL_CONTINUATIONS",
-+			    "Logical continuations should be on the previous line\n" . $hereprev);
-+		}
-+
-+# check multi-line statement indentation matches previous line
-+		if ($prevline =~ /^\+(\t*)(if \(|$Ident\().*(\&\&|\|\||,)\s*$/) {
-+			$prevline =~ /^\+(\t*)(.*)$/;
-+			my $oldindent = $1;
-+			my $rest = $2;
-+
-+			my $pos = pos_last_openparen($rest);
-+			if ($pos >= 0) {
-+				$line =~ /^\+([ \t]*)/;
-+				my $newindent = $1;
-+
-+				my $goodtabindent = $oldindent .
-+					"\t" x ($pos / 8) .
-+					" "  x ($pos % 8);
-+				my $goodspaceindent = $oldindent . " "  x $pos;
-+
-+				if ($newindent ne $goodtabindent &&
-+				    $newindent ne $goodspaceindent) {
-+					CHK("PARENTHESIS_ALIGNMENT",
-+					    "Alignment should match open parenthesis\n" . $hereprev);
-+				}
-+			}
-+		}
-+
- # check for spaces at the beginning of a line.
- # Exceptions:
- #  1) within comments
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
