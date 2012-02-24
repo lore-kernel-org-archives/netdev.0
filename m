@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 12/12] rose: check given MAC address, if invalid return
- -EADDRNOTAVAIL
-Date: Fri, 24 Feb 2012 15:43:35 -0500 (EST)
-Message-ID: <20120224.154335.577711354132386075.davem@davemloft.net>
-References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
-	<1330099282-4588-13-git-send-email-danny.kukawka@bisect.de>
-	<20120224161358.17df7421@pyramind.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: danny.kukawka@bisect.de, ralf@linux-mips.org, dkukawka@suse.de,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20120224161358.17df7421@pyramind.ukuu.org.uk>
-Sender: linux-hams-owner@vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] netlink: netlink_dump_start takes pointer to data
+Date: Fri, 24 Feb 2012 23:14:06 +0100
+Message-ID: <1330121648-2956-1-git-send-email-pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Fri, 24 Feb 2012 16:13:58 +0000
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-> On Fri, 24 Feb 2012 17:01:22 +0100
-> Danny Kukawka <danny.kukawka@bisect.de> wrote:
-> 
->> Check if given address is valid in .ndo_set_mac_address/
->> rose_set_mac_address(), if invalid return -EADDRNOTAVAIL as
->> eth_mac_addr() already does if is_valid_ether_addr() fails.
-> 
-> This patch series looks wrong - you cannot go blindly applying ethernet
-> mac address tests to device drivers without checking if they are using
-> 802.11 type addressing at the physical level.
+Hi,
 
-Right.
+This patch modifies netlink_dump_start to take a pointer to data.
+All caller are modified to use the new interface. This pointer can
+be accessed via cb->data from the callback.
+
+The follow-up patch for ctnetlink uses this change to pass the
+filter structure, which allows filtering the dump by the ct
+mark/mask.
+
+Let me know if you are OK with this change, I can included it
+in the next netfilter update or you may want to directly apply
+it.
+
+Thanks!
+
+Pablo Neira Ayuso (2):
+  netlink: netlink_dump_start may take data pointer for callbacks
+  netfilter: ctnetlink: support kernel-space dump filterings
+
+ crypto/crypto_user.c                          |    2 +-
+ drivers/infiniband/core/netlink.c             |    2 +-
+ include/linux/netfilter/nfnetlink_conntrack.h |    1 +
+ include/linux/netlink.h                       |    2 +
+ net/core/rtnetlink.c                          |    2 +-
+ net/ipv4/inet_diag.c                          |    4 +-
+ net/netfilter/ipset/ip_set_core.c             |    2 +-
+ net/netfilter/nf_conntrack_netlink.c          |   37 +++++++++++++++++++++++--
+ net/netfilter/nfnetlink_acct.c                |    2 +-
+ net/netlink/af_netlink.c                      |    2 +
+ net/netlink/genetlink.c                       |    2 +-
+ net/unix/diag.c                               |    2 +-
+ net/xfrm/xfrm_user.c                          |    2 +-
+ 13 files changed, 49 insertions(+), 13 deletions(-)
+
+-- 
+1.7.7.3
+
