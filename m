@@ -1,234 +1,59 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: [PATCH net-next v3] extend taskstats API to support networking accounts
-Date: Fri, 24 Feb 2012 18:21:10 +0800
-Message-ID: <4F476496.1070709@gmail.com>
-References: <4F45F73F.3000708@gmail.com> <20120223.033434.1801978370536071654.davem@davemloft.net>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH V2 4/6] NET: MIPS: lantiq: convert etop to managed gpio
+Date: Fri, 24 Feb 2012 14:36:47 +0400
+Message-ID: <4F47683F.1010303@mvista.com>
+References: <1330012913-13293-1-git-send-email-blogic@openwrt.org> <1330012913-13293-4-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: John Crispin <blogic@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:53191 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757395Ab2BXKVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 05:21:19 -0500
-Received: by iacb35 with SMTP id b35so2809733iac.19
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 02:21:18 -0800 (PST)
-In-Reply-To: <20120223.033434.1801978370536071654.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:47067 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752352Ab2BXKiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 05:38:05 -0500
+Received: by bkcjm19 with SMTP id jm19so1847105bkc.19
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 02:38:03 -0800 (PST)
+In-Reply-To: <1330012913-13293-4-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-This patch adds L7 traffic accounting in taskstats API, so
-the iotop like applications can receive these statistics data.
-In fact, I also have an iotop patch for this change.
+On 23-02-2012 20:01, John Crispin wrote:
 
-It ignores any protocol header overhead, so results of this
-patch should be saw as the applications-aware data statistics
-instead of traffic statistics on wire.
+> ltq_gpio_request() now uses devres to manage the gpios. We need to pass a
+> struct device pointer to make it work.
 
-The changes of v3 are:
+> Signed-off-by: John Crispin<blogic@openwrt.org>
+> Cc: netdev@vger.kernel.org
+> ---
+>   drivers/net/ethernet/lantiq_etop.c |    9 ++++++---
+>   1 files changed, 6 insertions(+), 3 deletions(-)
 
-1. Fix unsigned type of parameter of task_net_accounting_tx/rx()
+> diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+> index 66ec54a..e5ec8b1 100644
+> --- a/drivers/net/ethernet/lantiq_etop.c
+> +++ b/drivers/net/ethernet/lantiq_etop.c
+> @@ -292,9 +292,6 @@ ltq_etop_gbit_init(void)
+>   {
+>   	ltq_pmu_enable(PMU_SWITCH);
+>
+> -	ltq_gpio_request(42, 2, 1, "MDIO");
+> -	ltq_gpio_request(43, 2, 1, "MDC");
+> -
+>   	ltq_gbit_w32_mask(0, GCTL0_SE, LTQ_GBIT_GCTL0);
+>   	/** Disable MDIO auto polling mode */
+>   	ltq_gbit_w32_mask(0, PX_CTL_DMDIO, LTQ_GBIT_P0_CTL);
+> @@ -873,6 +870,12 @@ ltq_etop_probe(struct platform_device *pdev)
+>   			err = -ENOMEM;
+>   			goto err_out;
+>   		}
+> +		if (ltq_gpio_request(&pdev->dev, 42, 2, 1, "MDIO") ||
+> +				ltq_gpio_request(&pdev->dev, 43, 2, 1, "MDC")) {
 
-That is all, hope this is ready to merge.
+    This needs to be merged with patch 1 to keep the git tree bisectable
 
-Thanks.
-
-Signed-off-by: Li Yu <bingtian.ly@taobao.com>
-  include/linux/sched.h     |    2 ++
-  include/linux/taskstats.h |    7 ++++++-
-  include/net/sock.h        |   12 ++++++++++++
-  kernel/fork.c             |    1 +
-  kernel/taskstats.c        |    6 ++++++
-  net/socket.c              |   27 ++++++++++++++++++++++-----
-  6 files changed, 49 insertions(+), 6 deletions(-)
-
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 7d379a6..5b2dbc5 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1590,6 +1590,8 @@ struct task_struct {
-  #ifdef CONFIG_HAVE_HW_BREAKPOINT
-  	atomic_t ptrace_bp_refcnt;
-  #endif
-+       u64 rx_bytes;
-+       u64 tx_bytes;
-  };
-
-  /* Future-safe accessor for struct task_struct's cpus_allowed. */
-diff --git a/include/linux/taskstats.h b/include/linux/taskstats.h
-index 2466e55..39b356c 100644
---- a/include/linux/taskstats.h
-+++ b/include/linux/taskstats.h
-@@ -33,7 +33,7 @@
-   */
-
-
--#define TASKSTATS_VERSION	8
-+#define TASKSTATS_VERSION	9
-  #define TS_COMM_LEN		32	/* should be >= TASK_COMM_LEN
-  					 * in linux/sched.h */
-
-@@ -163,6 +163,11 @@ struct taskstats {
-  	/* Delay waiting for memory reclaim */
-  	__u64	freepages_count;
-  	__u64	freepages_delay_total;
-+	 /* Version 8 ends here */
-+
-+	/* Net accounting */
-+	__u64   rx_bytes;
-+	__u64   tx_bytes;
-  };
-
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 91c1c8b..1f52c2a 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1735,6 +1735,18 @@ static inline int skb_copy_to_page(struct sock 
-*sk, char __user *from,
-  	return 0;
-  }
-
-+static inline void task_net_accounting_rx(int len)
-+{
-+	if (!in_irq() && len > 0)
-+		current->rx_bytes += len;
-+}
-+
-+static inline void task_net_accounting_tx(int len)
-+{
-+	if (!in_irq() && len > 0)
-+		current->tx_bytes += len;
-+}
-+
-  /**
-   * sk_wmem_alloc_get - returns write allocations
-   * @sk: socket
-diff --git a/kernel/fork.c b/kernel/fork.c
-index b77fd55..5788f3e 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -1168,6 +1168,7 @@ static struct task_struct *copy_process(unsigned 
-long clone_flags,
-  	p->default_timer_slack_ns = current->timer_slack_ns;
-
-  	task_io_accounting_init(&p->ioac);
-+	p->rx_bytes = p->tx_bytes = 0;
-  	acct_clear_integrals(p);
-
-  	posix_cpu_timers_init(p);
-diff --git a/kernel/taskstats.c b/kernel/taskstats.c
-index e660464..4d1fcd2 100644
---- a/kernel/taskstats.c
-+++ b/kernel/taskstats.c
-@@ -194,6 +194,9 @@ static void fill_stats(struct task_struct *tsk, 
-struct taskstats *stats)
-
-  	/* fill in extended acct fields */
-  	xacct_add_tsk(stats, tsk);
-+
-+	stats->rx_bytes = tsk->rx_bytes;
-+	stats->tx_bytes = tsk->tx_bytes;
-  }
-
-  static int fill_stats_for_pid(pid_t pid, struct taskstats *stats)
-@@ -247,6 +250,9 @@ static int fill_stats_for_tgid(pid_t tgid, struct 
-taskstats *stats)
-
-  		stats->nvcsw += tsk->nvcsw;
-  		stats->nivcsw += tsk->nivcsw;
-+
-+		stats->rx_bytes += tsk->rx_bytes;
-+		stats->tx_bytes += tsk->tx_bytes;
-  	} while_each_thread(first, tsk);
-
-  	unlock_task_sighand(first, &flags);
-diff --git a/net/socket.c b/net/socket.c
-index 28a96af..c1b736d 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -548,6 +548,7 @@ static inline int __sock_sendmsg_nosec(struct kiocb 
-*iocb, struct socket *sock,
-  				       struct msghdr *msg, size_t size)
-  {
-  	struct sock_iocb *si = kiocb_to_siocb(iocb);
-+	int ret;
-
-  	sock_update_classid(sock->sk);
-
-@@ -558,7 +559,10 @@ static inline int __sock_sendmsg_nosec(struct kiocb 
-*iocb, struct socket *sock,
-  	si->msg = msg;
-  	si->size = size;
-
--	return sock->ops->sendmsg(iocb, sock, msg, size);
-+	ret = sock->ops->sendmsg(iocb, sock, msg, size);
-+	task_net_accounting_tx(ret);
-+
-+	return ret;
-  }
-
-  static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
-@@ -714,6 +718,7 @@ static inline int __sock_recvmsg_nosec(struct kiocb 
-*iocb, struct socket *sock,
-  				       struct msghdr *msg, size_t size, int flags)
-  {
-  	struct sock_iocb *si = kiocb_to_siocb(iocb);
-+	int ret;
-
-  	sock_update_classid(sock->sk);
-
-@@ -723,7 +728,10 @@ static inline int __sock_recvmsg_nosec(struct kiocb 
-*iocb, struct socket *sock,
-  	si->size = size;
-  	si->flags = flags;
-
--	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
-+	ret = sock->ops->recvmsg(iocb, sock, msg, size, flags);
-+	task_net_accounting_rx(ret);
-+
-+	return ret;
-  }
-
-  static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
-@@ -823,13 +831,17 @@ static ssize_t sock_splice_read(struct file *file, 
-loff_t *ppos,
-  				unsigned int flags)
-  {
-  	struct socket *sock = file->private_data;
-+	int ret;
-
-  	if (unlikely(!sock->ops->splice_read))
-  		return -EINVAL;
-
-  	sock_update_classid(sock->sk);
-
--	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
-+	ret = sock->ops->splice_read(sock, ppos, pipe, len, flags);
-+	task_net_accounting_rx(ret);
-+
-+	return ret;
-  }
-
-  static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
-@@ -3361,10 +3373,15 @@ EXPORT_SYMBOL(kernel_setsockopt);
-  int kernel_sendpage(struct socket *sock, struct page *page, int offset,
-  		    size_t size, int flags)
-  {
-+	int ret;
-+
-  	sock_update_classid(sock->sk);
-
--	if (sock->ops->sendpage)
--		return sock->ops->sendpage(sock, page, offset, size, flags);
-+	if (sock->ops->sendpage) {
-+		ret = sock->ops->sendpage(sock, page, offset, size, flags);
-+		task_net_accounting_tx(ret);
-+		return ret;
-+	}
-
-  	return sock_no_sendpage(sock, page, offset, size, flags);
-  }
+WBR, Sergei
