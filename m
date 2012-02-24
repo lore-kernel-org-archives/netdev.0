@@ -1,217 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/16] e1000: Neaten e1000_config_dsp_after_link_change
-Date: Fri, 24 Feb 2012 02:13:08 -0800
-Message-ID: <1330078389-8203-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/16] 8139too: Support RX-ALL logic.
+Date: Fri, 24 Feb 2012 02:13:02 -0800
+Message-ID: <1330078389-8203-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:43469 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756847Ab2BXKNT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 05:13:19 -0500
+	id S1756819Ab2BXKNR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 05:13:17 -0500
 In-Reply-To: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: Ben Greear <greearb@candelatech.com>
 
-Separate a complicated bit of e1000_config_dsp_after_link_change
-into a new static function e1000_1000Mb_check_cable_length.
+This allows the NIC to receive Runts and frames with bad
+Ethernet Frame Checksums (FCS).
 
-Reduces indentation and adds a bit of clarity.
+Useful to sniffing & diagnosing bad networks.
 
-Signed-off-by: Joe Perches <joe@perches.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c |  156 +++++++++++++--------------
- 1 files changed, 73 insertions(+), 83 deletions(-)
+ drivers/net/ethernet/realtek/8139too.c |   52 ++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index 36ee76b..c526279e4 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -5253,6 +5253,78 @@ static s32 e1000_check_downshift(struct e1000_hw *hw)
- 	return E1000_SUCCESS;
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 1c3feb0..1b9a090 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -907,6 +907,33 @@ err_out:
+ 	return ERR_PTR(rc);
  }
  
-+static const u16 dsp_reg_array[IGP01E1000_PHY_CHANNEL_NUM] = {
-+	IGP01E1000_PHY_AGC_PARAM_A,
-+	IGP01E1000_PHY_AGC_PARAM_B,
-+	IGP01E1000_PHY_AGC_PARAM_C,
-+	IGP01E1000_PHY_AGC_PARAM_D
-+};
-+
-+static s32 e1000_1000Mb_check_cable_length(struct e1000_hw *hw)
++static int rtl8139_set_features(struct net_device *dev, netdev_features_t features)
 +{
-+	u16 min_length, max_length;
-+	u16 phy_data, i;
-+	s32 ret_val;
++	struct rtl8139_private *tp = netdev_priv(dev);
++	unsigned long flags;
++	netdev_features_t changed = features ^ dev->features;
++	void __iomem *ioaddr = tp->mmio_addr;
 +
-+	ret_val = e1000_get_cable_length(hw, &min_length, &max_length);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (hw->dsp_config_state != e1000_dsp_config_enabled)
++	if (!(changed & (NETIF_F_RXALL)))
 +		return 0;
 +
-+	if (min_length >= e1000_igp_cable_length_50) {
-+		for (i = 0; i < IGP01E1000_PHY_CHANNEL_NUM; i++) {
-+			ret_val = e1000_read_phy_reg(hw, dsp_reg_array[i],
-+						     &phy_data);
-+			if (ret_val)
-+				return ret_val;
++	spin_lock_irqsave(&tp->lock, flags);
 +
-+			phy_data &= ~IGP01E1000_PHY_EDAC_MU_INDEX;
-+
-+			ret_val = e1000_write_phy_reg(hw, dsp_reg_array[i],
-+						      phy_data);
-+			if (ret_val)
-+				return ret_val;
-+		}
-+		hw->dsp_config_state = e1000_dsp_config_activated;
-+	} else {
-+		u16 ffe_idle_err_timeout = FFE_IDLE_ERR_COUNT_TIMEOUT_20;
-+		u32 idle_errs = 0;
-+
-+		/* clear previous idle error counts */
-+		ret_val = e1000_read_phy_reg(hw, PHY_1000T_STATUS, &phy_data);
-+		if (ret_val)
-+			return ret_val;
-+
-+		for (i = 0; i < ffe_idle_err_timeout; i++) {
-+			udelay(1000);
-+			ret_val = e1000_read_phy_reg(hw, PHY_1000T_STATUS,
-+						     &phy_data);
-+			if (ret_val)
-+				return ret_val;
-+
-+			idle_errs += (phy_data & SR_1000T_IDLE_ERROR_CNT);
-+			if (idle_errs > SR_1000T_PHY_EXCESSIVE_IDLE_ERR_COUNT) {
-+				hw->ffe_config_state = e1000_ffe_config_active;
-+
-+				ret_val = e1000_write_phy_reg(hw,
-+					      IGP01E1000_PHY_DSP_FFE,
-+					      IGP01E1000_PHY_DSP_FFE_CM_CP);
-+				if (ret_val)
-+					return ret_val;
-+				break;
-+			}
-+
-+			if (idle_errs)
-+				ffe_idle_err_timeout =
-+					    FFE_IDLE_ERR_COUNT_TIMEOUT_100;
-+		}
++	if (changed & NETIF_F_RXALL) {
++		int rx_mode = tp->rx_config;
++		if (features & NETIF_F_RXALL)
++			rx_mode |= (AcceptErr | AcceptRunt);
++		else
++			rx_mode &= ~(AcceptErr | AcceptRunt);
++		tp->rx_config = rtl8139_rx_config | rx_mode;
++		RTL_W32_F(RxConfig, tp->rx_config);
 +	}
++
++	spin_unlock_irqrestore(&tp->lock, flags);
 +
 +	return 0;
 +}
 +
- /**
-  * e1000_config_dsp_after_link_change
-  * @hw: Struct containing variables accessed by shared code
-@@ -5269,13 +5341,6 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- {
- 	s32 ret_val;
- 	u16 phy_data, phy_saved_data, speed, duplex, i;
--	static const u16 dsp_reg_array[IGP01E1000_PHY_CHANNEL_NUM] = {
--	       IGP01E1000_PHY_AGC_PARAM_A,
--	       IGP01E1000_PHY_AGC_PARAM_B,
--	       IGP01E1000_PHY_AGC_PARAM_C,
--	       IGP01E1000_PHY_AGC_PARAM_D
--	};
--	u16 min_length, max_length;
+ static const struct net_device_ops rtl8139_netdev_ops = {
+ 	.ndo_open		= rtl8139_open,
+ 	.ndo_stop		= rtl8139_close,
+@@ -921,6 +948,7 @@ static const struct net_device_ops rtl8139_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= rtl8139_poll_controller,
+ #endif
++	.ndo_set_features	= rtl8139_set_features,
+ };
  
- 	e_dbg("e1000_config_dsp_after_link_change");
+ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
+@@ -994,6 +1022,8 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
+ 	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
+ 	dev->vlan_features = dev->features;
  
-@@ -5290,84 +5355,9 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
++	dev->hw_features |= NETIF_F_RXALL;
++
+ 	dev->irq = pdev->irq;
+ 
+ 	/* tp zeroed and aligned in alloc_etherdev */
+@@ -1978,11 +2008,30 @@ no_early_rx:
+ 		if (unlikely((rx_size > (MAX_ETH_FRAME_SIZE+4)) ||
+ 			     (rx_size < 8) ||
+ 			     (!(rx_status & RxStatusOK)))) {
++			if ((dev->features & NETIF_F_RXALL) &&
++			    (rx_size <= (MAX_ETH_FRAME_SIZE + 4)) &&
++			    (rx_size >= 8) &&
++			    (!(rx_status & RxStatusOK))) {
++				/* Length is at least mostly OK, but pkt has
++				 * error.  I'm hoping we can handle some of these
++				 * errors without resetting the chip. --Ben
++				 */
++				dev->stats.rx_errors++;
++				if (rx_status & RxCRCErr) {
++					dev->stats.rx_crc_errors++;
++					goto keep_pkt;
++				}
++				if (rx_status & RxRunt) {
++					dev->stats.rx_length_errors++;
++					goto keep_pkt;
++				}
++			}
+ 			rtl8139_rx_err (rx_status, dev, tp, ioaddr);
+ 			received = -1;
+ 			goto out;
  		}
  
- 		if (speed == SPEED_1000) {
--
--			ret_val =
--			    e1000_get_cable_length(hw, &min_length,
--						   &max_length);
-+			ret_val = e1000_1000Mb_check_cable_length(hw);
- 			if (ret_val)
- 				return ret_val;
--
--			if ((hw->dsp_config_state == e1000_dsp_config_enabled)
--			    && min_length >= e1000_igp_cable_length_50) {
--
--				for (i = 0; i < IGP01E1000_PHY_CHANNEL_NUM; i++) {
--					ret_val =
--					    e1000_read_phy_reg(hw,
--							       dsp_reg_array[i],
--							       &phy_data);
--					if (ret_val)
--						return ret_val;
--
--					phy_data &=
--					    ~IGP01E1000_PHY_EDAC_MU_INDEX;
--
--					ret_val =
--					    e1000_write_phy_reg(hw,
--								dsp_reg_array
--								[i], phy_data);
--					if (ret_val)
--						return ret_val;
--				}
--				hw->dsp_config_state =
--				    e1000_dsp_config_activated;
--			}
--
--			if ((hw->ffe_config_state == e1000_ffe_config_enabled)
--			    && (min_length < e1000_igp_cable_length_50)) {
--
--				u16 ffe_idle_err_timeout =
--				    FFE_IDLE_ERR_COUNT_TIMEOUT_20;
--				u32 idle_errs = 0;
--
--				/* clear previous idle error counts */
--				ret_val =
--				    e1000_read_phy_reg(hw, PHY_1000T_STATUS,
--						       &phy_data);
--				if (ret_val)
--					return ret_val;
--
--				for (i = 0; i < ffe_idle_err_timeout; i++) {
--					udelay(1000);
--					ret_val =
--					    e1000_read_phy_reg(hw,
--							       PHY_1000T_STATUS,
--							       &phy_data);
--					if (ret_val)
--						return ret_val;
--
--					idle_errs +=
--					    (phy_data &
--					     SR_1000T_IDLE_ERROR_CNT);
--					if (idle_errs >
--					    SR_1000T_PHY_EXCESSIVE_IDLE_ERR_COUNT)
--					{
--						hw->ffe_config_state =
--						    e1000_ffe_config_active;
--
--						ret_val =
--						    e1000_write_phy_reg(hw,
--									IGP01E1000_PHY_DSP_FFE,
--									IGP01E1000_PHY_DSP_FFE_CM_CP);
--						if (ret_val)
--							return ret_val;
--						break;
--					}
--
--					if (idle_errs)
--						ffe_idle_err_timeout =
--						    FFE_IDLE_ERR_COUNT_TIMEOUT_100;
--				}
--			}
++keep_pkt:
+ 		/* Malloc up new buffer, compatible with net-2e. */
+ 		/* Omit the four octet CRC from the length. */
+ 
+@@ -2515,6 +2564,9 @@ static void __set_rx_mode (struct net_device *dev)
  		}
- 	} else {
- 		if (hw->dsp_config_state == e1000_dsp_config_activated) {
+ 	}
+ 
++	if (dev->features & NETIF_F_RXALL)
++		rx_mode |= (AcceptErr | AcceptRunt);
++
+ 	/* We can safely update without stopping the chip. */
+ 	tmp = rtl8139_rx_config | rx_mode;
+ 	if (tp->rx_config != tmp) {
 -- 
 1.7.7.6
