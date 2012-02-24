@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/16] net: Add framework to allow sending packets with customized CRC.
-Date: Fri, 24 Feb 2012 02:12:56 -0800
-Message-ID: <1330078389-8203-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] net: Support RX-ALL feature flag.
+Date: Fri, 24 Feb 2012 02:12:58 -0800
+Message-ID: <1330078389-8203-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34282 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:41098 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752670Ab2BXKNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756162Ab2BXKNP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 24 Feb 2012 05:13:15 -0500
 In-Reply-To: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,457 +18,67 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This is useful for testing RX handling of frames with bad
-CRCs.
-
-Requires driver support to actually put the packet on the
-wire properly.
+This flag requests that network devices pass all
+received frames up the stack, even ones with errors
+such as invalid FCS (frame check sum).  This will
+allow sniffers to see bad packets and perhaps
+give the user some idea how to fix the problem.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- arch/alpha/include/asm/socket.h   |    3 +++
- arch/arm/include/asm/socket.h     |    3 +++
- arch/avr32/include/asm/socket.h   |    3 +++
- arch/cris/include/asm/socket.h    |    3 +++
- arch/frv/include/asm/socket.h     |    3 +++
- arch/h8300/include/asm/socket.h   |    3 +++
- arch/ia64/include/asm/socket.h    |    3 +++
- arch/m32r/include/asm/socket.h    |    3 +++
- arch/m68k/include/asm/socket.h    |    3 +++
- arch/mips/include/asm/socket.h    |    3 +++
- arch/mn10300/include/asm/socket.h |    3 +++
- arch/parisc/include/asm/socket.h  |    4 ++++
- arch/powerpc/include/asm/socket.h |    3 +++
- arch/s390/include/asm/socket.h    |    3 +++
- arch/sparc/include/asm/socket.h   |    4 ++++
- arch/xtensa/include/asm/socket.h  |    3 +++
- include/asm-generic/socket.h      |    4 ++++
- include/linux/if.h                |    2 ++
- include/linux/netdevice.h         |    8 +++++++-
- include/linux/skbuff.h            |    4 +++-
- include/net/sock.h                |    4 ++++
- net/core/skbuff.c                 |    1 +
- net/core/sock.c                   |    5 +++++
- net/packet/af_packet.c            |   32 ++++++++++++++++++++++++++++----
- 24 files changed, 104 insertions(+), 6 deletions(-)
+ Documentation/networking/netdev-features.txt |    7 +++++++
+ include/linux/netdev_features.h              |    2 ++
+ net/core/ethtool.c                           |    1 +
+ 3 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/arch/alpha/include/asm/socket.h b/arch/alpha/include/asm/socket.h
-index 16449d3..dcb221a 100644
---- a/arch/alpha/include/asm/socket.h
-+++ b/arch/alpha/include/asm/socket.h
-@@ -73,6 +73,9 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
+diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+index 7d27812..4164f5c 100644
+--- a/Documentation/networking/netdev-features.txt
++++ b/Documentation/networking/netdev-features.txt
+@@ -158,3 +158,10 @@ VLANs. This may be not useful, though.]
+ This requests that the NIC append the Ethernet Frame Checksum (FCS)
+ to the end of the skb data.  This allows sniffers and other tools to
+ read the CRC recorded by the NIC on receipt of the packet.
 +
- /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
-  * have to define SOCK_NONBLOCK to a different value here.
-  */
-diff --git a/arch/arm/include/asm/socket.h b/arch/arm/include/asm/socket.h
-index d958c74..6433cad 100644
---- a/arch/arm/include/asm/socket.h
-+++ b/arch/arm/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
++*  rx-all
 +
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/avr32/include/asm/socket.h b/arch/avr32/include/asm/socket.h
-index 30078f9..a473f8c 100644
---- a/arch/avr32/include/asm/socket.h
-+++ b/arch/avr32/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
++This requests that the NIC receive all possible frames, including errored
++frames (such as bad FCS, etc).  This can be helpful when sniffing a link with
++bad packets on it.  Some NICs may receive more packets if also put into normal
++PROMISC mdoe.
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d133186..5ac3212 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -55,6 +55,7 @@ enum {
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
+ 	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
++	NETIF_F_RXALL_BIT,		/* Receive errored frames too */
  
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* __ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/asm/socket.h b/arch/cris/include/asm/socket.h
-index 048aba6..ae52825 100644
---- a/arch/cris/include/asm/socket.h
-+++ b/arch/cris/include/asm/socket.h
-@@ -68,6 +68,9 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -100,6 +101,7 @@ enum {
+ #define NETIF_F_UFO		__NETIF_F(UFO)
+ #define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
+ #define NETIF_F_RXFCS		__NETIF_F(RXFCS)
++#define NETIF_F_RXALL		__NETIF_F(RXALL)
  
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
- 
- 
-diff --git a/arch/frv/include/asm/socket.h b/arch/frv/include/asm/socket.h
-index 7a361810f3..a5b1d7d 100644
---- a/arch/frv/include/asm/socket.h
-+++ b/arch/frv/include/asm/socket.h
-@@ -66,5 +66,8 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/h8300/include/asm/socket.h b/arch/h8300/include/asm/socket.h
-index e7bbfce..ec4554e 100644
---- a/arch/h8300/include/asm/socket.h
-+++ b/arch/h8300/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/ia64/include/asm/socket.h b/arch/ia64/include/asm/socket.h
-index ced62de..41fc28a 100644
---- a/arch/ia64/include/asm/socket.h
-+++ b/arch/ia64/include/asm/socket.h
-@@ -75,4 +75,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/asm/socket.h b/arch/m32r/include/asm/socket.h
-index 696cb4c..a15f40b 100644
---- a/arch/m32r/include/asm/socket.h
-+++ b/arch/m32r/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/m68k/include/asm/socket.h b/arch/m68k/include/asm/socket.h
-index e8b41a6..d1be684 100644
---- a/arch/m68k/include/asm/socket.h
-+++ b/arch/m68k/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/mips/include/asm/socket.h b/arch/mips/include/asm/socket.h
-index 5210487..a2ed6fd 100644
---- a/arch/mips/include/asm/socket.h
-+++ b/arch/mips/include/asm/socket.h
-@@ -86,6 +86,9 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #ifdef __KERNEL__
- 
- /** sock_type - Socket types
-diff --git a/arch/mn10300/include/asm/socket.h b/arch/mn10300/include/asm/socket.h
-index 013fcc5..820463a 100644
---- a/arch/mn10300/include/asm/socket.h
-+++ b/arch/mn10300/include/asm/socket.h
-@@ -66,4 +66,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/asm/socket.h b/arch/parisc/include/asm/socket.h
-index f717c9b..1b52c2c 100644
---- a/arch/parisc/include/asm/socket.h
-+++ b/arch/parisc/include/asm/socket.h
-@@ -65,6 +65,10 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		0x4023
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		0x4024
-+
-+
- /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
-  * have to define SOCK_NONBLOCK to a different value here.
-  */
-diff --git a/arch/powerpc/include/asm/socket.h b/arch/powerpc/include/asm/socket.h
-index fe1c0b4..3d5179b 100644
---- a/arch/powerpc/include/asm/socket.h
-+++ b/arch/powerpc/include/asm/socket.h
-@@ -73,4 +73,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/asm/socket.h b/arch/s390/include/asm/socket.h
-index 581702f..c91b720 100644
---- a/arch/s390/include/asm/socket.h
-+++ b/arch/s390/include/asm/socket.h
-@@ -74,4 +74,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/asm/socket.h b/arch/sparc/include/asm/socket.h
-index 68e2e27..bea1568 100644
---- a/arch/sparc/include/asm/socket.h
-+++ b/arch/sparc/include/asm/socket.h
-@@ -62,6 +62,10 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		0x0026
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		0x0027
-+
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/asm/socket.h b/arch/xtensa/include/asm/socket.h
-index 74818b1..e36c681 100644
---- a/arch/xtensa/include/asm/socket.h
-+++ b/arch/xtensa/include/asm/socket.h
-@@ -77,4 +77,7 @@
- #define SCM_WIFI_STATUS		SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
- 
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
-index d9aaac0..b1bea03 100644
---- a/include/asm-generic/socket.h
-+++ b/include/asm-generic/socket.h
-@@ -68,4 +68,8 @@
- #define SO_WIFI_STATUS		41
- #define SCM_WIFI_STATUS	SO_WIFI_STATUS
- #define SO_PEEK_OFF		42
-+
-+/* Instruct lower device to use last 4-bytes of skb data as FCS */
-+#define SO_NOFCS		43
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 06b6ef6..f995c66 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -80,6 +80,8 @@
- 					 * skbs on transmit */
- #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
- #define IFF_TEAM_PORT	0x40000		/* device used as team port */
-+#define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
-+
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0eac07c..f1b7d03 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1082,7 +1082,8 @@ struct net_device {
- 	const struct header_ops *header_ops;
- 
- 	unsigned int		flags;	/* interface flags (a la BSD)	*/
--	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace. */
-+	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace.
-+					     * See if.h for definitions. */
- 	unsigned short		gflags;
- 	unsigned short		padded;	/* How much padding added by alloc_netdev() */
- 
-@@ -2650,6 +2651,11 @@ static inline int netif_is_bond_slave(struct net_device *dev)
- 	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
- }
- 
-+static inline bool netif_supports_nofcs(struct net_device *dev)
-+{
-+	return dev->priv_flags & IFF_SUPP_NOFCS;
-+}
-+
- extern struct pernet_operations __net_initdata loopback_net_ops;
- 
- /* Logging, debugging and troubleshooting/diagnostic helpers. */
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c11a44e..06a4c0f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -361,6 +361,7 @@ typedef unsigned char *sk_buff_data_t;
-  *		ports.
-  *	@wifi_acked_valid: wifi_acked was set
-  *	@wifi_acked: whether frame was acked on wifi or not
-+ *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
-  *	@dma_cookie: a cookie to one of several possible DMA operations
-  *		done by skb DMA functions
-  *	@secmark: security marking
-@@ -459,7 +460,8 @@ struct sk_buff {
- 	__u8			l4_rxhash:1;
- 	__u8			wifi_acked_valid:1;
- 	__u8			wifi_acked:1;
--	/* 10/12 bit hole (depending on ndisc_nodetype presence) */
-+	__u8			no_fcs:1;
-+	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
- 	kmemcheck_bitfield_end(flags2);
- 
- #ifdef CONFIG_NET_DMA
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 9c0553b..ba761e7 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -615,6 +615,10 @@ enum sock_flags {
- 	SOCK_RXQ_OVFL,
- 	SOCK_ZEROCOPY, /* buffers from userspace */
- 	SOCK_WIFI_STATUS, /* push wifi status to userspace */
-+	SOCK_NOFCS, /* Tell NIC not to do the Ethernet FCS.
-+		     * Will use last 4 bytes of packet sent from
-+		     * user-space instead.
-+		     */
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 0801619..6d6d7d2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -74,6 +74,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
+ 	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
++	[NETIF_F_RXALL_BIT] =            "rx-all",
  };
  
- static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f3a5307..6eb656a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -592,6 +592,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	new->rxhash		= old->rxhash;
- 	new->ooo_okay		= old->ooo_okay;
- 	new->l4_rxhash		= old->l4_rxhash;
-+	new->no_fcs		= old->no_fcs;
- #ifdef CONFIG_XFRM
- 	new->sp			= secpath_get(old->sp);
- #endif
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 19942d4..55011cb 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -799,6 +799,11 @@ set_rcvbuf:
- 		else
- 			ret = -EOPNOTSUPP;
- 		break;
-+
-+	case SO_NOFCS:
-+		sock_valbool_flag(sk, SOCK_NOFCS, valbool);
-+		break;
-+
- 	default:
- 		ret = -ENOPROTOOPT;
- 		break;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2dbb32b..ae2d484 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1459,6 +1459,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
- 	struct net_device *dev;
- 	__be16 proto = 0;
- 	int err;
-+	int extra_len = 0;
- 
- 	/*
- 	 *	Get and verify the address.
-@@ -1493,8 +1494,16 @@ retry:
- 	 * raw protocol and you must do your own fragmentation at this level.
- 	 */
- 
-+	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
-+		if (!netif_supports_nofcs(dev)) {
-+			err = -EPROTONOSUPPORT;
-+			goto out_unlock;
-+		}
-+		extra_len = 4; /* We're doing our own CRC */
-+	}
-+
- 	err = -EMSGSIZE;
--	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
-+	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN + extra_len)
- 		goto out_unlock;
- 
- 	if (!skb) {
-@@ -1526,7 +1535,7 @@ retry:
- 		goto retry;
- 	}
- 
--	if (len > (dev->mtu + dev->hard_header_len)) {
-+	if (len > (dev->mtu + dev->hard_header_len + extra_len)) {
- 		/* Earlier code assumed this would be a VLAN pkt,
- 		 * double-check this now that we have the actual
- 		 * packet in hand.
-@@ -1548,6 +1557,9 @@ retry:
- 	if (err < 0)
- 		goto out_unlock;
- 
-+	if (unlikely(extra_len == 4))
-+		skb->no_fcs = 1;
-+
- 	dev_queue_xmit(skb);
- 	rcu_read_unlock();
- 	return len;
-@@ -2209,6 +2221,7 @@ static int packet_snd(struct socket *sock,
- 	struct packet_sock *po = pkt_sk(sk);
- 	unsigned short gso_type = 0;
- 	int hlen, tlen;
-+	int extra_len = 0;
- 
- 	/*
- 	 *	Get and verify the address.
-@@ -2288,8 +2301,16 @@ static int packet_snd(struct socket *sock,
- 		}
- 	}
- 
-+	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
-+		if (!netif_supports_nofcs(dev)) {
-+			err = -EPROTONOSUPPORT;
-+			goto out_unlock;
-+		}
-+		extra_len = 4; /* We're doing our own CRC */
-+	}
-+
- 	err = -EMSGSIZE;
--	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
-+	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN + extra_len))
- 		goto out_unlock;
- 
- 	err = -ENOBUFS;
-@@ -2315,7 +2336,7 @@ static int packet_snd(struct socket *sock,
- 	if (err < 0)
- 		goto out_free;
- 
--	if (!gso_type && (len > dev->mtu + reserve)) {
-+	if (!gso_type && (len > dev->mtu + reserve + extra_len)) {
- 		/* Earlier code assumed this would be a VLAN pkt,
- 		 * double-check this now that we have the actual
- 		 * packet in hand.
-@@ -2353,6 +2374,9 @@ static int packet_snd(struct socket *sock,
- 		len += vnet_hdr_len;
- 	}
- 
-+	if (unlikely(extra_len == 4))
-+		skb->no_fcs = 1;
-+
- 	/*
- 	 *	Now send it
- 	 */
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
 -- 
 1.7.7.6
