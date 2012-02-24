@@ -1,13 +1,12 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 04/12] fddi/skfp: check given MAC address, if invalid return -EADDRNOTAVAIL
-Date: Fri, 24 Feb 2012 17:01:14 +0100
-Message-ID: <1330099282-4588-5-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 05/12] team: check given MAC address, if invalid return -EADDRNOTAVAIL
+Date: Fri, 24 Feb 2012 17:01:15 +0100
+Message-ID: <1330099282-4588-6-git-send-email-danny.kukawka@bisect.de>
 References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
 Cc: Danny Kukawka <dkukawka@suse.de>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -19,29 +18,22 @@ if is_valid_ether_addr() fails.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/fddi/skfp/skfddi.c |    3 +++
+ drivers/net/team/team.c |    3 +++
  1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/fddi/skfp/skfddi.c b/drivers/net/fddi/skfp/skfddi.c
-index 3d9a459..1092d94 100644
---- a/drivers/net/fddi/skfp/skfddi.c
-+++ b/drivers/net/fddi/skfp/skfddi.c
-@@ -81,6 +81,7 @@ static const char * const boot_msg =
- #include <linux/interrupt.h>
- #include <linux/pci.h>
- #include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
- #include <linux/fddidevice.h>
- #include <linux/skbuff.h>
- #include <linux/bitops.h>
-@@ -926,6 +927,8 @@ static int skfp_ctl_set_mac_address(struct net_device *dev, void *addr)
- 	skfddi_priv *bp = &smc->os;
- 	unsigned long Flags;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 8f81805..788650c 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -868,6 +868,9 @@ static int team_set_mac_address(struct net_device *dev, void *p)
+ 	struct team_port *port;
+ 	struct sockaddr *addr = p;
  
-+	if (!is_valid_ether_addr(p_sockaddr->sa_data))
++	if (!is_valid_ether_addr(addr->sa_data))
 +		return -EADDRNOTAVAIL;
- 
- 	memcpy(dev->dev_addr, p_sockaddr->sa_data, FDDI_K_ALEN);
- 	spin_lock_irqsave(&bp->DriverLock, Flags);
++
+ 	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 	rcu_read_lock();
 -- 
 1.7.8.3
