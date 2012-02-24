@@ -1,7 +1,7 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
-Date: Fri, 24 Feb 2012 18:22:20 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH v2] checkpatch: Add some --strict coding style checks
+Date: Fri, 24 Feb 2012 10:37:55 -0800
+Message-ID: <1330108675.18464.21.camel@joe2Laptop>
 References: <20120221151435.GA19354@tuxdriver.com>
 	 <20120221.144417.1445117001833888214.davem@davemloft.net>
 	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
@@ -12,86 +12,137 @@ References: <20120221151435.GA19354@tuxdriver.com>
 	 <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>
 	 <1329875935.5143.24.camel@joe2Laptop>
 	 <804857E1F29AAC47BF68C404FC60A18429B98A@ORSMSX102.amr.corp.intel.com>
- <1329968622.5143.46.camel@joe2Laptop>
+	 <1329968622.5143.46.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Andy Whitcroft <apw@shadowen.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	David Miller <davem@davemloft.net>,
 	"andrei.emeltchenko.news@gmail.com"
 	<andrei.emeltchenko.news@gmail.com>,
 	"linville@tuxdriver.com" <linville@tuxdriver.com>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Andy Whitcroft <apw@shadowen.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329968622.5143.46.camel@joe2Laptop>
-Content-Language: en-US
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2UgUGVyY2hlcyBbbWFpbHRv
-OmpvZUBwZXJjaGVzLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFyeSAyMiwgMjAxMiA3
-OjQ0IFBNDQo+IFRvOiBBbGxhbiwgQnJ1Y2UgVw0KPiBDYzogRGF2aWQgTWlsbGVyOyBBbmR5IFdo
-aXRjcm9mdDsgQW5kcmV3IE1vcnRvbjsNCj4gYW5kcmVpLmVtZWx0Y2hlbmtvLm5ld3NAZ21haWwu
-Y29tOyBsaW52aWxsZUB0dXhkcml2ZXIuY29tOyBsaW51eC0NCj4gd2lyZWxlc3NAdmdlci5rZXJu
-ZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2Vy
-bmVsLm9yZw0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBjaGVja3BhdGNoOiBBZGQgc29tZSAtLXN0
-cmljdCBjb2Rpbmcgc3R5bGUgY2hlY2tzDQo+IA0KPiBIaSBCcnVjZS4gKHlheSwgSSBnb3QgeW91
-ciBuYW1lIHJpZ2h0KQ0KPiANCj4gVGhhbmtzLg0KPiANCj4gSG93IGFib3V0IHRlc3RpbmcgdGhp
-cz8NCj4gDQo+IEl0IGFsbG93cyBhbGwgc3BhY2VzIG9yIGFwcHJvcHJpYXRlIHRhYnMgZm9yIGlu
-ZGVudGF0aW9uLA0KPiBhbmQgSSBiZWxpZXZlIGl0IHdvcmtzIE9LLg0KPiANCj4gLS0tDQo+ICBz
-Y3JpcHRzL2NoZWNrcGF0Y2gucGwgfCAgIDY1DQo+ICsrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrLQ0KPiAgMSBmaWxlcyBjaGFuZ2VkLCA2MyBpbnNlcnRpb25z
-KCspLCAyIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL3NjcmlwdHMvY2hlY2twYXRj
-aC5wbCBiL3NjcmlwdHMvY2hlY2twYXRjaC5wbA0KPiBpbmRleCA4OWQyNGIzLi43YTA1MTRiIDEw
-MDc1NQ0KPiAtLS0gYS9zY3JpcHRzL2NoZWNrcGF0Y2gucGwNCj4gKysrIGIvc2NyaXB0cy9jaGVj
-a3BhdGNoLnBsDQo+IEBAIC0zMzAsMTAgKzMzMCwxMSBAQCBzdWIgYnVpbGRfdHlwZXMgew0KPiAg
-fQ0KPiAgYnVpbGRfdHlwZXMoKTsNCj4gDQo+IC1vdXIgJG1hdGNoX2JhbGFuY2VkX3BhcmVudGhl
-c2VzID0gcXIvKFwoKD86W15cKFwpXSt8KC0xKSkqXCkpLzsNCj4gK291ciAkYmFsYW5jZWRfcGFy
-ZW5zID0gcXIvKFwoKD86W15cKFwpXSsrfCg/LTEpKSpcKSkvOw0KPiArb3VyICRsdmFsX3BhcmVu
-cyA9IHFyLyhcKCg/OlteXChcKV0rfCgtMSkpKlwpKS87DQo+IA0KPiAgb3VyICRUeXBlY2FzdAk9
-IHFye1xzKihcKFxzKiROb25wdHJUeXBlXHMqXCkpezAsMX1ccyp9Ow0KPiAtb3VyICRMdmFsT3JG
-dW5jCT0NCj4gcXJ7KCRMdmFsKVxzKigkbWF0Y2hfYmFsYW5jZWRfcGFyZW50aGVzZXN7MCwxfSlc
-cyp9Ow0KPiArb3VyICRMdmFsT3JGdW5jCT0gcXJ7KCRMdmFsKVxzKigkbHZhbF9wYXJlbnN7MCwx
-fSlccyp9Ow0KPiAgb3VyICRGdW5jQXJnID0gcXJ7JFR5cGVjYXN0ezAsMX0oJEx2YWxPckZ1bmN8
-JENvbnN0YW50KX07DQo+IA0KPiAgc3ViIGRlcGFyZW50aGVzaXplIHsNCj4gQEAgLTEzMzAsNiAr
-MTMzMSwzNiBAQCBzdWIgY2hlY2tfYWJzb2x1dGVfZmlsZSB7DQo+ICAJfQ0KPiAgfQ0KPiANCj4g
-K3N1YiBwb3NfbGFzdF9vcGVucGFyZW4gew0KPiArCW15ICgkbGluZSkgPSBAXzsNCj4gKw0KPiAr
-CW15ICRwb3MgPSAwOw0KPiArDQo+ICsJbXkgJG9wZW5zID0gJGxpbmUgPX4gdHIvXCgvXCgvOw0K
-PiArCW15ICRjbG9zZXMgPSAkbGluZSA9fiB0ci9cKS9cKS87DQo+ICsNCj4gKwlteSAkbGFzdF9v
-cGVucGFyZW4gPSAwOw0KPiArDQo+ICsJaWYgKCgkb3BlbnMgPT0gMCkgfHwgKCRjbG9zZXMgPj0g
-JG9wZW5zKSkgew0KPiArCQlyZXR1cm4gLTE7DQo+ICsJfQ0KPiArDQo+ICsJbXkgJGxlbiA9IGxl
-bmd0aCgkbGluZSk7DQo+ICsNCj4gKwlmb3IgKCRwb3MgPSAwOyAkcG9zIDwgJGxlbjsgJHBvcysr
-KSB7DQo+ICsJICAgIG15ICRzdHJpbmcgPSBzdWJzdHIoJGxpbmUsICRwb3MpOw0KPiArCSAgICBp
-ZiAoJHN0cmluZyA9fiAvXigkRnVuY0FyZ3wkYmFsYW5jZWRfcGFyZW5zKS8pIHsNCj4gKwkJICAg
-ICRwb3MgKz0gbGVuZ3RoKCQxKTsNCj4gKwkgICAgfQ0KPiArDQo+ICsJICAgIGlmIChzdWJzdHIo
-JGxpbmUsICRwb3MsIDEpIGVxICcoJykgew0KPiArCQkkbGFzdF9vcGVucGFyZW4gPSAkcG9zOw0K
-PiArCSAgICB9DQo+ICsJfQ0KPiArDQo+ICsJcmV0dXJuICRsYXN0X29wZW5wYXJlbiArIDE7DQo+
-ICt9DQo+ICsNCj4gIHN1YiBwcm9jZXNzIHsNCj4gIAlteSAkZmlsZW5hbWUgPSBzaGlmdDsNCj4g
-DQo+IEBAIC0xNzgzLDYgKzE4MTQsMzYgQEAgc3ViIHByb2Nlc3Mgew0KPiAgCQkJICAgICAicGxl
-YXNlLCBubyBzcGFjZSBiZWZvcmUgdGFic1xuIiAuICRoZXJldmV0KTsNCj4gIAkJfQ0KPiANCj4g
-KyMgY2hlY2sgZm9yICYmIG9yIHx8IGF0IHRoZSBzdGFydCBvZiBhIGxpbmUNCj4gKwkJaWYgKCRy
-YXdsaW5lID1+IC9eXCtccyooJiZ8XHxcfCkvKSB7DQo+ICsJCQlDSEsoIkxPR0lDQUxfQ09OVElO
-VUFUSU9OUyIsDQo+ICsJCQkgICAgIkxvZ2ljYWwgY29udGludWF0aW9ucyBzaG91bGQgYmUgb24g
-dGhlIHByZXZpb3VzDQo+IGxpbmVcbiIgLiAkaGVyZXByZXYpOw0KPiArCQl9DQo+ICsNCj4gKyMg
-Y2hlY2sgbXVsdGktbGluZSBzdGF0ZW1lbnQgaW5kZW50YXRpb24gbWF0Y2hlcyBwcmV2aW91cyBs
-aW5lDQo+ICsJCWlmICgkcHJldmxpbmUgPX4gL15cKyhcdCopKGlmDQo+IFwofCRJZGVudFwoKS4q
-KFwmXCZ8XHxcfHwsKVxzKiQvKSB7DQo+ICsJCQkkcHJldmxpbmUgPX4gL15cKyhcdCopKC4qKSQv
-Ow0KPiArCQkJbXkgJG9sZGluZGVudCA9ICQxOw0KPiArCQkJbXkgJHJlc3QgPSAkMjsNCj4gKw0K
-PiArCQkJbXkgJHBvcyA9IHBvc19sYXN0X29wZW5wYXJlbigkcmVzdCk7DQo+ICsJCQlpZiAoJHBv
-cyA+PSAwKSB7DQo+ICsJCQkJJGxpbmUgPX4gL15cKyhbIFx0XSopLzsNCj4gKwkJCQlteSAkbmV3
-aW5kZW50ID0gJDE7DQo+ICsNCj4gKwkJCQlteSAkZ29vZHRhYmluZGVudCA9ICRvbGRpbmRlbnQg
-Lg0KPiArCQkJCQkiXHQiIHggKCRwb3MgLyA4KSAuDQo+ICsJCQkJCSIgIiAgeCAoJHBvcyAlIDgp
-Ow0KPiArCQkJCW15ICRnb29kc3BhY2VpbmRlbnQgPSAkb2xkaW5kZW50IC4gIiAiICB4DQo+ICRw
-b3M7DQo+ICsNCj4gKwkJCQlpZiAoJG5ld2luZGVudCBuZSAkZ29vZHRhYmluZGVudCAmJg0KPiAr
-CQkJCSAgICAkbmV3aW5kZW50IG5lICRnb29kc3BhY2VpbmRlbnQpIHsNCj4gKwkJCQkJQ0hLKCJQ
-QVJFTlRIRVNJU19BTElHTk1FTlQiLA0KPiArCQkJCQkgICAgIkFsaWdubWVudCBzaG91bGQgbWF0
-Y2ggb3Blbg0KPiBwYXJlbnRoZXNpc1xuIiAuICRoZXJlcHJldik7DQo+ICsJCQkJfQ0KPiArCQkJ
-fQ0KPiArCQl9DQo+ICsNCj4gICMgY2hlY2sgZm9yIHNwYWNlcyBhdCB0aGUgYmVnaW5uaW5nIG9m
-IGEgbGluZS4NCj4gICMgRXhjZXB0aW9uczoNCj4gICMgIDEpIHdpdGhpbiBjb21tZW50cw0KPiAN
-Cg0KVGhpcyBsYXRlc3QgdmVyc2lvbiBpcyBtdWNoIGJldHRlci4gIEl0IGRvZXMgbm90IHJlcG9y
-dCBmYWxzZSBwb3NpdGl2ZXMgaW4gdGhlDQpsaW1pdGVkIGNvZGUgSSBjaGVja2VkIGl0IGFnYWlu
-c3QuDQoNCkJydWNlLg0K
+Argument alignment across multiple lines should
+match the open parenthesis.
+
+Logical continuations should be at the end of
+the previous line, not the start of a new line.
+
+These are not required by CodingStyle so make the
+tests active only when using --strict.
+
+Improved_by_examples_from: "Bruce W. Allen" <bruce.w.allan@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+
+---
+
+V2: Scan the entire line for balanced parentheses,
+    use the position of the last non-balanced open parenthesis.
+    Allow all space indentation too, checkpatch will complain
+    in a different message about that if it's too long.
+
+ scripts/checkpatch.pl |   65 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 63 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 89d24b3..7a0514b 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -330,10 +330,11 @@ sub build_types {
+ }
+ build_types();
+ 
+-our $match_balanced_parentheses = qr/(\((?:[^\(\)]+|(-1))*\))/;
++our $balanced_parens = qr/(\((?:[^\(\)]++|(?-1))*\))/;
++our $lval_parens = qr/(\((?:[^\(\)]+|(-1))*\))/;
+ 
+ our $Typecast	= qr{\s*(\(\s*$NonptrType\s*\)){0,1}\s*};
+-our $LvalOrFunc	= qr{($Lval)\s*($match_balanced_parentheses{0,1})\s*};
++our $LvalOrFunc	= qr{($Lval)\s*($lval_parens{0,1})\s*};
+ our $FuncArg = qr{$Typecast{0,1}($LvalOrFunc|$Constant)};
+ 
+ sub deparenthesize {
+@@ -1330,6 +1331,36 @@ sub check_absolute_file {
+ 	}
+ }
+ 
++sub pos_last_openparen {
++	my ($line) = @_;
++
++	my $pos = 0;
++
++	my $opens = $line =~ tr/\(/\(/;
++	my $closes = $line =~ tr/\)/\)/;
++
++	my $last_openparen = 0;
++
++	if (($opens == 0) || ($closes >= $opens)) {
++		return -1;
++	}
++
++	my $len = length($line);
++
++	for ($pos = 0; $pos < $len; $pos++) {
++		my $string = substr($line, $pos);
++		if ($string =~ /^($FuncArg|$balanced_parens)/) {
++			$pos += length($1);
++		}
++
++		if (substr($line, $pos, 1) eq '(') {
++			$last_openparen = $pos;
++		}
++	}
++
++	return $last_openparen + 1;
++}
++
+ sub process {
+ 	my $filename = shift;
+ 
+@@ -1783,6 +1814,36 @@ sub process {
+ 			     "please, no space before tabs\n" . $herevet);
+ 		}
+ 
++# check for && or || at the start of a line
++		if ($rawline =~ /^\+\s*(&&|\|\|)/) {
++			CHK("LOGICAL_CONTINUATIONS",
++			    "Logical continuations should be on the previous line\n" . $hereprev);
++		}
++
++# check multi-line statement indentation matches previous line
++		if ($prevline =~ /^\+(\t*)(if \(|$Ident\().*(\&\&|\|\||,)\s*$/) {
++			$prevline =~ /^\+(\t*)(.*)$/;
++			my $oldindent = $1;
++			my $rest = $2;
++
++			my $pos = pos_last_openparen($rest);
++			if ($pos >= 0) {
++				$line =~ /^\+([ \t]*)/;
++				my $newindent = $1;
++
++				my $goodtabindent = $oldindent .
++					"\t" x ($pos / 8) .
++					" "  x ($pos % 8);
++				my $goodspaceindent = $oldindent . " "  x $pos;
++
++				if ($newindent ne $goodtabindent &&
++				    $newindent ne $goodspaceindent) {
++					CHK("PARENTHESIS_ALIGNMENT",
++					    "Alignment should match open parenthesis\n" . $hereprev);
++				}
++			}
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
