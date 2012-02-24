@@ -1,56 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] netlink: netlink_dump_start may take data pointer
- for callbacks
-Date: Fri, 24 Feb 2012 17:47:26 -0500 (EST)
-Message-ID: <20120224.174726.1107636579816083287.davem@davemloft.net>
-References: <1330121648-2956-1-git-send-email-pablo@netfilter.org>
-	<1330121648-2956-2-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 2/2] enic: Silence Sparse Warning: "dubious: x | !y"
+Date: Fri, 24 Feb 2012 17:50:06 -0500 (EST)
+Message-ID: <20120224.175006.1161090053765926485.davem@davemloft.net>
+References: <1330102654-2474-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1330121648-2956-2-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: benve@cisco.com, roprabhu@cisco.com, neepatel@cisco.com,
+	nistrive@cisco.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santoshprasadnayak@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330102654-2474-1-git-send-email-santoshprasadnayak@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: pablo@netfilter.org
-Date: Fri, 24 Feb 2012 23:14:07 +0100
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Date: Fri, 24 Feb 2012 22:27:34 +0530
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
 > 
-> This patch modifies the netlink_dump_start function to take one
-> generic pointer to data. This pointer can be used inside the
-> dump() and done() callbacks via cb->data.
+> Sparse is giving the following warning:
+> "warning: dubious: x | !y"
 > 
-> Netfilter is going to use this patch to provide filtered dumps
-> to user-space. This is specifically interesting in ctnetlink that
-> may handle lots of conntrack entries. We can save precious
-> cycles by skipping the conversion to TLV format of conntrack
-> entries that are not interesting for user-space.
+> "enic_are_pp_different" is static and expected to return true or false.
+> Logical or is indended here. With logical or, in best case, execution will be
+> faster because if leftmost operand is true then no need to check other operands.
 > 
-> More specifically, ctnetlink will include one operation to allow
-> to filter the dumping of conntrack entries by ctmark values.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-This isn't really your fault but netlink_dump_start() has an
-enormous number of arguments.
-
-Several of them are zero or NULL in all except one special situation.
-
-An entire argument is a lot of overhead for one situation to impose on
-all the others.
-
-I have no objection to the data callback scheme, it's just that
-the argument list of this interface is getting out of control.
-
-Usually, in situations like this, we have some control structure
-that holds all the control state and we pass that in instead.
-
-	struct netlink_dump_control c = { .dump = dump, .done = done, ... };
-
-	netlink_dump_start(..., &c);
-
-It could be perhaps used here to get things back under control.
+As others have explained, this code is intentional.  It's faster because
+the resulting code has less branches and therefore less potential
+branch mispredictions.
