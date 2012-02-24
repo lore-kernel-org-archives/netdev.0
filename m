@@ -1,175 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-Date: Fri, 24 Feb 2012 20:20:29 +0100
-Message-ID: <1330111229.15610.50.camel@edumazet-laptop>
-References: <1329063403.1449.14.camel@localhost.localdomain>
-	 <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
-	 <1329204997.24837.15.camel@edumazet-laptop>
-	 <1329366846.5646.1.camel@edumazet-laptop>
-	 <1329847015.5133.4.camel@localhost.localdomain>
-	 <1329848093.18384.35.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] gre: fix spelling in comments
+Date: Fri, 24 Feb 2012 11:29:08 -0800
+Message-ID: <20120224112908.3e00e5ce@nehalam.linuxnetplumber.net>
+References: <20120224100820.227ed31c@nehalam.linuxnetplumber.net>
+	<1330111045.2397.14.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jcliburn@gmail.com, chris.snook@gmail.com,
-	netdev <netdev@vger.kernel.org>, Josh Boyer <jwboyer@gmail.com>
-To: Thomas Meyer <thomas@m3y3r.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329848093.18384.35.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36900 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754542Ab2BXT3N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 14:29:13 -0500
+In-Reply-To: <1330111045.2397.14.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 21 f=C3=A9vrier 2012 =C3=A0 19:14 +0100, Eric Dumazet a =C3=A9=
-crit :
-> Le mardi 21 f=C3=A9vrier 2012 =C3=A0 18:56 +0100, Thomas Meyer a =C3=A9=
-crit :
->=20
-> > Bad news. Just did hit the issue again, with above patch applied.
-> >=20
-> > abrt_version:   2.0.7
-> > cmdline:        BOOT_IMAGE=3D/vmlinuz-3.2.6 root=3D/dev/sda2 rootfs=
-type=3Dext4 rootflags=3Ddata=3Dwriteback ro quiet rhgb
-> > kernel:         3.2.6
-> > reason:         [177799.342250] WARNING: at net/sched/sch_generic.c=
-:255 dev_watchdog+0x1e7/0x1f0()
-> > time:           Di 21 Feb 2012 18:09:16 CET
-> >=20
-> > backtrace:
-> > :[177799.342250] WARNING: at net/sched/sch_generic.c:255 dev_watchd=
-og+0x1e7/0x1f0()
-> > :[177799.342254] Hardware name: Aspire 1810T
-> > :[177799.342256] NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 ti=
-med out
-> > :[177799.342259] Modules linked in: vfat fat fuse bluetooth nf_conn=
-track_ipv6 nf_defrag_ipv6 ip6t_REJECT ip6table_filter ip6_tables snd_hd=
-a_codec_hdmi snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwde=
-p snd_seq arc4 snd_seq_device snd_pcm iwlwifi uvcvideo mac80211 snd_tim=
-er videodev cfg80211 snd usb_storage v4l2_compat_ioctl32 atl1c acer_wmi=
- soundcore sparse_keymap snd_page_alloc rfkill wmi joydev acerhdf pcspk=
-r virtio_net virtio virtio_ring kvm_intel kvm uinput ipv6 [last unloade=
-d: scsi_wait_scan]
-> > :[177799.342303] Pid: 4980, comm: alsa-sink Not tainted 3.2.6 #7
-> > :[177799.342306] Call Trace:
-> > :[177799.342309]  <IRQ>  [<ffffffff810322ca>] warn_slowpath_common+=
-0x7a/0xb0
-> > :[177799.342320]  [<ffffffff810323a1>] warn_slowpath_fmt+0x41/0x50
-> > :[177799.342325]  [<ffffffff8100375b>] ? do_IRQ+0x5b/0xd0
-> > :[177799.342330]  [<ffffffff813e94b7>] dev_watchdog+0x1e7/0x1f0
-> > :[177799.342336]  [<ffffffff8103cfcf>] run_timer_softirq+0xef/0x210
-> > :[177799.342341]  [<ffffffff813e92d0>] ? qdisc_reset+0x50/0x50
-> > :[177799.342345]  [<ffffffff81037827>] __do_softirq+0x87/0x110
-> > :[177799.342350]  [<ffffffff8149483a>] call_softirq+0x1a/0x30
-> > :[177799.342354]  [<ffffffff810038bd>] do_softirq+0x4d/0x80
-> > :[177799.342358]  [<ffffffff81037a8e>] irq_exit+0x7e/0xa0
-> > :[177799.342363]  [<ffffffff8101903a>] smp_apic_timer_interrupt+0x5=
-a/0x90
-> > :[177799.342368]  [<ffffffff814942a9>] apic_timer_interrupt+0x69/0x=
-70
-> > :[177799.342371]  <EOI>  [<ffffffff814948d7>] ? sysenter_dispatch+0=
-x7/0x26
-> >=20
-> > END:
-> >=20
->=20
-> Thanks
->=20
-> This driver xmit function is racy I suspect, and several patches will=
- be
-> needed to fix bugs.
->=20
+On Fri, 24 Feb 2012 19:17:25 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Here is a cumulative patch to hopefuly remove the races in this driver,
-could you please test it ?
+> On Fri, 2012-02-24 at 10:08 -0800, Stephen Hemminger wrote:
+> > The original spelling and bad word choice makes these comments hard to read.
+> 
+> Not to mention weird capitalisation.
+> 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > --- a/net/ipv4/ip_gre.c	2012-02-24 10:04:41.007678920 -0800
+> > +++ b/net/ipv4/ip_gre.c	2012-02-24 10:07:54.421769389 -0800
+> > @@ -65,7 +65,7 @@
+> >     it is infeasible task. The most general solutions would be
+> >     to keep skb->encapsulation counter (sort of local ttl),
+> 
+> 'ttl' is an abbreviation, and not a variable name here, so should be
+> capitalised.
+> 
+> >     and silently drop packet when it expires. It is a good
+> > -   solution, but it supposes maintaing new variable in ALL
+> > +   solution, but it supposes maintaining new variable in ALL
+> >     skb, even if no tunneling is used.
+> >  
+> >     Current solution: xmit_recursion breaks dead loops. This is a percpu
+> > @@ -91,14 +91,14 @@
+> >  
+> >     One of them is to parse packet trying to detect inner encapsulation
+> >     made by our node. It is difficult or even impossible, especially,
+> > -   taking into account fragmentation. TO be short, tt is not solution at all.
+> > +   taking into account fragmentation. TO be short, ttl is not solution at all.
+> 
+> 'TO' shouldn't be capitalised.
+> 
+> >  
+> >     Current solution: The solution was UNEXPECTEDLY SIMPLE.
+> 
+> 'UNEXPECTEDLY SIMPLE' shouldn't be capitalised.  Also, after the passage
+> of a few years, this is perhaps no longer unexpected at all...
+> 
+> >     We force DF flag on tunnels with preconfigured hop limit,
+> >     that is ALL. :-) Well, it does not remove the problem completely,
+> >     but exponential growth of network traffic is changed to linear
+> >     (branches, that exceed pmtu are pruned) and tunnel mtu
+> 
+> 'pmtu' and 'mtu' should be capitalised.
+> 
+> > -   fastly degrades to value <68, where looping stops.
+> > +   rapidly degrades to value <68, where looping stops.
+> >     Yes, it is not good if there exists a router in the loop,
+> >     which does not force DF, even when encapsulating packets have DF set.
+> >     But it is not our problem! Nobody could accuse us, we made
+> > @@ -457,8 +457,8 @@ static void ipgre_err(struct sk_buff *sk
+> >     GRE tunnels with enabled checksum. Tell them "thank you".
+> >  
+> >     Well, I wonder, rfc1812 was written by Cisco employee,
+> 
+> 'rfc' should be capitalised.
+> 
+> > -   what the hell these idiots break standrads established
+> > -   by themself???
+> > +   what the hell these idiots break standards established
+> > +   by themselves???
+> >   */
+> >  
+> >  	const struct iphdr *iph = (const struct iphdr *)skb->data;
+> 
+> Insults also detract from the readability as a technical description.
+> 
+> Ben.
+> 
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/e=
-thernet/atheros/atl1c/atl1c.h
-index ca70e16..3b2851b 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-@@ -576,7 +576,6 @@ struct atl1c_adapter {
- 	u16 link_duplex;
-=20
- 	spinlock_t mdio_lock;
--	spinlock_t tx_lock;
- 	atomic_t irq_sem;
-=20
- 	struct work_struct common_task;
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/=
-net/ethernet/atheros/atl1c/atl1c_main.c
-index 1ff3c6d..896eb20 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -784,7 +784,6 @@ static int __devinit atl1c_sw_init(struct atl1c_ada=
-pter *adapter)
- 	atl1c_set_rxbufsize(adapter, adapter->netdev);
- 	atomic_set(&adapter->irq_sem, 1);
- 	spin_lock_init(&adapter->mdio_lock);
--	spin_lock_init(&adapter->tx_lock);
- 	set_bit(__AT_DOWN, &adapter->flags);
-=20
- 	return 0;
-@@ -1653,9 +1652,11 @@ static bool atl1c_clean_tx_irq(struct atl1c_adap=
-ter *adapter,
- 		atomic_set(&tpd_ring->next_to_clean, next_to_clean);
- 	}
-=20
--	if (netif_queue_stopped(adapter->netdev) &&
--			netif_carrier_ok(adapter->netdev)) {
--		netif_wake_queue(adapter->netdev);
-+	if (netif_carrier_ok(adapter->netdev)) {
-+		/* make sure atl1c_xmit_frame() see our changes */
-+		smp_mb();
-+		if (netif_queue_stopped(adapter->netdev))
-+			netif_wake_queue(adapter->netdev);
- 	}
-=20
- 	return true;
-@@ -2228,7 +2229,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buf=
-f *skb,
- 					  struct net_device *netdev)
- {
- 	struct atl1c_adapter *adapter =3D netdev_priv(netdev);
--	unsigned long flags;
- 	u16 tpd_req =3D 1;
- 	struct atl1c_tpd_desc *tpd;
- 	enum atl1c_trans_queue type =3D atl1c_trans_normal;
-@@ -2239,24 +2239,20 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_b=
-uff *skb,
- 	}
-=20
- 	tpd_req =3D atl1c_cal_tpd_req(skb);
--	if (!spin_trylock_irqsave(&adapter->tx_lock, flags)) {
--		if (netif_msg_pktdata(adapter))
--			dev_info(&adapter->pdev->dev, "tx locked\n");
--		return NETDEV_TX_LOCKED;
--	}
-=20
- 	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
- 		/* no enough descriptor, just stop queue */
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
--		return NETDEV_TX_BUSY;
-+		smp_mb();
-+		if (atl1c_tpd_avail(adapter, type) < tpd_req)
-+			return NETDEV_TX_BUSY;
-+		netif_wake_queue(netdev);
- 	}
-=20
- 	tpd =3D atl1c_get_tpd(adapter, type);
-=20
- 	/* do TSO and check sum */
- 	if (atl1c_tso_csum(adapter, skb, &tpd, type) !=3D 0) {
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
-@@ -2277,7 +2273,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_buf=
-f *skb,
- 	atl1c_tx_map(adapter, skb, tpd, type);
- 	atl1c_tx_queue(adapter, skb, tpd, type);
-=20
--	spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 	return NETDEV_TX_OK;
- }
-=20
+I agree, just didn't want to got that far. But yes
+those should be fixed as well.
