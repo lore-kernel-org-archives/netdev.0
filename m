@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Fri, 24 Feb 2012 15:36:16 -0500 (EST)
-Message-ID: <20120224.153616.117399887784547022.davem@davemloft.net>
-References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
+Subject: Re: [PATCH 00/11] print MAC via printk format specifier
+Date: Fri, 24 Feb 2012 15:42:24 -0500 (EST)
+Message-ID: <20120224.154224.992364563810018486.davem@davemloft.net>
+References: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, rodrigo.moya@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: javier@collabora.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, grant.likely@secretlab.ca, oneukum@suse.de,
+	linux-usb@vger.kernel.org, linux-ia64@vger.kernel.org,
+	grundler@parisc-linux.org, jkosina@suse.cz,
+	e1000-devel@lists.sourceforge.net, gregkh@linuxfoundation.org,
+	jpirko@redhat.com, dkukawka@suse.de,
+	linux-kernel@vger.kernel.org, pe1dnn@amsat.org,
+	netdev@vger.kernel.org, geert@linux-m68k.org, kernel@wantstofly.org
+To: danny.kukawka@bisect.de
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Fri, 24 Feb 2012 14:45:51 +0100
 
-My first impression is that I'm amazed at how much complicated new
-code you have to add to support groups of receivers of AF_UNIX
-messages.
+> Print MAC/dev_addr via printk extended format specifier %pm/%pM
+> instead of using custom code.
+> 
+> These patches are against net-next.
 
-I can't see how this is better than doing multicast over ipv4 using
-UDP or something like that, code which we have already and has been
-tested for decades.
+All applied, but you absolutely have to start posting patch series
+correctly.
 
-I really don't want to apply this stuff, it looks bloated,
-complicated, and there is another avenue for doing what you want to
-do.
-
-Applications have to change to support the new multicast facilities,
-so they can equally be changed to use a real transport that already
-supports multicasting.
+If it's a series for net-next, then every single patch must be
+CC:'d to netdev so it gets queued up properly in patchwork.
