@@ -1,60 +1,97 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] gre: fix spelling in comments
-Date: Fri, 24 Feb 2012 10:08:20 -0800
-Message-ID: <20120224100820.227ed31c@nehalam.linuxnetplumber.net>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] checkpatch: Add some --strict coding style checks
+Date: Fri, 24 Feb 2012 18:22:20 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com>
+References: <20120221151435.GA19354@tuxdriver.com>
+	 <20120221.144417.1445117001833888214.davem@davemloft.net>
+	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>
+	 <20120221.154053.2103818562080068513.davem@davemloft.net>
+	 <1329857959.5143.11.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>
+	 <1329874581.5143.22.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>
+	 <1329875935.5143.24.camel@joe2Laptop>
+	 <804857E1F29AAC47BF68C404FC60A18429B98A@ORSMSX102.amr.corp.intel.com>
+ <1329968622.5143.46.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35862 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756323Ab2BXSIX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 13:08:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Andy Whitcroft <apw@shadowen.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"andrei.emeltchenko.news@gmail.com"
+	<andrei.emeltchenko.news@gmail.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1329968622.5143.46.camel@joe2Laptop>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The original spelling and bad word choice makes these comments hard to read.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/net/ipv4/ip_gre.c	2012-02-24 10:04:41.007678920 -0800
-+++ b/net/ipv4/ip_gre.c	2012-02-24 10:07:54.421769389 -0800
-@@ -65,7 +65,7 @@
-    it is infeasible task. The most general solutions would be
-    to keep skb->encapsulation counter (sort of local ttl),
-    and silently drop packet when it expires. It is a good
--   solution, but it supposes maintaing new variable in ALL
-+   solution, but it supposes maintaining new variable in ALL
-    skb, even if no tunneling is used.
- 
-    Current solution: xmit_recursion breaks dead loops. This is a percpu
-@@ -91,14 +91,14 @@
- 
-    One of them is to parse packet trying to detect inner encapsulation
-    made by our node. It is difficult or even impossible, especially,
--   taking into account fragmentation. TO be short, tt is not solution at all.
-+   taking into account fragmentation. TO be short, ttl is not solution at all.
- 
-    Current solution: The solution was UNEXPECTEDLY SIMPLE.
-    We force DF flag on tunnels with preconfigured hop limit,
-    that is ALL. :-) Well, it does not remove the problem completely,
-    but exponential growth of network traffic is changed to linear
-    (branches, that exceed pmtu are pruned) and tunnel mtu
--   fastly degrades to value <68, where looping stops.
-+   rapidly degrades to value <68, where looping stops.
-    Yes, it is not good if there exists a router in the loop,
-    which does not force DF, even when encapsulating packets have DF set.
-    But it is not our problem! Nobody could accuse us, we made
-@@ -457,8 +457,8 @@ static void ipgre_err(struct sk_buff *sk
-    GRE tunnels with enabled checksum. Tell them "thank you".
- 
-    Well, I wonder, rfc1812 was written by Cisco employee,
--   what the hell these idiots break standrads established
--   by themself???
-+   what the hell these idiots break standards established
-+   by themselves???
-  */
- 
- 	const struct iphdr *iph = (const struct iphdr *)skb->data;
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2UgUGVyY2hlcyBbbWFpbHRv
+OmpvZUBwZXJjaGVzLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFyeSAyMiwgMjAxMiA3
+OjQ0IFBNDQo+IFRvOiBBbGxhbiwgQnJ1Y2UgVw0KPiBDYzogRGF2aWQgTWlsbGVyOyBBbmR5IFdo
+aXRjcm9mdDsgQW5kcmV3IE1vcnRvbjsNCj4gYW5kcmVpLmVtZWx0Y2hlbmtvLm5ld3NAZ21haWwu
+Y29tOyBsaW52aWxsZUB0dXhkcml2ZXIuY29tOyBsaW51eC0NCj4gd2lyZWxlc3NAdmdlci5rZXJu
+ZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2Vy
+bmVsLm9yZw0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBjaGVja3BhdGNoOiBBZGQgc29tZSAtLXN0
+cmljdCBjb2Rpbmcgc3R5bGUgY2hlY2tzDQo+IA0KPiBIaSBCcnVjZS4gKHlheSwgSSBnb3QgeW91
+ciBuYW1lIHJpZ2h0KQ0KPiANCj4gVGhhbmtzLg0KPiANCj4gSG93IGFib3V0IHRlc3RpbmcgdGhp
+cz8NCj4gDQo+IEl0IGFsbG93cyBhbGwgc3BhY2VzIG9yIGFwcHJvcHJpYXRlIHRhYnMgZm9yIGlu
+ZGVudGF0aW9uLA0KPiBhbmQgSSBiZWxpZXZlIGl0IHdvcmtzIE9LLg0KPiANCj4gLS0tDQo+ICBz
+Y3JpcHRzL2NoZWNrcGF0Y2gucGwgfCAgIDY1DQo+ICsrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrLQ0KPiAgMSBmaWxlcyBjaGFuZ2VkLCA2MyBpbnNlcnRpb25z
+KCspLCAyIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL3NjcmlwdHMvY2hlY2twYXRj
+aC5wbCBiL3NjcmlwdHMvY2hlY2twYXRjaC5wbA0KPiBpbmRleCA4OWQyNGIzLi43YTA1MTRiIDEw
+MDc1NQ0KPiAtLS0gYS9zY3JpcHRzL2NoZWNrcGF0Y2gucGwNCj4gKysrIGIvc2NyaXB0cy9jaGVj
+a3BhdGNoLnBsDQo+IEBAIC0zMzAsMTAgKzMzMCwxMSBAQCBzdWIgYnVpbGRfdHlwZXMgew0KPiAg
+fQ0KPiAgYnVpbGRfdHlwZXMoKTsNCj4gDQo+IC1vdXIgJG1hdGNoX2JhbGFuY2VkX3BhcmVudGhl
+c2VzID0gcXIvKFwoKD86W15cKFwpXSt8KC0xKSkqXCkpLzsNCj4gK291ciAkYmFsYW5jZWRfcGFy
+ZW5zID0gcXIvKFwoKD86W15cKFwpXSsrfCg/LTEpKSpcKSkvOw0KPiArb3VyICRsdmFsX3BhcmVu
+cyA9IHFyLyhcKCg/OlteXChcKV0rfCgtMSkpKlwpKS87DQo+IA0KPiAgb3VyICRUeXBlY2FzdAk9
+IHFye1xzKihcKFxzKiROb25wdHJUeXBlXHMqXCkpezAsMX1ccyp9Ow0KPiAtb3VyICRMdmFsT3JG
+dW5jCT0NCj4gcXJ7KCRMdmFsKVxzKigkbWF0Y2hfYmFsYW5jZWRfcGFyZW50aGVzZXN7MCwxfSlc
+cyp9Ow0KPiArb3VyICRMdmFsT3JGdW5jCT0gcXJ7KCRMdmFsKVxzKigkbHZhbF9wYXJlbnN7MCwx
+fSlccyp9Ow0KPiAgb3VyICRGdW5jQXJnID0gcXJ7JFR5cGVjYXN0ezAsMX0oJEx2YWxPckZ1bmN8
+JENvbnN0YW50KX07DQo+IA0KPiAgc3ViIGRlcGFyZW50aGVzaXplIHsNCj4gQEAgLTEzMzAsNiAr
+MTMzMSwzNiBAQCBzdWIgY2hlY2tfYWJzb2x1dGVfZmlsZSB7DQo+ICAJfQ0KPiAgfQ0KPiANCj4g
+K3N1YiBwb3NfbGFzdF9vcGVucGFyZW4gew0KPiArCW15ICgkbGluZSkgPSBAXzsNCj4gKw0KPiAr
+CW15ICRwb3MgPSAwOw0KPiArDQo+ICsJbXkgJG9wZW5zID0gJGxpbmUgPX4gdHIvXCgvXCgvOw0K
+PiArCW15ICRjbG9zZXMgPSAkbGluZSA9fiB0ci9cKS9cKS87DQo+ICsNCj4gKwlteSAkbGFzdF9v
+cGVucGFyZW4gPSAwOw0KPiArDQo+ICsJaWYgKCgkb3BlbnMgPT0gMCkgfHwgKCRjbG9zZXMgPj0g
+JG9wZW5zKSkgew0KPiArCQlyZXR1cm4gLTE7DQo+ICsJfQ0KPiArDQo+ICsJbXkgJGxlbiA9IGxl
+bmd0aCgkbGluZSk7DQo+ICsNCj4gKwlmb3IgKCRwb3MgPSAwOyAkcG9zIDwgJGxlbjsgJHBvcysr
+KSB7DQo+ICsJICAgIG15ICRzdHJpbmcgPSBzdWJzdHIoJGxpbmUsICRwb3MpOw0KPiArCSAgICBp
+ZiAoJHN0cmluZyA9fiAvXigkRnVuY0FyZ3wkYmFsYW5jZWRfcGFyZW5zKS8pIHsNCj4gKwkJICAg
+ICRwb3MgKz0gbGVuZ3RoKCQxKTsNCj4gKwkgICAgfQ0KPiArDQo+ICsJICAgIGlmIChzdWJzdHIo
+JGxpbmUsICRwb3MsIDEpIGVxICcoJykgew0KPiArCQkkbGFzdF9vcGVucGFyZW4gPSAkcG9zOw0K
+PiArCSAgICB9DQo+ICsJfQ0KPiArDQo+ICsJcmV0dXJuICRsYXN0X29wZW5wYXJlbiArIDE7DQo+
+ICt9DQo+ICsNCj4gIHN1YiBwcm9jZXNzIHsNCj4gIAlteSAkZmlsZW5hbWUgPSBzaGlmdDsNCj4g
+DQo+IEBAIC0xNzgzLDYgKzE4MTQsMzYgQEAgc3ViIHByb2Nlc3Mgew0KPiAgCQkJICAgICAicGxl
+YXNlLCBubyBzcGFjZSBiZWZvcmUgdGFic1xuIiAuICRoZXJldmV0KTsNCj4gIAkJfQ0KPiANCj4g
+KyMgY2hlY2sgZm9yICYmIG9yIHx8IGF0IHRoZSBzdGFydCBvZiBhIGxpbmUNCj4gKwkJaWYgKCRy
+YXdsaW5lID1+IC9eXCtccyooJiZ8XHxcfCkvKSB7DQo+ICsJCQlDSEsoIkxPR0lDQUxfQ09OVElO
+VUFUSU9OUyIsDQo+ICsJCQkgICAgIkxvZ2ljYWwgY29udGludWF0aW9ucyBzaG91bGQgYmUgb24g
+dGhlIHByZXZpb3VzDQo+IGxpbmVcbiIgLiAkaGVyZXByZXYpOw0KPiArCQl9DQo+ICsNCj4gKyMg
+Y2hlY2sgbXVsdGktbGluZSBzdGF0ZW1lbnQgaW5kZW50YXRpb24gbWF0Y2hlcyBwcmV2aW91cyBs
+aW5lDQo+ICsJCWlmICgkcHJldmxpbmUgPX4gL15cKyhcdCopKGlmDQo+IFwofCRJZGVudFwoKS4q
+KFwmXCZ8XHxcfHwsKVxzKiQvKSB7DQo+ICsJCQkkcHJldmxpbmUgPX4gL15cKyhcdCopKC4qKSQv
+Ow0KPiArCQkJbXkgJG9sZGluZGVudCA9ICQxOw0KPiArCQkJbXkgJHJlc3QgPSAkMjsNCj4gKw0K
+PiArCQkJbXkgJHBvcyA9IHBvc19sYXN0X29wZW5wYXJlbigkcmVzdCk7DQo+ICsJCQlpZiAoJHBv
+cyA+PSAwKSB7DQo+ICsJCQkJJGxpbmUgPX4gL15cKyhbIFx0XSopLzsNCj4gKwkJCQlteSAkbmV3
+aW5kZW50ID0gJDE7DQo+ICsNCj4gKwkJCQlteSAkZ29vZHRhYmluZGVudCA9ICRvbGRpbmRlbnQg
+Lg0KPiArCQkJCQkiXHQiIHggKCRwb3MgLyA4KSAuDQo+ICsJCQkJCSIgIiAgeCAoJHBvcyAlIDgp
+Ow0KPiArCQkJCW15ICRnb29kc3BhY2VpbmRlbnQgPSAkb2xkaW5kZW50IC4gIiAiICB4DQo+ICRw
+b3M7DQo+ICsNCj4gKwkJCQlpZiAoJG5ld2luZGVudCBuZSAkZ29vZHRhYmluZGVudCAmJg0KPiAr
+CQkJCSAgICAkbmV3aW5kZW50IG5lICRnb29kc3BhY2VpbmRlbnQpIHsNCj4gKwkJCQkJQ0hLKCJQ
+QVJFTlRIRVNJU19BTElHTk1FTlQiLA0KPiArCQkJCQkgICAgIkFsaWdubWVudCBzaG91bGQgbWF0
+Y2ggb3Blbg0KPiBwYXJlbnRoZXNpc1xuIiAuICRoZXJlcHJldik7DQo+ICsJCQkJfQ0KPiArCQkJ
+fQ0KPiArCQl9DQo+ICsNCj4gICMgY2hlY2sgZm9yIHNwYWNlcyBhdCB0aGUgYmVnaW5uaW5nIG9m
+IGEgbGluZS4NCj4gICMgRXhjZXB0aW9uczoNCj4gICMgIDEpIHdpdGhpbiBjb21tZW50cw0KPiAN
+Cg0KVGhpcyBsYXRlc3QgdmVyc2lvbiBpcyBtdWNoIGJldHRlci4gIEl0IGRvZXMgbm90IHJlcG9y
+dCBmYWxzZSBwb3NpdGl2ZXMgaW4gdGhlDQpsaW1pdGVkIGNvZGUgSSBjaGVja2VkIGl0IGFnYWlu
+c3QuDQoNCkJydWNlLg0K
