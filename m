@@ -1,39 +1,69 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH net-next 1/3] mlx4_en: TX ring size default to 1024
-Date: Fri, 24 Feb 2012 19:35:45 +0000
-Message-ID: <953B660C027164448AE903364AC447D2618B8768@MTLDAG02.mtl.com>
-References: <4F46404D.10509@mellanox.co.il>
- <20120223.144541.1354349294973443529.davem@davemloft.net>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: [PATCH, RFC] skge: Fix race in tx path
+Date: Fri, 24 Feb 2012 19:33:39 +0000
+Message-ID: <4142816.cJc9u7kBPI@asus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:38233 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754408Ab2BXTfv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 14:35:51 -0500
-In-Reply-To: <20120223.144541.1354349294973443529.davem@davemloft.net>
-Content-Language: en-US
+Received: from relay01ant.iops.be ([212.53.4.34]:48523 "EHLO
+	relay01ant.iops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755141Ab2BXTkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 14:40:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> 
-> This is rediculious as a default, yes even for 10Gb.
-> 
-> Do you have any idea how high latency is going to be for packets
-> trying to get into the transmit queue if there are already a
-> thousand other frames in there?
+Make sure that tx_ring.to_use is updated before skge_tx_done() reads it.
 
-On the other hand, when having smaller queue with 1000 in-flight packets would mean queue would be stopped,
-how is it better?
-Having bigger TX ring helps dealing better with bursts of TX packets, without the overhead of stopping and starting the queue,
-It also makes sense to have same size TX and RX queues, for example in case of traffic being forwarded from TX to RX.
+Fixes the following BUG on my setup:
 
-I did find number of 10Gb vendors that have 1024 or more as the default size for TX queue.
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000525
+IP: [<ffffffff8130c95e>] net_rx_action+0x9e/0x290
+Call Trace:
+ [<ffffffff8104cfb1>] ? __do_softirq+0x81/0x250
+ [<ffffffff8104cffd>] __do_softirq+0xcd/0x250
+ [<ffffffff8104d297>] run_ksoftirqd+0x117/0x1e0
+ [<ffffffff8104d180>] ? __do_softirq+0x250/0x250
+ [<ffffffff81069786>] kthread+0x96/0xa0
+ [<ffffffff813e8534>] kernel_thread_helper+0x4/0x10
+ [<ffffffff813de75d>] ? retint_restore_args+0xe/0xe
+ [<ffffffff810696f0>] ? __init_kthread_worker+0x70/0x70
+ [<ffffffff813e8530>] ? gs_change+0xb/0xb
 
-Thanks,
-Yevgeny
+Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+Cc: Stephen Hemminger <shemminger@osdl.org>
+Cc: Jeff Garzik <jeff@garzik.org>
+---
+Note: I'm posting this patch as an RFC since I'm not a network driver expert.
+
+ drivers/net/ethernet/marvell/skge.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index dea0cb4..2d805b9 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -2793,7 +2793,8 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
+ 		tf->control |= BMU_EOF | BMU_IRQ_EOF;
+ 	}
+ 	/* Make sure all the descriptors written */
+-	wmb();
++	skge->tx_ring.to_use = e->next;
++	smp_wmb();
+ 	td->control = BMU_OWN | BMU_SW | BMU_STF | control | len;
+ 	wmb();
+ 
+@@ -2803,9 +2804,6 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
+ 		     "tx queued, slot %td, len %d\n",
+ 		     e - skge->tx_ring.start, skb->len);
+ 
+-	skge->tx_ring.to_use = e->next;
+-	smp_wmb();
+-
+ 	if (skge_avail(&skge->tx_ring) <= TX_LOW_WATER) {
+ 		netdev_dbg(dev, "transmit queue full\n");
+ 		netif_stop_queue(dev);
+-- 
+1.7.3.4
