@@ -1,54 +1,221 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/16] r8169: Support RX-FCS flag.
-Date: Fri, 24 Feb 2012 02:13:05 -0800
-Message-ID: <1330078389-8203-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/16] v2 e1000: Neaten e1000_dump function
+Date: Fri, 24 Feb 2012 02:13:09 -0800
+Message-ID: <1330078389-8203-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Joe Perches <joe@perches.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43469 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:34282 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756842Ab2BXKNS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 05:13:18 -0500
+	id S1755744Ab2BXKNV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 05:13:21 -0500
 In-Reply-To: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+From: Tushar Dave <tushar.n.dave@intel.com>
 
-This allows the NIC to receive the Ethernet FCS
-and pass it up the stack, allowing sniffers and
-other interested programs to inspect the FCS.
+Use pr_<level> for printk
+Use temporary instead of multiple pr_conts
+Coalesce formats.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
+Save a few bytes of object code too:
+
+$ size drivers/net/ethernet/intel/e1000/e1000_main.o*
+   text	   data	    bss	    dec	    hex	filename
+  60507	    369	  14120	  74996	  124f4
+drivers/net/ethernet/intel/e1000/e1000_main.o.new
+  60717	    369	  14176	  75262	  125fe
+drivers/net/ethernet/intel/e1000/e1000_main.o.old
+
+Removed printing of pktdata.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |  113 +++++++++++--------------
+ 1 files changed, 50 insertions(+), 63 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 0517a6a..fbd855b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4186,6 +4186,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 8aa8097..6419a88 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3261,16 +3261,16 @@ static void e1000_regdump(struct e1000_adapter *adapter)
+ 	u32 *regs_buff = regs;
+ 	int i = 0;
  
- 	dev->hw_features |= NETIF_F_RXALL;
-+	dev->hw_features |= NETIF_F_RXFCS;
+-	char *reg_name[] = {
+-	"CTRL",  "STATUS",
+-	"RCTL", "RDLEN", "RDH", "RDT", "RDTR",
+-	"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
+-	"TIDV", "TXDCTL", "TADV", "TARC0",
+-	"TDBAL1", "TDBAH1", "TDLEN1", "TDH1", "TDT1",
+-	"TXDCTL1", "TARC1",
+-	"CTRL_EXT", "ERT", "RDBAL", "RDBAH",
+-	"TDFH", "TDFT", "TDFHS", "TDFTS", "TDFPC",
+-	"RDFH", "RDFT", "RDFHS", "RDFTS", "RDFPC"
++	static const char * const reg_name[] = {
++		"CTRL",  "STATUS",
++		"RCTL", "RDLEN", "RDH", "RDT", "RDTR",
++		"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
++		"TIDV", "TXDCTL", "TADV", "TARC0",
++		"TDBAL1", "TDBAH1", "TDLEN1", "TDH1", "TDT1",
++		"TXDCTL1", "TARC1",
++		"CTRL_EXT", "ERT", "RDBAL", "RDBAH",
++		"TDFH", "TDFT", "TDFHS", "TDFTS", "TDFPC",
++		"RDFH", "RDFT", "RDFHS", "RDFTS", "RDFPC"
+ 	};
  
- 	tp->hw_start = cfg->hw_start;
- 	tp->event_slow = cfg->event_slow;
-@@ -5773,7 +5774,10 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+ 	regs_buff[0]  = er32(CTRL);
+@@ -3316,10 +3316,8 @@ static void e1000_regdump(struct e1000_adapter *adapter)
+ 	regs_buff[37] = er32(RDFPC);
  
- process_pkt:
- 			addr = le64_to_cpu(desc->addr);
--			pkt_size = (status & 0x00003fff) - 4;
-+			if (likely(!(dev->features & NETIF_F_RXFCS)))
-+				pkt_size = (status & 0x00003fff) - 4;
-+			else
-+				pkt_size = status & 0x00003fff;
+ 	pr_info("Register dump\n");
+-	for (i = 0; i < NUM_REGS; i++) {
+-		printk(KERN_INFO "%-15s  %08x\n",
+-		reg_name[i], regs_buff[i]);
+-	}
++	for (i = 0; i < NUM_REGS; i++)
++		pr_info("%-15s  %08x\n", reg_name[i], regs_buff[i]);
+ }
  
- 			/*
- 			 * The driver does not support incoming fragmented
+ /*
+@@ -3370,10 +3368,8 @@ static void e1000_dump(struct e1000_adapter *adapter)
+ 	 *   +----------------------------------------------------------------+
+ 	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
+ 	 */
+-	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ]"
+-	       " leng  ntw timestmp         bi->skb\n");
+-	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ]"
+-	       " leng  ntw timestmp         bi->skb\n");
++	pr_info("Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ] leng  ntw timestmp         bi->skb\n");
++	pr_info("Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ] leng  ntw timestmp         bi->skb\n");
+ 
+ 	if (!netif_msg_tx_done(adapter))
+ 		goto rx_ring_summary;
+@@ -3383,27 +3379,23 @@ static void e1000_dump(struct e1000_adapter *adapter)
+ 		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
+ 		struct my_u { u64 a; u64 b; };
+ 		struct my_u *u = (struct my_u *)tx_desc;
+-		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X "
+-		       "%016llX %p",
+-		       ((le64_to_cpu(u->b) & (1<<20)) ? 'd' : 'c'), i,
+-		       le64_to_cpu(u->a), le64_to_cpu(u->b),
+-		       (u64)buffer_info->dma, buffer_info->length,
+-		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
+-		       buffer_info->skb);
++		const char *type;
++
+ 		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
+-			printk(KERN_CONT" NTC/U\n");
++			type = "NTC/U";
+ 		else if (i == tx_ring->next_to_use)
+-			printk(KERN_CONT " NTU\n");
++			type = "NTU";
+ 		else if (i == tx_ring->next_to_clean)
+-			printk(KERN_CONT " NTC\n");
++			type = "NTC";
+ 		else
+-			printk(KERN_CONT "\n");
+-
+-
+-		if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
+-			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
+-					16, 1, phys_to_virt(buffer_info->dma),
+-					buffer_info->length, true);
++			type = "";
++
++		pr_info("T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X %016llX %p %s\n",
++			((le64_to_cpu(u->b) & (1<<20)) ? 'd' : 'c'), i,
++			le64_to_cpu(u->a), le64_to_cpu(u->b),
++			(u64)buffer_info->dma, buffer_info->length,
++			buffer_info->next_to_watch,
++			(u64)buffer_info->time_stamp, buffer_info->skb, type);
+ 	}
+ 
+ rx_ring_summary:
+@@ -3421,8 +3413,7 @@ rx_ring_summary:
+ 	 * +-----------------------------------------------------+
+ 	 * 63       48 47    40 39      32 31         16 15      0
+ 	 */
+-	printk(KERN_INFO "R[desc]      [address 63:0  ] [vl er S cks ln] "
+-		"[bi->dma       ] [bi->skb]\n");
++	pr_info("R[desc]      [address 63:0  ] [vl er S cks ln] [bi->dma       ] [bi->skb]\n");
+ 
+ 	if (!netif_msg_rx_status(adapter))
+ 		goto exit;
+@@ -3432,44 +3423,40 @@ rx_ring_summary:
+ 		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
+ 		struct my_u { u64 a; u64 b; };
+ 		struct my_u *u = (struct my_u *)rx_desc;
+-		printk(KERN_INFO "R[0x%03X]     %016llX %016llX %016llX %p",
+-			i, le64_to_cpu(u->a), le64_to_cpu(u->b),
+-			(u64)buffer_info->dma, buffer_info->skb);
++		const char *type;
++
+ 		if (i == rx_ring->next_to_use)
+-			printk(KERN_CONT " NTU\n");
++			type = "NTU";
+ 		else if (i == rx_ring->next_to_clean)
+-			printk(KERN_CONT " NTC\n");
++			type = "NTC";
+ 		else
+-			printk(KERN_CONT "\n");
+-
+-		if (netif_msg_pktdata(adapter))
+-			print_hex_dump(KERN_INFO, "",
+-				DUMP_PREFIX_ADDRESS, 16, 1,
+-				phys_to_virt(buffer_info->dma),
+-				buffer_info->length, true);
++			type = "";
+ 
++		pr_info("R[0x%03X]     %016llX %016llX %016llX %p %s\n",
++			i, le64_to_cpu(u->a), le64_to_cpu(u->b),
++			(u64)buffer_info->dma, buffer_info->skb, type);
+ 	} /* for */
+ 
+ 	/* dump the descriptor caches */
+ 	/* rx */
+-	printk(KERN_INFO "e1000: Rx descriptor cache in 64bit format\n");
++	pr_info("Rx descriptor cache in 64bit format\n");
+ 	for (i = 0x6000; i <= 0x63FF ; i += 0x10) {
+-		printk(KERN_INFO "R%04X: %08X|%08X %08X|%08X\n",
+-				i,
+-				readl(adapter->hw.hw_addr + i+4),
+-				readl(adapter->hw.hw_addr + i),
+-				readl(adapter->hw.hw_addr + i+12),
+-				readl(adapter->hw.hw_addr + i+8));
++		pr_info("R%04X: %08X|%08X %08X|%08X\n",
++			i,
++			readl(adapter->hw.hw_addr + i+4),
++			readl(adapter->hw.hw_addr + i),
++			readl(adapter->hw.hw_addr + i+12),
++			readl(adapter->hw.hw_addr + i+8));
+ 	}
+ 	/* tx */
+-	printk(KERN_INFO "e1000: Tx descriptor cache in 64bit format\n");
++	pr_info("Tx descriptor cache in 64bit format\n");
+ 	for (i = 0x7000; i <= 0x73FF ; i += 0x10) {
+-		printk(KERN_INFO "T%04X: %08X|%08X %08X|%08X\n",
+-				i,
+-				readl(adapter->hw.hw_addr + i+4),
+-				readl(adapter->hw.hw_addr + i),
+-				readl(adapter->hw.hw_addr + i+12),
+-				readl(adapter->hw.hw_addr + i+8));
++		pr_info("T%04X: %08X|%08X %08X|%08X\n",
++			i,
++			readl(adapter->hw.hw_addr + i+4),
++			readl(adapter->hw.hw_addr + i),
++			readl(adapter->hw.hw_addr + i+12),
++			readl(adapter->hw.hw_addr + i+8));
+ 	}
+ exit:
+ 	return;
 -- 
 1.7.7.6
