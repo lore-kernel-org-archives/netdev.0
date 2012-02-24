@@ -1,12 +1,14 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 09/11] usb/kaweth: print MAC via printk format specifier
-Date: Fri, 24 Feb 2012 14:46:00 +0100
-Message-ID: <1330091162-8141-10-git-send-email-danny.kukawka@bisect.de>
+Subject: [PATCH 06/11] sun/sunqe: print MAC via printk format specifier
+Date: Fri, 24 Feb 2012 14:45:57 +0100
+Message-ID: <1330091162-8141-7-git-send-email-danny.kukawka@bisect.de>
 References: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, linux-usb@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Danny Kukawka <dkukawka@suse.de>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -17,27 +19,29 @@ instead of custom code.
 
 Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 ---
- drivers/net/usb/kaweth.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sun/sunqe.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index d034d9c..df2a2cf 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -1098,13 +1098,7 @@ err_fw:
- 	dev_info(&intf->dev, "Statistics collection: %x\n", kaweth->configuration.statistics_mask);
- 	dev_info(&intf->dev, "Multicast filter limit: %x\n", kaweth->configuration.max_multicast_filters & ((1 << 15) - 1));
- 	dev_info(&intf->dev, "MTU: %d\n", le16_to_cpu(kaweth->configuration.segment_size));
--	dev_info(&intf->dev, "Read MAC address %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
--		 (int)kaweth->configuration.hw_addr[0],
--		 (int)kaweth->configuration.hw_addr[1],
--		 (int)kaweth->configuration.hw_addr[2],
--		 (int)kaweth->configuration.hw_addr[3],
--		 (int)kaweth->configuration.hw_addr[4],
--		 (int)kaweth->configuration.hw_addr[5]);
-+	dev_info(&intf->dev, "Read MAC address %pM\n", kaweth->configuration.hw_addr);
+diff --git a/drivers/net/ethernet/sun/sunqe.c b/drivers/net/ethernet/sun/sunqe.c
+index b42d1c5..139d6b4 100644
+--- a/drivers/net/ethernet/sun/sunqe.c
++++ b/drivers/net/ethernet/sun/sunqe.c
+@@ -907,14 +907,8 @@ static int __devinit qec_ether_init(struct platform_device *op)
  
- 	if(!memcmp(&kaweth->configuration.hw_addr,
-                    &bcast_addr,
+ 	dev_set_drvdata(&op->dev, qe);
+ 
+-	printk(KERN_INFO "%s: qe channel[%d] ", dev->name, qe->channel);
+-	for (i = 0; i < 6; i++)
+-		printk ("%2.2x%c",
+-			dev->dev_addr[i],
+-			i == 5 ? ' ': ':');
+-	printk("\n");
+-
+-
++	printk(KERN_INFO "%s: qe channel[%d] %pM\n", dev->name, qe->channel,
++	       dev->dev_addr);
+ 	return 0;
+ 
+ fail:
 -- 
 1.7.8.3
