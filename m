@@ -1,64 +1,51 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 08/12] vmxnet3: check given MAC address,	if
- invalid return -EADDRNOTAVAIL
-Date: Fri, 24 Feb 2012 08:31:44 -0800
-Message-ID: <085E4D48-DF23-4C85-84DF-8321CA236304@vmware.com>
-References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
- <1330099282-4588-9-git-send-email-danny.kukawka@bisect.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Danny Kukawka <dkukawka@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Danny Kukawka <danny.kukawka@bisect.de>
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 1/2] enic: Fix endianness bug.
+Date: Fri, 24 Feb 2012 22:26:39 +0530
+Message-ID: <1330102599-1245-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: roprabhu@cisco.com, neepatel@cisco.com, nistrive@cisco.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: benve@cisco.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330099282-4588-9-git-send-email-danny.kukawka@bisect.de>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lgtm.
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-Reviewed-by: Bhavesh Davda <bhavesh@vmware.com>
+Sparse complaints the endian bug.
 
-- Bhavesh
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/net/ethernet/cisco/enic/cq_enet_desc.h |    2 +-
+ drivers/net/ethernet/cisco/enic/enic_pp.c      |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-(From my iPhone)
-
-
-On Feb 24, 2012, at 8:01 AM, "Danny Kukawka" <danny.kukawka@bisect.de> wrote:
-
-> Check if given address is valid in .ndo_set_mac_address/
-> vmxnet3_set_mac_addr(), if invalid return -EADDRNOTAVAIL as
-> eth_mac_addr() already does if is_valid_ether_addr() fails.
-> 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-> ---
-> drivers/net/vmxnet3/vmxnet3_drv.c |    3 +++
-> 1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index e1562e8..bd2a7cd 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -2331,6 +2331,9 @@ vmxnet3_set_mac_addr(struct net_device *netdev, void *p)
->    struct sockaddr *addr = p;
->    struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> 
-> +    if (!is_valid_ether_addr(addr->sa_data))
-> +        return -EADDRNOTAVAIL;
-> +
->    memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
->    vmxnet3_write_mac_addr(adapter, addr->sa_data);
-> 
-> -- 
-> 1.7.8.3
-> 
-> _______________________________________________
-> Pv-drivers mailing list
-> Pv-drivers@vmware.com
-> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+diff --git a/drivers/net/ethernet/cisco/enic/cq_enet_desc.h b/drivers/net/ethernet/cisco/enic/cq_enet_desc.h
+index c2c0680..ac37cac 100644
+--- a/drivers/net/ethernet/cisco/enic/cq_enet_desc.h
++++ b/drivers/net/ethernet/cisco/enic/cq_enet_desc.h
+@@ -157,7 +157,7 @@ static inline void cq_enet_rq_desc_dec(struct cq_enet_rq_desc *desc,
+ 			CQ_ENET_RQ_DESC_FCOE_FC_CRC_OK) ? 1 : 0;
+ 		*fcoe_enc_error = (desc->flags &
+ 			CQ_ENET_RQ_DESC_FCOE_ENC_ERROR) ? 1 : 0;
+-		*fcoe_eof = (u8)((desc->checksum_fcoe >>
++		*fcoe_eof = (u8)((le16_to_cpu(desc->checksum_fcoe) >>
+ 			CQ_ENET_RQ_DESC_FCOE_EOF_SHIFT) &
+ 			CQ_ENET_RQ_DESC_FCOE_EOF_MASK);
+ 		*checksum = 0;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
+index c758674..dafea1e 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_pp.c
++++ b/drivers/net/ethernet/cisco/enic/enic_pp.c
+@@ -72,7 +72,7 @@ static int enic_set_port_profile(struct enic *enic, int vf)
+ 	struct enic_port_profile *pp;
+ 	struct vic_provinfo *vp;
+ 	const u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
+-	const u16 os_type = htons(VIC_GENERIC_PROV_OS_TYPE_LINUX);
++	const __be16 os_type = htons(VIC_GENERIC_PROV_OS_TYPE_LINUX);
+ 	char uuid_str[38];
+ 	char client_mac_str[18];
+ 	u8 *client_mac;
+-- 
+1.7.4.4
