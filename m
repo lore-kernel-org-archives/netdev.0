@@ -1,53 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 24 Feb 2012 14:49:26 -0500 (EST)
-Message-ID: <20120224.144926.1896492725127004622.davem@davemloft.net>
-References: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
+Date: Fri, 24 Feb 2012 19:57:43 +0000
+Message-ID: <953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
+References: <4F464074.9050901@mellanox.co.il>
+ <20120223.144749.1718133820851859801.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196Ab2BXTtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 14:49:31 -0500
-In-Reply-To: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:40883 "HELO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755890Ab2BXT64 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 14:58:56 -0500
+In-Reply-To: <20120223.144749.1718133820851859801.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 24 Feb 2012 02:12:53 -0800
+> >
+> > Localized the pdev->dev, and using dma_map instead of pci_map
+> > There are multiple map/unmap operations on data path,
+> > optimizing those by saving redundant pointer access.
+> >
+> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> 
+> I doubt you can measure any improvement from this at all, all of the
+> real cost is going to be in programming the hardware (both the
+> networking chip and potentially any IOMMU hardware to setup the DMA
+> mappings).  A pointer deref in of your datastructures will be unnoticable.
 
-> The following are changes since commit 7c3a95a15ad2a5278498a72df0463131048926a3:
->   davinci_mdio: Correct bitmask for clock divider value
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+We actually did measure improvements with this changes.
+Those places were found as hot spots when we did kernel profiling on some benchmarks.
+Making those changes actually helped us reduce cpu utilization in several %, and in some cases was the
+difference between being CPU bounded or reaching wire speed.
+One scenario that we had improvement in when making this change is measuring Packet Rate for
+small (64 Byte) packets.
 
-Applied, but I had to add the following patch on top for completeness.
+> 
+> When you make changes like this I want you to justify them with real
+> data and facts.
 
---------------------
-net: Add missing getsockopt for SO_NOFCS.
+I agree, the explanation should have been part of the patch description.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/sock.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 55011cb..216719c 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1035,6 +1035,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+> I think this entire patch set was in very poor taste and judgment.
  
- 		v.val = sk->sk_peek_off;
- 		break;
-+	case SO_NOFCS:
-+		v.val = !!sock_flag(sk, SOCK_NOFCS);
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
--- 
-1.7.7.6
+Dave,
+Thank you for the comprehensive review, please allow me to kindly disagree with the last statement.
+
+The patch set is a result of performance work we did, and those changes helped us to achieve
+better results without hurting us in other areas.
+I do understand you concern regarding patch 2/3, although we did test it in various scenarios without
+running into the issues you described, and there are other vendors doing the same.
+
+I still think that patches 1 and 3 are good for our device,
+I'll be happy to make changes in them if you find it necessary, and resubmit.
+
+Thanks,
+Yevgeny 
