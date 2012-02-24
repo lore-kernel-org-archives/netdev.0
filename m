@@ -1,59 +1,63 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Subject: Re: [PATCH V2 4/6] NET: MIPS: lantiq: convert etop to managed gpio
-Date: Fri, 24 Feb 2012 14:36:47 +0400
-Message-ID: <4F47683F.1010303@mvista.com>
-References: <1330012913-13293-1-git-send-email-blogic@openwrt.org> <1330012913-13293-4-git-send-email-blogic@openwrt.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH v3 0/2] Adding new TI Common Platform ethernet SWitch driver
+Date: Fri, 24 Feb 2012 16:09:50 +0530
+Message-ID: <1330079992-13368-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: John Crispin <blogic@openwrt.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47067 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752352Ab2BXKiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 05:38:05 -0500
-Received: by bkcjm19 with SMTP id jm19so1847105bkc.19
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 02:38:03 -0800 (PST)
-In-Reply-To: <1330012913-13293-4-git-send-email-blogic@openwrt.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:56145 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753182Ab2BXKj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 05:39:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The following series contains driver implementation for TI Common Platform
+ethernet SWitch (CPSW) driver.
 
-On 23-02-2012 20:01, John Crispin wrote:
+CPSW is found in following SoC.
+* AM335X - http://www.ti.com/litv/pdf/spruh73c
+* DM814X - http://www.ti.com/litv/pdf/sprugz8
 
-> ltq_gpio_request() now uses devres to manage the gpios. We need to pass a
-> struct device pointer to make it work.
+CPSW:
+The three port switch gigabit ethernet subsystem provides ethernet packet
+communication and can be configured as an ethernet switch.  It
+supports 10/100/1000 Mbps. It provides the gigabit media independent
+interface (G/MII), reduced gigabit media independent interface (RGMII),
+reduced media independent interface (RMII), the management data input
+output (MDIO) for physical layer device (PHY) management.
 
-> Signed-off-by: John Crispin<blogic@openwrt.org>
-> Cc: netdev@vger.kernel.org
-> ---
->   drivers/net/ethernet/lantiq_etop.c |    9 ++++++---
->   1 files changed, 6 insertions(+), 3 deletions(-)
+Changes from v2:
 
-> diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-> index 66ec54a..e5ec8b1 100644
-> --- a/drivers/net/ethernet/lantiq_etop.c
-> +++ b/drivers/net/ethernet/lantiq_etop.c
-> @@ -292,9 +292,6 @@ ltq_etop_gbit_init(void)
->   {
->   	ltq_pmu_enable(PMU_SWITCH);
->
-> -	ltq_gpio_request(42, 2, 1, "MDIO");
-> -	ltq_gpio_request(43, 2, 1, "MDC");
-> -
->   	ltq_gbit_w32_mask(0, GCTL0_SE, LTQ_GBIT_GCTL0);
->   	/** Disable MDIO auto polling mode */
->   	ltq_gbit_w32_mask(0, PX_CTL_DMDIO, LTQ_GBIT_P0_CTL);
-> @@ -873,6 +870,12 @@ ltq_etop_probe(struct platform_device *pdev)
->   			err = -ENOMEM;
->   			goto err_out;
->   		}
-> +		if (ltq_gpio_request(&pdev->dev, 42, 2, 1, "MDIO") ||
-> +				ltq_gpio_request(&pdev->dev, 43, 2, 1, "MDC")) {
+* Modified ale_control structure into named initializer for better readability
 
-    This needs to be merged with patch 1 to keep the git tree bisectable
+* Removed unnecessary WARN_ON after kzalloc as kzalloc itself provide a stack
+  dump during alloc failure
 
-WBR, Sergei
+* Moved all embedded #defines inside the structure definitions outside for
+  better readability
+
+* Added priv variable argument to msg define as it is used, also change msg
+  define to multiple defines like cpsw_info, cpsw_err etc
+
+* Used printf extension %pM to print the MAC address
+
+* Added inline functions for cpdma register offsets for better readability
+
+Mugunthan V N (2):
+  netdev: driver: ethernet: add cpsw address lookup engine support
+  netdev: driver: ethernet: Add TI CPSW driver
+
+ drivers/net/ethernet/ti/Kconfig    |   11 +
+ drivers/net/ethernet/ti/Makefile   |    2 +
+ drivers/net/ethernet/ti/cpsw.c     | 1060 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.c |  638 ++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.h |   93 ++++
+ include/linux/platform_data/cpsw.h |   55 ++
+ 6 files changed, 1859 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/ti/cpsw.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.h
+ create mode 100644 include/linux/platform_data/cpsw.h
