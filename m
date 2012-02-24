@@ -1,115 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 24 Feb 2012 02:12:53 -0800
-Message-ID: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 04/16] e1000e: Support sending custom Ethernet CRC.
+Date: Fri, 24 Feb 2012 02:12:57 -0800
+Message-ID: <1330078389-8203-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34282 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43469 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752670Ab2BXKNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 05:13:13 -0500
+	id S1755915Ab2BXKNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 05:13:15 -0500
+In-Reply-To: <1330078389-8203-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series contains most of Ben Greear's low-level
-Ethernet debugging features patch series.  Problems were found
-with the e100 and one of the e1000 patches in the series, so they
-have been dropped and will be pushed later once the problems get
-ironed out.  There are 4 additional patches added to this pull
-request which do the following:
+From: Ben Greear <greearb@candelatech.com>
 
-e1000e - cosmetic changes
-e1000 - cleanup e1000_dump and e1000_config_dsp_after_link_change
-        functions
+This can aid with testing the RX logic for bad
+CRCs.
 
-Here is the patch summary for Ben's low-level Ethernet debugging
-patches:
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-This patch series enables some features designed to make
-testing ethernet devices and debugging link-level errors
-easier.
-
-First, support is added for receiving the Ethernet FCS.  This
-allows stock wireshark to show you the actual Ethernet FCS.
-
-Second, allow sending packets with user-specified Ethernet
-FCS.  The user can specify bad FCS in order to test network
-equipments' handling of FCS errors, or, in strange cases,
-users might want to implement their own FCS scheme.
-
-Third, allow configuring a NIC to receive errored (and possibly
-other types of packets not normally passed up the stack).  This
-allows sniffers to show packets with bad FCS, for instance.
-
-The following are changes since commit 7c3a95a15ad2a5278498a72df0463131048926a3:
-  davinci_mdio: Correct bitmask for clock divider value
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Ben Greear (12):
-  net: Support RXFCS feature flag.
-  e1000e: Support RXFCS feature flag.
-  net: Add framework to allow sending packets with customized CRC.
-  e1000e: Support sending custom Ethernet CRC.
-  net: Support RX-ALL feature flag.
-  e1000e: Support RXALL feature flag.
-  e1000: Support sending custom Ethernet CRC.
-  e1000: Support RX-FCS flag.
-  8139too: Support RX-ALL logic.
-  8139too: Support RX-FCS flag.
-  r8169: Support RX-ALL flag.
-  r8169: Support RX-FCS flag.
-
-Bruce Allan (2):
-  e1000e: cosmetic change to boolean comparisons
-  e1000e: cosmetic comment changes to make lines less than 80
-    characters
-
-Joe Perches (1):
-  e1000: Neaten e1000_config_dsp_after_link_change
-
-Tushar Dave (1):
-  v2 e1000: Neaten e1000_dump function
-
- Documentation/networking/netdev-features.txt    |   13 ++
- arch/alpha/include/asm/socket.h                 |    3 +
- arch/arm/include/asm/socket.h                   |    3 +
- arch/avr32/include/asm/socket.h                 |    3 +
- arch/cris/include/asm/socket.h                  |    3 +
- arch/frv/include/asm/socket.h                   |    3 +
- arch/h8300/include/asm/socket.h                 |    3 +
- arch/ia64/include/asm/socket.h                  |    3 +
- arch/m32r/include/asm/socket.h                  |    3 +
- arch/m68k/include/asm/socket.h                  |    3 +
- arch/mips/include/asm/socket.h                  |    3 +
- arch/mn10300/include/asm/socket.h               |    3 +
- arch/parisc/include/asm/socket.h                |    4 +
- arch/powerpc/include/asm/socket.h               |    3 +
- arch/s390/include/asm/socket.h                  |    3 +
- arch/sparc/include/asm/socket.h                 |    4 +
- arch/xtensa/include/asm/socket.h                |    3 +
- drivers/net/ethernet/intel/e1000/e1000_hw.c     |  156 +++++++++++------------
- drivers/net/ethernet/intel/e1000/e1000_main.c   |  147 +++++++++++-----------
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    8 +-
- drivers/net/ethernet/intel/e1000e/defines.h     |    1 +
- drivers/net/ethernet/intel/e1000e/e1000.h       |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c      |   80 ++++++++++--
- drivers/net/ethernet/intel/e1000e/param.c       |    5 +-
- drivers/net/ethernet/realtek/8139too.c          |   58 ++++++++-
- drivers/net/ethernet/realtek/r8169.c            |   55 ++++++--
- include/asm-generic/socket.h                    |    4 +
- include/linux/if.h                              |    2 +
- include/linux/netdev_features.h                 |    4 +
- include/linux/netdevice.h                       |    8 +-
- include/linux/skbuff.h                          |    4 +-
- include/net/sock.h                              |    4 +
- net/core/ethtool.c                              |    2 +
- net/core/skbuff.c                               |    1 +
- net/core/sock.c                                 |    5 +
- net/packet/af_packet.c                          |   32 ++++-
- 36 files changed, 449 insertions(+), 191 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 30c8c15..340442c 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4613,6 +4613,7 @@ link_up:
+ #define E1000_TX_FLAGS_VLAN		0x00000002
+ #define E1000_TX_FLAGS_TSO		0x00000004
+ #define E1000_TX_FLAGS_IPV4		0x00000008
++#define E1000_TX_FLAGS_NO_FCS		0x00000010
+ #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
+ #define E1000_TX_FLAGS_VLAN_SHIFT	16
+ 
+@@ -4872,6 +4873,9 @@ static void e1000_tx_queue(struct e1000_ring *tx_ring, int tx_flags, int count)
+ 		txd_upper |= (tx_flags & E1000_TX_FLAGS_VLAN_MASK);
+ 	}
+ 
++	if (unlikely(tx_flags & E1000_TX_FLAGS_NO_FCS))
++		txd_lower &= ~(E1000_TXD_CMD_IFCS);
++
+ 	i = tx_ring->next_to_use;
+ 
+ 	do {
+@@ -4889,6 +4893,10 @@ static void e1000_tx_queue(struct e1000_ring *tx_ring, int tx_flags, int count)
+ 
+ 	tx_desc->lower.data |= cpu_to_le32(adapter->txd_cmd);
+ 
++	/* txd_cmd re-enables FCS, so we'll re-disable it here as desired. */
++	if (unlikely(tx_flags & E1000_TX_FLAGS_NO_FCS))
++		tx_desc->lower.data &= ~(cpu_to_le32(E1000_TXD_CMD_IFCS));
++
+ 	/*
+ 	 * Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.  (Only
+@@ -5094,6 +5102,9 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		tx_flags |= E1000_TX_FLAGS_IPV4;
+ 
++	if (unlikely(skb->no_fcs))
++		tx_flags |= E1000_TX_FLAGS_NO_FCS;
++
+ 	/* if count is 0 then mapping error has occurred */
+ 	count = e1000_tx_map(tx_ring, skb, first, max_per_txd, nr_frags, mss);
+ 	if (count) {
+@@ -6221,6 +6232,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	/* Set user-changeable features (subset of all device features) */
+ 	netdev->hw_features = netdev->features;
+ 	netdev->hw_features |= NETIF_F_RXFCS;
++	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 
+ 	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER)
+ 		netdev->features |= NETIF_F_HW_VLAN_FILTER;
 -- 
 1.7.7.6
