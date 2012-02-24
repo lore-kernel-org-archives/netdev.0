@@ -1,63 +1,76 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] xfrm: remove unneeded method typedef declaration
- in net/xfrm.h.
-Date: Fri, 24 Feb 2012 14:17:24 +0200
-Message-ID: <CAHLOa7SLiHakXirjV2Q2tnC0u-zZuZp1s8sk+y3iZXevGw0ZDQ@mail.gmail.com>
+From: "Rajashekhara, Sudhakar" <sudhakar.raj@ti.com>
+Subject: RE: davinci_emac/mdio: SOFT_RESET of EMAC module resets MDIO on
+ AM1808
+Date: Fri, 24 Feb 2012 13:02:00 +0000
+Message-ID: <B6A220404B6BFC4BBD2AB91C54D39DF431775E1B@DBDE01.ent.ti.com>
+References: <CABkLObpZ52yVnq-wqnm8nC=bSnzz41RnC=wbQD3U7NRmr2SRBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=e89a8ff1c30a4e6d7b04b9b4be1a
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Christian Riesch <christian.riesch@omicron.at>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davinci-linux-open-source@linux.davincidsp.com"
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Gole, Anant" <anantgole@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:36301 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704Ab2BXMRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 07:17:25 -0500
-Received: by daed14 with SMTP id d14so2435883dae.19
-        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 04:17:25 -0800 (PST)
+Received: from bear.ext.ti.com ([192.94.94.41]:33291 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756170Ab2BXNCP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 08:02:15 -0500
+In-Reply-To: <CABkLObpZ52yVnq-wqnm8nC=bSnzz41RnC=wbQD3U7NRmr2SRBQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---e89a8ff1c30a4e6d7b04b9b4be1a
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hi Christian,
 
-Hi,
+On Thu, Feb 23, 2012 at 14:39:49, Christian Riesch wrote:
+> Hi,
+> I observed this behavior on a Texas Instruments AM1808 SoC (AM1808
+> experimenter's kit) running the current mainline kernel:
+> 
+> # ifconfig eth0 down
+> # ifconfig eth0 up
+> davinci_mdio davinci_mdio.0: resetting idled controller
+> net eth0: attached PHY driver [Generic PHY] (mii_bus:phy_addr=davinci_mdio-0:00)
+> # PHY: davinci_mdio-0:00 - Link is Up - 100/Full
+> 
 
-=A0The patch removes unneeded method typedef declaration
-(icv_update_fn_t ) in net/xfrm.h.
-(I am sending the same patch again as my former mail was  rejected by
-the vger server, now I believe it will be fine).
+I also observed this issue with the kernel from linux-davinci tree from
+gitorious.
 
-icv_update_fn_t was used in the past, for example in xfrm_algo.c (as a
-parameter to skb_icv_walk() method), but it is no longer used
-anywhere.
+> After each ifconfig eth0 up I get this 'resetting idled controller'
+> warning. I added a few debug messages to the davinci_mdio driver and
+> noticed that the MDIO control register was set to its reset value
+> (clock divider 0xff and MDIO turned off) after an ifconfig eth0 up.
+> Therefore, this warning is issued and a reconfiguration of the MDIO
+> controller is done by the driver.
+> 
+> Now the question was: Who is turning off the MDIO controller? After a
+> bit of debugging I found out that the reset of the MDIO controller
+> seems to be caused by these lines in the davinci_emac driver in
+> emac_hw_enable() in drivers/net/ethernet/ti/davinci_emac.c:
+> 
+> emac_write(EMAC_SOFTRESET, 1);
+> while (emac_read(EMAC_SOFTRESET))
+>         cpu_relax();
+> 
+> According to the AM1808 Technical Reference Manual (sections 18.2.14.1
+> and 18.3.3.34 in [1]), writing a 1 to the EMAC_SOFTRESET register
+> resets the EMAC module, but not the MDIO module. However, when I
+> comment out the code above, the MDIO control register is not affected
+> and the warning 'resetting idled controller' disappears.
+> 
 
-This patch removes it and the two struct declarations which appear in
-its prototype
+But this was not the case for me. Even after commenting out the above lines,
+I could still see that MDIO was getting reset.
 
-=A0(struct hash_desc and struct scatterlist)
+During eth0 up, the smsc_phy_config_init() function calls the mdiobus_read()
+function. During this sequence if the MDIO state machine is in IDLE state,
+then MDIO is reset causing the above warning message to appear.
 
+In summary, EMAC reset is not causing the MDIO reset to happen.
 
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---e89a8ff1c30a4e6d7b04b9b4be1a
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gz16lavg0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3hmcm0uaCBiL2luY2x1ZGUvbmV0L3hmcm0uaAppbmRl
-eCA4OTE3NGUyLi45NjIzOWU3IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC94ZnJtLmgKKysrIGIv
-aW5jbHVkZS9uZXQveGZybS5oCkBAIC0xNTY2LDExICsxNTY2LDYgQEAgZXh0ZXJuIHN0cnVjdCB4
-ZnJtX2FsZ29fZGVzYyAqeGZybV9jYWxnX2dldF9ieW5hbWUoY29uc3QgY2hhciAqbmFtZSwgaW50
-IHByb2JlKTsKIGV4dGVybiBzdHJ1Y3QgeGZybV9hbGdvX2Rlc2MgKnhmcm1fYWVhZF9nZXRfYnlu
-YW1lKGNvbnN0IGNoYXIgKm5hbWUsIGludCBpY3ZfbGVuLAogCQkJCQkJICAgaW50IHByb2JlKTsK
-IAotc3RydWN0IGhhc2hfZGVzYzsKLXN0cnVjdCBzY2F0dGVybGlzdDsKLXR5cGVkZWYgaW50IChp
-Y3ZfdXBkYXRlX2ZuX3QpKHN0cnVjdCBoYXNoX2Rlc2MgKiwgc3RydWN0IHNjYXR0ZXJsaXN0ICos
-Ci0JCQkgICAgICB1bnNpZ25lZCBpbnQpOwotCiBzdGF0aWMgaW5saW5lIGludCB4ZnJtX2FkZHJf
-Y21wKGNvbnN0IHhmcm1fYWRkcmVzc190ICphLAogCQkJCWNvbnN0IHhmcm1fYWRkcmVzc190ICpi
-LAogCQkJCWludCBmYW1pbHkpCg==
---e89a8ff1c30a4e6d7b04b9b4be1a--
+Thanks,
+Sudhakar
