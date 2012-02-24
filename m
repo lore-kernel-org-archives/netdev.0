@@ -1,59 +1,47 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] davinci_emac: Do not free all rx dma descriptors
-	during init
-Date: Fri, 24 Feb 2012 03:25:31 -0500
-Message-ID: <20120224.032531.607179170339382701.davem@davemloft.net>
-References: <1329995657-7051-1-git-send-email-christian.riesch@omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 11/14] NET: MIPS: lantiq: convert etop driver to
+ clkdev api
+Date: Fri, 24 Feb 2012 03:28:12 -0500 (EST)
+Message-ID: <20120224.032812.10813781440356110.davem@davemloft.net>
+References: <1330012993-13510-1-git-send-email-blogic@openwrt.org>
+	<1330012993-13510-11-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1329995657-7051-1-git-send-email-christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: blogic@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:32873 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754625Ab2BXI2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 03:28:23 -0500
+In-Reply-To: <1330012993-13510-11-git-send-email-blogic@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Date: Thu, 23 Feb 2012 12:14:17 +0100
+From: John Crispin <blogic@openwrt.org>
+Date: Thu, 23 Feb 2012 17:03:10 +0100
 
-> This patch fixes a regression that was introduced by
+> Update from old pmu_{dis,en}able() to ckldev api.
 > 
-> commit 0a5f38467765ee15478db90d81e40c269c8dda20
-> davinci_emac: Add Carrier Link OK check in Davinci RX Handler
-> 
-> Said commit adds a check whether the carrier link is ok. If the link is
-> not ok, the skb is freed and no new dma descriptor added to the rx dma
-> channel. This causes trouble during initialization when the carrier
-> status has not yet been updated. If a lot of packets are received while
-> netif_carrier_ok returns false, all dma descriptors are freed and the
-> rx dma transfer is stopped.
-> 
-> The bug occurs when the board is connected to a network with lots of
-> traffic and the ifconfig down/up is done, e.g., when reconfiguring
-> the interface with DHCP.
-> 
-> The bug can be reproduced by flood pinging the davinci board while doing
-> ifconfig eth0 down
-> ifconfig eth0 up
-> on the board.
-> 
-> After that, the rx path stops working and the overrun value reported
-> by ifconfig is counting up.
-> 
-> This patch reverts commit 0a5f38467765ee15478db90d81e40c269c8dda20
-> and instead issues warnings only if cpdma_chan_submit returns -ENOMEM.
-> 
-> Signed-off-by: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+> Signed-off-by: John Crispin <blogic@openwrt.org>
 
-Applied to 'net', thanks.
+Come on guys, don't do crap like this.
+
+When you have a 14 patch series, and I only see one or two of them
+I have no idea what in the world you want me to do with these patches.
+
+Are they dependent upon the previous patches that weren't sent to me?
+
+Are they not and I can just apply them as-is?
+
+Could I apply them as-is, but you want them to go via the MIPS tree
+for some reason and just want my ACK?
+
+Nobody knows because you didn't bother to say one way or another
+and that is extremely irritating because as a result I have to
+ask you all of these stupid questions and write this rediculious
+email.
+
+I'm just ignoring every single one of these MIPS patches, sorry.
