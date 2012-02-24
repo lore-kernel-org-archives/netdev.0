@@ -1,62 +1,37 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Subject: RE: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
-Date: Fri, 24 Feb 2012 19:57:43 +0000
-Message-ID: <953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
-References: <4F464074.9050901@mellanox.co.il>
- <20120223.144749.1718133820851859801.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] xfrm: remove unneeded method typedef
+ declaration in net/xfrm.h.
+Date: Fri, 24 Feb 2012 15:02:15 -0500 (EST)
+Message-ID: <20120224.150215.1020718241655335284.davem@davemloft.net>
+References: <CAHLOa7SLiHakXirjV2Q2tnC0u-zZuZp1s8sk+y3iZXevGw0ZDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:40883 "HELO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755890Ab2BXT64 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 14:58:56 -0500
-In-Reply-To: <20120223.144749.1718133820851859801.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:39506 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756743Ab2BXUCR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 15:02:17 -0500
+In-Reply-To: <CAHLOa7SLiHakXirjV2Q2tnC0u-zZuZp1s8sk+y3iZXevGw0ZDQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >
-> > Localized the pdev->dev, and using dma_map instead of pci_map
-> > There are multiple map/unmap operations on data path,
-> > optimizing those by saving redundant pointer access.
-> >
-> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> 
-> I doubt you can measure any improvement from this at all, all of the
-> real cost is going to be in programming the hardware (both the
-> networking chip and potentially any IOMMU hardware to setup the DMA
-> mappings).  A pointer deref in of your datastructures will be unnoticable.
+=46rom: Rami Rosen <ramirose@gmail.com>
+Date: Fri, 24 Feb 2012 14:17:24 +0200
 
-We actually did measure improvements with this changes.
-Those places were found as hot spots when we did kernel profiling on some benchmarks.
-Making those changes actually helped us reduce cpu utilization in several %, and in some cases was the
-difference between being CPU bounded or reaching wire speed.
-One scenario that we had improvement in when making this change is measuring Packet Rate for
-small (64 Byte) packets.
+> =A0The patch removes unneeded method typedef declaration
 
-> 
-> When you make changes like this I want you to justify them with real
-> data and facts.
+Where are all of these underscores coming from in your email
+text?
 
-I agree, the explanation should have been part of the patch description.
+Please turn off all fancy encodings in your email client.
 
-> I think this entire patch set was in very poor taste and judgment.
- 
-Dave,
-Thank you for the comprehensive review, please allow me to kindly disagree with the last statement.
+> Regards,
+> Rami Rosen
 
-The patch set is a result of performance work we did, and those changes helped us to achieve
-better results without hurting us in other areas.
-I do understand you concern regarding patch 2/3, although we did test it in various scenarios without
-running into the issues you described, and there are other vendors doing the same.
+Things like this do not belong in your commit message, if you leave it
+in there then I have to edit it out which is more work for me.
 
-I still think that patches 1 and 3 are good for our device,
-I'll be happy to make changes in them if you find it necessary, and resubmit.
-
-Thanks,
-Yevgeny 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
