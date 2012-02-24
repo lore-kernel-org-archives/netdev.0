@@ -1,103 +1,99 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [PATCH net-next v2] extend taskstats API to support networking
- accounts
-Date: Fri, 24 Feb 2012 11:15:45 +0800
-Message-ID: <4F4700E1.3010407@gmail.com>
-References: <4F45F73F.3000708@gmail.com>  <20120223.033434.1801978370536071654.davem@davemloft.net>  <4F46F941.1020401@gmail.com> <1330052710.2511.37.camel@bwh-desktop>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [net-next PATCH 1/5] be2net: cancel be_worker during EEH recovery
+Date: Fri, 24 Feb 2012 10:20:13 +0530
+Message-ID: <1330059017-5976-2-git-send-email-sathya.perla@emulex.com>
+References: <1330059017-5976-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:33344 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753026Ab2BXDPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 22:15:55 -0500
-Received: by iacb35 with SMTP id b35so2441299iac.19
-        for <netdev@vger.kernel.org>; Thu, 23 Feb 2012 19:15:55 -0800 (PST)
-In-Reply-To: <1330052710.2511.37.camel@bwh-desktop>
+Received: from exht1.emulex.com ([138.239.113.183]:20274 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755680Ab2BXEzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Feb 2012 23:55:42 -0500
+In-Reply-To: <1330059017-5976-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B402=E6=9C=8824=E6=97=A5 11:05, Ben Hutchings =E5=86=
-=99=E9=81=93:
-> On Fri, 2012-02-24 at 10:43 +0800, Li Yu wrote:
->> This patch adds L7 traffic accounting in taskstats API, so
->> the iotop like applications can receive these statistics data.
->> In fact, I also have an iotop patch for this change.
->>
->> It ignores any protocol header overhead, so results of this
->> patch should be saw as the applications-aware data statistics
->> instead of traffic statistics on wire.
->>
->> The changes of v2 are:
->>
->> 1. Move up accounting source code, so they are not protocol-aware no=
-w.
->> 2. Skipping interrupt context accounting.
-> [...]
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -1735,6 +1735,18 @@ static inline int skb_copy_to_page(struct soc=
-k
->> *sk, char __user *from,
->>    	return 0;
->>    }
->>
->> +static inline void task_net_accounting_rx(unsigned int len)
->> +{
->> +	if (!in_irq()&&  len>  0)
->> +		current->rx_bytes +=3D len;
->> +}
->> +
->> +static inline void task_net_accounting_tx(unsigned int len)
->> +{
->> +	if (!in_irq()&&  len>  0)
->> +		current->tx_bytes +=3D len;
->> +}
-> [...]
->
-> These are only called from system calls, so why are you checking for =
-IRQ
-> context?
->
+EEH recovery involves ring cleanup and re-creation. The worker
+thread must not run during EEH cleanup/resume.
 
-Some caller are exported symbols or in exported symbols path, so
-I think that we'd best that do not assume that such symbols only
-work at process context, it may be used by some kernel modules in
-softirq context.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_main.c |   13 ++++++++-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-However, faint, the 'len' should be signed int type.
-
-
->> @@ -558,7 +559,10 @@ static inline int __sock_sendmsg_nosec(struct k=
-iocb
->> *iocb, struct socket *sock,
->>    	si->msg =3D msg;
->>    	si->size =3D size;
->>
->> -	return sock->ops->sendmsg(iocb, sock, msg, size);
->> +	ret =3D sock->ops->sendmsg(iocb, sock, msg, size);
->> +	task_net_accounting_tx(ret);
->> +
->> +	return ret;
->>    }
-> [...]
->
-> So what happens to the totals when sendmsg() returns an error?
->
-> It seems to me that the parameter type for the accounting functions
-> should be ssize_t.
->
-
-En, I think that "int" is enough here at least, the return type of=20
-__sock_sendmsg_nosec() also is int ...
-
-Thanks
-
-Yu
-
-> Ben.
->
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 86f51de..4b1994d 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -304,6 +304,7 @@ struct be_vf_cfg {
+ };
+ 
+ #define BE_FLAGS_LINK_STATUS_INIT		1
++#define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
+ 
+ struct be_adapter {
+ 	struct pci_dev *pdev;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 28f2b25..68408d5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2447,6 +2447,11 @@ static void be_vf_clear(struct be_adapter *adapter)
+ 
+ static int be_clear(struct be_adapter *adapter)
+ {
++	if (adapter->flags & BE_FLAGS_WORKER_SCHEDULED) {
++		cancel_delayed_work_sync(&adapter->work);
++		adapter->flags &= ~BE_FLAGS_WORKER_SCHEDULED;
++	}
++
+ 	if (sriov_enabled(adapter))
+ 		be_vf_clear(adapter);
+ 
+@@ -2648,6 +2653,9 @@ static int be_setup(struct be_adapter *adapter)
+ 			goto err;
+ 	}
+ 
++	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
++	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
++
+ 	return 0;
+ err:
+ 	be_clear(adapter);
+@@ -3208,8 +3216,6 @@ static void __devexit be_remove(struct pci_dev *pdev)
+ 	if (!adapter)
+ 		return;
+ 
+-	cancel_delayed_work_sync(&adapter->work);
+-
+ 	unregister_netdev(adapter->netdev);
+ 
+ 	be_clear(adapter);
+@@ -3533,7 +3539,6 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	dev_info(&pdev->dev, "%s: %s port %d\n", netdev->name, nic_name(pdev),
+ 		adapter->port_num);
+ 
+-	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
+ 
+ unsetup:
+@@ -3563,7 +3568,6 @@ static int be_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	struct be_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev =  adapter->netdev;
+ 
+-	cancel_delayed_work_sync(&adapter->work);
+ 	if (adapter->wol)
+ 		be_setup_wol(adapter, true);
+ 
+@@ -3612,7 +3616,6 @@ static int be_resume(struct pci_dev *pdev)
+ 	if (adapter->wol)
+ 		be_setup_wol(adapter, false);
+ 
+-	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
+ }
+ 
+-- 
+1.7.4
