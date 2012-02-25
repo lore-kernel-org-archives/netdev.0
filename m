@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] e1000e: cleanup: rename e1000e_id_led_init() and call as function pointer
-Date: Fri, 24 Feb 2012 21:49:50 -0800
-Message-ID: <1330149000-25907-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] e1000e: cleanup use of check_mng_mode function pointer
+Date: Fri, 24 Feb 2012 21:49:52 -0800
+Message-ID: <1330149000-25907-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:2449 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751341Ab2BYFuD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751434Ab2BYFuD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Feb 2012 00:50:03 -0500
 In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,128 +18,68 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Rename e1000e_id_led_init() to e1000e_id_led_init_generic() to signify the
-function is used for more than one MAC-family type.  For the ich8lan MAC
-family, some MACs use the generic function and others use the function
-e1000_id_led_init_pchlan().  In all cases where e1000e_id_led_init() was
-called directly, change to call the function pointer to be consistent with
-the driver design.
+Replace e1000_check_mng_mode() inline function with calls to the MAC ops
+check_mng_mode function pointer.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    4 ++--
- drivers/net/ethernet/intel/e1000e/82571.c       |    4 ++--
- drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |    5 ++---
- drivers/net/ethernet/intel/e1000e/mac.c         |    4 ++--
- 5 files changed, 9 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    2 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    5 -----
+ drivers/net/ethernet/intel/e1000e/manage.c      |    4 ++--
+ 3 files changed, 3 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index 1f8f852..c146484 100644
+index e1cbead..0ea3e7e 100644
 --- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -820,7 +820,7 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
- 	e1000_initialize_hw_bits_80003es2lan(hw);
- 
- 	/* Initialize identification LED */
--	ret_val = e1000e_id_led_init(hw);
-+	ret_val = mac->ops.id_led_init(hw);
- 	if (ret_val)
- 		e_dbg("Error initializing identification LED\n");
- 		/* This is not fatal and we should not stop init due to this */
-@@ -1413,7 +1413,7 @@ static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw)
- 
- static const struct e1000_mac_operations es2_mac_ops = {
- 	.read_mac_addr		= e1000_read_mac_addr_80003es2lan,
--	.id_led_init		= e1000e_id_led_init,
-+	.id_led_init		= e1000e_id_led_init_generic,
- 	.blink_led		= e1000e_blink_led_generic,
- 	.check_mng_mode		= e1000e_check_mng_mode_generic,
- 	/* check_for_link dependent on media type */
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index b6b7bc4..2ca6377 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1118,7 +1118,7 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	e1000_initialize_hw_bits_82571(hw);
- 
- 	/* Initialize identification LED */
--	ret_val = e1000e_id_led_init(hw);
-+	ret_val = mac->ops.id_led_init(hw);
- 	if (ret_val)
- 		e_dbg("Error initializing identification LED\n");
- 		/* This is not fatal and we should not stop init due to this */
-@@ -1911,7 +1911,7 @@ static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw)
- static const struct e1000_mac_operations e82571_mac_ops = {
- 	/* .check_mng_mode: mac type dependent */
- 	/* .check_for_link: media type dependent */
--	.id_led_init		= e1000e_id_led_init,
-+	.id_led_init		= e1000e_id_led_init_generic,
- 	.cleanup_led		= e1000e_cleanup_led_generic,
- 	.clear_hw_cntrs		= e1000_clear_hw_cntrs_82571,
- 	.get_bus_info		= e1000e_get_bus_info_pcie,
+@@ -1056,7 +1056,7 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
+ 	 * firmware will have already initialized them.  We only initialize
+ 	 * them if the HW is not in IAMT mode.
+ 	 */
+-	if (!e1000e_check_mng_mode(hw)) {
++	if (!hw->mac.ops.check_mng_mode(hw)) {
+ 		/* Enable Electrical Idle on the PHY */
+ 		data |= GG82563_PMCR_ENABLE_ELECTRICAL_IDLE;
+ 		ret_val = e1e_wphy(hw, GG82563_PHY_PWR_MGMT_CTRL, data);
 diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 04a21fc..2a0d658 100644
+index 22e03e5..bae094b 100644
 --- a/drivers/net/ethernet/intel/e1000e/e1000.h
 +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -559,7 +559,7 @@ extern s32 e1000e_get_speed_and_duplex_copper(struct e1000_hw *hw, u16 *speed, u
- extern s32 e1000e_get_speed_and_duplex_fiber_serdes(struct e1000_hw *hw, u16 *speed, u16 *duplex);
- extern s32 e1000e_disable_pcie_master(struct e1000_hw *hw);
- extern s32 e1000e_get_auto_rd_done(struct e1000_hw *hw);
--extern s32 e1000e_id_led_init(struct e1000_hw *hw);
-+extern s32 e1000e_id_led_init_generic(struct e1000_hw *hw);
- extern void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw);
- extern s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw);
- extern s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index f3282dc..7d3a7fb 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -580,7 +580,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
- 		/* check management mode */
- 		mac->ops.check_mng_mode = e1000_check_mng_mode_ich8lan;
- 		/* ID LED init */
--		mac->ops.id_led_init = e1000e_id_led_init;
-+		mac->ops.id_led_init = e1000e_id_led_init_generic;
- 		/* blink LED */
- 		mac->ops.blink_led = e1000e_blink_led_generic;
- 		/* setup LED */
-@@ -2962,7 +2962,7 @@ static s32 e1000_valid_led_default_ich8lan(struct e1000_hw *hw, u16 *data)
-  *
-  *  PCH also does not have an "always on" or "always off" mode which
-  *  complicates the ID feature.  Instead of using the "on" mode to indicate
-- *  in ledctl_mode2 the LEDs to use for ID (see e1000e_id_led_init()),
-+ *  in ledctl_mode2 the LEDs to use for ID (see e1000e_id_led_init_generic()),
-  *  use "link_up" mode.  The LEDs will still ID on request if there is no
-  *  link based on logic in e1000_led_[on|off]_pchlan().
-  **/
-@@ -4006,7 +4006,6 @@ release:
+@@ -725,11 +725,6 @@ static inline s32 e1000_get_phy_info(struct e1000_hw *hw)
+ 	return hw->phy.ops.get_info(hw);
  }
  
- static const struct e1000_mac_operations ich8_mac_ops = {
--	.id_led_init		= e1000e_id_led_init,
- 	/* check_mng_mode dependent on mac type */
- 	.check_for_link		= e1000_check_for_copper_link_ich8lan,
- 	/* cleanup_led dependent on mac type */
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 17991e6..aaf4a4d 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -1399,11 +1399,11 @@ s32 e1000e_valid_led_default(struct e1000_hw *hw, u16 *data)
+-static inline s32 e1000e_check_mng_mode(struct e1000_hw *hw)
+-{
+-	return hw->mac.ops.check_mng_mode(hw);
+-}
+-
+ extern bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
+ extern bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
+ extern s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
+diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
+index 0d24b13..473f8e7 100644
+--- a/drivers/net/ethernet/intel/e1000e/manage.c
++++ b/drivers/net/ethernet/intel/e1000e/manage.c
+@@ -106,7 +106,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
  }
  
  /**
-- *  e1000e_id_led_init -
-+ *  e1000e_id_led_init_generic -
+- *  e1000e_check_mng_mode_generic - check management mode
++ *  e1000e_check_mng_mode_generic - Generic check management mode
   *  @hw: pointer to the HW structure
   *
-  **/
--s32 e1000e_id_led_init(struct e1000_hw *hw)
-+s32 e1000e_id_led_init_generic(struct e1000_hw *hw)
- {
- 	struct e1000_mac_info *mac = &hw->mac;
- 	s32 ret_val;
+  *  Reads the firmware semaphore register and returns true (>0) if
+@@ -138,7 +138,7 @@ bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw)
+ 	hw->mac.tx_pkt_filtering = true;
+ 
+ 	/* No manageability, no filtering */
+-	if (!e1000e_check_mng_mode(hw)) {
++	if (!hw->mac.ops.check_mng_mode(hw)) {
+ 		hw->mac.tx_pkt_filtering = false;
+ 		return hw->mac.tx_pkt_filtering;
+ 	}
 -- 
 1.7.7.6
