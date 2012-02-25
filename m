@@ -1,29 +1,34 @@
-From: Jin Mong <info@yahoo.com>
-Subject: (unknown)
-Date: Sat, 25 Feb 2012 14:01:34 -0200
-Message-ID: <20120225140134.20404lllaxdztxi6__46217.8086898804$1330186232$gmane$org@webmail.iqm.unicamp.br>
-Reply-To: jinmong22@yahoo.com.hk
+From: Jesper Nilsson <jesper@jni.nu>
+Subject: Re: [PATCH 02/12] cris/eth_v10: check given MAC address, if invalid
+ return -EADDRNOTAVAIL
+Date: Sat, 25 Feb 2012 18:18:06 +0100
+Message-ID: <20120225171805.GB16481@jni.nu>
+References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
+ <1330099282-4588-3-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from power.iqm.unicamp.br ([143.106.51.18]:60741 "EHLO
-	webmail.iqm.unicamp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755130Ab2BYQJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 11:09:30 -0500
-Subject: 
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Danny Kukawka <dkukawka@suse.de>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	Javier Martinez Canillas <martinez.javier@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1330099282-4588-3-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Feb 24, 2012 at 05:01:12PM +0100, Danny Kukawka wrote:
+> Check if given address is valid in .ndo_set_mac_address, if
+> invalid return -EADDRNOTAVAIL as eth_mac_addr() already does
+> if is_valid_ether_addr() fails.
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
 
-Greetings Partner,
-This is my second time of sending you this notice.
-I have finally found you as an approved heir to the inheritance of the  
-deposited
-funds with same surname of the deceased depositor.
-Jin Mong.
+Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+
+/^JN - Jesper Nilsson
+--
+                  Jesper Nilsson -- jesper_at_jni.nu
