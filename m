@@ -1,197 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/11] e1000e: cleanup use of check_reset_block function pointer
-Date: Fri, 24 Feb 2012 21:49:53 -0800
-Message-ID: <1330149000-25907-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] e1000e: rename e1000e_reload_nvm() and call as function pointer
+Date: Fri, 24 Feb 2012 21:50:00 -0800
+Message-ID: <1330149000-25907-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26381 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17253 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752276Ab2BYFuE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Feb 2012 00:50:04 -0500
+	id S1753444Ab2BYFuG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Feb 2012 00:50:06 -0500
 In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Replace e1000_check_reset_block() inline function with calls to the PHY ops
-check_reset_block function pointer.
+Rename e1000e_reload_nvm() to e1000e_reload_nvm_generic() to signify the
+function is used for more than one MAC-family type, and set and use it as a
+MAC ops function pointer to be consistent with the driver design.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h   |    5 -----
- drivers/net/ethernet/intel/e1000e/ethtool.c |    6 ++++--
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   15 ++++++++-------
- drivers/net/ethernet/intel/e1000e/mac.c     |    2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c  |    4 ++--
- drivers/net/ethernet/intel/e1000e/phy.c     |    2 +-
- 6 files changed, 16 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
+ drivers/net/ethernet/intel/e1000e/82571.c       |    1 +
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
+ drivers/net/ethernet/intel/e1000e/hw.h          |    1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |    3 ++-
+ drivers/net/ethernet/intel/e1000e/nvm.c         |    4 ++--
+ 6 files changed, 8 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index 6e58e94..bac9dda 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -1457,6 +1457,7 @@ static const struct e1000_nvm_operations es2_nvm_ops = {
+ 	.acquire		= e1000_acquire_nvm_80003es2lan,
+ 	.read			= e1000e_read_nvm_eerd,
+ 	.release		= e1000_release_nvm_80003es2lan,
++	.reload			= e1000e_reload_nvm_generic,
+ 	.update			= e1000e_update_nvm_checksum_generic,
+ 	.valid_led_default	= e1000e_valid_led_default,
+ 	.validate		= e1000e_validate_nvm_checksum_generic,
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 7f44ab76..086dad7 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1989,6 +1989,7 @@ static const struct e1000_nvm_operations e82571_nvm_ops = {
+ 	.acquire		= e1000_acquire_nvm_82571,
+ 	.read			= e1000e_read_nvm_eerd,
+ 	.release		= e1000_release_nvm_82571,
++	.reload			= e1000e_reload_nvm_generic,
+ 	.update			= e1000_update_nvm_checksum_82571,
+ 	.valid_led_default	= e1000_valid_led_default_82571,
+ 	.validate		= e1000_validate_nvm_checksum_82571,
 diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index bae094b..f93d7a4 100644
+index 9f3a268..86cdd47 100644
 --- a/drivers/net/ethernet/intel/e1000e/e1000.h
 +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -662,11 +662,6 @@ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- 	return hw->phy.ops.reset(hw);
- }
+@@ -684,7 +684,7 @@ extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
+ extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+ extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
+ extern void e1000e_release_nvm(struct e1000_hw *hw);
+-extern void e1000e_reload_nvm(struct e1000_hw *hw);
++extern void e1000e_reload_nvm_generic(struct e1000_hw *hw);
+ extern s32 e1000_read_mac_addr_generic(struct e1000_hw *hw);
  
--static inline s32 e1000_check_reset_block(struct e1000_hw *hw)
--{
--	return hw->phy.ops.check_reset_block(hw);
--}
--
- static inline s32 e1e_rphy(struct e1000_hw *hw, u32 offset, u16 *data)
- {
- 	return hw->phy.ops.read_reg(hw, offset, data);
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index b1f5d74..db35dd5 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -258,7 +258,7 @@ static int e1000_set_settings(struct net_device *netdev,
- 	 * When SoL/IDER sessions are active, autoneg/speed/duplex
- 	 * cannot be changed
- 	 */
--	if (e1000_check_reset_block(hw)) {
-+	if (hw->phy.ops.check_reset_block(hw)) {
- 		e_err("Cannot change link characteristics when SoL/IDER is "
- 		      "active.\n");
- 		return -EINVAL;
-@@ -1598,11 +1598,13 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 
- static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
- {
-+	struct e1000_hw *hw = &adapter->hw;
-+
- 	/*
- 	 * PHY loopback cannot be performed if SoL/IDER
- 	 * sessions are active
- 	 */
--	if (e1000_check_reset_block(&adapter->hw)) {
-+	if (hw->phy.ops.check_reset_block(hw)) {
- 		e_err("Cannot do PHY loopback test when SoL/IDER is active.\n");
- 		*data = 0;
- 		goto out;
+ static inline s32 e1000e_read_mac_addr(struct e1000_hw *hw)
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 50e114b..f82ecf5 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -830,6 +830,7 @@ struct e1000_nvm_operations {
+ 	s32  (*acquire)(struct e1000_hw *);
+ 	s32  (*read)(struct e1000_hw *, u16, u16, u16 *);
+ 	void (*release)(struct e1000_hw *);
++	void (*reload)(struct e1000_hw *);
+ 	s32  (*update)(struct e1000_hw *);
+ 	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
+ 	s32  (*validate)(struct e1000_hw *);
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 8b9bf94..da89e2b 100644
+index df91c42..8e9af62 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -324,7 +324,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
- 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
- 
--	if (!e1000_check_reset_block(hw)) {
-+	if (!hw->phy.ops.check_reset_block(hw)) {
- 		u32 fwsm = er32(FWSM);
- 
- 		/*
-@@ -1314,7 +1314,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
- 			oem_reg |= HV_OEM_BITS_LPLU;
- 
- 		/* Set Restart auto-neg to activate the bits */
--		if (!e1000_check_reset_block(hw))
-+		if (!hw->phy.ops.check_reset_block(hw))
- 			oem_reg |= HV_OEM_BITS_RESTART_AN;
- 	} else {
- 		if (mac_reg & (E1000_PHY_CTRL_GBE_DISABLE |
-@@ -1788,7 +1788,7 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
- 	s32 ret_val = 0;
- 	u16 reg;
- 
--	if (e1000_check_reset_block(hw))
-+	if (hw->phy.ops.check_reset_block(hw))
- 		return 0;
- 
- 	/* Allow time for h/w to get to quiescent state after reset */
-@@ -1897,7 +1897,7 @@ static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active)
- 	else
- 		oem_reg &= ~HV_OEM_BITS_LPLU;
- 
--	if (!e1000_check_reset_block(hw))
-+	if (!hw->phy.ops.check_reset_block(hw))
- 		oem_reg |= HV_OEM_BITS_RESTART_AN;
- 
- 	return e1e_wphy(hw, HV_OEM_BITS, oem_reg);
-@@ -3109,7 +3109,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 
- 	ctrl = er32(CTRL);
- 
--	if (!e1000_check_reset_block(hw)) {
-+	if (!hw->phy.ops.check_reset_block(hw)) {
- 		/*
- 		 * Full-chip reset requires MAC and PHY reset at the same
- 		 * time to make sure the interface between MAC and the
-@@ -3327,7 +3327,7 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
- {
- 	s32 ret_val;
- 
--	if (e1000_check_reset_block(hw))
-+	if (hw->phy.ops.check_reset_block(hw))
- 		return 0;
- 
- 	/*
-@@ -3707,7 +3707,8 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
- 	u16 phy_id1, phy_id2;
- 	s32 ret_val;
- 
--	if ((hw->mac.type != e1000_pch2lan) || e1000_check_reset_block(hw))
-+	if ((hw->mac.type != e1000_pch2lan) ||
-+	    hw->phy.ops.check_reset_block(hw))
- 		return;
- 
- 	ret_val = hw->phy.ops.acquire(hw);
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 6e48895..011d83d 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -711,7 +711,7 @@ s32 e1000e_setup_link_generic(struct e1000_hw *hw)
- 	 * In the case of the phy reset being blocked, we already have a link.
- 	 * We do not need to set it up again.
+@@ -2609,7 +2609,7 @@ release:
+ 	 * until after the next adapter reset.
  	 */
--	if (e1000_check_reset_block(hw))
-+	if (hw->phy.ops.check_reset_block(hw))
- 		return 0;
- 
- 	/*
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index c30e99e..3975ed1 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6236,7 +6236,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 		adapter->hw.phy.ms_type = e1000_ms_hw_default;
+ 	if (!ret_val) {
+-		e1000e_reload_nvm(hw);
++		nvm->ops.reload(hw);
+ 		usleep_range(10000, 20000);
  	}
  
--	if (e1000_check_reset_block(&adapter->hw))
-+	if (hw->phy.ops.check_reset_block(hw))
- 		e_info("PHY reset is blocked due to SOL/IDER session.\n");
+@@ -4043,6 +4043,7 @@ static const struct e1000_nvm_operations ich8_nvm_ops = {
+ 	.acquire		= e1000_acquire_nvm_ich8lan,
+ 	.read		 	= e1000_read_nvm_ich8lan,
+ 	.release		= e1000_release_nvm_ich8lan,
++	.reload			= e1000e_reload_nvm_generic,
+ 	.update			= e1000_update_nvm_checksum_ich8lan,
+ 	.valid_led_default	= e1000_valid_led_default_ich8lan,
+ 	.validate		= e1000_validate_nvm_checksum_ich8lan,
+diff --git a/drivers/net/ethernet/intel/e1000e/nvm.c b/drivers/net/ethernet/intel/e1000e/nvm.c
+index 24b7930..a969f1a 100644
+--- a/drivers/net/ethernet/intel/e1000e/nvm.c
++++ b/drivers/net/ethernet/intel/e1000e/nvm.c
+@@ -625,13 +625,13 @@ s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw)
+ }
  
- 	/* Set initial default active device features */
-@@ -6403,7 +6403,7 @@ err_register:
- 	if (!(adapter->flags & FLAG_HAS_AMT))
- 		e1000e_release_hw_control(adapter);
- err_eeprom:
--	if (!e1000_check_reset_block(&adapter->hw))
-+	if (!hw->phy.ops.check_reset_block(hw))
- 		e1000_phy_hw_reset(&adapter->hw);
- err_hw_init:
- 	kfree(adapter->tx_ring);
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index d4dbbe7..d10b27f 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -2133,7 +2133,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
- 	s32 ret_val;
- 	u32 ctrl;
- 
--	ret_val = e1000_check_reset_block(hw);
-+	ret_val = phy->ops.check_reset_block(hw);
- 	if (ret_val)
- 		return 0;
+ /**
+- *  e1000e_reload_nvm - Reloads EEPROM
++ *  e1000e_reload_nvm_generic - Reloads EEPROM
+  *  @hw: pointer to the HW structure
+  *
+  *  Reloads the EEPROM by setting the "Reinitialize from EEPROM" bit in the
+  *  extended control register.
+  **/
+-void e1000e_reload_nvm(struct e1000_hw *hw)
++void e1000e_reload_nvm_generic(struct e1000_hw *hw)
+ {
+ 	u32 ctrl_ext;
  
 -- 
 1.7.7.6
