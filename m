@@ -1,30 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/2] iptables: Merge libip6t_LOG and libipt_LOG into
- libxt_LOG
-Date: Sat, 25 Feb 2012 14:38:16 +0100
-Message-ID: <20120225133816.GA15864@1984>
-References: <1328911856-19260-1-git-send-email-richard@nod.at>
- <1328911856-19260-2-git-send-email-richard@nod.at>
+From: Jin Mong <info@yahoo.com>
+Subject: (unknown)
+Date: Sat, 25 Feb 2012 14:01:34 -0200
+Message-ID: <20120225140134.20404lllaxdztxi6__46217.8086898804$1330186232$gmane$org@webmail.iqm.unicamp.br>
+Reply-To: jinmong22@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, rostedt@goodmis.org, basti@b-bl.de
-To: Richard Weinberger <richard@nod.at>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from power.iqm.unicamp.br ([143.106.51.18]:60741 "EHLO
+	webmail.iqm.unicamp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755130Ab2BYQJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 11:09:30 -0500
+Subject: 
 Content-Disposition: inline
-In-Reply-To: <1328911856-19260-2-git-send-email-richard@nod.at>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 10, 2012 at 11:10:51PM +0100, Richard Weinberger wrote:
-> libip6t_LOG and libipt_LOG share a lot of common code, merge them
-> to recude duplicate code.
 
-I have applied this to the net-next branch of iptables.
-
-See git.netfilter.org
-
-I'll merge it to master once linux kernel 3.3 is released.
-
-Please, send follow up patches if you find any issue. Thanks.
+Greetings Partner,
+This is my second time of sending you this notice.
+I have finally found you as an approved heir to the inheritance of the  
+deposited
+funds with same surname of the deceased depositor.
+Jin Mong.
