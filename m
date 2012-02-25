@@ -1,94 +1,108 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v11 03/12] seccomp: kill the seccomp_t typedef
-Date: Fri, 24 Feb 2012 21:21:42 -0600
-Message-ID: <1330140111-17201-3-git-send-email-wad@chromium.org>
+Subject: [PATCH v11 11/12] x86: Enable HAVE_ARCH_SECCOMP_FILTER
+Date: Fri, 24 Feb 2012 21:21:50 -0600
+Message-ID: <1330140111-17201-11-git-send-email-wad@chromium.org>
 References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Cc: linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
-	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+Cc: linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org,
+	x86@kernel.org,
+	arnd@arndb.de,
+	davem@davemloft.net,
+	hpa@zytor.com,
+	mingo@redhat.com,
+	oleg@redhat.com,
+	peterz@infradead.org,
+	rdunlap@xenotime.net,
+	mcgrathr@chromium.org,
+	tglx@linutronix.de,
+	luto@mit.edu,
+	eparis@redhat.com,
+	serge.hallyn@canonical.com,
+	djm@mindrot.org,
+	scarybeasts@gmail.com,
+	indan@nul.nu,
+	pmoore@redhat.com,
+	akpm@linux-foundation.org,
+	corbet@lwn.net,
+	eric.dumazet@gmail.com,
+	markus@chromium.org,
+	coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kernel-hardening-return-957-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1330140111-17201-1-git-send-email-wad@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replaces the seccomp_t typedef with struct seccomp to match modern
-kernel style.
+Enable support for seccomp filter on x86:
+- asm/tracehook.h exists
+- syscall_get_arguments() works
+- syscall_rollback() works
+- ptrace_report_syscall() works
+- secure_computing() return value is honored (see below)
 
-v8-v11: no changes
-v7: struct seccomp_struct -> struct seccomp
-v6: original inclusion in this series.
+This also adds support for honoring the return
+value from secure_computing().
+
+SECCOMP_RET_TRACE and SECCOMP_RET_TRAP may result in seccomp needing to
+skip a system call without killing the process.  This is done by
+returning a non-zero (-1) value from secure_computing.  This change
+makes x86 respect that return value.
+
+To ensure that minimal kernel code is exposed, a non-zero return value
+results in an immediate return to user space (with an invalid syscall
+number).
 
 Signed-off-by: Will Drewry <wad@chromium.org>
-Reviewed-by: James Morris <jmorris@namei.org>
 ---
- include/linux/sched.h   |    2 +-
- include/linux/seccomp.h |   10 ++++++----
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ arch/x86/Kconfig         |    1 +
+ arch/x86/kernel/ptrace.c |    7 ++++++-
+ 2 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 7d379a6..c30526f 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1418,7 +1418,7 @@ struct task_struct {
- 	uid_t loginuid;
- 	unsigned int sessionid;
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 5bed94e..4c9012b 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -82,6 +82,7 @@ config X86
+ 	select CLKEVT_I8253
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
++	select HAVE_ARCH_SECCOMP_FILTER
+ 
+ config INSTRUCTION_DECODER
+ 	def_bool (KPROBES || PERF_EVENTS)
+diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
+index 5026738..90d465a 100644
+--- a/arch/x86/kernel/ptrace.c
++++ b/arch/x86/kernel/ptrace.c
+@@ -1380,7 +1380,11 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 		regs->flags |= X86_EFLAGS_TF;
+ 
+ 	/* do the secure computing check first */
+-	secure_computing(regs->orig_ax);
++	if (secure_computing(regs->orig_ax)) {
++		/* seccomp failures shouldn't expose any additional code. */
++		ret = -1L;
++		goto out;
++	}
+ 
+ 	if (unlikely(test_thread_flag(TIF_SYSCALL_EMU)))
+ 		ret = -1L;
+@@ -1405,6 +1409,7 @@ long syscall_trace_enter(struct pt_regs *regs)
+ 				    regs->dx, regs->r10);
  #endif
--	seccomp_t seccomp;
-+	struct seccomp seccomp;
  
- /* Thread group tracking */
-    	u32 parent_exec_id;
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index cc7a4e9..d61f27f 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -7,7 +7,9 @@
- #include <linux/thread_info.h>
- #include <asm/seccomp.h>
- 
--typedef struct { int mode; } seccomp_t;
-+struct seccomp {
-+	int mode;
-+};
- 
- extern void __secure_computing(int);
- static inline void secure_computing(int this_syscall)
-@@ -19,7 +21,7 @@ static inline void secure_computing(int this_syscall)
- extern long prctl_get_seccomp(void);
- extern long prctl_set_seccomp(unsigned long);
- 
--static inline int seccomp_mode(seccomp_t *s)
-+static inline int seccomp_mode(struct seccomp *s)
- {
- 	return s->mode;
- }
-@@ -28,7 +30,7 @@ static inline int seccomp_mode(seccomp_t *s)
- 
- #include <linux/errno.h>
- 
--typedef struct { } seccomp_t;
-+struct seccomp { };
- 
- #define secure_computing(x) do { } while (0)
- 
-@@ -42,7 +44,7 @@ static inline long prctl_set_seccomp(unsigned long arg2)
- 	return -EINVAL;
++out:
+ 	return ret ?: regs->orig_ax;
  }
  
--static inline int seccomp_mode(seccomp_t *s)
-+static inline int seccomp_mode(struct seccomp *s)
- {
- 	return 0;
- }
 -- 
 1.7.5.4
