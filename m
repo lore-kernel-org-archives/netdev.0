@@ -1,107 +1,87 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v11 02/12] net/compat.c,linux/filter.h: share compat_sock_fprog
-Date: Fri, 24 Feb 2012 21:21:41 -0600
-Message-ID: <1330140111-17201-2-git-send-email-wad@chromium.org>
+Subject: [PATCH v11 05/12] arch/x86: add syscall_get_arch to syscall.h
+Date: Fri, 24 Feb 2012 21:21:44 -0600
+Message-ID: <1330140111-17201-5-git-send-email-wad@chromium.org>
 References: <1330140111-17201-1-git-send-email-wad@chromium.org>
-Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Cc: linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org,
-	x86@kernel.org,
-	arnd@arndb.de,
-	davem@davemloft.net,
-	hpa@zytor.com,
-	mingo@redhat.com,
-	oleg@redhat.com,
-	peterz@infradead.org,
-	rdunlap@xenotime.net,
-	mcgrathr@chromium.org,
-	tglx@linutronix.de,
-	luto@mit.edu,
-	eparis@redhat.com,
-	serge.hallyn@canonical.com,
-	djm@mindrot.org,
-	scarybeasts@gmail.com,
-	indan@nul.nu,
-	pmoore@redhat.com,
-	akpm@linux-foundation.org,
-	corbet@lwn.net,
-	eric.dumazet@gmail.com,
-	markus@chromium.org,
-	coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org,
+Cc: linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-951-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:60548 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932271Ab2BYDWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 22:22:48 -0500
+Received: by ggnh1 with SMTP id h1so1475925ggn.19
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 19:22:48 -0800 (PST)
 In-Reply-To: <1330140111-17201-1-git-send-email-wad@chromium.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Any other users of bpf_*_filter that take a struct sock_fprog from
-userspace will need to be able to also accept a compat_sock_fprog
-if the arch supports compat calls.  This change let's the existing
-compat_sock_fprog be shared.
+Add syscall_get_arch() to export the current AUDIT_ARCH_* based on system call
+entry path.
 
 Signed-off-by: Will Drewry <wad@chromium.org>
-
-v11: introduction
 ---
- include/linux/filter.h |   11 +++++++++++
- net/compat.c           |    8 --------
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ arch/x86/include/asm/syscall.h |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index bdd02f9..f052f5c 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -10,6 +10,7 @@
+diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
+index d962e56..1d713e4 100644
+--- a/arch/x86/include/asm/syscall.h
++++ b/arch/x86/include/asm/syscall.h
+@@ -13,6 +13,7 @@
+ #ifndef _ASM_X86_SYSCALL_H
+ #define _ASM_X86_SYSCALL_H
  
- #ifdef __KERNEL__
- #include <linux/atomic.h>
-+#include <linux/compat.h>
- #endif
- 
- /*
-@@ -135,6 +136,16 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- 
- #ifdef __KERNEL__
- 
-+#ifdef CONFIG_COMPAT
-+/*
-+ * A struct sock_filter is architecture independent.
-+ */
-+struct compat_sock_fprog {
-+	u16		len;
-+	compat_uptr_t	filter;		/* struct sock_filter * */
-+};
-+#endif
-+
- struct sk_buff;
- struct sock;
- 
-diff --git a/net/compat.c b/net/compat.c
-index 6def90e..c5c61c8 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -326,14 +326,6 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
- 	__scm_destroy(scm);
++#include <linux/audit.h>
+ #include <linux/sched.h>
+ #include <linux/err.h>
+ #include <asm/asm-offsets.h>	/* For NR_syscalls */
+@@ -87,6 +88,12 @@ static inline void syscall_set_arguments(struct task_struct *task,
+ 	memcpy(&regs->bx + i, args, n * sizeof(args[0]));
  }
  
--/*
-- * A struct sock_filter is architecture independent.
-- */
--struct compat_sock_fprog {
--	u16		len;
--	compat_uptr_t	filter;		/* struct sock_filter * */
--};
--
- static int do_set_attach_filter(struct socket *sock, int level, int optname,
- 				char __user *optval, unsigned int optlen)
- {
++static inline int syscall_get_arch(struct task_struct *task,
++				   struct pt_regs *regs)
++{
++	return AUDIT_ARCH_I386;
++}
++
+ #else	 /* CONFIG_X86_64 */
+ 
+ static inline void syscall_get_arguments(struct task_struct *task,
+@@ -211,6 +218,22 @@ static inline void syscall_set_arguments(struct task_struct *task,
+ 		}
+ }
+ 
++static inline int syscall_get_arch(struct task_struct *task,
++				   struct pt_regs *regs)
++{
++#ifdef CONFIG_IA32_EMULATION
++	/*
++	 * TS_COMPAT is set for 32-bit syscall entries and then
++	 * remains set until we return to user mode.
++	 *
++	 * TIF_IA32 tasks should always have TS_COMPAT set at
++	 * system call time.
++	 */
++	if (task_thread_info(task)->status & TS_COMPAT)
++		return AUDIT_ARCH_I386;
++#endif
++	return AUDIT_ARCH_X86_64;
++}
+ #endif	/* CONFIG_X86_32 */
+ 
+ #endif	/* _ASM_X86_SYSCALL_H */
 -- 
 1.7.5.4
