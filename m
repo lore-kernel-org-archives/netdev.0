@@ -1,193 +1,74 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: Re: NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-Date: Sat, 25 Feb 2012 10:52:45 +0100
-Message-ID: <1330163565.1419.5.camel@localhost.localdomain>
-References: <1329063403.1449.14.camel@localhost.localdomain>
-	 <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
-	 <1329204997.24837.15.camel@edumazet-laptop>
-	 <1329366846.5646.1.camel@edumazet-laptop>
-	 <1329847015.5133.4.camel@localhost.localdomain>
-	 <1329848093.18384.35.camel@edumazet-laptop>
-	 <1330111229.15610.50.camel@edumazet-laptop>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH 00/12] Part 2: check given MAC address, if invalid return -EADDRNOTAVAIL
+Date: Sat, 25 Feb 2012 11:13:21 +0100
+Message-ID: <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
+References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
+	<CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jcliburn@gmail.com, chris.snook@gmail.com,
-	netdev <netdev@vger.kernel.org>, Josh Boyer <jwboyer@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330111229.15610.50.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
+	Guo-Fu Tseng <cooldavid-eHdHF5TYP0iWVfeAwA7xHQ@public.gmane.org>,
+	Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	"VMware, Inc." <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, den 24.02.2012, 20:20 +0100 schrieb Eric Dumazet:
-> Le mardi 21 f=C3=A9vrier 2012 =C3=A0 19:14 +0100, Eric Dumazet a =C3=A9=
-crit :
-> > Le mardi 21 f=C3=A9vrier 2012 =C3=A0 18:56 +0100, Thomas Meyer a =C3=
-=A9crit :
-> >=20
-> > > Bad news. Just did hit the issue again, with above patch applied.
-> > >=20
-> > > abrt_version:   2.0.7
-> > > cmdline:        BOOT_IMAGE=3D/vmlinuz-3.2.6 root=3D/dev/sda2 root=
-fstype=3Dext4 rootflags=3Ddata=3Dwriteback ro quiet rhgb
-> > > kernel:         3.2.6
-> > > reason:         [177799.342250] WARNING: at net/sched/sch_generic=
-=2Ec:255 dev_watchdog+0x1e7/0x1f0()
-> > > time:           Di 21 Feb 2012 18:09:16 CET
-> > >=20
-> > > backtrace:
-> > > :[177799.342250] WARNING: at net/sched/sch_generic.c:255 dev_watc=
-hdog+0x1e7/0x1f0()
-> > > :[177799.342254] Hardware name: Aspire 1810T
-> > > :[177799.342256] NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 =
-timed out
-> > > :[177799.342259] Modules linked in: vfat fat fuse bluetooth nf_co=
-nntrack_ipv6 nf_defrag_ipv6 ip6t_REJECT ip6table_filter ip6_tables snd_=
-hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hw=
-dep snd_seq arc4 snd_seq_device snd_pcm iwlwifi uvcvideo mac80211 snd_t=
-imer videodev cfg80211 snd usb_storage v4l2_compat_ioctl32 atl1c acer_w=
-mi soundcore sparse_keymap snd_page_alloc rfkill wmi joydev acerhdf pcs=
-pkr virtio_net virtio virtio_ring kvm_intel kvm uinput ipv6 [last unloa=
-ded: scsi_wait_scan]
-> > > :[177799.342303] Pid: 4980, comm: alsa-sink Not tainted 3.2.6 #7
-> > > :[177799.342306] Call Trace:
-> > > :[177799.342309]  <IRQ>  [<ffffffff810322ca>] warn_slowpath_commo=
-n+0x7a/0xb0
-> > > :[177799.342320]  [<ffffffff810323a1>] warn_slowpath_fmt+0x41/0x5=
-0
-> > > :[177799.342325]  [<ffffffff8100375b>] ? do_IRQ+0x5b/0xd0
-> > > :[177799.342330]  [<ffffffff813e94b7>] dev_watchdog+0x1e7/0x1f0
-> > > :[177799.342336]  [<ffffffff8103cfcf>] run_timer_softirq+0xef/0x2=
-10
-> > > :[177799.342341]  [<ffffffff813e92d0>] ? qdisc_reset+0x50/0x50
-> > > :[177799.342345]  [<ffffffff81037827>] __do_softirq+0x87/0x110
-> > > :[177799.342350]  [<ffffffff8149483a>] call_softirq+0x1a/0x30
-> > > :[177799.342354]  [<ffffffff810038bd>] do_softirq+0x4d/0x80
-> > > :[177799.342358]  [<ffffffff81037a8e>] irq_exit+0x7e/0xa0
-> > > :[177799.342363]  [<ffffffff8101903a>] smp_apic_timer_interrupt+0=
-x5a/0x90
-> > > :[177799.342368]  [<ffffffff814942a9>] apic_timer_interrupt+0x69/=
-0x70
-> > > :[177799.342371]  <EOI>  [<ffffffff814948d7>] ? sysenter_dispatch=
-+0x7/0x26
-> > >=20
-> > > END:
-> > >=20
-> >=20
-> > Thanks
-> >=20
-> > This driver xmit function is racy I suspect, and several patches wi=
-ll be
-> > needed to fix bugs.
-> >=20
->=20
-> Here is a cumulative patch to hopefuly remove the races in this drive=
-r,
-> could you please test it ?
+2012/2/24 Micha=C5=82 Miros=C5=82aw <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> 2012/2/24 Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>:
+>> Second Part of series patches to unifiy the return value of
+>> .ndo_set_mac_address if the given address isn't valid.
+>>
+>> These changes check if a given (MAC) address is valid in
+>> .ndo_set_mac_address, if invalid return -EADDRNOTAVAIL
+>> as eth_mac_addr() already does if is_valid_ether_addr() fails.
+>
+> Why not just fix dev_set_mac_address() and make do_setlink() use that=
+?
 
-Hi,
+BTW, it's also called from dev_set_mac_address().
 
-just building a 3.2.7 kernel with your patch applied. I will watch out
-for the warning in the next days.
+> Checks are specific to address family, not device model I assume.
 
-many thanks for the patch!
+Indeed, why can't this be done in one single place, instead of sprinkli=
+ng these
+checks over all drivers, missing all out-of-tree (note: I don't care) a=
+nd all
+soon-to-be-submitted drivers?
 
-kind regards
-thomas
+Gr{oetje,eeting}s,
 
->=20
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net=
-/ethernet/atheros/atl1c/atl1c.h
-> index ca70e16..3b2851b 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-> @@ -576,7 +576,6 @@ struct atl1c_adapter {
->  	u16 link_duplex;
-> =20
->  	spinlock_t mdio_lock;
-> -	spinlock_t tx_lock;
->  	atomic_t irq_sem;
-> =20
->  	struct work_struct common_task;
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/driver=
-s/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 1ff3c6d..896eb20 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -784,7 +784,6 @@ static int __devinit atl1c_sw_init(struct atl1c_a=
-dapter *adapter)
->  	atl1c_set_rxbufsize(adapter, adapter->netdev);
->  	atomic_set(&adapter->irq_sem, 1);
->  	spin_lock_init(&adapter->mdio_lock);
-> -	spin_lock_init(&adapter->tx_lock);
->  	set_bit(__AT_DOWN, &adapter->flags);
-> =20
->  	return 0;
-> @@ -1653,9 +1652,11 @@ static bool atl1c_clean_tx_irq(struct atl1c_ad=
-apter *adapter,
->  		atomic_set(&tpd_ring->next_to_clean, next_to_clean);
->  	}
-> =20
-> -	if (netif_queue_stopped(adapter->netdev) &&
-> -			netif_carrier_ok(adapter->netdev)) {
-> -		netif_wake_queue(adapter->netdev);
-> +	if (netif_carrier_ok(adapter->netdev)) {
-> +		/* make sure atl1c_xmit_frame() see our changes */
-> +		smp_mb();
-> +		if (netif_queue_stopped(adapter->netdev))
-> +			netif_wake_queue(adapter->netdev);
->  	}
-> =20
->  	return true;
-> @@ -2228,7 +2229,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_b=
-uff *skb,
->  					  struct net_device *netdev)
->  {
->  	struct atl1c_adapter *adapter =3D netdev_priv(netdev);
-> -	unsigned long flags;
->  	u16 tpd_req =3D 1;
->  	struct atl1c_tpd_desc *tpd;
->  	enum atl1c_trans_queue type =3D atl1c_trans_normal;
-> @@ -2239,24 +2239,20 @@ static netdev_tx_t atl1c_xmit_frame(struct sk=
-_buff *skb,
->  	}
-> =20
->  	tpd_req =3D atl1c_cal_tpd_req(skb);
-> -	if (!spin_trylock_irqsave(&adapter->tx_lock, flags)) {
-> -		if (netif_msg_pktdata(adapter))
-> -			dev_info(&adapter->pdev->dev, "tx locked\n");
-> -		return NETDEV_TX_LOCKED;
-> -	}
-> =20
->  	if (atl1c_tpd_avail(adapter, type) < tpd_req) {
->  		/* no enough descriptor, just stop queue */
->  		netif_stop_queue(netdev);
-> -		spin_unlock_irqrestore(&adapter->tx_lock, flags);
-> -		return NETDEV_TX_BUSY;
-> +		smp_mb();
-> +		if (atl1c_tpd_avail(adapter, type) < tpd_req)
-> +			return NETDEV_TX_BUSY;
-> +		netif_wake_queue(netdev);
->  	}
-> =20
->  	tpd =3D atl1c_get_tpd(adapter, type);
-> =20
->  	/* do TSO and check sum */
->  	if (atl1c_tso_csum(adapter, skb, &tpd, type) !=3D 0) {
-> -		spin_unlock_irqrestore(&adapter->tx_lock, flags);
->  		dev_kfree_skb_any(skb);
->  		return NETDEV_TX_OK;
->  	}
-> @@ -2277,7 +2273,6 @@ static netdev_tx_t atl1c_xmit_frame(struct sk_b=
-uff *skb,
->  	atl1c_tx_map(adapter, skb, tpd, type);
->  	atl1c_tx_queue(adapter, skb, tpd, type);
-> =20
-> -	spin_unlock_irqrestore(&adapter->tx_lock, flags);
->  	return NETDEV_TX_OK;
->  }
-> =20
->=20
->=20
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
