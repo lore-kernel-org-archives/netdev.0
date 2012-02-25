@@ -1,189 +1,88 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] ARM: LPC32xx: Ethernet driver
-Date: Sat, 25 Feb 2012 12:41:25 -0800
-Message-ID: <1330202485.18464.56.camel@joe2Laptop>
-References: <1330201304-24037-1-git-send-email-stigge@antcom.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net] macvlan: Disable LRO on lowerdev; warn if it's turned back on
+Date: Sat, 25 Feb 2012 14:07:55 -0800
+Message-ID: <87fwdytvlw.fsf@xmission.com>
+References: <1329851622.2689.6.camel@bwh-desktop> <4F43F816.6070908@intel.com>
+	<1329856136.2689.46.camel@bwh-desktop>
+	<4F4410C7.2000500@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330201304-24037-1-git-send-email-stigge@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Shradha Shah <sshah@solarflare.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58762 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753871Ab2BYWIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 17:08:02 -0500
+In-Reply-To: <4F4410C7.2000500@candelatech.com> (Ben Greear's message of "Tue,
+	21 Feb 2012 13:46:47 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-02-25 at 21:21 +0100, Roland Stigge wrote:
-> This patch adds an ethernet driver for the LPC32xx ARM SoC.
+Ben Greear <greearb@candelatech.com> writes:
 
-Just some style notes:
+> On 02/21/2012 12:28 PM, Ben Hutchings wrote:
+>> On Tue, 2012-02-21 at 12:01 -0800, John Fastabend wrote:
+>>> On 2/21/2012 11:13 AM, Ben Hutchings wrote:
+>>>> Large Receive Offload (LRO) is only appropriate for packets that are
+>>>> destined for the host, and should be disabled if received packets may
+>>>> be forwarded.
+>>>>
+>>>> Further, macvtap_skb_to_vnet_hdr() will BUG() on a packet received
+>>>> with LRO (but not GRO).
+>>>>
+>>>> Signed-off-by: Ben Hutchings<bhutchings@solarflare.com>
+>>>> ---
+>>>> I'm not really familiar with macvlan so I'm not certain that this should
+>>>> be applied to all modes.
+>>>>
+>>>> Ben.
+>>>>
+>>>>   drivers/net/macvlan.c |    7 +++++++
+>>>>   1 files changed, 7 insertions(+), 0 deletions(-)
+>>>>
+>>>
+>>> But this patch assumes the macvlan is forwarding traffic to a guest
+>>> via macvtap. Which is an assumption that may not be true.
+>>>
+>>> It seems more appropriate for the macvtap driver to do these checks
+>>> after all its the driver that may BUG() with LRO.
+>>
+>> That's what I thought at first, but then I looked through what macvlan
+>> was doing and it certainly appears to re-transmit skbs in all modes.
+>> That's not valid when gso_size != 0 and gso_type == 0.
+>
+> You can put an IP on a mac-vlan and receive packets on it like
+> normal Ethernet interfaces.  They wouldn't be re-transmitted
+> in that case, would they?
 
-> +++ linux-2.6/drivers/net/ethernet/nxp/lpc_eth.c
+Long story short.
 
-[]
+With the macvlan driver the normal case is not to turn packets around
+but to go directly to the nic or to come directly from the nic.
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+In the case where packets are turned around and packets go from one
+software interface the design is that the drivers are supposed to
+do software emulation of hardware features like gro so that we don't
+have to take a performance hit when it happens.
 
-> +#include <linux/init.h>
-> +#include <linux/module.h>
-> +#include <linux/kernel.h>
-> +#include <linux/sched.h>
-> +#include <linux/slab.h>
-> +#include <linux/delay.h>
-> +#include <linux/interrupt.h>
-> +#include <linux/errno.h>
-> +#include <linux/ioport.h>
-> +#include <linux/crc32.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/mii.h>
-> +#include <linux/clk.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/phy.h>
-> +#include <linux/dma-mapping.h>
-> +
-> +#include <linux/delay.h>
-> +#include <linux/io.h>
-> +#include <mach/board.h>
-> +#include <mach/platform.h>
-> +#include <mach/hardware.h>
-> +#include "lpc_eth.h"
-> +
-> +#define MODNAME "lpc-net"
+If we are not doing proper software emulation of features like gro
+in macvtap that is a problem.
 
-lpc-net or lpc_eth?
-[]
-> +/*
-> + * MAC address is provided as a boot parameter (ethaddr)
-> + */
-> +static u8 mac_address[6] = {0, 0, 0, 0, 0, 0};
-[]
-> +static void __lpc_set_mac(struct netdata_local *pldat, u8 *mac)
-[]
-> +	pr_debug("Ethernet MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
-> +		mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-> +}
+I am fuzzy about all of the details but last I looked we were doing
+proper software emulation of the features when just macvlan was
+involved.  I also remember that the macvtap driver really wanted
+gro so that it could work efficiently with emulated hardware.
 
-	pr_debug("MAC address: %pM\n", mac)
+So I don't know why people are having a problem, but the correct
+solution is not to give up but to fix the silly software side of
+the drivers to actually handle things properly.
 
-[]
-> +static int lpc_mii_probe(struct net_device *ndev)
-> +{
-[]
-> +	if (!phydev) {
-> +		pr_err("%s: no PHY found\n", ndev->name);
+Disabling LRO on the lowerdev just so we can avoid writing the
+support in macvtap just sounds sad.
 
-It looks like most of these pr_<level>(...) uses
-should be netdev_<level>(ndev, ...)
-
-[]
-> +static void __lpc_handle_recv(struct net_device *ndev)
-> +{
-> +	struct netdata_local *pldat = netdev_priv(ndev);
-> +	struct sk_buff *skb;
-> +	int rxconsidx, len, ethst;
-> +	struct rx_status_t *prxstat;
-> +	u8 *prdbuf;
-> +
-> +	/* Get the current RX buffer indexes */
-> +	rxconsidx = (int) readl(LPC_ENET_RXCONSUMEINDEX(pldat->net_base));
-
-Please try to be consistent with space or no space after cast.
-I think no space is better.
-
-> +	while (rxconsidx !=
-> +			(int)readl(LPC_ENET_RXPRODUCEINDEX(pldat->net_base))) {
-
-> +		/* Get pointer to receive status */
-> +		prxstat = (struct rx_status_t *) pldat->rx_stat_v[rxconsidx];
-> +		len = (prxstat->statusinfo & 0x7FF) + 1;
-> +
-> +		/* Status error? */
-> +		ethst = prxstat->statusinfo;
-> +		if ((ethst & 0xBF800000) == 0x84000000)
-> +			ethst &= ~0x80000000;
-> +
-> +		if (ethst & 0x80000000) {
-> +			/* Check statuses */
-> +			if (prxstat->statusinfo & (1 << 28)) {
-
-Might be better to use a temporary for prxstat->statusinfo
-
-> +				/* Overrun error */
-> +				ndev->stats.rx_fifo_errors++;
-> +			} else if (prxstat->statusinfo & (1 << 23)) {
-> +				/* CRC error */
-> +				ndev->stats.rx_crc_errors++;
-> +			} else if (prxstat->statusinfo & (1 << 25)) {
-> +				/* Length error */
-> +				ndev->stats.rx_length_errors++;
-> +			} else if (prxstat->statusinfo & 0x80000000) {
-> +				/* Other error */
-> +				ndev->stats.rx_length_errors++;
-> +			}
-> +			ndev->stats.rx_errors++;
-> +		} else {
-> +			/* Packet is good */
-> +			skb = dev_alloc_skb(len + 8);
-> +			if (!skb)
-> +				ndev->stats.rx_dropped++;
-> +			else {
-> +				skb_reserve(skb, 8);
-> +				prdbuf = skb_put(skb, (len - 0));
-> +
-> +				/* Copy packer from buffer */
-> +				memcpy(prdbuf,
-> +					(void *)pldat->rx_buff_v[rxconsidx],
-
-Probably don't need the cast to (void *)
-> +					len);
-> +
-[]
-> +static irqreturn_t __lpc_eth_interrupt(int irq, void *dev_id)
-> +{
-[]
-> +	/* Get the interrupt status */
-> +	tmp = readl(LPC_ENET_INTSTATUS(pldat->net_base));
-> +
-> +	while (tmp) {
-
-probably better as
-
-	while ((tmp = readl(...)) {
-[...]
-
-> +		/* Recheck the interrupt status */
-> +		tmp = readl(LPC_ENET_INTSTATUS(pldat->net_base));
-> +	}
-[]
-> +static int lpc_net_close(struct net_device *ndev)
-> +{
-> +	unsigned long flags;
-> +	struct netdata_local *pldat = netdev_priv(ndev);
-> +
-> +	if (netif_msg_ifdown(pldat))
-> +		dev_dbg(&pldat->pdev->dev, "shutting down %s\n", ndev->name);
-
-	netif_dbg(pltdat, ifdown, ndev, ...)
-[]
-> +static int lpc_net_drv_probe(struct platform_device *pdev)
-[]
-> +	if (use_iram_for_net()) {
-> +		dma_handle = (dma_addr_t) LPC32XX_IRAM_BASE;
-> +		if (pldat->dma_buff_size <= lpc32xx_return_iram_size())
-> +			pldat->dma_buff_base_v =
-> +				(u32) io_p2v(LPC32XX_IRAM_BASE);
-> +		else
-> +			pr_err("%s: IRAM not big enough for net buffers, "
-> +				"using SDRAM instead.\n", MODNAME);
-
-Please coalesce formats and ignore 80 column limits
-to make grep easier.
+Eric
