@@ -1,84 +1,75 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
-Date: Sat, 25 Feb 2012 11:15:21 +0100
-Message-ID: <CAMuHMdXAwgtwbCV_=qJnrs=YPZksoEBkjnQB=JbR7fc+UyKdzw@mail.gmail.com>
-References: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
-	<1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: eric@cloudjidi.com
+Subject: Web Development Service
+Date: Sat, 25 Feb 2012 17:24:34 +0800 (HKT)
+Message-ID: <ZEfZpefyF37Y@seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-59.sunnyvision.com ([124.248.200.59]:59660 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756047Ab2BYKn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 05:43:59 -0500
+Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
+	by teamb04.edmhongkong.com (Postfix) with ESMTP id 7D9F1E3049
+	for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 17:24:35 +0800 (HKT)
+Received: from TeamB3-WS (unknown [124.248.200.14])
+	by smtp1.edmhongkong.com (Postfix) with SMTP id AECD84FAD9
+	for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 17:24:34 +0800 (HKT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 24, 2012 at 14:45, Danny Kukawka <danny.kukawka@bisect.de> =
-wrote:
-> Print MAC/dev_addr via printk extended format specifier %pM instead
-> of custom code.
->
-> Use memcpy to set the address to dev->dev_addr in set_mac_address,
-> instead of mxing it up in a for loop with printing a debug msg.
->
-> Check also if the given address is valid.
+Dear All,
 
-Why do you sneak in this check in this patch?
+Below is our web design package,
 
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-> ---
-> =C2=A0drivers/net/ethernet/cirrus/mac89x0.c | =C2=A0 12 ++++++++----
-> =C2=A01 files changed, 8 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cirrus/mac89x0.c b/drivers/net/ethe=
-rnet/cirrus/mac89x0.c
-> index 83781f3..a7324ce 100644
-> --- a/drivers/net/ethernet/cirrus/mac89x0.c
-> +++ b/drivers/net/ethernet/cirrus/mac89x0.c
-> @@ -592,10 +592,14 @@ static void set_multicast_list(struct net_devic=
-e *dev)
-> =C2=A0static int set_mac_address(struct net_device *dev, void *addr)
-> =C2=A0{
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int i;
-> - =C2=A0 =C2=A0 =C2=A0 printk("%s: Setting MAC address to ", dev->nam=
-e);
-> - =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < 6; i++)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 printk(" %2.2x", d=
-ev->dev_addr[i] =3D ((unsigned char *)addr)[i]);
-> - =C2=A0 =C2=A0 =C2=A0 printk(".\n");
-> + =C2=A0 =C2=A0 =C2=A0 struct sockaddr *saddr =3D addr;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 if (!is_valid_ether_addr(addr->sa_data))
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EADDRNOTAV=
-AIL;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN)=
-;
-> + =C2=A0 =C2=A0 =C2=A0 printk("%s: Setting MAC address to %pM\n", dev=
-->name, dev->dev_addr);
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* set the Ethernet address */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i=3D0; i < ETH_ALEN/2; i++)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0writereg(dev, =
-PP_IA+i*2, dev->dev_addr[i*2] | (dev->dev_addr[i*2+1] << 8));
+Total 12 pages web design service
+- One language version
+- All the webpage design is included:
+- Theme development;
+- Design Study;
+- Original Layout / Artwork Design;
+- Steady HTML Web page development;
+- Search Engine Applicable;
+- Basic Graphic Flash Banner x1;
+- All text contents, logos and related product photos should be provided by client
+ Product eCatalogue (Product Page)
 
-Gr{oetje,eeting}s,
+- CMS Function of add /edit Products with Contents & Photos
+- Maximum 10 fields include Photos and Contents
+- Text Editor for Detail Contents (if need)
+- Support text descriptions and photos updating
+- 1 Level categories management
+- Database support with un-limit Products create
+- Not include Data input
+- Standard Admin panel with login function (1 admin account)
+Content management system (Activities page)
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
+- Basic CMS function of add / edit items
+- Max. 5 fields per item
+- Support photos and text descriptions
+- Front-end support 1 page only (Comapny activities page)
+- Database support with un-limit Products create
+- Not include Data input
+- Integrated Admin Panel
+Enquiry form function (Contact Us)
+- Form to mail
+Package price : HK $33,000
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+Yoy may click the hyperlink to see some of our design reference.
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+Flash reference
+http://www.hk-belle.com/
+http://www.ecomelife.com/
+Program reference
+http://www.gloryskygroup.com/index.aspx=3Flang=3Dbig5
+http://www.mydriver.com.hk/
+
+
+We would like to ask if your side considering to revamp your website, co-locate or make a server site in our datacenter. Please let us know if you have any enquiry. We wish to be a long term partner for your company.
+Best Regards,
+Boris Lam
+Sales Executive
+Mobile : (852) 9408 8762
+
+If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message
