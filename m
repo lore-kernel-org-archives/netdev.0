@@ -1,156 +1,93 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/3] netfilter: ctnetlink: support kernel-space dump
- filtering by ctmark
-Date: Sat, 25 Feb 2012 01:41:50 +0100
-Message-ID: <20120225004150.GA13494@1984>
-References: <1330129817-28199-1-git-send-email-pablo@netfilter.org>
- <1330129817-28199-4-git-send-email-pablo@netfilter.org>
+From: Tim Bird <tim.bird@am.sony.com>
+Subject: RFC: memory leak in udp_table_init
+Date: Fri, 24 Feb 2012 16:55:42 -0800
+Message-ID: <4F48318E.8070902@am.sony.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1330129817-28199-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+We've uncovered an obscure memory leak in the routine udp_table_init(),
+in the file: net/ipv4/udp.c
 
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The allocation sequence is a bit weird, and I've got some questions
+about the best way to fix it.
 
-On Sat, Feb 25, 2012 at 01:30:17AM +0100, pablo@netfilter.org wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> This patch adds CTA_MARK_MASK which, together with CTA_MARK, allows
-> you to selectively send conntrack entries to user-space by
-> returning those that match mark & mask.
-> 
-> With this, we can save cycles in the building and the parsing of
-> the entries that may be later on filtered out in user-space by using
-> the ctmark & mask.
+Here's the code:
 
-Minor glitch in this patch. One ifdef was missing that would spot an
-unused variable warning if CONFIG_NF_CONNTRACK_MARK is disabled.
+void __init udp_table_init(struct udp_table *table, const char *name)
+{
+	unsigned int i;
 
-New patch for ctnetlink attached.
+	if (!CONFIG_BASE_SMALL)
+		table->hash = alloc_large_system_hash(name,
+			2 * sizeof(struct udp_hslot),
+			uhash_entries,
+			21, /* one slot per 2 MB */
+			0,
+			&table->log,
+			&table->mask,
+			64 * 1024);
+	/*
+	 * Make sure hash table has the minimum size
+	 */
+	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
+		table->hash = kmalloc(UDP_HTABLE_SIZE_MIN *
+				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
+		if (!table->hash)
+			panic(name);
+		table->log = ilog2(UDP_HTABLE_SIZE_MIN);
+		table->mask = UDP_HTABLE_SIZE_MIN - 1;
+	}
+	...
 
---J/dobhs11T7y2rNN
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0003-netfilter-ctnetlink-support-kernel-space-dump-filter.patch"
+We've seen instances where the second allocation of table->hash
+is performed, wiping out the first hash table allocation, without a
+free.  This ends up leaking the previously allocated hash table.
 
->From 604bb5f7385bcde5be0e0a5f3f52fa05ef21d3bc Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sat, 25 Feb 2012 00:48:38 +0100
-Subject: [PATCH 3/3] netfilter: ctnetlink: support kernel-space dump
- filtering by ctmark
+That is, if we are !CONFIG_BASE_SMALL and for some reason
+the alloc_large_system_hash() operation returns less than UDP_HTABLE_SIZE_MIN
+hash slots, then it will trigger this.
 
-This patch adds CTA_MARK_MASK which, together with CTA_MARK, allows
-you to selectively send conntrack entries to user-space by
-returning those that match mark & mask.
+There's no complementary "free_large_system_hash()" which can be used to
+back out of the first allocation, that I can find.
 
-With this, we can save cycles in the building and the parsing of
-the entries that may be later on filtered out in user-space by using
-the ctmark & mask.
+We are currently doing the following to avoid the memory leak, but this
+seems like it defeats the purpose of checking for the minimum size
+(that is, if the first allocation was too small, we don't re-allocate).
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter/nfnetlink_conntrack.h |    1 +
- net/netfilter/nf_conntrack_netlink.c          |   35 ++++++++++++++++++++++++-
- 2 files changed, 35 insertions(+), 1 deletions(-)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5d075b5..2524af4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2194,7 +2194,8 @@ void __init udp_table_init(struct udp_table *table, const char *name)
+ 	/*
+ 	 * Make sure hash table has the minimum size
+ 	 */
+-	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
++	if ((CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1)
++		&& !table->hash) {
+ 		table->hash = kmalloc(UDP_HTABLE_SIZE_MIN *
+ 				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
+ 		if (!table->hash)
 
-diff --git a/include/linux/netfilter/nfnetlink_conntrack.h b/include/linux/netfilter/nfnetlink_conntrack.h
-index 5ec1abc..e58e4b9 100644
---- a/include/linux/netfilter/nfnetlink_conntrack.h
-+++ b/include/linux/netfilter/nfnetlink_conntrack.h
-@@ -43,6 +43,7 @@ enum ctattr_type {
- 	CTA_ZONE,
- 	CTA_SECCTX,
- 	CTA_TIMESTAMP,
-+	CTA_MARK_MASK,
- 	__CTA_MAX
- };
- #define CTA_MAX (__CTA_MAX - 1)
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index dd4aaba..800ec17 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -691,9 +691,18 @@ static int ctnetlink_done(struct netlink_callback *cb)
- {
- 	if (cb->args[1])
- 		nf_ct_put((struct nf_conn *)cb->args[1]);
-+	if (cb->data)
-+		kfree(cb->data);
- 	return 0;
- }
- 
-+struct ctnetlink_dump_filter {
-+	struct {
-+		u_int32_t val;
-+		u_int32_t mask;
-+	} mark;
-+};
-+
- static int
- ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
- {
-@@ -703,7 +712,9 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct hlist_nulls_node *n;
- 	struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
- 	u_int8_t l3proto = nfmsg->nfgen_family;
--
-+#ifdef CONFIG_NF_CONNTRACK_MARK
-+	const struct ctnetlink_dump_filter *filter = cb->data;
-+#endif
- 	spin_lock_bh(&nf_conntrack_lock);
- 	last = (struct nf_conn *)cb->args[1];
- 	for (; cb->args[0] < net->ct.htable_size; cb->args[0]++) {
-@@ -723,6 +734,12 @@ restart:
- 					continue;
- 				cb->args[1] = 0;
- 			}
-+#ifdef CONFIG_NF_CONNTRACK_MARK
-+			if (filter && !((ct->mark & filter->mark.mask) ==
-+					filter->mark.val)) {
-+				continue;
-+			}
-+#endif
- 			if (ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).pid,
- 						cb->nlh->nlmsg_seq,
- 						NFNL_MSG_TYPE(
-@@ -894,6 +911,7 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
- 	[CTA_NAT_DST]		= { .type = NLA_NESTED },
- 	[CTA_TUPLE_MASTER]	= { .type = NLA_NESTED },
- 	[CTA_ZONE]		= { .type = NLA_U16 },
-+	[CTA_MARK_MASK]		= { .type = NLA_U32 },
- };
- 
- static int
-@@ -982,6 +1000,21 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 			.dump = ctnetlink_dump_table,
- 			.done = ctnetlink_done,
- 		};
-+#ifdef CONFIG_NF_CONNTRACK_MARK
-+		if (cda[CTA_MARK] && cda[CTA_MARK_MASK]) {
-+			struct ctnetlink_dump_filter *filter;
-+
-+			filter = kzalloc(sizeof(struct ctnetlink_dump_filter),
-+					 GFP_ATOMIC);
-+			if (filter == NULL)
-+				return -ENOMEM;
-+
-+			filter->mark.val = ntohl(nla_get_be32(cda[CTA_MARK]));
-+			filter->mark.mask =
-+				ntohl(nla_get_be32(cda[CTA_MARK_MASK]));
-+			c.data = filter;
-+		}
-+#endif
- 		return netlink_dump_start(ctnl, skb, nlh, &c);
- 	}
- 
--- 
-1.7.7.3
+Any suggestions for a way to correct for a too-small first allocation, without
+a memory leak?
 
+Alternatively - how critical is this UDP_HTABLE_SIZE_MIN for correct operation
+of the stack?
 
---J/dobhs11T7y2rNN--
+Thanks for any information you can provide.
+
+ -- Tim
+
+=============================
+Tim Bird
+Architecture Group Chair, CE Workgroup of the Linux Foundation
+Senior Staff Engineer, Sony Network Entertainment
+=============================
