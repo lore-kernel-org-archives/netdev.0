@@ -1,75 +1,89 @@
-From: eric@cloudjidi.com
-Subject: Web Development Service
-Date: Sat, 25 Feb 2012 17:24:34 +0800 (HKT)
-Message-ID: <ZEfZpefyF37Y@seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4_en: dont change mac_header on xmit
+Date: Sat, 25 Feb 2012 11:51:05 +0100
+Message-ID: <1330167065.2462.53.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-59.sunnyvision.com ([124.248.200.59]:59660 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756047Ab2BYKn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 05:43:59 -0500
-Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id 7D9F1E3049
-	for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 17:24:35 +0800 (HKT)
-Received: from TeamB3-WS (unknown [124.248.200.14])
-	by smtp1.edmhongkong.com (Postfix) with SMTP id AECD84FAD9
-	for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 17:24:34 +0800 (HKT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:54078 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754833Ab2BYKvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 05:51:11 -0500
+Received: by wgbdr13 with SMTP id dr13so397546wgb.1
+        for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 02:51:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
+A driver xmit function is not allowed to change skb without special
+care.
 
-Below is our web design package,
+mlx4_en_xmit() should not call skb_reset_mac_header() and instead should
+use skb->data to access ethernet header.
 
-Total 12 pages web design service
-- One language version
-- All the webpage design is included:
-- Theme development;
-- Design Study;
-- Original Layout / Artwork Design;
-- Steady HTML Web page development;
-- Search Engine Applicable;
-- Basic Graphic Flash Banner x1;
-- All text contents, logos and related product photos should be provided by client
- Product eCatalogue (Product Page)
+This removes a dumb test : if (ethh && ethh->h_dest)
 
-- CMS Function of add /edit Products with Contents & Photos
-- Maximum 10 fields include Photos and Contents
-- Text Editor for Detail Contents (if need)
-- Support text descriptions and photos updating
-- 1 Level categories management
-- Database support with un-limit Products create
-- Not include Data input
-- Standard Admin panel with login function (1 admin account)
-Content management system (Activities page)
+Also remove this slow mlx4_en_mac_to_u64() call, we can use
+get_unaligned() to get faster code.
 
-- Basic CMS function of add / edit items
-- Max. 5 fields per item
-- Support photos and text descriptions
-- Front-end support 1 page only (Comapny activities page)
-- Database support with un-limit Products create
-- Not include Data input
-- Integrated Admin Panel
-Enquiry form function (Contact Us)
-- Form to mail
-Package price : HK $33,000
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+Please test this patch before we can commit it, thanks !
 
-Yoy may click the hyperlink to see some of our design reference.
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |   15 +++------------
+ include/linux/mlx4/qp.h                    |    5 ++++-
+ 2 files changed, 7 insertions(+), 13 deletions(-)
 
-Flash reference
-http://www.hk-belle.com/
-http://www.ecomelife.com/
-Program reference
-http://www.gloryskygroup.com/index.aspx=3Flang=3Dbig5
-http://www.mydriver.com.hk/
-
-
-We would like to ask if your side considering to revamp your website, co-locate or make a server site in our datacenter. Please let us know if you have any enquiry. We wish to be a long term partner for your company.
-Best Regards,
-Boris Lam
-Sales Executive
-Mobile : (852) 9408 8762
-
-If you do not wish to further receive this event message, email subscriber@dedicatedserver.com.hk to unsubscribe this message
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index ff32505..2fd5140 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -601,8 +601,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct skb_frag_struct *frag;
+ 	struct mlx4_en_tx_info *tx_info;
+ 	struct ethhdr *ethh;
+-	u64 mac;
+-	u32 mac_l, mac_h;
+ 	int tx_ind = 0;
+ 	int nr_txbb;
+ 	int desc_size;
+@@ -687,16 +685,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	/* Copy dst mac address to wqe */
+-	skb_reset_mac_header(skb);
+-	ethh = eth_hdr(skb);
+-	if (ethh && ethh->h_dest) {
+-		mac = mlx4_en_mac_to_u64(ethh->h_dest);
+-		mac_h = (u32) ((mac & 0xffff00000000ULL) >> 16);
+-		mac_l = (u32) (mac & 0xffffffff);
+-		tx_desc->ctrl.srcrb_flags |= cpu_to_be32(mac_h);
+-		tx_desc->ctrl.imm = cpu_to_be32(mac_l);
+-	}
+-
++	ethh = (struct ethhdr *)skb->data;
++	tx_desc->ctrl.srcrb_flags16[0] = get_unaligned((u16 *)ethh->h_dest);
++	tx_desc->ctrl.imm = get_unaligned((u32 *)(ethh->h_dest + 2));
+ 	/* Handle LSO (TSO) packets */
+ 	if (lso_header_size) {
+ 		/* Mark opcode as LSO */
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index bee8fa2..091f9e7 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -212,7 +212,10 @@ struct mlx4_wqe_ctrl_seg {
+ 	 * [1]   SE (solicited event)
+ 	 * [0]   FL (force loopback)
+ 	 */
+-	__be32			srcrb_flags;
++	union {
++		__be32			srcrb_flags;
++		__be16			srcrb_flags16[2];
++	};
+ 	/*
+ 	 * imm is immediate data for send/RDMA write w/ immediate;
+ 	 * also invalidation key for send with invalidate; input
