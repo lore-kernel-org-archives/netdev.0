@@ -1,186 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/11] e1000e: rename e1000e_config_collision_dist() and call as function pointer
-Date: Fri, 24 Feb 2012 21:49:56 -0800
-Message-ID: <1330149000-25907-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sfc: Fix assignment of ip_summed for pre-allocated
+ skbs
+Date: Sat, 25 Feb 2012 07:01:16 +0100
+Message-ID: <1330149676.2462.28.camel@edumazet-laptop>
+References: <1330132277.2397.17.camel@bwh-desktop>
+	 <1330132354.2397.18.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1113 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753195Ab2BYFuF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Feb 2012 00:50:05 -0500
-In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:65208 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911Ab2BYGBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 01:01:20 -0500
+Received: by wibhm11 with SMTP id hm11so362744wib.19
+        for <netdev@vger.kernel.org>; Fri, 24 Feb 2012 22:01:19 -0800 (PST)
+In-Reply-To: <1330132354.2397.18.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Le samedi 25 f=C3=A9vrier 2012 =C3=A0 01:12 +0000, Ben Hutchings a =C3=A9=
+crit :
+> When pre-allocating skbs for received packets, we set ip_summed =3D
+> CHECKSUM_UNNCESSARY.  We used to change it back to CHECKSUM_NONE when
+> the received packet had an incorrect checksum or unhandled protocol.
+>=20
+> Commit bc8acf2c8c3e43fcc192762a9f964b3e9a17748b ('drivers/net: avoid
+> some skb->ip_summed initializations') mistakenly replaced the latter
+> assignment with a DEBUG-only assertion that ip_summed =3D=3D
+> CHECKSUM_NONE.  This assertion is always false, but it seems no-one
+> has exercised this code path in a DEBUG build.
+>=20
+> Fix this by moving our assignment of CHECKSUM_UNNECESSARY into
+> efx_rx_packet_gro().
+>=20
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
 
-Rename e1000e_config_collision_dist() to
-e1000e_config_collision_dist_generic() to signify the function is used for
-more than one MAC-family type, and set and use it as a MAC ops function
-pointer to be consistent with the driver design.
+Ah, I'm sorry I missed this.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
- drivers/net/ethernet/intel/e1000e/82571.c       |    1 +
- drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
- drivers/net/ethernet/intel/e1000e/hw.h          |    1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |    3 ++-
- drivers/net/ethernet/intel/e1000e/mac.c         |   11 +++++------
- drivers/net/ethernet/intel/e1000e/netdev.c      |    2 +-
- drivers/net/ethernet/intel/e1000e/phy.c         |    4 ++--
- 8 files changed, 14 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index 0ea3e7e..6e58e94 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -1432,6 +1432,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
- 	.setup_link		= e1000e_setup_link_generic,
- 	/* setup_physical_interface dependent on media type */
- 	.setup_led		= e1000e_setup_led_generic,
-+	.config_collision_dist	= e1000e_config_collision_dist_generic,
- };
- 
- static const struct e1000_phy_operations es2_phy_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 721c203..7f44ab76 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1927,6 +1927,7 @@ static const struct e1000_mac_operations e82571_mac_ops = {
- 	.setup_link		= e1000_setup_link_82571,
- 	/* .setup_physical_interface: media type dependent */
- 	.setup_led		= e1000e_setup_led_generic,
-+	.config_collision_dist	= e1000e_config_collision_dist_generic,
- 	.read_mac_addr		= e1000_read_mac_addr_82571,
- };
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index f93d7a4..9f3a268 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -575,7 +575,7 @@ extern s32 e1000e_set_fc_watermarks(struct e1000_hw *hw);
- extern void e1000e_set_pcie_no_snoop(struct e1000_hw *hw, u32 no_snoop);
- extern s32 e1000e_get_hw_semaphore(struct e1000_hw *hw);
- extern s32 e1000e_valid_led_default(struct e1000_hw *hw, u16 *data);
--extern void e1000e_config_collision_dist(struct e1000_hw *hw);
-+extern void e1000e_config_collision_dist_generic(struct e1000_hw *hw);
- extern s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw);
- extern s32 e1000e_force_mac_fc(struct e1000_hw *hw);
- extern s32 e1000e_blink_led_generic(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 197059b..50e114b 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -781,6 +781,7 @@ struct e1000_mac_operations {
- 	s32  (*setup_physical_interface)(struct e1000_hw *);
- 	s32  (*setup_led)(struct e1000_hw *);
- 	void (*write_vfta)(struct e1000_hw *, u32, u32);
-+	void (*config_collision_dist)(struct e1000_hw *);
- 	s32  (*read_mac_addr)(struct e1000_hw *);
- };
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 1436682..df91c42 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -746,7 +746,7 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 	 * of MAC speed/duplex configuration.  So we only need to
- 	 * configure Collision Distance in the MAC.
- 	 */
--	e1000e_config_collision_dist(hw);
-+	mac->ops.config_collision_dist(hw);
- 
- 	/*
- 	 * Configure Flow Control now that Auto-Neg has completed.
-@@ -4022,6 +4022,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
- 	.setup_link		= e1000_setup_link_ich8lan,
- 	.setup_physical_interface= e1000_setup_copper_link_ich8lan,
- 	/* id_led_init dependent on mac type */
-+	.config_collision_dist	= e1000e_config_collision_dist_generic,
- };
- 
- static const struct e1000_phy_operations ich8_phy_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 011d83d..f16a611 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -465,7 +465,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- 	 * of MAC speed/duplex configuration.  So we only need to
- 	 * configure Collision Distance in the MAC.
- 	 */
--	e1000e_config_collision_dist(hw);
-+	mac->ops.config_collision_dist(hw);
- 
- 	/*
- 	 * Configure Flow Control now that Auto-Neg has completed.
-@@ -890,7 +890,7 @@ s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw)
- 	/* Take the link out of reset */
- 	ctrl &= ~E1000_CTRL_LRST;
- 
--	e1000e_config_collision_dist(hw);
-+	hw->mac.ops.config_collision_dist(hw);
- 
- 	ret_val = e1000_commit_fc_settings_generic(hw);
- 	if (ret_val)
-@@ -925,14 +925,13 @@ s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw)
- }
- 
- /**
-- *  e1000e_config_collision_dist - Configure collision distance
-+ *  e1000e_config_collision_dist_generic - Configure collision distance
-  *  @hw: pointer to the HW structure
-  *
-  *  Configures the collision distance to the default value and is used
-- *  during link setup. Currently no func pointer exists and all
-- *  implementations are handled in the generic version of this function.
-+ *  during link setup.
-  **/
--void e1000e_config_collision_dist(struct e1000_hw *hw)
-+void e1000e_config_collision_dist_generic(struct e1000_hw *hw)
- {
- 	u32 tctl;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3975ed1..56c1aec 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2855,7 +2855,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* enable Report Status bit */
- 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
- 
--	e1000e_config_collision_dist(hw);
-+	hw->mac.ops.config_collision_dist(hw);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index d10b27f..683abac 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -1181,7 +1181,7 @@ s32 e1000e_setup_copper_link(struct e1000_hw *hw)
- 
- 	if (link) {
- 		e_dbg("Valid link established!!!\n");
--		e1000e_config_collision_dist(hw);
-+		hw->mac.ops.config_collision_dist(hw);
- 		ret_val = e1000e_config_fc_after_link_up(hw);
- 	} else {
- 		e_dbg("Unable to establish link!!!\n");
-@@ -1489,7 +1489,7 @@ void e1000e_phy_force_speed_duplex_setup(struct e1000_hw *hw, u16 *phy_ctrl)
- 		e_dbg("Forcing 10mb\n");
- 	}
- 
--	e1000e_config_collision_dist(hw);
-+	hw->mac.ops.config_collision_dist(hw);
- 
- 	ew32(CTRL, ctrl);
- }
--- 
-1.7.7.6
+Thanks !
