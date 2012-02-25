@@ -1,82 +1,69 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 2/2] netfilter: ctnetlink: support kernel-space dump
- filterings
-Date: Sat, 25 Feb 2012 02:09:09 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1202250153440.17151@frira.zrqbmnf.qr>
-References: <1330121648-2956-1-git-send-email-pablo@netfilter.org> <1330121648-2956-3-git-send-email-pablo@netfilter.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc 2012-02-25
+Date: Sat, 25 Feb 2012 01:11:17 +0000
+Message-ID: <1330132277.2397.17.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	davem@davemloft.net
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1330121648-2956-3-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-z6uS9SVh2+0kR6fGQPdV"
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:62574 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757035Ab2BYBL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Feb 2012 20:11:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--=-z6uS9SVh2+0kR6fGQPdV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+The following changes since commit 8a49ad6e89feb5015e77ce6efeb2678947117e20=
+:
+
+  ppp: fix 'ppp_mp_reconstruct bad seq' errors (2012-02-24 17:53:21 -0500)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.3
+
+(commit ff3bc1e7527504a93710535611b2f812f3bb89bf)
+
+Fixes incorrect marking of skbs as checksummed.  Please send this on to
+stable as well; the bug was introduced in 2.6.37.
+
+Ben.
+
+Ben Hutchings (1):
+      sfc: Fix assignment of ip_summed for pre-allocated skbs
+
+ drivers/net/ethernet/sfc/rx.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
-On Friday 2012-02-24 23:14, pablo@netfilter.org wrote:
->@@ -977,9 +992,25 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
-> 	u16 zone;
-> 	int err;
-> 
->-	if (nlh->nlmsg_flags & NLM_F_DUMP)
->+	if (nlh->nlmsg_flags & NLM_F_DUMP) {
->+		struct ctnetlink_dump_filter *filter = NULL;
->+
->+#if defined(CONFIG_NF_CONNTRACK_MARK)
->+		filter = kzalloc(sizeof(struct ctnetlink_dump_filter),
->+				 GFP_KERNEL);
->+		if (filter == NULL)
->+			return -ENOMEM;
->+
->+		if (cda[CTA_MARK])
->+			filter->mark.value = ntohl(nla_get_be32(cda[CTA_MARK]));
->+		if (cda[CTA_MARK_MASK]) {
->+			filter->mark.mask =
->+				ntohl(nla_get_be32(cda[CTA_MARK_MASK]));
->+		}
->+#endif
-> 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
->-					  ctnetlink_done, NULL, 0);
->+					  ctnetlink_done, filter, 0);
->+	}
 
-I had thought of the following before your patch came up:
 
-ctnl_dump_any(skb,cb)
-{
-	...loop over CTs...
-}
-ctnl_dump_foo(skb,cb)
-{
-	if (cb->args[0] == NULL) {
-		cb->args[0] = filter = kzalloc(sizeof(struct ctnl_dump_filter));
-		if (cb->nlh has CTA_MARK) /* [1] */
-			filter->mark.value = ...
-	}
-	return ctnl_dump_any(skb,cb);
-}
-ctnl_dump_bar(skb,cb)
-{
-	if (cb->args[0] == NULL) {
-		cb->args[0] = somethingelse;
-	}
-	return ctnl_dump_any(skb,cb);
-}
-ctnetlink_get_foo(ctnl,skb,...)
-{
-	netlink_dump_start(ctnl,skb,nlh,ctnl_dump_foo,ctnl_done,0);
-}
-ctnetlink_get_bar(ctnl,skb,...)
-{
-	netlink_dump_start(ctnl,skb,nlh,ctnl_dump_bar,ctnl_done,0);
-}
+--=-z6uS9SVh2+0kR6fGQPdV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-[1]: Arguably needs a way to put cda into cb.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-==
+iQEcBAABCAAGBQJPSDU1AAoJEGkILBsOca60yAEH+gNQdI7Srdwr2vOrLRfnaJe2
+8rsRv3E7NOKaytOTQgtFMPQV82CCAKyx9yojaJLj7k4hiqmeTf1LfoqELMBJ8HtN
+/APaZMJu+qlaCtsT10d67i8h9MDRnHXBsW7ls9FZ1Xm6+0bMDKyk9R244+14i4jv
+INNC2aiZhExTqNpZ+qyQDkLkpYFYFgWboGeWu/It/egC234dlqGWhSziIUtAy4BE
+4OSJfmhYWt6e8NB1Y30H8UCWETzfBOGIO5cVs+hkrnwSpEjK5gf8ZTNXD8b7yEm9
+mvb5FMyq/CzNnie3yje6UtzCq+zWyqKSwkyIEVJmzrpuZ4CVy0KicdB4x0FyNlQ=
+=N/mz
+-----END PGP SIGNATURE-----
 
-Either way, netlink is gathering up a lot of arguments and has come
-to the point where I would suggest to put it all into a struct,
-like we have done for struct xt_action_param.
+--=-z6uS9SVh2+0kR6fGQPdV--
