@@ -1,93 +1,82 @@
-From: Tim Bird <tim.bird@am.sony.com>
-Subject: RFC: memory leak in udp_table_init
-Date: Fri, 24 Feb 2012 16:55:42 -0800
-Message-ID: <4F48318E.8070902@am.sony.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 2/2] netfilter: ctnetlink: support kernel-space dump
+ filterings
+Date: Sat, 25 Feb 2012 02:09:09 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1202250153440.17151@frira.zrqbmnf.qr>
+References: <1330121648-2956-1-git-send-email-pablo@netfilter.org> <1330121648-2956-3-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	davem@davemloft.net
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1330121648-2956-3-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We've uncovered an obscure memory leak in the routine udp_table_init(),
-in the file: net/ipv4/udp.c
 
-The allocation sequence is a bit weird, and I've got some questions
-about the best way to fix it.
+On Friday 2012-02-24 23:14, pablo@netfilter.org wrote:
+>@@ -977,9 +992,25 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+> 	u16 zone;
+> 	int err;
+> 
+>-	if (nlh->nlmsg_flags & NLM_F_DUMP)
+>+	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+>+		struct ctnetlink_dump_filter *filter = NULL;
+>+
+>+#if defined(CONFIG_NF_CONNTRACK_MARK)
+>+		filter = kzalloc(sizeof(struct ctnetlink_dump_filter),
+>+				 GFP_KERNEL);
+>+		if (filter == NULL)
+>+			return -ENOMEM;
+>+
+>+		if (cda[CTA_MARK])
+>+			filter->mark.value = ntohl(nla_get_be32(cda[CTA_MARK]));
+>+		if (cda[CTA_MARK_MASK]) {
+>+			filter->mark.mask =
+>+				ntohl(nla_get_be32(cda[CTA_MARK_MASK]));
+>+		}
+>+#endif
+> 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
+>-					  ctnetlink_done, NULL, 0);
+>+					  ctnetlink_done, filter, 0);
+>+	}
 
-Here's the code:
+I had thought of the following before your patch came up:
 
-void __init udp_table_init(struct udp_table *table, const char *name)
+ctnl_dump_any(skb,cb)
 {
-	unsigned int i;
-
-	if (!CONFIG_BASE_SMALL)
-		table->hash = alloc_large_system_hash(name,
-			2 * sizeof(struct udp_hslot),
-			uhash_entries,
-			21, /* one slot per 2 MB */
-			0,
-			&table->log,
-			&table->mask,
-			64 * 1024);
-	/*
-	 * Make sure hash table has the minimum size
-	 */
-	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
-		table->hash = kmalloc(UDP_HTABLE_SIZE_MIN *
-				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
-		if (!table->hash)
-			panic(name);
-		table->log = ilog2(UDP_HTABLE_SIZE_MIN);
-		table->mask = UDP_HTABLE_SIZE_MIN - 1;
+	...loop over CTs...
+}
+ctnl_dump_foo(skb,cb)
+{
+	if (cb->args[0] == NULL) {
+		cb->args[0] = filter = kzalloc(sizeof(struct ctnl_dump_filter));
+		if (cb->nlh has CTA_MARK) /* [1] */
+			filter->mark.value = ...
 	}
-	...
+	return ctnl_dump_any(skb,cb);
+}
+ctnl_dump_bar(skb,cb)
+{
+	if (cb->args[0] == NULL) {
+		cb->args[0] = somethingelse;
+	}
+	return ctnl_dump_any(skb,cb);
+}
+ctnetlink_get_foo(ctnl,skb,...)
+{
+	netlink_dump_start(ctnl,skb,nlh,ctnl_dump_foo,ctnl_done,0);
+}
+ctnetlink_get_bar(ctnl,skb,...)
+{
+	netlink_dump_start(ctnl,skb,nlh,ctnl_dump_bar,ctnl_done,0);
+}
 
-We've seen instances where the second allocation of table->hash
-is performed, wiping out the first hash table allocation, without a
-free.  This ends up leaking the previously allocated hash table.
+[1]: Arguably needs a way to put cda into cb.
 
-That is, if we are !CONFIG_BASE_SMALL and for some reason
-the alloc_large_system_hash() operation returns less than UDP_HTABLE_SIZE_MIN
-hash slots, then it will trigger this.
+==
 
-There's no complementary "free_large_system_hash()" which can be used to
-back out of the first allocation, that I can find.
-
-We are currently doing the following to avoid the memory leak, but this
-seems like it defeats the purpose of checking for the minimum size
-(that is, if the first allocation was too small, we don't re-allocate).
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 5d075b5..2524af4 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2194,7 +2194,8 @@ void __init udp_table_init(struct udp_table *table, const char *name)
- 	/*
- 	 * Make sure hash table has the minimum size
- 	 */
--	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
-+	if ((CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1)
-+		&& !table->hash) {
- 		table->hash = kmalloc(UDP_HTABLE_SIZE_MIN *
- 				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
- 		if (!table->hash)
-
-Any suggestions for a way to correct for a too-small first allocation, without
-a memory leak?
-
-Alternatively - how critical is this UDP_HTABLE_SIZE_MIN for correct operation
-of the stack?
-
-Thanks for any information you can provide.
-
- -- Tim
-
-=============================
-Tim Bird
-Architecture Group Chair, CE Workgroup of the Linux Foundation
-Senior Staff Engineer, Sony Network Entertainment
-=============================
+Either way, netlink is gathering up a lot of arguments and has come
+to the point where I would suggest to put it all into a struct,
+like we have done for struct xt_action_param.
