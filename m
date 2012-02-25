@@ -1,16 +1,12 @@
 From: pablo@netfilter.org
 Subject: [PATCH 0/3] netlink: netlink_dump_start takes pointer to data
-Date: Sat, 25 Feb 2012 01:29:42 +0100
-Message-ID: <1330129785-28161-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net
+Date: Sat, 25 Feb 2012 01:30:14 +0100
+Message-ID: <1330129817-28199-1-git-send-email-pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42560 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449Ab2BYA3z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Feb 2012 19:29:55 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
@@ -47,3 +43,4 @@ Pablo Neira Ayuso (3):
 
 -- 
 1.7.7.3
+
