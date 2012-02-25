@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/11] e1000e: cleanup comment in e1000_hash_mc_addr()
-Date: Fri, 24 Feb 2012 21:49:57 -0800
-Message-ID: <1330149000-25907-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/11] e1000e: use true/false for boolean send_xon, do not assume always true
+Date: Fri, 24 Feb 2012 21:49:58 -0800
+Message-ID: <1330149000-25907-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,36 +10,49 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:1113 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751341Ab2BYFuF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Feb 2012 00:50:05 -0500
+	id S1753279Ab2BYFuG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Feb 2012 00:50:06 -0500
 In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Remove reference to non-existant function.
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/mac.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000e/mac.c    |    4 +++-
+ drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index f16a611..4130134 100644
+index 4130134..d55f588 100644
 --- a/drivers/net/ethernet/intel/e1000e/mac.c
 +++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -263,8 +263,7 @@ void e1000e_rar_set(struct e1000_hw *hw, u8 *addr, u32 index)
-  *  @mc_addr: pointer to a multicast address
-  *
-  *  Generates a multicast address hash value which is used to determine
-- *  the multicast filter table array address and new table value.  See
-- *  e1000_mta_set_generic()
-+ *  the multicast filter table array address and new table value.
-  **/
- static u32 e1000_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr)
- {
+@@ -969,7 +969,9 @@ s32 e1000e_set_fc_watermarks(struct e1000_hw *hw)
+ 		 * XON frames.
+ 		 */
+ 		fcrtl = hw->fc.low_water;
+-		fcrtl |= E1000_FCRTL_XONE;
++		if (hw->fc.send_xon)
++			fcrtl |= E1000_FCRTL_XONE;
++
+ 		fcrth = hw->fc.high_water;
+ 	}
+ 	ew32(FCRTL, fcrtl);
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 56c1aec..8b62870 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3464,7 +3464,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 		fc->pause_time = 0xFFFF;
+ 	else
+ 		fc->pause_time = E1000_FC_PAUSE_TIME;
+-	fc->send_xon = 1;
++	fc->send_xon = true;
+ 	fc->current_mode = fc->requested_mode;
+ 
+ 	switch (hw->mac.type) {
 -- 
 1.7.7.6
