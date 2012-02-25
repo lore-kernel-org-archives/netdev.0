@@ -1,60 +1,49 @@
+From: pablo@netfilter.org
+Subject: [PATCH 0/3] netlink: netlink_dump_start takes pointer to data
+Date: Sat, 25 Feb 2012 01:29:42 +0100
+Message-ID: <1330129785-28161-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42560 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753449Ab2BYA3z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Feb 2012 19:29:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/2] netlink: netlink_dump_start may take data pointer
- for callbacks
-Date: Sat, 25 Feb 2012 00:18:03 +0100
-Message-ID: <20120224231803.GA13163@1984>
-References: <1330121648-2956-1-git-send-email-pablo@netfilter.org>
- <1330121648-2956-2-git-send-email-pablo@netfilter.org>
- <20120224.174726.1107636579816083287.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120224.174726.1107636579816083287.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 24, 2012 at 05:47:26PM -0500, David Miller wrote:
-> From: pablo@netfilter.org
-> Date: Fri, 24 Feb 2012 23:14:07 +0100
-> 
-> > From: Pablo Neira Ayuso <pablo@netfilter.org>
-> > 
-> > This patch modifies the netlink_dump_start function to take one
-> > generic pointer to data. This pointer can be used inside the
-> > dump() and done() callbacks via cb->data.
-> > 
-> > Netfilter is going to use this patch to provide filtered dumps
-> > to user-space. This is specifically interesting in ctnetlink that
-> > may handle lots of conntrack entries. We can save precious
-> > cycles by skipping the conversion to TLV format of conntrack
-> > entries that are not interesting for user-space.
-> > 
-> > More specifically, ctnetlink will include one operation to allow
-> > to filter the dumping of conntrack entries by ctmark values.
-> > 
-> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> This isn't really your fault but netlink_dump_start() has an
-> enormous number of arguments.
-> 
-> Several of them are zero or NULL in all except one special situation.
-> 
-> An entire argument is a lot of overhead for one situation to impose on
-> all the others.
-> 
-> I have no objection to the data callback scheme, it's just that
-> the argument list of this interface is getting out of control.
-> 
-> Usually, in situations like this, we have some control structure
-> that holds all the control state and we pass that in instead.
-> 
-> 	struct netlink_dump_control c = { .dump = dump, .done = done, ... };
-> 
-> 	netlink_dump_start(..., &c);
-> 
-> It could be perhaps used here to get things back under control.
+Hi!
 
-OK, I'll send a patch to make it like this.
+This is the second version of the extension for netlink_dump_start
+to take one data pointer that can be pass to the dump callback.
+
+These changes allow to filter by the ctmark in ctnetlink.
+
+Suggestion from Davem has been included in this patchset.
+
+Thanks!
+
+Pablo Neira Ayuso (3):
+  netlink: add netlink_dump_control structure for netlink_dump_start()
+  netlink: allow to pass data pointer to netlink_dump_start() callback
+  netfilter: ctnetlink: support kernel-space dump filtering by ctmark
+
+ crypto/crypto_user.c                          |   10 +++-
+ drivers/infiniband/core/netlink.c             |   10 +++-
+ include/linux/netfilter/nfnetlink_conntrack.h |    1 +
+ include/linux/netlink.h                       |   12 ++++-
+ net/core/rtnetlink.c                          |    9 +++-
+ net/ipv4/inet_diag.c                          |   18 ++++++---
+ net/netfilter/ipset/ip_set_core.c             |   10 +++-
+ net/netfilter/nf_conntrack_netlink.c          |   50 ++++++++++++++++++++++---
+ net/netfilter/nfnetlink_acct.c                |    6 ++-
+ net/netlink/af_netlink.c                      |   12 ++---
+ net/netlink/genetlink.c                       |    9 +++-
+ net/unix/diag.c                               |   10 +++--
+ net/xfrm/xfrm_user.c                          |    9 +++-
+ 13 files changed, 123 insertions(+), 43 deletions(-)
+
+-- 
+1.7.7.3
