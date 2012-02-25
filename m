@@ -1,56 +1,71 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH 00/12] Part 2: check given MAC address, if invalid return -EADDRNOTAVAIL
-Date: Sat, 25 Feb 2012 11:13:21 +0100
-Message-ID: <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
-References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de>
-	<CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
+Date: Sat, 25 Feb 2012 11:15:21 +0100
+Message-ID: <CAMuHMdXAwgtwbCV_=qJnrs=YPZksoEBkjnQB=JbR7fc+UyKdzw@mail.gmail.com>
+References: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
+	<1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
-	Guo-Fu Tseng <cooldavid-eHdHF5TYP0iWVfeAwA7xHQ@public.gmane.org>,
-	Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	"VMware, Inc." <pv-drivers-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Danny Kukawka <dkukawka@suse.de>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2012/2/24 Micha=C5=82 Miros=C5=82aw <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
-> 2012/2/24 Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>:
->> Second Part of series patches to unifiy the return value of
->> .ndo_set_mac_address if the given address isn't valid.
->>
->> These changes check if a given (MAC) address is valid in
->> .ndo_set_mac_address, if invalid return -EADDRNOTAVAIL
->> as eth_mac_addr() already does if is_valid_ether_addr() fails.
+On Fri, Feb 24, 2012 at 14:45, Danny Kukawka <danny.kukawka@bisect.de> =
+wrote:
+> Print MAC/dev_addr via printk extended format specifier %pM instead
+> of custom code.
 >
-> Why not just fix dev_set_mac_address() and make do_setlink() use that=
-?
+> Use memcpy to set the address to dev->dev_addr in set_mac_address,
+> instead of mxing it up in a for loop with printing a debug msg.
+>
+> Check also if the given address is valid.
 
-BTW, it's also called from dev_set_mac_address().
+Why do you sneak in this check in this patch?
 
-> Checks are specific to address family, not device model I assume.
-
-Indeed, why can't this be done in one single place, instead of sprinkli=
-ng these
-checks over all drivers, missing all out-of-tree (note: I don't care) a=
-nd all
-soon-to-be-submitted drivers?
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+> ---
+> =C2=A0drivers/net/ethernet/cirrus/mac89x0.c | =C2=A0 12 ++++++++----
+> =C2=A01 files changed, 8 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cirrus/mac89x0.c b/drivers/net/ethe=
+rnet/cirrus/mac89x0.c
+> index 83781f3..a7324ce 100644
+> --- a/drivers/net/ethernet/cirrus/mac89x0.c
+> +++ b/drivers/net/ethernet/cirrus/mac89x0.c
+> @@ -592,10 +592,14 @@ static void set_multicast_list(struct net_devic=
+e *dev)
+> =C2=A0static int set_mac_address(struct net_device *dev, void *addr)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int i;
+> - =C2=A0 =C2=A0 =C2=A0 printk("%s: Setting MAC address to ", dev->nam=
+e);
+> - =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < 6; i++)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 printk(" %2.2x", d=
+ev->dev_addr[i] =3D ((unsigned char *)addr)[i]);
+> - =C2=A0 =C2=A0 =C2=A0 printk(".\n");
+> + =C2=A0 =C2=A0 =C2=A0 struct sockaddr *saddr =3D addr;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (!is_valid_ether_addr(addr->sa_data))
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EADDRNOTAV=
+AIL;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN)=
+;
+> + =C2=A0 =C2=A0 =C2=A0 printk("%s: Setting MAC address to %pM\n", dev=
+->name, dev->dev_addr);
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* set the Ethernet address */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i=3D0; i < ETH_ALEN/2; i++)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0writereg(dev, =
+PP_IA+i*2, dev->dev_addr[i*2] | (dev->dev_addr[i*2+1] << 8));
 
 Gr{oetje,eeting}s,
 
@@ -67,8 +82,3 @@ when I'm talking to journalists I just say "programmer" or something li=
 ke that.
 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
 =A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
