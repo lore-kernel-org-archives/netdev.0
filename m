@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] e1000e: cleanup use of check_mng_mode function pointer
-Date: Fri, 24 Feb 2012 21:49:52 -0800
-Message-ID: <1330149000-25907-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] e1000e: cleanup: rename e1000e_setup_link() and call as function pointer
+Date: Fri, 24 Feb 2012 21:49:51 -0800
+Message-ID: <1330149000-25907-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:2449 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:26381 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751434Ab2BYFuD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751413Ab2BYFuD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Feb 2012 00:50:03 -0500
 In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,68 +18,114 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Replace e1000_check_mng_mode() inline function with calls to the MAC ops
-check_mng_mode function pointer.
+Rename e1000e_setup_link() to e1000e_setup_link_generic() to signify the
+function is used for more than one MAC-family type.  The 82571-family has
+a custom setup_link function which also calls the generic function.  The
+ich8lan-family has a custom function which should just be called via the
+function pointer.  The 80003es2lan-family just uses the generic function.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    2 +-
- drivers/net/ethernet/intel/e1000e/e1000.h       |    5 -----
- drivers/net/ethernet/intel/e1000e/manage.c      |    4 ++--
- 3 files changed, 3 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    4 ++--
+ drivers/net/ethernet/intel/e1000e/82571.c       |    4 ++--
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |    2 +-
+ drivers/net/ethernet/intel/e1000e/mac.c         |    4 ++--
+ 5 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index e1cbead..0ea3e7e 100644
+index c146484..e1cbead 100644
 --- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -1056,7 +1056,7 @@ static s32 e1000_copper_link_setup_gg82563_80003es2lan(struct e1000_hw *hw)
- 	 * firmware will have already initialized them.  We only initialize
- 	 * them if the HW is not in IAMT mode.
- 	 */
--	if (!e1000e_check_mng_mode(hw)) {
-+	if (!hw->mac.ops.check_mng_mode(hw)) {
- 		/* Enable Electrical Idle on the PHY */
- 		data |= GG82563_PMCR_ENABLE_ELECTRICAL_IDLE;
- 		ret_val = e1e_wphy(hw, GG82563_PHY_PWR_MGMT_CTRL, data);
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 22e03e5..bae094b 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -725,11 +725,6 @@ static inline s32 e1000_get_phy_info(struct e1000_hw *hw)
- 	return hw->phy.ops.get_info(hw);
- }
+@@ -838,7 +838,7 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
+ 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
  
--static inline s32 e1000e_check_mng_mode(struct e1000_hw *hw)
--{
--	return hw->mac.ops.check_mng_mode(hw);
--}
--
- extern bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
- extern bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
- extern s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
-index 0d24b13..473f8e7 100644
---- a/drivers/net/ethernet/intel/e1000e/manage.c
-+++ b/drivers/net/ethernet/intel/e1000e/manage.c
-@@ -106,7 +106,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
+ 	/* Setup link and flow control */
+-	ret_val = e1000e_setup_link(hw);
++	ret_val = mac->ops.setup_link(hw);
+ 
+ 	/* Disable IBIST slave mode (far-end loopback) */
+ 	e1000_read_kmrn_reg_80003es2lan(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
+@@ -1429,7 +1429,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
+ 	.clear_vfta		= e1000_clear_vfta_generic,
+ 	.reset_hw		= e1000_reset_hw_80003es2lan,
+ 	.init_hw		= e1000_init_hw_80003es2lan,
+-	.setup_link		= e1000e_setup_link,
++	.setup_link		= e1000e_setup_link_generic,
+ 	/* setup_physical_interface dependent on media type */
+ 	.setup_led		= e1000e_setup_led_generic,
+ };
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 2ca6377..721c203 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1143,7 +1143,7 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
+ 		E1000_WRITE_REG_ARRAY(hw, E1000_MTA, i, 0);
+ 
+ 	/* Setup link and flow control */
+-	ret_val = e1000_setup_link_82571(hw);
++	ret_val = mac->ops.setup_link(hw);
+ 
+ 	/* Set the transmit descriptor write-back policy */
+ 	reg_data = er32(TXDCTL(0));
+@@ -1455,7 +1455,7 @@ static s32 e1000_setup_link_82571(struct e1000_hw *hw)
+ 		break;
+ 	}
+ 
+-	return e1000e_setup_link(hw);
++	return e1000e_setup_link_generic(hw);
  }
  
  /**
-- *  e1000e_check_mng_mode_generic - check management mode
-+ *  e1000e_check_mng_mode_generic - Generic check management mode
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 2a0d658..22e03e5 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -564,7 +564,7 @@ extern void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw);
+ extern s32 e1000e_setup_fiber_serdes_link(struct e1000_hw *hw);
+ extern s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw);
+ extern s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw);
+-extern s32 e1000e_setup_link(struct e1000_hw *hw);
++extern s32 e1000e_setup_link_generic(struct e1000_hw *hw);
+ extern void e1000_clear_vfta_generic(struct e1000_hw *hw);
+ extern void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count);
+ extern void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 7d3a7fb..8b9bf94 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -3212,7 +3212,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+ 	}
+ 
+ 	/* Setup link and flow control */
+-	ret_val = e1000_setup_link_ich8lan(hw);
++	ret_val = mac->ops.setup_link(hw);
+ 
+ 	/* Set the transmit descriptor write-back policy for both queues */
+ 	txdctl = er32(TXDCTL(0));
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index aaf4a4d..6e48895 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -693,7 +693,7 @@ static s32 e1000_set_default_fc_generic(struct e1000_hw *hw)
+ }
+ 
+ /**
+- *  e1000e_setup_link - Setup flow control and link settings
++ *  e1000e_setup_link_generic - Setup flow control and link settings
   *  @hw: pointer to the HW structure
   *
-  *  Reads the firmware semaphore register and returns true (>0) if
-@@ -138,7 +138,7 @@ bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw)
- 	hw->mac.tx_pkt_filtering = true;
- 
- 	/* No manageability, no filtering */
--	if (!e1000e_check_mng_mode(hw)) {
-+	if (!hw->mac.ops.check_mng_mode(hw)) {
- 		hw->mac.tx_pkt_filtering = false;
- 		return hw->mac.tx_pkt_filtering;
- 	}
+  *  Determines which flow control settings to use, then configures flow
+@@ -702,7 +702,7 @@ static s32 e1000_set_default_fc_generic(struct e1000_hw *hw)
+  *  should be established.  Assumes the hardware has previously been reset
+  *  and the transmitter and receiver are not enabled.
+  **/
+-s32 e1000e_setup_link(struct e1000_hw *hw)
++s32 e1000e_setup_link_generic(struct e1000_hw *hw)
+ {
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	s32 ret_val;
 -- 
 1.7.7.6
