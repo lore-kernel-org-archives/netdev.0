@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] e1000e: comment correction in e1000e_set_kmrn_lock_loss_workaround_ich8lan
-Date: Fri, 24 Feb 2012 21:49:55 -0800
-Message-ID: <1330149000-25907-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] e1000e: cleanup use of check_reset_block function pointer
+Date: Fri, 24 Feb 2012 21:49:53 -0800
+Message-ID: <1330149000-25907-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:26381 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750911Ab2BYFuE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752276Ab2BYFuE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Feb 2012 00:50:04 -0500
 In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,25 +18,180 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+Replace e1000_check_reset_block() inline function with calls to the PHY ops
+check_reset_block function pointer.
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h   |    5 -----
+ drivers/net/ethernet/intel/e1000e/ethtool.c |    6 ++++--
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |   15 ++++++++-------
+ drivers/net/ethernet/intel/e1000e/mac.c     |    2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c  |    4 ++--
+ drivers/net/ethernet/intel/e1000e/phy.c     |    2 +-
+ 6 files changed, 16 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index fdc3be9..1436682 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -3555,7 +3555,7 @@ static s32 e1000_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw)
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index bae094b..f93d7a4 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -662,11 +662,6 @@ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ 	return hw->phy.ops.reset(hw);
  }
  
- /**
-- *  e1000_set_kmrn_lock_loss_workaround_ich8lan - Set Kumeran workaround state
-+ *  e1000e_set_kmrn_lock_loss_workaround_ich8lan - Set Kumeran workaround state
-  *  @hw: pointer to the HW structure
-  *  @state: boolean value used to set the current Kumeran workaround state
-  *
+-static inline s32 e1000_check_reset_block(struct e1000_hw *hw)
+-{
+-	return hw->phy.ops.check_reset_block(hw);
+-}
+-
+ static inline s32 e1e_rphy(struct e1000_hw *hw, u32 offset, u16 *data)
+ {
+ 	return hw->phy.ops.read_reg(hw, offset, data);
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index b1f5d74..db35dd5 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -258,7 +258,7 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	 * When SoL/IDER sessions are active, autoneg/speed/duplex
+ 	 * cannot be changed
+ 	 */
+-	if (e1000_check_reset_block(hw)) {
++	if (hw->phy.ops.check_reset_block(hw)) {
+ 		e_err("Cannot change link characteristics when SoL/IDER is "
+ 		      "active.\n");
+ 		return -EINVAL;
+@@ -1598,11 +1598,13 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
+ 
+ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
+ {
++	struct e1000_hw *hw = &adapter->hw;
++
+ 	/*
+ 	 * PHY loopback cannot be performed if SoL/IDER
+ 	 * sessions are active
+ 	 */
+-	if (e1000_check_reset_block(&adapter->hw)) {
++	if (hw->phy.ops.check_reset_block(hw)) {
+ 		e_err("Cannot do PHY loopback test when SoL/IDER is active.\n");
+ 		*data = 0;
+ 		goto out;
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 8b9bf94..da89e2b 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -324,7 +324,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+ 
+-	if (!e1000_check_reset_block(hw)) {
++	if (!hw->phy.ops.check_reset_block(hw)) {
+ 		u32 fwsm = er32(FWSM);
+ 
+ 		/*
+@@ -1314,7 +1314,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
+ 			oem_reg |= HV_OEM_BITS_LPLU;
+ 
+ 		/* Set Restart auto-neg to activate the bits */
+-		if (!e1000_check_reset_block(hw))
++		if (!hw->phy.ops.check_reset_block(hw))
+ 			oem_reg |= HV_OEM_BITS_RESTART_AN;
+ 	} else {
+ 		if (mac_reg & (E1000_PHY_CTRL_GBE_DISABLE |
+@@ -1788,7 +1788,7 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
+ 	s32 ret_val = 0;
+ 	u16 reg;
+ 
+-	if (e1000_check_reset_block(hw))
++	if (hw->phy.ops.check_reset_block(hw))
+ 		return 0;
+ 
+ 	/* Allow time for h/w to get to quiescent state after reset */
+@@ -1897,7 +1897,7 @@ static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active)
+ 	else
+ 		oem_reg &= ~HV_OEM_BITS_LPLU;
+ 
+-	if (!e1000_check_reset_block(hw))
++	if (!hw->phy.ops.check_reset_block(hw))
+ 		oem_reg |= HV_OEM_BITS_RESTART_AN;
+ 
+ 	return e1e_wphy(hw, HV_OEM_BITS, oem_reg);
+@@ -3109,7 +3109,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 
+ 	ctrl = er32(CTRL);
+ 
+-	if (!e1000_check_reset_block(hw)) {
++	if (!hw->phy.ops.check_reset_block(hw)) {
+ 		/*
+ 		 * Full-chip reset requires MAC and PHY reset at the same
+ 		 * time to make sure the interface between MAC and the
+@@ -3327,7 +3327,7 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
+ {
+ 	s32 ret_val;
+ 
+-	if (e1000_check_reset_block(hw))
++	if (hw->phy.ops.check_reset_block(hw))
+ 		return 0;
+ 
+ 	/*
+@@ -3707,7 +3707,8 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ 	u16 phy_id1, phy_id2;
+ 	s32 ret_val;
+ 
+-	if ((hw->mac.type != e1000_pch2lan) || e1000_check_reset_block(hw))
++	if ((hw->mac.type != e1000_pch2lan) ||
++	    hw->phy.ops.check_reset_block(hw))
+ 		return;
+ 
+ 	ret_val = hw->phy.ops.acquire(hw);
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index 6e48895..011d83d 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -711,7 +711,7 @@ s32 e1000e_setup_link_generic(struct e1000_hw *hw)
+ 	 * In the case of the phy reset being blocked, we already have a link.
+ 	 * We do not need to set it up again.
+ 	 */
+-	if (e1000_check_reset_block(hw))
++	if (hw->phy.ops.check_reset_block(hw))
+ 		return 0;
+ 
+ 	/*
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index c30e99e..3975ed1 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6236,7 +6236,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 		adapter->hw.phy.ms_type = e1000_ms_hw_default;
+ 	}
+ 
+-	if (e1000_check_reset_block(&adapter->hw))
++	if (hw->phy.ops.check_reset_block(hw))
+ 		e_info("PHY reset is blocked due to SOL/IDER session.\n");
+ 
+ 	/* Set initial default active device features */
+@@ -6403,7 +6403,7 @@ err_register:
+ 	if (!(adapter->flags & FLAG_HAS_AMT))
+ 		e1000e_release_hw_control(adapter);
+ err_eeprom:
+-	if (!e1000_check_reset_block(&adapter->hw))
++	if (!hw->phy.ops.check_reset_block(hw))
+ 		e1000_phy_hw_reset(&adapter->hw);
+ err_hw_init:
+ 	kfree(adapter->tx_ring);
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index d4dbbe7..d10b27f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -2133,7 +2133,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u32 ctrl;
+ 
+-	ret_val = e1000_check_reset_block(hw);
++	ret_val = phy->ops.check_reset_block(hw);
+ 	if (ret_val)
+ 		return 0;
+ 
 -- 
 1.7.7.6
