@@ -1,30 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 25 Feb 2012 20:31:57 -0500 (EST)
-Message-ID: <20120225.203157.1171115301922305846.davem@davemloft.net>
-References: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH v2] ARM: LPC32xx: Ethernet driver
+Date: Sun, 26 Feb 2012 03:52:18 +0200
+Message-ID: <20120226015217.GA3257@tarshish>
+References: <1330201304-24037-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	alexander.h.duyck@intel.com, eilong@broadcom.com,
+	ian.campbell@citrix.com, netdev@vger.kernel.org,
+	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
+	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org
+To: Roland Stigge <stigge@antcom.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48897 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443Ab2BZBcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 20:32:01 -0500
-In-Reply-To: <1330149000-25907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from tango.tkos.co.il ([62.219.50.35]:40846 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752396Ab2BZBxe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Feb 2012 20:53:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1330201304-24037-1-git-send-email-stigge@antcom.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 24 Feb 2012 21:49:49 -0800
+Hi Roland,
 
-> This series of patches contains cleanups of the e1000e driver.
+On Sat, Feb 25, 2012 at 09:21:44PM +0100, Roland Stigge wrote:
+> This patch adds an ethernet driver for the LPC32xx ARM SoC.
 > 
-> The following are changes since commit 5d74f1757001f5b9a7739c2a9053435e16ce516b:
->   Staging: wlags49_h2: print MAC via printk format specifier
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> Signed-off-by: Roland Stigge <stigge@antcom.de>
 
-Pulled, thanks Jeff.
+[snip]
+
+> +static int __init ethaddr(char *s)
+> +{
+> +	int i;
+> +	unsigned int r[6];
+> +
+> +	sscanf(s, "%x:%x:%x:%x:%x:%x",
+> +			&r[0], &r[1], &r[2], &r[3], &r[4], &r[5]);
+> +	for (i = 0; i < 6; i++)
+> +		mac_address[i] = (u8)r[i];
+> +
+> +	return 1;
+> +}
+> +__setup("ethaddr=", ethaddr);
+
+Please use a module_param() instead of a top level kernel parameter.
+
+You may also consider using module_param_array() here. See 
+drivers/net/ethernet/freescale/fec.c for an example. Note, however, that this 
+changes the format the MAC address representation. Instead of 
+"01:02:03:04:05:06", use "0x01,0x02,0x03,0x04,0x05,0x06".
+
+baruch
+
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
