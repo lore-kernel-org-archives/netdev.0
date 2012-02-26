@@ -1,85 +1,111 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] macvlan: Disable LRO on lowerdev; warn if it's
- turned back on
-Date: Sat, 25 Feb 2012 22:49:49 +0000
-Message-ID: <1330210189.8460.12.camel@deadeye>
-References: <1329851622.2689.6.camel@bwh-desktop>
-	 <4F43F816.6070908@intel.com> <1329856136.2689.46.camel@bwh-desktop>
-	 <4F4410C7.2000500@candelatech.com> <87fwdytvlw.fsf@xmission.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: WARNING: at net/ipv4/tcp_input.c:3418
+Date: Sat, 25 Feb 2012 16:06:40 -0800
+Message-ID: <CAGK4HS8Wrj0c9qo66F8oBkGA4PR28z2Vsf4J3_4=KGq989wYng@mail.gmail.com>
+References: <20120225183445.GB5661@x4>
+	<CAGK4HS8bSF3y45Jgf3Vc0L1mGXt_vx1M2rDJoU8jPV6ZY8Dacw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Shradha Shah <sshah@solarflare.com>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ncardwell <ncardwell@google.com>, ilpo.jarvinen@helsinki.fi
+To: netdev <netdev@vger.kernel.org>,
+	Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:32519 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756527Ab2BYWtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 17:49:47 -0500
-In-Reply-To: <87fwdytvlw.fsf@xmission.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:52933 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751206Ab2BZAGl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Feb 2012 19:06:41 -0500
+Received: by vbbff1 with SMTP id ff1so202115vbb.19
+        for <netdev@vger.kernel.org>; Sat, 25 Feb 2012 16:06:40 -0800 (PST)
+In-Reply-To: <CAGK4HS8bSF3y45Jgf3Vc0L1mGXt_vx1M2rDJoU8jPV6ZY8Dacw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-02-25 at 14:07 -0800, Eric W. Biederman wrote:
-> Ben Greear <greearb@candelatech.com> writes:
-> 
-> > On 02/21/2012 12:28 PM, Ben Hutchings wrote:
-> >> On Tue, 2012-02-21 at 12:01 -0800, John Fastabend wrote:
-> >>> On 2/21/2012 11:13 AM, Ben Hutchings wrote:
-> >>>> Large Receive Offload (LRO) is only appropriate for packets that are
-> >>>> destined for the host, and should be disabled if received packets may
-> >>>> be forwarded.
-> >>>>
-> >>>> Further, macvtap_skb_to_vnet_hdr() will BUG() on a packet received
-> >>>> with LRO (but not GRO).
-[...]
-> Long story short.
-> 
-> With the macvlan driver the normal case is not to turn packets around
-> but to go directly to the nic or to come directly from the nic.
+Resending this mail because of earlier failure...
+
+
+On 25 February 2012 10:34, Markus Trippelsdorf <markus@trippelsdorf.de>=
+ wrote:
 >
-> In the case where packets are turned around and packets go from one
-> software interface the design is that the drivers are supposed to
-> do software emulation of hardware features like gro so that we don't
-> have to take a performance hit when it happens.
-> 
-> If we are not doing proper software emulation of features like gro
-> in macvtap that is a problem.
-> 
-> I am fuzzy about all of the details but last I looked we were doing
-> proper software emulation of the features when just macvlan was
-> involved.  I also remember that the macvtap driver really wanted
-> gro so that it could work efficiently with emulated hardware.
+> I've hit the following warnings today while using bittorrent:
+>
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/tcp_input.c:3418 tcp_ack+0xf8f/0x11a0()
+> Hardware name: System Product Name
+> Pid: 14513, comm: cc1plus Not tainted 3.3.0-rc4-00091-gbb4c7e9-dirty =
+#3
+> Call Trace:
+> =A0<IRQ> =A0[<ffffffff81055c40>] ? warn_slowpath_common+0x60/0xa0
+> =A0[<ffffffff8142430f>] ? tcp_ack+0xf8f/0x11a0
+> =A0[<ffffffff81424e4d>] ? tcp_rcv_established+0x28d/0x720
+> =A0[<ffffffff8142c4ed>] ? tcp_v4_do_rcv+0x8d/0x2a0
+> =A0[<ffffffff8142e0d9>] ? tcp_v4_rcv+0x5f9/0x720
+> =A0[<ffffffff8140dcbd>] ? ip_local_deliver_finish+0x5d/0x140
+> =A0[<ffffffff813d9af6>] ? __netif_receive_skb+0x2d6/0x3a0
+> =A0[<ffffffff813dcf9a>] ? netif_receive_skb+0x1a/0x80
+> =A0[<ffffffff813d0d79>] ? __netdev_alloc_skb+0x19/0x40
+> =A0[<ffffffff8131baec>] ? atl1e_clean+0x1ac/0x3c0
+> =A0[<ffffffff813dd9d9>] ? net_rx_action+0x79/0x120
+> =A0[<ffffffff8105b3ed>] ? __do_softirq+0x8d/0x120
+> =A0[<ffffffff810935f9>] ? handle_irq_event_percpu+0x79/0x140
+> =A0[<ffffffff8147928c>] ? call_softirq+0x1c/0x26
+> =A0[<ffffffff810341bd>] ? do_softirq+0x3d/0x80
+> =A0[<ffffffff8105b6e5>] ? irq_exit+0xa5/0xc0
+> =A0[<ffffffff8103408d>] ? do_IRQ+0x4d/0xc0
+> =A0[<ffffffff81477a2b>] ? common_interrupt+0x6b/0x6b
+> =A0<EOI>
+> ---[ end trace 6bd1602ca76fa623 ]---
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/tcp_input.c:3048 tcp_fastretrans_alert+0xe9a/0xe=
+e0()
+> Hardware name: System Product Name
+> Pid: 14513, comm: cc1plus Tainted: G =A0 =A0 =A0 =A0W =A0 =A03.3.0-rc=
+4-00091-gbb4c7e9-dirty #3
+> Call Trace:
+> =A0<IRQ> =A0[<ffffffff81055c40>] ? warn_slowpath_common+0x60/0xa0
+> =A0[<ffffffff8142315a>] ? tcp_fastretrans_alert+0xe9a/0xee0
+> =A0[<ffffffff814238ac>] ? tcp_ack+0x52c/0x11a0
+> =A0[<ffffffff81424e4d>] ? tcp_rcv_established+0x28d/0x720
+> =A0[<ffffffff8142c4ed>] ? tcp_v4_do_rcv+0x8d/0x2a0
+> =A0[<ffffffff8142e0d9>] ? tcp_v4_rcv+0x5f9/0x720
+> =A0[<ffffffff8140dcbd>] ? ip_local_deliver_finish+0x5d/0x140
+> =A0[<ffffffff813d9af6>] ? __netif_receive_skb+0x2d6/0x3a0
+> =A0[<ffffffff813dcf9a>] ? netif_receive_skb+0x1a/0x80
+> =A0[<ffffffff813d0d79>] ? __netdev_alloc_skb+0x19/0x40
+> =A0[<ffffffff8131baec>] ? atl1e_clean+0x1ac/0x3c0
+> =A0[<ffffffff813dd9d9>] ? net_rx_action+0x79/0x120
+> =A0[<ffffffff8105b3ed>] ? __do_softirq+0x8d/0x120
+> =A0[<ffffffff810935f9>] ? handle_irq_event_percpu+0x79/0x140
+> =A0[<ffffffff8147928c>] ? call_softirq+0x1c/0x26
+> =A0[<ffffffff810341bd>] ? do_softirq+0x3d/0x80
+> =A0[<ffffffff8105b6e5>] ? irq_exit+0xa5/0xc0
+> =A0[<ffffffff8103408d>] ? do_IRQ+0x4d/0xc0
+> =A0[<ffffffff81477a2b>] ? common_interrupt+0x6b/0x6b
+> =A0<EOI>
+> ---[ end trace 6bd1602ca76fa624 ]---
+>
 
-This doesn't disable GRO; you can still benefit from that.
+=A0Hi Markus,
+This looks similar to the errors that were reported in the following th=
+reads
+http://lists.openwall.net/netdev/2012/02/06/13
+http://lists.openwall.net/netdev/2012/02/06/23
 
-> So I don't know why people are having a problem, but the correct
-> solution is not to give up but to fix the silly software side of
-> the drivers to actually handle things properly.
+Maybe you are hitting the same bug. It was hoped in the discussion
+that the following commit would fix it but looks like it does not
+(assuming it is the same bug). From your kernel version =A0(3.3.0-rc4),
+it looks like you should have this commit. So, maybe it did not fix
+this bug.
 
-This is not a deficiency in macvtap.  Any skb received with LRO cannot
-be re-sent through dev_queue_xmit() or dev_hard_start_xmit().
 
-> Disabling LRO on the lowerdev just so we can avoid writing the
-> support in macvtap just sounds sad.
+commit 5b35e1e6e9ca651e6b291c96d1106043c9af314a
+Author: Neal Cardwell <ncardwell@google.com>
+Date: =A0 Sat Jan 28 17:29:46 2012 +0000
 
-The regular bridge driver and the IPv4 and IPv6 protocols already
-disable LRO when enabling forwarding on a device.  This is 'normal'.
+=A0 =A0tcp: fix tcp_trim_head() to adjust segment count with skb MSS
 
-Now we could decide that the possible loss of some header information
-through LRO is acceptable and we should just require drivers using LRO
-to label their skbs with the proper gso_type for re-sending.  Indeed,
-although GRO preserves packet boundaries they are actually lost in
-re-transmission as GSO/TSO re-segments at regular intervals.  So that's
-already happening to an extent.
 
-Ben.
+CCing Neal and Ilpo.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+Vijay
