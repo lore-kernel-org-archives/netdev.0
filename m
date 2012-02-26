@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] netlink: allow to pass data pointer to
- netlink_dump_start() callback
-Date: Sun, 26 Feb 2012 14:27:07 -0500 (EST)
-Message-ID: <20120226.142707.1012222011717616484.davem@davemloft.net>
+Subject: Re: [PATCH 3/3] netfilter: ctnetlink: support kernel-space dump
+ filtering by ctmark
+Date: Sun, 26 Feb 2012 14:27:15 -0500 (EST)
+Message-ID: <20120226.142715.733545358008638087.davem@davemloft.net>
 References: <1330129817-28199-1-git-send-email-pablo@netfilter.org>
-	<1330129817-28199-3-git-send-email-pablo@netfilter.org>
+	<1330129817-28199-4-git-send-email-pablo@netfilter.org>
+	<20120225004150.GA13494@1984>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53572 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473Ab2BZT2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 14:28:11 -0500
-In-Reply-To: <1330129817-28199-3-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120225004150.GA13494@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: pablo@netfilter.org
-Date: Sat, 25 Feb 2012 01:30:16 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sat, 25 Feb 2012 01:41:50 +0100
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> On Sat, Feb 25, 2012 at 01:30:17AM +0100, pablo@netfilter.org wrote:
+>> From: Pablo Neira Ayuso <pablo@netfilter.org>
+>> 
+>> This patch adds CTA_MARK_MASK which, together with CTA_MARK, allows
+>> you to selectively send conntrack entries to user-space by
+>> returning those that match mark & mask.
+>> 
+>> With this, we can save cycles in the building and the parsing of
+>> the entries that may be later on filtered out in user-space by using
+>> the ctmark & mask.
 > 
-> This patch allows you to pass a data pointer that can be
-> accessed from the dump callback.
+> Minor glitch in this patch. One ifdef was missing that would spot an
+> unused variable warning if CONFIG_NF_CONNTRACK_MARK is disabled.
 > 
-> Netfilter is going to use this patch to provide filtered dumps
-> to user-space. This is specifically interesting in ctnetlink that
-> may handle lots of conntrack entries. We can save precious
-> cycles by skipping the conversion to TLV format of conntrack
-> entries that are not interesting for user-space.
-> 
-> More specifically, ctnetlink will include one operation to allow
-> to filter the dumping of conntrack entries by ctmark values.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> New patch for ctnetlink attached.
 
 Applied.
