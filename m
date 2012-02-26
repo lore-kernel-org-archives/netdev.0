@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Sun, 26 Feb 2012 14:16:49 -0500 (EST)
-Message-ID: <20120226.141649.1425736441415883291.davem@davemloft.net>
-References: <1330079992-13368-1-git-send-email-mugunthanvnm@ti.com>
-	<1330079992-13368-3-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: RFC: memory leak in udp_table_init
+Date: Sun, 26 Feb 2012 14:20:38 -0500 (EST)
+Message-ID: <20120226.142038.556939530554716833.davem@davemloft.net>
+References: <4F48318E.8070902@am.sony.com>
+	<CAP=VYLp7+Apubm=PHRLSw50V9zBKmV-xFRvcO4-qAogJVp7jcw@mail.gmail.com>
+	<1330147182.2462.25.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53502 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752259Ab2BZTQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 14:16:52 -0500
-In-Reply-To: <1330079992-13368-3-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paul.gortmaker@windriver.com, tim.bird@am.sony.com,
+	kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330147182.2462.25.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Fri, 24 Feb 2012 16:09:52 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 25 Feb 2012 06:19:42 +0100
 
-> +struct cpsw_hw_stats {
+> [PATCH] mm: add a low limit to alloc_large_system_hash
 
-Nothing in the driver actually accesses the HW statistics.
+I think you should just use zero as the default minimum for all
+call sites except this UDP case we are trying to fix.
 
-Remove this until it's actually going to be used.
+For example I see you used 16 for kernel/pid.c
+
+Let's not try to do unrelated changes like that now, we can do such
+tweaks later.
