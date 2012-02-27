@@ -1,38 +1,32 @@
-From: Coca-cola promo <info@coca-cola.com>
-Subject: Confirmation Letter Contact Via Email
-	cocacolaclaimsboard12@hotmail.co.uk
-Date: Wed, 22 Feb 2012 12:13:10 -0700
-Message-ID: <20120222121310.bc8g75fbuso0go0k@webmail.myxmail.net>
-Reply-To: cocacolaclaimsboard12@hotmail.co.uk
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Sun, 26 Feb 2012 23:05:23 -0500 (EST)
+Message-ID: <20120226.230523.1906949835561978402.davem@davemloft.net>
+References: <20120227121125.007c32f9aa7be2470d9e3356@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dv35.xtremehighspeed.com ([64.13.250.202]:44060 "EHLO
-	dv35.xtremehighspeed.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753263Ab2B0EAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 23:00:11 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bhutchings@solarflare.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120227121125.007c32f9aa7be2470d9e3356@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 27 Feb 2012 12:11:25 +1100
 
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/sfc/rx.c between commit ff3bc1e75275 ("sfc: Fix
+> assignment of ip_summed for pre-allocated skbs") from Linus' tree and
+> commit db3395697cad ("sfc: Replace efx_rx_buffer::is_page and other
+> booleans with a flags field") from the net-next tree.
+> 
+> Just context changes.  I fixed it up (see below) and can carry the fix as
+> necessary.
 
-Your E-mail address won 1,000,000.00 GBP in the 2012 COCA-COLA ONLINE LOTTERY
-held in UK.Contact Dr Nigel Brown Via email  
-cocacolaclaimsboard12@hotmail.co.uk
-Fill The claims verification Form Below
-First name....
-Address.....
-Sex .....
-Marital status .....
-country of Resident....
-Age....
-Cell phone....
-Contact Name:Dr Nigel Brown
-Phone no: +447010056989,
+I just merged net into net-next and resolved this conflict.
+
+Thanks!
