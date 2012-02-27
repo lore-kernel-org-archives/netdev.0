@@ -1,52 +1,66 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: RFC: memory leak in udp_table_init
-Date: Mon, 27 Feb 2012 11:33:07 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7D@saturn3.aculab.com>
-References: <1330321223.3330.1.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <paul.gortmaker@windriver.com>, <tim.bird@am.sony.com>,
-	<kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1330321223.3330.1.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] mpc836x: fix failed phy detection for ucc ethernet on MDS
+Date: Mon, 27 Feb 2012 07:25:01 -0500
+Message-ID: <1330345501-24949-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: afleming@freescale.com, benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:52524 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886Ab2B0MZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 07:25:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > [PATCH] mm: add a low limit to alloc_large_system_hash
-> > 
-> > I think you should just use zero as the default minimum for all
-> > call sites except this UDP case we are trying to fix.
-> > 
-> > For example I see you used 16 for kernel/pid.c
-> > 
-> > Let's not try to do unrelated changes like that now, we can do such
-> > tweaks later.
-> 
-> It was to match the comment we have few lines above :
-> 
-> /*
->  * The pid hash table is scaled according to the amount of memory in
-the
->  * machine.  From a minimum of 16 slots up to 4096 slots at one
-gigabyte or
->  * more.
->  */
+The mpc836x_mds platform has been broken since the commit
+6fe3264945ee63292cdfb27b6e95bc52c603bb09
 
-These large hash tables are, IMHO, an indication that the
-algorithm used is, perhaps, suboptimal.
+  "netdev/phy: Use mdiobus_read() so that proper locks are taken"
 
-Not least of the problems is actually finding a suitable
-(and fast) hash function that will work with the actual
-real-life data.
+which caused the fsl_pq_mdio TBI autoprobe to oops.  The oops
+was "fixed" in commit 28d8ea2d568534026ccda3e8936f5ea1e04a86a1
 
-The pid table is a good example of something where a hash
-table is unnecessary.
-Linux should steal the code I put into NetBSD :-)
+  "fsl_pq_mdio: Clean up tbi address configuration"
 
-	David
+by simply removing the the autoscan code, and making tbi nodes
+mandatory.  Some of the newer reference platforms were updated
+to have tbi nodes in 220669495bf8b68130a8218607147c7b74c28d2b
+
+  "powerpc: Add TBI PHY node to first MDIO bus"
+
+but the older mpc836x didn't get one and hence was just failing
+with -EBUSY as follows:
+
+ fsl-pq_mdio: probe of e0102120.mdio failed with error -16
+   ...
+ net eth0: Could not attach to PHY
+ eth0: Cannot initialize PHY, aborting.
+
+Add a TBI node and use the 1st free address for it.
+
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+
+[Andy: There may be other boards that could be having this problem
+  git grep -l enet.*ucc arch/powerpc/boot/dts/|xargs grep -L tbi
+ shows four possible candidates -- but I've only got the 8360MDS. ]
+  
+
+diff --git a/arch/powerpc/boot/dts/mpc836x_mds.dts b/arch/powerpc/boot/dts/mpc836x_mds.dts
+index 45cfa1c5..1de33ce 100644
+--- a/arch/powerpc/boot/dts/mpc836x_mds.dts
++++ b/arch/powerpc/boot/dts/mpc836x_mds.dts
+@@ -405,6 +405,10 @@
+ 				reg = <0x1>;
+ 				device_type = "ethernet-phy";
+ 			};
++			tbi-phy@2 {
++				device_type = "tbi-phy";
++				reg = <0x2>;
++			};
+ 		};
+ 
+ 		qeic: interrupt-controller@80 {
+-- 
+1.7.9.1
