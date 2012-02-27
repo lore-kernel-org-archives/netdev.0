@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Sun, 26 Feb 2012 23:05:23 -0500 (EST)
-Message-ID: <20120226.230523.1906949835561978402.davem@davemloft.net>
-References: <20120227121125.007c32f9aa7be2470d9e3356@canb.auug.org.au>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH v3 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Mon, 27 Feb 2012 04:27:16 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E02931790A0F@DBDE01.ent.ti.com>
+References: <1330079992-13368-1-git-send-email-mugunthanvnm@ti.com>
+	<1330079992-13368-3-git-send-email-mugunthanvnm@ti.com>
+ <20120226.141649.1425736441415883291.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bhutchings@solarflare.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120227121125.007c32f9aa7be2470d9e3356@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:50820 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753447Ab2B0E1X convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 23:27:23 -0500
+In-Reply-To: <20120226.141649.1425736441415883291.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+David,
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 27 Feb 2012 12:11:25 +1100
-
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/sfc/rx.c between commit ff3bc1e75275 ("sfc: Fix
-> assignment of ip_summed for pre-allocated skbs") from Linus' tree and
-> commit db3395697cad ("sfc: Replace efx_rx_buffer::is_page and other
-> booleans with a flags field") from the net-next tree.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, February 27, 2012 12:47 AM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH v3 2/2] netdev: driver: ethernet: Add TI CPSW driver
 > 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Fri, 24 Feb 2012 16:09:52 +0530
+> 
+> > +struct cpsw_hw_stats {
+> 
+> Nothing in the driver actually accesses the HW statistics.
+> 
+> Remove this until it's actually going to be used.
 
-I just merged net into net-next and resolved this conflict.
+Will remove it.
 
-Thanks!
+With regards
+Mugunthan V N
