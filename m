@@ -1,34 +1,45 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [Patch] netfilter: remove ipt_SAME.h and ipt_realm.h too
-Date: Mon, 27 Feb 2012 18:40:54 +0100
-Message-ID: <4F4BC026.8010409@computer.org>
-References: <20120203081511.GD30546@Chamillionaire.breakpoint.cc> <1328263351-29363-1-git-send-email-xiyou.wangcong@gmail.com> <jif76l$ith$1@dough.gmane.org>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: bonding: should rlb rx_hashtbl be reimplemented?
+Date: Mon, 27 Feb 2012 18:46:09 +0100
+Message-ID: <20120227174609.GC816@midget.suse.cz>
+References: <20120227173400.GB816@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:60875 "EHLO
-	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753977Ab2B0Roc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 12:44:32 -0500
-In-Reply-To: <jif76l$ith$1@dough.gmane.org>
+Received: from cantor2.suse.de ([195.135.220.15]:36038 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753612Ab2B0RqL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Feb 2012 12:46:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20120227173400.GB816@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2012 07:17 AM, Cong Wang wrote:
-> On Fri, 03 Feb 2012 at 10:02 GMT, Cong Wang<xiyou.wangcong@gmail.com>  wrote:
->> As Florian pointed out, these 2 headers can be removed too.
->>
->> Cc: "David S. Miller"<davem@davemloft.net>
->> Cc: Florian Westphal<fw@strlen.de>
->> Signed-off-by: WANG Cong<xiyou.wangcong@gmail.com>
->>
-> Ping...
->
-> What is the status of this patch?
->
-It has been marked Not Applicable:
+On Mon, Feb 27, 2012 at 06:34:00PM +0100, Jiri Bohac wrote:
+> [1]: ... unless it is replaced with another value that happens to
+> have the same hash -- rx_hashtbl is not a proper hash table. In
+> case of a collision, the old entry is replaced by the new one.
 
-http://patchwork.ozlabs.org/patch/139337/
+Unrelated to this patch:
+
+I believe that with the current implementation, if one needs to
+communicate with two hosts with colliding IP addresses, RLB can't
+work properly unless you renumber your network (and it will
+generate an ARP storm as a side effect!).
+
+Has anyone thought of replacing this strange hash table
+implementation with a proper hash table, with colliding entries
+in linked lists, some garbage collection when the hash grows too
+large (configurable hash table size), etc?
+
+Also, once the code is reworked, it could easily be made to work with
+IPv6/ND in additiopn to IPv4/ARP.
+
+I am willing to give this a try -- any thoughts?
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
