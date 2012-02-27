@@ -1,54 +1,61 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: Re: [PATCH, RFC] skge: Fix race in tx path
-Date: Mon, 27 Feb 2012 19:18:58 +0000
-Message-ID: <3669580.gQc5FCr96Z@asus>
-References: <4142816.cJc9u7kBPI@asus> <20120226202710.GA23874@electric-eye.fr.zoreil.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
+Date: Mon, 27 Feb 2012 14:25:33 -0500
+Message-ID: <1330370733.2542.18.camel@localhost>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+	 <1330140111-17201-6-git-send-email-wad@chromium.org>
+	 <20120226202828.GE3990@outflux.net>
+	 <CABqD9hbKU=EVagCfo25AZsNoq=hmzkeOxK6mE=q8m=Be-ZFb9w@mail.gmail.com>
+	 <1330361396.2542.11.camel@localhost>
+	 <CAGXu5jKJ7pYeULM=CvifpQ8jUoyH6Ska2Znx9tGjhz0tn5kZmQ@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay01ant.iops.be ([212.53.4.34]:47708 "EHLO
-	relay01ant.iops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378Ab2B0TTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 14:19:04 -0500
-In-Reply-To: <20120226202710.GA23874@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Will Drewry <wad@chromium.org>, Kees Cook <kees@ubuntu.com>,
+        linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com, oleg@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, serge.hallyn@canonical.com,
+        djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+        pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+        eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com
+To: Kees Cook <keescook@chromium.org>
+Return-path: <kernel-hardening-return-981-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAGXu5jKJ7pYeULM=CvifpQ8jUoyH6Ska2Znx9tGjhz0tn5kZmQ@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-> With this change it seems possible for skge_tx_done to unmap a buffer
-> before it is sent when the requests for skge_xmit_frame are close enough.
+On Mon, 2012-02-27 at 10:55 -0800, Kees Cook wrote:
+> On Mon, Feb 27, 2012 at 8:49 AM, Eric Paris <eparis@redhat.com> wrote:
 
-Thanks for the feedback. Does the patch below look better ? 
+> You mean as used in audit_log_exit() ? It looks like that depends on a
+> lot of state cached in __audit_syscall_entry() and finally triggered
+> in __audit_syscall_exit() (and ..._free()). I don't think this is
+> really want seccomp wants to be involved in.
+> 
+> By CONFIG_AUDITSC, you mean CONFIG_AUDITSYSCALL? Without that set,
+> audit_seccomp is a no-op.
+> 
+> The reason compat needs to be reported (or rather, arch) is because
+> just reporting syscall is ambiguous. It either needs arch or compat to
+> distinguish it.
 
----
- drivers/net/ethernet/marvell/skge.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Yes, that is what I mean and you are right.  You shouldn't push the
+syscall in this record either.  If !audit_dummy_context() you are
+already going to get arch, syscall, and a0-a4 in the associated audit
+record.  Please do not duplicate that info.
 
-diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index 33947ac..55723b5 100644
---- a/drivers/net/ethernet/marvell/skge.c
-+++ b/drivers/net/ethernet/marvell/skge.c
-@@ -2800,15 +2800,15 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
- 
- 	netdev_sent_queue(dev, skb->len);
- 
-+	skge->tx_ring.to_use = e->next;
-+	smp_wmb();
-+
- 	skge_write8(hw, Q_ADDR(txqaddr[skge->port], Q_CSR), CSR_START);
- 
- 	netif_printk(skge, tx_queued, KERN_DEBUG, skge->netdev,
- 		     "tx queued, slot %td, len %d\n",
- 		     e - skge->tx_ring.start, skb->len);
- 
--	skge->tx_ring.to_use = e->next;
--	smp_wmb();
--
- 	if (skge_avail(&skge->tx_ring) <= TX_LOW_WATER) {
- 		netdev_dbg(dev, "transmit queue full\n");
- 		netif_stop_queue(dev);
--- 
-1.7.3.4
+It might make sense to have a separate audit_seccomp() path when
+audit_dummy_context() which includes arch, syscall, and a0-a4.
+
+It is my fault (85e7bac3) that we have syscall at all, but I'm on a new
+crusade to remove audit record duplication.  So I'd happily see a patch
+in this series that removes that instead of adds to it.
+
+-Eric
