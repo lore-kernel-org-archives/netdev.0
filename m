@@ -1,62 +1,100 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/4] SUNRPC: release per-net clients lock before calling PipeFS dentries creation
-Date: Mon, 27 Feb 2012 17:11:37 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E80@saturn3.aculab.com>
-References: <4F4BB570.60105@parallels.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
+Date: Mon, 27 Feb 2012 18:09:22 +0100
+Message-ID: <20120227170922.GA10608@redhat.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org> <1330140111-17201-6-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-nfs@vger.kernel.org>,
-	"Pavel Emelianov" <xemul@parallels.com>, <neilb@suse.de>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"James Bottomley" <jbottomley@parallels.com>,
-	<bfields@fieldses.org>, <davem@davemloft.net>, <devel@openvz.org>
-To: "Stanislav Kinsbursky" <skinsbursky@parallels.com>,
-	"Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4F4BB570.60105@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+        coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-970-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <1330140111-17201-6-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
- 
-> Gmmm.
-> Please, correct me, if I'm wrong, that you are proposing 
-> something like this:
-> 
->    	spin_lock(&sn->rpc_client_lock);
-> again:
-> 	list_for_each_entry(clnt,&sn->all_clients, cl_clients) {
-> 		if ((event == RPC_PIPEFS_MOUNT) && clnt->cl_dentry) ||
-> 		    (event == RPC_PIPEFS_UMOUNT) && !clnt->cl_dentry))
-> 			continue;
-> 		atomic_inc(&clnt->cl_count);
-> 		spin_unlock(&sn->rpc_client_lock);
->     		error = __rpc_pipefs_event(clnt, event, sb);
-> 		rpc_release_client(clnt);
-> 		spin_lock(&sn->rpc_client_lock);
->     		if (error)
->     			break;
-> 		goto again;
->     	}
->     	spin_unlock(&sn->rpc_client_lock);
+Hello Will.
 
-You might manage to request reference to the 'next'
-item while holding the lock. So maybe a loop that has:
+I missed the previous discussions, and I don't think I can read
+all these emails now. So I apologize in advance if this was already
+discussed.
 
-	error = ...
-	if (error) {
-		rpc_release_client(clnt);
-		break;
-	}
-	spin_lock(&sn->rpc_client_lock);
-	next_clnt = list_next(clnt);
-	if (next_clnt)
-		atomic_inc(&next_clnt->cl_count);
-	spin_unlock(&sn->rpc_client_lock);
-	rpc_release_client(clnt);
-	clnt = next_clnt;
-   } while (clnt != NULL);
+On 02/24, Will Drewry wrote:
+>
+>  struct seccomp {
+>  	int mode;
+> +	struct seccomp_filter *filter;
+>  };
 
-	David
+Minor nit, it seems that the new member can be "ifdef CONFIG_SECCOMP_FILTER"
+
+> +static long seccomp_attach_filter(struct sock_fprog *fprog)
+> +{
+> +	struct seccomp_filter *filter;
+> +	unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
+> +	long ret;
+> +
+> +	if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
+> +		return -EINVAL;
+
+OK, this limits the memory PR_SET_SECCOMP can use.
+
+But,
+
+> +	/*
+> +	 * If there is an existing filter, make it the prev and don't drop its
+> +	 * task reference.
+> +	 */
+> +	filter->prev = current->seccomp.filter;
+> +	current->seccomp.filter = filter;
+> +	return 0;
+
+this doesn't limit the number of filters, looks like a DoS.
+
+What if the application simply does prctl(PR_SET_SECCOMP, dummy_filter)
+in an endless loop?
+
+
+
+> +static struct seccomp_filter *get_seccomp_filter(struct seccomp_filter *orig)
+> +{
+> +	if (!orig)
+> +		return NULL;
+> +	/* Reference count is bounded by the number of total processes. */
+> +	atomic_inc(&orig->usage);
+> +	return orig;
+> +}
+> ...
+> +void copy_seccomp(struct seccomp *child, const struct seccomp *parent)
+> +{
+> +	/* Other fields are handled by dup_task_struct. */
+> +	child->filter = get_seccomp_filter(parent->filter);
+> +}
+
+This is purely cosmetic, but imho looks a bit confusing.
+
+We do not copy seccomp->mode and this is correct, it was already copied
+implicitely. So why do we copy ->filter? This is not "symmetrical", afaics
+you can simply do
+
+	void copy_seccomp(struct seccomp *child)
+	{
+		if (child->filter)
+			atomic_inc(child->filter->usage);
+
+But once again, this is cosmetic, feel free to ignore.
+
+Oleg.
