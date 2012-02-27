@@ -1,59 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3] lpc32xx: Added ethernet driver
-Date: Mon, 27 Feb 2012 09:57:29 -0800
-Message-ID: <1330365449.9942.26.camel@joe2Laptop>
-References: <1330364539-23152-1-git-send-email-stigge@antcom.de>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v11 10/12] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Mon, 27 Feb 2012 18:54:07 +0100
+Message-ID: <20120227175407.GD10608@redhat.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org> <1330140111-17201-10-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	arnd@arndb.de, baruch@tkos.co.il
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:45736 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753354Ab2B0R5b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Feb 2012 12:57:31 -0500
-In-Reply-To: <1330364539-23152-1-git-send-email-stigge@antcom.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+        coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+        Denys Vlasenko <dvlasenk@redhat.com>
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-974-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <1330140111-17201-10-git-send-email-wad@chromium.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-02-27 at 18:42 +0100, Roland Stigge wrote:
-> This patch adds an ethernet driver for the LPC32xx ARM SoC.
+On 02/24, Will Drewry wrote:
+>
+>  arch/Kconfig              |    1 +
+>  include/linux/ptrace.h    |    7 +++++--
+>  include/linux/seccomp.h   |    4 +++-
+>  include/linux/tracehook.h |    6 ++++++
+>  kernel/ptrace.c           |    4 ++++
+>  kernel/seccomp.c          |   18 ++++++++++++++++++
 
-This looks nicer to me, thanks.
-Just a few more trivial comments.
+FYI, this conflicts with the changes -mm tree.
 
-[]
-> +++ linux-2.6/drivers/net/ethernet/nxp/lpc_eth.c
-[]
-> +static int lpc_mdio_read(struct mii_bus *bus, int phy_id, int phyreg)
-> +{
-> +	struct netdata_local *pldat = bus->priv;
-> +	unsigned long timeout = jiffies + ((HZ * 100) / 1000); /* 100mS */
+The changes in ptrace.* confict with Denys's
+"ptrace: simplify PTRACE_foo constants and PTRACE_SETOPTIONS code"
 
-msecs_to_jiffies?
+The change in tracehook.h conflicts with
+"ptrace: the killed tracee should not enter the syscall"
 
-> +static void __lpc_handle_xmit(struct net_device *ndev)
-> +{
-[]
-> +		/* Any errors occurred? */
-> +		if (txstat & 0x80000000) {
-> +			if (txstat & 0x20000000) {
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -354,6 +354,24 @@ int __secure_computing_int(int this_syscall)
+>  			seccomp_send_sigsys(this_syscall, reason_code);
+>  			return -1;
+>  		}
+> +		case SECCOMP_RET_TRACE: {
+> +			int ret;
+> +			struct pt_regs *regs = task_pt_regs(current);
+> +			if (!(test_tsk_thread_flag(current, TIF_SYSCALL_TRACE)) ||
+> +			    !(current->ptrace & PT_TRACE_SECCOMP))
+> +				return -1;
+> +			/*
+> +			 * PT_TRACE_SECCOMP and seccomp.trace indicate whether
+> +			 * tracehook_report_syscall_entry needs to signal the
+> +			 * tracer.  This avoids race conditions in hand off and
+> +			 * the requirement for TIF_SYSCALL_TRACE ensures that
+> +			 * we are in the syscall slow path.
+> +			 */
+> +			current->seccomp.trace = 1;
+> +			ret = tracehook_report_syscall_entry(regs);
+> +			current->seccomp.trace = 0;
+> +			return ret;
 
-It might be clearer to use #defines
+To be honest, this interface looks a bit strange to me...
 
-> +				/* FIFO underrun */
-> +				ndev->stats.tx_fifo_errors++;
-> +				ndev->stats.tx_errors++;
-> +			}
-> +			if (txstat & 0x10000000) {
-> +				/* Late collision */
-> +				ndev->stats.tx_aborted_errors++;
-> +				ndev->stats.tx_errors++;
+Once again, sorry if this was already discussed. But perhaps it would
+be better to introduce PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP instead?
 
-double counting tx_errors?
+SECCOMP_RET_TRACE: could simply do ptrace_event(PTRACE_EVENT_SECCOMP)
+unconditionaly. The tracer can set the option and do PTRACE_CONT if it
+doesn't want the system call notifications.
+
+This is also much simpler, no need to change ptrace/tracehook files.
+
+Oleg.
