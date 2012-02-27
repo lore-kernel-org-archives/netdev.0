@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 1/4] SUNRPC: release per-net clients lock before calling
- PipeFS dentries creation
-Date: Mon, 27 Feb 2012 19:50:55 +0400
-Message-ID: <20120227155055.7941.18741.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 3/4] SUNRPC: check RPC inode's pipe reference before
+ dereferencing
+Date: Mon, 27 Feb 2012 19:51:12 +0400
+Message-ID: <20120227155112.7941.55128.stgit@localhost6.localdomain6>
 References: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,48 +17,132 @@ In-Reply-To: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lockdep is sad otherwise, because inode mutex is taken on PipeFS dentry
-creation, which can be called on mount notification, where this per-net client
-lock is taken on clients list walk.
+There are 2 tightly bound objects: pipe data (created for kernel needs, has
+reference to dentry, which depends on PipeFS mount/umount) and PipeFS
+dentry/inode pair (created on mount for user-space needs). They both
+independently may have or have not a valid reference to each other.
+This means, that we have to make sure, that pipe->dentry reference is valid on
+upcalls, and dentry->pipe reference is valid on downcalls. The latter check is
+absent - my fault.
+IOW, PipeFS dentry can be opened by some process (rpc.idmapd for example), but
+it's pipe data can belong to NFS mount, which was unmounted already and thus
+pipe data was destroyed.
+To fix this, pipe reference have to be set to NULL on rpc_unlink() and checked
+on PipeFS file operations instead of pipe->dentry check.
+
+Note: PipeFS "poll" file operation will be updated in next patch, because it's
+logic is more complicated.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/clnt.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ net/sunrpc/rpc_pipe.c |   32 +++++++++++++++++++-------------
+ 1 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index bb7ed2f3..ddb5741 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -84,7 +84,7 @@ static void rpc_register_client(struct rpc_clnt *clnt)
- 	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
- 
- 	spin_lock(&sn->rpc_client_lock);
--	list_add(&clnt->cl_clients, &sn->all_clients);
-+	list_add_tail(&clnt->cl_clients, &sn->all_clients);
- 	spin_unlock(&sn->rpc_client_lock);
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 6873c9b..b67b2ae 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -174,6 +174,7 @@ rpc_close_pipes(struct inode *inode)
+ 		pipe->ops->release_pipe(inode);
+ 	cancel_delayed_work_sync(&pipe->queue_timeout);
+ 	rpc_inode_setowner(inode, NULL);
++	RPC_I(inode)->pipe = NULL;
+ 	mutex_unlock(&inode->i_mutex);
  }
  
-@@ -208,15 +208,19 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
- 			    void *ptr)
+@@ -203,12 +204,13 @@ rpc_destroy_inode(struct inode *inode)
+ static int
+ rpc_pipe_open(struct inode *inode, struct file *filp)
  {
- 	struct super_block *sb = ptr;
--	struct rpc_clnt *clnt;
-+	struct rpc_clnt *clnt, *tmp;
- 	int error = 0;
- 	struct sunrpc_net *sn = net_generic(sb->s_fs_info, sunrpc_net_id);
+-	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
++	struct rpc_pipe *pipe;
+ 	int first_open;
+ 	int res = -ENXIO;
  
- 	spin_lock(&sn->rpc_client_lock);
--	list_for_each_entry(clnt, &sn->all_clients, cl_clients) {
-+	list_for_each_entry_safe(clnt, tmp, &sn->all_clients, cl_clients) {
-+		atomic_inc(&clnt->cl_count);
-+		spin_unlock(&sn->rpc_client_lock);
- 		error = __rpc_pipefs_event(clnt, event, sb);
-+		rpc_release_client(clnt);
- 		if (error)
- 			break;
-+		spin_lock(&sn->rpc_client_lock);
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->dentry == NULL)
++	pipe = RPC_I(inode)->pipe;
++	if (pipe == NULL)
+ 		goto out;
+ 	first_open = pipe->nreaders == 0 && pipe->nwriters == 0;
+ 	if (first_open && pipe->ops->open_pipe) {
+@@ -229,12 +231,13 @@ out:
+ static int
+ rpc_pipe_release(struct inode *inode, struct file *filp)
+ {
+-	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
++	struct rpc_pipe *pipe;
+ 	struct rpc_pipe_msg *msg;
+ 	int last_close;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->dentry == NULL)
++	pipe = RPC_I(inode)->pipe;
++	if (pipe == NULL)
+ 		goto out;
+ 	msg = filp->private_data;
+ 	if (msg != NULL) {
+@@ -270,12 +273,13 @@ static ssize_t
+ rpc_pipe_read(struct file *filp, char __user *buf, size_t len, loff_t *offset)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
++	struct rpc_pipe *pipe;
+ 	struct rpc_pipe_msg *msg;
+ 	int res = 0;
+ 
+ 	mutex_lock(&inode->i_mutex);
+-	if (pipe->dentry == NULL) {
++	pipe = RPC_I(inode)->pipe;
++	if (pipe == NULL) {
+ 		res = -EPIPE;
+ 		goto out_unlock;
  	}
- 	spin_unlock(&sn->rpc_client_lock);
- 	return error;
+@@ -313,13 +317,12 @@ static ssize_t
+ rpc_pipe_write(struct file *filp, const char __user *buf, size_t len, loff_t *offset)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
+ 	int res;
+ 
+ 	mutex_lock(&inode->i_mutex);
+ 	res = -EPIPE;
+-	if (pipe->dentry != NULL)
+-		res = pipe->ops->downcall(filp, buf, len);
++	if (RPC_I(inode)->pipe != NULL)
++		res = RPC_I(inode)->pipe->ops->downcall(filp, buf, len);
+ 	mutex_unlock(&inode->i_mutex);
+ 	return res;
+ }
+@@ -344,16 +347,18 @@ static long
+ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+-	struct rpc_pipe *pipe = RPC_I(inode)->pipe;
++	struct rpc_pipe *pipe;
+ 	int len;
+ 
+ 	switch (cmd) {
+ 	case FIONREAD:
+-		spin_lock(&pipe->lock);
+-		if (pipe->dentry == NULL) {
+-			spin_unlock(&pipe->lock);
++		mutex_lock(&inode->i_mutex);
++		pipe = RPC_I(inode)->pipe;
++		if (pipe == NULL) {
++			mutex_unlock(&inode->i_mutex);
+ 			return -EPIPE;
+ 		}
++		spin_lock(&pipe->lock);
+ 		len = pipe->pipelen;
+ 		if (filp->private_data) {
+ 			struct rpc_pipe_msg *msg;
+@@ -361,6 +366,7 @@ rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 			len += msg->len - msg->copied;
+ 		}
+ 		spin_unlock(&pipe->lock);
++		mutex_unlock(&inode->i_mutex);
+ 		return put_user(len, (int __user *)arg);
+ 	default:
+ 		return -EINVAL;
