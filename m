@@ -1,25 +1,59 @@
-From: comunicazione.imprese@acquistinretepa.it
-Subject: Your Email ID has been awarded 1,000,000,00 GBP in British Tobacco
- Promo Send Details
-Date: Mon, 27 Feb 2012 06:37:26 -0800
-Message-ID: <16df9a16e6c2.16e6c216df9a@grt.acquistinretepa.it>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 2/4] NFS: replace per-net client lock by mutex
+Date: Mon, 27 Feb 2012 19:42:49 +0400
+Message-ID: <4F4BA479.60907@parallels.com>
+References: <20120227134623.13371.61185.stgit@localhost6.localdomain6>	 <20120227134900.13371.96849.stgit@localhost6.localdomain6> <1330354815.5541.24.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.acquistinretepa.it ([93.57.69.76]:38418 "EHLO
-	smtp1.acquistinretepa.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752726Ab2B0PZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 10:25:51 -0500
-Content-language: en
-Content-disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	James Bottomley <jbottomley@parallels.com>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330354815.5541.24.camel@lade.trondhjem.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+27.02.2012 19:00, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Mon, 2012-02-27 at 17:49 +0400, Stanislav Kinsbursky wrote:
+>> Lockdep is sad otherwise, because inode mutex is taken on PipeFS den=
+try
+>> creation, which can be called on mount notification, where this per-=
+net client
+>> lock is taken on clients list walk.
+>>
+>> Note: I used simple mutex instead of rw semaphore because of
+>> nfs_put_client->atomic_dec_and_mutex_lock() call. Probably, there is=
+ a better
+>> solution here.
+>>
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>>
+>
+> This is overkill... We end up blocking NFSv4 callbacks while the
+> rpc_pipefs notifier runs through the nfs_clients creating or destroyi=
+ng
+> idmapper dentries.
+>
+> Surely the rpc_pipefs_event() can take a reference to the nfs_client =
+and
+> then drop the spin_lock if it sees that it needs to create or destroy=
+ a
+> dentry?
+>
 
+Sure, thanks for notice.
+Looks like this logic also works to SUNRPC clients.
+I'll send updated version soon.
 
-Name:
-Address:
-Tel:
-Country:
+--=20
+Best regards,
+Stanislav Kinsbursky
