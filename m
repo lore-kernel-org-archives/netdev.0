@@ -1,63 +1,62 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v3 1/4] SUNRPC: release per-net clients lock before calling
- PipeFS dentries creation
-Date: Mon, 27 Feb 2012 22:07:14 +0400
-Message-ID: <4F4BC652.6030300@parallels.com>
-References: <20120227180509.1089.29555.stgit@localhost6.localdomain6> <20120227180529.1089.29305.stgit@localhost6.localdomain6>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v11 07/12] seccomp: add SECCOMP_RET_ERRNO
+Date: Mon, 27 Feb 2012 10:09:38 -0800
+Message-ID: <CAGXu5jJQhfSSwTU5fSGR_Q57LAQBFW25A_FtR2GFsxyT_ibnzQ@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+	<1330140111-17201-7-git-send-email-wad@chromium.org>
+	<20120227171132.GB10608@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120227180529.1089.29305.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:39895 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754280Ab2B0SJj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 13:09:39 -0500
+Received: by yhmm54 with SMTP id m54so626611yhm.19
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2012 10:09:39 -0800 (PST)
+In-Reply-To: <20120227171132.GB10608@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-27.02.2012 22:05, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> v3:
-> 1) Lookup for client is performed from the beginning of the list on e=
-ach PipeFS
-> event handling operation.
+On Mon, Feb 27, 2012 at 9:11 AM, Oleg Nesterov <oleg@redhat.com> wrote:
+> On 02/24, Will Drewry wrote:
+>>
+>> =A0static u32 seccomp_run_filters(int syscall)
+>> =A0{
+>> =A0 =A0 =A0 struct seccomp_filter *f;
+>> - =A0 =A0 u32 ret =3D SECCOMP_RET_KILL;
+>> =A0 =A0 =A0 static const struct bpf_load_fn fns =3D {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 bpf_load,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 sizeof(struct seccomp_data),
+>> =A0 =A0 =A0 };
+>> + =A0 =A0 u32 ret =3D SECCOMP_RET_ALLOW;
+>> =A0 =A0 =A0 const void *sc_ptr =3D (const void *)(uintptr_t)syscall;
+>>
+>> + =A0 =A0 /* Ensure unexpected behavior doesn't result in failing op=
+en. */
+>> + =A0 =A0 if (unlikely(current->seccomp.filter =3D=3D NULL))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 ret =3D SECCOMP_RET_KILL;
 >
-> Lockdep is sad otherwise, because inode mutex is taken on PipeFS dent=
-ry
-> creation, which can be called on mount notification, where this per-n=
-et client
-> lock is taken on clients list walk.
->
-> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->
-> ---
->   net/sunrpc/clnt.c |   26 +++++++++++++++++++++-----
->   1 files changed, 21 insertions(+), 5 deletions(-)
->
-> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-> index bb7ed2f3..48f3d15 100644
-> --- a/net/sunrpc/clnt.c
-> +++ b/net/sunrpc/clnt.c
-> @@ -50,7 +50,7 @@
->   			__func__, t->tk_status)
->
->   /*
-> - * All RPC clients are linked into this list
-> + * All RPC clients are linked into this list Client Cto hand;le usta=
-tus is checke
->    */
->
->   static DECLARE_WAIT_QUEUE_HEAD(destroy_wait);
+> Is "seccomp.filter =3D=3D NULL" really possible?
 
-Sorry for this hunk.
+It should not be, but I'm much more comfortable with this failing
+closed. I think it's important to be as defensive as possible with
+this code given its intended use.
+
+-Kees
 
 --=20
-Best regards,
-Stanislav Kinsbursky
+Kees Cook
+ChromeOS Security
