@@ -1,59 +1,52 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: fix tcp_shifted_skb() adjustment of lost_cnt_hint
- for FACK
-Date: Tue, 28 Feb 2012 01:43:58 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1202280141380.18668@melkinpaasi.cs.helsinki.fi>
-References: <1329200528-19718-1-git-send-email-ncardwell@google.com> <20120214.144033.848861752845052421.davem@davemloft.net> <alpine.DEB.2.00.1202280127490.17924@melkinpaasi.cs.helsinki.fi>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [Bug #42707] Hang deconfiguring network interface (in shutdown)
+ on 3.3-rc1
+Date: Mon, 27 Feb 2012 17:44:34 -0600
+Message-ID: <1330386274.2822.105.camel@dabdike.int.hansenpartnership.com>
+References: <y44pDJ8xoDC.A.08E.h8rRPB@chimera>
+	 <qCQH7HfZS8E.A.x6F.98rRPB@chimera>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-651499780-1330386111=:18668"
-Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
-	Netdev <netdev@vger.kernel.org>, nanditad@google.com,
-	ycheng@google.com, therbert@google.com, subramanian.vijay@gmail.com
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41838 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752459Ab2B0XoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 18:44:00 -0500
-In-Reply-To: <alpine.DEB.2.00.1202280127490.17924@melkinpaasi.cs.helsinki.fi>
-Content-ID: <alpine.DEB.2.00.1202280142130.18668@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <qCQH7HfZS8E.A.x6F.98rRPB@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-651499780-1330386111=:18668
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.1202280142131.18668@melkinpaasi.cs.helsinki.fi>
-
-...Grr, I picked up Greg's new address but ended still using his old one.
-The correct is one now added.
-
-On Tue, 28 Feb 2012, Ilpo Järvinen wrote:
-
-> On Tue, 14 Feb 2012, David Miller wrote:
+On Thu, 2012-02-23 at 23:55 +0100, Rafael J. Wysocki wrote:
+> This message has been generated automatically as a part of a summary report
+> of recent regressions.
 > 
-> > From: Neal Cardwell <ncardwell@google.com>
-> > Date: Tue, 14 Feb 2012 01:22:08 -0500
-> > 
-> > > This commit ensures that lost_cnt_hint is correctly updated in
-> > > tcp_shifted_skb() for FACK TCP senders. The lost_cnt_hint adjustment
-> > > in tcp_sacktag_one() only applies to non-FACK senders, so FACK senders
-> > > need their own adjustment.
-> > > 
-> > > This applies the spirit of 1e5289e121372a3494402b1b131b41bfe1cf9b7f -
-> > > except now that the sequence range passed into tcp_sacktag_one() is
-> > > correct we need only have a special case adjustment for FACK.
-> > > 
-> > > Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> > 
-> > Applied, and queued up for -stable, thanks Neil.
+> The following bug entry is on the current list of known regressions
+> from 3.2.  Please verify if it still should be listed and let the tracking team
+> know (either way).
 > 
-> There has been lots of TCP related warnings posted recently to netdev.
-> Finding out which of these three recent changes caused which warning and 
-> if they're all cured by the full series is bit challenging. ...IMHO we 
-> should wait a bit more until these recent fixes are put to stable in order 
-> to verify that the dust has really settled.
---8323329-651499780-1330386111=:18668--
+> 
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=42707
+> Subject		: Hang deconfiguring network interface (in shutdown) on 3.3-rc1
+> Submitter	: James Bottomley <James.Bottomley@hansenpartnership.com>
+> Date		: 2012-01-28 19:56 (27 days old)
+> Message-ID	: <1327780565.2924.24.camel@dabdike.int.hansenpartnership.com>
+> References	: http://marc.info/?l=linux-kernel&m=132778076214873&w=2
+
+Still present in 3.3-rc4; I've bisected it back to this commit:
+
+commit 92feeabf3f673767c6ee4cfc7fc224098446c1c1
+Author: Matt Carlson <mcarlson@broadcom.com>
+Date:   Thu Dec 8 14:40:14 2011 +0000
+
+    tg3: Save stats across chip resets
+
+and sure enough, just reverting this single commit on 3.3-rc4 fixes the
+problem.
+
+James
