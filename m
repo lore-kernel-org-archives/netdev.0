@@ -1,44 +1,120 @@
-From: "N, Mugunthan V" <mugunthanvnm@ti.com>
-Subject: RE: [PATCH v3 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Mon, 27 Feb 2012 04:27:16 +0000
-Message-ID: <EB1619762EAF8B4E97A227FB77B7E02931790A0F@DBDE01.ent.ti.com>
-References: <1330079992-13368-1-git-send-email-mugunthanvnm@ti.com>
-	<1330079992-13368-3-git-send-email-mugunthanvnm@ti.com>
- <20120226.141649.1425736441415883291.davem@davemloft.net>
+From: Andrei Warkentin <andrey.warkentin@gmail.com>
+Subject: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
+Date: Sun, 26 Feb 2012 22:30:09 -0500
+Message-ID: <1330313411-845-2-git-send-email-andrey.warkentin@gmail.com>
+References: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
+	<1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:50820 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753447Ab2B0E1X convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 23:27:23 -0500
-In-Reply-To: <20120226.141649.1425736441415883291.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: kgdb-bugreport@lists.sourceforge.net, Matt Mackall <mpm@selenic.com>,
+	Andrei Warkentin <andreiw@vmware.com>,
+	Andrei Warkentin <andrey.warkentin@gmail.com>,
+	Jason Wessel <jason.wessel@windriver.com>
+To: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
+In-Reply-To: <1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kgdb-bugreport>
+List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
+List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-David,
+From: Andrei Warkentin <andreiw@vmware.com>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, February 27, 2012 12:47 AM
-> To: N, Mugunthan V
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH v3 2/2] netdev: driver: ethernet: Add TI CPSW driver
-> 
-> From: Mugunthan V N <mugunthanvnm@ti.com>
-> Date: Fri, 24 Feb 2012 16:09:52 +0530
-> 
-> > +struct cpsw_hw_stats {
-> 
-> Nothing in the driver actually accesses the HW statistics.
-> 
-> Remove this until it's actually going to be used.
+Pass down source information to rx_hook, useful
+for accepting connections from unspecified clients.
 
-Will remove it.
+Cc: kgdb-bugreport@lists.sourceforge.net
+Cc: Jason Wessel <jason.wessel@windriver.com>
+Cc: Matt Mackall <mpm@selenic.com>
+Signed-off-by: Andrei Warkentin <andrey.warkentin@gmail.com>
+Signed-off-by: Andrei Warkentin <andreiw@vmware.com>
+---
+ include/linux/netpoll.h |   10 +++++++++-
+ net/core/netpoll.c      |   10 ++++------
+ 2 files changed, 13 insertions(+), 7 deletions(-)
 
-With regards
-Mugunthan V N
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 5dfa091..9a9cfa1 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -11,12 +11,19 @@
+ #include <linux/interrupt.h>
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
++#include <linux/if_ether.h>
++#include <net/tcp.h>
++#include <net/udp.h>
+ 
+ struct netpoll {
+ 	struct net_device *dev;
+ 	char dev_name[IFNAMSIZ];
+ 	const char *name;
+-	void (*rx_hook)(struct netpoll *, int, char *, int);
++	void (*rx_hook)(struct netpoll *,
++			u8 *h_source,
++			__be32 saddr,
++			struct udphdr *,
++			char *, int);
+ 
+ 	__be32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+@@ -40,6 +47,7 @@ struct netpoll_info {
+ 	struct netpoll *netpoll;
+ };
+ 
++void netpoll_poll_dev(struct net_device *dev);
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+ void netpoll_print_options(struct netpoll *np);
+ int netpoll_parse_options(struct netpoll *np, char *opt);
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 3d84fb9..c182bb2 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -26,8 +26,6 @@
+ #include <linux/workqueue.h>
+ #include <linux/slab.h>
+ #include <linux/export.h>
+-#include <net/tcp.h>
+-#include <net/udp.h>
+ #include <asm/unaligned.h>
+ #include <trace/events/napi.h>
+ 
+@@ -189,7 +187,7 @@ static void service_arp_queue(struct netpoll_info *npi)
+ 	}
+ }
+ 
+-static void netpoll_poll_dev(struct net_device *dev)
++void netpoll_poll_dev(struct net_device *dev)
+ {
+ 	const struct net_device_ops *ops;
+ 
+@@ -615,9 +613,9 @@ int __netpoll_rx(struct sk_buff *skb)
+ 		if (np->local_port && np->local_port != ntohs(uh->dest))
+ 			continue;
+ 
+-		np->rx_hook(np, ntohs(uh->source),
+-			       (char *)(uh+1),
+-			       ulen - sizeof(struct udphdr));
++		np->rx_hook(np, eth_hdr(skb)->h_source,
++			    iph->saddr, uh, (char *)(uh+1),
++			    ulen - sizeof(struct udphdr));
+ 		hits++;
+ 	}
+ 
+-- 
+1.7.8.3
+
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
