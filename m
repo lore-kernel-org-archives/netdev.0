@@ -1,61 +1,65 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 1/25 v2] rdma/cm: define native IB address
-Date: Mon, 27 Feb 2012 22:22:31 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373374F1A64@ORSMSX102.amr.corp.intel.com>
-References: <Acy/UbLfE8J2OYoiRYW93MzjgJGL8Q==>
- <1828884A29C6694DAF28B7E6B8A8237325661ADD@ORSMSX102.amr.corp.intel.com>
- <CAL1RGDUu9sUbeWgBwivnAeXf+OWX_m5MRrizfzP4ni-FOGxiTQ@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: fix comment for tp->highest_sack
+Date: Mon, 27 Feb 2012 17:51:10 -0500
+Message-ID: <1330383070-10367-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-rdma (linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDUu9sUbeWgBwivnAeXf+OWX_m5MRrizfzP4ni-FOGxiTQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f202.google.com ([209.85.215.202]:63561 "EHLO
+	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755681Ab2B0WvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 17:51:18 -0500
+Received: by eaaf13 with SMTP id f13so182815eaa.1
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2012 14:51:17 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > diff --git a/include/linux/socket.h b/include/linux/socket.h
-> > index d0e77f6..c2c7687 100644
-> > --- a/include/linux/socket.h
-> > +++ b/include/linux/socket.h
-> > @@ -184,6 +184,7 @@ struct ucred {
-> > =A0#define AF_PPPOX =A0 =A0 =A0 24 =A0 =A0 =A0/* PPPoX sockets =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> > =A0#define AF_WANPIPE =A0 =A0 25 =A0 =A0 =A0/* Wanpipe API Sockets =
-*/
-> > =A0#define AF_LLC =A0 =A0 =A0 =A0 26 =A0 =A0 =A0/* Linux LLC =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> > +#define AF_IB =A0 =A0 =A0 =A0 =A027 =A0 =A0 =A0/* Native InfiniBan=
-d address =A0 =A0*/
-> > =A0#define AF_CAN =A0 =A0 =A0 =A0 29 =A0 =A0 =A0/* Controller Area =
-Network =A0 =A0 =A0*/
-> > =A0#define AF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A030 =A0 =A0 =A0/* =
-TIPC sockets =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
-> > =A0#define AF_BLUETOOTH =A0 31 =A0 =A0 =A0/* Bluetooth sockets =A0 =
-=A0 =A0 =A0 =A0 =A0*/
-> > @@ -227,6 +228,7 @@ struct ucred {
-> > =A0#define PF_PPPOX =A0 =A0 =A0 AF_PPPOX
-> > =A0#define PF_WANPIPE =A0 =A0 AF_WANPIPE
-> > =A0#define PF_LLC =A0 =A0 =A0 =A0 AF_LLC
-> > +#define PF_IB =A0 =A0 =A0 =A0 =A0AF_IB
-> > =A0#define PF_CAN =A0 =A0 =A0 =A0 AF_CAN
-> > =A0#define PF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0AF_TIPC
-> > =A0#define PF_BLUETOOTH =A0 AF_BLUETOOTH
->=20
-> Has this been run by the networking community?  Are they OK with this
-> assignment?
+There was an off-by-one error in the comments describing the
+highest_sack field in struct tcp_sock. The comments previously claimed
+that it was the "start sequence of the highest skb with SACKed
+bit". This commit fixes the comments to note that it is the "start
+sequence of the skb just *after* the highest skb with SACKed bit".
 
-I did copy netdev on the original submissions, but I don't remember any=
- explicit ack or nack.
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ include/linux/tcp.h |    3 ++-
+ include/net/tcp.h   |    5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 46a85c9..3c7ffdb 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -412,7 +412,8 @@ struct tcp_sock {
+ 
+ 	struct tcp_sack_block recv_sack_cache[4];
+ 
+-	struct sk_buff *highest_sack;   /* highest skb with SACK received
++	struct sk_buff *highest_sack;   /* skb just after the highest
++					 * skb with SACKed bit set
+ 					 * (validity guaranteed only if
+ 					 * sacked_out > 0)
+ 					 */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 42c29bf..2d80c29 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1364,8 +1364,9 @@ static inline void tcp_push_pending_frames(struct sock *sk)
+ 	}
+ }
+ 
+-/* Start sequence of the highest skb with SACKed bit, valid only if
+- * sacked > 0 or when the caller has ensured validity by itself.
++/* Start sequence of the skb just after the highest skb with SACKed
++ * bit, valid only if sacked_out > 0 or when the caller has ensured
++ * validity by itself.
+  */
+ static inline u32 tcp_highest_sack_seq(struct tcp_sock *tp)
+ {
+-- 
+1.7.7.3
