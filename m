@@ -1,7 +1,9 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 0/4] SUNRPC: several fixes around PipeFS objects
-Date: Mon, 27 Feb 2012 19:50:47 +0400
-Message-ID: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
+Subject: [PATCH v2 1/4] SUNRPC: release per-net clients lock before calling
+ PipeFS dentries creation
+Date: Mon, 27 Feb 2012 19:50:55 +0400
+Message-ID: <20120227155055.7941.18741.stgit@localhost6.localdomain6>
+References: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,31 +13,52 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	davem@davemloft.net, devel@openvz.org
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2: 
-1) Prior to calling PipeFS dentry rountines (for both type of clients - SUNPRC
-and NFS) get the client and drop the list lock instead of replacing per-net
-locks by mutexes.
+Lockdep is sad otherwise, because inode mutex is taken on PipeFS dentry
+creation, which can be called on mount notification, where this per-net client
+lock is taken on clients list walk.
 
-First two pathes fixes lockdep warnings and next two - dereferencing of
-released pipe data on eventfd close and in file operations.
-
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/clnt.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-Stanislav Kinsbursky (4):
-      SUNRPC: release per-net clients lock before calling PipeFS dentries creation
-      NFS: release per-net clients lock before calling PipeFS dentries creation
-      SUNRPC: check RPC inode's pipe reference before dereferencing
-      SUNRPC: move waitq from RPC pipe to RPC inode
-
-
- fs/nfs/client.c                    |    2 +
- fs/nfs/idmap.c                     |    8 +++-
- include/linux/sunrpc/rpc_pipe_fs.h |    2 +
- net/sunrpc/clnt.c                  |   10 ++++-
- net/sunrpc/rpc_pipe.c              |   71 +++++++++++++++++++++++-------------
- 5 files changed, 60 insertions(+), 33 deletions(-)
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index bb7ed2f3..ddb5741 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -84,7 +84,7 @@ static void rpc_register_client(struct rpc_clnt *clnt)
+ 	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
+ 
+ 	spin_lock(&sn->rpc_client_lock);
+-	list_add(&clnt->cl_clients, &sn->all_clients);
++	list_add_tail(&clnt->cl_clients, &sn->all_clients);
+ 	spin_unlock(&sn->rpc_client_lock);
+ }
+ 
+@@ -208,15 +208,19 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
+ 			    void *ptr)
+ {
+ 	struct super_block *sb = ptr;
+-	struct rpc_clnt *clnt;
++	struct rpc_clnt *clnt, *tmp;
+ 	int error = 0;
+ 	struct sunrpc_net *sn = net_generic(sb->s_fs_info, sunrpc_net_id);
+ 
+ 	spin_lock(&sn->rpc_client_lock);
+-	list_for_each_entry(clnt, &sn->all_clients, cl_clients) {
++	list_for_each_entry_safe(clnt, tmp, &sn->all_clients, cl_clients) {
++		atomic_inc(&clnt->cl_count);
++		spin_unlock(&sn->rpc_client_lock);
+ 		error = __rpc_pipefs_event(clnt, event, sb);
++		rpc_release_client(clnt);
+ 		if (error)
+ 			break;
++		spin_lock(&sn->rpc_client_lock);
+ 	}
+ 	spin_unlock(&sn->rpc_client_lock);
+ 	return error;
