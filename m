@@ -1,67 +1,69 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH v2 1/4] SUNRPC: release per-net clients lock before
- calling PipeFS dentries creation
-Date: Mon, 27 Feb 2012 16:21:32 +0000
-Message-ID: <1330359695.5541.45.camel@lade.trondhjem.org>
-References: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
-	 <20120227155055.7941.18741.stgit@localhost6.localdomain6>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v11 07/12] seccomp: add SECCOMP_RET_ERRNO
+Date: Mon, 27 Feb 2012 10:22:09 -0600
+Message-ID: <CABqD9hZcBiG579hUuxkvmUE122vVee_u9Ta7Hwrp4h-Sb8Lbcg@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+	<1330140111-17201-7-git-send-email-wad@chromium.org>
+	<CAGXu5jLVwYev3EmLOKuEdyaqieGzWgVpFcgodnUbUkbMbiJVqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"xemul@parallels.com" <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbottomley@parallels.com" <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120227155055.7941.18741.stgit@localhost6.localdomain6>
-Content-Language: en-US
-Content-ID: <6090798A0FDE1447ABDA8D6F1B94D7D3@tahoe.netapp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jLVwYev3EmLOKuEdyaqieGzWgVpFcgodnUbUkbMbiJVqQ@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDEyLTAyLTI3IGF0IDE5OjUwICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
-cm90ZToNCj4gTG9ja2RlcCBpcyBzYWQgb3RoZXJ3aXNlLCBiZWNhdXNlIGlub2RlIG11dGV4IGlz
-IHRha2VuIG9uIFBpcGVGUyBkZW50cnkNCj4gY3JlYXRpb24sIHdoaWNoIGNhbiBiZSBjYWxsZWQg
-b24gbW91bnQgbm90aWZpY2F0aW9uLCB3aGVyZSB0aGlzIHBlci1uZXQgY2xpZW50DQo+IGxvY2sg
-aXMgdGFrZW4gb24gY2xpZW50cyBsaXN0IHdhbGsuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTdGFu
-aXNsYXYgS2luc2J1cnNreSA8c2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbT4NCj4gDQo+IC0tLQ0K
-PiAgbmV0L3N1bnJwYy9jbG50LmMgfCAgIDEwICsrKysrKystLS0NCj4gIDEgZmlsZXMgY2hhbmdl
-ZCwgNyBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL25l
-dC9zdW5ycGMvY2xudC5jIGIvbmV0L3N1bnJwYy9jbG50LmMNCj4gaW5kZXggYmI3ZWQyZjMuLmRk
-YjU3NDEgMTAwNjQ0DQo+IC0tLSBhL25ldC9zdW5ycGMvY2xudC5jDQo+ICsrKyBiL25ldC9zdW5y
-cGMvY2xudC5jDQo+IEBAIC04NCw3ICs4NCw3IEBAIHN0YXRpYyB2b2lkIHJwY19yZWdpc3Rlcl9j
-bGllbnQoc3RydWN0IHJwY19jbG50ICpjbG50KQ0KPiAgCXN0cnVjdCBzdW5ycGNfbmV0ICpzbiA9
-IG5ldF9nZW5lcmljKGNsbnQtPmNsX3hwcnQtPnhwcnRfbmV0LCBzdW5ycGNfbmV0X2lkKTsNCj4g
-IA0KPiAgCXNwaW5fbG9jaygmc24tPnJwY19jbGllbnRfbG9jayk7DQo+IC0JbGlzdF9hZGQoJmNs
-bnQtPmNsX2NsaWVudHMsICZzbi0+YWxsX2NsaWVudHMpOw0KPiArCWxpc3RfYWRkX3RhaWwoJmNs
-bnQtPmNsX2NsaWVudHMsICZzbi0+YWxsX2NsaWVudHMpOw0KPiAgCXNwaW5fdW5sb2NrKCZzbi0+
-cnBjX2NsaWVudF9sb2NrKTsNCj4gIH0NCj4gIA0KPiBAQCAtMjA4LDE1ICsyMDgsMTkgQEAgc3Rh
-dGljIGludCBycGNfcGlwZWZzX2V2ZW50KHN0cnVjdCBub3RpZmllcl9ibG9jayAqbmIsIHVuc2ln
-bmVkIGxvbmcgZXZlbnQsDQo+ICAJCQkgICAgdm9pZCAqcHRyKQ0KPiAgew0KPiAgCXN0cnVjdCBz
-dXBlcl9ibG9jayAqc2IgPSBwdHI7DQo+IC0Jc3RydWN0IHJwY19jbG50ICpjbG50Ow0KPiArCXN0
-cnVjdCBycGNfY2xudCAqY2xudCwgKnRtcDsNCj4gIAlpbnQgZXJyb3IgPSAwOw0KPiAgCXN0cnVj
-dCBzdW5ycGNfbmV0ICpzbiA9IG5ldF9nZW5lcmljKHNiLT5zX2ZzX2luZm8sIHN1bnJwY19uZXRf
-aWQpOw0KPiAgDQo+ICAJc3Bpbl9sb2NrKCZzbi0+cnBjX2NsaWVudF9sb2NrKTsNCj4gLQlsaXN0
-X2Zvcl9lYWNoX2VudHJ5KGNsbnQsICZzbi0+YWxsX2NsaWVudHMsIGNsX2NsaWVudHMpIHsNCj4g
-KwlsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUoY2xudCwgdG1wLCAmc24tPmFsbF9jbGllbnRzLCBj
-bF9jbGllbnRzKSB7DQo+ICsJCWF0b21pY19pbmMoJmNsbnQtPmNsX2NvdW50KTsNCj4gKwkJc3Bp
-bl91bmxvY2soJnNuLT5ycGNfY2xpZW50X2xvY2spOw0KPiAgCQllcnJvciA9IF9fcnBjX3BpcGVm
-c19ldmVudChjbG50LCBldmVudCwgc2IpOw0KPiArCQlycGNfcmVsZWFzZV9jbGllbnQoY2xudCk7
-DQo+ICAJCWlmIChlcnJvcikNCj4gIAkJCWJyZWFrOw0KPiArCQlzcGluX2xvY2soJnNuLT5ycGNf
-Y2xpZW50X2xvY2spOw0KPiAgCX0NCj4gIAlzcGluX3VubG9jaygmc24tPnJwY19jbGllbnRfbG9j
-ayk7DQo+ICAJcmV0dXJuIGVycm9yOw0KPiANCg0KVGhpcyB3b24ndCBiZSBzYWZlLiBOb3RoaW5n
-IGd1YXJhbnRlZXMgdGhhdCAndG1wJyByZW1haW5zIHZhbGlkIGFmdGVyDQp5b3UgZHJvcCB0aGUg
-c3Bpbl9sb2NrLg0KDQpJIHRoaW5rIHlvdSByYXRoZXIgbmVlZCB0byBhZGQgYSBjaGVjayBmb3Ig
-d2hldGhlciBjbG50LT5jbF9kZW50cnkgaXMgaW4NCnRoZSByaWdodCBzdGF0ZSAoTlVMTCBpZiBS
-UENfUElQRUZTX1VNT1VOVCBvciBub24tTlVMTCBpZg0KUlBDX1BJUEVGU19NT1VOVCkgYmVmb3Jl
-IGRlY2lkaW5nIHdoZXRoZXIgb3Igbm90IHRvIGF0b21pY19pbmMoKSBhbmQNCmRyb3AgdGhlIGxv
-Y2ssIHNvIHRoYXQgeW91IGNhbiByZXN0YXJ0IHRoZSBsb29wIGFmdGVyIGNhbGxpbmcNCl9fcnBj
-X3BpcGVmc19ldmVudCgpLg0KDQoNCi0tIA0KVHJvbmQgTXlrbGVidXN0DQpMaW51eCBORlMgY2xp
-ZW50IG1haW50YWluZXINCg0KTmV0QXBwDQpUcm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbQ0Kd3d3
-Lm5ldGFwcC5jb20NCg0K
+On Sat, Feb 25, 2012 at 2:20 PM, Kees Cook <keescook@chromium.org> wrot=
+e:
+> On Fri, Feb 24, 2012 at 7:21 PM, Will Drewry <wad@chromium.org> wrote=
+:
+>> This change adds the SECCOMP_RET_ERRNO as a valid return value from =
+a
+>> seccomp filter. =A0Additionally, it makes the first use of the lower
+>> 16-bits for storing a filter-supplied errno. =A016-bits is more than
+>> enough for the errno-base.h calls.
+>>
+>> Returning errors instead of immediately terminating processes that
+>> violate seccomp policy allow for broader use of this functionality
+>> for kernel attack surface reduction. =A0For example, a linux contain=
+er
+>> could maintain a whitelist of pre-existing system calls but drop
+>> all new ones with errnos. =A0This would keep a logically static atta=
+ck
+>> surface while providing errnos that may allow for graceful failure
+>> without the downside of do_exit() on a bad call.
+>>
+>> v11: - check for NULL filter (keescook@chromium.org)
+>> v10: - change loaders to fn
+>> =A0v9: - n/a
+>> =A0v8: - update Kconfig to note new need for syscall_set_return_valu=
+e.
+>> =A0 =A0 - reordered such that TRAP behavior follows on later.
+>> =A0 =A0 - made the for loop a little less indent-y
+>> =A0v7: - introduced
+>>
+>> Signed-off-by: Will Drewry <wad@chromium.org>
+>
+> Reviewed-by: Kees Cook <keescook@chromium.org>
+
+Thanks!
+
+>> + =A0 =A0 =A0 /* Ensure unexpected behavior doesn't result in failin=
+g open. */
+>> + =A0 =A0 =A0 if (unlikely(current->seccomp.filter =3D=3D NULL))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D SECCOMP_RET_KILL;
+>
+> Any reason to not just immediately return in this case?
+
+Not that I can think of. I can just have it bail here.
