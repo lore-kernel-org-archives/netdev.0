@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 1/4] SUNRPC: replace per-net client lock by rw mutex
-Date: Mon, 27 Feb 2012 17:48:52 +0400
-Message-ID: <20120227134852.13371.36733.stgit@localhost6.localdomain6>
+Subject: [PATCH 2/4] NFS: replace per-net client lock by mutex
+Date: Mon, 27 Feb 2012 17:49:00 +0400
+Message-ID: <20120227134900.13371.96849.stgit@localhost6.localdomain6>
 References: <20120227134623.13371.61185.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -20,97 +20,189 @@ Lockdep is sad otherwise, because inode mutex is taken on PipeFS dentry
 creation, which can be called on mount notification, where this per-net client
 lock is taken on clients list walk.
 
+Note: I used simple mutex instead of rw semaphore because of
+nfs_put_client->atomic_dec_and_mutex_lock() call. Probably, there is a better
+solution here.
+
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/clnt.c        |   16 ++++++++--------
- net/sunrpc/netns.h       |    2 +-
- net/sunrpc/sunrpc_syms.c |    2 +-
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ fs/nfs/client.c |   36 ++++++++++++++++++------------------
+ fs/nfs/idmap.c  |    4 ++--
+ fs/nfs/netns.h  |    2 +-
+ 3 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index bb7ed2f3..2d3a547 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -83,18 +83,18 @@ static void rpc_register_client(struct rpc_clnt *clnt)
- {
- 	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+index 8563585..d15269f 100644
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -72,9 +72,9 @@ static int nfs_get_cb_ident_idr(struct nfs_client *clp, int minorversion)
+ retry:
+ 	if (!idr_pre_get(&nn->cb_ident_idr, GFP_KERNEL))
+ 		return -ENOMEM;
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	ret = idr_get_new(&nn->cb_ident_idr, clp, &clp->cl_cb_ident);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 	if (ret == -EAGAIN)
+ 		goto retry;
+ 	return ret;
+@@ -321,10 +321,10 @@ void nfs_put_client(struct nfs_client *clp)
+ 	dprintk("--> nfs_put_client({%d})\n", atomic_read(&clp->cl_count));
+ 	nn = net_generic(clp->net, nfs_net_id);
  
--	spin_lock(&sn->rpc_client_lock);
-+	down_write(&sn->rpc_client_lock);
- 	list_add(&clnt->cl_clients, &sn->all_clients);
--	spin_unlock(&sn->rpc_client_lock);
-+	up_write(&sn->rpc_client_lock);
+-	if (atomic_dec_and_lock(&clp->cl_count, &nn->nfs_client_lock)) {
++	if (atomic_dec_and_mutex_lock(&clp->cl_count, &nn->nfs_client_lock)) {
+ 		list_del(&clp->cl_share_link);
+ 		nfs_cb_idr_remove_locked(clp);
+-		spin_unlock(&nn->nfs_client_lock);
++		mutex_unlock(&nn->nfs_client_lock);
+ 
+ 		BUG_ON(!list_empty(&clp->cl_superblocks));
+ 
+@@ -519,7 +519,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
+ 
+ 	/* see if the client already exists */
+ 	do {
+-		spin_lock(&nn->nfs_client_lock);
++		mutex_lock(&nn->nfs_client_lock);
+ 
+ 		clp = nfs_match_client(cl_init);
+ 		if (clp)
+@@ -527,7 +527,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
+ 		if (new)
+ 			goto install_client;
+ 
+-		spin_unlock(&nn->nfs_client_lock);
++		mutex_unlock(&nn->nfs_client_lock);
+ 
+ 		new = nfs_alloc_client(cl_init);
+ 	} while (!IS_ERR(new));
+@@ -539,7 +539,7 @@ nfs_get_client(const struct nfs_client_initdata *cl_init,
+ install_client:
+ 	clp = new;
+ 	list_add(&clp->cl_share_link, &nn->nfs_client_list);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 
+ 	error = cl_init->rpc_ops->init_client(clp, timeparms, ip_addr,
+ 					      authflavour, noresvport);
+@@ -554,7 +554,7 @@ install_client:
+ 	 * - make sure it's ready before returning
+ 	 */
+ found_client:
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 
+ 	if (new)
+ 		nfs_free_client(new);
+@@ -1045,11 +1045,11 @@ static void nfs_server_insert_lists(struct nfs_server *server)
+ 	struct nfs_client *clp = server->nfs_client;
+ 	struct nfs_net *nn = net_generic(clp->net, nfs_net_id);
+ 
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	list_add_tail_rcu(&server->client_link, &clp->cl_superblocks);
+ 	list_add_tail(&server->master_link, &nn->nfs_volume_list);
+ 	clear_bit(NFS_CS_STOP_RENEW, &clp->cl_res_state);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 
  }
  
- static void rpc_unregister_client(struct rpc_clnt *clnt)
- {
- 	struct sunrpc_net *sn = net_generic(clnt->cl_xprt->xprt_net, sunrpc_net_id);
+@@ -1061,12 +1061,12 @@ static void nfs_server_remove_lists(struct nfs_server *server)
+ 	if (clp == NULL)
+ 		return;
+ 	nn = net_generic(clp->net, nfs_net_id);
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	list_del_rcu(&server->client_link);
+ 	if (list_empty(&clp->cl_superblocks))
+ 		set_bit(NFS_CS_STOP_RENEW, &clp->cl_res_state);
+ 	list_del(&server->master_link);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
  
--	spin_lock(&sn->rpc_client_lock);
-+	down_write(&sn->rpc_client_lock);
- 	list_del(&clnt->cl_clients);
--	spin_unlock(&sn->rpc_client_lock);
-+	up_write(&sn->rpc_client_lock);
+ 	synchronize_rcu();
+ }
+@@ -1220,11 +1220,11 @@ nfs4_find_client_ident(struct net *net, int cb_ident)
+ 	struct nfs_client *clp;
+ 	struct nfs_net *nn = net_generic(net, nfs_net_id);
+ 
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	clp = idr_find(&nn->cb_ident_idr, cb_ident);
+ 	if (clp)
+ 		atomic_inc(&clp->cl_count);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 	return clp;
  }
  
- static void __rpc_clnt_remove_pipedir(struct rpc_clnt *clnt)
-@@ -212,13 +212,13 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
+@@ -1243,7 +1243,7 @@ nfs4_find_client_sessionid(struct net *net, const struct sockaddr *addr,
+ 	struct nfs_client *clp;
+ 	struct nfs_net *nn = net_generic(net, nfs_net_id);
+ 
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
+ 		if (nfs4_cb_match_client(addr, clp, 1) == false)
+ 			continue;
+@@ -1257,10 +1257,10 @@ nfs4_find_client_sessionid(struct net *net, const struct sockaddr *addr,
+ 			continue;
+ 
+ 		atomic_inc(&clp->cl_count);
+-		spin_unlock(&nn->nfs_client_lock);
++		mutex_unlock(&nn->nfs_client_lock);
+ 		return clp;
+ 	}
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
+ 	return NULL;
+ }
+ 
+@@ -1781,7 +1781,7 @@ void nfs_clients_init(struct net *net)
+ #ifdef CONFIG_NFS_V4
+ 	idr_init(&nn->cb_ident_idr);
+ #endif
+-	spin_lock_init(&nn->nfs_client_lock);
++	mutex_init(&nn->nfs_client_lock);
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+diff --git a/fs/nfs/idmap.c b/fs/nfs/idmap.c
+index b5c6d8e..98b0b6b 100644
+--- a/fs/nfs/idmap.c
++++ b/fs/nfs/idmap.c
+@@ -561,7 +561,7 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
+ 	struct nfs_client *clp;
  	int error = 0;
- 	struct sunrpc_net *sn = net_generic(sb->s_fs_info, sunrpc_net_id);
  
--	spin_lock(&sn->rpc_client_lock);
-+	down_read(&sn->rpc_client_lock);
- 	list_for_each_entry(clnt, &sn->all_clients, cl_clients) {
- 		error = __rpc_pipefs_event(clnt, event, sb);
+-	spin_lock(&nn->nfs_client_lock);
++	mutex_lock(&nn->nfs_client_lock);
+ 	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
+ 		if (clp->rpc_ops != &nfs_v4_clientops)
+ 			continue;
+@@ -569,7 +569,7 @@ static int rpc_pipefs_event(struct notifier_block *nb, unsigned long event,
  		if (error)
  			break;
  	}
--	spin_unlock(&sn->rpc_client_lock);
-+	up_read(&sn->rpc_client_lock);
+-	spin_unlock(&nn->nfs_client_lock);
++	mutex_unlock(&nn->nfs_client_lock);
  	return error;
  }
  
-@@ -1947,7 +1947,7 @@ void rpc_show_tasks(struct net *net)
- 	int header = 0;
- 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
--	spin_lock(&sn->rpc_client_lock);
-+	down_read(&sn->rpc_client_lock);
- 	list_for_each_entry(clnt, &sn->all_clients, cl_clients) {
- 		spin_lock(&clnt->cl_lock);
- 		list_for_each_entry(task, &clnt->cl_tasks, tk_task) {
-@@ -1959,6 +1959,6 @@ void rpc_show_tasks(struct net *net)
- 		}
- 		spin_unlock(&clnt->cl_lock);
- 	}
--	spin_unlock(&sn->rpc_client_lock);
-+	up_read(&sn->rpc_client_lock);
- }
+diff --git a/fs/nfs/netns.h b/fs/nfs/netns.h
+index 7baad89..24d0bc3 100644
+--- a/fs/nfs/netns.h
++++ b/fs/nfs/netns.h
+@@ -12,7 +12,7 @@ struct nfs_net {
+ #ifdef CONFIG_NFS_V4
+ 	struct idr cb_ident_idr; /* Protected by nfs_client_lock */
  #endif
-diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-index ce7bd44..88f4b2e 100644
---- a/net/sunrpc/netns.h
-+++ b/net/sunrpc/netns.h
-@@ -17,7 +17,7 @@ struct sunrpc_net {
- 	struct mutex pipefs_sb_lock;
+-	spinlock_t nfs_client_lock;
++	struct mutex nfs_client_lock;
+ };
  
- 	struct list_head all_clients;
--	spinlock_t rpc_client_lock;
-+	struct rw_semaphore rpc_client_lock;
- 
- 	struct rpc_clnt *rpcb_local_clnt;
- 	struct rpc_clnt *rpcb_local_clnt4;
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 21d106e..57fa75f 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -49,7 +49,7 @@ static __net_init int sunrpc_init_net(struct net *net)
- 
- 	rpc_pipefs_init_net(net);
- 	INIT_LIST_HEAD(&sn->all_clients);
--	spin_lock_init(&sn->rpc_client_lock);
-+	init_rwsem(&sn->rpc_client_lock);
- 	spin_lock_init(&sn->rpcb_clnt_lock);
- 	return 0;
- 
+ extern int nfs_net_id;
