@@ -1,51 +1,56 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH] of/mdio: fix fixed link bus name
-Date: Mon, 27 Feb 2012 09:59:38 -0600
-Message-ID: <4F4BA86A.1040309@gmail.com>
-References: <8ebe6a3f11343c392a7353581d5f648980206e8e.1330346765.git.baruch@tkos.co.il>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH v2 2/4] NFS: release per-net clients lock before calling PipeFS dentries creation
+Date: Mon, 27 Feb 2012 15:59:23 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7E@saturn3.aculab.com>
+References: <20120227155103.7941.17006.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linuxppc-dev@lists.ozlabs.org
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:36818 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753404Ab2B0P7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 10:59:41 -0500
-Received: by ghrr11 with SMTP id r11so2054848ghr.19
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2012 07:59:41 -0800 (PST)
-In-Reply-To: <8ebe6a3f11343c392a7353581d5f648980206e8e.1330346765.git.baruch@tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<neilb-l3A5Bk7waGM@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "Stanislav Kinsbursky" <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20120227155103.7941.17006.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/27/2012 06:48 AM, Baruch Siach wrote:
-> Since 9e6c643b (phy/fixed: use an unique MDIO bus name) the name of the fixed
-> PHY bus is "fixed-0". Teach of_phy_connect_fixed_link() the new name.
-> 
+ 
+>  	spin_lock(&nn->nfs_client_lock);
+> -	list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link) {
+> +	list_for_each_entry_safe(clp, tmp, &nn->nfs_client_list,
+cl_share_link) {
+>  		if (clp->rpc_ops != &nfs_v4_clientops)
+>  			continue;
+> +		atomic_inc(&clp->cl_count);
+> +		spin_unlock(&nn->nfs_client_lock);
+>  		error = __rpc_pipefs_event(clp, event, sb);
+> +		nfs_put_client(clp);
+>  		if (error)
+>  			break;
+> +		spin_lock(&nn->nfs_client_lock);
+>  	}
+>  	spin_unlock(&nn->nfs_client_lock);
+>  	return error;
 
-Applied for 3.3.
+The locking doesn't look right if the loop breaks on error.
+(Same applied to patch v2 1/4)
 
-Rob
+Although list_fo_each_entry_safe() allows the current entry
+to be freed, I don't believe it allows the 'next' to be freed.
+I doubt there is protection against that happening.
 
-> Tested on a P1020RDB PowerPC system.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
->  drivers/of/of_mdio.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 980c079..483c0ad 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -182,7 +182,7 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
->  	if (!phy_id || sz < sizeof(*phy_id))
->  		return NULL;
->  
-> -	sprintf(bus_id, PHY_ID_FMT, "0", be32_to_cpu(phy_id[0]));
-> +	sprintf(bus_id, PHY_ID_FMT, "fixed-0", be32_to_cpu(phy_id[0]));
->  
->  	phy = phy_connect(dev, bus_id, hndlr, 0, iface);
->  	return IS_ERR(phy) ? NULL : phy;
+Do you need to use an atomic_inc() for cl_count.
+I'd guess the nfs_client_lock is usually held?
+
+	David
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
