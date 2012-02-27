@@ -1,94 +1,49 @@
-From: Andrei Warkentin <awarkentin@vmware.com>
-Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
-Date: Mon, 27 Feb 2012 15:33:55 -0800 (PST)
-Message-ID: <628860779.1621452.1330385635262.JavaMail.root@zimbra-prod-mbox-2.vmware.com>
-References: <4F4C0EF8.8010405@windriver.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: fix tcp_shifted_skb() adjustment of lost_cnt_hint
+ for FACK
+Date: Tue, 28 Feb 2012 01:39:50 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1202280127490.17924@melkinpaasi.cs.helsinki.fi>
+References: <1329200528-19718-1-git-send-email-ncardwell@google.com> <20120214.144033.848861752845052421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrei Warkentin <andreiw@vmware.com>,
-	kgdb-bugreport@lists.sourceforge.net,
-	Matt Mackall <mpm@selenic.com>,
-	Andrei Warkentin <andrey.warkentin@gmail.com>
-To: Jason Wessel <jason.wessel@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4C0EF8.8010405@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>, nanditad@google.com,
+	ycheng@google.com, therbert@google.com, subramanian.vijay@gmail.com
+To: David Miller <davem@davemloft.net>, ncardwell@google.com,
+	Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49380 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755305Ab2B0Xjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 18:39:52 -0500
+In-Reply-To: <20120214.144033.848861752845052421.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 14 Feb 2012, David Miller wrote:
 
-Thank you for the review, Jason. Comments inline.
+> From: Neal Cardwell <ncardwell@google.com>
+> Date: Tue, 14 Feb 2012 01:22:08 -0500
+> 
+> > This commit ensures that lost_cnt_hint is correctly updated in
+> > tcp_shifted_skb() for FACK TCP senders. The lost_cnt_hint adjustment
+> > in tcp_sacktag_one() only applies to non-FACK senders, so FACK senders
+> > need their own adjustment.
+> > 
+> > This applies the spirit of 1e5289e121372a3494402b1b131b41bfe1cf9b7f -
+> > except now that the sequence range passed into tcp_sacktag_one() is
+> > correct we need only have a special case adjustment for FACK.
+> > 
+> > Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> 
+> Applied, and queued up for -stable, thanks Neil.
 
------ Original Message -----
-> From: "Jason Wessel" <jason.wessel@windriver.com>
-> To: "Andrei Warkentin" <andrey.warkentin@gmail.com>
-> Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "Andrei Warkentin" <andreiw@vmware.com>,
-> kgdb-bugreport@lists.sourceforge.net, "Matt Mackall" <mpm@selenic.com>
-> Sent: Monday, February 27, 2012 6:17:12 PM
-> Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
-> 
-> 
-> I am just now starting to look how this patch set compares to kgdboe.
->  For the kgdboe the patch is a bit different.  The kgdboe opted to
-> just pass the skb so as to cut down on the number of arguments to
-> the function call.
-> 
-> From the kgdboe patch:
-> 
-> -       void (*rx_hook)(struct netpoll *, int, char *, int);
-> +       void (*rx_hook)(struct netpoll *, int, char *, int, struct
-> sk_buff *);
-> 
-> 
+There has been lots of TCP related warnings posted recently to netdev.
+Finding out which of these three recent changes caused which warning and 
+if they're all cured by the full series is bit challenging. ...IMHO we 
+should wait a bit more until these recent fixes are put to stable in order 
+to verify that the dust has really settled.
 
-Interesting, I thought about passing the skb, but decided I didn't
-want to copy and paste the skb parsing code, especially given
-that it's always UDP anyway. I still have reservations about
-passing the physical address, but I don't think anyone tried
-to use netpoll or a non-ethernet device anyway.
 
-> >  
-> > +void netpoll_poll_dev(struct net_device *dev);
-> >  void netpoll_send_udp(struct netpoll *np, const char *msg, int
-> >  
-> > -static void netpoll_poll_dev(struct net_device *dev)
-> > +void netpoll_poll_dev(struct net_device *dev)
-> 
-> 
-> This is interesting and I will have to look into this further...  A
-> large part of the reason kgdboe never went anywhere was all around
-> the locking problems the ability to safely use the network hardware
-> and restore the state when it was done.  It appears you made this
-> change so as to make a lockless call directly instead of going
-> through netpoll_poll().  I am not entirely sure you could safely do
-> this.
-> 
-> In kgdboe we always had:
-> 
-> +static int eth_get_char(void)
-> +{
-> +	int chr;
-> +
-> +	while (atomic_read(&in_count) == 0)
-> +		netpoll_poll(&np);
-> 
-> 
-> If it is the case that you really can safely call the
-> netpoll_poll_dev() without the locks then the horrible sync irq
-> state etc... could go away in kgdboe, and then it would be worth
-> considering digging up all the ethernet polling errata fixes that
-> live of out the mainline and perhaps submit some for review.
-> 
-
-I didn't look deeply at kgdboe (probably should have...). Anyway, netpoll_poll
-doesn't seem to exist. netpoll_poll_dev is called from netpoll_send_skb_on_dev
-and the only contract I see is running with the interrupts disabled - something
-that is satisfied by running in the context of KDB.
-
-This is slight OT, but...are WiFi drivers sufficiently similar that netpoll "just works?"
-
-Thanks again.
-
-A
+-- 
+ i.
