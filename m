@@ -1,62 +1,64 @@
-From: WEBMAIL UPGRADE HELP DESK <helpdesk@upgrade.com>
-Subject: Dear Webmail Subscriber
-Date: Mon, 27 Feb 2012 08:36:56 +0100
-Message-ID: <20120227083656.41984qelcjyjyjko__20617.3424413011$1330330746$gmane$org@webmail.ausl.bologna.it>
-Reply-To: helpdeskwebmailupgrade16@gmail.com
+From: "Rajashekhara, Sudhakar" <sudhakar.raj@ti.com>
+Subject: RE: davinci_emac/mdio: SOFT_RESET of EMAC module resets MDIO on
+ AM1808
+Date: Mon, 27 Feb 2012 10:15:03 +0000
+Message-ID: <B6A220404B6BFC4BBD2AB91C54D39DF43177683F@DBDE01.ent.ti.com>
+References: <B6A220404B6BFC4BBD2AB91C54D39DF431775E1B@DBDE01.ent.ti.com>
+ <1330092923-10899-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davinci-linux-open-source@linux.davincidsp.com"
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Gole, Anant" <anantgole@ti.com>
+To: Christian Riesch <christian.riesch@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailserver.ausl.bologna.it ([212.210.92.253]:43230 "HELO
-	mailserver.ausl.bo.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751144Ab2B0IS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 03:18:56 -0500
-Content-Disposition: inline
+Received: from arroyo.ext.ti.com ([192.94.94.40]:33791 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753534Ab2B0KPW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 05:15:22 -0500
+In-Reply-To: <1330092923-10899-1-git-send-email-christian.riesch@omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Christian,
 
--- 
-Dear Webmail Subscriber,
+On Fri, Feb 24, 2012 at 19:45:23, Christian Riesch wrote:
+> Hello Sudhakar,
+> 
+> On Fri, Feb 24, 2012 at 2:02 PM, Rajashekhara, Sudhakar <sudhakar.raj@ti.com> wrote:
+> > On Thu, Feb 23, 2012 at 14:39:49, Christian Riesch wrote:
+> >> Hi,
+> >> I observed this behavior on a Texas Instruments AM1808 SoC (AM1808
+> >> experimenter's kit) running the current mainline kernel:
+> >>
 
-This is to notify you that we are presently working on our webmail User
-Accounts Owner for safety, We are having congestions due to
-the anonymous registration of accounts,so we are shutting down some
-unused accounts that are no more active and your account might be deleted or
-suspended  for security reasons if you do not respond to
-this mail.
+[snip]
 
+> >>
+> >> According to the AM1808 Technical Reference Manual (sections 18.2.14.1
+> >> and 18.3.3.34 in [1]), writing a 1 to the EMAC_SOFTRESET register
+> >> resets the EMAC module, but not the MDIO module. However, when I
+> >> comment out the code above, the MDIO control register is not affected
+> >> and the warning 'resetting idled controller' disappears.
+> >>
+> >
+> > But this was not the case for me. Even after commenting out the above lines,
+> > I could still see that MDIO was getting reset.
+> 
+> Uh, I am sorry. I forgot to mention that there is a second
+> emac_write(EMAC_SOFTRESET,1); in emac_dev_stop() in davinci_emac.c. 
+> This one must also be commented out to make the resetting idled controller 
+> message go away.
+> 
+> The patch below shows that changes that I did. May I please ask you to try
+> again with these changes?
+> 
 
-We will be conducting our regularly scheduled maintenance, to ensure that
-we provide the highest quality in Internet connectivity and services to
-customers. Your connectivity and services with us may be interrupted for
-short periods during the maintenance window.We will also ensure minimal
-disruption to services where possible.
+I was able to reproduce the issue. I'll debug this further and get back to you.
 
-In order to enable us perform quality maintenance on your Internet
-access and e-mail service, please you must reply to this e-mail message
-confirming your account.
-
-Do confirm your account details below.
-_____________________________________
-1. First Name & Last Name:
-2. Full Login Email Address:
-3. User name:
-4  Password:
-5. Retype Password:
-_____________________________________
-
-Failure to do this will immediately render your account deactivated from
-our database.
-
-We apologize for the inconvenience that this will cause you during this
-period, but trust you understand that our primary concern is for our
-customers and for the security of their data. our customers are totally
-secure
-
-Support Team.
-Upgrade/Maintenance Management
+Regards,
+Sudhakar
