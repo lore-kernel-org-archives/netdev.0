@@ -1,44 +1,52 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 02/11] e1000e: cleanup: rename e1000e_setup_link() and call as function pointer
-Date: Mon, 27 Feb 2012 10:25:39 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7C@saturn3.aculab.com>
-References: <1330149000-25907-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: RE: RFC: memory leak in udp_table_init
+Date: Mon, 27 Feb 2012 11:33:07 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7D@saturn3.aculab.com>
+References: <1330321223.3330.1.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "Bruce Allan" <bruce.w.allan@intel.com>, <netdev@vger.kernel.org>,
-	<gospo@redhat.com>, <sassmann@redhat.com>
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60716 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752811Ab2B0K0Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 05:26:24 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15886-05 for <netdev@vger.kernel.org>;
- Mon, 27 Feb 2012 10:26:20 +0000 (GMT)
+Cc: <paul.gortmaker@windriver.com>, <tim.bird@am.sony.com>,
+	<kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <1330149000-25907-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1330321223.3330.1.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
-> From: Bruce Allan <bruce.w.allan@intel.com>
+> > > [PATCH] mm: add a low limit to alloc_large_system_hash
+> > 
+> > I think you should just use zero as the default minimum for all
+> > call sites except this UDP case we are trying to fix.
+> > 
+> > For example I see you used 16 for kernel/pid.c
+> > 
+> > Let's not try to do unrelated changes like that now, we can do such
+> > tweaks later.
 > 
-> Rename e1000e_setup_link() to e1000e_setup_link_generic() to signify
+> It was to match the comment we have few lines above :
+> 
+> /*
+>  * The pid hash table is scaled according to the amount of memory in
 the
-> function is used for more than one MAC-family type.  The 82571-family
-has
-> a custom setup_link function which also calls the generic function.
-The
-> ich8lan-family has a custom function which should just be called via
-the
-> function pointer.  The 80003es2lan-family just uses the generic
-function.
+>  * machine.  From a minimum of 16 slots up to 4096 slots at one
+gigabyte or
+>  * more.
+>  */
 
-Wouldn't it be better to add a suffix to the family-specific
-functions instead of adding a lot of unnecessary churn?
+These large hash tables are, IMHO, an indication that the
+algorithm used is, perhaps, suboptimal.
+
+Not least of the problems is actually finding a suitable
+(and fast) hash function that will work with the actual
+real-life data.
+
+The pid table is a good example of something where a hash
+table is unnecessary.
+Linux should steal the code I put into NetBSD :-)
 
 	David
