@@ -1,86 +1,128 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: fix comment for tp->highest_sack
-Date: Tue, 28 Feb 2012 00:56:41 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1202280053320.17924@melkinpaasi.cs.helsinki.fi>
-References: <1330383070-10367-1-git-send-email-ncardwell@google.com>
+From: Jason Wessel <jason.wessel@windriver.com>
+Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
+Date: Mon, 27 Feb 2012 17:17:12 -0600
+Message-ID: <4F4C0EF8.8010405@windriver.com>
+References: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
+	<1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
+	<1330313411-845-2-git-send-email-andrey.warkentin@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-907145507-1330383320=:17924"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39483 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754322Ab2B0W4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 17:56:43 -0500
-In-Reply-To: <1330383070-10367-1-git-send-email-ncardwell@google.com>
-Content-ID: <alpine.DEB.2.00.1202280055270.17924@melkinpaasi.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	Andrei Warkentin <andreiw@vmware.com>, linux-kernel@vger.kernel.org,
+	kgdb-bugreport@lists.sourceforge.net
+To: Andrei Warkentin <andrey.warkentin@gmail.com>
+Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
+In-Reply-To: <1330313411-845-2-git-send-email-andrey.warkentin@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kgdb-bugreport>
+List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
+List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-907145507-1330383320=:17924
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.1202280055271.17924@melkinpaasi.cs.helsinki.fi>
-
-On Mon, 27 Feb 2012, Neal Cardwell wrote:
-
-> There was an off-by-one error in the comments describing the
-> highest_sack field in struct tcp_sock. The comments previously claimed
-> that it was the "start sequence of the highest skb with SACKed
-> bit". This commit fixes the comments to note that it is the "start
-> sequence of the skb just *after* the highest skb with SACKed bit".
+On 02/26/2012 09:30 PM, Andrei Warkentin wrote:
+> From: Andrei Warkentin <andreiw@vmware.com>
 > 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Pass down source information to rx_hook, useful
+> for accepting connections from unspecified clients.
+> 
+> Cc: kgdb-bugreport@lists.sourceforge.net
+> Cc: Jason Wessel <jason.wessel@windriver.com>
+> Cc: Matt Mackall <mpm@selenic.com>
+> Signed-off-by: Andrei Warkentin <andrey.warkentin@gmail.com>
+> Signed-off-by: Andrei Warkentin <andreiw@vmware.com>
 > ---
->  include/linux/tcp.h |    3 ++-
->  include/net/tcp.h   |    5 +++--
->  2 files changed, 5 insertions(+), 3 deletions(-)
+>  include/linux/netpoll.h |   10 +++++++++-
+>  net/core/netpoll.c      |   10 ++++------
+>  2 files changed, 13 insertions(+), 7 deletions(-)
 > 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 46a85c9..3c7ffdb 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -412,7 +412,8 @@ struct tcp_sock {
+> diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+> index 5dfa091..9a9cfa1 100644
+> --- a/include/linux/netpoll.h
+> +++ b/include/linux/netpoll.h
+> @@ -11,12 +11,19 @@
+>  #include <linux/interrupt.h>
+>  #include <linux/rcupdate.h>
+>  #include <linux/list.h>
+> +#include <linux/if_ether.h>
+> +#include <net/tcp.h>
+> +#include <net/udp.h>
 >  
->  	struct tcp_sack_block recv_sack_cache[4];
+>  struct netpoll {
+>  	struct net_device *dev;
+>  	char dev_name[IFNAMSIZ];
+>  	const char *name;
+> -	void (*rx_hook)(struct netpoll *, int, char *, int);
+> +	void (*rx_hook)(struct netpoll *,
+> +			u8 *h_source,
+> +			__be32 saddr,
+> +			struct udphdr *,
+> +			char *, int);
+
+
+I am just now starting to look how this patch set compares to kgdboe.  For the kgdboe the patch is a bit different.  The kgdboe opted to just pass the skb so as to cut down on the number of arguments to the function call.
+
+>From the kgdboe patch:
+
+-       void (*rx_hook)(struct netpoll *, int, char *, int);
++       void (*rx_hook)(struct netpoll *, int, char *, int, struct sk_buff *);
+
+
 >  
-> -	struct sk_buff *highest_sack;   /* highest skb with SACK received
-> +	struct sk_buff *highest_sack;   /* skb just after the highest
-> +					 * skb with SACKed bit set
->  					 * (validity guaranteed only if
->  					 * sacked_out > 0)
->  					 */
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 42c29bf..2d80c29 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1364,8 +1364,9 @@ static inline void tcp_push_pending_frames(struct sock *sk)
+>  	__be32 local_ip, remote_ip;
+>  	u16 local_port, remote_port;
+> @@ -40,6 +47,7 @@ struct netpoll_info {
+>  	struct netpoll *netpoll;
+>  };
+>  
+> +void netpoll_poll_dev(struct net_device *dev);
+>  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+>  void netpoll_print_options(struct netpoll *np);
+>  int netpoll_parse_options(struct netpoll *np, char *opt);
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 3d84fb9..c182bb2 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -26,8 +26,6 @@
+>  #include <linux/workqueue.h>
+>  #include <linux/slab.h>
+>  #include <linux/export.h>
+> -#include <net/tcp.h>
+> -#include <net/udp.h>
+>  #include <asm/unaligned.h>
+>  #include <trace/events/napi.h>
+>  
+> @@ -189,7 +187,7 @@ static void service_arp_queue(struct netpoll_info *npi)
 >  	}
 >  }
 >  
-> -/* Start sequence of the highest skb with SACKed bit, valid only if
-> - * sacked > 0 or when the caller has ensured validity by itself.
-> +/* Start sequence of the skb just after the highest skb with SACKed
-> + * bit, valid only if sacked_out > 0 or when the caller has ensured
-> + * validity by itself.
->   */
->  static inline u32 tcp_highest_sack_seq(struct tcp_sock *tp)
->  {
+> -static void netpoll_poll_dev(struct net_device *dev)
+> +void netpoll_poll_dev(struct net_device *dev)
 
-Right, commenting code in the first place is evil as we see. ...I remember 
-changing this at some point, perhaps already before the submission but 
-never managed to detect the errors in those non-compile tested
-comments. :-)
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+This is interesting and I will have to look into this further...  A large part of the reason kgdboe never went anywhere was all around the locking problems the ability to safely use the network hardware and restore the state when it was done.  It appears you made this change so as to make a lockless call directly instead of going through netpoll_poll().  I am not entirely sure you could safely do this.
 
--- 
- i.
---8323329-907145507-1330383320=:17924--
+In kgdboe we always had:
+
++static int eth_get_char(void)
++{
++	int chr;
++
++	while (atomic_read(&in_count) == 0)
++		netpoll_poll(&np);
+
+
+If it is the case that you really can safely call the netpoll_poll_dev() without the locks then the horrible sync irq state etc... could go away in kgdboe, and then it would be worth considering digging up all the ethernet polling errata fixes that live of out the mainline and perhaps submit some for review.
+
+Jason.
+
+------------------------------------------------------------------------------
+Try before you buy = See our experts in action!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-dev2
