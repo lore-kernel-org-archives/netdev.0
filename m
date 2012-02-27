@@ -1,58 +1,77 @@
-From: "Anton 'EvilMan' Danilov" <littlesmilingcloud@gmail.com>
-Subject: Re: [PATCH iproute2] pedit action: add mask for changing bits.
-Date: Mon, 27 Feb 2012 17:15:30 +0300
-Message-ID: <CAEzD07KenHteg0S8-OfAwqTNTSQdvPOJsA-m_+8CW-8c_HCgnw@mail.gmail.com>
-References: <CAEzD07+0EA12igqAcwbM8VGKLR9Hp0GjJ7t_Jve=JXOrEKvu9w@mail.gmail.com>
-	<1330351135.2384.1039.camel@mojatatu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com
+From: yegorslists@googlemail.com
+Subject: [PATCH] iproute2: cleanup dependencies
+Date: Mon, 27 Feb 2012 15:21:15 +0100
+Message-ID: <1330352475-31109-1-git-send-email-yegorslists@googlemail.com>
+Cc: shemminger@vyatta.com, Yegor Yefremov <yegorslists@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:44239 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600Ab2B0OPb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 09:15:31 -0500
-Received: by wejx9 with SMTP id x9so294789wej.19
-        for <netdev@vger.kernel.org>; Mon, 27 Feb 2012 06:15:30 -0800 (PST)
-In-Reply-To: <1330351135.2384.1039.camel@mojatatu>
+Received: from ns.visionsystems.de ([62.145.30.242]:60184 "EHLO
+	mail.visionsystems.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753209Ab2B0OVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 09:21:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Jamal.
+From: Yegor Yefremov <yegorslists@googlemail.com>
 
-2012/2/27 jamal <hadi@cyberus.ca>:
->
-> Looks like a reasonable feature to have - but it has to continue work=
-ing
-> as before for things that dont need the mask.
->
->>
->> diff --git a/tc/m_pedit.c b/tc/m_pedit.c
->> index 7499846..f081eff 100644
->> --- a/tc/m_pedit.c
->> +++ b/tc/m_pedit.c
->
->>
->> =C2=A0 =C2=A0 =C2=A0 tkey->val =3D htonl(tkey->val & retain);
->> - =C2=A0 =C2=A0 tkey->mask =3D htonl(tkey->mask | ~retain);
->> + =C2=A0 =C2=A0 tkey->mask =3D htonl(~tkey->mask | ~retain);
->
-> A change like the above worries me that this may work for your use ca=
-se
-> but will break other things that used to work. I'd like to run some
-> tests but dont have the cycles for the next few days. Alternatively, =
-I
-> could explain some tests to you and you could validate and fix whatev=
-er
-> breaks.
-> Let me know what is best for you.
->
+LIBNETLINK will be defined in the main Makefile, so
+both ../lib/libnetlink.a ../lib/libutil.a will be
+automatically appended during linking. Otherwise
+../lib/libnetlink.a ../lib/libutil.a will appear
+twice during linking.
 
-Can You explain tests to me? I'll check behavior with my changes and fi=
-x breaks
+Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+---
+ ip/Makefile   |    7 ++++---
+ misc/Makefile |    2 +-
+ tc/Makefile   |    2 +-
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
-
---=20
-Anton.
+diff --git a/ip/Makefile b/ip/Makefile
+index 3f8c25b..e029ea1 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -17,11 +17,12 @@ ALLOBJ=$(IPOBJ) $(RTMONOBJ)
+ SCRIPTS=ifcfg rtpr routel routef
+ TARGETS=ip rtmon
+ 
+-all: $(TARGETS) $(SCRIPTS) $(LIBS)
++all: $(TARGETS) $(SCRIPTS)
+ 
+-ip: $(IPOBJ) $(LIBNETLINK) $(LIBUTIL)
++ip: $(IPOBJ) $(LIBNETLINK)
+ 
+-rtmon: $(RTMONOBJ) $(LIBNETLINK)
++
++rtmon: $(RTMONOBJ)
+ 
+ install: all
+ 	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
+diff --git a/misc/Makefile b/misc/Makefile
+index 8c25381..a59ff87 100644
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -7,7 +7,7 @@ include ../Config
+ 
+ all: $(TARGETS)
+ 
+-ss: $(SSOBJ) $(LIBUTIL)
++ss: $(SSOBJ)
+ 
+ nstat: nstat.c
+ 	$(CC) $(CFLAGS) $(LDFLAGS) -o nstat nstat.c -lm
+diff --git a/tc/Makefile b/tc/Makefile
+index 9cc1bf0..f523adc 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -99,7 +99,7 @@ MODDESTDIR := $(DESTDIR)$(patsubst /usr%,%,$(LIBDIR))/tc
+ 
+ all: libtc.a tc $(TCSO)
+ 
+-tc: $(TCOBJ) $(LIBNETLINK) $(LIBUTIL) $(TCLIB)
++tc: $(TCOBJ) $(TCLIB)
+ 
+ libtc.a: $(TCLIB)
+ 	$(AR) rcs $@ $(TCLIB)
+-- 
+1.7.7
