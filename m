@@ -1,43 +1,105 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next] ibm emac: delete module references; phy.c only
- supported as built-in
-Date: Mon, 27 Feb 2012 15:49:42 -0500
-Message-ID: <20120227204941.GA29529@windriver.com>
-References: <1330372024-30974-1-git-send-email-paul.gortmaker@windriver.com>
- <20120227.145753.1111293673513137413.davem@davemloft.net>
+From: "Dr. William Cole" <yokelplatfooorm6@schmidt-europe.de>
+Subject: LET US WORK TOGETHER FOR OUR MUTUAL BENEFIT
+Date: Mon, 27 Feb 2012 08:54:37 -0800
+Message-ID: <9073c8o1RGW1yM.RZmta@mo-p00-ob.rzone.de>
+Reply-To: <williamcole2010@yahoo.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <benh@kernel.crashing.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <jwboyer@gmail.com>,
-	<mporter@kernel.crashing.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_00B3_01C2A9A6.2C3E7CDA"
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:56157 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754851Ab2B0Utv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 15:49:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20120227.145753.1111293673513137413.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:15618 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070Ab2B0Uuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Feb 2012 15:50:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH net-next] ibm emac: delete module references; phy.c only supported as built-in] On 27/02/2012 (Mon 14:57) David Miller wrote:
+This is a multi-part message in MIME format.
 
-> From: Paul Gortmaker <paul.gortmaker@windriver.com>
-> Date: Mon, 27 Feb 2012 14:47:04 -0500
-> 
-> > The Makefile has it as "ibm_emac-y := mal.o core.o phy.o" so there is
-> > no way this can be built modular, so remove all references to module
-> > support.
-> 
-> That doesn't mean it's only buildable statically.
-> 
-> "ibm_emacs-y :=" is merely a way to tell make what objects go into ibm_emac.{o,ko}
-> 
-> IBM_EMAC is tristate
+------=_NextPart_000_00B3_01C2A9A6.2C3E7CDA
+Content-Type: text/plain;
+	charset="big5"
+Content-Transfer-Encoding: 7bit
 
-Argh, yes.  Sorry for the noise.  Since phy.c doesn't call any modular
-functionality directly, the patch "worked" and I didn't catch the
-error in my reasoning.
+FIND MAIL ATTACHED 
+NOTE:Mail was attached due to security reasons
 
-Paul.
+------=_NextPart_000_00B3_01C2A9A6.2C3E7CDA
+Content-Type: application/octet-stream;
+	name="LET US WORK TOGETHER FOR OUR MUTUAL BENEFIT.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="LET US WORK TOGETHER FOR OUR MUTUAL BENEFIT.txt"
+
+RFIuIFdJTExJQU0gQ09MRQ0KMTQ1IE9ybW9uZCBTdHJlZXQsIExvbmRvbiBH
+cmVhdGVyIExvbmRvbiwgV0MxTiAzSkggVUsNCkRlYXIgRnJpZW5kLA0KTXkg
+bmFtZSBpcyBuYW1lIGlzIERyLiBXaWxsaWFtIENvbGUsIGEgQnJpdGlzaCBu
+YXRpb25hbCBhbmQgYW4gaW52ZXN0bWVudCBjb25zdWx0YW50IA0KYXR0YWNo
+ZWQgdG8gdGhlIExpYnlhbiBpbnZlc3RtZW50IEF1dGhvcml0eSAoTElBKS4g
+DQoNCg0KSSBzdGFydGVkIHdvcmtpbmcgZm9yIHRoZSBMaWJ5YW4gZ292ZXJu
+bWVudCB1bmRlciB0aGUgbGVhZGVyc2hpcCBvZiBNdWFtbWFyIA0KTXVoYW1t
+YWQgYWwtR2FkZGFmaSBzaW5jZSB0aGUgYmVnaW5uaW5nIG9mIDIwMDAgYW5k
+IGhhdmUgYXJyYW5nZWQgc28gbWFueSANCmRlYWxzIGJldHdlZW4gdGhlIGdv
+dmVybm1lbnQgYW5kIHRoZSBpbnRlcm5hdGlvbmFsIHBhcnRuZXJzIGJ1dCBk
+dWUgdG8gdGhlIA0Kb25nb2luZyBjcmlzaXMgaW4gdGhlIGNvdW50cnkgSSBk
+ZWNpZGVkIHRvIHF1aXQgbXkgam9iIGFuZCByZXR1cm4gdG8gbXkgaG9tZSAN
+CmNvdW50cnkgRW5nbGFuZCBiZWNhdXNlIEkgYW0gbm90IGluIHN1cHBvcnQg
+b2YgdGhlIExpYnlhbiBsZWFkZXIgTXVhbW1hciANCk11aGFtbWFkIGFsLUdh
+ZGRhZmkgZHVlIHRvIGhpcyBjcmFjayBkb3duIG9uIHRoZSBvcHBvc2l0aW9u
+LiANCg0KDQoNClRoZXJlIGFyZSBzb21lIGZ1bmRzIHdoaWNoIEkgd2FzIGRp
+cmVjdGVkIHRvIG1vdmUgdG8gbmVpZ2hib3JpbmcgR2hhbmEgYXQgdGhlIA0K
+YmVnaW5uaW5nIG9mIHRoZSB1cHJpc2luZyBmb3IgZnVydGhlciB0cmFuc2Zl
+ciB0byBDaGluYSBmb3IgdGhlIHB1cmNoYXNlIG9mIGFybXMgDQp0byBiZSB1
+c2VkIGluIHRoZSBvbmdvaW5nIHdhciBpbiB0aGUgTGlieWEuIA0KDQoNCg0K
+VGhlIGZ1bmRzIHdoaWNoIEkgc3VjY2VlZGVkIGluIG1vdmluZyB0aHJvdWdo
+IGEgY2xhbmRlc3RpbmUgYXJyYW5nZW1lbnQgdG8gYSANCnByaXZhdGUgZmlu
+YW5jZSBjb21wYW55IGluIEdoYW5hIGlzIG5vdyBkZXBvc2l0ZWQgdGhlcmUg
+d2FpdGluZyBmb3IgbXkgZnVydGhlciANCmluc3RydWN0aW9uIGZvciBvbndh
+cmQgdHJhbnNmZXIgdG8gY2hpbmEgZm9yIHRoZSBwdXJjaGFzZSBvZiB0aGUg
+YXJtcyBhbmQgDQphbW11bml0aW9ucyBmcm9tIGFuIGFybXMgbWFudWZhY3R1
+cmluZyBjb21wYW55IGluIENoaW5hIGJ1dCBJIG5vdyBkZWNpZGVkIA0KdG8g
+bGVhdmUgdGhlIGNvdW50cnkgd2l0aCB0aGUgd2hvbGUgZG9jdW1lbnRzIHJl
+bGF0aW5nIHRvIHRoaXMgZnVuZHMgYXMgdGhlIA0KTGlieWFuIGxlYWRlciBN
+dWhhbW1hZCBhbC1HYWRkYWZpIGhhcyBiZWVuIHRvcHBsZWQgYW5kIGtpbGxl
+ZCBieSB0aGUgcmViZWwgcy4gDQoNCg0KDQoNCkkgc2F3IHRoaXMgYXMgYW4g
+b3Bwb3J0dW5pdHkgdG8gZGl2ZXJ0IHRoaXMgZnVuZCBmb3Igb3VyIHBlcnNv
+bmFsIHVzZSBzaW5jZSBJIA0KaGF2ZSB0aGUgd2hvbGUgZG9jdW1lbnRzIGJl
+Y2F1c2UgdHdvIG9mIG15IGNvbGxlYWd1ZXMsIHRoZSBkZWZlbnNlIGNoaWVm
+IEFidSBCYWtyIA0KWXVuaXMgYW5kIEdoYWRhZmmScyBzb24gd2hvIGFyZSBh
+d2FyZSBvZiB0aGlzIGRlcG9zaXQgd2VyZSBhbGwga2lsbGVkIHRoZSByZWJl
+bCANCmZvcmNlcyB0b2dldGhlciB3aXRoIEdoYWRhZmkgd2hlbiB0aGVpciBj
+b252b3kgd2FzIGF0dGFjaGVkIGJ5IE5BVE8gd2FyIHBsYW5lLiANCg0KDQoN
+CkkgYW0gY3VycmVudGx5IGluIG15IG5hdGl2ZSBjb3VudHJ5IEVuZ2xhbmQg
+d2FpdGluZyBmb3IgYSByZWxpYWJsZSBwYXJ0bmVyIG9uIHdob3NlIA0KbmFt
+ZSB0aGlzIGZ1bmQgc2hhbGwgYmUgdHJhbnNmZXJyZWQgc2luY2UgSSBhbSBp
+biBwb3NzZXNzaW9uIG9mIGFsbCB0aGUgZG9jdW1lbnRzLiANCg0KDQoNCg0K
+SSB3aWxsIHBlcnNvbmFsbHkgZmFjaWxpdGF0ZSB0aGUgcmVsZWFzZSBvZiB0
+aGlzIGZ1bmQgYW5kIGhhdmUgaXQgbW92ZWQgdG8geW91ciBub21pbmF0ZWQg
+DQphY2NvdW50IGFueXdoZXJlIGFyb3VuZCB0aGUgZ2xvYmUuIEkgd2lsbCBi
+ZSBhYmxlIHRvIGRvIHRoaXMgYmVjYXVzZSBJIHdhcyB0aGUgb25lIA0KdGhh
+dCBvcmNoZXN0cmF0ZWQgdGhlIG1vdmVtZW50IG9mIHRoaXMgZnVuZCBvdXQg
+b2YgTGlieWEgdG8gR2hhbmEgdGhlcmVmb3JlIA0KaXMgaW4gcG9zc2Vzc2lv
+biBvZiBhbGwgdGhlIHBhcGVycyB0byB0aGF0IGVmZmVjdC4NCg0KDQoNCg0K
+RnVydGhlciBkZXRhaWxzIHNoYWxsIGJlIGdpdmVuIHRvIHlvdSB1cG9uIHRo
+ZSByZWNlaXB0IG9mIHlvdXIgaW50ZXJlc3QgdG8gd29yayANCndpdGggbWUg
+b24gdGhpcyBwcm9qZWN0IHNvIHRoYXQgd2UgY2FuIHN1Y2Nlc3NmdWxseSBt
+b3ZlIHRoaXMgZnVuZCB0byB5b3VyIA0Kbm9taW5hdGVkIGFjY291bnQuIA0K
+DQoNCg0KQWxsIGFycmFuZ2VtZW50IGhhcyBiZWVuIGNvbmNsdWRlZCBmb3Ig
+dGhlIHN1Y2Nlc3NmdWwgY29uY2x1c2lvbiBvZiB0aGUgcmVsZWFzZS90cmFu
+c2ZlciANCm9mIHRoaXMgZnVuZCBpbiB5b3VyIG5hbWUuIA0KDQoNCmh0dHA6
+Ly93d3cuYmJjLmNvLnVrL25ld3Mvd29ybGQtYWZyaWNhLTE1MzkwOTgwICAg
+IGZvciBtb3JlIGRldGFpbHMuDQoNCg0KUGxlYXNlIHRoaXMgaXMgaGlnaGx5
+IGNsYXNzaWZpZWQgaW5mb3JtYXRpb24gdGhlcmVmb3JlIEkgYWR2aXNlIHRo
+YXQgeW91IGtlZXAgaXQgdG8geW91cnNlbGYuIA0KDQpJIHNoYWxsIGJlIHdp
+bGxpbmcgdG8gbWVldCB3aXRoIHlvdSBhbnl3aGVyZSBpbiBFdXJvcGUgb3Ig
+cG9zc2libHkgQWZyaWNhIGJ1dCBhdCB0aGUgbW9tZW50IA0KSSBhbSBjdXJy
+ZW50bHkgaW4gbXkgRW5nbGFuZC4gR2V0IGJhY2sgdG8gbWUgb24gdGhpcyBl
+bWFpbDogd2lsbGlhbWNvbGUyMDEwQHlhaG9vLmNvLmpwIGlmIA0KeW91IGFy
+ZSBpbnRlcmVzdGVkIHNvIHRoYXQgd2UgY2FuIHByb2NlZWQuICBXZSB3aWxs
+IGRpc2N1c3MgdGhlIHNoYXJpbmcgcmF0aW8gb25jZSBJIGhlYXIgDQpmcm9t
+IHlvdSBiZWNhdXNlIHlvdSB3aWxsIHBsYXkgYSB2aXRhbCByb2xlIHRvIHRo
+ZSBzdWNjZXNzIG9mIHRoaXMgYnVzaW5lc3MuDQoNCg0KUmVnYXJkcw0KRHIu
+IFdpbGxpYW0gQ29sZQ==
+
+------=_NextPart_000_00B3_01C2A9A6.2C3E7CDA--
