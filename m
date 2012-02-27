@@ -1,89 +1,46 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH v2 1/4] SUNRPC: release per-net clients lock before
- calling PipeFS dentries creation
-Date: Mon, 27 Feb 2012 17:37:13 +0000
-Message-ID: <1330364238.5541.52.camel@lade.trondhjem.org>
-References: <20120227154713.7941.17963.stgit@localhost6.localdomain6>
-		 <20120227155055.7941.18741.stgit@localhost6.localdomain6>
-	 <1330359695.5541.45.camel@lade.trondhjem.org>
-	 <4F4BB570.60105@parallels.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] gigaset: Use semicolons to terminate statements
+Date: Mon, 27 Feb 2012 09:39:27 -0800
+Message-ID: <1330364367.9942.21.camel@joe2Laptop>
+References: <4F4B45F6.4090706@suse.cz> <1330361549.9942.7.camel@joe2Laptop>
+	 <4F4BB983.8020608@suse.cz> <1330363627.9942.16.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"James Bottomley" <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hansjoerg Lipp <hjlipp@web.de>,
+	Tilman Schmidt <tilman@imap.cc>,
+	gigaset307x-common@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: Jiri Slaby <jslaby@suse.cz>, netdev <netdev@vger.kernel.org>,
+	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4BB570.60105@parallels.com>
-Content-Language: en-US
-Content-ID: <EE89BB558AA8204D866D9156C438E65B@tahoe.netapp.com>
+In-Reply-To: <1330363627.9942.16.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDEyLTAyLTI3IGF0IDIwOjU1ICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
-cm90ZToNCj4gMjcuMDIuMjAxMiAyMDoyMSwgTXlrbGVidXN0LCBUcm9uZCDQv9C40YjQtdGCOg0K
-PiA+IE9uIE1vbiwgMjAxMi0wMi0yNyBhdCAxOTo1MCArMDQwMCwgU3RhbmlzbGF2IEtpbnNidXJz
-a3kgd3JvdGU6DQo+ID4+IExvY2tkZXAgaXMgc2FkIG90aGVyd2lzZSwgYmVjYXVzZSBpbm9kZSBt
-dXRleCBpcyB0YWtlbiBvbiBQaXBlRlMgZGVudHJ5DQo+ID4+IGNyZWF0aW9uLCB3aGljaCBjYW4g
-YmUgY2FsbGVkIG9uIG1vdW50IG5vdGlmaWNhdGlvbiwgd2hlcmUgdGhpcyBwZXItbmV0IGNsaWVu
-dA0KPiA+PiBsb2NrIGlzIHRha2VuIG9uIGNsaWVudHMgbGlzdCB3YWxrLg0KPiA+Pg0KPiA+PiBT
-aWduZWQtb2ZmLWJ5OiBTdGFuaXNsYXYgS2luc2J1cnNreTxza2luc2J1cnNreUBwYXJhbGxlbHMu
-Y29tPg0KPiA+Pg0KPiA+PiAtLS0NCj4gPj4gICBuZXQvc3VucnBjL2NsbnQuYyB8ICAgMTAgKysr
-KysrKy0tLQ0KPiA+PiAgIDEgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCAzIGRlbGV0
-aW9ucygtKQ0KPiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvbmV0L3N1bnJwYy9jbG50LmMgYi9uZXQv
-c3VucnBjL2NsbnQuYw0KPiA+PiBpbmRleCBiYjdlZDJmMy4uZGRiNTc0MSAxMDA2NDQNCj4gPj4g
-LS0tIGEvbmV0L3N1bnJwYy9jbG50LmMNCj4gPj4gKysrIGIvbmV0L3N1bnJwYy9jbG50LmMNCj4g
-Pj4gQEAgLTg0LDcgKzg0LDcgQEAgc3RhdGljIHZvaWQgcnBjX3JlZ2lzdGVyX2NsaWVudChzdHJ1
-Y3QgcnBjX2NsbnQgKmNsbnQpDQo+ID4+ICAgCXN0cnVjdCBzdW5ycGNfbmV0ICpzbiA9IG5ldF9n
-ZW5lcmljKGNsbnQtPmNsX3hwcnQtPnhwcnRfbmV0LCBzdW5ycGNfbmV0X2lkKTsNCj4gPj4NCj4g
-Pj4gICAJc3Bpbl9sb2NrKCZzbi0+cnBjX2NsaWVudF9sb2NrKTsNCj4gPj4gLQlsaXN0X2FkZCgm
-Y2xudC0+Y2xfY2xpZW50cywmc24tPmFsbF9jbGllbnRzKTsNCj4gPj4gKwlsaXN0X2FkZF90YWls
-KCZjbG50LT5jbF9jbGllbnRzLCZzbi0+YWxsX2NsaWVudHMpOw0KPiA+PiAgIAlzcGluX3VubG9j
-aygmc24tPnJwY19jbGllbnRfbG9jayk7DQo+ID4+ICAgfQ0KPiA+Pg0KPiA+PiBAQCAtMjA4LDE1
-ICsyMDgsMTkgQEAgc3RhdGljIGludCBycGNfcGlwZWZzX2V2ZW50KHN0cnVjdCBub3RpZmllcl9i
-bG9jayAqbmIsIHVuc2lnbmVkIGxvbmcgZXZlbnQsDQo+ID4+ICAgCQkJICAgIHZvaWQgKnB0cikN
-Cj4gPj4gICB7DQo+ID4+ICAgCXN0cnVjdCBzdXBlcl9ibG9jayAqc2IgPSBwdHI7DQo+ID4+IC0J
-c3RydWN0IHJwY19jbG50ICpjbG50Ow0KPiA+PiArCXN0cnVjdCBycGNfY2xudCAqY2xudCwgKnRt
-cDsNCj4gPj4gICAJaW50IGVycm9yID0gMDsNCj4gPj4gICAJc3RydWN0IHN1bnJwY19uZXQgKnNu
-ID0gbmV0X2dlbmVyaWMoc2ItPnNfZnNfaW5mbywgc3VucnBjX25ldF9pZCk7DQo+ID4+DQo+ID4+
-ICAgCXNwaW5fbG9jaygmc24tPnJwY19jbGllbnRfbG9jayk7DQo+ID4+IC0JbGlzdF9mb3JfZWFj
-aF9lbnRyeShjbG50LCZzbi0+YWxsX2NsaWVudHMsIGNsX2NsaWVudHMpIHsNCj4gPj4gKwlsaXN0
-X2Zvcl9lYWNoX2VudHJ5X3NhZmUoY2xudCwgdG1wLCZzbi0+YWxsX2NsaWVudHMsIGNsX2NsaWVu
-dHMpIHsNCj4gPj4gKwkJYXRvbWljX2luYygmY2xudC0+Y2xfY291bnQpOw0KPiA+PiArCQlzcGlu
-X3VubG9jaygmc24tPnJwY19jbGllbnRfbG9jayk7DQo+ID4+ICAgCQllcnJvciA9IF9fcnBjX3Bp
-cGVmc19ldmVudChjbG50LCBldmVudCwgc2IpOw0KPiA+PiArCQlycGNfcmVsZWFzZV9jbGllbnQo
-Y2xudCk7DQo+ID4+ICAgCQlpZiAoZXJyb3IpDQo+ID4+ICAgCQkJYnJlYWs7DQo+ID4+ICsJCXNw
-aW5fbG9jaygmc24tPnJwY19jbGllbnRfbG9jayk7DQo+ID4+ICAgCX0NCj4gPj4gICAJc3Bpbl91
-bmxvY2soJnNuLT5ycGNfY2xpZW50X2xvY2spOw0KPiA+PiAgIAlyZXR1cm4gZXJyb3I7DQo+ID4+
-DQo+ID4NCj4gPiBUaGlzIHdvbid0IGJlIHNhZmUuIE5vdGhpbmcgZ3VhcmFudGVlcyB0aGF0ICd0
-bXAnIHJlbWFpbnMgdmFsaWQgYWZ0ZXINCj4gPiB5b3UgZHJvcCB0aGUgc3Bpbl9sb2NrLg0KPiA+
-DQo+ID4gSSB0aGluayB5b3UgcmF0aGVyIG5lZWQgdG8gYWRkIGEgY2hlY2sgZm9yIHdoZXRoZXIg
-Y2xudC0+Y2xfZGVudHJ5IGlzIGluDQo+ID4gdGhlIHJpZ2h0IHN0YXRlIChOVUxMIGlmIFJQQ19Q
-SVBFRlNfVU1PVU5UIG9yIG5vbi1OVUxMIGlmDQo+ID4gUlBDX1BJUEVGU19NT1VOVCkgYmVmb3Jl
-IGRlY2lkaW5nIHdoZXRoZXIgb3Igbm90IHRvIGF0b21pY19pbmMoKSBhbmQNCj4gPiBkcm9wIHRo
-ZSBsb2NrLCBzbyB0aGF0IHlvdSBjYW4gcmVzdGFydCB0aGUgbG9vcCBhZnRlciBjYWxsaW5nDQo+
-ID4gX19ycGNfcGlwZWZzX2V2ZW50KCkuDQo+ID4NCj4gDQo+IEdtbW0uDQo+IFBsZWFzZSwgY29y
-cmVjdCBtZSwgaWYgSSdtIHdyb25nLCB0aGF0IHlvdSBhcmUgcHJvcG9zaW5nIHNvbWV0aGluZyBs
-aWtlIHRoaXM6DQo+IA0KPiAgICAJc3Bpbl9sb2NrKCZzbi0+cnBjX2NsaWVudF9sb2NrKTsNCj4g
-YWdhaW46DQo+IAlsaXN0X2Zvcl9lYWNoX2VudHJ5KGNsbnQsJnNuLT5hbGxfY2xpZW50cywgY2xf
-Y2xpZW50cykgew0KPiAJCWlmICgoZXZlbnQgPT0gUlBDX1BJUEVGU19NT1VOVCkgJiYgY2xudC0+
-Y2xfZGVudHJ5KSB8fA0KPiAJCSAgICAoZXZlbnQgPT0gUlBDX1BJUEVGU19VTU9VTlQpICYmICFj
-bG50LT5jbF9kZW50cnkpKQ0KPiAJCQljb250aW51ZTsNCj4gCQlhdG9taWNfaW5jKCZjbG50LT5j
-bF9jb3VudCk7DQo+IAkJc3Bpbl91bmxvY2soJnNuLT5ycGNfY2xpZW50X2xvY2spOw0KPiAgICAg
-CQllcnJvciA9IF9fcnBjX3BpcGVmc19ldmVudChjbG50LCBldmVudCwgc2IpOw0KPiAJCXJwY19y
-ZWxlYXNlX2NsaWVudChjbG50KTsNCj4gCQlzcGluX2xvY2soJnNuLT5ycGNfY2xpZW50X2xvY2sp
-Ow0KPiAgICAgCQlpZiAoZXJyb3IpDQo+ICAgICAJCQlicmVhazsNCj4gCQlnb3RvIGFnYWluOw0K
-PiAgICAgCX0NCj4gICAgIAlzcGluX3VubG9jaygmc24tPnJwY19jbGllbnRfbG9jayk7DQoNClNv
-bWV0aGluZyBhbG9uZyB0aG9zZSBsaW5lcywgeWVzLi4uIEFsdGVybmF0aXZlbHksIHlvdSBjb3Vs
-ZCBkbyBhcyBEYXZpZA0KcHJvcG9zZXMsIGFuZCBncmFiIGEgcmVmZXJlbmNlIHRvIHRoZSBuZXh0
-IHJwY19jbGllbnQgYmVmb3JlIGNhbGxpbmcNCnJwY19yZWxlYXNlX2NsaWVudC4gRWl0aGVyIHdv
-cmtzIGZvciBtZS4uLg0KDQotLSANClRyb25kIE15a2xlYnVzdA0KTGludXggTkZTIGNsaWVudCBt
-YWludGFpbmVyDQoNCk5ldEFwcA0KVHJvbmQuTXlrbGVidXN0QG5ldGFwcC5jb20NCnd3dy5uZXRh
-cHAuY29tDQoNCg==
+Commas are not generally used at locations where
+statement termination semicolons are used.
+
+Realign each field set at appropriate indentation.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index da2486e..91f99e4 100644
+@@ -679,10 +679,10 @@ void gigaset_if_initdriver(struct gigaset_driver *drv, const char *procname,
+ 	if (tty == NULL)
+ 		goto enomem;
+ 
+-	tty->magic =		TTY_DRIVER_MAGIC,
+-		tty->type =		TTY_DRIVER_TYPE_SERIAL,
+-		tty->subtype =		SERIAL_TYPE_NORMAL,
+-		tty->flags =		TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
++	tty->magic =		TTY_DRIVER_MAGIC;
++	tty->type =		TTY_DRIVER_TYPE_SERIAL;
++	tty->subtype =		SERIAL_TYPE_NORMAL;
++	tty->flags =		TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
+ 
+ 	tty->driver_name =	procname;
+ 	tty->name =		devname;
