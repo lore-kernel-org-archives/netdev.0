@@ -1,42 +1,456 @@
 From: Andrei Warkentin <andrey.warkentin@gmail.com>
-Subject: NetKGDB v3
-Date: Sun, 26 Feb 2012 22:30:08 -0500
-Message-ID: <1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
+Subject: [PATCHv3 3/3] KGDB: Allow registering multiple I/O ops.
+Date: Sun, 26 Feb 2012 22:30:11 -0500
+Message-ID: <1330313411-845-4-git-send-email-andrey.warkentin@gmail.com>
 References: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
+ <1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
+Cc: Andrei Warkentin <andrey.warkentin@gmail.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f53.google.com ([209.85.216.53]:42463 "EHLO
+	mail-qw0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837Ab2B0Eab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Feb 2012 23:30:31 -0500
+In-Reply-To: <1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This allows multiple I/O ops, which is useful, if you want
+to be able to support debugging say both via console and
+via network (or 1394, dbgp, etc.)
 
-This is v3 of the tentative patch set I am sending for feedback.
-It implements a network I/O backend for KDB/KGDB, the kernel
-debugger.
+Tested with kgdboc and netkgdb.
 
-NetKGDB is very similar to netconsole, on which it is based, but with
-a crucial difference - netkgdb is designed to accept connections
-from any hosts, i.e. it is not necessary to specify these ahead
-of time. This makes it that much more useful in a "this host crashed
-and a I want a developer to take a look at it" scenario, common to
-large scale test/QA farms and automated testing harnesses. This
-involves a minor change to the netpoll rx_hook, namely, to provide
-source connection information.
+Signed-off-by: Andrei Warkentin <andrey.warkentin@gmail.com>
+---
+ drivers/usb/early/ehci-dbgp.c |    4 +-
+ include/linux/kgdb.h          |    6 ++-
+ kernel/debug/debug_core.c     |  130 +++++++++++++++++++++++++++--------------
+ kernel/debug/gdbstub.c        |   43 ++++++-------
+ kernel/debug/kdb/kdb_io.c     |   26 ++++-----
+ 5 files changed, 125 insertions(+), 84 deletions(-)
 
-This differs from v2 in adding the flush() callback in kgdb_io,
-which would be necessary for correct behavior in gdbstub mode,
-and enhances the debug core to support registering multiple
-I/O ops. The later allows both kgdboc, netkgdb and any other
-providers to coexist peacefully, and allow debugging both
-interactively and via the network.
-
-V2 cleaned up a lot of the strange cruft in v1 surrounding
-dealing with netdev notifiers.
-
-[PATCHv3 1/3] NETPOLL: Extend rx_hook support.
-[PATCHv3 2/3] NETKGDB: Ethernet/UDP/IP KDB transport.
-[PATCHv3 3/3] KGDB: Allow registering multiple I/O ops.
-
-Thanks,
-A
+diff --git a/drivers/usb/early/ehci-dbgp.c b/drivers/usb/early/ehci-dbgp.c
+index 1fc8f12..e5db14a 100644
+--- a/drivers/usb/early/ehci-dbgp.c
++++ b/drivers/usb/early/ehci-dbgp.c
+@@ -97,7 +97,8 @@ static inline u32 dbgp_len_update(u32 x, u32 len)
+ 
+ #ifdef CONFIG_KGDB
+ static struct kgdb_io kgdbdbgp_io_ops;
+-#define dbgp_kgdb_mode (dbg_io_ops == &kgdbdbgp_io_ops)
++static int kgdb_registered = 0;
++#define dbgp_kgdb_mode (kgdb_registered)
+ #else
+ #define dbgp_kgdb_mode (0)
+ #endif
+@@ -1051,6 +1052,7 @@ static int __init kgdbdbgp_parse_config(char *str)
+ 		kgdbdbgp_wait_time = simple_strtoul(ptr, &ptr, 10);
+ 	}
+ 	kgdb_register_io_module(&kgdbdbgp_io_ops);
++	kgdb_registered = 1;
+ 	kgdbdbgp_io_ops.is_console = early_dbgp_console.index != -1;
+ 
+ 	return 0;
+diff --git a/include/linux/kgdb.h b/include/linux/kgdb.h
+index fa39183..c92cd30 100644
+--- a/include/linux/kgdb.h
++++ b/include/linux/kgdb.h
+@@ -17,6 +17,7 @@
+ #include <linux/linkage.h>
+ #include <linux/init.h>
+ #include <linux/atomic.h>
++#include <linux/list.h>
+ #ifdef CONFIG_HAVE_ARCH_KGDB
+ #include <asm/kgdb.h>
+ #endif
+@@ -276,6 +277,7 @@ struct kgdb_io {
+ 	void			(*pre_exception) (void);
+ 	void			(*post_exception) (void);
+ 	int			is_console;
++	struct list_head	list;
+ };
+ 
+ extern struct kgdb_arch		arch_kgdb_ops;
+@@ -284,7 +286,9 @@ extern unsigned long __weak kgdb_arch_pc(int exception, struct pt_regs *regs);
+ 
+ extern int kgdb_register_io_module(struct kgdb_io *local_kgdb_io_ops);
+ extern void kgdb_unregister_io_module(struct kgdb_io *local_kgdb_io_ops);
+-extern struct kgdb_io *dbg_io_ops;
++extern int dbg_io_get_char(void);
++extern void dbg_io_put_char(u8, bool);
++extern void dbg_io_flush(void);
+ 
+ extern int kgdb_hex2long(char **ptr, unsigned long *long_val);
+ extern char *kgdb_mem2hex(char *mem, char *buf, int count);
+diff --git a/kernel/debug/debug_core.c b/kernel/debug/debug_core.c
+index 0d7c087..bd29f92 100644
+--- a/kernel/debug/debug_core.c
++++ b/kernel/debug/debug_core.c
+@@ -72,8 +72,8 @@ int			kgdb_io_module_registered;
+ /* Guard for recursive entry */
+ static int			exception_level;
+ 
+-struct kgdb_io		*dbg_io_ops;
+-static DEFINE_SPINLOCK(kgdb_registration_lock);
++static DEFINE_MUTEX(kgdb_registration_lock);
++static LIST_HEAD(dbg_io_list);
+ 
+ /* kgdb console driver is loaded */
+ static int kgdb_con_registered;
+@@ -384,7 +384,7 @@ setundefined:
+  */
+ static int kgdb_io_ready(int print_wait)
+ {
+-	if (!dbg_io_ops)
++	if (list_empty(&dbg_io_list))
+ 		return 0;
+ 	if (kgdb_connected)
+ 		return 1;
+@@ -455,6 +455,26 @@ static void dbg_touch_watchdogs(void)
+ 	rcu_cpu_stall_reset();
+ }
+ 
++void dbg_io_run_pre(void)
++{
++	struct kgdb_io *kio;
++
++	list_for_each_entry(kio, &dbg_io_list, list) {
++		if (kio->pre_exception)
++			kio->pre_exception();
++	}
++}
++
++void dbg_io_run_post(void)
++{
++	struct kgdb_io *kio;
++
++	list_for_each_entry_reverse(kio, &dbg_io_list, list) {
++		if (kio->post_exception)
++			kio->post_exception();
++	}
++}
++
+ static int kgdb_cpu_enter(struct kgdb_state *ks, struct pt_regs *regs,
+ 		int exception_state)
+ {
+@@ -565,8 +585,7 @@ return_normal:
+ 		goto kgdb_restore;
+ 
+ 	/* Call the I/O driver's pre_exception routine */
+-	if (dbg_io_ops->pre_exception)
+-		dbg_io_ops->pre_exception();
++	dbg_io_run_pre();
+ 
+ 	/*
+ 	 * Get the passive CPU lock which will hold all the non-primary
+@@ -625,8 +644,7 @@ cpu_master_loop:
+ 	}
+ 
+ 	/* Call the I/O driver's post_exception routine */
+-	if (dbg_io_ops->post_exception)
+-		dbg_io_ops->post_exception();
++	dbg_io_run_post();
+ 
+ 	if (!kgdb_single_step) {
+ 		raw_spin_unlock(&dbg_slave_lock);
+@@ -734,7 +752,7 @@ static struct console kgdbcons = {
+ #ifdef CONFIG_MAGIC_SYSRQ
+ static void sysrq_handle_dbg(int key)
+ {
+-	if (!dbg_io_ops) {
++	if (list_empty(&dbg_io_list)) {
+ 		printk(KERN_CRIT "ERROR: No KGDB I/O module available\n");
+ 		return;
+ 	}
+@@ -867,38 +885,35 @@ static void kgdb_initial_breakpoint(void)
+ int kgdb_register_io_module(struct kgdb_io *new_dbg_io_ops)
+ {
+ 	int err;
++	int first;
+ 
+-	spin_lock(&kgdb_registration_lock);
+-
+-	if (dbg_io_ops) {
+-		spin_unlock(&kgdb_registration_lock);
+-
+-		printk(KERN_ERR "kgdb: Another I/O driver is already "
+-				"registered with KGDB.\n");
+-		return -EBUSY;
+-	}
++	BUG_ON(!new_dbg_io_ops->read_char);
++	BUG_ON(!new_dbg_io_ops->write_char);
++	mutex_lock(&kgdb_registration_lock);
++	first = list_empty(&dbg_io_list);
+ 
+ 	if (new_dbg_io_ops->init) {
+ 		err = new_dbg_io_ops->init();
+ 		if (err) {
+-			spin_unlock(&kgdb_registration_lock);
++			mutex_unlock(&kgdb_registration_lock);
+ 			return err;
+ 		}
+ 	}
+ 
+-	dbg_io_ops = new_dbg_io_ops;
++	list_add(&new_dbg_io_ops->list, &dbg_io_list);
++	if (first) {
++		/* Arm KGDB now. */
++		kgdb_register_callbacks();
+ 
+-	spin_unlock(&kgdb_registration_lock);
++		if (kgdb_break_asap)
++			kgdb_initial_breakpoint();
++	}
++
++	mutex_unlock(&kgdb_registration_lock);
+ 
+ 	printk(KERN_INFO "kgdb: Registered I/O driver %s.\n",
+ 	       new_dbg_io_ops->name);
+ 
+-	/* Arm KGDB now. */
+-	kgdb_register_callbacks();
+-
+-	if (kgdb_break_asap)
+-		kgdb_initial_breakpoint();
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(kgdb_register_io_module);
+@@ -913,37 +928,64 @@ void kgdb_unregister_io_module(struct kgdb_io *old_dbg_io_ops)
+ {
+ 	BUG_ON(kgdb_connected);
+ 
+-	/*
+-	 * KGDB is no longer able to communicate out, so
+-	 * unregister our callbacks and reset state.
+-	 */
+-	kgdb_unregister_callbacks();
++	mutex_lock(&kgdb_registration_lock);
++	if (list_is_singular(&dbg_io_list)) {
++		/*
++		 * KGDB is no longer able to communicate out, so
++		 * unregister our callbacks and reset state.
++		 */
++		kgdb_unregister_callbacks();
++		printk(KERN_INFO
++		       "kgdb: debugger disabled.\n");
++	}
+ 
+-	spin_lock(&kgdb_registration_lock);
++	list_del(&old_dbg_io_ops->list);
++	mutex_unlock(&kgdb_registration_lock);
+ 
+-	WARN_ON_ONCE(dbg_io_ops != old_dbg_io_ops);
+-	dbg_io_ops = NULL;
++	printk(KERN_INFO
++	       "kgdb: Unregistered I/O driver %s.\n",
++	       old_dbg_io_ops->name);
+ 
+-	spin_unlock(&kgdb_registration_lock);
+ 
+-	printk(KERN_INFO
+-		"kgdb: Unregistered I/O driver %s, debugger disabled.\n",
+-		old_dbg_io_ops->name);
+ }
+ EXPORT_SYMBOL_GPL(kgdb_unregister_io_module);
+ 
+ int dbg_io_get_char(void)
+ {
+-	int ret = dbg_io_ops->read_char();
+-	if (ret == NO_POLL_CHAR)
+-		return -1;
+-	if (!dbg_kdb_mode)
++	struct kgdb_io *kio;
++	int ret = NO_POLL_CHAR;
++
++	list_for_each_entry(kio, &dbg_io_list, list) {
++		ret = kio->read_char();
++		if (ret == NO_POLL_CHAR)
++			continue;
++		if (!dbg_kdb_mode)
++			return ret;
++		if (ret == 127)
++			return 8;
+ 		return ret;
+-	if (ret == 127)
+-		return 8;
++	}
+ 	return ret;
+ }
+ 
++void dbg_io_flush(void)
++{
++	struct kgdb_io *kio;
++
++	list_for_each_entry(kio, &dbg_io_list, list)
++		if (kio->flush)
++			kio->flush();
++}
++
++void dbg_io_put_char(u8 data, bool skip_con)
++{
++	struct kgdb_io *kio;
++
++	list_for_each_entry(kio, &dbg_io_list, list)
++		if (!kio->is_console || !skip_con)
++			kio->write_char(data);
++}
++
+ /**
+  * kgdb_breakpoint - generate breakpoint exception
+  *
+diff --git a/kernel/debug/gdbstub.c b/kernel/debug/gdbstub.c
+index c22d8c2..cf4fdfd 100644
+--- a/kernel/debug/gdbstub.c
++++ b/kernel/debug/gdbstub.c
+@@ -79,9 +79,9 @@ static int gdbstub_read_wait(void)
+ #else
+ static int gdbstub_read_wait(void)
+ {
+-	int ret = dbg_io_ops->read_char();
++	int ret = dbg_io_get_char();
+ 	while (ret == NO_POLL_CHAR)
+-		ret = dbg_io_ops->read_char();
++		ret = dbg_io_get_char();
+ 	return ret;
+ }
+ #endif
+@@ -125,12 +125,11 @@ static void get_packet(char *buffer)
+ 
+ 			if (checksum != xmitcsum)
+ 				/* failed checksum */
+-				dbg_io_ops->write_char('-');
++				dbg_io_put_char('-', false);
+ 			else
+ 				/* successful transfer */
+-				dbg_io_ops->write_char('+');
+-			if (dbg_io_ops->flush)
+-				dbg_io_ops->flush();
++				dbg_io_put_char('+', false);
++			dbg_io_flush();
+ 		}
+ 		buffer[count] = 0;
+ 	} while (checksum != xmitcsum);
+@@ -150,21 +149,20 @@ static void put_packet(char *buffer)
+ 	 * $<packet info>#<checksum>.
+ 	 */
+ 	while (1) {
+-		dbg_io_ops->write_char('$');
++		dbg_io_put_char('$', false);
+ 		checksum = 0;
+ 		count = 0;
+ 
+ 		while ((ch = buffer[count])) {
+-			dbg_io_ops->write_char(ch);
++			dbg_io_put_char(ch, false);
+ 			checksum += ch;
+ 			count++;
+ 		}
+ 
+-		dbg_io_ops->write_char('#');
+-		dbg_io_ops->write_char(hex_asc_hi(checksum));
+-		dbg_io_ops->write_char(hex_asc_lo(checksum));
+-		if (dbg_io_ops->flush)
+-			dbg_io_ops->flush();
++		dbg_io_put_char('#', false);
++		dbg_io_put_char(hex_asc_hi(checksum), false);
++		dbg_io_put_char(hex_asc_lo(checksum), false);
++		dbg_io_flush();
+ 
+ 		/* Now see what we get in reply. */
+ 		ch = gdbstub_read_wait();
+@@ -183,9 +181,8 @@ static void put_packet(char *buffer)
+ 		 * packet.
+ 		 */
+ 		if (ch == '$') {
+-			dbg_io_ops->write_char('-');
+-			if (dbg_io_ops->flush)
+-				dbg_io_ops->flush();
++			dbg_io_put_char('-', false);
++			dbg_io_flush();
+ 			return;
+ 		}
+ 	}
+@@ -1097,7 +1094,7 @@ int gdbstub_state(struct kgdb_state *ks, char *cmd)
+ 		gdbstub_prev_in_buf_pos = 0;
+ 		return 0;
+ 	}
+-	dbg_io_ops->write_char('+');
++	dbg_io_put_char('+', false);
+ 	put_packet(remcom_out_buffer);
+ 	return 0;
+ }
+@@ -1115,19 +1112,19 @@ void gdbstub_exit(int status)
+ 	buffer[1] = hex_asc_hi(status);
+ 	buffer[2] = hex_asc_lo(status);
+ 
+-	dbg_io_ops->write_char('$');
++	dbg_io_put_char('$', false);
+ 	checksum = 0;
+ 
+ 	for (loop = 0; loop < 3; loop++) {
+ 		ch = buffer[loop];
+ 		checksum += ch;
+-		dbg_io_ops->write_char(ch);
++		dbg_io_put_char(ch, false);
+ 	}
+ 
+-	dbg_io_ops->write_char('#');
+-	dbg_io_ops->write_char(hex_asc_hi(checksum));
+-	dbg_io_ops->write_char(hex_asc_lo(checksum));
++	dbg_io_put_char('#', false);
++	dbg_io_put_char(hex_asc_hi(checksum), false);
++	dbg_io_put_char(hex_asc_lo(checksum), false);
+ 
+ 	/* make sure the output is flushed, lest the bootloader clobber it */
+-	dbg_io_ops->flush();
++	dbg_io_flush();
+ }
+diff --git a/kernel/debug/kdb/kdb_io.c b/kernel/debug/kdb/kdb_io.c
+index 5eb7e23..35ef3cb 100644
+--- a/kernel/debug/kdb/kdb_io.c
++++ b/kernel/debug/kdb/kdb_io.c
+@@ -689,14 +689,11 @@ kdb_printit:
+ 	if (!dbg_kdb_mode && kgdb_connected) {
+ 		gdbstub_msg_write(kdb_buffer, retlen);
+ 	} else {
+-		if (!dbg_io_ops->is_console) {
+-			len = strlen(kdb_buffer);
+-			cp = kdb_buffer;
+-			while (len--) {
+-				dbg_io_ops->write_char(*cp);
+-				cp++;
+-			}
+-		}
++		len = strlen(kdb_buffer);
++		cp = kdb_buffer;
++		while (len--)
++			dbg_io_put_char(*cp++, true);
++
+ 		while (c) {
+ 			c->write(c, kdb_buffer, retlen);
+ 			touch_nmi_watchdog();
+@@ -743,14 +740,13 @@ kdb_printit:
+ 		kdb_input_flush();
+ 		c = console_drivers;
+ 
+-		if (!dbg_io_ops->is_console) {
+-			len = strlen(moreprompt);
+-			cp = moreprompt;
+-			while (len--) {
+-				dbg_io_ops->write_char(*cp);
+-				cp++;
+-			}
++		len = strlen(moreprompt);
++		cp = moreprompt;
++		while (len--) {
++			dbg_io_put_char(*cp, true);
++			cp++;
+ 		}
++
+ 		while (c) {
+ 			c->write(c, moreprompt, strlen(moreprompt));
+ 			touch_nmi_watchdog();
+-- 
+1.7.8.3
