@@ -1,175 +1,139 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3] lpc32xx: Added ethernet driver
-Date: Mon, 27 Feb 2012 19:49:02 +0000
-Message-ID: <201202271949.03144.arnd@arndb.de>
-References: <1330364539-23152-1-git-send-email-stigge@antcom.de>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
+Date: Mon, 27 Feb 2012 13:54:00 -0600
+Message-ID: <CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+	<1330140111-17201-6-git-send-email-wad@chromium.org>
+	<20120227170922.GA10608@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	baruch@tkos.co.il, joe@perches.com
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330364539-23152-1-git-send-email-stigge@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:34983 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754218Ab2B0TyD convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Feb 2012 14:54:03 -0500
+Received: by lahj13 with SMTP id j13so1255744lah.19
+        for <netdev@vger.kernel.org>; Mon, 27 Feb 2012 11:54:01 -0800 (PST)
+In-Reply-To: <20120227170922.GA10608@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 27 February 2012, Roland Stigge wrote:
-> This patch adds an ethernet driver for the LPC32xx ARM SoC.
-> 
-> Signed-off-by: Roland Stigge <stigge@antcom.de>
-> 
-> ---
->  drivers/net/ethernet/Kconfig       |    1 
->  drivers/net/ethernet/Makefile      |    1 
->  drivers/net/ethernet/nxp/Kconfig   |    8 
->  drivers/net/ethernet/nxp/Makefile  |    1 
->  drivers/net/ethernet/nxp/lpc_eth.c | 1311 +++++++++++++++++++++++++++++++++++++
->  drivers/net/ethernet/nxp/lpc_eth.h |  336 +++++++++
+On Mon, Feb 27, 2012 at 11:09 AM, Oleg Nesterov <oleg@redhat.com> wrote=
+:
+> Hello Will.
+>
+> I missed the previous discussions, and I don't think I can read
+> all these emails now. So I apologize in advance if this was already
+> discussed.
 
-Just merge the header into the implementation file, it's not used an
-an interface between two .c files.
+No worries - any review is appreciated :)
 
-> --- linux-2.6.orig/drivers/net/ethernet/Makefile
-> +++ linux-2.6/drivers/net/ethernet/Makefile
-> @@ -47,6 +47,7 @@ obj-$(CONFIG_NET_VENDOR_NATSEMI) += nats
->  obj-$(CONFIG_NET_NETX) += netx-eth.o
->  obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
->  obj-$(CONFIG_NET_VENDOR_NVIDIA) += nvidia/
-> +obj-$(CONFIG_LPC_ENET) += nxp/
->  obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
->  obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
->  obj-$(CONFIG_ETHOC) += ethoc.o
+> On 02/24, Will Drewry wrote:
+>>
+>> =A0struct seccomp {
+>> =A0 =A0 =A0 int mode;
+>> + =A0 =A0 struct seccomp_filter *filter;
+>> =A0};
+>
+> Minor nit, it seems that the new member can be "ifdef CONFIG_SECCOMP_=
+=46ILTER"
 
-Are you sure that npx is actually the origin of this controller?
-If they only licensed the IP themselves, it would be better to list
-it under the name of the actual creator so that the next person
-who has the same core can find it.
+Good call - I'll add that.
 
-> +static irqreturn_t __lpc_eth_interrupt(int irq, void *dev_id)
-> +{
-> +	struct net_device *ndev = dev_id;
-> +	struct netdata_local *pldat = netdev_priv(ndev);
-> +	u32 tmp;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&pldat->lock, flags);
-> +
-> +	while ((tmp = readl(LPC_ENET_INTSTATUS(pldat->net_base)))) {
-> +		/* Clear interrupts */
-> +		writel(tmp, LPC_ENET_INTCLEAR(pldat->net_base));
-> +
-> +		/* Transmit complete? */
-> +		if (tmp & (LPC_MACINT_TXUNDERRUNINTEN |
-> +				LPC_MACINT_TXERRORINTEN |
-> +				LPC_MACINT_TXFINISHEDINTEN |
-> +				LPC_MACINT_TXDONEINTEN))
-> +			__lpc_handle_xmit(ndev);
-> +
-> +		/* Receive buffer available */
-> +		if (tmp & (LPC_MACINT_RXOVERRUNINTEN |
-> +				LPC_MACINT_RXERRORONINT |
-> +				LPC_MACINT_RXFINISHEDINTEN |
-> +				LPC_MACINT_RXDONEINTEN))
-> +			__lpc_handle_recv(ndev);
-> +	}
-> +
-> +	spin_unlock_irqrestore(&pldat->lock, flags);
-> +
-> +	return IRQ_HANDLED;
-> +}
+>> +static long seccomp_attach_filter(struct sock_fprog *fprog)
+>> +{
+>> + =A0 =A0 struct seccomp_filter *filter;
+>> + =A0 =A0 unsigned long fp_size =3D fprog->len * sizeof(struct sock_=
+filter);
+>> + =A0 =A0 long ret;
+>> +
+>> + =A0 =A0 if (fprog->len =3D=3D 0 || fprog->len > BPF_MAXINSNS)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+>
+> OK, this limits the memory PR_SET_SECCOMP can use.
+>
+> But,
+>
+>> + =A0 =A0 /*
+>> + =A0 =A0 =A0* If there is an existing filter, make it the prev and =
+don't drop its
+>> + =A0 =A0 =A0* task reference.
+>> + =A0 =A0 =A0*/
+>> + =A0 =A0 filter->prev =3D current->seccomp.filter;
+>> + =A0 =A0 current->seccomp.filter =3D filter;
+>> + =A0 =A0 return 0;
+>
+> this doesn't limit the number of filters, looks like a DoS.
+>
+> What if the application simply does prctl(PR_SET_SECCOMP, dummy_filte=
+r)
+> in an endless loop?
 
-Why do you handle receive and transmit directly in the irq handler,
-rather than using napi?
+It consumes a massive amount of kernel memory and, maybe, the OOM
+killer gives it a boot :)
 
-> +	/* Save resources */
-> +	pldat->net_region_start = res->start;
-> +	pldat->net_region_size = res->end - res->start + 1;
+I wasn't sure what the normal convention was for avoiding memory
+consumption by user processes. Should I just add a sysctl and a
+per-task counter for the max number of filters?
 
-This does not seem to be needed really. It's only printed in
-debug output and copied into ndev->base_addr, which is also
-unused.
+I'm fine doing whatever makes sense here.
 
-> +	/* Save board specific configuration */
-> +	pldat->ncfg = (struct lpc_net_cfg *)pdev->dev.platform_data;
-> +	if (pldat->ncfg == NULL) {
-> +		dev_err(&pdev->dev, "error requesting interrupt.\n");
-> +		pldat->ncfg = &__lpc_local_net_config;
-> +	}
+>
+>
+>> +static struct seccomp_filter *get_seccomp_filter(struct seccomp_fil=
+ter *orig)
+>> +{
+>> + =A0 =A0 if (!orig)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+>> + =A0 =A0 /* Reference count is bounded by the number of total proce=
+sses. */
+>> + =A0 =A0 atomic_inc(&orig->usage);
+>> + =A0 =A0 return orig;
+>> +}
+>> ...
+>> +void copy_seccomp(struct seccomp *child, const struct seccomp *pare=
+nt)
+>> +{
+>> + =A0 =A0 /* Other fields are handled by dup_task_struct. */
+>> + =A0 =A0 child->filter =3D get_seccomp_filter(parent->filter);
+>> +}
+>
+> This is purely cosmetic, but imho looks a bit confusing.
+>
+> We do not copy seccomp->mode and this is correct, it was already copi=
+ed
+> implicitely. So why do we copy ->filter? This is not "symmetrical", a=
+faics
+> you can simply do
+>
+> =A0 =A0 =A0 =A0void copy_seccomp(struct seccomp *child)
+> =A0 =A0 =A0 =A0{
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (child->filter)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0atomic_inc(child->filt=
+er->usage);
+>
+> But once again, this is cosmetic, feel free to ignore.
 
-I would recommend dropping all the platform_data logic from this driver.
-The board support that you added doesn't actually set it and once you
-move to device tree probing, it will be obsolete anyway.
+Right now get_seccomp_filter does the NULL check, so really this could
+be reduced to adding an external get_seccomp_filter(p->seccomp.filter)
+in place of copy_seccomp().
 
-> +	if (use_iram_for_net()) {
-> +		dma_handle = (dma_addr_t)LPC32XX_IRAM_BASE;
-> +		if (pldat->dma_buff_size <= lpc32xx_return_iram_size())
-> +			pldat->dma_buff_base_v =
-> +				(u32)io_p2v(LPC32XX_IRAM_BASE);
-> +		else
-> +			netdev_err(ndev,
-> +				"IRAM not big enough for net buffers, using SDRAM instead.\n");
-> +	}
+As to removing the extra arg, that should be fine since the parent
+can't drop its refcount when copy_seccomp is called.  At the very
+least, I can make that change so it reads more cleanly.
 
-Can you put this into another resource? It doesn't seem appropriate
-to use constants from a platform specific header file here.
-
-> +	if (pldat->dma_buff_base_v == 0) {
-> +		pldat->dma_buff_size += 4096; /* Allows room for alignment */
-> +
-> +		/* Align on the next highest page entry size */
-> +		pldat->dma_buff_size &= 0Xfffff000;
-> +		pldat->dma_buff_size += 0X00001000;
-
-PAGE_ALIGN()
-
-> +		/* Allocate a chunk of memory for the DMA ethernet buffers
-> +		   and descriptors */
-> +		pldat->dma_buff_base_v =
-> +			(u32)dma_alloc_coherent(&pldat->pdev->dev,
-> +						pldat->dma_buff_size,
-> +						&dma_handle, GFP_KERNEL);
-> +
-> +		if (pldat->dma_buff_base_v == (u32)NULL) {
-> +			dev_err(&pdev->dev, "error getting DMA region.\n");
-> +			ret = -ENOMEM;
-> +			goto err_out_free_irq;
-> +		}
-> +	}
-> +	pldat->dma_buff_base_p = (u32)dma_handle;
-
-Please use correct types here and remove all the typecasts. Virtual
-addresses use pointers and dma addresses are dma_addr_t.
-
-> +static int lpc_net_drv_suspend(struct platform_device *pdev,
-> +	pm_message_t state)
-> +{
-> +}
-> +
-> +static int lpc_net_drv_resume(struct platform_device *pdev)
-> +{
-> +}
-
-Define these conditionally?
-
-> +static int __init lpc_net_init(void)
-> +{
-> +	return platform_driver_register(&lpc_net_driver);
-> +}
-> +
-> +static void __exit lpc_net_cleanup(void)
-> +{
-> +	platform_driver_unregister(&lpc_net_driver);
-> +}
-> +
-> +module_init(lpc_net_init);
-> +module_exit(lpc_net_cleanup);
-
-You can use module_platform_driver() now.
-
-	Arnd
+thanks!
+will
