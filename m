@@ -1,8 +1,8 @@
 From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 Subject: [PATCH 6/8] batman-adv: TT_CLIENT_PENDING is never
 	set in struct tt_global_entry
-Date: Tue, 28 Feb 2012 19:32:26 +0800
-Message-ID: <1330428748-23137-7-git-send-email-lindner_marek@yahoo.de>
+Date: Tue, 28 Feb 2012 19:38:33 +0800
+Message-ID: <1330429113-23409-1-git-send-email-lindner_marek@yahoo.de>
 References: <1330428748-23137-1-git-send-email-lindner_marek@yahoo.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
