@@ -1,49 +1,74 @@
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Tue, 28 Feb 2012 16:24:47 +0100
-Message-ID: <4F4CF1BF.7080503@collabora.co.uk>
-References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk> <20120224.153616.117399887784547022.davem@davemloft.net> <4F4B8C66.5060206@collabora.co.uk> <20120227.140535.1623396420455657443.davem@davemloft.net> <1330426059.2139.21.camel@megeve> <20120228142846.GD187520@jupiter.n2.diac24.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/4] net: ethtool: add the EEE support
+Date: Tue, 28 Feb 2012 15:45:00 +0000
+Message-ID: <1330443900.8460.158.camel@deadeye>
+References: <1330433084-18586-1-git-send-email-peppe.cavallaro@st.com>
+	 <1330433084-18586-3-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
-	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
-	eric.dumazet@gmail.com, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120228142846.GD187520@jupiter.n2.diac24.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:14139 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755386Ab2B1Pox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 10:44:53 -0500
+In-Reply-To: <1330433084-18586-3-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2012 03:28 PM, David Lamparter wrote:
-> On Tue, Feb 28, 2012 at 11:47:39AM +0100, Rodrigo Moya wrote:
->> > - slow readers: dropping packets vs blocking the sender. Although
->> >   datagrams are not reliable on IP, datagrams on Unix sockets are
->> never
->> >   lost. So if one receiver has its buffer full the sender is blocked
->> > instead of dropping packets. That way we guarantee a reliable
->> > communication channel.
+On Tue, 2012-02-28 at 13:44 +0100, Giuseppe CAVALLARO wrote:
+> This patch adds two new functions to detect if Energy-Efficient
+> Ethernet (EEE) is supported and the way to enable/disable it.
 > 
-> This sounds like a terribly nice way to f*ck the entire D-Bus system by
-> having one broken (or malicious) desktop application. What's the
-> intended way of coping with users that block the socket by not reading?
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  include/linux/ethtool.h |    7 +++++++
+>  net/core/ethtool.c      |   32 ++++++++++++++++++++++++++++++++
+>  2 files changed, 39 insertions(+), 0 deletions(-)
 > 
-> 
-> -David L.
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index da5b2de..fdea3c7 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -43,6 +43,7 @@ struct ethtool_cmd {
+>  	__u8	eth_tp_mdix;
+>  	__u8	reserved2;
+>  	__u32	lp_advertising;	/* Features the link partner advertises */
+> +	__u32	eee;		/* Energy-Efficient Etehrnet */
+>  	__u32	reserved[2];
+>  };
 
-The problem is that D-bus expects a reliable transport method (TCP or
-SOCK_STREAM Unix socks) but this is not the case with multicast Unix
-sockets. Since our implementation is for SOCK_SEQPACKET and SOCK_DGRAM
-socket types.
+You can't change the size of this structure.
 
-So, you have to either add another layer to the D-bus protocol to make
-it reliable (acks, retransmissions, flow control, etc) or avoid losing
-D-bus messages (by blocking the sender if one of the receivers has its
-buffer full).
+> @@ -874,6 +875,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+>   * 		   and flag of the device.
+>   * @get_dump_data: Get dump data.
+>   * @set_dump: Set dump specific flags to the device.
+> + * @get_eee: Get Energy-Efficient Ethernet (EEE) supported and status.
+> + * @set_eee: Set EEE status (enable/disable).
+>   *
+>   * All operations are optional (i.e. the function pointer may be set
+>   * to %NULL) and callers must take this into account.  Callers must
+> @@ -937,6 +940,8 @@ struct ethtool_ops {
+>  				 struct ethtool_dump *, void *);
+>  	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+>  
+> +	int	(*get_eee) (struct net_device *, struct ethtool_value *);
+> +	int	(*set_eee) (struct net_device *, struct ethtool_value *);
+[...]
 
-Regards,
-Javier
+Why are there new operations as well as a new field to ethtool_cmd?
+
+Is the value a boolean or a bitmask?
+
+Since EEE is an auto-negotiated feature, why aren't you defining flags
+for the supported/advertising/lp_advertising fields?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
