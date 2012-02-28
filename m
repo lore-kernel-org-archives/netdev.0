@@ -1,39 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ARM: LPC32xx: Ethernet driver
-Date: Tue, 28 Feb 2012 14:13:34 -0500 (EST)
-Message-ID: <20120228.141334.569125676685228205.davem@davemloft.net>
-References: <4F4CD1D8.8030102@antcom.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx4: prevent the device from being removed
+ concurrently
+Date: Tue, 28 Feb 2012 14:30:51 -0500 (EST)
+Message-ID: <20120228.143051.352474620462899753.davem@davemloft.net>
+References: <1330454176-17768-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, baruch@tkos.co.il, ian.campbell@citrix.com,
- netdev@vger.kernel.org, eilong@broadcom.com, kevin.wells@nxp.com,
- w.sang@pengutronix.de, jeffrey.t.kirsher@intel.com,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: stigge@antcom.de
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <4F4CD1D8.8030102@antcom.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org
+To: cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1330454176-17768-1-git-send-email-cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Stigge <stigge@antcom.de>
-Date: Tue, 28 Feb 2012 14:08:40 +0100
+From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Date: Tue, 28 Feb 2012 15:36:16 -0300
 
-> For the case that it _isn't_ initialized already, is it the right thing
-> to use a hard coded default MAC address to be replaced by the final one
-> in userspace? (I found such examples in some current micrel/ and amd/
-> drivers.)
+> When a EEH happens, the catas poll code will try to restart the device,
+> removing it and adding it back again. The EEH code will try to do the
+> same. One of the threads ends up accessing memory that was freed by the
+> other thread and we get a crash.
 
-You use a randomized ethernet address which can subsequently be fixed up
-by userspace, and we have very specific interfaces to make this very
-easy for you.  It even sets an attribute which userland can query to see
-that the device has a randomized ethernet address rathern than a true
-assigned permanent one.
+Stop adding bandaids to the locking.
+
+If the EEH infrastructure doesn't synchronize parallel operations
+on the same device, that is the real bug, and that's where the real
+fix belongs.
+
+I refuse to apply this patch.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
