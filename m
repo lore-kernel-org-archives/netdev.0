@@ -1,71 +1,150 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: ingress filter not matching on bonded interface
-Date: Tue, 28 Feb 2012 12:52:04 -0500
-Message-ID: <1330451524.4671.71.camel@denise.theartistscloset.com>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v11 10/12] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Tue, 28 Feb 2012 12:34:43 -0600
+Message-ID: <CABqD9hZ3apFGi+BmX5UNgz=NJUbTigj6acDKG=wu9rrL0wN1Ww@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+	<1330140111-17201-10-git-send-email-wad@chromium.org>
+	<20120227175407.GD10608@redhat.com>
+	<CABqD9hY1P7LfmBwQwSG7jDZmw6d_pZH4q2cZq_4ssjQUKRA32w@mail.gmail.com>
+	<20120228164335.GC3664@redhat.com>
+	<CABqD9hY7=DpxWzf3+WNsK=LuLrabf=oHxyy+CQgu0JLxZ80zPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:62556 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756618Ab2B1RwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 12:52:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	Denys Vlasenko <dvlasenk@redhat.com>
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CABqD9hY7=DpxWzf3+WNsK=LuLrabf=oHxyy+CQgu0JLxZ80zPQ@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello, all.  We are delighted to finally have a functioning adaptive
-traffic shaping system for 95th percentile billing except for one very
-serious issue.  For some reason, our ingress filter to redirect to an
-IFB interface is not working on a bonded interface.  It does appear to
-work on a non-bonded interface.
+On Tue, Feb 28, 2012 at 11:04 AM, Will Drewry <wad@chromium.org> wrote:
+> On Tue, Feb 28, 2012 at 10:43 AM, Oleg Nesterov <oleg@redhat.com> wro=
+te:
+>> On 02/27, Will Drewry wrote:
+>>> On Mon, Feb 27, 2012 at 11:54 AM, Oleg Nesterov <oleg@redhat.com> w=
+rote:
+>>> > On 02/24, Will Drewry wrote:
+>>> >>
+>>> >> =A0arch/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
+>>> >> =A0include/linux/ptrace.h =A0 =A0| =A0 =A07 +++++--
+>>> >> =A0include/linux/seccomp.h =A0 | =A0 =A04 +++-
+>>> >> =A0include/linux/tracehook.h | =A0 =A06 ++++++
+>>> >> =A0kernel/ptrace.c =A0 =A0 =A0 =A0 =A0 | =A0 =A04 ++++
+>>> >> =A0kernel/seccomp.c =A0 =A0 =A0 =A0 =A0| =A0 18 ++++++++++++++++=
+++
+>>> >
+>>> > FYI, this conflicts with the changes -mm tree.
+>>> >
+>>> > The changes in ptrace.* confict with Denys's
+>>> > "ptrace: simplify PTRACE_foo constants and PTRACE_SETOPTIONS code=
+"
+>>> >
+>>> > The change in tracehook.h conflicts with
+>>> > "ptrace: the killed tracee should not enter the syscall"
+>>>
+>>> What's the best way to reconcile this in this day and age?
+>>
+>> Of course I'd prefer if you make this change on top of Denys's patch=
+ ;)
+>>
+>> Besides, if you agree with PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP you
+>> need only one trivial change in ptrace.h.
+>
+> I think that works quite well :)
+>
+>>> I don't see
+>>> these in kernel-next yet and I can't tell if there is a public -mm
+>>> anywhere anymore.
+>>
+>> Strange... I didn't check, but every patch in
+>> http://marc.info/?l=3Dlinux-mm-commits has this note:
+>>
+>> =A0 =A0 =A0 =A0The -mm tree is included into linux-next and is updat=
+ed
+>> =A0 =A0 =A0 =A0there every 3-4 working days
+>
+> It appears to have been pulled in ~8 hours ago. =A0I'm rebasing to ne=
+xt now.
+>
+>>> >> --- a/kernel/seccomp.c
+>>> >> +++ b/kernel/seccomp.c
+>>> >> @@ -354,6 +354,24 @@ int __secure_computing_int(int this_syscall=
+)
+>>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 seccomp_send_sigsys(=
+this_syscall, reason_code);
+>>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
+>>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 case SECCOMP_RET_TRACE: {
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 int ret;
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct pt_regs *regs =3D=
+ task_pt_regs(current);
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!(test_tsk_thread_=
+flag(current, TIF_SYSCALL_TRACE)) ||
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !(current->ptr=
+ace & PT_TRACE_SECCOMP))
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return=
+ -1;
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* PT_TRACE_SECCOMP =
+and seccomp.trace indicate whether
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* tracehook_report_=
+syscall_entry needs to signal the
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* tracer. =A0This a=
+voids race conditions in hand off and
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* the requirement f=
+or TIF_SYSCALL_TRACE ensures that
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* we are in the sys=
+call slow path.
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 current->seccomp.trace=
+ =3D 1;
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D tracehook_repo=
+rt_syscall_entry(regs);
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 current->seccomp.trace=
+ =3D 0;
+>>> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return ret;
+>>> >
+>>> > To be honest, this interface looks a bit strange to me...
+>>> >
+>>> > Once again, sorry if this was already discussed. But perhaps it w=
+ould
+>>> > be better to introduce PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP inst=
+ead?
+>>> >
+>>> > SECCOMP_RET_TRACE: could simply do ptrace_event(PTRACE_EVENT_SECC=
+OMP)
+>>> > unconditionaly. The tracer can set the option and do PTRACE_CONT =
+if it
+>>> > doesn't want the system call notifications.
+>>>
+>>> Works for me - this also gets rid of the extra int for brief state
+>>> tracking. I'll switch over to that in the next rev.
+>>
+>> Great. In this case this patch becomes really trivial. Just 2 define=
+s
+>> in ptrace.h and the unconditional ptrace_event() under SECCOMP_RET_T=
+RACE.
 
-Here are the stats on the test system:
-root@testswitch01:/usr/local/sbin# tc -s filter show dev eth1 parent ffff:
-filter protocol ip pref 1 u32
-filter protocol ip pref 1 u32 fh 800: ht divisor 1
-filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 terminal flowid ???  (rule hit 1960 success 1960)
-  match 00000000/00000000 at 0 (success 1960 )
-        action order 1: mirred (Egress Redirect to device ifb0) stolen
-        index 17 ref 1 bind 1 installed 2318 sec
-        Action statistics:
-        Sent 609472 bytes 1960 pkt (dropped 0, overlimits 0 requeues 0)
-        rate 0bit 0pps backlog 0b 0p requeues 0
+hrm the only snag is that I can't then rely on TIF_SYSCALL_TRACE to
+ensure seccomp is in the slow-path.  Right now, on x86, seccomp is
+slow-path, but it doesn't have to be to have the syscall and args.
+However, for ptrace to behavior properly, I believed it did need to be
+in the slow path.  If SECCOMP_RET_TRACE doesn't rely on
+PTRACE_SYSCALL, then it introduces a need for seccomp to always be in
+the slow path or to flag (somehow) when it needs slow path.
 
-Note the rule hit / rule match.
+Any suggestions there?
 
-Here are the stats from production running the same scripts:
-[root@fw ~]# tc -s filter show dev bond3 parent ffff:
-filter protocol ip pref 1 u32
-filter protocol ip pref 1 u32 fh 800: ht divisor 1
-filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0  (rule hit 61596 success 0)
-  match 00000000/00000000 at 0 (success 61596 )
-        action order 1: mirred (Egress Redirect to device ifb0) stolen
-        index 2 ref 1 bind 1 installed 2185 sec used 2185 sec
-        Action statistics:
-        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-        rate 0bit 0pps backlog 0b 0p requeues 0
-
-Note zero success on the rule and we are not seeing traffic in the
-associated classes.
-What do we need to do to do ingress shaping on a bonded interface? We
-tried placing the filter on the physical interfaces but then the rules
-were not hit at all.
-
-Here is the pertinent portion of the script:
-# Redirect traffic into the IFB interfaces
-# Egress
-	c=1
-	for IF in ${DIFS} ${MIFS} ${VIFS}
-	do
-		${TC} filter replace dev ${IF} parent ${c}:0 protocol ip prio 1 u32 match u8 0 0 flowid ${c}:1 action mirred egress redirect dev ${EIFB}
-# Ingress
-		${TC} qdisc replace dev ${IF} ingress
-		${TC} filter replace dev ${IF} parent ffff: protocol ip prio 1 u32 match u8 0 0 action mirred egress redirect dev ${IIFB}
-		((c++))
-	done
-
-I'm honestly not sure if the issue is the bonded interface but that is
-the one difference which leaps out to me.  I suppose it could be our
-kernel or iproute versions.  This firewall is running kernel 2.6.30.5 on
-CentOS 5.7 and iproute-2.6.18-11.el5.  Any known issues?  Thanks - John
+Thanks!
+will
