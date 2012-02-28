@@ -1,8 +1,8 @@
 From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: [PATCH 4/8] batman-adv: set TT_CLIENT_NEW flag
-	before invoking hash_add()
-Date: Tue, 28 Feb 2012 19:32:24 +0800
-Message-ID: <1330428748-23137-5-git-send-email-lindner_marek@yahoo.de>
+Subject: [PATCH 5/8] batman-adv: code refactoring - move
+	debug print into tt_local_set_pending
+Date: Tue, 28 Feb 2012 19:32:25 +0800
+Message-ID: <1330428748-23137-6-git-send-email-lindner_marek@yahoo.de>
 References: <1330428748-23137-1-git-send-email-lindner_marek@yahoo.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -24,43 +24,61 @@ List-Id: netdev.vger.kernel.org
 
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
-In case of a new tt_local_entry, the TT_CLIENT_NEW flag has to be set before
-adding such entry to the hash table. Otherwise, it opens a race condition
-in which the entry can be found but the flag has not been set.
+Each tt_local_set_pending is always followed by a bat_dbg invocation. This can
+be simplified by moving the bat_dbg() call.
 
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 ---
- net/batman-adv/translation-table.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/batman-adv/translation-table.c |   15 ++++++---------
+ 1 files changed, 6 insertions(+), 9 deletions(-)
 
 diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 4dc5af3..9be9c41 100644
+index 9be9c41..1ff7fbe 100644
 --- a/net/batman-adv/translation-table.c
 +++ b/net/batman-adv/translation-table.c
-@@ -210,6 +210,11 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
- 	if (compare_eth(addr, soft_iface->dev_addr))
- 		tt_local_entry->common.flags |= TT_CLIENT_NOPURGE;
+@@ -355,7 +355,7 @@ out:
  
-+	/* The local entry has to be marked as NEW to avoid to send it in
-+	 * a full table response going out before the next ttvn increment
-+	 * (consistency check) */
-+	tt_local_entry->common.flags |= TT_CLIENT_NEW;
+ static void tt_local_set_pending(struct bat_priv *bat_priv,
+ 				 struct tt_local_entry *tt_local_entry,
+-				 uint16_t flags)
++				 uint16_t flags, const char *message)
+ {
+ 	tt_local_event(bat_priv, tt_local_entry->common.addr,
+ 		       tt_local_entry->common.flags | flags);
+@@ -364,6 +364,9 @@ static void tt_local_set_pending(struct bat_priv *bat_priv,
+ 	 * to be kept in the table in order to send it in a full table
+ 	 * response issued before the net ttvn increment (consistency check) */
+ 	tt_local_entry->common.flags |= TT_CLIENT_PENDING;
 +
- 	hash_added = hash_add(bat_priv->tt_local_hash, compare_tt, choose_orig,
- 			 &tt_local_entry->common,
- 			 &tt_local_entry->common.hash_entry);
-@@ -222,11 +227,6 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
++	bat_dbg(DBG_TT, bat_priv, "Local tt entry (%pM) pending to be removed: "
++		"%s\n", tt_local_entry->common.addr, message);
+ }
  
- 	tt_local_event(bat_priv, addr, tt_local_entry->common.flags);
+ void tt_local_remove(struct bat_priv *bat_priv, const uint8_t *addr,
+@@ -376,10 +379,7 @@ void tt_local_remove(struct bat_priv *bat_priv, const uint8_t *addr,
+ 		goto out;
  
--	/* The local entry has to be marked as NEW to avoid to send it in
--	 * a full table response going out before the next ttvn increment
--	 * (consistency check) */
--	tt_local_entry->common.flags |= TT_CLIENT_NEW;
+ 	tt_local_set_pending(bat_priv, tt_local_entry, TT_CLIENT_DEL |
+-			     (roaming ? TT_CLIENT_ROAM : NO_FLAGS));
 -
- 	/* remove address from global hash if present */
- 	tt_global_entry = tt_global_hash_find(bat_priv, addr);
+-	bat_dbg(DBG_TT, bat_priv, "Local tt entry (%pM) pending to be removed: "
+-		"%s\n", tt_local_entry->common.addr, message);
++			     (roaming ? TT_CLIENT_ROAM : NO_FLAGS), message);
+ out:
+ 	if (tt_local_entry)
+ 		tt_local_entry_free_ref(tt_local_entry);
+@@ -417,10 +417,7 @@ static void tt_local_purge(struct bat_priv *bat_priv)
+ 				continue;
  
+ 			tt_local_set_pending(bat_priv, tt_local_entry,
+-					     TT_CLIENT_DEL);
+-			bat_dbg(DBG_TT, bat_priv, "Local tt entry (%pM) "
+-				"pending to be removed: timed out\n",
+-				tt_local_entry->common.addr);
++					     TT_CLIENT_DEL, "timed out");
+ 		}
+ 		spin_unlock_bh(list_lock);
+ 	}
 -- 
 1.7.9
