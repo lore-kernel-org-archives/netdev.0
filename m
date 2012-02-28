@@ -1,154 +1,39 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 13/13]
-	Documentation/networking/ieee802154: update MAC chapter
-Date: Tue, 28 Feb 2012 18:00:32 +0300
-Message-ID: <1330441232-17650-14-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Tue, 28 Feb 2012 15:28:46 +0100
+Message-ID: <20120228142846.GD187520@jupiter.n2.diac24.net>
+References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
+ <20120224.153616.117399887784547022.davem@davemloft.net>
+ <4F4B8C66.5060206@collabora.co.uk>
+ <20120227.140535.1623396420455657443.davem@davemloft.net>
+ <1330426059.2139.21.camel@megeve>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	javier.martinez@collabora.co.uk, javier@collabora.co.uk,
+	eric.dumazet@gmail.com, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rodrigo Moya <rodrigo.moya@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1330426059.2139.21.camel@megeve>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the documentation according to latest changes.
+On Tue, Feb 28, 2012 at 11:47:39AM +0100, Rodrigo Moya wrote:
+> > - slow readers: dropping packets vs blocking the sender. Although
+> >   datagrams are not reliable on IP, datagrams on Unix sockets are
+> never
+> >   lost. So if one receiver has its buffer full the sender is blocked
+> > instead of dropping packets. That way we guarantee a reliable
+> > communication channel.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- Documentation/networking/ieee802154.txt |   75 ++++++++++++++++++++++++-------
- 1 files changed, 59 insertions(+), 16 deletions(-)
-
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index 1dc1c24..703cf43 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -4,15 +4,22 @@
- 
- Introduction
- ============
-+The IEEE 802.15.4 working group focuses on standartization of bottom
-+two layers: Medium Accsess Control (MAC) and Physical (PHY). And there
-+are mainly two options available for upper layers:
-+ - ZigBee - proprietary protocol from ZigBee Alliance
-+ - 6LowPAN - IPv6 networking over low rate personal area networks
- 
- The Linux-ZigBee project goal is to provide complete implementation
--of IEEE 802.15.4 / ZigBee / 6LoWPAN protocols. IEEE 802.15.4 is a stack
-+of IEEE 802.15.4 and 6LoWPAN protocols. IEEE 802.15.4 is a stack
- of protocols for organizing Low-Rate Wireless Personal Area Networks.
- 
--Currently only IEEE 802.15.4 layer is implemented. We have chosen
--to use plain Berkeley socket API, the generic Linux networking stack
--to transfer IEEE 802.15.4 messages and a special protocol over genetlink
--for configuration/management
-+The stack is composed of three main parts:
-+ - IEEE 802.15.4 layer;  We have chosen to use plain Berkeley socket API,
-+   the generic Linux networking stack to transfer IEEE 802.15.4 messages
-+   and a special protocol over genetlink for configuration/management
-+ - MAC - provides access to shared channel and reliable data delivery
-+ - PHY - represents device drivers
- 
- 
- Socket API
-@@ -29,15 +36,6 @@ or git tree at git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee).
- One can use SOCK_RAW for passing raw data towards device xmit function. YMMV.
- 
- 
--MLME - MAC Level Management
--============================
--
--Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
--See the include/net/nl802154.h header. Our userspace tools package
--(see above) provides CLI configuration utility for radio interfaces and simple
--coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
--
--
- Kernel side
- =============
- 
-@@ -51,6 +49,15 @@ Like with WiFi, there are several types of devices implementing IEEE 802.15.4.
- Those types of devices require different approach to be hooked into Linux kernel.
- 
- 
-+MLME - MAC Level Management
-+============================
-+
-+Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
-+See the include/net/nl802154.h header. Our userspace tools package
-+(see above) provides CLI configuration utility for radio interfaces and simple
-+coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
-+
-+
- HardMAC
- =======
- 
-@@ -73,11 +80,47 @@ We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
- SoftMAC
- =======
- 
--We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
--in software. This is currently WIP.
-+The MAC is the middle layer in the IEEE 802.15.4 Linux stack. This moment it
-+provides interface for drivers registration and management of slave interfaces.
-+
-+NOTE: Currently the only monitor device type is supported - it's IEEE 802.15.4
-+stack interface for network sniffers (e.g. WireShark).
-+
-+This layer is going to be extended soon.
- 
- See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
- 
-+
-+Device drivers API
-+==================
-+
-+The include/net/mac802154.h defines following functions:
-+ - struct ieee802154_dev *ieee802154_alloc_device
-+   (size_t priv_size, struct ieee802154_ops *ops):
-+   allocation of IEEE 802.15.4 compatible device
-+
-+ - void ieee802154_free_device(struct ieee802154_dev *dev):
-+   freeing allocated device
-+
-+ - int ieee802154_register_device(struct ieee802154_dev *dev):
-+   register PHY in the system
-+
-+ - void ieee802154_unregister_device(struct ieee802154_dev *dev):
-+   freeing registered PHY
-+
-+Moreover IEEE 802.15.4 device operations structure should be filled.
-+
-+Fake drivers
-+============
-+
-+In addition there are two drivers available which simulate real devices with
-+HardMAC (fakehard) and SoftMAC (fakelb - IEEE 802.15.4 loopback driver)
-+interfaces. This option provides possibility to test and debug stack without
-+usage of real hardware.
-+
-+See sources in drivers/ieee802154 folder for more details.
-+
-+
- 6LoWPAN Linux implementation
- ============================
- 
--- 
-1.7.2.3
+This sounds like a terribly nice way to f*ck the entire D-Bus system by
+having one broken (or malicious) desktop application. What's the
+intended way of coping with users that block the socket by not reading?
 
 
-------------------------------------------------------------------------------
-Keep Your Developer Skills Current with LearnDevNow!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-d2d
+-David L.
