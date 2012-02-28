@@ -1,78 +1,67 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 03/13] mac802154: RX data path
-Date: Tue, 28 Feb 2012 18:00:22 +0300
-Message-ID: <1330441232-17650-4-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 07/13] mac802154: declare reduced mlme
+	operations
+Date: Tue, 28 Feb 2012 18:00:26 +0300
+Message-ID: <1330441232-17650-8-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
-	dbaryshkov@gmail.com,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:37550 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994Ab2B1OFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 09:05:47 -0500
-Received: by mail-ee0-f46.google.com with SMTP id c41so1150165eek.19
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 06:05:46 -0800 (PST)
-In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Main RX data path implementation between physical and mac layers.
-Both contexts are supported: interrupt (data processed via worker)
-and non-interrupt (data processed directly).
+Declare set of reduced MAC-commands interface.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/ieee802154_netdev.h |    2 +
- include/net/mac802154.h         |    4 ++
- net/mac802154/Makefile          |    2 +-
- net/mac802154/rx.c              |  109 +++++++++++++++++++++++++++++++++++++++
- 4 files changed, 116 insertions(+), 1 deletions(-)
- create mode 100644 net/mac802154/rx.c
+ net/mac802154/Makefile    |    2 +-
+ net/mac802154/mac802154.h |    2 ++
+ net/mac802154/mac_cmd.c   |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 47 insertions(+), 1 deletions(-)
+ create mode 100644 net/mac802154/mac_cmd.c
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 5743055..12a7ee4 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -26,6 +26,8 @@
- #ifndef IEEE802154_NETDEVICE_H
- #define IEEE802154_NETDEVICE_H
- 
-+#include <net/af_ieee802154.h>
-+
- /*
-  * A control block of skb passed between the ARPHRD_IEEE802154 device
-  * and other stack parts.
-diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index ef27d07..cdc0100 100644
---- a/include/net/mac802154.h
-+++ b/include/net/mac802154.h
-@@ -134,4 +134,8 @@ void ieee802154_free_device(struct ieee802154_dev *dev);
- int ieee802154_register_device(struct ieee802154_dev *dev);
- void ieee802154_unregister_device(struct ieee802154_dev *dev);
- 
-+void ieee802154_rx(struct ieee802154_dev *dev, struct sk_buff *skb, u8 lqi);
-+void ieee802154_rx_irqsafe(struct ieee802154_dev *dev, struct sk_buff *skb,
-+			   u8 lqi);
-+
- #endif /* NET_MAC802154_H */
 diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index cda9393..e00fe47 100644
+index 490beef..4d9dd0f 100644
 --- a/net/mac802154/Makefile
 +++ b/net/mac802154/Makefile
 @@ -1,2 +1,2 @@
  obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o
-+mac802154-objs		:= ieee802154_dev.o rx.o
-diff --git a/net/mac802154/rx.c b/net/mac802154/rx.c
+-mac802154-objs		:= ieee802154_dev.o rx.o tx.o
++mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index 5ef4c8b..dde7300 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -86,6 +86,8 @@ struct mac802154_sub_if_data {
+ 
+ #define MAC802154_MAX_XMIT_ATTEMPTS	3
+ 
++extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
++
+ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 			 u8 page, u8 chan);
+ 
+diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
 new file mode 100644
-index 0000000..3446379
+index 0000000..a49ba4e
 --- /dev/null
-+++ b/net/mac802154/rx.c
-@@ -0,0 +1,109 @@
++++ b/net/mac802154/mac_cmd.c
+@@ -0,0 +1,44 @@
 +/*
-+ * Copyright (C) 2007-2011 Siemens AG
++ * MAC commands interface
++ *
++ * Copyright 2007-2011 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -88,97 +77,38 @@ index 0000000..3446379
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Pavel Smolenskiy <pavel.smolenskiy@gmail.com>
-+ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
++ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
++ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++ * Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 + */
 +
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/workqueue.h>
-+#include <linux/netdevice.h>
-+#include <linux/crc-ccitt.h>
-+
-+#include <net/mac802154.h>
++#include <linux/skbuff.h>
++#include <linux/if_arp.h>
 +#include <net/ieee802154_netdev.h>
++#include <net/wpan-phy.h>
++#include <net/mac802154.h>
 +
 +#include "mac802154.h"
 +
-+static void
-+mac802154_subif_rx(struct ieee802154_dev *hw, struct sk_buff *skb, u8 lqi)
++struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
 +{
-+	struct mac802154_priv *priv = mac802154_to_priv(hw);
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
 +
-+	mac_cb(skb)->lqi = lqi;
-+	skb->protocol = htons(ETH_P_IEEE802154);
-+	skb_reset_mac_header(skb);
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
 +
-+	BUILD_BUG_ON(sizeof(struct ieee802154_mac_cb) > sizeof(skb->cb));
-+
-+	if (!(priv->hw.flags & IEEE802154_HW_OMIT_CKSUM)) {
-+		u16 crc;
-+
-+		if (skb->len < 2) {
-+			pr_debug("(%s): got invalid frame\n", __func__);
-+			goto out;
-+		}
-+		crc = crc_ccitt(0, skb->data, skb->len);
-+		if (crc) {
-+			pr_debug("(%s): CRC mismatch\n", __func__);
-+			goto out;
-+		}
-+		skb_trim(skb, skb->len - 2); /* CRC */
-+	}
-+
-+out:
-+	dev_kfree_skb(skb);
-+	return;
++	return to_phy(get_device(&priv->hw->phy->dev));
 +}
 +
-+struct rx_work {
-+	struct sk_buff *skb;
-+	struct work_struct work;
-+	struct ieee802154_dev *dev;
-+	u8 lqi;
++struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
++	.get_phy = mac802154_get_phy,
 +};
-+
-+static void mac802154_rx_worker(struct work_struct *work)
-+{
-+	struct rx_work *rw = container_of(work, struct rx_work, work);
-+	struct sk_buff *skb = rw->skb;
-+
-+	mac802154_subif_rx(rw->dev, skb, rw->lqi);
-+	kfree(rw);
-+}
-+
-+void
-+ieee802154_rx_irqsafe(struct ieee802154_dev *dev, struct sk_buff *skb, u8 lqi)
-+{
-+	struct mac802154_priv *priv = mac802154_to_priv(dev);
-+	struct rx_work *work;
-+
-+	if (!skb)
-+		return;
-+
-+	work = kzalloc(sizeof(struct rx_work), GFP_ATOMIC);
-+	if (!work)
-+		return;
-+
-+	INIT_WORK(&work->work, mac802154_rx_worker);
-+	work->skb = skb;
-+	work->dev = dev;
-+	work->lqi = lqi;
-+
-+	queue_work(priv->dev_workqueue, &work->work);
-+}
-+EXPORT_SYMBOL(ieee802154_rx_irqsafe);
-+
-+void mac802154_rx(struct ieee802154_dev *dev, struct sk_buff *skb, u8 lqi)
-+{
-+	if (skb)
-+		mac802154_subif_rx(dev, skb, lqi);
-+}
-+EXPORT_SYMBOL(mac802154_rx);
 -- 
 1.7.2.3
+
+
+------------------------------------------------------------------------------
+Keep Your Developer Skills Current with LearnDevNow!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-d2d
