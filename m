@@ -1,272 +1,149 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 02/13] mac802154: allocation of ieee802154 device
-Date: Tue, 28 Feb 2012 18:00:21 +0300
-Message-ID: <1330441232-17650-3-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 11/13] mac802154: monitor device support
+Date: Tue, 28 Feb 2012 18:00:30 +0300
+Message-ID: <1330441232-17650-12-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
-	dbaryshkov@gmail.com,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57899 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754058Ab2B1OFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 09:05:46 -0500
-Received: by eekc41 with SMTP id c41so1150182eek.19
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 06:05:44 -0800 (PST)
-In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add interface for device drivers to allocate and register ieee802154
-compatible device.
+Support for monitor device intended to capture all the network
+activity. This interface could be used by networks sniffers.
+Already supported by WireShark.
 
-This code is based on net/mac80211/main.c file
-
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/net/mac802154.h        |    6 ++
- net/Kconfig                    |    1 +
- net/Makefile                   |    1 +
- net/mac802154/Kconfig          |   16 +++++
- net/mac802154/Makefile         |    2 +
- net/mac802154/ieee802154_dev.c |  146 ++++++++++++++++++++++++++++++++++++++++
- net/mac802154/mac802154.h      |   62 +++++++++++++++++
- 7 files changed, 234 insertions(+), 0 deletions(-)
- create mode 100644 net/mac802154/Kconfig
- create mode 100644 net/mac802154/Makefile
- create mode 100644 net/mac802154/ieee802154_dev.c
- create mode 100644 net/mac802154/mac802154.h
+ include/linux/if_arp.h         |    1 +
+ include/linux/nl802154.h       |   16 ++++++
+ include/net/wpan-phy.h         |    3 +
+ net/mac802154/Makefile         |    2 +-
+ net/mac802154/ieee802154_dev.c |    5 ++-
+ net/mac802154/mac802154.h      |    5 ++
+ net/mac802154/monitor.c        |  116 ++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/rx.c             |    1 +
+ 8 files changed, 147 insertions(+), 2 deletions(-)
+ create mode 100644 net/mac802154/monitor.c
 
-diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index a846511..ef27d07 100644
---- a/include/net/mac802154.h
-+++ b/include/net/mac802154.h
-@@ -128,4 +128,10 @@ struct ieee802154_ops {
- 				     u8 addr[IEEE802154_ADDR_LEN]);
- };
+diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
+index 6d722f4..f0e69c6 100644
+--- a/include/linux/if_arp.h
++++ b/include/linux/if_arp.h
+@@ -87,6 +87,7 @@
+ #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
+ #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+ #define ARPHRD_IEEE802154	  804
++#define ARPHRD_IEEE802154_MONITOR 805	/* IEEE 802.15.4 network monitor */
  
-+struct ieee802154_dev *
-+ieee802154_alloc_device(size_t priv_data_lex, struct ieee802154_ops *ops);
-+void ieee802154_free_device(struct ieee802154_dev *dev);
-+int ieee802154_register_device(struct ieee802154_dev *dev);
-+void ieee802154_unregister_device(struct ieee802154_dev *dev);
-+
- #endif /* NET_MAC802154_H */
-diff --git a/net/Kconfig b/net/Kconfig
-index e07272d..4c06c7c 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -211,6 +211,7 @@ source "net/econet/Kconfig"
- source "net/wanrouter/Kconfig"
- source "net/phonet/Kconfig"
- source "net/ieee802154/Kconfig"
-+source "net/mac802154/Kconfig"
- source "net/sched/Kconfig"
- source "net/dcb/Kconfig"
- source "net/dns_resolver/Kconfig"
-diff --git a/net/Makefile b/net/Makefile
-index ad432fa..2a97cde 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -60,6 +60,7 @@ ifneq ($(CONFIG_DCB),)
- obj-y				+= dcb/
- endif
- obj-$(CONFIG_IEEE802154)	+= ieee802154/
-+obj-$(CONFIG_MAC802154)		+= mac802154/
+ #define ARPHRD_PHONET	820		/* PhoNet media type		*/
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+index 2015ad2..9964c4f 100644
+--- a/include/linux/nl802154.h
++++ b/include/linux/nl802154.h
+@@ -129,6 +129,22 @@ enum {
  
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
-diff --git a/net/mac802154/Kconfig b/net/mac802154/Kconfig
-new file mode 100644
-index 0000000..a967dda
---- /dev/null
-+++ b/net/mac802154/Kconfig
-@@ -0,0 +1,16 @@
-+config MAC802154
-+	tristate "Generic IEEE 802.15.4 Soft Networking Stack (mac802154)"
-+	depends on IEEE802154 && EXPERIMENTAL
-+	select CRC_CCITT
-+	---help---
-+	  This option enables the hardware independent IEEE 802.15.4
-+	  networking stack for SoftMAC devices (the ones implementing
-+	  only PHY level of IEEE 802.15.4 standard).
-+
-+	  Note: this implementation is neither certified, nor feature
-+	  complete! Compatibility with other implementations hasn't
-+	  been tested yet!
-+
-+	  If you plan to use HardMAC IEEE 802.15.4 devices, you can
-+	  say N here. Alternatievly you can say M to compile it as
-+	  module.
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-new file mode 100644
-index 0000000..cda9393
---- /dev/null
-+++ b/net/mac802154/Makefile
-@@ -0,0 +1,2 @@
-+obj-$(CONFIG_MAC802154)	+= mac802154.o
-+mac802154-objs		:= ieee802154_dev.o
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-new file mode 100644
-index 0000000..288a2b0
---- /dev/null
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -0,0 +1,146 @@
-+/*
-+ * Copyright (C) 2007-2011 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <net/route.h>
-+
-+#include <net/mac802154.h>
-+#include <net/wpan-phy.h>
-+
-+#include "mac802154.h"
-+
-+struct ieee802154_dev *
-+ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
-+{
-+	struct wpan_phy *phy;
-+	struct mac802154_priv *priv;
-+	size_t priv_size;
-+
-+	if (!ops || !ops->xmit || !ops->ed || !ops->start ||
-+	    !ops->stop || !ops->set_channel) {
-+		printk(KERN_ERR
-+			"undefined IEEE802.15.4 device operations\n");
-+		return NULL;
-+	}
+ enum {
+ 	__IEEE802154_DEV_INVALID = -1,
 +
 +	/*
-+	 * Ensure 32-byte alignment of our private data and hw private data.
-+	 * We use the wpan_phy priv data for both our mac802154_priv and for
-+	 * the driver's private data
++	 * TODO:
 +	 *
-+	 * in memory it'll be like this:
++	 * Nowadays three device types supported by this stack at linux-zigbee
++	 * project: WPAN = 0, MONITOR = 1 and SMAC = 2.
 +	 *
-+	 * +-----------------------+
-+	 * | struct wpan_phy       |
-+	 * +-----------------------+
-+	 * | struct mac802154_priv |
-+	 * +-----------------------+
-+	 * | driver's private data |
-+	 * +-----------------------+
++	 * Since this stack implementation exists many years, it's definitely
++	 * bad idea to change the assigned values due to they are already used
++	 * by third-party software like: iz-tools, wireshark...
 +	 *
-+	 * Due to ieee802154 layer isn't aware of driver and MAC structures,
-+	 * so lets allign them here.
++	 * Currently only monitor device is added and initialized by '1' for
++	 * compatibility.
 +	 */
++	IEEE802154_DEV_MONITOR = 1,
 +
-+	priv_size = ALIGN(sizeof(*priv), NETDEV_ALIGN) + priv_data_len;
+ 	__IEEE802154_DEV_MAX,
+ };
+ 
+diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
+index 1437c90..d0fb1ed 100644
+--- a/include/net/wpan-phy.h
++++ b/include/net/wpan-phy.h
+@@ -24,6 +24,9 @@
+ #include <linux/netdevice.h>
+ #include <linux/mutex.h>
+ 
++#define WPAN_NUM_PAGES		32
++#define WPAN_NUM_CHANNELS	27
 +
-+	phy = wpan_phy_alloc(priv_size);
-+	if (!phy) {
-+		printk(KERN_ERR
-+			"failure to allocate master IEEE802.15.4 device\n");
-+		return NULL;
-+	}
-+
-+	priv = wpan_phy_priv(phy);
-+	priv->hw.phy = priv->phy = phy;
-+	priv->hw.priv = (char *)priv + ALIGN(sizeof(*priv), NETDEV_ALIGN);
-+	priv->ops = ops;
-+
-+	INIT_LIST_HEAD(&priv->slaves);
-+	mutex_init(&priv->slaves_mtx);
-+
-+	return &priv->hw;
-+}
-+EXPORT_SYMBOL(ieee802154_alloc_device);
-+
-+void ieee802154_free_device(struct ieee802154_dev *hw)
-+{
-+	struct mac802154_priv *priv = mac802154_to_priv(hw);
-+
-+	wpan_phy_free(priv->phy);
-+
-+	mutex_destroy(&priv->slaves_mtx);
-+}
-+EXPORT_SYMBOL(ieee802154_free_device);
-+
-+int ieee802154_register_device(struct ieee802154_dev *dev)
-+{
-+	struct mac802154_priv *priv = mac802154_to_priv(dev);
-+	int rc = -ENOMEM;
-+
-+	priv->dev_workqueue =
-+		create_singlethread_workqueue(wpan_phy_name(priv->phy));
-+	if (!priv->dev_workqueue)
-+		goto out;
-+
-+	wpan_phy_set_dev(priv->phy, priv->hw.parent);
-+
-+	rc = wpan_phy_register(priv->phy);
-+	if (rc < 0)
-+		goto out_wq;
-+
-+	rtnl_lock();
-+
-+	mutex_lock(&priv->slaves_mtx);
-+	priv->running = MAC802154_DEVICE_RUN;
-+	mutex_unlock(&priv->slaves_mtx);
-+
-+	rtnl_unlock();
-+
-+	return 0;
-+
-+out_wq:
-+	destroy_workqueue(priv->dev_workqueue);
-+out:
-+	return rc;
-+}
-+EXPORT_SYMBOL(ieee802154_register_device);
-+
-+void ieee802154_unregister_device(struct ieee802154_dev *dev)
-+{
-+	struct mac802154_priv *priv = mac802154_to_priv(dev);
-+
-+	flush_workqueue(priv->dev_workqueue);
-+	destroy_workqueue(priv->dev_workqueue);
-+
-+	rtnl_lock();
-+
-+	mutex_lock(&priv->slaves_mtx);
-+	priv->running = MAC802154_DEVICE_STOPPED;
-+	mutex_unlock(&priv->slaves_mtx);
-+
-+	rtnl_unlock();
-+
-+	wpan_phy_unregister(priv->phy);
-+}
-+EXPORT_SYMBOL(ieee802154_unregister_device);
-+
-+MODULE_DESCRIPTION("IEEE 802.15.4 implementation");
-+MODULE_LICENSE("GPL v2");
+ struct wpan_phy {
+ 	struct mutex pib_lock;
+ 
+diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
+index 6b348b0..ec1bd3f 100644
+--- a/net/mac802154/Makefile
++++ b/net/mac802154/Makefile
+@@ -1,2 +1,2 @@
+ obj-$(CONFIG_MAC802154)	+= mac802154.o
+-mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o
++mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o monitor.o
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index 44e0317..c3f52cf 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -131,8 +131,11 @@ mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
+ 	struct net_device *dev;
+ 	int err = -ENOMEM;
+ 
+-	/* No devices is currently supported */
+ 	switch (type) {
++	case IEEE802154_DEV_MONITOR:
++		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
++				   name, mac802154_monitor_setup);
++		break;
+ 	default:
+ 		dev = NULL;
+ 		err = -EINVAL;
 diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-new file mode 100644
-index 0000000..7a118e9
---- /dev/null
+index 5c96b2d..38196f1 100644
+--- a/net/mac802154/mac802154.h
 +++ b/net/mac802154/mac802154.h
-@@ -0,0 +1,62 @@
+@@ -86,11 +86,16 @@ struct mac802154_sub_if_data {
+ 
+ #define MAC802154_MAX_XMIT_ATTEMPTS	3
+ 
++#define MAC802154_CHAN_NONE		(~(u8)0)
++
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
+ 
+ int mac802154_slave_open(struct net_device *dev);
+ int mac802154_slave_close(struct net_device *dev);
+ 
++void mac802154_monitors_rx(struct mac802154_priv *priv, struct sk_buff *skb);
++void mac802154_monitor_setup(struct net_device *dev);
++
+ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 			 u8 page, u8 chan);
+ 
+diff --git a/net/mac802154/monitor.c b/net/mac802154/monitor.c
+new file mode 100644
+index 0000000..137b868
+--- /dev/null
++++ b/net/mac802154/monitor.c
+@@ -0,0 +1,116 @@
 +/*
-+ * Copyright (C) 2007-2012 Siemens AG
++ * Copyright 2007, 2008, 2009 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -282,50 +159,124 @@ index 0000000..7a118e9
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Pavel Smolenskiy <pavel.smolenskiy@gmail.com>
-+ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
++ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
++ * Maxim Gorbachyov <maxim.gorbachev-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
 + */
-+#ifndef MAC802154_H
-+#define MAC802154_H
 +
-+struct mac802154_priv {
-+	struct ieee802154_dev hw;
-+	struct ieee802154_ops *ops;
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/if_arp.h>
++#include <linux/crc-ccitt.h>
++#include <net/ieee802154.h>
++#include <net/mac802154.h>
++#include <net/netlink.h>
++#include <net/wpan-phy.h>
++#include <linux/nl802154.h>
 +
-+	struct wpan_phy *phy;
++#include "mac802154.h"
 +
-+	int open_count;
-+	/* As in mac80211 slaves list is modified:
-+	 * 1) under the RTNL
-+	 * 2) protected by slaves_mtx;
-+	 * 3) in an RCU manner
-+	 *
-+	 * So atomic readers can use any of this protection methods
-+	 */
-+	struct list_head	slaves;
-+	struct mutex		slaves_mtx;
-+	/* This one is used for scanning and other
-+	 * jobs not to be interfered with serial driver */
-+	struct workqueue_struct	*dev_workqueue;
++static netdev_tx_t mac802154_monitor_xmit(struct sk_buff *skb,
++					  struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv;
++	u8 chan, page;
 +
-+	/*
-+	 * The following flag is also modified under slaves_mtx and RTNL,
-+	 * so you can read them using any of protection methods.
-+	 */
-+	/*
-+	 * SoftMAC device is registered and running. One can add
-+	 * subinterfaces.
-+	 */
-+	bool running;
++	priv = netdev_priv(dev);
++
++	/* FIXME: locking */
++	chan = priv->hw->phy->current_channel;
++	page = priv->hw->phy->current_page;
++
++	if (chan == MAC802154_CHAN_NONE) /* not initialized */
++		return NETDEV_TX_OK;
++
++	BUG_ON(page >= WPAN_NUM_PAGES);
++	BUG_ON(chan >= WPAN_NUM_CHANNELS);
++
++	skb->skb_iif = dev->ifindex;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	return mac802154_tx(priv->hw, skb, page, chan);
++}
++
++
++void mac802154_monitors_rx(struct mac802154_priv *priv, struct sk_buff *skb)
++{
++	struct sk_buff *skb2;
++	struct mac802154_sub_if_data *sdata;
++	u16 crc = crc_ccitt(0, skb->data, skb->len);
++	u8 *data;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
++		if (sdata->type != IEEE802154_DEV_MONITOR)
++			continue;
++
++		skb2 = skb_clone(skb, GFP_ATOMIC);
++		skb2->dev = sdata->dev;
++		skb2->pkt_type = PACKET_HOST;
++		data = skb_put(skb2, 2);
++		data[0] = crc & 0xff;
++		data[1] = crc >> 8;
++
++		if (in_interrupt())
++			netif_rx(skb2);
++		else
++			netif_rx_ni(skb2);
++	}
++	rcu_read_unlock();
++}
++
++static const struct net_device_ops mac802154_monitor_ops = {
++	.ndo_open		= mac802154_slave_open,
++	.ndo_stop		= mac802154_slave_close,
++	.ndo_start_xmit		= mac802154_monitor_xmit,
 +};
 +
-+#define	MAC802154_DEVICE_STOPPED	0x00
-+#define MAC802154_DEVICE_RUN		0x01
++void mac802154_monitor_setup(struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv;
 +
-+#define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
++	dev->addr_len		= 0;
++	dev->hard_header_len	= 0;
++	dev->needed_tailroom	= 2; /* FCS */
++	dev->mtu		= IEEE802154_MTU;
++	dev->tx_queue_len	= 10;
++	dev->type		= ARPHRD_IEEE802154_MONITOR;
++	dev->flags		= IFF_NOARP | IFF_BROADCAST;
++	dev->watchdog_timeo	= 0;
 +
-+#endif /* MAC802154_H */
++	dev->destructor		= free_netdev;
++	dev->netdev_ops		= &mac802154_monitor_ops;
++	dev->ml_priv		= &mac802154_mlme_reduced;
++
++	priv = netdev_priv(dev);
++	priv->type = IEEE802154_DEV_MONITOR;
++
++	priv->chan = MAC802154_CHAN_NONE; /* not initialized */
++	priv->page = 0; /* for compat */
++}
+diff --git a/net/mac802154/rx.c b/net/mac802154/rx.c
+index 3446379..3a6836c 100644
+--- a/net/mac802154/rx.c
++++ b/net/mac802154/rx.c
+@@ -58,6 +58,7 @@ mac802154_subif_rx(struct ieee802154_dev *hw, struct sk_buff *skb, u8 lqi)
+ 		skb_trim(skb, skb->len - 2); /* CRC */
+ 	}
+ 
++	mac802154_monitors_rx(priv, skb);
+ out:
+ 	dev_kfree_skb(skb);
+ 	return;
 -- 
 1.7.2.3
+
+
+------------------------------------------------------------------------------
+Keep Your Developer Skills Current with LearnDevNow!
+The most comprehensive online learning library for Microsoft developers
+is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
+Metro Style Apps, more. Free future releases when you subscribe now!
+http://p.sf.net/sfu/learndevnow-d2d
