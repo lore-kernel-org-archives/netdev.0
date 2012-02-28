@@ -1,69 +1,45 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
-Date: Tue, 28 Feb 2012 22:00:50 +0100
-Message-ID: <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
-References: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
-	<CAMuHMdXAwgtwbCV_=qJnrs=YPZksoEBkjnQB=JbR7fc+UyKdzw@mail.gmail.com>
-	<CAMuHMdW0Oh7h8tv85ScgHB50vMaZSU7S3cPJRsChnRe2sNL_kA@mail.gmail.com>
-	<20120228.154914.662485432055205683.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix false reordering signal in tcp_shifted_skb
+Date: Tue, 28 Feb 2012 16:06:57 -0500 (EST)
+Message-ID: <20120228.160657.419169586061006044.davem@davemloft.net>
+References: <1330286779-10462-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: danny.kukawka@bisect.de, dkukawka@suse.de,
-	jeffrey.t.kirsher@intel.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120228.154914.662485432055205683.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, ycheng@google.com, therbert@google.com,
+	subramanian.vijay@gmail.com
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964902Ab2B1VHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 16:07:11 -0500
+In-Reply-To: <1330286779-10462-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Neal Cardwell <ncardwell@google.com>
+Date: Sun, 26 Feb 2012 15:06:19 -0500
 
-2012/2/28 David Miller <davem@davemloft.net>:
-> From: Geert Uytterhoeven <geert@linux-m68k.org>
-> Date: Tue, 28 Feb 2012 21:45:30 +0100
->
->> drivers/net/ethernet/cirrus/mac89x0.c: In function =E2=80=98set_mac_=
-address=E2=80=99:
->> drivers/net/ethernet/cirrus/mac89x0.c:597: warning: dereferencing
->> =E2=80=98void *=E2=80=99 pointer
->> drivers/net/ethernet/cirrus/mac89x0.c:597: error: request for member
->> =E2=80=98sa_data=E2=80=99 in something not a structure or union
->> drivers/net/ethernet/cirrus/mac89x0.c:600: warning: dereferencing
->> =E2=80=98void *=E2=80=99 pointer
->> drivers/net/ethernet/cirrus/mac89x0.c:600: error: request for member
->> =E2=80=98sa_data=E2=80=99 in something not a structure or union
->> drivers/net/ethernet/cirrus/mac89x0.c:595: warning: unused variable =
-=E2=80=98saddr=E2=80=99
->
-> Thanks, I've fixed this as follows and pushed to net-next:
->
-> --------------------
-> mac89x0: Fix build error.
->
-> Need to use the new 'saddr' variable not the void 'addr' in
-> set_mac_address().
->
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> When tcp_shifted_skb() shifts bytes from the skb that is currently
+> pointed to by 'highest_sack' then the increment of
+> TCP_SKB_CB(skb)->seq implicitly advances tcp_highest_sack_seq(). This
+> implicit advancement, combined with the recent fix to pass the correct
+> SACKed range into tcp_sacktag_one(), caused tcp_sacktag_one() to think
+> that the newly SACKed range was before the tcp_highest_sack_seq(),
+> leading to a call to tcp_update_reordering() with a degree of
+> reordering matching the size of the newly SACKed range (typically just
+> 1 packet, which is a NOP, but potentially larger).
+> 
+> This commit fixes this by simply calling tcp_sacktag_one() before the
+> TCP_SKB_CB(skb)->seq advancement that can advance our notion of the
+> highest SACKed sequence.
+> 
+> Correspondingly, we can simplify the code a little now that
+> tcp_shifted_skb() should update the lost_cnt_hint in all cases where
+> skb == tp->lost_skb_hint.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Thanks, that fixed the build.
-
-What about the is_valid_ether_addr() check?
-
-Gr{oetje,eeting}s,
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+Applied and queued up for -stable, thanks Neal.
