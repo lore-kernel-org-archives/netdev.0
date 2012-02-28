@@ -1,8 +1,8 @@
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 06/13] mac802154: slave interfaces
-	definition
-Date: Tue, 28 Feb 2012 18:00:25 +0300
-Message-ID: <1330441232-17650-7-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 05/13] mac802154: define reduced mlme
+	operations
+Date: Tue, 28 Feb 2012 18:00:24 +0300
+Message-ID: <1330441232-17650-6-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,52 +21,59 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Slaves represent typical network interfaces available from userspace.
-Each ieee802154 device/transceiver may have several slaves and able
-to be associated with several networks at the same time. So this
-patch adds structure for slaves definition.
+According IEEE 802.15.4 standard each node can be either full functionality
+device (FFD) or reduce functionality device (RFD). So 2 sets of operations
+are needed. This patch define RFD operations structure.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/mac802154/mac802154.h |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+ include/net/ieee802154_netdev.h |   24 ++++++++++++++++++++----
+ 1 files changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 7606ba9..5ef4c8b 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -57,6 +57,31 @@ struct mac802154_priv {
- #define	MAC802154_DEVICE_STOPPED	0x00
- #define MAC802154_DEVICE_RUN		0x01
- 
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 12a7ee4..b27730e 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -83,6 +83,14 @@ struct wpan_phy;
+  * get_phy should increment the reference counting on returned phy.
+  * Use wpan_wpy_put to put that reference.
+  */
++
 +/*
-+ * Slave interface definition
++ * The IEEE 802.15.4 standard defines 2 type of devices:
++ * - FFD - full functionality device
++ * - RFD - reduce functionality device
++ *
++ * So 2 sets of mlme operations are needed
 + */
-+struct mac802154_sub_if_data {
-+	struct list_head list; /* the ieee802154_priv->slaves list */
-+
-+	struct mac802154_priv *hw;
-+	struct net_device *dev;
-+
-+	int type;
-+
-+	spinlock_t mib_lock;
-+
-+	__le16 pan_id;
-+	__le16 short_addr;
-+
-+	u8 chan;
-+	u8 page;
-+
-+	/* MAC BSN field */
-+	u8 bsn;
-+	/* MAC DSN field */
-+	u8 dsn;
+ struct ieee802154_mlme_ops {
+ 	int (*assoc_req)(struct net_device *dev,
+ 			struct ieee802154_addr *addr,
+@@ -112,12 +120,20 @@ struct ieee802154_mlme_ops {
+ 	u8 (*get_bsn)(const struct net_device *dev);
+ };
+ 
+-static inline struct ieee802154_mlme_ops *ieee802154_mlme_ops(
+-		const struct net_device *dev)
++struct ieee802154_reduced_mlme_ops {
++	struct wpan_phy *(*get_phy)(const struct net_device *dev);
 +};
 +
- #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
++static inline struct ieee802154_mlme_ops *
++ieee802154_mlme_ops(const struct net_device *dev)
+ {
+ 	return dev->ml_priv;
+ }
  
- #define MAC802154_MAX_XMIT_ATTEMPTS	3
+-#endif
+-
++static inline struct ieee802154_reduced_mlme_ops *
++ieee802154_reduced_mlme_ops(const struct net_device *dev)
++{
++	return dev->ml_priv;
++}
+ 
++#endif
 -- 
 1.7.2.3
 
