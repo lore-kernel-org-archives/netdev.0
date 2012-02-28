@@ -1,667 +1,148 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 4/4] stmmac: add the Energy Efficient Ethernet support.
-Date: Tue, 28 Feb 2012 13:44:44 +0100
-Message-ID: <1330433084-18586-5-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH] ethtool: add the EEE option
+Date: Tue, 28 Feb 2012 13:46:15 +0100
+Message-ID: <1330433175-21811-1-git-send-email-peppe.cavallaro@st.com>
 References: <1330433084-18586-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Cc: bhutchings@solarflare.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:33888 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932299Ab2B1Mp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 07:45:28 -0500
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:49771 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932299Ab2B1Mqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 07:46:40 -0500
 In-Reply-To: <1330433084-18586-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the Energy Efficient Ethernet support.
-Please see the driver's documentation for further
-information about this support in the driver.
+This patch adds a new option to enable/disable the
+Energy Efficient Ethernet support: below some example:
 
-Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+bash-3.00# ethtool -s eth0 eee on
+stmmac: Energy-Efficient Ethernet initialized
+
+bash-3.00# ./ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+[snip]
+	Wake-on: d
+	Current message level: 0x0000003f (63)
+			       drv probe link timer ifdown ifup
+	Link detected: yes
+	Energy-Efficient Ethernet: Enabled
+
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |   27 ++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   20 +++
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  101 ++++++++++++-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    7 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   46 ++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  157 +++++++++++++++++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +
- 9 files changed, 347 insertions(+), 18 deletions(-)
+ ethtool-copy.h |    3 +++
+ ethtool.c      |   45 ++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 47 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 0319d64..4e07692 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,6 +95,16 @@ struct stmmac_extra_stats {
- 	unsigned long poll_n;
- 	unsigned long sched_timer_n;
- 	unsigned long normal_irq_n;
-+	unsigned long mmc_tx_irq_n;
-+	unsigned long mmc_rx_irq_n;
-+	unsigned long mmc_rx_csum_offload_irq_n;
-+	/* EEE */
-+	unsigned long irq_receive_pmt_irq_n;
-+	unsigned long irq_tx_path_in_lpi_mode_n;
-+	unsigned long irq_tx_path_exit_lpi_mode_n;
-+	unsigned long irq_rx_path_in_lpi_mode_n;
-+	unsigned long irq_rx_path_exit_lpi_mode_n;
-+	unsigned long phy_eee_wakeup_error_n;
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index d904c1a..e17ae37 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -40,6 +40,7 @@ struct ethtool_cmd {
+ 	__u8	eth_tp_mdix;
+ 	__u8	reserved2;
+ 	__u32	lp_advertising;	/* Features the link partner advertises */
++	__u32	eee;		/* Energy-Efficient Etehrnet */
+ 	__u32	reserved[2];
  };
  
- #define HASH_TABLE_SIZE 64
-@@ -151,6 +161,17 @@ enum tx_dma_irq_status {
- 	handle_tx_rx = 3,
- };
+@@ -786,6 +787,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
+ #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+ #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
++#define ETHTOOL_GEEE		0x00000041 /* Get EEE */
++#define ETHTOOL_SEEE		0x00000042 /* Set EEE */
  
-+enum core_specific_irq_mask {
-+	core_mmc_tx_irq = 1,
-+	core_mmc_rx_irq = 2,
-+	core_mmc_rx_csum_offload_irq = 4,
-+	core_irq_receive_pmt_irq = 8,
-+	core_irq_tx_path_in_lpi_mode = 16,
-+	core_irq_tx_path_exit_lpi_mode = 32,
-+	core_irq_rx_path_in_lpi_mode = 64,
-+	core_irq_rx_path_exit_lpi_mode = 128,
-+};
-+
- /* DMA HW capabilities */
- struct dma_features {
- 	unsigned int mbps_10_100;
-@@ -266,7 +287,7 @@ struct stmmac_ops {
- 	/* Dump MAC registers */
- 	void (*dump_regs) (void __iomem *ioaddr);
- 	/* Handle extra events on specific interrupts hw dependent */
--	void (*host_irq_status) (void __iomem *ioaddr);
-+	int (*host_irq_status) (void __iomem *ioaddr);
- 	/* Multicast filter setting */
- 	void (*set_filter) (struct net_device *dev);
- 	/* Flow control setting */
-@@ -279,6 +300,10 @@ struct stmmac_ops {
- 			       unsigned int reg_n);
- 	void (*get_umac_addr) (void __iomem *ioaddr, unsigned char *addr,
- 			       unsigned int reg_n);
-+	void (*set_eee_mode) (void __iomem *ioaddr);
-+	void (*reset_eee_mode) (void __iomem *ioaddr);
-+	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
-+	void (*set_eee_pls) (void __iomem *ioaddr, int link);
- };
- 
- struct mac_link {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index cfcef0e..1764f85 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -36,6 +36,7 @@
- 
- #define GMAC_INT_STATUS		0x00000038	/* interrupt status register */
- enum dwmac1000_irq_status {
-+	lpiis_irq = 0x400,
- 	time_stamp_irq = 0x0200,
- 	mmc_rx_csum_offload_irq = 0x0080,
- 	mmc_tx_irq = 0x0040,
-@@ -60,6 +61,25 @@ enum power_event {
- 	power_down = 0x00000001,
- };
- 
-+/* Energy Efficient Ethernet (EEE)
-+ *
-+ * LPI status, timer and control register offset
-+ */
-+#define LPI_CTRL_STATUS	0x0030
-+#define LPI_TIMER_CTRL	0x0034
-+
-+/* LPI control and status defines */
-+#define LPI_CTRL_STATUS_LPITXA	0x00080000	/* Enable LPI TX Automate */
-+#define LPI_CTRL_STATUS_PLSEN	0x00040000	/* Enable PHY Link Status */
-+#define LPI_CTRL_STATUS_PLS	0x00020000	/* PHY Link Status */
-+#define LPI_CTRL_STATUS_LPIEN	0x00010000	/* LPI Enable */
-+#define LPI_CTRL_STATUS_RLPIST	0x00000200	/* Receive LPI state */
-+#define LPI_CTRL_STATUS_TLPIST	0x00000100	/* Transmit LPI state */
-+#define LPI_CTRL_STATUS_RLPIEX	0x00000008	/* Receive LPI Exit */
-+#define LPI_CTRL_STATUS_RLPIEN	0x00000004	/* Receive LPI Entry */
-+#define LPI_CTRL_STATUS_TLPIEX	0x00000002	/* Transmit LPI Exit */
-+#define LPI_CTRL_STATUS_TLPIEN	0x00000001	/* Transmit LPI Entry */
-+
- /* GMAC HW ADDR regs */
- #define GMAC_ADDR_HIGH(reg)		(0x00000040+(reg * 8))
- #define GMAC_ADDR_LOW(reg)		(0x00000044+(reg * 8))
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b1c48b9..a4fab30 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -187,26 +187,107 @@ static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
- }
- 
- 
--static void dwmac1000_irq_status(void __iomem *ioaddr)
-+static int dwmac1000_irq_status(void __iomem *ioaddr)
- {
- 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
-+	int status = 0;
- 
- 	/* Not used events (e.g. MMC interrupts) are not handled. */
--	if ((intr_status & mmc_tx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC tx interrupt: 0x%08x\n",
-+	if ((intr_status & mmc_tx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC tx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_TX_INTR));
--	if (unlikely(intr_status & mmc_rx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx interrupt: 0x%08x\n",
-+		status |= core_mmc_tx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_INTR));
--	if (unlikely(intr_status & mmc_rx_csum_offload_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx csum offload: 0x%08x\n",
-+		status |= core_mmc_rx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_csum_offload_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx csum offload: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_CSUM_OFFLOAD));
-+		status |= core_mmc_rx_csum_offload_irq;
-+	}
- 	if (unlikely(intr_status & pmt_irq)) {
--		CHIP_DBG(KERN_DEBUG "GMAC: received Magic frame\n");
-+		CHIP_DBG(KERN_INFO "GMAC: received Magic frame\n");
- 		/* clear the PMT bits 5 and 6 by reading the PMT
- 		 * status register. */
- 		readl(ioaddr + GMAC_PMT);
-+		status |= core_irq_receive_pmt_irq;
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index d0cc7d4..9e63973 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1840,6 +1840,18 @@ static int do_gset(struct cmd_context *ctx)
+ 	} else if (errno != EOPNOTSUPP) {
+ 		perror("Cannot get link status");
  	}
-+	/* MAC trx/rx EEE LPI entry/exit interrupts */
-+	if (intr_status & lpiis_irq) {
-+		/* Clean LPI interrupt by reading the Reg 12 */
-+		u32 lpi_status = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC TX entered in LPI\n");
-+			status |= core_irq_tx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC TX exit from LPI\n");
-+			status |= core_irq_tx_path_exit_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC RX entered in LPI\n");
-+			status |= core_irq_rx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC RX exit from LPI\n");
-+			status |= core_irq_rx_path_exit_lpi_mode;
-+		}
++	edata.cmd = ETHTOOL_GEEE;
++	err = send_ioctl(ctx, &edata);
++	if (err == 0) {
++		fprintf(stdout, "	Energy-Efficient Ethernet: %s\n",
++			edata.data ? "enabled" : "disabled");
++		allfail = 0;
++	} else if (errno != EOPNOTSUPP) {
++		perror("Cannot get EEE feature");
++	} else if (errno == EOPNOTSUPP) {
++		fprintf(stdout, "	Energy-Efficient Ethernet:"
++				" not supported\n");
 +	}
-+
-+	return status;
-+}
-+
-+static void  dwmac1000_set_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	/* Enable the link status receive on RGMII, SGMII ore SMII
-+	 * receive path and instruct the transmit to enter in LPI
-+	 * state. */
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value |= LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA;
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_reset_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value &= ~(LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA);
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+	if (link)
-+		value |= LPI_CTRL_STATUS_PLS;
-+	else
-+		value &= ~LPI_CTRL_STATUS_PLS;
-+
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
-+{
-+	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
-+
-+	/* Program the timers in the LPI timer control register:
-+	 * LS: minimum time (ms) for which the link
-+	 *  status from PHY should be ok before transmitting
-+	 *  the LPI pattern.
-+	 * TW: minimum time (us) for which the core waits
-+	 *  after it has stopped transmitting the LPI pattern.
-+	 */
-+	writel(value, ioaddr + LPI_TIMER_CTRL);
- }
  
- static const struct stmmac_ops dwmac1000_ops = {
-@@ -219,6 +300,10 @@ static const struct stmmac_ops dwmac1000_ops = {
- 	.pmt = dwmac1000_pmt,
- 	.set_umac_addr = dwmac1000_set_umac_addr,
- 	.get_umac_addr = dwmac1000_get_umac_addr,
-+	.set_eee_mode =  dwmac1000_set_eee_mode,
-+	.reset_eee_mode =  dwmac1000_reset_eee_mode,
-+	.set_eee_timer =  dwmac1000_set_eee_timer,
-+	.set_eee_pls =  dwmac1000_set_eee_pls,
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 138fb8d..a11370b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -72,9 +72,9 @@ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
- 		readl(ioaddr + MAC_VLAN2));
- }
- 
--static void dwmac100_irq_status(void __iomem *ioaddr)
-+static int dwmac100_irq_status(void __iomem *ioaddr)
- {
--	return;
-+	return 0;
- }
- 
- static void dwmac100_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 437edac..27cbcd7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -69,6 +69,7 @@
- #define DMA_INTR_DEFAULT_MASK	(DMA_INTR_NORMAL | DMA_INTR_ABNORMAL)
- 
- /* DMA Status register defines */
-+#define DMA_STATUS_GLPII	0x40000000	/* GMAC LPI interrupt */
- #define DMA_STATUS_GPI		0x10000000	/* PMT interrupt */
- #define DMA_STATUS_GMI		0x08000000	/* MMC interrupt */
- #define DMA_STATUS_GLI		0x04000000	/* GMAC Line interface int */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index b4b095f..266fcac 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -81,6 +81,10 @@ struct stmmac_priv {
- 	struct stmmac_counters mmc;
- 	struct dma_features dma_cap;
- 	int hw_cap_support;
-+	struct timer_list eee_ctrl_timer;
-+	bool tx_path_in_lpi_mode;
-+	bool eee_enabled;
-+	int lpi_irq;
- };
- 
- extern int phyaddr;
-@@ -99,3 +103,6 @@ int stmmac_dvr_remove(struct net_device *ndev);
- struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 				     struct plat_stmmacenet_data *plat_dat,
- 				     void __iomem *addr);
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv);
-+bool stmmac_eee_init(struct stmmac_priv *priv);
-+
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index f98e151..90cce62 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -93,6 +93,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(poll_n),
- 	STMMAC_STAT(sched_timer_n),
- 	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(mmc_tx_irq_n),
-+	STMMAC_STAT(mmc_rx_irq_n),
-+	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
-+	STMMAC_STAT(irq_receive_pmt_irq_n),
-+	STMMAC_STAT(irq_tx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_tx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(phy_eee_wakeup_error_n),
- };
- #define STMMAC_STATS_LEN ARRAY_SIZE(stmmac_gstrings_stats)
- 
-@@ -366,6 +376,11 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 					     (*(u32 *)p);
+ 	if (allfail) {
+ 		fprintf(stdout, "No data available\n");
+@@ -1857,6 +1869,8 @@ static int do_sset(struct cmd_context *ctx)
+ 	int phyad_wanted = -1;
+ 	int xcvr_wanted = -1;
+ 	int advertising_wanted = -1;
++	int eee_wanted = -1;
++	int eee_changed = 0;
+ 	int gset_changed = 0; /* did anything in GSET change? */
+ 	u32 wol_wanted = 0;
+ 	int wol_change = 0;
+@@ -1983,6 +1997,17 @@ static int do_sset(struct cmd_context *ctx)
+ 					ARRAY_SIZE(cmdline_msglvl));
+ 				break;
  			}
++		} else if (!strcmp(argp[i], "eee")) {
++			eee_changed = 1;
++			i++;
++			if (i >= argc)
++				exit_bad_args();
++			if (!strcmp(argp[i], "on"))
++				eee_wanted = 1;
++			else if (!strcmp(argp[i], "off"))
++				eee_wanted = 0;
++			else
++				exit_bad_args();
+ 		} else {
+ 			exit_bad_args();
  		}
-+		if (priv->eee_enabled) {
-+			int val = phy_get_eee_err(priv->phydev);
-+			if (val)
-+				priv->xstats.phy_eee_wakeup_error_n = val;
-+		}
- 	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
- 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
-@@ -464,6 +479,35 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 	return 0;
- }
- 
-+static int ethtool_op_get_eee(struct net_device *dev, struct ethtool_value *eee)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->dma_cap.eee)
-+		return -EOPNOTSUPP;
-+
-+	eee->data = priv->eee_enabled;
-+
-+	return 0;
-+}
-+
-+static int ethtool_op_set_eee(struct net_device *dev, struct ethtool_value *eee)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	if ((!eee->data) && (priv->eee_enabled)) {
-+		stmmac_disable_eee_mode(priv);
-+		priv->eee_enabled = eee->data;
-+	} else if ((eee->data) && (!priv->eee_enabled))
-+		/* We are asking for enabling the EEE but this
-+		 * has to be verified by invoking the eee_init function.
-+		 * For this reason we cannot set eee_enabled to
-+		 * eee->data, directly. */
-+		priv->eee_enabled = stmmac_eee_init(priv);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
-@@ -481,6 +525,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
- 	.get_sset_count	= stmmac_get_sset_count,
-+	.get_eee = ethtool_op_get_eee,
-+	.set_eee = ethtool_op_set_eee,
- };
- 
- void stmmac_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6ee593a..349423e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -133,6 +133,11 @@ static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
- 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
- 
-+static int eee_timer = 1000;
-+module_param(eee_timer, int, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(eee_timer, "LPI tx expiration time in msec");
-+#define STMMAC_LPI_TIMER(x) (jiffies + msecs_to_jiffies(x))
-+
- static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
- 
- #ifdef CONFIG_STMMAC_DEBUG_FS
-@@ -197,6 +202,82 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
- 					  phydev->speed);
- }
- 
-+static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Check and enter in LPI mode */
-+	if ((priv->dirty_tx == priv->cur_tx) &&
-+	    (priv->tx_path_in_lpi_mode == false))
-+		priv->hw->mac->set_eee_mode(priv->ioaddr);
-+}
-+
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Exit and disable EEE in case of we are are in LPI state. */
-+	priv->hw->mac->reset_eee_mode(priv->ioaddr);
-+	del_timer_sync(&priv->eee_ctrl_timer);
-+	priv->tx_path_in_lpi_mode = false;
-+}
-+
-+/**
-+ * stmmac_eee_ctrl_timer
-+ * @arg : data hook
-+ * Description:
-+ *  If there is no data transfer and if we are not in LPI state,
-+ *  then MAC Transmitter can be moved to LPI state.
-+ */
-+static void stmmac_eee_ctrl_timer(unsigned long arg)
-+{
-+	struct stmmac_priv *priv = (struct stmmac_priv *)arg;
-+
-+	stmmac_enable_eee_mode(priv);
-+	mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+}
-+
-+/**
-+ * stmmac_eee_init
-+ * @priv: private device pointer
-+ * Description:
-+ *  If the EEE support has been enabled while configuring the driver,
-+ *  if the GMAC actually supports the EEE (from the HW cap reg) and the
-+ *  phy can also manage EEE, so enable the LPI state and start the timer
-+ *  to verify if the tx path can enter in LPI state.
-+ */
-+bool stmmac_eee_init(struct stmmac_priv *priv)
-+{
-+	bool ret = false;
-+
-+	/* MAC core supports the EEE feature. */
-+	if (priv->dma_cap.eee) {
-+
-+		/* Check if the PHY supports EEE*/
-+		if (phy_check_eee(priv->phydev))
-+			goto out;
-+
-+		init_timer(&priv->eee_ctrl_timer);
-+		priv->eee_ctrl_timer.function = stmmac_eee_ctrl_timer;
-+		priv->eee_ctrl_timer.data = (unsigned long)priv;
-+		priv->eee_ctrl_timer.expires = STMMAC_LPI_TIMER(eee_timer);
-+		add_timer(&priv->eee_ctrl_timer);
-+
-+		priv->hw->mac->set_eee_timer(priv->ioaddr, 0x3e8, 0);
-+
-+		pr_info("stmmac: Energy-Efficient Ethernet initialized\n");
-+
-+		ret = true;
-+	}
-+out:
-+	return ret;
-+}
-+
-+static void stmmac_eee_adjust(struct stmmac_priv *priv)
-+{
-+	/* When the EEE has been already initialised we have to
-+	 * modify the PLS bit in the LPI ctrl & status reg according
-+	 * to the PHY link status. For this reason. */
-+	if (priv->eee_enabled)
-+		priv->hw->mac->set_eee_pls(priv->ioaddr, priv->phydev->link);
-+}
-+
- /**
-  * stmmac_adjust_link
-  * @dev: net device structure
-@@ -217,6 +298,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	    phydev->addr, phydev->link);
- 
- 	spin_lock_irqsave(&priv->lock, flags);
-+
- 	if (phydev->link) {
- 		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
- 
-@@ -283,6 +365,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	if (new_state && netif_msg_link(priv))
- 		phy_print_status(phydev);
- 
-+	stmmac_eee_adjust(priv);
-+
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
- 	DBG(probe, DEBUG, "stmmac_adjust_link: exiting\n");
-@@ -300,7 +384,7 @@ static int stmmac_init_phy(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phydev;
--	char phy_id[MII_BUS_ID_SIZE + 3];
-+	char phy_id_fmt[MII_BUS_ID_SIZE + 3];
- 	char bus_id[MII_BUS_ID_SIZE];
- 	int interface = priv->plat->interface;
- 	priv->oldlink = 0;
-@@ -308,11 +392,13 @@ static int stmmac_init_phy(struct net_device *dev)
- 	priv->oldduplex = -1;
- 
- 	snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x", priv->plat->bus_id);
--	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
-+	snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 		 priv->plat->phy_addr);
--	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
-+	/* (mii bus id:phy device id)  */
-+	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id_fmt);
- 
--	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0, interface);
-+	phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link, 0,
-+			     interface);
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
-@@ -651,6 +737,11 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 		}
- 		netif_tx_unlock(priv->dev);
- 	}
-+
-+	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
-+		stmmac_enable_eee_mode(priv);
-+		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+	}
- 	spin_unlock(&priv->tx_lock);
- }
- 
-@@ -976,6 +1067,17 @@ static int stmmac_open(struct net_device *dev)
+@@ -2129,6 +2154,23 @@ static int do_sset(struct cmd_context *ctx)
  		}
  	}
  
-+	/* Request the IRQ lines */
-+	if (priv->lpi_irq != -ENXIO) {
-+		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
-+				  dev->name, dev);
-+		if (unlikely(ret < 0)) {
-+			pr_err("%s: ERROR: allocating the LPI IRQ %d"
-+			       " (error: %d)\n", __func__, priv->lpi_irq, ret);
-+			goto open_error_lpiirq;
++	if (eee_changed) {
++		struct ethtool_value edata;
++
++		edata.cmd = ETHTOOL_GEEE;
++		err = send_ioctl(ctx, &edata);
++		if (err < 0)
++			perror("Cannot get current EEE settings");
++		else {
++			edata.cmd = ETHTOOL_SEEE;
++			edata.data = eee_wanted;
++			err = send_ioctl(ctx, &edata);
++			if (err < 0)
++				fprintf(stderr, "Cannot turn %s the EEE",
++					(eee_wanted ? "on" : "off"));
 +		}
 +	}
 +
- 	/* Enable the MAC Rx/Tx */
- 	stmmac_set_mac(priv->ioaddr, true);
+ 	if (msglvl_changed) {
+ 		struct ethtool_value edata;
  
-@@ -1011,12 +1113,18 @@ static int stmmac_open(struct net_device *dev)
- 	if (priv->phydev)
- 		phy_start(priv->phydev);
- 
-+	priv->eee_enabled = stmmac_eee_init(priv);
-+
- 	napi_enable(&priv->napi);
- 	skb_queue_head_init(&priv->rx_recycle);
- 	netif_start_queue(dev);
- 
- 	return 0;
- 
-+open_error_lpiirq:
-+	if (priv->wol_irq != dev->irq)
-+		free_irq(priv->wol_irq, dev);
-+
- open_error_wolirq:
- 	free_irq(dev->irq, dev);
- 
-@@ -1040,6 +1148,9 @@ static int stmmac_release(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
-+	if (priv->eee_enabled)
-+		del_timer_sync(&priv->eee_ctrl_timer);
-+
- 	/* Stop and disconnect the PHY */
- 	if (priv->phydev) {
- 		phy_stop(priv->phydev);
-@@ -1062,6 +1173,8 @@ static int stmmac_release(struct net_device *dev)
- 	free_irq(dev->irq, dev);
- 	if (priv->wol_irq != dev->irq)
- 		free_irq(priv->wol_irq, dev);
-+	if (priv->lpi_irq != -ENXIO)
-+		free_irq(priv->lpi_irq, dev);
- 
- 	/* Stop TX/RX DMA and clear the descriptors */
- 	priv->hw->dma->stop_tx(priv->ioaddr);
-@@ -1111,6 +1224,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_lock(&priv->tx_lock);
- 
-+	if (priv->tx_path_in_lpi_mode)
-+		stmmac_disable_eee_mode(priv);
-+
- 	entry = priv->cur_tx % txsize;
- 
- #ifdef STMMAC_XMIT_DEBUG
-@@ -1485,10 +1601,37 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		return IRQ_NONE;
- 	}
- 
--	if (priv->plat->has_gmac)
--		/* To handle GMAC own interrupts */
--		priv->hw->mac->host_irq_status((void __iomem *) dev->base_addr);
-+	/* To handle GMAC own interrupts */
-+	if (priv->plat->has_gmac) {
-+		int status = priv->hw->mac->host_irq_status((void __iomem *)
-+							    dev->base_addr);
-+		if (unlikely(status)) {
-+			if (status & core_mmc_tx_irq)
-+				priv->xstats.mmc_tx_irq_n++;
-+			if (status & core_mmc_rx_irq)
-+				priv->xstats.mmc_rx_irq_n++;
-+			if (status & core_mmc_rx_csum_offload_irq)
-+				priv->xstats.mmc_rx_csum_offload_irq_n++;
-+			if (status & core_irq_receive_pmt_irq)
-+				priv->xstats.irq_receive_pmt_irq_n++;
-+
-+			/* For LPI we need to save the tx status */
-+			if (status & core_irq_tx_path_in_lpi_mode) {
-+				priv->xstats.irq_tx_path_in_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = true;
-+			}
-+			if (status & core_irq_tx_path_exit_lpi_mode) {
-+				priv->xstats.irq_tx_path_exit_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = false;
-+			}
-+			if (status & core_irq_rx_path_in_lpi_mode)
-+				priv->xstats.irq_rx_path_in_lpi_mode_n++;
-+			if (status & core_irq_rx_path_exit_lpi_mode)
-+				priv->xstats.irq_rx_path_exit_lpi_mode_n++;
-+		}
-+	}
- 
-+	/* To handle DMA interrupts */
- 	stmmac_dma_interrupt(priv);
- 
- 	return IRQ_HANDLED;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3aad981..bc0e83f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -94,6 +94,8 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 	if (priv->wol_irq == -ENXIO)
- 		priv->wol_irq = priv->dev->irq;
- 
-+	priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
-+
- 	platform_set_drvdata(pdev, priv->dev);
- 
- 	pr_debug("STMMAC platform driver registration completed");
+@@ -3129,7 +3171,8 @@ static const struct option {
+ 	  "		[ xcvr internal|external ]\n"
+ 	  "		[ wol p|u|m|b|a|g|s|d... ]\n"
+ 	  "		[ sopass %x:%x:%x:%x:%x:%x ]\n"
+-	  "		[ msglvl %d | msglvl type on|off ... ]\n" },
++	  "		[ msglvl %d | msglvl type on|off ]\n"
++	  "		[ eee on|off ... ]\n" },
+ 	{ "-a|--show-pause", 1, do_gpause, "Show pause options" },
+ 	{ "-A|--pause", 1, do_spause, "Set pause options",
+ 	  "		[ autoneg on|off ]\n"
 -- 
 1.7.4.4
