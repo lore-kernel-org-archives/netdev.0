@@ -1,86 +1,49 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
-Date: Tue, 28 Feb 2012 16:13:33 +0100
-Message-ID: <20120228151333.GA3664@redhat.com>
-References: <1330140111-17201-1-git-send-email-wad@chromium.org> <1330140111-17201-6-git-send-email-wad@chromium.org> <20120227170922.GA10608@redhat.com> <CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Tue, 28 Feb 2012 16:24:47 +0100
+Message-ID: <4F4CF1BF.7080503@collabora.co.uk>
+References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk> <20120224.153616.117399887784547022.davem@davemloft.net> <4F4B8C66.5060206@collabora.co.uk> <20120227.140535.1623396420455657443.davem@davemloft.net> <1330426059.2139.21.camel@megeve> <20120228142846.GD187520@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-        coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-992-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
+	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
+	eric.dumazet@gmail.com, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Lamparter <equinox@diac24.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120228142846.GD187520@jupiter.n2.diac24.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/27, Will Drewry wrote:
->
-> On Mon, Feb 27, 2012 at 11:09 AM, Oleg Nesterov <oleg@redhat.com> wrote:
->
-> >> +static long seccomp_attach_filter(struct sock_fprog *fprog)
-> >> +{
-> >> +     struct seccomp_filter *filter;
-> >> +     unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
-> >> +     long ret;
-> >> +
-> >> +     if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
-> >> +             return -EINVAL;
-> >
-> > OK, this limits the memory PR_SET_SECCOMP can use.
-> >
-> > But,
-> >
-> >> +     /*
-> >> +      * If there is an existing filter, make it the prev and don't drop its
-> >> +      * task reference.
-> >> +      */
-> >> +     filter->prev = current->seccomp.filter;
-> >> +     current->seccomp.filter = filter;
-> >> +     return 0;
-> >
-> > this doesn't limit the number of filters, looks like a DoS.
-> >
-> > What if the application simply does prctl(PR_SET_SECCOMP, dummy_filter)
-> > in an endless loop?
->
-> It consumes a massive amount of kernel memory and, maybe, the OOM
-> killer gives it a boot :)
+On 02/28/2012 03:28 PM, David Lamparter wrote:
+> On Tue, Feb 28, 2012 at 11:47:39AM +0100, Rodrigo Moya wrote:
+>> > - slow readers: dropping packets vs blocking the sender. Although
+>> >   datagrams are not reliable on IP, datagrams on Unix sockets are
+>> never
+>> >   lost. So if one receiver has its buffer full the sender is blocked
+>> > instead of dropping packets. That way we guarantee a reliable
+>> > communication channel.
+> 
+> This sounds like a terribly nice way to f*ck the entire D-Bus system by
+> having one broken (or malicious) desktop application. What's the
+> intended way of coping with users that block the socket by not reading?
+> 
+> 
+> -David L.
 
-may be ;) but most probably oom-killer kills another innocent task,
-this memory is not accounted.
+The problem is that D-bus expects a reliable transport method (TCP or
+SOCK_STREAM Unix socks) but this is not the case with multicast Unix
+sockets. Since our implementation is for SOCK_SEQPACKET and SOCK_DGRAM
+socket types.
 
-> I wasn't sure what the normal convention was for avoiding memory
-> consumption by user processes. Should I just add a sysctl
+So, you have to either add another layer to the D-bus protocol to make
+it reliable (acks, retransmissions, flow control, etc) or avoid losing
+D-bus messages (by blocking the sender if one of the receivers has its
+buffer full).
 
-Perhaps we can add a sysctl later, but personally I think that we
-can start with some "arbitrary" #define BPF_MAXFILTERS.
-
-> and a
-> per-task counter for the max number of filters?
-
-Do we really need the counter? attach_filter is not the fast path,
-perhaps seccomp_attach_filter() could simply iterate the chain and
-count the number?
-
-In any case, if this hurts perfomance-wise then seccomp_run_filters()
-has even more problems.
-
-> I'm fine doing whatever makes sense here.
-
-I am fine either way too.
-
-Oleg.
+Regards,
+Javier
