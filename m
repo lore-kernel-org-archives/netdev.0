@@ -1,64 +1,55 @@
-From: Andrei Warkentin <awarkentin@vmware.com>
-Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
-Date: Tue, 28 Feb 2012 09:43:52 -0800 (PST)
-Message-ID: <1379096961.1660631.1330451032375.JavaMail.root@zimbra-prod-mbox-2.vmware.com>
-References: <4F4CFB94.2080302@windriver.com>
+From: Markus Gutschke <markus@chromium.org>
+Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
+Date: Tue, 28 Feb 2012 09:47:59 -0800
+Message-ID: <CAE6n16kLOOrAV6_7_t_-PnfYoNsJ5yJfHveWykO7qQiFYKb3nQ@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+ <1330140111-17201-6-git-send-email-wad@chromium.org> <b983ece9dc6209269876869188303518.squirrel@webmail.greenhost.nl>
+ <CABqD9haZpe-i8kyHJDj4umCLyZ3E877aobabvW8_+aXeC+kTbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrei Warkentin <andreiw@vmware.com>,
-	kgdb-bugreport@lists.sourceforge.net,
-	Matt Mackall <mpm@selenic.com>,
-	Andrei Warkentin <andrey.warkentin@gmail.com>
-To: Jason Wessel <jason.wessel@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4CFB94.2080302@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:51297 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965345Ab2B1RsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 12:48:20 -0500
+Received: by mail-pw0-f46.google.com with SMTP id up15so3530355pbc.19
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 09:48:20 -0800 (PST)
+In-Reply-To: <CABqD9haZpe-i8kyHJDj4umCLyZ3E877aobabvW8_+aXeC+kTbg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Feb 28, 2012 at 09:17, Will Drewry <wad@chromium.org> wrote:
+> On Tue, Feb 28, 2012 at 12:51 AM, Indan Zupancic <indan@nul.nu> wrote:
+>> Wouldn't it make more sense to always kill with SIGSYS, also for mode 1?
+>> I suppose it's too late for that now.
+>
+> It would but I don't want to go and change existing ABI.
 
------ Original Message -----
-> From: "Jason Wessel" <jason.wessel@windriver.com>
-> To: "Andrei Warkentin" <awarkentin@vmware.com>
-> Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "Andrei Warkentin" <andreiw@vmware.com>,
-> kgdb-bugreport@lists.sourceforge.net, "Matt Mackall" <mpm@selenic.com>, "Andrei Warkentin"
-> <andrey.warkentin@gmail.com>
-> Sent: Tuesday, February 28, 2012 11:06:44 AM
-> Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
-> 
+Just for the record, when this discussion came up about two years ago,
+it was established that other than Chrome, there are currently no
+users of Seccomp, as mode 1 is just too difficult to use for most
+potential applications.
 
-> 
-> All that netpoll_poll() did was to call netpoll_poll_dev().  I have
-> not yet looked at the differences between kgdboe and the netkdb code
-> you proposed but I would have suspected it also falls victim to the
-> ethernet preemption problem which prevented kgdboe from ever being
-> considered for a mainline merge.  Certainly there are ways to fix
-> this
-> problem but most involved changes to scheduling, core net code, or
-> substantial driver specific changes.
-> 
+Chrome doesn't rely on the exit status of a process that violated the
+seccomp restrictions, so it is highly unlikely you would break
+existing userspace, if you changed the ABI. On the other hand, as mode
+2 is so much more powerful than mode 1, it is unlikely that we will
+see future userspace applications make use of mode 1.
 
-I see, I read up on the issues w.r.t. preemption. Could this be worked
-around by modifiying affected drivers to bypass locking if they are
-used in KDB context? Make some accessor netdev-specific lock/unlocks
-that won't do anything if running in KDB context.
+In other words, changing the ABI is unlikely to cause harm, but also
+unlikely to do any good. I don't have any strong opinion either way;
+just providing an additional data point.
 
-> 
-> > 
-> > This is slight OT, but...are WiFi drivers sufficiently similar that
-> > netpoll "just works?"
-> 
-> Yes and no.  Yes, you could use the NET_POLL api to transmit packets
-> if the driver implemented polling hooks, but no in the sense that
-> most
-> of the time you need a user space driver to manage the keys which are
-> time sensitive for things like WPA (usually the job of wpa
-> supplicant).  This is going to prevent you from having WiFi work at
-> all while the kernel is in the critical exception state.
-> 
 
-Ah right. I was thinking just open networking. I should give that a try...
-
-A
+Markus
