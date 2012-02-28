@@ -1,95 +1,64 @@
-From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
-Date: Tue, 28 Feb 2012 11:18:26 -0600
-Message-ID: <CABqD9hYt5WUjB+72F+2Pr7XuOtk0J=4E8Eoghmyw9hgFQj02gQ@mail.gmail.com>
-References: <1330140111-17201-1-git-send-email-wad@chromium.org>
-	<1330140111-17201-6-git-send-email-wad@chromium.org>
-	<20120227170922.GA10608@redhat.com>
-	<CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
-	<20120228151333.GA3664@redhat.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Andrei Warkentin <awarkentin@vmware.com>
+Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
+Date: Tue, 28 Feb 2012 09:43:52 -0800 (PST)
+Message-ID: <1379096961.1660631.1330451032375.JavaMail.root@zimbra-prod-mbox-2.vmware.com>
+References: <4F4CFB94.2080302@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	hpa@zytor.com, mingo@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <kernel-hardening-return-998-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20120228151333.GA3664@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrei Warkentin <andreiw@vmware.com>,
+	kgdb-bugreport@lists.sourceforge.net,
+	Matt Mackall <mpm@selenic.com>,
+	Andrei Warkentin <andrey.warkentin@gmail.com>
+To: Jason Wessel <jason.wessel@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F4CFB94.2080302@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 28, 2012 at 9:13 AM, Oleg Nesterov <oleg@redhat.com> wrote:
-> On 02/27, Will Drewry wrote:
->>
->> On Mon, Feb 27, 2012 at 11:09 AM, Oleg Nesterov <oleg@redhat.com> wrote:
->>
->> >> +static long seccomp_attach_filter(struct sock_fprog *fprog)
->> >> +{
->> >> + =A0 =A0 struct seccomp_filter *filter;
->> >> + =A0 =A0 unsigned long fp_size =3D fprog->len * sizeof(struct sock_f=
-ilter);
->> >> + =A0 =A0 long ret;
->> >> +
->> >> + =A0 =A0 if (fprog->len =3D=3D 0 || fprog->len > BPF_MAXINSNS)
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
->> >
->> > OK, this limits the memory PR_SET_SECCOMP can use.
->> >
->> > But,
->> >
->> >> + =A0 =A0 /*
->> >> + =A0 =A0 =A0* If there is an existing filter, make it the prev and d=
-on't drop its
->> >> + =A0 =A0 =A0* task reference.
->> >> + =A0 =A0 =A0*/
->> >> + =A0 =A0 filter->prev =3D current->seccomp.filter;
->> >> + =A0 =A0 current->seccomp.filter =3D filter;
->> >> + =A0 =A0 return 0;
->> >
->> > this doesn't limit the number of filters, looks like a DoS.
->> >
->> > What if the application simply does prctl(PR_SET_SECCOMP, dummy_filter=
-)
->> > in an endless loop?
->>
->> It consumes a massive amount of kernel memory and, maybe, the OOM
->> killer gives it a boot :)
->
-> may be ;) but most probably oom-killer kills another innocent task,
-> this memory is not accounted.
->
->> I wasn't sure what the normal convention was for avoiding memory
->> consumption by user processes. Should I just add a sysctl
->
-> Perhaps we can add a sysctl later, but personally I think that we
-> can start with some "arbitrary" #define BPF_MAXFILTERS.
+Hi,
 
-Sounds good - I'll wire something like this up in the next round.
+----- Original Message -----
+> From: "Jason Wessel" <jason.wessel@windriver.com>
+> To: "Andrei Warkentin" <awarkentin@vmware.com>
+> Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "Andrei Warkentin" <andreiw@vmware.com>,
+> kgdb-bugreport@lists.sourceforge.net, "Matt Mackall" <mpm@selenic.com>, "Andrei Warkentin"
+> <andrey.warkentin@gmail.com>
+> Sent: Tuesday, February 28, 2012 11:06:44 AM
+> Subject: Re: [PATCHv3 1/3] NETPOLL: Extend rx_hook support.
+> 
 
->> and a
->> per-task counter for the max number of filters?
->
-> Do we really need the counter? attach_filter is not the fast path,
-> perhaps seccomp_attach_filter() could simply iterate the chain and
-> count the number?
->
-> In any case, if this hurts perfomance-wise then seccomp_run_filters()
-> has even more problems.
->
->> I'm fine doing whatever makes sense here.
->
-> I am fine either way too.
->
-> Oleg.
->
+> 
+> All that netpoll_poll() did was to call netpoll_poll_dev().  I have
+> not yet looked at the differences between kgdboe and the netkdb code
+> you proposed but I would have suspected it also falls victim to the
+> ethernet preemption problem which prevented kgdboe from ever being
+> considered for a mainline merge.  Certainly there are ways to fix
+> this
+> problem but most involved changes to scheduling, core net code, or
+> substantial driver specific changes.
+> 
+
+I see, I read up on the issues w.r.t. preemption. Could this be worked
+around by modifiying affected drivers to bypass locking if they are
+used in KDB context? Make some accessor netdev-specific lock/unlocks
+that won't do anything if running in KDB context.
+
+> 
+> > 
+> > This is slight OT, but...are WiFi drivers sufficiently similar that
+> > netpoll "just works?"
+> 
+> Yes and no.  Yes, you could use the NET_POLL api to transmit packets
+> if the driver implemented polling hooks, but no in the sense that
+> most
+> of the time you need a user space driver to manage the keys which are
+> time sensitive for things like WPA (usually the job of wpa
+> supplicant).  This is going to prevent you from having WiFi work at
+> all while the kernel is in the critical exception state.
+> 
+
+Ah right. I was thinking just open networking. I should give that a try...
+
+A
