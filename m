@@ -1,65 +1,272 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 04/13] mac802154: TX data path
-Date: Tue, 28 Feb 2012 18:00:23 +0300
-Message-ID: <1330441232-17650-5-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 02/13] mac802154: allocation of ieee802154 device
+Date: Tue, 28 Feb 2012 18:00:21 +0300
+Message-ID: <1330441232-17650-3-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
+	dbaryshkov@gmail.com,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57899 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754058Ab2B1OFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 09:05:46 -0500
+Received: by eekc41 with SMTP id c41so1150182eek.19
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 06:05:44 -0800 (PST)
+In-Reply-To: <1330441232-17650-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Main TX data path implementation between upper and physical layers.
+Add interface for device drivers to allocate and register ieee802154
+compatible device.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+This code is based on net/mac80211/main.c file
+
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/Makefile    |    2 +-
- net/mac802154/mac802154.h |    5 ++
- net/mac802154/tx.c        |  113 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 119 insertions(+), 1 deletions(-)
- create mode 100644 net/mac802154/tx.c
+ include/net/mac802154.h        |    6 ++
+ net/Kconfig                    |    1 +
+ net/Makefile                   |    1 +
+ net/mac802154/Kconfig          |   16 +++++
+ net/mac802154/Makefile         |    2 +
+ net/mac802154/ieee802154_dev.c |  146 ++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h      |   62 +++++++++++++++++
+ 7 files changed, 234 insertions(+), 0 deletions(-)
+ create mode 100644 net/mac802154/Kconfig
+ create mode 100644 net/mac802154/Makefile
+ create mode 100644 net/mac802154/ieee802154_dev.c
+ create mode 100644 net/mac802154/mac802154.h
 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index e00fe47..490beef 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 7a118e9..7606ba9 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -59,4 +59,9 @@ struct mac802154_priv {
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+index a846511..ef27d07 100644
+--- a/include/net/mac802154.h
++++ b/include/net/mac802154.h
+@@ -128,4 +128,10 @@ struct ieee802154_ops {
+ 				     u8 addr[IEEE802154_ADDR_LEN]);
+ };
  
- #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
++struct ieee802154_dev *
++ieee802154_alloc_device(size_t priv_data_lex, struct ieee802154_ops *ops);
++void ieee802154_free_device(struct ieee802154_dev *dev);
++int ieee802154_register_device(struct ieee802154_dev *dev);
++void ieee802154_unregister_device(struct ieee802154_dev *dev);
++
+ #endif /* NET_MAC802154_H */
+diff --git a/net/Kconfig b/net/Kconfig
+index e07272d..4c06c7c 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -211,6 +211,7 @@ source "net/econet/Kconfig"
+ source "net/wanrouter/Kconfig"
+ source "net/phonet/Kconfig"
+ source "net/ieee802154/Kconfig"
++source "net/mac802154/Kconfig"
+ source "net/sched/Kconfig"
+ source "net/dcb/Kconfig"
+ source "net/dns_resolver/Kconfig"
+diff --git a/net/Makefile b/net/Makefile
+index ad432fa..2a97cde 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -60,6 +60,7 @@ ifneq ($(CONFIG_DCB),)
+ obj-y				+= dcb/
+ endif
+ obj-$(CONFIG_IEEE802154)	+= ieee802154/
++obj-$(CONFIG_MAC802154)		+= mac802154/
  
-+#define MAC802154_MAX_XMIT_ATTEMPTS	3
-+
-+netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
-+			 u8 page, u8 chan);
-+
- #endif /* MAC802154_H */
-diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+diff --git a/net/mac802154/Kconfig b/net/mac802154/Kconfig
 new file mode 100644
-index 0000000..e62f915
+index 0000000..a967dda
 --- /dev/null
-+++ b/net/mac802154/tx.c
-@@ -0,0 +1,113 @@
++++ b/net/mac802154/Kconfig
+@@ -0,0 +1,16 @@
++config MAC802154
++	tristate "Generic IEEE 802.15.4 Soft Networking Stack (mac802154)"
++	depends on IEEE802154 && EXPERIMENTAL
++	select CRC_CCITT
++	---help---
++	  This option enables the hardware independent IEEE 802.15.4
++	  networking stack for SoftMAC devices (the ones implementing
++	  only PHY level of IEEE 802.15.4 standard).
++
++	  Note: this implementation is neither certified, nor feature
++	  complete! Compatibility with other implementations hasn't
++	  been tested yet!
++
++	  If you plan to use HardMAC IEEE 802.15.4 devices, you can
++	  say N here. Alternatievly you can say M to compile it as
++	  module.
+diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
+new file mode 100644
+index 0000000..cda9393
+--- /dev/null
++++ b/net/mac802154/Makefile
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_MAC802154)	+= mac802154.o
++mac802154-objs		:= ieee802154_dev.o
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+new file mode 100644
+index 0000000..288a2b0
+--- /dev/null
++++ b/net/mac802154/ieee802154_dev.c
+@@ -0,0 +1,146 @@
 +/*
-+ * Copyright 2007-2011 Siemens AG
++ * Copyright (C) 2007-2011 Siemens AG
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <net/route.h>
++
++#include <net/mac802154.h>
++#include <net/wpan-phy.h>
++
++#include "mac802154.h"
++
++struct ieee802154_dev *
++ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
++{
++	struct wpan_phy *phy;
++	struct mac802154_priv *priv;
++	size_t priv_size;
++
++	if (!ops || !ops->xmit || !ops->ed || !ops->start ||
++	    !ops->stop || !ops->set_channel) {
++		printk(KERN_ERR
++			"undefined IEEE802.15.4 device operations\n");
++		return NULL;
++	}
++
++	/*
++	 * Ensure 32-byte alignment of our private data and hw private data.
++	 * We use the wpan_phy priv data for both our mac802154_priv and for
++	 * the driver's private data
++	 *
++	 * in memory it'll be like this:
++	 *
++	 * +-----------------------+
++	 * | struct wpan_phy       |
++	 * +-----------------------+
++	 * | struct mac802154_priv |
++	 * +-----------------------+
++	 * | driver's private data |
++	 * +-----------------------+
++	 *
++	 * Due to ieee802154 layer isn't aware of driver and MAC structures,
++	 * so lets allign them here.
++	 */
++
++	priv_size = ALIGN(sizeof(*priv), NETDEV_ALIGN) + priv_data_len;
++
++	phy = wpan_phy_alloc(priv_size);
++	if (!phy) {
++		printk(KERN_ERR
++			"failure to allocate master IEEE802.15.4 device\n");
++		return NULL;
++	}
++
++	priv = wpan_phy_priv(phy);
++	priv->hw.phy = priv->phy = phy;
++	priv->hw.priv = (char *)priv + ALIGN(sizeof(*priv), NETDEV_ALIGN);
++	priv->ops = ops;
++
++	INIT_LIST_HEAD(&priv->slaves);
++	mutex_init(&priv->slaves_mtx);
++
++	return &priv->hw;
++}
++EXPORT_SYMBOL(ieee802154_alloc_device);
++
++void ieee802154_free_device(struct ieee802154_dev *hw)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(hw);
++
++	wpan_phy_free(priv->phy);
++
++	mutex_destroy(&priv->slaves_mtx);
++}
++EXPORT_SYMBOL(ieee802154_free_device);
++
++int ieee802154_register_device(struct ieee802154_dev *dev)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(dev);
++	int rc = -ENOMEM;
++
++	priv->dev_workqueue =
++		create_singlethread_workqueue(wpan_phy_name(priv->phy));
++	if (!priv->dev_workqueue)
++		goto out;
++
++	wpan_phy_set_dev(priv->phy, priv->hw.parent);
++
++	rc = wpan_phy_register(priv->phy);
++	if (rc < 0)
++		goto out_wq;
++
++	rtnl_lock();
++
++	mutex_lock(&priv->slaves_mtx);
++	priv->running = MAC802154_DEVICE_RUN;
++	mutex_unlock(&priv->slaves_mtx);
++
++	rtnl_unlock();
++
++	return 0;
++
++out_wq:
++	destroy_workqueue(priv->dev_workqueue);
++out:
++	return rc;
++}
++EXPORT_SYMBOL(ieee802154_register_device);
++
++void ieee802154_unregister_device(struct ieee802154_dev *dev)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(dev);
++
++	flush_workqueue(priv->dev_workqueue);
++	destroy_workqueue(priv->dev_workqueue);
++
++	rtnl_lock();
++
++	mutex_lock(&priv->slaves_mtx);
++	priv->running = MAC802154_DEVICE_STOPPED;
++	mutex_unlock(&priv->slaves_mtx);
++
++	rtnl_unlock();
++
++	wpan_phy_unregister(priv->phy);
++}
++EXPORT_SYMBOL(ieee802154_unregister_device);
++
++MODULE_DESCRIPTION("IEEE 802.15.4 implementation");
++MODULE_LICENSE("GPL v2");
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+new file mode 100644
+index 0000000..7a118e9
+--- /dev/null
++++ b/net/mac802154/mac802154.h
+@@ -0,0 +1,62 @@
++/*
++ * Copyright (C) 2007-2012 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -75,109 +282,50 @@ index 0000000..e62f915
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ * Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-+ * Maxim Gorbachyov <maxim.gorbachev-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++ * Pavel Smolenskiy <pavel.smolenskiy@gmail.com>
++ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
++ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
++ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 + */
++#ifndef MAC802154_H
++#define MAC802154_H
 +
-+#include <linux/netdevice.h>
-+#include <linux/if_arp.h>
-+#include <linux/crc-ccitt.h>
++struct mac802154_priv {
++	struct ieee802154_dev hw;
++	struct ieee802154_ops *ops;
 +
-+#include <net/mac802154.h>
-+#include <net/wpan-phy.h>
++	struct wpan_phy *phy;
 +
-+#include "mac802154.h"
++	int open_count;
++	/* As in mac80211 slaves list is modified:
++	 * 1) under the RTNL
++	 * 2) protected by slaves_mtx;
++	 * 3) in an RCU manner
++	 *
++	 * So atomic readers can use any of this protection methods
++	 */
++	struct list_head	slaves;
++	struct mutex		slaves_mtx;
++	/* This one is used for scanning and other
++	 * jobs not to be interfered with serial driver */
++	struct workqueue_struct	*dev_workqueue;
 +
-+struct xmit_work {
-+	struct sk_buff *skb;
-+	struct work_struct work;
-+	struct mac802154_priv *priv;
-+	u8 page;
-+	u8 chan;
-+	u8 xmit_attempts;
++	/*
++	 * The following flag is also modified under slaves_mtx and RTNL,
++	 * so you can read them using any of protection methods.
++	 */
++	/*
++	 * SoftMAC device is registered and running. One can add
++	 * subinterfaces.
++	 */
++	bool running;
 +};
 +
-+static void mac802154_xmit_worker(struct work_struct *work)
-+{
-+	struct xmit_work *xw = container_of(work, struct xmit_work, work);
-+	int res;
++#define	MAC802154_DEVICE_STOPPED	0x00
++#define MAC802154_DEVICE_RUN		0x01
 +
-+	mutex_lock(&xw->priv->phy->pib_lock);
-+	if (xw->priv->phy->current_channel != xw->chan ||
-+	    xw->priv->phy->current_page != xw->page) {
-+		res = xw->priv->ops->set_channel(&xw->priv->hw,
-+						  xw->page,
-+						  xw->chan);
-+		if (res) {
-+			pr_debug("set_channel failed\n");
-+			goto out;
-+		}
-+	}
++#define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
 +
-+	res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
-+
-+out:
-+	mutex_unlock(&xw->priv->phy->pib_lock);
-+
-+	if (res) {
-+		if (xw->xmit_attempts++ < MAC802154_MAX_XMIT_ATTEMPTS) {
-+			queue_work(xw->priv->dev_workqueue, &xw->work);
-+			return;
-+		} else
-+			pr_debug("transmission failed for %d times",
-+				  MAC802154_MAX_XMIT_ATTEMPTS);
-+	}
-+
-+	dev_kfree_skb(xw->skb);
-+
-+	kfree(xw);
-+}
-+
-+netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
-+			 u8 page, u8 chan)
-+{
-+	struct xmit_work *work;
-+
-+	if (!(priv->phy->channels_supported[page] & (1 << chan)))
-+		WARN_ON(1);
-+		return NETDEV_TX_OK;
-+
-+	if (!(priv->hw.flags & IEEE802154_HW_OMIT_CKSUM)) {
-+		u16 crc = crc_ccitt(0, skb->data, skb->len);
-+		u8 *data = skb_put(skb, 2);
-+		data[0] = crc & 0xff;
-+		data[1] = crc >> 8;
-+	}
-+
-+	if (skb_cow_head(skb, priv->hw.extra_tx_headroom)) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	work = kzalloc(sizeof(struct xmit_work), GFP_ATOMIC);
-+	if (!work)
-+		return NETDEV_TX_BUSY;
-+
-+	INIT_WORK(&work->work, mac802154_xmit_worker);
-+	work->skb = skb;
-+	work->priv = priv;
-+	work->page = page;
-+	work->chan = chan;
-+	work->xmit_attempts = 0;
-+
-+	queue_work(priv->dev_workqueue, &work->work);
-+
-+	return NETDEV_TX_OK;
-+}
++#endif /* MAC802154_H */
 -- 
 1.7.2.3
-
-
-------------------------------------------------------------------------------
-Keep Your Developer Skills Current with LearnDevNow!
-The most comprehensive online learning library for Microsoft developers
-is just $99.99! Visual Studio, SharePoint, SQL - plus HTML5, CSS3, MVC3,
-Metro Style Apps, more. Free future releases when you subscribe now!
-http://p.sf.net/sfu/learndevnow-d2d
