@@ -1,55 +1,71 @@
-From: Markus Gutschke <markus@chromium.org>
-Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
-Date: Tue, 28 Feb 2012 09:47:59 -0800
-Message-ID: <CAE6n16kLOOrAV6_7_t_-PnfYoNsJ5yJfHveWykO7qQiFYKb3nQ@mail.gmail.com>
-References: <1330140111-17201-1-git-send-email-wad@chromium.org>
- <1330140111-17201-6-git-send-email-wad@chromium.org> <b983ece9dc6209269876869188303518.squirrel@webmail.greenhost.nl>
- <CABqD9haZpe-i8kyHJDj4umCLyZ3E877aobabvW8_+aXeC+kTbg@mail.gmail.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: ingress filter not matching on bonded interface
+Date: Tue, 28 Feb 2012 12:52:04 -0500
+Message-ID: <1330451524.4671.71.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Indan Zupancic <indan@nul.nu>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
-	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:51297 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965345Ab2B1RsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 12:48:20 -0500
-Received: by mail-pw0-f46.google.com with SMTP id up15so3530355pbc.19
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 09:48:20 -0800 (PST)
-In-Reply-To: <CABqD9haZpe-i8kyHJDj4umCLyZ3E877aobabvW8_+aXeC+kTbg@mail.gmail.com>
+Received: from mout.perfora.net ([74.208.4.195]:62556 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756618Ab2B1RwI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Feb 2012 12:52:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2012 at 09:17, Will Drewry <wad@chromium.org> wrote:
-> On Tue, Feb 28, 2012 at 12:51 AM, Indan Zupancic <indan@nul.nu> wrote:
->> Wouldn't it make more sense to always kill with SIGSYS, also for mode 1?
->> I suppose it's too late for that now.
->
-> It would but I don't want to go and change existing ABI.
+Hello, all.  We are delighted to finally have a functioning adaptive
+traffic shaping system for 95th percentile billing except for one very
+serious issue.  For some reason, our ingress filter to redirect to an
+IFB interface is not working on a bonded interface.  It does appear to
+work on a non-bonded interface.
 
-Just for the record, when this discussion came up about two years ago,
-it was established that other than Chrome, there are currently no
-users of Seccomp, as mode 1 is just too difficult to use for most
-potential applications.
+Here are the stats on the test system:
+root@testswitch01:/usr/local/sbin# tc -s filter show dev eth1 parent ffff:
+filter protocol ip pref 1 u32
+filter protocol ip pref 1 u32 fh 800: ht divisor 1
+filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 terminal flowid ???  (rule hit 1960 success 1960)
+  match 00000000/00000000 at 0 (success 1960 )
+        action order 1: mirred (Egress Redirect to device ifb0) stolen
+        index 17 ref 1 bind 1 installed 2318 sec
+        Action statistics:
+        Sent 609472 bytes 1960 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
 
-Chrome doesn't rely on the exit status of a process that violated the
-seccomp restrictions, so it is highly unlikely you would break
-existing userspace, if you changed the ABI. On the other hand, as mode
-2 is so much more powerful than mode 1, it is unlikely that we will
-see future userspace applications make use of mode 1.
+Note the rule hit / rule match.
 
-In other words, changing the ABI is unlikely to cause harm, but also
-unlikely to do any good. I don't have any strong opinion either way;
-just providing an additional data point.
+Here are the stats from production running the same scripts:
+[root@fw ~]# tc -s filter show dev bond3 parent ffff:
+filter protocol ip pref 1 u32
+filter protocol ip pref 1 u32 fh 800: ht divisor 1
+filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0  (rule hit 61596 success 0)
+  match 00000000/00000000 at 0 (success 61596 )
+        action order 1: mirred (Egress Redirect to device ifb0) stolen
+        index 2 ref 1 bind 1 installed 2185 sec used 2185 sec
+        Action statistics:
+        Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+        rate 0bit 0pps backlog 0b 0p requeues 0
 
+Note zero success on the rule and we are not seeing traffic in the
+associated classes.
+What do we need to do to do ingress shaping on a bonded interface? We
+tried placing the filter on the physical interfaces but then the rules
+were not hit at all.
 
-Markus
+Here is the pertinent portion of the script:
+# Redirect traffic into the IFB interfaces
+# Egress
+	c=1
+	for IF in ${DIFS} ${MIFS} ${VIFS}
+	do
+		${TC} filter replace dev ${IF} parent ${c}:0 protocol ip prio 1 u32 match u8 0 0 flowid ${c}:1 action mirred egress redirect dev ${EIFB}
+# Ingress
+		${TC} qdisc replace dev ${IF} ingress
+		${TC} filter replace dev ${IF} parent ffff: protocol ip prio 1 u32 match u8 0 0 action mirred egress redirect dev ${IIFB}
+		((c++))
+	done
+
+I'm honestly not sure if the issue is the bonded interface but that is
+the one difference which leaps out to me.  I suppose it could be our
+kernel or iproute versions.  This firewall is running kernel 2.6.30.5 on
+CentOS 5.7 and iproute-2.6.18-11.el5.  Any known issues?  Thanks - John
