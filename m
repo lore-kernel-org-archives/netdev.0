@@ -1,58 +1,75 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH 2/2] ipv4: fix mss comparison
-Date: Tue, 28 Feb 2012 17:55:41 +0800
-Message-ID: <CAJFZqHwpyf093EC_wgZEiogfQ=hHqxH0FkhkktRr9MEypCkEtg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] ipv6: fix mss when it is bigger than IPV6_MAXPLEN -
+ sizeof(struct tcphdr)
+Date: Tue, 28 Feb 2012 01:56:23 -0800
+Message-ID: <1330422983.2610.13.camel@edumazet-laptop>
 References: <1330417697-2637-1-git-send-email-roy.qing.li@gmail.com>
-	<1330417697-2637-2-git-send-email-roy.qing.li@gmail.com>
-	<20120228093426.GA17057@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:57367 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752081Ab2B1Jzm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 04:55:42 -0500
-Received: by obcva7 with SMTP id va7so6568968obc.19
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 01:55:41 -0800 (PST)
-In-Reply-To: <20120228093426.GA17057@electric-eye.fr.zoreil.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:51516 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754801Ab2B1J41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 04:56:27 -0500
+Received: by daed14 with SMTP id d14so2164893dae.19
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 01:56:26 -0800 (PST)
+In-Reply-To: <1330417697-2637-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/2/28 Francois Romieu <romieu@fr.zoreil.com>:
-> roy.qing.li@gmail.com <roy.qing.li@gmail.com> :
-> [...]
->> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->> index 0489ced..c72f765 100644
->> --- a/net/ipv4/route.c
->> +++ b/net/ipv4/route.c
->> @@ -1914,8 +1914,8 @@ static unsigned int ipv4_default_advmss(const =
-struct dst_entry *dst)
->> =A0 =A0 =A0 if (advmss =3D=3D 0) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 advmss =3D max_t(unsigned int, dst->dev-=
->mtu - 40,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ip_rt_min=
-_advmss);
->> - =A0 =A0 =A0 =A0 =A0 =A0 if (advmss > 65535 - 40)
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 advmss =3D 65535 - 40;
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (advmss > 65535 - sizeof(struct tcphdr)=
-)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 advmss =3D 65535 - sizeof(=
-struct tcphdr);
->
-> What would prevent net/ipv4/tcp_output.c::tcp_advertise_mss returning
-> a value beyond 65535 - 40 ?
->
+Le mardi 28 f=C3=A9vrier 2012 =C3=A0 16:28 +0800, roy.qing.li@gmail.com=
+ a =C3=A9crit :
+> From: RongQing.Li <roy.qing.li@gmail.com>
+>=20
+> When mss is bigger than IPV6_MAXPLEN - sizeof(struct tcphdr),
+> set mss to IPV6_MAXPLEN - sizeof(struct tcphdr), not IPV6_MAXPLEN.
+>=20
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+> ---
+>  net/ipv6/route.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 92be12b..42cc16c 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1054,7 +1054,7 @@ static unsigned int ip6_default_advmss(const st=
+ruct dst_entry *dst)
+>  	 * rely only on pmtu discovery"
+>  	 */
+>  	if (mtu > IPV6_MAXPLEN - sizeof(struct tcphdr))
+> -		mtu =3D IPV6_MAXPLEN;
+> +		mtu =3D IPV6_MAXPLEN - sizeof(struct tcphdr);
+>  	return mtu;
+>  }
+> =20
 
-You are right, Please ignore this patch.
-The biggest MSS should be (Total Length of ipv4 header -
-sizeof(iphdr)- sizeof(tcphdr))
+Hmm... What about the comment above the code mentioning pmtu discovery =
+?
 
-I mix up the Total Length of ipv4 header and Payload Length of ipv6 hea=
-der.
+        /*
+         * Maximal non-jumbo IPv6 payload is IPV6_MAXPLEN and
+         * corresponding MSS is IPV6_MAXPLEN - tcp_header_size.
+         * IPV6_MAXPLEN is also valid and means: "any MSS,
+         * rely only on pmtu discovery"
+         */
 
-> --
-> Ueimor
+
+Check out code from net/ipv6/ip6_output.c, ip6_append_data() :
+
+        if (mtu <=3D sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+                if (cork->length + length > sizeof(struct ipv6hdr) + IP=
+V6_MAXPLEN - fragheaderlen) {
+                        ipv6_local_error(sk, EMSGSIZE, fl6, mtu-exthdrl=
+en);
+                        return -EMSGSIZE;
+                }
+        }
+
+and __ip6_local_out()
+
+	if (len > IPV6_MAXPLEN)
+		len =3D 0;
