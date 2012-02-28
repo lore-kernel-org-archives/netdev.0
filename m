@@ -1,51 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mlx4: prevent the device from being removed
- concurrently
-Date: Tue, 28 Feb 2012 15:46:57 -0500 (EST)
-Message-ID: <20120228.154657.1817512578346429850.davem@davemloft.net>
-References: <1330454176-17768-1-git-send-email-cascardo@linux.vnet.ibm.com>
-	<20120228.143051.352474620462899753.davem@davemloft.net>
-	<20120228203438.GA12028@oc1711230544.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format
+ specifier
+Date: Tue, 28 Feb 2012 15:49:14 -0500 (EST)
+Message-ID: <20120228.154914.662485432055205683.davem@davemloft.net>
+References: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
+	<CAMuHMdXAwgtwbCV_=qJnrs=YPZksoEBkjnQB=JbR7fc+UyKdzw@mail.gmail.com>
+	<CAMuHMdW0Oh7h8tv85ScgHB50vMaZSU7S3cPJRsChnRe2sNL_kA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120228203438.GA12028-/9mL1TZGaJOu3CHPIDa7bVaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: danny.kukawka@bisect.de, dkukawka@suse.de,
+	jeffrey.t.kirsher@intel.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdW0Oh7h8tv85ScgHB50vMaZSU7S3cPJRsChnRe2sNL_kA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Date: Tue, 28 Feb 2012 17:34:38 -0300
-
-> On Tue, Feb 28, 2012 at 02:30:51PM -0500, David Miller wrote:
->> From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
->> Date: Tue, 28 Feb 2012 15:36:16 -0300
->> 
->> > When a EEH happens, the catas poll code will try to restart the device,
->> > removing it and adding it back again. The EEH code will try to do the
->> > same. One of the threads ends up accessing memory that was freed by the
->> > other thread and we get a crash.
->> 
->> Stop adding bandaids to the locking.
->> 
->> If the EEH infrastructure doesn't synchronize parallel operations
->> on the same device, that is the real bug, and that's where the real
->> fix belongs.
->> 
->> I refuse to apply this patch.
->> 
-> 
-> It's not EEH that does not synchronize removal. The problem is that the
-> driver itself calls the driver remove function through mlx4_restart_one.
-
-Then reuse the existing intf_mutex this driver has, export it to
-main.c and add a new __mlx4_unregister_device that can be called
-with the intf_mutex held already.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFR1
+ZSwgMjggRmViIDIwMTIgMjE6NDU6MzAgKzAxMDANCg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
+aXJydXMvbWFjODl4MC5jOiBJbiBmdW5jdGlvbiChc2V0X21hY19hZGRyZXNzojoNCj4gZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYzo1OTc6IHdhcm5pbmc6IGRlcmVmZXJlbmNp
+bmcNCj4goXZvaWQgKqIgcG9pbnRlcg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFj
+ODl4MC5jOjU5NzogZXJyb3I6IHJlcXVlc3QgZm9yIG1lbWJlcg0KPiChc2FfZGF0YaIgaW4gc29t
+ZXRoaW5nIG5vdCBhIHN0cnVjdHVyZSBvciB1bmlvbg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
+aXJydXMvbWFjODl4MC5jOjYwMDogd2FybmluZzogZGVyZWZlcmVuY2luZw0KPiChdm9pZCAqoiBw
+b2ludGVyDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmM6NjAwOiBlcnJv
+cjogcmVxdWVzdCBmb3IgbWVtYmVyDQo+IKFzYV9kYXRhoiBpbiBzb21ldGhpbmcgbm90IGEgc3Ry
+dWN0dXJlIG9yIHVuaW9uDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmM6
+NTk1OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXNhZGRyog0KDQpUaGFua3MsIEkndmUgZml4
+ZWQgdGhpcyBhcyBmb2xsb3dzIGFuZCBwdXNoZWQgdG8gbmV0LW5leHQ6DQoNCi0tLS0tLS0tLS0t
+LS0tLS0tLS0tDQptYWM4OXgwOiBGaXggYnVpbGQgZXJyb3IuDQoNCk5lZWQgdG8gdXNlIHRoZSBu
+ZXcgJ3NhZGRyJyB2YXJpYWJsZSBub3QgdGhlIHZvaWQgJ2FkZHInIGluDQpzZXRfbWFjX2FkZHJl
+c3MoKS4NCg0KUmVwb3J0ZWQtYnk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4
+ay5vcmc+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+DQotLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFjODl4MC5jIHwgICAgNiAr
+KystLS0NCiAxIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkN
+Cg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmMgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFjODl4MC5jDQppbmRleCA0MTk4MjVjLi45MzJm
+ZGNjIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYw0K
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYw0KQEAgLTU5MSwxMyAr
+NTkxLDEzIEBAIHN0YXRpYyB2b2lkIHNldF9tdWx0aWNhc3RfbGlzdChzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2KQ0KIA0KIHN0YXRpYyBpbnQgc2V0X21hY19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNl
+ICpkZXYsIHZvaWQgKmFkZHIpDQogew0KLQlpbnQgaTsNCiAJc3RydWN0IHNvY2thZGRyICpzYWRk
+ciA9IGFkZHI7DQorCWludCBpOw0KIA0KLQlpZiAoIWlzX3ZhbGlkX2V0aGVyX2FkZHIoYWRkci0+
+c2FfZGF0YSkpDQorCWlmICghaXNfdmFsaWRfZXRoZXJfYWRkcihzYWRkci0+c2FfZGF0YSkpDQog
+CQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7DQogDQotCW1lbWNweShkZXYtPmRldl9hZGRyLCBhZGRy
+LT5zYV9kYXRhLCBFVEhfQUxFTik7DQorCW1lbWNweShkZXYtPmRldl9hZGRyLCBzYWRkci0+c2Ff
+ZGF0YSwgRVRIX0FMRU4pOw0KIAlwcmludGsoIiVzOiBTZXR0aW5nIE1BQyBhZGRyZXNzIHRvICVw
+TVxuIiwgZGV2LT5uYW1lLCBkZXYtPmRldl9hZGRyKTsNCiANCiAJLyogc2V0IHRoZSBFdGhlcm5l
+dCBhZGRyZXNzICovDQotLSANCjEuNy43LjYNCg0K
