@@ -1,53 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format
- specifier
-Date: Tue, 28 Feb 2012 15:49:14 -0500 (EST)
-Message-ID: <20120228.154914.662485432055205683.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
+Date: Tue, 28 Feb 2012 22:00:50 +0100
+Message-ID: <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
 References: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de>
 	<CAMuHMdXAwgtwbCV_=qJnrs=YPZksoEBkjnQB=JbR7fc+UyKdzw@mail.gmail.com>
 	<CAMuHMdW0Oh7h8tv85ScgHB50vMaZSU7S3cPJRsChnRe2sNL_kA@mail.gmail.com>
+	<20120228.154914.662485432055205683.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: danny.kukawka@bisect.de, dkukawka@suse.de,
 	jeffrey.t.kirsher@intel.com, jpirko@redhat.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdW0Oh7h8tv85ScgHB50vMaZSU7S3cPJRsChnRe2sNL_kA@mail.gmail.com>
+In-Reply-To: <20120228.154914.662485432055205683.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFR1
-ZSwgMjggRmViIDIwMTIgMjE6NDU6MzAgKzAxMDANCg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
-aXJydXMvbWFjODl4MC5jOiBJbiBmdW5jdGlvbiChc2V0X21hY19hZGRyZXNzojoNCj4gZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYzo1OTc6IHdhcm5pbmc6IGRlcmVmZXJlbmNp
-bmcNCj4goXZvaWQgKqIgcG9pbnRlcg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFj
-ODl4MC5jOjU5NzogZXJyb3I6IHJlcXVlc3QgZm9yIG1lbWJlcg0KPiChc2FfZGF0YaIgaW4gc29t
-ZXRoaW5nIG5vdCBhIHN0cnVjdHVyZSBvciB1bmlvbg0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
-aXJydXMvbWFjODl4MC5jOjYwMDogd2FybmluZzogZGVyZWZlcmVuY2luZw0KPiChdm9pZCAqoiBw
-b2ludGVyDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmM6NjAwOiBlcnJv
-cjogcmVxdWVzdCBmb3IgbWVtYmVyDQo+IKFzYV9kYXRhoiBpbiBzb21ldGhpbmcgbm90IGEgc3Ry
-dWN0dXJlIG9yIHVuaW9uDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmM6
-NTk1OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXNhZGRyog0KDQpUaGFua3MsIEkndmUgZml4
-ZWQgdGhpcyBhcyBmb2xsb3dzIGFuZCBwdXNoZWQgdG8gbmV0LW5leHQ6DQoNCi0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQptYWM4OXgwOiBGaXggYnVpbGQgZXJyb3IuDQoNCk5lZWQgdG8gdXNlIHRoZSBu
-ZXcgJ3NhZGRyJyB2YXJpYWJsZSBub3QgdGhlIHZvaWQgJ2FkZHInIGluDQpzZXRfbWFjX2FkZHJl
-c3MoKS4NCg0KUmVwb3J0ZWQtYnk6IEdlZXJ0IFV5dHRlcmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4
-ay5vcmc+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+DQotLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFjODl4MC5jIHwgICAgNiAr
-KystLS0NCiAxIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkN
-Cg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2NpcnJ1cy9tYWM4OXgwLmMgYi9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9jaXJydXMvbWFjODl4MC5jDQppbmRleCA0MTk4MjVjLi45MzJm
-ZGNjIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYw0K
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lycnVzL21hYzg5eDAuYw0KQEAgLTU5MSwxMyAr
-NTkxLDEzIEBAIHN0YXRpYyB2b2lkIHNldF9tdWx0aWNhc3RfbGlzdChzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2KQ0KIA0KIHN0YXRpYyBpbnQgc2V0X21hY19hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXYsIHZvaWQgKmFkZHIpDQogew0KLQlpbnQgaTsNCiAJc3RydWN0IHNvY2thZGRyICpzYWRk
-ciA9IGFkZHI7DQorCWludCBpOw0KIA0KLQlpZiAoIWlzX3ZhbGlkX2V0aGVyX2FkZHIoYWRkci0+
-c2FfZGF0YSkpDQorCWlmICghaXNfdmFsaWRfZXRoZXJfYWRkcihzYWRkci0+c2FfZGF0YSkpDQog
-CQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7DQogDQotCW1lbWNweShkZXYtPmRldl9hZGRyLCBhZGRy
-LT5zYV9kYXRhLCBFVEhfQUxFTik7DQorCW1lbWNweShkZXYtPmRldl9hZGRyLCBzYWRkci0+c2Ff
-ZGF0YSwgRVRIX0FMRU4pOw0KIAlwcmludGsoIiVzOiBTZXR0aW5nIE1BQyBhZGRyZXNzIHRvICVw
-TVxuIiwgZGV2LT5uYW1lLCBkZXYtPmRldl9hZGRyKTsNCiANCiAJLyogc2V0IHRoZSBFdGhlcm5l
-dCBhZGRyZXNzICovDQotLSANCjEuNy43LjYNCg0K
+Hi David,
+
+2012/2/28 David Miller <davem@davemloft.net>:
+> From: Geert Uytterhoeven <geert@linux-m68k.org>
+> Date: Tue, 28 Feb 2012 21:45:30 +0100
+>
+>> drivers/net/ethernet/cirrus/mac89x0.c: In function =E2=80=98set_mac_=
+address=E2=80=99:
+>> drivers/net/ethernet/cirrus/mac89x0.c:597: warning: dereferencing
+>> =E2=80=98void *=E2=80=99 pointer
+>> drivers/net/ethernet/cirrus/mac89x0.c:597: error: request for member
+>> =E2=80=98sa_data=E2=80=99 in something not a structure or union
+>> drivers/net/ethernet/cirrus/mac89x0.c:600: warning: dereferencing
+>> =E2=80=98void *=E2=80=99 pointer
+>> drivers/net/ethernet/cirrus/mac89x0.c:600: error: request for member
+>> =E2=80=98sa_data=E2=80=99 in something not a structure or union
+>> drivers/net/ethernet/cirrus/mac89x0.c:595: warning: unused variable =
+=E2=80=98saddr=E2=80=99
+>
+> Thanks, I've fixed this as follows and pushed to net-next:
+>
+> --------------------
+> mac89x0: Fix build error.
+>
+> Need to use the new 'saddr' variable not the void 'addr' in
+> set_mac_address().
+>
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Thanks, that fixed the build.
+
+What about the is_valid_ether_addr() check?
+
+Gr{oetje,eeting}s,
+
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
