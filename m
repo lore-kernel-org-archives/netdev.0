@@ -1,52 +1,27 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [Bug #42707] Hang deconfiguring network interface (in shutdown)
- on 3.3-rc1
-Date: Mon, 27 Feb 2012 17:44:34 -0600
-Message-ID: <1330386274.2822.105.camel@dabdike.int.hansenpartnership.com>
-References: <y44pDJ8xoDC.A.08E.h8rRPB@chimera>
-	 <qCQH7HfZS8E.A.x6F.98rRPB@chimera>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: NetKGDB v3
+Date: Mon, 27 Feb 2012 16:04:50 -0800
+Message-ID: <20120227160450.022784bb@nehalam.linuxnetplumber.net>
+References: <1330137851-4716-1-git-send-email-andrey.warkentin@gmail.com>
+	<1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrei Warkentin <andrey.warkentin@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <qCQH7HfZS8E.A.x6F.98rRPB@chimera>
+In-Reply-To: <1330313411-845-1-git-send-email-andrey.warkentin@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-02-23 at 23:55 +0100, Rafael J. Wysocki wrote:
-> This message has been generated automatically as a part of a summary report
-> of recent regressions.
-> 
-> The following bug entry is on the current list of known regressions
-> from 3.2.  Please verify if it still should be listed and let the tracking team
-> know (either way).
-> 
-> 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=42707
-> Subject		: Hang deconfiguring network interface (in shutdown) on 3.3-rc1
-> Submitter	: James Bottomley <James.Bottomley@hansenpartnership.com>
-> Date		: 2012-01-28 19:56 (27 days old)
-> Message-ID	: <1327780565.2924.24.camel@dabdike.int.hansenpartnership.com>
-> References	: http://marc.info/?l=linux-kernel&m=132778076214873&w=2
+On Sun, 26 Feb 2012 22:30:08 -0500
+Andrei Warkentin <andrey.warkentin@gmail.com> wrote:
 
-Still present in 3.3-rc4; I've bisected it back to this commit:
+> netkgdb is designed to accept connections
+> from any hosts, i.e. it is not necessary to specify these ahead
+> of time. This makes it that much more useful in a "this host crashed
+> and a I want a developer to take a look at it" scenario, common to
+> large scale test/QA farms and automated testing harnesses.
 
-commit 92feeabf3f673767c6ee4cfc7fc224098446c1c1
-Author: Matt Carlson <mcarlson@broadcom.com>
-Date:   Thu Dec 8 14:40:14 2011 +0000
-
-    tg3: Save stats across chip resets
-
-and sure enough, just reverting this single commit on 3.3-rc4 fixes the
-problem.
-
-James
+And opens a security hole so wide that no production network
+or distro should ever enable it!
