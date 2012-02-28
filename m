@@ -1,43 +1,86 @@
-From: <J.Coates@roehampton.ac.uk>
-Subject: Confirmation Letter Contact Via Email
- cocacola2012claimsdept@hotmail.co.uk
-Date: Tue, 28 Feb 2012 14:43:23 +0000
-Message-ID: <D38B9C18EC91F34DA370D1C25744190B01E34C4474@RUS-EXMBX-01.rus.roehampton.ac.uk>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v11 06/12] seccomp: add system call filtering using BPF
+Date: Tue, 28 Feb 2012 16:13:33 +0100
+Message-ID: <20120228151333.GA3664@redhat.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org> <1330140111-17201-6-git-send-email-wad@chromium.org> <20120227170922.GA10608@redhat.com> <CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailscanner.roehampton.ac.uk ([194.80.240.69]:31597 "EHLO
-	dmz-exedg-wh-01.roehampton.ac.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964840Ab2B1Osi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 09:48:38 -0500
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+        coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-992-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <CABqD9hbtFDU_vgBOajG2jJxQoHubcwYWJuHPLjgZkZyjGkQ2uQ@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
+On 02/27, Will Drewry wrote:
+>
+> On Mon, Feb 27, 2012 at 11:09 AM, Oleg Nesterov <oleg@redhat.com> wrote:
+>
+> >> +static long seccomp_attach_filter(struct sock_fprog *fprog)
+> >> +{
+> >> +     struct seccomp_filter *filter;
+> >> +     unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
+> >> +     long ret;
+> >> +
+> >> +     if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
+> >> +             return -EINVAL;
+> >
+> > OK, this limits the memory PR_SET_SECCOMP can use.
+> >
+> > But,
+> >
+> >> +     /*
+> >> +      * If there is an existing filter, make it the prev and don't drop its
+> >> +      * task reference.
+> >> +      */
+> >> +     filter->prev = current->seccomp.filter;
+> >> +     current->seccomp.filter = filter;
+> >> +     return 0;
+> >
+> > this doesn't limit the number of filters, looks like a DoS.
+> >
+> > What if the application simply does prctl(PR_SET_SECCOMP, dummy_filter)
+> > in an endless loop?
+>
+> It consumes a massive amount of kernel memory and, maybe, the OOM
+> killer gives it a boot :)
 
+may be ;) but most probably oom-killer kills another innocent task,
+this memory is not accounted.
 
-Your E-mail address won 1,000,000.00 GBP in the 2012 COCA-COLA ONLINE LOTTERY held in UK.Contact Dr Nigel Brown Via email cocacola2012claimsdept@hotmail.co.uk<mailto:cocacola2012claimsdept@hotmail.co.uk>
-Fill The claims verification Form Below
-First name....
-Address.....
-Sex .....
-Marital status .....
-country of Resident....
-Age....
-Cell phone....
-Contact Name:Dr Nigel Brown
-Phone no: +447010056989,
+> I wasn't sure what the normal convention was for avoiding memory
+> consumption by user processes. Should I just add a sysctl
 
-Consider the environment. Please don't print this e-mail unless you really need to.
+Perhaps we can add a sysctl later, but personally I think that we
+can start with some "arbitrary" #define BPF_MAXFILTERS.
 
-________________________________
-This email and any attachments are confidential and intended solely for the addressee and may also be privileged or exempt from disclosure under applicable law. If you are not the addressee, or have received this e-mail in error, please notify the sender immediately, delete it from your system and do not copy, disclose or otherwise act upon any part of this email or its attachments.
+> and a
+> per-task counter for the max number of filters?
 
-Internet communications are not guaranteed to be secure or virus-free. University of Roehampton does not accept responsibility for any loss arising from unauthorised access to, or interference with, any Internet communications by any third party, or from the transmission of any viruses.
+Do we really need the counter? attach_filter is not the fast path,
+perhaps seccomp_attach_filter() could simply iterate the chain and
+count the number?
 
-Any opinion or other information in this e-mail or its attachments that does not relate to the business of University of Roehampton is personal to the sender and is not given or endorsed by University of Roehampton.
+In any case, if this hurts perfomance-wise then seccomp_run_filters()
+has even more problems.
 
-University of Roehampton is the trading name of Roehampton University, a company limited by guarantee incorporated in England under number 5161359. Registered Office: Grove House, Roehampton Lane, London SW15 5PJ. An exempt charity.
+> I'm fine doing whatever makes sense here.
+
+I am fine either way too.
+
+Oleg.
