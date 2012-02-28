@@ -1,12 +1,12 @@
 From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v11 10/12] ptrace,seccomp: Add PTRACE_SECCOMP support
-Date: Tue, 28 Feb 2012 11:04:01 -0600
-Message-ID: <CABqD9hY7=DpxWzf3+WNsK=LuLrabf=oHxyy+CQgu0JLxZ80zPQ@mail.gmail.com>
+Subject: Re: [PATCH v11 08/12] signal, x86: add SIGSYS info and make it synchronous.
+Date: Tue, 28 Feb 2012 11:06:54 -0600
+Message-ID: <CABqD9hbOi7Hk8X3zwewmvU1QTLQ_XDM140oS37XaZNtQajbDsQ@mail.gmail.com>
 References: <1330140111-17201-1-git-send-email-wad@chromium.org>
-	<1330140111-17201-10-git-send-email-wad@chromium.org>
-	<20120227175407.GD10608@redhat.com>
-	<CABqD9hY1P7LfmBwQwSG7jDZmw6d_pZH4q2cZq_4ssjQUKRA32w@mail.gmail.com>
-	<20120228164335.GC3664@redhat.com>
+	<1330140111-17201-8-git-send-email-wad@chromium.org>
+	<20120227172208.GC10608@redhat.com>
+	<CABqD9hbBj_c1qxD7N0ed3LMy_DXn-163LuNc1E7mSZbGO7oqyw@mail.gmail.com>
+	<20120228160257.GB3664@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -19,121 +19,82 @@ Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
 	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
 	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
 	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
-	Denys Vlasenko <dvlasenk@redhat.com>
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
 To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20120228164335.GC3664@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:64332 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755039Ab2B1RG5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Feb 2012 12:06:57 -0500
+Received: by eekc41 with SMTP id c41so1249225eek.19
+        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 09:06:55 -0800 (PST)
+In-Reply-To: <20120228160257.GB3664@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2012 at 10:43 AM, Oleg Nesterov <oleg@redhat.com> wrote=
+On Tue, Feb 28, 2012 at 10:02 AM, Oleg Nesterov <oleg@redhat.com> wrote=
 :
 > On 02/27, Will Drewry wrote:
->> On Mon, Feb 27, 2012 at 11:54 AM, Oleg Nesterov <oleg@redhat.com> wr=
+>>
+>> On Mon, Feb 27, 2012 at 11:22 AM, Oleg Nesterov <oleg@redhat.com> wr=
 ote:
 >> > On 02/24, Will Drewry wrote:
 >> >>
->> >> =A0arch/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
->> >> =A0include/linux/ptrace.h =A0 =A0| =A0 =A07 +++++--
->> >> =A0include/linux/seccomp.h =A0 | =A0 =A04 +++-
->> >> =A0include/linux/tracehook.h | =A0 =A06 ++++++
->> >> =A0kernel/ptrace.c =A0 =A0 =A0 =A0 =A0 | =A0 =A04 ++++
->> >> =A0kernel/seccomp.c =A0 =A0 =A0 =A0 =A0| =A0 18 +++++++++++++++++=
-+
+>> >> To ensure that SIGSYS delivery occurs on return from the triggeri=
+ng
+>> >> system call, SIGSYS is added to the SYNCHRONOUS_MASK macro.
 >> >
->> > FYI, this conflicts with the changes -mm tree.
+>> > Hmm. Can't understand... please help.
 >> >
->> > The changes in ptrace.* confict with Denys's
->> > "ptrace: simplify PTRACE_foo constants and PTRACE_SETOPTIONS code"
+>> >> =A0#define SYNCHRONOUS_MASK \
+>> >> =A0 =A0 =A0 (sigmask(SIGSEGV) | sigmask(SIGBUS) | sigmask(SIGILL)=
+ | \
+>> >> - =A0 =A0 =A0sigmask(SIGTRAP) | sigmask(SIGFPE))
+>> >> + =A0 =A0 =A0sigmask(SIGTRAP) | sigmask(SIGFPE) | sigmask(SIGSYS)=
+)
 >> >
->> > The change in tracehook.h conflicts with
->> > "ptrace: the killed tracee should not enter the syscall"
+>> > Why?
+>> >
+>> > SYNCHRONOUS_MASK just tells dequeue_signal() "pick them first".
+>> > This is needed to make sure that the handler for, say SIGSEGV,
+>> > can use ucontext->ip as a faulting addr.
 >>
->> What's the best way to reconcile this in this day and age?
+>> I think that Roland covered this. =A0(Since the syscall_rollback was
+>> called it's nice to let our handler get first go.)
 >
-> Of course I'd prefer if you make this change on top of Denys's patch =
-;)
->
-> Besides, if you agree with PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP you
-> need only one trivial change in ptrace.h.
+> OK, except I do not really understand the "our handler get first go".
 
-I think that works quite well :)
+Err I meant "gets to go first".
 
->> I don't see
->> these in kernel-next yet and I can't tell if there is a public -mm
->> anywhere anymore.
->
-> Strange... I didn't check, but every patch in
-> http://marc.info/?l=3Dlinux-mm-commits has this note:
->
-> =A0 =A0 =A0 =A0The -mm tree is included into linux-next and is update=
-d
-> =A0 =A0 =A0 =A0there every 3-4 working days
+> Suppose SIGSYS "races" with the pending SIGHUP. With this change
+> the caller for SIGHUP will be called first. But yes, setup_frame()
+> will be called for SIGSYS first. Hopefully this is what you want.
 
-It appears to have been pulled in ~8 hours ago.  I'm rebasing to next n=
-ow.
+I believe it is.  I just want ucontext_t to be properly populate since
+the registers were just rolled back for it.
 
->> >> --- a/kernel/seccomp.c
->> >> +++ b/kernel/seccomp.c
->> >> @@ -354,6 +354,24 @@ int __secure_computing_int(int this_syscall)
->> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 seccomp_send_sigsys(t=
-his_syscall, reason_code);
->> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
->> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 case SECCOMP_RET_TRACE: {
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 int ret;
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct pt_regs *regs =3D=
- task_pt_regs(current);
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!(test_tsk_thread_f=
-lag(current, TIF_SYSCALL_TRACE)) ||
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !(current->ptra=
-ce & PT_TRACE_SECCOMP))
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return =
--1;
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* PT_TRACE_SECCOMP a=
-nd seccomp.trace indicate whether
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* tracehook_report_s=
-yscall_entry needs to signal the
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* tracer. =A0This av=
-oids race conditions in hand off and
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* the requirement fo=
-r TIF_SYSCALL_TRACE ensures that
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* we are in the sysc=
-all slow path.
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 current->seccomp.trace =
-=3D 1;
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D tracehook_repor=
-t_syscall_entry(regs);
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 current->seccomp.trace =
-=3D 0;
->> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return ret;
->> >
->> > To be honest, this interface looks a bit strange to me...
->> >
->> > Once again, sorry if this was already discussed. But perhaps it wo=
-uld
->> > be better to introduce PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP inste=
-ad?
->> >
->> > SECCOMP_RET_TRACE: could simply do ptrace_event(PTRACE_EVENT_SECCO=
-MP)
->> > unconditionaly. The tracer can set the option and do PTRACE_CONT i=
-f it
->> > doesn't want the system call notifications.
+>> > But seccomp adds info->si_call_addr, this looks unneeded.
 >>
->> Works for me - this also gets rid of the extra int for brief state
->> tracking. I'll switch over to that in the next rev.
+>> True enough. =A0I can drop it.
 >
-> Great. In this case this patch becomes really trivial. Just 2 defines
-> in ptrace.h and the unconditional ptrace_event() under SECCOMP_RET_TR=
-ACE.
+> Hmm. I meant, the change in SYNCHRONOUS_MASK looks unneeded. Please
+> keep ->si_call_addr, it is much more convenient than ucontext_t in
+> userspace.
+
+Sorry for the confusion
+
+>> It'd only be useful if the SIGSYS wasn't
+>> being forced and the signal was being handled without ucontext_t
+>> access.
 >
-> But probably you should check fatal_signal_pending(current) after
-> ptrace_event() returns, ptrace_event() returns void.
+> No, force_ doesn't make any difference in this sense...
 
-Ah yeah - I don't want to reintroduce that issue :)
+I guess I was thinking about users of signalfd wanting the call site
+but force_ avoids it being blockable so that seems largely irrelevant
+at present.
 
-Thanks!
+> In short, the patch looks fine to me, but if you resend it may be
+> you can update the changelog.
+
+Thanks! I will try to clarify the changelog.
+will
