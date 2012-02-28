@@ -1,64 +1,103 @@
-From: Rodrigo Moya <rodrigo.moya@collabora.co.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Tue, 28 Feb 2012 11:47:39 +0100
-Message-ID: <1330426059.2139.21.camel@megeve>
-References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk>
-	 <20120224.153616.117399887784547022.davem@davemloft.net>
-	 <4F4B8C66.5060206@collabora.co.uk>
-	 <20120227.140535.1623396420455657443.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: javier.martinez@collabora.co.uk, javier@collabora.co.uk,
-	eric.dumazet@gmail.com, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120227.140535.1623396420455657443.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2012-02-28
+Date: Tue, 28 Feb 2012 19:32:20 +0800
+Message-ID: <1330428748-23137-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+Hi David,
 
-On Mon, 2012-02-27 at 14:05 -0500, David Miller wrote:
-> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-> Date: Mon, 27 Feb 2012 15:00:06 +0100
-> 
-> > Primary for performance reasons. D-bus is an IPC system for processes in
-> > the same machine so traversing the whole TCP/IP stack seems a little
-> > overkill to me.
-> 
-> You haven't actually tested what the cost of this actually is, so what
-> you're saying is mere speculation.  In many cases TCP/UDP over
-> loopback is actually faster than AF_UNIX.
-> 
-you're right we haven't tested this, but because of the other points in
-Javier's mail, which are the special semantics we need for this to fit
-the D-Bus usage:
+here comes the second set of patches I'd like to see pulled into
+net-next-2.6/3.4. It mostly contains code cleanups, some code
+refactoring work and a minor fix. Let me know if there any problems.
 
-> - total order is guaranteed: If sender A sends a message before B,
-then
-> receiver C and D should both get message A first and then B.
-> 
-> - slow readers: dropping packets vs blocking the sender. Although
->   datagrams are not reliable on IP, datagrams on Unix sockets are
-never
->   lost. So if one receiver has its buffer full the sender is blocked
-> instead of dropping packets. That way we guarantee a reliable
-> communication channel.
-> 
-> - multicast group acess control: controlling who can join the
-multicast
-> group.
-> 
-> - multicast on loopback is not supported: which means we have to use a
-> NIC (i.e: eth0). 
+Thanks,
+Marek
 
-Because of all of this, UDP/IP multicast wasn't even considered as an
-option. We might be wrong in some/all of those, so could you please
-comment on them to check if that's so?
+The following changes since commit ea3d2fd1b11fb3ef8706a48ece0a49a61bcd08bc:
 
-thanks
+  batman-adv: export used routing algorithm via sysfs (2012-02-17 02:50:20 +0800)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git batman-adv-for-davem
+
+or older git versions:
+
+ git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 7c64fd98ce512de6c6dae0452dc026446bd368d5:
+
+  batman-adv: Fix indentation of multiline statements (2012-02-28 19:14:31 +0800)
+
+----------------------------------------------------------------
+code cleanups and code refactoring
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      batman-adv: set TT_CLIENT_NEW flag before invoking hash_add()
+      batman-adv: code refactoring - move debug print into tt_local_set_pending
+      batman-adv: TT_CLIENT_PENDING is never set in struct tt_global_entry
+
+Marek Lindner (1):
+      batman-adv: convert time_after instances to has_timed_out
+
+Sven Eckelmann (4):
+      batman-adv: refactor tt_global_del() to avoid misalignment
+      batman-adv: Update copyright years
+      batman-adv: Start new development cycle
+      batman-adv: Fix indentation of multiline statements
+
+ net/batman-adv/Makefile            |    2 +-
+ net/batman-adv/bat_algo.h          |    2 +-
+ net/batman-adv/bat_debugfs.c       |    2 +-
+ net/batman-adv/bat_debugfs.h       |    2 +-
+ net/batman-adv/bat_iv_ogm.c        |    2 +-
+ net/batman-adv/bat_sysfs.c         |    6 +-
+ net/batman-adv/bat_sysfs.h         |    2 +-
+ net/batman-adv/bitarray.c          |   10 ++--
+ net/batman-adv/bitarray.h          |    2 +-
+ net/batman-adv/gateway_client.c    |    6 +-
+ net/batman-adv/gateway_client.h    |    2 +-
+ net/batman-adv/gateway_common.c    |    6 +-
+ net/batman-adv/gateway_common.h    |    2 +-
+ net/batman-adv/hard-interface.c    |   32 +++++-----
+ net/batman-adv/hard-interface.h    |    2 +-
+ net/batman-adv/hash.c              |    2 +-
+ net/batman-adv/hash.h              |    2 +-
+ net/batman-adv/icmp_socket.c       |    2 +-
+ net/batman-adv/icmp_socket.h       |    2 +-
+ net/batman-adv/main.c              |    2 +-
+ net/batman-adv/main.h              |   17 +++---
+ net/batman-adv/originator.c        |   18 ++---
+ net/batman-adv/originator.h        |    2 +-
+ net/batman-adv/packet.h            |    2 +-
+ net/batman-adv/ring_buffer.c       |    2 +-
+ net/batman-adv/ring_buffer.h       |    2 +-
+ net/batman-adv/routing.c           |   13 ++--
+ net/batman-adv/routing.h           |    2 +-
+ net/batman-adv/send.c              |    2 +-
+ net/batman-adv/send.h              |    2 +-
+ net/batman-adv/soft-interface.c    |    6 +-
+ net/batman-adv/soft-interface.h    |    2 +-
+ net/batman-adv/translation-table.c |  119 ++++++++++++++++-------------------
+ net/batman-adv/translation-table.h |    2 +-
+ net/batman-adv/types.h             |    2 +-
+ net/batman-adv/unicast.c           |    2 +-
+ net/batman-adv/unicast.h           |    2 +-
+ net/batman-adv/vis.c               |    5 +-
+ net/batman-adv/vis.h               |    5 +-
+ 39 files changed, 141 insertions(+), 156 deletions(-)
