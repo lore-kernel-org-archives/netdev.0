@@ -1,74 +1,109 @@
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Tue, 28 Feb 2012 17:33:04 +0100
-Message-ID: <4F4D01C0.3050808@collabora.co.uk>
-References: <1329753455-1106-1-git-send-email-javier@collabora.co.uk> <20120224.153616.117399887784547022.davem@davemloft.net> <4F4B8C66.5060206@collabora.co.uk> <20120227.140535.1623396420455657443.davem@davemloft.net> <1330426059.2139.21.camel@megeve> <20120228142846.GD187520@jupiter.n2.diac24.net> <4F4CF1BF.7080503@collabora.co.uk>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v11 10/12] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Tue, 28 Feb 2012 17:43:35 +0100
+Message-ID: <20120228164335.GC3664@redhat.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org> <1330140111-17201-10-git-send-email-wad@chromium.org> <20120227175407.GD10608@redhat.com> <CABqD9hY1P7LfmBwQwSG7jDZmw6d_pZH4q2cZq_4ssjQUKRA32w@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
-	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
-	eric.dumazet@gmail.com, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4CF1BF.7080503@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+        coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+        Denys Vlasenko <dvlasenk@redhat.com>
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-994-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <CABqD9hY1P7LfmBwQwSG7jDZmw6d_pZH4q2cZq_4ssjQUKRA32w@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-On 02/28/2012 04:24 PM, Javier Martinez Canillas wrote:
-> On 02/28/2012 03:28 PM, David Lamparter wrote:
->> On Tue, Feb 28, 2012 at 11:47:39AM +0100, Rodrigo Moya wrote:
->>> > - slow readers: dropping packets vs blocking the sender. Although
->>> >   datagrams are not reliable on IP, datagrams on Unix sockets are
->>> never
->>> >   lost. So if one receiver has its buffer full the sender is blocked
->>> > instead of dropping packets. That way we guarantee a reliable
->>> > communication channel.
->> 
->> This sounds like a terribly nice way to f*ck the entire D-Bus system by
->> having one broken (or malicious) desktop application. What's the
->> intended way of coping with users that block the socket by not reading?
->> 
->> 
->> -David L.
-> 
-> The problem is that D-bus expects a reliable transport method (TCP or
-> SOCK_STREAM Unix socks) but this is not the case with multicast Unix
-> sockets. Since our implementation is for SOCK_SEQPACKET and SOCK_DGRAM
-> socket types.
-> 
-> So, you have to either add another layer to the D-bus protocol to make
-> it reliable (acks, retransmissions, flow control, etc) or avoid losing
-> D-bus messages (by blocking the sender if one of the receivers has its
-> buffer full).
-> 
+On 02/27, Will Drewry wrote:
+> On Mon, Feb 27, 2012 at 11:54 AM, Oleg Nesterov <oleg@redhat.com> wrote:
+> > On 02/24, Will Drewry wrote:
+> >>
+> >>  arch/Kconfig              |    1 +
+> >>  include/linux/ptrace.h    |    7 +++++--
+> >>  include/linux/seccomp.h   |    4 +++-
+> >>  include/linux/tracehook.h |    6 ++++++
+> >>  kernel/ptrace.c           |    4 ++++
+> >>  kernel/seccomp.c          |   18 ++++++++++++++++++
+> >
+> > FYI, this conflicts with the changes -mm tree.
+> >
+> > The changes in ptrace.* confict with Denys's
+> > "ptrace: simplify PTRACE_foo constants and PTRACE_SETOPTIONS code"
+> >
+> > The change in tracehook.h conflicts with
+> > "ptrace: the killed tracee should not enter the syscall"
+>
+> What's the best way to reconcile this in this day and age?
 
-Also, this problem exists with current D-bus implementation. If a
-malicious desktop application doesn't read its socket then the messages
-sent to it will be buffered in the daemon:
-https://bugs.freedesktop.org/show_bug.cgi?id=33606
+Of course I'd prefer if you make this change on top of Denys's patch ;)
 
-dbus-daemon memory usage will ballooning until
-max_incoming_bytes/max_outgoing_bytes limit is reached (1GB for session
-bus in default configuration)
+Besides, if you agree with PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP you
+need only one trivial change in ptrace.h.
 
-<limit name="max_incoming_bytes">1000000000</limit>
-<limit name="max_outgoing_bytes">1000000000</limit>
+> I don't see
+> these in kernel-next yet and I can't tell if there is a public -mm
+> anywhere anymore.
 
-It only works because not many applications are broken and user-space
-memory is virtualized. But if you bypass the daemon and use a multicast
-transport layer (as in our multicast Unix socket implementation) you
-don't have that much memory to buffer the packets.
+Strange... I didn't check, but every patch in
+http://marc.info/?l=linux-mm-commits has this note:
 
-So you have to either block the senders or:
+	The -mm tree is included into linux-next and is updated
+	there every 3-4 working days
 
-- drop the slow reader
-- kill the spammer
-- have an infinite amount of memory
+> >> --- a/kernel/seccomp.c
+> >> +++ b/kernel/seccomp.c
+> >> @@ -354,6 +354,24 @@ int __secure_computing_int(int this_syscall)
+> >>                       seccomp_send_sigsys(this_syscall, reason_code);
+> >>                       return -1;
+> >>               }
+> >> +             case SECCOMP_RET_TRACE: {
+> >> +                     int ret;
+> >> +                     struct pt_regs *regs = task_pt_regs(current);
+> >> +                     if (!(test_tsk_thread_flag(current, TIF_SYSCALL_TRACE)) ||
+> >> +                         !(current->ptrace & PT_TRACE_SECCOMP))
+> >> +                             return -1;
+> >> +                     /*
+> >> +                      * PT_TRACE_SECCOMP and seccomp.trace indicate whether
+> >> +                      * tracehook_report_syscall_entry needs to signal the
+> >> +                      * tracer.  This avoids race conditions in hand off and
+> >> +                      * the requirement for TIF_SYSCALL_TRACE ensures that
+> >> +                      * we are in the syscall slow path.
+> >> +                      */
+> >> +                     current->seccomp.trace = 1;
+> >> +                     ret = tracehook_report_syscall_entry(regs);
+> >> +                     current->seccomp.trace = 0;
+> >> +                     return ret;
+> >
+> > To be honest, this interface looks a bit strange to me...
+> >
+> > Once again, sorry if this was already discussed. But perhaps it would
+> > be better to introduce PTRACE_EVENT_SECCOMP/PTRACE_O_SECCOMP instead?
+> >
+> > SECCOMP_RET_TRACE: could simply do ptrace_event(PTRACE_EVENT_SECCOMP)
+> > unconditionaly. The tracer can set the option and do PTRACE_CONT if it
+> > doesn't want the system call notifications.
+>
+> Works for me - this also gets rid of the extra int for brief state
+> tracking. I'll switch over to that in the next rev.
 
-Regards,
-Javier
+Great. In this case this patch becomes really trivial. Just 2 defines
+in ptrace.h and the unconditional ptrace_event() under SECCOMP_RET_TRACE.
+
+But probably you should check fatal_signal_pending(current) after
+ptrace_event() returns, ptrace_event() returns void.
+
+Oleg.
