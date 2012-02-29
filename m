@@ -1,66 +1,62 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [PATCH 00/12] Part 2: check given MAC address, if invalid return -EADDRNOTAVAIL
-Date: Wed, 29 Feb 2012 08:02:49 +0100
-Message-ID: <201202290802.52234.danny.kukawka@bisect.de>
-References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de> <CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw@mail.gmail.com> <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
+Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
+Date: Wed, 29 Feb 2012 08:22:58 +0100
+Message-ID: <201202290822.59640.danny.kukawka@bisect.de>
+References: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de> <20120228.154914.662485432055205683.davem@davemloft.net> <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"Guo-Fu Tseng" <cooldavid@cooldavid.org>,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"John W. Linville" <linville@tuxdriver.com>, linux390@de.ibm.com,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Joe Perches <joe@perches.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	libertas-dev@lists.infradead.org, linux-kernel@vger.kernel.org,
-	linux-media@vger.kernel.org, linux-s390@vger.kernel.org,
-	linux-hams@vger.kernel.org, linux-mips@linux-mips.org
+Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
+	jpirko@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
 Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Samstag, 25. Februar 2012, Geert Uytterhoeven wrote:
-> 2012/2/24 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
-> > 2012/2/24 Danny Kukawka <danny.kukawka@bisect.de>:
-> >> Second Part of series patches to unifiy the return value of
-> >> .ndo_set_mac_address if the given address isn't valid.
-> >>
-> >> These changes check if a given (MAC) address is valid in
-> >> .ndo_set_mac_address, if invalid return -EADDRNOTAVAIL
-> >> as eth_mac_addr() already does if is_valid_ether_addr() fails.
+On Dienstag, 28. Februar 2012, Geert Uytterhoeven wrote:
+> Hi David,
+>
+> 2012/2/28 David Miller <davem@davemloft.net>:
+> > From: Geert Uytterhoeven <geert@linux-m68k.org>
+> > Date: Tue, 28 Feb 2012 21:45:30 +0100
 > >
-> > Why not just fix dev_set_mac_address() and make do_setlink() use th=
-at?
->
-> BTW, it's also called from dev_set_mac_address().
->
-> > Checks are specific to address family, not device model I assume.
->
-> Indeed, why can't this be done in one single place, instead of sprink=
-ling
-> these checks over all drivers, missing all out-of-tree (note: I don't=
- care)
-> and all soon-to-be-submitted drivers?
+> >> drivers/net/ethernet/cirrus/mac89x0.c: In function =E2=80=98set_ma=
+c_address=E2=80=99:
+> >> drivers/net/ethernet/cirrus/mac89x0.c:597: warning: dereferencing
+> >> =E2=80=98void *=E2=80=99 pointer
+> >> drivers/net/ethernet/cirrus/mac89x0.c:597: error: request for memb=
+er
+> >> =E2=80=98sa_data=E2=80=99 in something not a structure or union
+> >> drivers/net/ethernet/cirrus/mac89x0.c:600: warning: dereferencing
+> >> =E2=80=98void *=E2=80=99 pointer
+> >> drivers/net/ethernet/cirrus/mac89x0.c:600: error: request for memb=
+er
+> >> =E2=80=98sa_data=E2=80=99 in something not a structure or union
+> >> drivers/net/ethernet/cirrus/mac89x0.c:595: warning: unused variabl=
+e
+> >> =E2=80=98saddr=E2=80=99
+> >
+> > Thanks, I've fixed this as follows and pushed to net-next:
+> >
+> > --------------------
+> > mac89x0: Fix build error.
+> >
+> > Need to use the new 'saddr' variable not the void 'addr' in
+> > set_mac_address().
+> >
+> > Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+Thanks for the fix!
 
-Since the .ndo_set_mac_address functions are used by some drivers inter=
-nally=20
-too, you may get some new checks on other places. But I'll take a look =
-at it.
+> Thanks, that fixed the build.
+>
+> What about the is_valid_ether_addr() check?
+
+If you mean the discussion about checking if the MAC is valid in
+=2Endo_set_mac_address, I'm on that issue and will hopefully send a pat=
+ch soon.
 
 Danny
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
