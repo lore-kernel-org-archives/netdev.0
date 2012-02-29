@@ -1,67 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] powerpc/44x: Add more changes for APM821XX EMAC
- driver
-Date: Wed, 29 Feb 2012 13:25:13 -0500 (EST)
-Message-ID: <20120229.132513.1607879808995168004.davem@davemloft.net>
-References: <1329466058-15969-1-git-send-email-dhdang@apm.com>
-	<CA+5PVA5hciQSvfkodX-oP_kUZueiTp=0+t8X_0iHQ+ehU0ecOQ@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: memory leak in udp_table_init
+Date: Wed, 29 Feb 2012 10:28:13 -0800
+Message-ID: <877gz5ze82.fsf@xmission.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7D@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dhdang@apm.com, benh@kernel.crashing.org, paulus@samba.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jwboyer@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	<paul.gortmaker@windriver.com>, <tim.bird@am.sony.com>,
+	<kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+5PVA5hciQSvfkodX-oP_kUZueiTp=0+t8X_0iHQ+ehU0ecOQ@mail.gmail.com>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E7D@saturn3.aculab.com>
+	(David Laight's message of "Mon, 27 Feb 2012 11:33:07 -0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Josh Boyer <jwboyer@gmail.com>
-Date: Wed, 29 Feb 2012 08:43:46 -0500
+"David Laight" <David.Laight@ACULAB.COM> writes:
 
-> On Fri, Feb 17, 2012 at 3:07 AM, Duc Dang <dhdang@apm.com> wrote:
->> This patch includes:
->>
->> =A0Configure EMAC PHY clock source (clock from PHY or internal clock=
-).
->>
->> =A0Do not advertise PHY half duplex capability as APM821XX EMAC does=
- not
->> support half duplex mode.
->>
->> =A0Add changes to support configuring jumbo frame for APM821XX EMAC.
->>
->> Signed-off-by: Duc Dang <dhdang@apm.com>
->=20
-> This should have been sent to netdev.  CC'ing them now.
->=20
-> Ben and David, I can take this change through the 4xx tree if it look=
-s OK to
-> both of you.  The pre-requisite DTS patch will go through my tree, so=
- it might
-> make sense to keep them together.
+>> It was to match the comment we have few lines above :
+>> 
+>> /*
+>>  * The pid hash table is scaled according to the amount of memory in
+> the
+>>  * machine.  From a minimum of 16 slots up to 4096 slots at one
+> gigabyte or
+>>  * more.
+>>  */
 
-Well the patch has coding style problems, for one:
+The comment was actually correct until someone converted the code to use
+alloc_large_system_hash.
 
->> +			dev->features |=3D (EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE
->> +					| EMAC_FTR_APM821XX_NO_HALF_DUPLEX
->> +					| EMAC_FTR_460EX_PHY_CLK_FIX);
+> These large hash tables are, IMHO, an indication that the
+> algorithm used is, perhaps, suboptimal.
+>
+> Not least of the problems is actually finding a suitable
+> (and fast) hash function that will work with the actual
+> real-life data.
+>
+> The pid table is a good example of something where a hash
+> table is unnecessary.
+> Linux should steal the code I put into NetBSD :-)
 
-Should be:
+On this unrelated topic.  What algorithm did you use on NetBSD for
+dealing with pids?
 
->> +			dev->features |=3D (EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE |
->> +					  EMAC_FTR_APM821XX_NO_HALF_DUPLEX |
->> +					  EMAC_FTR_460EX_PHY_CLK_FIX);
+A hash chain length of 1 for common sizes is a pretty attractive
+algorithm, as it minimizes the number of cache line misses.  Ages ago
+when I modeled the linux situation that is what I was seeing.
 
-And this:
+The normal case for the linux pid hash table is that it has 4096
+entries taking 16k or 32k of memory and the typical process load
+has about 200 or so processes.    Making it very easy in the common
+case to have a single entry hash chain.
 
->> +		dev->phy_feat_exc =3D (SUPPORTED_1000baseT_Half
->> +					| SUPPORTED_100baseT_Half
->> +					| SUPPORTED_10baseT_Half);
+All of the other algorithms I know have a tree structure and thus
+more cache misses (as you traverse the tree) and ultimately worse
+real world performance.
 
-Should be:
-
->> +		dev->phy_feat_exc =3D (SUPPORTED_1000baseT_Half |
->> +				     SUPPORTED_100baseT_Half |
->> +				     SUPPORTED_10baseT_Half);
+Eric
