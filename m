@@ -1,77 +1,135 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] mlx4: prevent the device from being removed concurrently
-Date: Wed, 29 Feb 2012 16:47:52 +0200
-Message-ID: <201202291647.53161.jackm@dev.mellanox.co.il>
-References: <1330454176-17768-1-git-send-email-cascardo@linux.vnet.ibm.com> <20120228203438.GA12028@oc1711230544.ibm.com> <20120228.154657.1817512578346429850.davem@davemloft.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH] SUNRPC: set desired file system root before connecting local
+ transports
+Date: Wed, 29 Feb 2012 18:59:15 +0400
+Message-ID: <20120229145915.24030.31551.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120228.154657.1817512578346429850.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 28 February 2012 22:46, David Miller wrote:
-> From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-> Date: Tue, 28 Feb 2012 17:34:38 -0300
-> 
-> > On Tue, Feb 28, 2012 at 02:30:51PM -0500, David Miller wrote:
-> >> From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-> >> Date: Tue, 28 Feb 2012 15:36:16 -0300
-> >> 
-> >> > When a EEH happens, the catas poll code will try to restart the device,
-> >> > removing it and adding it back again. The EEH code will try to do the
-> >> > same. One of the threads ends up accessing memory that was freed by the
-> >> > other thread and we get a crash.
-> >> 
-> >> Stop adding bandaids to the locking.
-> >> 
-> >> If the EEH infrastructure doesn't synchronize parallel operations
-> >> on the same device, that is the real bug, and that's where the real
-> >> fix belongs.
-> >> 
-> >> I refuse to apply this patch.
-> >> 
-> > 
-> > It's not EEH that does not synchronize removal. The problem is that the
-> > driver itself calls the driver remove function through mlx4_restart_one.
-> 
-> Then reuse the existing intf_mutex this driver has, export it to
-> main.c and add a new __mlx4_unregister_device that can be called
-> with the intf_mutex held already.
-> 
-Some comments.
+Today, there is a problem in connecting of local SUNRPC thansports. These
+transports uses UNIX sockets and connection itself is done by rpciod workqueue.
+But UNIX sockets lookup is done in context of process file system root. I.e.
+all local thunsports are connecting in rpciod context.
+This works nice until we will try to mount NFS from process with other root -
+for example in container. This container can have it's own (nested) root and
+rcpbind process, listening on it's own unix sockets. But NFS mount attempt in
+this container will register new service (Lockd for example) in global rpcbind
+- not containers's one.
+This patch solves the problem by switching rpciod kernel thread's file system
+root to right one (stored on transport) while connecting of local transports.
 
-1. Mr Cascardo's solution is only partial, and does not cover all the problem cases. He
-   simply uncovered one of several examples of what lack-of-sync will do when removing a device.
-   Mr. Cascardo found the kernel Oops that happens when a catastrophic error occurs during device
-   removal. What if we receive a catas error while doing "init_one"?  What if we are in the middle
-   of catas error recovery (in the init_one stage), and we get a remove_one request from higher up?
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-   There is a solution for this precise problem in the mthca driver (infiniband/hw/mthca/mthca_main.c
-   infiniband/hw/mthca/mthca_catas.c). In the mthca driver, we DO in fact use an "mthca_device_mutex"
-   for precisely the reason given in a. above.  I see no reason not to do the same thing here.
+---
+ fs/fs_struct.c        |    1 +
+ net/sunrpc/xprtsock.c |   32 ++++++++++++++++++++++++++++++--
+ 2 files changed, 31 insertions(+), 2 deletions(-)
 
-   This requires:
-	1. mlx4_init_one(), mlx4_remove_one() and mlx4_restart_one all grab an mlx4_device_mutex.
-        2. new procedure __mlx4_remove_one(), which does not grab the mutex.
-
-   Note that it is NOT enough to simply protect the removal operation.  The protection must wrap the
-   ENTIRE restart operation (both removal and init), because allowing a remove in the middle of init_one
-   or restart_one would probably also cause a kernel Oops.
-
-2. The intf_mutex is used with mlx4_un/register_device and mlx4_un/register_interface. unregister_device is
-   used both in remove_one and in mlx4_change_port_types.  I would hesitate to grab that mutex for a more
-   global use.  I think it is cleaner to add a device mutex (mlx4_device_mutex) for initializing/removing/
-   restarting the device.
-
--Jack
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/fs/fs_struct.c b/fs/fs_struct.c
+index 78b519c..0f984c3 100644
+--- a/fs/fs_struct.c
++++ b/fs/fs_struct.c
+@@ -36,6 +36,7 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
+ 	if (old_root.dentry)
+ 		path_put_longterm(&old_root);
+ }
++EXPORT_SYMBOL_GPL(set_fs_root);
+ 
+ /*
+  * Replace the fs->{pwdmnt,pwd} with {mnt,dentry}. Put the old values.
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 4c8281d..c94c181 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -37,6 +37,7 @@
+ #include <linux/sunrpc/svcsock.h>
+ #include <linux/sunrpc/xprtsock.h>
+ #include <linux/file.h>
++#include <linux/fs_struct.h>
+ #ifdef CONFIG_SUNRPC_BACKCHANNEL
+ #include <linux/sunrpc/bc_xprt.h>
+ #endif
+@@ -255,6 +256,11 @@ struct sock_xprt {
+ 	void			(*old_state_change)(struct sock *);
+ 	void			(*old_write_space)(struct sock *);
+ 	void			(*old_error_report)(struct sock *);
++
++	/*
++	 * Saved transport creator root. Required for local transports only.
++	 */
++	struct path		root;
+ };
+ 
+ /*
+@@ -1891,6 +1897,7 @@ static void xs_local_setup_socket(struct work_struct *work)
+ 	struct rpc_xprt *xprt = &transport->xprt;
+ 	struct socket *sock;
+ 	int status = -EIO;
++	struct path root;
+ 
+ 	if (xprt->shutdown)
+ 		goto out;
+@@ -1908,7 +1915,14 @@ static void xs_local_setup_socket(struct work_struct *work)
+ 	dprintk("RPC:       worker connecting xprt %p via AF_LOCAL to %s\n",
+ 			xprt, xprt->address_strings[RPC_DISPLAY_ADDR]);
+ 
++	get_fs_root(current->fs, &root);
++	set_fs_root(current->fs, &transport->root);
++
+ 	status = xs_local_finish_connecting(xprt, sock);
++
++	set_fs_root(current->fs, &root);
++	path_put(&root);
++
+ 	switch (status) {
+ 	case 0:
+ 		dprintk("RPC:       xprt %p connected to %s\n",
+@@ -2213,6 +2227,18 @@ static void xs_connect(struct rpc_task *task)
+ 	}
+ }
+ 
++static void xs_local_destroy(struct rpc_xprt *xprt)
++{
++	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
++	struct path root = transport->root;
++
++	dprintk("RPC:       xs_local_destroy xprt %p\n", xprt);
++
++	xs_destroy(xprt);
++
++	path_put(&root);
++}
++
+ /**
+  * xs_local_print_stats - display AF_LOCAL socket-specifc stats
+  * @xprt: rpc_xprt struct containing statistics
+@@ -2431,7 +2457,7 @@ static struct rpc_xprt_ops xs_local_ops = {
+ 	.send_request		= xs_local_send_request,
+ 	.set_retrans_timeout	= xprt_set_retrans_timeout_def,
+ 	.close			= xs_close,
+-	.destroy		= xs_destroy,
++	.destroy		= xs_local_destroy,
+ 	.print_stats		= xs_local_print_stats,
+ };
+ 
+@@ -2606,8 +2632,10 @@ static struct rpc_xprt *xs_setup_local(struct xprt_create *args)
+ 	dprintk("RPC:       set up xprt to %s via AF_LOCAL\n",
+ 			xprt->address_strings[RPC_DISPLAY_ADDR]);
+ 
+-	if (try_module_get(THIS_MODULE))
++	if (try_module_get(THIS_MODULE)) {
++		get_fs_root(current->fs, &transport->root);
+ 		return xprt;
++	}
+ 	ret = ERR_PTR(-EINVAL);
+ out_err:
+ 	xprt_free(xprt);
