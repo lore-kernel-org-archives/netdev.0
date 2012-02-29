@@ -1,59 +1,78 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH] net: add QCA alx Ethernet driver
-Date: Wed, 29 Feb 2012 07:30:20 +0000
-Message-ID: <157393863283F442885425D2C454285619415703@nasanexd02a.na.qualcomm.com>
-References: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
-	<20120228.212857.797446903975232476.davem@davemloft.net>
-	<157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com>
- <20120228.223258.2261979237568571219.davem@davemloft.net>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [PATCH] vmxnet3: Fix log messages and corrects some typos
+Date: Wed, 29 Feb 2012 00:08:39 -0800 (PST)
+Message-ID: <alpine.LRH.2.00.1202282343130.19873@sbhatewara-dev1.eng.vmware.com>
+References: <alpine.LRH.2.00.1202282209500.19873@sbhatewara-dev1.eng.vmware.com> <1330498925.4352.13.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Giori, Kathy" <kgiori@qca.qualcomm.com>,
-	"chris.snook@gmail.com" <chris.snook@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120228.223258.2261979237568571219.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, pv-drivers@vmware.com, petr@vmware.com
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:53723 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751309Ab2B2IIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 03:08:40 -0500
+In-Reply-To: <1330498925.4352.13.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-My another concern is the license type. Current atl1c use GPL v2, and got some contribution outside of QCA though the first version 
-was wrote by our Atheros guy. And that guy just copied the license from atl1e/atl1x that contains the words "Derived from Intel e1000".
+Fix log messages and corrects some typos
 
-If I update this driver and add new chip support on it, Our Company's legal might not permit me to do so, they prefer QCA ISC license.
-Is it possible to change the license header to ISC while I applying patches to source code ?
+Change logging of failure to enable MSI/MSI-X to display device's PCI
+address instead of eth%d. Rectify a typo.
 
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+Reviewed-by: Joe Perches <joe@perches.com>
+---
 
-Thanks
-xiong
+Resending as per Joe's feedback.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, February 29, 2012 11:33
-> To: Huang, Xiong
-> Cc: Rodriguez, Luis; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> qca-linux-team; nic-devel; Giori, Kathy; chris.snook@gmail.com; Olivari,
-> Mathieu; Huntsman, Bryan
-> Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-> 
-> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-> Date: Wed, 29 Feb 2012 03:11:14 +0000
-> 
-> > We understand your concern.  To support the new chipset, do you think
-> > it's reasonable to upstream it as a new driver, not a replacement ?
-> 
-> It depends upon how similar the chips are.
-> 
-> To be honest tg3, as one example, supports quite a large array of different
-> pieces of hardware that use the same logical core.
-> 
-> So that would be my litmus test about how different a chip needs to be to
-> deserve an entirely new driver.
-> 
-> I strongly suggest you try to get atl1c working properly.
+---
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index de7fc34..6995d3c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2709,8 +2709,8 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			adapter->intr.num_intrs = vectors;
+ 			return 0;
+ 		} else if (err < 0) {
+-			printk(KERN_ERR "Failed to enable MSI-X for %s, error"
+-			       " %d\n",	adapter->netdev->name, err);
++			netdev_err(adapter->netdev,
++				   "Failed to enable MSI-X, error: %d\n", err);
+ 			vectors = 0;
+ 		} else if (err < vector_threshold) {
+ 			break;
+@@ -2718,15 +2718,15 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			/* If fails to enable required number of MSI-x vectors
+ 			 * try enabling minimum number of vectors required.
+ 			 */
++			netdev_err(adapter->netdev,
++				   "Failed to enable %d MSI-X, trying %d instead\n",
++				    vectors, vector_threshold);
+ 			vectors = vector_threshold;
+-			printk(KERN_ERR "Failed to enable %d MSI-X for %s, try"
+-			       " %d instead\n", vectors, adapter->netdev->name,
+-			       vector_threshold);
+ 		}
+ 	}
+ 
+-	printk(KERN_INFO "Number of MSI-X interrupts which can be allocatedi"
+-	       " are lower than min threshold required.\n");
++	netdev_info(adapter->netdev,
++		    "Number of MSI-X interrupts which can be allocated are lower than min threshold required.\n");
+ 	return err;
+ }
+ 
+@@ -2792,8 +2792,9 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 			return;
+ 
+ 		/* If we cannot allocate MSIx vectors use only one rx queue */
+-		printk(KERN_INFO "Failed to enable MSI-X for %s, error %d."
+-		       "#rx queues : 1, try MSI\n", adapter->netdev->name, err);
++		netdev_info(adapter->netdev,
++			    "Failed to enable MSI-X, error %d . Limiting #rx queues to 1, try MSI.\n",
++			    err);
+ 
+ 		adapter->intr.type = VMXNET3_IT_MSI;
+ 	}
