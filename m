@@ -1,113 +1,94 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: tc filter hash table efficiency
-Date: Tue, 28 Feb 2012 23:10:38 -0500
-Message-ID: <1330488638.4671.103.camel@denise.theartistscloset.com>
-References: <1330487718.4671.102.camel@denise.theartistscloset.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
+Date: Tue, 28 Feb 2012 20:40:06 -0800
+Message-ID: <4F4DAC26.4050108@intel.com>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>  <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>  <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>  <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>  <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>  <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com> <1329568900.3027.0.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:55843 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965474Ab2B2EKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 23:10:41 -0500
-In-Reply-To: <1330487718.4671.102.camel@denise.theartistscloset.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jamal <hadi@cyberus.ca>, Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com, kernel@wantstofly.org
+To: jhs@mojatatu.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1329568900.3027.0.camel@mojatatu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The first two UDP lines should use a parent of 62:0 and not 20:0 -
-copied from old documentation :(  I'll change it below - John
+On 2/18/2012 4:41 AM, jamal wrote:
+> On Fri, 2012-02-17 at 09:10 -0800, John Fastabend wrote:
+> 
+>> Yes I agree that is the goal.
+>>
+>>> One last comment:
+>>> With synchronization there are other challenges when the entry in the
+>>> hardware conflicts with the entry in software when you intend the
+>>> behavior to be the same. This is not such a big deal with bridging but
+>>> becomes more apparent when you start offloading ACLs etc.
+>>>
+>>
+>> OK and these sorts of conflicts certainly don't need to be resolved
+>> by kernel code. So I think this is a reasonable reason to drive the
+>> synchronization into a user space daemon.
+> 
+> 
+> Yep. 
+> Thanks for listening John. Waiting to see them patches.
+> 
+> cheers,
+> jamal
+> 
+> 
+> 
 
-On Tue, 2012-02-28 at 22:55 -0500, John A. Sullivan III wrote:
-> Hello, all.  Would it be correct to assume that tc filter hash tables
-> are like iptables user defined chains and can be used to reduce the
-> number of evaluations which must be made for each packet or is there
-> significant additional overhead incurred by such hash tables?
-> 
-> We are finding this isn't working for us.
-> 
-> For example, we wanted to shape VoIP packets in ingress to our PBX from
-> both VPN and direct Internet connections.  Since the ifb interface gets
-> the packet before NAT, we must account for both the public and internal
-> destination addresses.  We also need to match several possible port
-> ranges to match any UDP ports over 4096 because of the way tc filter
-> ranges are masked.  So we did the following:
-> 
-> # UDP
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 handle 627:
-> u32 divisor 1
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 match ip
-> protocol 17 0xff link 627: offset at 0 mask 0x0f00 shift 6 plus 0
-> 
-> That is, we created a hash table for all UDP packets with an accurate
-> pointer to the beginning of the UDP header.
-> 
-> 
-> # VoIP - UDP packets to the VoIP network under 256 Bytes over port 1024
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 handle 628:
-> u32 divisor 1
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
-> match ip dst 172.x.x.0/24 match u16 0 0xffc0 at 2 link 628:
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
-> match ip dst 208.z.z.z match u16 0 0xffc0 at 2 link 628:
-> 
-> That is, we create another hash linked from the UDP hash table so we
-> only have to evaluate the IP type once and dump all small packets
-> destined for either the NAT or real address to that hash table
-> 
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
-> match udp dst 32768 0x8000 at nexthdr+2 flowid 62:20
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
-> match udp dst 16384 0x4000 at nexthdr+2 flowid 62:20
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
-> match udp dst 8192 0x2000 at nexthdr+2 flowid 62:20
-> tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
-> match udp dst 4096 0x1000 at nexthdr+2 flowid 62:20
-> 
-> And then create filters for the various port ranges.  We figured this
-> way, we only had to evaluate the IP protocol once instead of two or
-> three times; we only had to evaluate the destination address and packet
-> size once instead of twice, and needed only four packet size rules
-> instead of four for each IP address.
-> 
-> Is this a proper use of hash tables or have I really abused the concept?
-> When we look at the filter stats, we see:
-> 
->  tc -s filter show dev ifb0
-> filter parent 62: protocol ip pref 1 u32
-> filter parent 62: protocol ip pref 1 u32 fh 800: ht divisor 1
-> filter parent 62: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 62:50  (rule hit 37879 success 295)
->   match 00320000/00ff0000 at 8 (success 295 )
-> filter parent 62: protocol ip pref 1 u32 fh 800::801 order 2049 key ht 800 bkt 0 flowid 62:40  (rule hit 37584 success 7866)
->   match d02e5d08/ffffffff at 16 (success 7868 )
->   match 00060000/00ff0000 at 8 (success 7866 )
-> filter parent 62: protocol ip pref 2 u32
-> filter parent 62: protocol ip pref 2 u32 fh 628: ht divisor 1
-> filter parent 62: protocol ip pref 2 u32 fh 628::800 order 2048 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
->   match 00008000/00008000 at nexthdr+0 (success 0 )
-> filter parent 62: protocol ip pref 2 u32 fh 628::801 order 2049 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
->   match 00004000/00004000 at nexthdr+0 (success 0 )
-> filter parent 62: protocol ip pref 2 u32 fh 628::802 order 2050 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
->   match 00002000/00002000 at nexthdr+0 (success 0 )
-> filter parent 62: protocol ip pref 2 u32 fh 628::803 order 2051 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 33)
->   match 00001000/00001000 at nexthdr+0 (success 33 )
-> filter parent 62: protocol ip pref 2 u32 fh 627: ht divisor 1
-> filter parent 62: protocol ip pref 2 u32 fh 627::800 order 2048 key ht 627 bkt 0 link 628:  (rule hit 11617 success 0)
->   match axxxxe00/ffffff00 at 16 (success 4847 )
->   match 00000000/0000ffc0 at 0 (success 35 )
-> filter parent 62: protocol ip pref 2 u32 fh 627::801 order 2049 key ht 627 bkt 0 link 628:  (rule hit 11584 success 0)
->   match d0yyyy0e/ffffffff at 16 (success 20 )
->   match 00000000/0000ffc0 at 0 (success 0 )
-> 
-> yet packet traces show oodles of 200 byte UDP packets on ports over
-> 10000 destined for the PBX yet I see only a handful of packets flowing
-> into class 62:20.
-> 
-> Thanks - John
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
++Lennert
+
+OK back to this. The last piece is where to put these messages...
+we could take PF_ROUTE:RTM_*NEIGH
+
+     PF_ROUTE:RTM_NEWNEIGH - Add a new FDB entry to an offloaded
+                             switch.
+     PF_ROUTE:RTM_DELNEIGH - Delete a FDB entry from an offlaoded
+                             switch.
+     PF_ROUTE:RTM_GETNEIGH - Dumps the embedded FDB table
+
+The neighbor code is using the PF_UNSPEC protocol type so we won't
+collide with these unless someone was using PF_ROUTE and relying on
+falling back to PF_UNSPEC however I couldn't find any programs that
+did this iproute2 certainly doesn't. And the bridge pieces are using
+PF_BRIDGE so no collision there.
+
+I briefly thought about trying to pull the PF_BRIDGE protocol out
+and use this for both types but I think its better to leave the
+bridge code alone and there is also the issue of disambiguating a msg
+at a port which has both an embedded switch and has SW bridge for a
+master.
+
+Also if there are embedded switches with learning capabilities they
+might want to trigger events to user space. In this case having
+a protocol type makes user space a bit easier to manage. I've
+added Lennert so maybe he can comment I think the Marvell chipsets
+might support something along these lines. The SR-IOV chipsets I'm
+aware of _today_ don't do learning. Learning makes the event model
+more plausible.
+
+The other mechanism would be to embed some more attributes into the
+PF_UNSPEC:RTM_XXXLINK msg however I'm thinking that if we want to
+support learning and triggering events then we likely also don't
+want to send these events to every app with RTNLGRP_LINK set.
+
+Plus there is already a proliferation of LINK attributes and dumping
+the FDB out of this seems a bit much but could be done with some
+bitmasks. Although the current ext_filter_mask u32 doesn't seem to
+be sufficient for events to trigger this.
+
+so much for a short note...
+
+Thanks
+.John
+
+
+
+
