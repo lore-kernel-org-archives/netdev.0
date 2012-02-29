@@ -1,98 +1,50 @@
-From: Riccardo Trebbi <riccardo.trebbi89@gmail.com>
-Subject: Function to get bytes/s received on a socket
-Date: Wed, 29 Feb 2012 18:41:26 +0100
-Message-ID: <CABzZ0PHPshVp6+8skcawTaW64=kwxwFiWpaDCWpKhnYvm2ugKg@mail.gmail.com>
+From: Roland McGrath <mcgrathr@google.com>
+Subject: Re: [PATCH v11 10/12] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Wed, 29 Feb 2012 09:41:13 -0800
+Message-ID: <CAB=4xhq1CPz74LchQ32oyhR1vUKjhMiTXENYbgeh=BoaYNP9JQ@mail.gmail.com>
+References: <1330140111-17201-1-git-send-email-wad@chromium.org>
+ <1330140111-17201-10-git-send-email-wad@chromium.org> <20120227175407.GD10608@redhat.com>
+ <CABqD9hY1P7LfmBwQwSG7jDZmw6d_pZH4q2cZq_4ssjQUKRA32w@mail.gmail.com>
+ <20120228164335.GC3664@redhat.com> <CABqD9hY7=DpxWzf3+WNsK=LuLrabf=oHxyy+CQgu0JLxZ80zPQ@mail.gmail.com>
+ <CABqD9hZ3apFGi+BmX5UNgz=NJUbTigj6acDKG=wu9rrL0wN1Ww@mail.gmail.com>
+ <20120229161437.GA3078@redhat.com> <CABqD9hZLi416irXMMPmysYohrOn1gQjhjDyKTggU80Kd7ywvcA@mail.gmail.com>
+ <20120229170933.GA6149@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	Denys Vlasenko <dvlasenk@redhat.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:50453 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752388Ab2B2Rl2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Feb 2012 12:41:28 -0500
-Received: by lahj13 with SMTP id j13so3826155lah.19
-        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 09:41:27 -0800 (PST)
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:42786 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755797Ab2B2Rle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 12:41:34 -0500
+Received: by iagz16 with SMTP id z16so5063iag.19
+        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 09:41:34 -0800 (PST)
+In-Reply-To: <20120229170933.GA6149@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+I don't think TIF_NOTIFY_RESUME is apropos here.  That only triggers on
+returning to user mode, i.e. after syscall exit.  But regardless of the
+exact implementation details, I don't think it will be prohibitive to add
+some means by which the fast-path can back off before actual syscall entry
+and go to the slow path for ptrace reporting.
 
-I am working on a project for the university and I needed a function
-that could calculate the throughput of a socket in terms of bytes/s
-received.
+Since there is no strong reason to think it can't be reorganized that way
+later, I don't see any good rationale for constraining the seccomp-filter
+feature definition based on a plan to optimize the implementation in the
+future.
 
-I followed the line of=A0=A0tcp_rcv_space_adjust()=A0in=A0net/ipv4/tcp_=
-input.c
-=A0and I did something like this.
-
-=46irst I modified the=A0struct tcp_sock=A0to add this:
-
-+++++++++++++++++++++++++++++++++++++++++++++++++
-/* Throughput estimation of the receiver */
-=A0 =A0 struct {
-=A0 =A0 =A0 =A0 u32 time; =A0 // time we got the seq
-=A0 =A0 =A0 =A0 u32 seq; =A0 =A0// seq number we expected at time
-=A0 =A0 =A0 =A0 u32 thrpt; =A0 // last value of throughput
-=A0 =A0 } thrpt_est;
-+++++++++++++++++++++++++++++++++++++++++++++++++
-
-Then I implemented this function in=A0net/ipv4/tcp_input.c:
-
-+++++++++++++++++++++++++++++++++++++++++++++++++
-
-/* This function is used to calculate the throughput of a
-=A0* tcp_sock that is receiveing data */
-void my_function(struct sock *sk)
-{
-=A0 =A0 struct tcp_sock *tp =3D tcp_sk(sk);
-u32 time;
-u32 rcvd_bytes;
-
-if (tp->thrpt_est.time =3D=3D 0 || tp->thrpt_est.seq =3D=3D 0)
-goto new_measure;
-
-time =3D tcp_time_stamp - tp->thrpt_est.time;
-
-if(time < 100)
-=A0 =A0 =A0 =A0 return;
-
-=A0 =A0 if(tp->rcv_nxt < tp->thrpt_est.seq)
-=A0 =A0 =A0 =A0 printk("tp->rcv_nxt < tp->thrpt_est.seq\n");
-
-=A0 =A0 rcvd_bytes =3D tp->rcv_nxt - tp->thrpt_est.seq;
-
-=A0 =A0 if(time =3D=3D 0)
-=A0 =A0 =A0 =A0 goto new_measure;
-
-=A0 =A0 tp->thrpt_est.thrpt =3D rcvd_bytes / time;
-
-new_measure:
-tp->thrpt_est.seq =3D tp->rcv_nxt;
-tp->thrpt_est.time =3D tcp_time_stamp;
-}
-
-+++++++++++++++++++++++++++++++++++++++++++++++++
-
-The=A0my_function()=A0is called when=A0tcp_rcv_space_adjust()=A0is call=
-ed.
-
-The value in=A0tp->thrpt_est.thrpt=A0is bytes/ms but I can get the byte=
-s/s
-with a simple conversion.
-
-I am a total newbie in kernel hacking and there's so many things I don'=
-t know,
-but I thought that this was quite simple and should have worked.
-
-The problem is the value in=A0tp->thrpt_est.thrpt=A0is way higher than =
-the
-real throughput.
-I get values 4-5 times higher than the reality.
-
-Would you please help me understand?
 
 Thanks,
-
-Riccardo
+Roland
