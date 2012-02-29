@@ -1,227 +1,101 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-Date: Tue, 28 Feb 2012 19:52:26 -0800
-Message-ID: <1330487546.3742.1.camel@joe2Laptop>
-References: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: tc filter hash table efficiency
+Date: Tue, 28 Feb 2012 22:55:18 -0500
+Message-ID: <1330487718.4671.102.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mcgrof@frijolero.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
-	kgiori@qca.qualcomm.com, chris.snook@gmail.com,
-	mathieu@qca.qualcomm.com, bryanh@quicinc.com
-To: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:51515 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757383Ab2B2Dw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 22:52:29 -0500
-In-Reply-To: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com>
+Received: from mout.perfora.net ([74.208.4.195]:62719 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755220Ab2B2DzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Feb 2012 22:55:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even though this whole thing has been rejected,
-here are some possible trivial logging corrections.
----
- drivers/net/ethernet/atheros/alx/alf_cb.c   |    2 +-
- drivers/net/ethernet/atheros/alx/alx_main.c |   63 ++++++++++++---------------
- drivers/net/ethernet/atheros/alx/alx_sw.h   |    4 +-
- 3 files changed, 31 insertions(+), 38 deletions(-)
+Hello, all.  Would it be correct to assume that tc filter hash tables
+are like iptables user defined chains and can be used to reduce the
+number of evaluations which must be made for each packet or is there
+significant additional overhead incurred by such hash tables?
 
-diff --git a/drivers/net/ethernet/atheros/alx/alf_cb.c b/drivers/net/ethernet/atheros/alx/alf_cb.c
-index d267760..9e823f6 100644
---- a/drivers/net/ethernet/atheros/alx/alf_cb.c
-+++ b/drivers/net/ethernet/atheros/alx/alf_cb.c
-@@ -274,7 +274,7 @@ static int alf_check_phy_link(struct alx_hw *hw, u32 *speed, bool *link_up)
- 		if (giga & L1F_GIGA_PSSR_DPLX)
- 			*speed = ALX_LINK_SPEED_1GB_FULL;
- 		else
--			alx_hw_err(hw, "1000M half is invalid");
-+			alx_hw_err(hw, "1000M half is invalid\n");
- 		break;
- 	case L1F_GIGA_PSSR_100MBS:
- 		if (giga & L1F_GIGA_PSSR_DPLX)
-diff --git a/drivers/net/ethernet/atheros/alx/alx_main.c b/drivers/net/ethernet/atheros/alx/alx_main.c
-index a51c608..a599269 100644
---- a/drivers/net/ethernet/atheros/alx/alx_main.c
-+++ b/drivers/net/ethernet/atheros/alx/alx_main.c
-@@ -19,8 +19,7 @@
- 
- char alx_drv_name[] = "alx";
- static const char alx_drv_description[] =
--	"Qualcomm Atheros(R) "
--	"AR813x/AR815x/AR816x PCI-E Ethernet Network Driver";
-+	"Qualcomm Atheros(R) AR813x/AR815x/AR816x PCI-E Ethernet Network Driver";
- 
- /* alx_pci_tbl - PCI Device ID Table
-  *
-@@ -142,22 +141,19 @@ static int alx_validate_mac_addr(u8 *mac_addr)
- {
- 	int retval = 0;
- 
--	if (mac_addr[0] & 0x01) {
--		printk(KERN_DEBUG "MAC address is multicast\n");
-+	if (is_broadcast_ether_addr(mac_addr)) {
-+		pr_debug("MAC address is broadcast\n");
- 		retval = -EADDRNOTAVAIL;
--	} else if (mac_addr[0] == 0xff && mac_addr[1] == 0xff) {
--		printk(KERN_DEBUG "MAC address is broadcast\n");
-+	} else if (is_multicast_ether_addr(mac_addr)) {
-+		pr_debug("MAC address is multicast\n");
- 		retval = -EADDRNOTAVAIL;
--	} else if (mac_addr[0] == 0 && mac_addr[1] == 0 &&
--		   mac_addr[2] == 0 && mac_addr[3] == 0 &&
--		   mac_addr[4] == 0 && mac_addr[5] == 0) {
--		printk(KERN_DEBUG "MAC address is all zeros\n");
-+	} else if (is_zero_ether_addr(mac_addr)) {
-+		pr_debug("MAC address is all zeros\n");
- 		retval = -EADDRNOTAVAIL;
- 	}
- 	return retval;
- }
- 
--
- /*
-  *  alx_set_mac_type - Sets MAC type
-  */
-@@ -459,7 +455,7 @@ static bool alx_get_rrdesc(struct alx_rx_queue *rxque,
- 
- 	if (likely(srrd->genr.nor != 1)) {
- 		/* TODO support mul rfd*/
--		printk(KERN_EMERG "Multi rfd not support yet!\n");
-+		pr_emerg("Multi rfd not support yet!\n");
- 	}
- 
- 	srrd->genr.update = 0;
-@@ -1068,7 +1064,7 @@ static void alx_set_msix_flags(struct alx_msix_param *msix,
- 			SET_MSIX_FLAG(RX7);
- 			break;
- 		default:
--			printk(KERN_ERR "alx_set_msix_flags: rx error.");
-+			pr_err("%s: rx error\n", __func__);
- 			break;
- 		}
- 	} else if (type == alx_msix_type_tx) {
-@@ -1086,7 +1082,7 @@ static void alx_set_msix_flags(struct alx_msix_param *msix,
- 			SET_MSIX_FLAG(TX3);
- 			break;
- 		default:
--			printk(KERN_ERR "alx_set_msix_flags: tx error.");
-+			pr_err("%s: tx error\n", __func__);
- 			break;
- 		}
- 	} else if (type == alx_msix_type_other) {
-@@ -1104,7 +1100,7 @@ static void alx_set_msix_flags(struct alx_msix_param *msix,
- 			SET_MSIX_FLAG(PHY);
- 			break;
- 		default:
--			printk(KERN_ERR "alx_set_msix_flags: other error.");
-+			pr_err("%s: other error\n", __func__);
- 			break;
- 		}
- 	}
-@@ -1742,11 +1738,11 @@ static int alx_alloc_all_rtx_queue(struct alx_adapter *adpt)
- 	return 0;
- 
- err_alloc_rx_queue:
--	alx_err(adpt, "goto err_alloc_rx_queue");
-+	alx_err(adpt, "goto err_alloc_rx_queue\n");
- 	for (que_idx = 0; que_idx < adpt->num_rxques; que_idx++)
- 		kfree(adpt->rx_queue[que_idx]);
- err_alloc_tx_queue:
--	alx_err(adpt, "goto err_alloc_tx_queue");
-+	alx_err(adpt, "goto err_alloc_tx_queue\n");
- 	for (que_idx = 0; que_idx < adpt->num_txques; que_idx++)
- 		kfree(adpt->tx_queue[que_idx]);
- 	return -ENOMEM;
-@@ -2976,17 +2972,17 @@ static void alx_link_task_routine(struct alx_adapter *adpt)
- 		if (netif_carrier_ok(netdev))
- 			return;
- 
--		link_desc = (hw->link_speed == ALX_LINK_SPEED_1GB_FULL) ?
-+		link_desc = hw->link_speed == ALX_LINK_SPEED_1GB_FULL) ?
- 			"1 Gbps Duplex Full" :
--			(hw->link_speed == ALX_LINK_SPEED_100_FULL ?
--			 "100 Mbps Duplex Full" :
--			 (hw->link_speed == ALX_LINK_SPEED_100_HALF ?
--			  "100 Mbps Duplex Half" :
--			  (hw->link_speed == ALX_LINK_SPEED_10_FULL ?
--			   "10 Mbps Duplex Full" :
--			   (hw->link_speed == ALX_LINK_SPEED_10_HALF ?
--			    "10 Mbps Duplex HALF" :
--			    "unknown speed"))));
-+			hw->link_speed == ALX_LINK_SPEED_100_FULL ?
-+			"100 Mbps Duplex Full" :
-+			hw->link_speed == ALX_LINK_SPEED_100_HALF ?
-+			"100 Mbps Duplex Half" :
-+			hw->link_speed == ALX_LINK_SPEED_10_FULL ?
-+			"10 Mbps Duplex Full" :
-+			hw->link_speed == ALX_LINK_SPEED_10_HALF ?
-+			"10 Mbps Duplex HALF" :
-+			"unknown speed");
- 		netif_info(adpt, timer, adpt->netdev,
- 			   "NIC Link is Up %s\n", link_desc);
- 
-@@ -3171,8 +3167,7 @@ do_csum:
- 		cso = skb_checksum_start_offset(skb);
- 
- 		if (unlikely(cso & 0x1)) {
--			dev_err(&pdev->dev, "pay load offset should not be an "
--				"event number\n");
-+			dev_err(&pdev->dev, "pay load offset should not be an event number\n");
- 			return -1;
- 		} else {
- 			css = cso + skb->csum_offset;
-@@ -3642,16 +3637,14 @@ static int __devinit alx_init(struct pci_dev *pdev,
- 	alx_set_register_info_special(adpt);
- 
- 	netif_dbg(adpt, probe, adpt->netdev,
--		  "num_msix_noque_intrs = %d, num_msix_rxque_intrs = %d, "
--		  "num_msix_txque_intrs = %d\n",
-+		  "num_msix_noque_intrs = %d, num_msix_rxque_intrs = %d, num_msix_txque_intrs = %d\n",
- 		  adpt->num_msix_noques, adpt->num_msix_rxques,
- 		  adpt->num_msix_txques);
- 	netif_dbg(adpt, probe, adpt->netdev, "num_msix_all_intrs = %d\n",
- 		  adpt->num_msix_intrs);
- 
- 	netif_dbg(adpt, probe, adpt->netdev,
--		  "RX Queue Count = %u, HRX Queue Count = %u, "
--		  "SRX Queue Count = %u, TX Queue Count = %u\n",
-+		  "RX Queue Count = %u, HRX Queue Count = %u, SRX Queue Count = %u, TX Queue Count = %u\n",
- 		  adpt->num_rxques, adpt->num_hw_rxques, adpt->num_sw_rxques,
- 		  adpt->num_txques);
- 
-@@ -3719,7 +3712,7 @@ static int __devinit alx_init(struct pci_dev *pdev,
- 			   CHK_ADPT_FLAG(0, SRSS_EN) ? "Enable" : "Disable");
- 	}
- 
--	printk(KERN_INFO "alx: Atheros Gigabit Network Connection\n");
-+	pr_info("Atheros Gigabit Network Connection\n");
- 	cards_found++;
- 	return 0;
- 
-@@ -3882,7 +3875,7 @@ static int __init alx_init_module(void)
- {
- 	int retval;
- 
--	printk(KERN_INFO "%s\n", alx_drv_description);
-+	pr_info("%s\n", alx_drv_description);
- 	retval = pci_register_driver(&alx_driver);
- 
- 	return retval;
-diff --git a/drivers/net/ethernet/atheros/alx/alx_sw.h b/drivers/net/ethernet/atheros/alx/alx_sw.h
-index 3daa392..9118da5 100644
---- a/drivers/net/ethernet/atheros/alx/alx_sw.h
-+++ b/drivers/net/ethernet/atheros/alx/alx_sw.h
-@@ -479,8 +479,8 @@ extern int alc_init_hw_callbacks(struct alx_hw *hw);
- extern int alf_init_hw_callbacks(struct alx_hw *hw);
- 
- /* Logging message functions */
--void __printf(3, 4) alx_hw_printk(const char *level, const struct alx_hw *hw,
--				  const char *fmt, ...);
-+void __printf(3, 4)
-+alx_hw_printk(const char *level, const struct alx_hw *hw, const char *fmt, ...);
- 
- #define alx_hw_err(_hw, _format, ...) \
- 	alx_hw_printk(KERN_ERR, _hw, _format, ##__VA_ARGS__)
+We are finding this isn't working for us.
+
+For example, we wanted to shape VoIP packets in ingress to our PBX from
+both VPN and direct Internet connections.  Since the ifb interface gets
+the packet before NAT, we must account for both the public and internal
+destination addresses.  We also need to match several possible port
+ranges to match any UDP ports over 4096 because of the way tc filter
+ranges are masked.  So we did the following:
+
+# UDP
+tc filter replace dev ifb0 parent 20:0 protocol ip prio 2 handle 627:
+u32 divisor 1
+tc filter replace dev ifb0 parent 20:0 protocol ip prio 2 u32 match ip
+protocol 17 0xff link 627: offset at 0 mask 0x0f00 shift 6 plus 0
+
+That is, we created a hash table for all UDP packets with an accurate
+pointer to the beginning of the UDP header.
+
+
+# VoIP - UDP packets to the VoIP network under 256 Bytes over port 1024
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 handle 628:
+u32 divisor 1
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
+match ip dst 172.x.x.0/24 match u16 0 0xffc0 at 2 link 628:
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
+match ip dst 208.z.z.z match u16 0 0xffc0 at 2 link 628:
+
+That is, we create another hash linked from the UDP hash table so we
+only have to evaluate the IP type once and dump all small packets
+destined for either the NAT or real address to that hash table
+
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+match udp dst 32768 0x8000 at nexthdr+2 flowid 62:20
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+match udp dst 16384 0x4000 at nexthdr+2 flowid 62:20
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+match udp dst 8192 0x2000 at nexthdr+2 flowid 62:20
+tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+match udp dst 4096 0x1000 at nexthdr+2 flowid 62:20
+
+And then create filters for the various port ranges.  We figured this
+way, we only had to evaluate the IP protocol once instead of two or
+three times; we only had to evaluate the destination address and packet
+size once instead of twice, and needed only four packet size rules
+instead of four for each IP address.
+
+Is this a proper use of hash tables or have I really abused the concept?
+When we look at the filter stats, we see:
+
+ tc -s filter show dev ifb0
+filter parent 62: protocol ip pref 1 u32
+filter parent 62: protocol ip pref 1 u32 fh 800: ht divisor 1
+filter parent 62: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 62:50  (rule hit 37879 success 295)
+  match 00320000/00ff0000 at 8 (success 295 )
+filter parent 62: protocol ip pref 1 u32 fh 800::801 order 2049 key ht 800 bkt 0 flowid 62:40  (rule hit 37584 success 7866)
+  match d02e5d08/ffffffff at 16 (success 7868 )
+  match 00060000/00ff0000 at 8 (success 7866 )
+filter parent 62: protocol ip pref 2 u32
+filter parent 62: protocol ip pref 2 u32 fh 628: ht divisor 1
+filter parent 62: protocol ip pref 2 u32 fh 628::800 order 2048 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+  match 00008000/00008000 at nexthdr+0 (success 0 )
+filter parent 62: protocol ip pref 2 u32 fh 628::801 order 2049 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+  match 00004000/00004000 at nexthdr+0 (success 0 )
+filter parent 62: protocol ip pref 2 u32 fh 628::802 order 2050 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+  match 00002000/00002000 at nexthdr+0 (success 0 )
+filter parent 62: protocol ip pref 2 u32 fh 628::803 order 2051 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 33)
+  match 00001000/00001000 at nexthdr+0 (success 33 )
+filter parent 62: protocol ip pref 2 u32 fh 627: ht divisor 1
+filter parent 62: protocol ip pref 2 u32 fh 627::800 order 2048 key ht 627 bkt 0 link 628:  (rule hit 11617 success 0)
+  match axxxxe00/ffffff00 at 16 (success 4847 )
+  match 00000000/0000ffc0 at 0 (success 35 )
+filter parent 62: protocol ip pref 2 u32 fh 627::801 order 2049 key ht 627 bkt 0 link 628:  (rule hit 11584 success 0)
+  match d0yyyy0e/ffffffff at 16 (success 20 )
+  match 00000000/0000ffc0 at 0 (success 0 )
+
+yet packet traces show oodles of 200 byte UDP packets on ports over
+10000 destined for the PBX yet I see only a handful of packets flowing
+into class 62:20.
+
+Thanks - John
