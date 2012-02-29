@@ -1,67 +1,52 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH] net: add QCA alx Ethernet driver
-Date: Wed, 29 Feb 2012 02:19:05 +0000
-Message-ID: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
-References: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com>
- <20120228.205347.1718771650331094141.davem@davemloft.net>
- <CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: add QCA alx Ethernet driver
+Date: Tue, 28 Feb 2012 21:28:57 -0500 (EST)
+Message-ID: <20120228.212857.797446903975232476.davem@davemloft.net>
+References: <20120228.205347.1718771650331094141.davem@davemloft.net>
+	<CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
+	<157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Giori, Kathy" <kgiori@qca.qualcomm.com>,
-	"chris.snook@gmail.com" <chris.snook@gmail.com>,
-	"Olivari, Mathieu" <mathieu@qca.qualcomm.com>,
-	"Huntsman, Bryan" <bryanh@quicinc.com>
-To: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rodrigue@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com, kgiori@qca.qualcomm.com,
+	chris.snook@gmail.com, mathieu@qca.qualcomm.com, bryanh@quicinc.com
+To: xiong@qca.qualcomm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRGF2aWQNCiAgICAgVGhlIGNvZGUgcmVsYXRlZCB0byBoYXJkd2FyZSBvZiBhdGwxYyBpcyBx
-dWl0ZSBkaWZmIHdpdGggdGhhdCBpbiBvdXIgaGFuZCwgZXZlcnkgdGltZSB3ZSB0YWtlIG11Y2gg
-dGltZSB0byBmaW5kIHdoaWNoIHBhcnQgc2hvdWxkIGJlIA0KcmV2aXNlZCBmb3Igb25lIGJ1Zy9p
-c3N1ZSBmb3VuZCBvbiBvdGhlciBwbGF0Zm9ybS9PU2VzLiB0aGUgbmV3IGRyaXZlciBtYWtlIGl0
-IGVhc3kgdG8gZml4IGFuZCBzdXBwb3J0IG5ldyBjaGlwc2V0IGFzIHdlbGwuDQoNCiAgICAgV2Ug
-cmV2aWV3ZWQgYWxsIHBhdGNoZXMgdGhhdCBhcHBsaWVkIHRvIGF0bDFjIGFuZCBhZGRlZCBpdCB0
-byB0aGUgYWx4ICBkdXJpbmcgY29kaW5nLiBBbmQgZGlkIHRlc3RzIGZvciBib3RoIG5ldyBhbmQg
-b2xkIGRyaXZlcnMNCllvdSBjb3VsZCBmaW5kIHRoZSByZXN1bHQgaGVyZTogIGh0dHA6Ly93d3cu
-bGludXhmb3VuZGF0aW9uLm9yZy9jb2xsYWJvcmF0ZS93b3JrZ3JvdXBzL25ldHdvcmtpbmcvYWx4
-DQoNCg0KQmVzdCBSZWdhcmRzDQotWGlvbmcNCg0KIC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
-DQo+IEZyb206IG1jZ3JvZkBnbWFpbC5jb20gW21haWx0bzptY2dyb2ZAZ21haWwuY29tXSBPbiBC
-ZWhhbGYgT2YgTHVpcyBSLg0KPiBSb2RyaWd1ZXoNCj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFy
-eSAyOSwgMjAxMiAxMDoxMw0KPiBUbzogRGF2aWQgTWlsbGVyDQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBxY2EtbGludXgtdGVhbTsg
-bmljLQ0KPiBkZXZlbDsgR2lvcmksIEthdGh5OyBjaHJpcy5zbm9va0BnbWFpbC5jb207IE9saXZh
-cmksIE1hdGhpZXU7IEh1bnRzbWFuLCBCcnlhbg0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6
-IGFkZCBRQ0EgYWx4IEV0aGVybmV0IGRyaXZlcg0KPiANCj4gT24gVHVlLCBGZWIgMjgsIDIwMTIg
-YXQgNTo1MyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4g
-PiBGcm9tOiAiTHVpcyBSLiBSb2RyaWd1ZXoiIDxyb2RyaWd1ZUBxY2EucXVhbGNvbW0uY29tPg0K
-PiA+IERhdGU6IFR1ZSwgMjggRmViIDIwMTIgMTc6NTA6MDkgLTA4MDANCj4gPg0KPiA+PiBUaGUg
-bmV4dCBwYXRjaCBhZGRzIHRoZSBuZXcgUUNBIGFseCBFdGhlcm5ldCBkcml2ZXIgdGhhdCBzdXBl
-cmNlZGVzDQo+ID4+IHRoZSBhdGwxYyBFdGhlcm5ldCBkcml2ZXIuIEZvciBkZXRhaWxzIHBsZWFz
-ZSByZWFkIHRoZSBjb21taXQgbG9nIG9mDQo+ID4+IHRoZSBwYXRjaC4gR2l2ZW4gdGhlIHNpemUg
-eW91IGNhbiBkb3dubG9hZCB0aGUgcGF0Y2ggZnJvbToNCj4gPg0KPiA+IFdoYXQncyB3cm9uZyB3
-aXRoIG1ha2luZyBldm9sdXRpb25hcnkgZml4ZXMgdG8gYXRsMWMgaW5zdGVhZCBvZg0KPiA+IHJl
-cGxhY2luZyBpdCB3aG9sZXNhbGU/DQo+ID4NCj4gPiBUaGlzIGlzbid0IHRoZSB3YXkgdG8gZG8g
-aXQgTHVpcy4NCj4gDQo+IEkgKnZlaGVtZW50bHkqIHRyaWVkIHRvIGNoYW5nZSBkaXJlY3Rpb24g
-b2YgdGhpcyBkcml2ZXIgZGV2ZWxvcG1lbnQgdG8gZG8NCj4gZXhhY3RseSB3aGF0IHlvdSBzdGF0
-ZWQgd2hlbiB0aGlzIGRyaXZlciB3YXMgZmlyc3QgcG9zdGVkIGxhc3QgeWVhciBpbiBPY3RvYmVy
-IG9mDQo+IDIwMTEgWzBdLiBJIGNvdWxkIG5vdCBnZXQgY29tbWl0bWVudCBvbiB0aGF0IHJvdXRl
-IG1haW5seSBkdWUgdG8gdGhlIGxhcmdlIGRlbHRhDQo+IGFuZCBsYWNrIG9mIHJlc291cmNlcyB0
-byBhZGRyZXNzIHRoaXMuIEkga25ldyB0aGlzIHdvdWxkIHN0aWxsIGJlIGEgaGFyZCBzYWxlIGJ1
-dA0KPiB3aGF0IEkgcHJvcG9zZWQgd2FzIGEgY29tcHJpc2UgLS0gIGNvbnNpZGVyIGEgcmVwbGFj
-ZW1lbnQgKmlmKiB3ZSBjYW4gZ2V0IFFDQQ0KPiBlbmdpbmVlcnMgdGFza2VkIHRvIHdvcmsgdXBz
-dHJlYW0gYW5kIGNvbW1pdHRlZCB0byBmaXhpbmcgKmFsbCogaXNzdWVzDQo+IHJlcG9ydGVkLA0K
-PiAqYW5kKiBhbHNvIHByb3Blcmx5IHRlc3RlZCBhbmQgY29tcGFyZWQgZHJpdmVycy4NCj4gDQo+
-IFRoZSBvdGhlciBvcHRpb24gd2UgaGFkIHJldmlld2VkIGhlcmUgd2FzIHRvIGdldCB0aGlzIGlu
-dG8gc3RhZ2luZyBidXQgdGhlDQo+IGdhcmJhZ2UgZHJpdmVyIGNvZGUgaXMgYWxsIHJlc29sdmVk
-IG5vdy4gSXRzIHlvdXIgY2FsbC4gVGhpcyBpcyB0aGUgYmVzdCBJIGNvdWxkIGdldA0KPiBjb21t
-aXRtZW50IGFuZCByZXNvdXJjZXMgb24uDQo+IA0KPiBbMF0gaHR0cDovL21hcmttYWlsLm9yZy9t
-ZXNzYWdlLzdkazdsdGRjZGx4NWtzdTYNCj4gDQo+ICAgTHVpcw0K
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Date: Wed, 29 Feb 2012 02:19:05 +0000
+
+>      The code related to hardware of atl1c is quite diff with that
+> in our hand, every time we take much time to find which part should
+> be revised for one bug/issue found on other platform/OSes. the new
+> driver make it easy to fix and support new chipset as well.
+
+Broadcom gave the same excuses.  Save yourself some typing.
+
+I already know what you are going to say and claim are the issues.
+
+I've heard it all before, and none of them justify replacing the
+existing driver wholesale.  We simply don't operate this way.
+
+Because you guys didn't upstream your driver properly back when
+the atl1c hardware first came out and Linux needed a driver,
+someone else did.
+
+And we're not removing their driver just because now you guys just
+want to come in and take over simply because you're not willing to
+collaborate properly and contribute to the existing code like everyone
+else on the planet does.
+
+There is no arguing against this, there is no justification, and it
+simply will not happen.  I'm sorry you put some must effort into this
+but you should have been smart and listened to Luis last year when he
+tried to guide you in the right direction.
+
+Listening to Luis would have saved you a lot of wasted engineering.
+
+Maybe you will be smart and listen to him next time.
