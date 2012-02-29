@@ -1,60 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/8] validate MAC address before call
- .ndo_set_mac_address
-Date: Wed, 29 Feb 2012 15:58:59 +0000
-Message-ID: <1330531139.8460.192.camel@deadeye>
-References: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Jon Mason <jdmason@kudzu.us>, Danny Kukawka <dkukawka@suse.de>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Javier Martinez Canillas <martinez.javier@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Kosina <jkosina@suse.cz>, Jiri Pirko <jpirko@redhat.com>,
-	Joe Perches <joe@perches.com>,
-	John Crispin <blogic@openwrt.org>,
-	<linux-kernel@vger.kernel.org>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Neil Horman <nhorman@tuxdriver.com>, <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Stephen Hemming
-To: Danny Kukawka <danny.kukawka@bisect.de>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: [PATCH 0/8] validate MAC address before call .ndo_set_mac_address
+Date: Wed, 29 Feb 2012 17:08:12 +0100
+Message-ID: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
+Cc: Danny Kukawka <dkukawka@suse.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-29 at 16:42 +0100, Danny Kukawka wrote:
-> Validate the given MAC address directly in dev_set_mac_address()
-> if a .ndo_validate_addr function is available before calling
-> the .ndo_set_mac_address function.
-> 
-> Changed .ndo_validate_addr to take a second parameter containing
-> a sockaddr struct to be checked instead of the net_device dev_addr.
-> The behaviour of .ndo_validate_addr is now: if the second parameter
-> is NULL the net_device->dev_addr gets validate, if != NULL
-> the given parameter/sockaddr gets validated instead.
-> 
-> This patch series include adaptations for some drivers which
-> use .ndo_set_mac_address functions directly - to prevent double
-> checks and to enable validations via .ndo_validate_addr.
-[...]
+Validate the given MAC address directly in dev_set_mac_address()
+if a .ndo_validate_addr function is available before calling
+the .ndo_set_mac_address function.
 
-You have to do this as a single patch.  The kernel and drivers should
-still build at each stage.
+Changed .ndo_validate_addr to take a second parameter containing
+a sockaddr struct to be checked instead of the net_device dev_addr.
+The behaviour of .ndo_validate_addr is now: if the second parameter
+is NULL the net_device->dev_addr gets validate, if != NULL
+the given parameter/sockaddr gets validated instead.
 
-Ben.
+This patch series include adaptations for some drivers which
+use .ndo_set_mac_address functions directly - to prevent double
+checks and to enable validations via .ndo_validate_addr.
+
+If these patches get accepted, an other series will follow
+to cleanup the validation checks in the .ndo_set_mac_address 
+functions.
+
+Note: resend for ML's
+
+Danny Kukawka (8):
+  net: validate MAC address directly in dev_set_mac_address()
+  bnx2x: adopt bnx2x_validate_addr() to .ndo_validate_addr changes
+  cris/eth_v10: use dev_set_mac_address() instead of
+    e100_set_mac_address()
+  bcm63xx_enet: use dev_set_mac_address() instead of
+    bcm_enet_set_mac_address()
+  ethoc: add .ndo_validate_addr to net_device_ops
+  lantiq_etop: use dev_set_mac_address() instead of
+    ltq_etop_set_mac_address()
+  neterion/s2io: fix s2io_set_mac_addr() to prevent double checks
+  octeon: use dev_set_mac_address() instead of
+    octeon_mgmt_set_mac_address()
+
+ drivers/net/cris/eth_v10.c                       |    3 +--
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c     |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   13 ++++++++++---
+ drivers/net/ethernet/ethoc.c                     |    4 +---
+ drivers/net/ethernet/lantiq_etop.c               |    4 ++--
+ drivers/net/ethernet/neterion/s2io.c             |    5 +----
+ drivers/net/ethernet/octeon/octeon_mgmt.c        |    6 ++----
+ include/linux/etherdevice.h                      |    2 +-
+ include/linux/netdevice.h                        |    7 +++++--
+ net/core/dev.c                                   |    7 ++++++-
+ net/ethernet/eth.c                               |   12 +++++++++---
+ 11 files changed, 39 insertions(+), 26 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.8.3
