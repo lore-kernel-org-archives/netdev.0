@@ -1,60 +1,27 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH 0/8] validate MAC address before call .ndo_set_mac_address
-Date: Wed, 29 Feb 2012 17:08:12 +0100
-Message-ID: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/4 (net.git)] stmmac EEE support
+Date: Wed, 29 Feb 2012 17:07:39 +0100
+Message-ID: <4F4E4D4B.3040909@st.com>
+References: <1330433084-18586-1-git-send-email-peppe.cavallaro@st.com> <20120228.151842.17415089764170178.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:39180 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755599Ab2B2QIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 11:08:15 -0500
+In-Reply-To: <20120228.151842.17415089764170178.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Validate the given MAC address directly in dev_set_mac_address()
-if a .ndo_validate_addr function is available before calling
-the .ndo_set_mac_address function.
+On 2/28/2012 9:18 PM, David Miller wrote:
+> 
+> Patches adding new features should target net-next.git not net.git
+> 
 
-Changed .ndo_validate_addr to take a second parameter containing
-a sockaddr struct to be checked instead of the net_device dev_addr.
-The behaviour of .ndo_validate_addr is now: if the second parameter
-is NULL the net_device->dev_addr gets validate, if != NULL
-the given parameter/sockaddr gets validated instead.
+Sorry David, I'll resend all patches against net-next.
 
-This patch series include adaptations for some drivers which
-use .ndo_set_mac_address functions directly - to prevent double
-checks and to enable validations via .ndo_validate_addr.
-
-If these patches get accepted, an other series will follow
-to cleanup the validation checks in the .ndo_set_mac_address 
-functions.
-
-Note: resend for ML's
-
-Danny Kukawka (8):
-  net: validate MAC address directly in dev_set_mac_address()
-  bnx2x: adopt bnx2x_validate_addr() to .ndo_validate_addr changes
-  cris/eth_v10: use dev_set_mac_address() instead of
-    e100_set_mac_address()
-  bcm63xx_enet: use dev_set_mac_address() instead of
-    bcm_enet_set_mac_address()
-  ethoc: add .ndo_validate_addr to net_device_ops
-  lantiq_etop: use dev_set_mac_address() instead of
-    ltq_etop_set_mac_address()
-  neterion/s2io: fix s2io_set_mac_addr() to prevent double checks
-  octeon: use dev_set_mac_address() instead of
-    octeon_mgmt_set_mac_address()
-
- drivers/net/cris/eth_v10.c                       |    3 +--
- drivers/net/ethernet/broadcom/bcm63xx_enet.c     |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   13 ++++++++++---
- drivers/net/ethernet/ethoc.c                     |    4 +---
- drivers/net/ethernet/lantiq_etop.c               |    4 ++--
- drivers/net/ethernet/neterion/s2io.c             |    5 +----
- drivers/net/ethernet/octeon/octeon_mgmt.c        |    6 ++----
- include/linux/etherdevice.h                      |    2 +-
- include/linux/netdevice.h                        |    7 +++++--
- net/core/dev.c                                   |    7 ++++++-
- net/ethernet/eth.c                               |   12 +++++++++---
- 11 files changed, 39 insertions(+), 26 deletions(-)
-
--- 
-1.7.8.3
+Peppe
