@@ -1,29 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mdio: Export mdio.h to userland
-Date: Wed, 29 Feb 2012 18:31:33 -0500 (EST)
-Message-ID: <20120229.183133.1451263231661298778.davem@davemloft.net>
-References: <1330555428.5881.8.camel@bwh-desktop>
-	<20120229.180242.197576747542301377.davem@davemloft.net>
-	<1330556992.5881.11.camel@bwh-desktop>
+From: =?ISO-8859-15?Q?Niccol=F2_Belli?= <darkbasic-DEeHIYRtcplPMsqi6aon0Q@public.gmane.org>
+Subject: Strange issue with IPv6 through ipsec
+Date: Thu, 01 Mar 2012 00:43:28 +0100
+Message-ID: <4F4EB820.1090607@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35258 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756760Ab2B2Xbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 18:31:40 -0500
-In-Reply-To: <1330556992.5881.11.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: users-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/users>,
+	<mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.strongswan.org/pipermail/users>
+List-Post: <mailto:users-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/users>,
+	<mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
+Errors-To: users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 29 Feb 2012 23:09:52 +0000
+Hi,
+I'm not sure if netdev is the right place, that's a strange behavior but =
 
-> I could just move the mdio_phy_id_is_c45(), mdio_phy_id_prtad(),
-> mdio_phy_id_devad() functions inside #ifdef __KERNEL__ since userland
-> shouldn't need to unpack PHY IDs.
+I'm not sure if it's a bug because I'm an IPv6 newbie.
 
-That would work too.
+I'd like to give my servers IPv6 connectivity for the World IPv6 Launch, =
+
+so I bought a virtual machine with IPv6 connectivity and I asked to =
+
+route a /56, then I extruded it through an IKEv2 ipsec tunnel =
+
+(Strongswan 4.5.3 on Debian Squeeze amd64).
+
+A is the virtual machine with IPv6 connectivity.
+B is the other peer.
+A has IPv6 a:b:c:d::1/64
+The routed subnet is a:b:c:300::/56
+
+After the tunnel creation I add an IPv6 to B external interface:
+ip -6 addr add a:b:c:301::1/6 dev nas0
+Then I create a default route:
+ip -6 route add default via a:b:c:0301::2 dev nas0
+
+Now I can ping A from B and B from A.
+If I destroy and re-create the tunnel everything keep working.
+
+If instead of adding an IPv6 to nas0 I add it to eth0 (an internal =
+
+interface):
+ip -6 addr add a:b:c:301::1/6 dev eth0
+ip -6 route add default via a:b:c:0301::2 dev eth0
+
+it still works (A con ping B and B can ping A) *BUT* if I destroy and =
+
+re-create the tunnel it doesn't work anymore!
+I have to type:
+ip -6 addr del a:b:c:301::1/6 dev eth0
+ip -6 addr add a:b:c:301::1/6 dev eth0
+ip -6 route add default via a:b:c:0301::2 dev eth0
+
+to make it work again O_O
+
+Cheers,
+Niccol=F2
