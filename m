@@ -1,65 +1,54 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] bonding:update rlb entry for arp request
-Date: Wed, 29 Feb 2012 21:55:36 +0800
-Message-ID: <69d333c976553016d3dea2a4eab1c6d652366b27.1330523517.git.panweiping3@gmail.com>
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: [PATCH][RFC] bonding: delete migrated IP addresses from the rlb
+ hash table
+Date: Wed, 29 Feb 2012 21:58:53 +0800
+Message-ID: <4F4E2F1D.2080302@gmail.com>
 References: <20120227173400.GB816@midget.suse.cz>
-Cc: jbohac@suse.cz, fubar@us.ibm.com, andy@greyhouse.net,
-	Weiping Pan <panweiping3@gmail.com>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:62064 "EHLO
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:60406 "EHLO
 	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757996Ab2B2NvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 08:51:20 -0500
-Received: by dajr28 with SMTP id r28so357220daj.19
-        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 05:51:20 -0800 (PST)
+	with ESMTP id S1030661Ab2B2Ny1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 08:54:27 -0500
+Received: by dajr28 with SMTP id r28so359971daj.19
+        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 05:54:27 -0800 (PST)
 In-Reply-To: <20120227173400.GB816@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rlb_arp_recv() only handles arp reply packets,
-but I think arp request packets contain the latest information about
-clients(ip and mac), so we should update rlb entry for arp request.
+On 02/28/2012 01:34 AM, Jiri Bohac wrote:
+> Bonding in balance-alb mode records information from ARP packets
+> passing through the bond in a hash table (rx_hashtbl).
+>
+> At certain situations (e.g. link change of a slave),
+> rlb_update_rx_clients() will send out ARP packets to update ARP
+> caches of other hosts on the network to achieve RX load balancing.
+>
+> The problem is that once an IP address is recorded in the hash
+> table, it stays there indefinitely [1]. If this IP address is
+> migrated to a different host in the network, bonding still sends
+> out ARP packets that poison other systems' ARP caches with
+> invalid information.
+I met this problem, too.
 
-This patch can resolve a problem that if an IP address is migrated to a
-different host in the network, the corresponding rlb entry still contains the
-old mac address for this IP, and bonding will send out invalid ARP packets
-that will poison other systems' ARP caches.
+> This patch solves this by looking at all incoming ARP packets,
+> and checking if the source IP address is one of the source
+> addresses stored in the rx_hashtbl. If it is, the corresponding
+> hash table entries are removed. Thus, when an IP address is
+> migrated, the first ARP broadcast by its new owner will purge the
+> offending entries of rx_hashtbl.
+>
+>    (a simpler approach, where bonding would monitor IP address
+>     changes on the local system does not work for setups like:
+>     HostA --- NetworkA --- eth0-bond0-br0 --- NetworkB --- hostB
+>     and an IP address migrating from HostB to HostA)
+Could you explain in detail or step by step how to reproduce your problem ?
+I made a patch but I do not know whether it can fix your problem.
 
-Jiri Bohac <jbohac@suse.cz> found this problem and posted a patch,
-but I don't know whether this patch can fix his problem.
-
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- drivers/net/bonding/bond_alb.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index f820b26..fe881a9 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -332,7 +332,6 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
- 	client_info = &(bond_info->rx_hashtbl[hash_index]);
- 
- 	if ((client_info->assigned) &&
--	    (client_info->ip_src == arp->ip_dst) &&
- 	    (client_info->ip_dst == arp->ip_src) &&
- 	    (compare_ether_addr_64bits(client_info->mac_dst, arp->mac_src))) {
- 		/* update the clients MAC address */
-@@ -366,11 +365,9 @@ static void rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
- 		return;
- 	}
- 
--	if (arp->op_code == htons(ARPOP_REPLY)) {
--		/* update rx hash table for this ARP */
--		rlb_update_entry_from_arp(bond, arp);
--		pr_debug("Server received an ARP Reply from client\n");
--	}
-+	/* update rx hash table for this ARP */
-+	rlb_update_entry_from_arp(bond, arp);
-+	pr_debug("Server received an ARP Request/Reply from client\n");
- }
- 
- /* Caller must hold bond lock for read */
--- 
-1.7.4.4
+thanks
+Weiping Pan
