@@ -1,52 +1,47 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 05/17] tipc: Add check to prevent insertion of duplicate name table entries
-Date: Wed, 29 Feb 2012 18:18:31 -0500
-Message-ID: <1330557523-2024-6-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 16/17] tipc: Eliminate obsolete code for re-sending a message
+Date: Wed, 29 Feb 2012 18:18:42 -0500
+Message-ID: <1330557523-2024-17-git-send-email-paul.gortmaker@windriver.com>
 References: <1330557523-2024-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53947 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:54003 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965232Ab2B2XTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 18:19:00 -0500
+	with ESMTP id S965160Ab2B2XTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 18:19:09 -0500
 In-Reply-To: <1330557523-2024-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Adds a new check to TIPC's name table logic to reject any attempt to
-create a new name publication that is identical to an existing one.
-(Such an attempt will never happen under normal circumstances, but
-could arise if another network node malfunctions and issues a duplicate
-name publication message.)
+Removes code that updated the "previous node" field of an out-going
+message over TIPC's links. Such updating is unnecessary since the
+removal of the prototype multi-cluster capability means that all
+outgoing messages are generated locally and already have this field
+populated correctly.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_table.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ net/tipc/link.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 1196f05..c2224f9 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -268,6 +268,13 @@ static struct publication *tipc_nameseq_insert_publ(struct name_seq *nseq,
- 		}
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index f16e65d..b4b9b30 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -871,8 +871,6 @@ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	u32 queue_limit = l_ptr->queue_limit[imp];
+ 	u32 max_packet = l_ptr->max_pkt;
  
- 		info = sseq->info;
-+
-+		/* Check if an identical publication already exists */
-+		list_for_each_entry(publ, &info->zone_list, zone_list) {
-+			if ((publ->ref == port) && (publ->key == key) &&
-+			    (!publ->node || (publ->node == node)))
-+				return NULL;
-+		}
- 	} else {
- 		u32 inspos;
- 		struct sub_seq *freesseq;
+-	msg_set_prevnode(msg, tipc_own_addr);	/* If routed message */
+-
+ 	/* Match msg importance against queue limits: */
+ 
+ 	if (unlikely(queue_size >= queue_limit)) {
 -- 
 1.7.9.1
