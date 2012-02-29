@@ -1,41 +1,49 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Wed, 29 Feb 2012 08:57:26 -0500
-Message-ID: <1330523846.18226.18.camel@mojatatu>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-	 <4F34042F.6090806@intel.com>
-	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
-	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>
-	 <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>
-	 <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>
-	 <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>
-	 <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com>
-	 <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com>
-	 <4F4DB440.50509@intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH iproute2] pedit action: add mask for changing bits.
+Date: Wed, 29 Feb 2012 09:01:20 -0500
+Message-ID: <1330524080.18226.21.camel@mojatatu>
+References: <CAEzD07+0EA12igqAcwbM8VGKLR9Hp0GjJ7t_Jve=JXOrEKvu9w@mail.gmail.com>
+	 <1330351135.2384.1039.camel@mojatatu>
+	 <CAEzD07KenHteg0S8-OfAwqTNTSQdvPOJsA-m_+8CW-8c_HCgnw@mail.gmail.com>
+	 <1330434308.2369.11.camel@mojatatu>
+	 <CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com, kernel@wantstofly.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4F4DB440.50509@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:47401 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755335Ab2B2OBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 09:01:24 -0500
+Received: by iagj37 with SMTP id j37so2687881iag.19
+        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 06:01:24 -0800 (PST)
+In-Reply-To: <CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-02-28 at 21:14 -0800, John Fastabend wrote:
+Hi Anton,
 
-> Just checked looks like the DSA infrastructure has commands to enable
-> STP so guess it is doing learning.
+On Wed, 2012-02-29 at 16:12 +0300, Anton 'EvilMan' Danilov wrote:
 
-IIRC, Lennert built some of this stuff tied to the kernel.
+> 
+> You are right, mask option isn't needed. Retain option must be used instead it.
+> 
+
+Thanks for verifying.
+
+> Action to work on Vlans is fine idea. I'm very interested in this
+> action. I'll be grateful for any help.
+
+Lets start by defining the interface to be seen by user space
+such as vlan editing/popping/pushing etc. Then i will help you
+build it slowly until you are comfortable with moving with it.
+
+As a matter of fact, lets talk offline so we dont add more noise
+to the list; you can always post the RFC to the list when you are
+ready.
 
 cheers,
 jamal
-
