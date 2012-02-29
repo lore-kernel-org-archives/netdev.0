@@ -1,49 +1,69 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: coding style issues -- [davem@davemloft.net: Re: pull request:
- wireless-next 2012-02-06]
-Date: Wed, 29 Feb 2012 11:22:36 -0800
-Message-ID: <477F20668A386D41ADCC57781B1F70430836762D6C@SC-VEXCH1.marvell.com>
-References: <20120229173421.GA13733@tuxdriver.com>
-	 <477F20668A386D41ADCC57781B1F70430836762D55@SC-VEXCH1.marvell.com>
- <1330542811.21491.7.camel@joe2Laptop>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] Bluetooth: Silence static checker warning.
+Date: Wed, 29 Feb 2012 22:16:06 +0300
+Message-ID: <20120229191605.GB22598@mwanda>
+References: <1330535217-26785-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Ilan Elias <ilane@ti.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>, Kalle Valo <kvalo@qca.qualcomm.com>,
-	Andy Whitcroft <apw@shadowen.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330542811.21491.7.camel@joe2Laptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="QTprm0S8XgL7H0Dt"
+Cc: marcel@holtmann.org, padovan@profusion.mobi, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santosh nayak <santoshprasadnayak@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:29837 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755241Ab2B2UZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 15:25:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1330535217-26785-1-git-send-email-santoshprasadnayak@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgSm9lLA0KDQo+IFN1YmplY3Q6IFJFOiBjb2Rpbmcgc3R5bGUgaXNzdWVzIC0tIFtkYXZlbUBk
-YXZlbWxvZnQubmV0OiBSZTogcHVsbCByZXF1ZXN0OiB3aXJlbGVzcy1uZXh0IDIwMTItMDItMDZd
-DQo+IA0KPiBPbiBXZWQsIDIwMTItMDItMjkgYXQgMTA6NTcgLTA4MDAsIEJpbmcgWmhhbyB3cm90
-ZToNCj4gPiBKb2UgUGVyY2hlcyBzdWJtaXR0ZWQgYSBwYXRjaCAiW1BBVENIIHYyXSBjaGVja3Bh
-dGNoOiBBZGQgc29tZSAtLXN0cmljdCBjb2Rpbmcgc3R5bGUgY2hlY2tzIg0KPiA+IEkgaGF2ZSBh
-cHBsaWVkIEpvZSdzIHBhdGNoIHRvIG15IGxvY2FsIGdpdCB0cmVlLg0KPiA+DQo+ID4gQWxsIG5l
-dyBwYXRjaGVzIHdpbGwgZm9sbG93IERhdmUncyBydWxlcyBhbmQgYmUgY2hlY2tlZCB3aXRoIC0t
-c3RyaWN0IG9wdGlvbi4NCj4gPiBGdXJ0aGVybW9yZSwgd2Ugd2lsbCBoYXZlIGEgc2VyaWVzIG9m
-IGNsZWFudXAgcGF0Y2hlcyB0byBhZGRyZXNzIHRoZSBjb2Rpbmcgc3R5bGUgaXNzdWVzIGluDQo+
-IGV4aXN0aW5nIGNvZGUuDQo+IA0KPiBIaSBCaW5nLg0KPiANCj4gVGhlcmUncyBhbiBpc3N1ZSB3
-aXRoIHRoZSBjaGVja3BhdGNoIHBhdGNoLg0KPiBJdCBkb2Vzbid0IGFsd2F5cyB3b3JrIGNvcnJl
-Y3RseSB3aGVuIHRoZXJlDQo+IGFyZSBjb25zZWN1dGl2ZSBwYXJlbnRoZXNpcy4NCj4gDQo+IEth
-bGxlIFZhbG8gc2hvd2VkIGFuIGV4YW1wbGUgdGhhdCBmYWlsczoNCj4gDQo+IAlpZiAoIUlTX0FM
-SUdORUQoKHVuc2lnbmVkIGxvbmcpIHNrYi0+ZGF0YSAtIEhUQ19IRFJfTEVOR1RILCA0KSAmJg0K
-PiAJICAgIHNrYl9jbG9uZWQoc2tiKSkgew0KDQpUaGFua3MgZm9yIGxldHRpbmcgdXMga25vdy4N
-Cg0KPiANCj4gSSBoYXZlIGEgdGVudGF0aXZlIGZpeCBoZXJlLCBidXQgSSdtIHdhaXRpbmcgb24N
-Cj4gQW5keSBXaGl0Y3JvZnQgdG8gZ2l2ZSBzb21lIGd1aWRhbmNlIG9uIGhvdyBiZXN0DQo+IHRv
-IGZpeCBpdCBnaXZlbiBhIG1pbmltdW0gcGVybCB2ZXJzaW9uIG9mIDUuMTAuDQoNCkkgaGF2ZSAi
-UGVybCB2NS4xMC4wIGJ1aWx0IGZvciB4ODZfNjQtbGludXgtZ251LXRocmVhZC1tdWx0aSIgb24g
-bXkgc3lzdGVtLg0KSSBndWVzcyBpdCBzaG91bGQgYmUgZmluZS4NCg0KVGhhbmtzLA0KQmluZw0K
-DQo+IA0KPiBUaGUgcHJvcG9zZWQgcGF0Y2ggZG9lc24ndCB3b3JrIHdpdGggcGVybCB2ZXJzaW9u
-cw0KPiBsZXNzIHRoYW4gNS4xMCBhbmQgdGhlcmUgaXMgYXQgbGVhc3Qgb25lIHBlcnNvbg0KPiB0
-aGF0IHN0aWxsIHVzZXMgNS44Lg0KPiANCg0K
+
+--QTprm0S8XgL7H0Dt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Feb 29, 2012 at 10:36:57PM +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+>=20
+> Silencing Static checker warning.
+> 1. Endian warning
+
+It's not an endian warning, it's an endian bug.  This code won't
+work on big endian systems.  Don't mix bugfixes and other changes.
+
+Probably at some point someone will be updating their kernel for
+an embedded platform and they'll do a "git log --pretty=3Doneline" and
+they'll notice your endian fix and decide it's super important to
+them.  Right now it's hard to find.
+
+regards,
+dan carpenter
+
+
+--QTprm0S8XgL7H0Dt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPTnl1AAoJEOnZkXI/YHqRVnUQAJNniV+rYnA0u4/Q15rKd8NG
+NE9qhnPl8J5SX7T/AtsZzAhK2I9ApwM4f15EXMYYTFFanFzlO8uD+yzn9gTLqRGH
+vPyplTVRZ1clBURAB5jnfge3KTsVgYL3k7rMA54Fu6EozjTYTn+mBMP4HyDrk8WE
+GqFCsoZU+cKrENJjfOLw6KX+cZRpLlKXixnlHfvo0iz7kO4S6/3ffX65ykcvm63C
+1+Wvdy+q629XHcUILWXnwQtLVgdwnyY9/pZvtBFHCArwajxxWecbRQXWjILO6afO
+cXyE2SR1I/8uWMEHwz3pTQfttt4X32kXJv63K77ptVunn3i/138X2S6NG9wVJxIO
+SqawQjZbhpBTpxvPShUxWeOgiT8XN8Ermu0CqbayJC5AcwSvZRKfPpESaXyuSD2d
+RIjycqRvAbDul38Pxepc/eTLYF5hZ6fjTzwg3UhS9kjEf0h+juNNX1y0Exm87jbP
+UQLGsywIWSvAF0zwUzlzeiO030KBsuUU8y2cqXjLQDikyK7t67Y1mbo3PI5Ayk1k
+Ag51jSb/3/t+Tf6wy4kHqE+rjFH87+eMeYsBEBc+58P8Grz3KRry66hXIwjTX4gp
+mqCDJ+niqjIDrF+jsVmaQ66XmUAUouoVMAyQKMyt6bpShOwjD4qIedDScSnVNJ8c
+MxOx69QozgPh4XyER386
+=4C6b
+-----END PGP SIGNATURE-----
+
+--QTprm0S8XgL7H0Dt--
