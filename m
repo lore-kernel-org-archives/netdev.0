@@ -1,62 +1,58 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [PATCH 03/11] cirrus/mac89x0: print MAC via printk format specifier
-Date: Wed, 29 Feb 2012 08:22:58 +0100
-Message-ID: <201202290822.59640.danny.kukawka@bisect.de>
-References: <1330091162-8141-4-git-send-email-danny.kukawka@bisect.de> <20120228.154914.662485432055205683.davem@davemloft.net> <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [RFC PATCH 0/3] net: bridge: propagate FDB table into hardware
+Date: Tue, 28 Feb 2012 23:17:08 -0800
+Message-ID: <20120229070418.10937.8692.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUudso1YpukfxvGdb2fAYZBJewTgQEh-aU_KB0-U2o6WQ@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, bhutchings@solarflare.com, roprabhu@cisco.com,
+	mst@redhat.com, netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	davem@davemloft.net
+To: jhs@mojatatu.com, shemminger@vyatta.com, kernel@wantstofly.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:59601 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030751Ab2B2H3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Feb 2012 02:29:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Dienstag, 28. Februar 2012, Geert Uytterhoeven wrote:
-> Hi David,
->
-> 2012/2/28 David Miller <davem@davemloft.net>:
-> > From: Geert Uytterhoeven <geert@linux-m68k.org>
-> > Date: Tue, 28 Feb 2012 21:45:30 +0100
-> >
-> >> drivers/net/ethernet/cirrus/mac89x0.c: In function =E2=80=98set_ma=
-c_address=E2=80=99:
-> >> drivers/net/ethernet/cirrus/mac89x0.c:597: warning: dereferencing
-> >> =E2=80=98void *=E2=80=99 pointer
-> >> drivers/net/ethernet/cirrus/mac89x0.c:597: error: request for memb=
-er
-> >> =E2=80=98sa_data=E2=80=99 in something not a structure or union
-> >> drivers/net/ethernet/cirrus/mac89x0.c:600: warning: dereferencing
-> >> =E2=80=98void *=E2=80=99 pointer
-> >> drivers/net/ethernet/cirrus/mac89x0.c:600: error: request for memb=
-er
-> >> =E2=80=98sa_data=E2=80=99 in something not a structure or union
-> >> drivers/net/ethernet/cirrus/mac89x0.c:595: warning: unused variabl=
-e
-> >> =E2=80=98saddr=E2=80=99
-> >
-> > Thanks, I've fixed this as follows and pushed to net-next:
-> >
-> > --------------------
-> > mac89x0: Fix build error.
-> >
-> > Need to use the new 'saddr' variable not the void 'addr' in
-> > set_mac_address().
-> >
-> > Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-Thanks for the fix!
+This series is a follow up to the RFC thread with the same title.
+It is intended to manage the forwarding database in embedded
+switches One specific example being SR-IOV NICs.
 
-> Thanks, that fixed the build.
->
-> What about the is_valid_ether_addr() check?
+This adds a private netdev flag (IFF_OFFLOADED_FDB) to enable
+management of the FDB and a ndm_flags bit to set in the PF_BRIDGE
+netlink commands to push the command at the embedded device.
 
-If you mean the discussion about checking if the MAC is valid in
-=2Endo_set_mac_address, I'm on that issue and will hopefully send a pat=
-ch soon.
+As it is currently implemented this requires loading the bridge
+module but has the advantage that the HW and SW FDB commands look
+the same. It was easy for example to modify existing user space
+tools to support this.
 
-Danny
+At this point I've only lightly tested it and need to audit the
+code in the light of day. But any comments would appreciated it. I
+figured pushing code out was easier then continuing a thread about
+hypothetical solutions.
+
+Thanks!
+
+---
+
+John Fastabend (3):
+      net: drivers: set IFF_OFFLOADED_FDB priv flag on ixgbe and igb
+      net: expose ebridge FDB with priv flag IFF_OFFLOADED_FDB
+      net: refactor br_fdb_xxx rtnetlink routines
+
+
+ drivers/net/ethernet/intel/igb/igb_main.c     |    2 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 
+ include/linux/if.h                            |    2 
+ include/linux/neighbour.h                     |    2 
+ net/bridge/br_fdb.c                           |   88 +++------
+ net/bridge/br_netlink.c                       |  237 ++++++++++++++++++++++++-
+ net/bridge/br_private.h                       |    9 +
+ 7 files changed, 269 insertions(+), 75 deletions(-)
+
+-- 
+Signature
