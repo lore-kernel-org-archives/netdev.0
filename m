@@ -1,109 +1,74 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Tue, 28 Feb 2012 21:14:40 -0800
-Message-ID: <4F4DB440.50509@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>  <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>  <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>  <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>  <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>  <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com> <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH] vmxnet3: Fix log messages and corrects some typos
+Date: Tue, 28 Feb 2012 22:55:31 -0800 (PST)
+Message-ID: <alpine.LRH.2.00.1202282209500.19873@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com, kernel@wantstofly.org
-To: jhs@mojatatu.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4F4DAC26.4050108@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: pv-drivers@vmware.com, petr@vmware.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:45570 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964954Ab2B2Gzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 01:55:31 -0500
+Received: from sc9-mailhost2.vmware.com (sc9-mailhost2.vmware.com [10.113.161.72])
+	by smtp-outbound-1.vmware.com (Postfix) with ESMTP id 78EC92830A
+	for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 22:55:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/28/2012 8:40 PM, John Fastabend wrote:
-> On 2/18/2012 4:41 AM, jamal wrote:
->> On Fri, 2012-02-17 at 09:10 -0800, John Fastabend wrote:
->>
->>> Yes I agree that is the goal.
->>>
->>>> One last comment:
->>>> With synchronization there are other challenges when the entry in the
->>>> hardware conflicts with the entry in software when you intend the
->>>> behavior to be the same. This is not such a big deal with bridging but
->>>> becomes more apparent when you start offloading ACLs etc.
->>>>
->>>
->>> OK and these sorts of conflicts certainly don't need to be resolved
->>> by kernel code. So I think this is a reasonable reason to drive the
->>> synchronization into a user space daemon.
->>
->>
->> Yep. 
->> Thanks for listening John. Waiting to see them patches.
->>
->> cheers,
->> jamal
->>
->>
->>
-> 
-> +Lennert
-> 
-> OK back to this. The last piece is where to put these messages...
-> we could take PF_ROUTE:RTM_*NEIGH
-> 
->      PF_ROUTE:RTM_NEWNEIGH - Add a new FDB entry to an offloaded
->                              switch.
->      PF_ROUTE:RTM_DELNEIGH - Delete a FDB entry from an offlaoded
->                              switch.
->      PF_ROUTE:RTM_GETNEIGH - Dumps the embedded FDB table
-> 
-> The neighbor code is using the PF_UNSPEC protocol type so we won't
-> collide with these unless someone was using PF_ROUTE and relying on
-> falling back to PF_UNSPEC however I couldn't find any programs that
-> did this iproute2 certainly doesn't. And the bridge pieces are using
-> PF_BRIDGE so no collision there.
-> 
-> I briefly thought about trying to pull the PF_BRIDGE protocol out
-> and use this for both types but I think its better to leave the
-> bridge code alone and there is also the issue of disambiguating a msg
-> at a port which has both an embedded switch and has SW bridge for a
-> master.
+Fix log messages and corrects some typos
 
-Maybe I gave up too quickly here I could use a bit in the ndm_flags to
-specify embedded or sw bridge. But would require having the bridge
-module loaded.
+Change logging of failure to enable MSI/MSI-X to display device's PCI
+address instead of eth%d. Rectify a typo.
 
-> 
-> Also if there are embedded switches with learning capabilities they
-> might want to trigger events to user space. In this case having
-> a protocol type makes user space a bit easier to manage. I've
-> added Lennert so maybe he can comment I think the Marvell chipsets
-> might support something along these lines. The SR-IOV chipsets I'm
-> aware of _today_ don't do learning. Learning makes the event model
-> more plausible.
-> 
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+---
 
-Just checked looks like the DSA infrastructure has commands to enable
-STP so guess it is doing learning.
-
-> The other mechanism would be to embed some more attributes into the
-> PF_UNSPEC:RTM_XXXLINK msg however I'm thinking that if we want to
-> support learning and triggering events then we likely also don't
-> want to send these events to every app with RTNLGRP_LINK set.
-> 
-> Plus there is already a proliferation of LINK attributes and dumping
-> the FDB out of this seems a bit much but could be done with some
-> bitmasks. Although the current ext_filter_mask u32 doesn't seem to
-> be sufficient for events to trigger this.
-> 
-> so much for a short note...
-> 
-> Thanks
-> .John
-> 
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index de7fc34..51ec299 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2709,8 +2709,8 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			adapter->intr.num_intrs = vectors;
+ 			return 0;
+ 		} else if (err < 0) {
+-			printk(KERN_ERR "Failed to enable MSI-X for %s, error"
+-			       " %d\n",	adapter->netdev->name, err);
++			netdev_info(adapter->netdev, "Failed to enable MSI-X, "
++				    "error: %d\n", err);
+ 			vectors = 0;
+ 		} else if (err < vector_threshold) {
+ 			break;
+@@ -2718,15 +2718,15 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			/* If fails to enable required number of MSI-x vectors
+ 			 * try enabling minimum number of vectors required.
+ 			 */
++			netdev_info(adapter->netdev, "Failed to enable %d MSI-X"
++				    ", trying %d instead\n", vectors,
++				    vector_threshold);
+ 			vectors = vector_threshold;
+-			printk(KERN_ERR "Failed to enable %d MSI-X for %s, try"
+-			       " %d instead\n", vectors, adapter->netdev->name,
+-			       vector_threshold);
+ 		}
+ 	}
+ 
+-	printk(KERN_INFO "Number of MSI-X interrupts which can be allocatedi"
+-	       " are lower than min threshold required.\n");
++	netdev_info(adapter->netdev, "Number of MSI-X interrupts which can be "
++		    " allocated are lower than min threshold required.\n");
+ 	return err;
+ }
+ 
+@@ -2792,8 +2792,8 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 			return;
+ 
+ 		/* If we cannot allocate MSIx vectors use only one rx queue */
+-		printk(KERN_INFO "Failed to enable MSI-X for %s, error %d."
+-		       "#rx queues : 1, try MSI\n", adapter->netdev->name, err);
++		netdev_info(adapter->netdev, "Failed to enable MSI-X, error %d."
++			    "Limiting #rx queues to 1, try MSI.\n", err);
+ 
+ 		adapter->intr.type = VMXNET3_IT_MSI;
+ 	}
