@@ -1,57 +1,77 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH v2] checkpatch: Add some --strict coding style checks
-Date: Wed, 29 Feb 2012 16:38:05 +0200
-Message-ID: <4F4E384D.2090802@qca.qualcomm.com>
-References: <20120221151435.GA19354@tuxdriver.com>	 <20120221.144417.1445117001833888214.davem@davemloft.net>	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>	 <20120221.154053.2103818562080068513.davem@davemloft.net>	 <1329857959.5143.11.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>	 <1329874581.5143.22.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>	 <1329875935.5143.24.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B98A@ORSMSX102.amr.corp.intel.com>	 <1329968622.5143.46.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com> <1330108675.18464.21.camel@joe2Laptop>
+From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH] mlx4: prevent the device from being removed concurrently
+Date: Wed, 29 Feb 2012 16:47:52 +0200
+Message-ID: <201202291647.53161.jackm@dev.mellanox.co.il>
+References: <1330454176-17768-1-git-send-email-cascardo@linux.vnet.ibm.com> <20120228203438.GA12028@oc1711230544.ibm.com> <20120228.154657.1817512578346429850.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Whitcroft <apw-26w3C0LaAnFg9hUCZPvPmw@public.gmane.org>,
-	"Allan, Bruce W" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org"
-	<andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1330108675.18464.21.camel@joe2Laptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120228.154657.1817512578346429850.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 02/24/2012 08:37 PM, Joe Perches wrote:
-> Argument alignment across multiple lines should
-> match the open parenthesis.
+On Tuesday 28 February 2012 22:46, David Miller wrote:
+> From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> Date: Tue, 28 Feb 2012 17:34:38 -0300
 > 
-> Logical continuations should be at the end of
-> the previous line, not the start of a new line.
+> > On Tue, Feb 28, 2012 at 02:30:51PM -0500, David Miller wrote:
+> >> From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> >> Date: Tue, 28 Feb 2012 15:36:16 -0300
+> >> 
+> >> > When a EEH happens, the catas poll code will try to restart the device,
+> >> > removing it and adding it back again. The EEH code will try to do the
+> >> > same. One of the threads ends up accessing memory that was freed by the
+> >> > other thread and we get a crash.
+> >> 
+> >> Stop adding bandaids to the locking.
+> >> 
+> >> If the EEH infrastructure doesn't synchronize parallel operations
+> >> on the same device, that is the real bug, and that's where the real
+> >> fix belongs.
+> >> 
+> >> I refuse to apply this patch.
+> >> 
+> > 
+> > It's not EEH that does not synchronize removal. The problem is that the
+> > driver itself calls the driver remove function through mlx4_restart_one.
 > 
-> These are not required by CodingStyle so make the
-> tests active only when using --strict.
+> Then reuse the existing intf_mutex this driver has, export it to
+> main.c and add a new __mlx4_unregister_device that can be called
+> with the intf_mutex held already.
 > 
-> Improved_by_examples_from: "Bruce W. Allen" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Some comments.
 
-Thanks Joe, this is very useful for me. I seem to have one false alarm
-though:
+1. Mr Cascardo's solution is only partial, and does not cover all the problem cases. He
+   simply uncovered one of several examples of what lack-of-sync will do when removing a device.
+   Mr. Cascardo found the kernel Oops that happens when a catastrophic error occurs during device
+   removal. What if we receive a catas error while doing "init_one"?  What if we are in the middle
+   of catas error recovery (in the init_one stage), and we get a remove_one request from higher up?
 
-drivers/net/wireless/ath/ath6kl/txrx.c:464: CHECK: Alignment should
-match open parenthesis
+   There is a solution for this precise problem in the mthca driver (infiniband/hw/mthca/mthca_main.c
+   infiniband/hw/mthca/mthca_catas.c). In the mthca driver, we DO in fact use an "mthca_device_mutex"
+   for precisely the reason given in a. above.  I see no reason not to do the same thing here.
 
-This is with patches I haven't sent yet so line numbers most likely
-don't match, but the code in question is this:
+   This requires:
+	1. mlx4_init_one(), mlx4_remove_one() and mlx4_restart_one all grab an mlx4_device_mutex.
+        2. new procedure __mlx4_remove_one(), which does not grab the mutex.
 
-	if (!IS_ALIGNED((unsigned long) skb->data - HTC_HDR_LENGTH, 4) &&
-	    skb_cloned(skb)) {
+   Note that it is NOT enough to simply protect the removal operation.  The protection must wrap the
+   ENTIRE restart operation (both removal and init), because allowing a remove in the middle of init_one
+   or restart_one would probably also cause a kernel Oops.
 
-Apparently the cast "(unsigned long)" causes the false alarm as when I
-remove it I don't see the warning anymore.
+2. The intf_mutex is used with mlx4_un/register_device and mlx4_un/register_interface. unregister_device is
+   used both in remove_one and in mlx4_change_port_types.  I would hesitate to grab that mutex for a more
+   global use.  I think it is cleaner to add a device mutex (mlx4_device_mutex) for initializing/removing/
+   restarting the device.
 
-Kalle
+-Jack
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
