@@ -1,105 +1,67 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: fix false reordering signal in tcp_shifted_skb
-Date: Tue, 28 Feb 2012 18:16:32 -0800
-Message-ID: <CAK6E8=ehLUL8oZVARCGbh9XL7qu_eMC9XxjXApXyDUvoBADLNQ@mail.gmail.com>
-References: <1330286779-10462-1-git-send-email-ncardwell@google.com>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH] net: add QCA alx Ethernet driver
+Date: Wed, 29 Feb 2012 02:19:05 +0000
+Message-ID: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
+References: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com>
+ <20120228.205347.1718771650331094141.davem@davemloft.net>
+ <CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:56431 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966056Ab2B2CQx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Feb 2012 21:16:53 -0500
-Received: by obcva7 with SMTP id va7so7539841obc.19
-        for <netdev@vger.kernel.org>; Tue, 28 Feb 2012 18:16:52 -0800 (PST)
-In-Reply-To: <1330286779-10462-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>,
+	"Giori, Kathy" <kgiori@qca.qualcomm.com>,
+	"chris.snook@gmail.com" <chris.snook@gmail.com>,
+	"Olivari, Mathieu" <mathieu@qca.qualcomm.com>,
+	"Huntsman, Bryan" <bryanh@quicinc.com>
+To: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 26, 2012 at 12:06 PM, Neal Cardwell <ncardwell@google.com> =
-wrote:
-> When tcp_shifted_skb() shifts bytes from the skb that is currently
-> pointed to by 'highest_sack' then the increment of
-> TCP_SKB_CB(skb)->seq implicitly advances tcp_highest_sack_seq(). This
-> implicit advancement, combined with the recent fix to pass the correc=
-t
-> SACKed range into tcp_sacktag_one(), caused tcp_sacktag_one() to thin=
-k
-> that the newly SACKed range was before the tcp_highest_sack_seq(),
-> leading to a call to tcp_update_reordering() with a degree of
-> reordering matching the size of the newly SACKed range (typically jus=
-t
-> 1 packet, which is a NOP, but potentially larger).
->
-> This commit fixes this by simply calling tcp_sacktag_one() before the
-> TCP_SKB_CB(skb)->seq advancement that can advance our notion of the
-> highest SACKed sequence.
->
-> Correspondingly, we can simplify the code a little now that
-> tcp_shifted_skb() should update the lost_cnt_hint in all cases where
-> skb =3D=3D tp->lost_skb_hint.
->
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> ---
-> =A0net/ipv4/tcp_input.c | =A0 18 ++++++++++--------
-> =A01 files changed, 10 insertions(+), 8 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 53c8ce4..ee42d42 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1403,8 +1403,16 @@ static int tcp_shifted_skb(struct sock *sk, st=
-ruct sk_buff *skb,
->
-> =A0 =A0 =A0 =A0BUG_ON(!pcount);
->
-> - =A0 =A0 =A0 /* Adjust hint for FACK. Non-FACK is handled in tcp_sac=
-ktag_one(). */
-> - =A0 =A0 =A0 if (tcp_is_fack(tp) && (skb =3D=3D tp->lost_skb_hint))
-> + =A0 =A0 =A0 /* Adjust counters and hints for the newly sacked seque=
-nce
-> + =A0 =A0 =A0 =A0* range but discard the return value since prev is a=
-lready
-> + =A0 =A0 =A0 =A0* marked. We must tag the range first because the se=
-q
-> + =A0 =A0 =A0 =A0* advancement below implicitly advances
-> + =A0 =A0 =A0 =A0* tcp_highest_sack_seq() when skb is highest_sack.
-> + =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 tcp_sacktag_one(sk, state, TCP_SKB_CB(skb)->sacked,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 start_seq, end_seq, dup=
-_sack, pcount);
-> +
-> + =A0 =A0 =A0 if (skb =3D=3D tp->lost_skb_hint)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tp->lost_cnt_hint +=3D pcount;
->
-> =A0 =A0 =A0 =A0TCP_SKB_CB(prev)->end_seq +=3D shifted;
-> @@ -1430,12 +1438,6 @@ static int tcp_shifted_skb(struct sock *sk, st=
-ruct sk_buff *skb,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_shinfo(skb)->gso_type =3D 0;
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 /* Adjust counters and hints for the newly sacked seque=
-nce range but
-> - =A0 =A0 =A0 =A0* discard the return value since prev is already mar=
-ked.
-> - =A0 =A0 =A0 =A0*/
-> - =A0 =A0 =A0 tcp_sacktag_one(sk, state, TCP_SKB_CB(skb)->sacked,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 start_seq, end_seq, dup=
-_sack, pcount);
-> -
-> =A0 =A0 =A0 =A0/* Difference in this won't matter, both ACKed by the =
-same cumul. ACK */
-> =A0 =A0 =A0 =A0TCP_SKB_CB(prev)->sacked |=3D (TCP_SKB_CB(skb)->sacked=
- & TCPCB_EVER_RETRANS);
->
-> --
-> 1.7.7.3
->
-Acked-by: Yuchung Cheng <ycheng@google.com>
+SGkgRGF2aWQNCiAgICAgVGhlIGNvZGUgcmVsYXRlZCB0byBoYXJkd2FyZSBvZiBhdGwxYyBpcyBx
+dWl0ZSBkaWZmIHdpdGggdGhhdCBpbiBvdXIgaGFuZCwgZXZlcnkgdGltZSB3ZSB0YWtlIG11Y2gg
+dGltZSB0byBmaW5kIHdoaWNoIHBhcnQgc2hvdWxkIGJlIA0KcmV2aXNlZCBmb3Igb25lIGJ1Zy9p
+c3N1ZSBmb3VuZCBvbiBvdGhlciBwbGF0Zm9ybS9PU2VzLiB0aGUgbmV3IGRyaXZlciBtYWtlIGl0
+IGVhc3kgdG8gZml4IGFuZCBzdXBwb3J0IG5ldyBjaGlwc2V0IGFzIHdlbGwuDQoNCiAgICAgV2Ug
+cmV2aWV3ZWQgYWxsIHBhdGNoZXMgdGhhdCBhcHBsaWVkIHRvIGF0bDFjIGFuZCBhZGRlZCBpdCB0
+byB0aGUgYWx4ICBkdXJpbmcgY29kaW5nLiBBbmQgZGlkIHRlc3RzIGZvciBib3RoIG5ldyBhbmQg
+b2xkIGRyaXZlcnMNCllvdSBjb3VsZCBmaW5kIHRoZSByZXN1bHQgaGVyZTogIGh0dHA6Ly93d3cu
+bGludXhmb3VuZGF0aW9uLm9yZy9jb2xsYWJvcmF0ZS93b3JrZ3JvdXBzL25ldHdvcmtpbmcvYWx4
+DQoNCg0KQmVzdCBSZWdhcmRzDQotWGlvbmcNCg0KIC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
+DQo+IEZyb206IG1jZ3JvZkBnbWFpbC5jb20gW21haWx0bzptY2dyb2ZAZ21haWwuY29tXSBPbiBC
+ZWhhbGYgT2YgTHVpcyBSLg0KPiBSb2RyaWd1ZXoNCj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFy
+eSAyOSwgMjAxMiAxMDoxMw0KPiBUbzogRGF2aWQgTWlsbGVyDQo+IENjOiBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBxY2EtbGludXgtdGVhbTsg
+bmljLQ0KPiBkZXZlbDsgR2lvcmksIEthdGh5OyBjaHJpcy5zbm9va0BnbWFpbC5jb207IE9saXZh
+cmksIE1hdGhpZXU7IEh1bnRzbWFuLCBCcnlhbg0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6
+IGFkZCBRQ0EgYWx4IEV0aGVybmV0IGRyaXZlcg0KPiANCj4gT24gVHVlLCBGZWIgMjgsIDIwMTIg
+YXQgNTo1MyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4g
+PiBGcm9tOiAiTHVpcyBSLiBSb2RyaWd1ZXoiIDxyb2RyaWd1ZUBxY2EucXVhbGNvbW0uY29tPg0K
+PiA+IERhdGU6IFR1ZSwgMjggRmViIDIwMTIgMTc6NTA6MDkgLTA4MDANCj4gPg0KPiA+PiBUaGUg
+bmV4dCBwYXRjaCBhZGRzIHRoZSBuZXcgUUNBIGFseCBFdGhlcm5ldCBkcml2ZXIgdGhhdCBzdXBl
+cmNlZGVzDQo+ID4+IHRoZSBhdGwxYyBFdGhlcm5ldCBkcml2ZXIuIEZvciBkZXRhaWxzIHBsZWFz
+ZSByZWFkIHRoZSBjb21taXQgbG9nIG9mDQo+ID4+IHRoZSBwYXRjaC4gR2l2ZW4gdGhlIHNpemUg
+eW91IGNhbiBkb3dubG9hZCB0aGUgcGF0Y2ggZnJvbToNCj4gPg0KPiA+IFdoYXQncyB3cm9uZyB3
+aXRoIG1ha2luZyBldm9sdXRpb25hcnkgZml4ZXMgdG8gYXRsMWMgaW5zdGVhZCBvZg0KPiA+IHJl
+cGxhY2luZyBpdCB3aG9sZXNhbGU/DQo+ID4NCj4gPiBUaGlzIGlzbid0IHRoZSB3YXkgdG8gZG8g
+aXQgTHVpcy4NCj4gDQo+IEkgKnZlaGVtZW50bHkqIHRyaWVkIHRvIGNoYW5nZSBkaXJlY3Rpb24g
+b2YgdGhpcyBkcml2ZXIgZGV2ZWxvcG1lbnQgdG8gZG8NCj4gZXhhY3RseSB3aGF0IHlvdSBzdGF0
+ZWQgd2hlbiB0aGlzIGRyaXZlciB3YXMgZmlyc3QgcG9zdGVkIGxhc3QgeWVhciBpbiBPY3RvYmVy
+IG9mDQo+IDIwMTEgWzBdLiBJIGNvdWxkIG5vdCBnZXQgY29tbWl0bWVudCBvbiB0aGF0IHJvdXRl
+IG1haW5seSBkdWUgdG8gdGhlIGxhcmdlIGRlbHRhDQo+IGFuZCBsYWNrIG9mIHJlc291cmNlcyB0
+byBhZGRyZXNzIHRoaXMuIEkga25ldyB0aGlzIHdvdWxkIHN0aWxsIGJlIGEgaGFyZCBzYWxlIGJ1
+dA0KPiB3aGF0IEkgcHJvcG9zZWQgd2FzIGEgY29tcHJpc2UgLS0gIGNvbnNpZGVyIGEgcmVwbGFj
+ZW1lbnQgKmlmKiB3ZSBjYW4gZ2V0IFFDQQ0KPiBlbmdpbmVlcnMgdGFza2VkIHRvIHdvcmsgdXBz
+dHJlYW0gYW5kIGNvbW1pdHRlZCB0byBmaXhpbmcgKmFsbCogaXNzdWVzDQo+IHJlcG9ydGVkLA0K
+PiAqYW5kKiBhbHNvIHByb3Blcmx5IHRlc3RlZCBhbmQgY29tcGFyZWQgZHJpdmVycy4NCj4gDQo+
+IFRoZSBvdGhlciBvcHRpb24gd2UgaGFkIHJldmlld2VkIGhlcmUgd2FzIHRvIGdldCB0aGlzIGlu
+dG8gc3RhZ2luZyBidXQgdGhlDQo+IGdhcmJhZ2UgZHJpdmVyIGNvZGUgaXMgYWxsIHJlc29sdmVk
+IG5vdy4gSXRzIHlvdXIgY2FsbC4gVGhpcyBpcyB0aGUgYmVzdCBJIGNvdWxkIGdldA0KPiBjb21t
+aXRtZW50IGFuZCByZXNvdXJjZXMgb24uDQo+IA0KPiBbMF0gaHR0cDovL21hcmttYWlsLm9yZy9t
+ZXNzYWdlLzdkazdsdGRjZGx4NWtzdTYNCj4gDQo+ICAgTHVpcw0K
