@@ -1,64 +1,108 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] mdio: Export mdio.h to userland
-Date: Wed, 29 Feb 2012 23:09:52 +0000
-Message-ID: <1330556992.5881.11.camel@bwh-desktop>
-References: <1330542754.5881.4.camel@bwh-desktop>
-	 <20120229.154227.908693909825012701.davem@davemloft.net>
-	 <1330555428.5881.8.camel@bwh-desktop>
-	 <20120229.180242.197576747542301377.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 06/17] tipc: nuke the delimit static inline function.
+Date: Wed, 29 Feb 2012 18:18:32 -0500
+Message-ID: <1330557523-2024-7-git-send-email-paul.gortmaker@windriver.com>
+References: <1330557523-2024-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
+	ying.xue@windriver.com,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12880 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964869Ab2B2XJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 18:09:56 -0500
-In-Reply-To: <20120229.180242.197576747542301377.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:53952 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965160Ab2B2XTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 18:19:01 -0500
+In-Reply-To: <1330557523-2024-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-02-29 at 18:02 -0500, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 29 Feb 2012 22:43:48 +0000
-> 
-> > On Wed, 2012-02-29 at 15:42 -0500, David Miller wrote:
-> >> From: Ben Hutchings <bhutchings@solarflare.com>
-> >> Date: Wed, 29 Feb 2012 19:12:34 +0000
-> >> 
-> >> > On Wed, 2012-02-29 at 19:02 +0000, Ben Hutchings wrote:
-> >> >> The ID packing/unpacking functions are needed by userland and the
-> >> >> register definitions may also be useful there.
-> >> > 
-> >> > Minor issue with this: mdio_phy_id_is_c45() returns bool, and that's not
-> >> > defined by default.  Should I add #include <stdbool.h> or change the
-> >> > return type to int for maximum compatibility?
-> >> 
-> >> I do not see any precedence for including stdbool.h in a kernel header
-> >> file.  And I sure as hell am not going to compromise using a correct
-> >> type just to make this usable by userspace.
-> >> 
-> >> I think this is of dubious value, and combined with the bool
-> >> complication I'm not going to apply this, sorry.
-> > 
-> > Without this, userland doing clause 45 MDIO has to duplicate the ID
-> > packing definitions.
-> 
-> Then come up with a real solution to the bool issue.
-> 
-> But note that changing the bool to an int is not a solution, neither
-> is #include <stdbool.h> unless we can reach consensus on lkml that
-> this is OK.
+This "shortform" is actually longer than typing out what it is really
+trying to do, and just makes reading the code more difficult, so
+lets simply shoot it in the head.
 
-I could just move the mdio_phy_id_is_c45(), mdio_phy_id_prtad(),
-mdio_phy_id_devad() functions inside #ifdef __KERNEL__ since userland
-shouldn't need to unpack PHY IDs.
+In the case of log.c - the comparison is on a u32, so we can drop the
+check for < 0 at the same time.
 
-Ben.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/config.c |    8 ++++----
+ net/tipc/core.h   |   10 ----------
+ net/tipc/log.c    |    2 +-
+ 3 files changed, 5 insertions(+), 15 deletions(-)
 
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index 9fefd32..69cca4f 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -218,7 +218,7 @@ static struct sk_buff *cfg_set_max_publications(void)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+ 
+ 	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (value != delimit(value, 1, 65535))
++	if (value < 1 || value > 65535)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (max publications must be 1-65535)");
+ 	tipc_max_publications = value;
+@@ -233,7 +233,7 @@ static struct sk_buff *cfg_set_max_subscriptions(void)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+ 
+ 	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (value != delimit(value, 1, 65535))
++	if (value < 1 || value > 65535)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (max subscriptions must be 1-65535");
+ 	tipc_max_subscriptions = value;
+@@ -249,7 +249,7 @@ static struct sk_buff *cfg_set_max_ports(void)
+ 	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+ 	if (value == tipc_max_ports)
+ 		return tipc_cfg_reply_none();
+-	if (value != delimit(value, 127, 65535))
++	if (value < 127 || value > 65535)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (max ports must be 127-65535)");
+ 	if (tipc_mode != TIPC_NOT_RUNNING)
+@@ -268,7 +268,7 @@ static struct sk_buff *cfg_set_netid(void)
+ 	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+ 	if (value == tipc_net_id)
+ 		return tipc_cfg_reply_none();
+-	if (value != delimit(value, 1, 9999))
++	if (value < 1 || value > 9999)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (network id must be 1-9999)");
+ 	if (tipc_mode == TIPC_NET_MODE)
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 2761af3..1260b05 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -168,16 +168,6 @@ extern void tipc_netlink_stop(void);
+ extern int  tipc_socket_init(void);
+ extern void tipc_socket_stop(void);
+ 
+-static inline int delimit(int val, int min, int max)
+-{
+-	if (val > max)
+-		return max;
+-	if (val < min)
+-		return min;
+-	return val;
+-}
+-
+-
+ /*
+  * TIPC timer and signal code
+  */
+diff --git a/net/tipc/log.c b/net/tipc/log.c
+index 952c39f..895c6e5 100644
+--- a/net/tipc/log.c
++++ b/net/tipc/log.c
+@@ -304,7 +304,7 @@ struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area, int req_tlv_space)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+ 
+ 	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (value != delimit(value, 0, 32768))
++	if (value > 32768)
+ 		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+ 						   " (log size must be 0-32768)");
+ 	if (tipc_log_resize(value))
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.1
