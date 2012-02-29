@@ -1,90 +1,83 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH 2/8] bnx2x: adopt bnx2x_validate_addr() to
- .ndo_validate_addr changes
-Date: Wed, 29 Feb 2012 19:20:26 +0200
-Message-ID: <1330536026.25281.6.camel@lb-tlvb-dmitry>
-References: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
- <1330530176-24952-3-git-send-email-danny.kukawka@bisect.de>
- <1330532535.25281.2.camel@lb-tlvb-dmitry>
- <201202291808.30599.danny.kukawka@bisect.de>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
+Date: Wed, 29 Feb 2012 09:25:56 -0800
+Message-ID: <4F4E5FA4.4040506@intel.com>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>  <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>  <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>  <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>  <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>  <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com>  <1329568900.3027.0.camel@mojatatu>  <4F4DAC26.4050108@intel.com> <1330523779.18226.17.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: "Danny Kukawka" <danny.kukawka@bisect.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1669 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758184Ab2B2RUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Feb 2012 12:20:35 -0500
-In-Reply-To: <201202291808.30599.danny.kukawka@bisect.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com, kernel@wantstofly.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1330523779.18226.17.camel@mojatatu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-29 at 18:08 +0100, Danny Kukawka wrote:
-> On Mittwoch, 29. Februar 2012, Dmitry Kravkov wrote:
-> > On Wed, 2012-02-29 at 16:42 +0100, Danny Kukawka wrote:
-> > > Adopted bnx2x_validate_addr() to changes in .ndo_validate_addr,
-> > > handle second parameter to be validated.
-> > >
-> > > Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-> > > ---
-> > >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   13 ++++++++++---
-> > >  1 files changed, 10 insertions(+), 3 deletions(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> > > b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c index b4afef6..d25ef1e
-> > > 100644
-> > > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> > > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> > > @@ -10532,12 +10532,19 @@ static void poll_bnx2x(struct net_device *dev)
-> > >  }
-> > >  #endif
-> > >
-> > > -static int bnx2x_validate_addr(struct net_device *dev)
-> > > +static int bnx2x_validate_addr(struct net_device *dev, void *addr)
-> > >  {
-> > >  	struct bnx2x *bp = netdev_priv(dev);
-> > > +	struct sockaddr *saddr;
-> > >
-> > > -	if (!bnx2x_is_valid_ether_addr(bp, dev->dev_addr))
-> > > -		return -EADDRNOTAVAIL;
-> > > +	if (addr) {
-> > > +		saddr = addr;
-> > > +		if (!bnx2x_is_valid_ether_addr(bp, saddr->sa_data))
-> > > +			return -EADDRNOTAVAIL;
-> > > +	} else {
-> > > +		if (!bnx2x_is_valid_ether_addr(bp, dev->dev_addr))
-> > > +			return -EADDRNOTAVAIL;
-> > > +	}
-> > >  	return 0;
-> > >  }
-> >
-> > Isn't it preferred to calculate the correct address for test and then
-> > call bnx2x_is_valid_ether_addr() at the end?
+On 2/29/2012 5:56 AM, Jamal Hadi Salim wrote:
+> On Tue, 2012-02-28 at 20:40 -0800, John Fastabend wrote:
 > 
-> Do you mean something like this: 
-BUT:
+>> OK back to this. The last piece is where to put these messages...
+>> we could take PF_ROUTE:RTM_*NEIGH
+>>
+>>      PF_ROUTE:RTM_NEWNEIGH - Add a new FDB entry to an offloaded
+>>                              switch.
+>>      PF_ROUTE:RTM_DELNEIGH - Delete a FDB entry from an offlaoded
+>>                              switch.
+>>      PF_ROUTE:RTM_GETNEIGH - Dumps the embedded FDB table
+>>
+> 
+> Why RTM_*NEIGH? RTM tends to map to Route/L3 and NEIGH tends to map
+> to ndisc or ARP both tied to IP address resolution. While both ARP/Ndisc
+> may play a role in the user space app populating the FDB, i dont think
+> they are necessary players.
+> Learning could be via a table entry miss and packet redirect to user
+> space.
+> So my suggestion is to use FDB_*ENTRY for names
+>  
 
-> int eth_validate_addr(struct net_device *dev, void *addr)
-> {
-You still need to extract bp here:
-	struct bnx2x *bp = netdev_priv(dev);
->  u8 *vaddr;
+Well I think NETLINK_ROUTE is the most correct type to use in this
+case. Per netlink.h its for routing and device hooks.
+
+#define NETLINK_ROUTE           0       /* Routing/device hook                          */
+
+And NETLINK_ROUTE msg_types use the RTM_* prefix. The _*NEIGH postfix
+were merely a copy from the SW BRIDGE code paths. How about,
+
+PF_BRIDGE:RTM_FDB_NEWENTRY
+PF_BRIDGE:RTM_FDB_DELENTRY
+PF_BRIDGE:RTM_FDB_GETENTRY
+
+And a new group RTNLGRP_FDB. Also using NETLINK_ROUTE gives the correct
+rtnl locking semantics for free.
+
+>> The neighbor code is using the PF_UNSPEC protocol type so we won't
+>> collide with these unless someone was using PF_ROUTE and relying on
+>> falling back to PF_UNSPEC however I couldn't find any programs that
+>> did this iproute2 certainly doesn't. And the bridge pieces are using
+>> PF_BRIDGE so no collision there.
 > 
->  if (addr)
->     vaddr = ((struct sockaddr *) addr)->sa_data;
->  else
->     vaddr = dev->dev_addr;
+> They have to be different calls from the calls that talk to the s/ware
+> bridge. In my opinion, as controversial as this may sound, you need to
+> be flexible enough that some vendor can replace these calls with
+> proprietary calls which are more efficient for their hardware. So a
+> "plugin" to replace these calls in the user space code would be a 
+> good idea. Alternatively, you could make that something they do at
+> the driver level i.e from user space to kernel it is "hardware, please
+> addthistotheFDBtable()" call and the implementation of that could be
+> proprietary to the specific hardware.
 > 
->  if (!is_valid_ether_addr(vaddr))
-and call internal function here:
-	if (!bnx2x_is_valid_ether_addr(bp, vaddr))
->     return -EADDRNOTAVAIL;
-> 
->  return 0;
-> }
-> 
+
+Agreed. I think adding some ndo_ops for bridging offloads here would
+work. For example the DSA infrastructure and/or macvlan devices might
+need this. Along the lines of extending this RFC,
+
+[RFC] hardware bridging support for DSA switches
+http://patchwork.ozlabs.org/patch/16578/
+
+
+.John
+
