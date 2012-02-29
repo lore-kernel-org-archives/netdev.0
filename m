@@ -1,73 +1,41 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH] net: add QCA alx Ethernet driver
-Date: Wed, 29 Feb 2012 03:11:14 +0000
-Message-ID: <157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com>
-References: <20120228.205347.1718771650331094141.davem@davemloft.net>
-	<CAB=NE6VXyQ-k1Sm3Xf_ABE35+PHSoNqX=AJpLBjNu0sdAdnY4g@mail.gmail.com>
-	<157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
- <20120228.212857.797446903975232476.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 29 Feb 2012 03:21:42 +0000
+Message-ID: <1330485702.2512.22.camel@bwh-desktop>
+References: <20120227121125.007c32f9aa7be2470d9e3356@canb.auug.org.au>
+	 <20120226.230523.1906949835561978402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Giori, Kathy" <kgiori@qca.qualcomm.com>,
-	"chris.snook@gmail.com" <chris.snook@gmail.com>,
-	"Olivari, Mathieu" <mathieu@qca.qualcomm.com>,
-	"Huntsman, Bryan" <bryanh@quicinc.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <sfr@canb.auug.org.au>, <netdev@vger.kernel.org>,
+	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120228.212857.797446903975232476.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120226.230523.1906949835561978402.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+On Sun, 2012-02-26 at 23:05 -0500, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 27 Feb 2012 12:11:25 +1100
+> 
+> > Today's linux-next merge of the net-next tree got a conflict in
+> > drivers/net/ethernet/sfc/rx.c between commit ff3bc1e75275 ("sfc: Fix
+> > assignment of ip_summed for pre-allocated skbs") from Linus' tree and
+> > commit db3395697cad ("sfc: Replace efx_rx_buffer::is_page and other
+> > booleans with a flags field") from the net-next tree.
+> > 
+> > Just context changes.  I fixed it up (see below) and can carry the fix as
+> > necessary.
+> 
+> I just merged net into net-next and resolved this conflict.
 
-    We understand your concern.  To support the new chipset,  do you think it's reasonable to upstream  it as a new driver, not a replacement ?
+Thank you both.  I should have flagged this when sending the change for
+the net tree.
 
-Thanks
-Xiong
+Ben.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, February 29, 2012 10:29
-> To: Huang, Xiong
-> Cc: Rodriguez, Luis; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> qca-linux-team; nic-devel; Giori, Kathy; chris.snook@gmail.com; Olivari,
-> Mathieu; Huntsman, Bryan
-> Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-> 
-> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-> Date: Wed, 29 Feb 2012 02:19:05 +0000
-> 
-> >      The code related to hardware of atl1c is quite diff with that in
-> > our hand, every time we take much time to find which part should be
-> > revised for one bug/issue found on other platform/OSes. the new driver
-> > make it easy to fix and support new chipset as well.
-> 
-> Broadcom gave the same excuses.  Save yourself some typing.
-> 
-> I already know what you are going to say and claim are the issues.
-> 
-> I've heard it all before, and none of them justify replacing the existing driver
-> wholesale.  We simply don't operate this way.
-> 
-> Because you guys didn't upstream your driver properly back when the atl1c
-> hardware first came out and Linux needed a driver, someone else did.
-> 
-> And we're not removing their driver just because now you guys just want to
-> come in and take over simply because you're not willing to collaborate properly
-> and contribute to the existing code like everyone else on the planet does.
-> 
-> There is no arguing against this, there is no justification, and it simply will not
-> happen.  I'm sorry you put some must effort into this but you should have been
-> smart and listened to Luis last year when he tried to guide you in the right
-> direction.
-> 
-> Listening to Luis would have saved you a lot of wasted engineering.
-> 
-> Maybe you will be smart and listen to him next time.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
