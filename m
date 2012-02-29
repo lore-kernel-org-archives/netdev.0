@@ -1,72 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] vmxnet3: Fix log messages and corrects some typos
-Date: Tue, 28 Feb 2012 23:02:05 -0800
-Message-ID: <1330498925.4352.13.camel@joe2Laptop>
-References: <alpine.LRH.2.00.1202282209500.19873@sbhatewara-dev1.eng.vmware.com>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Subject: Re: [PATCH 00/12] Part 2: check given MAC address, if invalid return -EADDRNOTAVAIL
+Date: Wed, 29 Feb 2012 08:02:49 +0100
+Message-ID: <201202290802.52234.danny.kukawka@bisect.de>
+References: <1330099282-4588-1-git-send-email-danny.kukawka@bisect.de> <CAHXqBFK=u+MchBn=D31h6nhp-R9GTNbaC18QJA937zjXc60UQw@mail.gmail.com> <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pv-drivers@vmware.com, petr@vmware.com
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:34760 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754824Ab2B2HCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Feb 2012 02:02:08 -0500
-In-Reply-To: <alpine.LRH.2.00.1202282209500.19873@sbhatewara-dev1.eng.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"Guo-Fu Tseng" <cooldavid@cooldavid.org>,
+	Petko Manolov <petkan@users.sourceforge.net>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"John W. Linville" <linville@tuxdriver.com>, linux390@de.ibm.com,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Joe Perches <joe@perches.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	libertas-dev@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-s390@vger.kernel.org,
+	linux-hams@vger.kernel.org, linux-mips@linux-mips.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdVZ8eVdRLtsq23XCLtA4wU7cTc-mLebAQ4QzO=gkuNMWQ@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-02-28 at 22:55 -0800, Shreyas Bhatewara wrote:
-> Fix log messages and corrects some typos
+On Samstag, 25. Februar 2012, Geert Uytterhoeven wrote:
+> 2012/2/24 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
+> > 2012/2/24 Danny Kukawka <danny.kukawka@bisect.de>:
+> >> Second Part of series patches to unifiy the return value of
+> >> .ndo_set_mac_address if the given address isn't valid.
+> >>
+> >> These changes check if a given (MAC) address is valid in
+> >> .ndo_set_mac_address, if invalid return -EADDRNOTAVAIL
+> >> as eth_mac_addr() already does if is_valid_ether_addr() fails.
+> >
+> > Why not just fix dev_set_mac_address() and make do_setlink() use th=
+at?
+>
+> BTW, it's also called from dev_set_mac_address().
+>
+> > Checks are specific to address family, not device model I assume.
+>
+> Indeed, why can't this be done in one single place, instead of sprink=
+ling
+> these checks over all drivers, missing all out-of-tree (note: I don't=
+ care)
+> and all soon-to-be-submitted drivers?
 
-Please don't split formats.
+Since the .ndo_set_mac_address functions are used by some drivers inter=
+nally=20
+too, you may get some new checks on other places. But I'll take a look =
+at it.
 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+Danny
 
-> @@ -2709,8 +2709,8 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
->  			adapter->intr.num_intrs = vectors;
->  			return 0;
->  		} else if (err < 0) {
-> -			printk(KERN_ERR "Failed to enable MSI-X for %s, error"
-> -			       " %d\n",	adapter->netdev->name, err);
-> +			netdev_info(adapter->netdev, "Failed to enable MSI-X, "
-> +				    "error: %d\n", err);
-
-Why change from err to info?
-And perhaps this is better as:
-			netdev_err(adapter->netdev,
-				   "Failed to enable MSI-X for %s, error: %d\n",
-				   err);
-[]
-> @@ -2718,15 +2718,15 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
->  			/* If fails to enable required number of MSI-x vectors
->  			 * try enabling minimum number of vectors required.
->  			 */
-> +			netdev_info(adapter->netdev, "Failed to enable %d MSI-X"
-> +				    ", trying %d instead\n", vectors,
-> +				    vector_threshold);
-[] 
-> -	printk(KERN_INFO "Number of MSI-X interrupts which can be allocatedi"
-> -	       " are lower than min threshold required.\n");
-> +	netdev_info(adapter->netdev, "Number of MSI-X interrupts which can be "
-> +		    " allocated are lower than min threshold required.\n");
-
-This is an example of why not to split formats.
-You added 2 spaces between be and allocated.
-
->  	return err;
->  }
->  
-> @@ -2792,8 +2792,8 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
->  			return;
->  
->  		/* If we cannot allocate MSIx vectors use only one rx queue */
-> -		printk(KERN_INFO "Failed to enable MSI-X for %s, error %d."
-> -		       "#rx queues : 1, try MSI\n", adapter->netdev->name, err);
-> +		netdev_info(adapter->netdev, "Failed to enable MSI-X, error %d."
-> +			    "Limiting #rx queues to 1, try MSI.\n", err);
-
-Need a space after %d.
-
-cheers, Joe
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
