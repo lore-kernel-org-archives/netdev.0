@@ -1,49 +1,49 @@
-From: Joe Perches <joe@perches.com>
+From: Bing Zhao <bzhao@marvell.com>
 Subject: RE: coding style issues -- [davem@davemloft.net: Re: pull request:
  wireless-next 2012-02-06]
-Date: Wed, 29 Feb 2012 11:13:31 -0800
-Message-ID: <1330542811.21491.7.camel@joe2Laptop>
+Date: Wed, 29 Feb 2012 11:22:36 -0800
+Message-ID: <477F20668A386D41ADCC57781B1F70430836762D6C@SC-VEXCH1.marvell.com>
 References: <20120229173421.GA13733@tuxdriver.com>
 	 <477F20668A386D41ADCC57781B1F70430836762D55@SC-VEXCH1.marvell.com>
+ <1330542811.21491.7.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "John W. Linville" <linville@tuxdriver.com>,
 	Ilan Elias <ilane@ti.com>,
 	Samuel Ortiz <sameo@linux.intel.com>,
 	Amitkumar Karwar <akarwar@marvell.com>,
 	LKML <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Bing Zhao <bzhao@marvell.com>, Kalle Valo <kvalo@qca.qualcomm.com>,
+To: Joe Perches <joe@perches.com>, Kalle Valo <kvalo@qca.qualcomm.com>,
 	Andy Whitcroft <apw@shadowen.org>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <477F20668A386D41ADCC57781B1F70430836762D55@SC-VEXCH1.marvell.com>
+In-Reply-To: <1330542811.21491.7.camel@joe2Laptop>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-29 at 10:57 -0800, Bing Zhao wrote:
-> Joe Perches submitted a patch "[PATCH v2] checkpatch: Add some --strict coding style checks"
-> I have applied Joe's patch to my local git tree.
-> 
-> All new patches will follow Dave's rules and be checked with --strict option.
-> Furthermore, we will have a series of cleanup patches to address the coding style issues in existing code.
-
-Hi Bing.
-
-There's an issue with the checkpatch patch.
-It doesn't always work correctly when there
-are consecutive parenthesis.
-
-Kalle Valo showed an example that fails:
-
-	if (!IS_ALIGNED((unsigned long) skb->data - HTC_HDR_LENGTH, 4) &&
-	    skb_cloned(skb)) {
-
-I have a tentative fix here, but I'm waiting on
-Andy Whitcroft to give some guidance on how best
-to fix it given a minimum perl version of 5.10.
-
-The proposed patch doesn't work with perl versions
-less than 5.10 and there is at least one person
-that still uses 5.8.
+SGkgSm9lLA0KDQo+IFN1YmplY3Q6IFJFOiBjb2Rpbmcgc3R5bGUgaXNzdWVzIC0tIFtkYXZlbUBk
+YXZlbWxvZnQubmV0OiBSZTogcHVsbCByZXF1ZXN0OiB3aXJlbGVzcy1uZXh0IDIwMTItMDItMDZd
+DQo+IA0KPiBPbiBXZWQsIDIwMTItMDItMjkgYXQgMTA6NTcgLTA4MDAsIEJpbmcgWmhhbyB3cm90
+ZToNCj4gPiBKb2UgUGVyY2hlcyBzdWJtaXR0ZWQgYSBwYXRjaCAiW1BBVENIIHYyXSBjaGVja3Bh
+dGNoOiBBZGQgc29tZSAtLXN0cmljdCBjb2Rpbmcgc3R5bGUgY2hlY2tzIg0KPiA+IEkgaGF2ZSBh
+cHBsaWVkIEpvZSdzIHBhdGNoIHRvIG15IGxvY2FsIGdpdCB0cmVlLg0KPiA+DQo+ID4gQWxsIG5l
+dyBwYXRjaGVzIHdpbGwgZm9sbG93IERhdmUncyBydWxlcyBhbmQgYmUgY2hlY2tlZCB3aXRoIC0t
+c3RyaWN0IG9wdGlvbi4NCj4gPiBGdXJ0aGVybW9yZSwgd2Ugd2lsbCBoYXZlIGEgc2VyaWVzIG9m
+IGNsZWFudXAgcGF0Y2hlcyB0byBhZGRyZXNzIHRoZSBjb2Rpbmcgc3R5bGUgaXNzdWVzIGluDQo+
+IGV4aXN0aW5nIGNvZGUuDQo+IA0KPiBIaSBCaW5nLg0KPiANCj4gVGhlcmUncyBhbiBpc3N1ZSB3
+aXRoIHRoZSBjaGVja3BhdGNoIHBhdGNoLg0KPiBJdCBkb2Vzbid0IGFsd2F5cyB3b3JrIGNvcnJl
+Y3RseSB3aGVuIHRoZXJlDQo+IGFyZSBjb25zZWN1dGl2ZSBwYXJlbnRoZXNpcy4NCj4gDQo+IEth
+bGxlIFZhbG8gc2hvd2VkIGFuIGV4YW1wbGUgdGhhdCBmYWlsczoNCj4gDQo+IAlpZiAoIUlTX0FM
+SUdORUQoKHVuc2lnbmVkIGxvbmcpIHNrYi0+ZGF0YSAtIEhUQ19IRFJfTEVOR1RILCA0KSAmJg0K
+PiAJICAgIHNrYl9jbG9uZWQoc2tiKSkgew0KDQpUaGFua3MgZm9yIGxldHRpbmcgdXMga25vdy4N
+Cg0KPiANCj4gSSBoYXZlIGEgdGVudGF0aXZlIGZpeCBoZXJlLCBidXQgSSdtIHdhaXRpbmcgb24N
+Cj4gQW5keSBXaGl0Y3JvZnQgdG8gZ2l2ZSBzb21lIGd1aWRhbmNlIG9uIGhvdyBiZXN0DQo+IHRv
+IGZpeCBpdCBnaXZlbiBhIG1pbmltdW0gcGVybCB2ZXJzaW9uIG9mIDUuMTAuDQoNCkkgaGF2ZSAi
+UGVybCB2NS4xMC4wIGJ1aWx0IGZvciB4ODZfNjQtbGludXgtZ251LXRocmVhZC1tdWx0aSIgb24g
+bXkgc3lzdGVtLg0KSSBndWVzcyBpdCBzaG91bGQgYmUgZmluZS4NCg0KVGhhbmtzLA0KQmluZw0K
+DQo+IA0KPiBUaGUgcHJvcG9zZWQgcGF0Y2ggZG9lc24ndCB3b3JrIHdpdGggcGVybCB2ZXJzaW9u
+cw0KPiBsZXNzIHRoYW4gNS4xMCBhbmQgdGhlcmUgaXMgYXQgbGVhc3Qgb25lIHBlcnNvbg0KPiB0
+aGF0IHN0aWxsIHVzZXMgNS44Lg0KPiANCg0K
