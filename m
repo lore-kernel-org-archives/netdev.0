@@ -1,49 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH iproute2] pedit action: add mask for changing bits.
-Date: Wed, 29 Feb 2012 09:01:20 -0500
-Message-ID: <1330524080.18226.21.camel@mojatatu>
-References: <CAEzD07+0EA12igqAcwbM8VGKLR9Hp0GjJ7t_Jve=JXOrEKvu9w@mail.gmail.com>
-	 <1330351135.2384.1039.camel@mojatatu>
-	 <CAEzD07KenHteg0S8-OfAwqTNTSQdvPOJsA-m_+8CW-8c_HCgnw@mail.gmail.com>
-	 <1330434308.2369.11.camel@mojatatu>
-	 <CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
-Reply-To: jhs@mojatatu.com
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH v2] checkpatch: Add some --strict coding style checks
+Date: Wed, 29 Feb 2012 16:38:05 +0200
+Message-ID: <4F4E384D.2090802@qca.qualcomm.com>
+References: <20120221151435.GA19354@tuxdriver.com>	 <20120221.144417.1445117001833888214.davem@davemloft.net>	 <CAMXE1-qB8_5oGey2=Ypa5BitZnye3YqdM=yB8oKCGLvoZu_8HQ@mail.gmail.com>	 <20120221.154053.2103818562080068513.davem@davemloft.net>	 <1329857959.5143.11.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B3EE@ORSMSX102.amr.corp.intel.com>	 <1329874581.5143.22.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B8F2@ORSMSX102.amr.corp.intel.com>	 <1329875935.5143.24.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A18429B98A@ORSMSX102.amr.corp.intel.com>	 <1329968622.5143.46.camel@joe2Laptop>	 <804857E1F29AAC47BF68C404FC60A1842A1D36@ORSMSX102.amr.corp.intel.com> <1330108675.18464.21.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:47401 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755335Ab2B2OBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 09:01:24 -0500
-Received: by iagj37 with SMTP id j37so2687881iag.19
-        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 06:01:24 -0800 (PST)
-In-Reply-To: <CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Whitcroft <apw-26w3C0LaAnFg9hUCZPvPmw@public.gmane.org>,
+	"Allan, Bruce W" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org"
+	<andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1330108675.18464.21.camel@joe2Laptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Anton,
-
-On Wed, 2012-02-29 at 16:12 +0300, Anton 'EvilMan' Danilov wrote:
-
+On 02/24/2012 08:37 PM, Joe Perches wrote:
+> Argument alignment across multiple lines should
+> match the open parenthesis.
 > 
-> You are right, mask option isn't needed. Retain option must be used instead it.
+> Logical continuations should be at the end of
+> the previous line, not the start of a new line.
 > 
+> These are not required by CodingStyle so make the
+> tests active only when using --strict.
+> 
+> Improved_by_examples_from: "Bruce W. Allen" <bruce.w.allan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Thanks for verifying.
+Thanks Joe, this is very useful for me. I seem to have one false alarm
+though:
 
-> Action to work on Vlans is fine idea. I'm very interested in this
-> action. I'll be grateful for any help.
+drivers/net/wireless/ath/ath6kl/txrx.c:464: CHECK: Alignment should
+match open parenthesis
 
-Lets start by defining the interface to be seen by user space
-such as vlan editing/popping/pushing etc. Then i will help you
-build it slowly until you are comfortable with moving with it.
+This is with patches I haven't sent yet so line numbers most likely
+don't match, but the code in question is this:
 
-As a matter of fact, lets talk offline so we dont add more noise
-to the list; you can always post the RFC to the list when you are
-ready.
+	if (!IS_ALIGNED((unsigned long) skb->data - HTC_HDR_LENGTH, 4) &&
+	    skb_cloned(skb)) {
 
-cheers,
-jamal
+Apparently the cast "(unsigned long)" causes the false alarm as when I
+remove it I don't see the warning anymore.
+
+Kalle
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
