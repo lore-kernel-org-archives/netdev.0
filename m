@@ -1,49 +1,53 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: Re: [PATCH 0/8] validate MAC address before call .ndo_set_mac_address
-Date: Wed, 29 Feb 2012 17:24:05 +0100
-Message-ID: <201202291724.06641.danny.kukawka@bisect.de>
-References: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de> <1330531139.8460.192.camel@deadeye> <201202291714.43843.danny.kukawka@bisect.de>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Wed, 29 Feb 2012 16:28:48 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
+References: <1330490737-28973-1-git-send-email-mugunthanvnm@ti.com>
+	<1330490737-28973-3-git-send-email-mugunthanvnm@ti.com>
+ <87pqcxdbmp.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201202291714.43843.danny.kukawka@bisect.de>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Peter Korsgaard <jacmet@sunsite.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:38900 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030302Ab2B2Q3F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 11:29:05 -0500
+In-Reply-To: <87pqcxdbmp.fsf@macbook.be.48ers.dk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mittwoch, 29. Februar 2012, Danny Kukawka wrote:
-> On Mittwoch, 29. Februar 2012, you wrote:
-> > On Wed, 2012-02-29 at 16:42 +0100, Danny Kukawka wrote:
-> > > Validate the given MAC address directly in dev_set_mac_address()
-> > > if a .ndo_validate_addr function is available before calling
-> > > the .ndo_set_mac_address function.
-> > >
-> > > Changed .ndo_validate_addr to take a second parameter containing
-> > > a sockaddr struct to be checked instead of the net_device dev_addr.
-> > > The behaviour of .ndo_validate_addr is now: if the second parameter
-> > > is NULL the net_device->dev_addr gets validate, if != NULL
-> > > the given parameter/sockaddr gets validated instead.
-> > >
-> > > This patch series include adaptations for some drivers which
-> > > use .ndo_set_mac_address functions directly - to prevent double
-> > > checks and to enable validations via .ndo_validate_addr.
-> >
-> > [...]
-> >
-> > You have to do this as a single patch.  The kernel and drivers should
-> > still build at each stage.
->
-> Okay. In this case only patch 1 and 2 needs to be merged into one
-> commit/patch since the other will even work with out patch one or two. I
-> will send a new version of the series as soon as I get more comments on the
-> content.
+Peter Korsgaard
 
-I have to send a new version anyway since I've accidently forgot to run 
-checkpatch.pl. Sorry.
+> -----Original Message-----
+> From: Peter Korsgaard [mailto:jacmet@gmail.com] On Behalf Of Peter
+> Korsgaard
+> Sent: Wednesday, February 29, 2012 6:45 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
+> 
+> >>>>> "M" == Mugunthan V N <mugunthanvnm@ti.com> writes:
+> 
+> Hi,
+> 
+[...]
+>  M> +++ b/include/linux/platform_data/cpsw.h
+[...]
+> 
+> Is this really platform specific data (rather than SoC specific)? If
+> it's purely a difference between 335x and 814x just use an id_table with
+> different platform device names instead.
 
-Danny
+Instead of driver maintaining the SoC specific offsets, SoC specific files in arch/arm/mach-omap2/ can hold this. Another reason is currently this IP is present in 2 SoCs, there are other SoC coming up where the offsets may change.
+
+> 
+> --
+> Bye, Peter Korsgaard
+
+With regards
+Mugunthan V N
