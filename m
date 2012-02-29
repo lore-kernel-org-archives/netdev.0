@@ -1,83 +1,80 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
-Date: Wed, 29 Feb 2012 09:25:56 -0800
-Message-ID: <4F4E5FA4.4040506@intel.com>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>  <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>  <4F34042F.6090806@intel.com>  <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>  <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>  <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>  <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>  <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>  <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>  <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com>  <1329568900.3027.0.camel@mojatatu>  <4F4DAC26.4050108@intel.com> <1330523779.18226.17.camel@mojatatu>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] Bluetooth: Silence static checker warning.
+Date: Wed, 29 Feb 2012 09:39:07 -0800
+Message-ID: <1330537147.3392.99.camel@aeonflux>
+References: <1330535217-26785-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com, kernel@wantstofly.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1330523779.18226.17.camel@mojatatu>
-Sender: kvm-owner@vger.kernel.org
+Cc: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: santosh nayak <santoshprasadnayak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1330535217-26785-1-git-send-email-santoshprasadnayak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2/29/2012 5:56 AM, Jamal Hadi Salim wrote:
-> On Tue, 2012-02-28 at 20:40 -0800, John Fastabend wrote:
+Hi Santosh,
+
+> Silencing Static checker warning.
+> 1. Endian warning
+> 2. variable dereferenced before check 'sk' .
 > 
->> OK back to this. The last piece is where to put these messages...
->> we could take PF_ROUTE:RTM_*NEIGH
->>
->>      PF_ROUTE:RTM_NEWNEIGH - Add a new FDB entry to an offloaded
->>                              switch.
->>      PF_ROUTE:RTM_DELNEIGH - Delete a FDB entry from an offlaoded
->>                              switch.
->>      PF_ROUTE:RTM_GETNEIGH - Dumps the embedded FDB table
->>
+> Signed-off-by: Santosh Nayak <santoshprasadnayak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  net/bluetooth/l2cap_sock.c |    9 ++++++---
+>  1 files changed, 6 insertions(+), 3 deletions(-)
 > 
-> Why RTM_*NEIGH? RTM tends to map to Route/L3 and NEIGH tends to map
-> to ndisc or ARP both tied to IP address resolution. While both ARP/Ndisc
-> may play a role in the user space app populating the FDB, i dont think
-> they are necessary players.
-> Learning could be via a table entry miss and packet redirect to user
-> space.
-> So my suggestion is to use FDB_*ENTRY for names
+> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+> index 401d942..d206321 100644
+> --- a/net/bluetooth/l2cap_sock.c
+> +++ b/net/bluetooth/l2cap_sock.c
+> @@ -82,7 +82,7 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
+>  	}
 >  
+>  	if (la.l2_cid)
+> -		err = l2cap_add_scid(chan, la.l2_cid);
+> +		err = l2cap_add_scid(chan, __le16_to_cpu(la.l2_cid));
+>  	else
+>  		err = l2cap_add_psm(chan, &la.l2_bdaddr, la.l2_psm);
+>  
+> @@ -123,7 +123,8 @@ static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr, int al
+>  	if (la.l2_cid && la.l2_psm)
+>  		return -EINVAL;
+>  
+> -	err = l2cap_chan_connect(chan, la.l2_psm, la.l2_cid, &la.l2_bdaddr);
+> +	err = l2cap_chan_connect(chan, la.l2_psm, __le16_to_cpu(la.l2_cid),
+> +				&la.l2_bdaddr);
+>  	if (err)
+>  		goto done;
 
-Well I think NETLINK_ROUTE is the most correct type to use in this
-case. Per netlink.h its for routing and device hooks.
+I am not sure about this one. Need to go back and read through the
+source code. The value provided from userspace is already in the right
+host endian. Could be that we mess up our internal classification. And
+instead of adding __le16_to_cpu we should fix its classification.
+ 
+> @@ -795,7 +796,7 @@ static void l2cap_sock_kill(struct sock *sk)
+>  static int l2cap_sock_shutdown(struct socket *sock, int how)
+>  {
+>  	struct sock *sk = sock->sk;
+> -	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
+> +	struct l2cap_chan *chan;
+>  	int err = 0;
+>  
+>  	BT_DBG("sock %p, sk %p", sock, sk);
+> @@ -803,6 +804,8 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
+>  	if (!sk)
+>  		return 0;
+>  
+> +	chan = l2cap_pi(sk)->chan;
+> +
+>  	lock_sock(sk);
+>  	if (!sk->sk_shutdown) {
+>  		if (chan->mode == L2CAP_MODE_ERTM)
 
-#define NETLINK_ROUTE           0       /* Routing/device hook                          */
+This one is fine.
 
-And NETLINK_ROUTE msg_types use the RTM_* prefix. The _*NEIGH postfix
-were merely a copy from the SW BRIDGE code paths. How about,
+Regards
 
-PF_BRIDGE:RTM_FDB_NEWENTRY
-PF_BRIDGE:RTM_FDB_DELENTRY
-PF_BRIDGE:RTM_FDB_GETENTRY
-
-And a new group RTNLGRP_FDB. Also using NETLINK_ROUTE gives the correct
-rtnl locking semantics for free.
-
->> The neighbor code is using the PF_UNSPEC protocol type so we won't
->> collide with these unless someone was using PF_ROUTE and relying on
->> falling back to PF_UNSPEC however I couldn't find any programs that
->> did this iproute2 certainly doesn't. And the bridge pieces are using
->> PF_BRIDGE so no collision there.
-> 
-> They have to be different calls from the calls that talk to the s/ware
-> bridge. In my opinion, as controversial as this may sound, you need to
-> be flexible enough that some vendor can replace these calls with
-> proprietary calls which are more efficient for their hardware. So a
-> "plugin" to replace these calls in the user space code would be a 
-> good idea. Alternatively, you could make that something they do at
-> the driver level i.e from user space to kernel it is "hardware, please
-> addthistotheFDBtable()" call and the implementation of that could be
-> proprietary to the specific hardware.
-> 
-
-Agreed. I think adding some ndo_ops for bridging offloads here would
-work. For example the DSA infrastructure and/or macvlan devices might
-need this. Along the lines of extending this RFC,
-
-[RFC] hardware bridging support for DSA switches
-http://patchwork.ozlabs.org/patch/16578/
-
-
-.John
-
+Marcel
