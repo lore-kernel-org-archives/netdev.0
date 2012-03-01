@@ -1,57 +1,58 @@
 From: <Ajit.Khaparde@Emulex.Com>
 Subject: RE: [RFC net-next 1/2] if_link : add support for VF privileges
-Date: Thu, 1 Mar 2012 10:53:23 -0800
-Message-ID: <49395329523DD64492581B505F80C86D5BDD08F6D8@EXMAIL.ad.emulex.com>
+Date: Thu, 1 Mar 2012 10:54:31 -0800
+Message-ID: <49395329523DD64492581B505F80C86D5BDD08F6DB@EXMAIL.ad.emulex.com>
 References: <20120214192627.GA14163@akhaparde-VBox>
-	<1329261897.2443.60.camel@bwh-desktop>
-	<49395329523DD64492581B505F80C86D5BDCF681FD@EXMAIL.ad.emulex.com>
- <20120221.170441.1552294498786802979.davem@davemloft.net>
+	 <1329261897.2443.60.camel@bwh-desktop>
+	 <49395329523DD64492581B505F80C86D5BDCF681FD@EXMAIL.ad.emulex.com>
+	 <20120221.170441.1552294498786802979.davem@davemloft.net>
+ <1329864202.2689.56.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <bhutchings@solarflare.com>, <shemminger@linux-foundation.org>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <shemminger@linux-foundation.org>, <netdev@vger.kernel.org>
+To: <bhutchings@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:30244 "EHLO
+Received: from exht2.emulex.com ([138.239.113.184]:30274 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751024Ab2CASxo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 13:53:44 -0500
-In-Reply-To: <20120221.170441.1552294498786802979.davem@davemloft.net>
+	with ESMTP id S1754045Ab2CASyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 13:54:52 -0500
+In-Reply-To: <1329864202.2689.56.camel@bwh-desktop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, February 21, 2012 4:05 PM
-> To: Khaparde, Ajit
-> Cc: bhutchings@solarflare.com; shemminger@linux-foundation.org;
-> netdev@vger.kernel.org
-> Subject: Re: [RFC net-next 1/2] if_link : add support for VF privileges
-> 
-> From: <Ajit.Khaparde@Emulex.Com>
-> Date: Tue, 21 Feb 2012 14:02:27 -0800
-> 
-> >> -----Original Message-----
-> >> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >> Sent: Tuesday, February 14, 2012 5:25 PM
-> >> To: Khaparde, Ajit
-> >> Cc: davem@davemloft.net; shemminger@linux-foundation.org;
-> >> netdev@vger.kernel.org
-> >> Subject: Re: [RFC net-next 1/2] if_link : add support for VF privileges
-> >>
-> >> On Tue, 2012-02-14 at 13:26 -0600, Ajit Khaparde wrote:
-> >> > +enum {
-> >> > +	IFLA_VF_PRIVILEGE_DEFAULT = 1,	/* Default privileges */
-> >>
-> >> What are the default privileges?  Should existing drivers report that
-> >> their VFs have this?
-> > Yes. Vendors can decide what privileges they want to grant for VFs by default.
-> 
-> That's terrible and a very bad interface for users.  It means every system
-> can have different defaults, from which we'll derive zero consistency.
-
-Since different hardware devices can have different capabilities this possibility exists.
-Do you suggest indicating the individual capabilities in the bit mask rather than just a single bit?
-That way every VF driver will get to indicate its capabilities.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIEZlYnJ1
+YXJ5IDIxLCAyMDEyIDQ6NDMgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogS2hhcGFyZGUs
+IEFqaXQ7IHNoZW1taW5nZXJAbGludXgtZm91bmRhdGlvbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgbmV0LW5leHQgMS8yXSBpZl9saW5rIDogYWRkIHN1
+cHBvcnQgZm9yIFZGIHByaXZpbGVnZXMNCj4gDQo+IE9uIFR1ZSwgMjAxMi0wMi0yMSBhdCAxNzow
+NCAtMDUwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPiA+IEZyb206IDxBaml0LktoYXBhcmRlQEVt
+dWxleC5Db20+DQo+ID4gRGF0ZTogVHVlLCAyMSBGZWIgMjAxMiAxNDowMjoyNyAtMDgwMA0KPiA+
+DQo+ID4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+PiBGcm9tOiBCZW4gSHV0
+Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gPiA+PiBTZW50OiBU
+dWVzZGF5LCBGZWJydWFyeSAxNCwgMjAxMiA1OjI1IFBNDQo+ID4gPj4gVG86IEtoYXBhcmRlLCBB
+aml0DQo+ID4gPj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IHNoZW1taW5nZXJAbGludXgtZm91
+bmRhdGlvbi5vcmc7DQo+ID4gPj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+ID4+IFN1Ympl
+Y3Q6IFJlOiBbUkZDIG5ldC1uZXh0IDEvMl0gaWZfbGluayA6IGFkZCBzdXBwb3J0IGZvciBWRiBw
+cml2aWxlZ2VzDQo+ID4gPj4NCj4gPiA+PiBPbiBUdWUsIDIwMTItMDItMTQgYXQgMTM6MjYgLTA2
+MDAsIEFqaXQgS2hhcGFyZGUgd3JvdGU6DQo+ID4gPj4gPiArZW51bSB7DQo+ID4gPj4gPiArCUlG
+TEFfVkZfUFJJVklMRUdFX0RFRkFVTFQgPSAxLAkvKiBEZWZhdWx0IHByaXZpbGVnZXMgKi8NCj4g
+PiA+Pg0KPiA+ID4+IFdoYXQgYXJlIHRoZSBkZWZhdWx0IHByaXZpbGVnZXM/ICBTaG91bGQgZXhp
+c3RpbmcgZHJpdmVycyByZXBvcnQgdGhhdA0KPiA+ID4+IHRoZWlyIFZGcyBoYXZlIHRoaXM/DQo+
+ID4gPiBZZXMuIFZlbmRvcnMgY2FuIGRlY2lkZSB3aGF0IHByaXZpbGVnZXMgdGhleSB3YW50IHRv
+IGdyYW50IGZvciBWRnMgYnkgZGVmYXVsdC4NCj4gPg0KPiA+IFRoYXQncyB0ZXJyaWJsZSBhbmQg
+YSB2ZXJ5IGJhZCBpbnRlcmZhY2UgZm9yIHVzZXJzLiAgSXQgbWVhbnMgZXZlcnkgc3lzdGVtDQo+
+ID4gY2FuIGhhdmUgZGlmZmVyZW50IGRlZmF1bHRzLCBmcm9tIHdoaWNoIHdlJ2xsIGRlcml2ZSB6
+ZXJvIGNvbnNpc3RlbmN5Lg0KPiANCj4gQXNpZGUgZnJvbSB0aGlzLCBteSBjb25jZXJuIGlzIHRo
+YXQgaWYgd2UgYXNzaWduIHByaXZpbGVnZSBmbGFncyB0bw0KPiBjYXBhYmlsaXRpZXMgdGhhdCBW
+RnMgbm9ybWFsbHkgaGF2ZSBub3cgdGhlbiB0aGUgdmFsdWUgcmVwb3J0ZWQgd2hlcmUNCj4gdGhl
+IGRyaXZlciBkb2Vzbid0IHN1cHBvcnQgdGhpcyBuZXcgb3BlcmF0aW9uIHNob3VsZCBub3QgYmUg
+MC4NCiANCkFncmVlLg0KPiANCj4gKEFsc28sIGlmIGEgcHJpdmlsZWdlIGlzIGFzc2lnbmVkIGJ5
+IGRlZmF1bHQsIGlzIGl0IHJlYWxseSBhIHByaXZpbGVnZT8NCj4gV291bGRuJ3QgJ2NhcGFiaWxp
+dHknIG9yICdwZXJtaXNzaW9uJyBiZSBhIGJldHRlciB0ZXJtPykNCg0KU3VyZS4gQW55dGhpbmcg
+aXMgZmluZS4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVu
+Z2luZWVyLCBTb2xhcmZsYXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQn
+cyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90
+ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
