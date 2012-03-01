@@ -1,37 +1,46 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] mpc836x: fix failed phy detection for ucc ethernet on MDS
-Date: Thu, 1 Mar 2012 16:06:35 -0600
-Message-ID: <0CFFA9FB-E2D0-4CC3-A430-10692B62B9B0@freescale.com>
-References: <1330345501-24949-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0 (Apple Message framework v1257)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <benh@kernel.crashing.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<netdev@vger.kernel.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:56329
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754371Ab2CAWGr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2012 17:06:47 -0500
-In-Reply-To: <1330345501-24949-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Thu, 01 Mar 2012 17:08:48 -0500 (EST)
+Message-ID: <20120301.170848.432407217191581288.davem@davemloft.net>
+References: <1330604802.2465.43.camel@edumazet-laptop>
+	<20120301.154415.1692328508436381200.davem@davemloft.net>
+	<CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, javier.martinez@collabora.co.uk,
+	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: luiz.dentz@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Date: Fri, 2 Mar 2012 00:01:40 +0200
 
-On Feb 27, 2012, at 6:25 AM, Paul Gortmaker wrote:
+> I don't think you understood the problem, we want something that scale
+> for less powerful devices, why do you think Android have all the
+> trouble to create binder?
 
-> The mpc836x_mds platform has been broken since the commit
-> 6fe3264945ee63292cdfb27b6e95bc52c603bb09
-> 
-> [...]
+So our protocol stack is so cpu hungry compared to AF_UNIX that it's
+unusable on low power devices?
 
-> ---
-> 
-> [Andy: There may be other boards that could be having this problem
->  git grep -l enet.*ucc arch/powerpc/boot/dts/|xargs grep -L tbi
-> shows four possible candidates -- but I've only got the 8360MDS. ]
+I can't take you seriously if you say this after showing us the
+thousands of lines of code you guys think we should add to the AF_UNIX
+socket layer.
 
+> Besides what is really the point in having AF_UNIX if you can't use
+> for what it is for?
 
-Shoot. I will go look for those. I suspect I neglected all the UCC-having SOCs in my patch.
+Because it doesn't have the handful of extra features you absolutely
+require of it.
+
+AF_UNIX is a complicated socket layer which is already extremely hard
+to maintain.  We're still finding bugs in it even after all these
+years, and that's without adding major new functionality.
