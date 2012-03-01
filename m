@@ -1,37 +1,46 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Thu, 1 Mar 2012 18:10:30 +0000
-Message-ID: <20120301181030.59d8ddc4@pyramind.ukuu.org.uk>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E86@saturn3.aculab.com>
-	<1330606237.27405.5.camel@megeve>
-	<1330606775.2465.56.camel@edumazet-laptop>
-	<4F4F7FFB.6010608@collabora.co.uk>
-	<CABBYNZKN+7z4Sr9DBniokez6Jru02LxPgWdGNcVeYECse+AzEQ@mail.gmail.com>
-	<CAL4WiiqjvA7iN8nydOx9tp8gOg1M_EDWKU5N+V5JFa90JbS8Ug@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Luiz Augusto von Dentz <luiz.dentz@gmail.com>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
-	David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL4WiiqjvA7iN8nydOx9tp8gOg1M_EDWKU5N+V5JFa90JbS8Ug@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH 1/2] bridge: Adjust min age inc for HZ > 256
+Date: Thu, 1 Mar 2012 19:12:18 +0100
+Message-ID: <1330625539-10247-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:32892 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755790Ab2CASM1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 13:12:27 -0500
+Received: from mail1.transmode.se (mail1.transmode.se [192.168.201.18])
+	by gw1.transmode.se (Postfix) with ESMTP id ED9052581E1
+	for <netdev@vger.kernel.org>; Thu,  1 Mar 2012 19:12:24 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Right now you can send/receive millions of udp messages per second on
-> your linux machine, if you figured out how to avoid process scheduler
-> costs. If D-Bus wants more, I highly suggest using shared memory
-> instead of passing messages.
+min age increment needs to round up its min age tick for all
+HZ values to guarantee message age is increasing.
 
-Or some rather artful use of BPF ?
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
 
-Alan
+The bridge list seems very slow so try netdev instead.
+
+ net/bridge/br_stp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index a04eeb6..9a8aebd 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -17,9 +17,9 @@
+ #include "br_private_stp.h"
+ 
+ /* since time values in bpdu are in jiffies and then scaled (1/256)
+- * before sending, make sure that is at least one.
++ * before sending, make sure that is at least one STP tick.
+  */
+-#define MESSAGE_AGE_INCR	((HZ < 256) ? 1 : (HZ/256))
++#define MESSAGE_AGE_INCR	((HZ / 256) + 1)
+ 
+ static const char *const br_port_state_names[] = {
+ 	[BR_STATE_DISABLED] = "disabled",
+-- 
+1.7.3.4
