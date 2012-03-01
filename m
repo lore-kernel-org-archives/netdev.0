@@ -1,77 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] ixgbe: Fix comments that are out of date or formatted incorrectly
-Date: Wed, 29 Feb 2012 23:33:07 -0800
-Message-ID: <1330587188-28717-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] ixgbe: fix spelling errors
+Date: Wed, 29 Feb 2012 23:33:06 -0800
+Message-ID: <1330587188-28717-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330587188-28717-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59707 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:59693 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758332Ab2CAHdS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758250Ab2CAHdS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 1 Mar 2012 02:33:18 -0500
 In-Reply-To: <1330587188-28717-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch corrects several comments that are either incorrect or formatted
-incorrectly for multiline comments.
+Correct spelling error caught with codespell.py.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1cf676b..23a4665 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2359,7 +2359,7 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 	u32 eicr;
- 
- 	/*
--	 * Workaround for silicon errata on 82598.  Mask the interrupts
-+	 * Workaround for silicon errata #26 on 82598.  Mask the interrupt
- 	 * before the read of EICR.
- 	 */
- 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
-@@ -4381,7 +4381,11 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
- 	f_fdir->indices = min((int)num_online_cpus(), f_fdir->indices);
- 	f_fdir->mask = 0;
- 
--	/* Flow Director must have RSS enabled */
-+	/*
-+	 * Use RSS in addition to Flow Director to ensure the best
-+	 * distribution of flows across cores, even when an FDIR flow
-+	 * isn't matched.
-+	 */
- 	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
- 	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
- 		adapter->num_tx_queues = f_fdir->indices;
-@@ -4558,7 +4562,8 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
- 	 */
- 	vector_threshold = MIN_MSIX_COUNT;
- 
--	/* The more we get, the more we will assign to Tx/Rx Cleanup
-+	/*
-+	 * The more we get, the more we will assign to Tx/Rx Cleanup
- 	 * for the separate queues...where Rx Cleanup >= Tx Cleanup.
- 	 * Right now, we simply care about how many we'll get; we'll
- 	 * set them up later while requesting irq's.
-@@ -6996,7 +7001,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 
- 	/*
- 	 * need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
--	 *       + 1 desc for skb_head_len/IXGBE_MAX_DATA_PER_TXD,
-+	 *       + 1 desc for skb_headlen/IXGBE_MAX_DATA_PER_TXD,
- 	 *       + 2 desc gap to keep tail from touching head,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 383b941..87f6b4f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3336,7 +3336,7 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
+  *  @hw: pointer to the HW structure
+  *  @buffer: contains the command to write and where the return status will
+  *           be placed
+- *  @lenght: lenght of buffer, must be multiple of 4 bytes
++ *  @length: length of buffer, must be multiple of 4 bytes
+  *
+  *  Communicates with the manageability block.  On success return 0
+  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
 -- 
 1.7.7.6
