@@ -1,84 +1,41 @@
-From: Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] mlx4: prevent the device from being removed concurrently
-Date: Thu, 1 Mar 2012 09:51:58 +0200
-Message-ID: <201203010951.59186.jackm@dev.mellanox.co.il>
-References: <1330454176-17768-1-git-send-email-cascardo@linux.vnet.ibm.com> <201202291647.53161.jackm@dev.mellanox.co.il> <201202291719.50764.jackm@dev.mellanox.co.il>
+From: Bas van den Berg <b.van.den.berg.nl@gmail.com>
+Subject: [PATCH] davinci_emac: fixed setting MAC at init time
+Date: Thu, 1 Mar 2012 09:42:42 +0100
+Message-ID: <20120301084239.GA17146@altenpts-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201202291719.50764.jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sriram <srk@ti.com>, Vinay Hegde <vinay.hegde@ti.com>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Richard Cochran <richard.cochran@omicron.at>,
+	Julia Lawall <Julia.Lawall@lip6.fr>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Joe Perches <joe@perches.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mr Cascardo,
+Without this patch, the MAC number will show up as zero's until the interface
+is brought up for the first time. (eg. with ifconfig -a)
 
-If this is at a customer site, there is a workaround available for you.
+Signed-off-by: Bas van den Berg <b.van.den.berg.nl@gmail.com>
+---
+ drivers/net/ethernet/ti/davinci_emac.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-In file /etc/modprobe.d/mlx4_core.conf, enter a line:
-options mlx4_core internal_err_reset=0
-
-(do "modinfo mlx4_core" to see a description of the module parameter).
-
-Setting this parameter to 0 in the modprobe conf file will cause the driver to simply report the
-internal error failure (in /var/log/messages), but the device will not be restarted.
-
-This will avoid your Oops -- the EEH flow will then be the only flow restarting the device.
-
-(Note that even if you implement my suggestion, you will still have a situation where the device
-will be reset TWICE).
-
-Again, this is a workaround for current users.  The issue needs to be fixed so that even when the
-internal error does cause a reset, the kernel will not crash.
-
-Unfortunately, I do not have the time now to generate a patch.
-
--Jack
-
-On Wednesday 29 February 2012 17:19, Jack Morgenstein wrote:
-> On Wednesday 29 February 2012 16:47, Jack Morgenstein wrote:
-> > Some comments.
-> > 
-> > 1. Mr Cascardo's solution is only partial, and does not cover all the problem cases. He
-> >    simply uncovered one of several examples of what lack-of-sync will do when removing a device.
-> >    Mr. Cascardo found the kernel Oops that happens when a catastrophic error occurs during device
-> >    removal. What if we receive a catas error while doing "init_one"?  What if we are in the middle
-> >    of catas error recovery (in the init_one stage), and we get a remove_one request from higher up?
-> > 
-> >    There is a solution for this precise problem in the mthca driver (infiniband/hw/mthca/mthca_main.c
-> >    infiniband/hw/mthca/mthca_catas.c). In the mthca driver, we DO in fact use an "mthca_device_mutex"
-> >    for precisely the reason given in a. above.  I see no reason not to do the same thing here.
-> > 
-> >    This requires:
-> > 	1. mlx4_init_one(), mlx4_remove_one() and mlx4_restart_one all grab an mlx4_device_mutex.
-> >         2. new procedure __mlx4_remove_one(), which does not grab the mutex.
-> > 
-> >    Note that it is NOT enough to simply protect the removal operation.  The protection must wrap the
-> >    ENTIRE restart operation (both removal and init), because allowing a remove in the middle of init_one
-> >    or restart_one would probably also cause a kernel Oops.
-> > 
-> > 2. The intf_mutex is used with mlx4_un/register_device and mlx4_un/register_interface. unregister_device is
-> >    used both in remove_one and in mlx4_change_port_types.  I would hesitate to grab that mutex for a more
-> >    global use.  I think it is cleaner to add a device mutex (mlx4_device_mutex) for initializing/removing/
-> >    restarting the device.
-> > 
-> > -Jack
-> > 
-> Another thing -- what about the desired final state of the device?  Say we do a remove one, and in the middle
-> of this, we get a catas restart.  The catas restart will wait until the remove-in-progress completes, and
-> then will do its remove/init -- with the net result that the device is UP rather than DOWN.
-> 
-> This implies that we need some sort of state machine here.
-> 
-> -Jack
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 4b2f545..11b169a 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1904,6 +1904,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 		dev_warn(&pdev->dev, "using random MAC addr: %pM\n",
+ 							priv->mac_addr);
+ 	}
++	memcpy(ndev->dev_addr, priv->mac_addr, ndev->addr_len);
+ 
+ 	ndev->netdev_ops = &emac_netdev_ops;
+ 	SET_ETHTOOL_OPS(ndev, &ethtool_ops);
+-- 
+1.7.0.4
