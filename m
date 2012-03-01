@@ -1,37 +1,58 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
-Date: Thu, 1 Mar 2012 15:03:02 +0200
-Message-ID: <CAJZOPZ+Z-L4soSOnPxh68cEjeM6Pj8UBBnrmSwYf4VWyU_MA0Q@mail.gmail.com>
-References: <4F464074.9050901@mellanox.co.il>
-	<20120223.144749.1718133820851859801.davem@davemloft.net>
-	<953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/3] netfilter: Fix copy_to_user too small size
+ parametre.
+Date: Thu, 1 Mar 2012 14:03:11 +0100
+Message-ID: <20120301130311.GA7429@1984>
+References: <1330593390-19233-1-git-send-email-santoshprasadnayak@gmail.com>
+ <20120301101809.GA6488@1984>
+ <CAOD=uF6yqCETUG8jMCmjYDM+L1DsM91OiRveONJkNxMf=skTSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
+	shemminger@vyatta.com, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: santosh prasad nayak <santoshprasadnayak@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:51491 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966168Ab2CANDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 08:03:04 -0500
-Received: by lahj13 with SMTP id j13so713335lah.19
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 05:03:02 -0800 (PST)
-In-Reply-To: <953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
+Received: from mail.us.es ([193.147.175.20]:36434 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030771Ab2CANDR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 08:03:17 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOD=uF6yqCETUG8jMCmjYDM+L1DsM91OiRveONJkNxMf=skTSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 24, 2012 at 9:57 PM, Yevgeny Petrilin <yevgenyp@mellanox.com> wrote:
-> The patch set is a result of performance work we did, and those changes helped us
-> to achieve better results without hurting us in other areas.
+On Thu, Mar 01, 2012 at 04:15:05PM +0530, santosh prasad nayak wrote:
+> Hi Pablo.
+> 
+> copy_to_user( dest, source, length)
+> 
+> Normally,  'length'  is equal to  'sizeof (source) '.
+> 
+> In this case "length"   =   32
+>        "sizeof(source)"  =   29.
+> 
+> Is it intentional ?
 
+ebtables expects 32 bytes names.
 
-Hi Dave,
+> Won't it copy extra 3 bytes of kernel data to userspace ?
 
-Following Yevgeny's clarification, can this patch (3/3) go to
-net-next? as for patch 1/3, we
-understand that the first thing to do in that area is add BQL support
-to mlx4_en, makes sense.
+You're right. We have to copy 29 bytes but we have to fill the
+remaining bytes with zeroes. I think something like:
 
+char name[EBT_FUNCTION_MAXNAMELEN] = {};
 
-Or.
+/* user-space ebtables expects 32 bytes-long names, but xt_match uses
+ * 29 bytes for that. */
+sprintf(name, "%s", m->u.match->name);
+if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
+...
+
+will resolve this issue.
+
+Would you resend a new patch?
