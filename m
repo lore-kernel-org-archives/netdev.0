@@ -1,45 +1,108 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
-Date: Thu, 01 Mar 2012 14:40:17 +0100
-Message-ID: <87zkc0783i.fsf@macbook.be.48ers.dk>
-References: <1330490737-28973-1-git-send-email-mugunthanvnm@ti.com>
-	<1330490737-28973-3-git-send-email-mugunthanvnm@ti.com>
-	<87pqcxdbmp.fsf@macbook.be.48ers.dk>
-	<EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Subject: Re: Resend: [PATCH] Bluetooth: Fix Endian Bug.
+Date: Thu, 1 Mar 2012 19:34:58 +0530
+Message-ID: <CAOD=uF4LSS8nuKMNHGEH2JsVZHU0rntSxZjvNaa4oZrey1macw@mail.gmail.com>
+References: <1330599561-20392-1-git-send-email-santoshprasadnayak@gmail.com>
+	<20120301123540.GE25627@aemeltch-MOBL1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem\@davemloft.net" <davem@davemloft.net>
-To: "N\, Mugunthan V" <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:62823 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759340Ab2CAN7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 08:59:39 -0500
-Received: by wibhm2 with SMTP id hm2so332280wib.19
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 05:59:38 -0800 (PST)
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
-	(Mugunthan V. N.'s message of "Wed, 29 Feb 2012 16:28:48 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>,
+	santosh nayak <santoshprasadnayak@gmail.com>,
+	marcel@holtmann.org, padovan@profusion.mobi, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120301123540.GE25627@aemeltch-MOBL1>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "N" == N, Mugunthan V <mugunthanvnm@ti.com> writes:
+Andrei,
 
-Hi,
+I could not get you.
 
- >> Is this really platform specific data (rather than SoC specific)? If
- >> it's purely a difference between 335x and 814x just use an id_table with
- >> different platform device names instead.
+Do you want me to resend the patch with subject,
+  "[PATCH] Bluetooth: Fix network to host endian conversion for L2CAP
+chan id."  ?
 
- N> Instead of driver maintaining the SoC specific offsets, SoC specific
- N> files in arch/arm/mach-omap2/ can hold this. Another reason is
- N> currently this IP is present in 2 SoCs, there are other SoC coming
- N> up where the offsets may change.
 
-Sure, it's the same amount of code no matter where it gets put, but the
-idea is to move code from arch/arm to drivers/ where possible. This will
-also help if the IP is ever used on non-omap2 platforms and for device
-tree support.
 
--- 
-Bye, Peter Korsgaard
+regards
+santosh
+
+
+
+
+On Thu, Mar 1, 2012 at 6:05 PM, Andrei Emeltchenko
+<andrei.emeltchenko.news@gmail.com> wrote:
+> Hi Santosh,
+>
+> On Thu, Mar 01, 2012 at 04:29:21PM +0530, santosh nayak wrote:
+>> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+>>
+>> Fix for endian bug.
+>>
+>> Fix for null dereferenced removed as it is already
+>> submitted by Andrei.
+>>
+>> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+>> ---
+>> =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
+>> =A01 files changed, 3 insertions(+), 2 deletions(-)
+>
+> We prefer following commit log (this is the example)
+>
+> <------8<----------------------------------------------------------
+> | =A0From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> |
+> | =A0Fix network to host endian conversion for L2CAP chan id.
+> |
+> | =A0Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> |
+> | =A0---
+> | =A0 =A0 =A0 =A0 =A0* v2 Fix for null dereferenced removed as it is =
+already
+> | =A0 =A0 =A0 =A0 =A0submitted by Andrei.
+> |
+> | =A0 =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
+> | =A0 =A01 files changed, 3 insertions(+), 2 deletions(-)
+> |
+> <------8<----------------------------------------------------------
+>
+>
+>>
+>> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+>> index 401d942..86d5067 100644
+>> --- a/net/bluetooth/l2cap_sock.c
+>> +++ b/net/bluetooth/l2cap_sock.c
+>> @@ -82,7 +82,7 @@ static int l2cap_sock_bind(struct socket *sock, st=
+ruct sockaddr *addr, int alen)
+>> =A0 =A0 =A0 }
+>>
+>> =A0 =A0 =A0 if (la.l2_cid)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 err =3D l2cap_add_scid(chan, la.l2_cid);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 err =3D l2cap_add_scid(chan, __le16_to_cpu=
+(la.l2_cid));
+>> =A0 =A0 =A0 else
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D l2cap_add_psm(chan, &la.l2_bdadd=
+r, la.l2_psm);
+>>
+>> @@ -123,7 +123,8 @@ static int l2cap_sock_connect(struct socket *soc=
+k, struct sockaddr *addr, int al
+>> =A0 =A0 =A0 if (la.l2_cid && la.l2_psm)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+>>
+>> - =A0 =A0 err =3D l2cap_chan_connect(chan, la.l2_psm, la.l2_cid, &la=
+=2El2_bdaddr);
+>> + =A0 =A0 err =3D l2cap_chan_connect(chan, la.l2_psm, __le16_to_cpu(=
+la.l2_cid),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &la.l2_bda=
+ddr);
+>
+> I live this to Marcel to decide should we reindent our code otherwise=
+ this
+> one looks odd.
+>
+> Best regards
+> Andrei Emeltchenko
+>
