@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
-Date: Thu, 01 Mar 2012 15:47:55 -0500 (EST)
-Message-ID: <20120301.154755.637780066804215151.davem@davemloft.net>
-References: <20120223.144749.1718133820851859801.davem@davemloft.net>
-	<953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
-	<CAJZOPZ+Z-L4soSOnPxh68cEjeM6Pj8UBBnrmSwYf4VWyU_MA0Q@mail.gmail.com>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Thu, 01 Mar 2012 15:55:05 -0500 (EST)
+Message-ID: <20120301.155505.674909686053535283.davem@davemloft.net>
+References: <1330606237.27405.5.camel@megeve>
+	<1330606775.2465.56.camel@edumazet-laptop>
+	<4F4F7FFB.6010608@collabora.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com
-To: or.gerlitz@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46771 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932521Ab2CAUsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 15:48:02 -0500
-In-Reply-To: <CAJZOPZ+Z-L4soSOnPxh68cEjeM6Pj8UBBnrmSwYf4VWyU_MA0Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, rodrigo.moya@collabora.co.uk,
+	David.Laight@ACULAB.COM, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: javier.martinez@collabora.co.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F4F7FFB.6010608@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Thu, 1 Mar 2012 15:03:02 +0200
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Date: Thu, 01 Mar 2012 14:56:11 +0100
 
-> Following Yevgeny's clarification, can this patch (3/3) go to
-> net-next?
+> We could use AF_INET multicast on a local machine but we need some
+> ordering and control flow requirements that are not guaranteed on UDP
+> multicast over IP. That's why we thought to add a new address family
+> AF_MCAST.
 
-Sure, please resubmit it.
+None of this makes any sense to me.
+
+Unless you have infinite amounts of memory you have to handle packet
+drops, and the same things that handle packet drops on a protocol
+level can handle out-of-order delivery too.
+
+Stop reinventing the wheel, use facilities that exist already.
