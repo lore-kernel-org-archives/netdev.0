@@ -1,62 +1,52 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: RFC: memory leak in udp_table_init
-Date: Thu, 1 Mar 2012 08:55:01 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E85@saturn3.aculab.com>
-References: <877gz5ze82.fsf@xmission.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] enic: fix an endian bug in enic_probe()
+Date: Thu, 1 Mar 2012 10:19:54 +0300
+Message-ID: <20120301071954.GA7152@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	<paul.gortmaker@windriver.com>, <tim.bird@am.sony.com>,
-	<kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <877gz5ze82.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Benvenuti <benve@cisco.com>,
+	Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Roopa Prabhu <roprabhu@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:31185 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756376Ab2CAJBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 04:01:39 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+"num_vfs" is a u32 but we only use the high 16 bits and the low 16bits
+are left as zero.  That isn't a problem for little endian systems but it
+will break on big endian ones.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index 99998c6..cf1fb4b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -94,7 +94,7 @@ struct enic {
+ 	u32 rx_coalesce_usecs;
+ 	u32 tx_coalesce_usecs;
+ #ifdef CONFIG_PCI_IOV
+-	u32 num_vfs;
++	u16 num_vfs;
+ #endif
+ 	struct enic_port_profile *pp;
  
-> > The pid table is a good example of something where a hash
-> > table is unnecessary.
-> > Linux should steal the code I put into NetBSD :-)
-> 
-> On this unrelated topic.  What algorithm did you use on NetBSD for
-> dealing with pids?
-
-Basically I forced the hash chain length to one by allocating
-a pid that hit an empty entry in the table.
-
-So you start off with (say) 64 entries and use the low 6
-bits to index the table. The higher bits are incremented
-each time a 'slot' is reused.
-Free entries are kept in a FIFO list.
-So each entry either contains a pointer to the process,
-or the high bits and the index of the next free slot.
-(and the PGID pointer).
-When there are only (say) 2 free entries, then the table
-size is doubled, the pointers moved to the correct places,
-the free ist fixed up, and the minimum number of free entries
-doubled.
-
-The overall effect:
-- lookup is only ever a mask and index + compare.
-- Allocate is always fast and fixed cost (except when
-  the table size has to be doubled).
-- A pid value will never be reused within (about) 2000
-  allocates (for 16bit pids, much larger for 32bit ones).
-- Allocated pid numbers tend to be random, certainly
-  very difficult to predict.
-- Small memory footprint for small systems.
-For pids we normally avoid issuing large values, but
-will do so to avoid immediate re-use on systems that
-have 1000s of active processes.
-
-See lines 580-820 of
-http://cvsweb.netbsd.org/bsdweb.cgi/src/sys/kern/kern_proc.c?annotate=1.
-182&only_with_tag=MAIN
-
-	David
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index e27ec1d..9080ed6 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -2390,7 +2390,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+ 	if (pos) {
+ 		pci_read_config_word(pdev, pos + PCI_SRIOV_TOTAL_VF,
+-			(u16 *)&enic->num_vfs);
++			&enic->num_vfs);
+ 		if (enic->num_vfs) {
+ 			err = pci_enable_sriov(pdev, enic->num_vfs);
+ 			if (err) {
