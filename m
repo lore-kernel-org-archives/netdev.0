@@ -1,50 +1,32 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: Resend: [PATCH] Bluetooth: Fix Endian Bug.
-Date: Thu,  1 Mar 2012 16:29:21 +0530
-Message-ID: <1330599561-20392-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: padovan@profusion.mobi, davem@davemloft.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: marcel@holtmann.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH] netfilter updates for 3.3-rc5
+Date: Thu,  1 Mar 2012 12:02:18 +0100
+Message-ID: <1330599739-1645-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Fix for endian bug.
+Hi David,
 
-Fix for null dereferenced removed as it is already
-submitted by Andrei.
+This update contains one fix from Florian Westphal for the module
+autoload for ebtables.
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- net/bluetooth/l2cap_sock.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+You can pull this changes from:
 
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 401d942..86d5067 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -82,7 +82,7 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
- 	}
- 
- 	if (la.l2_cid)
--		err = l2cap_add_scid(chan, la.l2_cid);
-+		err = l2cap_add_scid(chan, __le16_to_cpu(la.l2_cid));
- 	else
- 		err = l2cap_add_psm(chan, &la.l2_bdaddr, la.l2_psm);
- 
-@@ -123,7 +123,8 @@ static int l2cap_sock_connect(struct socket *sock, struct sockaddr *addr, int al
- 	if (la.l2_cid && la.l2_psm)
- 		return -EINVAL;
- 
--	err = l2cap_chan_connect(chan, la.l2_psm, la.l2_cid, &la.l2_bdaddr);
-+	err = l2cap_chan_connect(chan, la.l2_psm, __le16_to_cpu(la.l2_cid),
-+				&la.l2_bdaddr);
- 	if (err)
- 		goto done;
- 
+git://1984.lsi.us.es/net master
+
+Thanks!
+
+Florian Westphal (1):
+  netfilter: bridge: fix module autoload in compat case
+
+ net/bridge/netfilter/ebtables.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
+
 -- 
-1.7.4.4
+1.7.7.3
+
