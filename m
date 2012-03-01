@@ -1,60 +1,35 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH 1/3] netfilter: Fix copy_to_user too small size parametre.
-Date: Thu,  1 Mar 2012 14:46:30 +0530
-Message-ID: <1330593390-19233-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: pablo@netfilter.org, kaber@trash.net, shemminger@vyatta.com,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: bart.de.schuymer@pandora.be
+From: Jesper Nilsson <jesper@jni.nu>
+Subject: Re: [PATCH 3/8] cris/eth_v10: use dev_set_mac_address() instead of
+ e100_set_mac_address()
+Date: Thu, 1 Mar 2012 10:33:40 +0100
+Message-ID: <20120301093339.GG16481@jni.nu>
+References: <1330530176-24952-1-git-send-email-danny.kukawka@bisect.de>
+ <1330530176-24952-4-git-send-email-danny.kukawka@bisect.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Danny Kukawka <dkukawka@suse.de>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	Javier Martinez Canillas <martinez.javier@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Danny Kukawka <danny.kukawka@bisect.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1330530176-24952-4-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Wed, Feb 29, 2012 at 04:42:51PM +0100, Danny Kukawka wrote:
+> Use dev_set_mac_address() instead of e100_set_mac_address() directly
+> to get validation checks for free.
+> 
+> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
 
-While copying to userspace, the size of source is 29byte where as
-size parametre is 32 byte.  Its leaking extra-information from
-kernel space to user space.
-Replace EBT_FUNCTION_MAXNAMELEN by XT_EXTENSION_MAXNAMELEN.
+> ---
+>  drivers/net/cris/eth_v10.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- net/bridge/netfilter/ebtables.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 5864cc4..f3fcbd9 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1335,7 +1335,7 @@ static inline int ebt_make_matchname(const struct ebt_entry_match *m,
-     const char *base, char __user *ubase)
- {
- 	char __user *hlp = ubase + ((char *)m - base);
--	if (copy_to_user(hlp, m->u.match->name, EBT_FUNCTION_MAXNAMELEN))
-+	if (copy_to_user(hlp, m->u.match->name, XT_EXTENSION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
- }
-@@ -1344,7 +1344,7 @@ static inline int ebt_make_watchername(const struct ebt_entry_watcher *w,
-     const char *base, char __user *ubase)
- {
- 	char __user *hlp = ubase + ((char *)w - base);
--	if (copy_to_user(hlp , w->u.watcher->name, EBT_FUNCTION_MAXNAMELEN))
-+	if (copy_to_user(hlp , w->u.watcher->name, XT_EXTENSION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
- }
-@@ -1368,7 +1368,7 @@ ebt_make_names(struct ebt_entry *e, const char *base, char __user *ubase)
- 	ret = EBT_WATCHER_ITERATE(e, ebt_make_watchername, base, ubase);
- 	if (ret != 0)
- 		return ret;
--	if (copy_to_user(hlp, t->u.target->name, EBT_FUNCTION_MAXNAMELEN))
-+	if (copy_to_user(hlp, t->u.target->name, XT_EXTENSION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
- }
--- 
-1.7.4.4
+/^JN - Jesper Nilsson
