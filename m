@@ -1,64 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Thu, 01 Mar 2012 08:36:20 -0500
-Message-ID: <1330608980.6944.27.camel@mojatatu>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-	 <4F34042F.6090806@intel.com>
-	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
-	 <4F347D96.2020806@intel.com> <4F3499BC.8020609@intel.com>
-	 <1328887111.2075.43.camel@mojatatu> <4F39287F.6030204@intel.com>
-	 <1329225526.2806.34.camel@mojatatu> <4F3AAE80.4040609@intel.com>
-	 <1329315057.4158.15.camel@mojatatu> <4F3C5B44.7000608@intel.com>
-	 <1329488932.2272.19.camel@mojatatu> <4F3E8A01.5000205@intel.com>
-	 <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com>
-	 <1330523779.18226.17.camel@mojatatu> <4F4E5FA4.4040506@intel.com>
-	 <20120229095204.48885405@nehalam.linuxnetplumber.net>
-	 <4F4E6C44.9070502@intel.com>
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Subject: Re: [PATCH 1/3] netfilter: Fix copy_to_user too small size parametre.
+Date: Thu, 1 Mar 2012 19:21:45 +0530
+Message-ID: <CAOD=uF6GizMhTWkriQCnV7T_2vzOSQ85sG1ruoEi_YtNSK+9kQ@mail.gmail.com>
+References: <1330593390-19233-1-git-send-email-santoshprasadnayak@gmail.com>
+	<20120301101809.GA6488@1984>
+	<CAOD=uF6yqCETUG8jMCmjYDM+L1DsM91OiRveONJkNxMf=skTSg@mail.gmail.com>
+	<20120301130311.GA7429@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com, kernel@wantstofly.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:50683 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759292Ab2CANgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 08:36:24 -0500
-Received: by iagz16 with SMTP id z16so805569iag.19
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 05:36:24 -0800 (PST)
-In-Reply-To: <4F4E6C44.9070502@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
+	shemminger@vyatta.com, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120301130311.GA7429@1984>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-02-29 at 10:19 -0800, John Fastabend wrote:
+Thanks Pablo for clarification.
+I will resend the patch.
 
-> > 
-> > I want to see a unified API so that user space control applications (RSTP, TRILL?)
-> > can use one set of netlink calls for both software bridge and hardware offloaded
-> > bridges.  Does this proposal meet that requirement?
-> > 
 
-I dont see any issues with those requirements being met.
+regards
+santosh
 
-> Jamal, so why do "They have to be different calls"? I'm not so sure anymore...
-> moving to RTM_FDB_XXXENTRY saved some refactoring in the bridge module but that
-> is just cosmetic.
-
-I may not want to use the s/ware bridge i.e I may want to use h/ware
-bridge. I may want to use both. So there are 3 variations there. You
-need at least 1.5 bits to represent them if you are going to use the
-same interface. There may be features in either h/ware but not in
-s/ware and vice-versa. 
-A single interface with flags which say this applies to hware:sware:both
-would be good, but it may be harder to achieve - thats why i suggested
-they be different.
-
-cheers,
-jamal
+On Thu, Mar 1, 2012 at 6:33 PM, Pablo Neira Ayuso <pablo@netfilter.org>=
+ wrote:
+> On Thu, Mar 01, 2012 at 04:15:05PM +0530, santosh prasad nayak wrote:
+>> Hi Pablo.
+>>
+>> copy_to_user( dest, source, length)
+>>
+>> Normally, =A0'length' =A0is equal to =A0'sizeof (source) '.
+>>
+>> In this case "length" =A0 =3D =A0 32
+>> =A0 =A0 =A0 =A0"sizeof(source)" =A0=3D =A0 29.
+>>
+>> Is it intentional ?
+>
+> ebtables expects 32 bytes names.
+>
+>> Won't it copy extra 3 bytes of kernel data to userspace ?
+>
+> You're right. We have to copy 29 bytes but we have to fill the
+> remaining bytes with zeroes. I think something like:
+>
+> char name[EBT_FUNCTION_MAXNAMELEN] =3D {};
+>
+> /* user-space ebtables expects 32 bytes-long names, but xt_match uses
+> =A0* 29 bytes for that. */
+> sprintf(name, "%s", m->u.match->name);
+> if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
+> ...
+>
+> will resolve this issue.
+>
+> Would you resend a new patch?
