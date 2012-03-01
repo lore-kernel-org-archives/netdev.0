@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Thu, 01 Mar 2012 15:55:05 -0500 (EST)
-Message-ID: <20120301.155505.674909686053535283.davem@davemloft.net>
-References: <1330606237.27405.5.camel@megeve>
-	<1330606775.2465.56.camel@edumazet-laptop>
-	<4F4F7FFB.6010608@collabora.co.uk>
+From: Roland Stigge <stigge@antcom.de>
+Subject: Re: [PATCH v3] lpc32xx: Added ethernet driver
+Date: Thu, 01 Mar 2012 21:42:21 +0100
+Message-ID: <4F4FDF2D.5040508@antcom.de>
+References: <1330364539-23152-1-git-send-email-stigge@antcom.de> <201202271949.03144.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, rodrigo.moya@collabora.co.uk,
-	David.Laight@ACULAB.COM, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: javier.martinez@collabora.co.uk
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	alexander.h.duyck@intel.com, eilong@broadcom.com,
+	ian.campbell@citrix.com, netdev@vger.kernel.org,
+	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
+	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
+	baruch@tkos.co.il, joe@perches.com
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4F7FFB.6010608@collabora.co.uk>
+In-Reply-To: <201202271949.03144.arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Date: Thu, 01 Mar 2012 14:56:11 +0100
+On 27/02/12 20:49, Arnd Bergmann wrote:
+> Are you sure that npx is actually the origin of this controller?
+> If they only licensed the IP themselves, it would be better to list
+> it under the name of the actual creator so that the next person
+> who has the same core can find it.
 
-> We could use AF_INET multicast on a local machine but we need some
-> ordering and control flow requirements that are not guaranteed on UDP
-> multicast over IP. That's why we thought to add a new address family
-> AF_MCAST.
+I have no hint for another origin of this core (see manual). However, as
+soon as we get new info on this, we can move the driver easily.
 
-None of this makes any sense to me.
+Thanks to all of you for your suggestions, I will include all the
+suggested changes an repost an updated driver.
 
-Unless you have infinite amounts of memory you have to handle packet
-drops, and the same things that handle packet drops on a protocol
-level can handle out-of-order delivery too.
-
-Stop reinventing the wheel, use facilities that exist already.
+Roland
