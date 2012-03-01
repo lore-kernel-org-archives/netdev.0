@@ -1,46 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Thu, 01 Mar 2012 17:08:48 -0500 (EST)
-Message-ID: <20120301.170848.432407217191581288.davem@davemloft.net>
-References: <1330604802.2465.43.camel@edumazet-laptop>
-	<20120301.154415.1692328508436381200.davem@davemloft.net>
-	<CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into hardware
+Date: Thu, 01 Mar 2012 14:10:44 -0800
+Message-ID: <4F4FF3E4.5010003@intel.com>
+References: <1329225526.2806.34.camel@mojatatu> <4F3AAE80.4040609@intel.com> <1329315057.4158.15.camel@mojatatu> <4F3C5B44.7000608@intel.com> <1329488932.2272.19.camel@mojatatu> <4F3E8A01.5000205@intel.com> <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com> <1330523779.18226.17.camel@mojatatu> <4F4E5FA4.4040506@intel.com> <20120301141413.GB4430@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, javier.martinez@collabora.co.uk,
-	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: luiz.dentz@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, chrisw@redhat.com, davem@davemloft.net,
+	gregory.v.rose@intel.com, kvm@vger.kernel.org, sri@us.ibm.com,
+	kernel@wantstofly.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:61612 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758075Ab2CAWKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 17:10:46 -0500
+In-Reply-To: <20120301141413.GB4430@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Date: Fri, 2 Mar 2012 00:01:40 +0200
+On 3/1/2012 6:14 AM, Michael S. Tsirkin wrote:
+> On Wed, Feb 29, 2012 at 09:25:56AM -0800, John Fastabend wrote:
+>> Agreed. I think adding some ndo_ops for bridging offloads here would
+>> work. For example the DSA infrastructure and/or macvlan devices might
+>> need this. Along the lines of extending this RFC,
+>>
+>> [RFC] hardware bridging support for DSA switches
+>> http://patchwork.ozlabs.org/patch/16578/
+>>
+>>
+>> .John
+> 
+> One place where this might not work well would be
+> macvtap which is not a network device so it doesn't have
+> its own address, instead it inherits one from macvlan.
+> 
 
-> I don't think you understood the problem, we want something that scale
-> for less powerful devices, why do you think Android have all the
-> trouble to create binder?
+But is macvtap really doing any forwarding or implementing any
+RX filters? Took a quick scan and it looks like the forwarding
+logic is all in the macvlan code paths. In this case I suspect
+if we enable macvlan then any device built on top of it would
+work.
 
-So our protocol stack is so cpu hungry compared to AF_UNIX that it's
-unusable on low power devices?
-
-I can't take you seriously if you say this after showing us the
-thousands of lines of code you guys think we should add to the AF_UNIX
-socket layer.
-
-> Besides what is really the point in having AF_UNIX if you can't use
-> for what it is for?
-
-Because it doesn't have the handful of extra features you absolutely
-require of it.
-
-AF_UNIX is a complicated socket layer which is already extremely hard
-to maintain.  We're still finding bugs in it even after all these
-years, and that's without adding major new functionality.
+.John
