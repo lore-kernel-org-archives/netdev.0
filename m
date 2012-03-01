@@ -1,52 +1,92 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to AF_UNIX
-Date: Thu, 1 Mar 2012 18:02:14 +0200
-Message-ID: <CABBYNZKN+7z4Sr9DBniokez6Jru02LxPgWdGNcVeYECse+AzEQ@mail.gmail.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E86@saturn3.aculab.com>
-	<1330606237.27405.5.camel@megeve>
-	<1330606775.2465.56.camel@edumazet-laptop>
-	<4F4F7FFB.6010608@collabora.co.uk>
+From: "Christoph J. Thompson" <cjsthompson@gmail.com>
+Subject: [PATCH 1/4] iproute2 - Don't hardcode the path to config files.
+ Allows using an alternate path for config files.
+Date: Thu, 1 Mar 2012 17:44:43 +0100
+Message-ID: <20120301164439.GA24257@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
-	David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F4F7FFB.6010608@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36787 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756400Ab2CAQoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 11:44:34 -0500
+Received: by wibhm2 with SMTP id hm2so53148wib.19
+        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 08:44:33 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Javier,
+	modified:   lib/rt_names.c
 
-On Thu, Mar 1, 2012 at 3:56 PM, Javier Martinez Canillas
-<javier.martinez@collabora.co.uk> wrote:
->>
->> Anyway, if you think multicast sockets is the way to go, then you could
->> setup a virtual network just to be able to use AF_INET multicast.
->>
->> Thats probably doable without kernel patching.
->>
->
-> We could use AF_INET multicast on a local machine but we need some
-> ordering and control flow requirements that are not guaranteed on UDP
-> multicast over IP. That's why we thought to add a new address family
-> AF_MCAST.
+Signed-off-by: Christoph J. Thompson <cjsthompson@gmail.com>
+---
+ lib/rt_names.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
-I don't want to sound like a broken record, but Im afraid I have to,
-what about Ancillary Messages, how you are going to support passing
-fd? Actually the whole virtual network sounds like a bad idea, are we
-going to give ips to each and every application connected to the bus,
-actually it is necessary to have one virtual network for each bus.
-
-Contrary to someones believes I don't think AF_INET is that fast (e.g.
-http://scottmoonen.com/2008/04/05/a-performance-comparison-of-af_unix-with-loopback-on-linux/)
+diff --git a/lib/rt_names.c b/lib/rt_names.c
+index a290021..52ecdb2 100644
+--- a/lib/rt_names.c
++++ b/lib/rt_names.c
+@@ -23,6 +23,10 @@
+ 
+ #include "rt_names.h"
+ 
++#ifndef CONFDIR
++#define CONFDIR "/etc/iproute2"
++#endif
++
+ struct rtnl_hash_entry {
+ 	struct rtnl_hash_entry *next;
+ 	char *			name;
+@@ -129,7 +133,7 @@ static int rtnl_rtprot_init;
+ static void rtnl_rtprot_initialize(void)
+ {
+ 	rtnl_rtprot_init = 1;
+-	rtnl_tab_initialize("/etc/iproute2/rt_protos",
++	rtnl_tab_initialize(CONFDIR "/rt_protos",
+ 			    rtnl_rtprot_tab, 256);
+ }
+ 
+@@ -196,7 +200,7 @@ static void rtnl_rtscope_initialize(void)
+ 	rtnl_rtscope_tab[254] = "host";
+ 	rtnl_rtscope_tab[253] = "link";
+ 	rtnl_rtscope_tab[200] = "site";
+-	rtnl_tab_initialize("/etc/iproute2/rt_scopes",
++	rtnl_tab_initialize(CONFDIR "/rt_scopes",
+ 			    rtnl_rtscope_tab, 256);
+ }
+ 
+@@ -259,7 +263,7 @@ static int rtnl_rtrealm_init;
+ static void rtnl_rtrealm_initialize(void)
+ {
+ 	rtnl_rtrealm_init = 1;
+-	rtnl_tab_initialize("/etc/iproute2/rt_realms",
++	rtnl_tab_initialize(CONFDIR "/rt_realms",
+ 			    rtnl_rtrealm_tab, 256);
+ }
+ 
+@@ -328,7 +332,7 @@ static int rtnl_rttable_init;
+ static void rtnl_rttable_initialize(void)
+ {
+ 	rtnl_rttable_init = 1;
+-	rtnl_hash_initialize("/etc/iproute2/rt_tables",
++	rtnl_hash_initialize(CONFDIR "/rt_tables",
+ 			     rtnl_rttable_hash, 256);
+ }
+ 
+@@ -396,7 +400,7 @@ static int rtnl_rtdsfield_init;
+ static void rtnl_rtdsfield_initialize(void)
+ {
+ 	rtnl_rtdsfield_init = 1;
+-	rtnl_tab_initialize("/etc/iproute2/rt_dsfield",
++	rtnl_tab_initialize(CONFDIR "/rt_dsfield",
+ 			    rtnl_rtdsfield_tab, 256);
+ }
+ 
+-- 
+1.7.4.4
 
 
 -- 
-Luiz Augusto von Dentz
+Jabber: heimdal@jabber.org
