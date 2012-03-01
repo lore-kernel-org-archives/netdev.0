@@ -1,55 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/10] e1000e: use msleep instead of mdelay
-Date: Wed, 29 Feb 2012 23:33:04 -0800
-Message-ID: <1330587188-28717-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/10] rtnetlink: Fix VF IFLA policy
+Date: Wed, 29 Feb 2012 23:33:08 -0800
+Message-ID: <1330587188-28717-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330587188-28717-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:59693 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:59707 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758169Ab2CAHdR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2012 02:33:17 -0500
+	id S1758405Ab2CAHdT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 02:33:19 -0500
 In-Reply-To: <1330587188-28717-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The e1000_link_stall_workaround_lv() function is always called in non-
-atomic context so it should use msleep instead of mdelay.  Also, remove
-unnecessary #include <linux/delay.h>.
+Add VF spoof check to IFLA policy.  The original patch I submitted to
+add the spoof checking feature to rtnl failed to add the proper policy
+rule that identifies the data type and len.  This patch corrects that
+oversight.  No bugs have been reported against this but it may cause
+some problem for the netlink message parsing that uses the policy
+table.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+CC: stable@vger.kernel.org
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/phy.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/core/rtnetlink.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 6e768b1..35b4557 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -26,8 +26,6 @@
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5cf39cd..2be1018 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1132,6 +1132,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 				    .len = sizeof(struct ifla_vf_vlan) },
+ 	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
+ 				    .len = sizeof(struct ifla_vf_tx_rate) },
++	[IFLA_VF_SPOOFCHK]	= { .type = NLA_BINARY,
++				    .len = sizeof(struct ifla_vf_spoofchk) },
+ };
  
- *******************************************************************************/
- 
--#include <linux/delay.h>
--
- #include "e1000.h"
- 
- static s32 e1000_get_phy_cfg_done(struct e1000_hw *hw);
-@@ -3153,7 +3151,7 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
- 		     BM_CS_STATUS_SPEED_1000))
- 		return 0;
- 
--	mdelay(200);
-+	msleep(200);
- 
- 	/* flush the packets in the fifo buffer */
- 	ret_val = e1e_wphy(hw, HV_MUX_DATA_CTRL, HV_MUX_DATA_CTRL_GEN_TO_MAC |
+ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
 -- 
 1.7.7.6
