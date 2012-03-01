@@ -1,58 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/3] atl1c: change author
-Date: Thu, 01 Mar 2012 04:27:36 -0800
-Message-ID: <1330604856.2465.44.camel@edumazet-laptop>
-References: <1330580469-23348-1-git-send-email-cjren@qca.qualcomm.com>
-	 <1330580469-23348-3-git-send-email-cjren@qca.qualcomm.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] netfilter: potential null derefence.
+Date: Thu, 1 Mar 2012 13:30:04 +0100
+Message-ID: <20120301123004.GA7250@1984>
+References: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com
-To: Cloud Ren <cjren@qca.qualcomm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
+	shemminger@vyatta.com, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: santosh nayak <santoshprasadnayak@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330580469-23348-3-git-send-email-cjren@qca.qualcomm.com>
+Content-Disposition: inline
+In-Reply-To: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 01 mars 2012 =C3=A0 13:41 +0800, Cloud Ren a =C3=A9crit :
-> The author, jie yang, has left. please use nic-devel@qualcomm.com rep=
-ort bugs to
-> us.
->=20
-> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
-> ---
->  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/driver=
-s/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 6bf387b..815f683 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -52,7 +52,7 @@ static DEFINE_PCI_DEVICE_TABLE(atl1c_pci_tbl) =3D {
->  };
->  MODULE_DEVICE_TABLE(pci, atl1c_pci_tbl);
-> =20
-> -MODULE_AUTHOR("Jie Yang <jie.yang@atheros.com>");
-> +MODULE_AUTHOR("Qualcomm Corporation, <nic-devel@qualcomm.com>");
->  MODULE_DESCRIPTION("Atheros 1000M Ethernet Network Driver");
->  MODULE_LICENSE("GPL");
-> =20
+On Thu, Mar 01, 2012 at 02:47:14PM +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> 
+> I am getting following error.
+> " net/bridge/netfilter/ebtables.c:269 ebt_do_table()
+>   error: potential null derefence 'cs'"
+> 
+>     i = cs[sp].n;  // If cs == Null then this will cause problem.
 
-Jie Yang, _is_ the original author. Thats a truth.
+Very sorry, I didn't see the out label.
 
-Why would you want to remove this line, this sounds very bad.
+I'll apply this to my nf [1] once David takes my previous request for
+pulling.
 
-What you probably want is a change in MAINTAINERS file to reflect who
-maintains atl1c at this moment and how to reach them by email.
-
-Notes:
-
-- Its also possible to add a new MODULE_AUTHOR() line
-
-- You could remove the obsolete email address and keep Jie Yang name as
-in :
-
-MODULE_AUTHOR("Jie Yang");
+[1] http://1984.lsi.us.es/git/net
