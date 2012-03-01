@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] pch_gbe: memory corruption calling
- pch_gbe_validate_option()
-Date: Thu, 01 Mar 2012 17:24:02 -0500 (EST)
-Message-ID: <20120301.172402.1035366198258013912.davem@davemloft.net>
-References: <20120301071708.GB6959@elgon.mountain>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 01 Mar 2012 17:24:27 -0500 (EST)
+Message-ID: <20120301.172427.782491081561180393.davem@davemloft.net>
+References: <20120301133333.b8297fbd964c1d7aaf8c9f0b@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: masa-korg@dsn.okisemi.com, paul.gortmaker@windriver.com,
-	jeffrey.t.kirsher@intel.com, mirq-linux@rere.qmqm.pl,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47780 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965173Ab2CAWZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 17:25:12 -0500
-In-Reply-To: <20120301071708.GB6959@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mcarlson@broadcom.com,
+	mchan@broadcom.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120301133333.b8297fbd964c1d7aaf8c9f0b@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 1 Mar 2012 10:17:08 +0300
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 1 Mar 2012 13:33:33 +1100
 
-> pch_gbe_validate_option() modifies 32 bits of memory but we pass
-> &hw->phy.autoneg_advertised which only has 16 bits and &hw->mac.fc
-> which only has 8 bits.
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/broadcom/tg3.c between commit 65ec698d1368 ("tg3:
+> Fix tg3_get_stats64 for 5700 / 5701 devs") from the net tree and various
+> commits from the net-next tree.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> I just used the version from the net-next tree for today (assuming that
+> this conflict will be fixed shortly).
 
-Applied.
+I'll try to take care of this now, thanks Stephen.
