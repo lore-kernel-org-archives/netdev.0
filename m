@@ -1,85 +1,121 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next 1/2] mdio: Export mdio.h to userland
-Date: Thu, 1 Mar 2012 00:23:27 +0000
-Message-ID: <1330561407.5881.13.camel@bwh-desktop>
+Subject: [PATCH net-next 2/2] ethtool, mdio, mii: Specify MDIO information
+ fields in struct ethtool_cmd
+Date: Thu, 1 Mar 2012 00:26:22 +0000
+Message-ID: <1330561582.5881.15.camel@bwh-desktop>
+References: <1330561407.5881.13.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:14637 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757693Ab2CAAXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 19:23:32 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:14697 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753805Ab2CAA00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 19:26:26 -0500
+In-Reply-To: <1330561407.5881.13.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ID packing definitions are needed by userland and the register
-definitions may also be useful there.
+Add comments for ethtool_cmd::phy_address and
+ethtool_cmd::mdio_support, and definitions of the flags currently
+used in mdio_support.
 
-Do not export mdio_phy_id_{is_c45,prtad,devad}() as the use of bool is
-problematic and it's not that useful to export only a subset of these.
+In the mdio library, assert that its own flags continue to match those
+in the ethtool interface.
 
-Do not export MDIO_SUPPORTS_{C22,C45} directly; these flags are only
-exposed to userland through struct ethtool_cmd so they should be
-defined alongside that with appropriate names.
+In the mii library, use the ethtool flag definition and stop
+including <linux/mdio.h>.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/Kbuild |    1 +
- include/linux/mdio.h |    9 ++++-----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/mdio.c      |    3 +++
+ drivers/net/mii.c       |    4 ++--
+ include/linux/ethtool.h |   23 +++++++++++++++++++++--
+ 3 files changed, 26 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index c94e717..4b0b7ed 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -238,6 +238,7 @@ header-y += magic.h
- header-y += major.h
- header-y += map_to_7segment.h
- header-y += matroxfb.h
-+header-y += mdio.h
- header-y += media.h
- header-y += mempolicy.h
- header-y += meye.h
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index b1494ac..dec1e87 100644
---- a/include/linux/mdio.h
-+++ b/include/linux/mdio.h
-@@ -273,6 +273,8 @@ static inline __u16 mdio_phy_id_c45(int prtad, int devad)
- 	return MDIO_PHY_ID_C45 | (prtad << 5) | devad;
- }
+diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
+index 16fbb11..8403316 100644
+--- a/drivers/net/mdio.c
++++ b/drivers/net/mdio.c
+@@ -190,6 +190,9 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ 	int reg;
+ 	u32 speed;
  
-+#ifdef __KERNEL__ 
++	BUILD_BUG_ON(MDIO_SUPPORTS_C22 != ETH_MDIO_SUPPORTS_C22);
++	BUILD_BUG_ON(MDIO_SUPPORTS_C45 != ETH_MDIO_SUPPORTS_C45);
 +
- static inline bool mdio_phy_id_is_c45(int phy_id)
+ 	ecmd->transceiver = XCVR_INTERNAL;
+ 	ecmd->phy_address = mdio->prtad;
+ 	ecmd->mdio_support =
+diff --git a/drivers/net/mii.c b/drivers/net/mii.c
+index c70c233..4a99c39 100644
+--- a/drivers/net/mii.c
++++ b/drivers/net/mii.c
+@@ -31,7 +31,7 @@
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+ #include <linux/ethtool.h>
+-#include <linux/mdio.h>
++#include <linux/mii.h>
+ 
+ static u32 mii_get_an(struct mii_if_info *mii, u16 addr)
  {
- 	return (phy_id & MDIO_PHY_ID_C45) && !(phy_id & ~MDIO_PHY_ID_C45_MASK);
-@@ -288,11 +290,6 @@ static inline __u16 mdio_phy_id_devad(int phy_id)
- 	return phy_id & MDIO_PHY_ID_DEVAD;
+@@ -74,7 +74,7 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+ 
+ 	/* this isn't fully supported at higher layers */
+ 	ecmd->phy_address = mii->phy_id;
+-	ecmd->mdio_support = MDIO_SUPPORTS_C22;
++	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
+ 
+ 	ecmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
+ 
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index da5b2de..e1d9e0e 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -30,10 +30,15 @@ struct ethtool_cmd {
+ 				 * access it */
+ 	__u8	duplex;		/* Duplex, half or full */
+ 	__u8	port;		/* Which connector port */
+-	__u8	phy_address;
++	__u8	phy_address;	/* MDIO PHY address (PRTAD for clause 45).
++				 * May be read-only or read-write
++				 * depending on the driver.
++				 */
+ 	__u8	transceiver;	/* Which transceiver to use */
+ 	__u8	autoneg;	/* Enable or disable autonegotiation */
+-	__u8	mdio_support;
++	__u8	mdio_support;	/* MDIO protocols supported.  Read-only.
++				 * Not set by all drivers.
++				 */
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;       /* The forced speed (upper
+@@ -59,6 +64,20 @@ static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
+ 	return (ep->speed_hi << 16) | ep->speed;
  }
  
--#define MDIO_SUPPORTS_C22		1
--#define MDIO_SUPPORTS_C45		2
--
--#ifdef __KERNEL__ 
--
- /**
-  * struct mdio_if_info - Ethernet controller MDIO interface
-  * @prtad: PRTAD of the PHY (%MDIO_PRTAD_NONE if not present/unknown)
-@@ -321,6 +318,8 @@ struct mdio_if_info {
- 
- #define MDIO_PRTAD_NONE			(-1)
- #define MDIO_DEVAD_NONE			(-1)
-+#define MDIO_SUPPORTS_C22		1
-+#define MDIO_SUPPORTS_C45		2
- #define MDIO_EMULATE_C22		4
- 
- struct ethtool_cmd;
++/* Device supports clause 22 register access to PHY or peripherals
++ * using the interface defined in <linux/mii.h>.  This should not be
++ * set if there are known to be no such peripherals present or if
++ * the driver only emulates clause 22 registers for compatibility.
++ */
++#define ETH_MDIO_SUPPORTS_C22	1
++
++/* Device supports clause 45 register access to PHY or peripherals
++ * using the interface defined in <linux/mii.h> and <linux/mdio.h>.
++ * This should not be set if there are known to be no such peripherals
++ * present.
++ */
++#define ETH_MDIO_SUPPORTS_C45	2
++
+ #define ETHTOOL_FWVERS_LEN	32
+ #define ETHTOOL_BUSINFO_LEN	32
+ /* these strings are set to whatever the driver author decides... */
 -- 
 1.7.7.6
-
 
 
 -- 
