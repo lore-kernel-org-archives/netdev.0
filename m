@@ -1,72 +1,45 @@
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Thu, 01 Mar 2012 14:56:11 +0100
-Message-ID: <4F4F7FFB.6010608@collabora.co.uk>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E86@saturn3.aculab.com>  <1330606237.27405.5.camel@megeve> <1330606775.2465.56.camel@edumazet-laptop>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Thu, 01 Mar 2012 14:40:17 +0100
+Message-ID: <87zkc0783i.fsf@macbook.be.48ers.dk>
+References: <1330490737-28973-1-git-send-email-mugunthanvnm@ti.com>
+	<1330490737-28973-3-git-send-email-mugunthanvnm@ti.com>
+	<87pqcxdbmp.fsf@macbook.be.48ers.dk>
+	<EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
-	David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330606775.2465.56.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem\@davemloft.net" <davem@davemloft.net>
+To: "N\, Mugunthan V" <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:62823 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759340Ab2CAN7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 08:59:39 -0500
+Received: by wibhm2 with SMTP id hm2so332280wib.19
+        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 05:59:38 -0800 (PST)
+In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
+	(Mugunthan V. N.'s message of "Wed, 29 Feb 2012 16:28:48 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/01/2012 01:59 PM, Eric Dumazet wrote:
-> Le jeudi 01 mars 2012 =C3=A0 13:50 +0100, Rodrigo Moya a =C3=A9crit :
->> the main problem in D-Bus we are trying to solve is the context
->> switches, since right now, there is a daemon, which listens on a UNI=
-X
->> socket, and all traffic in the bus goes through it, and then the dae=
-mon
->> has to route the messages it gets on that socket to the correspondin=
-g
->> place(s). So, every time someone sends a message to D-Bus, since all
->> traffic goes through the daemon, dbus-daemon gets waked-up, which is=
- one
->> of the biggest bottlenecks we are trying to fix.
->>=20
->> That's why we are thinking about using multicast with socket filters=
-, so
->> that the daemon only gets traffic it cares about and thus is not wak=
-ed
->> up and context switches don't happen when not needed.
->>=20
->> Using message queues, AFAICS, we would have the same problem, as the
->> daemon would create the message queue and would get all traffic, rig=
-ht?
->>=20
->=20
-> This is why I mentioned extensions.
+>>>>> "N" == N, Mugunthan V <mugunthanvnm@ti.com> writes:
 
+Hi,
 
+ >> Is this really platform specific data (rather than SoC specific)? If
+ >> it's purely a difference between 335x and 814x just use an id_table with
+ >> different platform device names instead.
 
->=20
-> Anyway, if you think multicast sockets is the way to go, then you cou=
-ld
-> setup a virtual network just to be able to use AF_INET multicast.
->=20
-> Thats probably doable without kernel patching.
->=20
+ N> Instead of driver maintaining the SoC specific offsets, SoC specific
+ N> files in arch/arm/mach-omap2/ can hold this. Another reason is
+ N> currently this IP is present in 2 SoCs, there are other SoC coming
+ N> up where the offsets may change.
 
-We could use AF_INET multicast on a local machine but we need some
-ordering and control flow requirements that are not guaranteed on UDP
-multicast over IP. That's why we thought to add a new address family
-AF_MCAST.
+Sure, it's the same amount of code no matter where it gets put, but the
+idea is to move code from arch/arm to drivers/ where possible. This will
+also help if the IP is ever used on non-omap2 platforms and for device
+tree support.
 
-To make it a general local multicast solution and not being too specifi=
-c
-we added some flags to control its behavior like
-MCAST_MREQ_DROP_WHEN_FULL to decide to either block the sender or drop
-the packet when one receiver has its queue full.
-
-Regards,
-Javier
+-- 
+Bye, Peter Korsgaard
