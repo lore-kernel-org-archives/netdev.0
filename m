@@ -1,56 +1,101 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 1 Mar 2012 13:33:33 +1100
-Message-ID: <20120301133333.b8297fbd964c1d7aaf8c9f0b@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__1_Mar_2012_13_33_33_+1100_9mP1ssM3ygJLVmta"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net] delete rlb entry if ip of bonding is deleted
+Date: Thu,  1 Mar 2012 12:01:30 +0800
+Message-ID: <b68da7936fe7ed8e6e15edecb41a140a07026ace.1330573426.git.panweiping3@gmail.com>
+References: <4F4EF3FB.8080507@gmail.com>
+Cc: jbohac@suse.cz, fubar@us.ibm.com, andy@greyhouse.net,
+	Weiping Pan <panweiping3@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:38580 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754341Ab2CAD5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 22:57:10 -0500
+Received: by pbcup15 with SMTP id up15so372884pbc.19
+        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 19:57:10 -0800 (PST)
+In-Reply-To: <4F4EF3FB.8080507@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__1_Mar_2012_13_33_33_+1100_9mP1ssM3ygJLVmta
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+When the ip of bonding is deleted, its rlb table still contains old invalid
+mappings, just delete them to avoid poisoning other clients arp cache.
 
-Hi all,
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ drivers/net/bonding/bond_alb.c  |   35 +++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_alb.h  |    2 ++
+ drivers/net/bonding/bond_main.c |    1 +
+ 3 files changed, 38 insertions(+), 0 deletions(-)
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/ethernet/broadcom/tg3.c between commit 65ec698d1368 ("tg3:
-Fix tg3_get_stats64 for 5700 / 5701 devs") from the net tree and various
-commits from the net-next tree.
-
-I just used the version from the net-next tree for today (assuming that
-this conflict will be fixed shortly).
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Thu__1_Mar_2012_13_33_33_+1100_9mP1ssM3ygJLVmta
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPTt/9AAoJEECxmPOUX5FEmUsP/2wPRxWkNxQUXgLO6IkgUpdE
-fufy6y2jE7LOGltbPtIXQMzHpWtI+swsO3dsXE7lnAwU1GnP+Plf3l6y9+uKwXYZ
-zDjL5FgMLuUzMV5i0tafQsOSpgtpqKy9VCYRFyAQtu2kEOdgrqmauSaKwowcI8En
-eDLZnL0NHKDYNyp5h/wGq4k/AxMd2xbN8KjN0gUW+a+kzKFZ2VVwtpUZl0qEjFwJ
-1t/kzQVrUAr7NoICHFSrUUHOOpOFfywCWoKUbwevo20Zz9w9f6cwf6qo3PmKk5uN
-H78ljwrPsfJ2+/2G0PfLk7Np4KtUux9ZZqiOJIbMaRSlmdeuYvL0wnD7t5hwWMF3
-qUe/2sFA7ryQQqWRxwn+XVeDN9+pPRSJnkDOEjWMjofFgryrgL1n36DjVBBmcdKW
-fH9Yp+OINuGF9OQyLxB2NEgemb1Z4Ku/1cnvsYCulWaW0qQvSX7i5GNIFOkPKV4T
-LGueq3nMtqAbaSxfzfHNIfPcTlebXRbLYMMVK/IAVLCU4ICM59dOor/PQaKwqtWH
-81wRH760xoA7n8PpU1eSMB4adSMmNvAk9gHHDDF6HIa+KgEiAaiZJS4q6wMvcm5t
-XL4juQ8igEXemDGfyIJ8TQ6f8sPirlfnpbPzB89uofz4mE+6FyHcLNJhikQEakKH
-UhZKt380aXnVufRO+StJ
-=H2L+
------END PGP SIGNATURE-----
-
---Signature=_Thu__1_Mar_2012_13_33_33_+1100_9mP1ssM3ygJLVmta--
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index f820b26..928c636 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -853,6 +853,41 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
++/* delete all rlb entries which has ip as ip_src */
++void bond_alb_delete_entry(struct bonding *bond, __be32 ip)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 curr_index;
++
++	_lock_rx_hashtbl_bh(bond);
++
++	curr_index = bond_info->rx_hashtbl_head;
++	while (curr_index != RLB_NULL_INDEX) {
++		struct rlb_client_info *curr = &(bond_info->rx_hashtbl[curr_index]);
++		u32 next_index = bond_info->rx_hashtbl[curr_index].next;
++		u32 prev_index = bond_info->rx_hashtbl[curr_index].prev;
++		if (curr->assigned && (curr->ip_src == ip)) {
++			if (curr_index == bond_info->rx_hashtbl_head) {
++				bond_info->rx_hashtbl_head = next_index;
++			}
++
++			if (prev_index != RLB_NULL_INDEX) {
++				bond_info->rx_hashtbl[prev_index].next = next_index;
++			}
++
++			if (next_index != RLB_NULL_INDEX) {
++				bond_info->rx_hashtbl[next_index].prev = prev_index;
++			}
++
++			rlb_init_table_entry(curr);
++		}
++
++		curr_index = next_index;
++	}
++
++	_unlock_rx_hashtbl_bh(bond);
++}
++
+ /*********************** tlb/rlb shared functions *********************/
+ 
+ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 90f140a..38863fc 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -163,5 +163,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+ void bond_alb_monitor(struct work_struct *);
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
++
++void bond_alb_delete_entry(struct bonding *bond, __be32 ip);
+ #endif /* __BOND_ALB_H__ */
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 435984a..ec071b9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3315,6 +3315,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 				return NOTIFY_OK;
+ 			case NETDEV_DOWN:
+ 				bond->master_ip = 0;
++				bond_alb_delete_entry(bond, ifa->ifa_local);
+ 				return NOTIFY_OK;
+ 			default:
+ 				return NOTIFY_DONE;
+-- 
+1.7.4.4
