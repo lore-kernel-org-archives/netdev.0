@@ -1,49 +1,37 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to AF_UNIX
-Date: Fri, 2 Mar 2012 00:01:40 +0200
-Message-ID: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
-References: <20120228.140558.1132853996225815681.davem@davemloft.net>
-	<4F4F641E.7000501@collabora.co.uk>
-	<1330604802.2465.43.camel@edumazet-laptop>
-	<20120301.154415.1692328508436381200.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, javier.martinez@collabora.co.uk,
-	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120301.154415.1692328508436381200.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] mpc836x: fix failed phy detection for ucc ethernet on MDS
+Date: Thu, 1 Mar 2012 16:06:35 -0600
+Message-ID: <0CFFA9FB-E2D0-4CC3-A430-10692B62B9B0@freescale.com>
+References: <1330345501-24949-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0 (Apple Message framework v1257)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <benh@kernel.crashing.org>, <linuxppc-dev@lists.ozlabs.org>,
+	<netdev@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:56329
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754371Ab2CAWGr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 17:06:47 -0500
+In-Reply-To: <1330345501-24949-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
 
-On Thu, Mar 1, 2012 at 10:44 PM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 01 Mar 2012 04:26:42 -0800
->
->> Why adding an obscure set of IPC mechanism in network tree, and not
->> using (maybe extending) traditional IPC (Messages queues, semaphores,
->> Shared memory, pipes, futexes, ...).
->
-> I actually don't understand why there is so much resistence to using a
-> real bonafide on-the-wire protocol, and that way if you ever wanted to
-> connect dbus instances on multiple machines or log dbus transactions
-> remotely for debugging, you could just do it.
+On Feb 27, 2012, at 6:25 AM, Paul Gortmaker wrote:
 
-I don't think you understood the problem, we want something that scale
-for less powerful devices, why do you think Android have all the
-trouble to create binder?
+> The mpc836x_mds platform has been broken since the commit
+> 6fe3264945ee63292cdfb27b6e95bc52c603bb09
+> 
+> [...]
 
-Besides what is really the point in having AF_UNIX if you can't use
-for what it is for?
+> ---
+> 
+> [Andy: There may be other boards that could be having this problem
+>  git grep -l enet.*ucc arch/powerpc/boot/dts/|xargs grep -L tbi
+> shows four possible candidates -- but I've only got the 8360MDS. ]
 
-"The  AF_UNIX (also known as AF_LOCAL) socket family is used to
-communicate between processes on the same machine efficiently."
 
--- 
-Luiz Augusto von Dentz
+Shoot. I will go look for those. I suspect I neglected all the UCC-having SOCs in my patch.
