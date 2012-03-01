@@ -1,55 +1,41 @@
-From: pablo@netfilter.org
-Subject: [PATCH] netfilter: bridge: fix module autoload in compat case
-Date: Thu,  1 Mar 2012 12:02:19 +0100
-Message-ID: <1330599739-1645-2-git-send-email-pablo@netfilter.org>
-References: <1330599739-1645-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1330599739-1645-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
+Date: Thu, 1 Mar 2012 12:27:32 +0100
+Message-ID: <20120301112732.GA6806@1984>
+References: <1328400892-22409-1-git-send-email-richard@nod.at>
+ <1328400892-22409-3-git-send-email-richard@nod.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	jengelh@medozas.de, rostedt@goodmis.org
+To: Richard Weinberger <richard@nod.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1328400892-22409-3-git-send-email-richard@nod.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Sun, Feb 05, 2012 at 01:14:48AM +0100, Richard Weinberger wrote:
+> ipt_LOG and ip6_LOG have a lot of common code, merge them
+> to reduce duplicate code.
+> 
+> Signed-off-by: Richard Weinberger <richard@nod.at>
 
-We expected 0 if module doesn't exist, which is no longer the case
-(42046e2e45c109ba703993c510401a11f716c8df,
-netfilter: x_tables: return -ENOENT for non-existant matches/targets).
+While testing this in my master branch I noticed one problem:
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/bridge/netfilter/ebtables.c |   10 ++--------
- 1 files changed, 2 insertions(+), 8 deletions(-)
+IN=wlan0 OUT= MAC=xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
+SRC=213.150.61.61 DST=192.168.1.133 LEN=40 TOS=0x00 PREC=0x00 TTL=117
+ID=10539 DF PROTO=TCP SPT=80 DPT=49013 WINDOW=0 RES=0x00 ACK RST
+URGP=0 PROTO=UDPLITE SPT=80 DPT=49013 LEN=45843 PROTO=ICMP TYPE=0
+CODE=80 ID=45843 SEQ=48576
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 5864cc4..8aa4ad0 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1893,10 +1893,7 @@ static int compat_mtw_from_user(struct compat_ebt_entry_mwt *mwt,
- 
- 	switch (compat_mwt) {
- 	case EBT_COMPAT_MATCH:
--		match = try_then_request_module(xt_find_match(NFPROTO_BRIDGE,
--						name, 0), "ebt_%s", name);
--		if (match == NULL)
--			return -ENOENT;
-+		match = xt_request_find_match(NFPROTO_BRIDGE, name, 0);
- 		if (IS_ERR(match))
- 			return PTR_ERR(match);
- 
-@@ -1915,10 +1912,7 @@ static int compat_mtw_from_user(struct compat_ebt_entry_mwt *mwt,
- 		break;
- 	case EBT_COMPAT_WATCHER: /* fallthrough */
- 	case EBT_COMPAT_TARGET:
--		wt = try_then_request_module(xt_find_target(NFPROTO_BRIDGE,
--						name, 0), "ebt_%s", name);
--		if (wt == NULL)
--			return -ENOENT;
-+		wt = xt_request_find_target(NFPROTO_BRIDGE, name, 0);
- 		if (IS_ERR(wt))
- 			return PTR_ERR(wt);
- 		off = xt_compat_target_offset(wt);
--- 
-1.7.7.3
+While merging ipt_LOG and ip6t_LOG, you introduced some bug that
+corrupts the log line. Note the extra PROTO=, I don't have any UDPLITE
+traffic here.
 
+Looks like a missing break in one switch.
+
+Would you send me a patch to fix this?
+
+Thank you.
