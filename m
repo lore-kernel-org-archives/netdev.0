@@ -1,117 +1,130 @@
-From: Ashwin Rao <ashwin.shirvanthe@gmail.com>
-Subject: Re: Restricting payload size in do_tcp_sendpages.
-Date: Thu, 1 Mar 2012 18:30:42 +0100
-Message-ID: <CAJNbMrwrNZkMQcBJ12QjrVYbC_1HR0FBcCF44d3dC7kOopSAoA@mail.gmail.com>
-References: <CAJNbMryYORXmp0CPhL9zt8ne5P5yOKvNLsqnjeNwb4m0OAQeiQ@mail.gmail.com>
-	<1330617525.2465.77.camel@edumazet-laptop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:3418
+Date: Thu, 1 Mar 2012 12:31:30 -0500
+Message-ID: <CADVnQy=JkVc_8ptpSkhQWe4HJpbe_+JMad+2uqgN1iUfkfFFCw@mail.gmail.com>
+References: <alpine.DEB.2.01.1202261556150.4930@trent.utfs.org>
+	<alpine.DEB.2.01.1202290929520.4930@trent.utfs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:39558 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752892Ab2CARap convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 12:30:45 -0500
-Received: by ggnh1 with SMTP id h1so367561ggn.19
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 09:30:44 -0800 (PST)
-In-Reply-To: <1330617525.2465.77.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, markus@trippelsdorf.de,
+	LKML <linux-kernel@vger.kernel.org>
+To: Christian Kujau <lists@nerdbynature.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.01.1202290929520.4930@trent.utfs.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 1, 2012 at 4:58 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le jeudi 01 mars 2012 =E0 16:16 +0100, Ashwin Rao a =E9crit :
+Thanks for the detailed reports.
+
+I am working on this, and have a theory and potential fix for a bug
+that relates to MSS changes and broken packet counts for SACKed skbs,
+which could conceivably lead to the warnings you're seeing. However,
+the bug that I am looking at is quite old. (Though it's possible it's
+being tickled more now, due to some interaction with recent changes.)
+
+To help provide more data, would you be able to run with 3.3.0-rc3 for
+a while (hopefully with roughly the same flavor of workload) and see
+if you run into the same problems?
+
+neal
+
+On Wed, Feb 29, 2012 at 12:41 PM, Christian Kujau <lists@nerdbynature.d=
+e> wrote:
+> This is still happening with 3.3.0-rc5, .config & dmesg here:
+>
+> =A0 http://nerdbynature.de/bits/3.3.0-rc4/ipv4/
+>
+> After the WARNING is printed often enough, the machine halts and has =
+to be
+> powercycled. It appears that "lots of traffic" or "many connections" =
+may
+> cause this, but unfortunately I haven't been able to reproduce this r=
+eliably.
+>
+> Any ideas on that one?
+>
+> Thanks,
+> Christian.
+>
+> On Sun, 26 Feb 2012 at 16:05, Christian Kujau wrote:
 >> Hi,
 >>
->> I would like to perform some experiments where I want TCP to send
->> packets of size less than the MSS even more than an MSS worth of dat=
-a
->> is available in the TCP buffers. =A0I am performing these experiment=
-s to
->> submit a patch that can avoid synchronization of TCP flows. I have
->> modified the following code in the function do_tcp_sendpages in the
->> file net/ipv4/tcp.c. =A0For testing purposes I have currently set th=
-e
->> mss_now to half of the value that would have been typically used. I
->> have even updated the size_goal which controls the maximum size that
->> can be sent when offloading is enabled. To avoid coalescing smaller
->> skbs I have even set the can_coalesce to 0. Despite these changes th=
-e
->> frames sent over the Ethernet have the length of 1514 bytes. I would
->> like to know which function is responsible for coalescing these
->> packets despite forcing a small segment size.
+>> I'm getting the same message here on PowerPC (32bit):
 >>
->> *** linux-3.2.6/net/ipv4/tcp.c
->> --- linux-3.2.6-modified/net/ipv4/tcp.c
->> *************** static ssize_t do_tcp_sendpages(struct s
->> *** 774,779 ****
->> --- 774,783 ----
->> =A0 =A0 =A0 clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+>> ------------[ cut here ]------------
+>> WARNING: at /usr/local/src/linux-2.6-git/net/ipv4/tcp_input.c:3418
+>> Modules linked in: tun nfs ecryptfs netconsole therm_adt746x aes_gen=
+eric
+>> arc4 b43 i2c_powermac sd_mod firewire_sbp2 mac80211 cfg80211 usb_sto=
+rage
+>> scsi_mod
+>> NIP: c04720c4 LR: c04720b8 CTR: c049f2c8
+>> REGS: efff1c20 TRAP: 0700 =A0 Tainted: G =A0 =A0 =A0 =A0W =A0 =A0 (3=
+=2E3.0-rc4)
+>> MSR: 00029032 <EE,ME,IR,DR,RI> =A0CR: 42048448 =A0XER: 20000000
+>> TASK =3D ee666780[1964] 'milkyway_0.50_p' THREAD: ee6c6000
+>> GPR00: ffffffff efff1cd0 ee666780 ee70c0a0 0000000b ffffffff c0426e7=
+0 00000000
+>> GPR08: 0000000b 00000001 00000000 00000009 42048448 1013488c 0000000=
+0 4f4a260f
+>> GPR16: 29c2cc42 00000502 00000000 000001cb 000001cb ee70c1b0 0000000=
+b 00000000
+>> GPR24: 00000001 0000000c ffffffff ecef8580 0000000b 3c176da7 ee70c0a=
+0 c0690000
+>> NIP [c04720c4] tcp_ack+0x720/0x10a0
+>> LR [c04720b8] tcp_ack+0x714/0x10a0
+>> Call Trace:
+>> [efff1cd0] [c04720b8] tcp_ack+0x714/0x10a0 (unreliable)
+>> [efff1d60] [c04756f0] tcp_rcv_established+0x214/0x6c4
+>> [efff1d90] [c047d1dc] tcp_v4_do_rcv+0xd8/0x2a4
+>> [efff1dd0] [c047db0c] tcp_v4_rcv+0x764/0x8e4
+>> [efff1e10] [c045ac6c] ip_local_deliver+0xe0/0x1dc
+>> [efff1e30] [c045a870] ip_rcv+0x378/0x694
+>> [efff1e50] [c04302c8] __netif_receive_skb+0x320/0x52c
+>> [efff1eb0] [c0430790] napi_skb_finish+0x6c/0x90
+>> [efff1ec0] [c03b2e20] gem_poll+0x694/0x1274
+>> [efff1f50] [c0430ccc] net_rx_action+0x1d4/0x278
+>> [efff1fa0] [c003bac0] __do_softirq+0xf4/0x1bc
+>> [efff1ff0] [c00103b0] call_do_softirq+0x14/0x24
+>> [ee6c7ee0] [c00070ac] do_softirq+0xfc/0x128
+>> [ee6c7f00] [c003b73c] irq_exit+0xac/0xcc
+>> [ee6c7f10] [c00071d8] do_IRQ+0x8c/0x1b0
+>> [ee6c7f40] [c0012e60] ret_from_except+0x0/0x14
+>> Instruction dump:
+>> 2f800000 419e0020 73250008 4182046c 38a0ffff 7ec4b378 7fc3f378 7c090=
+3a6
+>> 4e800421 801e04e8 7c1a0378 54090ffe <0f090000> 809e04e4 54890ffe 0f0=
+90000
+>> ---[ end trace de136ca1488e7a83 ]---
+>> Leak s=3D4294967295 1
 >>
->> =A0 =A0 =A0 mss_now =3D tcp_send_mss(sk, &size_goal, flags);
->> + =A0 =A0 /* hack begin */
->> + =A0 =A0 mss_now =3D mss_now >> 1;
->> + =A0 =A0 size_goal =3D mss_now;
->> + =A0 =A0 /* hack end */
->> =A0 =A0 =A0 copied =3D 0;
 >>
->> =A0 =A0 =A0 err =3D -EPIPE;
->> *************** new_segment:
->> *** 805,810 ****
->> --- 809,817 ----
+>> Yesterday the machine panick'ed and shutdown shortly after the messa=
+ge
+>> appeared. From today's logs I can see the message appeared some 10 h=
+ours
+>> ago but the machine is still up & running. I've been running 3.3.0-r=
+c4 for
+>> some time now, but network activity went up a few days ago, so that
+>> might've triggered it.
 >>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 i =3D skb_shinfo(skb)->nr_frags;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 can_coalesce =3D skb_can_coalesce(skb, i=
-, page, offset);
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* hack begin */
->> + =A0 =A0 =A0 =A0 =A0 =A0 can_coalesce =3D 0;
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* hack end */
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!can_coalesce && i >=3D MAX_SKB_FRAG=
-S) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 tcp_mark_push(tp, skb);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto new_segment;
->> *************** wait_for_memory:
->> *** 857,862 ****
->> --- 864,873 ----
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto do_error;
+>> Ful dmesg & .config: http://nerdbynature.de/bits/3.3.0-rc4/ipv4/
 >>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 mss_now =3D tcp_send_mss(sk, &size_goal,=
- flags);
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* hack begin */
->> + =A0 =A0 =A0 =A0 =A0 =A0 mss_now =3D mss_now >> 1;
->> + =A0 =A0 =A0 =A0 =A0 =A0 size_goal =3D mss_now;
->> + =A0 =A0 =A0 =A0 =A0 =A0 /* hack end */
->> =A0 =A0 =A0 }
+>> Note: the machine's internal battery seems to be bad, that's why the
+>> timestamps during bootup are b0rked in those logfiles.
 >>
+>> Please Cc me on replies as I'm not subscribed to netdev.
+>>
+>> Thanks,
+>> Christian.
+>> --
+>> BOFH excuse #444:
+>>
+>> overflow error in /dev/null
 >>
 >
-> You dont need to hack kernel
+> --
+> BOFH excuse #38:
 >
-> man 7 tcp
->
-> =A0 =A0 =A0 TCP_MAXSEG
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0The =A0maximum =A0segment =A0size =A0for =A0=
-outgoing TCP packets. =A0If this
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0option is set before connection establishm=
-ent, it =A0also =A0changes
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0the =A0MSS value announced to the other en=
-d in the initial packet.
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0Values greater than the (eventual) interfa=
-ce MTU have no effect.
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0TCP =A0will =A0also =A0impose =A0its minim=
-um and maximum bounds over the
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0value provided.
->
->
-
-My objective is to send a train of packets each of which has a
-different packet size. The maximum packet size should be restricted by
-the MSS however the packet sizes should not be the same. Before
-randomizing the packet sizes, I wanted to check if I set the packet
-size to a fixed value will it be reflected on the packets being sent
-over the wire.
-
-Regards,
-Ashwin
+> secretary plugged hairdryer into UPS
