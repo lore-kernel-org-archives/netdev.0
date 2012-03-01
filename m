@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Thu, 01 Mar 2012 15:44:15 -0500 (EST)
-Message-ID: <20120301.154415.1692328508436381200.davem@davemloft.net>
-References: <20120228.140558.1132853996225815681.davem@davemloft.net>
-	<4F4F641E.7000501@collabora.co.uk>
-	<1330604802.2465.43.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next 3/3] mlx4_en: Saving mem access on data path
+Date: Thu, 01 Mar 2012 15:47:55 -0500 (EST)
+Message-ID: <20120301.154755.637780066804215151.davem@davemloft.net>
+References: <20120223.144749.1718133820851859801.davem@davemloft.net>
+	<953B660C027164448AE903364AC447D2618B8782@MTLDAG02.mtl.com>
+	<CAJZOPZ+Z-L4soSOnPxh68cEjeM6Pj8UBBnrmSwYf4VWyU_MA0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: javier.martinez@collabora.co.uk, rodrigo.moya@collabora.co.uk,
-	javier@collabora.co.uk, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330604802.2465.43.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com
+To: or.gerlitz@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46771 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932521Ab2CAUsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 15:48:02 -0500
+In-Reply-To: <CAJZOPZ+Z-L4soSOnPxh68cEjeM6Pj8UBBnrmSwYf4VWyU_MA0Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 01 Mar 2012 04:26:42 -0800
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Thu, 1 Mar 2012 15:03:02 +0200
 
-> Why adding an obscure set of IPC mechanism in network tree, and not
-> using (maybe extending) traditional IPC (Messages queues, semaphores,
-> Shared memory, pipes, futexes, ...).
+> Following Yevgeny's clarification, can this patch (3/3) go to
+> net-next?
 
-I actually don't understand why there is so much resistence to using a
-real bonafide on-the-wire protocol, and that way if you ever wanted to
-connect dbus instances on multiple machines or log dbus transactions
-remotely for debugging, you could just do it.
+Sure, please resubmit it.
