@@ -1,93 +1,76 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/3] netfilter: Fix copy_to_user too small size parametre.
-Date: Thu, 1 Mar 2012 14:37:36 +0300
-Message-ID: <20120301113736.GE22598@mwanda>
-References: <1330593390-19233-1-git-send-email-santoshprasadnayak@gmail.com>
- <20120301101809.GA6488@1984>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
+Date: Thu, 01 Mar 2012 12:41:42 +0100
+Message-ID: <4F4F6076.5050903@nod.at>
+References: <1328400892-22409-1-git-send-email-richard@nod.at> <1328400892-22409-3-git-send-email-richard@nod.at> <20120301112732.GA6806@1984>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2hMgfIw2X+zgXrFs"
-Cc: santosh nayak <santoshprasadnayak@gmail.com>,
-	bart.de.schuymer@pandora.be, kaber@trash.net,
-	shemminger@vyatta.com, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+ protocol="application/pgp-signature";
+ boundary="------------enig895AD0FC53FA46E1B9B5B8ED"
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	jengelh@medozas.de, rostedt@goodmis.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120301101809.GA6488@1984>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120301112732.GA6806@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---2hMgfIw2X+zgXrFs
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig895AD0FC53FA46E1B9B5B8ED
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Mar 01, 2012 at 11:18:09AM +0100, Pablo Neira Ayuso wrote:
-> On Thu, Mar 01, 2012 at 02:46:30PM +0530, santosh nayak wrote:
-> > From: Santosh Nayak <santoshprasadnayak@gmail.com>
-> >=20
-> > While copying to userspace, the size of source is 29byte where as
-> > size parametre is 32 byte.  Its leaking extra-information from
-> > kernel space to user space.
-> > Replace EBT_FUNCTION_MAXNAMELEN by XT_EXTENSION_MAXNAMELEN.
+Am 01.03.2012 12:27, schrieb Pablo Neira Ayuso:
+> On Sun, Feb 05, 2012 at 01:14:48AM +0100, Richard Weinberger wrote:
+>> ipt_LOG and ip6_LOG have a lot of common code, merge them
+>> to reduce duplicate code.
+>>
+>> Signed-off-by: Richard Weinberger <richard@nod.at>
 >=20
-> There's no information leak.
+> While testing this in my master branch I noticed one problem:
+>=20
+> IN=3Dwlan0 OUT=3D MAC=3Dxx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
+> SRC=3D213.150.61.61 DST=3D192.168.1.133 LEN=3D40 TOS=3D0x00 PREC=3D0x00=
+ TTL=3D117
+> ID=3D10539 DF PROTO=3DTCP SPT=3D80 DPT=3D49013 WINDOW=3D0 RES=3D0x00 AC=
+K RST
+> URGP=3D0 PROTO=3DUDPLITE SPT=3D80 DPT=3D49013 LEN=3D45843 PROTO=3DICMP =
+TYPE=3D0
+> CODE=3D80 ID=3D45843 SEQ=3D48576
+>=20
+> While merging ipt_LOG and ip6t_LOG, you introduced some bug that
+> corrupts the log line. Note the extra PROTO=3D, I don't have any UDPLIT=
+E
+> traffic here.
+>=20
+> Looks like a missing break in one switch.
+>=20
+> Would you send me a patch to fix this?
 >=20
 
-Where do we clear "m"?=20
+Sure. Do I have 48h to fix this?
+I'm currently very busy.
 
-include/linux/netfilter/x_tables.h
-   287  struct xt_match {
-   288          struct list_head list;
-   289 =20
-   290          const char name[XT_EXTENSION_MAXNAMELEN];
-   291          u_int8_t revision;
-   292 =20
-
-There is a 2 byte holes here between "revision" and "match()".  We
-copy three bytes past the end of name, so we include revision and
-the hole.
-
-But maybe we memset it somewhere?  I'm not sure.
-
-   293          /* Return true or false: return FALSE and set *hotdrop =3D =
-1 to
-   294             force immediate packet drop. */
-   295          /* Arguments changed since 2.6.9, as this must now handle
-   296             non-linear skb, using skb_header_pointer and
-   297             skb_ip_make_writable. */
-   298          bool (*match)(const struct sk_buff *skb,
-   299                        struct xt_action_param *);
-
-regards,
-dan carpenter
+Thanks,
+//richard
 
 
---2hMgfIw2X+zgXrFs
+--------------enig895AD0FC53FA46E1B9B5B8ED
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Version: GnuPG v2.0.18 (GNU/Linux)
 
-iQIcBAEBAgAGBQJPT1+AAAoJEOnZkXI/YHqRKx4P/RanpcSe0yquG5PCGH83USUS
-ZQ9KYI5y1ZPBi6wYwtX9MHRssH1/JQeGty/94HUhxrNbwwpppvAcbpZT5xCffV3u
-EHFHWX++wO8oIp3as2pKBZuQ7TYlJz+zLsgmV5+QhvCuD50QaKS1R6zfzRERiFIA
-8Xp5rW5b44viORHWFZaZ7rOqjRABIpTlrfTC9Wkg0Oste/1nq5tRXGqvOZPudNmp
-XlXprGMcC8pvWAu+U8iAIDv/SFwkJazcKCBVA7VN62V0VIRSup8NbvL/La65R8EG
-vnxUhOIkxAYv6y0nByUuCs7cHT/LMq/AQgHVgFrtNF0LZNPD9XivjfzkKOz5I30C
-dNk0GnnfuxmJfNCupSfngh8IUbTM46eNd0O15DiPZSuOhEmvEjji+oS0ZQg3cWFg
-lryoLZh0Oq1EJ9mllfmuixYHu3XeIK4dM7tU9l8qZIv7jjiRWrKOwo6vL9ip862O
-G3072/114Cpr/4kK3k7msObKH//+GgRlqBRnvOaxADTWCWnGpcRdOFvcfBvoJFGI
-6f46TQTNhS7YYtPuARrMMt8CW2pQouKYZ94N8ShocHYYANA247EIiCCYlpbXg8aX
-cC9YtY8bguDyJ/6fC4wJGOpOqbqTJqYw6sFWccydz79LJ39bBDNfBjf9jMzPWWSV
-DkI0tbloqsX3HAP/yN9+
-=RUds
+iQEcBAEBAgAGBQJPT2B6AAoJEN9758yqZn9esF0H/iBZcy3Bs0JroQxUxSl5JNjU
+L/jj9/1Y1+8Madw8nVRoCkNXflwZrqUnLW8hIZeanon8U1a6rx+UK+5UkkfaNXxL
+9A3HifXg+GeG5VYb0LgIPmyyR8ZD/rZHNhwP8Xp1kVfQywhoBqOSFPnLQHhlvoQq
+8m3wNU+C+BIor9Ksa8DXXqlv/GVg1rTIULfyBTp6lECxEtsUzIUIZ8Ljg1hq5d9p
+ziDZ1xulBCtuRD+ODlxzEV5aeestO9ke7dwz+49pI2VA3wDwbJclYeSFFxesU9/r
+YO/6mSULkbRNGB4BvOirI6hxTrBwnUgOaYk3OEYgca8tNcUo4xbcXYAbcEVeoXM=
+=Penx
 -----END PGP SIGNATURE-----
 
---2hMgfIw2X+zgXrFs--
+--------------enig895AD0FC53FA46E1B9B5B8ED--
