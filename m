@@ -1,35 +1,76 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: enic: endian bug in enic_queue_wq_skb_csum_l4()
-Date: Thu, 1 Mar 2012 10:20:23 +0300
-Message-ID: <20120301072023.GB7152@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roprabhu@cisco.com>, Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>, netdev@vger.kernel.org
-To: Christian Benvenuti <benve@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:24273 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758617Ab2CAJPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 04:15:43 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 3/3] netfilter: Remove redundant code.
+Date: Thu,  1 Mar 2012 14:47:46 +0530
+Message-ID: <1330593466-19317-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: pablo@netfilter.org, kaber@trash.net, shemminger@vyatta.com,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: bart.de.schuymer@pandora.be
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sparse warns about an endian issue in the enic driver:
-drivers/net/ethernet/cisco/enic/enic_main.c:1305:35: warning: incorrect type in assignment (different base types)
-drivers/net/ethernet/cisco/enic/enic_main.c:1305:35:    expected restricted __wsum [usertype] csum
-drivers/net/ethernet/cisco/enic/enic_main.c:1305:35:    got restricted __be16 [usertype] <noident>
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-Here is the code:
-drivers/net/ethernet/cisco/enic/enic_main.c
-  1304                  if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
-  1305                          skb->csum = htons(checksum);
-  1306                          skb->ip_summed = CHECKSUM_COMPLETE;
-  1307                  }
+Remove the redundant code.
 
-skb->csum is 32bit we're storing a network endian short in it.  I don't
-know networking well enough to know how to fix this.
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ net/bridge/netfilter/ebtables.c |   18 ++++++------------
+ 1 files changed, 6 insertions(+), 12 deletions(-)
 
-regards,
-dan carpenter
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 9c0f177..1efc234 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -226,10 +226,8 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 
+ 		if (EBT_MATCH_ITERATE(point, ebt_do_match, skb, &acpar) != 0)
+ 			goto letscontinue;
+-		if (acpar.hotdrop) {
+-			read_unlock_bh(&table->lock);
+-			return NF_DROP;
+-		}
++		if (acpar.hotdrop)
++			goto out;
+ 
+ 		/* increase counter */
+ 		(*(counter_base + i)).pcnt++;
+@@ -253,10 +251,8 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 			read_unlock_bh(&table->lock);
+ 			return NF_ACCEPT;
+ 		}
+-		if (verdict == EBT_DROP) {
+-			read_unlock_bh(&table->lock);
+-			return NF_DROP;
+-		}
++		if (verdict == EBT_DROP)
++			goto out;
+ 		if (verdict == EBT_RETURN) {
+ letsreturn:
+ #ifdef CONFIG_NETFILTER_DEBUG
+@@ -281,8 +277,7 @@ letsreturn:
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 		if (verdict < 0) {
+ 			BUGPRINT("bogus standard verdict\n");
+-			read_unlock_bh(&table->lock);
+-			return NF_DROP;
++			goto out;
+ 		}
+ #endif
+ 		/* jump to a udc */
+@@ -294,8 +289,7 @@ letsreturn:
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 		if (chaininfo->distinguisher) {
+ 			BUGPRINT("jump to non-chain\n");
+-			read_unlock_bh(&table->lock);
+-			return NF_DROP;
++			goto out;
+ 		}
+ #endif
+ 		nentries = chaininfo->nentries;
+-- 
+1.7.4.4
