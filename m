@@ -1,58 +1,37 @@
-From: <Ajit.Khaparde@Emulex.Com>
-Subject: RE: [RFC net-next 1/2] if_link : add support for VF privileges
-Date: Thu, 1 Mar 2012 10:54:31 -0800
-Message-ID: <49395329523DD64492581B505F80C86D5BDD08F6DB@EXMAIL.ad.emulex.com>
-References: <20120214192627.GA14163@akhaparde-VBox>
-	 <1329261897.2443.60.camel@bwh-desktop>
-	 <49395329523DD64492581B505F80C86D5BDCF681FD@EXMAIL.ad.emulex.com>
-	 <20120221.170441.1552294498786802979.davem@davemloft.net>
- <1329864202.2689.56.camel@bwh-desktop>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Thu, 01 Mar 2012 13:53:34 -0500
+Message-ID: <1330628015.1026.148.camel@obelisk.thedillows.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E86@saturn3.aculab.com>
+	 <1330606237.27405.5.camel@megeve>
+	 <1330606775.2465.56.camel@edumazet-laptop>
+	 <4F4F7FFB.6010608@collabora.co.uk>
+	 <CABBYNZKN+7z4Sr9DBniokez6Jru02LxPgWdGNcVeYECse+AzEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <shemminger@linux-foundation.org>, <netdev@vger.kernel.org>
-To: <bhutchings@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:30274 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754045Ab2CASyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 13:54:52 -0500
-In-Reply-To: <1329864202.2689.56.camel@bwh-desktop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rodrigo Moya <rodrigo.moya@collabora.co.uk>,
+	David Laight <David.Laight@aculab.com>,
+	David Miller <davem@davemloft.net>, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABBYNZKN+7z4Sr9DBniokez6Jru02LxPgWdGNcVeYECse+AzEQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIEZlYnJ1
-YXJ5IDIxLCAyMDEyIDQ6NDMgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogS2hhcGFyZGUs
-IEFqaXQ7IHNoZW1taW5nZXJAbGludXgtZm91bmRhdGlvbi5vcmc7IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgbmV0LW5leHQgMS8yXSBpZl9saW5rIDogYWRkIHN1
-cHBvcnQgZm9yIFZGIHByaXZpbGVnZXMNCj4gDQo+IE9uIFR1ZSwgMjAxMi0wMi0yMSBhdCAxNzow
-NCAtMDUwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPiA+IEZyb206IDxBaml0LktoYXBhcmRlQEVt
-dWxleC5Db20+DQo+ID4gRGF0ZTogVHVlLCAyMSBGZWIgMjAxMiAxNDowMjoyNyAtMDgwMA0KPiA+
-DQo+ID4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+PiBGcm9tOiBCZW4gSHV0
-Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gPiA+PiBTZW50OiBU
-dWVzZGF5LCBGZWJydWFyeSAxNCwgMjAxMiA1OjI1IFBNDQo+ID4gPj4gVG86IEtoYXBhcmRlLCBB
-aml0DQo+ID4gPj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IHNoZW1taW5nZXJAbGludXgtZm91
-bmRhdGlvbi5vcmc7DQo+ID4gPj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+ID4+IFN1Ympl
-Y3Q6IFJlOiBbUkZDIG5ldC1uZXh0IDEvMl0gaWZfbGluayA6IGFkZCBzdXBwb3J0IGZvciBWRiBw
-cml2aWxlZ2VzDQo+ID4gPj4NCj4gPiA+PiBPbiBUdWUsIDIwMTItMDItMTQgYXQgMTM6MjYgLTA2
-MDAsIEFqaXQgS2hhcGFyZGUgd3JvdGU6DQo+ID4gPj4gPiArZW51bSB7DQo+ID4gPj4gPiArCUlG
-TEFfVkZfUFJJVklMRUdFX0RFRkFVTFQgPSAxLAkvKiBEZWZhdWx0IHByaXZpbGVnZXMgKi8NCj4g
-PiA+Pg0KPiA+ID4+IFdoYXQgYXJlIHRoZSBkZWZhdWx0IHByaXZpbGVnZXM/ICBTaG91bGQgZXhp
-c3RpbmcgZHJpdmVycyByZXBvcnQgdGhhdA0KPiA+ID4+IHRoZWlyIFZGcyBoYXZlIHRoaXM/DQo+
-ID4gPiBZZXMuIFZlbmRvcnMgY2FuIGRlY2lkZSB3aGF0IHByaXZpbGVnZXMgdGhleSB3YW50IHRv
-IGdyYW50IGZvciBWRnMgYnkgZGVmYXVsdC4NCj4gPg0KPiA+IFRoYXQncyB0ZXJyaWJsZSBhbmQg
-YSB2ZXJ5IGJhZCBpbnRlcmZhY2UgZm9yIHVzZXJzLiAgSXQgbWVhbnMgZXZlcnkgc3lzdGVtDQo+
-ID4gY2FuIGhhdmUgZGlmZmVyZW50IGRlZmF1bHRzLCBmcm9tIHdoaWNoIHdlJ2xsIGRlcml2ZSB6
-ZXJvIGNvbnNpc3RlbmN5Lg0KPiANCj4gQXNpZGUgZnJvbSB0aGlzLCBteSBjb25jZXJuIGlzIHRo
-YXQgaWYgd2UgYXNzaWduIHByaXZpbGVnZSBmbGFncyB0bw0KPiBjYXBhYmlsaXRpZXMgdGhhdCBW
-RnMgbm9ybWFsbHkgaGF2ZSBub3cgdGhlbiB0aGUgdmFsdWUgcmVwb3J0ZWQgd2hlcmUNCj4gdGhl
-IGRyaXZlciBkb2Vzbid0IHN1cHBvcnQgdGhpcyBuZXcgb3BlcmF0aW9uIHNob3VsZCBub3QgYmUg
-MC4NCiANCkFncmVlLg0KPiANCj4gKEFsc28sIGlmIGEgcHJpdmlsZWdlIGlzIGFzc2lnbmVkIGJ5
-IGRlZmF1bHQsIGlzIGl0IHJlYWxseSBhIHByaXZpbGVnZT8NCj4gV291bGRuJ3QgJ2NhcGFiaWxp
-dHknIG9yICdwZXJtaXNzaW9uJyBiZSBhIGJldHRlciB0ZXJtPykNCg0KU3VyZS4gQW55dGhpbmcg
-aXMgZmluZS4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVu
-Z2luZWVyLCBTb2xhcmZsYXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQn
-cyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90
-ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+On Thu, 2012-03-01 at 18:02 +0200, Luiz Augusto von Dentz wrote:
+> Contrary to someones believes I don't think AF_INET is that fast (e.g.
+> http://scottmoonen.com/2008/04/05/a-performance-comparison-of-af_unix-with-loopback-on-linux/)
+
+There has been a huge amount of work on the stack in the four years
+since that was written, and even longer since 2.6.18 was considered
+current.
+
+Have anything more recent?
