@@ -1,76 +1,52 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-Date: Thu, 01 Mar 2012 12:41:42 +0100
-Message-ID: <4F4F6076.5050903@nod.at>
-References: <1328400892-22409-1-git-send-email-richard@nod.at> <1328400892-22409-3-git-send-email-richard@nod.at> <20120301112732.GA6806@1984>
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Thu, 01 Mar 2012 12:57:18 +0100
+Message-ID: <4F4F641E.7000501@collabora.co.uk>
+References: <4F4B8C66.5060206@collabora.co.uk> <20120227.140535.1623396420455657443.davem@davemloft.net> <1330426059.2139.21.camel@megeve> <20120228.140558.1132853996225815681.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig895AD0FC53FA46E1B9B5B8ED"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, rostedt@goodmis.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120301112732.GA6806@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	eric.dumazet@gmail.com, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120228.140558.1132853996225815681.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig895AD0FC53FA46E1B9B5B8ED
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 02/28/2012 08:05 PM, David Miller wrote:
+> From: Rodrigo Moya <rodrigo.moya@collabora.co.uk>
+> Date: Tue, 28 Feb 2012 11:47:39 +0100
+> 
+>> Because of all of this, UDP/IP multicast wasn't even considered as an
+>> option. We might be wrong in some/all of those, so could you please
+>> comment on them to check if that's so?
+> 
+> You guys seem to want something that isn't AF_UNIX, ordering guarentees
+> and whatnot, it really has no place in these protocols.
+> 
+> You've designed a userlevel subsystem with requirements that no existing
+> socket layer can give, and you just figured you'd work that out later.
+> 
+> I think you rather should have reconsidered these premises and designed
+> something that could handle reality which is AF_UNIX can't do multicast
+> and nobody guarentees those strange ordering requirements you seem to
+> have.
 
-Am 01.03.2012 12:27, schrieb Pablo Neira Ayuso:
-> On Sun, Feb 05, 2012 at 01:14:48AM +0100, Richard Weinberger wrote:
->> ipt_LOG and ip6_LOG have a lot of common code, merge them
->> to reduce duplicate code.
->>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
->=20
-> While testing this in my master branch I noticed one problem:
->=20
-> IN=3Dwlan0 OUT=3D MAC=3Dxx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
-> SRC=3D213.150.61.61 DST=3D192.168.1.133 LEN=3D40 TOS=3D0x00 PREC=3D0x00=
- TTL=3D117
-> ID=3D10539 DF PROTO=3DTCP SPT=3D80 DPT=3D49013 WINDOW=3D0 RES=3D0x00 AC=
-K RST
-> URGP=3D0 PROTO=3DUDPLITE SPT=3D80 DPT=3D49013 LEN=3D45843 PROTO=3DICMP =
-TYPE=3D0
-> CODE=3D80 ID=3D45843 SEQ=3D48576
->=20
-> While merging ipt_LOG and ip6t_LOG, you introduced some bug that
-> corrupts the log line. Note the extra PROTO=3D, I don't have any UDPLIT=
-E
-> traffic here.
->=20
-> Looks like a missing break in one switch.
->=20
-> Would you send me a patch to fix this?
->=20
+Yes, you are right it doesn't follow AF_UNIX semantics so Unix sockets
+is not the best place to add our multicast implementation.
 
-Sure. Do I have 48h to fix this?
-I'm currently very busy.
+So, now we are trying a different approach. To create a new address
+family AF_MCAST. That way we can have more control over the semantics of
+the socket interface for that family.
 
-Thanks,
-//richard
+We expect to have some patches in a few days and we will resend.
 
+Does this makes more sense to you?
 
---------------enig895AD0FC53FA46E1B9B5B8ED
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPT2B6AAoJEN9758yqZn9esF0H/iBZcy3Bs0JroQxUxSl5JNjU
-L/jj9/1Y1+8Madw8nVRoCkNXflwZrqUnLW8hIZeanon8U1a6rx+UK+5UkkfaNXxL
-9A3HifXg+GeG5VYb0LgIPmyyR8ZD/rZHNhwP8Xp1kVfQywhoBqOSFPnLQHhlvoQq
-8m3wNU+C+BIor9Ksa8DXXqlv/GVg1rTIULfyBTp6lECxEtsUzIUIZ8Ljg1hq5d9p
-ziDZ1xulBCtuRD+ODlxzEV5aeestO9ke7dwz+49pI2VA3wDwbJclYeSFFxesU9/r
-YO/6mSULkbRNGB4BvOirI6hxTrBwnUgOaYk3OEYgca8tNcUo4xbcXYAbcEVeoXM=
-=Penx
------END PGP SIGNATURE-----
-
---------------enig895AD0FC53FA46E1B9B5B8ED--
+Best regards,
+Javier
