@@ -1,101 +1,94 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] delete rlb entry if ip of bonding is deleted
-Date: Thu,  1 Mar 2012 12:01:30 +0800
-Message-ID: <b68da7936fe7ed8e6e15edecb41a140a07026ace.1330573426.git.panweiping3@gmail.com>
-References: <4F4EF3FB.8080507@gmail.com>
-Cc: jbohac@suse.cz, fubar@us.ibm.com, andy@greyhouse.net,
-	Weiping Pan <panweiping3@gmail.com>
-To: netdev@vger.kernel.org
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: [PATCH][RFC] bonding: delete migrated IP addresses from the rlb
+ hash table
+Date: Thu, 01 Mar 2012 11:58:51 +0800
+Message-ID: <4F4EF3FB.8080507@gmail.com>
+References: <20120227173400.GB816@midget.suse.cz> <14150.1330567940@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Bohac <jbohac@suse.cz>, Andy Gospodarek <andy@greyhouse.net>,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:38580 "EHLO
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:45054 "EHLO
 	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754341Ab2CAD5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 22:57:10 -0500
-Received: by pbcup15 with SMTP id up15so372884pbc.19
-        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 19:57:10 -0800 (PST)
-In-Reply-To: <4F4EF3FB.8080507@gmail.com>
+	with ESMTP id S1756661Ab2CAEBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Feb 2012 23:01:41 -0500
+Received: by pbcup15 with SMTP id up15so376970pbc.19
+        for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 20:01:41 -0800 (PST)
+In-Reply-To: <14150.1330567940@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the ip of bonding is deleted, its rlb table still contains old invalid
-mappings, just delete them to avoid poisoning other clients arp cache.
+On 03/01/2012 10:12 AM, Jay Vosburgh wrote:
+> Jiri Bohac<jbohac@suse.cz>  wrote:
+>
+>> Bonding in balance-alb mode records information from ARP packets
+>> passing through the bond in a hash table (rx_hashtbl).
+>>
+>> At certain situations (e.g. link change of a slave),
+>> rlb_update_rx_clients() will send out ARP packets to update ARP
+>> caches of other hosts on the network to achieve RX load balancing.
+>>
+>> The problem is that once an IP address is recorded in the hash
+>> table, it stays there indefinitely [1]. If this IP address is
+>> migrated to a different host in the network, bonding still sends
+>> out ARP packets that poison other systems' ARP caches with
+>> invalid information.
+>>
+>> This patch solves this by looking at all incoming ARP packets,
+>> and checking if the source IP address is one of the source
+>> addresses stored in the rx_hashtbl. If it is, the corresponding
+>> hash table entries are removed. Thus, when an IP address is
+>> migrated, the first ARP broadcast by its new owner will purge the
+>> offending entries of rx_hashtbl.
+>>
+>>   (a simpler approach, where bonding would monitor IP address
+>>    changes on the local system does not work for setups like:
+>>    HostA --- NetworkA --- eth0-bond0-br0 --- NetworkB --- hostB
+>>    and an IP address migrating from HostB to HostA)
+>>
+>> The hash table is hashed by ip_dst. To be able to do the above
+>> check efficiently (not walking the whole hash table), we need a
+>> reverse mapping (by ip_src).
+>>
+>> I added three new members in struct rlb_client_info:
+>>    rx_hashtbl[x].reverse_first will point to the start of a list of
+>>       entries for which hash(ip_src) == x.
+>>    The list is linked with reverse_next and reverse_prev.
+>>
+>> When an incoming ARP packet arrives at rlb_arp_recv()
+>> rlb_purge_src_ip() can quickly walk only the entries on the
+>> corresponding lists, i.e. the entries that are likely to contain
+>> the offending IP address.
+> 	I've done some initial testing with this, and so far I'm seeing
+> one problem: every time the local host (with bonding) sends a broadcast
+> ARP, that ends up flushing the entire RLB table.  Well, all entries that
+> match the IP on the bond that's sending an ARP request, which is just
+> one address in my testing.
+>
+> 	Anyway, this happens because the switch forwards the broadcast
+> ARP back around to one of the other bond slaves, and then that
+> "incoming" ARP bears an ip_src of our already-in-use IP address, and
+> that matches everything in the table.
+>
+> 	So, yes, this does work to flush entries out of the table using
+> a particular IP source address, but as a practical matter the false
+> positives will vastly outnumber the valid hits.  Yes, the table will
+> repopulate itself, but that does have some cost if, e.g., flows bounce
+> around from one interface to another.  How often this happens would be a
+> function of how often the bond has to ARP for an unknown address (i.e.,
+> send a broadcast ARP).
+>
+> 	Perhaps a check that the ip_src being flushed is not actually in
+> use locally is warranted?
+>
+> 	-J
+How about just deleting these rlb entries when we receive the events 
+that the ip address is deleted ?
+Then we need not to montor all arp requests.
+Patch is to be followed.
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- drivers/net/bonding/bond_alb.c  |   35 +++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_alb.h  |    2 ++
- drivers/net/bonding/bond_main.c |    1 +
- 3 files changed, 38 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index f820b26..928c636 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -853,6 +853,41 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
- 	_unlock_rx_hashtbl_bh(bond);
- }
- 
-+/* delete all rlb entries which has ip as ip_src */
-+void bond_alb_delete_entry(struct bonding *bond, __be32 ip)
-+{
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+	u32 curr_index;
-+
-+	_lock_rx_hashtbl_bh(bond);
-+
-+	curr_index = bond_info->rx_hashtbl_head;
-+	while (curr_index != RLB_NULL_INDEX) {
-+		struct rlb_client_info *curr = &(bond_info->rx_hashtbl[curr_index]);
-+		u32 next_index = bond_info->rx_hashtbl[curr_index].next;
-+		u32 prev_index = bond_info->rx_hashtbl[curr_index].prev;
-+		if (curr->assigned && (curr->ip_src == ip)) {
-+			if (curr_index == bond_info->rx_hashtbl_head) {
-+				bond_info->rx_hashtbl_head = next_index;
-+			}
-+
-+			if (prev_index != RLB_NULL_INDEX) {
-+				bond_info->rx_hashtbl[prev_index].next = next_index;
-+			}
-+
-+			if (next_index != RLB_NULL_INDEX) {
-+				bond_info->rx_hashtbl[next_index].prev = prev_index;
-+			}
-+
-+			rlb_init_table_entry(curr);
-+		}
-+
-+		curr_index = next_index;
-+	}
-+
-+	_unlock_rx_hashtbl_bh(bond);
-+}
-+
- /*********************** tlb/rlb shared functions *********************/
- 
- static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index 90f140a..38863fc 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -163,5 +163,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
- void bond_alb_monitor(struct work_struct *);
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
-+
-+void bond_alb_delete_entry(struct bonding *bond, __be32 ip);
- #endif /* __BOND_ALB_H__ */
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 435984a..ec071b9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3315,6 +3315,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
- 				return NOTIFY_OK;
- 			case NETDEV_DOWN:
- 				bond->master_ip = 0;
-+				bond_alb_delete_entry(bond, ifa->ifa_local);
- 				return NOTIFY_OK;
- 			default:
- 				return NOTIFY_DONE;
--- 
-1.7.4.4
+thanks
+Weiping Pan
