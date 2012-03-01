@@ -1,62 +1,51 @@
 From: Danny Kukawka <danny.kukawka@bisect.de>
-Subject: [PATCH v2 0/7] validate MAC address before call .ndo_set_mac_address
-Date: Thu,  1 Mar 2012 17:52:20 +0100
-Message-ID: <1330620747-4047-1-git-send-email-danny.kukawka@bisect.de>
-Cc: Danny Kukawka <dkukawka@suse.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Subject: [PATCH 6/7] neterion/s2io: fix s2io_set_mac_addr() to prevent double checks
+Date: Thu,  1 Mar 2012 17:52:26 +0100
+Message-ID: <1330620747-4047-7-git-send-email-danny.kukawka@bisect.de>
+References: <1330620747-4047-1-git-send-email-danny.kukawka@bisect.de>
+Cc: Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Jon Mason <jdmason@kudzu.us>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330620747-4047-1-git-send-email-danny.kukawka@bisect.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Validate the given MAC address directly in dev_set_mac_address()
-if a .ndo_validate_addr function is available before calling
-the .ndo_set_mac_address function.
+Fix s2io_set_mac_addr() to prevent double validation checks from
+dev_set_mac_address().
 
-Changed .ndo_validate_addr to take a second parameter containing
-a sockaddr struct to be checked instead of the net_device dev_addr.
-The behaviour of .ndo_validate_addr is now: if the second parameter
-is NULL the net_device->dev_addr gets validate, if != NULL
-the given parameter/sockaddr gets validated instead.
+Don't use s2io_set_mac_addr() in s2io_io_resume() since it makes
+no sense to copy netdev->dev_addr to itself. Use do_s2io_prog_unicast()
+instead since this is what's needed and checked here.
 
-This patch series include adaptations for some drivers which
-use .ndo_set_mac_address functions directly - to prevent double
-checks and to enable validations via .ndo_validate_addr.
+Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+---
+ drivers/net/ethernet/neterion/s2io.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-If these patches get accepted, an other series will follow
-to cleanup the validation checks in the .ndo_set_mac_address
-functions.
-
-v2: - merged two patches to ensure kernel build at each stage
-    - collect parameter for bnx2x_is_valid_ether_addr() and
-      is_valid_ether_addr() and call them only once at end of
-      the functions.
-
-Danny Kukawka (7):
-  net: validate MAC address directly in dev_set_mac_address()
-  cris/eth_v10: use dev_set_mac_address() instead of
-    e100_set_mac_address()
-  bcm63xx_enet: use dev_set_mac_address() instead of
-    bcm_enet_set_mac_address()
-  ethoc: add .ndo_validate_addr to net_device_ops
-  lantiq_etop: use dev_set_mac_address() instead of
-    ltq_etop_set_mac_address()
-  neterion/s2io: fix s2io_set_mac_addr() to prevent double checks
-  octeon: use dev_set_mac_address() instead of
-    octeon_mgmt_set_mac_address()
-
- drivers/net/cris/eth_v10.c                       |    3 +--
- drivers/net/ethernet/broadcom/bcm63xx_enet.c     |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   11 +++++++++--
- drivers/net/ethernet/ethoc.c                     |    4 +---
- drivers/net/ethernet/lantiq_etop.c               |    4 ++--
- drivers/net/ethernet/neterion/s2io.c             |    5 +----
- drivers/net/ethernet/octeon/octeon_mgmt.c        |    6 ++----
- include/linux/etherdevice.h                      |    2 +-
- include/linux/netdevice.h                        |    7 +++++--
- net/core/dev.c                                   |    7 ++++++-
- net/ethernet/eth.c                               |   13 +++++++++----
- 11 files changed, 38 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 22a8de0..cf7b3eb 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -5247,9 +5247,6 @@ static int s2io_set_mac_addr(struct net_device *dev, void *p)
+ {
+ 	struct sockaddr *addr = p;
+ 
+-	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EADDRNOTAVAIL;
+-
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+ 	/* store the MAC address in CAM */
+@@ -8658,7 +8655,7 @@ static void s2io_io_resume(struct pci_dev *pdev)
+ 			return;
+ 		}
+ 
+-		if (s2io_set_mac_addr(netdev, netdev->dev_addr) == FAILURE) {
++		if (do_s2io_prog_unicast(netdev, netdev->dev_addr) == FAILURE) {
+ 			s2io_card_down(sp);
+ 			pr_err("Can't restore mac addr after reset.\n");
+ 			return;
 -- 
 1.7.8.3
