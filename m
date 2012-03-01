@@ -1,81 +1,72 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 1/3] netfilter: Fix copy_to_user too small size parametre.
-Date: Thu, 1 Mar 2012 16:13:56 +0300
-Message-ID: <20120301131356.GS1003@mwanda>
-References: <1330593390-19233-1-git-send-email-santoshprasadnayak@gmail.com>
- <20120301101809.GA6488@1984>
- <20120301113736.GE22598@mwanda>
- <20120301130637.GB7429@1984>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Thu, 01 Mar 2012 08:24:22 -0500
+Message-ID: <1330608262.6944.10.camel@mojatatu>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+	 <4F34042F.6090806@intel.com>
+	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+	 <4F347D96.2020806@intel.com>  <4F3499BC.8020609@intel.com>
+	 <1328887111.2075.43.camel@mojatatu>  <4F39287F.6030204@intel.com>
+	 <1329225526.2806.34.camel@mojatatu>  <4F3AAE80.4040609@intel.com>
+	 <1329315057.4158.15.camel@mojatatu>  <4F3C5B44.7000608@intel.com>
+	 <1329488932.2272.19.camel@mojatatu>  <4F3E8A01.5000205@intel.com>
+	 <1329568900.3027.0.camel@mojatatu>  <4F4DAC26.4050108@intel.com>
+	 <1330523779.18226.17.camel@mojatatu>  <4F4E5FA4.4040506@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3sseE1tnmEs+TkKq"
-Cc: santosh nayak <santoshprasadnayak@gmail.com>,
-	bart.de.schuymer@pandora.be, kaber@trash.net,
-	shemminger@vyatta.com, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120301130637.GB7429@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com, Lennert Buytenhek <buytenh@wantstofly.org>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4F4E5FA4.4040506@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2012-02-29 at 09:25 -0800, John Fastabend wrote:
 
---3sseE1tnmEs+TkKq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Well I think NETLINK_ROUTE is the most correct type to use in this
+> case. Per netlink.h its for routing and device hooks.
+> 
+> #define NETLINK_ROUTE           0       /* Routing/device hook                          */
+> 
+> And NETLINK_ROUTE msg_types use the RTM_* prefix. The _*NEIGH postfix
+> were merely a copy from the SW BRIDGE code paths. How about,
+> 
+> PF_BRIDGE:RTM_FDB_NEWENTRY
+> PF_BRIDGE:RTM_FDB_DELENTRY
+> PF_BRIDGE:RTM_FDB_GETENTRY
 
-On Thu, Mar 01, 2012 at 02:06:37PM +0100, Pablo Neira Ayuso wrote:
-> > Where do we clear "m"?=20
-> >=20
-> > include/linux/netfilter/x_tables.h
-> >    287  struct xt_match {
-> >    288          struct list_head list;
-> >    289 =20
-> >    290          const char name[XT_EXTENSION_MAXNAMELEN];
-> >    291          u_int8_t revision;
-> >    292 =20
-> >=20
-> > There is a 2 byte holes here between "revision" and "match()".  We
-> > copy three bytes past the end of name, so we include revision and
-> > the hole.
-> >=20
-> > But maybe we memset it somewhere?  I'm not sure.
->=20
-> xt_match instances are declared as static for each module so it's
-> allocated in the BSS (already zeroed), is that what you mean?
->=20
+OK, I guess ;->
 
-Yeah.  I didn't know how that worked.  Thanks.
+> And a new group RTNLGRP_FDB. 
 
-regards,
-dan carpenter
+Nod.
+
+> Also using NETLINK_ROUTE gives the correct
+> rtnl locking semantics for free.
+
+makes sense.
 
 
---3sseE1tnmEs+TkKq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+> Agreed. I think adding some ndo_ops for bridging offloads here would
+> work. For example the DSA infrastructure and/or macvlan devices might
+> need this. Along the lines of extending this RFC,
+> 
+> [RFC] hardware bridging support for DSA switches
+> http://patchwork.ozlabs.org/patch/16578/
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Certainly - thats one approach that is reasonable.
+Where is Lennert? ;-> I changed his email address to one that i am 
+familiar with.
 
-iQIbBAEBAgAGBQJPT3YTAAoJEOnZkXI/YHqRwDwP+Pj1ijiRiJvmLrbJL3k6F6GN
-F1wu3t4b3XDV2vz4iObqzcPmo1SbiA3k5eMa/fnvbwJ8OpmTsae25Qj7eXHjuDQM
-pUjRI/38/NUcVyJjjl9VlRjDoTuzqnF2AQaqRyTwLKI/xugTi/RtO365Atz7n5gI
-yrrVfSJVwdpFzuhkmW/PNMCqDs46ncUf2uRbuwcGASdQrfl6659KNo88C/by4qJn
-IBvrFCc1TCIgJvDLSKOgIIKt8StILee18JV8NG712QlOujCqazrN6i3vQ6kVAe6j
-tfeXiyg2AXMZJypFi2Yskxbo7Bjrxb/SA3YJmbKntSXeFohYHw+nwQsydhtzS9FF
-OvwNdnU1+V3fJ/N/kMRiIWDpQn/4epd5CcqSJ98vUJIfKpN0JN6nFiGgUebVhDI2
-nvRnoLkFsmh73yB1cDoDDcZONKoYfUjfbEQmSfGGg9lU8n8neeFA03ly5edzCXuc
-nGABCfYSo6+yo2yrycR9JoLsueVCsPp+dCaZzaxgoqYaB5BjkyPzxEP5Offr/mg8
-8dhjlNkLAVp5kU/lmE7UhQG3l2ukYe6eRvfm4kyt3j9oMR/pKt0ZQUhx5HyqHGIC
-vVe8xI4lwn/xGplwuPrCQ5oW7ylZeDcfgk3Kwhgm5sT/n0PDiZeH3Yblq2aPRm8w
-bQiZwWj8Xxnq8d6Z/ZA=
-=4S6b
------END PGP SIGNATURE-----
+cheers,
+jamal
 
---3sseE1tnmEs+TkKq--
+
