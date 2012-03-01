@@ -1,129 +1,206 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net] delete rlb entry if ip of bonding is deleted
-Date: Wed, 29 Feb 2012 20:19:59 -0800
-Message-ID: <10138.1330575599@death.nxdomain>
-References: <4F4EF3FB.8080507@gmail.com> <b68da7936fe7ed8e6e15edecb41a140a07026ace.1330573426.git.panweiping3@gmail.com>
-Cc: netdev@vger.kernel.org, jbohac@suse.cz, andy@greyhouse.net
-To: Weiping Pan <panweiping3@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:47516 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754146Ab2CAEUG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Feb 2012 23:20:06 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 29 Feb 2012 23:20:05 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 3E0A438C805A
-	for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 23:20:02 -0500 (EST)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q214K18j318972
-	for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 23:20:01 -0500
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q214KDWp008502
-	for <netdev@vger.kernel.org>; Wed, 29 Feb 2012 21:20:14 -0700
-In-reply-to: <b68da7936fe7ed8e6e15edecb41a140a07026ace.1330573426.git.panweiping3@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH v3] checkpatch: Add some --strict coding style checks
+Date: Wed, 29 Feb 2012 20:24:03 -0800
+Message-ID: <1330575843.23314.52.camel@joe2Laptop>
+References: <20120229173421.GA13733@tuxdriver.com>
+	 <477F20668A386D41ADCC57781B1F70430836762D55@SC-VEXCH1.marvell.com>
+	 <1330542811.21491.7.camel@joe2Laptop>
+	 <477F20668A386D41ADCC57781B1F70430836762D6C@SC-VEXCH1.marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	Andy Whitcroft <apw@shadowen.org>,
+	David Miller <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ilan Elias <ilane@ti.com>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Bruce W. Allen" <bruce.w.allan@intel.com>,
+	Bing Zhao <bzhao@marvell.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <477F20668A386D41ADCC57781B1F70430836762D6C@SC-VEXCH1.marvell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Weiping Pan <panweiping3@gmail.com> wrote:
+Argument alignment across multiple lines should
+match the open parenthesis.
 
->When the ip of bonding is deleted, its rlb table still contains old invalid
->mappings, just delete them to avoid poisoning other clients arp cache.
+Logical continuations should be at the end of
+the previous line, not the start of a new line.
 
-	I don't believe this patch will handle the case that Jiri
-mentioned earlier: the bond host is acting as a router or bridge.  The
-key here is that the "source address" in question is not assigned to the
-bond at all, but comes from another host whose traffic passes through
-the bond.
+These are not required by CodingStyle so make the
+tests active only when using --strict.
 
-	On the other hand, the logic of this patch might be useful to
-purge table entries for local addresses when they are deconfigured from
-the bond.  I don't think it's a complete solution by itself, though.
-
-	-J
-
->Signed-off-by: Weiping Pan <panweiping3@gmail.com>
->---
-> drivers/net/bonding/bond_alb.c  |   35 +++++++++++++++++++++++++++++++++++
-> drivers/net/bonding/bond_alb.h  |    2 ++
-> drivers/net/bonding/bond_main.c |    1 +
-> 3 files changed, 38 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index f820b26..928c636 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -853,6 +853,41 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
-> 	_unlock_rx_hashtbl_bh(bond);
-> }
->
->+/* delete all rlb entries which has ip as ip_src */
->+void bond_alb_delete_entry(struct bonding *bond, __be32 ip)
->+{
->+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->+	u32 curr_index;
->+
->+	_lock_rx_hashtbl_bh(bond);
->+
->+	curr_index = bond_info->rx_hashtbl_head;
->+	while (curr_index != RLB_NULL_INDEX) {
->+		struct rlb_client_info *curr = &(bond_info->rx_hashtbl[curr_index]);
->+		u32 next_index = bond_info->rx_hashtbl[curr_index].next;
->+		u32 prev_index = bond_info->rx_hashtbl[curr_index].prev;
->+		if (curr->assigned && (curr->ip_src == ip)) {
->+			if (curr_index == bond_info->rx_hashtbl_head) {
->+				bond_info->rx_hashtbl_head = next_index;
->+			}
->+
->+			if (prev_index != RLB_NULL_INDEX) {
->+				bond_info->rx_hashtbl[prev_index].next = next_index;
->+			}
->+
->+			if (next_index != RLB_NULL_INDEX) {
->+				bond_info->rx_hashtbl[next_index].prev = prev_index;
->+			}
->+
->+			rlb_init_table_entry(curr);
->+		}
->+
->+		curr_index = next_index;
->+	}
->+
->+	_unlock_rx_hashtbl_bh(bond);
->+}
->+
-> /*********************** tlb/rlb shared functions *********************/
->
-> static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
->diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
->index 90f140a..38863fc 100644
->--- a/drivers/net/bonding/bond_alb.h
->+++ b/drivers/net/bonding/bond_alb.h
->@@ -163,5 +163,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
-> void bond_alb_monitor(struct work_struct *);
-> int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
-> void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
->+
->+void bond_alb_delete_entry(struct bonding *bond, __be32 ip);
-> #endif /* __BOND_ALB_H__ */
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 435984a..ec071b9 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3315,6 +3315,7 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
-> 				return NOTIFY_OK;
-> 			case NETDEV_DOWN:
-> 				bond->master_ip = 0;
->+				bond_alb_delete_entry(bond, ifa->ifa_local);
-> 				return NOTIFY_OK;
-> 			default:
-> 				return NOTIFY_DONE;
->-- 
->1.7.4.4
->
-
+Improved_by_examples_from: "Bruce W. Allen" <bruce.w.allan@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+V3: Use perl 5.10 features
+    Use a runtime check of perl version so $balanced_parens
+    is not used in perl versions that don't support it.
+    Update memset and min_t checks for newer $balanced_parens
+    test.
+    Improve alignment position test.
+    Add message suggesting perl upgrade.
+V2: Scan the entire line for balanced parentheses,
+    use the position of the last non-balanced open parenthesis.
+    Allow all space indentation too, checkpatch will complain
+    in a different message about that if it's too long.
+
+ scripts/checkpatch.pl |   94 +++++++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 84 insertions(+), 10 deletions(-)
+
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 89d24b3..308e401 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -330,10 +330,15 @@ sub build_types {
+ }
+ build_types();
+ 
+-our $match_balanced_parentheses = qr/(\((?:[^\(\)]+|(-1))*\))/;
+ 
+ our $Typecast	= qr{\s*(\(\s*$NonptrType\s*\)){0,1}\s*};
+-our $LvalOrFunc	= qr{($Lval)\s*($match_balanced_parentheses{0,1})\s*};
++
++# Using $balanced_parens, $LvalOrFunc, or $FuncArg
++# requires at least perl version v5.10.0
++# Any use must be runtime checked with $^V
++
++our $balanced_parens = qr/(\((?:[^\(\)]++|(?-1))*\))/;
++our $LvalOrFunc	= qr{($Lval)\s*($balanced_parens{0,1})\s*};
+ our $FuncArg = qr{$Typecast{0,1}($LvalOrFunc|$Constant)};
+ 
+ sub deparenthesize {
+@@ -1330,6 +1335,36 @@ sub check_absolute_file {
+ 	}
+ }
+ 
++sub pos_last_openparen {
++	my ($line) = @_;
++
++	my $pos = 0;
++
++	my $opens = $line =~ tr/\(/\(/;
++	my $closes = $line =~ tr/\)/\)/;
++
++	my $last_openparen = 0;
++
++	if (($opens == 0) || ($closes >= $opens)) {
++		return -1;
++	}
++
++	my $len = length($line);
++
++	for ($pos = 0; $pos < $len; $pos++) {
++		my $string = substr($line, $pos);
++		if ($string =~ /^($FuncArg|$balanced_parens)/) {
++			$pos += length($1) - 1;
++		} elsif (substr($line, $pos, 1) eq '(') {
++			$last_openparen = $pos;
++		} elsif (index($string, '(') == -1) {
++			last;
++		}
++	}
++
++	return $last_openparen + 1;
++}
++
+ sub process {
+ 	my $filename = shift;
+ 
+@@ -1783,6 +1818,37 @@ sub process {
+ 			     "please, no space before tabs\n" . $herevet);
+ 		}
+ 
++# check for && or || at the start of a line
++		if ($rawline =~ /^\+\s*(&&|\|\|)/) {
++			CHK("LOGICAL_CONTINUATIONS",
++			    "Logical continuations should be on the previous line\n" . $hereprev);
++		}
++
++# check multi-line statement indentation matches previous line
++		if ($^V && $^V ge 5.10.0 &&
++		    $prevline =~ /^\+(\t*)(if \(|$Ident\().*(\&\&|\|\||,)\s*$/) {
++			$prevline =~ /^\+(\t*)(.*)$/;
++			my $oldindent = $1;
++			my $rest = $2;
++
++			my $pos = pos_last_openparen($rest);
++			if ($pos >= 0) {
++				$line =~ /^\+([ \t]*)/;
++				my $newindent = $1;
++
++				my $goodtabindent = $oldindent .
++					"\t" x ($pos / 8) .
++					" "  x ($pos % 8);
++				my $goodspaceindent = $oldindent . " "  x $pos;
++
++				if ($newindent ne $goodtabindent &&
++				    $newindent ne $goodspaceindent) {
++					CHK("PARENTHESIS_ALIGNMENT",
++					    "Alignment should match open parenthesis\n" . $hereprev);
++				}
++			}
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
+@@ -3142,12 +3208,13 @@ sub process {
+ 		}
+ 
+ # Check for misused memsets
+-		if (defined $stat &&
++		if ($^V && $^V ge 5.10.0 &&
++		    defined $stat &&
+ 		    $stat =~ /^\+(?:.*?)\bmemset\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*$FuncArg\s*\)/s) {
+ 
+ 			my $ms_addr = $2;
+-			my $ms_val = $8;
+-			my $ms_size = $14;
++			my $ms_val = $7;
++			my $ms_size = $12;
+ 
+ 			if ($ms_size =~ /^(0x|)0$/i) {
+ 				ERROR("MEMSET",
+@@ -3159,17 +3226,18 @@ sub process {
+ 		}
+ 
+ # typecasts on min/max could be min_t/max_t
+-		if (defined $stat &&
++		if ($^V && $^V ge 5.10.0 &&
++		    defined $stat &&
+ 		    $stat =~ /^\+(?:.*?)\b(min|max)\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\)/) {
+-			if (defined $2 || defined $8) {
++			if (defined $2 || defined $7) {
+ 				my $call = $1;
+ 				my $cast1 = deparenthesize($2);
+ 				my $arg1 = $3;
+-				my $cast2 = deparenthesize($8);
+-				my $arg2 = $9;
++				my $cast2 = deparenthesize($7);
++				my $arg2 = $8;
+ 				my $cast;
+ 
+-				if ($cast1 ne "" && $cast2 ne "") {
++				if ($cast1 ne "" && $cast2 ne "" && $cast1 ne $cast2) {
+ 					$cast = "$cast1 or $cast2";
+ 				} elsif ($cast1 ne "") {
+ 					$cast = $cast1;
+@@ -3391,6 +3459,12 @@ sub process {
+ 	}
+ 
+ 	if ($quiet == 0) {
++
++		if ($^V lt 5.10.0) {
++			print("NOTE: perl $^V is not modern enough to detect all possible issues.\n");
++			print("An upgrade to at least perl v5.10.0 is suggested.\n\n");
++		}
++
+ 		# If there were whitespace errors which cleanpatch can fix
+ 		# then suggest that.
+ 		if ($rpt_cleaners) {
