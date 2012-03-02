@@ -1,69 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] netfilter: potential null derefence.
-Date: Fri, 2 Mar 2012 02:22:08 +0100
-Message-ID: <20120302012208.GA10185@1984>
-References: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
+From: "Christian Benvenuti (benve)" <benve@cisco.com>
+Subject: RE: [patch] enic: fix an endian bug in enic_probe()
+Date: Thu, 1 Mar 2012 19:23:45 -0600
+Message-ID: <184D23435BECB444AB6B9D4630C8EC8303853051@XMB-RCD-303.cisco.com>
+References: <20120301071954.GA7152@elgon.mountain> <20120301.172408.1182768164929080163.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
-	shemminger@vyatta.com, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: santosh nayak <santoshprasadnayak@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Roopa Prabhu (roprabhu)" <roprabhu@cisco.com>,
+	"Neel Patel (neepatel)" <neepatel@cisco.com>,
+	"Nishank Trivedi (nistrive)" <nistrive@cisco.com>,
+	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcdn-iport-8.cisco.com ([173.37.86.79]:27632 "EHLO
+	rcdn-iport-8.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752091Ab2CBBdW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 20:33:22 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20120301.172408.1182768164929080163.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 01, 2012 at 02:47:14PM +0530, santosh nayak wrote:
-> From: Santosh Nayak <santoshprasadnayak@gmail.com>
-> 
-> I am getting following error.
-> " net/bridge/netfilter/ebtables.c:269 ebt_do_table()
->   error: potential null derefence 'cs'"
-> 
->     i = cs[sp].n;  // If cs == Null then this will cause problem.
-> 
-> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
-> ---
->  net/bridge/netfilter/ebtables.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index f3fcbd9..9c0f177 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -209,8 +209,10 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
->  	   smp_processor_id());
->  	if (private->chainstack)
->  		cs = private->chainstack[smp_processor_id()];
-> -	else
-> +	else {
->  		cs = NULL;
+Thanks Dan, David.
 
-I just noticed we can remove this cs = NULL. No need to resend, I'll
-mangle it myself.
+Just one quick comment...
+pci_enable_sriov's 2nd input is declared as type int and we
+were using u32 instead (for a non negative 16bit value).
+With a quick check I noticed that other pci_enable_sriov callers
+do something similar and may need to be taken care too:
 
-> +		goto out;
-> +	}
->  	chaininfo = private->hook_entry[hook];
->  	nentries = private->hook_entry[hook]->nentries;
->  	point = (struct ebt_entry *)(private->hook_entry[hook]->data);
-> @@ -313,6 +315,7 @@ letscontinue:
->  		read_unlock_bh(&table->lock);
->  		return NF_ACCEPT;
->  	}
-> +out:
->  	read_unlock_bh(&table->lock);
->  	return NF_DROP;
->  }
-> -- 
-> 1.7.4.4
+driver    |  type used
+----------+--------------
+mlx4      | int
+chelsio   | unsigned int
+igb       | unsigned int   
+igbxe     | unsigned int
+emulex    | u32
+vxge      | u32
+
+
+Another option would have been to make all drivers use int
+to match pci_enable_sriov (pci_enable_sriov->sriov_enable checks
+against negative values).
+
+(BTW, why is pci_enable_sriov prototype using int?)
+
+Thanks
+/Chris
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, March 01, 2012 2:24 PM
+> To: dan.carpenter@oracle.com
+> Cc: Roopa Prabhu (roprabhu); Christian Benvenuti (benve); Neel Patel
+> (neepatel); Nishank Trivedi (nistrive); netdev@vger.kernel.org;
+kernel-
+> janitors@vger.kernel.org
+> Subject: Re: [patch] enic: fix an endian bug in enic_probe()
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> Date: Thu, 1 Mar 2012 10:19:54 +0300
+> 
+> > "num_vfs" is a u32 but we only use the high 16 bits and the low
+> 16bits
+> > are left as zero.  That isn't a problem for little endian systems
+but
+> it
+> > will break on big endian ones.
+> >
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Applied.
