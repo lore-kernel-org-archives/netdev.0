@@ -1,47 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Fri, 02 Mar 2012 04:28:15 -0800
-Message-ID: <1330691295.2469.1.camel@edumazet-laptop>
-References: <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20120217.133327.1178765872497293871.davem@davemloft.net>
-	 <1330656317.21053.1411.camel@debian>
-	 <20120301.220743.2174015405223036036.davem@davemloft.net>
-	 <1330670277.21053.1448.camel@debian>
+From: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
+Subject: Re: Resend: [PATCH] Bluetooth: Fix Endian Bug.
+Date: Fri, 2 Mar 2012 14:32:15 +0200
+Message-ID: <20120302123210.GA4741@aemeltch-MOBL1>
+References: <1330599561-20392-1-git-send-email-santoshprasadnayak@gmail.com>
+ <20120301123540.GE25627@aemeltch-MOBL1>
+ <CAOD=uF4LSS8nuKMNHGEH2JsVZHU0rntSxZjvNaa4oZrey1macw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, feng.tang@intel.com,
-	linux-kernel@vger.kernel.org, tim.c.chen@intel.com,
-	ying.huang@intel.com, netdev@vger.kernel.org
-To: Alex Shi <alex.shi@intel.com>
+Cc: marcel@holtmann.org, padovan@profusion.mobi, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santosh prasad nayak <santoshprasadnayak@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330670277.21053.1448.camel@debian>
+Content-Disposition: inline
+In-Reply-To: <CAOD=uF4LSS8nuKMNHGEH2JsVZHU0rntSxZjvNaa4oZrey1macw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 02 mars 2012 =C3=A0 14:37 +0800, Alex Shi a =C3=A9crit :
-> On Thu, 2012-03-01 at 22:07 -0500, David Miller wrote:
-> > From: Alex Shi <alex.shi@intel.com>
-> > Date: Fri, 02 Mar 2012 10:45:17 +0800
-> >=20
-> > > Add CC to tang feng, He is working on this issue.=20
-> >=20
-> > Is he?  I'm pretty sure this is due to the TCP receive window growi=
-ng
-> > issue Eric Dumazet, Neal Cardwell and I are discussing in the threa=
-d
-> > starting at:
-> >=20
-> > http://marc.info/?l=3Dlinux-netdev&m=3D132916352815286&w=3D2
->=20
-> That's great!=20
-> May my language make you confusing. Actually, Feng is doing
-> investigation on this issue. Since you fund out the reason, it saved =
-his
-> work. :)=20
->=20
+Hi Santosh,
 
-Actually it would be great if you or Feng could post the exact tests
-done and numbers so that we can make sure this is the tracked issue.
+On Thu, Mar 01, 2012 at 07:34:58PM +0530, santosh prasad nayak wrote:
+> Andrei,
+>=20
+> I could not get you.
+>=20
+> Do you want me to resend the patch with subject,
+>   "[PATCH] Bluetooth: Fix network to host endian conversion for L2CAP
+> chan id."  ?
 
-Thanks
+No, the main concern was your commit message which is changelog and sho=
+uld
+come after "---" as it is shown in the example below.
+
+> > On Thu, Mar 01, 2012 at 04:29:21PM +0530, santosh nayak wrote:
+> >> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> >>
+> >> Fix for endian bug.
+> >>
+> >> Fix for null dereferenced removed as it is already
+> >> submitted by Andrei.
+> >>
+> >> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> >> ---
+> >> =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
+> >> =A01 files changed, 3 insertions(+), 2 deletions(-)
+> >
+> > We prefer following commit log (this is the example)
+> >
+> > <------8<----------------------------------------------------------
+> > | =A0From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> > |
+> > | =A0Fix network to host endian conversion for L2CAP chan id.
+> > |
+> > | =A0Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> > |
+> > | =A0---
+> > | =A0 =A0 =A0 =A0 =A0* v2 Fix for null dereferenced removed as it i=
+s already
+> > | =A0 =A0 =A0 =A0 =A0submitted by Andrei.
+> > |
+> > | =A0 =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
+> > | =A0 =A01 files changed, 3 insertions(+), 2 deletions(-)
+> > |
+> > <------8<----------------------------------------------------------
+
+Best regards=20
+Andrei Emeltchenko=20
