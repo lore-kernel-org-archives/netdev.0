@@ -1,38 +1,64 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Resend [PATCH] netfilter: Fix copy_to_user too small size parametre.
-Date: Fri, 2 Mar 2012 09:05:10 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E87@saturn3.aculab.com>
-References: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
+Subject: RE: [PATCH] Bluetooth: Silence static checker warning.
+Date: Fri, 2 Mar 2012 09:15:37 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E88@saturn3.aculab.com>
+References: <1330537602.3392.101.camel@aeonflux>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <pablo@netfilter.org>, <kaber@trash.net>, <shemminger@vyatta.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>
-To: "santosh nayak" <santoshprasadnayak@gmail.com>,
-	<bart.de.schuymer@pandora.be>
+Cc: <padovan@profusion.mobi>, <davem@davemloft.net>,
+	<linux-bluetooth@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: "Marcel Holtmann" <marcel@holtmann.org>,
+	"santosh nayak" <santoshprasadnayak@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
+In-Reply-To: <1330537602.3392.101.camel@aeonflux>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
  
-> -	if (copy_to_user(hlp, m->u.match->name, 
-> EBT_FUNCTION_MAXNAMELEN))
-> +	char name[EBT_FUNCTION_MAXNAMELEN] = {};
-> +
-> +	strncpy(name, m->u.match->name, sizeof(name));
-> +	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
->  		return -EFAULT;
+> > > diff --git a/net/bluetooth/l2cap_sock.c
+b/net/bluetooth/l2cap_sock.c
+> > > index 401d942..d206321 100644
+> > > --- a/net/bluetooth/l2cap_sock.c
+> > > +++ b/net/bluetooth/l2cap_sock.c
+> > > @@ -82,7 +82,7 @@ static int l2cap_sock_bind(struct socket *sock,
+struct sockaddr *addr, int alen)
+> > >  	}
+> > >  
+> > >  	if (la.l2_cid)
+> > > -		err = l2cap_add_scid(chan, la.l2_cid);
+> > > +		err = l2cap_add_scid(chan, __le16_to_cpu(la.l2_cid));
+> > >  	else
+> > >  		err = l2cap_add_psm(chan, &la.l2_bdaddr, la.l2_psm);
+> > >  
+> > > @@ -123,7 +123,8 @@ static int l2cap_sock_connect(struct socket
+*sock, struct sockaddr *addr, int al
+> > >  	if (la.l2_cid && la.l2_psm)
+> > >  		return -EINVAL;
+> > >  
+> > > -	err = l2cap_chan_connect(chan, la.l2_psm, la.l2_cid,
+&la.l2_bdaddr);
+> > > +	err = l2cap_chan_connect(chan, la.l2_psm,
+__le16_to_cpu(la.l2_cid),
+> > > +				&la.l2_bdaddr);
+> > >  	if (err)
+> > >  		goto done;
+> > 
+> > I am not sure about this one. Need to go back and read through the
+> > source code. The value provided from userspace is already in the
+right
+> > host endian. Could be that we mess up our internal classification.
+And
+> > instead of adding __le16_to_cpu we should fix its classification.
+> 
+> I confused myself here, so the provided PSM and CID values coming from
+> userspace are little endian. Patch is correct.
 
-strncpy() is very rarely the function you are looking for.
-In this case it MIGHT be right (since you do a fixed size
-copy_to_user).
-OTOH there is no need to also initialise name[].
-And it isn't entirely clear whether the application
-is allowed to be given a non-terminated string.
+How long has this code been in tree?
+It isn't obvious to me that this change won't break code on BE systems
+where the application code is already fixing the endianness.
 
 	David
