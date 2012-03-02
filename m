@@ -1,45 +1,68 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: u32 prio and hash tables
-Date: Thu, 01 Mar 2012 22:17:20 -0500
-Message-ID: <1330658240.4671.172.camel@denise.theartistscloset.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth-next 2012-03-01
+Date: Thu, 01 Mar 2012 22:16:43 -0500 (EST)
+Message-ID: <20120301.221643.881299898523907213.davem@davemloft.net>
+References: <20120302025554.GA13493@joana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: johan.hedberg@gmail.com, linville@tuxdriver.com,
+	netdev@vger.kernel.org
+To: gustavo@padovan.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.194]:58444 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754623Ab2CBDRY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2012 22:17:24 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:49715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756744Ab2CBDRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 22:17:50 -0500
+In-Reply-To: <20120302025554.GA13493@joana>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, all.  Does linking to a hash table override the priority of a
-filter?
+From: Gustavo Padovan <gustavo@padovan.org>
+Date: Thu, 1 Mar 2012 23:55:55 -0300
 
-I was surprised while analyzing some unexpected failures in filter
-matching that my configured priorities seemed to change and be
-overwritten with the priority of the linked hash table.  For example, I
-have these filters:
+>  - I'm pulling directly to you because due to the coding style issues that
+>    happened some days ago. We decided, after talk to John, to pull directly to
+>    you, so you can take a look before pull. I personally looked to the whole
+>    diff of this pull request and couldn't spot anything that doesn't seem
+>    specified in CodingStyle.
 
-# TCP hash table
-${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 2 handle ${IH}6: u32 divisor 1
-${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 2 u32 match ip protocol 6 0xff link ${IH}6: offset at 0 mask 0x0f00 shift 6 plus 0
+For the members of "struct inquiry_cache" the tabbing has been all
+messed up by commit 561aafbcb2e3f8fee11d3781f866c7b4c4f93a28.
 
-${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 6 u32 ht ${IH}6:0 match tcp dst 22 0xffff at nexthdr+2 flowid ${IH}:40
+Instead of all of the member names being nicely aligned using tabs it now
+looks like (after all the commits it's now called "struct discovery_state"):
 
-Note that the ssh filter is prio 6 but the TCP hash table is prio 2.
-When I list the filters with tc -s filter show dev ifb0 parent 62:0, I
-see:
+	int type;
+	enum {
+		DISCOVERY_STOPPED,
+		DISCOVERY_STARTING,
+		DISCOVERY_FINDING,
+		DISCOVERY_RESOLVING,
+		DISCOVERY_STOPPING,
+	} state;
+	struct list_head all;		/* All devices found during inquiry */
+	struct list_head unknown;	/* Name state not known */
+	struct list_head resolve;	/* Name needs to be resolved */
+	__u32		timestamp;
 
-filter protocol ip pref 2 u32
-filter protocol ip pref 2 u32 fh 627: ht divisor 1
-filter protocol ip pref 2 u32 fh 626::806 order 2054 key ht 626 bkt 0 flowid 62:40  (rule hit 0 success 0)
-  match 00000016/0000ffff at nexthdr+0 (success 0 )
-filter protocol ip pref 2 u32 fh 801::800 order 2048 key ht 801 bkt 0 link 626:  (rule hit 0 success 0)
-  match 00060000/00ff0000 at 8 (success 0 )
-    offset 0f00>>6 at 0
+instead of something more reasonable like:
 
-They are all pref 2.  The filter order in which the filters are listed
-also does not appear to be the order in which they were created.  Thanks
-- John
+	int			type;
+	enum {
+		DISCOVERY_STOPPED,
+		DISCOVERY_STARTING,
+		DISCOVERY_FINDING,
+		DISCOVERY_RESOLVING,
+		DISCOVERY_STOPPING,
+	} state;
+	struct list_head	all;		/* All devices found during inquiry */
+	struct list_head 	unknown;	/* Name state not known */
+	struct list_head 	resolve;	/* Name needs to be resolved */
+	__u32			timestamp;
+
+The person editing this had to go out of their way to make things like this
+way.
+
+This was only three commits into your tree, therefore I'm not very
+optimistic to be honest with you.
