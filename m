@@ -1,100 +1,67 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-Date: Fri,  2 Mar 2012 20:41:39 +0530
-Message-ID: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: sony.chacko@qlogic.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/3] qla3xxx: ethernet: Fix bogus interrupt state flag.
+Date: Fri, 2 Mar 2012 15:29:06 +0000
+Message-ID: <1330702146.2611.1.camel@bwh-desktop>
+References: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <jitendra.kalsaria@qlogic.com>, <ron.mercer@qlogic.com>,
+	<linux-driver@qlogic.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: santosh nayak <santoshprasadnayak@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Fri, 2012-03-02 at 20:39 +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> 
+> In 'ql_adapter_initialize'
+> the first call for 'spin_unlock_irqrestore()' is with hw_flags = 0,
+> which is as good as 'spin_unlock_irq()' (unconditional interrupt
+> enabling). If this is intended, then for better performance
+> 'spin_unlock_irqrestore()' can be replaced with 'spin_unlock_irq()'
+> and 'spin_lock_irqsave()' can be replaced by 'spin_lock_irq()
 
-Fix endian bug.
-Add a default case in 'netxen_list_config_vlan_ip'
+Maybe you should make the same change in ql_adapter_up(), which is the
+caller that acquires this spinlock (and certainly shouldn't be called in
+IRQ context).
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
+Ben.
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 8dc4a134..971b286 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter *adapter)
- 			adapter->driver_mismatch = 1;
- 			return;
- 		}
--		ptr32[i] = cpu_to_le32(val);
-+		ptr32[i] = val;
- 		offset += sizeof(u32);
- 	}
- 
-@@ -3028,7 +3028,7 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
- 		list_for_each(head, &adapter->vlan_ip_list) {
- 			cur = list_entry(head, struct nx_vlan_ip_list, list);
- 
--			if (cur->ip_addr == ifa->ifa_address)
-+			if (cur->ip_addr == be32_to_cpu(ifa->ifa_address))
- 				return;
- 		}
- 
-@@ -3039,18 +3039,22 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
- 			return;
- 		}
- 
--		cur->ip_addr = ifa->ifa_address;
-+		cur->ip_addr = be32_to_cpu(ifa->ifa_address);
- 		list_add_tail(&cur->list, &adapter->vlan_ip_list);
- 		break;
- 	case NX_IP_DOWN:
- 		list_for_each_entry_safe(cur, tmp_cur,
- 					&adapter->vlan_ip_list, list) {
--			if (cur->ip_addr == ifa->ifa_address) {
-+			if (cur->ip_addr == be32_to_cpu(ifa->ifa_address)) {
- 				list_del(&cur->list);
- 				kfree(cur);
- 				break;
- 			}
- 		}
-+		break;
-+	default:
-+		printk(KERN_ERR "%ld: Wrong event id \n", event);
-+		break;
- 	}
- }
- static void
-@@ -3070,12 +3074,12 @@ netxen_config_indev_addr(struct netxen_adapter *adapter,
- 		switch (event) {
- 		case NETDEV_UP:
- 			netxen_config_ipaddr(adapter,
--					ifa->ifa_address, NX_IP_UP);
-+					be32_to_cpu(ifa->ifa_address), NX_IP_UP);
- 			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
- 			break;
- 		case NETDEV_DOWN:
- 			netxen_config_ipaddr(adapter,
--					ifa->ifa_address, NX_IP_DOWN);
-+					be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
- 			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
- 			break;
- 		default:
-@@ -3167,11 +3171,11 @@ recheck:
- 
- 	switch (event) {
- 	case NETDEV_UP:
--		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
-+		netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_UP);
- 		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
- 		break;
- 	case NETDEV_DOWN:
--		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
-+		netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
- 		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
- 		break;
- 	default:
+> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> ---
+>  drivers/net/ethernet/qlogic/qla3xxx.c |    5 ++---
+>  1 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+> index d49f6da..8da3e41 100644
+> --- a/drivers/net/ethernet/qlogic/qla3xxx.c
+> +++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+> @@ -3017,7 +3017,6 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
+>  		(void __iomem *)port_regs;
+>  	u32 delay = 10;
+>  	int status = 0;
+> -	unsigned long hw_flags = 0;
+>  
+>  	if (ql_mii_setup(qdev))
+>  		return -1;
+> @@ -3228,9 +3227,9 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
+>  		value = ql_read_page0_reg(qdev, &port_regs->portStatus);
+>  		if (value & PORT_STATUS_IC)
+>  			break;
+> -		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
+> +		spin_unlock_irq(&qdev->hw_lock);
+>  		msleep(500);
+> -		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
+> +		spin_lock_irq(&qdev->hw_lock);
+>  	} while (--delay);
+>  
+>  	if (delay == 0) {
+
 -- 
-1.7.4.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
