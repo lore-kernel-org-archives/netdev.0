@@ -1,43 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Patch for MTU in the routing table cache
-Date: Fri, 02 Mar 2012 06:27:16 -0800
-Message-ID: <1330698436.2469.27.camel@edumazet-laptop>
-References: <4F50C789.8050709@istac.de>
-	 <1330695791.2469.17.camel@edumazet-laptop> <4F50CFE1.5040605@istac.de>
+Subject: Re: 3.3.0-rc5: OOps in dql_completed (Broadcom tg3 driver)
+Date: Fri, 02 Mar 2012 06:30:46 -0800
+Message-ID: <1330698646.2469.28.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1203011505510.6685@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Simeon Penev <spenev@istac.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:54513 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964847Ab2CBO1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 09:27:19 -0500
-Received: by pbcun15 with SMTP id un15so159211pbc.19
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 06:27:19 -0800 (PST)
-In-Reply-To: <4F50CFE1.5040605@istac.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Tom Herbert <therbert@google.com>
+To: Christoph Lameter <cl@gentwo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1203011505510.6685@router.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 02 mars 2012 =C3=A0 14:49 +0100, Simeon Penev a =C3=A9crit =
-:
-> Hi Eric,
+Le jeudi 01 mars 2012 =C3=A0 15:13 -0600, Christoph Lameter a =C3=A9cri=
+t :
+> Dell R620. 2x 2.9Ghz Sandybridge
 >=20
-> no, i didn't. I'm new to the developer list and just wanted to post a=
-=20
-> patch proposition. I hoped that the maintainer of the code (probably=20
-> Alan Cox) will decide whether to use it.
+> Sadly I could only get a screenshot and the top of the dump has scrol=
+led
+> off the system.
 >=20
 
-David Miller is the current network maintainer, but thats not the
-point :)
+Thanks Christoph for this report.
 
-I didnt test your patch, all I wanted to say is that you cant assume al=
-l
-routes share the same MTU (device MTU)
+Tom, dql_queued() assumes caller checked availability in the queue with
+dql_avail(), but its not the case if tg3_tso_bug() is called.
 
-And this is the assumption you coded :
+        do {
+                nskb =3D segs;
+                segs =3D segs->next;
+                nskb->next =3D NULL;
+                tg3_start_xmit(nskb, tp->dev);
+        } while (segs);
 
-if (mtu && rt_is_output_route(rt) && mtu =3D=3D dst->dev->mtu)
-	return mtu;
+In case we hit BQL limit in one of the tg3_start_xmit() calls, we shoul=
+d
+'abort' the following ones, dont you think ?
+
+Or maybe thats irrelevant, and only dql_queued() comment is wrong.
+
+Thanks
