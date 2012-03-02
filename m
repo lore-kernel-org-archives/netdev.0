@@ -1,85 +1,55 @@
-From: =?ISO-8859-15?Q?Niccol=F2_Belli?= <darkbasic-DEeHIYRtcplPMsqi6aon0Q@public.gmane.org>
-Subject: Re: Strange issue with IPv6 through ipsec
-Date: Fri, 02 Mar 2012 14:19:08 +0100
-Message-ID: <4F50C8CC.2040106@linuxsystems.it>
-References: <4F4EB820.1090607@linuxsystems.it>
-	<4F4EBCE3.8040301@linuxsystems.it>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
+ hardware
+Date: Fri, 02 Mar 2012 08:20:45 -0500
+Message-ID: <1330694445.2405.162.camel@mojatatu>
+References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
+	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
+	 <4F34042F.6090806@intel.com>
+	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
+	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
+	 <4F347D96.2020806@intel.com> <4F3499BC.8020609@intel.com>
+	 <1328887111.2075.43.camel@mojatatu> <4F39287F.6030204@intel.com>
+	 <1329225526.2806.34.camel@mojatatu> <4F3AAE80.4040609@intel.com>
+	 <1329315057.4158.15.camel@mojatatu> <4F3C5B44.7000608@intel.com>
+	 <1329488932.2272.19.camel@mojatatu> <4F3E8A01.5000205@intel.com>
+	 <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com>
+	 <1330523779.18226.17.camel@mojatatu> <4F4E5FA4.4040506@intel.com>
+	 <20120229095204.48885405@nehalam.linuxnetplumber.net>
+	 <4F4E6C44.9070502@intel.com> <1330608980.6944.27.camel@mojatatu>
+	 <4F4FF578.30000@intel.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Cc: users-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <4F4EBCE3.8040301-DEeHIYRtcplPMsqi6aon0Q@public.gmane.org>
-List-Unsubscribe: <https://lists.strongswan.org/mailman/listinfo/users>,
-	<mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.strongswan.org/pipermail/users>
-List-Post: <mailto:users-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.strongswan.org/mailman/listinfo/users>,
-	<mailto:users-request-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
-Errors-To: users-bounces+gnvsu-users=m.gmane.org-3+4lAyCyj6DkhV4RL1hkzWD2FQJk+8+b@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bhutchings@solarflare.com, roprabhu@cisco.com,
+	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
+	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
+	sri@us.ibm.com, kernel@wantstofly.org
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4F4FF578.30000@intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry for the dumb question, it isn't a bug and I found the answer using =
+On Thu, 2012-03-01 at 14:17 -0800, John Fastabend wrote:
+> Hmm so I think what I'll do is this...
+> 
+>  both: ndm_flags = 0 
+>  sw  : ndm_flags = NTF_SW_FDB
+>  hw  : ndm_flags = NTF_HW_FDB
+>
+> Then current tools will work with embedded bridges and software
+> bridges
+> with the interesting case being when a port supporting an offloaded
+> FDB is attached to a SW bridge. Doing both in this case seems to be a
+> reasonable default to me.
 
-dcpdump:
+Looks good, although it seems like no backward compat is broken, it
+feels like the default should be whats goin on today i.e s/ware only.
+IOW, I would make that the 0.
 
-listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
-14:09:40.891358 IP6 a:b:c:301::1 > ff02::1:ff00:2: ICMP6, neighbor =
+cheers,
+jamal
 
-solicitation, who has a:b:c:301::2, length 32
-14:09:40.891708 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, neighbor =
-
-advertisement, tgt is a:b:c:301::2, length 32
-14:09:40.891727 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 1, length 64
-14:09:40.891778 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-1, length 64
-14:09:41.887406 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 2, length 64
-14:09:41.887478 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-2, length 64
-14:09:42.887391 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 3, length 64
-14:09:42.887440 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-3, length 64
-14:09:43.886647 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 4, length 64
-14:09:43.886716 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-4, length 64
-14:09:44.886636 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 5, length 64
-14:09:44.886687 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-5, length 64
-14:09:45.886651 IP6 a:b:c:301::1 > a:b:c:301::2: ICMP6, echo request, =
-
-seq 6, length 64
-14:09:45.886722 IP6 a:b:c:301::2 > a:b:c:301::1: ICMP6, echo reply, seq =
-
-6, length 64
-14:09:45.889830 IP6 fe80::211:d8ff:fed9:c01a > a:b:c:301::1: ICMP6, =
-
-neighbor solicitation, who has a:b:c:301::1, length 32
-14:09:45.889866 IP6 a:b:c:301::1 > fe80::211:d8ff:fed9:c01a: ICMP6, =
-
-neighbor advertisement, tgt is a:b:c:301::1, length 24
-
-
-I simply had to passthrough multicast link-local traffic.
-
-I'm sorry but I'm really newbie to IPv6 :(
-
-Regards,
-Niccol=F2
