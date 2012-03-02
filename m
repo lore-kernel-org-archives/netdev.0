@@ -1,74 +1,73 @@
-From: "Christian Benvenuti (benve)" <benve@cisco.com>
-Subject: RE: [patch] enic: fix an endian bug in enic_probe()
-Date: Thu, 1 Mar 2012 19:23:45 -0600
-Message-ID: <184D23435BECB444AB6B9D4630C8EC8303853051@XMB-RCD-303.cisco.com>
-References: <20120301071954.GA7152@elgon.mountain> <20120301.172408.1182768164929080163.davem@davemloft.net>
+From: Andrew Lutomirski <luto@mit.edu>
+Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom load_pointer
+Date: Thu, 1 Mar 2012 17:48:32 -0800
+Message-ID: <CAObL_7H5i_oU2NORmV4TC3X2p3kUeN_ekBcd7PTDf0MuGOuGcQ@mail.gmail.com>
+References: <1330559620-23543-1-git-send-email-wad@chromium.org>
+ <20120301233712.GS3990@outflux.net> <20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
+ <CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Roopa Prabhu (roprabhu)" <roprabhu@cisco.com>,
-	"Neel Patel (neepatel)" <neepatel@cisco.com>,
-	"Nishank Trivedi (nistrive)" <nistrive@cisco.com>,
-	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-8.cisco.com ([173.37.86.79]:27632 "EHLO
-	rcdn-iport-8.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752091Ab2CBBdW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 20:33:22 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <20120301.172408.1182768164929080163.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>, akpm@linux-foundation.org,
+	Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks Dan, David.
+On Thu, Mar 1, 2012 at 4:57 PM, Kees Cook <keescook@chromium.org> wrote=
+:
+> Hi,
+>
+> On Thu, Mar 1, 2012 at 4:47 PM, Stephen Rothwell <sfr@canb.auug.org.a=
+u> wrote:
+>> Hi Kees,
+>>
+>> On Thu, 1 Mar 2012 15:37:12 -0800 Kees Cook <keescook@chromium.org> =
+wrote:
+>>>
+>>> Is it time to pull this into -next so more people can feel it? I br=
+ought
+>>> Andy Lutomirski's patches forward (needed to bump the prctl values)=
+, and
+>>> updated my git tree. If we're ready, here it is in all its request-=
+pull
+>>> format glory:
+>>>
+>>> The following changes since commit 2422c8368337196594265d52cad7316c=
+9404bfcf:
+>>> =A0 Stephen Rothwell (1):
+>>> =A0 =A0 =A0 =A0 Add linux-next specific files for 20120301
+>>
+>> OK, not commenting on anything else, but I cannot merge that into
+>> linux-next because it is based on yesterday's linux-next release and
+>> linux-next (effectively) rebases every day ...
+>>
+>> Does this work depend on anything in linux-next? =A0Or could it be j=
+ust
+>> based off Linus' tree. =A0If it depends on other tree(s) merged into
+>> linux-next, then you should base your tree on those tree(s) as long =
+as
+>> they never get rebased ...
+>
+> Unfortunately, yes, it does -- there were both ptrace changes and prc=
+tl changes.
+>
+> And at least the ptrace changes are, IIRC, in -mm, which has no tree.
+> :P Given that, what's the best thing for me to do for this to be easy
+> for you to pull?
+>
 
-Just one quick comment...
-pci_enable_sriov's 2nd input is declared as type int and we
-were using u32 instead (for a non negative 16bit value).
-With a quick check I noticed that other pci_enable_sriov callers
-do something similar and may need to be taken care too:
+IIRC the prctl changes are in -linus.  I can rebase my part onto them.
 
-driver    |  type used
-----------+--------------
-mlx4      | int
-chelsio   | unsigned int
-igb       | unsigned int   
-igbxe     | unsigned int
-emulex    | u32
-vxge      | u32
-
-
-Another option would have been to make all drivers use int
-to match pci_enable_sriov (pci_enable_sriov->sriov_enable checks
-against negative values).
-
-(BTW, why is pci_enable_sriov prototype using int?)
-
-Thanks
-/Chris
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, March 01, 2012 2:24 PM
-> To: dan.carpenter@oracle.com
-> Cc: Roopa Prabhu (roprabhu); Christian Benvenuti (benve); Neel Patel
-> (neepatel); Nishank Trivedi (nistrive); netdev@vger.kernel.org;
-kernel-
-> janitors@vger.kernel.org
-> Subject: Re: [patch] enic: fix an endian bug in enic_probe()
-> 
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Thu, 1 Mar 2012 10:19:54 +0300
-> 
-> > "num_vfs" is a u32 but we only use the high 16 bits and the low
-> 16bits
-> > are left as zero.  That isn't a problem for little endian systems
-but
-> it
-> > will break on big endian ones.
-> >
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Applied.
+--Andy
