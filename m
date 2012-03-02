@@ -1,69 +1,57 @@
-From: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
-Subject: Re: Resend: [PATCH] Bluetooth: Fix Endian Bug.
-Date: Fri, 2 Mar 2012 14:32:15 +0200
-Message-ID: <20120302123210.GA4741@aemeltch-MOBL1>
-References: <1330599561-20392-1-git-send-email-santoshprasadnayak@gmail.com>
- <20120301123540.GE25627@aemeltch-MOBL1>
- <CAOD=uF4LSS8nuKMNHGEH2JsVZHU0rntSxZjvNaa4oZrey1macw@mail.gmail.com>
+From: Deepak Sikri <deepak.sikri@st.com>
+Subject: [PATCH 0/6] stmmac: Driver Updates
+Date: Fri, 2 Mar 2012 18:25:22 +0530
+Message-ID: <1330692928-30330-1-git-send-email-deepak.sikri@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: marcel@holtmann.org, padovan@profusion.mobi, davem@davemloft.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOD=uF4LSS8nuKMNHGEH2JsVZHU0rntSxZjvNaa4oZrey1macw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <spear-devel@list.st.com>, <netdev@vger.kernel.org>,
+	Deepak Sikri <deepak.sikri@st.com>
+To: <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:54687 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757136Ab2CBMzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 07:55:40 -0500
+Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
+	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 3B1B4D4
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:47:09 +0000 (GMT)
+Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
+	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id C385C75C
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:55:34 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Santosh,
+This patch set modifies the stmmac driver.
+Following changes have been done in the patch set.
+1. Explicitly have the option to pass checksum offload engine type
+through the platform code. This is helpful for stmmac core prior to
+revision 3.5
+2. Pass the default value of clk_csr scaling through the platform code.
+Define the scaling macros to be consistently used across driver and plat
+code.
+3. Update the stmmac driver to incorporate the CPU freq framework.
+4. Update the DMA descriptor status checks for cores prior to rev-3.5.
+5. Configure burst related DMA parameter for cores revision beyond
+rev-3.6
+6. Replace infinite loop in mdio read and write by timeouts
 
-On Thu, Mar 01, 2012 at 07:34:58PM +0530, santosh prasad nayak wrote:
-> Andrei,
->=20
-> I could not get you.
->=20
-> Do you want me to resend the patch with subject,
->   "[PATCH] Bluetooth: Fix network to host endian conversion for L2CAP
-> chan id."  ?
+Deepak Sikri (6):
+  stmmac: Define CSUM offload engine Types
+  stmmac: Define MDC clock selection macros.
+  stmmac: Add support for CPU freq notifiers.
+  stmmac: Update stmmac descriptor checks for stmmac core prior to
+    Rev-3.5.
+  stmmac: configure burst related GMAC DMA parameters
+  stmmac: Replace infinite loops by timeouts in mdio r/w
 
-No, the main concern was your commit message which is changelog and sho=
-uld
-come after "---" as it is shown in the example below.
-
-> > On Thu, Mar 01, 2012 at 04:29:21PM +0530, santosh nayak wrote:
-> >> From: Santosh Nayak <santoshprasadnayak@gmail.com>
-> >>
-> >> Fix for endian bug.
-> >>
-> >> Fix for null dereferenced removed as it is already
-> >> submitted by Andrei.
-> >>
-> >> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
-> >> ---
-> >> =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
-> >> =A01 files changed, 3 insertions(+), 2 deletions(-)
-> >
-> > We prefer following commit log (this is the example)
-> >
-> > <------8<----------------------------------------------------------
-> > | =A0From: Santosh Nayak <santoshprasadnayak@gmail.com>
-> > |
-> > | =A0Fix network to host endian conversion for L2CAP chan id.
-> > |
-> > | =A0Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
-> > |
-> > | =A0---
-> > | =A0 =A0 =A0 =A0 =A0* v2 Fix for null dereferenced removed as it i=
-s already
-> > | =A0 =A0 =A0 =A0 =A0submitted by Andrei.
-> > |
-> > | =A0 =A0net/bluetooth/l2cap_sock.c | =A0 =A05 +++--
-> > | =A0 =A01 files changed, 3 insertions(+), 2 deletions(-)
-> > |
-> > <------8<----------------------------------------------------------
-
-Best regards=20
-Andrei Emeltchenko=20
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   14 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   17 ++-
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   10 ++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  138 +++++++++++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   30 ++++-
+ include/linux/stmmac.h                             |   36 +++++
+ 9 files changed, 229 insertions(+), 21 deletions(-)
