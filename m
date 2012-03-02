@@ -1,10 +1,11 @@
 From: Deepak Sikri <deepak.sikri@st.com>
-Subject: [PATCH 3/6] stmmac: Add support for CPU freq notifiers.
-Date: Fri, 2 Mar 2012 18:25:25 +0530
-Message-ID: <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
+Subject: [PATCH 4/6] stmmac: Update stmmac descriptor checks for stmmac core prior to Rev-3.5.
+Date: Fri, 2 Mar 2012 18:25:26 +0530
+Message-ID: <1330692928-30330-5-git-send-email-deepak.sikri@st.com>
 References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com>
  <1330692928-30330-2-git-send-email-deepak.sikri@st.com>
  <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+ <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
@@ -12,255 +13,167 @@ Cc: <spear-devel@list.st.com>, <netdev@vger.kernel.org>,
 	Deepak Sikri <deepak.sikri@st.com>
 To: <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:57759 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754101Ab2CBMz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 07:55:56 -0500
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:45305 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755798Ab2CBM4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 07:56:03 -0500
 Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 46222BC
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:47:26 +0000 (GMT)
+	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 43603D4
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:47:31 +0000 (GMT)
 Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 07F2775D
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:55:51 +0000 (GMT)
-In-Reply-To: <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 043B0760
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:55:55 +0000 (GMT)
+In-Reply-To: <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds in the support for CPU freq notifiers. In case the system freq
-is changed using the CPU freq governors, the CSR input clock is also affected.
+The patch adds in the following support.
+1. The stmmac core supporting Type-1 checksum offload engine & prior to
+Revision 3.5, append the HW cecksum at the end of payload in case the Rx
+checksum engine was used to offload the HW checksum.
+There cores did not provide the HW register interface to read the device
+capabilities, and hence the plat code provides the core checksum capabilties
+that help to identify type-1 cores, and adjust the frame length.
 
-To maintain the CSR mdio clock within the limits of 1-2.5 Mhz the input clock
-has to be properly scaled using the appropriate scaling factors.
-This patch looks into the input clock frequency changes and selects the apt
-scaling factor once a notifier alert is received.
-Additionally the stmmac clock has been defined to support cpu freq notifiers.
+2. Also, the following Frame status checks with the Full checksum offload
+Type-2 engine enabled are not backward compatible and are reserved for
+STMMAC core revisions prior to 3.5.
+Bit18(Eth Frame)	Bit27(Header Csum Error)	Bit28 (Payload Csum Err)
+	0			1				1
+	0			1				0
+
+These conditions have been treated as no HW checksum support for stmmac core
+prior to rev-3.5.
 
 Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   10 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  124 ++++++++++++++++++++-
- 2 files changed, 130 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h      |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   17 +++++++++++------
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   14 +++++++++++++-
+ 4 files changed, 26 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 1207400..67b9757 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -22,6 +22,10 @@
- 
- #define STMMAC_RESOURCE_NAME   "stmmaceth"
- #define DRV_MODULE_VERSION	"Dec_2011"
-+
-+#ifdef CONFIG_HAVE_CLK
-+#include <linux/clk.h>
-+#endif
- #include <linux/stmmac.h>
- #include <linux/phy.h>
- #include "common.h"
-@@ -81,6 +85,12 @@ struct stmmac_priv {
- 	struct stmmac_counters mmc;
- 	struct dma_features dma_cap;
- 	int hw_cap_support;
-+#ifdef CONFIG_CPU_FREQ
-+	struct notifier_block freq_transition;
-+#endif
-+#ifdef CONFIG_HAVE_CLK
-+	struct clk *stmmac_clk;
-+#endif
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index d0b814e..12d1565 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -230,7 +230,7 @@ struct stmmac_desc_ops {
+ 	int (*get_rx_frame_len) (struct dma_desc *p);
+ 	/* Return the reception status looking at the RDES1 */
+ 	int (*rx_status) (void *data, struct stmmac_extra_stats *x,
+-			  struct dma_desc *p);
++			  struct dma_desc *p, u32 mac_id);
  };
  
- extern int phyaddr;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 96fa2da..001b8f3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -35,6 +35,7 @@
- #include <linux/skbuff.h>
- #include <linux/ethtool.h>
- #include <linux/if_ether.h>
-+#include <linux/cpufreq.h>
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/if.h>
-@@ -180,6 +181,92 @@ static void print_pkt(unsigned char *buf, int len)
- /* minimum number of free TX descriptors required to wake up TX process */
- #define STMMAC_TX_THRESH(x)	(x->dma_tx_size/4)
+ struct stmmac_dma_ops {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index d879763..42026f6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -22,6 +22,7 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
  
-+#ifdef CONFIG_CPU_FREQ
-+static inline void stmmac_clk_csr_set(struct stmmac_priv *priv, int clk_rate)
-+{
-+
-+	if ((clk_rate >= CSR_F_20M) && (clk_rate < CSR_F_35M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_20_35M;
-+	else if ((clk_rate >= CSR_F_35M) && (clk_rate < CSR_F_60M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_35_60M;
-+	else if ((clk_rate >= CSR_F_60M) && (clk_rate < CSR_F_100M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_60_100M;
-+	else if ((clk_rate >= CSR_F_100M) && (clk_rate < CSR_F_150M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_100_150M;
-+	else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_150_250M;
-+	else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_250_300M;
-+	else
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_150_250M;
-+
-+}
-+
-+static int stmmac_cpufreq_transition(struct notifier_block *nb,
-+		unsigned long val, void *data)
-+{
-+	struct stmmac_priv *priv;
-+	u32 clk_rate;
-+
-+	priv = container_of(nb, struct stmmac_priv, freq_transition);
-+
-+	if (val == CPUFREQ_PRECHANGE) {
-+		/* Stop TX/RX DMA */
-+		priv->hw->dma->stop_tx(priv->ioaddr);
-+		priv->hw->dma->stop_rx(priv->ioaddr);
-+
-+	} else if (val == CPUFREQ_POSTCHANGE) {
-+		/* Start DMA Tx/Rx */
-+		priv->hw->dma->start_tx(priv->ioaddr);
-+		priv->hw->dma->start_rx(priv->ioaddr);
-+		priv->hw->dma->enable_dma_transmission(priv->ioaddr);
-+
-+		if (priv->stmmac_clk) {
-+			/*
-+			 * Decide on the MDC clock dynamically based on the
-+			 * csr clock input.
-+			 * This is helpfull in case the cpu frequency is changed
-+			 * on the run using the cpu freq framework, and based
-+			 * on that the bus frequency is also changed.
-+			 * In case the clock framework is not established for an
-+			 * architecture, use the default value that has to be
-+			 * set through the platform.
-+			 */
-+			clk_rate = clk_get_rate(priv->stmmac_clk);
-+			stmmac_clk_csr_set(priv, clk_rate);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static inline void stmmac_cpufreq_register(struct stmmac_priv *priv)
-+{
-+	priv->freq_transition.notifier_call = stmmac_cpufreq_transition;
-+	cpufreq_register_notifier(&priv->freq_transition,
-+			CPUFREQ_TRANSITION_NOTIFIER);
-+}
-+
-+static inline void stmmac_cpufreq_deregister(struct stmmac_priv *priv)
-+{
-+
-+	cpufreq_unregister_notifier(&priv->freq_transition,
-+			CPUFREQ_TRANSITION_NOTIFIER);
-+}
-+
-+#else
-+
-+static inline void stmmac_cpufreq_register(struct stmmac_priv *priv)
-+{
-+	return 0;
-+}
-+
-+static inline void stmmac_cpufreq_deregister(struct stmmac_priv *priv)
-+{
-+}
-+
-+#endif
-+
- static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
++#include <linux/stmmac.h>
+ #include "common.h"
+ #include "descs_com.h"
+ 
+@@ -106,7 +107,9 @@ static int enh_desc_get_tx_len(struct dma_desc *p)
+ 	return p->des01.etx.buffer1_size;
+ }
+ 
+-static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err)
++#define GMAC_VERSION_35 0x35
++static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err,
++		u32 mac_id)
  {
- 	return priv->dirty_tx + priv->dma_tx_size - priv->cur_tx - 1;
-@@ -930,10 +1017,14 @@ static int stmmac_open(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret;
- 
-+#ifdef CONFIG_HAVE_CLK
-+	if (priv->stmmac_clk)
-+		clk_enable(priv->stmmac_clk);
-+#endif
- 	/* MAC HW device setup */
- 	ret = stmmac_mac_device_setup(dev);
- 	if (ret < 0)
--		return ret;
-+		goto open_clk_dis;
- 
- 	stmmac_check_ether_addr(priv);
- 
-@@ -949,14 +1040,15 @@ static int stmmac_open(struct net_device *dev)
- 	if (ret < 0) {
- 		pr_debug("%s: MDIO bus (id: %d) registration failed",
- 			 __func__, priv->plat->bus_id);
--		return ret;
-+		goto open_clk_dis;
+ 	int ret = good_frame;
+ 	u32 status = (type << 2 | ipc_err << 1 | payload_err) & 0x7;
+@@ -141,16 +144,16 @@ static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err)
+ 	} else if (status == 0x1) {
+ 		CHIP_DBG(KERN_ERR
+ 		    "RX Des0 status: IPv4/6 unsupported IP PAYLOAD.\n");
+-		ret = discard_frame;
++		ret = (mac_id >= GMAC_VERSION_35) ? discard_frame : csum_none;
+ 	} else if (status == 0x3) {
+ 		CHIP_DBG(KERN_ERR "RX Des0 status: No IPv4, IPv6 frame.\n");
+-		ret = discard_frame;
++		ret = (mac_id >= GMAC_VERSION_35) ? discard_frame : csum_none;
  	}
- 
- #ifdef CONFIG_STMMAC_TIMER
- 	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
- 	if (unlikely(priv->tm == NULL)) {
- 		pr_err("%s: ERROR: timer memory alloc failed\n", __func__);
--		return -ENOMEM;
-+		ret = -ENOMEM;
-+		goto open_clk_dis;
- 	}
- 	priv->tm->freq = tmrate;
- 
-@@ -1093,7 +1185,11 @@ open_error:
- #endif
- 	if (priv->phydev)
- 		phy_disconnect(priv->phydev);
--
-+open_clk_dis:
-+#ifdef CONFIG_HAVE_CLK
-+	if (priv->stmmac_clk)
-+		clk_disable(priv->stmmac_clk);
-+#endif
  	return ret;
  }
  
-@@ -1145,6 +1241,11 @@ static int stmmac_release(struct net_device *dev)
- #endif
- 	stmmac_mdio_unregister(dev);
+ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+-				  struct dma_desc *p)
++				  struct dma_desc *p, u32 mac_id)
+ {
+ 	int ret = good_frame;
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+@@ -195,9 +198,11 @@ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 	/* After a payload csum error, the ES bit is set.
+ 	 * It doesn't match with the information reported into the databook.
+ 	 * At any rate, we need to understand if the CSUM hw computation is ok
+-	 * and report this info to the upper layers. */
++	 * and report this info to the upper layers.
++	 */
+ 	ret = enh_desc_coe_rdes0(p->des01.erx.ipc_csum_error,
+-		p->des01.erx.frame_type, p->des01.erx.payload_csum_error);
++			p->des01.erx.frame_type,
++			p->des01.erx.payload_csum_error, mac_id);
  
-+#ifdef CONFIG_HAVE_CLK
-+	if (priv->stmmac_clk)
-+		clk_disable(priv->stmmac_clk);
-+#endif
+ 	if (unlikely(p->des01.erx.dribbling)) {
+ 		CHIP_DBG(KERN_ERR "GMAC RX: dribbling error\n");
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index fda5d2b..057a728 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -72,7 +72,7 @@ static int ndesc_get_tx_len(struct dma_desc *p)
+  * In case of success, it returns good_frame because the GMAC device
+  * is supposed to be able to compute the csum in HW. */
+ static int ndesc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+-			       struct dma_desc *p)
++			       struct dma_desc *p, u32 mac_id)
+ {
+ 	int ret = good_frame;
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 001b8f3..3bcdc97 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1103,6 +1103,7 @@ static int stmmac_open(struct net_device *dev)
+ 	priv->rx_coe = priv->hw->mac->rx_coe(priv->ioaddr);
+ 	if (priv->rx_coe)
+ 		pr_info(" Checksum Offload Engine supported\n");
 +
- 	return 0;
- }
+ 	if (priv->plat->tx_coe)
+ 		pr_info(" Checksum insertion supported\n");
  
-@@ -1844,6 +1945,16 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 		goto error;
- 	}
+@@ -1436,7 +1437,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
  
-+#ifdef CONFIG_HAVE_CLK
-+	priv->stmmac_clk = clk_get(device, NULL);
-+	if (IS_ERR(priv->stmmac_clk)) {
-+		ret = PTR_ERR(priv->stmmac_clk);
-+		pr_err("%s: ERROR %i clock get \n", __func__, ret);
-+		goto error;
-+	}
-+#endif
-+	stmmac_cpufreq_register(priv);
-+
- 	DBG(probe, DEBUG, "%s: Scatter/Gather: %s - HW checksums: %s\n",
- 	    ndev->name, (ndev->features & NETIF_F_SG) ? "on" : "off",
- 	    (ndev->features & NETIF_F_IP_CSUM) ? "on" : "off");
-@@ -1875,6 +1986,11 @@ int stmmac_dvr_remove(struct net_device *ndev)
- 	priv->hw->dma->stop_tx(priv->ioaddr);
+ 		/* read the status of the incoming frame */
+ 		status = (priv->hw->desc->rx_status(&priv->dev->stats,
+-						    &priv->xstats, p));
++					&priv->xstats, p,
++					priv->hw->synopsys_uid & 0xff));
+ 		if (unlikely(status == discard_frame))
+ 			priv->dev->stats.rx_errors++;
+ 		else {
+@@ -1444,6 +1446,16 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 			int frame_len;
  
- 	stmmac_set_mac(priv->ioaddr, false);
-+	stmmac_cpufreq_deregister(priv);
-+#ifdef CONFIG_HAVE_CLK
-+	if (priv->stmmac_clk)
-+		clk_put(priv->stmmac_clk);
-+#endif
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
- 	free_netdev(ndev);
+ 			frame_len = priv->hw->desc->get_rx_frame_len(p);
++			/*
++			 * The type-1 checksume offload engines append
++			 * the checksum at the end of frame, and the
++			 * the two bytes of checksum are added in
++			 * length.
++			 * Adjust for that in the framelen for type-1
++			 * checksum offload engines.
++			 */
++			if (priv->plat->csum_off_engine_type == STMMAC_CSUM_T1)
++				frame_len -= 2;
+ 			/* ACS is set; GMAC core strips PAD/FCS for IEEE 802.3
+ 			 * Type frames (LLC/LLC-SNAP) */
+ 			if (unlikely(status != llc_snap))
 -- 
 1.6.0.2
