@@ -1,26 +1,43 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: Re: [PATCH 5/7] lantiq_etop: use dev_set_mac_address() instead of
- ltq_etop_set_mac_address()
-Date: Fri, 02 Mar 2012 14:53:17 +0100
-Message-ID: <4F50D0CD.1060100@openwrt.org>
-References: <1330620747-4047-1-git-send-email-danny.kukawka@bisect.de> <1330620747-4047-6-git-send-email-danny.kukawka@bisect.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Patch for MTU in the routing table cache
+Date: Fri, 02 Mar 2012 06:27:16 -0800
+Message-ID: <1330698436.2469.27.camel@edumazet-laptop>
+References: <4F50C789.8050709@istac.de>
+	 <1330695791.2469.17.camel@edumazet-laptop> <4F50CFE1.5040605@istac.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>,
-	Joe Perches <joe@perches.com>,
-	Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Danny Kukawka <danny.kukawka@bisect.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330620747-4047-6-git-send-email-danny.kukawka@bisect.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Simeon Penev <spenev@istac.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:54513 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964847Ab2CBO1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 09:27:19 -0500
+Received: by pbcun15 with SMTP id un15so159211pbc.19
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 06:27:19 -0800 (PST)
+In-Reply-To: <4F50CFE1.5040605@istac.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/03/12 17:52, Danny Kukawka wrote:
-> Use dev_set_mac_address() instead of ltq_etop_set_mac_address() directly
-> to get validation checks for free.
->
-> Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
-Acked-by: John Crispin <blogic@openwrt.org>
+Le vendredi 02 mars 2012 =C3=A0 14:49 +0100, Simeon Penev a =C3=A9crit =
+:
+> Hi Eric,
+>=20
+> no, i didn't. I'm new to the developer list and just wanted to post a=
+=20
+> patch proposition. I hoped that the maintainer of the code (probably=20
+> Alan Cox) will decide whether to use it.
+>=20
+
+David Miller is the current network maintainer, but thats not the
+point :)
+
+I didnt test your patch, all I wanted to say is that you cant assume al=
+l
+routes share the same MTU (device MTU)
+
+And this is the assumption you coded :
+
+if (mtu && rt_is_output_route(rt) && mtu =3D=3D dst->dev->mtu)
+	return mtu;
