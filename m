@@ -1,87 +1,44 @@
-From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom load_pointer
-Date: Thu, 1 Mar 2012 20:39:40 -0600
-Message-ID: <CABqD9ha4ACGaVt_VDY9LFJKW1dJ3LrRm=pDyTCQwupLZQ0Ovhg@mail.gmail.com>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-	<20120301233712.GS3990@outflux.net>
-	<20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
-	<CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
-	<20120301171914.7c64f095.akpm@linux-foundation.org>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Alex Shi <alex.shi@intel.com>
+Subject: Re: TCP_STREAM performance regression on commit b3613118
+Date: Fri, 02 Mar 2012 10:45:17 +0800
+Message-ID: <1330656317.21053.1411.camel@debian>
+References: <1329466694.12669.2976.camel@debian>
+	 <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20120217.133327.1178765872497293871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Kees Cook <keescook@chromium.org>, Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	hpa@zytor.com, mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <kernel-hardening-return-1025-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20120301171914.7c64f095.akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Tang Feng <feng.tang@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120217.133327.1178765872497293871.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 1, 2012 at 7:19 PM, Andrew Morton <akpm@linux-foundation.org> w=
-rote:
-> On Thu, 1 Mar 2012 16:57:49 -0800 Kees Cook <keescook@chromium.org> wrote=
-:
->
->> On Thu, Mar 1, 2012 at 4:47 PM, Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->> > Hi Kees,
->> >
->> > On Thu, 1 Mar 2012 15:37:12 -0800 Kees Cook <keescook@chromium.org> wr=
-ote:
->> >>
->> >> Is it time to pull this into -next so more people can feel it? I brou=
-ght
->> >> Andy Lutomirski's patches forward (needed to bump the prctl values), =
-and
->> >> updated my git tree. If we're ready, here it is in all its request-pu=
-ll
->> >> format glory:
->> >>
->> >> The following changes since commit 2422c8368337196594265d52cad7316c94=
-04bfcf:
->> >> __ Stephen Rothwell (1):
->> >> __ __ __ __ Add linux-next specific files for 20120301
->> >
->> > OK, not commenting on anything else, but I cannot merge that into
->> > linux-next because it is based on yesterday's linux-next release and
->> > linux-next (effectively) rebases every day ...
->> >
->> > Does this work depend on anything in linux-next? __Or could it be just
->> > based off Linus' tree. __If it depends on other tree(s) merged into
->> > linux-next, then you should base your tree on those tree(s) as long as
->> > they never get rebased ...
->>
->> Unfortunately, yes, it does -- there were both ptrace changes and prctl =
-changes.
->>
->> And at least the ptrace changes are, IIRC, in -mm, which has no tree.
->> :P Given that, what's the best thing for me to do for this to be easy
->> for you to pull?
->
-> Base the tree on mainline and wreck the -mm patches I guess. =A0I'm good
-> at unwrecking patches.
->
-> That assumes that we're going to merge this stuff into 3.4 - if we
-> don't, unwrecker gets rewrecked and grumpy.
->
-> I don't know if we're going to merge it into 3.4? =A0I haven't been
-> paying a lot of attention and haven't looked at the patches in a while.
->
+On Fri, 2012-02-17 at 13:33 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 17 Feb 2012 10:50:39 +0100
+>=20
+> > Le vendredi 17 f=C3=A9vrier 2012 =C3=A0 16:18 +0800, Alex,Shi a =C3=
+=A9crit :
+> >> The tcp_stream loop back performance has about 10% drop on the
+> >> commitment on our core2 2 sockets server. This commit has 2
+> >> parents(7505afe28, 5983fe), but both of them have no regression. S=
+o
+> >> guess the impact just happened when this 2 parents joint. That bey=
+ond
+> >> our capability to dig it more.
+> >>=20
+> >> Any ideas?=20
+> >=20
+> > Most probably the more accurate truesize determination is responsib=
+le of
+> > this tcp regression, since some prior assumptions might be wrong.
+> >=20
+> > Want to give more information on the workload ?
+> > Is it a 32 or 64 bit kernel ?
+>=20
+> And let's start CC:'ing netdev too.
 
-I'll roll a v13 which is just a rebase back onto mainline and see if I
-can just stage it in kees's tree.
-
-Thanks!
-will
+Add CC to tang feng, He is working on this issue.=20
