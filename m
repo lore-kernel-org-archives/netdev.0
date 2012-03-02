@@ -1,106 +1,55 @@
-From: Deepak Sikri <deepak.sikri@st.com>
-Subject: [PATCH 6/6] stmmac: Replace infinite loops by timeouts in mdio r/w
-Date: Fri, 2 Mar 2012 18:25:28 +0530
-Message-ID: <1330692928-30330-7-git-send-email-deepak.sikri@st.com>
-References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com>
- <1330692928-30330-2-git-send-email-deepak.sikri@st.com>
- <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
- <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
- <1330692928-30330-5-git-send-email-deepak.sikri@st.com>
- <1330692928-30330-6-git-send-email-deepak.sikri@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Fri, 02 Mar 2012 05:13:51 -0800
+Message-ID: <1330694031.2469.15.camel@edumazet-laptop>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+	 <20120301.170848.432407217191581288.davem@davemloft.net>
+	 <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+	 <20120302.035509.1994457175982020283.davem@davemloft.net>
+	 <4F509274.9060302@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <spear-devel@list.st.com>, <netdev@vger.kernel.org>,
-	Deepak Sikri <deepak.sikri@st.com>
-To: <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	ying.xue@windriver.com, luiz.dentz@gmail.com,
+	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:44395 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755102Ab2CBM4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 07:56:12 -0500
-Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id D1076CE
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:47:41 +0000 (GMT)
-Received: from Webmail-ap.st.com (eapex1hubcas1.st.com [10.80.176.8])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 9AA1575F
-	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 12:56:06 +0000 (GMT)
-In-Reply-To: <1330692928-30330-6-git-send-email-deepak.sikri@st.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:56628 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757510Ab2CBNNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 08:13:54 -0500
+In-Reply-To: <4F509274.9060302@collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the infinite waits from the mdio read and
-write interfaces. These infinite waits have been replaced by
-the timeout handling. In case if a time out occurs, an error is
-returned.
+Le vendredi 02 mars 2012 =C3=A0 10:27 +0100, Javier Martinez Canillas a
+=C3=A9crit :
 
-Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   30 ++++++++++++++++-----
- 1 files changed, 23 insertions(+), 7 deletions(-)
+> We are the most interested in using a facility already found in the
+> kernel, we will try ZeroMQ as Stephen suggested and TIPC but really
+> didn't find an IPC mechanism that fits our needs. The most important
+> issue right now is the fd passing for D-bus application doing
+> out-of-band communication.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 7319532..b6a6fb2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -34,6 +34,20 @@
- #define MII_BUSY 0x00000001
- #define MII_WRITE 0x00000002
- 
-+static int stmmac_mdio_busy_wait(unsigned long ioaddr, unsigned int mii_addr)
-+{
-+	unsigned long finish = jiffies + 3 * HZ;
-+
-+	do {
-+		if (readl(ioaddr + mii_addr) & MII_BUSY)
-+			cpu_relax();
-+		else
-+			return 0;
-+	} while (!time_after_eq(jiffies, finish));
-+
-+	return -EBUSY;
-+}
-+
- /**
-  * stmmac_mdio_read
-  * @bus: points to the mii_bus structure
-@@ -56,9 +70,13 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 			((phyreg << 6) & (0x000007C0)));
- 	regValue |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
- 
--	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
-+	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
-+		return -EBUSY;
-+
- 	writel(regValue, priv->ioaddr + mii_address);
--	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
-+
-+	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
-+		return -EBUSY;
- 
- 	/* Read the data from the MII data register */
- 	data = (int)readl(priv->ioaddr + mii_data);
-@@ -88,18 +106,16 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 
- 	value |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
- 
--
- 	/* Wait until any existing MII operation is complete */
--	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
-+	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
-+		return -EBUSY;
- 
- 	/* Set the MII address register to write */
- 	writel(phydata, priv->ioaddr + mii_data);
- 	writel(value, priv->ioaddr + mii_address);
- 
- 	/* Wait until any existing MII operation is complete */
--	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
--
--	return 0;
-+	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
- }
- 
- /**
--- 
-1.6.0.2
+Why on earth the needed D-Bus IPC should use a single kernel mechanism =
+?
+
+I mean, of course AF_INET cannot pass fd around and never will.
+Of course AF_UNIX cannot use multicast and never will.
+Of course shared memory wont pass fds around and never will.
+=2E.. Add other impossible combinations as you want.
+
+There are reasons fd passing is hard to implement. I find stuffing this
+functionality in AF_UNIX was a bad design choice from the very
+beginning.
+
+Instead of pushing extra complexity to a single kernel component, why
+not trying to use a combination of existing, well designed and supporte=
+d
+ones ?
