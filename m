@@ -1,56 +1,63 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Subject: [PATCHv 2] tcp: properly initialize tcp memory limits part 2 (fix nfs regression)
-Date: Fri,  2 Mar 2012 10:59:33 +0300
-Message-ID: <1330675173-18968-1-git-send-email-slyich@gmail.com>
-Cc: netdev@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>,
-	Jason Wang <jasowang@redhat.com>,
-	Glauber Costa <glommer@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [PATCH v12 06/13] seccomp: add system call filtering using BPF
+Date: Fri, 2 Mar 2012 09:12:58 +0100
+Message-ID: <5e22306601c1718407f477e64d2e75b9.squirrel@webmail.greenhost.nl>
+References: <1330559620-23543-1-git-send-email-wad@chromium.org>
+    <1330559620-23543-6-git-send-email-wad@chromium.org>
+    <a6fdbe9d1daf6864589c9affc7048965.squirrel@webmail.greenhost.nl>
+    <4F50603B.7040505@zytor.com>
+    <bc1b4ec8fbad5a5931a928f108a6095f.squirrel@webmail.greenhost.nl>
+    <4F506EE2.1050705@zytor.com>
+Mime-Version: 1.0
+Content-Type: text/plain;charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "Will Drewry" <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4F506EE2.1050705@zytor.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+On Fri, March 2, 2012 07:55, H. Peter Anvin wrote:
+> On 03/01/2012 10:43 PM, Indan Zupancic wrote:
+> Ok, fail on my part - I misread the above to refer to @arch, not
+> @instruction_pointer.
 
-The commit c43b874d5d7 introduced NFS file transfer hangup (proved by bisection).
-> Commit 4acb4190 tries to fix the using uninitialized value
-> introduced by commit 3dc43e3,  but it would make the
-> per-socket memory limits too small.
+Ah, that explains a lot.
+
+>>> -- Pin is a great example.
+>> Is that http://www.pintool.org/?
+>>
+>> Can you explain how knowing the IP is useful for Pin?
+>>
+>> All I am asking for is just one use case for providing the IP. Is that
+>> asking for too much?
 >
-> This patch fixes this and also remove the redundant codes
-> introduced in 4acb4190.
+> However, it still applies.  For something like Pin, Pin may want to trap
+> on all or a subset from the instrumented program, while the
+> instrumentation code -- which lives in the same address space -- needs
+> to execute those same instructions.
+>
+> Yes, it's useless for *security* (unless perhaps if you keep very strict
+> tabs on the flow of control by using debug registers, dynamic
+> translation or whatnot), but it can be highly useful for
+> *instrumentation*, where you want to analyze the behavior of a
+> non-malicious program.
 
-The change looks like a typo (division flipped to multiplication):
-> limit = nr_free_buffer_pages() / 8;
-> limit = nr_free_buffer_pages() << (PAGE_SHIFT - 10);
+That is a good use case indeed, I'm convinced.
 
-Patch restores division.
+Thanks,
 
-CC: Jason Wang <jasowang@redhat.com>
-CC: Glauber Costa <glommer@parallels.com>
-CC: David S. Miller <davem@davemloft.net>
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Tested-by: Sergei Trofimovich <slyfox@gentoo.org>
----
+Indan
 
-Change since v1: added forgotten commit ID
 
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 22ef5f9..b11667b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3299,7 +3299,7 @@ void __init tcp_init(void)
- 
- 	tcp_init_mem(&init_net);
- 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
--	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 10);
-+	limit = nr_free_buffer_pages() >> (PAGE_SHIFT - 10);
- 	limit = max(limit, 128UL);
- 	max_share = min(4UL*1024*1024, limit);
- 
--- 
-1.7.8.5
