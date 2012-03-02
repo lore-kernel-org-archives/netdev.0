@@ -1,78 +1,45 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom
- load_pointer
-Date: Fri, 2 Mar 2012 14:10:38 +1100
-Message-ID: <20120302141038.aaafc42b59ac7cf95d3553ed@canb.auug.org.au>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-	<20120301233712.GS3990@outflux.net>
-	<20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
-	<CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: u32 prio and hash tables
+Date: Thu, 01 Mar 2012 22:17:20 -0500
+Message-ID: <1330658240.4671.172.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__2_Mar_2012_14_10_38_+1100_iimP6pwrK=tATLVh"
-Cc: akpm@linux-foundation.org, Will Drewry <wad@chromium.org>,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
-	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.194]:58444 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754623Ab2CBDRY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 22:17:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__2_Mar_2012_14_10_38_+1100_iimP6pwrK=tATLVh
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hello, all.  Does linking to a hash table override the priority of a
+filter?
 
-Hi Kees,
+I was surprised while analyzing some unexpected failures in filter
+matching that my configured priorities seemed to change and be
+overwritten with the priority of the linked hash table.  For example, I
+have these filters:
 
-On Thu, 1 Mar 2012 16:57:49 -0800 Kees Cook <keescook@chromium.org> wrote:
->
-> Unfortunately, yes, it does -- there were both ptrace changes and prctl c=
-hanges.
->
-> And at least the ptrace changes are, IIRC, in -mm, which has no tree.
-> :P Given that, what's the best thing for me to do for this to be easy
-> for you to pull?
+# TCP hash table
+${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 2 handle ${IH}6: u32 divisor 1
+${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 2 u32 match ip protocol 6 0xff link ${IH}6: offset at 0 mask 0x0f00 shift 6 plus 0
 
-Does this set of patches *depend* on functionality provided by those, or
-just produce conflicts against the other changes?  If it is just
-conflicts, then base your tree on Linus and I and (he when it comes to
-it) can fix the conflicts as needed (with some hints if you think it is a
-good idea i.e. is the conflicts are particularly complex).
+${TC} filter ${ACTION} dev ${IIFB} parent ${IH}:0 protocol ip prio 6 u32 ht ${IH}6:0 match tcp dst 22 0xffff at nexthdr+2 flowid ${IH}:40
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Note that the ssh filter is prio 6 but the TCP hash table is prio 2.
+When I list the filters with tc -s filter show dev ifb0 parent 62:0, I
+see:
 
---Signature=_Fri__2_Mar_2012_14_10_38_+1100_iimP6pwrK=tATLVh
-Content-Type: application/pgp-signature
+filter protocol ip pref 2 u32
+filter protocol ip pref 2 u32 fh 627: ht divisor 1
+filter protocol ip pref 2 u32 fh 626::806 order 2054 key ht 626 bkt 0 flowid 62:40  (rule hit 0 success 0)
+  match 00000016/0000ffff at nexthdr+0 (success 0 )
+filter protocol ip pref 2 u32 fh 801::800 order 2048 key ht 801 bkt 0 link 626:  (rule hit 0 success 0)
+  match 00060000/00ff0000 at 8 (success 0 )
+    offset 0f00>>6 at 0
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPUDouAAoJEECxmPOUX5FE+FgP/2ciSTssakN+2+OPgebOgSZE
-kheNauQ21xKq5ADFPJ7rOhG5IBwrQAxrkBjfa79jwQq4pwIQTbi86leCazu6p/8R
-jZxC+fH7qDbMyhfcP3TnA4y/DuFni/7IhbStaA6naj8qLHgHzn1O5/aSgBngFPV5
-gfK9G58ZalygySgw21amEW2WUk4+b8GcnUOnI3suqSTBwqgw7Etke8QXXrca+WOn
-al/40C5H1HH/gMmfA65ClmgKdZO5gruz+jtraaopFc43dVxgxUlrk497O8bkDyxw
-aO5/WpgmJl3lLxoBtat6Is91AvJga1FaLUH/b9dJGXeipVdbU+9g+CfG4PBC9KVW
-ltydGrJiuuaKO+pnMhcpe2WM3UEmX/vX6s+wn2XfUjIuwUEmVg7upo78suCKfLG/
-YToUv+uZlsgDrWK7eDPy2OvoidroRRs5j5U7lut7DsA0nJlo/EZfpaAs+KrmGZjJ
-u6vUm5Su4BisU9hihrT97ytlQfpyuWezX019M1btSHRhJiEsdwtuB1zPedNMw1/6
-GnSsEkvxDPMfASIj4X23KVeioext4ZsV9WCI7nxmj1f/9FdMnpYSFJv+wEB5bPs0
-0dsWzVMWAXTSKsAQcfvlzSm/LNFNIoE4Ne37/Spu1uNHJlsMr2C+fhpz5uXHNmhP
-uGdv7WPzJgOV2rnjYaEa
-=/L5q
------END PGP SIGNATURE-----
-
---Signature=_Fri__2_Mar_2012_14_10_38_+1100_iimP6pwrK=tATLVh--
+They are all pref 2.  The filter order in which the filters are listed
+also does not appear to be the order in which they were created.  Thanks
+- John
