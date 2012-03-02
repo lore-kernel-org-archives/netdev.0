@@ -1,7 +1,7 @@
 From: Sergei Trofimovich <slyich@gmail.com>
-Subject: [PATCH] tcp: properly initialize tcp memory limits part 2 (fix nfs regression)
-Date: Fri,  2 Mar 2012 10:56:38 +0300
-Message-ID: <1330674998-16704-1-git-send-email-slyich@gmail.com>
+Subject: [PATCHv 2] tcp: properly initialize tcp memory limits part 2 (fix nfs regression)
+Date: Fri,  2 Mar 2012 10:59:33 +0300
+Message-ID: <1330675173-18968-1-git-send-email-slyich@gmail.com>
 Cc: netdev@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>,
 	Jason Wang <jasowang@redhat.com>,
 	Glauber Costa <glommer@parallels.com>,
@@ -13,7 +13,7 @@ List-Id: netdev.vger.kernel.org
 
 From: Sergei Trofimovich <slyfox@gentoo.org>
 
-The commit introduced NFS file transfer hangup (proved by bisection).
+The commit c43b874d5d7 introduced NFS file transfer hangup (proved by bisection).
 > Commit 4acb4190 tries to fix the using uninitialized value
 > introduced by commit 3dc43e3,  but it would make the
 > per-socket memory limits too small.
@@ -33,6 +33,9 @@ CC: David S. Miller <davem@davemloft.net>
 Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
 Tested-by: Sergei Trofimovich <slyfox@gentoo.org>
 ---
+
+Change since v1: added forgotten commit ID
+
  net/ipv4/tcp.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
