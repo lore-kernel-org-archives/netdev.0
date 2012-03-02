@@ -1,29 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Fri, 02 Mar 2012 16:15:01 -0500 (EST)
-Message-ID: <20120302.161501.1891197361615438878.davem@davemloft.net>
-References: <20120301.222316.1877216960521396397.davem@davemloft.net>
-	<20120301.222604.1508242694024394849.davem@davemloft.net>
-	<20120302163716.GA18758@joana>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH 2/3] netfilter: potential null derefence.
+Date: Fri, 02 Mar 2012 22:31:23 +0100
+Message-ID: <4F513C2B.6030604@pandora.be>
+References: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
+	<20120301123004.GA7250@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: gustavo@padovan.org, johan.hedberg@gmail.com,
-	linville@tuxdriver.com, netdev@vger.kernel.org
-To: padovan@profusion.mobi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58613 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755132Ab2CBVQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 16:16:21 -0500
-In-Reply-To: <20120302163716.GA18758@joana>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: santosh nayak <santoshprasadnayak@gmail.com>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter@vger.kernel.org, bart.de.schuymer@pandora.be,
+	netfilter-devel@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120301123004.GA7250@1984>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Gustavo Padovan <padovan@profusion.mobi>
-Date: Fri, 2 Mar 2012 13:37:16 -0300
+Op 1/03/2012 13:30, Pablo Neira Ayuso schreef:
+> On Thu, Mar 01, 2012 at 02:47:14PM +0530, santosh nayak wrote:
+>> From: Santosh Nayak<santoshprasadnayak@gmail.com>
+>>
+>> I am getting following error.
+>> " net/bridge/netfilter/ebtables.c:269 ebt_do_table()
+>>    error: potential null derefence 'cs'"
+>>
+>>      i = cs[sp].n;  // If cs == Null then this will cause problem.
+>
+> Very sorry, I didn't see the out label.
+>
+> I'll apply this to my nf [1] once David takes my previous request for
+> pulling.
+>
 
-> are you telling me to make a patch to fix this issue in the whole
-> Bluetooth subsystem
+Hi,
 
-I'm saying get it right in new code changes.
+Has this patch been tested? Really, that code in the core firewall 
+function is there for a reason, wouldn't you think?
+The chainstack is only allocated when user-defined chains are used (see 
+translate_table).
+Never blindly trust a tool.
+
+Bart
