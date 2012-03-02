@@ -1,80 +1,112 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom
- load_pointer
-Date: Fri, 2 Mar 2012 16:03:05 +1100
-Message-ID: <20120302160305.c51a02c9fa5b11e191cd80e4@canb.auug.org.au>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-	<20120301233712.GS3990@outflux.net>
-	<20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
-	<CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
-	<20120301171914.7c64f095.akpm@linux-foundation.org>
-	<eba2ab81bc32f208b8b94fd959fd7f2f.squirrel@webmail.greenhost.nl>
+From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Subject: Re: tc filter hash table efficiency
+Date: Fri, 02 Mar 2012 00:10:14 -0500
+Message-ID: <1330665015.4671.175.camel@denise.theartistscloset.com>
+References: <1330487718.4671.102.camel@denise.theartistscloset.com>
+	 <1330488638.4671.103.camel@denise.theartistscloset.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__2_Mar_2012_16_03_05_+1100_CYpYzrlfOzNE7AjO"
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"Kees Cook" <keescook@chromium.org>,
-	"Will Drewry" <wad@chromium.org>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
-	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com
-To: "Indan Zupancic" <indan@nul.nu>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <eba2ab81bc32f208b8b94fd959fd7f2f.squirrel@webmail.greenhost.nl>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.perfora.net ([74.208.4.195]:52826 "EHLO mout.perfora.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750913Ab2CBFKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 00:10:18 -0500
+In-Reply-To: <1330488638.4671.103.camel@denise.theartistscloset.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__2_Mar_2012_16_03_05_+1100_CYpYzrlfOzNE7AjO
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Just a note.
-
-On Fri, 2 Mar 2012 05:04:41 +0100 "Indan Zupancic" <indan@nul.nu> wrote:
->
-> On Fri, March 2, 2012 02:19, Andrew Morton wrote:
-> > That assumes that we're going to merge this stuff into 3.4 - if we
-> > don't, unwrecker gets rewrecked and grumpy.
-> >
-> > I don't know if we're going to merge it into 3.4?  I haven't been
-> > paying a lot of attention and haven't looked at the patches in a while.
->=20
-> I think it should be merged, but I think 3.5 is probably better.
-
-If it is going into v3.5, I don't want to add it to linux-next until after
-v3.4-rc1 is out, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Fri__2_Mar_2012_16_03_05_+1100_CYpYzrlfOzNE7AjO
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPUFSJAAoJEECxmPOUX5FE9vcP/jYJr2Qtnk6hXT/4xWkgm9TA
-TI8RkimNlwTurTvOK4Bg4Kx7TnesHzj6IKdW0qjNkIlYTjKd08JDHrs02iLAHUjb
-cCECHc9ecZzFfCRECdMSIwJ+WvxTeJhqzBM6QUP/HQsVv+A1SJEJlN41vMclJQ3n
-W/etDwo+wehWSbyVdUPII7zyvB+WL3DEwXenroQdMpPTqiqN/nS5+uEg3KJ+kHnO
-wdFmwGLadEGfBCWLDCQR5/Z88AYaOZ6clXg1y7V+tOfM4cQ4PlS96WZcyk9yAEic
-fR9iLGZHMe+6j1TvyeqRgSai0LB3G+3oABUzsoJZ8Ruz7zSJbdK4/1Yq3P3dkdOa
-mYmk+n2QK+E7+5Nj2ywL1C0DLkLr0JTHx8RjJ2vpGS41w0VdjPza/VmYfW/8qtJG
-p1ZWWGHXCjhkIg/Im33kPWty4WHf05SgjeeucWEANTJj1LEKaizJBdTituIqX2kE
-KWf62QvRDD3QjpQrLmic9Uap3l+//Rhq2gVpZWtLG1/dQLgvGaTRreGaFyaIj2jz
-1xKtAHh5TxzK2oRAtotOhqH+8zMYG7RBh5M8y+wO6q3DP4fx48RfboBScFEPPtsy
-l8lS4JSgNOAG8XJnh8jqREpE5ASlAKB07co9nBs5g0HtfhSNlzx9pRHiHtJrhJgO
-WyIUzPaNPhKuRkE55pa6
-=OWc2
------END PGP SIGNATURE-----
-
---Signature=_Fri__2_Mar_2012_16_03_05_+1100_CYpYzrlfOzNE7AjO--
+On Tue, 2012-02-28 at 23:10 -0500, John A. Sullivan III wrote:
+> The first two UDP lines should use a parent of 62:0 and not 20:0 -
+> copied from old documentation :(  I'll change it below - John
+> 
+> On Tue, 2012-02-28 at 22:55 -0500, John A. Sullivan III wrote:
+> > Hello, all.  Would it be correct to assume that tc filter hash tables
+> > are like iptables user defined chains and can be used to reduce the
+> > number of evaluations which must be made for each packet or is there
+> > significant additional overhead incurred by such hash tables?
+> > 
+> > We are finding this isn't working for us.
+> > 
+> > For example, we wanted to shape VoIP packets in ingress to our PBX from
+> > both VPN and direct Internet connections.  Since the ifb interface gets
+> > the packet before NAT, we must account for both the public and internal
+> > destination addresses.  We also need to match several possible port
+> > ranges to match any UDP ports over 4096 because of the way tc filter
+> > ranges are masked.  So we did the following:
+> > 
+> > # UDP
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 handle 627:
+> > u32 divisor 1
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 match ip
+> > protocol 17 0xff link 627: offset at 0 mask 0x0f00 shift 6 plus 0
+> > 
+> > That is, we created a hash table for all UDP packets with an accurate
+> > pointer to the beginning of the UDP header.
+> > 
+> > 
+> > # VoIP - UDP packets to the VoIP network under 256 Bytes over port 1024
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 handle 628:
+> > u32 divisor 1
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
+> > match ip dst 172.x.x.0/24 match u16 0 0xffc0 at 2 link 628:
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 627:0
+> > match ip dst 208.z.z.z match u16 0 0xffc0 at 2 link 628:
+> > 
+> > That is, we create another hash linked from the UDP hash table so we
+> > only have to evaluate the IP type once and dump all small packets
+> > destined for either the NAT or real address to that hash table
+> > 
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+> > match udp dst 32768 0x8000 at nexthdr+2 flowid 62:20
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+> > match udp dst 16384 0x4000 at nexthdr+2 flowid 62:20
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+> > match udp dst 8192 0x2000 at nexthdr+2 flowid 62:20
+> > tc filter replace dev ifb0 parent 62:0 protocol ip prio 2 u32 ht 628:0
+> > match udp dst 4096 0x1000 at nexthdr+2 flowid 62:20
+> > 
+> > And then create filters for the various port ranges.  We figured this
+> > way, we only had to evaluate the IP protocol once instead of two or
+> > three times; we only had to evaluate the destination address and packet
+> > size once instead of twice, and needed only four packet size rules
+> > instead of four for each IP address.
+> > 
+> > Is this a proper use of hash tables or have I really abused the concept?
+> > When we look at the filter stats, we see:
+> > 
+> >  tc -s filter show dev ifb0
+> > filter parent 62: protocol ip pref 1 u32
+> > filter parent 62: protocol ip pref 1 u32 fh 800: ht divisor 1
+> > filter parent 62: protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 62:50  (rule hit 37879 success 295)
+> >   match 00320000/00ff0000 at 8 (success 295 )
+> > filter parent 62: protocol ip pref 1 u32 fh 800::801 order 2049 key ht 800 bkt 0 flowid 62:40  (rule hit 37584 success 7866)
+> >   match d02e5d08/ffffffff at 16 (success 7868 )
+> >   match 00060000/00ff0000 at 8 (success 7866 )
+> > filter parent 62: protocol ip pref 2 u32
+> > filter parent 62: protocol ip pref 2 u32 fh 628: ht divisor 1
+> > filter parent 62: protocol ip pref 2 u32 fh 628::800 order 2048 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+> >   match 00008000/00008000 at nexthdr+0 (success 0 )
+> > filter parent 62: protocol ip pref 2 u32 fh 628::801 order 2049 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+> >   match 00004000/00004000 at nexthdr+0 (success 0 )
+> > filter parent 62: protocol ip pref 2 u32 fh 628::802 order 2050 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 0)
+> >   match 00002000/00002000 at nexthdr+0 (success 0 )
+> > filter parent 62: protocol ip pref 2 u32 fh 628::803 order 2051 key ht 628 bkt 0 flowid 62:20  (rule hit 35 success 33)
+> >   match 00001000/00001000 at nexthdr+0 (success 33 )
+> > filter parent 62: protocol ip pref 2 u32 fh 627: ht divisor 1
+> > filter parent 62: protocol ip pref 2 u32 fh 627::800 order 2048 key ht 627 bkt 0 link 628:  (rule hit 11617 success 0)
+> >   match axxxxe00/ffffff00 at 16 (success 4847 )
+> >   match 00000000/0000ffc0 at 0 (success 35 )
+> > filter parent 62: protocol ip pref 2 u32 fh 627::801 order 2049 key ht 627 bkt 0 link 628:  (rule hit 11584 success 0)
+> >   match d0yyyy0e/ffffffff at 16 (success 20 )
+> >   match 00000000/0000ffc0 at 0 (success 0 )
+> > 
+> > yet packet traces show oodles of 200 byte UDP packets on ports over
+> > 10000 destined for the PBX yet I see only a handful of packets flowing
+> > into class 62:20.
+<snip>
+Argh!! found it - I had brain cramped on the mask for the VoIP packet
+lengths.  Once corrected, all appears to be working as normal and we are
+dynamically shaping our traffic to conform to 95th percentile billing! -
+John
