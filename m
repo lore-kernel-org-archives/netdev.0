@@ -1,38 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: data is truncated in skb
-Date: Fri, 2 Mar 2012 15:43:57 +0100
-Message-ID: <20120302144357.GC31240@electric-eye.fr.zoreil.com>
-References: <CAAZheX=A9=iuSDS+w4u_kqn4QvffdboKngopJgTegrsOUHQrHg@mail.gmail.com> <CAAZheXmgb=Se6YJdp=LpH0G1vco1oms2XARtXs3HTf3DKZtrRA@mail.gmail.com> <20120301200726.6b0d845c@nehalam.linuxnetplumber.net> <CAAZheX=R-MVoa1Cgs8+=zON6ZC7Van8tH-GermuCTK1PEK-9ew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:49708 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753218Ab2CBOoV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 09:44:21 -0500
-Content-Disposition: inline
-In-Reply-To: <CAAZheX=R-MVoa1Cgs8+=zON6ZC7Van8tH-GermuCTK1PEK-9ew@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 1/3] qla3xxx: ethernet: Fix bogus interrupt state flag.
+Date: Fri,  2 Mar 2012 20:39:05 +0530
+Message-ID: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: jitendra.kalsaria@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk> :
-[...]
-> 	if(skb->data == push3)
-> 	{
-> 		skb_set_mac_header(skb,0);
-> 	
-> 		skb_pull(skb,ETH_HLEN);
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-May be this skb_pull as a start. Hard to tell without context (and I am not
-a free as in beer consultant for proprietary or academic homework).
+In 'ql_adapter_initialize'
+the first call for 'spin_unlock_irqrestore()' is with hw_flags = 0,
+which is as good as 'spin_unlock_irq()' (unconditional interrupt
+enabling). If this is intended, then for better performance
+'spin_unlock_irqrestore()' can be replaced with 'spin_unlock_irq()'
+and 'spin_lock_irqsave()' can be replaced by 'spin_lock_irq()
 
-[...]
-> 	printk("\t\t\tencapsulated Buffer\n");
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/net/ethernet/qlogic/qla3xxx.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-Help yourself: see Documentation/trace/kprobetrace.txt and check the
-skb_xyz calls.
-
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index d49f6da..8da3e41 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -3017,7 +3017,6 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
+ 		(void __iomem *)port_regs;
+ 	u32 delay = 10;
+ 	int status = 0;
+-	unsigned long hw_flags = 0;
+ 
+ 	if (ql_mii_setup(qdev))
+ 		return -1;
+@@ -3228,9 +3227,9 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
+ 		value = ql_read_page0_reg(qdev, &port_regs->portStatus);
+ 		if (value & PORT_STATUS_IC)
+ 			break;
+-		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
++		spin_unlock_irq(&qdev->hw_lock);
+ 		msleep(500);
+-		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
++		spin_lock_irq(&qdev->hw_lock);
+ 	} while (--delay);
+ 
+ 	if (delay == 0) {
 -- 
-Ueomor
+1.7.4.4
