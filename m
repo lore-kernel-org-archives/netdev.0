@@ -1,95 +1,125 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
- (fix nfs regression)
-Date: Fri, 2 Mar 2012 20:24:21 +0300
-Message-ID: <20120302202421.753b36bc@sf.home>
-References: <1330675173-18968-1-git-send-email-slyich@gmail.com>
-	<4F509150.5060904@redhat.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+Date: Fri, 2 Mar 2012 11:22:16 -0600
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886ED36@MNEXMB1.qlogic.org>
+References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/bI_Plm/eG5_5ZOHWj55DqAo"; protocol="application/pgp-signature"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sergei Trofimovich <slyfox@gentoo.org>,
-	Glauber Costa <glommer@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: santosh nayak <santoshprasadnayak@gmail.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F509150.5060904@redhat.com>
+In-Reply-To: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/bI_Plm/eG5_5ZOHWj55DqAo
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Santosh,
 
-> > The change looks like a typo (division flipped to multiplication):
-> >> limit =3D nr_free_buffer_pages() / 8;
-> >> limit =3D nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
->=20
-> Hi, thanks for the reporting. It's not a typo. It was previously:=20
-> sysctl_tcp_mem[1] << (PAGE_SHIFT -  7). Looks like we need to do the=20
-> limit check before shift the value. Please try the following patch, thank=
-s.
+Thanks for pointing out the bug. But adapter takes  ip in big endian format.
+So no need to use  be32_to_cpu instead data type of ip should be changed to __be32.
+Also in netxen_config_ipaddr()
+-      req.words[1] = cpu_to_le64(ip);
++      req.words[1] = ip;
 
-Still does not help. I test it by checking sha1sum of a large file over NFS
-(small files seem to work simetimes):
+Rest looks fine.
 
-    $ strace sha1sum /gentoo/distfiles/gcc-4.6.2.tar.bz2=20
-    ...
-    open("/gentoo/distfiles/gcc-4.6.2.tar.bz2", O_RDONLY
-    <HUNG>
-After a certain timeout dmesg gets odd spam:
-[  314.848094] nfs: server vmhost not responding, still trying
-[  314.848134] nfs: server vmhost not responding, still trying
-[  314.848145] nfs: server vmhost not responding, still trying
-[  314.957047] nfs: server vmhost not responding, still trying
-[  314.957066] nfs: server vmhost not responding, still trying
-[  314.957075] nfs: server vmhost not responding, still trying
-[  314.957085] nfs: server vmhost not responding, still trying
-[  314.957100] nfs: server vmhost not responding, still trying
-[  314.958023] nfs: server vmhost not responding, still trying
-[  314.958035] nfs: server vmhost not responding, still trying
-[  314.958044] nfs: server vmhost not responding, still trying
-[  314.958054] nfs: server vmhost not responding, still trying
+Rajesh
+________________________________________
+From: santosh nayak [santoshprasadnayak@gmail.com]
+Sent: Friday, March 02, 2012 8:41 PM
+To: Sony Chacko
+Cc: Rajesh Borundia; netdev; linux-kernel; kernel-janitors@vger.kernel.org; Santosh Nayak
+Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
 
-looks like bogus messages. Might be relevant to mishandled timings
-somewhere else or a bug in nfs code.
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 22ef5f9..4035aab 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -3299,8 +3299,8 @@ void __init tcp_init(void)
->=20
->          tcp_init_mem(&init_net);
->          /* Set per-socket limits to no more than 1/128 the pressure=20
-> threshold */
-> -       limit =3D nr_free_buffer_pages() << (PAGE_SHIFT - 10);
-> -       limit =3D max(limit, 128UL);
-> +       limit =3D nr_free_buffer_pages() / 8;
-> +       limit =3D max(limit, 128UL) << (PAGE_SHIFT - 7);
->          max_share =3D min(4UL*1024*1024, limit);
->=20
->          sysctl_tcp_wmem[0] =3D SK_MEM_QUANTUM;
->=20
->=20
->=20
+Fix endian bug.
+Add a default case in 'netxen_list_config_vlan_ip'
 
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
 
---=20
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 8dc4a134..971b286 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter *adapter)
+                        adapter->driver_mismatch = 1;
+                        return;
+                }
+-               ptr32[i] = cpu_to_le32(val);
++               ptr32[i] = val;
+                offset += sizeof(u32);
+        }
 
-  Sergei
+@@ -3028,7 +3028,7 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
+                list_for_each(head, &adapter->vlan_ip_list) {
+                        cur = list_entry(head, struct nx_vlan_ip_list, list);
 
---Sig_/bI_Plm/eG5_5ZOHWj55DqAo
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+-                       if (cur->ip_addr == ifa->ifa_address)
++                       if (cur->ip_addr == be32_to_cpu(ifa->ifa_address))
+                                return;
+                }
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
+@@ -3039,18 +3039,22 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
+                        return;
+                }
 
-iEYEARECAAYFAk9RAkwACgkQcaHudmEf86rz/gCfWiVShYHe8d5fxe7GN4o/C/O2
-TwYAn0GugtZNsGcdaNAXQEoh/o6zihbK
-=Y0Sa
------END PGP SIGNATURE-----
+-               cur->ip_addr = ifa->ifa_address;
++               cur->ip_addr = be32_to_cpu(ifa->ifa_address);
+                list_add_tail(&cur->list, &adapter->vlan_ip_list);
+                break;
+        case NX_IP_DOWN:
+                list_for_each_entry_safe(cur, tmp_cur,
+                                        &adapter->vlan_ip_list, list) {
+-                       if (cur->ip_addr == ifa->ifa_address) {
++                       if (cur->ip_addr == be32_to_cpu(ifa->ifa_address)) {
+                                list_del(&cur->list);
+                                kfree(cur);
+                                break;
+                        }
+                }
++               break;
++       default:
++               printk(KERN_ERR "%ld: Wrong event id \n", event);
++               break;
+        }
+ }
+ static void
+@@ -3070,12 +3074,12 @@ netxen_config_indev_addr(struct netxen_adapter *adapter,
+                switch (event) {
+                case NETDEV_UP:
+                        netxen_config_ipaddr(adapter,
+-                                       ifa->ifa_address, NX_IP_UP);
++                                       be32_to_cpu(ifa->ifa_address), NX_IP_UP);
+                        netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+                        break;
+                case NETDEV_DOWN:
+                        netxen_config_ipaddr(adapter,
+-                                       ifa->ifa_address, NX_IP_DOWN);
++                                       be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
+                        netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+                        break;
+                default:
+@@ -3167,11 +3171,11 @@ recheck:
 
---Sig_/bI_Plm/eG5_5ZOHWj55DqAo--
+        switch (event) {
+        case NETDEV_UP:
+-               netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
++               netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_UP);
+                netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+                break;
+        case NETDEV_DOWN:
+-               netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
++               netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
+                netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+                break;
+        default:
+--
+1.7.4.4
