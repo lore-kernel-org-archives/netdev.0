@@ -1,41 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Fri, 02 Mar 2012 03:55:09 -0500 (EST)
-Message-ID: <20120302.035509.1994457175982020283.davem@davemloft.net>
-References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
-	<20120301.170848.432407217191581288.davem@davemloft.net>
-	<CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Resend [PATCH] netfilter: Fix copy_to_user too small size parametre.
+Date: Fri, 2 Mar 2012 09:05:10 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E87@saturn3.aculab.com>
+References: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, javier.martinez@collabora.co.uk,
-	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: luiz.dentz@gmail.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <pablo@netfilter.org>, <kaber@trash.net>, <shemminger@vyatta.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: "santosh nayak" <santoshprasadnayak@gmail.com>,
+	<bart.de.schuymer@pandora.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+Content-class: urn:content-classes:message
+In-Reply-To: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Date: Fri, 2 Mar 2012 10:39:24 +0200
+ 
+> -	if (copy_to_user(hlp, m->u.match->name, 
+> EBT_FUNCTION_MAXNAMELEN))
+> +	char name[EBT_FUNCTION_MAXNAMELEN] = {};
+> +
+> +	strncpy(name, m->u.match->name, sizeof(name));
+> +	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
+>  		return -EFAULT;
 
-> Like I said before there is many projects using AF_UNIX as IPC
-> transport, the documentation actually induces people to use for this
-> purpose, and many would benefit from being able to do multicast.
+strncpy() is very rarely the function you are looking for.
+In this case it MIGHT be right (since you do a fixed size
+copy_to_user).
+OTOH there is no need to also initialise name[].
+And it isn't entirely clear whether the application
+is allowed to be given a non-terminated string.
 
-You can't have it both ways.
-
-If it's useful for many applications, then many applications would
-benefit from a userland library that solved the problem using
-existing facilities such as IP multicast.
-
-If it's only useful for dbus that that absoltely means we should
-not add thousands of lines of code to the kernel specifically for
-that application.
-
-So either way, kernel changes are not justified.
+	David
