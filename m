@@ -1,69 +1,69 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom
- load_pointer
-Date: Thu, 1 Mar 2012 17:19:14 -0800
-Message-ID: <20120301171914.7c64f095.akpm@linux-foundation.org>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-	<20120301233712.GS3990@outflux.net>
-	<20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
-	<CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] netfilter: potential null derefence.
+Date: Fri, 2 Mar 2012 02:22:08 +0100
+Message-ID: <20120302012208.GA10185@1984>
+References: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
-	pmoore@redhat.com, corbet@lwn.net, eric.dumazet@gmail.com,
-	markus@chromium.org, coreyb@linux.vnet.ibm.com
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
+	shemminger@vyatta.com, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: santosh nayak <santoshprasadnayak@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Mar 2012 16:57:49 -0800 Kees Cook <keescook@chromium.org> wrote:
-
-> On Thu, Mar 1, 2012 at 4:47 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > Hi Kees,
-> >
-> > On Thu, 1 Mar 2012 15:37:12 -0800 Kees Cook <keescook@chromium.org> wrote:
-> >>
-> >> Is it time to pull this into -next so more people can feel it? I brought
-> >> Andy Lutomirski's patches forward (needed to bump the prctl values), and
-> >> updated my git tree. If we're ready, here it is in all its request-pull
-> >> format glory:
-> >>
-> >> The following changes since commit 2422c8368337196594265d52cad7316c9404bfcf:
-> >> __ Stephen Rothwell (1):
-> >> __ __ __ __ Add linux-next specific files for 20120301
-> >
-> > OK, not commenting on anything else, but I cannot merge that into
-> > linux-next because it is based on yesterday's linux-next release and
-> > linux-next (effectively) rebases every day ...
-> >
-> > Does this work depend on anything in linux-next? __Or could it be just
-> > based off Linus' tree. __If it depends on other tree(s) merged into
-> > linux-next, then you should base your tree on those tree(s) as long as
-> > they never get rebased ...
+On Thu, Mar 01, 2012 at 02:47:14PM +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
 > 
-> Unfortunately, yes, it does -- there were both ptrace changes and prctl changes.
+> I am getting following error.
+> " net/bridge/netfilter/ebtables.c:269 ebt_do_table()
+>   error: potential null derefence 'cs'"
 > 
-> And at least the ptrace changes are, IIRC, in -mm, which has no tree.
-> :P Given that, what's the best thing for me to do for this to be easy
-> for you to pull?
+>     i = cs[sp].n;  // If cs == Null then this will cause problem.
+> 
+> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> ---
+>  net/bridge/netfilter/ebtables.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+> index f3fcbd9..9c0f177 100644
+> --- a/net/bridge/netfilter/ebtables.c
+> +++ b/net/bridge/netfilter/ebtables.c
+> @@ -209,8 +209,10 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+>  	   smp_processor_id());
+>  	if (private->chainstack)
+>  		cs = private->chainstack[smp_processor_id()];
+> -	else
+> +	else {
+>  		cs = NULL;
 
-Base the tree on mainline and wreck the -mm patches I guess.  I'm good
-at unwrecking patches.
+I just noticed we can remove this cs = NULL. No need to resend, I'll
+mangle it myself.
 
-That assumes that we're going to merge this stuff into 3.4 - if we
-don't, unwrecker gets rewrecked and grumpy.
-
-I don't know if we're going to merge it into 3.4?  I haven't been
-paying a lot of attention and haven't looked at the patches in a while.
-
+> +		goto out;
+> +	}
+>  	chaininfo = private->hook_entry[hook];
+>  	nentries = private->hook_entry[hook]->nentries;
+>  	point = (struct ebt_entry *)(private->hook_entry[hook]->data);
+> @@ -313,6 +315,7 @@ letscontinue:
+>  		read_unlock_bh(&table->lock);
+>  		return NF_ACCEPT;
+>  	}
+> +out:
+>  	read_unlock_bh(&table->lock);
+>  	return NF_DROP;
+>  }
+> -- 
+> 1.7.4.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
