@@ -1,151 +1,94 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: fix tcp_retransmit_skb() to maintain MSS invariant
-Date: Fri, 2 Mar 2012 08:28:48 -0800
-Message-ID: <CAK6E8=e_cmLHzn=RJ=Bj3aPXj0Vv9OXY=Fe5Y=pRiDALoh9ptQ@mail.gmail.com>
-References: <1330698449-2969-1-git-send-email-ncardwell@google.com>
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Fri, 02 Mar 2012 17:34:50 +0100
+Message-ID: <4F50F6AA.9050909@collabora.co.uk>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>  <20120301.170848.432407217191581288.davem@davemloft.net>  <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>  <20120302.035509.1994457175982020283.davem@davemloft.net>  <4F509274.9060302@collabora.co.uk> <1330694031.2469.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:40288 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932343Ab2CBQ3J convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 11:29:09 -0500
-Received: by obbuo6 with SMTP id uo6so1838029obb.19
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 08:29:08 -0800 (PST)
-In-Reply-To: <1330698449-2969-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	ying.xue@windriver.com, luiz.dentz@gmail.com,
+	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330694031.2469.15.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 2, 2012 at 6:27 AM, Neal Cardwell <ncardwell@google.com> wr=
-ote:
-> This commit fixes tcp_retransmit_skb() to respect the invariant that
-> an skb in the write queue that might be SACKed (that is, that precede=
-s
-> tcp_send_head()) is either less than tcp_skb_mss(skb) or an integral
-> multiple of tcp_skb_mss(skb).
->
-> Various parts of the TCP code maintain or assume this invariant,
-> including at least tcp_write_xmit(), tcp_mss_split_point(),
-> tcp_match_skb_to_sack(), and tcp_shifted_skb().
->
-> tcp_retransmit_skb() did not maintain this invariant. It checked the
-> current MSS and called tcp_fragment() to make sure that the skb we're
-> retransmitting is at most cur_mss, but in the process it took the
-> excess bytes and created an arbitrary-length skb (one that is not
-> necessarily an integral multiple of its MSS) and inserted it in the
-> write queue after the skb we're retransmitting.
->
-> One potential indirect effect of this problem is tcp_shifted_skb()
-> creating a coalesced SACKed skb that has a pcount that is 1 too large
-> for its length. This happened because tcp_shifted_skb() assumed that
-> skbs are integral multiples of MSS, so you can just add pcounts of
-> input skbs to find the pcount of the output skb. Suspected specific
-> symtoms of this problem include the WARN_ON(len > skb->len) in
-> tcp_fragment() firing, as the 1-too-large pcount ripples though to
-> tcp_mark_head_lost() trying to chop off too many bytes to mark as
-> lost.
->
-> It's also possible this bug is related to recent reports of sacked_ou=
-t
-> becoming negative.
->
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On 03/02/2012 02:13 PM, Eric Dumazet wrote:
+> Le vendredi 02 mars 2012 =C3=A0 10:27 +0100, Javier Martinez Canillas=
+ a
+> =C3=A9crit :
+>=20
+>> We are the most interested in using a facility already found in the
+>> kernel, we will try ZeroMQ as Stephen suggested and TIPC but really
+>> didn't find an IPC mechanism that fits our needs. The most important
+>> issue right now is the fd passing for D-bus application doing
+>> out-of-band communication.
+>=20
+> Why on earth the needed D-Bus IPC should use a single kernel mechanis=
+m ?
+>=20
+> I mean, of course AF_INET cannot pass fd around and never will.
+> Of course AF_UNIX cannot use multicast and never will.
+> Of course shared memory wont pass fds around and never will.
+> ... Add other impossible combinations as you want.
+>=20
+> There are reasons fd passing is hard to implement. I find stuffing th=
+is
+> functionality in AF_UNIX was a bad design choice from the very
+> beginning.
+>=20
 
-I especially like the comment about the invariant, which is less
-explicit in other parts of GSO code.
+Yes, can't say that everyone is happy with fd passing. It seems like a
+workaround since D-bus didn't scale for big chunks of data IMHO.
 
+> Instead of pushing extra complexity to a single kernel component, why
+> not trying to use a combination of existing, well designed and suppor=
+ted
+> ones ?
+>=20
 
-> ---
-> =A0net/ipv4/tcp_output.c | =A0 44 +++++++++++++++++++++++++++++++++++=
-++++++++-
-> =A01 files changed, 43 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 4ff3b6d..13034ad 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2070,6 +2070,48 @@ static void tcp_retrans_try_collapse(struct so=
-ck *sk, struct sk_buff *to,
-> =A0 =A0 =A0 =A0}
-> =A0}
->
-> +/* So we can retransmit skb, fragment it to be cur_mss bytes. In
-> + * addition, we must maintain the invariant that whatever skbs we
-> + * leave in the write queue are integral multiples of the MSS or a
-> + * remaining small sub-MSS portion. This means we fragment the skb
-> + * into potentially three skbs in the write queue:
-> + *
-> + * =A0(1) The first skb of exactly 1*cur_mss, which we will retransm=
-it now.
-> + * =A0(2) A "bulk" skb that is an integral multiple of the cur_mss
-> + * =A0(3) A "left-over" skb that has any remaining portion smaller t=
-han cur_mss
-> + *
-> + * Since either of the two required fragmentation operations can fai=
-l
-> + * (e.g. due to ENOMEM), and we want this invariant to be maintained
-> + * if either fails, we chop off (3) first and then chop off (1).
-> + *
-> + * Returns non-zero if an error occurred which prevented the full sp=
-litting.
-> + */
-> +static int tcp_retrans_mss_split(struct sock *sk, struct sk_buff *sk=
-b,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0unsi=
-gned int cur_mss)
-> +{
-> + =A0 =A0 =A0 int err;
-> + =A0 =A0 =A0 unsigned int len;
-> +
-> + =A0 =A0 =A0 /* Chop off any "left-over" at end that is not aligned =
-to cur_mss. */
-> + =A0 =A0 =A0 if (cur_mss !=3D tcp_skb_mss(skb)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 len =3D skb->len - skb->len % cur_mss;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (len < skb->len) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D tcp_fragment(sk=
-, skb, len, cur_mss);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (err < 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return =
-err;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 /* Chop off a single MSS at the beginning to retransmit=
- now. */
-> + =A0 =A0 =A0 if (skb->len > cur_mss) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D tcp_fragment(sk, skb, cur_mss, =
-cur_mss);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (err < 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 return 0;
-> +}
-> +
-> =A0/* This retransmits one SKB. =A0Policy decisions and retransmit qu=
-eue
-> =A0* state updates are done by the caller. =A0Returns non-zero if an
-> =A0* error occurred which prevented the send.
-> @@ -2115,7 +2157,7 @@ int tcp_retransmit_skb(struct sock *sk, struct =
-sk_buff *skb)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EAGAIN;
->
-> =A0 =A0 =A0 =A0if (skb->len > cur_mss) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tcp_fragment(sk, skb, cur_mss, cur_=
-mss))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tcp_retrans_mss_split(sk, skb, cur_=
-mss))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM; /* We'=
-ll try again later. */
-> =A0 =A0 =A0 =A0} else {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int oldpcount =3D tcp_skb_pcount(skb);
-> --
-> 1.7.7.3
->
+You are right, maybe a combination of IPC mechanism could be used.
+
+Basically we have this scenario:
+
+1- Most applications today uses D-bus as an IPC system and is a central
+part of the Linux desktop.
+
+2- The transport layer used by D-bus is not performance sensitive
+basically due:
+
+a) high number of context switches required to send messages between pe=
+er.
+b) the D-bus daemon doing the routing and being a bottleneck of the who=
+le.
+c) amount of messages copied between kernel space and user space.
+
+3- We still haven't found a single kernel IPC mechanism or a combinatio=
+n
+of IPC mechanism that can address this issue.
+
+This is a real concern in the Linux embedded world. Since Linux based
+products wants to use well probed software components found in Linux
+distros such as oFono, BlueZ, Pulseaudio, Connman and Telepathy to name
+a few. All of them uses D-bus to expose its API to other applications.
+
+I'm not saying that extending AF_UNIX for supporting multicast is the
+best approach but what I'm saying is that we should find a solution to
+this problem.
+
+PD: I'm cc'ing Marcel Holtmann so hopefully he can add his point of vie=
+w
+to the problem (and possible solutions).
+
+I know that Marcel is also working on improving the D-bus system but
+moving to the kernel some tasks made by the D-bus daemon today.
+
+Regards,
+Javier
