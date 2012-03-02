@@ -1,46 +1,67 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom load_pointer
-Date: Thu, 01 Mar 2012 16:05:31 -0800
-Message-ID: <4F500ECB.9090504@zytor.com>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org> <20120301233712.GS3990@outflux.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: memory leak in udp_table_init
+Date: Thu, 01 Mar 2012 16:12:12 -0800
+Message-ID: <m1fwdr509v.fsf@fess.ebiederm.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E85@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, sfr@canb.auug.org.au,
-        Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
-        linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-        kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-        x86@kernel.org, arnd@arndb.de, davem@davemloft.net, mingo@redhat.com,
-        oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-        mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-        eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-        scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com, corbet@lwn.net,
-        eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-1020-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20120301233712.GS3990@outflux.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	<paul.gortmaker@windriver.com>, <tim.bird@am.sony.com>,
+	<kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E85@saturn3.aculab.com>
+	(David Laight's message of "Thu, 1 Mar 2012 08:55:01 -0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/01/2012 03:37 PM, Kees Cook wrote:
-> Hi,
-> 
-> So far, it looks like everyone who spoke up is satisfied with this patch
-> series. Or their MUAs got caught up on a leap-year bug and missed the
-> posting. ;)
-> 
-> Is it time to pull this into -next so more people can feel it? I brought
-> Andy Lutomirski's patches forward (needed to bump the prctl values), and
-> updated my git tree. If we're ready, here it is in all its request-pull
-> format glory:
-> 
+"David Laight" <David.Laight@ACULAB.COM> writes:
 
-Acked-by: H. Peter Anvin <hpa@zytor.com>
+>  
+>> > The pid table is a good example of something where a hash
+>> > table is unnecessary.
+>> > Linux should steal the code I put into NetBSD :-)
+>> 
+>> On this unrelated topic.  What algorithm did you use on NetBSD for
+>> dealing with pids?
+>
+> Basically I forced the hash chain length to one by allocating
+> a pid that hit an empty entry in the table.
+>
+> So you start off with (say) 64 entries and use the low 6
+> bits to index the table. The higher bits are incremented
+> each time a 'slot' is reused.
+> Free entries are kept in a FIFO list.
+> So each entry either contains a pointer to the process,
+> or the high bits and the index of the next free slot.
+> (and the PGID pointer).
+> When there are only (say) 2 free entries, then the table
+> size is doubled, the pointers moved to the correct places,
+> the free ist fixed up, and the minimum number of free entries
+> doubled.
+>
+> The overall effect:
+> - lookup is only ever a mask and index + compare.
+> - Allocate is always fast and fixed cost (except when
+>   the table size has to be doubled).
+> - A pid value will never be reused within (about) 2000
+>   allocates (for 16bit pids, much larger for 32bit ones).
+> - Allocated pid numbers tend to be random, certainly
+>   very difficult to predict.
+> - Small memory footprint for small systems.
+> For pids we normally avoid issuing large values, but
+> will do so to avoid immediate re-use on systems that
+> have 1000s of active processes.
 
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+That is a very nice technique.  Unfortunately doubling a hash table size
+when you need large amounts of contiguous memory is difficult, and worse
+does not support user space selectable pid numbers which is needed to
+support process migration.  So I don't think we can adapt this case for
+the linux pid hash table.
+
+I will keep the technique in mind in case I run into a situation where
+it is applicable.
+
+Eric
