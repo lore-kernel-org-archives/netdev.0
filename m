@@ -1,50 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: Resend [PATCH] netfilter: Fix copy_to_user too small size
- parametre.
-Date: Fri, 2 Mar 2012 11:01:28 +0100
-Message-ID: <20120302100128.GA12266@1984>
-References: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6E87@saturn3.aculab.com>
+From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to AF_UNIX
+Date: Fri, 2 Mar 2012 12:08:11 +0200
+Message-ID: <CABBYNZJWKGpkK2mSbGCQ2KkE+jC3ih-wR3JQZSMgj7AYhbxeuw@mail.gmail.com>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+	<20120301.170848.432407217191581288.davem@davemloft.net>
+	<CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+	<20120302.035509.1994457175982020283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: santosh nayak <santoshprasadnayak@gmail.com>,
-	bart.de.schuymer@pandora.be, kaber@trash.net,
-	shemminger@vyatta.com, davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E87@saturn3.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, javier.martinez@collabora.co.uk,
+	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120302.035509.1994457175982020283.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 02, 2012 at 09:05:10AM -0000, David Laight wrote:
->  
-> > -	if (copy_to_user(hlp, m->u.match->name, 
-> > EBT_FUNCTION_MAXNAMELEN))
-> > +	char name[EBT_FUNCTION_MAXNAMELEN] = {};
-> > +
-> > +	strncpy(name, m->u.match->name, sizeof(name));
-> > +	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
-> >  		return -EFAULT;
-> 
-> strncpy() is very rarely the function you are looking for.
-> In this case it MIGHT be right (since you do a fixed size
-> copy_to_user).
-> OTOH there is no need to also initialise name[].
+Hi David,
 
-We have to make sure that array is filled with zeros for the gap
-between byte 29 and byte 32 due to backward compatibility issues.
+On Fri, Mar 2, 2012 at 10:55 AM, David Miller <davem@davemloft.net> wrote:
+> From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+> Date: Fri, 2 Mar 2012 10:39:24 +0200
+>
+>> Like I said before there is many projects using AF_UNIX as IPC
+>> transport, the documentation actually induces people to use for this
+>> purpose, and many would benefit from being able to do multicast.
+>
+> You can't have it both ways.
+>
+> If it's useful for many applications, then many applications would
+> benefit from a userland library that solved the problem using
+> existing facilities such as IP multicast.
+>
+> If it's only useful for dbus that that absoltely means we should
+> not add thousands of lines of code to the kernel specifically for
+> that application.
 
-I'll mangle the patch to add some comment close to strncpy and to
-explain the way we're doing this.
+Instead we should add many times that into dbus-daemon and do IP
+multicast, am I missing something?
 
-> And it isn't entirely clear whether the application
-> is allowed to be given a non-terminated string.
+> So either way, kernel changes are not justified.
 
-Match names are 29 bytes long, while ebtables expects 32 bytes. So
-we're copying less bytes.
+I respect your opinion, but I don't agree with it, you are pushing
+userspace to a much more complex solution.
 
-We can add the final \0 if you feel more confortable, but that string
-is going to be null-terminated the way the code look now.
+At this point it would probably better to just use shared memory and
+forget about any security, eavesdrop all the way.
+
+-- 
+Luiz Augusto von Dentz
