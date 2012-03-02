@@ -1,76 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Thu, 01 Mar 2012 20:13:22 -0800
-Message-ID: <1330661602.1939.13.camel@joe2Laptop>
-References: <20120302025554.GA13493@joana>
-	 <20120301.221643.881299898523907213.davem@davemloft.net>
-	 <20120301.222316.1877216960521396397.davem@davemloft.net>
-	 <20120301.222604.1508242694024394849.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Thu, 1 Mar 2012 20:40:02 -0800
+Message-ID: <20120301204002.28c5e963@nehalam.linuxnetplumber.net>
+References: <1330606237.27405.5.camel@megeve>
+	<1330606775.2465.56.camel@edumazet-laptop>
+	<4F4F7FFB.6010608@collabora.co.uk>
+	<20120301.155505.674909686053535283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: gustavo@padovan.org, johan.hedberg@gmail.com,
-	linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: javier.martinez@collabora.co.uk, eric.dumazet@gmail.com,
+	rodrigo.moya@collabora.co.uk, David.Laight@ACULAB.COM,
+	javier@collabora.co.uk, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:46496 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754174Ab2CBENY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Mar 2012 23:13:24 -0500
-In-Reply-To: <20120301.222604.1508242694024394849.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120301.155505.674909686053535283.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-03-01 at 22:26 -0500, David Miller wrote:
-> You know what really pisses me off?  This is the one issue I made a huge
-> stink about last week, arguments to function calls and prototypes lining
-> up properl.  And it's in ever 2nd or 3rd commit in this pull request.
-[]
-> Come back when you've audited this whole thing properly and honestly.
+On Thu, 01 Mar 2012 15:55:05 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-I submitted a patch to checkpatch for a --strict rule for
-this argument alignment.  https://lkml.org/lkml/2012/2/29/644
+> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+> Date: Thu, 01 Mar 2012 14:56:11 +0100
+> 
+> > We could use AF_INET multicast on a local machine but we need some
+> > ordering and control flow requirements that are not guaranteed on UDP
+> > multicast over IP. That's why we thought to add a new address family
+> > AF_MCAST.
+> 
+> None of this makes any sense to me.
+> 
+> Unless you have infinite amounts of memory you have to handle packet
+> drops, and the same things that handle packet drops on a protocol
+> level can handle out-of-order delivery too.
+> 
+> Stop reinventing the wheel, use facilities that exist already.
 
-Are there any other tests you think should be added with
---strict?
-
-Some I think possible are:
-
-o no space after cast
-	struct foo *bar = (struct foo *) baz;
-sb:
-	struct foo *bar = (struct foo *)baz;
-
-o don't start comments with /*$
-  (perhaps only if a blank line proceeds the comment)
-	/*
-	 * multiline comment
-	 * ...
-	 */
-sb:
-	/* multiline comment
-	 * ...
-	 */
-
-o coalesce formats
-	pr_<level>("format part 1 "
-		   "format part 2\n", ...)
-sb:
-	pr_<level>("format part 1 format part 2\n",
-		   ...);
-
-o symmetric brace standardization
-	if (foo) {
-		bar;
-		baz;
-	} else
-		bar;
-sb:
-	if (foo) {
-		bar;
-		baz;
-	} else {
-		bar;
-	}
-
-Any others?
+Look at ZeroMq http://www.zeromq.org/ library seems to be a good fit for what D-bus wants.
+And it supports multiple protocols.
