@@ -1,8 +1,9 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Thu, 01 Mar 2012 22:16:43 -0500 (EST)
-Message-ID: <20120301.221643.881299898523907213.davem@davemloft.net>
+Date: Thu, 01 Mar 2012 22:23:16 -0500 (EST)
+Message-ID: <20120301.222316.1877216960521396397.davem@davemloft.net>
 References: <20120302025554.GA13493@joana>
+	<20120301.221643.881299898523907213.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,59 +11,34 @@ Cc: johan.hedberg@gmail.com, linville@tuxdriver.com,
 	netdev@vger.kernel.org
 To: gustavo@padovan.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49715 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49759 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756744Ab2CBDRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 22:17:50 -0500
-In-Reply-To: <20120302025554.GA13493@joana>
+	with ESMTP id S932161Ab2CBDYd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 22:24:33 -0500
+In-Reply-To: <20120301.221643.881299898523907213.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo Padovan <gustavo@padovan.org>
-Date: Thu, 1 Mar 2012 23:55:55 -0300
+From: David Miller <davem@davemloft.net>
+Date: Thu, 01 Mar 2012 22:16:43 -0500 (EST)
 
->  - I'm pulling directly to you because due to the coding style issues that
->    happened some days ago. We decided, after talk to John, to pull directly to
->    you, so you can take a look before pull. I personally looked to the whole
->    diff of this pull request and couldn't spot anything that doesn't seem
->    specified in CodingStyle.
+> This was only three commits into your tree, therefore I'm not very
+> optimistic to be honest with you.
 
-For the members of "struct inquiry_cache" the tabbing has been all
-messed up by commit 561aafbcb2e3f8fee11d3781f866c7b4c4f93a28.
+In the very next commit, 3175405b906a85ed2bad21e09c444266e4a05a8e we end
+up with:
 
-Instead of all of the member names being nicely aligned using tabs it now
-looks like (after all the commits it's now called "struct discovery_state"):
+		mgmt_device_found(hdev, &info->bdaddr, ACL_LINK, 0x00,
+					info->dev_class, 0, 1, NULL);
 
-	int type;
-	enum {
-		DISCOVERY_STOPPED,
-		DISCOVERY_STARTING,
-		DISCOVERY_FINDING,
-		DISCOVERY_RESOLVING,
-		DISCOVERY_STOPPING,
-	} state;
-	struct list_head all;		/* All devices found during inquiry */
-	struct list_head unknown;	/* Name state not known */
-	struct list_head resolve;	/* Name needs to be resolved */
-	__u32		timestamp;
+which after all the rest of the commits still looks like:
 
-instead of something more reasonable like:
+		mgmt_device_found(hdev, &info->bdaddr, ACL_LINK, 0x00,
+					info->dev_class, 0, !name_known, ssp,
+					NULL, 0);
 
-	int			type;
-	enum {
-		DISCOVERY_STOPPED,
-		DISCOVERY_STARTING,
-		DISCOVERY_FINDING,
-		DISCOVERY_RESOLVING,
-		DISCOVERY_STOPPING,
-	} state;
-	struct list_head	all;		/* All devices found during inquiry */
-	struct list_head 	unknown;	/* Name state not known */
-	struct list_head 	resolve;	/* Name needs to be resolved */
-	__u32			timestamp;
+You have to make those arguments line up properly:
 
-The person editing this had to go out of their way to make things like this
-way.
-
-This was only three commits into your tree, therefore I'm not very
-optimistic to be honest with you.
+		mgmt_device_found(hdev, &info->bdaddr, ACL_LINK, 0x00,
+				  info->dev_class, 0, !name_known, ssp,
+				  NULL, 0);
