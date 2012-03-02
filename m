@@ -1,72 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: sleeping function called from invalid context (rtnetlink)
-Date: Thu, 1 Mar 2012 16:53:32 -0800
-Message-ID: <CAL4WiirCK6a5pgHCZyL7WAC6xrOnBWnx+6tw73x0StWfoPdaHw@mail.gmail.com>
-References: <bug-799099-176318@bugzilla.redhat.com>
-	<20120301235928.GA28088@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: add QCA alx Ethernet driver
+Date: Thu, 01 Mar 2012 16:56:19 -0800
+Message-ID: <1330649779.23314.80.camel@joe2Laptop>
+References: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com>
+	 <20120228193237.2d56f2b8@nehalam.linuxnetplumber.net>
+	 <20120301234007.GA18488@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mcgrof@frijolero.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
+	kgiori@qca.qualcomm.com, chris.snook@gmail.com,
+	mathieu@qca.qualcomm.com, bryanh@quicinc.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:40988 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756921Ab2CBAxd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 19:53:33 -0500
-Received: by iagz16 with SMTP id z16so1572482iag.19
-        for <netdev@vger.kernel.org>; Thu, 01 Mar 2012 16:53:32 -0800 (PST)
-In-Reply-To: <20120301235928.GA28088@redhat.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:56030 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757767Ab2CBA4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 19:56:21 -0500
+In-Reply-To: <20120301234007.GA18488@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 1 mars 2012 15:59, Dave Jones <davej@redhat.com> a =E9crit :
-> Just had this reported by a Fedora user.
-> It's against 3.3-rc4, but afaik, the only changes to rtnetlink
-> since then wouldn't have fixed this unless I've overlooked something.
->
-> https://bugzilla.redhat.com/show_bug.cgi?id=3D799099
->
-> BUG: sleeping function called from invalid context at kernel/mutex.c:=
-271
-> in_atomic(): 1, irqs_disabled(): 0, pid: 10451, name: NetworkManager
-> INFO: lockdep is turned off.
-> Pid: 10451, comm: NetworkManager Not tainted 3.3.0-0.rc4.git1.4.fc17.=
-x86_64 #1
-> Call Trace:
-> =A0[<ffffffff810966fc>] __might_sleep+0x13c/0x200
-> =A0[<ffffffff8154c470>] ? sock_def_readable+0x30/0x1c0
-> =A0[<ffffffff8169a81e>] mutex_lock_nested+0x2e/0x3a0
-> =A0[<ffffffff81571100>] ? rtnetlink_net_init+0x50/0x50
-> =A0[<ffffffff8158e25c>] ? netlink_dump_start+0xdc/0x180
-> =A0[<ffffffff81571100>] ? rtnetlink_net_init+0x50/0x50
-> =A0[<ffffffff81571897>] rtnl_lock+0x17/0x20
-> =A0[<ffffffff81573ef8>] rtnetlink_rcv_msg+0x1f8/0x2e0
-> =A0[<ffffffff81571897>] ? rtnl_lock+0x17/0x20
-> =A0[<ffffffff81573d00>] ? __rtnl_unlock+0x20/0x20
-> =A0[<ffffffff815901b1>] netlink_rcv_skb+0xa1/0xb0
-> =A0[<ffffffff815718c5>] rtnetlink_rcv+0x25/0x40
-> =A0[<ffffffff8158fafd>] netlink_unicast+0x19d/0x1f0
-> =A0[<ffffffff8158fe2b>] netlink_sendmsg+0x2db/0x360
-> =A0[<ffffffff8154c66d>] ? sock_update_netprioidx+0x6d/0x250
-> =A0[<ffffffff81544888>] sock_sendmsg+0xf8/0x130
-> =A0[<ffffffff81545f9d>] ? sock_recvmsg+0xfd/0x130
-> =A0[<ffffffff811745d5>] ? might_fault+0xa5/0xb0
-> =A0[<ffffffff8117458c>] ? might_fault+0x5c/0xb0
-> =A0[<ffffffff81555266>] ? verify_iovec+0x56/0xd0
-> =A0[<ffffffff81545e8e>] __sys_sendmsg+0x42e/0x440
-> =A0[<ffffffff811bd612>] ? fget_light+0x62/0x4a0
-> =A0[<ffffffff811bd6a0>] ? fget_light+0xf0/0x4a0
-> =A0[<ffffffff811bd612>] ? fget_light+0x62/0x4a0
-> =A0[<ffffffff81548c59>] sys_sendmsg+0x49/0x90
-> =A0[<ffffffff816a74a9>] system_call_fastpath+0x16/0x1b
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+On Fri, 2012-03-02 at 00:40 +0100, Francois Romieu wrote:
+> Stephen Hemminger <shemminger@vyatta.com> :
+> [...]
+> > Evolution is better. The new driver has lots of new callbacks to handle
+> > the fact it is dealing with two different chipsets. Not only that your callbacks
+> > are built at runtime which leads to security concerns.
+> > 
+> > There is a reason the two Marvell based drivers (skge and sky2) are
+> > different drivers. Having to do extra per-chip callbacks is a clear sign
+> > the driver should be split in two.
+> 
+> (arguable)
+[]
+> > +void alx_hw_printk(const char *level, const struct alx_hw *hw,
+> > +		   const char *fmt, ...)
+> > +{
+> > +	struct va_format vaf;
+> > +	va_list args;
+> > +
+> > +	va_start(args, fmt);
+> > +	vaf.fmt = fmt;
+> > +	vaf.va = &args;
+> > +
+> > +	if (hw && hw->adpt && hw->adpt->netdev)
+> > +		__netdev_printk(level, hw->adpt->netdev, &vaf);
+> > +	else
+> > +		printk("%salx_hw: %pV", level, &vaf);
+> > +
+> > +	va_end(args);
+> > +}
+> 
+> Designing a new logging facility smells like being unable to figure
+> the current context.
+> 
+> And the printk does not even use KERN_... :o(
 
-Yes, this is on my TODO list, it should be done in a couple of days.
+Sure it does.
 
-Thanks
+level is the first argument and is emitted as %s
+
+> > +/*
+> > + *  alx_validate_mac_addr - Validate MAC address
+> > + */
+> > +static int alx_validate_mac_addr(u8 *mac_addr)
+> > +{
+> > +	int retval = 0;
+> > +
+> > +	if (mac_addr[0] & 0x01) {
+> > +		printk(KERN_DEBUG "MAC address is multicast\n");
+> > +		retval = -EADDRNOTAVAIL;
+> > +	} else if (mac_addr[0] == 0xff && mac_addr[1] == 0xff) {
+> > +		printk(KERN_DEBUG "MAC address is broadcast\n");
+> > +		retval = -EADDRNOTAVAIL;
+> > +	} else if (mac_addr[0] == 0 && mac_addr[1] == 0 &&
+> > +		   mac_addr[2] == 0 && mac_addr[3] == 0 &&
+> > +		   mac_addr[4] == 0 && mac_addr[5] == 0) {
+> > +		printk(KERN_DEBUG "MAC address is all zeros\n");
+> > +		retval = -EADDRNOTAVAIL;
+> > +	}
+> > +	return retval;
+> > +}
+> 
+> Bloat. It should use is_valid_ether_addr.
+
+I sent patches already.
+It's also out of order, testing multicast then broadcast
+instead of the reverse.
