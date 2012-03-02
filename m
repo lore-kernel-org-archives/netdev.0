@@ -1,55 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH v0 1/2] net: bridge: propagate FDB table into
- hardware
-Date: Fri, 02 Mar 2012 08:20:45 -0500
-Message-ID: <1330694445.2405.162.camel@mojatatu>
-References: <20120209032206.32468.92296.stgit@jf-dev1-dcblab>
-	 <20120208203627.035c6b0e@nehalam.linuxnetplumber.net>
-	 <4F34042F.6090806@intel.com>
-	 <20120209094047.3ea7aa56@nehalam.linuxnetplumber.net>
-	 <4F3407F7.9000202@intel.com> <1328821894.2089.3.camel@mojatatu>
-	 <4F347D96.2020806@intel.com> <4F3499BC.8020609@intel.com>
-	 <1328887111.2075.43.camel@mojatatu> <4F39287F.6030204@intel.com>
-	 <1329225526.2806.34.camel@mojatatu> <4F3AAE80.4040609@intel.com>
-	 <1329315057.4158.15.camel@mojatatu> <4F3C5B44.7000608@intel.com>
-	 <1329488932.2272.19.camel@mojatatu> <4F3E8A01.5000205@intel.com>
-	 <1329568900.3027.0.camel@mojatatu> <4F4DAC26.4050108@intel.com>
-	 <1330523779.18226.17.camel@mojatatu> <4F4E5FA4.4040506@intel.com>
-	 <20120229095204.48885405@nehalam.linuxnetplumber.net>
-	 <4F4E6C44.9070502@intel.com> <1330608980.6944.27.camel@mojatatu>
-	 <4F4FF578.30000@intel.com>
-Reply-To: jhs@mojatatu.com
+From: Simeon Penev <spenev@istac.de>
+Subject: Patch for MTU in the routing table cache
+Date: Fri, 02 Mar 2012 14:13:45 +0100
+Message-ID: <4F50C789.8050709@istac.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed;
+ boundary="------------020406080904050802060508"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from warnix.istac.de ([212.18.16.42]:43930 "EHLO warnix.istac.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756042Ab2CBNcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 08:32:08 -0500
+Received: from warnix.istac.de (localhost [127.0.0.1])
+	by warnix.istac.de (Postfix) with ESMTP id D72A8400109B
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 14:13:45 +0100 (CET)
+Received: from [212.18.16.112] (ip-212-18-16-112.garderos.com [212.18.16.112])
+	by warnix.istac.de (Postfix) with ESMTP
+	for <netdev@vger.kernel.org>; Fri,  2 Mar 2012 14:13:45 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------020406080904050802060508
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	bhutchings@solarflare.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	davem@davemloft.net, gregory.v.rose@intel.com, kvm@vger.kernel.org,
-	sri@us.ibm.com, kernel@wantstofly.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4F4FF578.30000@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-03-01 at 14:17 -0800, John Fastabend wrote:
-> Hmm so I think what I'll do is this...
-> 
->  both: ndm_flags = 0 
->  sw  : ndm_flags = NTF_SW_FDB
->  hw  : ndm_flags = NTF_HW_FDB
->
-> Then current tools will work with embedded bridges and software
-> bridges
-> with the interesting case being when a port supporting an offloaded
-> FDB is attached to a SW bridge. Doing both in this case seems to be a
-> reasonable default to me.
+Hi,
 
-Looks good, although it seems like no backward compat is broken, it
-feels like the default should be whats goin on today i.e s/ware only.
-IOW, I would make that the 0.
+after testing the new 3.2 kernel and the new route caching code, i've 
+found a bug in net/ipv4/route.c. The route cache does not detect changes 
+to the MTU of the interface. Therefore IP fragmentation will happen with 
+false MTU. Please see attached the proposed patch.
 
-cheers,
-jamal
+Best regards,
+Simeon Penev
 
+--------------020406080904050802060508
+Content-Type: text/x-patch;
+ name="route-cache-mtu.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="route-cache-mtu.patch"
+
+--- linux-3.2.7/net/ipv4/route.c.orig	2012-02-28 17:26:00.214386221 +0100
++++ linux-3.2.7/net/ipv4/route.c	2012-02-28 17:25:27.826225630 +0100
+@@ -1926,7 +1926,7 @@
+ 	const struct rtable *rt = (const struct rtable *) dst;
+ 	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
+ 
+-	if (mtu && rt_is_output_route(rt))
++	if (mtu && rt_is_output_route(rt) && mtu == dst->dev->mtu)
+ 		return mtu;
+ 
+ 	mtu = dst->dev->mtu;
+@@ -1940,6 +1940,8 @@
+ 	if (mtu > IP_MAX_MTU)
+ 		mtu = IP_MAX_MTU;
+ 
++	dst_metric_set(dst, RTAX_MTU, mtu);
++
+ 	return mtu;
+ }
+ 
+
+--------------020406080904050802060508--
