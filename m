@@ -1,94 +1,75 @@
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Fri, 02 Mar 2012 17:34:50 +0100
-Message-ID: <4F50F6AA.9050909@collabora.co.uk>
-References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>  <20120301.170848.432407217191581288.davem@davemloft.net>  <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>  <20120302.035509.1994457175982020283.davem@davemloft.net>  <4F509274.9060302@collabora.co.uk> <1330694031.2469.15.camel@edumazet-laptop>
+From: Gustavo Padovan <padovan@profusion.mobi>
+Subject: Re: pull request: bluetooth-next 2012-03-01
+Date: Fri, 2 Mar 2012 13:37:16 -0300
+Message-ID: <20120302163716.GA18758@joana>
+References: <20120302025554.GA13493@joana>
+ <20120301.221643.881299898523907213.davem@davemloft.net>
+ <20120301.222316.1877216960521396397.davem@davemloft.net>
+ <20120301.222604.1508242694024394849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	ying.xue@windriver.com, luiz.dentz@gmail.com,
-	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
-	lennart@poettering.net, kay.sievers@vrfy.org,
-	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
-	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330694031.2469.15.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gustavo@padovan.org, johan.hedberg@gmail.com,
+	linville@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:38997 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758838Ab2CBQh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 11:37:26 -0500
+Received: by vbbff1 with SMTP id ff1so1635082vbb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 08:37:25 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20120301.222604.1508242694024394849.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2012 02:13 PM, Eric Dumazet wrote:
-> Le vendredi 02 mars 2012 =C3=A0 10:27 +0100, Javier Martinez Canillas=
- a
-> =C3=A9crit :
->=20
->> We are the most interested in using a facility already found in the
->> kernel, we will try ZeroMQ as Stephen suggested and TIPC but really
->> didn't find an IPC mechanism that fits our needs. The most important
->> issue right now is the fd passing for D-bus application doing
->> out-of-band communication.
->=20
-> Why on earth the needed D-Bus IPC should use a single kernel mechanis=
-m ?
->=20
-> I mean, of course AF_INET cannot pass fd around and never will.
-> Of course AF_UNIX cannot use multicast and never will.
-> Of course shared memory wont pass fds around and never will.
-> ... Add other impossible combinations as you want.
->=20
-> There are reasons fd passing is hard to implement. I find stuffing th=
-is
-> functionality in AF_UNIX was a bad design choice from the very
-> beginning.
->=20
+Hi Dave,
 
-Yes, can't say that everyone is happy with fd passing. It seems like a
-workaround since D-bus didn't scale for big chunks of data IMHO.
+* David Miller <davem@davemloft.net> [2012-03-01 22:26:04 -0500]:
 
-> Instead of pushing extra complexity to a single kernel component, why
-> not trying to use a combination of existing, well designed and suppor=
-ted
-> ones ?
->=20
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 01 Mar 2012 22:23:16 -0500 (EST)
+> 
+> > From: David Miller <davem@davemloft.net>
+> > Date: Thu, 01 Mar 2012 22:16:43 -0500 (EST)
+> > 
+> >> This was only three commits into your tree, therefore I'm not very
+> >> optimistic to be honest with you.
+> > 
+> > In the very next commit, 3175405b906a85ed2bad21e09c444266e4a05a8e we end
+> > up with:
+> 
+> And then 2 commits later in ff9ef5787046c3fd20cf9f7ca1cd70260c1eedb9:
+> 
+> +	if (hdev->discovery.state != DISCOVERY_STOPPED) {
+> +		err = cmd_status(sk, index, MGMT_OP_START_DISCOVERY,
+> +						MGMT_STATUS_BUSY);
+> +		goto failed;
+> +	}
+> 
+> it must be isntead:
+> 
+> 		err = cmd_status(sk, index, MGMT_OP_START_DISCOVERY,
+> 				 MGMT_STATUS_BUSY);
+> 
+> And that's pretty much as far as I'm willing to go.
+> 
+> You know what really pisses me off?  This is the one issue I made a huge
+> stink about last week, arguments to function calls and prototypes lining
+> up properl.  And it's in ever 2nd or 3rd commit in this pull request.
 
-You are right, maybe a combination of IPC mechanism could be used.
+The styles in these patches is the same style we've been using in Bluetooth
+code for more than 10 years and no one ever complained to us and we are the
+only subsystem under Net doing something like this. I could find some examples
+over the net code in a quick look.
 
-Basically we have this scenario:
+I can see only two options here, leave this as is since this is coding style
+we've been using since beginning or change the whole Bluetooth subsystem to
+work like you said. In other words, are you telling me to make a patch to fix
+this issue in the whole Bluetooth subsystem and not only in this pull request
+diff? Otherwise we are putting the Bluetooth code in a inconsistent state with
+two different coding styles. Is that what you want, an inconsistent state?
 
-1- Most applications today uses D-bus as an IPC system and is a central
-part of the Linux desktop.
+I'd be ok with changing the whole subsystem's style if you want.
 
-2- The transport layer used by D-bus is not performance sensitive
-basically due:
-
-a) high number of context switches required to send messages between pe=
-er.
-b) the D-bus daemon doing the routing and being a bottleneck of the who=
-le.
-c) amount of messages copied between kernel space and user space.
-
-3- We still haven't found a single kernel IPC mechanism or a combinatio=
-n
-of IPC mechanism that can address this issue.
-
-This is a real concern in the Linux embedded world. Since Linux based
-products wants to use well probed software components found in Linux
-distros such as oFono, BlueZ, Pulseaudio, Connman and Telepathy to name
-a few. All of them uses D-bus to expose its API to other applications.
-
-I'm not saying that extending AF_UNIX for supporting multicast is the
-best approach but what I'm saying is that we should find a solution to
-this problem.
-
-PD: I'm cc'ing Marcel Holtmann so hopefully he can add his point of vie=
-w
-to the problem (and possible solutions).
-
-I know that Marcel is also working on improving the D-bus system but
-moving to the kernel some tasks made by the D-bus daemon today.
-
-Regards,
-Javier
+	Gustavo
