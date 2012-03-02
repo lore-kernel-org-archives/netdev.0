@@ -1,69 +1,124 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] Bluetooth: Silence static checker warning.
-Date: Fri, 2 Mar 2012 14:04:20 +0300
-Message-ID: <20120302110420.GH22598@mwanda>
-References: <1330537602.3392.101.camel@aeonflux>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6E88@saturn3.aculab.com>
+From: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
+Subject: Re: data is truncated in skb
+Date: Fri, 2 Mar 2012 16:25:25 +0500
+Message-ID: <CAAZheX=R-MVoa1Cgs8+=zON6ZC7Van8tH-GermuCTK1PEK-9ew@mail.gmail.com>
+References: <CAAZheX=A9=iuSDS+w4u_kqn4QvffdboKngopJgTegrsOUHQrHg@mail.gmail.com>
+	<CAAZheXmgb=Se6YJdp=LpH0G1vco1oms2XARtXs3HTf3DKZtrRA@mail.gmail.com>
+	<20120301200726.6b0d845c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cfJ13FhsvNR/yOpm"
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	santosh nayak <santoshprasadnayak@gmail.com>,
-	padovan@profusion.mobi, davem@davemloft.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Ville Tervo <ville.tervo@nokia.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E88@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:36262 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964797Ab2CBLZ0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Mar 2012 06:25:26 -0500
+Received: by vbbff1 with SMTP id ff1so1366067vbb.19
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 03:25:25 -0800 (PST)
+In-Reply-To: <20120301200726.6b0d845c@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+here is the code of encapsulation...!
 
---cfJ13FhsvNR/yOpm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+struct sk_buff *create_trill_header(struct sk_buff *skb,bool
+trill_header_ok,size_t msglen)
+{
 
-On Fri, Mar 02, 2012 at 09:15:37AM -0000, David Laight wrote:
-> How long has this code been in tree?
-> It isn't obvious to me that this change won't break code on BE systems
-> where the application code is already fixing the endianness.
->=20
+	unsigned int extra_header_length;
+	uint16_t ether_type;
+	struct trill_header *push1;
+	struct ethhdr *push2;
+	struct ethhdr *push3;
 
-It looks like we've had an endian bug since last February.
+	ether_type =3D msglen > 0 ? (uint16_t)msglen : ETHERTYPE_TRILL;
 
-b62f328b8f20a "Bluetooth: Add server socket support for LE
-connection"
+	extra_header_length =3D trill_header_ok ? 0 : sizeof (struct trill_hea=
+der);
 
-+               l2cap_pi(sk)->scid =3D la.l2_cid;
+	struct ethhdr *mac_header =3D eth_hdr(skb);
 
-->scid was cpu endian.
+	if (mac_header =3D=3D NULL)
+	{
+		// error handling
+		printk("mac_header Error\n");
+	}
+=09
+	printk("\t\t\tOriginal Buffer\n");
+=09
+	trill_testing(skb);
 
-regards,
-dan carpenter
+	if ( skb_headroom(skb) < 2*sizeof(struct ethhdr ) + sizeof(struct
+trill_header) )
+	{
+		skb =3D skb_realloc_headroom(skb,34);
+		printk("\t\t\tHEADROOM ALLOCATION\n");
+	}
+=09
+	push2 =3D (struct ethhdr *)skb_push(skb,ETH_HLEN);
+=09
+	memcpy(push2->h_dest,mac_header->h_dest,ETH_ALEN);
+=09
+	memcpy(push2->h_source,mac_header->h_source,ETH_ALEN);
+=09
+	push2->h_proto =3D htons(0x0800); // ether_type IP
+=09
+	push1 =3D (struct trill_header *)skb_push(skb,extra_header_length);
+=09
+	push1->th_version =3D  TRILL_PROTOCOL_VERSION;
+=09
+	push1->th_reserved =3D TRILL_RESERVED_BITS;
+=09
+	push1->th_multidest =3D  TRILL_UNICAST;
+=09
+	push1->th_optslen_hi =3D 0;
 
---cfJ13FhsvNR/yOpm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+	push1->th_optslen_lo =3D 0;
+=09
+	push1->th_hopcount =3D DEFAULT_HOPCOUNT;
+=09
+	push1->th_egressnick =3D htons(0x1600);
+=09
+	push1->th_ingressnick =3D htons(0x1500);
+=09
+	push3 =3D (struct ethhdr *)skb_push(skb,ETH_HLEN);
+=09
+	memcpy(push3->h_dest,mac_header->h_dest,ETH_ALEN);
+=09
+	memcpy(push3->h_source,mac_header->h_source,ETH_ALEN);
+=09
+	push3->h_proto =3D htons(ether_type); // ether_type Trill
+=09
+	if(skb->data =3D=3D push3)
+	{
+		skb_set_mac_header(skb,0);
+=09
+		skb_pull(skb,ETH_HLEN);
+=09
+		mac_header =3D eth_hdr(skb);
+=09
+	}
+=09
+	printk("\t\t\tencapsulated Buffer\n");
+=09
+	trill_testing(skb);
+=09
+	return skb;
+=09
+}
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPUKkzAAoJEOnZkXI/YHqRADkP/217s0ztGrn66LSv/c5F1A4k
-6cBasjmCmLkN/AE/BMwu6lQoSh/U+flf2SIgxT1ULuyni/FpJ+bVwn6flrOPaRzB
-D+JPi5T3vEMnM6s8P2C6gVrwvCEPvzUhvgaCXgh6rmQO/OKq5H49RjyRuhWUb/jG
-puXy4pFxr4AfLYuSS4I5xNfSPAec9dSX2q8a1PZnvlOkc/zj2uLeJh5dyFwDQWIc
-RA31sMNUF6x1nLJ91HYfXuu9kJynQQeX8HCtxBU1Vn7Inc1EQ4HrqPkOgTaFBbo9
-tL0i9uGcWGbzZYbZp5K6yPZyaY4M+fxjQNGMO+P14AKIZwJWNKkIiusNEasC18ea
-gnm/SO+VNl8xLsAjJDcgyFmudGvFMgqkxY+vDK8Q2MP2qymJLigLzNkEUTq1c4Wx
-X47Pob9mFSLZARCKE+FEIOInLcJjTnJzTNBYcS1s35wWJ7a8IZ94JheT6gEL+0xP
-tmz3jdvOBHPzG+wkID31/JyTjRqERb749i9aiGF1Wy2pXSvwa8uKE47nDDw7zt4r
-hjbsft9ubm+W0lt3ofw0TkL97A1wBLebTV/ZT/FDtBflyNYFmjXq/oEyqyF+vH1i
-USciqxB3mp9znqp13k9ADR4OKzqJ15uk9LgT/jjHmXFgnOC7/3iALpSXfTHCqupA
-woGcH+1N1MOFEKlxdzPP
-=nrfy
------END PGP SIGNATURE-----
-
---cfJ13FhsvNR/yOpm--
+On Fri, Mar 2, 2012 at 9:07 AM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Fri, 2 Mar 2012 07:17:16 +0500
+> Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk> wrote:
+>
+>> hi,
+>> =A0 I have written a code which encapsulates the packets GOINGOUT or
+>> OTHERHOST in bridging module. Encapsulation is done fine. But data a=
+t
+>> the end of buffer is truncated by the size of encapsulation. What
+>> should i do to avoid truncation of data?
+>
+>
+> No idea. Post question and code to netdev list
