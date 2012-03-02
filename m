@@ -1,125 +1,45 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-Date: Fri, 2 Mar 2012 11:22:16 -0600
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886ED36@MNEXMB1.qlogic.org>
-References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: 3.3.0-rc5: OOps in dql_completed (Broadcom tg3 driver)
+Date: Fri, 2 Mar 2012 09:23:20 -0800
+Message-ID: <CA+mtBx_vNcPr-q7FSKXCAsVqvjZt=4UpWfv5eAp0=diG0wnbjQ@mail.gmail.com>
+References: <alpine.DEB.2.00.1203011505510.6685@router.home>
+	<1330698646.2469.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: santosh nayak <santoshprasadnayak@gmail.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Christoph Lameter <cl@gentwo.org>, mcarlson@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
-Content-Language: en-US
+In-Reply-To: <1330698646.2469.28.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Santosh,
+Hi Christoph, Eric,
 
-Thanks for pointing out the bug. But adapter takes  ip in big endian format.
-So no need to use  be32_to_cpu instead data type of ip should be changed to __be32.
-Also in netxen_config_ipaddr()
--      req.words[1] = cpu_to_le64(ip);
-+      req.words[1] = ip;
+Looks like we're hitting BUG_ON(count > dql->num_queued -
+dql->num_completed).  This is indicative of mis-accounting occurring
+between netdev_sent_queue and netdev_completed_queue.  I don't
+immediately see how this could happen here in the tg3_tso_bug path,
+this is still using the same calls to transmit and complete as other
+paths.  I suppose it's possible that skb_gso_segment is somehow
+munging skb->len in segments.
 
-Rest looks fine.
+I'll try to reproduce this.
 
-Rajesh
-________________________________________
-From: santosh nayak [santoshprasadnayak@gmail.com]
-Sent: Friday, March 02, 2012 8:41 PM
-To: Sony Chacko
-Cc: Rajesh Borundia; netdev; linux-kernel; kernel-janitors@vger.kernel.org; Santosh Nayak
-Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+> In case we hit BQL limit in one of the tg3_start_xmit() calls, we should
+> 'abort' the following ones, dont you think ?
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+I'm not sure what you mean Eric.  It should be okay to exceed the BQL
+limit up to the point that num_queued rolls over (probably should be a
+BUG_ON for that).  This is a much greater number than could ever be
+queued to tg3.
 
-Fix endian bug.
-Add a default case in 'netxen_list_config_vlan_ip'
+Thanks,
+Tom
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 8dc4a134..971b286 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter *adapter)
-                        adapter->driver_mismatch = 1;
-                        return;
-                }
--               ptr32[i] = cpu_to_le32(val);
-+               ptr32[i] = val;
-                offset += sizeof(u32);
-        }
-
-@@ -3028,7 +3028,7 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
-                list_for_each(head, &adapter->vlan_ip_list) {
-                        cur = list_entry(head, struct nx_vlan_ip_list, list);
-
--                       if (cur->ip_addr == ifa->ifa_address)
-+                       if (cur->ip_addr == be32_to_cpu(ifa->ifa_address))
-                                return;
-                }
-
-@@ -3039,18 +3039,22 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
-                        return;
-                }
-
--               cur->ip_addr = ifa->ifa_address;
-+               cur->ip_addr = be32_to_cpu(ifa->ifa_address);
-                list_add_tail(&cur->list, &adapter->vlan_ip_list);
-                break;
-        case NX_IP_DOWN:
-                list_for_each_entry_safe(cur, tmp_cur,
-                                        &adapter->vlan_ip_list, list) {
--                       if (cur->ip_addr == ifa->ifa_address) {
-+                       if (cur->ip_addr == be32_to_cpu(ifa->ifa_address)) {
-                                list_del(&cur->list);
-                                kfree(cur);
-                                break;
-                        }
-                }
-+               break;
-+       default:
-+               printk(KERN_ERR "%ld: Wrong event id \n", event);
-+               break;
-        }
- }
- static void
-@@ -3070,12 +3074,12 @@ netxen_config_indev_addr(struct netxen_adapter *adapter,
-                switch (event) {
-                case NETDEV_UP:
-                        netxen_config_ipaddr(adapter,
--                                       ifa->ifa_address, NX_IP_UP);
-+                                       be32_to_cpu(ifa->ifa_address), NX_IP_UP);
-                        netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
-                        break;
-                case NETDEV_DOWN:
-                        netxen_config_ipaddr(adapter,
--                                       ifa->ifa_address, NX_IP_DOWN);
-+                                       be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
-                        netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
-                        break;
-                default:
-@@ -3167,11 +3171,11 @@ recheck:
-
-        switch (event) {
-        case NETDEV_UP:
--               netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
-+               netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_UP);
-                netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
-                break;
-        case NETDEV_DOWN:
--               netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
-+               netxen_config_ipaddr(adapter, be32_to_cpu(ifa->ifa_address), NX_IP_DOWN);
-                netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
-                break;
-        default:
---
-1.7.4.4
+>
+> Or maybe thats irrelevant, and only dql_queued() comment is wrong.
+>
+> Thanks
+>
+>
