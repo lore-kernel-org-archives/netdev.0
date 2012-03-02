@@ -1,52 +1,54 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v12 06/13] seccomp: add system call filtering using BPF
-Date: Thu, 01 Mar 2012 21:52:59 -0800
-Message-ID: <4F50603B.7040505@zytor.com>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>    <1330559620-23543-6-git-send-email-wad@chromium.org> <a6fdbe9d1daf6864589c9affc7048965.squirrel@webmail.greenhost.nl>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] checkpatch: Add --strict test for strings split across
+ multiple lines
+Date: Thu, 01 Mar 2012 21:54:33 -0800
+Message-ID: <1330667673.1939.22.camel@joe2Laptop>
+References: <20120302025554.GA13493@joana>
+	 <20120301.221643.881299898523907213.davem@davemloft.net>
+	 <20120301.222316.1877216960521396397.davem@davemloft.net>
+	 <20120301.222604.1508242694024394849.davem@davemloft.net>
+	 <1330661602.1939.13.camel@joe2Laptop> <1330666534.1939.19.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
-        linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-        kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-        x86@kernel.org, arnd@arndb.de, davem@davemloft.net, mingo@redhat.com,
-        oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-        mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-        eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-        scarybeasts@gmail.com, pmoore@redhat.com, akpm@linux-foundation.org,
-        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-        coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Indan Zupancic <indan@nul.nu>
-Return-path: <kernel-hardening-return-1029-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <a6fdbe9d1daf6864589c9affc7048965.squirrel@webmail.greenhost.nl>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, gustavo@padovan.org,
+	johan.hedberg@gmail.com, linville@tuxdriver.com,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Andy Whitcroft <apw@shadowen.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330666534.1939.19.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/01/2012 09:45 PM, Indan Zupancic wrote:
-> 
->> + * @nr: the system call number
->> + * @arch: indicates system call convention as an AUDIT_ARCH_* value
->> + *        as defined in <linux/audit.h>.
->> + * @instruction_pointer: at the time of the system call.
-> 
-> If the vDSO is used this will always be the same, so what good is this?
-> I haven't gotten an answer to this yet.
-> 
+Strings split across multiple lines are commonly used
+as formats.  These uncoalesced formats are hard to grep
+and are relatively error prone.
 
-And if it isn't, or you're on an architecture which doesn't use the vdso
-as the launching point, it's not. You seem to be unable to look outside
-your own particular use cases, but it is very likely that the same
-oddball cases which do mixed-mode programming are ones for which this
-kind of filtering facility would be extremely useful -- Pin is a great
-example.
+Suggest coalescing split strings when using --strict.
 
-	-hpa
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ scripts/checkpatch.pl |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 581a14c..5d0b46c 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -1860,6 +1860,12 @@ sub process {
+ 			    "Don't begin block comments with only a /* line, use /* comment...\n" . $hereprev);
+ 		}
+ 
++		if ($prevline =~ /^\+.*"[ \t]*$/ &&
++		    $line =~ /^\+[ \t]*"/) {
++			CHK("COALESCE_STRING",
++			    "Coalesced strings are easier to grep and less error prone\n" . $hereprev);
++		}
++
+ # check for spaces at the beginning of a line.
+ # Exceptions:
+ #  1) within comments
 -- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
+1.7.8.111.gad25c.dirty
