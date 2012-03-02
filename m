@@ -1,78 +1,76 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom
- load_pointer
-Date: Fri, 2 Mar 2012 05:04:41 +0100
-Message-ID: <eba2ab81bc32f208b8b94fd959fd7f2f.squirrel@webmail.greenhost.nl>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-    <20120301233712.GS3990@outflux.net>
-    <20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
-    <CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
-    <20120301171914.7c64f095.akpm@linux-foundation.org>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Joe Perches <joe@perches.com>
+Subject: Re: pull request: bluetooth-next 2012-03-01
+Date: Thu, 01 Mar 2012 20:13:22 -0800
+Message-ID: <1330661602.1939.13.camel@joe2Laptop>
+References: <20120302025554.GA13493@joana>
+	 <20120301.221643.881299898523907213.davem@davemloft.net>
+	 <20120301.222316.1877216960521396397.davem@davemloft.net>
+	 <20120301.222604.1508242694024394849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "Kees Cook" <keescook@chromium.org>,
- "Stephen Rothwell" <sfr@canb.auug.org.au>,
- "Will Drewry" <wad@chromium.org>,
- linux-kernel@vger.kernel.org,
- linux-arch@vger.kernel.org,
- linux-doc@vger.kernel.org,
- kernel-hardening@lists.openwall.com,
- netdev@vger.kernel.org,
- x86@kernel.org,
- arnd@arndb.de,
- davem@davemloft.net,
- hpa@zytor.com,
- mingo@redhat.com,
- oleg@redhat.com,
- peterz@infradead.org,
- rdunlap@xenotime.net,
- mcgrathr@chromium.org,
- tglx@linutronix.de,
- luto@mit.edu,
- eparis@redhat.com,
- serge.hallyn@canonical.com,
- djm@mindrot.org,
- scarybeasts@gmail.com,
- pmoore@redhat.com,
- corbet@lwn.net,
- eric.dumazet@gmail.com,
- markus@chromium.org,
- coreyb@linux.vnet.ibm.com
-To: "Andrew Morton" <akpm@linux-foundation.org>
-Return-path: <kernel-hardening-return-1026-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20120301171914.7c64f095.akpm@linux-foundation.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gustavo@padovan.org, johan.hedberg@gmail.com,
+	linville@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:46496 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754174Ab2CBENY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Mar 2012 23:13:24 -0500
+In-Reply-To: <20120301.222604.1508242694024394849.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, March 2, 2012 02:19, Andrew Morton wrote:
-> That assumes that we're going to merge this stuff into 3.4 - if we
-> don't, unwrecker gets rewrecked and grumpy.
->
-> I don't know if we're going to merge it into 3.4?  I haven't been
-> paying a lot of attention and haven't looked at the patches in a while.
+On Thu, 2012-03-01 at 22:26 -0500, David Miller wrote:
+> You know what really pisses me off?  This is the one issue I made a huge
+> stink about last week, arguments to function calls and prototypes lining
+> up properl.  And it's in ever 2nd or 3rd commit in this pull request.
+[]
+> Come back when you've audited this whole thing properly and honestly.
 
-I think it should be merged, but I think 3.5 is probably better.
+I submitted a patch to checkpatch for a --strict rule for
+this argument alignment.  https://lkml.org/lkml/2012/2/29/644
 
-This because we haven't heard anything from the networking people
-about the BPF changes, and I'm also unsure if the current approach
-is the best one: It both increases the filter.o size significantly
-while slowing down sk_run_filter, while the point was to avoid both.
-I'm trying to think of an alternative approach with lower impact.
+Are there any other tests you think should be added with
+--strict?
 
-The ptrace integration may need some more time to settle too, even
-just to make sure the latest version does what needs to be done.
+Some I think possible are:
 
-Both directly affect the user space ABI, so I think it's best to
-not be too hasty with pushing this upstream. Waiting one release
-while having a stable final patch gives people the chance to go
-and try to use it for their purposes and thus both test the code
-more and get experience with the ABI.
+o no space after cast
+	struct foo *bar = (struct foo *) baz;
+sb:
+	struct foo *bar = (struct foo *)baz;
 
-Greetings,
+o don't start comments with /*$
+  (perhaps only if a blank line proceeds the comment)
+	/*
+	 * multiline comment
+	 * ...
+	 */
+sb:
+	/* multiline comment
+	 * ...
+	 */
 
-Indan
+o coalesce formats
+	pr_<level>("format part 1 "
+		   "format part 2\n", ...)
+sb:
+	pr_<level>("format part 1 format part 2\n",
+		   ...);
+
+o symmetric brace standardization
+	if (foo) {
+		bar;
+		baz;
+	} else
+		bar;
+sb:
+	if (foo) {
+		bar;
+		baz;
+	} else {
+		bar;
+	}
+
+Any others?
