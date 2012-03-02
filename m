@@ -1,56 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Thu, 01 Mar 2012 22:26:04 -0500 (EST)
-Message-ID: <20120301.222604.1508242694024394849.davem@davemloft.net>
-References: <20120302025554.GA13493@joana>
-	<20120301.221643.881299898523907213.davem@davemloft.net>
-	<20120301.222316.1877216960521396397.davem@davemloft.net>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v12 01/13] sk_run_filter: add support for custom load_pointer
+Date: Thu, 1 Mar 2012 21:41:51 -0600
+Message-ID: <CABmXcB83uFMUFUuRKCtkMjU2KLv7N4JB08qzZLVDdT=CStmQjw@mail.gmail.com>
+References: <1330559620-23543-1-git-send-email-wad@chromium.org>
+	<20120301233712.GS3990@outflux.net>
+	<20120302114705.0a9542e138927897f16282ca@canb.auug.org.au>
+	<CAGXu5jL0OXR5MOePFe=GT4_X5rdH8RNjQPqYXdbqsqfijUsEqA@mail.gmail.com>
+	<20120302141038.aaafc42b59ac7cf95d3553ed@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johan.hedberg@gmail.com, linville@tuxdriver.com,
-	netdev@vger.kernel.org
-To: gustavo@padovan.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503Ab2CBD1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Mar 2012 22:27:10 -0500
-In-Reply-To: <20120301.222316.1877216960521396397.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kees Cook <keescook@chromium.org>, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20120302141038.aaafc42b59ac7cf95d3553ed@canb.auug.org.au>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 01 Mar 2012 22:23:16 -0500 (EST)
+On Thu, Mar 1, 2012 at 9:10 PM, Stephen Rothwell <sfr@canb.auug.org.au>=
+ wrote:
+> Hi Kees,
+>
+> On Thu, 1 Mar 2012 16:57:49 -0800 Kees Cook <keescook@chromium.org> w=
+rote:
+>>
+>> Unfortunately, yes, it does -- there were both ptrace changes and pr=
+ctl changes.
+>>
+>> And at least the ptrace changes are, IIRC, in -mm, which has no tree=
+=2E
+>> :P Given that, what's the best thing for me to do for this to be eas=
+y
+>> for you to pull?
+>
+> Does this set of patches *depend* on functionality provided by those,=
+ or
+> just produce conflicts against the other changes? =A0If it is just
+> conflicts, then base your tree on Linus and I and (he when it comes t=
+o
+> it) can fix the conflicts as needed (with some hints if you think it =
+is a
+> good idea i.e. is the conflicts are particularly complex).
 
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 01 Mar 2012 22:16:43 -0500 (EST)
-> 
->> This was only three commits into your tree, therefore I'm not very
->> optimistic to be honest with you.
-> 
-> In the very next commit, 3175405b906a85ed2bad21e09c444266e4a05a8e we end
-> up with:
+No explicit dependency.   It's just a conflict in how ptrace options
+are set, defined, and masked (and STOP being renumbered).  Other than
+the ptrace changes, the whole series patches cleanly onto both trees.
+The resolved version is less code and easier to read, so I don't
+suspect it'll be a challenge at all.
 
-And then 2 commits later in ff9ef5787046c3fd20cf9f7ca1cd70260c1eedb9:
-
-+	if (hdev->discovery.state != DISCOVERY_STOPPED) {
-+		err = cmd_status(sk, index, MGMT_OP_START_DISCOVERY,
-+						MGMT_STATUS_BUSY);
-+		goto failed;
-+	}
-
-it must be isntead:
-
-		err = cmd_status(sk, index, MGMT_OP_START_DISCOVERY,
-				 MGMT_STATUS_BUSY);
-
-And that's pretty much as far as I'm willing to go.
-
-You know what really pisses me off?  This is the one issue I made a huge
-stink about last week, arguments to function calls and prototypes lining
-up properl.  And it's in ever 2nd or 3rd commit in this pull request.
-
-This means you really didn't check or you really don't care.
-
-Come back when you've audited this whole thing properly and honestly.
+thanks!
