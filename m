@@ -1,55 +1,26 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [PATCH] [NET]: da.s_net not copied but assigned to itself in
- aarp_rcv()
-Date: Fri, 2 Mar 2012 13:34:16 -0600
-Message-ID: <20120302193416.GA22055@burratino>
-References: <4B4F7F4B.8000302@gmail.com>
- <20100114210001.GE20221@ghostprotocols.net>
- <20100115.014943.39860500.davem@davemloft.net>
+From: "Dr. Kelvin Grant" <coordbio-lic@arapiraca.ufal.br>
+Subject: (unknown)
+Date: Fri, 2 Mar 2012 16:26:18 -0300 (BRT)
+Message-ID: <4810231.13024.1330716378970.JavaMail.root__6964.44157879359$1330717051$gmane$org@jatiuca>
+Reply-To: "Dr. Kelvin Grant" <swanseaholmes@yahoo.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@redhat.com, roel.kluin@gmail.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Mason Loring Bliss <mason@blisses.org>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100115.014943.39860500.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jatiuca.ufal.br ([200.17.114.42]:32784 "EHLO jatiuca.ufal.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756023Ab2CBThC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 14:37:02 -0500
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
 
-David Miller wrote:
->> Em Thu, Jan 14, 2010 at 09:32:11PM +0100, Roel Kluin escreveu:
 
->>> da.s_net was not copied but assigned to itself.
->>> 
->>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-[...]
-> Applied, please always CC: on networking patches.
+Dear Sir/Madam,
 
-Thanks.
+Are you searching for a very Genuine loan at an affordable interest rate of 3%? Processed within 48 Hours. Have you been turned down constantly by your Banks and other financial institutions? The good news is here !!! For more information, do get back to us via email.
 
-Without this patch (commit 2a04cd4c7 aka v2.6.33-rc6~29^2~33), Mason
-(cc-ed) is not able to use appletalk[1]:
-
-| With Linux 2.6.32 as supplied with Debian Squeeze, Netatalk is unable
-| to thrive. Connections made to afpd will open, but attempting to transfer
-| files will take a very long time and/or eventually time out.
-|
-| I've noted this with both Netatalk as supplied with Squeeze and with
-| Netatalk 2.2.1 built from the Wheezy source package, which I evidently
-| need for AFP 3 support.
-|
-| Installing Linux 3.2 from backports, with no other changes to the system,
-| allows afpd to work correctly.
-
-Ben sent a copy of this patch to try against 2.6.32.y and it worked.
-Would it be possible to include this in the 2.6.32.y-longterm tree?
-
-Sincerely,
-Jonathan
-
-[1] http://bugs.debian.org/660902
+Best Regards,
+Dr. Kelvin Grant
