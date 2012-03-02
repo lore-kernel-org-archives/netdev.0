@@ -1,69 +1,55 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH 1/3] qla3xxx: ethernet: Fix bogus interrupt state flag.
-Date: Fri, 2 Mar 2012 10:51:42 -0800
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA8743804E40F@AVEXMB1.qlogic.org>
-References: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: Re: [PATCH] [NET]: da.s_net not copied but assigned to itself in
+ aarp_rcv()
+Date: Fri, 2 Mar 2012 13:34:16 -0600
+Message-ID: <20120302193416.GA22055@burratino>
+References: <4B4F7F4B.8000302@gmail.com>
+ <20100114210001.GE20221@ghostprotocols.net>
+ <20100115.014943.39860500.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: santosh nayak <santoshprasadnayak@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, roel.kluin@gmail.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Mason Loring Bliss <mason@blisses.org>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20100115.014943.39860500.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We will review your patch and get back to you.
+Hi Dave,
 
------Original Message-----
-From: santosh nayak [mailto:santoshprasadnayak@gmail.com] 
-Sent: Friday, March 02, 2012 7:09 AM
-To: Jitendra Kalsaria
-Cc: Ron Mercer; Dept-Eng Linux Driver; netdev; linux-kernel; kernel-janitors@vger.kernel.org; Santosh Nayak
-Subject: [PATCH 1/3] qla3xxx: ethernet: Fix bogus interrupt state flag.
+David Miller wrote:
+>> Em Thu, Jan 14, 2010 at 09:32:11PM +0100, Roel Kluin escreveu:
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+>>> da.s_net was not copied but assigned to itself.
+>>> 
+>>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+[...]
+> Applied, please always CC: on networking patches.
 
-In 'ql_adapter_initialize'
-the first call for 'spin_unlock_irqrestore()' is with hw_flags = 0,
-which is as good as 'spin_unlock_irq()' (unconditional interrupt
-enabling). If this is intended, then for better performance
-'spin_unlock_irqrestore()' can be replaced with 'spin_unlock_irq()'
-and 'spin_lock_irqsave()' can be replaced by 'spin_lock_irq()
+Thanks.
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- drivers/net/ethernet/qlogic/qla3xxx.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+Without this patch (commit 2a04cd4c7 aka v2.6.33-rc6~29^2~33), Mason
+(cc-ed) is not able to use appletalk[1]:
 
-diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
-index d49f6da..8da3e41 100644
---- a/drivers/net/ethernet/qlogic/qla3xxx.c
-+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
-@@ -3017,7 +3017,6 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 		(void __iomem *)port_regs;
- 	u32 delay = 10;
- 	int status = 0;
--	unsigned long hw_flags = 0;
- 
- 	if (ql_mii_setup(qdev))
- 		return -1;
-@@ -3228,9 +3227,9 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 		value = ql_read_page0_reg(qdev, &port_regs->portStatus);
- 		if (value & PORT_STATUS_IC)
- 			break;
--		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
-+		spin_unlock_irq(&qdev->hw_lock);
- 		msleep(500);
--		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
-+		spin_lock_irq(&qdev->hw_lock);
- 	} while (--delay);
- 
- 	if (delay == 0) {
--- 
-1.7.4.4
+| With Linux 2.6.32 as supplied with Debian Squeeze, Netatalk is unable
+| to thrive. Connections made to afpd will open, but attempting to transfer
+| files will take a very long time and/or eventually time out.
+|
+| I've noted this with both Netatalk as supplied with Squeeze and with
+| Netatalk 2.2.1 built from the Wheezy source package, which I evidently
+| need for AFP 3 support.
+|
+| Installing Linux 3.2 from backports, with no other changes to the system,
+| allows afpd to work correctly.
+
+Ben sent a copy of this patch to try against 2.6.32.y and it worked.
+Would it be possible to include this in the 2.6.32.y-longterm tree?
+
+Sincerely,
+Jonathan
+
+[1] http://bugs.debian.org/660902
