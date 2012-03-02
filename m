@@ -1,69 +1,59 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-Date: Fri, 02 Mar 2012 17:52:50 +0100
-Message-ID: <4F50FAE2.4080903@nod.at>
-References: <1328400892-22409-1-git-send-email-richard@nod.at> <1328400892-22409-3-git-send-email-richard@nod.at> <20120301112732.GA6806@1984> <4F4FEC83.6090504@nod.at> <20120302164945.GA13723@1984>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Fri, 2 Mar 2012 17:08:23 +0000
+Message-ID: <20120302170823.7117821b@pyramind.ukuu.org.uk>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+	<20120301.170848.432407217191581288.davem@davemloft.net>
+	<CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+	<20120302.035509.1994457175982020283.davem@davemloft.net>
+	<4F509274.9060302@collabora.co.uk>
+	<1330694031.2469.15.camel@edumazet-laptop>
+	<4F50F6AA.9050909@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigCBCEF1B047BB2CE5FDF55683"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, rostedt@goodmis.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120302164945.GA13723@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	ying.xue@windriver.com, luiz.dentz@gmail.com,
+	rodrigo.moya@collabora.co.uk, javier@collabora.co.uk,
+	lennart@poettering.net, kay.sievers@vrfy.org,
+	alban.crequy@collabora.co.uk, bart.cerneels@collabora.co.uk,
+	sjoerd.simons@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Marcel Holtmann <marcel@holtmann.org>
+To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F50F6AA.9050909@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCBCEF1B047BB2CE5FDF55683
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> 2- The transport layer used by D-bus is not performance sensitive
+> basically due:
+> 
+> a) high number of context switches required to send messages between peer.
 
-Am 02.03.2012 17:49, schrieb Pablo Neira Ayuso:
-> On Thu, Mar 01, 2012 at 10:39:15PM +0100, Richard Weinberger wrote:
->> Am 01.03.2012 12:27, schrieb Pablo Neira Ayuso:
->>> While merging ipt_LOG and ip6t_LOG, you introduced some bug that
->>> corrupts the log line. Note the extra PROTO=3D, I don't have any UDPL=
-ITE
->>> traffic here.
->>>
->>> Looks like a missing break in one switch.
->>
->> I got confused by my own logic. :-\
->> Does the attached patch fix the issue?
->> It's based on "Netfilter: xt_LOG: Add timestamp support"
->=20
-> This patch lacks of description. If you don't make it myself, I have
-> to do it for you :-(
->=20
-> Please, send me patches following the standard format next time.
+This is a user space design issue. The fact dbus wakes up so much
+stuff wants fixing at the dbus level.
 
-It was a "does this patch solve the problem"-Patch.
-Does it fix the problem?
+> b) the D-bus daemon doing the routing and being a bottleneck of the whole.
 
-If so, I'll send an official one...
+This is a userspace design issue.
 
-Thanks,
-//richard
+> c) amount of messages copied between kernel space and user space.
 
+This is mostly a userspace design issue and fixing a would fix much of c
+because you wouldn't keep sending people crap they didn't need.
 
---------------enigCBCEF1B047BB2CE5FDF55683
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+You've already got multicast facilities in kernel (if dbus must work by
+shouting not state change subscription like saner setups), and you've got
+BPF filtering facilities to try and cure some of the wakeups even doing
+multicast.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
+Beyond that I don't see what the kernel can do given its mostly an
+architectural problem.
 
-iQEcBAEBAgAGBQJPUPriAAoJEN9758yqZn9e80UIANX8yMFMPz4VkGtKNb+hsuyP
-y6QCUqSz5et3h4uPgQBQLgYNQG3VZSJyMFaINnFtirVJw8Zj05V5MnODvsQNjMrB
-TSgL0MnGPsygf+sP4asp5DQ4jxxKiW04l+24dWVIY20C9eLGlNYI0Ex3Dxw3bd2O
-rsXoHdgpeYCztue6sBRzKhqrniJzqqYJnydnMkBjjb5pgBGUztjnm24ZQgz5/ypd
-hlnehNhSDc9SvSDXd6SdL+BE0h1GLL82cH/dgWJyNr7ybWSDBuNWYI6+jHJlTZhS
-4/rCo1y6YtrOCEBrjF3yM0V6OIa6NdmXnhH88cY7PRs2yEsklujPKvOHRrRvaD0=
-=Rpk4
------END PGP SIGNATURE-----
+Your model appears to be "since its causing enormous amounts of work we
+should do the work faster". The right model would appear to me to be "We
+shouldn't cause enormous amounts of work"
 
---------------enigCBCEF1B047BB2CE5FDF55683--
+Alan
