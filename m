@@ -1,953 +1,826 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 5/6] can: usb: PEAK-System Technik PCAN-USB specific part
-Date: Sat,  3 Mar 2012 18:00:14 +0100
-Message-ID: <1330794015-14930-6-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/6] can: sja1000: add support for PEAK-System PCMCIA card
+Date: Sat,  3 Mar 2012 18:00:12 +0100
+Message-ID: <1330794015-14930-4-git-send-email-mkl@pengutronix.de>
 References: <1330794015-14930-1-git-send-email-mkl@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
 	kernel@pengutronix.de,
 	Stephane Grosjean <s.grosjean@peak-system.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59996 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab2CCRBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 12:01:06 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1330794015-14930-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Stephane Grosjean <s.grosjean@peak-system.com>
 
-This patch adds the specific part which handles the PCAN-USB adapter from
-PEAK-System Technik (http://www.peak-system.com). The PCAN-USB adapter is
-a sja1000 based, mono-channel USB 1.1 adapter compliant with CAN
-specifications 2.0A (11-bit ID) and 2.0B (29-bit ID).
+This patch adds support to the PCAN-PC Card PCMCIA card from
+PEAK-System Technik (www.peak-system.com). This card is a CAN interface
+for the PC Card slot. It is available as a single or dual-channel version.
 
 Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+Acked-by: Dominik Brodowski <linux@dominikbrodowski.net>
 Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/peak_usb/Makefile   |    2 +-
- drivers/net/can/usb/peak_usb/pcan_usb.c |  901 +++++++++++++++++++++++++++++++
- 2 files changed, 902 insertions(+), 1 deletions(-)
- create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb.c
+ drivers/net/can/sja1000/Kconfig       |    9 +
+ drivers/net/can/sja1000/Makefile      |    1 +
+ drivers/net/can/sja1000/peak_pcmcia.c |  753 +++++++++++++++++++++++++++++++++
+ 3 files changed, 763 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/can/sja1000/peak_pcmcia.c
 
-diff --git a/drivers/net/can/usb/peak_usb/Makefile b/drivers/net/can/usb/peak_usb/Makefile
-index bbb23ce..4450466 100644
---- a/drivers/net/can/usb/peak_usb/Makefile
-+++ b/drivers/net/can/usb/peak_usb/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_CAN_PEAK_USB) += peak_usb.o
--peak_usb-y = pcan_usb_core.o
-+peak_usb-y = pcan_usb_core.o pcan_usb.o
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb.c b/drivers/net/can/usb/peak_usb/pcan_usb.c
-new file mode 100644
-index 0000000..8a7982e
---- /dev/null
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb.c
-@@ -0,0 +1,901 @@
-+/*
-+ * CAN driver for PEAK System PCAN-USB adapter
-+ * Derived from the PCAN project file driver/src/pcan_usb.c
-+ *
-+ * Copyright (C) 2003-2010 PEAK System-Technik GmbH
-+ * Copyright (C) 2011-2012 Stephane Grosjean <s.grosjean@peak-system.com>
-+ *
-+ * Many thanks to Klaus Hitschler <klaus.hitschler@gmx.de>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published
-+ * by the Free Software Foundation; version 2 of the License.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+#include <linux/netdevice.h>
-+#include <linux/usb.h>
-+#include <linux/module.h>
+diff --git a/drivers/net/can/sja1000/Kconfig b/drivers/net/can/sja1000/Kconfig
+index fdc3926..b60d6c5 100644
+--- a/drivers/net/can/sja1000/Kconfig
++++ b/drivers/net/can/sja1000/Kconfig
+@@ -43,6 +43,15 @@ config CAN_EMS_PCI
+ 	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
+ 	  (http://www.ems-wuensche.de).
+ 
++config CAN_PEAK_PCMCIA
++	tristate "PEAK PCAN-PC Card"
++	depends on PCMCIA
++	---help---
++	  This driver is for the PCAN-PC Card PCMCIA adapter (1 or 2 channels)
++	  from PEAK-System (http://www.peak-system.com). To compile this
++	  driver as a module, choose M here: the module will be called
++	  peak_pcmcia.
 +
+ config CAN_PEAK_PCI
+ 	tristate "PEAK PCAN-PCI/PCIe/miniPCI Cards"
+ 	depends on PCI
+diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
+index 0604f24..b3d05cb 100644
+--- a/drivers/net/can/sja1000/Makefile
++++ b/drivers/net/can/sja1000/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
+ obj-$(CONFIG_CAN_EMS_PCMCIA) += ems_pcmcia.o
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
++obj-$(CONFIG_CAN_PEAK_PCMCIA) += peak_pcmcia.o
+ obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
+ obj-$(CONFIG_CAN_PLX_PCI) += plx_pci.o
+ obj-$(CONFIG_CAN_TSCAN1) += tscan1.o
+diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
+new file mode 100644
+index 0000000..ec6bd9d
+--- /dev/null
++++ b/drivers/net/can/sja1000/peak_pcmcia.c
+@@ -0,0 +1,753 @@
++/*
++ * Copyright (C) 2010-2012 Stephane Grosjean <s.grosjean@peak-system.com>
++ *
++ * CAN driver for PEAK-System PCAN-PC Card
++ * Derived from the PCAN project file driver/src/pcan_pccard.c
++ * Copyright (C) 2006-2010 PEAK System-Technik GmbH
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ */
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/delay.h>
++#include <linux/timer.h>
++#include <linux/io.h>
++#include <pcmcia/cistpl.h>
++#include <pcmcia/ds.h>
 +#include <linux/can.h>
 +#include <linux/can/dev.h>
-+#include <linux/can/error.h>
++#include "sja1000.h"
 +
-+#include "pcan_usb_core.h"
++MODULE_AUTHOR("Stephane Grosjean <s.grosjean@peak-system.com>");
++MODULE_DESCRIPTION("CAN driver for PEAK-System PCAN-PC Cards");
++MODULE_LICENSE("GPL v2");
++MODULE_SUPPORTED_DEVICE("PEAK PCAN-PC Card");
 +
-+MODULE_SUPPORTED_DEVICE("PEAK-System PCAN-USB adapter");
++/* PEAK-System PCMCIA driver name */
++#define PCC_NAME		"peak_pcmcia"
 +
-+/* PCAN-USB Endpoints */
-+#define PCAN_USB_EP_CMDOUT		1
-+#define PCAN_USB_EP_CMDIN		(PCAN_USB_EP_CMDOUT | USB_DIR_IN)
-+#define PCAN_USB_EP_MSGOUT		2
-+#define PCAN_USB_EP_MSGIN		(PCAN_USB_EP_MSGOUT | USB_DIR_IN)
++#define PCC_CHAN_MAX		2
 +
-+/* PCAN-USB command struct */
-+#define PCAN_USB_CMD_FUNC		0
-+#define PCAN_USB_CMD_NUM		1
-+#define PCAN_USB_CMD_ARGS		2
-+#define PCAN_USB_CMD_ARGS_LEN		14
-+#define PCAN_USB_CMD_LEN		(PCAN_USB_CMD_ARGS + \
-+					 PCAN_USB_CMD_ARGS_LEN)
++#define PCC_CAN_CLOCK		(16000000 / 2)
 +
-+/* PCAN-USB command timeout (ms.) */
-+#define PCAN_USB_COMMAND_TIMEOUT	1000
++#define PCC_MANF_ID		0x0377
++#define PCC_CARD_ID		0x0001
 +
-+/* PCAN-USB startup timeout (ms.) */
-+#define PCAN_USB_STARTUP_TIMEOUT	10
++#define PCC_CHAN_SIZE		0x20
++#define PCC_CHAN_OFF(c)		((c) * PCC_CHAN_SIZE)
++#define PCC_COMN_OFF		(PCC_CHAN_OFF(PCC_CHAN_MAX))
++#define PCC_COMN_SIZE		0x40
 +
-+/* PCAN-USB rx/tx buffers size */
-+#define PCAN_USB_RX_BUFFER_SIZE		64
-+#define PCAN_USB_TX_BUFFER_SIZE		64
++/* common area registers */
++#define PCC_CCR			0x00
++#define PCC_CSR			0x02
++#define PCC_CPR			0x04
++#define PCC_SPI_DIR		0x06
++#define PCC_SPI_DOR		0x08
++#define PCC_SPI_ADR		0x0a
++#define PCC_SPI_IR		0x0c
++#define PCC_FW_MAJOR		0x10
++#define PCC_FW_MINOR		0x12
 +
-+#define PCAN_USB_MSG_HEADER_LEN		2
++/* CCR bits */
++#define PCC_CCR_CLK_16		0x00
++#define PCC_CCR_CLK_10		0x01
++#define PCC_CCR_CLK_21		0x02
++#define PCC_CCR_CLK_8		0x03
++#define PCC_CCR_CLK_MASK	PCC_CCR_CLK_8
 +
-+/* PCAN-USB adapter internal clock (MHz) */
-+#define PCAN_USB_CRYSTAL_HZ		16000000
++#define PCC_CCR_RST_CHAN(c)	(0x01 << ((c) + 2))
++#define PCC_CCR_RST_ALL		(PCC_CCR_RST_CHAN(0) | PCC_CCR_RST_CHAN(1))
++#define PCC_CCR_RST_MASK	PCC_CCR_RST_ALL
 +
-+/* PCAN-USB USB message record status/len field */
-+#define PCAN_USB_STATUSLEN_TIMESTAMP	(1 << 7)
-+#define PCAN_USB_STATUSLEN_INTERNAL	(1 << 6)
-+#define PCAN_USB_STATUSLEN_EXT_ID	(1 << 5)
-+#define PCAN_USB_STATUSLEN_RTR		(1 << 4)
-+#define PCAN_USB_STATUSLEN_DLC		(0xf)
++/* led selection bits */
++#define PCC_LED(c)		(1 << (c))
++#define PCC_LED_ALL		(PCC_LED(0) | PCC_LED(1))
 +
-+/* PCAN-USB error flags */
-+#define PCAN_USB_ERROR_TXFULL		0x01
-+#define PCAN_USB_ERROR_RXQOVR		0x02
-+#define PCAN_USB_ERROR_BUS_LIGHT	0x04
-+#define PCAN_USB_ERROR_BUS_HEAVY	0x08
-+#define PCAN_USB_ERROR_BUS_OFF		0x10
-+#define PCAN_USB_ERROR_RXQEMPTY		0x20
-+#define PCAN_USB_ERROR_QOVR		0x40
-+#define PCAN_USB_ERROR_TXQFULL		0x80
++/* led state value */
++#define PCC_LED_ON		0x00
++#define PCC_LED_FAST		0x01
++#define PCC_LED_SLOW		0x02
++#define PCC_LED_OFF		0x03
 +
-+/* SJA1000 modes */
-+#define SJA1000_MODE_NORMAL		0x00
-+#define SJA1000_MODE_INIT		0x01
++#define PCC_CCR_LED_CHAN(s, c)	((s) << (((c) + 2) << 1))
++
++#define PCC_CCR_LED_ON_CHAN(c)		PCC_CCR_LED_CHAN(PCC_LED_ON, c)
++#define PCC_CCR_LED_FAST_CHAN(c)	PCC_CCR_LED_CHAN(PCC_LED_FAST, c)
++#define PCC_CCR_LED_SLOW_CHAN(c)	PCC_CCR_LED_CHAN(PCC_LED_SLOW, c)
++#define PCC_CCR_LED_OFF_CHAN(c)		PCC_CCR_LED_CHAN(PCC_LED_OFF, c)
++#define PCC_CCR_LED_MASK_CHAN(c)	PCC_CCR_LED_OFF_CHAN(c)
++#define PCC_CCR_LED_OFF_ALL		(PCC_CCR_LED_OFF_CHAN(0) | \
++					 PCC_CCR_LED_OFF_CHAN(1))
++#define PCC_CCR_LED_MASK		PCC_CCR_LED_OFF_ALL
++
++#define PCC_CCR_INIT	(PCC_CCR_CLK_16 | PCC_CCR_RST_ALL | PCC_CCR_LED_OFF_ALL)
++
++/* CSR bits */
++#define PCC_CSR_SPI_BUSY		0x04
++
++/* time waiting for SPI busy (prevent from infinite loop) */
++#define PCC_SPI_MAX_BUSY_WAIT_MS	3
++
++/* max count of reading the SPI status register waiting for a change */
++/* (prevent from infinite loop) */
++#define PCC_WRITE_MAX_LOOP		1000
++
++/* max nb of int handled by that isr in one shot (prevent from infinite loop) */
++#define PCC_ISR_MAX_LOOP		10
++
++/* EEPROM chip instruction set */
++/* note: EEPROM Read/Write instructions include A8 bit */
++#define PCC_EEP_WRITE(a)	(0x02 | (((a) & 0x100) >> 5))
++#define PCC_EEP_READ(a)		(0x03 | (((a) & 0x100) >> 5))
++#define PCC_EEP_WRDI		0x04	/* EEPROM Write Disable */
++#define PCC_EEP_RDSR		0x05	/* EEPROM Read Status Register */
++#define PCC_EEP_WREN		0x06	/* EEPROM Write Enable */
++
++/* EEPROM Status Register bits */
++#define PCC_EEP_SR_WEN		0x02	/* EEPROM SR Write Enable bit */
++#define PCC_EEP_SR_WIP		0x01	/* EEPROM SR Write In Progress bit */
 +
 +/*
-+ * tick duration = 42.666 us =>
-+ * (tick_number * 44739243) >> 20 ~ (tick_number * 42666) / 1000
-+ * accuracy = 10^-7
++ * The board configuration is probably following:
++ * RX1 is connected to ground.
++ * TX1 is not connected.
++ * CLKO is not connected.
++ * Setting the OCR register to 0xDA is a good idea.
++ * This means normal output mode, push-pull and the correct polarity.
 + */
-+#define PCAN_USB_TS_DIV_SHIFTER		20
-+#define PCAN_USB_TS_US_PER_TICK		44739243
++#define PCC_OCR			(OCR_TX0_PUSHPULL | OCR_TX1_PUSHPULL)
 +
-+/* PCAN-USB messages record types */
-+#define PCAN_USB_REC_ERROR		1
-+#define PCAN_USB_REC_ANALOG		2
-+#define PCAN_USB_REC_BUSLOAD		3
-+#define PCAN_USB_REC_TS			4
-+#define PCAN_USB_REC_BUSEVT		5
++/*
++ * In the CDR register, you should set CBP to 1.
++ * You will probably also want to set the clock divider value to 7
++ * (meaning direct oscillator output) because the second SJA1000 chip
++ * is driven by the first one CLKOUT output.
++ */
++#define PCC_CDR			(CDR_CBP | CDR_CLKOUT_MASK)
 +
-+/* private to PCAN-USB adapter */
-+struct pcan_usb {
-+	struct peak_usb_device dev;
-+	struct peak_time_ref time_ref;
-+	struct timer_list restart_timer;
-+};
-+
-+/* incoming message context for decoding */
-+struct pcan_usb_msg_context {
-+	u16 ts16;
-+	u8 prev_ts8;
-+	u8 *ptr;
-+	u8 *end;
-+	u8 rec_cnt;
-+	u8 rec_idx;
-+	u8 rec_data_idx;
++struct pcan_channel {
 +	struct net_device *netdev;
-+	struct pcan_usb *pdev;
++	unsigned long prev_rx_bytes;
++	unsigned long prev_tx_bytes;
 +};
 +
-+/*
-+ * send a command
-+ */
-+static int pcan_usb_send_cmd(struct peak_usb_device *dev, u8 f, u8 n, u8 *p)
-+{
-+	int err;
-+	int actual_length;
++/* PCAN-PC Card private structure */
++struct pcan_pccard {
++	struct pcmcia_device *pdev;
++	int chan_count;
++	struct pcan_channel channel[PCC_CHAN_MAX];
++	u8 ccr;
++	u8 fw_major;
++	u8 fw_minor;
++	void __iomem *ioport_addr;
++	struct timer_list led_timer;
++};
 +
-+	/* usb device unregistered? */
-+	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
-+		return 0;
++static struct pcmcia_device_id pcan_table[] = {
++	PCMCIA_DEVICE_MANF_CARD(PCC_MANF_ID, PCC_CARD_ID),
++	PCMCIA_DEVICE_NULL,
++};
 +
-+	dev->cmd_buf[PCAN_USB_CMD_FUNC] = f;
-+	dev->cmd_buf[PCAN_USB_CMD_NUM] = n;
++MODULE_DEVICE_TABLE(pcmcia, pcan_table);
 +
-+	if (p)
-+		memcpy(dev->cmd_buf + PCAN_USB_CMD_ARGS,
-+			p, PCAN_USB_CMD_ARGS_LEN);
-+
-+	err = usb_bulk_msg(dev->udev,
-+			usb_sndbulkpipe(dev->udev, PCAN_USB_EP_CMDOUT),
-+			dev->cmd_buf, PCAN_USB_CMD_LEN, &actual_length,
-+			PCAN_USB_COMMAND_TIMEOUT);
-+	if (err)
-+		netdev_err(dev->netdev,
-+			"sending cmd f=0x%x n=0x%x failure: %d\n",
-+			f, n, err);
-+	return err;
-+}
++static void pcan_set_leds(struct pcan_pccard *card, u8 mask, u8 state);
 +
 +/*
-+ * send a command then wait for its response
++ * start timer which controls leds state
 + */
-+static int pcan_usb_wait_rsp(struct peak_usb_device *dev, u8 f, u8 n, u8 *p)
++static void pcan_start_led_timer(struct pcan_pccard *card)
 +{
-+	int err;
-+	int actual_length;
-+
-+	/* usb device unregistered? */
-+	if (!(dev->state & PCAN_USB_STATE_CONNECTED))
-+		return 0;
-+
-+	/* first, send command */
-+	err = pcan_usb_send_cmd(dev, f, n, NULL);
-+	if (err)
-+		return err;
-+
-+	err = usb_bulk_msg(dev->udev,
-+		usb_rcvbulkpipe(dev->udev, PCAN_USB_EP_CMDIN),
-+		dev->cmd_buf, PCAN_USB_CMD_LEN, &actual_length,
-+		PCAN_USB_COMMAND_TIMEOUT);
-+	if (err)
-+		netdev_err(dev->netdev,
-+			"waiting rsp f=0x%x n=0x%x failure: %d\n", f, n, err);
-+	else if (p)
-+		memcpy(p, dev->cmd_buf + PCAN_USB_CMD_ARGS,
-+			PCAN_USB_CMD_ARGS_LEN);
-+
-+	return err;
-+}
-+
-+static int pcan_usb_set_sja1000(struct peak_usb_device *dev, u8 mode)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN] = {
-+		[1] = mode,
-+	};
-+
-+	return pcan_usb_send_cmd(dev, 9, 2, args);
-+}
-+
-+static int pcan_usb_set_bus(struct peak_usb_device *dev, u8 onoff)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN] = {
-+		[0] = !!onoff,
-+	};
-+
-+	return pcan_usb_send_cmd(dev, 3, 2, args);
-+}
-+
-+static int pcan_usb_set_silent(struct peak_usb_device *dev, u8 onoff)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN] = {
-+		[0] = !!onoff,
-+	};
-+
-+	return pcan_usb_send_cmd(dev, 3, 3, args);
-+}
-+
-+static int pcan_usb_set_ext_vcc(struct peak_usb_device *dev, u8 onoff)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN] = {
-+		[0] = !!onoff,
-+	};
-+
-+	return pcan_usb_send_cmd(dev, 10, 2, args);
++	if (!timer_pending(&card->led_timer))
++		mod_timer(&card->led_timer, jiffies + HZ);
 +}
 +
 +/*
-+ * set bittiming value to can
++ * stop the timer which controls leds state
 + */
-+static int pcan_usb_set_bittiming(struct peak_usb_device *dev,
-+				  struct can_bittiming *bt)
++static void pcan_stop_led_timer(struct pcan_pccard *card)
 +{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN];
-+	u8 btr0, btr1;
-+
-+	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
-+	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
-+		(((bt->phase_seg2 - 1) & 0x7) << 4);
-+	if (dev->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
-+		btr1 |= 0x80;
-+
-+	netdev_info(dev->netdev, "setting BTR0=0x%02x BTR1=0x%02x\n",
-+		btr0, btr1);
-+
-+	args[0] = btr1;
-+	args[1] = btr0;
-+
-+	return pcan_usb_send_cmd(dev, 1, 2, args);
++	del_timer_sync(&card->led_timer);
 +}
 +
 +/*
-+ * init/reset can
++ * read a sja1000 register
 + */
-+static int pcan_usb_write_mode(struct peak_usb_device *dev, u8 onoff)
++static u8 pcan_read_canreg(const struct sja1000_priv *priv, int port)
 +{
-+	int err;
-+
-+	err = pcan_usb_set_bus(dev, onoff);
-+	if (err)
-+		return err;
-+
-+	if (!onoff) {
-+		err = pcan_usb_set_sja1000(dev, SJA1000_MODE_INIT);
-+	} else {
-+		/* the PCAN-USB needs time to init */
-+		set_current_state(TASK_INTERRUPTIBLE);
-+		schedule_timeout(msecs_to_jiffies(PCAN_USB_STARTUP_TIMEOUT));
-+	}
-+
-+	return err;
++	return ioread8(priv->reg_base + port);
 +}
 +
 +/*
-+ * handle end of waiting for the device to reset
++ * write a sja1000 register
 + */
-+static void pcan_usb_restart(unsigned long arg)
++static void pcan_write_canreg(const struct sja1000_priv *priv, int port, u8 v)
 +{
-+	/* notify candev and netdev */
-+	peak_usb_restart_complete((struct peak_usb_device *)arg);
-+}
++	struct pcan_pccard *card = priv->priv;
++	int c = (priv->reg_base - card->ioport_addr) / PCC_CHAN_SIZE;
 +
-+/*
-+ * handle the submission of the restart urb
-+ */
-+static void pcan_usb_restart_pending(struct urb *urb)
-+{
-+	struct pcan_usb *pdev = urb->context;
-+
-+	/* the PCAN-USB needs time to restart */
-+	mod_timer(&pdev->restart_timer,
-+			jiffies + msecs_to_jiffies(PCAN_USB_STARTUP_TIMEOUT));
-+
-+	/* can delete usb resources */
-+	peak_usb_async_complete(urb);
-+}
-+
-+/*
-+ * handle asynchronous restart
-+ */
-+static int pcan_usb_restart_async(struct peak_usb_device *dev, struct urb *urb,
-+				  u8 *buf)
-+{
-+	struct pcan_usb *pdev = container_of(dev, struct pcan_usb, dev);
-+
-+	if (timer_pending(&pdev->restart_timer))
-+		return -EBUSY;
-+
-+	/* set bus on */
-+	buf[PCAN_USB_CMD_FUNC] = 3;
-+	buf[PCAN_USB_CMD_NUM] = 2;
-+	buf[PCAN_USB_CMD_ARGS] = 1;
-+
-+	usb_fill_bulk_urb(urb, dev->udev,
-+			usb_sndbulkpipe(dev->udev, PCAN_USB_EP_CMDOUT),
-+			buf, PCAN_USB_CMD_LEN,
-+			pcan_usb_restart_pending, pdev);
-+
-+	return usb_submit_urb(urb, GFP_ATOMIC);
-+}
-+
-+/*
-+ * read serial number from device
-+ */
-+static int pcan_usb_get_serial(struct peak_usb_device *dev, u32 *serial_number)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN];
-+	int err;
-+
-+	err = pcan_usb_wait_rsp(dev, 6, 1, args);
-+	if (err) {
-+		netdev_err(dev->netdev, "getting serial failure: %d\n", err);
-+	} else if (serial_number) {
-+		u32 tmp32;
-+
-+		memcpy(&tmp32, args, 4);
-+		*serial_number = le32_to_cpu(tmp32);
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * read device id from device
-+ */
-+static int pcan_usb_get_device_id(struct peak_usb_device *dev, u32 *device_id)
-+{
-+	u8 args[PCAN_USB_CMD_ARGS_LEN];
-+	int err;
-+
-+	err = pcan_usb_wait_rsp(dev, 4, 1, args);
-+	if (err)
-+		netdev_err(dev->netdev, "getting device id failure: %d\n", err);
-+	else if (device_id)
-+		*device_id = args[0];
-+
-+	return err;
-+}
-+
-+/*
-+ * update current time ref with received timestamp
-+ */
-+static int pcan_usb_update_ts(struct pcan_usb_msg_context *mc)
-+{
-+	u16 tmp16;
-+
-+	if ((mc->ptr+2) > mc->end)
-+		return -EINVAL;
-+
-+	memcpy(&tmp16, mc->ptr, 2);
-+
-+	mc->ts16 = le16_to_cpu(tmp16);
-+
-+	if (mc->rec_idx > 0)
-+		peak_usb_update_ts_now(&mc->pdev->time_ref, mc->ts16);
-+	else
-+		peak_usb_set_ts_now(&mc->pdev->time_ref, mc->ts16);
-+
-+	return 0;
-+}
-+
-+/*
-+ * decode received timestamp
-+ */
-+static int pcan_usb_decode_ts(struct pcan_usb_msg_context *mc, u8 first_packet)
-+{
-+	/* only 1st packet supplies a word timestamp */
-+	if (first_packet) {
-+		u16 tmp16;
-+
-+		if ((mc->ptr + 2) > mc->end)
-+			return -EINVAL;
-+
-+		memcpy(&tmp16, mc->ptr, 2);
-+		mc->ptr += 2;
-+
-+		mc->ts16 = le16_to_cpu(tmp16);
-+		mc->prev_ts8 = mc->ts16 & 0x00ff;
-+	} else {
-+		u8 ts8;
-+
-+		if ((mc->ptr + 1) > mc->end)
-+			return -EINVAL;
-+
-+		ts8 = *mc->ptr++;
-+
-+		if (ts8 < mc->prev_ts8)
-+			mc->ts16 += 0x100;
-+
-+		mc->ts16 &= 0xff00;
-+		mc->ts16 |= ts8;
-+		mc->prev_ts8 = ts8;
-+	}
-+
-+	return 0;
-+}
-+
-+static int pcan_usb_decode_error(struct pcan_usb_msg_context *mc, u8 n,
-+				 u8 status_len)
-+{
-+	struct sk_buff *skb;
-+	struct can_frame *cf;
-+	struct timeval tv;
-+	enum can_state new_state;
-+
-+	/* ignore this error until 1st ts received */
-+	if (n == PCAN_USB_ERROR_QOVR)
-+		if (!mc->pdev->time_ref.tick_count)
-+			return 0;
-+
-+	new_state = mc->pdev->dev.can.state;
-+
-+	switch (mc->pdev->dev.can.state) {
-+	case CAN_STATE_ERROR_ACTIVE:
-+		if (n & PCAN_USB_ERROR_BUS_LIGHT) {
-+			new_state = CAN_STATE_ERROR_WARNING;
++	/* sja1000 register changes control the leds state */
++	if (port == REG_MOD)
++		switch (v) {
++		case MOD_RM:
++			/* Reset Mode: set led on */
++			pcan_set_leds(card, PCC_LED(c), PCC_LED_ON);
 +			break;
-+		}
-+
-+	case CAN_STATE_ERROR_WARNING:
-+		if (n & PCAN_USB_ERROR_BUS_HEAVY) {
-+			new_state = CAN_STATE_ERROR_PASSIVE;
-+			break;
-+		}
-+		if (n & PCAN_USB_ERROR_BUS_OFF) {
-+			new_state = CAN_STATE_BUS_OFF;
-+			break;
-+		}
-+		if (n & (PCAN_USB_ERROR_RXQOVR | PCAN_USB_ERROR_QOVR)) {
-+			/*
-+			 * trick to bypass next comparison and process other
-+			 * errors
-+			 */
-+			new_state = CAN_STATE_MAX;
-+			break;
-+		}
-+		if ((n & PCAN_USB_ERROR_BUS_LIGHT) == 0) {
-+			/* no error (back to active state) */
-+			mc->pdev->dev.can.state = CAN_STATE_ERROR_ACTIVE;
-+			return 0;
-+		}
-+		break;
-+
-+	case CAN_STATE_ERROR_PASSIVE:
-+		if (n & PCAN_USB_ERROR_BUS_OFF) {
-+			new_state = CAN_STATE_BUS_OFF;
-+			break;
-+		}
-+		if (n & PCAN_USB_ERROR_BUS_LIGHT) {
-+			new_state = CAN_STATE_ERROR_WARNING;
-+			break;
-+		}
-+		if (n & (PCAN_USB_ERROR_RXQOVR | PCAN_USB_ERROR_QOVR)) {
-+			/*
-+			 * trick to bypass next comparison and process other
-+			 * errors
-+			 */
-+			new_state = CAN_STATE_MAX;
-+			break;
-+		}
-+
-+		if ((n & PCAN_USB_ERROR_BUS_HEAVY) == 0) {
-+			/* no error (back to active state) */
-+			mc->pdev->dev.can.state = CAN_STATE_ERROR_ACTIVE;
-+			return 0;
-+		}
-+		break;
-+
-+	default:
-+		/* do nothing waiting for restart */
-+		return 0;
-+	}
-+
-+	/* donot post any error if current state didn't change */
-+	if (mc->pdev->dev.can.state == new_state)
-+		return 0;
-+
-+	/* allocate an skb to store the error frame */
-+	skb = alloc_can_err_skb(mc->netdev, &cf);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	switch (new_state) {
-+	case CAN_STATE_BUS_OFF:
-+		cf->can_id |= CAN_ERR_BUSOFF;
-+		can_bus_off(mc->netdev);
-+		break;
-+
-+	case CAN_STATE_ERROR_PASSIVE:
-+		cf->can_id |= CAN_ERR_CRTL;
-+		cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE |
-+			       CAN_ERR_CRTL_RX_PASSIVE;
-+		mc->pdev->dev.can.can_stats.error_passive++;
-+		break;
-+
-+	case CAN_STATE_ERROR_WARNING:
-+		cf->can_id |= CAN_ERR_CRTL;
-+		cf->data[1] |= CAN_ERR_CRTL_TX_WARNING |
-+			       CAN_ERR_CRTL_RX_WARNING;
-+		mc->pdev->dev.can.can_stats.error_warning++;
-+		break;
-+
-+	default:
-+		/* CAN_STATE_MAX (trick to handle other errors) */
-+		cf->can_id |= CAN_ERR_CRTL;
-+		cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
-+		mc->netdev->stats.rx_over_errors++;
-+		mc->netdev->stats.rx_errors++;
-+
-+		new_state = mc->pdev->dev.can.state;
-+		break;
-+	}
-+
-+	mc->pdev->dev.can.state = new_state;
-+
-+	if (status_len & PCAN_USB_STATUSLEN_TIMESTAMP) {
-+		peak_usb_get_ts_tv(&mc->pdev->time_ref, mc->ts16, &tv);
-+		skb->tstamp = timeval_to_ktime(tv);
-+	}
-+
-+	netif_rx(skb);
-+	mc->netdev->stats.rx_packets++;
-+	mc->netdev->stats.rx_bytes += cf->can_dlc;
-+
-+	return 0;
-+}
-+
-+/*
-+ * decode non-data usb message
-+ */
-+static int pcan_usb_decode_status(struct pcan_usb_msg_context *mc,
-+				  u8 status_len)
-+{
-+	u8 rec_len = status_len & PCAN_USB_STATUSLEN_DLC;
-+	u8 f, n;
-+	int err;
-+
-+	/* check whether function and number can be read */
-+	if ((mc->ptr + 2) > mc->end)
-+		return -EINVAL;
-+
-+	f = mc->ptr[PCAN_USB_CMD_FUNC];
-+	n = mc->ptr[PCAN_USB_CMD_NUM];
-+	mc->ptr += PCAN_USB_CMD_ARGS;
-+
-+	if (status_len & PCAN_USB_STATUSLEN_TIMESTAMP) {
-+		int err = pcan_usb_decode_ts(mc, !mc->rec_idx);
-+
-+		if (err)
-+			return err;
-+	}
-+
-+	switch (f) {
-+	case PCAN_USB_REC_ERROR:
-+		err = pcan_usb_decode_error(mc, n, status_len);
-+		if (err)
-+			return err;
-+		break;
-+
-+	case PCAN_USB_REC_ANALOG:
-+		/* analog values (ignored) */
-+		rec_len = 2;
-+		break;
-+
-+	case PCAN_USB_REC_BUSLOAD:
-+		/* bus load (ignored) */
-+		rec_len = 1;
-+		break;
-+
-+	case PCAN_USB_REC_TS:
-+		/* only timestamp */
-+		if (pcan_usb_update_ts(mc))
-+			return -EINVAL;
-+		break;
-+
-+	case PCAN_USB_REC_BUSEVT:
-+		/* error frame/bus event */
-+		if (n & PCAN_USB_ERROR_TXQFULL)
-+			netdev_dbg(mc->netdev, "device Tx queue full)\n");
-+		break;
-+	default:
-+		netdev_err(mc->netdev, "unexpected function %u\n", f);
-+		break;
-+	}
-+
-+	if ((mc->ptr + rec_len) > mc->end)
-+		return -EINVAL;
-+
-+	mc->ptr += rec_len;
-+
-+	return 0;
-+}
-+
-+/*
-+ * decode data usb message
-+ */
-+static int pcan_usb_decode_data(struct pcan_usb_msg_context *mc, u8 status_len)
-+{
-+	u8 rec_len = status_len & PCAN_USB_STATUSLEN_DLC;
-+	struct sk_buff *skb;
-+	struct can_frame *cf;
-+	struct timeval tv;
-+
-+	skb = alloc_can_skb(mc->netdev, &cf);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	if (status_len & PCAN_USB_STATUSLEN_EXT_ID) {
-+		u32 tmp32;
-+
-+		if ((mc->ptr + 4) > mc->end)
-+			goto decode_failed;
-+
-+		memcpy(&tmp32, mc->ptr, 4);
-+		mc->ptr += 4;
-+
-+		cf->can_id = le32_to_cpu(tmp32 >> 3) | CAN_EFF_FLAG;
-+	} else {
-+		u16 tmp16;
-+
-+		if ((mc->ptr + 2) > mc->end)
-+			goto decode_failed;
-+
-+		memcpy(&tmp16, mc->ptr, 2);
-+		mc->ptr += 2;
-+
-+		cf->can_id = le16_to_cpu(tmp16 >> 5);
-+	}
-+
-+	cf->can_dlc = get_can_dlc(rec_len);
-+
-+	/* first data packet timestamp is a word */
-+	if (pcan_usb_decode_ts(mc, !mc->rec_data_idx))
-+		goto decode_failed;
-+
-+	/* read data */
-+	memset(cf->data, 0x0, sizeof(cf->data));
-+	if (status_len & PCAN_USB_STATUSLEN_RTR) {
-+		cf->can_id |= CAN_RTR_FLAG;
-+	} else {
-+		if ((mc->ptr + rec_len) > mc->end)
-+			goto decode_failed;
-+
-+		memcpy(cf->data, mc->ptr, rec_len);
-+		mc->ptr += rec_len;
-+	}
-+
-+	/* convert timestamp into kernel time */
-+	peak_usb_get_ts_tv(&mc->pdev->time_ref, mc->ts16, &tv);
-+	skb->tstamp = timeval_to_ktime(tv);
-+
-+	/* push the skb */
-+	netif_rx(skb);
-+
-+	/* update statistics */
-+	mc->netdev->stats.rx_packets++;
-+	mc->netdev->stats.rx_bytes += cf->can_dlc;
-+
-+	return 0;
-+
-+decode_failed:
-+	dev_kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+/*
-+ * process incoming message
-+ */
-+static int pcan_usb_decode_msg(struct peak_usb_device *dev, u8 *ibuf, u32 lbuf)
-+{
-+	struct pcan_usb_msg_context mc = {
-+		.rec_cnt = ibuf[1],
-+		.ptr = ibuf + PCAN_USB_MSG_HEADER_LEN,
-+		.end = ibuf + lbuf,
-+		.netdev = dev->netdev,
-+		.pdev = container_of(dev, struct pcan_usb, dev),
-+	};
-+	int err;
-+
-+	for (err = 0; mc.rec_idx < mc.rec_cnt && !err; mc.rec_idx++) {
-+		u8 sl = *mc.ptr++;
-+
-+		/* handle status and error frames here */
-+		if (sl & PCAN_USB_STATUSLEN_INTERNAL) {
-+			err = pcan_usb_decode_status(&mc, sl);
-+		/* handle normal can frames here */
-+		} else {
-+			err = pcan_usb_decode_data(&mc, sl);
-+			mc.rec_data_idx++;
-+		}
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * process any incoming buffer
-+ */
-+static int pcan_usb_decode_buf(struct peak_usb_device *dev, struct urb *urb)
-+{
-+	int err = 0;
-+
-+	if (urb->actual_length > PCAN_USB_MSG_HEADER_LEN) {
-+		err = pcan_usb_decode_msg(dev, urb->transfer_buffer,
-+			urb->actual_length);
-+
-+	} else if (urb->actual_length > 0) {
-+		netdev_err(dev->netdev, "usb message length error (%u)\n",
-+			urb->actual_length);
-+		err = -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+/*
-+ * process outgoing packet
-+ */
-+static int pcan_usb_encode_msg(struct peak_usb_device *dev, struct sk_buff *skb,
-+			       u8 *obuf, size_t *size)
-+{
-+	struct net_device *netdev = dev->netdev;
-+	struct net_device_stats *stats = &netdev->stats;
-+	struct can_frame *cf = (struct can_frame *)skb->data;
-+	u8 *pc;
-+
-+	obuf[0] = 2;
-+	obuf[1] = 1;
-+
-+	pc = obuf + PCAN_USB_MSG_HEADER_LEN;
-+
-+	/* status/len byte */
-+	*pc = cf->can_dlc;
-+	if (cf->can_id & CAN_RTR_FLAG)
-+		*pc |= PCAN_USB_STATUSLEN_RTR;
-+
-+	/* can id */
-+	if (cf->can_id & CAN_EFF_FLAG) {
-+		__le32 tmp32 = cpu_to_le32(cf->can_id & CAN_ERR_MASK);
-+
-+		tmp32 <<= 3;
-+		*pc |= PCAN_USB_STATUSLEN_EXT_ID;
-+		memcpy(++pc, &tmp32, 4);
-+		pc += 4;
-+	} else {
-+		__le16 tmp16 = cpu_to_le32(cf->can_id & CAN_ERR_MASK);
-+
-+		tmp16 <<= 5;
-+		memcpy(++pc, &tmp16, 2);
-+		pc += 2;
-+	}
-+
-+	/* can data */
-+	if (!(cf->can_id & CAN_RTR_FLAG)) {
-+		memcpy(pc, cf->data, cf->can_dlc);
-+		pc += cf->can_dlc;
-+	}
-+
-+	obuf[(*size)-1] = (u8)(stats->tx_packets & 0xff);
-+
-+	return 0;
-+}
-+
-+/*
-+ * start interface
-+ */
-+static int pcan_usb_start(struct peak_usb_device *dev)
-+{
-+	struct pcan_usb *pdev = container_of(dev, struct pcan_usb, dev);
-+
-+	/* number of bits used in timestamps read from adapter struct */
-+	peak_usb_init_time_ref(&pdev->time_ref, &pcan_usb);
-+
-+	/* if revision greater than 3, can put silent mode on/off */
-+	if (dev->device_rev > 3) {
-+		int err;
-+
-+		err = pcan_usb_set_silent(dev,
-+				dev->can.ctrlmode & CAN_CTRLMODE_LISTENONLY);
-+		if (err)
-+			return err;
-+	}
-+
-+	return pcan_usb_set_ext_vcc(dev, 0);
-+}
-+
-+static int pcan_usb_init(struct peak_usb_device *dev)
-+{
-+	struct pcan_usb *pdev = container_of(dev, struct pcan_usb, dev);
-+	u32 serial_number;
-+	int err;
-+
-+	/* initialize a timer needed to wait for hardware restart */
-+	init_timer(&pdev->restart_timer);
-+	pdev->restart_timer.function = pcan_usb_restart;
-+	pdev->restart_timer.data = (unsigned long)dev;
-+
-+	/*
-+	 * explicit use of dev_xxx() instead of netdev_xxx() here:
-+	 * information displayed are related to the device itself, not
-+	 * to the canx netdevice.
-+	 */
-+	err = pcan_usb_get_serial(dev, &serial_number);
-+	if (err) {
-+		dev_err(dev->netdev->dev.parent,
-+			"unable to read %s serial number (err %d)\n",
-+			pcan_usb.name, err);
-+		return err;
-+	}
-+
-+	dev_info(dev->netdev->dev.parent,
-+		 "PEAK-System %s adapter hwrev %u serial %08X (%u channel)\n",
-+		 pcan_usb.name, dev->device_rev, serial_number,
-+		 pcan_usb.ctrl_count);
-+
-+	return 0;
-+}
-+
-+/*
-+ * probe function for new PCAN-USB usb interface
-+ */
-+static int pcan_usb_probe(struct usb_interface *intf)
-+{
-+	struct usb_host_interface *if_desc;
-+	int i;
-+
-+	if_desc = intf->altsetting;
-+
-+	/* check interface endpoint addresses */
-+	for (i = 0; i < if_desc->desc.bNumEndpoints; i++) {
-+		struct usb_endpoint_descriptor *ep = &if_desc->endpoint[i].desc;
-+
-+		switch (ep->bEndpointAddress) {
-+		case PCAN_USB_EP_CMDOUT:
-+		case PCAN_USB_EP_CMDIN:
-+		case PCAN_USB_EP_MSGOUT:
-+		case PCAN_USB_EP_MSGIN:
++		case 0x00:
++			/* Normal Mode: led slow blinking and start led timer */
++			pcan_set_leds(card, PCC_LED(c), PCC_LED_SLOW);
++			pcan_start_led_timer(card);
 +			break;
 +		default:
-+			return -ENODEV;
++			break;
 +		}
++
++	iowrite8(v, priv->reg_base + port);
++}
++
++/*
++ * read a register from the common area
++ */
++static u8 pcan_read_reg(struct pcan_pccard *card, int port)
++{
++	return ioread8(card->ioport_addr + PCC_COMN_OFF + port);
++}
++
++/*
++ * write a register into the common area
++ */
++static void pcan_write_reg(struct pcan_pccard *card, int port, u8 v)
++{
++	/* cache ccr value */
++	if (port == PCC_CCR) {
++		if (card->ccr == v)
++			return;
++		card->ccr = v;
++	}
++
++	iowrite8(v, card->ioport_addr + PCC_COMN_OFF + port);
++}
++
++/*
++ * check whether the card is present by checking its fw version numbers
++ * against values read at probing time.
++ */
++static inline int pcan_pccard_present(struct pcan_pccard *card)
++{
++	return ((pcan_read_reg(card, PCC_FW_MAJOR) == card->fw_major) &&
++		(pcan_read_reg(card, PCC_FW_MINOR) == card->fw_minor));
++}
++
++/*
++ * wait for SPI engine while it is busy
++ */
++static int pcan_wait_spi_busy(struct pcan_pccard *card)
++{
++	unsigned long timeout = jiffies +
++				msecs_to_jiffies(PCC_SPI_MAX_BUSY_WAIT_MS) + 1;
++
++	/* be sure to read status at least once after sleeping */
++	while (pcan_read_reg(card, PCC_CSR) & PCC_CSR_SPI_BUSY) {
++		if (time_after(jiffies, timeout))
++			return -EBUSY;
++		schedule();
 +	}
 +
 +	return 0;
 +}
 +
 +/*
-+ * describe the PCAN-USB adapter
++ * write data in device eeprom
 + */
-+struct peak_usb_adapter pcan_usb = {
-+	.name = "PCAN-USB",
-+	.device_id = PCAN_USB_PRODUCT_ID,
-+	.ctrl_count = 1,
-+	.clock = {
-+		.freq = PCAN_USB_CRYSTAL_HZ / 2 ,
-+	},
-+	.bittiming_const = {
-+		.name = "pcan_usb",
-+		.tseg1_min = 1,
-+		.tseg1_max = 16,
-+		.tseg2_min = 1,
-+		.tseg2_max = 8,
-+		.sjw_max = 4,
-+		.brp_min = 1,
-+		.brp_max = 64,
-+		.brp_inc = 1,
-+	},
++static int pcan_write_eeprom(struct pcan_pccard *card, u16 addr, u8 v)
++{
++	u8 status;
++	int err, i;
 +
-+	/* size of device private data */
-+	.sizeof_dev_private = sizeof(struct pcan_usb),
++	/* write instruction enabling write */
++	pcan_write_reg(card, PCC_SPI_IR, PCC_EEP_WREN);
++	err = pcan_wait_spi_busy(card);
++	if (err)
++		goto we_spi_err;
 +
-+	/* timestamps usage */
-+	.ts_used_bits = 16,
-+	.ts_period = 24575, /* calibration period in ts. */
-+	.us_per_ts_scale = PCAN_USB_TS_US_PER_TICK, /* us=(ts*scale) */
-+	.us_per_ts_shift = PCAN_USB_TS_DIV_SHIFTER, /*  >> shift     */
++	/* wait until write enabled */
++	for (i = 0; i < PCC_WRITE_MAX_LOOP; i++) {
++		/* write instruction reading the status register */
++		pcan_write_reg(card, PCC_SPI_IR, PCC_EEP_RDSR);
++		err = pcan_wait_spi_busy(card);
++		if (err)
++			goto we_spi_err;
 +
-+	/* give here messages in/out endpoints */
-+	.ep_msg_in = PCAN_USB_EP_MSGIN,
-+	.ep_msg_out = {PCAN_USB_EP_MSGOUT},
++		/* get status register value and check write enable bit */
++		status = pcan_read_reg(card, PCC_SPI_DIR);
++		if (status & PCC_EEP_SR_WEN)
++			break;
++	}
 +
-+	/* size of rx/tx usb buffers */
-+	.rx_buffer_size = PCAN_USB_RX_BUFFER_SIZE,
-+	.tx_buffer_size = PCAN_USB_TX_BUFFER_SIZE,
++	if (i >= PCC_WRITE_MAX_LOOP) {
++		dev_err(&card->pdev->dev,
++			"stop waiting to be allowed to write in eeprom\n");
++		return -EIO;
++	}
 +
-+	/* device callbacks */
-+	.intf_probe = pcan_usb_probe,
-+	.dev_init = pcan_usb_init,
-+	.dev_set_bus = pcan_usb_write_mode,
-+	.dev_set_bittiming = pcan_usb_set_bittiming,
-+	.dev_get_device_id = pcan_usb_get_device_id,
-+	.dev_decode_buf = pcan_usb_decode_buf,
-+	.dev_encode_msg = pcan_usb_encode_msg,
-+	.dev_start = pcan_usb_start,
-+	.dev_restart_async = pcan_usb_restart_async,
++	/* set address and data */
++	pcan_write_reg(card, PCC_SPI_ADR, addr & 0xff);
++	pcan_write_reg(card, PCC_SPI_DOR, v);
++
++	/*
++	 * write instruction with bit[3] set according to address value:
++	 * if addr refers to upper half of the memory array: bit[3] = 1
++	 */
++	pcan_write_reg(card, PCC_SPI_IR, PCC_EEP_WRITE(addr));
++	err = pcan_wait_spi_busy(card);
++	if (err)
++		goto we_spi_err;
++
++	/* wait while write in progress */
++	for (i = 0; i < PCC_WRITE_MAX_LOOP; i++) {
++		/* write instruction reading the status register */
++		pcan_write_reg(card, PCC_SPI_IR, PCC_EEP_RDSR);
++		err = pcan_wait_spi_busy(card);
++		if (err)
++			goto we_spi_err;
++
++		/* get status register value and check write in progress bit */
++		status = pcan_read_reg(card, PCC_SPI_DIR);
++		if (!(status & PCC_EEP_SR_WIP))
++			break;
++	}
++
++	if (i >= PCC_WRITE_MAX_LOOP) {
++		dev_err(&card->pdev->dev,
++			"stop waiting for write in eeprom to complete\n");
++		return -EIO;
++	}
++
++	/* write instruction disabling write */
++	pcan_write_reg(card, PCC_SPI_IR, PCC_EEP_WRDI);
++	err = pcan_wait_spi_busy(card);
++	if (err)
++		goto we_spi_err;
++
++	return 0;
++
++we_spi_err:
++	dev_err(&card->pdev->dev,
++		"stop waiting (spi engine always busy) err %d\n", err);
++
++	return err;
++}
++
++static void pcan_set_leds(struct pcan_pccard *card, u8 led_mask, u8 state)
++{
++	u8 ccr = card->ccr;
++	int i;
++
++	for (i = 0; i < card->chan_count; i++)
++		if (led_mask & PCC_LED(i)) {
++			/* clear corresponding led bits in ccr */
++			ccr &= ~PCC_CCR_LED_MASK_CHAN(i);
++			/* then set new bits */
++			ccr |= PCC_CCR_LED_CHAN(state, i);
++		}
++
++	/* real write only if something has changed in ccr */
++	pcan_write_reg(card, PCC_CCR, ccr);
++}
++
++/*
++ * enable/disable CAN connectors power
++ */
++static inline void pcan_set_can_power(struct pcan_pccard *card, int onoff)
++{
++	int err;
++
++	err = pcan_write_eeprom(card, 0, !!onoff);
++	if (err)
++		dev_err(&card->pdev->dev,
++			"failed setting power %s to can connectors (err %d)\n",
++			(onoff) ? "on" : "off", err);
++}
++
++/*
++ * set leds state according to channel activity
++ */
++static void pcan_led_timer(unsigned long arg)
++{
++	struct pcan_pccard *card = (struct pcan_pccard *)arg;
++	struct net_device *netdev;
++	int i, up_count = 0;
++	u8 ccr;
++
++	ccr = card->ccr;
++	for (i = 0; i < card->chan_count; i++) {
++		/* default is: not configured */
++		ccr &= ~PCC_CCR_LED_MASK_CHAN(i);
++		ccr |= PCC_CCR_LED_ON_CHAN(i);
++
++		netdev = card->channel[i].netdev;
++		if (!netdev || !(netdev->flags & IFF_UP))
++			continue;
++
++		up_count++;
++
++		/* no activity (but configured) */
++		ccr &= ~PCC_CCR_LED_MASK_CHAN(i);
++		ccr |= PCC_CCR_LED_SLOW_CHAN(i);
++
++		/* if bytes counters changed, set fast blinking led */
++		if (netdev->stats.rx_bytes != card->channel[i].prev_rx_bytes) {
++			card->channel[i].prev_rx_bytes = netdev->stats.rx_bytes;
++			ccr &= ~PCC_CCR_LED_MASK_CHAN(i);
++			ccr |= PCC_CCR_LED_FAST_CHAN(i);
++		}
++		if (netdev->stats.tx_bytes != card->channel[i].prev_tx_bytes) {
++			card->channel[i].prev_tx_bytes = netdev->stats.tx_bytes;
++			ccr &= ~PCC_CCR_LED_MASK_CHAN(i);
++			ccr |= PCC_CCR_LED_FAST_CHAN(i);
++		}
++	}
++
++	/* write the new leds state */
++	pcan_write_reg(card, PCC_CCR, ccr);
++
++	/* restart timer (except if no more configured channels) */
++	if (up_count)
++		mod_timer(&card->led_timer, jiffies + HZ);
++}
++
++/*
++ * interrupt service routine
++ */
++static irqreturn_t pcan_isr(int irq, void *dev_id)
++{
++	struct pcan_pccard *card = dev_id;
++	int irq_handled;
++
++	/* prevent from infinite loop */
++	for (irq_handled = 0; irq_handled < PCC_ISR_MAX_LOOP; irq_handled++) {
++		/* handle shared interrupt and next loop */
++		int nothing_to_handle = 1;
++		int i;
++
++		/* check interrupt for each channel */
++		for (i = 0; i < card->chan_count; i++) {
++			struct net_device *netdev;
++
++			/*
++			 * check whether the card is present before calling
++			 * sja1000_interrupt() to speed up hotplug detection
++			 */
++			if (!pcan_pccard_present(card)) {
++				/* card unplugged during isr */
++				return IRQ_NONE;
++			}
++
++			/*
++			 * should check whether all or SJA1000_MAX_IRQ
++			 * interrupts have been handled: loop again to be sure.
++			 */
++			netdev = card->channel[i].netdev;
++			if (netdev &&
++			    sja1000_interrupt(irq, netdev) == IRQ_HANDLED)
++				nothing_to_handle = 0;
++		}
++
++		if (nothing_to_handle)
++			break;
++	}
++
++	return (irq_handled) ? IRQ_HANDLED : IRQ_NONE;
++}
++
++/*
++ * free all resources used by the channels and switch off leds and can power
++ */
++static void pcan_free_channels(struct pcan_pccard *card)
++{
++	int i;
++	u8 led_mask = 0;
++
++	for (i = 0; i < card->chan_count; i++) {
++		struct net_device *netdev;
++		char name[IFNAMSIZ];
++
++		led_mask |= PCC_LED(i);
++
++		netdev = card->channel[i].netdev;
++		if (!netdev)
++			continue;
++
++		strncpy(name, netdev->name, IFNAMSIZ);
++
++		unregister_sja1000dev(netdev);
++
++		free_sja1000dev(netdev);
++
++		dev_info(&card->pdev->dev, "%s removed\n", name);
++	}
++
++	/* do it only if device not removed */
++	if (pcan_pccard_present(card)) {
++		pcan_set_leds(card, led_mask, PCC_LED_OFF);
++		pcan_set_can_power(card, 0);
++	}
++}
++
++/*
++ * check if a CAN controller is present at the specified location
++ */
++static inline int pcan_channel_present(struct sja1000_priv *priv)
++{
++	/* make sure SJA1000 is in reset mode */
++	pcan_write_canreg(priv, REG_MOD, 1);
++	pcan_write_canreg(priv, REG_CDR, CDR_PELICAN);
++
++	/* read reset-values */
++	if (pcan_read_canreg(priv, REG_CDR) == CDR_PELICAN)
++		return 1;
++
++	return 0;
++}
++
++static int pcan_add_channels(struct pcan_pccard *card)
++{
++	struct pcmcia_device *pdev = card->pdev;
++	int i, err = 0;
++	u8 ccr = PCC_CCR_INIT;
++
++	/* init common registers (reset channels and leds off) */
++	card->ccr = ~ccr;
++	pcan_write_reg(card, PCC_CCR, ccr);
++
++	/* wait 2ms before unresetting channels */
++	mdelay(2);
++
++	ccr &= ~PCC_CCR_RST_ALL;
++	pcan_write_reg(card, PCC_CCR, ccr);
++
++	/* create one network device per channel detected */
++	for (i = 0; i < ARRAY_SIZE(card->channel); i++) {
++		struct net_device *netdev;
++		struct sja1000_priv *priv;
++
++		netdev = alloc_sja1000dev(0);
++		if (!netdev) {
++			err = -ENOMEM;
++			break;
++		}
++
++		/* update linkages */
++		priv = netdev_priv(netdev);
++		priv->priv = card;
++		SET_NETDEV_DEV(netdev, &pdev->dev);
++
++		priv->irq_flags = IRQF_SHARED;
++		netdev->irq = pdev->irq;
++		priv->reg_base = card->ioport_addr + PCC_CHAN_OFF(i);
++
++		/* check if channel is present */
++		if (!pcan_channel_present(priv)) {
++			dev_err(&pdev->dev, "channel %d not present\n", i);
++			free_sja1000dev(netdev);
++			continue;
++		}
++
++		priv->read_reg  = pcan_read_canreg;
++		priv->write_reg = pcan_write_canreg;
++		priv->can.clock.freq = PCC_CAN_CLOCK;
++		priv->ocr = PCC_OCR;
++		priv->cdr = PCC_CDR;
++
++		/* Neither a slave device distributes the clock */
++		if (i > 0)
++			priv->cdr |= CDR_CLK_OFF;
++
++		priv->flags |= SJA1000_CUSTOM_IRQ_HANDLER;
++
++		/* register SJA1000 device */
++		err = register_sja1000dev(netdev);
++		if (err) {
++			free_sja1000dev(netdev);
++			continue;
++		}
++
++		card->channel[i].netdev = netdev;
++		card->chan_count++;
++
++		/* set corresponding led on in the new ccr */
++		ccr &= ~PCC_CCR_LED_OFF_CHAN(i);
++
++		dev_info(&pdev->dev,
++			"%s on channel %d at 0x%p irq %d\n",
++			netdev->name, i, priv->reg_base, pdev->irq);
++	}
++
++	/* write new ccr (change leds state) */
++	pcan_write_reg(card, PCC_CCR, ccr);
++
++	return err;
++}
++
++static int pcan_conf_check(struct pcmcia_device *pdev, void *priv_data)
++{
++	pdev->resource[0]->flags &= ~IO_DATA_PATH_WIDTH;
++	pdev->resource[0]->flags |= IO_DATA_PATH_WIDTH_8; /* only */
++	pdev->io_lines = 10;
++
++	/* This reserves IO space but doesn't actually enable it */
++	return pcmcia_request_io(pdev);
++}
++
++/*
++ * free all resources used by the device
++ */
++static void pcan_free(struct pcmcia_device *pdev)
++{
++	struct pcan_pccard *card = pdev->priv;
++
++	if (!card)
++		return;
++
++	free_irq(pdev->irq, card);
++	pcan_stop_led_timer(card);
++
++	pcan_free_channels(card);
++
++	ioport_unmap(card->ioport_addr);
++
++	kfree(card);
++	pdev->priv = NULL;
++}
++
++/*
++ * setup PCMCIA socket and probe for PEAK-System PC-CARD
++ */
++static int __devinit pcan_probe(struct pcmcia_device *pdev)
++{
++	struct pcan_pccard *card;
++	int err;
++
++	pdev->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_IO;
++
++	err = pcmcia_loop_config(pdev, pcan_conf_check, NULL);
++	if (err) {
++		dev_err(&pdev->dev, "pcmcia_loop_config() error %d\n", err);
++		goto probe_err_1;
++	}
++
++	if (!pdev->irq) {
++		dev_err(&pdev->dev, "no irq assigned\n");
++		err = -ENODEV;
++		goto probe_err_1;
++	}
++
++	err = pcmcia_enable_device(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pcmcia_enable_device failed err=%d\n",
++			err);
++		goto probe_err_1;
++	}
++
++	card = kzalloc(sizeof(struct pcan_pccard), GFP_KERNEL);
++	if (!card) {
++		dev_err(&pdev->dev, "couldn't allocate card memory\n");
++		err = -ENOMEM;
++		goto probe_err_2;
++	}
++
++	card->pdev = pdev;
++	pdev->priv = card;
++
++	/* sja1000 api uses iomem */
++	card->ioport_addr = ioport_map(pdev->resource[0]->start,
++					resource_size(pdev->resource[0]));
++	if (!card->ioport_addr) {
++		dev_err(&pdev->dev, "couldn't map io port into io memory\n");
++		err = -ENOMEM;
++		goto probe_err_3;
++	}
++	card->fw_major = pcan_read_reg(card, PCC_FW_MAJOR);
++	card->fw_minor = pcan_read_reg(card, PCC_FW_MINOR);
++
++	/* display board name and firware version */
++	dev_info(&pdev->dev, "PEAK-System pcmcia card %s fw %d.%d\n",
++		pdev->prod_id[1] ? pdev->prod_id[1] : "PCAN-PC Card",
++		card->fw_major, card->fw_minor);
++
++	/* detect available channels */
++	pcan_add_channels(card);
++	if (!card->chan_count)
++		goto probe_err_4;
++
++	/* init the timer which controls the leds */
++	init_timer(&card->led_timer);
++	card->led_timer.function = pcan_led_timer;
++	card->led_timer.data = (unsigned long)card;
++
++	/* request the given irq */
++	err = request_irq(pdev->irq, &pcan_isr, IRQF_SHARED, PCC_NAME, card);
++	if (err) {
++		dev_err(&pdev->dev, "couldn't request irq%d\n", pdev->irq);
++		goto probe_err_5;
++	}
++
++	/* power on the connectors */
++	pcan_set_can_power(card, 1);
++
++	return 0;
++
++probe_err_5:
++	/* unregister can devices from network */
++	pcan_free_channels(card);
++
++probe_err_4:
++	ioport_unmap(card->ioport_addr);
++
++probe_err_3:
++	kfree(card);
++	pdev->priv = NULL;
++
++probe_err_2:
++	pcmcia_disable_device(pdev);
++
++probe_err_1:
++	return err;
++}
++
++/*
++ * release claimed resources
++ */
++static void pcan_remove(struct pcmcia_device *pdev)
++{
++	pcan_free(pdev);
++	pcmcia_disable_device(pdev);
++}
++
++static struct pcmcia_driver pcan_driver = {
++	.name = PCC_NAME,
++	.probe = pcan_probe,
++	.remove = pcan_remove,
++	.id_table = pcan_table,
 +};
++
++static int __init pcan_init(void)
++{
++	return pcmcia_register_driver(&pcan_driver);
++}
++module_init(pcan_init);
++
++static void __exit pcan_exit(void)
++{
++	pcmcia_unregister_driver(&pcan_driver);
++}
++module_exit(pcan_exit);
 -- 
 1.7.4.1
+
