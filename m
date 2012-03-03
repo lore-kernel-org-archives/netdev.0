@@ -1,126 +1,155 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/4] ixgbe: dcb: check setup_tc return codes
-Date: Fri,  2 Mar 2012 18:24:20 -0800
-Message-ID: <1330741468-23900-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] e100: Support RXFCS feature flag.
+Date: Fri,  2 Mar 2012 18:24:16 -0800
+Message-ID: <1330741468-23900-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45928 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18773 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751002Ab2CCCYe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:24:34 -0500
+	id S1750837Ab2CCCYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:24:32 -0500
 In-Reply-To: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Ben Greear <greearb@candelatech.com>
 
-dcb netlink code calls setup_tc to init hardware traffic classes
-to use for DCB. At some call sites the return values are not
-checked for errors and in one case may return -EINVAL back to
-the net/dcbnl.c caller which is expecting a u8.
+This allows e100 to be configured to append the
+Ethernet FCS to the skb.
 
-This fixes some smatch hits and although failures are never
-seen in practive its best to check return codes.
+Useful for sniffing networks.
 
-Reported-by: Dan Carenter <dan.carpenter@oracle.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   26 +++++++++++++++-------
- 1 files changed, 18 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/e100.c |   35 ++++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 79a92fe..95e5d11 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -111,7 +111,7 @@ static u8 ixgbe_dcbnl_get_state(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 485ab8c..3ecbded 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -1075,7 +1075,7 @@ static void e100_get_defaults(struct nic *nic)
+ 	/* Template for a freshly allocated RFD */
+ 	nic->blank_rfd.command = 0;
+ 	nic->blank_rfd.rbd = cpu_to_le32(0xFFFFFFFF);
+-	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
++	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN);
  
- static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 	/* MII setup */
+ 	nic->mii.phy_id_mask = 0x1F;
+@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
  {
--	u8 err = 0;
-+	int err = 0;
- 	u8 prio_tc[MAX_USER_PRIORITY] = {0};
- 	int i;
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -122,7 +122,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 	struct config *config = &cb->u.config;
+ 	u8 *c = (u8 *)config;
++	struct net_device *netdev = nic->netdev;
  
- 	/* verify there is something to do, if not then exit */
- 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
--		return err;
-+		goto out;
+ 	cb->command = cpu_to_le16(cb_config);
  
- 	if (state > 0) {
- 		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
-@@ -131,10 +131,14 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 		err = ixgbe_setup_tc(netdev, 0);
+@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
  	}
  
-+	if (err)
-+		goto out;
++	if (unlikely(netdev->features & NETIF_F_RXFCS))
++		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
 +
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
- 		netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
+ 	if (nic->flags & multicast_all)
+ 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
  
--	return err;
-+out:
-+	return err ? 1 : 0;
+@@ -1881,7 +1885,7 @@ static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
+ 	}
  }
  
- static void ixgbe_dcbnl_get_perm_hw_addr(struct net_device *netdev,
-@@ -581,7 +585,7 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+-#define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN)
++#define RFD_BUF_LEN (sizeof(struct rfd) + VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
+ static int e100_rx_alloc_skb(struct nic *nic, struct rx *rx)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
--	int i;
-+	int i, err = 0;
- 	__u8 max_tc = 0;
+ 	if (!(rx->skb = netdev_alloc_skb_ip_align(nic->netdev, RFD_BUF_LEN)))
+@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	struct sk_buff *skb = rx->skb;
+ 	struct rfd *rfd = (struct rfd *)skb->data;
+ 	u16 rfd_status, actual_size;
++	u16 fcs_pad = 0;
  
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
-@@ -608,12 +612,17 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 		return -EINVAL;
- 
- 	if (max_tc != netdev_get_num_tc(dev))
--		ixgbe_setup_tc(dev, max_tc);
-+		err = ixgbe_setup_tc(dev, max_tc);
-+
-+	if (err)
-+		goto err_out;
- 
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
- 		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
- 
--	return ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+	err = ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+err_out:
-+	return err;
- }
- 
- static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
-@@ -726,6 +735,7 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ieee_ets ets = {0};
- 	struct ieee_pfc pfc = {0};
-+	int err = 0;
- 
- 	/* no support for LLD_MANAGED modes or CEE+IEEE */
- 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
-@@ -756,10 +766,10 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		 */
- 		ixgbe_dcbnl_ieee_setets(dev, &ets);
- 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
--		ixgbe_setup_tc(dev, 0);
-+		err = ixgbe_setup_tc(dev, 0);
+ 	if (unlikely(work_done && *work_done >= work_to_do))
+ 		return -EAGAIN;
+@@ -1951,6 +1956,8 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
  	}
  
--	return 0;
-+	return err ? 1 : 0;
+ 	/* Get actual data size */
++	if (unlikely(dev->features & NETIF_F_RXFCS))
++		fcs_pad = 4;
+ 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
+ 	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
+ 		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
+@@ -1980,13 +1987,13 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	if (unlikely(!(rfd_status & cb_ok))) {
+ 		/* Don't indicate if hardware indicates errors */
+ 		dev_kfree_skb_any(skb);
+-	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
++	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
+ 		/* Don't indicate oversized frames */
+ 		nic->rx_over_length_errors++;
+ 		dev_kfree_skb_any(skb);
+ 	} else {
+ 		dev->stats.rx_packets++;
+-		dev->stats.rx_bytes += actual_size;
++		dev->stats.rx_bytes += (actual_size - fcs_pad);
+ 		netif_receive_skb(skb);
+ 		if (work_done)
+ 			(*work_done)++;
+@@ -2058,7 +2065,8 @@ static void e100_rx_clean(struct nic *nic, unsigned int *work_done,
+ 		pci_dma_sync_single_for_device(nic->pdev,
+ 			old_before_last_rx->dma_addr, sizeof(struct rfd),
+ 			PCI_DMA_BIDIRECTIONAL);
+-		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
++		old_before_last_rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN
++							+ ETH_FCS_LEN);
+ 		pci_dma_sync_single_for_device(nic->pdev,
+ 			old_before_last_rx->dma_addr, sizeof(struct rfd),
+ 			PCI_DMA_BIDIRECTIONAL);
+@@ -2729,6 +2737,20 @@ static int e100_close(struct net_device *netdev)
+ 	return 0;
  }
  
- const struct dcbnl_rtnl_ops dcbnl_ops = {
++static int e100_set_features(struct net_device *netdev,
++			     netdev_features_t features)
++{
++	struct nic *nic = netdev_priv(netdev);
++	netdev_features_t changed = features ^ netdev->features;
++
++	if (!(changed & (NETIF_F_RXFCS)))
++		return 0;
++
++	netdev->features = features;
++	e100_exec_cb(nic, NULL, e100_configure);
++	return 0;
++}
++
+ static const struct net_device_ops e100_netdev_ops = {
+ 	.ndo_open		= e100_open,
+ 	.ndo_stop		= e100_close,
+@@ -2742,6 +2764,7 @@ static const struct net_device_ops e100_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= e100_netpoll,
+ #endif
++	.ndo_set_features	= e100_set_features,
+ };
+ 
+ static int __devinit e100_probe(struct pci_dev *pdev,
+@@ -2754,6 +2777,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
+ 	if (!(netdev = alloc_etherdev(sizeof(struct nic))))
+ 		return -ENOMEM;
+ 
++	netdev->hw_features |= NETIF_F_RXFCS;
++
+ 	netdev->netdev_ops = &e100_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
+ 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
 -- 
 1.7.7.6
