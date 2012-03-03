@@ -1,59 +1,75 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH] tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
-Date: Sat,  3 Mar 2012 02:36:51 -0500
-Message-ID: <1330760211-25785-1-git-send-email-ncardwell@google.com>
+Subject: Re: crash in tcp_fragment
+Date: Sat, 3 Mar 2012 02:38:01 -0500
+Message-ID: <CADVnQykkYXDNsGbNvO6draktbiTVw1s2ArdhSONZo=80cNUAww@mail.gmail.com>
+References: <1330311465.2552.23.camel@boudreau>
+	<alpine.DEB.2.00.1202280115020.17924@melkinpaasi.cs.helsinki.fi>
+	<1330385392.7041.16.camel@boudreau>
 Mime-Version: 1.0
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>
+To: tim@edgecast.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f202.google.com ([74.125.82.202]:53952 "EHLO
-	mail-we0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab2CCHgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 02:36:54 -0500
-Received: by wejx9 with SMTP id x9so92203wej.1
-        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 23:36:53 -0800 (PST)
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:62296 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166Ab2CCHiC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 02:38:02 -0500
+Received: by qaeb19 with SMTP id b19so128951qae.19
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 23:38:01 -0800 (PST)
+In-Reply-To: <1330385392.7041.16.camel@boudreau>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In tcp_mark_head_lost() we should not attempt to fragment a SACKed skb
-to mark the first portion as lost. This is for two primary reasons:
+Here is a proposed fix I just posted for this issue:
 
-(1) tcp_shifted_skb() coalesces adjacent regions of SACKed skbs. When
-doing this, it preserves the sum of their packet counts in order to
-reflect the real-world dynamics on the wire. But given that skbs can
-have remainders that do not align to MSS boundaries, this packet count
-preservation means that for SACKed skbs there is not necessarily a
-direct linear relationship between tcp_skb_pcount(skb) and
-skb->len. Thus tcp_mark_head_lost()'s previous attempts to fragment
-off and mark as lost a prefix of length (packets - oldcnt)*mss from
-SACKed skbs were leading to occasional failures of the WARN_ON(len >
-skb->len) in tcp_fragment() (which used to be a BUG_ON(); see the
-recent "crash in tcp_fragment" thread on netdev).
+  http://patchwork.ozlabs.org/patch/144408/
 
-(2) there is no real point in fragmenting off part of a SACKed skb and
-calling tcp_skb_mark_lost() on it, since tcp_skb_mark_lost() is a NOP
-for SACKed skbs.
+neal
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_input.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ee42d42..d9b83d1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2569,6 +2569,7 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
- 
- 		if (cnt > packets) {
- 			if ((tcp_is_sack(tp) && !tcp_is_fack(tp)) ||
-+			    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
- 			    (oldcnt >= packets))
- 				break;
- 
--- 
-1.7.7.3
+On Mon, Feb 27, 2012 at 6:29 PM, Tim Hartrick <tim@edgecast.com> wrote:
+>
+> Ilpo,
+>
+> Thanks for the answers. =A0This gives me some clarity on how to addre=
+ss
+> the problem.
+>
+>
+> Tim Hartrick
+>
+> On Tue, 2012-02-28 at 01:18 +0200, Ilpo J=E4rvinen wrote:
+>> On Sun, 26 Feb 2012, Tim Hartrick wrote:
+>>
+>> > =A0 =A0 We have been seeing the crash cited below on a number of o=
+ur systems
+>> > running kernel version 2.6.34, 2.6.36 and 2.6.38 using a number of
+>> > different GigE controllers. =A0I note that commit
+>> > 2fceec13375e5d98ef033c6b0ee03943fc460950 introduced a band-aid for=
+ the
+>> > problem by replacing the BUG_ON() to a WARN(). =A0I have two quest=
+ions
+>> > related to this.
+>> >
+>> > 1) Is there a fix for the root cause? =A0Can I get a pointer to th=
+e commit
+>> > that claims to address the root cause?
+>>
+>> There have been multiple fixes recently on the counters which this c=
+ode
+>> depends on, however, nobody has afaict fully analyzed what else thos=
+e
+>> fixed.
+>>
+>> > 2) Will disabling GSO/TSO make the problem go away? =A0That is, is
+>> > something related to GSO/TSO at the root of the problem?
+>>
+>> Very likely.
+>>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
