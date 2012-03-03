@@ -1,73 +1,36 @@
-From: jeewan girewal <jeewan.girewal@gmail.com>
-Subject: Want to add IP options into IP header,
-	unable to resolve symbol
-Date: Fri, 2 Mar 2012 23:44:14 +0200
-Message-ID: <CAPpZ4vca4YntvCEgddJE7+0y9ePSKzqVFyuRJq3fmi8u2bMM3Q@mail.gmail.com>
-References: <CAPpZ4vfHMzez8RLPabN3Dzu4t1dkaDPncS8kwZ15q_KattCL0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0014120775843487533=="
-To: netfilter@vger.kernel.org, coreteam@netfilter.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	bart.de.schuymer@pandora.be, netfilter-devel@vger.kernel.org,
-	shemminger@vyatta.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAPpZ4vfHMzez8RLPabN3Dzu4t1dkaDPncS8kwZ15q_KattCL0A@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/2][BUG-FIX] dccp: two bug-fixes
+Date: Sat,  3 Mar 2012 09:33:51 -0700
+Message-ID: <1330792433-15415-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <test_tree_patch_set_update_2012-03-03>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:49852 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753273Ab2CCQpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Mar 2012 11:45:32 -0500
+In-Reply-To: <test_tree_patch_set_update_2012-03-03>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============0014120775843487533==
-Content-Type: multipart/alternative; boundary=14dae934116557747304ba497ae2
+please find attached two bug fix patches for DCCP.  
 
---14dae934116557747304ba497ae2
-Content-Type: text/plain; charset=ISO-8859-1
+ Patch #1: removes a BUG_ON which got triggered under normal operational conditions,
+           found that it is not even necessary, hence replaced;
+ Patch #2: fixes sequence number handling during initial connection setup, ensuring
+           connection establishment even if one or more initial Request(s) get lost.
 
-Hi,
+The patches are also available applied on top of today's net-next, at
 
-I want to use the function defined in in net/ip_options.c file like
-ip_options_compile, ip_options_build in my netfilter module. I want to put
-options into IP packet header. I have inserted the header file that
-declares these function. I have used EXPORT_SYMBOL, but I get warning,
-"ip_options_compile" undefined. Any suggestions will be greatly respected.
-I am using Ubuntu 11.10. uname -a: 3.0.0-16-generic. Is there a way to make
-this symbol visible for newer kernel?
+	git://eden-feed.erg.abdn.ac.uk/net-next  [subtree 'dccp']
 
--Jeewan
-
---14dae934116557747304ba497ae2
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<br><div class=3D"gmail_quote">Hi,<br><br>I want to use the function define=
-d in in net/ip_options.c file like ip_options_compile, ip_options_build in =
-my netfilter module. I want to put options into IP packet header. I have in=
-serted the header file that declares these function. I have used EXPORT_SYM=
-BOL, but I get warning, &quot;ip_options_compile&quot; undefined. Any sugge=
-stions will be greatly respected. I am using Ubuntu 11.10. uname -a: 3.0.0-=
-16-generic. Is there a way to make this symbol visible for newer kernel?<sp=
-an class=3D"HOEnZb"><font color=3D"#888888"><br>
-
-<br>-Jeewan<br>
-</font></span></div><br>
-
---14dae934116557747304ba497ae2--
-
---===============0014120775843487533==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Bridge mailing list
-Bridge@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/bridge
---===============0014120775843487533==--
+All patches have been tested and compile independently.
+---	   
+ include/linux/dccp.h   |    8 ++++++--
+ net/dccp/ccids/ccid3.c |    3 +--
+ net/dccp/ipv4.c        |    8 +++++---
+ net/dccp/ipv6.c        |    8 +++++---
+ net/dccp/minisocks.c   |   18 +++++++++++-------
+ net/dccp/output.c      |   10 +++++-----
+ 6 files changed, 33 insertions(+), 22 deletions(-)
