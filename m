@@ -1,65 +1,59 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: Requeues
-Date: Fri, 02 Mar 2012 22:54:20 -0800
-Message-ID: <4F51C01C.3040208@intel.com>
-References: <1330753728.4671.190.camel@denise.theartistscloset.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
+Date: Sat,  3 Mar 2012 02:36:51 -0500
+Message-ID: <1330760211-25785-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:25941 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751045Ab2CCGyV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Mar 2012 01:54:21 -0500
-In-Reply-To: <1330753728.4671.190.camel@denise.theartistscloset.com>
+Received: from mail-we0-f202.google.com ([74.125.82.202]:53952 "EHLO
+	mail-we0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004Ab2CCHgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 02:36:54 -0500
+Received: by wejx9 with SMTP id x9so92203wej.1
+        for <netdev@vger.kernel.org>; Fri, 02 Mar 2012 23:36:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/2012 9:48 PM, John A. Sullivan III wrote:
-> Hello, all.  I am seeing a small but significant number of requeues on
-> our pfifo_fast qdiscs.  I've not been able to find much on what this
-> means but the little I have implies it may be a problem with the
-> physical interfaces.  However, these are fairly high end systems with
-> Intel e1000 quad port cards.
-> 
-> We thought it might have something to do with the bonded interfaces so
-> we checked some other high end systems without bonded interfaces but the
-> same quad port cards and, lo and behold, the same small but significant
-> number of requeues.
-> 
-> Is this normal or does it indicate a problem somewhere? Thanks - John
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In tcp_mark_head_lost() we should not attempt to fragment a SACKed skb
+to mark the first portion as lost. This is for two primary reasons:
 
-One of two things can happen to cause the requeue counter to increment.
+(1) tcp_shifted_skb() coalesces adjacent regions of SACKed skbs. When
+doing this, it preserves the sum of their packet counts in order to
+reflect the real-world dynamics on the wire. But given that skbs can
+have remainders that do not align to MSS boundaries, this packet count
+preservation means that for SACKed skbs there is not necessarily a
+direct linear relationship between tcp_skb_pcount(skb) and
+skb->len. Thus tcp_mark_head_lost()'s previous attempts to fragment
+off and mark as lost a prefix of length (packets - oldcnt)*mss from
+SACKed skbs were leading to occasional failures of the WARN_ON(len >
+skb->len) in tcp_fragment() (which used to be a BUG_ON(); see the
+recent "crash in tcp_fragment" thread on netdev).
 
-When the qdisc dequeues a packet it then gets enqueued in yet another
-queue in the e1000 driver. If the qdisc is dequeueing packets faster
-than the hardware can consume them the driver will return a
-NETDEV_TX_BUSY error. This causes the qdisc to 'requeue' the packet and
-in the process increments this counter. 
+(2) there is no real point in fragmenting off part of a SACKed skb and
+calling tcp_skb_mark_lost() on it, since tcp_skb_mark_lost() is a NOP
+for SACKed skbs.
 
-The gist is pfifo_fast dequeued a packet tried to give it to e1000 which
-pushed back so pfifo_fast put the packet back on the queue.
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-By the way you can tune the size of the e1000 queues manually by playing
-with:
-
-	/sys/class/net/ethx/tx_queue_len
-
-But you likely don't want to make them any larger else you'll hit the
-buffer bloat problem. I'm guessing we should add byte queue limit support
-here.
-
-The second way to trigger this is multiple cpus contending for a lock.
-
-In short requeue counts as long as its not excessive are just part 
-of normal operation. So shouldn't be a problem.
-
-Thanks,
-John
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ee42d42..d9b83d1 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2569,6 +2569,7 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
+ 
+ 		if (cnt > packets) {
+ 			if ((tcp_is_sack(tp) && !tcp_is_fack(tp)) ||
++			    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) ||
+ 			    (oldcnt >= packets))
+ 				break;
+ 
+-- 
+1.7.7.3
