@@ -1,276 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/10] e1000e: cleanup whitespace and indentation
-Date: Fri,  2 Mar 2012 18:24:23 -0800
-Message-ID: <1330741468-23900-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/10] e100: Support RXALL feature flag.
+Date: Fri,  2 Mar 2012 18:24:19 -0800
+Message-ID: <1330741468-23900-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17197 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:47073 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751109Ab2CCCYf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:24:35 -0500
+	id S1750886Ab2CCCYd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:24:33 -0500
 In-Reply-To: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Ben Greear <greearb@candelatech.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+This allows the NIC to receive packets with bad FCS
+and other errors.  Good for sniffing packets on flakey
+networks.
+
+v4:  Only flax rx-over-length errors if pkt is beyond
+   maximum expected packet size, not just beyond the MTU.
+   This matches the existing logic for this counter.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c   |   14 +++----
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   10 ++---
- drivers/net/ethernet/intel/e1000e/mac.c     |    2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c  |   10 ++--
- drivers/net/ethernet/intel/e1000e/phy.c     |   59 ++++++++++-----------------
- 5 files changed, 38 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/intel/e100.c |   22 ++++++++++++++++++++--
+ 1 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 086dad7..b3fdc69 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1269,18 +1269,16 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
- 		reg |= E1000_PBA_ECC_CORR_EN;
- 		ew32(PBA_ECC, reg);
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 6f9f70a..4d8a616 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -462,7 +462,7 @@ struct config {
+ /*5*/	u8 X(tx_dma_max_count:7, dma_max_count_enable:1);
+ /*6*/	u8 X(X(X(X(X(X(X(late_scb_update:1, direct_rx_dma:1),
+ 	   tno_intr:1), cna_intr:1), standard_tcb:1), standard_stat_counter:1),
+-	   rx_discard_overruns:1), rx_save_bad_frames:1);
++	   rx_save_overruns : 1), rx_save_bad_frames : 1);
+ /*7*/	u8 X(X(X(X(X(rx_discard_short_frames:1, tx_underrun_retry:2),
+ 	   pad7:2), rx_extended_rfd:1), tx_two_frames_in_fifo:1),
+ 	   tx_dynamic_tbd:1);
+@@ -1165,6 +1165,12 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 		}
  	}
-+
- 	/*
- 	 * Workaround for hardware errata.
- 	 * Ensure that DMA Dynamic Clock gating is disabled on 82571 and 82572
- 	 */
--
--        if ((hw->mac.type == e1000_82571) ||
--           (hw->mac.type == e1000_82572)) {
--                reg = er32(CTRL_EXT);
--                reg &= ~E1000_CTRL_EXT_DMA_DYN_CLK_EN;
--                ew32(CTRL_EXT, reg);
--        }
--
-+	if ((hw->mac.type == e1000_82571) || (hw->mac.type == e1000_82572)) {
-+		reg = er32(CTRL_EXT);
-+		reg &= ~E1000_CTRL_EXT_DMA_DYN_CLK_EN;
-+		ew32(CTRL_EXT, reg);
+ 
++	if (netdev->features & NETIF_F_RXALL) {
++		config->rx_save_overruns = 0x1; /* 1=save, 0=discard */
++		config->rx_save_bad_frames = 0x1;       /* 1=save, 0=discard */
++		config->rx_discard_short_frames = 0x0;  /* 1=discard, 0=save */
 +	}
++
+ 	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
+ 		     "[00-07]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
+ 		     c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
+@@ -1999,6 +2005,16 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 	skb_put(skb, actual_size);
+ 	skb->protocol = eth_type_trans(skb, nic->netdev);
  
- 	/* PCI-Ex Control Registers */
- 	switch (hw->mac.type) {
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 8e9af62..64c7644 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1230,9 +1230,8 @@ s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable)
- 	u32 reg = 0;
- 	u16 kmrn_reg = 0;
- 
--	ret_val = e1000e_read_kmrn_reg_locked(hw,
--	                                     E1000_KMRNCTRLSTA_K1_CONFIG,
--	                                     &kmrn_reg);
-+	ret_val = e1000e_read_kmrn_reg_locked(hw, E1000_KMRNCTRLSTA_K1_CONFIG,
-+					      &kmrn_reg);
- 	if (ret_val)
- 		return ret_val;
- 
-@@ -1241,9 +1240,8 @@ s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable)
- 	else
- 		kmrn_reg &= ~E1000_KMRNCTRLSTA_K1_ENABLE;
- 
--	ret_val = e1000e_write_kmrn_reg_locked(hw,
--	                                      E1000_KMRNCTRLSTA_K1_CONFIG,
--	                                      kmrn_reg);
-+	ret_val = e1000e_write_kmrn_reg_locked(hw, E1000_KMRNCTRLSTA_K1_CONFIG,
-+					       kmrn_reg);
- 	if (ret_val)
- 		return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 59ac9f6..decad98 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -629,7 +629,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
- 	if (E1000_TXCW_ANE & er32(TXCW)) {
- 		status = er32(STATUS);
- 		if (status & E1000_STATUS_LU) {
--			/* SYNCH bit and IV bit are sticky, so reread rxcw.  */
-+			/* SYNCH bit and IV bit are sticky, so reread rxcw. */
- 			udelay(10);
- 			rxcw = er32(RXCW);
- 			if (rxcw & E1000_RXCW_SYNCH) {
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index efb3729..a9a4ea2 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3262,6 +3262,7 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
- 		e1000e_vlan_filter_disable(adapter);
++	/* If we are receiving all frames, then don't bother
++	 * checking for errors.
++	 */
++	if (unlikely(dev->features & NETIF_F_RXALL)) {
++		if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad)
++			/* Received oversized frame, but keep it. */
++			nic->rx_over_length_errors++;
++		goto process_skb;
++	}
++
+ 	if (unlikely(!(rfd_status & cb_ok))) {
+ 		/* Don't indicate if hardware indicates errors */
+ 		dev_kfree_skb_any(skb);
+@@ -2007,6 +2023,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
+ 		nic->rx_over_length_errors++;
+ 		dev_kfree_skb_any(skb);
  	} else {
- 		int count;
-+
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			rctl |= E1000_RCTL_MPE;
- 		} else {
-@@ -6103,7 +6104,6 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	const struct e1000_info *ei = e1000_info_tbl[ent->driver_data];
- 	resource_size_t mmio_start, mmio_len;
- 	resource_size_t flash_start, flash_len;
--
- 	static int cards_found;
- 	u16 aspm_disable_flag = 0;
- 	int i, err, pci_using_dac;
-@@ -6347,11 +6347,11 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
- 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
- 		    (adapter->hw.bus.func == 1))
--			e1000_read_nvm(&adapter->hw,
--				NVM_INIT_CONTROL3_PORT_B, 1, &eeprom_data);
-+			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_B,
-+				       1, &eeprom_data);
- 		else
--			e1000_read_nvm(&adapter->hw,
--				NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
-+			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_A,
-+				       1, &eeprom_data);
- 	}
++process_skb:
+ 		dev->stats.rx_packets++;
+ 		dev->stats.rx_bytes += (actual_size - fcs_pad);
+ 		netif_receive_skb(skb);
+@@ -2758,7 +2775,7 @@ static int e100_set_features(struct net_device *netdev,
+ 	struct nic *nic = netdev_priv(netdev);
+ 	netdev_features_t changed = features ^ netdev->features;
  
- 	/* fetch WoL from EEPROM */
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 683abac..6e768b1 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -1007,12 +1007,12 @@ static s32 e1000_phy_setup_autoneg(struct e1000_hw *hw)
- 	 * The possible values of the "fc" parameter are:
- 	 *      0:  Flow control is completely disabled
- 	 *      1:  Rx flow control is enabled (we can receive pause frames
--	 *	  but not send pause frames).
-+	 *          but not send pause frames).
- 	 *      2:  Tx flow control is enabled (we can send pause frames
--	 *	  but we do not support receiving pause frames).
-+	 *          but we do not support receiving pause frames).
- 	 *      3:  Both Rx and Tx flow control (symmetric) are enabled.
- 	 *  other:  No software override.  The flow control configuration
--	 *	  in the EEPROM is used.
-+	 *          in the EEPROM is used.
- 	 */
- 	switch (hw->fc.current_mode) {
- 	case e1000_fc_none:
-@@ -1172,10 +1172,8 @@ s32 e1000e_setup_copper_link(struct e1000_hw *hw)
- 	 * Check link status. Wait up to 100 microseconds for link to become
- 	 * valid.
- 	 */
--	ret_val = e1000e_phy_has_link_generic(hw,
--					     COPPER_LINK_UP_LIMIT,
--					     10,
--					     &link);
-+	ret_val = e1000e_phy_has_link_generic(hw, COPPER_LINK_UP_LIMIT, 10,
-+					      &link);
- 	if (ret_val)
- 		return ret_val;
- 
-@@ -1237,10 +1235,8 @@ s32 e1000e_phy_force_speed_duplex_igp(struct e1000_hw *hw)
- 	if (phy->autoneg_wait_to_complete) {
- 		e_dbg("Waiting for forced speed/duplex link on IGP phy.\n");
- 
--		ret_val = e1000e_phy_has_link_generic(hw,
--						     PHY_FORCE_LIMIT,
--						     100000,
--						     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 		if (ret_val)
- 			return ret_val;
- 
-@@ -1248,10 +1244,8 @@ s32 e1000e_phy_force_speed_duplex_igp(struct e1000_hw *hw)
- 			e_dbg("Link taking longer than expected.\n");
- 
- 		/* Try once more */
--		ret_val = e1000e_phy_has_link_generic(hw,
--						     PHY_FORCE_LIMIT,
--						     100000,
--						     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 	}
- 
- 	return ret_val;
-@@ -1412,10 +1406,8 @@ s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw)
- 	if (phy->autoneg_wait_to_complete) {
- 		e_dbg("Waiting for forced speed/duplex link on IFE phy.\n");
- 
--		ret_val = e1000e_phy_has_link_generic(hw,
--		                                     PHY_FORCE_LIMIT,
--		                                     100000,
--		                                     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 		if (ret_val)
- 			return ret_val;
- 
-@@ -1423,10 +1415,8 @@ s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw)
- 			e_dbg("Link taking longer than expected.\n");
- 
- 		/* Try once more */
--		ret_val = e1000e_phy_has_link_generic(hw,
--		                                     PHY_FORCE_LIMIT,
--		                                     100000,
--		                                     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 		if (ret_val)
- 			return ret_val;
- 	}
-@@ -2167,6 +2157,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
- s32 e1000e_get_cfg_done(struct e1000_hw *hw)
- {
- 	mdelay(10);
-+
- 	return 0;
- }
- 
-@@ -3155,13 +3146,11 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
--	data &= BM_CS_STATUS_LINK_UP |
--	        BM_CS_STATUS_RESOLVED |
--	        BM_CS_STATUS_SPEED_MASK;
-+	data &= BM_CS_STATUS_LINK_UP | BM_CS_STATUS_RESOLVED |
-+		BM_CS_STATUS_SPEED_MASK;
- 
--	if (data != (BM_CS_STATUS_LINK_UP |
--	             BM_CS_STATUS_RESOLVED |
--	             BM_CS_STATUS_SPEED_1000))
-+	if (data != (BM_CS_STATUS_LINK_UP | BM_CS_STATUS_RESOLVED |
-+		     BM_CS_STATUS_SPEED_1000))
+-	if (!(changed & (NETIF_F_RXFCS)))
++	if (!(changed & (NETIF_F_RXFCS | NETIF_F_RXALL)))
  		return 0;
  
- 	mdelay(200);
-@@ -3227,10 +3216,8 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
- 	if (phy->autoneg_wait_to_complete) {
- 		e_dbg("Waiting for forced speed/duplex link on 82577 phy\n");
+ 	netdev->features = features;
+@@ -2794,6 +2811,7 @@ static int __devinit e100_probe(struct pci_dev *pdev,
  
--		ret_val = e1000e_phy_has_link_generic(hw,
--		                                     PHY_FORCE_LIMIT,
--		                                     100000,
--		                                     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 		if (ret_val)
- 			return ret_val;
+ 	netdev->hw_features |= NETIF_F_RXFCS;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
++	netdev->hw_features |= NETIF_F_RXALL;
  
-@@ -3238,10 +3225,8 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
- 			e_dbg("Link taking longer than expected.\n");
- 
- 		/* Try once more */
--		ret_val = e1000e_phy_has_link_generic(hw,
--		                                     PHY_FORCE_LIMIT,
--		                                     100000,
--		                                     &link);
-+		ret_val = e1000e_phy_has_link_generic(hw, PHY_FORCE_LIMIT,
-+						      100000, &link);
- 	}
- 
- 	return ret_val;
+ 	netdev->netdev_ops = &e100_netdev_ops;
+ 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
 -- 
 1.7.7.6
