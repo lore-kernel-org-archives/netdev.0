@@ -1,50 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Sat, 03 Mar 2012 12:04:20 -0800
-Message-ID: <1330805060.7070.18.camel@joe2Laptop>
-References: <20120302163716.GA18758@joana>
-	 <20120302.161501.1891197361615438878.davem@davemloft.net>
-	 <20120303164655.GA5275@joana>
-	 <20120303.144722.764199641223280924.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: mdio.h: Include linux/types.h
+Date: Sat, 03 Mar 2012 15:07:47 -0500 (EST)
+Message-ID: <20120303.150747.1442564440565400238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: padovan@profusion.mobi, gustavo@padovan.org,
-	johan.hedberg@gmail.com, linville@tuxdriver.com,
-	marcel@holtmann.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:34371 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752992Ab2CCUEW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Mar 2012 15:04:22 -0500
-In-Reply-To: <20120303.144722.764199641223280924.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38853 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753505Ab2CCUHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 15:07:49 -0500
+Received: from localhost (cpe-66-65-56-15.nyc.res.rr.com [66.65.56.15])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q23K7lLr023016
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 3 Mar 2012 12:07:48 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-03-03 at 14:47 -0500, David Miller wrote:
-> From: Gustavo Padovan <padovan@profusion.mobi>
-> Date: Sat, 3 Mar 2012 13:46:55 -0300
-> 
-> > Changing only the new code will put the Bluetooth subsystem in a
-> > inconsistent coding style with different styles through the
-> > subsystem.
-> 
-> Which btw would be perfectly fine, this is how we gradually fix
-> coding style in other areas of the tree too.  So don't use crap
-> like this as an excuse for not doing the right thing.
-> 
-> Requiring a big "fix all the coding style" patch before starting to do
-> things properly in small increments first is completely bogus.
 
-Style conformity is important to people for lots of
-different reasons.
+Fixes:
 
-It's your choice but I personally think you should
-give the bluetooth folk a chance to change their style
-in a single largish whitespace commit immediately post
-3.4 akin to the recent isdn one you just pulled.
+/home/davem/src/GIT/net-next/usr/include/linux/mdio.h:271: found __[us]{8,16,32,64} type without #include <linux/types.h>
 
-If the bluetooth folk want help, I do have scripts
-that would do a pretty decent job and make all
-the git blame -w changes transparent.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/mdio.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index ec90da7..dfb9479 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -10,6 +10,7 @@
+ #ifndef __LINUX_MDIO_H__
+ #define __LINUX_MDIO_H__
+ 
++#include <linux/types.h>
+ #include <linux/mii.h>
+ 
+ /* MDIO Manageable Devices (MMDs). */
+-- 
+1.7.7.6
