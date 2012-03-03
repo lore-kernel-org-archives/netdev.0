@@ -1,126 +1,38 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/4] ixgbe: dcb: check setup_tc return codes
-Date: Fri,  2 Mar 2012 18:26:26 -0800
-Message-ID: <1330741587-24073-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Fri,  2 Mar 2012 18:26:23 -0800
+Message-ID: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:10531 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751982Ab2CCC0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:26:32 -0500
-In-Reply-To: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751515Ab2CCC0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:26:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+This series of patches contains fixes e100 and DCB (ixgbe, bnx2x).
 
-dcb netlink code calls setup_tc to init hardware traffic classes
-to use for DCB. At some call sites the return values are not
-checked for errors and in one case may return -EINVAL back to
-the net/dcbnl.c caller which is expecting a u8.
+The following are changes since commit b4017c5368f992fb8fb3a2545a0977082c6664e4:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-This fixes some smatch hits and although failures are never
-seen in practive its best to check return codes.
+Ben Greear (2):
+  e100: Fix rx-over-length statistics.
+  e100: Show short v/s long rx length errors in ethtool stats.
 
-Reported-by: Dan Carenter <dan.carpenter@oracle.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   26 +++++++++++++++-------
- 1 files changed, 18 insertions(+), 8 deletions(-)
+John Fastabend (2):
+  ixgbe: dcb: check setup_tc return codes
+  net: dcb: getnumtcs()/setnumtcs() should return an int
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 79a92fe..95e5d11 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -111,7 +111,7 @@ static u8 ixgbe_dcbnl_get_state(struct net_device *netdev)
- 
- static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- {
--	u8 err = 0;
-+	int err = 0;
- 	u8 prio_tc[MAX_USER_PRIORITY] = {0};
- 	int i;
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -122,7 +122,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 
- 	/* verify there is something to do, if not then exit */
- 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
--		return err;
-+		goto out;
- 
- 	if (state > 0) {
- 		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
-@@ -131,10 +131,14 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 		err = ixgbe_setup_tc(netdev, 0);
- 	}
- 
-+	if (err)
-+		goto out;
-+
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
- 		netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
- 
--	return err;
-+out:
-+	return err ? 1 : 0;
- }
- 
- static void ixgbe_dcbnl_get_perm_hw_addr(struct net_device *netdev,
-@@ -581,7 +585,7 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
--	int i;
-+	int i, err = 0;
- 	__u8 max_tc = 0;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
-@@ -608,12 +612,17 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 		return -EINVAL;
- 
- 	if (max_tc != netdev_get_num_tc(dev))
--		ixgbe_setup_tc(dev, max_tc);
-+		err = ixgbe_setup_tc(dev, max_tc);
-+
-+	if (err)
-+		goto err_out;
- 
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
- 		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
- 
--	return ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+	err = ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+err_out:
-+	return err;
- }
- 
- static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
-@@ -726,6 +735,7 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ieee_ets ets = {0};
- 	struct ieee_pfc pfc = {0};
-+	int err = 0;
- 
- 	/* no support for LLD_MANAGED modes or CEE+IEEE */
- 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
-@@ -756,10 +766,10 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		 */
- 		ixgbe_dcbnl_ieee_setets(dev, &ets);
- 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
--		ixgbe_setup_tc(dev, 0);
-+		err = ixgbe_setup_tc(dev, 0);
- 	}
- 
--	return 0;
-+	return err ? 1 : 0;
- }
- 
- const struct dcbnl_rtnl_ops dcbnl_ops = {
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |    4 +-
+ drivers/net/ethernet/intel/e100.c               |    8 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   30 +++++++++++++++-------
+ include/net/dcbnl.h                             |    4 +-
+ 4 files changed, 31 insertions(+), 15 deletions(-)
+
 -- 
 1.7.7.6
