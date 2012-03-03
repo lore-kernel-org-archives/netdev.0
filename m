@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 03 Mar 2012 14:53:00 -0500 (EST)
-Message-ID: <20120303.145300.2270021306522965487.davem@davemloft.net>
-References: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/2][BUG-FIX] dccp: two bug-fixes
+Date: Sat, 03 Mar 2012 14:57:24 -0500 (EST)
+Message-ID: <20120303.145724.979579867935018033.davem@davemloft.net>
+References: <test_tree_patch_set_update_2012-03-03>
+	<1330792433-15415-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38749 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38772 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992Ab2CCTzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 14:55:04 -0500
-In-Reply-To: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752992Ab2CCT63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 14:58:29 -0500
+In-Reply-To: <1330792433-15415-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri,  2 Mar 2012 18:26:23 -0800
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Sat,  3 Mar 2012 09:33:51 -0700
 
-> This series of patches contains fixes e100 and DCB (ixgbe, bnx2x).
+> please find attached two bug fix patches for DCCP.  
 > 
-> The following are changes since commit b4017c5368f992fb8fb3a2545a0977082c6664e4:
->   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>  Patch #1: removes a BUG_ON which got triggered under normal operational conditions,
+>            found that it is not even necessary, hence replaced;
+>  Patch #2: fixes sequence number handling during initial connection setup, ensuring
+>            connection establishment even if one or more initial Request(s) get lost.
 > 
-> Ben Greear (2):
->   e100: Fix rx-over-length statistics.
->   e100: Show short v/s long rx length errors in ethtool stats.
+> The patches are also available applied on top of today's net-next, at
 > 
-> John Fastabend (2):
->   ixgbe: dcb: check setup_tc return codes
->   net: dcb: getnumtcs()/setnumtcs() should return an int
+> 	git://eden-feed.erg.abdn.ac.uk/net-next  [subtree 'dccp']
+> 
+> All patches have been tested and compile independently.
 
-Pulled, thanks.
+Pulled, thanks a lot Gerrit.
