@@ -1,50 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/4] e100: Show short v/s long rx length errors in ethtool stats.
-Date: Fri,  2 Mar 2012 18:26:25 -0800
-Message-ID: <1330741587-24073-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 02 Mar 2012 18:27:52 -0800
+Message-ID: <1330741672.2707.100.camel@jtkirshe-mobl>
+References: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/dE1DzQAbx97y2HW1m+h"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10531 "EHLO mga09.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:45206 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751811Ab2CCC0b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:26:31 -0500
-In-Reply-To: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750806Ab2CCC1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:27:54 -0500
+In-Reply-To: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e100.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+--=-/dE1DzQAbx97y2HW1m+h
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index d2b7872..e498eff 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2661,6 +2661,7 @@ static const char e100_gstrings_stats[][ETH_GSTRING_LEN] = {
- 	"tx_deferred", "tx_single_collisions", "tx_multi_collisions",
- 	"tx_flow_control_pause", "rx_flow_control_pause",
- 	"rx_flow_control_unsupported", "tx_tco_packets", "rx_tco_packets",
-+	"rx_short_frame_errors", "rx_over_length_errors",
- };
- #define E100_NET_STATS_LEN	21
- #define E100_STATS_LEN	ARRAY_SIZE(e100_gstrings_stats)
-@@ -2694,6 +2695,8 @@ static void e100_get_ethtool_stats(struct net_device *netdev,
- 	data[i++] = nic->rx_fc_unsupported;
- 	data[i++] = nic->tx_tco_frames;
- 	data[i++] = nic->rx_tco_frames;
-+	data[i++] = nic->rx_short_frame_errors;
-+	data[i++] = nic->rx_over_length_errors;
- }
- 
- static void e100_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
--- 
-1.7.7.6
+On Fri, 2012-03-02 at 18:24 -0800, Jeff Kirsher wrote:
+> This series of patches contains fixes e100 and DCB (ixgbe, bnx2x).
+>=20
+> The following are changes since commit b4017c5368f992fb8fb3a2545a0977082c=
+6664e4:
+>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>=20
+> Ben Greear (2):
+>   e100: Fix rx-over-length statistics.
+>   e100: Show short v/s long rx length errors in ethtool stats.
+>=20
+> John Fastabend (2):
+>   ixgbe: dcb: check setup_tc return codes
+>   net: dcb: getnumtcs()/setnumtcs() should return an int
+>=20
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |    4 +-
+>  drivers/net/ethernet/intel/e100.c               |    8 +++++-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   30 +++++++++++++++--=
+-----
+>  include/net/dcbnl.h                             |    4 +-
+>  4 files changed, 31 insertions(+), 15 deletions(-)
+>=20
+
+Please disregard this first pull request, patches from a previous pull
+request were sent accidentally.
+
+--=-/dE1DzQAbx97y2HW1m+h
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJPUYGoAAoJEOVv75VaS+3OSagQAKSCx2Gihrebr/67up3Jak1o
+ZhLhP+2PVTceYMeGogsyvr/MzKG2mJQ+nV5ON4oAEnzmLHebF7Co7CDjWSRRYZf6
+n5ChXezNBNaA6eaVVxdzgezfKaBUvlSlLPo8PJ7wrfmT7PntX2zlx/wnCjQ0cmKo
+CJxW6macH75BEtZpXZQ7uLrGYLbYvkLUTVp4eNqBAcbiLc4DelTWbC0Mo5QnqoUK
+R9WHQe/FhXo0EobdAcSu+eWlR9Jo+C13bkltpRBBC9/gbZn5mbnqJYhoa3Xmft2w
+sk8CIIVKNIjc2fLrzp2r6Dldfn75o9Xfi9ETrR+nMlaYGjKDs630J8OGN/kccbU8
+eK8hONKWUJCvPkWFM+r8WNFoujR8fG/S0Rh5LoVfLYCcvT9/RDOkowyC3lYPKgFW
+7oFOundqxtUJ02nxLHFx8cRntuWY8OoX15NRcunUAO2ZRvJHtLMvPcWtHL+jlwor
+Xyv7QFD+W2jdeFHbAyeVZsmNIsrPxw4i5F1Ea+iJa02h2NLEEyF6b25u+6PzwkkM
+7g5ZdRdjzROAX1NcCc+ZOMnJMPLLDw6Rj+x6UzuDe0hzzRzfDZUBiQEW67rWRyog
+AQhpvjnTY/rs5ApyFXoNHC9Na1NUW5NR38YNxv31iMNsi+JIk1JCTzEGF+dvMe7o
+wBK/p5nmUJ99BqtXGO1w
+=2HGA
+-----END PGP SIGNATURE-----
+
+--=-/dE1DzQAbx97y2HW1m+h--
