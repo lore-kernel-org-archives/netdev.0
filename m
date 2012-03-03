@@ -1,50 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] rtnetlink: Fix VF IFLA policy
-Date: Fri,  2 Mar 2012 18:24:28 -0800
-Message-ID: <1330741468-23900-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] ixgbe: Fix comments that are out of date or formatted incorrectly
+Date: Fri,  2 Mar 2012 18:24:27 -0800
+Message-ID: <1330741468-23900-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:15473 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751274Ab2CCCYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751260Ab2CCCYi (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 2 Mar 2012 21:24:38 -0500
 In-Reply-To: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Add VF spoof check to IFLA policy.  The original patch I submitted to
-add the spoof checking feature to rtnl failed to add the proper policy
-rule that identifies the data type and len.  This patch corrects that
-oversight.  No bugs have been reported against this but it may cause
-some problem for the netlink message parsing that uses the policy
-table.
+This patch corrects several comments that are either incorrect or formatted
+incorrectly for multiline comments.
 
-CC: stable@vger.kernel.org
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/core/rtnetlink.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5cf39cd..2be1018 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1132,6 +1132,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
- 				    .len = sizeof(struct ifla_vf_vlan) },
- 	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
- 				    .len = sizeof(struct ifla_vf_tx_rate) },
-+	[IFLA_VF_SPOOFCHK]	= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_spoofchk) },
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1cf676b..23a4665 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2359,7 +2359,7 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 	u32 eicr;
  
- static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	/*
+-	 * Workaround for silicon errata on 82598.  Mask the interrupts
++	 * Workaround for silicon errata #26 on 82598.  Mask the interrupt
+ 	 * before the read of EICR.
+ 	 */
+ 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
+@@ -4381,7 +4381,11 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+ 	f_fdir->indices = min((int)num_online_cpus(), f_fdir->indices);
+ 	f_fdir->mask = 0;
+ 
+-	/* Flow Director must have RSS enabled */
++	/*
++	 * Use RSS in addition to Flow Director to ensure the best
++	 * distribution of flows across cores, even when an FDIR flow
++	 * isn't matched.
++	 */
+ 	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
+ 	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
+ 		adapter->num_tx_queues = f_fdir->indices;
+@@ -4558,7 +4562,8 @@ static void ixgbe_acquire_msix_vectors(struct ixgbe_adapter *adapter,
+ 	 */
+ 	vector_threshold = MIN_MSIX_COUNT;
+ 
+-	/* The more we get, the more we will assign to Tx/Rx Cleanup
++	/*
++	 * The more we get, the more we will assign to Tx/Rx Cleanup
+ 	 * for the separate queues...where Rx Cleanup >= Tx Cleanup.
+ 	 * Right now, we simply care about how many we'll get; we'll
+ 	 * set them up later while requesting irq's.
+@@ -6996,7 +7001,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 
+ 	/*
+ 	 * need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
+-	 *       + 1 desc for skb_head_len/IXGBE_MAX_DATA_PER_TXD,
++	 *       + 1 desc for skb_headlen/IXGBE_MAX_DATA_PER_TXD,
+ 	 *       + 2 desc gap to keep tail from touching head,
+ 	 *       + 1 desc for context descriptor,
+ 	 * otherwise try next time
 -- 
 1.7.7.6
