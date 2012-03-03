@@ -1,53 +1,46 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH] netxen: memory corruption by netxen_p3_get_mac_addr.
-Date: Sat,  3 Mar 2012 22:31:27 +0530
-Message-ID: <1330794087-19248-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: sony.chacko@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: Re: [PATCH] tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
+Date: Sat, 3 Mar 2012 10:03:56 -0800
+Message-ID: <CAB_+Fg6x=0jFVysUK8stU1YEL4NGqid7h_XKfRW7BVVeYp3bcg@mail.gmail.com>
+References: <1330760211-25785-1-git-send-email-ncardwell@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:42773 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751949Ab2CCSD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 13:03:57 -0500
+Received: by obbuo6 with SMTP id uo6so2763595obb.19
+        for <netdev@vger.kernel.org>; Sat, 03 Mar 2012 10:03:56 -0800 (PST)
+In-Reply-To: <1330760211-25785-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Fri, Mar 2, 2012 at 11:36 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>
+> In tcp_mark_head_lost() we should not attempt to fragment a SACKed skb
+> to mark the first portion as lost. This is for two primary reasons:
+>
+> (1) tcp_shifted_skb() coalesces adjacent regions of SACKed skbs. When
+> doing this, it preserves the sum of their packet counts in order to
+> reflect the real-world dynamics on the wire. But given that skbs can
+> have remainders that do not align to MSS boundaries, this packet count
+> preservation means that for SACKed skbs there is not necessarily a
+> direct linear relationship between tcp_skb_pcount(skb) and
+> skb->len. Thus tcp_mark_head_lost()'s previous attempts to fragment
+> off and mark as lost a prefix of length (packets - oldcnt)*mss from
+> SACKed skbs were leading to occasional failures of the WARN_ON(len >
+> skb->len) in tcp_fragment() (which used to be a BUG_ON(); see the
+> recent "crash in tcp_fragment" thread on netdev).
+>
+> (2) there is no real point in fragmenting off part of a SACKed skb and
+> calling tcp_skb_mark_lost() on it, since tcp_skb_mark_lost() is a NOP
+> for SACKed skbs.
+>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-'mac_hi' and 'mac_lo' are 32 bit unsinged int but we are modifing
-64 bit of memory during mac calculation. To fix this issue define
-a local variable of 64 bit and do mac calculation.
-
-Remove 'le64_to_cpu' to fix endian issue.
-
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index 0f81287..7ea930b 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -1069,7 +1069,8 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- 
- int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- {
--	uint32_t crbaddr, mac_hi, mac_lo;
-+	uint32_t crbaddr;
-+	u64 mac_hi, mac_lo;
- 	int pci_func = adapter->ahw.pci_func;
- 
- 	crbaddr = CRB_MAC_BLOCK_START +
-@@ -1079,9 +1080,9 @@ int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- 	mac_hi = NXRD32(adapter, crbaddr+4);
- 
- 	if (pci_func & 1)
--		*mac = le64_to_cpu((mac_lo >> 16) | ((u64)mac_hi << 16));
-+		*mac = (mac_lo >> 16) | (mac_hi << 16);
- 	else
--		*mac = le64_to_cpu((u64)mac_lo | ((u64)mac_hi << 32));
-+		*mac = mac_lo | (mac_hi << 32);
- 
- 	return 0;
- }
--- 
-1.7.4.4
+Acked-by: Nandita Dukkipati <nanditad@google.com>
