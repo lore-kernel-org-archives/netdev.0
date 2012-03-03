@@ -1,106 +1,76 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
- (fix nfs regression)
-Date: Sat, 3 Mar 2012 17:43:22 +0300
-Message-ID: <20120303174322.7e920bc5@sf.home>
-References: <1330675173-18968-1-git-send-email-slyich@gmail.com>
-	<4F509150.5060904@redhat.com>
-	<20120302202421.753b36bc@sf.home>
-	<20120302205000.088bf231@sf.home>
-	<4F5227C9.7060209@parallels.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
+Date: Sat, 3 Mar 2012 07:19:35 -0800
+Message-ID: <CAK6E8=dZ0+L3cvWQhZec43TYU8kPYrTDO6UC7JwpGQPCXoUkiA@mail.gmail.com>
+References: <1330760211-25785-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/g=oQQ04CBUNKqm8mTdjuPu."; protocol="application/pgp-signature"
-Cc: Jason Wang <jasowang@redhat.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F5227C9.7060209@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:32800 "EHLO
+	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753850Ab2CCPT4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Mar 2012 10:19:56 -0500
+Received: by obbuo6 with SMTP id uo6so2674630obb.19
+        for <netdev@vger.kernel.org>; Sat, 03 Mar 2012 07:19:55 -0800 (PST)
+In-Reply-To: <1330760211-25785-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/g=oQQ04CBUNKqm8mTdjuPu.
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Fri, Mar 2, 2012 at 11:36 PM, Neal Cardwell <ncardwell@google.com> w=
+rote:
+> In tcp_mark_head_lost() we should not attempt to fragment a SACKed sk=
+b
+> to mark the first portion as lost. This is for two primary reasons:
+>
+> (1) tcp_shifted_skb() coalesces adjacent regions of SACKed skbs. When
+> doing this, it preserves the sum of their packet counts in order to
+> reflect the real-world dynamics on the wire. But given that skbs can
+> have remainders that do not align to MSS boundaries, this packet coun=
+t
+> preservation means that for SACKed skbs there is not necessarily a
+> direct linear relationship between tcp_skb_pcount(skb) and
+> skb->len. Thus tcp_mark_head_lost()'s previous attempts to fragment
+> off and mark as lost a prefix of length (packets - oldcnt)*mss from
+> SACKed skbs were leading to occasional failures of the WARN_ON(len >
+> skb->len) in tcp_fragment() (which used to be a BUG_ON(); see the
+> recent "crash in tcp_fragment" thread on netdev).
+>
+> (2) there is no real point in fragmenting off part of a SACKed skb an=
+d
+> calling tcp_skb_mark_lost() on it, since tcp_skb_mark_lost() is a NOP
+> for SACKed skbs.
+>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-On Sat, 3 Mar 2012 11:16:41 -0300
-Glauber Costa <glommer@parallels.com> wrote:
+Thanks for spending a lot of time on this obscure bug.
 
-> On 03/02/2012 02:50 PM, Sergei Trofimovich wrote:
-> >>>> The change looks like a typo (division flipped to multiplication):
-> >>>>> limit =3D nr_free_buffer_pages() / 8;
-> >>>>> limit =3D nr_free_buffer_pages()<<   (PAGE_SHIFT - 10);
-> >>>
-> >>> Hi, thanks for the reporting. It's not a typo. It was previously:
-> >>> sysctl_tcp_mem[1]<<  (PAGE_SHIFT -  7). Looks like we need to do the
-> >>> limit check before shift the value. Please try the following patch, t=
-hanks.
-> >>
-> >> Still does not help. I test it by checking sha1sum of a large file ove=
-r NFS
-> >> (small files seem to work simetimes):
-> >>
-> >>      $ strace sha1sum /gentoo/distfiles/gcc-4.6.2.tar.bz2
-> >>      ...
-> >>      open("/gentoo/distfiles/gcc-4.6.2.tar.bz2", O_RDONLY
-> >>      <HUNG>
-> >> After a certain timeout dmesg gets odd spam:
-> >> [  314.848094] nfs: server vmhost not responding, still trying
-> >> [  314.848134] nfs: server vmhost not responding, still trying
-> >> [  314.848145] nfs: server vmhost not responding, still trying
-> >> [  314.957047] nfs: server vmhost not responding, still trying
-> >> [  314.957066] nfs: server vmhost not responding, still trying
-> >> [  314.957075] nfs: server vmhost not responding, still trying
-> >> [  314.957085] nfs: server vmhost not responding, still trying
-> >> [  314.957100] nfs: server vmhost not responding, still trying
-> >> [  314.958023] nfs: server vmhost not responding, still trying
-> >> [  314.958035] nfs: server vmhost not responding, still trying
-> >> [  314.958044] nfs: server vmhost not responding, still trying
-> >> [  314.958054] nfs: server vmhost not responding, still trying
-> >>
-> >> looks like bogus messages. Might be relevant to mishandled timings
-> >> somewhere else or a bug in nfs code.
-> >
-> > And after 120 seconds hung tasks shows it might be an OOM issue
-> > Likely caused by patch, as it's a 2GB RAM +4GB swap amd64 box
-> > not running anything heavy:
->=20
-> That is a bit weird.
->=20
-> First because with Jason's patch, we should end up with the very same=20
-> calculation, at the same exact order, as it was in older kernels.
-> Second, because by shifting << 10, you should be ending up with very=20
-> small numbers, effectively having tcp_rmem[1] =3D=3D tcp_rmem[2], and the=
-=20
-> same for wmem.
->=20
-> Can you share which numbers you end up with at=20
-> /proc/sys/net/ipv4/tcp_{r,w}mem ?
->=20
-
-Sure:
-
-    $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
-    4096    87380   1999072
-    4096    16384   1999072
-
-Nothing special with NFS nere, so I guess it uses UDP.
-TCP works fine on machine (I do everything via SSH).
-
---=20
-
-  Sergei
-
---Sig_/g=oQQ04CBUNKqm8mTdjuPu.
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iEYEARECAAYFAk9SLhEACgkQcaHudmEf86ojDACcDmBU8I7749gXsjc4faM9lvne
-d/4AnipiQieUwkwzXCZHp+hWU/ii4jpb
-=G2bR
------END PGP SIGNATURE-----
-
---Sig_/g=oQQ04CBUNKqm8mTdjuPu.--
+> ---
+> =A0net/ipv4/tcp_input.c | =A0 =A01 +
+> =A01 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index ee42d42..d9b83d1 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2569,6 +2569,7 @@ static void tcp_mark_head_lost(struct sock *sk,=
+ int packets, int mark_head)
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (cnt > packets) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((tcp_is_sack(tp) &=
+& !tcp_is_fack(tp)) ||
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (TCP_SKB_CB(skb=
+)->sacked & TCPCB_SACKED_ACKED) ||
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(oldcnt >=3D p=
+ackets))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+>
+> --
+> 1.7.7.3
+>
