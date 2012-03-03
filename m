@@ -1,57 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] netfilter: potential null derefence.
-Date: Sat, 3 Mar 2012 10:11:53 +0100
-Message-ID: <20120303091153.GA17253@1984>
-References: <1330593434-19275-1-git-send-email-santoshprasadnayak@gmail.com>
-	<20120301123004.GA7250@1984> <4F513C2B.6030604@pandora.be>
+From: "Kiss Gabor (Bitman)" <kissg@ssg.ki.iif.hu>
+Subject: Patch to ip(8) manpage
+Date: Sat, 3 Mar 2012 10:18:01 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1203031007180.22132@bakacsin.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: santosh nayak <santoshprasadnayak@gmail.com>, coreteam@netfilter.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter@vger.kernel.org, bart.de.schuymer@pandora.be,
-	netfilter-devel@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net
-To: Bart De Schuymer <bdschuym@pandora.be>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <4F513C2B.6030604@pandora.be>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="113323998-838828178-1330766281=:22132"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from strudel.ki.iif.hu ([193.6.222.244]:59619 "EHLO
+	strudel.ki.iif.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752855Ab2CCJZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 04:25:54 -0500
+Received: from cirkusz.lvs.iif.hu (cirkusz.lvs.iif.hu [193.225.14.182])
+	by strudel.ki.iif.hu (Postfix) with ESMTP id EA610167
+	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:03 +0100 (CET)
+Received: from strudel.ki.iif.hu ([IPv6:::ffff:193.6.222.244])
+	by cirkusz.lvs.iif.hu (cirkusz.lvs.iif.hu [::ffff:193.225.14.72]) (amavisd-new, port 10024)
+	with ESMTP id xuQKiLmZh4ws for <netdev@vger.kernel.org>;
+	Sat,  3 Mar 2012 10:18:01 +0100 (CET)
+Received: from bakacsin.ki.iif.hu (bakacsin.ki.iif.hu [193.6.222.47])
+	by strudel.ki.iif.hu (Postfix) with ESMTP id ACDCC166
+	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:01 +0100 (CET)
+Received: from localhost (localhost [127.0.0.1])
+	by bakacsin.ki.iif.hu (Postfix) with ESMTP id 05CBF9138C4
+	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:01 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 02, 2012 at 10:31:23PM +0100, Bart De Schuymer wrote:
-> Op 1/03/2012 13:30, Pablo Neira Ayuso schreef:
-> >On Thu, Mar 01, 2012 at 02:47:14PM +0530, santosh nayak wrote:
-> >>From: Santosh Nayak<santoshprasadnayak@gmail.com>
-> >>
-> >>I am getting following error.
-> >>" net/bridge/netfilter/ebtables.c:269 ebt_do_table()
-> >>   error: potential null derefence 'cs'"
-> >>
-> >>     i = cs[sp].n;  // If cs == Null then this will cause problem.
-> >
-> >Very sorry, I didn't see the out label.
-> >
-> >I'll apply this to my nf [1] once David takes my previous request for
-> >pulling.
-> >
-> 
-> Hi,
-> 
-> Has this patch been tested? Really, that code in the core firewall
-> function is there for a reason, wouldn't you think?
-> The chainstack is only allocated when user-defined chains are used
-> (see translate_table).
-> Never blindly trust a tool.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I see, then that cs NULL dereference never happens.
+--113323998-838828178-1330766281=:22132
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-Thanks Bart, I'll drop this patch.
+Dear folks,
+
+For a while I did not understand why I get
+"RTNETLINK answers: Numerical result out of range"
+message when adding more addresses to an interface.
+
+The attached patch may help some peoples to avoid wasting
+time with investigating this strange error. :-)
+
+Regards
+
+Gabor
+--113323998-838828178-1330766281=:22132
+Content-Type: TEXT/x-diff; name=ip.8-labellength.patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <alpine.DEB.2.00.1203031018000.22132@bakacsin.ki.iif.hu>
+Content-Description: 
+Content-Disposition: attachment; filename=ip.8-labellength.patch
+
+LS0tIGlwLjgub3JpZwkyMDEyLTAzLTAzIDA5OjU2OjAzLjUwNTUxODc3OCAr
+MDEwMA0KKysrIGlwLjgJMjAxMi0wMy0wMyAxMDowNjoxNy42ODU1MTk5NjEg
+KzAxMDANCkBAIC0xMTAzLDYgKzExMDMsMTMgQEANCiB0aGlzIHN0cmluZyBt
+dXN0IGNvaW5jaWRlIHdpdGggdGhlIG5hbWUgb2YgdGhlIGRldmljZSBvciBt
+dXN0IGJlIHByZWZpeGVkDQogd2l0aCB0aGUgZGV2aWNlIG5hbWUgZm9sbG93
+ZWQgYnkgY29sb24uDQogDQorTm90ZTogDQorLkkgTkFNRQ0KK211c3QgYmUg
+c2hvcnRlciB0aGFuDQorLkJSIElGX05BTUVTSVpFDQorKHVzdWFsbHkgMTYp
+IGNoYXJhY3RlcnMuIFRoYXQgaXMgZGVmaW5lZCBpbg0KKy5CUiAiL3Vzci9p
+bmNsdWRlL25ldC9pZi5oIiAuDQorDQogLlRQDQogLkJJIHNjb3BlICIgU0NP
+UEVfVkFMVUUiDQogdGhlIHNjb3BlIG9mIHRoZSBhcmVhIHdoZXJlIHRoaXMg
+YWRkcmVzcyBpcyB2YWxpZC4NCg==
+
+--113323998-838828178-1330766281=:22132--
