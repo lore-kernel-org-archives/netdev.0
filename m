@@ -1,50 +1,38 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/4] e100: Show short v/s long rx length errors in ethtool stats.
-Date: Fri,  2 Mar 2012 18:24:17 -0800
-Message-ID: <1330741468-23900-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Fri,  2 Mar 2012 18:24:14 -0800
+Message-ID: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:26761 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750757Ab2CCCYc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:24:32 -0500
-In-Reply-To: <1330741468-23900-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750757Ab2CCCYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:24:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+This series of patches contains fixes e100 and DCB (ixgbe, bnx2x).
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e100.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+The following are changes since commit b4017c5368f992fb8fb3a2545a0977082c6664e4:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index d2b7872..e498eff 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2661,6 +2661,7 @@ static const char e100_gstrings_stats[][ETH_GSTRING_LEN] = {
- 	"tx_deferred", "tx_single_collisions", "tx_multi_collisions",
- 	"tx_flow_control_pause", "rx_flow_control_pause",
- 	"rx_flow_control_unsupported", "tx_tco_packets", "rx_tco_packets",
-+	"rx_short_frame_errors", "rx_over_length_errors",
- };
- #define E100_NET_STATS_LEN	21
- #define E100_STATS_LEN	ARRAY_SIZE(e100_gstrings_stats)
-@@ -2694,6 +2695,8 @@ static void e100_get_ethtool_stats(struct net_device *netdev,
- 	data[i++] = nic->rx_fc_unsupported;
- 	data[i++] = nic->tx_tco_frames;
- 	data[i++] = nic->rx_tco_frames;
-+	data[i++] = nic->rx_short_frame_errors;
-+	data[i++] = nic->rx_over_length_errors;
- }
- 
- static void e100_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+Ben Greear (2):
+  e100: Fix rx-over-length statistics.
+  e100: Show short v/s long rx length errors in ethtool stats.
+
+John Fastabend (2):
+  ixgbe: dcb: check setup_tc return codes
+  net: dcb: getnumtcs()/setnumtcs() should return an int
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |    4 +-
+ drivers/net/ethernet/intel/e100.c               |    8 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   30 +++++++++++++++-------
+ include/net/dcbnl.h                             |    4 +-
+ 4 files changed, 31 insertions(+), 15 deletions(-)
+
 -- 
 1.7.7.6
