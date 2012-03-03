@@ -1,57 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/4] e100: Fix rx-over-length statistics.
-Date: Fri,  2 Mar 2012 18:26:24 -0800
-Message-ID: <1330741587-24073-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/4] ixgbe: dcb: check setup_tc return codes
+Date: Fri,  2 Mar 2012 18:26:26 -0800
+Message-ID: <1330741587-24073-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:10531 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751529Ab2CCC0b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Mar 2012 21:26:31 -0500
+	id S1751982Ab2CCC0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Mar 2012 21:26:32 -0500
 In-Reply-To: <1330741587-24073-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-The old code would += the total errors every time
-stats were gathered.  Instead, keep a count of short-pkt
-and long-pkt counters and then simply add them together
-for the rx-over-length stat.
+dcb netlink code calls setup_tc to init hardware traffic classes
+to use for DCB. At some call sites the return values are not
+checked for errors and in one case may return -EINVAL back to
+the net/dcbnl.c caller which is expecting a u8.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This fixes some smatch hits and although failures are never
+seen in practive its best to check return codes.
+
+Reported-by: Dan Carenter <dan.carpenter@oracle.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e100.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   26 +++++++++++++++-------
+ 1 files changed, 18 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 4d8a616..d2b7872 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -622,6 +622,7 @@ struct nic {
- 	u32 rx_fc_pause;
- 	u32 rx_fc_unsupported;
- 	u32 rx_tco_frames;
-+	u32 rx_short_frame_errors;
- 	u32 rx_over_length_errors;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 79a92fe..95e5d11 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -111,7 +111,7 @@ static u8 ixgbe_dcbnl_get_state(struct net_device *netdev)
  
- 	u16 eeprom_wc;
-@@ -1622,7 +1623,9 @@ static void e100_update_stats(struct nic *nic)
- 		ns->collisions += nic->tx_collisions;
- 		ns->tx_errors += le32_to_cpu(s->tx_max_collisions) +
- 			le32_to_cpu(s->tx_lost_crs);
--		ns->rx_length_errors += le32_to_cpu(s->rx_short_frame_errors) +
-+		nic->rx_short_frame_errors +=
-+			le32_to_cpu(s->rx_short_frame_errors);
-+		ns->rx_length_errors = nic->rx_short_frame_errors +
- 			nic->rx_over_length_errors;
- 		ns->rx_crc_errors += le32_to_cpu(s->rx_crc_errors);
- 		ns->rx_frame_errors += le32_to_cpu(s->rx_alignment_errors);
+ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ {
+-	u8 err = 0;
++	int err = 0;
+ 	u8 prio_tc[MAX_USER_PRIORITY] = {0};
+ 	int i;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+@@ -122,7 +122,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 
+ 	/* verify there is something to do, if not then exit */
+ 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+-		return err;
++		goto out;
+ 
+ 	if (state > 0) {
+ 		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
+@@ -131,10 +131,14 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 		err = ixgbe_setup_tc(netdev, 0);
+ 	}
+ 
++	if (err)
++		goto out;
++
+ 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
+ 		netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
+ 
+-	return err;
++out:
++	return err ? 1 : 0;
+ }
+ 
+ static void ixgbe_dcbnl_get_perm_hw_addr(struct net_device *netdev,
+@@ -581,7 +585,7 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+-	int i;
++	int i, err = 0;
+ 	__u8 max_tc = 0;
+ 
+ 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
+@@ -608,12 +612,17 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 		return -EINVAL;
+ 
+ 	if (max_tc != netdev_get_num_tc(dev))
+-		ixgbe_setup_tc(dev, max_tc);
++		err = ixgbe_setup_tc(dev, max_tc);
++
++	if (err)
++		goto err_out;
+ 
+ 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
+ 		netdev_set_prio_tc_map(dev, i, ets->prio_tc[i]);
+ 
+-	return ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
++	err = ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
++err_out:
++	return err;
+ }
+ 
+ static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
+@@ -726,6 +735,7 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ieee_ets ets = {0};
+ 	struct ieee_pfc pfc = {0};
++	int err = 0;
+ 
+ 	/* no support for LLD_MANAGED modes or CEE+IEEE */
+ 	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
+@@ -756,10 +766,10 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+ 		 */
+ 		ixgbe_dcbnl_ieee_setets(dev, &ets);
+ 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
+-		ixgbe_setup_tc(dev, 0);
++		err = ixgbe_setup_tc(dev, 0);
+ 	}
+ 
+-	return 0;
++	return err ? 1 : 0;
+ }
+ 
+ const struct dcbnl_rtnl_ops dcbnl_ops = {
 -- 
 1.7.7.6
