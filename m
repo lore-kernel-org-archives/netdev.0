@@ -1,76 +1,118 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
-Date: Sat, 3 Mar 2012 07:19:35 -0800
-Message-ID: <CAK6E8=dZ0+L3cvWQhZec43TYU8kPYrTDO6UC7JwpGQPCXoUkiA@mail.gmail.com>
-References: <1330760211-25785-1-git-send-email-ncardwell@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+Date: Sat,  3 Mar 2012 21:17:43 +0530
+Message-ID: <1330789663-30481-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-tul01m020-f174.google.com ([209.85.214.174]:32800 "EHLO
-	mail-tul01m020-f174.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753850Ab2CCPT4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Mar 2012 10:19:56 -0500
-Received: by obbuo6 with SMTP id uo6so2674630obb.19
-        for <netdev@vger.kernel.org>; Sat, 03 Mar 2012 07:19:55 -0800 (PST)
-In-Reply-To: <1330760211-25785-1-git-send-email-ncardwell@google.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:34242 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968Ab2CCPso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 10:48:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 2, 2012 at 11:36 PM, Neal Cardwell <ncardwell@google.com> w=
-rote:
-> In tcp_mark_head_lost() we should not attempt to fragment a SACKed sk=
-b
-> to mark the first portion as lost. This is for two primary reasons:
->
-> (1) tcp_shifted_skb() coalesces adjacent regions of SACKed skbs. When
-> doing this, it preserves the sum of their packet counts in order to
-> reflect the real-world dynamics on the wire. But given that skbs can
-> have remainders that do not align to MSS boundaries, this packet coun=
-t
-> preservation means that for SACKed skbs there is not necessarily a
-> direct linear relationship between tcp_skb_pcount(skb) and
-> skb->len. Thus tcp_mark_head_lost()'s previous attempts to fragment
-> off and mark as lost a prefix of length (packets - oldcnt)*mss from
-> SACKed skbs were leading to occasional failures of the WARN_ON(len >
-> skb->len) in tcp_fragment() (which used to be a BUG_ON(); see the
-> recent "crash in tcp_fragment" thread on netdev).
->
-> (2) there is no real point in fragmenting off part of a SACKed skb an=
-d
-> calling tcp_skb_mark_lost() on it, since tcp_skb_mark_lost() is a NOP
-> for SACKed skbs.
->
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-Thanks for spending a lot of time on this obscure bug.
+Fix endian bug.
 
-> ---
-> =A0net/ipv4/tcp_input.c | =A0 =A01 +
-> =A01 files changed, 1 insertions(+), 0 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index ee42d42..d9b83d1 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2569,6 +2569,7 @@ static void tcp_mark_head_lost(struct sock *sk,=
- int packets, int mark_head)
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (cnt > packets) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((tcp_is_sack(tp) &=
-& !tcp_is_fack(tp)) ||
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (TCP_SKB_CB(skb=
-)->sacked & TCPCB_SACKED_ACKED) ||
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(oldcnt >=3D p=
-ackets))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
->
-> --
-> 1.7.7.3
->
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |   12 +++++++-----
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    2 +-
+ 3 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 2eeac32..b5de8a7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
+ 
+ struct nx_vlan_ip_list {
+ 	struct list_head list;
+-	u32 ip_addr;
++	__be32 ip_addr;
+ };
+ 
+ /*
+@@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct nx_host_sds_ring *sds_ring, int max);
+ void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
+ int netxen_config_rss(struct netxen_adapter *adapter, int enable);
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd);
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd);
+ int netxen_linkevent_request(struct netxen_adapter *adapter, int enable);
+ void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
+ void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 6f37470..0f81287 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -909,10 +909,11 @@ int netxen_config_rss(struct netxen_adapter *adapter, int enable)
+ 	return rv;
+ }
+ 
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd)
+ {
+ 	nx_nic_req_t req;
+ 	u64 word;
++	u64 ip_addr;
+ 	int rv;
+ 
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+@@ -922,7 +923,8 @@ int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
+ 	req.req_hdr = cpu_to_le64(word);
+ 
+ 	req.words[0] = cpu_to_le64(cmd);
+-	req.words[1] = cpu_to_le64(ip);
++	ip_addr = be32_to_cpu(ip);
++	*(__be64 *)&req.words[1] = cpu_to_be64(ip_addr);
+ 
+ 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+ 	if (rv != 0) {
+@@ -1050,7 +1052,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ 	if (netxen_get_flash_block(adapter, offset, sizeof(u64), pmac) == -1)
+ 		return -1;
+ 
+-	if (*mac == cpu_to_le64(~0ULL)) {
++	if (*mac == ~0ULL) {
+ 
+ 		offset = NX_OLD_MAC_ADDR_OFFSET +
+ 			(adapter->portnum * sizeof(u64));
+@@ -1059,7 +1061,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ 					offset, sizeof(u64), pmac) == -1)
+ 			return -1;
+ 
+-		if (*mac == cpu_to_le64(~0ULL))
++		if (*mac == ~0ULL)
+ 			return -1;
+ 	}
+ 	return 0;
+@@ -2178,7 +2180,7 @@ lock_try:
+ 		NX_WR_DUMP_REG(FLASH_ROM_WINDOW, adapter->ahw.pci_base0, waddr);
+ 		raddr = FLASH_ROM_DATA + (fl_addr & 0x0000FFFF);
+ 		NX_RD_DUMP_REG(raddr, adapter->ahw.pci_base0, &val);
+-		*data_buff++ = cpu_to_le32(val);
++		*data_buff++ = val;
+ 		fl_addr += sizeof(val);
+ 	}
+ 	readl((void __iomem *)(adapter->ahw.pci_base0 + NX_FLASH_SEM2_ULK));
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 8dc4a134..70783b4 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 			adapter->driver_mismatch = 1;
+ 			return;
+ 		}
+-		ptr32[i] = cpu_to_le32(val);
++		ptr32[i] = val;
+ 		offset += sizeof(u32);
+ 	}
+ 
+-- 
+1.7.4.4
