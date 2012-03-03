@@ -1,39 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2012-03-01
-Date: Sat, 03 Mar 2012 15:06:54 -0500 (EST)
-Message-ID: <20120303.150654.991645679389171627.davem@davemloft.net>
-References: <20120303164655.GA5275@joana>
-	<20120303.144722.764199641223280924.davem@davemloft.net>
-	<1330805060.7070.18.camel@joe2Laptop>
+From: Yuehai Xu <yuehaixu@gmail.com>
+Subject: How do I know my driver support RSS?
+Date: Sat, 3 Mar 2012 16:25:58 -0500
+Message-ID: <CAEc1PS1j2DL4m7B1Rp9nseqLWsxaXXY+ZJDHra+99c5-WPgYcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: padovan@profusion.mobi, gustavo@padovan.org,
-	johan.hedberg@gmail.com, linville@tuxdriver.com,
-	marcel@holtmann.org, netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38861 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753540Ab2CCUIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 15:08:07 -0500
-In-Reply-To: <1330805060.7070.18.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>, yhxu@wayne.edu,
+	sbw@mit.edu
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 03 Mar 2012 12:04:20 -0800
+Hi,
 
-> It's your choice but I personally think you should
-> give the bluetooth folk a chance to change their style
-> in a single largish whitespace commit immediately post
-> 3.4 akin to the recent isdn one you just pulled.
+The Linux version is 3.1.4,
 
-They didn't just continue to use existing coding style, they also
-screwed up things that were done correctly.
+ethtool -i eth0:
+driver: bnx2
+version: 2.1.11
+firmware-version: 5.2.7 bc 5.2.2 NCSI 2.0.8
+bus-info: 0000:01:00.0
 
-The struct member tabbing thing is just one example.
+cat /proc/interrupts | grep eth0:
+  75:   21055507          0          0          0          0
+0          0          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-0
+  76:      13525   16727512          0          0          0
+0          0          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-1
+  77:      11057          0   15796802          0          0
+0          0          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-2
+  78:     186481          0          0   31960030          0
+0          0          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-3
+  79:     122343          0          0          0   32711648
+0          0          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-4
+  80:     391642          0          0          0          0
+164243994          0          0          0          0          0
+   0          0          0          0          0          0          0
+         0          0          0          0          0          0
+PCI-MSI-edge      eth0-5
+  81:     681084          0          0          0          0
+0   41645128          0          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-6
+  82:      39207          0          0          0          0
+0          0   30973807          0          0          0          0
+      0          0          0          0          0          0
+ 0          0          0          0          0          0
+PCI-MSI-edge      eth0-7
 
-I already gave them a free one-time pull even though I disagreed with
-what was in their tree.  I'm not going to continually review new code
-that isn't styled properly.
+>From /proc/interrupts I know that my network card has 8 rx/tx queues.
+However, after reading
+http://code.google.com/p/kernel/wiki/NetScalingGuide#RSS:_Receive_Side_Scaling,
+I still have no idea whether I have enabled RSS for my network card.
+
+Since I read the following statements from a paper, "we use a separate
+hardware receive and transmit queue for each core and configure the
+IXGBE to inspect the port number in each incoming packet header, place
+the packet on the queue dedicated to the associated memcached's core,
+and deliver the receive interrupt to that core." and the background of
+this configuration is that each memcached is pinned to a separate core
+and has its own UDP port. It seems that IXGBE's driver can detect UDP
+packets according to their port numbers and put these packets into
+corresponding receive queues in the hardware, is this achieved by
+configuring RSS in IXGBE? If it is, I am wondering whether bnx2
+supports RSS and whether it can configure in the same way.
+
+I appreciate any help for this.
+
+Thanks,
+Yuehai
