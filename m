@@ -1,67 +1,43 @@
-From: "John A. Sullivan III" <jsullivan@opensourcedevel.com>
-Subject: Re: Requeues
-Date: Sat, 03 Mar 2012 05:13:57 -0500
-Message-ID: <1330769637.4671.193.camel@denise.theartistscloset.com>
-References: <1330753728.4671.190.camel@denise.theartistscloset.com>
-	 <4F51C01C.3040208@intel.com>
+From: Martin Mares <mj@ucw.cz>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Sat, 3 Mar 2012 13:20:14 +0100
+Message-ID: <mj+md-20120303.121749.5041.albireo@ucw.cz>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+ <20120301.170848.432407217191581288.davem@davemloft.net>
+ <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+ <20120302.035509.1994457175982020283.davem@davemloft.net>
+ <CABBYNZJWKGpkK2mSbGCQ2KkE+jC3ih-wR3JQZSMgj7AYhbxeuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.perfora.net ([74.208.4.195]:57957 "EHLO mout.perfora.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751948Ab2CCKOC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Mar 2012 05:14:02 -0500
-In-Reply-To: <4F51C01C.3040208@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	javier.martinez@collabora.co.uk, rodrigo.moya@collabora.co.uk,
+	javier@collabora.co.uk, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CABBYNZJWKGpkK2mSbGCQ2KkE+jC3ih-wR3JQZSMgj7AYhbxeuw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-03-02 at 22:54 -0800, John Fastabend wrote:
-> On 3/2/2012 9:48 PM, John A. Sullivan III wrote:
-> > Hello, all.  I am seeing a small but significant number of requeues on
-> > our pfifo_fast qdiscs.  I've not been able to find much on what this
-> > means but the little I have implies it may be a problem with the
-> > physical interfaces.  However, these are fairly high end systems with
-> > Intel e1000 quad port cards.
-> > 
-> > We thought it might have something to do with the bonded interfaces so
-> > we checked some other high end systems without bonded interfaces but the
-> > same quad port cards and, lo and behold, the same small but significant
-> > number of requeues.
-> > 
-> > Is this normal or does it indicate a problem somewhere? Thanks - John
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> One of two things can happen to cause the requeue counter to increment.
-> 
-> When the qdisc dequeues a packet it then gets enqueued in yet another
-> queue in the e1000 driver. If the qdisc is dequeueing packets faster
-> than the hardware can consume them the driver will return a
-> NETDEV_TX_BUSY error. This causes the qdisc to 'requeue' the packet and
-> in the process increments this counter. 
-> 
-> The gist is pfifo_fast dequeued a packet tried to give it to e1000 which
-> pushed back so pfifo_fast put the packet back on the queue.
-> 
-> By the way you can tune the size of the e1000 queues manually by playing
-> with:
-> 
-> 	/sys/class/net/ethx/tx_queue_len
-> 
-> But you likely don't want to make them any larger else you'll hit the
-> buffer bloat problem. I'm guessing we should add byte queue limit support
-> here.
-> 
-> The second way to trigger this is multiple cpus contending for a lock.
-> 
-> In short requeue counts as long as its not excessive are just part 
-> of normal operation. So shouldn't be a problem.
-<snip>
-Thank you very much.  I was not aware of CPU contention being a cause.
-We did notice the problem primarily on systems with 8 to 16 cores - John
+Hello!
+
+> Instead we should add many times that into dbus-daemon and do IP
+> multicast, am I missing something?
+
+I completely agree with Alan that if routing all messages through
+DBUS daemon is a bottleneck, then something is seriously wrong with
+the way the applications use the message bus.
+
+Also, you mentioned the need of passing fd's between applications.
+If I understand correctly, it is a rare case and if you handle such
+messages in the same way as before, it won't hurt performance.
+
+				Have a nice fortnight
+-- 
+Martin `MJ' Mares                          <mj@ucw.cz>   http://mj.ucw.cz/
+Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
+Even nostalgia isn't what it used to be.
