@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: mdio.h: Include linux/types.h
-Date: Sat, 03 Mar 2012 15:07:47 -0500 (EST)
-Message-ID: <20120303.150747.1442564440565400238.davem@davemloft.net>
+Subject: Re: pull request: bluetooth-next 2012-03-01
+Date: Sat, 03 Mar 2012 15:06:54 -0500 (EST)
+Message-ID: <20120303.150654.991645679389171627.davem@davemloft.net>
+References: <20120303164655.GA5275@joana>
+	<20120303.144722.764199641223280924.davem@davemloft.net>
+	<1330805060.7070.18.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: padovan@profusion.mobi, gustavo@padovan.org,
+	johan.hedberg@gmail.com, linville@tuxdriver.com,
+	marcel@holtmann.org, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38853 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38861 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505Ab2CCUHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 15:07:49 -0500
-Received: from localhost (cpe-66-65-56-15.nyc.res.rr.com [66.65.56.15])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q23K7lLr023016
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 3 Mar 2012 12:07:48 -0800
+	with ESMTP id S1753540Ab2CCUIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 15:08:07 -0500
+In-Reply-To: <1330805060.7070.18.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Joe Perches <joe@perches.com>
+Date: Sat, 03 Mar 2012 12:04:20 -0800
 
-Fixes:
+> It's your choice but I personally think you should
+> give the bluetooth folk a chance to change their style
+> in a single largish whitespace commit immediately post
+> 3.4 akin to the recent isdn one you just pulled.
 
-/home/davem/src/GIT/net-next/usr/include/linux/mdio.h:271: found __[us]{8,16,32,64} type without #include <linux/types.h>
+They didn't just continue to use existing coding style, they also
+screwed up things that were done correctly.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/linux/mdio.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+The struct member tabbing thing is just one example.
 
-diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-index ec90da7..dfb9479 100644
---- a/include/linux/mdio.h
-+++ b/include/linux/mdio.h
-@@ -10,6 +10,7 @@
- #ifndef __LINUX_MDIO_H__
- #define __LINUX_MDIO_H__
- 
-+#include <linux/types.h>
- #include <linux/mii.h>
- 
- /* MDIO Manageable Devices (MMDs). */
--- 
-1.7.7.6
+I already gave them a free one-time pull even though I disagreed with
+what was in their tree.  I'm not going to continually review new code
+that isn't styled properly.
