@@ -1,66 +1,87 @@
-From: "Kiss Gabor (Bitman)" <kissg@ssg.ki.iif.hu>
-Subject: Patch to ip(8) manpage
-Date: Sat, 3 Mar 2012 10:18:01 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1203031007180.22132@bakacsin.ki.iif.hu>
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Subject: Re: [PATCH 1/3] qla3xxx: ethernet: Fix bogus interrupt state flag.
+Date: Sat, 3 Mar 2012 15:01:25 +0530
+Message-ID: <CAOD=uF54P9iZF=gtk6W=53T+857udZbbH_zVfOrDHBUCo=Fh9Q@mail.gmail.com>
+References: <1330700945-18195-1-git-send-email-santoshprasadnayak@gmail.com>
+	<1330702146.2611.1.camel@bwh-desktop>
+	<CAOD=uF5ebyA-yd8T8nXd9vYRw1yvFKVQd9TmcBwMnxFs6enKvA@mail.gmail.com>
+	<20120302.161332.2236794166581618113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="113323998-838828178-1330766281=:22132"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from strudel.ki.iif.hu ([193.6.222.244]:59619 "EHLO
-	strudel.ki.iif.hu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855Ab2CCJZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Mar 2012 04:25:54 -0500
-Received: from cirkusz.lvs.iif.hu (cirkusz.lvs.iif.hu [193.225.14.182])
-	by strudel.ki.iif.hu (Postfix) with ESMTP id EA610167
-	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:03 +0100 (CET)
-Received: from strudel.ki.iif.hu ([IPv6:::ffff:193.6.222.244])
-	by cirkusz.lvs.iif.hu (cirkusz.lvs.iif.hu [::ffff:193.225.14.72]) (amavisd-new, port 10024)
-	with ESMTP id xuQKiLmZh4ws for <netdev@vger.kernel.org>;
-	Sat,  3 Mar 2012 10:18:01 +0100 (CET)
-Received: from bakacsin.ki.iif.hu (bakacsin.ki.iif.hu [193.6.222.47])
-	by strudel.ki.iif.hu (Postfix) with ESMTP id ACDCC166
-	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:01 +0100 (CET)
-Received: from localhost (localhost [127.0.0.1])
-	by bakacsin.ki.iif.hu (Postfix) with ESMTP id 05CBF9138C4
-	for <netdev@vger.kernel.org>; Sat,  3 Mar 2012 10:18:01 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, jitendra.kalsaria@qlogic.com,
+	ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120302.161332.2236794166581618113.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sat, Mar 3, 2012 at 2:43 AM, David Miller <davem@davemloft.net> wrot=
+e:
+> From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+> Date: Fri, 2 Mar 2012 21:24:29 +0530
+>
+>> In "ql_adapter_initialize", first unlock is done by
+>> "spin_unlock_irqrestore(&qdev->hw_lock, hw_flags)"
+>> with "hw_flags =3D 0" =A0 ("hw_flags" is local variable and initiali=
+zed to
+>> zero.), =A0 which is as good as
+>> spin_unlock_irq.
+>
+> You must never pass to irqrestore anything other than a hw_flags
+> value given by irqsave or similar.
 
---113323998-838828178-1330766281=:22132
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+David,
 
-Dear folks,
+Thats what my point is.
 
-For a while I did not understand why I get
-"RTNETLINK answers: Numerical result out of range"
-message when adding more addresses to an interface.
+The function call is as follow:
 
-The attached patch may help some peoples to avoid wasting
-time with investigating this strange error. :-)
+ql_adapter_up()
+{
+         .....
+   spin_lock_irqsave(&qdev->hw_lock, hw_flags);
+            .....
+    err =3D ql_adapter_initialize(qdev);
+             .....
+   spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
+            ......
+}
+
+ql_adapter_initialize()
+{
+    unsigned long hw_flags =3D 0;   // D
+        .......
+   spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);  // A
+   msleep(500);                                                        =
+ // B
+   spin_lock_irqsave(&qdev->hw_lock, hw_flags);        // C
+        .....
+}
+
+In ql_adapter_initialize, at A,
+'spin_unlock_irqrestore'  is called with "hw_flags =3D 0",
+which is as good as spin_unlock_irq().
+
+Static analyzer is showing it as "Error : bogus hw_flags",
+which is true. Because "hw_flags" is initialized to zero at D
+and the same  "hw_flags" is used to restore IRQ at A.
+
+If intention of the developer is to unlock and enable IRQ
+at A then we can use "spin_unlock_irq()"  which will
+remove the static analyzer error and also give better
+performance.
+
 
 Regards
+Santosh
 
-Gabor
---113323998-838828178-1330766281=:22132
-Content-Type: TEXT/x-diff; name=ip.8-labellength.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <alpine.DEB.2.00.1203031018000.22132@bakacsin.ki.iif.hu>
-Content-Description: 
-Content-Disposition: attachment; filename=ip.8-labellength.patch
 
-LS0tIGlwLjgub3JpZwkyMDEyLTAzLTAzIDA5OjU2OjAzLjUwNTUxODc3OCAr
-MDEwMA0KKysrIGlwLjgJMjAxMi0wMy0wMyAxMDowNjoxNy42ODU1MTk5NjEg
-KzAxMDANCkBAIC0xMTAzLDYgKzExMDMsMTMgQEANCiB0aGlzIHN0cmluZyBt
-dXN0IGNvaW5jaWRlIHdpdGggdGhlIG5hbWUgb2YgdGhlIGRldmljZSBvciBt
-dXN0IGJlIHByZWZpeGVkDQogd2l0aCB0aGUgZGV2aWNlIG5hbWUgZm9sbG93
-ZWQgYnkgY29sb24uDQogDQorTm90ZTogDQorLkkgTkFNRQ0KK211c3QgYmUg
-c2hvcnRlciB0aGFuDQorLkJSIElGX05BTUVTSVpFDQorKHVzdWFsbHkgMTYp
-IGNoYXJhY3RlcnMuIFRoYXQgaXMgZGVmaW5lZCBpbg0KKy5CUiAiL3Vzci9p
-bmNsdWRlL25ldC9pZi5oIiAuDQorDQogLlRQDQogLkJJIHNjb3BlICIgU0NP
-UEVfVkFMVUUiDQogdGhlIHNjb3BlIG9mIHRoZSBhcmVhIHdoZXJlIHRoaXMg
-YWRkcmVzcyBpcyB2YWxpZC4NCg==
 
---113323998-838828178-1330766281=:22132--
+> You may not assume anything about what values hw_flags takes on nor
+> what those values might mean, they are architecture specific so
+> you may not just set it to zero and assume that does anything in
+> particular.
