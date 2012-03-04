@@ -1,151 +1,150 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 1/2] Netfilter: xt_LOG: Implement ring buffer support
-Date: Sun, 04 Mar 2012 22:16:09 +0100
-Message-ID: <4F53DB99.8040503@nod.at>
-References: <1329348480-11147-1-git-send-email-richard@nod.at> <20120304190438.GA24722@1984>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: 3.3-rc6: Reported regressions 3.1 -> 3.2
+Date: Sun,  4 Mar 2012 22:15:40 +0100 (CET)
+Message-ID: <QW36V-vSgyB.A.YIG.i79UPB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, rostedt@goodmis.org, basti@b-bl.de
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120304190438.GA24722@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 04.03.2012 20:04, schrieb Pablo Neira Ayuso:
-> Hi Richard,
->
-> Several comments:
->
-> On Thu, Feb 16, 2012 at 12:27:59AM +0100, Richard Weinberger wrote:
->> This patch introduces NETFILTER_XT_TARGET_LOG_RING.
->> It allows logging into various ring buffers which are
->> represented as pipe-like files in /proc/net/netfilter/xt_LOG_ring/.
->
-> I prefer /proc/net/netfilter/nf_log_ring instead.
+This message contains a list of some post-3.1 regressions introduced be=
+fore
+3.2, for which there are no fixes in the mainline known to the tracking=
+ team.
+If any of them have been fixed already, please let us know.
 
-Okay.
+If you know of any other unresolved post-3.1 regressions, please let us=
+ know
+either and we'll add them to the list.  Also, please let us know if any
+of the entries below are invalid.
 
-> Please, add some short example usage, it can be of help for others.
+Each entry from the list will be sent additionally in an automatic repl=
+y to
+this message with CCs to the people involved in reporting and handling =
+the
+issue.
 
-I'll add one to the manpage and Kconfig.
 
->> Signed-off-by: Richard Weinberger<richard@nod.at>
->> ---
->>   include/linux/netfilter/xt_LOG.h |   12 +-
->>   include/net/netfilter/nf_log.h   |    1 +
->>   include/net/netfilter/xt_log.h   |   22 ++
->>   net/netfilter/Kconfig            |   13 +
->>   net/netfilter/xt_LOG.c           |  631 ++++++++++++++++++++++++++++++++++++-
->>   5 files changed, 660 insertions(+), 19 deletions(-)
->>
->> diff --git a/include/linux/netfilter/xt_LOG.h b/include/linux/netfilter/xt_LOG.h
->> index cac0790..e4b1177 100644
->> --- a/include/linux/netfilter/xt_LOG.h
->> +++ b/include/linux/netfilter/xt_LOG.h
->> @@ -8,7 +8,7 @@
->>   #define XT_LOG_UID		0x08	/* Log UID owning local socket */
->>   #define XT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
->>   #define XT_LOG_MACDECODE	0x20	/* Decode MAC header */
->> -#define XT_LOG_MASK		0x2f
->> +#define XT_LOG_MASK		0x6f
->
-> Not directly related to this but, would you send me the timestamp
-> patch before this one?
+Listed regressions statistics:
 
-Sure.
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2012-03-04        9        8           7
+  2012-02-24        9        8           7
 
->>   struct xt_log_info {
->>   	unsigned char level;
->> @@ -16,4 +16,14 @@ struct xt_log_info {
->>   	char prefix[30];
->>   };
->>
->> +struct xt_log_info_v1 {
->> +	unsigned char level;
->> +	unsigned char logflags;
->> +	char prefix[30];
->> +
->> +	char ring_name[30];
->> +	__aligned_u64 ring_size;
->> +	struct xt_LOG_ring_ctx *rctx __attribute__((aligned(8)));
->> +};
->> +
->>   #endif /* _XT_LOG_H */
->> diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
->> index e991bd0..18a94f9 100644
->> --- a/include/net/netfilter/nf_log.h
->> +++ b/include/net/netfilter/nf_log.h
->> @@ -14,6 +14,7 @@
->>
->>   #define NF_LOG_TYPE_LOG		0x01
->>   #define NF_LOG_TYPE_ULOG	0x02
->> +#define NF_LOG_TYPE_RING	0x04
->>
->>   struct nf_loginfo {
->>   	u_int8_t type;
->> diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
->> index 767e08d..c9a3718 100644
->> --- a/include/net/netfilter/xt_log.h
->> +++ b/include/net/netfilter/xt_log.h
->> @@ -55,3 +55,25 @@ static void __sb_close(struct sbuff *m, int print)
->>   }
->>
->>   #define sb_close(m)	__sb_close(m, 1)
->> +
->> +#ifdef CONFIG_NETFILTER_XT_TARGET_LOG_RING
->> +struct xt_LOG_ring_ctx;
->> +struct xt_LOG_ring_ctx *xt_LOG_ring_new_ctx(const char *name, size_t rb_size);
->> +int xt_LOG_ring_add_record(const struct xt_LOG_ring_ctx *rctx, const char *buf, \
->> +	unsigned int len);
->> +void xt_LOG_ring_get(struct xt_LOG_ring_ctx *ctx);
->> +void xt_LOG_ring_put(struct xt_LOG_ring_ctx *ctx);
->> +struct xt_LOG_ring_ctx *xt_LOG_ring_find_ctx(const char *name);
->> +
->> +void xt_LOG_ring_exit(void);
->> +int xt_LOG_ring_init(void);
->> +#else
->> +static inline void xt_LOG_ring_exit(void)
->> +{
->> +}
->> +
->> +static inline int xt_LOG_ring_init(void)
->> +{
->> +	return 0;
->> +}
->> +#endif
->
-> I think this modification for the .h file is not required anymore,
-> you don't need it anymore.
 
-AFAIK I did not remove this to reduce the #ifdefs in the .c file.
-Will recheck...
+Unresolved regressions
+----------------------
 
->> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
->> index b895d8b..ac62599 100644
->> --- a/net/netfilter/Kconfig
->> +++ b/net/netfilter/Kconfig
->> @@ -533,6 +533,19 @@ config NETFILTER_XT_TARGET_LOG
->>
->>   	  To compile it as a module, choose M here.  If unsure, say N.
->>
->> +if NETFILTER_XT_TARGET_LOG
->> +
->> +config NETFILTER_XT_TARGET_LOG_RING
->> +	bool  'Ring buffer support'
->> +	default y
->> +	select RING_BUFFER
->
-> Please, CC the ring buffer author, I'm not familar with that code and
-> I'll be happy to have an acknowledgment from him stating that the ring
-> buffer bits are OK.
->
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42714
+Subject		: 3.2.x Regression for SAS Controller on Dell C6100
+Submitter	: Herbert Poetzl <herbert-dBHVzrDq9nF4Lj/PQRBjDg@public.gmane.org>
+Date		: 2012-01-31 18:09 (34 days old)
+Message-ID	: <20120131180949.GT29272-ZD0Mn47LIGX0Pe/G4T7+5F6hYfS7NtTn@public.gmane.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132803360019481&w=3D=
+2
 
-Steve is already CC'ed. Steve, can you please review and ack this patch?
-So far I have only an ack for the newly exported ring_buffer symbol.
 
-Thanks,
-//richrd
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42685
+Subject		: multi-media key "mute" no longer recognized
+Submitter	: Toralf F=C3=B6rster <toralf.foerster-Mmb7MZpHnFY@public.gmane.org>
+Date		: 2012-01-23 10:52 (42 days old)
+Message-ID	: <201201231152.25344.toralf.foerster-Mmb7MZpHnFY@public.gmane.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132731613606121&w=3D=
+2
+
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42684
+Subject		: FYIO: usb/video 3.2 breaks logitech 9000pro webcam focus con=
+trol
+Submitter	: M G Berberich <berberic-vmG2aq7wDA3mFSIgyKwhw7NAH6kLmebB@public.gmane.org>
+Date		: 2012-01-23 21:49 (42 days old)
+Message-ID	: <20120123214934.GA4240@invalid>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132735609521443&w=3D=
+2
+
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42631
+Subject		: Sound broken in 3.2.0 and 3.2.1
+Submitter	: Joseph Parmelee <jparmele-0t/HR9YC43JWk0Htik3J/w@public.gmane.org>
+Date		: 2012-01-13 19:44 (52 days old)
+Message-ID	: <alpine.LNX.2.00.1201131241090.1239@bruno>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132648462806235&w=3D=
+2
+
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42629
+Subject		: recvmsg sleeping from invalid context
+Submitter	: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date		: 2012-01-13 18:24 (52 days old)
+Message-ID	: <20120113182401.GA25885-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132647921304184&w=3D=
+2
+
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42611
+Subject		: kernel 3.2 crashes too early on HP dc7700 and HP t5000 serie=
+s
+Submitter	: Dmitry D. Khlebnikov <galaxy-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+Date		: 2012-01-10 11:49 (55 days old)
+Message-ID	: <20120110114905.GC13535-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132619793012702&w=3D=
+2
+
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42610
+Subject		: 3.2.0 reboot powers off machine
+Submitter	: Tom Weber <l_linux-kernel-w8lRr17kQ6puIcIf6OMhTAC/G2K4zDHf@public.gmane.org>
+Date		: 2012-01-11 11:03 (54 days old)
+Message-ID	: <1326279818.24835.12.camel@utumno>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132628059308023&w=3D=
+2
+
+
+Regressions with patches
+------------------------
+
+Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42571
+Subject		: BUG in ofcs2_change_file_space
+Submitter	: Bret Towe <magnade-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2012-01-05 22:23 (60 days old)
+Message-ID	: <CALjC5haTNDMOTDPL1m1uBTc2a-Qb8cvR44SCaVDFMzGc+Gw3+w@mail.=
+gmail.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D132580236211209&w=3D=
+2
+Patch		: http://oss.oracle.com/pipermail/ocfs2-devel/2012-January/00846=
+4.html
+
+
+=46or details, please visit the bug entries and follow the links given =
+in
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 3.1 and 3.2, unresolved as well as resolved, at:
+
+https://bugzilla.kernel.org/show_bug.cgi?id=3D42566
+
+Please let the tracking team know if there are any Bugzilla entries tha=
+t
+should be added to the list in there.
+
+Thanks!
