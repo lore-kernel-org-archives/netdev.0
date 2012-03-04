@@ -1,80 +1,61 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/7] [RFC] cttimeout v2
-Date: Sun,  4 Mar 2012 12:27:51 +0100
-Message-ID: <1330860478-13184-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/7] netfilter: nf_ct_gre: add unsigned int array to define timeouts
+Date: Sun,  4 Mar 2012 12:27:54 +0100
+Message-ID: <1330860478-13184-4-git-send-email-pablo@netfilter.org>
+References: <1330860478-13184-1-git-send-email-pablo@netfilter.org>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49030 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752947Ab2CDL2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Mar 2012 06:28:11 -0500
+In-Reply-To: <1330860478-13184-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Hi,
+This patch adds an array to define the default GRE timeouts.
 
-The following patchset contains the cttimeout infrastructure. It
-allows you to define fine-grain timeout policies for the conntrack
-system. So far, only global timeouts could be set:
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_proto_gre.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
 
-1) create the timeout policy:
-
- nfct timeout add tcp-policy0 inet tcp \
-    established 1000 close 10 time_wait 10 last_ack 10
-
-2) attach the timeout policy to the packet:
-
- iptables -I PREROUTING -t raw -p tcp -j CT --timeout tcp-policy0
-
-You have to install the following user-space software:
-
-a) libnetfilter_cttimeout:
-   git://git.netfilter.org/libnetfilter_cttimeout
-
-b) nfct:
-   git://git.netfilter.org/nfct
-
-You also have to get iptables with -j CT --timeout support. See the
-cttimeout2 branch at git://git.netfilter.org/iptables.
-
-Pablo Neira Ayuso (7):
-  netfilter: nf_ct_udp[lite]: convert UDP[lite] timeouts to array
-  netfilter: nf_ct_tcp: move retransmission and unacknowledged timeout
-    to array
-  netfilter: nf_ct_gre: add unsigned int array to define timeouts
-  netfilter: nf_conntrack: pass timeout array to l4->new and l4->packet
-  netfilter: add cttimeout infrastructure for fine timeout tuning
-  netfilter: nf_ct_ext: add timeout extension
-  netfilter: xt_CT: allow to attach timeout policy + glue code
-
- include/linux/netfilter/Kbuild                 |    1 +
- include/linux/netfilter/nf_conntrack_tcp.h     |    5 +-
- include/linux/netfilter/nfnetlink.h            |    3 +-
- include/linux/netfilter/nfnetlink_cttimeout.h  |  114 +++++++
- include/linux/netfilter/xt_CT.h                |   12 +
- include/net/netfilter/nf_conntrack_extend.h    |    4 +
- include/net/netfilter/nf_conntrack_l4proto.h   |   19 +-
- include/net/netfilter/nf_conntrack_timeout.h   |   78 +++++
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   60 ++++-
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   60 ++++-
- net/netfilter/Kconfig                          |   21 ++
- net/netfilter/Makefile                         |    2 +
- net/netfilter/nf_conntrack_core.c              |   34 ++-
- net/netfilter/nf_conntrack_proto_dccp.c        |   86 +++++-
- net/netfilter/nf_conntrack_proto_generic.c     |   77 ++++-
- net/netfilter/nf_conntrack_proto_gre.c         |   82 +++++-
- net/netfilter/nf_conntrack_proto_sctp.c        |   83 +++++-
- net/netfilter/nf_conntrack_proto_tcp.c         |  168 +++++++++-
- net/netfilter/nf_conntrack_proto_udp.c         |  106 ++++++-
- net/netfilter/nf_conntrack_proto_udplite.c     |  103 ++++++-
- net/netfilter/nf_conntrack_timeout.c           |   60 ++++
- net/netfilter/nfnetlink_cttimeout.c            |  419 ++++++++++++++++++++++++
- net/netfilter/xt_CT.c                          |  220 ++++++++++++-
- 23 files changed, 1722 insertions(+), 95 deletions(-)
- create mode 100644 include/linux/netfilter/nfnetlink_cttimeout.h
- create mode 100644 include/net/netfilter/nf_conntrack_timeout.h
- create mode 100644 net/netfilter/nf_conntrack_timeout.c
- create mode 100644 net/netfilter/nfnetlink_cttimeout.c
-
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index f033879..8144f22 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -41,8 +41,16 @@
+ #include <linux/netfilter/nf_conntrack_proto_gre.h>
+ #include <linux/netfilter/nf_conntrack_pptp.h>
+ 
+-#define GRE_TIMEOUT		(30 * HZ)
+-#define GRE_STREAM_TIMEOUT	(180 * HZ)
++enum grep_conntrack {
++	GRE_CT_UNREPLIED,
++	GRE_CT_REPLIED,
++	GRE_CT_MAX
++};
++
++static unsigned int gre_timeouts[GRE_CT_MAX] = {
++	[GRE_CT_UNREPLIED]	= 30*HZ,
++	[GRE_CT_REPLIED]	= 180*HZ,
++};
+ 
+ static int proto_gre_net_id __read_mostly;
+ struct netns_proto_gre {
+@@ -259,8 +267,8 @@ static bool gre_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 
+ 	/* initialize to sane value.  Ideally a conntrack helper
+ 	 * (e.g. in case of pptp) is increasing them */
+-	ct->proto.gre.stream_timeout = GRE_STREAM_TIMEOUT;
+-	ct->proto.gre.timeout = GRE_TIMEOUT;
++	ct->proto.gre.stream_timeout = gre_timeouts[GRE_CT_REPLIED];
++	ct->proto.gre.timeout = gre_timeouts[GRE_CT_UNREPLIED];
+ 
+ 	return true;
+ }
 -- 
 1.7.7.3
-
