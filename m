@@ -1,181 +1,135 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: [PATCH 1/3] ppp: Change copyright notices from ANU to me
-Date: Mon, 5 Mar 2012 09:54:54 +1100
-Message-ID: <20120304225453.GB10646@bloggs.ozlabs.ibm.com>
-References: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: add byte queue limit support.
+Date: Sun, 04 Mar 2012 15:39:09 -0800
+Message-ID: <1330904349.2474.4.camel@edumazet-laptop>
+References: <20120304093727.GA5115@Spy32>
+	 <1330875881.2730.15.camel@edumazet-laptop>
+	 <20120304232453.GA32314@electric-eye.fr.zoreil.com>
+	 <20120304232818.GA32324@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Kiszka <jan.kiszka@siemens.com>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Junchang Wang <junchangwang@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Igor Maravic <igorm@etf.rs>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:51942 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755994Ab2CDXjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 18:39:12 -0500
+Received: by dadp12 with SMTP id p12so4248163dad.11
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 15:39:11 -0800 (PST)
+In-Reply-To: <20120304232818.GA32324@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This changes the copyright notices on the PPP code that I developed
-in the late 1990s from being copyright The Australian National
-University to copyright Paul Mackerras.  I can do this as I have an
-acknowledgement in writing from the Head of the Computer Science
-Department at ANU (where I worked then) that ANU does not claim any
-intellectual property in this code.
-
-While I'm at it, change the copyright notice from BSD-style to
-GNU GPL like the rest of the kernel.
-
-Signed-off-by: Paul Mackerras <paulus@samba.org>
+Le lundi 05 mars 2012 =C3=A0 00:28 +0100, Francois Romieu a =C3=A9crit =
+:
+> Btw the stuff below and the 64bits stats overlap. Both could
+> go together.
+>=20
+> From: Igor Maravic <igorm@etf.rs>
+> Date: Mon, 5 Mar 2012 00:01:25 +0100
+> Subject: [PATCH 2/2] r8169: add byte queue limit support.
+>=20
+> Nothing fancy:
+> - sent bytes count is notified in the start_xmit path right before
+>   updating the owner bit in the hardware Tx descriptor (E. Dumazet)
+> - avoid useless tp->dev dereferencing in start_xmit (E. Dumazet)
+>=20
+> Use of netdev_reset_queue is favored over proper accounting in
+> rtl8169_tx_clear_range since the latter would need more work for the
+> same result (nb: said accounting degenerates to nothing in xmit_frags=
+).
+>=20
+> Signed-off-by: Igor Maravic <igorm@etf.rs>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c |   27 ++++++++++++++++++++++--=
 ---
- drivers/net/ppp/ppp_deflate.c |   30 ++++--------------------------
- include/linux/ppp-comp.h      |   38 ++++----------------------------------
- include/linux/ppp_defs.h      |   38 ++++----------------------------------
- 3 files changed, 12 insertions(+), 94 deletions(-)
+>  1 files changed, 22 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
+net/realtek/r8169.c
+> index a4d7674..515a7ed 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -5399,6 +5399,7 @@ static void rtl8169_tx_clear(struct rtl8169_pri=
+vate *tp)
+>  {
+>  	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
+>  	tp->cur_tx =3D tp->dirty_tx =3D 0;
+> +	netdev_reset_queue(tp->dev);
+>  }
+> =20
+>  static void rtl_reset_work(struct rtl8169_private *tp)
+> @@ -5553,6 +5554,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk=
+_buff *skb,
+> =20
+>  	txd->opts2 =3D cpu_to_le32(opts[1]);
+> =20
+> +	netdev_sent_queue(dev, skb->len);
+> +
+>  	wmb();
+> =20
+>  	/* Anti gcc 2.95.3 bugware (sic) */
+> @@ -5647,9 +5650,16 @@ static void rtl8169_pcierr_interrupt(struct ne=
+t_device *dev)
+>  	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
+>  }
+> =20
+> +struct rtl_txc {
+> +	int packets;
+> +	int bytes;
+> +};
+> +
+>  static void rtl_tx(struct net_device *dev, struct rtl8169_private *t=
+p)
+>  {
+> +	struct rtl8169_stats *tx_stats =3D &tp->tx_stats;
+>  	unsigned int dirty_tx, tx_left;
+> +	struct rtl_txc txc =3D { 0, 0 };
+> =20
+>  	dirty_tx =3D tp->dirty_tx;
+>  	smp_rmb();
+> @@ -5668,17 +5678,24 @@ static void rtl_tx(struct net_device *dev, st=
+ruct rtl8169_private *tp)
+>  		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+>  				     tp->TxDescArray + entry);
+>  		if (status & LastFrag) {
+> -			u64_stats_update_begin(&tp->tx_stats.syncp);
+> -			tp->tx_stats.packets++;
+> -			tp->tx_stats.bytes +=3D tx_skb->skb->len;
+> -			u64_stats_update_end(&tp->tx_stats.syncp);
+> -			dev_kfree_skb(tx_skb->skb);
+> +			struct sk_buff *skb =3D tx_skb->skb;
+> +
+> +			txc.packets++;
+> +			txc.bytes +=3D skb->len;
+> +			dev_kfree_skb(skb);
+>  			tx_skb->skb =3D NULL;
+>  		}
+>  		dirty_tx++;
+>  		tx_left--;
+>  	}
+> =20
+> +	u64_stats_update_begin(&tx_stats->syncp);
+> +	tx_stats->packets +=3D txc.packets;
+> +	tx_stats->bytes +=3D txc.bytes;
+> +	u64_stats_update_end(&tx_stats->syncp);
+> +
+> +	netdev_completed_queue(dev, txc.packets, txc.bytes);
+> +
+>  	if (tp->dirty_tx !=3D dirty_tx) {
+>  		tp->dirty_tx =3D dirty_tx;
+>  		/* Sync with rtl8169_start_xmit:
 
-diff --git a/drivers/net/ppp/ppp_deflate.c b/drivers/net/ppp/ppp_deflate.c
-index 1dbdf82..602c625 100644
---- a/drivers/net/ppp/ppp_deflate.c
-+++ b/drivers/net/ppp/ppp_deflate.c
-@@ -1,34 +1,12 @@
- /*
-- *  ==FILEVERSION 980319==
-- *
-  * ppp_deflate.c - interface the zlib procedures for Deflate compression
-  * and decompression (as used by gzip) to the PPP code.
-- * This version is for use with Linux kernel 1.3.X.
-- *
-- * Copyright (c) 1994 The Australian National University.
-- * All rights reserved.
-- *
-- * Permission to use, copy, modify, and distribute this software and its
-- * documentation is hereby granted, provided that the above copyright
-- * notice appears in all copies.  This software is provided without any
-- * warranty, express or implied. The Australian National University
-- * makes no representations about the suitability of this software for
-- * any purpose.
-- *
-- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
-- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-- * THE AUSTRALIAN NATIONAL UNIVERSITY HAS BEEN ADVISED OF THE POSSIBILITY
-- * OF SUCH DAMAGE.
-  *
-- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
-- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
-- * OR MODIFICATIONS.
-+ * Copyright 1994-1998 Paul Mackerras.
-  *
-- * From: deflate.c,v 1.1 1996/01/18 03:17:48 paulus Exp
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  version 2 as published by the Free Software Foundation.
-  */
- 
- #include <linux/module.h>
-diff --git a/include/linux/ppp-comp.h b/include/linux/ppp-comp.h
-index b8d4ddd..e53ff65 100644
---- a/include/linux/ppp-comp.h
-+++ b/include/linux/ppp-comp.h
-@@ -1,42 +1,12 @@
- /*
-  * ppp-comp.h - Definitions for doing PPP packet compression.
-  *
-- * Copyright (c) 1994 The Australian National University.
-- * All rights reserved.
-+ * Copyright 1994-1998 Paul Mackerras.
-  *
-- * Permission to use, copy, modify, and distribute this software and its
-- * documentation is hereby granted, provided that the above copyright
-- * notice appears in all copies.  This software is provided without any
-- * warranty, express or implied. The Australian National University
-- * makes no representations about the suitability of this software for
-- * any purpose.
-- *
-- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
-- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
-- * OF SUCH DAMAGE.
-- *
-- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
-- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
-- * OR MODIFICATIONS.
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  version 2 as published by the Free Software Foundation.
-  */
--
--/*
-- *  ==FILEVERSION 980319==
-- *
-- *  NOTE TO MAINTAINERS:
-- *     If you modify this file at all, please set the above date.
-- *     ppp-comp.h is shipped with a PPP distribution as well as with the kernel;
-- *     if everyone increases the FILEVERSION number above, then scripts
-- *     can do the right thing when deciding whether to install a new ppp-comp.h
-- *     file.  Don't change the format of that line otherwise, so the
-- *     installation script can recognize it.
-- */
--
- #ifndef _NET_PPP_COMP_H
- #define _NET_PPP_COMP_H
- 
-diff --git a/include/linux/ppp_defs.h b/include/linux/ppp_defs.h
-index 0f93ed6..ba416f6 100644
---- a/include/linux/ppp_defs.h
-+++ b/include/linux/ppp_defs.h
-@@ -1,44 +1,14 @@
- /*
-  * ppp_defs.h - PPP definitions.
-  *
-- * Copyright (c) 1994 The Australian National University.
-- * All rights reserved.
-+ * Copyright 1994-2000 Paul Mackerras.
-  *
-- * Permission to use, copy, modify, and distribute this software and its
-- * documentation is hereby granted, provided that the above copyright
-- * notice appears in all copies.  This software is provided without any
-- * warranty, express or implied. The Australian National University
-- * makes no representations about the suitability of this software for
-- * any purpose.
-- *
-- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
-- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
-- * OF SUCH DAMAGE.
-- *
-- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
-- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
-- * OR MODIFICATIONS.
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  version 2 as published by the Free Software Foundation.
-  */
--
- #include <linux/types.h>
- 
--/*
-- *  ==FILEVERSION 20000114==
-- *
-- *  NOTE TO MAINTAINERS:
-- *     If you modify this file at all, please set the above date.
-- *     ppp_defs.h is shipped with a PPP distribution as well as with the kernel;
-- *     if everyone increases the FILEVERSION number above, then scripts
-- *     can do the right thing when deciding whether to install a new ppp_defs.h
-- *     file.  Don't change the format of that line otherwise, so the
-- *     installation script can recognize it.
-- */
--
- #ifndef _PPP_DEFS_H_
- #define _PPP_DEFS_H_
- 
--- 
-1.7.9.1
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+By the way, the "From: Igor Maravic <igorm@etf.rs>" should be the very
+first line of your mail, as mentioned in Documentation/SubmittingPatche=
+s
+(around line 543).=20
+
+Otherwise, risk is that "Author" attribution might be you instead of
+Igor (but the Signed-off-by order will be ok)
