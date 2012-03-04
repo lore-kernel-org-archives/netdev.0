@@ -1,81 +1,80 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-Date: Sun, 04 Mar 2012 12:26:25 +0100
-Message-ID: <4F535161.1010407@nod.at>
-References: <1328400892-22409-1-git-send-email-richard@nod.at> <1328400892-22409-3-git-send-email-richard@nod.at> <20120301112732.GA6806@1984> <4F4FEC83.6090504@nod.at> <20120302164945.GA13723@1984> <4F50FAE2.4080903@nod.at> <20120304111211.GA22592@1984>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1CBE95158D84F3DBF80F4E29"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, rostedt@goodmis.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.ns.miles-group.at ([95.130.255.143]:47835 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752898Ab2CDL0j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Mar 2012 06:26:39 -0500
-In-Reply-To: <20120304111211.GA22592@1984>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/7] [RFC] cttimeout v2
+Date: Sun,  4 Mar 2012 12:27:51 +0100
+Message-ID: <1330860478-13184-1-git-send-email-pablo@netfilter.org>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1CBE95158D84F3DBF80F4E29
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Am 04.03.2012 12:12, schrieb Pablo Neira Ayuso:
-> On Fri, Mar 02, 2012 at 05:52:50PM +0100, Richard Weinberger wrote:
->> Am 02.03.2012 17:49, schrieb Pablo Neira Ayuso:
->>> On Thu, Mar 01, 2012 at 10:39:15PM +0100, Richard Weinberger wrote:
->>>> Am 01.03.2012 12:27, schrieb Pablo Neira Ayuso:
->>>>> While merging ipt_LOG and ip6t_LOG, you introduced some bug that
->>>>> corrupts the log line. Note the extra PROTO=3D, I don't have any UD=
-PLITE
->>>>> traffic here.
->>>>>
->>>>> Looks like a missing break in one switch.
->>>>
->>>> I got confused by my own logic. :-\
->>>> Does the attached patch fix the issue?
->>>> It's based on "Netfilter: xt_LOG: Add timestamp support"
->>>
->>> This patch lacks of description. If you don't make it myself, I have
->>> to do it for you :-(
->>>
->>> Please, send me patches following the standard format next time.
->>
->> It was a "does this patch solve the problem"-Patch.
->> Does it fix the problem?
->>
->> If so, I'll send an official one...
->=20
-> Sorry, that's too much overhead. I don't mind testing it, but I want
-> to apply it as soon as it fixes the problem ;-)
->=20
+Hi,
 
-I'll try to reproduce your problem and test the fix for my own.
+The following patchset contains the cttimeout infrastructure. It
+allows you to define fine-grain timeout policies for the conntrack
+system. So far, only global timeouts could be set:
 
-Thanks,
-//richard
+1) create the timeout policy:
 
+ nfct timeout add tcp-policy0 inet tcp \
+    established 1000 close 10 time_wait 10 last_ack 10
 
---------------enig1CBE95158D84F3DBF80F4E29
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+2) attach the timeout policy to the packet:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
+ iptables -I PREROUTING -t raw -p tcp -j CT --timeout tcp-policy0
 
-iQEcBAEBAgAGBQJPU1FlAAoJEN9758yqZn9e9xcH/3GvaGtO0j0pi8PfaKHIAVbX
-gD1XhUDbq3OkMRqjRL12wGYS5cG/8rOTz6Bdoo9Si1bBs0hd+FSjbtexygKHbqg3
-dNTzs9cFCiUYZFKU7j8c3ad6q4pF7AQ01bJIrHzXr2XafZtAWT5slQTU9jDZe3nb
-GMREPJPdDbpRVNIRql/w/5kuqpWPpEm1hoppTFS726tpIFY23CorvoVqC92wDoXC
-7dCcj+vmeAPnWnDOf3f8clf/i4rIGmdGBdr5A10qcfMbdj1waQbTAPukhguqAK9u
-AkWtSZ3dEo7S4Xf91HVC2Eje20PWQaDstXPgXhlGkSBun+/V3TgGwpgYHp5NAn0=
-=m6Bq
------END PGP SIGNATURE-----
+You have to install the following user-space software:
 
---------------enig1CBE95158D84F3DBF80F4E29--
+a) libnetfilter_cttimeout:
+   git://git.netfilter.org/libnetfilter_cttimeout
+
+b) nfct:
+   git://git.netfilter.org/nfct
+
+You also have to get iptables with -j CT --timeout support. See the
+cttimeout2 branch at git://git.netfilter.org/iptables.
+
+Pablo Neira Ayuso (7):
+  netfilter: nf_ct_udp[lite]: convert UDP[lite] timeouts to array
+  netfilter: nf_ct_tcp: move retransmission and unacknowledged timeout
+    to array
+  netfilter: nf_ct_gre: add unsigned int array to define timeouts
+  netfilter: nf_conntrack: pass timeout array to l4->new and l4->packet
+  netfilter: add cttimeout infrastructure for fine timeout tuning
+  netfilter: nf_ct_ext: add timeout extension
+  netfilter: xt_CT: allow to attach timeout policy + glue code
+
+ include/linux/netfilter/Kbuild                 |    1 +
+ include/linux/netfilter/nf_conntrack_tcp.h     |    5 +-
+ include/linux/netfilter/nfnetlink.h            |    3 +-
+ include/linux/netfilter/nfnetlink_cttimeout.h  |  114 +++++++
+ include/linux/netfilter/xt_CT.h                |   12 +
+ include/net/netfilter/nf_conntrack_extend.h    |    4 +
+ include/net/netfilter/nf_conntrack_l4proto.h   |   19 +-
+ include/net/netfilter/nf_conntrack_timeout.h   |   78 +++++
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   60 ++++-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   60 ++++-
+ net/netfilter/Kconfig                          |   21 ++
+ net/netfilter/Makefile                         |    2 +
+ net/netfilter/nf_conntrack_core.c              |   34 ++-
+ net/netfilter/nf_conntrack_proto_dccp.c        |   86 +++++-
+ net/netfilter/nf_conntrack_proto_generic.c     |   77 ++++-
+ net/netfilter/nf_conntrack_proto_gre.c         |   82 +++++-
+ net/netfilter/nf_conntrack_proto_sctp.c        |   83 +++++-
+ net/netfilter/nf_conntrack_proto_tcp.c         |  168 +++++++++-
+ net/netfilter/nf_conntrack_proto_udp.c         |  106 ++++++-
+ net/netfilter/nf_conntrack_proto_udplite.c     |  103 ++++++-
+ net/netfilter/nf_conntrack_timeout.c           |   60 ++++
+ net/netfilter/nfnetlink_cttimeout.c            |  419 ++++++++++++++++++++++++
+ net/netfilter/xt_CT.c                          |  220 ++++++++++++-
+ 23 files changed, 1722 insertions(+), 95 deletions(-)
+ create mode 100644 include/linux/netfilter/nfnetlink_cttimeout.h
+ create mode 100644 include/net/netfilter/nf_conntrack_timeout.h
+ create mode 100644 net/netfilter/nf_conntrack_timeout.c
+ create mode 100644 net/netfilter/nfnetlink_cttimeout.c
+
+-- 
+1.7.7.3
+
