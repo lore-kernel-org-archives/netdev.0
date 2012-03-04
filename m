@@ -1,156 +1,55 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: [PATCH net-next] r8169: Add 64bit statistics
-Date: Sun, 4 Mar 2012 17:37:29 +0800
-Message-ID: <20120304093727.GA5115@Spy32>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/4] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
+Date: Sun, 4 Mar 2012 12:12:11 +0100
+Message-ID: <20120304111211.GA22592@1984>
+References: <1328400892-22409-1-git-send-email-richard@nod.at>
+ <1328400892-22409-3-git-send-email-richard@nod.at>
+ <20120301112732.GA6806@1984>
+ <4F4FEC83.6090504@nod.at>
+ <20120302164945.GA13723@1984>
+ <4F50FAE2.4080903@nod.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com, eric.dumazet@gmail.com, davem@davemloft.net
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	jengelh@medozas.de, rostedt@goodmis.org
+To: Richard Weinberger <richard@nod.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:37759 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903Ab2CDJgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 04:36:01 -0500
-Received: by iagz16 with SMTP id z16so4236436iag.19
-        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 01:36:00 -0800 (PST)
+Received: from mail.us.es ([193.147.175.20]:47519 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752782Ab2CDLMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Mar 2012 06:12:15 -0500
 Content-Disposition: inline
+In-Reply-To: <4F50FAE2.4080903@nod.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Mar 02, 2012 at 05:52:50PM +0100, Richard Weinberger wrote:
+> Am 02.03.2012 17:49, schrieb Pablo Neira Ayuso:
+> > On Thu, Mar 01, 2012 at 10:39:15PM +0100, Richard Weinberger wrote:
+> >> Am 01.03.2012 12:27, schrieb Pablo Neira Ayuso:
+> >>> While merging ipt_LOG and ip6t_LOG, you introduced some bug that
+> >>> corrupts the log line. Note the extra PROTO=, I don't have any UDPLITE
+> >>> traffic here.
+> >>>
+> >>> Looks like a missing break in one switch.
+> >>
+> >> I got confused by my own logic. :-\
+> >> Does the attached patch fix the issue?
+> >> It's based on "Netfilter: xt_LOG: Add timestamp support"
+> > 
+> > This patch lacks of description. If you don't make it myself, I have
+> > to do it for you :-(
+> > 
+> > Please, send me patches following the standard format next time.
+> 
+> It was a "does this patch solve the problem"-Patch.
+> Does it fix the problem?
+> 
+> If so, I'll send an official one...
 
-I submitted this two months ago. This is a resubmission. Thanks.
+Sorry, that's too much overhead. I don't mind testing it, but I want
+to apply it as soon as it fixes the problem ;-)
 
-Switch to use ndo_get_stats64 to get 64bit statistics.
-Two sync entries are used (one for Rx and one for Tx).
-
-Signed-off-by: Junchang Wang <junchangwang@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c |   61 +++++++++++++++++++++++++++++-----
- 1 files changed, 52 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index fbd855b..c1e2421 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -675,6 +675,12 @@ enum rtl_flag {
- 	RTL_FLAG_MAX
- };
- 
-+struct rtl8169_stats {
-+	struct u64_stats_sync	syncp;
-+	u64			packets;
-+	u64			bytes;
-+};
-+
- struct rtl8169_private {
- 	void __iomem *mmio_addr;	/* memory map physical address */
- 	struct pci_dev *pci_dev;
-@@ -689,6 +695,8 @@ struct rtl8169_private {
- 	u32 dirty_tx;
- 	struct TxDesc *TxDescArray;	/* 256-aligned Tx descriptor ring */
- 	struct RxDesc *RxDescArray;	/* 256-aligned Rx descriptor ring */
-+	struct rtl8169_stats rx_stats;
-+	struct rtl8169_stats tx_stats;
- 	dma_addr_t TxPhyAddr;
- 	dma_addr_t RxPhyAddr;
- 	void *Rx_databuff[NUM_RX_DESC];	/* Rx data buffers */
-@@ -775,7 +783,9 @@ static void rtl_hw_start(struct net_device *dev);
- static int rtl8169_close(struct net_device *dev);
- static void rtl_set_rx_mode(struct net_device *dev);
- static void rtl8169_tx_timeout(struct net_device *dev);
--static struct net_device_stats *rtl8169_get_stats(struct net_device *dev);
-+static struct rtnl_link_stats64 *rtl8169_get_stats64(struct net_device *dev,
-+						    struct rtnl_link_stats64
-+						    *stats);
- static int rtl8169_change_mtu(struct net_device *dev, int new_mtu);
- static void rtl8169_rx_clear(struct rtl8169_private *tp);
- static int rtl8169_poll(struct napi_struct *napi, int budget);
-@@ -3521,7 +3531,7 @@ static void rtl_disable_msi(struct pci_dev *pdev, struct rtl8169_private *tp)
- static const struct net_device_ops rtl8169_netdev_ops = {
- 	.ndo_open		= rtl8169_open,
- 	.ndo_stop		= rtl8169_close,
--	.ndo_get_stats		= rtl8169_get_stats,
-+	.ndo_get_stats64	= rtl8169_get_stats64,
- 	.ndo_start_xmit		= rtl8169_start_xmit,
- 	.ndo_tx_timeout		= rtl8169_tx_timeout,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -5658,8 +5668,10 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
--			dev->stats.tx_packets++;
--			dev->stats.tx_bytes += tx_skb->skb->len;
-+			u64_stats_update_begin(&tp->tx_stats.syncp);
-+			tp->tx_stats.packets++;
-+			tp->tx_stats.bytes += tx_skb->skb->len;
-+			u64_stats_update_end(&tp->tx_stats.syncp);
- 			dev_kfree_skb(tx_skb->skb);
- 			tx_skb->skb = NULL;
- 		}
-@@ -5807,8 +5819,10 @@ process_pkt:
- 
- 			napi_gro_receive(&tp->napi, skb);
- 
--			dev->stats.rx_bytes += pkt_size;
--			dev->stats.rx_packets++;
-+			u64_stats_update_begin(&tp->rx_stats.syncp);
-+			tp->rx_stats.packets++;
-+			tp->rx_stats.bytes += pkt_size;
-+			u64_stats_update_end(&tp->rx_stats.syncp);
- 		}
- 
- 		/* Work around for AMD plateform. */
-@@ -6070,20 +6084,49 @@ static void rtl_set_rx_mode(struct net_device *dev)
- }
- 
- /**
-- *  rtl8169_get_stats - Get rtl8169 read/write statistics
-+ *  rtl8169_get_stats64 - Get rtl8169 read/write statistics
-  *  @dev: The Ethernet Device to get statistics for
-  *
-  *  Get TX/RX statistics for rtl8169
-  */
--static struct net_device_stats *rtl8169_get_stats(struct net_device *dev)
-+static struct rtnl_link_stats64 *
-+rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
-+	u64 _packets, _bytes;
-+	unsigned int start;
- 
- 	if (netif_running(dev))
- 		rtl8169_rx_missed(dev, ioaddr);
- 
--	return &dev->stats;
-+	do {
-+		start = u64_stats_fetch_begin_bh(&tp->rx_stats.syncp);
-+		_packets = tp->rx_stats.packets;
-+		_bytes = tp->rx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&tp->rx_stats.syncp, start));
-+
-+	stats->rx_packets = _packets;
-+	stats->rx_bytes	= _bytes;
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&tp->tx_stats.syncp);
-+		_packets = tp->tx_stats.packets;
-+		_bytes = tp->tx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&tp->tx_stats.syncp, start));
-+
-+	stats->tx_packets = _packets;
-+	stats->tx_bytes	= _bytes;
-+
-+	stats->rx_dropped	= dev->stats.rx_dropped;
-+	stats->tx_dropped	= dev->stats.tx_dropped;
-+	stats->rx_length_errors = dev->stats.rx_length_errors;
-+	stats->rx_errors	= dev->stats.rx_errors;
-+	stats->rx_crc_errors	= dev->stats.rx_crc_errors;
-+	stats->rx_fifo_errors	= dev->stats.rx_fifo_errors;
-+	stats->rx_missed_errors = dev->stats.rx_missed_errors;
-+
-+	return stats;
- }
- 
- static void rtl8169_net_suspend(struct net_device *dev)
---
+It seems to fix the problem. I have added the description and will
+push to my git tree. Thanks.
