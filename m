@@ -1,245 +1,151 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 3.3-rc6: Reported regressions from 3.2
-Date: Sun,  4 Mar 2012 21:29:30 +0100 (CET)
-Message-ID: <FNlNbnGKWLP.A.dME.3F9UPB@chimera>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH 1/2] Netfilter: xt_LOG: Implement ring buffer support
+Date: Sun, 04 Mar 2012 22:16:09 +0100
+Message-ID: <4F53DB99.8040503@nod.at>
+References: <1329348480-11147-1-git-send-email-richard@nod.at> <20120304190438.GA24722@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:54469 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754888Ab2CDUti convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 15:49:38 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	jengelh@medozas.de, rostedt@goodmis.org, basti@b-bl.de
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120304190438.GA24722@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+Am 04.03.2012 20:04, schrieb Pablo Neira Ayuso:
+> Hi Richard,
+>
+> Several comments:
+>
+> On Thu, Feb 16, 2012 at 12:27:59AM +0100, Richard Weinberger wrote:
+>> This patch introduces NETFILTER_XT_TARGET_LOG_RING.
+>> It allows logging into various ring buffers which are
+>> represented as pipe-like files in /proc/net/netfilter/xt_LOG_ring/.
+>
+> I prefer /proc/net/netfilter/nf_log_ring instead.
 
-It looks like many people have switched away from the kernel Bugzilla
-after the kernel.org outage and they are using various means of reporti=
-ng
-(and tracking) kernel bugs.  For this reason, it's becoming increasingl=
-y
-difficult for us to track all of the possible sources of reports and we
-are not aware of a number of them as a result.  To tackle this issue we
-kindly request that regression reports be CCed or forwarded to the LKML
-as stated below.
+Okay.
+
+> Please, add some short example usage, it can be of help for others.
+
+I'll add one to the manpage and Kconfig.
+
+>> Signed-off-by: Richard Weinberger<richard@nod.at>
+>> ---
+>>   include/linux/netfilter/xt_LOG.h |   12 +-
+>>   include/net/netfilter/nf_log.h   |    1 +
+>>   include/net/netfilter/xt_log.h   |   22 ++
+>>   net/netfilter/Kconfig            |   13 +
+>>   net/netfilter/xt_LOG.c           |  631 ++++++++++++++++++++++++++++++++++++-
+>>   5 files changed, 660 insertions(+), 19 deletions(-)
+>>
+>> diff --git a/include/linux/netfilter/xt_LOG.h b/include/linux/netfilter/xt_LOG.h
+>> index cac0790..e4b1177 100644
+>> --- a/include/linux/netfilter/xt_LOG.h
+>> +++ b/include/linux/netfilter/xt_LOG.h
+>> @@ -8,7 +8,7 @@
+>>   #define XT_LOG_UID		0x08	/* Log UID owning local socket */
+>>   #define XT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
+>>   #define XT_LOG_MACDECODE	0x20	/* Decode MAC header */
+>> -#define XT_LOG_MASK		0x2f
+>> +#define XT_LOG_MASK		0x6f
+>
+> Not directly related to this but, would you send me the timestamp
+> patch before this one?
+
+Sure.
+
+>>   struct xt_log_info {
+>>   	unsigned char level;
+>> @@ -16,4 +16,14 @@ struct xt_log_info {
+>>   	char prefix[30];
+>>   };
+>>
+>> +struct xt_log_info_v1 {
+>> +	unsigned char level;
+>> +	unsigned char logflags;
+>> +	char prefix[30];
+>> +
+>> +	char ring_name[30];
+>> +	__aligned_u64 ring_size;
+>> +	struct xt_LOG_ring_ctx *rctx __attribute__((aligned(8)));
+>> +};
+>> +
+>>   #endif /* _XT_LOG_H */
+>> diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
+>> index e991bd0..18a94f9 100644
+>> --- a/include/net/netfilter/nf_log.h
+>> +++ b/include/net/netfilter/nf_log.h
+>> @@ -14,6 +14,7 @@
+>>
+>>   #define NF_LOG_TYPE_LOG		0x01
+>>   #define NF_LOG_TYPE_ULOG	0x02
+>> +#define NF_LOG_TYPE_RING	0x04
+>>
+>>   struct nf_loginfo {
+>>   	u_int8_t type;
+>> diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
+>> index 767e08d..c9a3718 100644
+>> --- a/include/net/netfilter/xt_log.h
+>> +++ b/include/net/netfilter/xt_log.h
+>> @@ -55,3 +55,25 @@ static void __sb_close(struct sbuff *m, int print)
+>>   }
+>>
+>>   #define sb_close(m)	__sb_close(m, 1)
+>> +
+>> +#ifdef CONFIG_NETFILTER_XT_TARGET_LOG_RING
+>> +struct xt_LOG_ring_ctx;
+>> +struct xt_LOG_ring_ctx *xt_LOG_ring_new_ctx(const char *name, size_t rb_size);
+>> +int xt_LOG_ring_add_record(const struct xt_LOG_ring_ctx *rctx, const char *buf, \
+>> +	unsigned int len);
+>> +void xt_LOG_ring_get(struct xt_LOG_ring_ctx *ctx);
+>> +void xt_LOG_ring_put(struct xt_LOG_ring_ctx *ctx);
+>> +struct xt_LOG_ring_ctx *xt_LOG_ring_find_ctx(const char *name);
+>> +
+>> +void xt_LOG_ring_exit(void);
+>> +int xt_LOG_ring_init(void);
+>> +#else
+>> +static inline void xt_LOG_ring_exit(void)
+>> +{
+>> +}
+>> +
+>> +static inline int xt_LOG_ring_init(void)
+>> +{
+>> +	return 0;
+>> +}
+>> +#endif
+>
+> I think this modification for the .h file is not required anymore,
+> you don't need it anymore.
+
+AFAIK I did not remove this to reduce the #ifdefs in the .c file.
+Will recheck...
+
+>> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+>> index b895d8b..ac62599 100644
+>> --- a/net/netfilter/Kconfig
+>> +++ b/net/netfilter/Kconfig
+>> @@ -533,6 +533,19 @@ config NETFILTER_XT_TARGET_LOG
+>>
+>>   	  To compile it as a module, choose M here.  If unsure, say N.
+>>
+>> +if NETFILTER_XT_TARGET_LOG
+>> +
+>> +config NETFILTER_XT_TARGET_LOG_RING
+>> +	bool  'Ring buffer support'
+>> +	default y
+>> +	select RING_BUFFER
+>
+> Please, CC the ring buffer author, I'm not familar with that code and
+> I'll be happy to have an acknowledgment from him stating that the ring
+> buffer bits are OK.
+>
+
+Steve is already CC'ed. Steve, can you please review and ack this patch?
+So far I have only an ack for the newly exported ring_buffer symbol.
 
 Thanks,
-Rafael
-
------------------------------------------------------------------------=
-------
-
-This message contains a list of some regressions from 3.2,
-for which there are no fixes in the mainline known to the tracking team=
-=2E
-If any of them have been fixed already, please let us know.
-
-If you know of any other unresolved regressions from 3.2, please let us
-know either and we'll add them to the list.  Moreover, when you are
-reporting a kernel regression, please send a CC of your report to the L=
-KML
-(or forward it to the LKML if you are not reporting the regression by e=
--mail)
-with the word "regression" in the subject, as that will make it much
-easier for us to find it.  Also, please let us know if any of the entri=
-es
-below are invalid.
-
-Each entry from the list will be sent additionally in an automatic repl=
-y
-to this message with CCs to the people involved in reporting and handli=
-ng
-the issue.
-
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2012-03-04       23       15          15
-  2012-02-23       15       13          13
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42860
-Subject		: 3.3.0-rc5: OOps in dql_completed (Broadcom tg3 driver)
-Submitter	: Christoph Lameter <cl@gentwo.org>
-Date		: 2012-03-01 21:13 (4 days old)
-Message-ID	: <alpine.DEB.2.00.1203011505510.6685@router.home>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D133063645224373&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42850
-Subject		: [BUG] Kernel Bug at fs/btrfs/volumes.c:3638
-Submitter	: Nageswara R Sastry <rnsastry@linux.vnet.ibm.com>
-Date		: 2012-02-24 10:53 (10 days old)
-Message-ID	: <4F476959.2010400@linux.vnet.ibm.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D133008013332251&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42823
-Subject		: WARNING: at block/genhd.c:1465
-Submitter	: Christian Kujau <lists@nerdbynature.de>
-Date		: 2012-02-21 11:00 (13 days old)
-Message-ID	: <alpine.DEB.2.01.1202210246400.4930@trent.utfs.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132982259213941&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42822
-Subject		: [3.3.0-rc3][uvcvideo][regression] oops - uvc_video_clock_upd=
-ate
-Submitter	: Shawn Starr <shawn.starr@rogers.com>
-Date		: 2012-02-20 1:08 (14 days old)
-Message-ID	: <5887142.ZMTDAjc4qf@segfault.sh0n.net>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132970057611642&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42821
-Subject		: alpha: futex regression bisected
-Submitter	: Michael Cree <mcree@orcon.net.nz>
-Date		: 2012-02-20 8:20 (14 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/8d7718aa082aaf30a0b4989=
-e1f04858952f941bc
-Message-ID	: <4F420256.2090600@orcon.net.nz>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132972606917069&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42776
-Subject		: OF-related boot crash in 3.3.0-rc3-00188-g3ec1e88
-Submitter	: Meelis Roos <mroos@linux.ee>
-Date		: 2012-02-13 7:45 (21 days old)
-Message-ID	: <alpine.SOC.1.00.1202130942030.1488@math.ut.ee>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132911916331615&w=3D=
-2
-		  http://marc.info/?l=3Dlinux-kernel&m=3D132993294018762&w=3D2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42761
-Subject		: Possible circular locking dependency (3.3-rc2)
-Submitter	: Felipe Balbi <balbi@ti.com>
-Date		: 2012-02-08 12:41 (26 days old)
-Message-ID	: <20120208124147.GF16334@legolas.emea.dhcp.ti.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132870492311858&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42746
-Subject		: 3.3-rc2 snd_pcm lockdep backtrace
-Submitter	: Josh Boyer <jwboyer@redhat.com>
-Date		: 2012-02-06 14:56 (28 days old)
-Message-ID	: <20120206145621.GA4771@zod.bos.redhat.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132854040916172&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42733
-Subject		: Regression 3.2 -> 3.3-rc1 10 sec hang at boot and resume, CO=
-MRESET failed
-Submitter	: Norbert Preining <preining@logic.at>
-Date		: 2012-02-02 5:12 (32 days old)
-Message-ID	: <20120202051258.GA15550@gamma.logic.tuwien.ac.at>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132815978615112&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42713
-Subject		: Regression in skge that started around acb42a3 (so past v3.3=
--rc1)
-Submitter	: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date		: 2012-01-30 15:58 (35 days old)
-Message-ID	: <20120130155816.GA1400@phenom.dumpdata.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132793944220262&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42707
-Subject		: Hang deconfiguring network interface (in shutdown) on 3.3-rc=
-1
-Submitter	: James Bottomley <James.Bottomley@hansenpartnership.com>
-Date		: 2012-01-28 19:56 (37 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/92feeabf3f673767c6ee4cf=
-c7fc224098446c1c1
-Message-ID	: <1327780565.2924.24.camel@dabdike.int.hansenpartnership.co=
-m>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132778076214873&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42686
-Subject		: iwlagn is getting even worse with 3.3-rc1
-Submitter	: Norbert Preining <preining@logic.at>
-Date		: 2012-01-24 1:36 (41 days old)
-Message-ID	: <20120124013625.GB18436@gamma.logic.tuwien.ac.at>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132736918325378&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42683
-Subject		: WARN... Device 'cpu1' does not have a release() function, it=
- is broken and must be fixed. when doing 'xl vcpu-set <guest_id> 1'
-Submitter	: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date		: 2012-01-23 18:06 (42 days old)
-Message-ID	: <20120123180601.GA24553@phenom.dumpdata.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132734233916154&w=3D=
-2
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42678
-Subject		: [3.3-rc1] radeon stuck in kernel after lockup
-Submitter	: Torsten Kaiser <just.for.lkml@googlemail.com>
-Date		: 2012-01-21 19:03 (44 days old)
-Message-ID	: <CAPVoSvSXMvRb=3D1itu9DjF+s=3D6zfAChvUxS-x=3Db8EV9kOZinNpA=
-@mail.gmail.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D132717279606670&w=3D=
-2
-Handled-By	: J=C3=A9r=C3=B4me Glisse <glisse@freedesktop.org>
-
-
-Bug-Entry	: https://bugzilla.kernel.org/show_bug.cgi?id=3D42649
-Subject		: Regression 3.2 -> 3.3-rc1 commit b4b583d4 inet/media keyboar=
-d: stuck "extra" keys
-Submitter	: Duncan <1i5t5.duncan@cox.net>
-Date		: 2012-01-24 18:18 (41 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/b4b583d4e9a5ff28c4a150b=
-b25a4fff5cd4dfbbd
-
-
-=46or details, please visit the bug entries and follow the links given =
-in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regres=
-sions.
-There also is a Bugzilla entry used for tracking the regressions from 3=
-=2E2,
-unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=3D42644
-
-Please let the tracking team know if there are any Bugzilla entries tha=
-t
-should be added to the list in there.
-
-Thanks!
+//richrd
