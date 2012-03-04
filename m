@@ -1,112 +1,95 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next] r8169: add byte queue limit support.
-Date: Mon, 5 Mar 2012 00:28:18 +0100
-Message-ID: <20120304232818.GA32324@electric-eye.fr.zoreil.com>
-References: <20120304093727.GA5115@Spy32> <1330875881.2730.15.camel@edumazet-laptop> <20120304232453.GA32314@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
+Date: Sun, 04 Mar 2012 15:32:16 -0800
+Message-ID: <1330903936.2474.0.camel@edumazet-laptop>
+References: <20120304093727.GA5115@Spy32>
+	 <1330875881.2730.15.camel@edumazet-laptop>
+	 <20120304232453.GA32314@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Junchang Wang <junchangwang@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Igor Maravic <igorm@etf.rs>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53307 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754718Ab2CDX26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Mar 2012 18:28:58 -0500
-Content-Disposition: inline
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:62502 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754718Ab2CDXcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 18:32:21 -0500
+Received: by pbcun15 with SMTP id un15so2115645pbc.19
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 15:32:21 -0800 (PST)
 In-Reply-To: <20120304232453.GA32314@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Btw the stuff below and the 64bits stats overlap. Both could
-go together.
+Le lundi 05 mars 2012 =C3=A0 00:24 +0100, Francois Romieu a =C3=A9crit =
+:
+> Eric Dumazet <eric.dumazet@gmail.com> :
+> [...]
+> > small point : Using this means you have a 32bit hole here (on 32bit
+> > build). Its minor, you dont need to change.
+>=20
+> Ok.
+>=20
+> [...]
+> > 	You could try to put these somewhere else, to try to keep this por=
+tion
+> > as read only memory, to be more SMP friendly.
+> > (Some loaded server could have one CPU serving RX stuff, and other =
+cpus
+> > doing TX stuff)=20
+>=20
+> Point taken. It could make sense to rework the rtl8169_private struct=
+ a bit
+> more.
+>=20
+> [...]
+> > > @@ -6070,20 +6084,49 @@ static void rtl_set_rx_mode(struct net_de=
+vice *dev)
+> > >  }
+> > > =20
+> > >  /**
+> > > - *  rtl8169_get_stats - Get rtl8169 read/write statistics
+> > > + *  rtl8169_get_stats64 - Get rtl8169 read/write statistics
+> > >   *  @dev: The Ethernet Device to get statistics for
+> >=20
+> > missing @stats
+>=20
+> This documentation is almost useless anyway. I removed it.
+>=20
+> [...]
+> > You dont need _bytes and _packets temp variables, as @stats points =
+to a
+> > private memory, we can use it as working storage, just do :
+> >=20
+> >        do {
+> >                start =3D u64_stats_fetch_begin_bh(&tp->rx_stats.syn=
+cp);
+> >                stats->rx_packets =3D tp->rx_stats.packets;
+> >                stats->rx_bytes =3D tp->rx_stats.bytes;
+> >        } while (u64_stats_fetch_retry_bh(&tp->rx_stats.syncp, start=
+));
+>=20
+> It should give something like the patch below.
+>=20
+> If I understand correctly we do not care much about the error counter=
+s,
+> right ?
+>=20
+> From: Junchang Wang <junchangwang@gmail.com>
+> Date: Sun, 4 Mar 2012 23:30:32 +0100
+> Subject: [PATCH 1/2] r8169: add 64bit statistics.
+>=20
+> Switch to use ndo_get_stats64 to get 64bit statistics.
+> Two sync entries are used (one for Rx and one for Tx).
+>=20
+> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c |   59 ++++++++++++++++++++++++=
+++--------
+>  1 files changed, 45 insertions(+), 14 deletions(-)
+>=20
 
-From: Igor Maravic <igorm@etf.rs>
-Date: Mon, 5 Mar 2012 00:01:25 +0100
-Subject: [PATCH 2/2] r8169: add byte queue limit support.
-
-Nothing fancy:
-- sent bytes count is notified in the start_xmit path right before
-  updating the owner bit in the hardware Tx descriptor (E. Dumazet)
-- avoid useless tp->dev dereferencing in start_xmit (E. Dumazet)
-
-Use of netdev_reset_queue is favored over proper accounting in
-rtl8169_tx_clear_range since the latter would need more work for the
-same result (nb: said accounting degenerates to nothing in xmit_frags).
-
-Signed-off-by: Igor Maravic <igorm@etf.rs>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/r8169.c |   27 ++++++++++++++++++++++-----
- 1 files changed, 22 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index a4d7674..515a7ed 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5399,6 +5399,7 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
- {
- 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
- 	tp->cur_tx = tp->dirty_tx = 0;
-+	netdev_reset_queue(tp->dev);
- }
- 
- static void rtl_reset_work(struct rtl8169_private *tp)
-@@ -5553,6 +5554,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 
- 	txd->opts2 = cpu_to_le32(opts[1]);
- 
-+	netdev_sent_queue(dev, skb->len);
-+
- 	wmb();
- 
- 	/* Anti gcc 2.95.3 bugware (sic) */
-@@ -5647,9 +5650,16 @@ static void rtl8169_pcierr_interrupt(struct net_device *dev)
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- }
- 
-+struct rtl_txc {
-+	int packets;
-+	int bytes;
-+};
-+
- static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- {
-+	struct rtl8169_stats *tx_stats = &tp->tx_stats;
- 	unsigned int dirty_tx, tx_left;
-+	struct rtl_txc txc = { 0, 0 };
- 
- 	dirty_tx = tp->dirty_tx;
- 	smp_rmb();
-@@ -5668,17 +5678,24 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
--			u64_stats_update_begin(&tp->tx_stats.syncp);
--			tp->tx_stats.packets++;
--			tp->tx_stats.bytes += tx_skb->skb->len;
--			u64_stats_update_end(&tp->tx_stats.syncp);
--			dev_kfree_skb(tx_skb->skb);
-+			struct sk_buff *skb = tx_skb->skb;
-+
-+			txc.packets++;
-+			txc.bytes += skb->len;
-+			dev_kfree_skb(skb);
- 			tx_skb->skb = NULL;
- 		}
- 		dirty_tx++;
- 		tx_left--;
- 	}
- 
-+	u64_stats_update_begin(&tx_stats->syncp);
-+	tx_stats->packets += txc.packets;
-+	tx_stats->bytes += txc.bytes;
-+	u64_stats_update_end(&tx_stats->syncp);
-+
-+	netdev_completed_queue(dev, txc.packets, txc.bytes);
-+
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
- 		/* Sync with rtl8169_start_xmit:
--- 
-1.7.7.6
+Seems Good To Me, thanks !
