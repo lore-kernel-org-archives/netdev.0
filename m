@@ -1,93 +1,116 @@
-From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Subject: Re: Resend [PATCH] netfilter: Fix copy_to_user too small size parametre.
-Date: Sun, 4 Mar 2012 18:09:08 +0530
-Message-ID: <CAOD=uF6UvL2oEmJmgak4X5L0PR+qQi2=Vr22AUsAxLLOfi44rw@mail.gmail.com>
-References: <1330621743-12883-1-git-send-email-santoshprasadnayak@gmail.com>
-	<20120304121841.GA23277@1984>
+From: Mitar <mmitar@gmail.com>
+Subject: Re: Ethernet-over-UDP virtual network interface
+Date: Sun, 4 Mar 2012 14:58:22 +0100
+Message-ID: <CAKLmikMEbyq8LRRyyJTL76vG6ibPs4=dThqa0PJxd7WHk4m82A@mail.gmail.com>
+References: <CAKLmikOBPB7rTZu2EfK26=3AhOQUR8xg8n4ySUKRMFmBkC1J3g@mail.gmail.com>
+	<5a14e44a83a6de3788da96367f982a73@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bart.de.schuymer@pandora.be, kaber@trash.net,
-	shemminger@vyatta.com, davem@davemloft.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netdev@vger.kernel.org, Nejc Skoberne <nejc@skoberne.net>,
+	Jernej Kos <kostko@unimatrix-one.org>, gw.2012@tnode.com
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:45410 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753654Ab2CDMjI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 07:39:08 -0500
-In-Reply-To: <20120304121841.GA23277@1984>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:48336 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359Ab2CDN6W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 08:58:22 -0500
+Received: by vbbff1 with SMTP id ff1so2730717vbb.19
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 05:58:22 -0800 (PST)
+In-Reply-To: <5a14e44a83a6de3788da96367f982a73@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-where is it broken ?
-Can you please explain ?
+Hi!
 
-Regards
-Santosh
+The problem of GRE IP packets (IP protocol type 47) is that some
+consumer routers filter them by default (or even do not have an option
+to pass them through).
 
-On Sun, Mar 4, 2012 at 5:48 PM, Pablo Neira Ayuso <pablo@netfilter.org>=
- wrote:
-> On Thu, Mar 01, 2012 at 10:39:03PM +0530, santosh nayak wrote:
->> From: Santosh Nayak <santoshprasadnayak@gmail.com>
->>
->> user-space ebtables expects 32 bytes-long names, but xt_match uses
->> 29 bytes. Fill the remaining bytes with zeroes.
->>
->> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
->> ---
->> =A0net/bridge/netfilter/ebtables.c | =A0 14 +++++++++++---
->> =A01 files changed, 11 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/=
-ebtables.c
->> index 5864cc4..21f337a 100644
->> --- a/net/bridge/netfilter/ebtables.c
->> +++ b/net/bridge/netfilter/ebtables.c
->> @@ -1335,7 +1335,10 @@ static inline int ebt_make_matchname(const st=
-ruct ebt_entry_match *m,
->> =A0 =A0 =A0const char *base, char __user *ubase)
->> =A0{
->> =A0 =A0 =A0 char __user *hlp =3D ubase + ((char *)m - base);
->> - =A0 =A0 if (copy_to_user(hlp, m->u.match->name, EBT_FUNCTION_MAXNA=
-MELEN))
->> + =A0 =A0 char name[EBT_FUNCTION_MAXNAMELEN] =3D {};
->> +
->> + =A0 =A0 strncpy(name, m->u.match->name, sizeof(name));
->> + =A0 =A0 if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
->> =A0 =A0 =A0 return 0;
->> =A0}
->> @@ -1344,7 +1347,10 @@ static inline int ebt_make_watchername(const =
-struct ebt_entry_watcher *w,
->> =A0 =A0 =A0const char *base, char __user *ubase)
->> =A0{
->> =A0 =A0 =A0 char __user *hlp =3D ubase + ((char *)w - base);
->> - =A0 =A0 if (copy_to_user(hlp , w->u.watcher->name, EBT_FUNCTION_MA=
-XNAMELEN))
->> + =A0 =A0 char name[EBT_FUNCTION_MAXNAMELEN] =3D {};
->> +
->> + =A0 =A0 strncpy(name, w->u.watcher->name, sizeof(name));
->> + =A0 =A0 if (copy_to_user(hlp , name, EBT_FUNCTION_MAXNAMELEN))
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
->> =A0 =A0 =A0 return 0;
->> =A0}
->> @@ -1355,10 +1361,12 @@ ebt_make_names(struct ebt_entry *e, const ch=
-ar *base, char __user *ubase)
->> =A0 =A0 =A0 int ret;
->> =A0 =A0 =A0 char __user *hlp;
->> =A0 =A0 =A0 const struct ebt_entry_target *t;
->> + =A0 =A0 char name[EBT_FUNCTION_MAXNAMELEN] =3D {};
->>
->> =A0 =A0 =A0 if (e->bitmask =3D=3D 0)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
->>
->> + =A0 =A0 strncpy(name, t->u.target->name, sizeof(name));
->> =A0 =A0 =A0 hlp =3D ubase + (((char *)e + e->target_offset) - base);
->> =A0 =A0 =A0 t =3D (struct ebt_entry_target *)(((char *)e) + e->targe=
-t_offset);
+Maybe the best way would be just to implement greudptap link type
+which would be the same as gretap, only it would be using UDP packets?
+Do Linux bridge interfaces have MAC auto-discovery?
+
+Do Linux gretap tunnels have MTU auto-discovery?
+
+BTW, why is necessary to configure local IP address of the tunnel?
+Shouldn't only a local MAC address be enough? And IP address only on
+bridge interface?
+
+
+Mitar
+
+On Sun, Mar 4, 2012 at 1:21 PM, Denys Fedoryshchenko <denys@visp.net.lb=
+> wrote:
+> From my wiki :)
+> ip link add eoip1 type gretap remote IP1 local IP2 nopmtudisc
+> ifconfig eth1 0.0.0.0
+> ifconfig eoip1 mtu 1500 up
+> brctl addbr br0
+> brctl addif br0 eoip1
+> brctl addif br0 eth1
+> ifconfig br0 up
 >
-> This is broken, t dereference is incorrect. Unfortunately I've applie=
-d
-> your patch. I'll apply a patch to fix this upon it.
+> But not sure this will work, just a hint for kernel-mode tunnel
+>
+>
+>
+> On 2012-03-04 13:30, Mitar wrote:
+>>
+>> Hi!
+>>
+>> At community wireless network wlan slovenija (http://dev.wlan-si.net=
+/)
+>> we have been using OpenVPN tunnels to connect our WiFi nodes togethe=
+r
+>> over existing Internet infrastructure. After some time of using it w=
+e
+>> have discovered throughput problems using a user-land tunneling
+>> solution on those small/consumer Wifi router hardware. Because of th=
+e
+>> context switches we cannot get more than 5 Mbit/s even with disabled
+>> encryption. (And as we have a lot of fiber here, it really makes
+>> uplinks unused a lot.)
+>>
+>> We found out that we need a really light-weight tunneling solution,
+>> but on a L2 level. The idea is to have a simple encryption-less,
+>> state-less, and session-less L2 tunneling. Some kind of
+>> Ethernet-over-UDP type of virtual interface where we could configure
+>> multiple peer IP address and virtual interface would work as a simpl=
+e
+>> switch, only instead of cables, it would send packets encapsulated i=
+n
+>> UDP (EoIP is not good because many consumer routers do not allow
+>> non-TCP/UDP packets to get through). No session handling, nothing.
+>> Simply, any packets it gets in it is send (based on auto-learned MAC
+>> addresses) to the destination IP address in the UDP packet. On the
+>> other side decapsulated packet is simply output of the virtual
+>> interface there.
+>>
+>> I have searched around and have not found anything which would work
+>> like this. Have I missed something? If not, I have decided to write
+>> our own kernel module for this, but first I would like to hear some
+>> feedback from others. Would anybody be interested in developing it
+>> with me or at mentoring me (it would be my first kernel module)?
+>>
+>> I have found this code:
+>>
+>> https://lwn.net/Articles/199120/
+>>
+>> and was planning to use it as a basis, but use UDP for communication=
+=2E
+>> What is a proper way to do UDP communication from a kernel module?
+>>
+>> Best regards and thank you all for the great work you are doing on L=
+inux
+>>
+>>
+>> Mitar
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.h=
+tml
+>
+>
+>
