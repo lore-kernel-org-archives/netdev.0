@@ -1,73 +1,71 @@
-From: Sven Joachim <svenjoac@gmx.de>
-Subject: Re: [ 57/72] genirq: Unmask oneshot irqs when thread was not woken
-Date: Sun, 04 Mar 2012 23:08:32 +0100
-Message-ID: <87sjhoc93z.fsf@turtle.gmx.de>
-References: <20120228010511.GA8453@kroah.com>
-	<20120228010434.412979550@linuxfoundation.org>
-	<87hay4dqjr.fsf@turtle.gmx.de> <20120304215307.GA27157@burratino>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: How do I know my driver support RSS?
+Date: Sun, 4 Mar 2012 22:23:57 +0000
+Message-ID: <1330899837.3022.17.camel@deadeye>
+References: <CAEc1PS1j2DL4m7B1Rp9nseqLWsxaXXY+ZJDHra+99c5-WPgYcQ@mail.gmail.com>
+	 <1330819855.8460.291.camel@deadeye>
+	 <CAEc1PS0OhdbVD_tUurNO2rk_w_VSewSNWirq2w6LwZCsZoBisQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Jonathan Nieder <jrnieder@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:41011 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755020Ab2CDWIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 17:08:35 -0500
-In-Reply-To: <20120304215307.GA27157@burratino> (Jonathan Nieder's message of
-	"Sun, 4 Mar 2012 15:53:07 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, <yhxu@wayne.edu>,
+	<sbw@mit.edu>
+To: Yuehai Xu <yuehaixu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEc1PS0OhdbVD_tUurNO2rk_w_VSewSNWirq2w6LwZCsZoBisQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-03-04 22:53 +0100, Jonathan Nieder wrote:
+On Sat, 2012-03-03 at 23:30 -0500, Yuehai Xu wrote:
+> On Sat, Mar 3, 2012 at 7:10 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > On Sat, 2012-03-03 at 16:25 -0500, Yuehai Xu wrote:
+> > [...]
+> >> Since I read the following statements from a paper, "we use a separate
+> >> hardware receive and transmit queue for each core and configure the
+> >> IXGBE to inspect the port number in each incoming packet header, place
+> >> the packet on the queue dedicated to the associated memcached's core,
+> >> and deliver the receive interrupt to that core." and the background of
+> >> this configuration is that each memcached is pinned to a separate core
+> >> and has its own UDP port. It seems that IXGBE's driver can detect UDP
+> >> packets according to their port numbers and put these packets into
+> >> corresponding receive queues in the hardware, is this achieved by
+> >> configuring RSS in IXGBE? If it is, I am wondering whether bnx2
+> >> supports RSS and whether it can configure in the same way.
+> >>
+> >> I appreciate any help for this.
+> >
+> > You're confusing RSS (flow hashing) with flow steering.  These are both
+> > explained in Documentation/network/scaling.txt.
+> >
+> > Ben.
+> >
+> I appreciate your replying!! What confuses me is that for each UDP
+> socket with exclusive port number, it has RX queue in transport layer,
+> and network card might also have multiple RX queues. These two queues
+> are definitely different. So, is it possible to configure network card
+> to put packets to queues(RX queues in network card) according to hash?
 
-> Sven Joachim wrote:
+Yes.
+
+> I read the codes of RPS/RFS, it seems that packets are put into queues
+> in transport layer of sockets instead of queues in network card. Am I
+> correct?
 >
->> The laptop is an Acer TravelMate 2490 with a Broadcom chip:
->>
->> ,----
->> | 06:02.0 Network controller: Broadcom Corporation BCM4318 [AirForce One 54g] 802.11g Wireless LAN Controller (rev 02)
->> | 	Subsystem: AMBIT Microsystem Corp. TravelMate 2410
->> | 	Flags: bus master, fast devsel, latency 64, IRQ 10
->> | 	Memory at d0002000 (32-bit, non-prefetchable) [size=8K]
->> | 	Kernel driver in use: b43-pci-bridge
->> `----
->
-> Odd.  Does it use that driver with both working and non-working
-> kernels?
+> I appreciate any replies.
 
-Yes, although lsmod just tells me that "b43" is loaded.  And
-"dmesg | grep b43" shows this:
+No, that's not right.  There are also per-CPU queues of packets to be
+processed.  So a packet can go from the port into a hardware RX queue,
+then to a per-CPU queue for protocol processing on that CPU, then to a
+per-socket queue.  By default, the protocol processing for a packet will
+be done on the same CPU that took it off the hardware queue, but RPS and
+RFS can transfer packets to other per-CPU queues.  It is possible to
+improve on this with the hardware flow steering mechanisms discussed in
+that document.
 
-,----
-| [    0.628622] b43-pci-bridge 0000:06:02.0: enabling device (0000 -> 0002)
-| [    0.628780] b43-pci-bridge 0000:06:02.0: PCI INT A -> Link[LNKG] -> GSI 10 (level, low) -> IRQ 10
-| [    0.628795] b43-pci-bridge 0000:06:02.0: setting latency timer to 64
-| [    5.648519] b43-phy0: Broadcom 4318 WLAN found (core revision 9)
-| [   36.267694] b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
-`----
+Ben.
 
-The kernel configuration has these b43 related parameters:
-
-CONFIG_B43=m
-CONFIG_B43_SSB=y
-CONFIG_B43_PCI_AUTOSELECT=y
-CONFIG_B43_PCICORE_AUTOSELECT=y
-# CONFIG_B43_PCMCIA is not set
-# CONFIG_B43_SDIO is not set
-CONFIG_B43_PIO=y
-# CONFIG_B43_PHY_N is not set
-CONFIG_B43_PHY_LP=y
-# CONFIG_B43_PHY_HT is not set
-CONFIG_B43_HWRNG=y
-# CONFIG_B43_DEBUG is not set
-# CONFIG_B43LEGACY is not set
-CONFIG_SSB_B43_PCI_BRIDGE=y
-
-
-Cheers,
-       Sven
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
