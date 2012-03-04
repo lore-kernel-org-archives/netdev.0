@@ -1,45 +1,36 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 1/2] Netfilter: xt_LOG: Implement ring buffer support
-Date: Sun, 04 Mar 2012 14:57:37 -0500
-Message-ID: <1330891057.2679.18.camel@frodo>
-References: <1329348480-11147-1-git-send-email-richard@nod.at>
-	 <20120304190438.GA24722@1984>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next] mlx4_en: dont change mac_header on xmit
+Date: Sun, 4 Mar 2012 22:02:59 +0200
+Message-ID: <CAJZOPZJMbXci1Ky1FHhgyAp0WgwrKFLijuMtOgYHnAfiCAe4Qw@mail.gmail.com>
+References: <1330167065.2462.53.camel@edumazet-laptop>
+	<CAJZOPZKAwrx-u_onDQCCxipkLPdZkPE6cokRtZOa1uRZiZTYug@mail.gmail.com>
+	<1330876610.2730.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	jengelh@medozas.de, basti@b-bl.de
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120304190438.GA24722@1984>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:52503 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754809Ab2CDUDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 15:03:00 -0500
+Received: by lahj13 with SMTP id j13so3845075lah.19
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 12:02:59 -0800 (PST)
+In-Reply-To: <1330876610.2730.23.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-03-04 at 20:04 +0100, Pablo Neira Ayuso wrote:
+On Sun, Mar 4, 2012 at 5:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> > diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-> > index b895d8b..ac62599 100644
-> > --- a/net/netfilter/Kconfig
-> > +++ b/net/netfilter/Kconfig
-> > @@ -533,6 +533,19 @@ config NETFILTER_XT_TARGET_LOG
-> >  
-> >  	  To compile it as a module, choose M here.  If unsure, say N.
-> >  
-> > +if NETFILTER_XT_TARGET_LOG
-> > +
-> > +config NETFILTER_XT_TARGET_LOG_RING
-> > +	bool  'Ring buffer support'
-> > +	default y
-> > +	select RING_BUFFER
-> 
-> Please, CC the ring buffer author, I'm not familar with that code and
-> I'll be happy to have an acknowledgment from him stating that the ring
-> buffer bits are OK.
+> By the way you have existing problems about ctrl_flags
 
-I am Cc'd and I believe I did ack his first set of patches. I have to
-admit, I haven't looked too deeply at them again. I can review the last
-set and give another ack if you want.
+Yep, we will submit patch to fix that tomorrow or so
 
--- Steve
+
+> I have to run, will submit official patch at the end of the (sunny)day, if you dont beat me
+
+thanks
+
+Or.
