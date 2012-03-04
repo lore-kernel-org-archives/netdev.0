@@ -1,71 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: How do I know my driver support RSS?
-Date: Sun, 4 Mar 2012 22:23:57 +0000
-Message-ID: <1330899837.3022.17.camel@deadeye>
-References: <CAEc1PS1j2DL4m7B1Rp9nseqLWsxaXXY+ZJDHra+99c5-WPgYcQ@mail.gmail.com>
-	 <1330819855.8460.291.camel@deadeye>
-	 <CAEc1PS0OhdbVD_tUurNO2rk_w_VSewSNWirq2w6LwZCsZoBisQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] rtnetlink: fix rtnl_calcit() and rtnl_dump_ifinfo()
+Date: Sun, 04 Mar 2012 14:32:10 -0800
+Message-ID: <1330900330.17266.10.camel@edumazet-laptop>
+References: <20120221215127.30280.30853.stgit@gitlad.jf.intel.com>
+	 <20120221.165750.2246668899195223381.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, <yhxu@wayne.edu>,
-	<sbw@mit.edu>
-To: Yuehai Xu <yuehaixu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEc1PS0OhdbVD_tUurNO2rk_w_VSewSNWirq2w6LwZCsZoBisQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:62666 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755567Ab2CDWcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 17:32:13 -0500
+Received: by dadp12 with SMTP id p12so4205506dad.11
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 14:32:13 -0800 (PST)
+In-Reply-To: <20120221.165750.2246668899195223381.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-03-03 at 23:30 -0500, Yuehai Xu wrote:
-> On Sat, Mar 3, 2012 at 7:10 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > On Sat, 2012-03-03 at 16:25 -0500, Yuehai Xu wrote:
-> > [...]
-> >> Since I read the following statements from a paper, "we use a separate
-> >> hardware receive and transmit queue for each core and configure the
-> >> IXGBE to inspect the port number in each incoming packet header, place
-> >> the packet on the queue dedicated to the associated memcached's core,
-> >> and deliver the receive interrupt to that core." and the background of
-> >> this configuration is that each memcached is pinned to a separate core
-> >> and has its own UDP port. It seems that IXGBE's driver can detect UDP
-> >> packets according to their port numbers and put these packets into
-> >> corresponding receive queues in the hardware, is this achieved by
-> >> configuring RSS in IXGBE? If it is, I am wondering whether bnx2
-> >> supports RSS and whether it can configure in the same way.
-> >>
-> >> I appreciate any help for this.
-> >
-> > You're confusing RSS (flow hashing) with flow steering.  These are both
-> > explained in Documentation/network/scaling.txt.
-> >
-> > Ben.
-> >
-> I appreciate your replying!! What confuses me is that for each UDP
-> socket with exclusive port number, it has RX queue in transport layer,
-> and network card might also have multiple RX queues. These two queues
-> are definitely different. So, is it possible to configure network card
-> to put packets to queues(RX queues in network card) according to hash?
+nlmsg_parse() might return an error, so test its return value before
+potential random memory accesses.
 
-Yes.
+Errors introduced in commit 115c9b81928 (rtnetlink: Fix problem with
+buffer allocation)
 
-> I read the codes of RPS/RFS, it seems that packets are put into queues
-> in transport layer of sockets instead of queues in network card. Am I
-> correct?
->
-> I appreciate any replies.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>
+---
+ net/core/rtnetlink.c |   18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-No, that's not right.  There are also per-CPU queues of packets to be
-processed.  So a packet can go from the port into a hardware RX queue,
-then to a per-CPU queue for protocol processing on that CPU, then to a
-per-socket queue.  By default, the protocol processing for a packet will
-be done on the same CPU that took it off the hardware queue, but RPS and
-RFS can transfer packets to other per-CPU queues.  It is possible to
-improve on this with the hardware flow steering mechanisms discussed in
-that document.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 606a6e8..f965dce 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1060,11 +1060,12 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	rcu_read_lock();
+ 	cb->seq = net->dev_base_seq;
+ 
+-	nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
+-		    ifla_policy);
++	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
++			ifla_policy) >= 0) {
+ 
+-	if (tb[IFLA_EXT_MASK])
+-		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++		if (tb[IFLA_EXT_MASK])
++			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++	}
+ 
+ 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
+ 		idx = 0;
+@@ -1900,10 +1901,11 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	u32 ext_filter_mask = 0;
+ 	u16 min_ifinfo_dump_size = 0;
+ 
+-	nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX, ifla_policy);
+-
+-	if (tb[IFLA_EXT_MASK])
+-		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
++			ifla_policy) >= 0) {
++		if (tb[IFLA_EXT_MASK])
++			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++	}
+ 
+ 	if (!ext_filter_mask)
+ 		return NLMSG_GOODSIZE;
