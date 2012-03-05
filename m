@@ -1,124 +1,101 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
- (fix nfs regression)
-Date: Mon, 05 Mar 2012 14:18:43 +0800
-Message-ID: <4F545AC3.50004@redhat.com>
-References: <1330675173-18968-1-git-send-email-slyich@gmail.com> <4F509150.5060904@redhat.com> <20120302202421.753b36bc@sf.home> <20120302205000.088bf231@sf.home> <4F5227C9.7060209@parallels.com> <20120303174322.7e920bc5@sf.home> <4F52A8D5.9090703@parallels.com> <20120304121400.4d756e55@sf.home>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] pch_gbe: memory corruption calling
+ pch_gbe_validate_option()
+Date: Mon, 5 Mar 2012 09:33:49 +0300
+Message-ID: <20120305063349.GE1003@mwanda>
+References: <20120301071708.GB6959@elgon.mountain>
+ <20120301.172402.1035366198258013912.davem@davemloft.net>
+ <CAOD=uF5+DHqxBW9waP3CYrfrq_WiBjWsyoKkZCSq+GvOsoUpMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Glauber Costa <glommer@parallels.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Sergei Trofimovich <slyich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120304121400.4d756e55@sf.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zBZpvCNcoXwafAjP"
+Cc: David Miller <davem@davemloft.net>, masa-korg@dsn.okisemi.com,
+	paul.gortmaker@windriver.com, jeffrey.t.kirsher@intel.com,
+	mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:39321 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751622Ab2CEGcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 01:32:46 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOD=uF5+DHqxBW9waP3CYrfrq_WiBjWsyoKkZCSq+GvOsoUpMg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2012 05:14 PM, Sergei Trofimovich wrote:
-> On Sat, 3 Mar 2012 20:27:17 -0300
-> Glauber Costa<glommer@parallels.com>  wrote:
->
->> On 03/03/2012 11:43 AM, Sergei Trofimovich wrote:
->>> On Sat, 3 Mar 2012 11:16:41 -0300
->>> Glauber Costa<glommer@parallels.com>   wrote:
->>>
->>>> On 03/02/2012 02:50 PM, Sergei Trofimovich wrote:
->>>>>>>> The change looks like a typo (division flipped to multiplication):
->>>>>>>>> limit = nr_free_buffer_pages() / 8;
->>>>>>>>> limit = nr_free_buffer_pages()<<     (PAGE_SHIFT - 10);
->>>>>>> Hi, thanks for the reporting. It's not a typo. It was previously:
->>>>>>> sysctl_tcp_mem[1]<<    (PAGE_SHIFT -  7). Looks like we need to do the
->>>>>>> limit check before shift the value. Please try the following patch, thanks.
->>>>>> Still does not help. I test it by checking sha1sum of a large file over NFS
->>>>>> (small files seem to work simetimes):
->>>>>>
->>>>>>        $ strace sha1sum /gentoo/distfiles/gcc-4.6.2.tar.bz2
->>>>>>        ...
->>>>>>        open("/gentoo/distfiles/gcc-4.6.2.tar.bz2", O_RDONLY
->>>>>>        <HUNG>
-Hi Sergei:
 
-Looks like the client does not even start to read the file.
->>>>>> After a certain timeout dmesg gets odd spam:
->>>>>> [  314.848094] nfs: server vmhost not responding, still trying
->>>>>> [  314.848134] nfs: server vmhost not responding, still trying
->>>>>> [  314.848145] nfs: server vmhost not responding, still trying
->>>>>> [  314.957047] nfs: server vmhost not responding, still trying
->>>>>> [  314.957066] nfs: server vmhost not responding, still trying
->>>>>> [  314.957075] nfs: server vmhost not responding, still trying
->>>>>> [  314.957085] nfs: server vmhost not responding, still trying
->>>>>> [  314.957100] nfs: server vmhost not responding, still trying
->>>>>> [  314.958023] nfs: server vmhost not responding, still trying
->>>>>> [  314.958035] nfs: server vmhost not responding, still trying
->>>>>> [  314.958044] nfs: server vmhost not responding, still trying
->>>>>> [  314.958054] nfs: server vmhost not responding, still trying
->>>>>>
->>>>>> looks like bogus messages. Might be relevant to mishandled timings
->>>>>> somewhere else or a bug in nfs code.
+--zBZpvCNcoXwafAjP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-  Did you use a virtual machine as your NFS server? Have you tried to 
-bisect the server side code?
->>>>> And after 120 seconds hung tasks shows it might be an OOM issue
->>>>> Likely caused by patch, as it's a 2GB RAM +4GB swap amd64 box
->>>>> not running anything heavy:
->>>> That is a bit weird.
->>>>
->>>> First because with Jason's patch, we should end up with the very same
->>>> calculation, at the same exact order, as it was in older kernels.
->>>> Second, because by shifting<<   10, you should be ending up with very
->>>> small numbers, effectively having tcp_rmem[1] == tcp_rmem[2], and the
->>>> same for wmem.
->>>>
->>>> Can you share which numbers you end up with at
->>>> /proc/sys/net/ipv4/tcp_{r,w}mem ?
->>>>
->>> Sure:
->>>
->>>       $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
->>>       4096    87380   1999072
->>>       4096    16384   1999072
->>>
->> Sergei,
->>
->> Sorry for not being clearer. I was expecting you'd post those values
->> both in the scenario in which you see the bug, and in the scenario you
->> don't.
-> Ah, I see.  Sorry. Patches are on top of v3.3-rc5-166-g1f033c1. Buggy one:
->> -       limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
->> -       limit = max(limit, 128UL);
->> +       limit = nr_free_buffer_pages() / 8;
->> +       limit = max(limit, 128UL)<<  (PAGE_SHIFT - 7);
->>          max_share = min(4UL*1024*1024, limit);
->> +       printk(KERN_INFO "TCP: max_share=%u\n", max_share);
->      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
->      4096    87380   1999072
->      4096    16384   1999072
+On Mon, Mar 05, 2012 at 11:04:49AM +0530, santosh prasad nayak wrote:
+> Dan,
+>=20
+>         Your fix may introduce new bug.
+>=20
+>          hw->phy.autoneg_advertised =3D tmp
+>=20
+>        Assigning signed integer to unsigned short  leads to bit truncatio=
+n.
 
-Nothing strange to me.
-> Working one:
->> -       limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
->> +       limit = nr_free_buffer_pages()>>  (PAGE_SHIFT - 10);
->>          limit = max(limit, 128UL);
->>          max_share = min(4UL*1024*1024, limit);
->> +       printk(KERN_INFO "TCP: max_share=%u\n", max_share);
->      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
->      4096    87380   124942
->      4096    16384   124942
+In this case it doesn't.  It's going to be 0x2f or less.  I
+obviously checked this before I submitted the patch.
 
-This one looks small to me, as the tcp_{r,w}mem were count by bytes and 
-limit were count by number of pages, so we need to shift PAGE_SHIFT.
+>        Is it safe for both Big-endian and little endian format ?
 
-As I can't reproduce this locally, in order to narrow down the problem, 
-could you please help to check whether the issue were 
-introduced/eliminated by commit  4acb4190 or 3dc43e3?
+It's CPU endian in both cases.
 
-Thanks
->>> Nothing special with NFS nere, so I guess it uses UDP.
->>> TCP works fine on machine (I do everything via SSH).
->> Can you confirm that? If you're using nfs through udp, it makes
->> even less sense that the default values of tcp sock mem will harm
->> you. So it might be a bug somewhere else...
-> Rechecked with tcpdump. It uses TCP.
->
+>=20
+>        AutoNeg is initialized with a Negative value (OPTION_UNSET)
+>         Won't it create any issue with above assignment ?
+>=20
+
+Nope.  It gets set to 0x2f inside pch_gbe_validate_option().
+
+>=20
+> The simpler fix is to make "autoneg_advertised" signed integer.
+>=20
+> struct pch_gbe_phy_info {
+>         u32 addr;
+>         u32 id;
+>         u32 revision;
+>         u32 reset_delay_us;
+>         u16 autoneg_advertised;     // =3D=3D> int autoneg_advertised
+> };
+>=20
+
+The better fix would be to change pch_gbe_validate_option() so it
+isn't so easy to call improperly.  I would have done that except
+that probably we won't introduce many more callers, it seemed
+like a lot of work and I don't have the hardware to test the
+results.
+
+regards,
+dan carpenter
+
+
+--zBZpvCNcoXwafAjP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPVF5MAAoJEOnZkXI/YHqRHkAP/1er54qzOGBcBN1LkEiPXaBW
+6QgNlio5jBWqEeEpnid9Q/Kc4ClsUr7TqhRvaqxi7k1Wkp0wzSuAge92mSGAm05D
+EWYPLy4+RXmCu4Y//dmjvCZ0yKEoAzR+i5M6LoOc+3kdTD9V9pNIpkEGkMXowQ/x
+IbO5wgic1tKEpG3pnSDlBqEKZvjQCvAbCmbuWtobXC+rTNDSwac9SbxG4t41U6YG
+a44HeAvMDk3vv+cWEj9KeQ4n/YJFtdyxMkAFCyf1u3wD3kEho39dpQDyjPU2QFWK
+Tu2nWoDaaTvN67iSnxxlTTqCwCPeDIMyKoZzoLNPiMeWhUUQd0t6ET2Ymn+vxq92
+LtnCA0pzUJMhXtHVvGFK5BV68aorNu37gpuIUNyaxuZdyYAes4Tf/1EOasFBLZhW
+6mNBZkEMSNKnMCyQMqbGWmKpqJPh/ouI+JyQ1mJ/wFSSnjKPR/PQywpJ96y57rzy
+m0TCIKDU9VJDhF9sPUWb9SBo5zYE0Ce+0bRSd0MK7tHM+4H0ZHK7MyGXFI95WOnN
+PUuKjjEK9eyJfO7huE5U1miLDd1leKZTKVujHBV1rEj50ibsUF9Sib1KeDb5a8FQ
+jk84Jts5Or928WJ7NZNjJnn2pPLY91zr6t6D/cG5QOUrpiMXPEaW5kKY1ST5KiLL
+/A1wKqCOXDihVbG0xlJ4
+=75+Y
+-----END PGP SIGNATURE-----
+
+--zBZpvCNcoXwafAjP--
