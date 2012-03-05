@@ -1,103 +1,79 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 2/6] stmmac: Define MDC clock selection macros.
-Date: Mon, 05 Mar 2012 15:34:40 +0100
-Message-ID: <4F54CF00.6030005@st.com>
-References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com> <1330692928-30330-2-git-send-email-deepak.sikri@st.com> <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v2] net: export netdev_stats_to_stats64
+Date: Mon, 05 Mar 2012 06:50:09 -0800
+Message-ID: <1330959009.2474.21.camel@edumazet-laptop>
+References: <20120305113353.GA12969@Spy32>
+	 <1330954326.2474.9.camel@edumazet-laptop>
+	 <1330955921.2474.18.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: spear-devel@list.st.com, netdev@vger.kernel.org
-To: Deepak SIKRI <deepak.sikri@st.com>
+Cc: netdev@vger.kernel.org, Junchang Wang <junchangwang@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:42046 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932312Ab2CEOfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 09:35:17 -0500
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 8BA36377
-	for <netdev@vger.kernel.org>; Mon,  5 Mar 2012 14:35:15 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 295D52491
-	for <netdev@vger.kernel.org>; Mon,  5 Mar 2012 14:35:15 +0000 (GMT)
-In-Reply-To: <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:38834 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932379Ab2CEOuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 09:50:12 -0500
+Received: by pbcun15 with SMTP id un15so2854538pbc.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 06:50:11 -0800 (PST)
+In-Reply-To: <1330955921.2474.18.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Deepak
+Some drivers use internal netdev stats member to store part of their
+stats, yet advertize ndo_get_stats64() to implement some 64bit fields.
 
-On 3/2/2012 1:55 PM, Deepak SIKRI wrote:
-> The patch adds the macros to be used for MDC clock selection. The MDC clock
-> frequency is based on scaled system clock, and has to be confined to a range
-> of 1-2.5 MHz. Based on the input CSR clock, the scaling factor has to be
-> selected.
-> The platform specific code will provide the default value of this scaling
-> factor, based on the input CSR clock.
-> 
-> Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
-> ---
->  include/linux/stmmac.h |   23 +++++++++++++++++++++++
->  1 files changed, 23 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index aa0d99e..7332ed8 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -40,6 +40,29 @@
->  #define STMMAC_CSUM_T1	1
->  #define STMMAC_CSUM_T2	2
->  
-> +/*
-> + * Define the macros for CSR clock range parameters to be passed by
-> + * platform code.
-> + * This could also be configured at run time using CPU freq framework.
-> + */
-> +
-> +/* CSR Frequency Access Defines*/
-> +#define CSR_F_20M	20000000
-> +#define CSR_F_35M	35000000
-> +#define CSR_F_60M	60000000
-> +#define CSR_F_100M	100000000
-> +#define CSR_F_150M	150000000
-> +#define CSR_F_250M	50000000
-> +#define CSR_F_300M	300000000
+Allow them to use netdev_stats_to_stats64() helper to make the copy of
+netdev stats before they compute their 64bit counters.
 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+V2: added the include bit as well, sorry guys.
 
-I have some concerns about this patch.
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |    9 +++++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-We want to have some defines to help on setting the clk_csr (that is is
-a clk divisor).
-
-When you program the "CSR Clock Range" bits in the GMII Address Register
-you can also set the bit 5 (not supported in older devices e.g. 3.41a).
-In this case, the defines below do not cover all the cases, I mean:
-
-1000 clk_csr_i/4
-1001 clk_csr_i/6
-1010 clk_csr_i/8
-1011 clk_csr_i/10
-1100 clk_csr_i/12
-1101 clk_csr_i/14
-1110 clk_csr_i/16
-1111 clk_csr_i/18
-
-> +/* MDC Clock Selection define*/
-> +#define	STMMAC_CLK_RANGE_60_100M	0	/* MDC = Clk/42 */
-> +#define	STMMAC_CLK_RANGE_100_150M	1	/* MDC = Clk/62 */
-> +#define	STMMAC_CLK_RANGE_20_35M		2	/* MDC = Clk/16 */
-> +#define	STMMAC_CLK_RANGE_35_60M		3	/* MDC = Clk/26 */
-> +#define	STMMAC_CLK_RANGE_150_250M	4	/* MDC = Clk/102 */
-> +#define	STMMAC_CLK_RANGE_250_300M	5	/* MDC = Clk/122 */
-
-I suggest you to rename these macros as:
-
-#define STMMAC_CSR_60_100M	0	/* MDC = Clk/42 */
-...
-
-Also, macros CSR_F_20M should be totally removed.
-
-Peppe
-
-> +
->  /* Platfrom data for platform device structure's platform_data field */
->  
->  struct stmmac_mdio_bus_data {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f1b7d03..4d279c5 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2557,6 +2557,8 @@ extern void		dev_load(struct net *net, const char *name);
+ extern void		dev_mcast_init(void);
+ extern struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 					       struct rtnl_link_stats64 *storage);
++extern void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
++				    const struct net_device_stats *netdev_stats);
+ 
+ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 763a0ed..5ef3b65 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5834,12 +5834,12 @@ void netdev_run_todo(void)
+ /* Convert net_device_stats to rtnl_link_stats64.  They have the same
+  * fields in the same order, with only the type differing.
+  */
+-static void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+-				    const struct net_device_stats *netdev_stats)
++void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
++			     const struct net_device_stats *netdev_stats)
+ {
+ #if BITS_PER_LONG == 64
+-        BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
+-        memcpy(stats64, netdev_stats, sizeof(*stats64));
++	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
++	memcpy(stats64, netdev_stats, sizeof(*stats64));
+ #else
+ 	size_t i, n = sizeof(*stats64) / sizeof(u64);
+ 	const unsigned long *src = (const unsigned long *)netdev_stats;
+@@ -5851,6 +5851,7 @@ static void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+ 		dst[i] = src[i];
+ #endif
+ }
++EXPORT_SYMBOL(netdev_stats_to_stats64);
+ 
+ /**
+  *	dev_get_stats	- get network device statistics
