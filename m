@@ -1,52 +1,84 @@
-From: Martin Mares <mj@ucw.cz>
-Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
- AF_UNIX
-Date: Mon, 5 Mar 2012 15:05:57 +0100
-Message-ID: <mj+md-20120305.140318.15543.albireo@ucw.cz>
-References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
- <20120301.170848.432407217191581288.davem@davemloft.net>
- <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
- <20120302.035509.1994457175982020283.davem@davemloft.net>
- <4F509274.9060302@collabora.co.uk>
- <1330694031.2469.15.camel@edumazet-laptop>
- <4F50F6AA.9050909@collabora.co.uk>
- <20120302170823.7117821b@pyramind.ukuu.org.uk>
- <CABBYNZKhoT-POaaSvHoNLXU+hkPCiY_eqjEqDgzCqq4RvEvNXg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	ying.xue@windriver.com, rodrigo.moya@collabora.co.uk,
-	javier@collabora.co.uk, lennart@poettering.net,
-	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
-	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>
-To: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 16/68] NET: pc300, do not zero global variables
+Date: Mon,  5 Mar 2012 14:52:03 +0100
+Message-ID: <1330955575-26641-17-git-send-email-jslaby@suse.cz>
+References: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
+Cc: alan@linux.intel.com, linux-serial@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CABBYNZKhoT-POaaSvHoNLXU+hkPCiY_eqjEqDgzCqq4RvEvNXg@mail.gmail.com>
+In-Reply-To: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+They are in .bss which is initialized to zeros when the module is
+loaded/kernel booted.
 
-> Please check the link above and tell me if that different than the
-> model you suggested using BPF, apparently we are talking about the
-> very same solution but the implementation detail are getting in the
-> way because a lot of code was added.
+What a strange way to do the initialization once in the pci probe
+routine...
 
-...
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wan/pc300_drv.c |    4 ----
+ drivers/net/wan/pc300_tty.c |   18 ------------------
+ 2 files changed, 22 deletions(-)
 
-First of all, you should come up with some real data confirming that
-the problem you are trying to solve really exist -- i.e., that in some
-real (and sensible) setup, routing all messages through DBUS daemon
-is a bottleneck.
-
-				Have a nice fortnight
+diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
+index 1eeedd6..a6dd00d 100644
+--- a/drivers/net/wan/pc300_drv.c
++++ b/drivers/net/wan/pc300_drv.c
+@@ -299,7 +299,6 @@ void cpc_tty_init(pc300dev_t * dev);
+ void cpc_tty_unregister_service(pc300dev_t * pc300dev);
+ void cpc_tty_receive(pc300dev_t * pc300dev);
+ void cpc_tty_trigger_poll(pc300dev_t * pc300dev);
+-void cpc_tty_reset_var(void);
+ #endif
+ 
+ /************************/
+@@ -3421,9 +3420,6 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (first_time) {
+ 		first_time = 0;
+ 		show_version();
+-#ifdef CONFIG_PC300_MLPPP
+-		cpc_tty_reset_var();
+-#endif
+ 	}
+ 
+ 	if ((err = pci_enable_device(pdev)) < 0)
+diff --git a/drivers/net/wan/pc300_tty.c b/drivers/net/wan/pc300_tty.c
+index d47d2cd..4709f42 100644
+--- a/drivers/net/wan/pc300_tty.c
++++ b/drivers/net/wan/pc300_tty.c
+@@ -139,7 +139,6 @@ void cpc_tty_init(pc300dev_t *dev);
+ void cpc_tty_unregister_service(pc300dev_t *pc300dev);
+ void cpc_tty_receive(pc300dev_t *pc300dev);
+ void cpc_tty_trigger_poll(pc300dev_t *pc300dev);
+-void cpc_tty_reset_var(void);
+ 
+ /*
+  * PC300 TTY clear "signal"
+@@ -1078,20 +1077,3 @@ void cpc_tty_trigger_poll(pc300dev_t *pc300dev)
+ 	}
+ 	schedule_work(&(cpc_tty->tty_tx_work)); 
+ } 
+-
+-/*
+- * PC300 TTY reset var routine
+- * This routine is called by pc300driver to init the TTY area. 
+- */
+-
+-void cpc_tty_reset_var(void)
+-{
+-	int i ; 
+-
+-	CPC_TTY_DBG("hdlcX-tty: reset variables\n");
+-	/* reset  the tty_driver structure - serial_drv */ 
+-	memset(&serial_drv, 0, sizeof(struct tty_driver));
+-	for (i=0; i < CPC_TTY_NPORTS; i++){
+-		memset(&cpc_tty_area[i],0, sizeof(st_cpc_tty_area)); 
+-	}
+-}
 -- 
-Martin `MJ' Mares                          <mj@ucw.cz>   http://mj.ucw.cz/
-Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
-More memory available, but not for you!
+1.7.9.2
