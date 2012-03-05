@@ -1,67 +1,64 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 17/68] NET: pc300, show version info from module init
-Date: Mon,  5 Mar 2012 14:52:04 +0100
-Message-ID: <1330955575-26641-18-git-send-email-jslaby@suse.cz>
-References: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
-Cc: alan@linux.intel.com, linux-serial@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: export netdev_stats_to_stats64
+Date: Mon, 05 Mar 2012 05:58:41 -0800
+Message-ID: <1330955921.2474.18.camel@edumazet-laptop>
+References: <20120305113353.GA12969@Spy32>
+	 <1330954326.2474.9.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Junchang Wang <junchangwang@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:51834 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964773Ab2CEN6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 08:58:44 -0500
+Received: by pbcun15 with SMTP id un15so2809304pbc.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 05:58:44 -0800 (PST)
+In-Reply-To: <1330954326.2474.9.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Again, no need to do that from the pci probe function.
+Some drivers use internal netdev stats member to store part of their
+stats, yet advertize ndo_get_stats64() to implement some 64bit fields.
 
-Hmm, I noticed this driver is marked as BROKEN. Won't touch it more,
-it has to be converted to dynamic tty driver allocation first.
+Allow them to use netdev_stats_to_stats64() helper to make the copy of
+netdev stats before they compute their 64bit counters.
 
-Perhaps it is time to move it to staging?
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: netdev@vger.kernel.org
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/wan/pc300_drv.c |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+Also changed some incorrect spaces to tabs.
 
-diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
-index a6dd00d..cb0f8d9 100644
---- a/drivers/net/wan/pc300_drv.c
-+++ b/drivers/net/wan/pc300_drv.c
-@@ -3231,7 +3231,7 @@ static void plx_init(pc300_t * card)
- 
+ net/core/dev.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 763a0ed..5ef3b65 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5834,12 +5834,12 @@ void netdev_run_todo(void)
+ /* Convert net_device_stats to rtnl_link_stats64.  They have the same
+  * fields in the same order, with only the type differing.
+  */
+-static void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+-				    const struct net_device_stats *netdev_stats)
++void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
++			     const struct net_device_stats *netdev_stats)
+ {
+ #if BITS_PER_LONG == 64
+-        BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
+-        memcpy(stats64, netdev_stats, sizeof(*stats64));
++	BUILD_BUG_ON(sizeof(*stats64) != sizeof(*netdev_stats));
++	memcpy(stats64, netdev_stats, sizeof(*stats64));
+ #else
+ 	size_t i, n = sizeof(*stats64) / sizeof(u64);
+ 	const unsigned long *src = (const unsigned long *)netdev_stats;
+@@ -5851,6 +5851,7 @@ static void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+ 		dst[i] = src[i];
+ #endif
  }
++EXPORT_SYMBOL(netdev_stats_to_stats64);
  
--static inline void show_version(void)
-+static void show_version(void)
- {
- 	char *rcsvers, *rcsdate, *tmp;
- 
-@@ -3412,16 +3412,10 @@ static void cpc_init_card(pc300_t * card)
- static int __devinit
- cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
--	static int first_time = 1;
- 	int err, eeprom_outdated = 0;
- 	u16 device_id;
- 	pc300_t *card;
- 
--	if (first_time) {
--		first_time = 0;
--		show_version();
--	}
--
- 	if ((err = pci_enable_device(pdev)) < 0)
- 		return err;
- 
-@@ -3657,6 +3651,7 @@ static struct pci_driver cpc_driver = {
- 
- static int __init cpc_init(void)
- {
-+	show_version();
- 	return pci_register_driver(&cpc_driver);
- }
- 
--- 
-1.7.9.2
+ /**
+  *	dev_get_stats	- get network device statistics
