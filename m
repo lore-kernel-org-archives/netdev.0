@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] net/pch_gbe: supports eg20t ptp clock
-Date: Sun, 04 Mar 2012 22:02:16 -0800
-Message-ID: <1330927336.3009.10.camel@joe2Laptop>
+Date: Sun, 04 Mar 2012 22:04:33 -0800
+Message-ID: <1330927473.3140.1.camel@joe2Laptop>
 References: <1330926377-11531-1-git-send-email-tshimizu818@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -47,11 +47,14 @@ static void
 pch_rx_timestamp(struct pch_gbe_adapter *adapter, struct sk_buff *skb)
 
 []
+
 > +static void pch_tx_timestamp(
 > +			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
 
 here too.
+
 []
+
 > +	shtx = skb_shinfo(skb);
 > +	if (unlikely(shtx->tx_flags & SKBTX_HW_TSTAMP && adapter->hwts_tx_en))
 > +		shtx->tx_flags |= SKBTX_IN_PROGRESS;
@@ -81,12 +84,14 @@ probably better as
 > +		udelay(1);
 > +	}
 
-why not just continually poll instead of udelay?
+why not just continually poll until timeout instead of udelay?
 
 []
 
 > +static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+
 []
+
 > +	switch (cfg.rx_filter) {
 > +	case HWTSTAMP_FILTER_NONE:
 > +		adapter->hwts_rx_en = 0;
@@ -95,7 +100,7 @@ why not just continually poll instead of udelay?
 > +		adapter->hwts_rx_en = 0;
 > +		pch_ch_control_write(pdev, (SLAVE_MODE | CAP_MODE0));
 
-parentheses are not nececessary around SLAVE_MODE | CAP_MODE0
+parentheses are not necessary around SLAVE_MODE | CAP_MODE0
 
 > +		break;
 > +	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
