@@ -1,44 +1,46 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net] mlx4_core: remove buggy sched_queue masking
-Date: Mon, 5 Mar 2012 16:54:57 +0200
-Message-ID: <4F54D3C1.8000902@mellanox.co.il>
+From: Ulrich Weber <ulrich.weber@sophos.com>
+Subject: [PATCH] bridge: check return value of ipv6_dev_get_saddr()
+Date: Mon, 5 Mar 2012 15:52:44 +0100
+Message-ID: <20120305145244.GA10621@WS-uweber>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<amirv@mellanox.co.il>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:45639 "HELO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932328Ab2CEO4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 09:56:05 -0500
+Received: from mx5.sophos.com ([213.31.172.35]:50812 "EHLO mx5.sophos.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932150Ab2CEPAm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2012 10:00:42 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.co.il>
+otherwise source IPv6 address of ICMPV6_MGM_QUERY packet
+might be random junk if IPv6 is disabled on interface or
+link-local address is not yet ready (DAD).
 
-Fixes a bug introduced by commit fe9a2603c, where the priority bits
-in the schedule queue field were masked out.
-
-Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
+Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/qp.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+ net/bridge/br_multicast.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 738f950..48ca886 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -152,9 +152,6 @@ static int __mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 	}
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 568d5bf..702a1ae 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -446,8 +446,11 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
+ 	ip6h->nexthdr = IPPROTO_HOPOPTS;
+ 	ip6h->hop_limit = 1;
+ 	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
+-	ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
+-			   &ip6h->saddr);
++	if (ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
++			       &ip6h->saddr)) {
++		kfree_skb(skb);
++		return NULL;
++	}
+ 	ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
  
- 	port = ((context->pri_path.sched_queue >> 6) & 1) + 1;
--	if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH)
--		context->pri_path.sched_queue = (context->pri_path.sched_queue &
--						0xc3);
- 
- 	*(__be32 *) mailbox->buf = cpu_to_be32(optpar);
- 	memcpy(mailbox->buf + 8, context, sizeof *context);
+ 	hopopt = (u8 *)(ip6h + 1);
 -- 
-1.7.7
+1.7.4.1
