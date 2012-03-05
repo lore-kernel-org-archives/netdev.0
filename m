@@ -1,42 +1,62 @@
-From: Duc Dang <dhdang@apm.com>
-Subject: [PATCH v2 1/2] powerpc/44x: Add new compatible value for EMAC node of APM821XX dts file.
-Date: Mon,  5 Mar 2012 11:00:19 +0700
-Message-ID: <1330920019-2957-1-git-send-email-dhdang@apm.com>
-References: <1329466058-15969-1-git-send-email-dhdang@apm.com>
+From: Shiraz Hashim <shiraz.hashim@st.com>
+Subject: Re: [PATCH 4/6] stmmac: Update stmmac descriptor checks for stmmac
+ core prior to Rev-3.5.
+Date: Mon, 5 Mar 2012 09:31:25 +0530
+Message-ID: <20120305040125.GB7045@localhost.localdomain>
+References: <1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+ <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
+ <1330692928-30330-5-git-send-email-deepak.sikri@st.com>
+ <20120304.205155.650947216183181836.davem@davemloft.net>
 Mime-Version: 1.0
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Duc Dang <dhdang@apm.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>,
-	Josh Boyer <jwboyer@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1329466058-15969-1-git-send-email-dhdang@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Deepak SIKRI <deepak.sikri@st.com>,
+	Peppe CAVALLARO <peppe.cavallaro@st.com>,
+	spear-devel <spear-devel@list.st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:45358 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755644Ab2CEECB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 23:02:01 -0500
+Content-Disposition: inline
+In-Reply-To: <20120304.205155.650947216183181836.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This compatible value will be used to distinguish some special features of APM821XX EMAC: no half duplex mode support, configuring jumbo frame.
+Hello David,
 
-Signed-off-by: Duc Dang <dhdang@apm.com>
----
-v2:
- No change since v1 patch set. Added for completeness.
+On Mon, Mar 05, 2012 at 09:51:55AM +0800, David Miller wrote:
+> From: Deepak Sikri <deepak.sikri@st.com>
+> > +			/*
+> > +			 * The type-1 checksume offload engines append
+> > +			 * the checksum at the end of frame, and the
+> 
+> 	/* Format comments
+> 	 * like this.
+> 	 */
+> 
+> 	/*
+> 	 * Not
+> 	 * like this.
+> 	 */
 
- arch/powerpc/boot/dts/bluestone.dts |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Linux Documentation/CodingStyle mentions following about comments in
+chapter 8.
 
-diff --git a/arch/powerpc/boot/dts/bluestone.dts b/arch/powerpc/boot/dts/bluestone.dts
-index 2a56a0d..74876f7 100644
---- a/arch/powerpc/boot/dts/bluestone.dts
-+++ b/arch/powerpc/boot/dts/bluestone.dts
-@@ -222,7 +222,7 @@
- 
- 			EMAC0: ethernet@ef600c00 {
- 				device_type = "network";
--				compatible = "ibm,emac4sync";
-+				compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
- 				interrupt-parent = <&EMAC0>;
- 				interrupts = <0x0 0x1>;
- 				#interrupt-cells = <1>;
--- 
-1.7.5.4
+The preferred style for long (multi-line) comments is: 
+
+        /*  
+         * This is the preferred style for multi-line
+         * comments in the Linux kernel source code.
+         * Please use it consistently.
+         *   
+         * Description:  A column of asterisks on the left side,
+         * with beginning and ending almost-blank lines.
+         */  
+
+Are we missing something ?
+
+--
+regards
+Shiraz
