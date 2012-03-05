@@ -1,87 +1,163 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [v9 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH based fwmark
-Date: Mon, 5 Mar 2012 12:28:18 +0100
-Message-ID: <201203051228.20049.hans.schillstrom@ericsson.com>
-References: <1329387672-23683-1-git-send-email-hans.schillstrom@ericsson.com> <201203051109.48817.hans.schillstrom@ericsson.com> <alpine.LNX.2.01.1203051140470.19304@frira.zrqbmnf.qr>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: [PATCH net-next] 8139too: Add 64bit statistics
+Date: Mon, 5 Mar 2012 19:33:55 +0800
+Message-ID: <20120305113353.GA12969@Spy32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1203051140470.19304@frira.zrqbmnf.qr>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, eric.dumazet@gmail.com,
+	greearb@candelatech.com, adobriyan@gmail.com, jasowang@redhat.com,
+	joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:45878 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756578Ab2CELc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 06:32:26 -0500
+Received: by iagz16 with SMTP id z16so5408455iag.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 03:32:26 -0800 (PST)
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 05 March 2012 11:48:16 Jan Engelhardt wrote:
-> 
-> On Monday 2012-03-05 11:09, Hans Schillstrom wrote:
-> >> > diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-> >> > index 40f4c3d..21bc5e8 100644
-> >> > --- a/net/netfilter/Makefile
-> >> > +++ b/net/netfilter/Makefile
-> >> > @@ -57,6 +57,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
-> >> >  obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
-> >> >  obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
-> >> >  obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
-> >> > +obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_hmark.o
-> >> 
-> >> Netfilter's naming policy requires that targets are in upper case.
-> >
-> >I asked netfilter team about that, and got the answer
-> >that it should be lower case for new modules.
-> >Have that been changed ?
-> 
-> The name of the file is pretty much irrelevant (because loading
-> solely depends on MODULE_ALIAS), so I share that only lowercase
-> should be used for new things. It's not that the linux kernel would
-> currently be storable on a case-insensitive filesystem, but that does
-> not mean we can't latently work towards it.
 
-OK
+Switch to use ndo_get_stats64 to get 64bit statistics.
+Two sync entries are used (one for Rx and one for Tx).
 
-> >static int get_inner_hdr(struct sk_buff *skb, int *nhoff)
-> >{
-> >	const struct icmphdr *icmph;
-> >	struct icmphdr _ih;
-> >	int iphz = ((struct iphdr *)skb_network_header(skb))->ihl * 4;
-> 
-> unsigned int iphz = skb_hdrlen(skb);
-> 
-> >> > +static unsigned int
-> >> > +hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
-> >> > +{
-> >> > +     struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
-> 
-> Pointless cast.
+Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+---
+ drivers/net/ethernet/realtek/8139too.c |   61 +++++++++++++++++++++++++++----
+ 1 files changed, 53 insertions(+), 8 deletions(-)
 
-Yes, better to add a const in front of struct hmark
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index abd6aca..a00d76b 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -565,6 +565,12 @@ struct rtl_extra_stats {
+ 	unsigned long rx_lost_in_ring;
+ };
+ 
++struct rtl8139_stats {
++	u64	packets;
++	u64	bytes;
++	struct u64_stats_sync	syncp;
++};
++
+ struct rtl8139_private {
+ 	void __iomem		*mmio_addr;
+ 	int			drv_flags;
+@@ -575,11 +581,13 @@ struct rtl8139_private {
+ 
+ 	unsigned char		*rx_ring;
+ 	unsigned int		cur_rx;	/* RX buf index of next pkt */
++	struct rtl8139_stats	rx_stats;
+ 	dma_addr_t		rx_ring_dma;
+ 
+ 	unsigned int		tx_flag;
+ 	unsigned long		cur_tx;
+ 	unsigned long		dirty_tx;
++	struct rtl8139_stats	tx_stats;
+ 	unsigned char		*tx_buf[NUM_TX_DESC];	/* Tx bounce buffers */
+ 	unsigned char		*tx_bufs;	/* Tx bounce buffer region. */
+ 	dma_addr_t		tx_bufs_dma;
+@@ -641,7 +649,9 @@ static int rtl8139_poll(struct napi_struct *napi, int budget);
+ static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance);
+ static int rtl8139_close (struct net_device *dev);
+ static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
+-static struct net_device_stats *rtl8139_get_stats (struct net_device *dev);
++static struct rtnl_link_stats64 *rtl8139_get_stats64(struct net_device *dev,
++						    struct rtnl_link_stats64
++						    *stats);
+ static void rtl8139_set_rx_mode (struct net_device *dev);
+ static void __set_rx_mode (struct net_device *dev);
+ static void rtl8139_hw_start (struct net_device *dev);
+@@ -937,7 +947,7 @@ static int rtl8139_set_features(struct net_device *dev, netdev_features_t featur
+ static const struct net_device_ops rtl8139_netdev_ops = {
+ 	.ndo_open		= rtl8139_open,
+ 	.ndo_stop		= rtl8139_close,
+-	.ndo_get_stats		= rtl8139_get_stats,
++	.ndo_get_stats64	= rtl8139_get_stats64,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address 	= rtl8139_set_mac_address,
+@@ -1807,8 +1817,10 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
+ 				dev->stats.tx_fifo_errors++;
+ 			}
+ 			dev->stats.collisions += (txstatus >> 24) & 15;
+-			dev->stats.tx_bytes += txstatus & 0x7ff;
+-			dev->stats.tx_packets++;
++			u64_stats_update_begin(&tp->tx_stats.syncp);
++			tp->tx_stats.packets++;
++			tp->tx_stats.bytes += txstatus & 0x7ff;
++			u64_stats_update_end(&tp->tx_stats.syncp);
+ 		}
+ 
+ 		dirty_tx++;
+@@ -2050,8 +2062,10 @@ keep_pkt:
+ 
+ 			skb->protocol = eth_type_trans (skb, dev);
+ 
+-			dev->stats.rx_bytes += pkt_size;
+-			dev->stats.rx_packets++;
++			u64_stats_update_begin(&tp->rx_stats.syncp);
++			tp->rx_stats.packets++;
++			tp->rx_stats.bytes += pkt_size;
++			u64_stats_update_end(&tp->rx_stats.syncp);
+ 
+ 			netif_receive_skb (skb);
+ 		} else {
+@@ -2515,11 +2529,13 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ }
+ 
+ 
+-static struct net_device_stats *rtl8139_get_stats (struct net_device *dev)
++static struct rtnl_link_stats64 *
++rtl8139_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	unsigned long flags;
++	unsigned int start;
+ 
+ 	if (netif_running(dev)) {
+ 		spin_lock_irqsave (&tp->lock, flags);
+@@ -2528,7 +2544,36 @@ static struct net_device_stats *rtl8139_get_stats (struct net_device *dev)
+ 		spin_unlock_irqrestore (&tp->lock, flags);
+ 	}
+ 
+-	return &dev->stats;
++	do {
++		start = u64_stats_fetch_begin_bh(&tp->rx_stats.syncp);
++		stats->rx_packets = tp->rx_stats.packets;
++		stats->rx_bytes = tp->rx_stats.bytes;
++	} while (u64_stats_fetch_retry_bh(&tp->rx_stats.syncp, start));
++
++	do {
++		start = u64_stats_fetch_begin_bh(&tp->tx_stats.syncp);
++		stats->tx_packets = tp->tx_stats.packets;
++		stats->tx_bytes = tp->tx_stats.bytes;
++	} while (u64_stats_fetch_retry_bh(&tp->tx_stats.syncp, start));
++
++	stats->rx_errors	= dev->stats.rx_errors;
++	stats->tx_errors	= dev->stats.tx_errors;
++	stats->rx_dropped	= dev->stats.rx_dropped;
++	stats->tx_dropped	= dev->stats.tx_dropped;
++	stats->collisions	= dev->stats.collisions;
++
++	stats->rx_length_errors = dev->stats.rx_length_errors;
++	stats->rx_crc_errors	= dev->stats.rx_crc_errors;
++	stats->rx_frame_errors	= dev->stats.rx_frame_errors;
++	stats->rx_fifo_errors	= dev->stats.rx_fifo_errors;
++	stats->rx_missed_errors	= dev->stats.rx_missed_errors;
++
++	stats->tx_aborted_errors = dev->stats.tx_aborted_errors;
++	stats->tx_carrier_errors = dev->stats.tx_carrier_errors;
++	stats->tx_fifo_errors	= dev->stats.tx_fifo_errors;
++	stats->tx_window_errors = dev->stats.tx_window_errors;
++
++	return stats;
+ }
+ 
+ /* Set or clear the multicast filter for this adaptor.
+--
 
-> 
-> >> > +     union hmark_ports uports = { .v32 = 0 };
-> >> 
-> >> I think that this can be: union hmark_ports uports = {};
-> 
-> NB: Strictly speaking, {} is a GNU extension to saying {0} (or {{0}} or
-> {{{{{0}}}}} etc, which ever applies).
-
-Thanks, but I still don't think "= {}"; is obvious what it does :-) 
-It kan be nice if you have a lot to clear;
-
-> 
-> >> > +static unsigned int
-> >> > +hmark_v4(struct sk_buff *skb, const struct xt_action_param *par)
-> >> > +{
-> >> > +     struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
-> 
-> Same pointless cast.
-> 
-
--- 
-Thanks
-Hans 
+--Junchang
