@@ -1,88 +1,55 @@
-From: Serge Hallyn <serge@hallyn.com>
-Subject: Re: [PATCH v12 07/13] seccomp: add SECCOMP_RET_ERRNO
-Date: Mon, 05 Mar 2012 15:13:08 -0600
-Message-ID: <1330981988.1484.9.camel@Nokia-N900-51-1>
-References: <1330559620-23543-1-git-send-email-wad@chromium.org>
-	 <1330559620-23543-7-git-send-email-wad@chromium.org>
-	 <20120302182455.GA11308@mail.hallyn.com>
-	  <CABqD9ha8o3JU0v0ZnKcsjqm8osjSiUfCyvc=vrxhDTHHuG_V4A@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Sebastian Andrzej Siewior <bigeasy-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Mon, 5 Mar 2012 22:25:00 +0100
+Message-ID: <20120305212500.GA8132@linutronix.de>
+References: <20120220160148.GA7910@linutronix.de>
+ <201202201721.38136.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,  linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,  netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,  hpa@zytor.com, mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,  rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,  eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,  scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,  corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,  coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-1045-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Reply-To: Serge Hallyn <serge@hallyn.com>
-In-Reply-To: <CABqD9ha8o3JU0v0ZnKcsjqm8osjSiUfCyvc=vrxhDTHHuG_V4A@mail.gmail.com>
-Content-ID: <1330981987.1484.8.camel@Nokia-N900-51-1>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <201202201721.38136.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+* Oliver Neukum | 2012-02-20 17:21:38 [+0100]:
 
------ Original message -----
-> On Fri, Mar 2, 2012 at 12:24 PM, Serge E. Hallyn <serge@hallyn.com>
-> wrote:
-> > Quoting Will Drewry (wad@chromium.org):
-> > > This change adds the SECCOMP_RET_ERRNO as a valid return value from a
-> > > seccomp filter.  Additionally, it makes the first use of the lower
-> > > 16-bits for storing a filter-supplied errno.  16-bits is more than
-> > > enough for the errno-base.h calls.
-> > > 
-> > > Returning errors instead of immediately terminating processes that
-> > > violate seccomp policy allow for broader use of this functionality
-> > > for kernel attack surface reduction.  For example, a linux container
-> > > could maintain a whitelist of pre-existing system calls but drop
-> > > all new ones with errnos.  This would keep a logically static attack
-> > > surface while providing errnos that may allow for graceful failure
-> > > without the downside of do_exit() on a bad call.
-> > > 
-> > > v12: - move to WARN_ON if filter is NULL
-> > >        (oleg@redhat.com, luto@mit.edu, keescook@chromium.org)
-> > >      - return immediately for filter==NULL (keescook@chromium.org)
-> > >      - change evaluation to only compare the ACTION so that layered
-> > >        errnos don't result in the lowest one being returned.
-> > >        (keeschook@chromium.org)
-> > > v11: - check for NULL filter (keescook@chromium.org)
-> > > v10: - change loaders to fn
-> > >  v9: - n/a
-> > >  v8: - update Kconfig to note new need for syscall_set_return_value.
-> > >      - reordered such that TRAP behavior follows on later.
-> > >      - made the for loop a little less indent-y
-> > >  v7: - introduced
-> > > 
-> > > Reviewed-by: Kees Cook <keescook@chromium.org>
-> > > Signed-off-by: Will Drewry <wad@chromium.org>
-> > 
-> > Clever :)
-> > 
-> > Thanks, Will.
-> > 
-> > For patches 1-7,
-> > 
-> > Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-> 
-> Thanks!
-> 
-> > The -1 return value from __secure_computing_int() seems like it
-> > could stand  #define, like
-> > 
-> > #define SECCOMP_DONTRUN -1
-> > #define SECCOMP_RUN 0
-> > 
-> > or something Maybe not, but -1 always scares me and I had to look back
-> > and forth a few times to make sure it was doing what I would want.
-> 
-> Works for me.   The -1 just matches what syscall emulation, etc does on
-> x86.   I'll add this to the tweaks for v14.
-> 
-> Thanks!
+>Am Montag, 20. Februar 2012, 17:01:48 schrieb Sebastian Andrzej Siewior:
+>> |kernel BUG at kernel/rtmutex.c:724!
+>> |[<c029599c>] (rt_spin_lock_slowlock+0x108/0x2bc) from [<c01c2330>] (defer_bh+0x1c/0xb4)
+>> |[<c01c2330>] (defer_bh+0x1c/0xb4) from [<c01c3afc>] (rx_complete+0x14c/0x194)
+>> |[<c01c3afc>] (rx_complete+0x14c/0x194) from [<c01cac88>] (usb_hcd_giveback_urb+0xa0/0xf0)
+>> |[<c01cac88>] (usb_hcd_giveback_urb+0xa0/0xf0) from [<c01e1ff4>] (musb_giveback+0x34/0x40)
+>> |[<c01e1ff4>] (musb_giveback+0x34/0x40) from [<c01e2b1c>] (musb_advance_schedule+0xb4/0x1c0)
+>> |[<c01e2b1c>] (musb_advance_schedule+0xb4/0x1c0) from [<c01e2ca8>] (musb_cleanup_urb.isra.9+0x80/0x8c)
+>> |[<c01e2ca8>] (musb_cleanup_urb.isra.9+0x80/0x8c) from [<c01e2ed0>] (musb_urb_dequeue+0xec/0x108)
+>> |[<c01e2ed0>] (musb_urb_dequeue+0xec/0x108) from [<c01cbb90>] (unlink1+0xbc/0xcc)
+>> |[<c01cbb90>] (unlink1+0xbc/0xcc) from [<c01cc2ec>] (usb_hcd_unlink_urb+0x54/0xa8)
+>> |[<c01cc2ec>] (usb_hcd_unlink_urb+0x54/0xa8) from [<c01c2a84>] (unlink_urbs.isra.17+0x2c/0x58)
+>> |[<c01c2a84>] (unlink_urbs.isra.17+0x2c/0x58) from [<c01c2b44>] (usbnet_terminate_urbs+0x94/0x10c)
+>> |[<c01c2b44>] (usbnet_terminate_urbs+0x94/0x10c) from [<c01c2d68>] (usbnet_stop+0x100/0x15c)
+>> |[<c01c2d68>] (usbnet_stop+0x100/0x15c) from [<c020f718>] (__dev_close_many+0x94/0xc8)
+>> 
+>> defer_bh() takes the lok which is hold during unlink_urbs(). The safe
+>> walk suggest that the skb will be removed from the list and this is done
+>> by defer_bh() so it seems to be okay to drop the lock here.
+>
+>I am afraid there's something wrong in the hcd driver. Async unlink must
+>be possible with a lock held. I cannot approve this patch.
 
-Well, in that case maybe it's not worth it.  Sounds
-like ignorance on my part.
+This argument is no longer valid, the documentation has been updated
+[0].
+Is it okay for the patch to be merged?
 
-thanks,
--serge
+[0] http://git.kernel.org/?p=linux/kernel/git/gregkh/usb.git;a=commitdiff;h=371f3b49f2cb1a8b6ac09b6b108841ca92349eb1;hp=2a5be8783e0016d15e7907ddd212b2c312e196eb
+
+>	Regards
+>		Oliver
+
+Sebastian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
