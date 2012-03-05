@@ -1,71 +1,48 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [v9 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Mon, 5 Mar 2012 11:48:16 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1203051140470.19304@frira.zrqbmnf.qr>
-References: <1329387672-23683-1-git-send-email-hans.schillstrom@ericsson.com> <1329387672-23683-3-git-send-email-hans.schillstrom@ericsson.com> <20120304184459.GA24338@1984> <201203051109.48817.hans.schillstrom@ericsson.com>
+From: Duc Dang <dhdang@apm.com>
+Subject: [PATCH v3 1/2] powerpc/44x: Add new compatible value for EMAC node of APM821XX dts file.
+Date: Mon,  5 Mar 2012 17:57:42 +0700
+Message-ID: <1330945062-15760-1-git-send-email-dhdang@apm.com>
+References: <1330920224-3006-1-git-send-email-dhdang@apm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201203051109.48817.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Duc Dang <dhdang@apm.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>,
+	Josh Boyer <jwboyer@gmail.com>, Stefan Roese <sr@denx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og106.obsmtp.com ([64.18.0.182]:53459 "HELO
+	exprod5og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756842Ab2CEK6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 05:58:11 -0500
+Received: by dado14 with SMTP id o14so4359248dad.34
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 02:58:10 -0800 (PST)
+In-Reply-To: <1330920224-3006-1-git-send-email-dhdang@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This compatible value will be used to distinguish some special features of APM821XX EMAC: no half duplex mode support, configuring jumbo frame.
 
-On Monday 2012-03-05 11:09, Hans Schillstrom wrote:
->> > diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
->> > index 40f4c3d..21bc5e8 100644
->> > --- a/net/netfilter/Makefile
->> > +++ b/net/netfilter/Makefile
->> > @@ -57,6 +57,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
->> >  obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
->> >  obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
->> >  obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
->> > +obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_hmark.o
->> 
->> Netfilter's naming policy requires that targets are in upper case.
->
->I asked netfilter team about that, and got the answer
->that it should be lower case for new modules.
->Have that been changed ?
+Signed-off-by: Duc Dang <dhdang@apm.com>
+---
+v3:
+ No change since v1/v2 patch sets. Added for completeness.
 
-The name of the file is pretty much irrelevant (because loading
-solely depends on MODULE_ALIAS), so I share that only lowercase
-should be used for new things. It's not that the linux kernel would
-currently be storable on a case-insensitive filesystem, but that does
-not mean we can't latently work towards it.
+ arch/powerpc/boot/dts/bluestone.dts |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->static int get_inner_hdr(struct sk_buff *skb, int *nhoff)
->{
->	const struct icmphdr *icmph;
->	struct icmphdr _ih;
->	int iphz = ((struct iphdr *)skb_network_header(skb))->ihl * 4;
-
-unsigned int iphz = skb_hdrlen(skb);
-
->> > +static unsigned int
->> > +hmark_v6(struct sk_buff *skb, const struct xt_action_param *par)
->> > +{
->> > +     struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
-
-Pointless cast.
-
->> > +     union hmark_ports uports = { .v32 = 0 };
->> 
->> I think that this can be: union hmark_ports uports = {};
-
-NB: Strictly speaking, {} is a GNU extension to saying {0} (or {{0}} or
-{{{{{0}}}}} etc, which ever applies).
-
->> > +static unsigned int
->> > +hmark_v4(struct sk_buff *skb, const struct xt_action_param *par)
->> > +{
->> > +     struct xt_hmark_info *info = (struct xt_hmark_info *)par->targinfo;
-
-Same pointless cast.
+diff --git a/arch/powerpc/boot/dts/bluestone.dts b/arch/powerpc/boot/dts/bluestone.dts
+index 2a56a0d..74876f7 100644
+--- a/arch/powerpc/boot/dts/bluestone.dts
++++ b/arch/powerpc/boot/dts/bluestone.dts
+@@ -222,7 +222,7 @@
+ 
+ 			EMAC0: ethernet@ef600c00 {
+ 				device_type = "network";
+-				compatible = "ibm,emac4sync";
++				compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
+ 				interrupt-parent = <&EMAC0>;
+ 				interrupts = <0x0 0x1>;
+ 				#interrupt-cells = <1>;
+-- 
+1.7.5.4
