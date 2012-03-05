@@ -1,61 +1,124 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH] rtnetlink: fix rtnl_calcit() and rtnl_dump_ifinfo()
-Date: Mon, 5 Mar 2012 06:14:32 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702FAEF48@ORSMSX106.amr.corp.intel.com>
-References: <20120221215127.30280.30853.stgit@gitlad.jf.intel.com>
-	 <20120221.165750.2246668899195223381.davem@davemloft.net>
- <1330900330.17266.10.camel@edumazet-laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
+ (fix nfs regression)
+Date: Mon, 05 Mar 2012 14:18:43 +0800
+Message-ID: <4F545AC3.50004@redhat.com>
+References: <1330675173-18968-1-git-send-email-slyich@gmail.com> <4F509150.5060904@redhat.com> <20120302202421.753b36bc@sf.home> <20120302205000.088bf231@sf.home> <4F5227C9.7060209@parallels.com> <20120303174322.7e920bc5@sf.home> <4F52A8D5.9090703@parallels.com> <20120304121400.4d756e55@sf.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18548 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751786Ab2CEGOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 01:14:33 -0500
-In-Reply-To: <1330900330.17266.10.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Glauber Costa <glommer@parallels.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Sergei Trofimovich <slyich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120304121400.4d756e55@sf.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTdW5kYXksIE1hcmNoIDA0LCAyMDEy
-IDI6MzIgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogUm9zZSwgR3JlZ29yeSBWOyBuZXRk
-ZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gcnRuZXRsaW5rOiBmaXggcnRu
-bF9jYWxjaXQoKSBhbmQgcnRubF9kdW1wX2lmaW5mbygpDQo+IA0KPiBubG1zZ19wYXJzZSgpIG1p
-Z2h0IHJldHVybiBhbiBlcnJvciwgc28gdGVzdCBpdHMgcmV0dXJuIHZhbHVlIGJlZm9yZQ0KPiBw
-b3RlbnRpYWwgcmFuZG9tIG1lbW9yeSBhY2Nlc3Nlcy4NCj4gDQo+IEVycm9ycyBpbnRyb2R1Y2Vk
-IGluIGNvbW1pdCAxMTVjOWI4MTkyOCAocnRuZXRsaW5rOiBGaXggcHJvYmxlbSB3aXRoDQo+IGJ1
-ZmZlciBhbGxvY2F0aW9uKQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmlj
-LmR1bWF6ZXRAZ21haWwuY29tPg0KPiBDYzogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRl
-bC5jb20+DQo+IC0tLQ0KPiAgbmV0L2NvcmUvcnRuZXRsaW5rLmMgfCAgIDE4ICsrKysrKysrKyst
-LS0tLS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDggZGVsZXRpb25z
-KC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMgYi9uZXQvY29yZS9y
-dG5ldGxpbmsuYw0KPiBpbmRleCA2MDZhNmU4Li5mOTY1ZGNlIDEwMDY0NA0KPiAtLS0gYS9uZXQv
-Y29yZS9ydG5ldGxpbmsuYw0KPiArKysgYi9uZXQvY29yZS9ydG5ldGxpbmsuYw0KPiBAQCAtMTA2
-MCwxMSArMTA2MCwxMiBAQCBzdGF0aWMgaW50IHJ0bmxfZHVtcF9pZmluZm8oc3RydWN0IHNrX2J1
-ZmYgKnNrYiwNCj4gc3RydWN0IG5ldGxpbmtfY2FsbGJhY2sgKmNiKQ0KPiAgCXJjdV9yZWFkX2xv
-Y2soKTsNCj4gIAljYi0+c2VxID0gbmV0LT5kZXZfYmFzZV9zZXE7DQo+IA0KPiAtCW5sbXNnX3Bh
-cnNlKGNiLT5ubGgsIHNpemVvZihzdHJ1Y3QgcnRnZW5tc2cpLCB0YiwgSUZMQV9NQVgsDQo+IC0J
-CSAgICBpZmxhX3BvbGljeSk7DQo+ICsJaWYgKG5sbXNnX3BhcnNlKGNiLT5ubGgsIHNpemVvZihz
-dHJ1Y3QgcnRnZW5tc2cpLCB0YiwgSUZMQV9NQVgsDQo+ICsJCQlpZmxhX3BvbGljeSkgPj0gMCkg
-ew0KPiANCj4gLQlpZiAodGJbSUZMQV9FWFRfTUFTS10pDQo+IC0JCWV4dF9maWx0ZXJfbWFzayA9
-IG5sYV9nZXRfdTMyKHRiW0lGTEFfRVhUX01BU0tdKTsNCj4gKwkJaWYgKHRiW0lGTEFfRVhUX01B
-U0tdKQ0KPiArCQkJZXh0X2ZpbHRlcl9tYXNrID0gbmxhX2dldF91MzIodGJbSUZMQV9FWFRfTUFT
-S10pOw0KPiArCX0NCj4gDQo+ICAJZm9yIChoID0gc19oOyBoIDwgTkVUREVWX0hBU0hFTlRSSUVT
-OyBoKyssIHNfaWR4ID0gMCkgew0KPiAgCQlpZHggPSAwOw0KPiBAQCAtMTkwMCwxMCArMTkwMSwx
-MSBAQCBzdGF0aWMgdTE2IHJ0bmxfY2FsY2l0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdA0K
-PiBubG1zZ2hkciAqbmxoKQ0KPiAgCXUzMiBleHRfZmlsdGVyX21hc2sgPSAwOw0KPiAgCXUxNiBt
-aW5faWZpbmZvX2R1bXBfc2l6ZSA9IDA7DQo+IA0KPiAtCW5sbXNnX3BhcnNlKG5saCwgc2l6ZW9m
-KHN0cnVjdCBydGdlbm1zZyksIHRiLCBJRkxBX01BWCwNCj4gaWZsYV9wb2xpY3kpOw0KPiAtDQo+
-IC0JaWYgKHRiW0lGTEFfRVhUX01BU0tdKQ0KPiAtCQlleHRfZmlsdGVyX21hc2sgPSBubGFfZ2V0
-X3UzMih0YltJRkxBX0VYVF9NQVNLXSk7DQo+ICsJaWYgKG5sbXNnX3BhcnNlKG5saCwgc2l6ZW9m
-KHN0cnVjdCBydGdlbm1zZyksIHRiLCBJRkxBX01BWCwNCj4gKwkJCWlmbGFfcG9saWN5KSA+PSAw
-KSB7DQo+ICsJCWlmICh0YltJRkxBX0VYVF9NQVNLXSkNCj4gKwkJCWV4dF9maWx0ZXJfbWFzayA9
-IG5sYV9nZXRfdTMyKHRiW0lGTEFfRVhUX01BU0tdKTsNCj4gKwl9DQo+IA0KPiAgCWlmICghZXh0
-X2ZpbHRlcl9tYXNrKQ0KPiAgCQlyZXR1cm4gTkxNU0dfR09PRFNJWkU7DQo+IA0KDQpJIGd1ZXNz
-IEkgbWlzdW5kZXJzdG9vZCBzb21lIG9mIHRoZSBpbnRlcm5hbCB3b3JraW5ncyBvZiBubG1zZ19w
-YXJzZS4gIEdvb2QgY2F0Y2guDQoNClRoYW5rcywNCg0KLSBHcmVnDQoNCg==
+On 03/04/2012 05:14 PM, Sergei Trofimovich wrote:
+> On Sat, 3 Mar 2012 20:27:17 -0300
+> Glauber Costa<glommer@parallels.com>  wrote:
+>
+>> On 03/03/2012 11:43 AM, Sergei Trofimovich wrote:
+>>> On Sat, 3 Mar 2012 11:16:41 -0300
+>>> Glauber Costa<glommer@parallels.com>   wrote:
+>>>
+>>>> On 03/02/2012 02:50 PM, Sergei Trofimovich wrote:
+>>>>>>>> The change looks like a typo (division flipped to multiplication):
+>>>>>>>>> limit = nr_free_buffer_pages() / 8;
+>>>>>>>>> limit = nr_free_buffer_pages()<<     (PAGE_SHIFT - 10);
+>>>>>>> Hi, thanks for the reporting. It's not a typo. It was previously:
+>>>>>>> sysctl_tcp_mem[1]<<    (PAGE_SHIFT -  7). Looks like we need to do the
+>>>>>>> limit check before shift the value. Please try the following patch, thanks.
+>>>>>> Still does not help. I test it by checking sha1sum of a large file over NFS
+>>>>>> (small files seem to work simetimes):
+>>>>>>
+>>>>>>        $ strace sha1sum /gentoo/distfiles/gcc-4.6.2.tar.bz2
+>>>>>>        ...
+>>>>>>        open("/gentoo/distfiles/gcc-4.6.2.tar.bz2", O_RDONLY
+>>>>>>        <HUNG>
+Hi Sergei:
+
+Looks like the client does not even start to read the file.
+>>>>>> After a certain timeout dmesg gets odd spam:
+>>>>>> [  314.848094] nfs: server vmhost not responding, still trying
+>>>>>> [  314.848134] nfs: server vmhost not responding, still trying
+>>>>>> [  314.848145] nfs: server vmhost not responding, still trying
+>>>>>> [  314.957047] nfs: server vmhost not responding, still trying
+>>>>>> [  314.957066] nfs: server vmhost not responding, still trying
+>>>>>> [  314.957075] nfs: server vmhost not responding, still trying
+>>>>>> [  314.957085] nfs: server vmhost not responding, still trying
+>>>>>> [  314.957100] nfs: server vmhost not responding, still trying
+>>>>>> [  314.958023] nfs: server vmhost not responding, still trying
+>>>>>> [  314.958035] nfs: server vmhost not responding, still trying
+>>>>>> [  314.958044] nfs: server vmhost not responding, still trying
+>>>>>> [  314.958054] nfs: server vmhost not responding, still trying
+>>>>>>
+>>>>>> looks like bogus messages. Might be relevant to mishandled timings
+>>>>>> somewhere else or a bug in nfs code.
+
+  Did you use a virtual machine as your NFS server? Have you tried to 
+bisect the server side code?
+>>>>> And after 120 seconds hung tasks shows it might be an OOM issue
+>>>>> Likely caused by patch, as it's a 2GB RAM +4GB swap amd64 box
+>>>>> not running anything heavy:
+>>>> That is a bit weird.
+>>>>
+>>>> First because with Jason's patch, we should end up with the very same
+>>>> calculation, at the same exact order, as it was in older kernels.
+>>>> Second, because by shifting<<   10, you should be ending up with very
+>>>> small numbers, effectively having tcp_rmem[1] == tcp_rmem[2], and the
+>>>> same for wmem.
+>>>>
+>>>> Can you share which numbers you end up with at
+>>>> /proc/sys/net/ipv4/tcp_{r,w}mem ?
+>>>>
+>>> Sure:
+>>>
+>>>       $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
+>>>       4096    87380   1999072
+>>>       4096    16384   1999072
+>>>
+>> Sergei,
+>>
+>> Sorry for not being clearer. I was expecting you'd post those values
+>> both in the scenario in which you see the bug, and in the scenario you
+>> don't.
+> Ah, I see.  Sorry. Patches are on top of v3.3-rc5-166-g1f033c1. Buggy one:
+>> -       limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
+>> -       limit = max(limit, 128UL);
+>> +       limit = nr_free_buffer_pages() / 8;
+>> +       limit = max(limit, 128UL)<<  (PAGE_SHIFT - 7);
+>>          max_share = min(4UL*1024*1024, limit);
+>> +       printk(KERN_INFO "TCP: max_share=%u\n", max_share);
+>      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
+>      4096    87380   1999072
+>      4096    16384   1999072
+
+Nothing strange to me.
+> Working one:
+>> -       limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
+>> +       limit = nr_free_buffer_pages()>>  (PAGE_SHIFT - 10);
+>>          limit = max(limit, 128UL);
+>>          max_share = min(4UL*1024*1024, limit);
+>> +       printk(KERN_INFO "TCP: max_share=%u\n", max_share);
+>      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
+>      4096    87380   124942
+>      4096    16384   124942
+
+This one looks small to me, as the tcp_{r,w}mem were count by bytes and 
+limit were count by number of pages, so we need to shift PAGE_SHIFT.
+
+As I can't reproduce this locally, in order to narrow down the problem, 
+could you please help to check whether the issue were 
+introduced/eliminated by commit  4acb4190 or 3dc43e3?
+
+Thanks
+>>> Nothing special with NFS nere, so I guess it uses UDP.
+>>> TCP works fine on machine (I do everything via SSH).
+>> Can you confirm that? If you're using nfs through udp, it makes
+>> even less sense that the default values of tcp sock mem will harm
+>> you. So it might be a bug somewhere else...
+> Rechecked with tcpdump. It uses TCP.
+>
