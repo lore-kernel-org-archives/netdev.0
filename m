@@ -1,32 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Fix licensing problems in if_ppp.h
-Date: Sun, 04 Mar 2012 20:41:47 -0500 (EST)
-Message-ID: <20120304.204147.652134096643702602.davem@davemloft.net>
-References: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
+Subject: Re: [PATCH 3/6] stmmac: Add support for CPU freq notifiers.
+Date: Sun, 04 Mar 2012 20:50:45 -0500 (EST)
+Message-ID: <20120304.205045.1678554604028231988.davem@davemloft.net>
+References: <1330692928-30330-2-git-send-email-deepak.sikri@st.com>
+	<1330692928-30330-3-git-send-email-deepak.sikri@st.com>
+	<1330692928-30330-4-git-send-email-deepak.sikri@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jan.kiszka@siemens.com,
-	linux-kernel@vger.kernel.org
-To: paulus@samba.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, spear-devel@list.st.com,
+	netdev@vger.kernel.org
+To: deepak.sikri@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47603 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755314Ab2CEBuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 20:50:54 -0500
+In-Reply-To: <1330692928-30330-4-git-send-email-deepak.sikri@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Mackerras <paulus@samba.org>
-Date: Mon, 5 Mar 2012 09:53:37 +1100
+From: Deepak Sikri <deepak.sikri@st.com>
+Date: Fri, 2 Mar 2012 18:25:25 +0530
 
-> This series of 3 patches is primarily aimed at removing the problem
-> that the license on include/linux/if_ppp.h is the old BSD-style license
-> with advertising clause.  However, in fact virtually none of that file
-> comes from the original PPP code released by CMU.  This series solves
-> the problem by moving the code that I originally wrote to a new header
-> file with my copyright on it.
-> 
-> While we're at it, I also change the license on some files where I had
-> put an ANU copyright notice originally to have my copyright instead.
-> I have an acknowledgement in writing from September 2002 from ANU that
-> they do not claim any copyright in this code.
+> +{
+> +
+> +	if ((clk_rate >= CSR_F_20M) && (clk_rate < CSR_F_35M))
+ ...
+> +		priv->plat->clk_csr = STMMAC_CLK_RANGE_150_250M;
+> +
+> +}
 
-All applied, thanks Paul.
+Unnecessary empty lines, remove them.
+
+> +			/*
+> +			 * Decide on the MDC clock dynamically based on the
+> +			 * csr clock input.
+
+Format comments:
+
+	/* Like
+	 * this.
+	 */
+
+Not:
+
+	/*
+	 * Like
+	 * this.
+	 */
+
+> +static inline void stmmac_cpufreq_deregister(struct stmmac_priv *priv)
+> +{
+> +
+> +	cpufreq_unregister_notifier(&priv->freq_transition,
+
+Unnecessary empty line.
