@@ -1,110 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/pch_gbe: supports eg20t ptp clock
-Date: Sun, 04 Mar 2012 22:04:33 -0800
-Message-ID: <1330927473.3140.1.camel@joe2Laptop>
-References: <1330926377-11531-1-git-send-email-tshimizu818@gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH] rtnetlink: fix rtnl_calcit() and rtnl_dump_ifinfo()
+Date: Mon, 5 Mar 2012 06:14:32 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702FAEF48@ORSMSX106.amr.corp.intel.com>
+References: <20120221215127.30280.30853.stgit@gitlad.jf.intel.com>
+	 <20120221.165750.2246668899195223381.davem@davemloft.net>
+ <1330900330.17266.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, davem@davemloft.net,
-	lucas.demarchi@profusion.mobi, mirq-linux@rere.qmqm.pl,
-	paul.gortmaker@windriver.com, toshiharu-linux@dsn.okisemi.com,
-	jdmason@kudzu.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qi.wang@intel.com,
-	yong.y.wang@intel.com, joel.clark@intel.com, kok.howg.ewe@intel.com
-To: Takahiro Shimizu <tshimizu818@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330926377-11531-1-git-send-email-tshimizu818@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:18548 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751786Ab2CEGOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2012 01:14:33 -0500
+In-Reply-To: <1330900330.17266.10.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-05 at 14:46 +0900, Takahiro Shimizu wrote:
-> From: Takahiroi Shimizu <tshimizu818@gmail.com>
-> Supports EG20T ptp clock in the driver
-
-just some trivial comments...
-
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +/* 0x40 Time Synchronization Channel Control Register Bits */
-> +#define MASTER_MODE   (1<<0)
-> +#define SLAVE_MODE    (0<<0)
-
-> +#define V2_MODE       (1<<31)
-> +#define CAP_MODE0     (0<<16)
-
-0 << anything is pretty ugly.
-
-[]
-
-> +static void pch_rx_timestamp(
-> +			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
-
-Also not too pretty.
-
-Maybe
-
-static void
-pch_rx_timestamp(struct pch_gbe_adapter *adapter, struct sk_buff *skb)
-
-[]
-
-> +static void pch_tx_timestamp(
-> +			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
-
-here too.
-
-[]
-
-> +	shtx = skb_shinfo(skb);
-> +	if (unlikely(shtx->tx_flags & SKBTX_HW_TSTAMP && adapter->hwts_tx_en))
-> +		shtx->tx_flags |= SKBTX_IN_PROGRESS;
-> +	else
-> +		return;
-
-probably better as
-
-	if (likely(!(shtx->tx_flags & SKBTX_HW_TSTAMP &&
-		     adapter->hwts_tx_en)))
-		return;
-
-	shtx->tx_flags |= etc...
-
-> +
-> +	/* Get ieee1588's dev information */
-> +	pdev = adapter->ptp_pdev;
-> +
-> +	/*
-> +	 * This really stinks, but we have to poll for the Tx time stamp.
-> +	 * Usually, the time stamp is ready after 4 to 6 microseconds.
-> +	 */
-> +	for (cnt = 0; cnt < 100; cnt++) {
-> +		val = pch_ch_event_read(pdev);
-> +		if (val & TX_SNAPSHOT_LOCKED)
-> +			break;
-> +		udelay(1);
-> +	}
-
-why not just continually poll until timeout instead of udelay?
-
-[]
-
-> +static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-
-[]
-
-> +	switch (cfg.rx_filter) {
-> +	case HWTSTAMP_FILTER_NONE:
-> +		adapter->hwts_rx_en = 0;
-> +		break;
-> +	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-> +		adapter->hwts_rx_en = 0;
-> +		pch_ch_control_write(pdev, (SLAVE_MODE | CAP_MODE0));
-
-parentheses are not necessary around SLAVE_MODE | CAP_MODE0
-
-> +		break;
-> +	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-> +		adapter->hwts_rx_en = 1;
-> +		pch_ch_control_write(pdev, (MASTER_MODE | CAP_MODE0));
-
-here too.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTdW5kYXksIE1hcmNoIDA0LCAyMDEy
+IDI6MzIgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogUm9zZSwgR3JlZ29yeSBWOyBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gcnRuZXRsaW5rOiBmaXggcnRu
+bF9jYWxjaXQoKSBhbmQgcnRubF9kdW1wX2lmaW5mbygpDQo+IA0KPiBubG1zZ19wYXJzZSgpIG1p
+Z2h0IHJldHVybiBhbiBlcnJvciwgc28gdGVzdCBpdHMgcmV0dXJuIHZhbHVlIGJlZm9yZQ0KPiBw
+b3RlbnRpYWwgcmFuZG9tIG1lbW9yeSBhY2Nlc3Nlcy4NCj4gDQo+IEVycm9ycyBpbnRyb2R1Y2Vk
+IGluIGNvbW1pdCAxMTVjOWI4MTkyOCAocnRuZXRsaW5rOiBGaXggcHJvYmxlbSB3aXRoDQo+IGJ1
+ZmZlciBhbGxvY2F0aW9uKQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmlj
+LmR1bWF6ZXRAZ21haWwuY29tPg0KPiBDYzogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRl
+bC5jb20+DQo+IC0tLQ0KPiAgbmV0L2NvcmUvcnRuZXRsaW5rLmMgfCAgIDE4ICsrKysrKysrKyst
+LS0tLS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDggZGVsZXRpb25z
+KC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMgYi9uZXQvY29yZS9y
+dG5ldGxpbmsuYw0KPiBpbmRleCA2MDZhNmU4Li5mOTY1ZGNlIDEwMDY0NA0KPiAtLS0gYS9uZXQv
+Y29yZS9ydG5ldGxpbmsuYw0KPiArKysgYi9uZXQvY29yZS9ydG5ldGxpbmsuYw0KPiBAQCAtMTA2
+MCwxMSArMTA2MCwxMiBAQCBzdGF0aWMgaW50IHJ0bmxfZHVtcF9pZmluZm8oc3RydWN0IHNrX2J1
+ZmYgKnNrYiwNCj4gc3RydWN0IG5ldGxpbmtfY2FsbGJhY2sgKmNiKQ0KPiAgCXJjdV9yZWFkX2xv
+Y2soKTsNCj4gIAljYi0+c2VxID0gbmV0LT5kZXZfYmFzZV9zZXE7DQo+IA0KPiAtCW5sbXNnX3Bh
+cnNlKGNiLT5ubGgsIHNpemVvZihzdHJ1Y3QgcnRnZW5tc2cpLCB0YiwgSUZMQV9NQVgsDQo+IC0J
+CSAgICBpZmxhX3BvbGljeSk7DQo+ICsJaWYgKG5sbXNnX3BhcnNlKGNiLT5ubGgsIHNpemVvZihz
+dHJ1Y3QgcnRnZW5tc2cpLCB0YiwgSUZMQV9NQVgsDQo+ICsJCQlpZmxhX3BvbGljeSkgPj0gMCkg
+ew0KPiANCj4gLQlpZiAodGJbSUZMQV9FWFRfTUFTS10pDQo+IC0JCWV4dF9maWx0ZXJfbWFzayA9
+IG5sYV9nZXRfdTMyKHRiW0lGTEFfRVhUX01BU0tdKTsNCj4gKwkJaWYgKHRiW0lGTEFfRVhUX01B
+U0tdKQ0KPiArCQkJZXh0X2ZpbHRlcl9tYXNrID0gbmxhX2dldF91MzIodGJbSUZMQV9FWFRfTUFT
+S10pOw0KPiArCX0NCj4gDQo+ICAJZm9yIChoID0gc19oOyBoIDwgTkVUREVWX0hBU0hFTlRSSUVT
+OyBoKyssIHNfaWR4ID0gMCkgew0KPiAgCQlpZHggPSAwOw0KPiBAQCAtMTkwMCwxMCArMTkwMSwx
+MSBAQCBzdGF0aWMgdTE2IHJ0bmxfY2FsY2l0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdA0K
+PiBubG1zZ2hkciAqbmxoKQ0KPiAgCXUzMiBleHRfZmlsdGVyX21hc2sgPSAwOw0KPiAgCXUxNiBt
+aW5faWZpbmZvX2R1bXBfc2l6ZSA9IDA7DQo+IA0KPiAtCW5sbXNnX3BhcnNlKG5saCwgc2l6ZW9m
+KHN0cnVjdCBydGdlbm1zZyksIHRiLCBJRkxBX01BWCwNCj4gaWZsYV9wb2xpY3kpOw0KPiAtDQo+
+IC0JaWYgKHRiW0lGTEFfRVhUX01BU0tdKQ0KPiAtCQlleHRfZmlsdGVyX21hc2sgPSBubGFfZ2V0
+X3UzMih0YltJRkxBX0VYVF9NQVNLXSk7DQo+ICsJaWYgKG5sbXNnX3BhcnNlKG5saCwgc2l6ZW9m
+KHN0cnVjdCBydGdlbm1zZyksIHRiLCBJRkxBX01BWCwNCj4gKwkJCWlmbGFfcG9saWN5KSA+PSAw
+KSB7DQo+ICsJCWlmICh0YltJRkxBX0VYVF9NQVNLXSkNCj4gKwkJCWV4dF9maWx0ZXJfbWFzayA9
+IG5sYV9nZXRfdTMyKHRiW0lGTEFfRVhUX01BU0tdKTsNCj4gKwl9DQo+IA0KPiAgCWlmICghZXh0
+X2ZpbHRlcl9tYXNrKQ0KPiAgCQlyZXR1cm4gTkxNU0dfR09PRFNJWkU7DQo+IA0KDQpJIGd1ZXNz
+IEkgbWlzdW5kZXJzdG9vZCBzb21lIG9mIHRoZSBpbnRlcm5hbCB3b3JraW5ncyBvZiBubG1zZ19w
+YXJzZS4gIEdvb2QgY2F0Y2guDQoNClRoYW5rcywNCg0KLSBHcmVnDQoNCg==
