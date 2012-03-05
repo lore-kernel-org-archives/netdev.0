@@ -1,64 +1,89 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] bridge: Adjust min age inc for HZ > 256
-Date: Mon, 5 Mar 2012 13:30:00 -0800
-Message-ID: <20120305133000.72206a30@nehalam.linuxnetplumber.net>
-References: <20120304210350.629ec5c6@nehalam.linuxnetplumber.net>
-	<20120305.000921.1233132850153467742.davem@davemloft.net>
-	<OF2C9B7723.897FDDA7-ONC12579B8.002D1A5A-C12579B8.002D3A31@transmode.se>
-	<20120305.032410.1729877140582678194.davem@davemloft.net>
-	<OF88775C78.CE313829-ONC12579B8.003017A8-C12579B8.003053F0@transmode.se>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v9 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Mon, 5 Mar 2012 22:37:38 +0100
+Message-ID: <20120305213738.GA30032@1984>
+References: <1329387672-23683-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201203051109.48817.hans.schillstrom@ericsson.com>
+ <20120305182248.GA29022@1984>
+ <201203052133.54604.hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35720 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752687Ab2CEVaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 16:30:03 -0500
-In-Reply-To: <OF88775C78.CE313829-ONC12579B8.003017A8-C12579B8.003053F0@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201203052133.54604.hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Mar 2012 09:47:52 +0100
-Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
+On Mon, Mar 05, 2012 at 09:33:54PM +0100, Hans Schillstrom wrote:
+> Hello,
+> On Monday, March 05, 2012 19:22:48 Pablo Neira Ayuso wrote:
+> > Let me trim off parts that have been already discussed.
+> > 
+> > On Mon, Mar 05, 2012 at 11:09:46AM +0100, Hans Schillstrom wrote:
+> > [...]
+> > > ...
+> > > > > +
+> > > > > +/*
+> > > > > + * ICMP, get header offset if icmp error
+> > > > > + */
+> > > > > +static int get_inner_hdr(struct sk_buff *skb, int iphsz, int nhoff)
+> > > > > +{
+> > > > > +     const struct icmphdr *icmph;
+> > > > > +     struct icmphdr _ih;
+> > > > > +
+> > > > > +     /* Not enough header? */
+> > > > > +     icmph = skb_header_pointer(skb, nhoff + iphsz, sizeof(_ih), &_ih);
+> > > > > +     if (icmph == NULL)
+> > > > > +             return nhoff;
+> > > > 
+> > > > I think this has to return -1 in this case.
+> > > 
+> > > No, it must return the unchanged value of nhoffs.
+> > > Unless I change the usge of it as described later.
+> > 
+> > I see, you're defaulting on the original header if you cannot get the
+> > ICMP header (eg. fragment case).
+> > 
+> > > > > +
+> > > > > +     if (icmph->type > NR_ICMP_TYPES)
+> > > > > +             return nhoff;
+> > > > 
+> > > > Same thing.
+> > > 
+> > > Same comment.
+> > 
+> > So if you get an unsupportted ICMP message, you rely on the original
+> > IP header.
+> >
+> 
+> Yes, thats right.
+> 
+> >
+> [snip]
+> > 
+> > I think you can do like in other parts of netfilter:
+> > 
+> > union hmark_ports _uports = { ... };
+> > union hmark_ports *uports;
+> > 
+> > uports = skb_header_pointer(skb, nhoffs + poff, sizeof(_uports), &_uports);
+> > if (uports == NULL)
+> >         return XT_CONTINUE;
+> > 
+> > Then use uports->v32 in the rest of the code.
+> 
+> If I do so, the original packet might be altered which is very bad.
+> i.e. if skb_header_pointer() return skb->data + offset; then I will write
+> right into the skb :-(
 
-> David Miller <davem@davemloft.net> wrote on 2012/03/05 09:24:10:
-> >
-> > From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> > Date: Mon, 5 Mar 2012 09:14:00 +0100
-> >
-> > > David Miller <davem@davemloft.net> wrote on 2012/03/05 06:09:21:
-> > >>
-> > >> From: Stephen Hemminger <shemminger@vyatta.com>
-> > >> Date: Sun, 4 Mar 2012 21:03:50 -0800
-> > >>
-> > >> > I don't understand why this is required.
-> > >>
-> > >> And I don't understand why it takes nearly a week to review a one line
-> > >> patch like this.
-> > >>
-> > >> If you don't say anything I'm going to just apply it after a few days,
-> > >> which is what I did here already.
-> > >>
-> > >> Me applying it should never be your trigger to review the patch, yet I
-> > >> see this happen all the time.  What do you think I was waiting for
-> > >> these past 5 days, divine intervention?
-> > >
-> > > hmm, does this mean you "unapplied" the patch now?
-> >
-> > I can't, it's now in the permanent record so I can't remove it.
-> >
-> > At best I can apply a revert patch, but you guys are still discussing
-> > this so I have no idea whether that's even necessary or not.
-> 
-> OK, hopefully Stephen is happy with my explanation. In any case
-> I won't be able to retest if only patch 2 is needed as our test window closed
-> this weekend.
-> 
->  Jocke
-> 
+I see, then use skb_copy_bits(skb, offset, buffer, len) instead of
+skb_header_pointer.
 
-I am okay with the change, but that whole section needs more comments
-and explanation. 
+Thanks Hans. 
