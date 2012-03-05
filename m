@@ -1,156 +1,78 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
- (fix nfs regression)
-Date: Mon, 5 Mar 2012 21:22:05 +0300
-Message-ID: <20120305212206.43f3abfa@sf.home>
-References: <1330675173-18968-1-git-send-email-slyich@gmail.com>
-	<4F509150.5060904@redhat.com>
-	<20120302202421.753b36bc@sf.home>
-	<20120302205000.088bf231@sf.home>
-	<4F5227C9.7060209@parallels.com>
-	<20120303174322.7e920bc5@sf.home>
-	<4F52A8D5.9090703@parallels.com>
-	<20120304121400.4d756e55@sf.home>
-	<4F545AC3.50004@redhat.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] ipv6: fix socket multicast check
+Date: Mon, 5 Mar 2012 10:45:59 -0800
+Message-ID: <OFFC0CF6CF.38E7ECFD-ON882579B8.0066906E-882579B8.006715A9@us.ibm.com>
+References: <1330971129-10781-1-git-send-email-ajuncu@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/id4tQ5knXeaogbSSexl/KwI"; protocol="application/pgp-signature"
-Cc: Glauber Costa <glommer@parallels.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F545AC3.50004@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Alexandru Juncu <ajuncu@ixiacom.com>, alexj@rosedu.org,
+	davem@davemloft.net, Daniel Baluta <dbaluta@ixiacom.com>,
+	kaber@trash.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Alexandru Juncu <ajuncu@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:57181 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756503Ab2CESrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 13:47:22 -0500
+Received: from /spool/local
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 5 Mar 2012 11:47:21 -0700
+In-Reply-To: <1330971129-10781-1-git-send-email-ajuncu@ixiacom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/id4tQ5knXeaogbSSexl/KwI
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+A socket does not need to join a multicast group to receive multicast 
+packets.
+Group membership is per-interface. The mc lookup here is only to apply
+source filters, if any, which are per-socket.
 
-> >>>>>>>> The change looks like a typo (division flipped to multiplication=
-):
-> >>>>>>>>> limit =3D nr_free_buffer_pages() / 8;
-> >>>>>>>>> limit =3D nr_free_buffer_pages()<<     (PAGE_SHIFT - 10);
-> >>>>>>> Hi, thanks for the reporting. It's not a typo. It was previously:
-> >>>>>>> sysctl_tcp_mem[1]<<    (PAGE_SHIFT -  7). Looks like we need to d=
-o the
-> >>>>>>> limit check before shift the value. Please try the following patc=
-h, thanks.
-> >>>>>> Still does not help. I test it by checking sha1sum of a large file=
- over NFS
-> >>>>>> (small files seem to work simetimes):
-> >>>>>>
-> >>>>>>        $ strace sha1sum /gentoo/distfiles/gcc-4.6.2.tar.bz2
-> >>>>>>        ...
-> >>>>>>        open("/gentoo/distfiles/gcc-4.6.2.tar.bz2", O_RDONLY
-> >>>>>>        <HUNG>
-> Hi Sergei:
->=20
-> Looks like the client does not even start to read the file.
-> >>>>>> After a certain timeout dmesg gets odd spam:
-> >>>>>> [  314.848094] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.848134] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.848145] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.957047] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.957066] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.957075] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.957085] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.957100] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.958023] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.958035] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.958044] nfs: server vmhost not responding, still trying
-> >>>>>> [  314.958054] nfs: server vmhost not responding, still trying
-> >>>>>>
-> >>>>>> looks like bogus messages. Might be relevant to mishandled timings
-> >>>>>> somewhere else or a bug in nfs code.
->=20
->   Did you use a virtual machine as your NFS server? Have you tried to=20
-> bisect the server side code?
-> >>>>> And after 120 seconds hung tasks shows it might be an OOM issue
-> >>>>> Likely caused by patch, as it's a 2GB RAM +4GB swap amd64 box
-> >>>>> not running anything heavy:
-> >>>> That is a bit weird.
-> >>>>
-> >>>> First because with Jason's patch, we should end up with the very same
-> >>>> calculation, at the same exact order, as it was in older kernels.
-> >>>> Second, because by shifting<<   10, you should be ending up with very
-> >>>> small numbers, effectively having tcp_rmem[1] =3D=3D tcp_rmem[2], an=
-d the
-> >>>> same for wmem.
-> >>>>
-> >>>> Can you share which numbers you end up with at
-> >>>> /proc/sys/net/ipv4/tcp_{r,w}mem ?
-> >>>>
-> >>> Sure:
-> >>>
-> >>>       $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
-> >>>       4096    87380   1999072
-> >>>       4096    16384   1999072
-> >>>
-> >> Sergei,
-> >>
-> >> Sorry for not being clearer. I was expecting you'd post those values
-> >> both in the scenario in which you see the bug, and in the scenario you
-> >> don't.
-> > Ah, I see.  Sorry. Patches are on top of v3.3-rc5-166-g1f033c1. Buggy o=
-ne:
-> >> -       limit =3D nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
-> >> -       limit =3D max(limit, 128UL);
-> >> +       limit =3D nr_free_buffer_pages() / 8;
-> >> +       limit =3D max(limit, 128UL)<<  (PAGE_SHIFT - 7);
-> >>          max_share =3D min(4UL*1024*1024, limit);
-> >> +       printk(KERN_INFO "TCP: max_share=3D%u\n", max_share);
-> >      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
-> >      4096    87380   1999072
-> >      4096    16384   1999072
->=20
-> Nothing strange to me.
-> > Working one:
-> >> -       limit =3D nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
-> >> +       limit =3D nr_free_buffer_pages()>>  (PAGE_SHIFT - 10);
-> >>          limit =3D max(limit, 128UL);
-> >>          max_share =3D min(4UL*1024*1024, limit);
-> >> +       printk(KERN_INFO "TCP: max_share=3D%u\n", max_share);
-> >      $ cat /proc/sys/net/ipv4/tcp_{r,w}mem
-> >      4096    87380   124942
-> >      4096    16384   124942
->=20
-> This one looks small to me, as the tcp_{r,w}mem were count by bytes and=20
-> limit were count by number of pages, so we need to shift PAGE_SHIFT.
->=20
-> As I can't reproduce this locally, in order to narrow down the problem,=20
-> could you please help to check whether the issue were=20
-> introduced/eliminated by commit  4acb4190 or 3dc43e3?
+NAK.
+                                                +-DLS
 
-I didn't think of server problem. I did run 3.3-rc0 kernel there
-from the kvm tree (v3.2-10396-g05ef4c6):
-    commit 05ef4c60568ed1740f65bf66a76da30b19060119
-    Author: Michael S. Tsirkin <mst@redhat.com>
-    Date:   Wed Jan 18 20:07:09 2012 +0200
+netdev-owner@vger.kernel.org wrote on 03/05/2012 10:12:09 AM:
 
-        kvm: fix error handling for out of range irq
-
-    from git://git.kernel.org/pub/scm/virt/kvm/kvm.git
-=20
-Updating to current vanilla 3.3-rc6 solved the problem.
-Are you interested in digging that issue further to find commit
-breaking the server?
-
---=20
-
-  Sergei
-
---Sig_/id4tQ5knXeaogbSSexl/KwI
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iEYEARECAAYFAk9VBIYACgkQcaHudmEf86rkLgCfQN/DxdvwffLhETvNTIvhkRgA
-q4AAn1o8KBySqndTwuSr4RG841FR04wG
-=zddz
------END PGP SIGNATURE-----
-
---Sig_/id4tQ5knXeaogbSSexl/KwI--
+> From: Alexandru Juncu <ajuncu@ixiacom.com>
+> To: netdev@vger.kernel.org, davem@davemloft.net, yoshfuji@linux-
+> ipv6.org, kuznet@ms2.inr.ac.ru, kaber@trash.net
+> Cc: alexj@rosedu.org, Alexandru Juncu <ajuncu@ixiacom.com>, Daniel 
+> Baluta <dbaluta@ixiacom.com>
+> Date: 03/05/2012 10:13 AM
+> Subject: [PATCH] ipv6: fix socket multicast check
+> Sent by: netdev-owner@vger.kernel.org
+> 
+> This fixes an issue where multicast packets are delivered for
+> sockets which didn't join any multicast groups.
+> 
+> The issue was discovered because Hello packets duplicates were
+> received in OSPFv3.
+> 
+> Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
+> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+> ---
+>  net/ipv6/mcast.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index b853f06..10cc72f 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -622,7 +622,7 @@ int inet6_mc_check(struct sock *sk, const struct
+> in6_addr *mc_addr,
+>     }
+>     if (!mc) {
+>        rcu_read_unlock();
+> -      return 1;
+> +      return 0;
+>     }
+>     read_lock(&mc->sflock);
+>     psl = mc->sflist;
+> -- 
+> 1.7.5.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
