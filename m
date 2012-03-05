@@ -1,34 +1,45 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Marvell DSA switch 88E6165 - CPU port in PHY mode
-Date: Mon, 5 Mar 2012 18:12:24 +0100
-Message-ID: <20120305171224.GU12271@wantstofly.org>
-References: <516EEEFC-DEEC-4CF5-BEF6-C5F3F86FCDD5@partychief.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Matthew D. Smith" <mdsmith@partychief.com>
+From: Alexandru Juncu <ajuncu@ixiacom.com>
+Subject: [PATCH] ipv6: fix socket multicast check
+Date: Mon,  5 Mar 2012 20:12:09 +0200
+Message-ID: <1330971129-10781-1-git-send-email-ajuncu@ixiacom.com>
+Cc: alexj@rosedu.org, Alexandru Juncu <ajuncu@ixiacom.com>,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:62127 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756955Ab2CERM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 12:12:26 -0500
-Content-Disposition: inline
-In-Reply-To: <516EEEFC-DEEC-4CF5-BEF6-C5F3F86FCDD5@partychief.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:47351 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756616Ab2CESNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 13:13:04 -0500
+Received: by eaaq12 with SMTP id q12so1534300eaa.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 10:13:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 04, 2012 at 03:11:53PM +0100, Matthew D. Smith wrote:
+This fixes an issue where multicast packets are delivered for
+sockets which didn't join any multicast groups.
 
-> Hello - have a question about CPU port configuration in the net/dsa
-> driver code. Can't seem to work out how to bring up the CPU connected
-> port on the switch (in our case this is Port 4 hardware strapped with
-> its embedded PHY enabled).
+The issue was discovered because Hello packets duplicates were
+received in OSPFv3.
 
-Hello!  I know of at least a couple of platforms that have a DSA chip
-connected to the CPU via an MDI type link, but I'm not sure why it's
-not working for you.  I'd suggest double-checking all the port 5 PHY
-registers against the chip documentation..
+Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
+Cc: Daniel Baluta <dbaluta@ixiacom.com>
+---
+ net/ipv6/mcast.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-thanks,
-Lennert
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index b853f06..10cc72f 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -622,7 +622,7 @@ int inet6_mc_check(struct sock *sk, const struct in6_addr *mc_addr,
+ 	}
+ 	if (!mc) {
+ 		rcu_read_unlock();
+-		return 1;
++		return 0;
+ 	}
+ 	read_lock(&mc->sflock);
+ 	psl = mc->sflist;
+-- 
+1.7.5.4
