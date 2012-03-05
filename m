@@ -1,78 +1,54 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] ipv6: fix socket multicast check
-Date: Mon, 5 Mar 2012 10:45:59 -0800
-Message-ID: <OFFC0CF6CF.38E7ECFD-ON882579B8.0066906E-882579B8.006715A9@us.ibm.com>
-References: <1330971129-10781-1-git-send-email-ajuncu@ixiacom.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 0/10] af_unix: add multicast and filtering features to
+ AF_UNIX
+Date: Mon, 5 Mar 2012 19:55:03 +0100
+Message-ID: <20120305185502.GF3119316@jupiter.n2.diac24.net>
+References: <CABBYNZJ-xxQXAx+ecrkVLqmWFaUVqLcQLj0Jxa3McSLnkLJSJw@mail.gmail.com>
+ <20120301.170848.432407217191581288.davem@davemloft.net>
+ <CABBYNZLwHKd5srzYYzWNL-iaeuH1K31824pY_bjRSbSLkv0QtA@mail.gmail.com>
+ <20120302.035509.1994457175982020283.davem@davemloft.net>
+ <4F509274.9060302@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alexandru Juncu <ajuncu@ixiacom.com>, alexj@rosedu.org,
-	davem@davemloft.net, Daniel Baluta <dbaluta@ixiacom.com>,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Alexandru Juncu <ajuncu@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	ying.xue@windriver.com, luiz.dentz@gmail.com,
+	eric.dumazet@gmail.com, rodrigo.moya@collabora.co.uk,
+	javier@collabora.co.uk, lennart@poettering.net,
+	kay.sievers@vrfy.org, alban.crequy@collabora.co.uk,
+	bart.cerneels@collabora.co.uk, sjoerd.simons@collabora.co.uk,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:57181 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503Ab2CESrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 13:47:22 -0500
-Received: from /spool/local
-	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 5 Mar 2012 11:47:21 -0700
-In-Reply-To: <1330971129-10781-1-git-send-email-ajuncu@ixiacom.com>
+Received: from spaceboyz.net ([87.106.131.203]:33883 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757336Ab2CESzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2012 13:55:22 -0500
+Content-Disposition: inline
+In-Reply-To: <4F509274.9060302@collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A socket does not need to join a multicast group to receive multicast 
-packets.
-Group membership is per-interface. The mc lookup here is only to apply
-source filters, if any, which are per-socket.
+On Fri, Mar 02, 2012 at 10:27:16AM +0100, Javier Martinez Canillas wrote:
+> Do you think that a simpler AF_UNIX multicast implementation without the
+> locking to guarantee order delivery and the flow control that blocks the
+> sender can be resend to you to reconsider merging it?
 
-NAK.
-                                                +-DLS
+I still don't get how blocking the sender when the receiver doesn't
+empty his socket queue can possibly ever be a good idea. All I see is a
+very nice way to choke the entire D-Bus from one malicious or broken
+app.
 
-netdev-owner@vger.kernel.org wrote on 03/05/2012 10:12:09 AM:
+Note that originally we were talking about blocking delivery for
+_multicast_. In that case you can't even poll on writability on a
+granularity finer than group level.
 
-> From: Alexandru Juncu <ajuncu@ixiacom.com>
-> To: netdev@vger.kernel.org, davem@davemloft.net, yoshfuji@linux-
-> ipv6.org, kuznet@ms2.inr.ac.ru, kaber@trash.net
-> Cc: alexj@rosedu.org, Alexandru Juncu <ajuncu@ixiacom.com>, Daniel 
-> Baluta <dbaluta@ixiacom.com>
-> Date: 03/05/2012 10:13 AM
-> Subject: [PATCH] ipv6: fix socket multicast check
-> Sent by: netdev-owner@vger.kernel.org
-> 
-> This fixes an issue where multicast packets are delivered for
-> sockets which didn't join any multicast groups.
-> 
-> The issue was discovered because Hello packets duplicates were
-> received in OSPFv3.
-> 
-> Signed-off-by: Alexandru Juncu <ajuncu@ixiacom.com>
-> Cc: Daniel Baluta <dbaluta@ixiacom.com>
-> ---
->  net/ipv6/mcast.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index b853f06..10cc72f 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -622,7 +622,7 @@ int inet6_mc_check(struct sock *sk, const struct
-> in6_addr *mc_addr,
->     }
->     if (!mc) {
->        rcu_read_unlock();
-> -      return 1;
-> +      return 0;
->     }
->     read_lock(&mc->sflock);
->     psl = mc->sflist;
-> -- 
-> 1.7.5.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Yet, this still comes up here and there as a requirement for IPC
+mechanisms to back D-Bus.
+
+When the buffers at the receiver are fully filled, IMHO that's the point
+to cut off the client. If this becomes an issue, the buffers can be
+increased in size, but at some point it's a sign that you're using D-Bus
+for too much?
+
+
+-David
