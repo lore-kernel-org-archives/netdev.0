@@ -1,54 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: iwlwifi WPA-TKIP crypto failure after group rekeying
-Date: Mon, 05 Mar 2012 07:52:23 +0100
-Message-ID: <1330930343.3545.1.camel@jlt3.sipsolutions.net>
-References: <1330320802.8460.105.camel@deadeye>
-	 <1330333354.3483.6.camel@jlt3.sipsolutions.net>
-	 <20120305045334.GF30344@burratino> (sfid-20120305_055451_570064_79E67075)
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH v4] ipv6: Fix problem with expired dst cache
+Date: Mon, 05 Mar 2012 15:10:34 +0800
+Message-ID: <4F5466EA.3020707@cn.fujitsu.com>
+References: <1330064404-24763-1-git-send-email-gaofeng@cn.fujitsu.com> <1330919628-11837-1-git-send-email-gaofeng@cn.fujitsu.com> <20120305.000558.923755086046890012.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	651199@bugs.debian.org, Ben Hutchings <ben@decadent.org.uk>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andreas Gustafsson <olangu@impressions.se>,
-	Marco d'Itri <md@Linux.IT>,
-	Gabriel Kerneis <kerneis@pps.jussieu.fr>,
-	Shawn Thompson <shawn@projektenterprises.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Jonathan Nieder <jrnieder@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120305045334.GF30344@burratino> (sfid-20120305_055451_570064_79E67075)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:24356 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752563Ab2CEHJk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 02:09:40 -0500
+In-Reply-To: <20120305.000558.923755086046890012.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+=E4=BA=8E 2012=E5=B9=B403=E6=9C=8805=E6=97=A5 13:05, David Miller =E5=86=
+=99=E9=81=93:
+> From: Gao feng <gaofeng@cn.fujitsu.com>
+> Date: Mon, 5 Mar 2012 11:53:48 +0800
+>=20
+>> +		/* point to where the dst_entry copied from */
+>> +		void			*from;
+>=20
+> So instead of using a real type here, your just going to cast
+> this thing to and from "struct dst_entry *" a thousand times?
+>=20
+> That's terrible, there is zero value from using a void pointer
+> here, it just makes the code look ugly.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
 
-> >> To summarise, a WPA-TKIP managed connection stops passing traffic and
-> >> the kernel log shows the message "WPA: Group rekeying".  This apparently
-> >> doesn't happen if the connection is in heavy use at the time or with
-> >> module parameter swcrypto=1.  WPA2 is not affected either.
-> >
-> > I think this is due to my patch "iwlagn: rewrite HW crypto" which
-> > accidentally broke key *removal* (of all things), which causes issues
-> > when the first GTK is removed on the second rekeying.
-> >
-> > This patch
-> > [...]h=5dcbf480473f6c3f06ad2426b7517038a2a18911
-> >
-> > should fix it. Wey has sent it to John
-> [...]
-> > it's also marked for stable.
-> 
-> Shawn Thompson (cc-ed) tested the patch against 3.2.9 and 3.3-rc6 and
-> found it to work[1].  What can interested people do to help usher this
-> into mainline?
+Hi David
+You are right.I will resend this patch changes void * to dst_entry *.
 
-Great, thanks for testing. The patch is already on the way into mainline
-with a Cc:stable tag, so I don't think there's anything to do at this
-point.
-
-johannes
+thanks for your patience.
