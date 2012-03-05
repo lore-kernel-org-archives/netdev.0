@@ -1,60 +1,83 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/3 net-next] tg3: Fix poor tx performance on 57766
- after MTU change
-Date: Sun, 4 Mar 2012 16:48:15 -0800
-Message-ID: <1330908495-3758-3-git-send-email-mchan@broadcom.com>
-References: <1330908495-3758-1-git-send-email-mchan@broadcom.com>
- <1330908495-3758-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 1/3 net-next] tg3: Fix jumbo loopback test on 5719
+Date: Sun, 4 Mar 2012 16:48:13 -0800
+Message-ID: <1330908495-3758-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2532 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1876 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754963Ab2CEAkn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Mar 2012 19:40:43 -0500
-In-Reply-To: <1330908495-3758-2-git-send-email-mchan@broadcom.com>
+	id S1754964Ab2CEApa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Mar 2012 19:45:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRC reset causes the read DMA engine to go into a mode that breaks up
-requests into 256 bytes.  A PHY reset is required to bring it back to
-the normal mode.
+Loopback on 9K packet fails because the chip has a DMA limit of 4K.  The
+loopback test logic uses a single BD for simplicity.  Fix it by reducing
+the jumbo packet size to the DMA limit.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+Reviewed-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   14 +++++++++++---
+ 1 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 0da93db..a8490a4 100644
+index 76f33d5..4b3243b 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12267,7 +12267,7 @@ static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
- static int tg3_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct tg3 *tp = netdev_priv(dev);
--	int err;
-+	int err, reset_phy = 0;
- 
- 	if (new_mtu < TG3_MIN_MTU || new_mtu > TG3_MAX_MTU(tp))
- 		return -EINVAL;
-@@ -12290,7 +12290,13 @@ static int tg3_change_mtu(struct net_device *dev, int new_mtu)
- 
- 	tg3_set_mtu(dev, tp, new_mtu);
- 
--	err = tg3_restart_hw(tp, 0);
-+	/* Reset PHY, otherwise the read DMA engine will be in a mode that
-+	 * breaks all requests to 256 bytes.
-+	 */
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57766)
-+		reset_phy = 1;
+@@ -11727,6 +11727,10 @@ static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, bool tso_loopback)
+ 	} else {
+ 		num_pkts = 1;
+ 		data_off = ETH_HLEN;
 +
-+	err = tg3_restart_hw(tp, reset_phy);
++		if (tg3_flag(tp, USE_JUMBO_BDFLAG) &&
++		    tx_len > VLAN_ETH_FRAME_LEN)
++			base_flags |= TXD_FLAG_JMB_PKT;
+ 	}
  
- 	if (!err)
- 		tg3_netif_start(tp);
+ 	for (i = data_off; i < tx_len; i++)
+@@ -11857,6 +11861,10 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
+ {
+ 	int err = -EIO;
+ 	u32 eee_cap;
++	u32 jmb_pkt_sz = 9000;
++
++	if (tp->dma_limit)
++		jmb_pkt_sz = tp->dma_limit - ETH_HLEN;
+ 
+ 	eee_cap = tp->phy_flags & TG3_PHYFLG_EEE_CAP;
+ 	tp->phy_flags &= ~TG3_PHYFLG_EEE_CAP;
+@@ -11900,7 +11908,7 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
+ 			data[0] |= TG3_STD_LOOPBACK_FAILED;
+ 
+ 		if (tg3_flag(tp, JUMBO_RING_ENABLE) &&
+-		    tg3_run_loopback(tp, 9000 + ETH_HLEN, false))
++		    tg3_run_loopback(tp, jmb_pkt_sz + ETH_HLEN, false))
+ 			data[0] |= TG3_JMB_LOOPBACK_FAILED;
+ 
+ 		tg3_mac_loopback(tp, false);
+@@ -11925,7 +11933,7 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
+ 		    tg3_run_loopback(tp, ETH_FRAME_LEN, true))
+ 			data[1] |= TG3_TSO_LOOPBACK_FAILED;
+ 		if (tg3_flag(tp, JUMBO_RING_ENABLE) &&
+-		    tg3_run_loopback(tp, 9000 + ETH_HLEN, false))
++		    tg3_run_loopback(tp, jmb_pkt_sz + ETH_HLEN, false))
+ 			data[1] |= TG3_JMB_LOOPBACK_FAILED;
+ 
+ 		if (do_extlpbk) {
+@@ -11943,7 +11951,7 @@ static int tg3_test_loopback(struct tg3 *tp, u64 *data, bool do_extlpbk)
+ 			    tg3_run_loopback(tp, ETH_FRAME_LEN, true))
+ 				data[2] |= TG3_TSO_LOOPBACK_FAILED;
+ 			if (tg3_flag(tp, JUMBO_RING_ENABLE) &&
+-			    tg3_run_loopback(tp, 9000 + ETH_HLEN, false))
++			    tg3_run_loopback(tp, jmb_pkt_sz + ETH_HLEN, false))
+ 				data[2] |= TG3_JMB_LOOPBACK_FAILED;
+ 		}
+ 
 -- 
 1.7.1
