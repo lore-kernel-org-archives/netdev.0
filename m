@@ -1,157 +1,148 @@
-From: Duc Dang <dhdang@apm.com>
-Subject: [PATCH v3 2/2] powerpc/44x: Add more changes for APM821XX EMAC driver
-Date: Mon,  5 Mar 2012 17:58:22 +0700
-Message-ID: <1330945102-15802-1-git-send-email-dhdang@apm.com>
-References: <1330920224-3006-1-git-send-email-dhdang@apm.com>
-Mime-Version: 1.0
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Duc Dang <dhdang@apm.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>,
-	Josh Boyer <jwboyer@gmail.com>, Stefan Roese <sr@denx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330920224-3006-1-git-send-email-dhdang@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Subject: [PATCH v3 0/7] ARM: davinci: add support for the am1808 based enbw_cmc board
+Date: Mon,  5 Mar 2012 12:09:57 +0100
+Message-ID: <1330945804-3379-1-git-send-email-hs@denx.de>
+Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+	Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>,
+	Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
+	Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+To: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
- This patch includes:
+This patchserie add support for the davinci am1808 based
+enbw_cmc board.
 
-  Configure EMAC PHY clock source (clock from PHY or internal clock).
+Important: I rebased this patchserie against the irqdomain/next
+branch from grant likely, as he suggested to rework the OF
+intcontroller changes to the irqdomain work, branch found here:
 
-  Do not advertise PHY half duplex capability as APM821XX EMAC does not support half duplex mode.
+http://git.secretlab.ca/?p=linux-2.6.git;a=shortlog;h=refs/heads/irqdomain/next
 
-  Add changes to support configuring jumbo frame for APM821XX EMAC.
+    git://git.secretlab.ca/git/linux-2.6.git irqdomain/next
 
-Signed-off-by: Duc Dang <dhdang@apm.com>
----
-v3:
- Add parentheses for multi-line statements.
- Drop #if defined(CONFIG_APM821xx) in emac.h.
+    commit 280ad7fda5f95211857fda38960f2b6fdf6edd3e
+    Author: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+    Date:   Fri Feb 24 14:58:54 2012 -0700
 
- drivers/net/ethernet/ibm/emac/core.c |   29 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/ibm/emac/core.h |   13 +++++++++++--
- drivers/net/ethernet/ibm/emac/emac.h |    2 ++
- 3 files changed, 41 insertions(+), 3 deletions(-)
+    mfd: twl-core: Add IRQ_DOMAIN dependency
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index 2abce96..cc51842 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -434,6 +434,11 @@ static inline u32 emac_iff2rmr(struct net_device *ndev)
- 	else if (!netdev_mc_empty(ndev))
- 		r |= EMAC_RMR_MAE;
+changes for v2:
+Post this patchserie now as v2, as reworked in the
+comments I got for the RFC serie.
+
+changes for v3:
+- Interrupt Controller:
+  - comment from Sergei Shtylyov:
+    - rename compatible" prop to "ti,cp_intc"
+    - cp_intc_init() is now also for the of case
+      the name of the init function (it calls the
+      "new" __cp_intc_init() function, which was
+      the "old" cp_intc_init()). Through this
+      rework the changes for OF is better visible.
+      As the OF case uses the irq_domain rework from
+      Grant Likely, maybe the none OF case can use
+      this also, but this should be tested on a hw ...
  
-+	if (emac_has_feature(dev, EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE)) {
-+		r &= ~EMAC4_RMR_MJS_MASK;
-+		r |= EMAC4_RMR_MJS(ndev->mtu);
-+	}
-+
- 	return r;
- }
- 
-@@ -965,6 +970,7 @@ static int emac_resize_rx_ring(struct emac_instance *dev, int new_mtu)
- 	int rx_sync_size = emac_rx_sync_size(new_mtu);
- 	int rx_skb_size = emac_rx_skb_size(new_mtu);
- 	int i, ret = 0;
-+	int mr1_jumbo_bit_change = 0;
- 
- 	mutex_lock(&dev->link_lock);
- 	emac_netif_stop(dev);
-@@ -1013,7 +1019,15 @@ static int emac_resize_rx_ring(struct emac_instance *dev, int new_mtu)
- 	}
-  skip:
- 	/* Check if we need to change "Jumbo" bit in MR1 */
--	if ((new_mtu > ETH_DATA_LEN) ^ (dev->ndev->mtu > ETH_DATA_LEN)) {
-+	if (emac_has_feature(dev, EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE)) {
-+		mr1_jumbo_bit_change = (new_mtu > ETH_DATA_LEN) ||
-+				(dev->ndev->mtu > ETH_DATA_LEN);
-+	} else {
-+		mr1_jumbo_bit_change = (new_mtu > ETH_DATA_LEN) ^
-+				(dev->ndev->mtu > ETH_DATA_LEN);
-+	}
-+
-+	if (mr1_jumbo_bit_change) {
- 		/* This is to prevent starting RX channel in emac_rx_enable() */
- 		set_bit(MAL_COMMAC_RX_STOPPED, &dev->commac.flags);
- 
-@@ -2471,6 +2485,7 @@ static int __devinit emac_init_phy(struct emac_instance *dev)
- 
- 	/* Disable any PHY features not supported by the platform */
- 	dev->phy.def->features &= ~dev->phy_feat_exc;
-+	dev->phy.features &= ~dev->phy_feat_exc;
- 
- 	/* Setup initial link parameters */
- 	if (dev->phy.features & SUPPORTED_Autoneg) {
-@@ -2568,6 +2583,11 @@ static int __devinit emac_init_config(struct emac_instance *dev)
- 		if (of_device_is_compatible(np, "ibm,emac-405ex") ||
- 		    of_device_is_compatible(np, "ibm,emac-405exr"))
- 			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
-+		if (of_device_is_compatible(np, "ibm,emac-apm821xx")) {
-+			dev->features |= (EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE |
-+					EMAC_FTR_APM821XX_NO_HALF_DUPLEX |
-+					EMAC_FTR_460EX_PHY_CLK_FIX);
-+		}
- 	} else if (of_device_is_compatible(np, "ibm,emac4")) {
- 		dev->features |= EMAC_FTR_EMAC4;
- 		if (of_device_is_compatible(np, "ibm,emac-440gx"))
-@@ -2818,6 +2838,13 @@ static int __devinit emac_probe(struct platform_device *ofdev)
- 	dev->stop_timeout = STOP_TIMEOUT_100;
- 	INIT_DELAYED_WORK(&dev->link_work, emac_link_timer);
- 
-+	/* Some SoCs like APM821xx does not support Half Duplex mode. */
-+	if (emac_has_feature(dev, EMAC_FTR_APM821XX_NO_HALF_DUPLEX)) {
-+		dev->phy_feat_exc = (SUPPORTED_1000baseT_Half |
-+					SUPPORTED_100baseT_Half |
-+					SUPPORTED_10baseT_Half);
-+	}
-+	
- 	/* Find PHY if any */
- 	err = emac_init_phy(dev);
- 	if (err != 0)
-diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-index fa3ec57..9dea85a 100644
---- a/drivers/net/ethernet/ibm/emac/core.h
-+++ b/drivers/net/ethernet/ibm/emac/core.h
-@@ -325,7 +325,14 @@ struct emac_instance {
-  * Set if we need phy clock workaround for 460ex or 460gt
-  */
- #define EMAC_FTR_460EX_PHY_CLK_FIX	0x00000400
--
-+/*
-+ * APM821xx requires Jumbo frame size set explicitly
-+ */
-+#define EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE	0x00000800
-+/*
-+ * APM821xx does not support Half Duplex mode
-+ */
-+#define EMAC_FTR_APM821XX_NO_HALF_DUPLEX	0x00001000
- 
- /* Right now, we don't quite handle the always/possible masks on the
-  * most optimal way as we don't have a way to say something like
-@@ -353,7 +360,9 @@ enum {
- 	    EMAC_FTR_NO_FLOW_CONTROL_40x |
- #endif
- 	EMAC_FTR_460EX_PHY_CLK_FIX |
--	EMAC_FTR_440EP_PHY_CLK_FIX,
-+	EMAC_FTR_440EP_PHY_CLK_FIX |
-+	EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE |
-+	EMAC_FTR_APM821XX_NO_HALF_DUPLEX,
- };
- 
- static inline int emac_has_feature(struct emac_instance *dev,
-diff --git a/drivers/net/ethernet/ibm/emac/emac.h b/drivers/net/ethernet/ibm/emac/emac.h
-index 1568278..c9090a4 100644
---- a/drivers/net/ethernet/ibm/emac/emac.h
-+++ b/drivers/net/ethernet/ibm/emac/emac.h
-@@ -212,6 +212,8 @@ struct emac_regs {
- #define EMAC4_RMR_RFAF_64_1024		0x00000006
- #define EMAC4_RMR_RFAF_128_2048		0x00000007
- #define EMAC4_RMR_BASE			EMAC4_RMR_RFAF_128_2048
-+#define EMAC4_RMR_MJS_MASK              0x0001fff8
-+#define EMAC4_RMR_MJS(s)                (((s) << 3) & EMAC4_RMR_MJS_MASK)
- 
- /* EMACx_ISR & EMACx_ISER */
- #define EMAC4_ISR_TXPE			0x20000000
+Got no comments to the following points, I noted in the
+RFC series, so posting this patchseries with them:
+
+- ARM: davinci: configure davinci aemif chipselects through OF
+  not moved to mfd, as mentioned in this discussion:
+  http://davinci-linux-open-source.1494791.n2.nabble.com/PATCH-arm-davinci-configure-davinci-aemif-chipselects-through-OF-td7059739.html
+  instead use a phandle in the DTS, so drivers which
+  uses the davinci aemif, can call davinci_aemif_setup_timing_of()
+
+  This is just thought as an RFC ... The enbw_cmc board
+  support not really need to setup this bus timings, as
+  they are setup in U-Boot ... but I want to post this,
+  as I think, it is a nice to have, and I am not really
+  sure, if this has to be a MFD device (If so, all bus
+  interfaces for other SoCs should be converted also to
+  MFD devices) ... as an example how this can be used
+  I add this to the davinci nand controller OF support
+  patch, in this patchserie.
+
+- ARM: davinci: mux: add OF support
+  I want to get rid of the pin setup code in board code ...
+  This patch introduces a davinci_cfg_reg_of() function,
+  which davinci drivers can call, if they found a
+  "pinmux-handle", so used in the following drivers in
+  this patchserie:
+
+  drivers/net/ethernet/ti/davinci_emac
+  drivers/i2c/busses/i2c-davinci.c
+  drivers/mtd/nand/davinci_nand.c
+
+- post this board support with USB support, even though
+  USB is only working with the 10 ms "workaround", posted here:
+  http://comments.gmane.org/gmane.linux.usb.general/54505
+  I see this issue also on the AM1808 TMDXEXP1808L evalboard.
+
+- MMC and USB are not using OF support yet, ideas how to port
+  this are welcome. I need for USB and MMC board specific
+  callbacks, how to solve this with OF support?
+
+Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
+Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
+Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
+Cc: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+
+Heiko Schocher (7):
+  ARM: davinci, intc: Add OF support for TI interrupt controller
+  ARM: davinci: configure davinci aemif chipselects through OF
+  ARM: davinci: mux: add OF support
+  ARM: davinci: net: davinci_emac: add OF support
+  ARM: davinci: i2c: add OF support
+  ARM: mtd: nand: davinci: add OF support for davinci nand controller
+  ARM: davinci: add support for the am1808 based enbw_cmc board
+
+ .../devicetree/bindings/arm/davinci/aemif.txt      |  119 ++++++
+ .../bindings/arm/davinci/davinci_emac.txt          |   43 +++
+ .../devicetree/bindings/arm/davinci/i2c.txt        |   33 ++
+ .../devicetree/bindings/arm/davinci/intc.txt       |   27 ++
+ .../devicetree/bindings/arm/davinci/mux.txt        |   40 ++
+ .../devicetree/bindings/arm/davinci/nand.txt       |   74 ++++
+ arch/arm/boot/dts/enbw_cmc.dts                     |  268 ++++++++++++++
+ arch/arm/configs/enbw_cmc_defconfig                |  123 +++++++
+ arch/arm/mach-davinci/Kconfig                      |    9 +
+ arch/arm/mach-davinci/Makefile                     |    1 +
+ arch/arm/mach-davinci/aemif.c                      |   86 +++++-
+ arch/arm/mach-davinci/board-enbw-cmc.c             |  380 ++++++++++++++++++++
+ arch/arm/mach-davinci/cp_intc.c                    |   87 ++++-
+ arch/arm/mach-davinci/include/mach/aemif.h         |    1 +
+ arch/arm/mach-davinci/include/mach/mux.h           |    2 +
+ arch/arm/mach-davinci/include/mach/uncompress.h    |    1 +
+ arch/arm/mach-davinci/mux.c                        |   73 ++++-
+ drivers/i2c/busses/i2c-davinci.c                   |   37 ++
+ drivers/mtd/nand/davinci_nand.c                    |   85 +++++-
+ drivers/net/ethernet/ti/davinci_emac.c             |   94 +++++-
+ 20 files changed, 1569 insertions(+), 14 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/aemif.txt
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/i2c.txt
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/intc.txt
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/mux.txt
+ create mode 100644 Documentation/devicetree/bindings/arm/davinci/nand.txt
+ create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
+ create mode 100644 arch/arm/configs/enbw_cmc_defconfig
+ create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
+
 -- 
-1.7.5.4
+1.7.7.6
