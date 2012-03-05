@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-03-05
-Date: Mon, 05 Mar 2012 16:39:35 -0500 (EST)
-Message-ID: <20120305.163935.366721302245242679.davem@davemloft.net>
-References: <20120305210740.GI18128@tuxdriver.com>
+Subject: Re: [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Mon, 05 Mar 2012 16:40:25 -0500 (EST)
+Message-ID: <20120305.164025.367232232901005595.davem@davemloft.net>
+References: <20120220160148.GA7910@linutronix.de>
+	<201202201721.38136.oliver@neukum.org>
+	<20120305212500.GA8132@linutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: oliver@neukum.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: bigeasy@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56572 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56583 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860Ab2CEVky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 16:40:54 -0500
-In-Reply-To: <20120305210740.GI18128@tuxdriver.com>
+	with ESMTP id S1753876Ab2CEVle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 16:41:34 -0500
+In-Reply-To: <20120305212500.GA8132@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 5 Mar 2012 16:07:41 -0500
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 5 Mar 2012 22:25:00 +0100
 
-> This is another (and maybe the last) large batch of updates
-> intended for 3.4.  This includes the usual sorts of enhancements and
-> refactoring, touching ath9k, brcm80211, iwlwifi, iwlegacy, wl12xx,
-> and a handful of others.  The Intel drivers in particular saw a lot
-> of attention, due to some ongoing refactoring there.  Johannes also
-> chimes-in with some mac80211 enhancements and refactoring as well.
-> 
-> I have not included any Bluetooth updates, due to the unresoled
-> coding style issues of which you are already aware.  Also, I have
-> pulled from the wireless tree to avoid some build breakage.
-> 
-> Please let me know if there are problems!
+> Is it okay for the patch to be merged?
 
-Pulled, thanks John.
+Just simply make a fresh submission of it.
