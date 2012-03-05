@@ -1,84 +1,90 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 16/68] NET: pc300, do not zero global variables
-Date: Mon,  5 Mar 2012 14:52:03 +0100
-Message-ID: <1330955575-26641-17-git-send-email-jslaby@suse.cz>
-References: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
-Cc: alan@linux.intel.com, linux-serial@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330955575-26641-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/6] stmmac: Define CSUM offload engine Types
+Date: Mon, 05 Mar 2012 15:13:28 +0100
+Message-ID: <4F54CA08.7050207@st.com>
+References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com> <1330692928-30330-2-git-send-email-deepak.sikri@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: spear-devel@list.st.com, netdev@vger.kernel.org
+To: Deepak SIKRI <deepak.sikri@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:45620 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932266Ab2CEOOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 09:14:05 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5D33857D
+	for <netdev@vger.kernel.org>; Mon,  5 Mar 2012 14:14:02 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id E0B78236B
+	for <netdev@vger.kernel.org>; Mon,  5 Mar 2012 14:14:01 +0000 (GMT)
+In-Reply-To: <1330692928-30330-2-git-send-email-deepak.sikri@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-They are in .bss which is initialized to zeros when the module is
-loaded/kernel booted.
+Hello Deepak
 
-What a strange way to do the initialization once in the pci probe
-routine...
+On 3/2/2012 1:55 PM, Deepak SIKRI wrote:
+> This patch explicitly defines the CSUM offload engine type which need
+> (not mandatory) to be passed from the platform code.
+> STMMAC core supports two check sum offload engine types- Type-1 & Type-2.
+> Also, there are STMMAC cores that do not have the check sum offload
+> capabilities.
+> The behaviour of Type-1 & Type-2 cores related to provision of checksum
+> increases the packet length for Type-1 cores by 2, as the checksum is appended
+> at the end of data packet and the same is made accountable in the DMA status.
+> The STMMAC cores beyond Version-3.5 provide HW interface registers which allows
+> the user to read the HW capabilities, while to support the previous cores the
+> information related to HW capabilities has to be provided from the platform
+> code.
+> The Type-1 cores which do not have the HW register interface need this
+> information.
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: netdev@vger.kernel.org
----
- drivers/net/wan/pc300_drv.c |    4 ----
- drivers/net/wan/pc300_tty.c |   18 ------------------
- 2 files changed, 22 deletions(-)
+this patch is useful but I've some notes.
 
-diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
-index 1eeedd6..a6dd00d 100644
---- a/drivers/net/wan/pc300_drv.c
-+++ b/drivers/net/wan/pc300_drv.c
-@@ -299,7 +299,6 @@ void cpc_tty_init(pc300dev_t * dev);
- void cpc_tty_unregister_service(pc300dev_t * pc300dev);
- void cpc_tty_receive(pc300dev_t * pc300dev);
- void cpc_tty_trigger_poll(pc300dev_t * pc300dev);
--void cpc_tty_reset_var(void);
- #endif
- 
- /************************/
-@@ -3421,9 +3420,6 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (first_time) {
- 		first_time = 0;
- 		show_version();
--#ifdef CONFIG_PC300_MLPPP
--		cpc_tty_reset_var();
--#endif
- 	}
- 
- 	if ((err = pci_enable_device(pdev)) < 0)
-diff --git a/drivers/net/wan/pc300_tty.c b/drivers/net/wan/pc300_tty.c
-index d47d2cd..4709f42 100644
---- a/drivers/net/wan/pc300_tty.c
-+++ b/drivers/net/wan/pc300_tty.c
-@@ -139,7 +139,6 @@ void cpc_tty_init(pc300dev_t *dev);
- void cpc_tty_unregister_service(pc300dev_t *pc300dev);
- void cpc_tty_receive(pc300dev_t *pc300dev);
- void cpc_tty_trigger_poll(pc300dev_t *pc300dev);
--void cpc_tty_reset_var(void);
- 
- /*
-  * PC300 TTY clear "signal"
-@@ -1078,20 +1077,3 @@ void cpc_tty_trigger_poll(pc300dev_t *pc300dev)
- 	}
- 	schedule_work(&(cpc_tty->tty_tx_work)); 
- } 
--
--/*
-- * PC300 TTY reset var routine
-- * This routine is called by pc300driver to init the TTY area. 
-- */
--
--void cpc_tty_reset_var(void)
--{
--	int i ; 
--
--	CPC_TTY_DBG("hdlcX-tty: reset variables\n");
--	/* reset  the tty_driver structure - serial_drv */ 
--	memset(&serial_drv, 0, sizeof(struct tty_driver));
--	for (i=0; i < CPC_TTY_NPORTS; i++){
--		memset(&cpc_tty_area[i],0, sizeof(st_cpc_tty_area)); 
--	}
--}
--- 
-1.7.9.2
+Pay attention that, new GMAC devices have the HW capability register to
+understand if the rx_coe_type is TYPE1 or TYPE2.
+These values should always override the ones come from the platform.
+This check is missing in your code.
+Can I ask you to rename csum_off_engine_type as rx_coe_type to be
+aligned to the name convention used inside the driver.
+
+Regards
+Peppe
+
+> Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
+> ---
+>  include/linux/stmmac.h |   13 +++++++++++++
+>  1 files changed, 13 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index 0dddc9e..aa0d99e 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -28,6 +28,18 @@
+>  
+>  #include <linux/platform_device.h>
+>  
+> +/* Checksum offload engine Types */
+> +/* STMMAC core supports two check sum offloading engine types
+> + * Type-1 & Type-2
+> + * These are configurable portion of the MAC core and hence could be
+> + * also made off. 
+> + * The Type-0 Macro defined below covers the core which do not support
+> + * the checksum offloading.
+> + */
+> +#define STMMAC_CSUM_T0	0
+> +#define STMMAC_CSUM_T1	1
+> +#define STMMAC_CSUM_T2	2
+> +
+>  /* Platfrom data for platform device structure's platform_data field */
+>  
+>  struct stmmac_mdio_bus_data {
+> @@ -57,5 +69,6 @@ struct plat_stmmacenet_data {
+>  	void (*exit)(struct platform_device *pdev);
+>  	void *custom_cfg;
+>  	void *bsp_priv;
+> +	int csum_off_engine_type;
+>  };
+>  #endif
