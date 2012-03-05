@@ -1,58 +1,50 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH v6] Netfilter ring buffer support
-Date: Tue,  6 Mar 2012 00:19:42 +0100
-Message-ID: <1330989588-26833-1-git-send-email-richard@nod.at>
+Subject: [PATCH 4/6] xt_log: Make printk() in sb_close() optional
+Date: Tue,  6 Mar 2012 00:19:46 +0100
+Message-ID: <1330989588-26833-5-git-send-email-richard@nod.at>
+References: <1330989588-26833-1-git-send-email-richard@nod.at>
 Cc: jengelh@medozas.de, eric.dumazet@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, rostedt@goodmis.org
+	netfilter-devel@vger.kernel.org, rostedt@goodmis.org,
+	Richard Weinberger <richard@nod.at>
 To: pablo@netfilter.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330989588-26833-1-git-send-email-richard@nod.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set merges ipt_LOG and ip6t_LOG and adds ring buffer support
-to xt_LOG.
+Make printk() in sb_close() optional such that other modules
+can build a log string without printing it using printk().
 
-Using "--ring" an user can create LOG rules which log messages into
-one or more ring buffers.
-Each ring buffer is represented as pipe-like file in
-/proc/net/netfilter/nf_log_ring/.
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ include/net/netfilter/xt_log.h |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-Ring buffer support can be enabled/disabled using
-CONFIG_NETFILTER_XT_TARGET_LOG_RING.
-
-Changes since v1:
- - Merged ipt_LOG and ip6t_LOG
- - Implemented ring buffer support as part of xt_LOG.
-
-Changes since v2:
- - Fixed struct xt_log_info_v1's data layout
- - Removed the sizeof(void *) hack
- - Replaced BUG() by WARN_ON_ONCE()
-
-Changes since v3:
- - Merged xt_LOG_core.c and xt_LOG_ring.c into xt_LOG.c
- - Made checkpatch.pl happy
-
-Changes since v4:
- - Fixed a typo in include/linux/netfilter/Kbuild
-   (Thanks Bastian!)
-
-Changes since v5:
- - Made timestamp support a separate patch
- - Renamed xt_LOG_ring to nf_log_ring
- - Removed unused prototypes from xt_log.h
- - Renamed find_next_entry_inc() to find_next_iter_entry()
- - Fixed OOM error path in rlog_open_pipe()
-
-Patch 1 and 2 have already been applied to net-next.git.
-
-[PATCH 1/6] Netfilter: Merge ipt_LOG and ip6_LOG into xt_LOG
-[PATCH 2/6] netfilter: xt_LOG: fix bogus extra layer-4 logging
-[PATCH 3/6] ring_buffer: Export for_each_buffer_cpu()
-[PATCH 4/6] xt_log: Make printk() in sb_close() optional
-[PATCH 5/6] Netfilter: xt_LOG: Implement ring buffer support
-[PATCH 6/6] Netfilter: xt_LOG: Add timestamp support
-
-Thanks,
-//richard
+diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
+index 0dfb34a..767e08d 100644
+--- a/include/net/netfilter/xt_log.h
++++ b/include/net/netfilter/xt_log.h
+@@ -39,10 +39,12 @@ static struct sbuff *sb_open(void)
+ 	return m;
+ }
+ 
+-static void sb_close(struct sbuff *m)
++static void __sb_close(struct sbuff *m, int print)
+ {
+-	m->buf[m->count] = 0;
+-	printk("%s\n", m->buf);
++	if (print) {
++		m->buf[m->count] = 0;
++		printk("%s\n", m->buf);
++	}
+ 
+ 	if (likely(m != &emergency))
+ 		kfree(m);
+@@ -52,3 +54,4 @@ static void sb_close(struct sbuff *m)
+ 	}
+ }
+ 
++#define sb_close(m)	__sb_close(m, 1)
+-- 
+1.7.7.3
