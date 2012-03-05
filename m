@@ -1,171 +1,62 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH v2 2/2] powerpc/44x: Add more changes for APM821XX EMAC driver
-Date: Mon, 5 Mar 2012 08:41:57 +0100
-Message-ID: <201203050841.57291.sr@denx.de>
-References: <1329466058-15969-1-git-send-email-dhdang@apm.com> <1330920224-3006-1-git-send-email-dhdang@apm.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [PATCH 1/2] bridge: Adjust min age inc for HZ > 256
+Date: Mon, 5 Mar 2012 09:09:43 +0100
+Message-ID: <OFA70698EF.42F3A042-ONC12579B8.002C0598-C12579B8.002CD5E3@transmode.se>
+References: <1330625539-10247-1-git-send-email-Joakim.Tjernlund@transmode.se> <20120304210350.629ec5c6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Duc Dang <dhdang@apm.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>,
-	Josh Boyer <jwboyer@gmail.com>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: linuxppc-dev@lists.ozlabs.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330920224-3006-1-git-send-email-dhdang@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:43504 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755789Ab2CEIJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2012 03:09:46 -0500
+In-Reply-To: <20120304210350.629ec5c6@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 05 March 2012 05:03:44 Duc Dang wrote:
-> This patch includes:
-> 
->   Configure EMAC PHY clock source (clock from PHY or internal clock).
-> 
->   Do not advertise PHY half duplex capability as APM821XX EMAC does not
-> support half duplex mode.
-> 
->   Add changes to support configuring jumbo frame for APM821XX EMAC.
-> 
-> Signed-off-by: Duc Dang <dhdang@apm.com>
-> ---
-> v2:
->  Fix coding style problems.
-> 
->  drivers/net/ethernet/ibm/emac/core.c |   26 +++++++++++++++++++++++++-
->  drivers/net/ethernet/ibm/emac/core.h |   13 +++++++++++--
->  drivers/net/ethernet/ibm/emac/emac.h |    5 ++++-
->  3 files changed, 40 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ibm/emac/core.c
-> b/drivers/net/ethernet/ibm/emac/core.c index 2abce96..ad671c5 100644
-> --- a/drivers/net/ethernet/ibm/emac/core.c
-> +++ b/drivers/net/ethernet/ibm/emac/core.c
-> @@ -434,6 +434,11 @@ static inline u32 emac_iff2rmr(struct net_device
-> *ndev) else if (!netdev_mc_empty(ndev))
->  		r |= EMAC_RMR_MAE;
-> 
-> +	if (emac_has_feature(dev, EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE)) {
-> +		r &= ~EMAC4_RMR_MJS_MASK;
-> +		r |= EMAC4_RMR_MJS(ndev->mtu);
-> +	}
-> +
->  	return r;
->  }
-> 
-> @@ -965,6 +970,7 @@ static int emac_resize_rx_ring(struct emac_instance
-> *dev, int new_mtu) int rx_sync_size = emac_rx_sync_size(new_mtu);
->  	int rx_skb_size = emac_rx_skb_size(new_mtu);
->  	int i, ret = 0;
-> +	int mr1_jumbo_bit_change = 0;
-> 
->  	mutex_lock(&dev->link_lock);
->  	emac_netif_stop(dev);
-> @@ -1013,7 +1019,14 @@ static int emac_resize_rx_ring(struct emac_instance
-> *dev, int new_mtu) }
->   skip:
->  	/* Check if we need to change "Jumbo" bit in MR1 */
-> -	if ((new_mtu > ETH_DATA_LEN) ^ (dev->ndev->mtu > ETH_DATA_LEN)) {
-> +	if (emac_has_feature(dev, EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE))
-> +		mr1_jumbo_bit_change = (new_mtu > ETH_DATA_LEN) ||
-> +				(dev->ndev->mtu > ETH_DATA_LEN);
-> +	else
-> +		mr1_jumbo_bit_change = (new_mtu > ETH_DATA_LEN) ^
-> +				(dev->ndev->mtu > ETH_DATA_LEN);
-> +
-> +	if (mr1_jumbo_bit_change) {
->  		/* This is to prevent starting RX channel in emac_rx_enable() 
-*/
->  		set_bit(MAL_COMMAC_RX_STOPPED, &dev->commac.flags);
-> 
-> @@ -2471,6 +2484,7 @@ static int __devinit emac_init_phy(struct
-> emac_instance *dev)
-> 
->  	/* Disable any PHY features not supported by the platform */
->  	dev->phy.def->features &= ~dev->phy_feat_exc;
-> +	dev->phy.features &= ~dev->phy_feat_exc;
-> 
->  	/* Setup initial link parameters */
->  	if (dev->phy.features & SUPPORTED_Autoneg) {
-> @@ -2568,6 +2582,10 @@ static int __devinit emac_init_config(struct
-> emac_instance *dev) if (of_device_is_compatible(np, "ibm,emac-405ex") ||
->  		    of_device_is_compatible(np, "ibm,emac-405exr"))
->  			dev->features |= EMAC_FTR_440EP_PHY_CLK_FIX;
-> +		if (of_device_is_compatible(np, "ibm,emac-apm821xx"))
-> +			dev->features |= (EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE 
-|
-> +					EMAC_FTR_APM821XX_NO_HALF_DUPLEX |
-> +					EMAC_FTR_460EX_PHY_CLK_FIX);
+Stephen Hemminger <shemminger@vyatta.com> wrote on 2012/03/05 06:03:50:
+>
+> On Thu, 1 Mar 2012 19:12:18 +0100
+> Joakim Tjernlund <Joakim.Tjernlund@transmode.se> wrote:
+>
+> > min age increment needs to round up its min age tick for all
+> > HZ values to guarantee message age is increasing.
+> >
+> > Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> > ---
+> >
+> > The bridge list seems very slow so try netdev instead.
+> >
+> >  net/bridge/br_stp.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+> > index a04eeb6..9a8aebd 100644
+> > --- a/net/bridge/br_stp.c
+> > +++ b/net/bridge/br_stp.c
+> > @@ -17,9 +17,9 @@
+> >  #include "br_private_stp.h"
+> >
+> >  /* since time values in bpdu are in jiffies and then scaled (1/256)
+> > - * before sending, make sure that is at least one.
+> > + * before sending, make sure that is at least one STP tick.
+> >   */
+> > -#define MESSAGE_AGE_INCR   ((HZ < 256) ? 1 : (HZ/256))
+> > +#define MESSAGE_AGE_INCR   ((HZ / 256) + 1)
+> >
+> >  static const char *const br_port_state_names[] = {
+> >     [BR_STATE_DISABLED] = "disabled",
+>
+> I don't understand why this is required.
+>   HZ = 100 then incr = 1
+>   HZ = 1000 then incr = 3 (your patch would make it for 4).
 
-Nitpick: Parentheses for multi line statement please.
+Since message age is rounded down, DIV_ROUND_UP(ticks * HZ, STP_HZ), I wanted
+to make sure that message age won't decrease or stay the same by adding at least one
+STP tick. We did see such age times when we were debugging this. They went away with
+both patches applied so there is a chance that only patch 2 is strictly required but
+I did not test that combo.
 
->  	} else if (of_device_is_compatible(np, "ibm,emac4")) {
->  		dev->features |= EMAC_FTR_EMAC4;
->  		if (of_device_is_compatible(np, "ibm,emac-440gx"))
-> @@ -2818,6 +2836,12 @@ static int __devinit emac_probe(struct
-> platform_device *ofdev) dev->stop_timeout = STOP_TIMEOUT_100;
->  	INIT_DELAYED_WORK(&dev->link_work, emac_link_timer);
-> 
-> +	/* Some SoCs like APM821xx does not support Half Duplex mode. */
-> +	if (emac_has_feature(dev, EMAC_FTR_APM821XX_NO_HALF_DUPLEX))
-> +		dev->phy_feat_exc = (SUPPORTED_1000baseT_Half |
-> +					SUPPORTED_100baseT_Half |
-> +					SUPPORTED_10baseT_Half);
-> +
-
-Nitpick: Parentheses for multi line statement please.
-
->  	/* Find PHY if any */
->  	err = emac_init_phy(dev);
->  	if (err != 0)
-> diff --git a/drivers/net/ethernet/ibm/emac/core.h
-> b/drivers/net/ethernet/ibm/emac/core.h index fa3ec57..9dea85a 100644
-> --- a/drivers/net/ethernet/ibm/emac/core.h
-> +++ b/drivers/net/ethernet/ibm/emac/core.h
-> @@ -325,7 +325,14 @@ struct emac_instance {
->   * Set if we need phy clock workaround for 460ex or 460gt
->   */
->  #define EMAC_FTR_460EX_PHY_CLK_FIX	0x00000400
-> -
-> +/*
-> + * APM821xx requires Jumbo frame size set explicitly
-> + */
-> +#define EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE	0x00000800
-> +/*
-> + * APM821xx does not support Half Duplex mode
-> + */
-> +#define EMAC_FTR_APM821XX_NO_HALF_DUPLEX	0x00001000
-> 
->  /* Right now, we don't quite handle the always/possible masks on the
->   * most optimal way as we don't have a way to say something like
-> @@ -353,7 +360,9 @@ enum {
->  	    EMAC_FTR_NO_FLOW_CONTROL_40x |
->  #endif
->  	EMAC_FTR_460EX_PHY_CLK_FIX |
-> -	EMAC_FTR_440EP_PHY_CLK_FIX,
-> +	EMAC_FTR_440EP_PHY_CLK_FIX |
-> +	EMAC_APM821XX_REQ_JUMBO_FRAME_SIZE |
-> +	EMAC_FTR_APM821XX_NO_HALF_DUPLEX,
->  };
-> 
->  static inline int emac_has_feature(struct emac_instance *dev,
-> diff --git a/drivers/net/ethernet/ibm/emac/emac.h
-> b/drivers/net/ethernet/ibm/emac/emac.h index 1568278..36bcd69 100644
-> --- a/drivers/net/ethernet/ibm/emac/emac.h
-> +++ b/drivers/net/ethernet/ibm/emac/emac.h
-> @@ -212,7 +212,10 @@ struct emac_regs {
->  #define EMAC4_RMR_RFAF_64_1024		0x00000006
->  #define EMAC4_RMR_RFAF_128_2048		0x00000007
->  #define EMAC4_RMR_BASE			EMAC4_RMR_RFAF_128_2048
-> -
-> +#if defined(CONFIG_APM821xx)
-> +#define EMAC4_RMR_MJS_MASK              0x0001fff8
-> +#define EMAC4_RMR_MJS(s)                (((s) << 3) & EMAC4_RMR_MJS_MASK)
-> +#endif
-
-Is this "#if defined" really needed? If not, I suggest you drop it.
-
-Thanks,
-Stefan
+ Jocke
