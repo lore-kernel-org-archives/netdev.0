@@ -1,162 +1,34 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/1] conntrack, suspicious RCU usage
-Date: Mon, 5 Mar 2012 13:24:29 +0100
-Message-ID: <1330950269-32668-1-git-send-email-hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <pablo@netfilter.org>, <eric.dumazet@gmail.com>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: woodyng1985@yahoo.com.hk
+Subject: Hong Kong Cloud System
+Date: Mon,  5 Mar 2012 18:09:57 +0800 (HKT)
+Message-ID: <XoQQjT5N9KVKR3__21846.6031518348$1330951607$gmane$org@tpts7.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-57.sunnyvision.com ([124.248.200.57]:57503 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756425Ab2CEMqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 07:46:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans@schillstrom.com>
+Dear All,
 
-Hello Pablo
-I think you lost this patch from Eric, I updated the patch for the 
-latest nf_conntrack_netlink.c 
+We are one of the top Cloud Solution provider base in Hong Kong, with over 10+ years experience,
+we providing better than good and lower cost service of CLoud Hosting (Cloud Server / Hosting / CDN)
+
+Starting at $1.99, let's come to experience and enjoy our powerful cloud system.
+
+Thanks for your time and appreciated to look arround our website.
+
+http://www.dedicatedserver.com.hk/ 
+
+Best Regards,
+The 36cloud Team
 
 
-Well, __nf_ct_l4proto_find() being out of line and the way we already
-use rcu_read_lock() in this code, it seems following patch is
-the most natural way to cope with these lockdep warnings.
 
-Thanks
 
-[PATCH] netfilter: ctnetlink: fix lockep splats
 
-net/netfilter/nf_conntrack_proto.c:70 suspicious rcu_dereference_check() usage!
-
-other info that might help us debug this:
-
-rcu_scheduler_active = 1, debug_locks = 0
-3 locks held by conntrack/3235:
-nfnl_lock+0x17/0x20
-netlink_dump+0x32/0x240
-ctnetlink_dump_table+0x3e/0x170 [nf_conntrack_netlink]
-
-stack backtrace:
-Pid: 3235, comm: conntrack Tainted: G W  3.2.0+ #511
-Call Trace:
-[<ffffffff8108ce45>] lockdep_rcu_suspicious+0xe5/0x100
-[<ffffffffa00ec6e1>] __nf_ct_l4proto_find+0x81/0xb0 [nf_conntrack]
-[<ffffffffa0115675>] ctnetlink_fill_info+0x215/0x5f0 [nf_conntrack_netlink]
-[<ffffffffa0115dc1>] ctnetlink_dump_table+0xd1/0x170 [nf_conntrack_netlink]
-[<ffffffff815fbdbf>] netlink_dump+0x7f/0x240
-[<ffffffff81090f9d>] ? trace_hardirqs_on+0xd/0x10
-[<ffffffff815fd34f>] netlink_dump_start+0xdf/0x190
-[<ffffffffa0111490>] ? ctnetlink_change_nat_seq_adj+0x160/0x160 [nf_conntrack_netlink]
-[<ffffffffa0115cf0>] ? ctnetlink_get_conntrack+0x2a0/0x2a0 [nf_conntrack_netlink]
-[<ffffffffa0115ad9>] ctnetlink_get_conntrack+0x89/0x2a0 [nf_conntrack_netlink]
-[<ffffffff81603a47>] nfnetlink_rcv_msg+0x467/0x5f0
-[<ffffffff81603a7c>] ? nfnetlink_rcv_msg+0x49c/0x5f0
-[<ffffffff81603922>] ? nfnetlink_rcv_msg+0x342/0x5f0
-[<ffffffff81071b21>] ? get_parent_ip+0x11/0x50
-[<ffffffff816035e0>] ? nfnetlink_subsys_register+0x60/0x60
-[<ffffffff815fed49>] netlink_rcv_skb+0xa9/0xd0
-[<ffffffff81603475>] nfnetlink_rcv+0x15/0x20
-[<ffffffff815fe70e>] netlink_unicast+0x1ae/0x1f0
-[<ffffffff815fea16>] netlink_sendmsg+0x2c6/0x320
-[<ffffffff815b2a87>] sock_sendmsg+0x117/0x130
-[<ffffffff81125093>] ? might_fault+0x53/0xb0
-[<ffffffff811250dc>] ? might_fault+0x9c/0xb0
-[<ffffffff81125093>] ? might_fault+0x53/0xb0
-[<ffffffff815b5991>] ? move_addr_to_kernel+0x71/0x80
-[<ffffffff815b644e>] sys_sendto+0xfe/0x130
-[<ffffffff815b5c94>] ? sys_bind+0xb4/0xd0
-[<ffffffff817a8a0e>] ? retint_swapgs+0xe/0x13
-[<ffffffff817afcd2>] system_call_fastpath+0x16/0x1b
-
-Reported-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
----
- net/netfilter/nf_conntrack_netlink.c |   40 ++++++++++++++++++++-------------
- 1 files changed, 24 insertions(+), 16 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 04fb409..f3d7556 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -110,15 +110,16 @@ ctnetlink_dump_tuples(struct sk_buff *skb,
- 	struct nf_conntrack_l3proto *l3proto;
- 	struct nf_conntrack_l4proto *l4proto;
- 
-+	rcu_read_lock();
- 	l3proto = __nf_ct_l3proto_find(tuple->src.l3num);
- 	ret = ctnetlink_dump_tuples_ip(skb, tuple, l3proto);
- 
--	if (unlikely(ret < 0))
--		return ret;
--
--	l4proto = __nf_ct_l4proto_find(tuple->src.l3num, tuple->dst.protonum);
--	ret = ctnetlink_dump_tuples_proto(skb, tuple, l4proto);
--
-+	if (ret >= 0) {
-+		l4proto = __nf_ct_l4proto_find(tuple->src.l3num,
-+					       tuple->dst.protonum);
-+		ret = ctnetlink_dump_tuples_proto(skb, tuple, l4proto);
-+	}
-+	rcu_read_unlock();
- 	return ret;
- }
- 
-@@ -712,9 +713,11 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct hlist_nulls_node *n;
- 	struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
- 	u_int8_t l3proto = nfmsg->nfgen_family;
-+	int res;
- #ifdef CONFIG_NF_CONNTRACK_MARK
- 	const struct ctnetlink_dump_filter *filter = cb->data;
- #endif
-+
- 	spin_lock_bh(&nf_conntrack_lock);
- 	last = (struct nf_conn *)cb->args[1];
- 	for (; cb->args[0] < net->ct.htable_size; cb->args[0]++) {
-@@ -740,11 +743,14 @@ restart:
- 				continue;
- 			}
- #endif
--			if (ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).pid,
--						cb->nlh->nlmsg_seq,
--						NFNL_MSG_TYPE(
--							cb->nlh->nlmsg_type),
--						ct) < 0) {
-+			rcu_read_lock();
-+			res =
-+			ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).pid,
-+					    cb->nlh->nlmsg_seq,
-+					    NFNL_MSG_TYPE(cb->nlh->nlmsg_type),
-+					    ct);
-+			rcu_read_unlock();
-+			if (res < 0) {
- 				nf_conntrack_get(&ct->ct_general);
- 				cb->args[1] = (unsigned long)ct;
- 				goto out;
-@@ -1649,14 +1655,16 @@ ctnetlink_exp_dump_mask(struct sk_buff *skb,
- 	if (!nest_parms)
- 		goto nla_put_failure;
- 
-+	rcu_read_lock();
- 	l3proto = __nf_ct_l3proto_find(tuple->src.l3num);
- 	ret = ctnetlink_dump_tuples_ip(skb, &m, l3proto);
--
--	if (unlikely(ret < 0))
--		goto nla_put_failure;
--
--	l4proto = __nf_ct_l4proto_find(tuple->src.l3num, tuple->dst.protonum);
-+	if (ret >= 0) {
-+		l4proto = __nf_ct_l4proto_find(tuple->src.l3num,
-+					       tuple->dst.protonum);
- 	ret = ctnetlink_dump_tuples_proto(skb, &m, l4proto);
-+	}
-+	rcu_read_unlock();
-+
- 	if (unlikely(ret < 0))
- 		goto nla_put_failure;
- 
--- 
-1.7.3.4
-
+If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or revoe your email from the list.
