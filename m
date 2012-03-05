@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3 net-next] tg3: Add memory barriers to sync BD data
-Date: Sun, 04 Mar 2012 20:39:45 -0500 (EST)
-Message-ID: <20120304.203945.486683955707922922.davem@davemloft.net>
-References: <1330908495-3758-1-git-send-email-mchan@broadcom.com>
-	<1330908495-3758-2-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH 0/3] Fix licensing problems in if_ppp.h
+Date: Sun, 04 Mar 2012 20:41:47 -0500 (EST)
+Message-ID: <20120304.204147.652134096643702602.davem@davemloft.net>
+References: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47527 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756190Ab2CEBjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 20:39:47 -0500
-In-Reply-To: <1330908495-3758-2-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, jan.kiszka@siemens.com,
+	linux-kernel@vger.kernel.org
+To: paulus@samba.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120304225336.GA10646@bloggs.ozlabs.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sun, 4 Mar 2012 16:48:14 -0800
+From: Paul Mackerras <paulus@samba.org>
+Date: Mon, 5 Mar 2012 09:53:37 +1100
 
-> for weak memory model architectures to ensure that the chip will DMA
-> valid BD data.
+> This series of 3 patches is primarily aimed at removing the problem
+> that the license on include/linux/if_ppp.h is the old BSD-style license
+> with advertising clause.  However, in fact virtually none of that file
+> comes from the original PPP code released by CMU.  This series solves
+> the problem by moving the code that I originally wrote to a new header
+> file with my copyright on it.
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Reviewed-by: Benjamin Li <benli@broadcom.com>
-> Reviewed-by: Matt Carlson <mcarlson@broadcom.com>
+> While we're at it, I also change the license on some files where I had
+> put an ANU copyright notice originally to have my copyright instead.
+> I have an acknowledgement in writing from September 2002 from ANU that
+> they do not claim any copyright in this code.
 
-Applied.
+All applied, thanks Paul.
