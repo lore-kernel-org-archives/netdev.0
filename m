@@ -1,65 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/3 net-next] tg3: Add memory barriers to sync BD data
-Date: Sun, 4 Mar 2012 16:48:14 -0800
-Message-ID: <1330908495-3758-2-git-send-email-mchan@broadcom.com>
-References: <1330908495-3758-1-git-send-email-mchan@broadcom.com>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: [PATCH net-next] r8169: Add 64bit statistics
+Date: Mon, 5 Mar 2012 09:03:12 +0800
+Message-ID: <20120305010310.GA2927@Laptop-Junchang>
+References: <20120304093727.GA5115@Spy32>
+ <1330875881.2730.15.camel@edumazet-laptop>
+ <20120304232453.GA32314@electric-eye.fr.zoreil.com>
+ <1330903936.2474.0.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3324 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756014Ab2CEApl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Mar 2012 19:45:41 -0500
-In-Reply-To: <1330908495-3758-1-git-send-email-mchan@broadcom.com>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:44491 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755270Ab2CEBAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Mar 2012 20:00:54 -0500
+Received: by dadp12 with SMTP id p12so4307542dad.11
+        for <netdev@vger.kernel.org>; Sun, 04 Mar 2012 17:00:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1330903936.2474.0.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-for weak memory model architectures to ensure that the chip will DMA
-valid BD data.
+>> 
+>> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+>> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>> ---
+>>  drivers/net/ethernet/realtek/r8169.c |   59 ++++++++++++++++++++++++++--------
+>>  1 files changed, 45 insertions(+), 14 deletions(-)
+>> 
+>
+>Seems Good To Me, thanks !
+>
+Great. Thank you so much. :)
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Reviewed-by: Benjamin Li <benli@broadcom.com>
-Reviewed-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 4b3243b..0da93db 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -5928,6 +5928,9 @@ next_pkt_nopost:
- 
- 	/* Refill RX ring(s). */
- 	if (!tg3_flag(tp, ENABLE_RSS)) {
-+		/* Sync BD data before updating mailbox */
-+		wmb();
-+
- 		if (work_mask & RXD_OPAQUE_RING_STD) {
- 			tpr->rx_std_prod_idx = std_prod_idx &
- 					       tp->rx_std_ring_mask;
-@@ -6970,6 +6973,9 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_tx_timestamp(skb);
- 	netdev_sent_queue(tp->dev, skb->len);
- 
-+	/* Sync BD data before updating mailbox */
-+	wmb();
-+
- 	/* Packets are ready, update Tx producer idx local and on card. */
- 	tw32_tx_mbox(tnapi->prodmbox, entry);
- 
-@@ -11763,6 +11769,9 @@ static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, bool tso_loopback)
- 
- 	tnapi->tx_prod++;
- 
-+	/* Sync BD data before updating mailbox */
-+	wmb();
-+
- 	tw32_tx_mbox(tnapi->prodmbox, tnapi->tx_prod);
- 	tr32_mailbox(tnapi->prodmbox);
- 
--- 
-1.7.1
+--Junchang
