@@ -1,46 +1,50 @@
-From: Ulrich Weber <ulrich.weber@sophos.com>
-Subject: [PATCH] bridge: check return value of ipv6_dev_get_saddr()
-Date: Mon, 5 Mar 2012 15:52:44 +0100
-Message-ID: <20120305145244.GA10621@WS-uweber>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4_en: remove sparse errors
+Date: Mon, 05 Mar 2012 07:01:14 -0800
+Message-ID: <1330959674.2474.24.camel@edumazet-laptop>
+References: <1330167065.2462.53.camel@edumazet-laptop>
+	 <CAJZOPZKAwrx-u_onDQCCxipkLPdZkPE6cokRtZOa1uRZiZTYug@mail.gmail.com>
+	 <1330876610.2730.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx5.sophos.com ([213.31.172.35]:50812 "EHLO mx5.sophos.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932150Ab2CEPAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 10:00:42 -0500
-Content-Disposition: inline
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:36505 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932150Ab2CEPBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 10:01:16 -0500
+Received: by pbcun15 with SMTP id un15so2864496pbc.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 07:01:16 -0800 (PST)
+In-Reply-To: <1330876610.2730.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-otherwise source IPv6 address of ICMPV6_MGM_QUERY packet
-might be random junk if IPv6 is disabled on interface or
-link-local address is not yet ready (DAD).
+Fix new sparse errors introduced in commit 6221217199 (mlx4_en: dont
+change mac_header on xmit)
 
-Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
+Reported-by: Or Gerlitz <or.gerlitz@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- net/bridge/br_multicast.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 568d5bf..702a1ae 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -446,8 +446,11 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
- 	ip6h->nexthdr = IPPROTO_HOPOPTS;
- 	ip6h->hop_limit = 1;
- 	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
--	ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
--			   &ip6h->saddr);
-+	if (ipv6_dev_get_saddr(dev_net(br->dev), br->dev, &ip6h->daddr, 0,
-+			       &ip6h->saddr)) {
-+		kfree_skb(skb);
-+		return NULL;
-+	}
- 	ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 2fd5140..50b3fa5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -686,8 +686,8 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	hopopt = (u8 *)(ip6h + 1);
--- 
-1.7.4.1
+ 	/* Copy dst mac address to wqe */
+ 	ethh = (struct ethhdr *)skb->data;
+-	tx_desc->ctrl.srcrb_flags16[0] = get_unaligned((u16 *)ethh->h_dest);
+-	tx_desc->ctrl.imm = get_unaligned((u32 *)(ethh->h_dest + 2));
++	tx_desc->ctrl.srcrb_flags16[0] = get_unaligned((__be16 *)ethh->h_dest);
++	tx_desc->ctrl.imm = get_unaligned((__be32 *)(ethh->h_dest + 2));
+ 	/* Handle LSO (TSO) packets */
+ 	if (lso_header_size) {
+ 		/* Mark opcode as LSO */
