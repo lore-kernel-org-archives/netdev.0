@@ -1,58 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver: smp_wmb()
-Date: Tue, 6 Mar 2012 14:03:28 +0000
-Message-ID: <1331042608.2347.1.camel@bwh-desktop>
-References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
-	 <1330987524.2538.61.camel@bwh-desktop> <4F55EA6D.3070602@antcom.de>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net-next 2/8] net/mlx4: fix sparse warnings on TX control
+ flags, endianess
+Date: Tue, 6 Mar 2012 16:03:41 +0200
+Message-ID: <4F56193D.7070806@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-	<alexander.h.duyck@intel.com>, <eilong@broadcom.com>,
-	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
-	<w.sang@pengutronix.de>, <linux-kernel@vger.kernel.org>,
-	<kevin.wells@nxp.com>, <linux-arm-kernel@lists.infradead.org>,
-	<arnd@arndb.de>, <baruch@tkos.co.il>, <joe@perches.com>
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F55EA6D.3070602@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:51729 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758264Ab2CFODr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:03:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-06 at 11:43 +0100, Roland Stigge wrote:
-> On 03/05/2012 11:45 PM, Ben Hutchings wrote:
-> >> +	/* Clear and enable interrupts */
-> >> +	writel(0xFFFF, LPC_ENET_INTCLEAR(pldat->net_base));
-> >> +	lpc_eth_enable_int(pldat->net_base);
-> >> +
-> >> +	/* Get the next TX buffer output index */
-> >> +	pldat->num_used_tx_buffs = 0;
-> >> +	pldat->last_tx_idx =
-> >> +		readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
-> > 
-> > Doesn't this need to be done *before* enabling interrupts?  Also, I
-> > think you need an smp_wmb() so that the interrupt handler is guaranteed
-> > to see all these writes.
-> 
-> Do you mean _one_ smp_wmb() directly after lpc_eth_enable_int() (which
-> I'm moving behind the above code?
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-The sequence should be
+Fix sparse warnings on incompatibility between the endianess of the ctrl_flags
+field of struct mlx4_en_priv to the srcrb_flags field of struct
+mlx4_wqe_ctrl_seg by changing the former to be __be32 instead of u32.
 
-	pldat->state = values...;
-	smp_wmb();
-	enable_interrupts();
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> Note that there is no SMP in LPCs and NXP is not planning to build one
-> AFAIK.
-
-Never say never!
-
-> However, I'm fine with including smp_wmb() anyway for completeness.
-
-Ben.
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index a5bb0b7d..8f4e655 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -453,7 +453,7 @@ struct mlx4_en_priv {
+ 	int base_qpn;
+ 
+ 	struct mlx4_en_rss_map rss_map;
+-	u32 ctrl_flags;
++	__be32 ctrl_flags;
+ 	u32 flags;
+ #define MLX4_EN_FLAG_PROMISC	0x1
+ #define MLX4_EN_FLAG_MC_PROMISC	0x2
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.7
