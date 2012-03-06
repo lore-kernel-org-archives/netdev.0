@@ -1,104 +1,57 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH 2/3] net: expose ebridge FDB with priv flag IFF_OFFLOADED_FDB
-Date: Mon, 05 Mar 2012 19:34:49 -0800
-Message-ID: <4F5585D9.5080501@intel.com>
-References: <20120229070418.10937.8692.stgit@jf-dev1-dcblab>  <20120229071719.10937.68718.stgit@jf-dev1-dcblab> <1330718193.2611.36.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, shemminger@vyatta.com, kernel@wantstofly.org,
-	hadi@cyberus.ca, roprabhu@cisco.com, mst@redhat.com,
-	netdev@vger.kernel.org, gregory.v.rose@intel.com,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] net: make CONFIG_BQL actually end user configurable
+Date: Mon,  5 Mar 2012 22:38:16 -0500
+Message-ID: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:64085 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757214Ab2CFDew (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 22:34:52 -0500
-In-Reply-To: <1330718193.2611.36.camel@bwh-desktop>
+Received: from mail.windriver.com ([147.11.1.11]:51437 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757361Ab2CFDiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 22:38:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/2/2012 11:56 AM, Ben Hutchings wrote:
-> On Tue, 2012-02-28 at 23:17 -0800, John Fastabend wrote:
->> This adds a new private interface flag IFF_OFFLOADED_FDB and an
->> additional ndmsg flag NTF_EMBEDDED.
->>
->> The private flag IFF_OFFLOADED_FDB should be set on devices to
->> indicate an embedded bridging component exists with a forwarding
->> database.
->>
->> With this set PF_BRIDGE:{RTM_NEWNEIGH|RTM_DELNEIGH|RTM_GETNEIGH}
->> netlink msgs can manage the unicast address list on these devices
->> by setting the NTF_EMBEDDED flag in ndm_flags.
->>
->> These commands are compatible with the SW bridge allowing the same
->> user space tools to be used with both SW bridges and HW bridges.
-> [...]
->> index 9e70191..7b1a581 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -211,6 +211,57 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
->>  	return 0;
->>  }
->>  
->> +static int rtnl_offloaded_fdb_add(struct nlmsghdr *nlh, struct net_device *dev)
->> +{
->> +	struct ndmsg *ndm;
->> +	struct netdev_hw_addr *ha;
->> +	struct nlattr *tb[NDA_MAX+1];
->> +	__u8 *addr;
->> +	int err;
->> +
->> +	ASSERT_RTNL();
->> +
->> +	if (!(dev->priv_flags & IFF_OFFLOADED_FDB))
->> +		return -ENODEV;
-> 
-> EOPNOTSUPP
-> 
+Without the defining string or help text, LKC won't ever bother
+to ask the end user for a setting for CONFIG_BQL -- you could
+delete it from your .config and run make oldconfig and not a
+thing would change -- it would still be silently re-enabled.
 
-Right thanks.
+While most people will have no reason to turn this off, the
+ability to do so can be useful for testing BQL support additions
+on previously BQL-unaware drivers and similar.
 
-[...]
+The kconfig help text is largely taken from the original RFC
+patchset 0/N header sent to netdev@vger.kernel.org in fall 2011.
 
->> +	if (is_multicast_ether_addr(addr))
->> +		return -EINVAL;
-> 
-> There is a pending change to the ndo_validate_addr interface which I
-> think would allow us to replace the Ethernet-specific checks with a
-> check against dev->addr_len and a call to ndo_validate_addr.  Not that I
-> really care about anything other than Ethernet, but it would be a little
-> more elegant.
-> 
->> +	netif_addr_lock_bh(dev);
->> +	list_for_each_entry(ha, &dev->uc.list, list) {
->> +		if (!compare_ether_addr(ha->addr, addr)) {
->> +			netif_addr_unlock_bh(dev);
->> +			return -EEXIST;
->> +		}
->> +	}
->> +	netif_addr_unlock_bh(dev);
->> +
->> +	err = dev_uc_add(dev, addr);
-> [...]
-> 
-> The software bridge makes the duplicate check conditional on NLM_F_EXCL.
-> Shouldn't this be consistent?
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
-Agreed it should be consistent.
+[Apologies if this was explicitly blocked for a reason; I couldn't
+ find a reason after searching netdev or threads at bufferbloat.net ]
 
-> 
-> Also, this seems racy.  If all manipulation of the UC address list is
-> serialised by RTNL (which I think in practice it is) then there is no
-> race and we also don't need to take the netif_addr_lock(), but if we're
-> not allowed to assume that then we shouldn't drop the lock.  Perhaps the
-> check can be moved into a dev_uc_add_exclusive() or something like that.
-> 
-
-Yep I'll at least make this consistent with other usages. And maybe a
-follow up patch to clean up the usage throughout.
-
-Thanks,
-John
+diff --git a/net/Kconfig b/net/Kconfig
+index e07272d..fd1d815 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -241,10 +241,15 @@ config NETPRIO_CGROUP
+ 	  a per-interface basis
+ 
+ config BQL
+-	boolean
++	boolean	"Byte Queue Limits"
+ 	depends on SYSFS
+ 	select DQL
+ 	default y
++	---help---
++	  Byte queue limits are a mechanism to limit the size of the transmit
++	  hardware queue on a NIC by a number of bytes. The goal of these byte
++	  queue limits is to reduce latency caused by excessive queuing in
++	  hardware without sacrificing throughput.
+ 
+ config HAVE_BPF_JIT
+ 	bool
+-- 
+1.7.9.1
