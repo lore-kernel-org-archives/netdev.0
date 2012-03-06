@@ -1,72 +1,37 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: Allow stmmac to work with other PHY buses(v2).
-Date: Tue,  6 Mar 2012 06:42:00 +0100
-Message-ID: <1331012520-19574-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:38259 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751151Ab2CFFmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:42:12 -0500
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BB5BF1A1
-	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 05:42:10 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 528A814FF
-	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 05:42:10 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:3418
+Date: Tue, 6 Mar 2012 00:46:28 -0500
+Message-ID: <CADVnQyk_6LYW2nyjccWjv1NmjivXf5cXBqJ+LsZLjGyOj7kddQ@mail.gmail.com>
+References: <alpine.DEB.2.01.1202261556150.4930@trent.utfs.org>
+	<alpine.DEB.2.01.1202290929520.4930@trent.utfs.org>
+	<CADVnQy=JkVc_8ptpSkhQWe4HJpbe_+JMad+2uqgN1iUfkfFFCw@mail.gmail.com>
+	<CADVnQykqaUCFBYXVqGNq+HmeowAbYJQQNpbXFpQ4Uif3gwf4ig@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, markus@trippelsdorf.de,
+	LKML <linux-kernel@vger.kernel.org>
+To: Christian Kujau <lists@nerdbynature.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADVnQykqaUCFBYXVqGNq+HmeowAbYJQQNpbXFpQ4Uif3gwf4ig@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On Wed, Feb 29, 2012 at 12:41 PM, Christian Kujau <lists@nerdbynature.d=
+e> wrote:
+> This is still happening with 3.3.0-rc5, .config & dmesg here:
+>
+> =A0 http://nerdbynature.de/bits/3.3.0-rc4/ipv4/
 
-After commit "db8857b stmmac: use an unique MDIO bus name" and "90b9a54
-stmmac: fix phy naming inconsistency" stmmac cant work with other MDIO
-buses, because mdio_bus name is fixed in the dirver.
+I was finally able to reproduce this issue where there are warnings
+about sacked_out going negative (since 3.3.0-rc4), and my testing
+shows that this patch seems to fix the issue:
 
-This patch adds new variable phy_bus_name to plat_stmmacenet_data
-struct to let the BSP decide which phy bus to be used by stmmac driver.
-A typical use-case is to have generic MDIO buses like mdio-gpio on top
-of stmmac.
+  http://patchwork.ozlabs.org/patch/144844/
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 +++++++-
- include/linux/stmmac.h                            |    1 +
- 2 files changed, 8 insertions(+), 1 deletions(-)
+=46or folks who were seeing this problem and are so inclined, feel free
+to try the latest 3.3-rc6 kernel (or davem's "net" tree in git, if
+that's easier) with that patch applied, and let me know how it goes.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6ee593a..da891ef9b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -307,7 +307,13 @@ static int stmmac_init_phy(struct net_device *dev)
- 	priv->speed = 0;
- 	priv->oldduplex = -1;
- 
--	snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x", priv->plat->bus_id);
-+	if (priv->plat->phy_bus_name)
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
-+				priv->plat->phy_bus_name, priv->plat->bus_id);
-+	else
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-+				priv->plat->bus_id);
-+
- 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 		 priv->plat->phy_addr);
- 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 0dddc9e..172b5e1 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -39,6 +39,7 @@ struct stmmac_mdio_bus_data {
- };
- 
- struct plat_stmmacenet_data {
-+	char *phy_bus_name;
- 	int bus_id;
- 	int phy_addr;
- 	int interface;
--- 
-1.7.4.4
+thanks,
+neal
