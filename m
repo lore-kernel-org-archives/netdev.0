@@ -1,57 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v5] lpc32xx: Added ethernet driver
-Date: Tue, 6 Mar 2012 21:34:37 +0000
-Message-ID: <201203062134.38077.arnd@arndb.de>
-References: <1331067664-9124-1-git-send-email-stigge@antcom.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] caif: Fix for a race in socket transmit with flow
+ control.
+Date: Tue, 06 Mar 2012 16:35:49 -0500 (EST)
+Message-ID: <20120306.163549.910213928154338805.davem@davemloft.net>
+References: <1330886358-4857-1-git-send-email-abi.dmitryt@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	baruch@tkos.co.il, joe@perches.com
-To: Roland Stigge <stigge@antcom.de>
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com
+To: abi.dmitryt@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:61463 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932318Ab2CFVeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:34:50 -0500
-In-Reply-To: <1331067664-9124-1-git-send-email-stigge@antcom.de>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39997 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758546Ab2CFVfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:35:53 -0500
+In-Reply-To: <1330886358-4857-1-git-send-email-abi.dmitryt@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Roland,
+From: Dmitry Tarnyagin <abi.dmitryt@gmail.com>
+Date: Sun,  4 Mar 2012 19:39:18 +0100
 
-One more thing I noticed this time:
+> @@ -224,8 +224,12 @@ noxoff:
+>  	rcu_read_unlock_bh();
+>  
+>  	err = dev_queue_xmit(skb);
+> -	if (err > 0)
+> -		err = -EIO;
+> +	if (unlikely(err > 0)) {
+> +		if (err == NET_XMIT_DROP)
+> +			err = -EAGAIN;
+> +		else
+> +			err = -EIO;
+> +	}
+>  
+>  	return err;
+>  }
 
-On Tuesday 06 March 2012, Roland Stigge wrote:
-> +static inline phy_interface_t lpc_phy_interface_mode(void)
-> +{
-> +#ifdef CONFIG_ARCH_LPC32XX_MII_SUPPORT
-> +       return PHY_INTERFACE_MODE_MII;
-> +#else
-> +       return PHY_INTERFACE_MODE_RMII;
-> +#endif
-> +}
-> +
-> +static inline int use_iram_for_net(void)
-> +{
-> +#ifdef CONFIG_ARCH_LPC32XX_IRAM_FOR_NET
-> +       return 1;
-> +#else
-> +       return 0;
-> +#endif
-> +}
+If there is a packet scheduler classifier rule saying to drop all
+packets that match a certain criteria, this will always return -EAGAIN
+for certain SKBs.
 
-This should eventually both become run-time options based on the device tree.
-I don't know if you planned to do that anyway, but if you want the same kernel
-binary to be used for systems in different configurations, you cannot have
-compile-time decisions that are exclusive-or. Since you don't support device
-tree yet but plan to do that in the future, you could add a comment here
-about it, or you could even prepare it for that case already by passing the
-device into the functions that will be required for reading the properties.
+> +		ret = transmit_skb(skb, cf_sk, noblock, timeo);
+> +	} while (ret == -EAGAIN);
 
-	Arnd
+And therefore this will loop forever.
+
+I think this is just a bad way to handle it, drops are drops and they
+can happen anywhere not just the place that signals things like
+NET_XMIT_DROP.
+
+Just simply ignore positive return values from dev_queue_xmit() and
+traslate them into zero.  Then you need to make no other changes at
+all.
