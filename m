@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 1/3] tcp: Move code around
-Date: Tue, 06 Mar 2012 13:55:08 +0400
-Message-ID: <4F55DEFC.8060307@parallels.com>
+Subject: [PATCH 2/3] tcp: Initial repair mode
+Date: Tue, 06 Mar 2012 13:55:30 +0400
+Message-ID: <4F55DF12.6030001@parallels.com>
 References: <4F55DEDE.1090602@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,195 +10,302 @@ To: Linux Netdev List <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:20616 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:5031 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758646Ab2CFJzT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2012 04:55:19 -0500
+	id S1758568Ab2CFJzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2012 04:55:41 -0500
 In-Reply-To: <4F55DEDE.1090602@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is just the preparation patch, which makes the needed for
-TCP repair code ready for use.
+This includes (according the the previous description):
+
+* TCP_REPAIR sockoption
+
+This one just puts the socket in/out of the repair mode.
+Allowed for CAP_SYS_ADMIN and for closed/establised sockets only.
+When repair mode is turned off and the socket happens to be in
+the established state the window probe is sent to the peer to
+'unlock' the connection.
+
+* TCP_REPAIR_QUEUE sockoption
+
+This one sets the queue which we're about to repair. The
+'no-queue' is set by default.
+
+* TCP_QUEUE_SEQ socoption
+
+Sets the write_seq/copied_seq of a selected repaired queue.
+Allowed for TCP_CLOSE-d sockets only. When the socket changes
+its state the other seq-s are changed by the kernel according
+to the protocol rules (most of the existing code is actually
+reused).
+
+* Ability to forcibly bind a socket to a port
+
+The sk->sk_reuse is set to 2 denoting, that the socket is question
+should be bound as if all the others in the system are configured
+with the SO_REUSEADDR option.
+
+* Immediate connect modification
+
+The connect syscall initializes the connection, then directly jumps
+to the code which finalizes it.
+
+* Silent close modification
+
+The close just aborts the connection (similar to SO_LINGER with 0
+time) but without sending any FIN/RST-s to peer.
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
 ---
- include/net/tcp.h     |    3 ++
- net/ipv4/tcp.c        |    2 +-
- net/ipv4/tcp_input.c  |   81 +++++++++++++++++++++++++++++--------------------
- net/ipv4/tcp_output.c |    4 +-
- 4 files changed, 54 insertions(+), 36 deletions(-)
+ include/linux/tcp.h             |   14 ++++++++-
+ include/net/tcp.h               |    2 +
+ net/ipv4/inet_connection_sock.c |    3 ++
+ net/ipv4/tcp.c                  |   63 ++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/tcp_ipv4.c             |   19 ++++++++++--
+ net/ipv4/tcp_output.c           |   16 ++++++++--
+ 6 files changed, 109 insertions(+), 8 deletions(-)
 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index b6c62d2..4e90e6a 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -106,6 +106,16 @@ enum {
+ #define TCP_THIN_LINEAR_TIMEOUTS 16      /* Use linear timeouts for thin streams*/
+ #define TCP_THIN_DUPACK         17      /* Fast retrans. after 1 dupack */
+ #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
++#define TCP_REPAIR		19	/* TCP sock is under repair right now */
++#define TCP_REPAIR_QUEUE	20
++#define TCP_QUEUE_SEQ		21
++
++enum {
++	TCP_NO_QUEUE,
++	TCP_RECV_QUEUE,
++	TCP_SEND_QUEUE,
++	TCP_QUEUES_NR,
++};
+ 
+ /* for TCP_INFO socket option */
+ #define TCPI_OPT_TIMESTAMPS	1
+@@ -353,7 +363,9 @@ struct tcp_sock {
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+-		unused      : 2;
++		repair      : 1,
++		unused      : 1;
++	u8	repair_queue;
+ 
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8607e6a..a08e886 100644
+index a08e886..9f4aa4c 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -434,6 +434,9 @@ extern struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 					struct request_values *rvp);
- extern int tcp_disconnect(struct sock *sk, int flags);
+@@ -611,6 +611,8 @@ static inline u32 tcp_receive_window(const struct tcp_sock *tp)
+  */
+ extern u32 __tcp_select_window(struct sock *sk);
  
-+void tcp_connect_init(struct sock *sk);
-+void tcp_finish_connect(struct sock *sk, struct sk_buff *skb);
-+void tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int hdrlen);
- 
- /* From syncookies.c */
- extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
++void tcp_send_window_probe(struct sock *sk);
++
+ /* TCP timestamps are only 32-bits, this causes a slight
+  * complication on 64-bit systems since we store a snapshot
+  * of jiffies in the buffer control blocks below.  We decided
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 19d66ce..92788af 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -172,6 +172,9 @@ have_snum:
+ 	goto tb_not_found;
+ tb_found:
+ 	if (!hlist_empty(&tb->owners)) {
++		if (sk->sk_reuse == 2)
++			goto success;
++
+ 		if (tb->fastreuse > 0 &&
+ 		    sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
+ 		    smallest_size == -1) {
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 22ef5f9..0e0b974 100644
+index 0e0b974..8d9b2bc 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -916,7 +916,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	int iovlen, flags, err, copied;
--	int mss_now, size_goal;
-+	int mss_now = 0, size_goal;
- 	bool sg;
- 	long timeo;
+@@ -1932,7 +1932,9 @@ void tcp_close(struct sock *sk, long timeout)
+ 	 * advertise a zero window, then kill -9 the FTP client, wheee...
+ 	 * Note: timeout is always zero in such a case.
+ 	 */
+-	if (data_was_unread) {
++	if (tcp_sk(sk)->repair) {
++		sk->sk_prot->disconnect(sk, 0);
++	} else if (data_was_unread) {
+ 		/* Unread data was tossed, zap the connection. */
+ 		NET_INC_STATS_USER(sock_net(sk), LINUX_MIB_TCPABORTONCLOSE);
+ 		tcp_set_state(sk, TCP_CLOSE);
+@@ -2071,6 +2073,8 @@ int tcp_disconnect(struct sock *sk, int flags)
+ 	/* ABORT function of RFC793 */
+ 	if (old_state == TCP_LISTEN) {
+ 		inet_csk_listen_stop(sk);
++	} else if (unlikely(tp->repair)) {
++		sk->sk_err = ECONNABORTED;
+ 	} else if (tcp_need_reset(old_state) ||
+ 		   (tp->snd_nxt != tp->write_seq &&
+ 		    (1 << old_state) & (TCPF_CLOSING | TCPF_LAST_ACK))) {
+@@ -2294,6 +2298,43 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 			tp->thin_dupack = val;
+ 		break;
  
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ee42d42..04db849 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5282,6 +5282,14 @@ discard:
- 	return 0;
++	case TCP_REPAIR:
++		if (!capable(CAP_SYS_ADMIN) || !(sk->sk_state == TCP_CLOSE ||
++					sk->sk_state == TCP_ESTABLISHED))
++			err = -EPERM;
++		else if (val == 1) {
++			tp->repair = 1;
++			sk->sk_reuse = 2;
++			tp->repair_queue = TCP_NO_QUEUE;
++		} else if (val == 0) {
++			tp->repair = 0;
++			sk->sk_reuse = 0;
++			tcp_send_window_probe(sk);
++		} else
++			err = -EINVAL;
++
++		break;
++
++	case TCP_REPAIR_QUEUE:
++		if (!tp->repair)
++			err = -EPERM;
++		else if (val <= TCP_QUEUES_NR)
++			tp->repair_queue = val;
++		else
++			err = -EINVAL;
++		break;
++
++	case TCP_QUEUE_SEQ:
++		if (sk->sk_state != TCP_CLOSE)
++			err = -EPERM;
++		else if (tp->repair_queue == TCP_SEND_QUEUE)
++			tp->write_seq = val;
++		else if (tp->repair_queue == TCP_RECV_QUEUE)
++			tp->copied_seq = val;
++		else
++			err = -EINVAL;
++		break;
++
+ 	case TCP_CORK:
+ 		/* When set indicates to always queue non-full frames.
+ 		 * Later the user clears this option and we transmit
+@@ -2629,6 +2670,26 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 		val = tp->thin_dupack;
+ 		break;
+ 
++	case TCP_REPAIR:
++		val = tp->repair;
++		break;
++
++	case TCP_REPAIR_QUEUE:
++		if (tp->repair)
++			val = tp->repair_queue;
++		else
++			return -EINVAL;
++		break;
++
++	case TCP_QUEUE_SEQ:
++		if (tp->repair_queue == TCP_SEND_QUEUE)
++			val = tp->write_seq;
++		else if (tp->repair_queue == TCP_RECV_QUEUE)
++			val = tp->copied_seq;
++		else
++			return -EINVAL;
++		break;
++
+ 	case TCP_USER_TIMEOUT:
+ 		val = jiffies_to_msecs(icsk->icsk_user_timeout);
+ 		break;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 94abee8..6118486 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -137,6 +137,14 @@ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
  }
+ EXPORT_SYMBOL_GPL(tcp_twsk_unique);
  
-+void tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int hdrlen)
++static int tcp_repair_connect(struct sock *sk)
 +{
-+	__skb_pull(skb, hdrlen);
-+	__skb_queue_tail(&sk->sk_receive_queue, skb);
-+	skb_set_owner_r(skb, sk);
-+	tcp_sk(sk)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
++	tcp_connect_init(sk);
++	tcp_finish_connect(sk, NULL);
++
++	return 0;
 +}
 +
- /*
-  *	TCP receive function for the ESTABLISHED state.
-  *
-@@ -5447,10 +5455,7 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITS);
+ /* This will initiate an outgoing connection. */
+ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ {
+@@ -195,7 +203,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 		/* Reset inherited state */
+ 		tp->rx_opt.ts_recent	   = 0;
+ 		tp->rx_opt.ts_recent_stamp = 0;
+-		tp->write_seq		   = 0;
++		if (!tp->repair)
++			tp->write_seq	   = 0;
+ 	}
  
- 				/* Bulk data transfer: receiver */
--				__skb_pull(skb, tcp_header_len);
--				__skb_queue_tail(&sk->sk_receive_queue, skb);
--				skb_set_owner_r(skb, sk);
--				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-+				tcp_queue_rcv(sk, skb, tcp_header_len);
- 			}
+ 	if (tcp_death_row.sysctl_tw_recycle &&
+@@ -246,7 +255,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	sk->sk_gso_type = SKB_GSO_TCPV4;
+ 	sk_setup_caps(sk, &rt->dst);
  
- 			tcp_event_data_recv(sk, skb);
-@@ -5516,6 +5521,44 @@ discard:
- }
- EXPORT_SYMBOL(tcp_rcv_established);
+-	if (!tp->write_seq)
++	if (!tp->write_seq && !tp->repair)
+ 		tp->write_seq = secure_tcp_sequence_number(inet->inet_saddr,
+ 							   inet->inet_daddr,
+ 							   inet->inet_sport,
+@@ -254,7 +263,11 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
  
-+void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	tcp_set_state(sk, TCP_ESTABLISHED);
-+
-+	if (skb != NULL)
-+		security_inet_conn_established(sk, skb);
-+
-+	/* Make sure socket is routed, for correct metrics.  */
-+	icsk->icsk_af_ops->rebuild_header(sk);
-+
-+	tcp_init_metrics(sk);
-+
-+	tcp_init_congestion_control(sk);
-+
-+	/* Prevent spurious tcp_cwnd_restart() on first data
-+	 * packet.
-+	 */
-+	tp->lsndtime = tcp_time_stamp;
-+
-+	tcp_init_buffer_space(sk);
-+
-+	if (sock_flag(sk, SOCK_KEEPOPEN))
-+		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
-+
-+	if (!tp->rx_opt.snd_wscale)
-+		__tcp_fast_path_on(tp, tp->snd_wnd);
+ 	inet->inet_id = tp->write_seq ^ jiffies;
+ 
+-	err = tcp_connect(sk);
++	if (likely(!tp->repair))
++		err = tcp_connect(sk);
 +	else
-+		tp->pred_flags = 0;
++		err = tcp_repair_connect(sk);
 +
-+	if (!sock_flag(sk, SOCK_DEAD)) {
-+		sk->sk_state_change(sk);
-+		sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+ 	rt = NULL;
+ 	if (err)
+ 		goto failure;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1db25af..f0525d1 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2617,9 +2617,11 @@ void tcp_connect_init(struct sock *sk)
+ 	tp->snd_sml = tp->write_seq;
+ 	tp->snd_up = tp->write_seq;
+ 	tp->snd_nxt = tp->write_seq;
+-	tp->rcv_nxt = 0;
+-	tp->rcv_wup = 0;
+-	tp->copied_seq = 0;
++
++	if (!tp->repair)
++		tp->copied_seq = 0;
++	tp->rcv_wup = tp->copied_seq;
++	tp->rcv_nxt = tp->copied_seq;
+ 
+ 	inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
+ 	inet_csk(sk)->icsk_retransmits = 0;
+@@ -2790,6 +2792,14 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent)
+ 	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
+ }
+ 
++void tcp_send_window_probe(struct sock *sk)
++{
++	if (sk->sk_state == TCP_ESTABLISHED) {
++		tcp_sk(sk)->snd_wl1 = tcp_sk(sk)->rcv_nxt - 1;
++		tcp_xmit_probe_skb(sk, 0);
 +	}
 +}
 +
- static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 					 const struct tcphdr *th, unsigned int len)
+ /* Initiate keepalive or window probe from timer. */
+ int tcp_write_wakeup(struct sock *sk)
  {
-@@ -5648,36 +5691,8 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 		}
- 
- 		smp_mb();
--		tcp_set_state(sk, TCP_ESTABLISHED);
--
--		security_inet_conn_established(sk, skb);
--
--		/* Make sure socket is routed, for correct metrics.  */
--		icsk->icsk_af_ops->rebuild_header(sk);
--
--		tcp_init_metrics(sk);
- 
--		tcp_init_congestion_control(sk);
--
--		/* Prevent spurious tcp_cwnd_restart() on first data
--		 * packet.
--		 */
--		tp->lsndtime = tcp_time_stamp;
--
--		tcp_init_buffer_space(sk);
--
--		if (sock_flag(sk, SOCK_KEEPOPEN))
--			inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
--
--		if (!tp->rx_opt.snd_wscale)
--			__tcp_fast_path_on(tp, tp->snd_wnd);
--		else
--			tp->pred_flags = 0;
--
--		if (!sock_flag(sk, SOCK_DEAD)) {
--			sk->sk_state_change(sk);
--			sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
--		}
-+		tcp_finish_connect(sk, skb);
- 
- 		if (sk->sk_write_pending ||
- 		    icsk->icsk_accept_queue.rskq_defer_accept ||
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 364784a..1db25af 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2561,7 +2561,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- EXPORT_SYMBOL(tcp_make_synack);
- 
- /* Do all connect socket setups that can be done AF independent. */
--static void tcp_connect_init(struct sock *sk)
-+void tcp_connect_init(struct sock *sk)
- {
- 	const struct dst_entry *dst = __sk_dst_get(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -2616,6 +2616,7 @@ static void tcp_connect_init(struct sock *sk)
- 	tp->snd_una = tp->write_seq;
- 	tp->snd_sml = tp->write_seq;
- 	tp->snd_up = tp->write_seq;
-+	tp->snd_nxt = tp->write_seq;
- 	tp->rcv_nxt = 0;
- 	tp->rcv_wup = 0;
- 	tp->copied_seq = 0;
-@@ -2641,7 +2642,6 @@ int tcp_connect(struct sock *sk)
- 	/* Reserve space for headers. */
- 	skb_reserve(buff, MAX_TCP_HEADER);
- 
--	tp->snd_nxt = tp->write_seq;
- 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
- 	TCP_ECN_send_syn(sk, buff);
- 
 -- 
 1.5.5.6
