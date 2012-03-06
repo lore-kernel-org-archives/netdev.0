@@ -1,55 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] caif: Fix for a race in socket transmit with flow
- control.
-Date: Tue, 06 Mar 2012 16:35:49 -0500 (EST)
-Message-ID: <20120306.163549.910213928154338805.davem@davemloft.net>
-References: <1330886358-4857-1-git-send-email-abi.dmitryt@gmail.com>
+Subject: Re: [PATCH] stmmac: Allow stmmac to work with other PHY buses(v2).
+Date: Tue, 06 Mar 2012 16:57:03 -0500 (EST)
+Message-ID: <20120306.165703.277843706808689044.davem@davemloft.net>
+References: <1331012520-19574-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sjurbren@gmail.com
-To: abi.dmitryt@gmail.com
+Cc: netdev@vger.kernel.org, srinivas.kandagatla@st.com
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39997 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40185 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758546Ab2CFVfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:35:53 -0500
-In-Reply-To: <1330886358-4857-1-git-send-email-abi.dmitryt@gmail.com>
+	with ESMTP id S1756390Ab2CFV5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:57:09 -0500
+In-Reply-To: <1331012520-19574-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Tarnyagin <abi.dmitryt@gmail.com>
-Date: Sun,  4 Mar 2012 19:39:18 +0100
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Tue,  6 Mar 2012 06:42:00 +0100
 
-> @@ -224,8 +224,12 @@ noxoff:
->  	rcu_read_unlock_bh();
->  
->  	err = dev_queue_xmit(skb);
-> -	if (err > 0)
-> -		err = -EIO;
-> +	if (unlikely(err > 0)) {
-> +		if (err == NET_XMIT_DROP)
-> +			err = -EAGAIN;
-> +		else
-> +			err = -EIO;
-> +	}
->  
->  	return err;
->  }
+> After commit "db8857b stmmac: use an unique MDIO bus name" and "90b9a54
+> stmmac: fix phy naming inconsistency" stmmac cant work with other MDIO
+> buses, because mdio_bus name is fixed in the dirver.
 
-If there is a packet scheduler classifier rule saying to drop all
-packets that match a certain criteria, this will always return -EAGAIN
-for certain SKBs.
+This sounds inaccurate, you're making it sound like these commits
+introduced this limitation, as far as I can tell they did not.
 
-> +		ret = transmit_skb(skb, cf_sk, noblock, timeo);
-> +	} while (ret == -EAGAIN);
+Before the MDIO bus name was just plain "%x" and the bus_id number
+was placed there.  Then it became the same thing, except with some
+(potentially fixed) prefix.
 
-And therefore this will loop forever.
+Nothing about that change makes any difference whatsoever about
+what you're modifications are trying to allow.
 
-I think this is just a bad way to handle it, drops are drops and they
-can happen anywhere not just the place that signals things like
-NET_XMIT_DROP.
+BTW, also, commit "90b9a54" is ambiguous.
 
-Just simply ignore positive return values from dev_queue_xmit() and
-traslate them into zero.  Then you need to make no other changes at
-all.
+[davem@bql net]$ git show 90b9a54
+error: short SHA1 90b9a54 is ambiguous.
+error: short SHA1 90b9a54 is ambiguous.
+fatal: ambiguous argument '90b9a54': unknown revision or path not in the working tree.
