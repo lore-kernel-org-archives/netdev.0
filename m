@@ -1,45 +1,58 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next 0/8] net/mlx4: Performance enhancement and cleanups
-Date: Tue, 6 Mar 2012 16:03:29 +0200
-Message-ID: <4F561931.1000002@mellanox.co.il>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver: smp_wmb()
+Date: Tue, 6 Mar 2012 14:03:28 +0000
+Message-ID: <1331042608.2347.1.camel@bwh-desktop>
+References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
+	 <1330987524.2538.61.camel@bwh-desktop> <4F55EA6D.3070602@antcom.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:42007 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758264Ab2CFODf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:03:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+	<alexander.h.duyck@intel.com>, <eilong@broadcom.com>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<w.sang@pengutronix.de>, <linux-kernel@vger.kernel.org>,
+	<kevin.wells@nxp.com>, <linux-arm-kernel@lists.infradead.org>,
+	<arnd@arndb.de>, <baruch@tkos.co.il>, <joe@perches.com>
+To: Roland Stigge <stigge@antcom.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F55EA6D.3070602@antcom.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-This patch consists of a patch with datapath pointer optimizations, which was submitted a week ago
-and you agreed to accept it after resubmission.
-In addition, there are 7 cleanup patches that remove sparse warnings for mlx4 drivers.
+On Tue, 2012-03-06 at 11:43 +0100, Roland Stigge wrote:
+> On 03/05/2012 11:45 PM, Ben Hutchings wrote:
+> >> +	/* Clear and enable interrupts */
+> >> +	writel(0xFFFF, LPC_ENET_INTCLEAR(pldat->net_base));
+> >> +	lpc_eth_enable_int(pldat->net_base);
+> >> +
+> >> +	/* Get the next TX buffer output index */
+> >> +	pldat->num_used_tx_buffs = 0;
+> >> +	pldat->last_tx_idx =
+> >> +		readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
+> > 
+> > Doesn't this need to be done *before* enabling interrupts?  Also, I
+> > think you need an smp_wmb() so that the interrupt handler is guaranteed
+> > to see all these writes.
+> 
+> Do you mean _one_ smp_wmb() directly after lpc_eth_enable_int() (which
+> I'm moving behind the above code?
 
-Or Gerlitz (2):
-  net/mlx4: fix sparse warnings on TX control flags endianess
-  net/mlx4: fix sparse warnings on TX blue flame buffer
+The sequence should be
 
-Yevgeny Petrilin (6):
-  net/mlx4_en: Saving mem access on data path
-  net/mlx4: fix sparse warnings on wrong type for RSS keys
-  net/mlx4: fixing sparse warnings when copying mac address to gid entry
-  net/mlx4: fixing sparse warnings for not declared functions
-  net/mlx4: remove unused functions
-  net/mlx4: defining functions as static
+	pldat->state = values...;
+	smp_wmb();
+	enable_interrupts();
 
+> Note that there is no SMP in LPCs and NXP is not planning to build one
+> AFAIK.
 
+Never say never!
 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    1
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   16 +---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   15 ++--
- drivers/net/ethernet/mellanox/mlx4/fw.c        |   10 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    7 --
- drivers/net/ethernet/mellanox/mlx4/mr.c        |   81 -------------------------
- drivers/net/ethernet/mellanox/mlx4/port.c      |   10 +--
- include/linux/mlx4/device.h                    |    5 +
- 8 files changed, 28 insertions(+), 117 deletions(-)
+> However, I'm fine with including smp_wmb() anyway for completeness.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
