@@ -1,46 +1,44 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH v2] IPv6: Fix not join all-router mcast group when forwarding
- set.
-Date: Tue, 06 Mar 2012 08:45:17 +0800
-Message-ID: <4F555E1D.8020008@cn.fujitsu.com>
-References: <4F548D59.1060600@cn.fujitsu.com> <20120305.151125.1618240418198694711.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver
+Date: Mon, 05 Mar 2012 16:49:18 -0800
+Message-ID: <1330994958.9504.2.camel@edumazet-glaptop>
+References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
+	 <1330987524.2538.61.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:44030 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932433Ab2CFApW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 19:45:22 -0500
-In-Reply-To: <20120305.151125.1618240418198694711.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Stigge <stigge@antcom.de>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
+	eilong@broadcom.com, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, w.sang@pengutronix.de,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
+	baruch@tkos.co.il, joe@perches.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330987524.2538.61.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2012-03-05 at 22:45 +0000, Ben Hutchings wrote:
+> On Mon, 2012-03-05 at 22:40 +0100, Roland Stigge wrote:
+> [...]
 
-When forwarding was set and a new net device is register,
-we need add this device to the all-router mcast group.
+...
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- net/ipv6/addrconf.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+> > +				/* Copy packet from buffer */
+> > +				memcpy(prdbuf,
+> > +					pldat->rx_buff_v[rxconsidx], len);
+> > +
+> > +				/* Pass to upper layer */
+> > +				skb->protocol = eth_type_trans(skb, ndev);
+> > +				netif_rx(skb);
+> > +				ndev->last_rx = jiffies;
+> 
+> Drivers don't need to set last_rx any more.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c02280a..6b8ebc5 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -434,6 +434,10 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
- 	/* Join all-node multicast group */
- 	ipv6_dev_mc_inc(dev, &in6addr_linklocal_allnodes);
- 
-+	/* Join all-router multicast group if forwarding is set */
-+	if (ndev->cnf.forwarding && dev && (dev->flags & IFF_MULTICAST))
-+		ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
-+
- 	return ndev;
- }
- 
--- 
-1.7.1
+Also, a NAPI driver should call netif_receive_skb() instead of
+netif_rx()
+
+netif_rx() is more expensive because of additional queue, while
+netif_receive_skb() directly calls the upper stacks.
