@@ -1,51 +1,119 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Tue, 06 Mar 2012 16:26:13 +0800
-Message-ID: <4F55CA25.2070503@redhat.com>
-References: <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120217.133327.1178765872497293871.davem@davemloft.net> <1330656317.21053.1411.camel@debian> <20120301.220743.2174015405223036036.davem@davemloft.net> <20120306081117.GA17375@feng-i7>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alex.shi@intel.com,
-	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
-To: Feng Tang <feng.tang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120306081117.GA17375@feng-i7>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 2/4] net: ethtool: add the EEE support
+Date: Tue,  6 Mar 2012 09:28:12 +0100
+Message-ID: <1331022494-12891-3-git-send-email-peppe.cavallaro@st.com>
+References: <4F4E4D4B.3040909@st.com>
+ <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	rayagond@vayavyalabs.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:55757 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758655Ab2CFI2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 03:28:54 -0500
+In-Reply-To: <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2012 04:11 PM, Feng Tang wrote:
-> On Thu, Mar 01, 2012 at 10:07:43PM -0500, David Miller wrote:
->> >  From: Alex Shi<alex.shi@intel.com>
->> >  Date: Fri, 02 Mar 2012 10:45:17 +0800
->> >  
->>> >  >  Add CC to tang feng, He is working on this issue.
->> >  
->> >  Is he?  I'm pretty sure this is due to the TCP receive window growing
->> >  issue Eric Dumazet, Neal Cardwell and I are discussing in the thread
->> >  starting at:
->> >  
->> >  http://marc.info/?l=linux-netdev&m=132916352815286&w=2
-> Yes, probably, as we did find some clue related with the tcp_r/wmem.
->
-> Here is the regression we found:
-> On some machines, we found there is about 10% resgression of netperf
-> TCP-64K loopback test between 3.2 and 3.3-rc1. The exact test is:
-> ./netperf -t TCP_STREAM -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -s 32768 -S 32768 -m 4096
->
->
-> The test machine is a 2 socket Quad Core Core 2 Duo server(2.66GHz) with
-> 8 GB RAM. Following are the debug info (ifconfig/netstat -s/tcp_rwmem)
-> before and after the test:
->
-> The most obvious differences I can see are:
-> 1) 311 GB vs 241 GB from ifconfig
-> 2) the difference of the tcp_r/wmem
+This patch adds two new functions to detect if Energy-Efficient
+Ethernet (EEE) is supported and the way to enable/disable it.
 
-Hi:
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ include/linux/ethtool.h |    7 +++++++
+ net/core/ethtool.c      |   32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+), 0 deletions(-)
 
-Could you try the newest kernel? Looks like the difference has been 
-already fixed by commit c43b874d5d714f271b80d4c3f49e05d0cbf51ed2.
-
-Thanks
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index e1d9e0e..8aed0dd 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -48,6 +48,7 @@ struct ethtool_cmd {
+ 	__u8	eth_tp_mdix;
+ 	__u8	reserved2;
+ 	__u32	lp_advertising;	/* Features the link partner advertises */
++	__u32	eee;		/* Energy-Efficient Etehrnet */
+ 	__u32	reserved[2];
+ };
+ 
+@@ -893,6 +894,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  * 		   and flag of the device.
+  * @get_dump_data: Get dump data.
+  * @set_dump: Set dump specific flags to the device.
++ * @get_eee: Get Energy-Efficient Ethernet (EEE) supported and status.
++ * @set_eee: Set EEE status (enable/disable).
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -956,6 +959,8 @@ struct ethtool_ops {
+ 				 struct ethtool_dump *, void *);
+ 	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+ 
++	int	(*get_eee) (struct net_device *, struct ethtool_value *);
++	int	(*set_eee) (struct net_device *, struct ethtool_value *);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -1029,6 +1034,8 @@ struct ethtool_ops {
+ #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
+ #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+ #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
++#define ETHTOOL_GEEE		0x00000041 /* Get EEE */
++#define ETHTOOL_SEEE		0x00000042 /* Set EEE */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 6d6d7d2..f47075e 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -716,6 +716,32 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+ 	return dev->ethtool_ops->set_wol(dev, &wol);
+ }
+ 
++static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_value edata;
++
++	if (!dev->ethtool_ops->get_eee)
++		return -EOPNOTSUPP;
++
++	dev->ethtool_ops->get_eee(dev, &edata);
++
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		return -EFAULT;
++	return 0;
++}
++
++static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_value edata;
++
++	if (!dev->ethtool_ops->set_eee)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_eee(dev, &edata);
++}
+ static int ethtool_nway_reset(struct net_device *dev)
+ {
+ 	if (!dev->ethtool_ops->nway_reset)
+@@ -1370,6 +1396,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 		rc = ethtool_set_value_void(dev, useraddr,
+ 				       dev->ethtool_ops->set_msglevel);
+ 		break;
++	case ETHTOOL_GEEE:
++		rc = ethtool_get_eee(dev, useraddr);
++		break;
++	case ETHTOOL_SEEE:
++		rc = ethtool_set_eee(dev, useraddr);
++		break;
+ 	case ETHTOOL_NWAY_RST:
+ 		rc = ethtool_nway_reset(dev);
+ 		break;
+-- 
+1.7.4.4
