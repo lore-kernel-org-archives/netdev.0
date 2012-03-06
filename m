@@ -1,45 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix tcp_shift_skb_data() to not shift SACKed data
- below snd_una
-Date: Tue, 06 Mar 2012 15:14:39 -0500 (EST)
-Message-ID: <20120306.151439.182216414366813515.davem@davemloft.net>
-References: <1331012104-20170-1-git-send-email-ncardwell@google.com>
+Subject: Re: [PATCH 2/6] netfilter: ctnetlink: remove incorrect
+ spin_[un]lock_bh on NAT module autoload
+Date: Tue, 06 Mar 2012 15:15:20 -0500 (EST)
+Message-ID: <20120306.151520.1301826446269910707.davem@davemloft.net>
+References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
+	<1331032975-5303-3-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	nanditad@google.com, ycheng@google.com, therbert@google.com
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39098 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030933Ab2CFUO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:14:57 -0500
-In-Reply-To: <1331012104-20170-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1331032975-5303-3-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Tue,  6 Mar 2012 00:35:04 -0500
+From: pablo@netfilter.org
+Date: Tue,  6 Mar 2012 12:22:51 +0100
 
-> This commit fixes tcp_shift_skb_data() so that it does not shift
-> SACKed data below snd_una.
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
 > 
-> This fixes an issue whose symptoms exactly match reports showing
-> tp->sacked_out going negative since 3.3.0-rc4 (see "WARNING: at
-> net/ipv4/tcp_input.c:3418" thread on netdev).
- ...
-> After those two fixes, my testing has verified that shifting SACKed
-> ranges below snd_una could cause tp->sacked_out to go negative with
-> the following sequence of events:
+> Since 7d367e0, ctnetlink_new_conntrack is called without holding
+> the nf_conntrack_lock spinlock. Thus, ctnetlink_parse_nat_setup
+> does not require to release that spinlock anymore in the NAT module
+> autoload case.
 > 
-> (1) tcp_shift_skb_data() sees an skb whose end_seq is beyond snd_una,
->     then shifts a prefix of that skb that is below snd_una
- ...
-> This fix changes tcp_shift_skb_data() to abort this sequence at step
-> (1) in the scenario above by noticing that the bytes are below snd_una
-> and not shifting them.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Applied and queued up for -stable, thanks.
+Applied.
