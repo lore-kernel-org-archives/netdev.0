@@ -1,150 +1,46 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [PATCH net-next V2] 8139too: Add 64bit statistics
-Date: Tue, 6 Mar 2012 11:13:05 +0800
-Message-ID: <20120306031301.GA4516@Spy32>
-References: <20120305113353.GA12969@Spy32>
- <1330954326.2474.9.camel@edumazet-laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
+ (fix nfs regression)
+Date: Tue, 06 Mar 2012 11:22:41 +0800
+Message-ID: <4F558301.9000402@redhat.com>
+References: <1330675173-18968-1-git-send-email-slyich@gmail.com> <4F509150.5060904@redhat.com> <20120302202421.753b36bc@sf.home> <20120302205000.088bf231@sf.home> <4F5227C9.7060209@parallels.com> <20120303174322.7e920bc5@sf.home> <4F52A8D5.9090703@parallels.com> <20120304121400.4d756e55@sf.home> <4F545AC3.50004@redhat.com> <20120305212206.43f3abfa@sf.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: greearb@candelatech.com, adobriyan@gmail.com, jasowang@redhat.com,
-	joe@perches.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:64444 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752437Ab2CFDLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 22:11:40 -0500
-Received: by iagz16 with SMTP id z16so6441297iag.19
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 19:11:40 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1330954326.2474.9.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Glauber Costa <glommer@parallels.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Sergei Trofimovich <slyich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120305212206.43f3abfa@sf.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 03/06/2012 02:22 AM, Sergei Trofimovich wrote:
+>> This one looks small to me, as the tcp_{r,w}mem were count by bytes and
+>> >  limit were count by number of pages, so we need to shift PAGE_SHIFT.
+>> >  
+>> >  As I can't reproduce this locally, in order to narrow down the problem,
+>> >  could you please help to check whether the issue were
+>> >  introduced/eliminated by commit  4acb4190 or 3dc43e3?
+> I didn't think of server problem. I did run 3.3-rc0 kernel there
+> from the kvm tree (v3.2-10396-g05ef4c6):
+>      commit 05ef4c60568ed1740f65bf66a76da30b19060119
+>      Author: Michael S. Tsirkin<mst@redhat.com>
+>      Date:   Wed Jan 18 20:07:09 2012 +0200
+>
+>          kvm: fix error handling for out of range irq
+>
+>      from git://git.kernel.org/pub/scm/virt/kvm/kvm.git
+>
+> Updating to current vanilla 3.3-rc6 solved the problem.
+> Are you interested in digging that issue further to find commit
+> breaking the server?
+Hi Sergei:
 
-Switch to use ndo_get_stats64 to get 64bit statistics.
-Two sync entries are used (one for Rx and one for Tx).
+So it's very possible that it's a bug which is blacklisted by early 
+commits and uncovered by my commit ( 
+c43b874d5d714f271b80d4c3f49e05d0cbf51ed2). I wish I can help in nfs 
+debugging, but I'm not familiar with that.
 
-Signed-off-by: Junchang Wang <junchangwang@gmail.com>
----
-V2: based on Eric's patch "net: export netdev_stats_to_stats64"
-
- drivers/net/ethernet/realtek/8139too.c |   46 ++++++++++++++++++++++++++-----
- 1 files changed, 38 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-index abd6aca..df7fd8d 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -565,6 +565,12 @@ struct rtl_extra_stats {
- 	unsigned long rx_lost_in_ring;
- };
- 
-+struct rtl8139_stats {
-+	u64	packets;
-+	u64	bytes;
-+	struct u64_stats_sync	syncp;
-+};
-+
- struct rtl8139_private {
- 	void __iomem		*mmio_addr;
- 	int			drv_flags;
-@@ -575,11 +581,13 @@ struct rtl8139_private {
- 
- 	unsigned char		*rx_ring;
- 	unsigned int		cur_rx;	/* RX buf index of next pkt */
-+	struct rtl8139_stats	rx_stats;
- 	dma_addr_t		rx_ring_dma;
- 
- 	unsigned int		tx_flag;
- 	unsigned long		cur_tx;
- 	unsigned long		dirty_tx;
-+	struct rtl8139_stats	tx_stats;
- 	unsigned char		*tx_buf[NUM_TX_DESC];	/* Tx bounce buffers */
- 	unsigned char		*tx_bufs;	/* Tx bounce buffer region. */
- 	dma_addr_t		tx_bufs_dma;
-@@ -641,7 +649,9 @@ static int rtl8139_poll(struct napi_struct *napi, int budget);
- static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance);
- static int rtl8139_close (struct net_device *dev);
- static int netdev_ioctl (struct net_device *dev, struct ifreq *rq, int cmd);
--static struct net_device_stats *rtl8139_get_stats (struct net_device *dev);
-+static struct rtnl_link_stats64 *rtl8139_get_stats64(struct net_device *dev,
-+						    struct rtnl_link_stats64
-+						    *stats);
- static void rtl8139_set_rx_mode (struct net_device *dev);
- static void __set_rx_mode (struct net_device *dev);
- static void rtl8139_hw_start (struct net_device *dev);
-@@ -937,7 +947,7 @@ static int rtl8139_set_features(struct net_device *dev, netdev_features_t featur
- static const struct net_device_ops rtl8139_netdev_ops = {
- 	.ndo_open		= rtl8139_open,
- 	.ndo_stop		= rtl8139_close,
--	.ndo_get_stats		= rtl8139_get_stats,
-+	.ndo_get_stats64	= rtl8139_get_stats64,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address 	= rtl8139_set_mac_address,
-@@ -1807,8 +1817,10 @@ static void rtl8139_tx_interrupt (struct net_device *dev,
- 				dev->stats.tx_fifo_errors++;
- 			}
- 			dev->stats.collisions += (txstatus >> 24) & 15;
--			dev->stats.tx_bytes += txstatus & 0x7ff;
--			dev->stats.tx_packets++;
-+			u64_stats_update_begin(&tp->tx_stats.syncp);
-+			tp->tx_stats.packets++;
-+			tp->tx_stats.bytes += txstatus & 0x7ff;
-+			u64_stats_update_end(&tp->tx_stats.syncp);
- 		}
- 
- 		dirty_tx++;
-@@ -2050,8 +2062,10 @@ keep_pkt:
- 
- 			skb->protocol = eth_type_trans (skb, dev);
- 
--			dev->stats.rx_bytes += pkt_size;
--			dev->stats.rx_packets++;
-+			u64_stats_update_begin(&tp->rx_stats.syncp);
-+			tp->rx_stats.packets++;
-+			tp->rx_stats.bytes += pkt_size;
-+			u64_stats_update_end(&tp->rx_stats.syncp);
- 
- 			netif_receive_skb (skb);
- 		} else {
-@@ -2515,11 +2529,13 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- }
- 
- 
--static struct net_device_stats *rtl8139_get_stats (struct net_device *dev)
-+static struct rtnl_link_stats64 *
-+rtl8139_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct rtl8139_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	unsigned long flags;
-+	unsigned int start;
- 
- 	if (netif_running(dev)) {
- 		spin_lock_irqsave (&tp->lock, flags);
-@@ -2528,7 +2544,21 @@ static struct net_device_stats *rtl8139_get_stats (struct net_device *dev)
- 		spin_unlock_irqrestore (&tp->lock, flags);
- 	}
- 
--	return &dev->stats;
-+	netdev_stats_to_stats64(stats, &dev->stats);
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&tp->rx_stats.syncp);
-+		stats->rx_packets = tp->rx_stats.packets;
-+		stats->rx_bytes = tp->rx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&tp->rx_stats.syncp, start));
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&tp->tx_stats.syncp);
-+		stats->tx_packets = tp->tx_stats.packets;
-+		stats->tx_bytes = tp->tx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&tp->tx_stats.syncp, start));
-+
-+	return stats;
- }
- 
- /* Set or clear the multicast filter for this adaptor.
---
+thanks
