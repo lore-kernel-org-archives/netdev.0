@@ -1,51 +1,33 @@
 From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Subject: [PATCH] bridge: fix "entering disabled state" logging
-Date: Tue, 06 Mar 2012 16:22:19 +0200
-Message-ID: <20120306142219.31783.30201.stgit@localhost.localdomain>
+Subject: Re: [PATCH] bridge: fix "entering disabled state" logging
+Date: Tue, 06 Mar 2012 16:34:54 +0200
+Message-ID: <4F56208E.2090801@gmail.com>
+References: <20120306142219.31783.30201.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+Cc: bridge@lists.linux-foundation.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:49885 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030681Ab2CFOWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:22:24 -0500
-Received: by eekc41 with SMTP id c41so1904503eek.19
-        for <netdev@vger.kernel.org>; Tue, 06 Mar 2012 06:22:23 -0800 (PST)
+Received: from darkstar.wilibox.com ([85.255.61.7]:48683 "EHLO
+	darkstar.wilibox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030721Ab2CFOmY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:42:24 -0500
+In-Reply-To: <20120306142219.31783.30201.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we have:
-eth0: link down
-br0: port 1(eth0) entering forwarding state
+On 03/06/2012 04:22 PM, Paulius Zaleckas wrote:
+> Now we have:
+> eth0: link down
+> br0: port 1(eth0) entering forwarding state
+>
+> State should be logged *after* it was changed, not before.
 
-State should be logged *after* it was changed, not before.
+The funny thing is that it was introduced:
+2010-05-16 	stephen hemminger
+bridge: change console message interface
+28a16c97963d3bc36a2c192859f6d8025ef2967a
 
-Reported-by: Zilvinas Valinskas <zilvinas@wilibox.com>
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
----
-
- net/bridge/br_stp_if.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 19308e3..f494496 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -98,14 +98,13 @@ void br_stp_disable_port(struct net_bridge_port *p)
- 	struct net_bridge *br = p->br;
- 	int wasroot;
- 
--	br_log_state(p);
--
- 	wasroot = br_is_root_bridge(br);
- 	br_become_designated_port(p);
- 	p->state = BR_STATE_DISABLED;
- 	p->topology_change_ack = 0;
- 	p->config_pending = 0;
- 
-+	br_log_state(p);
- 	br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	del_timer(&p->message_age_timer);
+and no one noticed since then :D
