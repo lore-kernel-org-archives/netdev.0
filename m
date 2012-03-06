@@ -1,30 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/6] netfilter: bridge: fix wrong pointer dereference
-Date: Tue, 06 Mar 2012 15:15:27 -0500 (EST)
-Message-ID: <20120306.151527.134916407263732962.davem@davemloft.net>
-References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
-	<1331032975-5303-5-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] r8169: runtime resume before shutdown.
+Date: Tue, 06 Mar 2012 15:15:03 -0500 (EST)
+Message-ID: <20120306.151503.848145173320023273.davem@davemloft.net>
+References: <20120306111412.GA1805@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1331032975-5303-5-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com, snanda@chromium.org,
+	rjw@sisk.pl, stern@rowland.harvard.edu
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39148 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030983Ab2CFUQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:16:35 -0500
+In-Reply-To: <20120306111412.GA1805@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue,  6 Mar 2012 12:22:53 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 6 Mar 2012 12:14:12 +0100
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> With runtime PM, if the ethernet cable is disconnected, the device is
+> transitioned to D3 state to conserve energy. If the system is shutdown
+> in this state, any register accesses in rtl_shutdown are dropped on
+> the floor. As the device was programmed by .runtime_suspend() to wake
+> on link changes, it is thus brought back up as soon as the link recovers.
 > 
-> In adf7ff8, a invalid dereference was added in ebt_make_names.
+> Resuming every suspended device through the driver core would slow things
+> down and it is not clear how many devices really need it now.
 > 
-> CC [M]  net/bridge/netfilter/ebtables.o
-> net/bridge/netfilter/ebtables.c: In function `ebt_make_names':
-> net/bridge/netfilter/ebtables.c:1371:20: warning: `t' may be used uninitialized in this function [-Wuninitialized]
+> Original report and D0 transition patch by Sameer Nanda. Patch has been
+> changed to comply with advices by Rafael J. Wysocki and the PM folks.
 > 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Reported-by: Sameer Nanda <snanda@chromium.org>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Rafael J. Wysocki <rjw@sisk.pl>
+> Cc: Hayes Wang <hayeswang@realtek.com>
+> Cc: Alan Stern <stern@rowland.harvard.edu>
+> ---
+> 
+>  This sucker turned my silent wake-on-alarm workstation into an early
+>  sunday morning testbed takeoff. Please consider before 3.3 goes out.
 
 Applied.
