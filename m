@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request for 'davem-next.r8169' branch
-Date: Mon, 05 Mar 2012 21:10:55 -0500 (EST)
-Message-ID: <20120305.211055.1779526495445052103.davem@davemloft.net>
-References: <20120305233358.GA24622@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] vlan: Support sending custom Ethernet CRC.
+Date: Mon, 05 Mar 2012 21:14:49 -0500 (EST)
+Message-ID: <20120305.211449.2159840360912052625.davem@davemloft.net>
+References: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com,
-	junchangwang@gmail.com, igorm@etf.rs, eric.dumazet@gmail.com
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58652 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58669 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758204Ab2CFCMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 21:12:10 -0500
-In-Reply-To: <20120305233358.GA24622@electric-eye.fr.zoreil.com>
+	with ESMTP id S1758238Ab2CFCPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 21:15:55 -0500
+In-Reply-To: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 6 Mar 2012 00:33:58 +0100
+From: greearb@candelatech.com
+Date: Mon,  5 Mar 2012 18:05:58 -0800
 
-> Please pull from branch 'davem-next.r8169' in repository
-> 
-> git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
-> 
-> to get the changes below.
-> 
-> Same content as yesterday; Eric's Ack is included.
+> NOTE:  You will probably have to disable any
+> VLAN hardware assist on the underlying device to get
+> this to properly send packets with this feature enabled.
 
-Pulled, thanks Francois.
+This need to be therefore handled specifically on a device-by-device
+basis, and VLAN custom CRC disabled unless the device explicitly
+states that it can handle this situation properly and has any
+necessary feature rule enforcement codified.
