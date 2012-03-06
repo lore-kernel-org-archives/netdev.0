@@ -1,54 +1,40 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: make CONFIG_BQL actually end user configurable
-Date: Mon, 5 Mar 2012 21:57:40 -0800
-Message-ID: <CA+mtBx9kZc+Ovrohbffxe=be6zehNneCXQsH7HrgYELmtfLptA@mail.gmail.com>
-References: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
-	<CAA93jw5HadpvBvtZvf6ArK3tdm=7Cs9sLYeHO9WN6rJOfPLPbA@mail.gmail.com>
-	<20120306040921.GA24032@windriver.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [PATCH 1/1] conntrack, suspicious RCU usage
+Date: Tue, 6 Mar 2012 06:58:15 +0100
+Message-ID: <201203060658.16156.hans.schillstrom@ericsson.com>
+References: <1330950269-32668-1-git-send-email-hans.schillstrom@ericsson.com> <20120305170548.GA28986@1984> <20120305223815.GA30456@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>, davem@davemloft.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:43167 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881Ab2CFF5k convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:57:40 -0500
-Received: by iagz16 with SMTP id z16so6591651iag.19
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 21:57:40 -0800 (PST)
-In-Reply-To: <20120306040921.GA24032@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120305223815.GA30456@1984>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> 1) There is no way to tell if a driver has it actually enabled or no=
-t
->> at run time.
+On Monday 05 March 2012 23:38:15 Pablo Neira Ayuso wrote:
+> On Mon, Mar 05, 2012 at 06:05:48PM +0100, Pablo Neira Ayuso wrote:
+> > On Mon, Mar 05, 2012 at 01:24:29PM +0100, Hans Schillstrom wrote:
+> > > From: Hans Schillstrom <hans@schillstrom.com>
+> > > 
+> > > Hello Pablo
+> > > I think you lost this patch from Eric, I updated the patch for the 
+> > > latest nf_conntrack_netlink.c 
+> > > 
+> > > Well, __nf_ct_l4proto_find() being out of line and the way we already
+> > > use rcu_read_lock() in this code, it seems following patch is
+> > > the most natural way to cope with these lockdep warnings.
+> > 
+> > I'll take the previous patch to pass it to current -rc. Thanks Hans.
+> 
+> I'll pass it to net-next, otherwise this will result in one conflict
+> with one patch already in net-next if I pass it to net.
 >
-> In a similar vein, I was interested in a (quick) way to tell if a
-> driver has it actually enabled *correctly*. =A0I'd coded up the basic
-> changes for a common PPC NIC, but I was then left wondering what I
-> could use as a quick high-water-mark to see if I'd really managed
-> to implement it correctly via some level of real run-time testing.
->
-The sysfs variables should be good to view the operation and effects
-of BQL.  To disable BQL (at least limit checking) "echo max >
-limit_min" should be sufficient.
-
-It is true there is no way to determine that BQL is implement for a
-device, the sysfs variables are always created.  If it is
-unimplemented then inflight and limit variables are always zero.
-
-> If we want to get driver authors involved in adding support to their
-> favourite hardware, some description of a basic sanity test would
-> probably be a worthwhile description to have.
-
-That would be good.  The best window into BQL is the sysfs variables
-(inflight and limit).  Setting zero or max to limit_min should impact
-the number of queued bytes being reported.  ("watch cat *" in tx-0I'm
-still intending to get the document on BQL out, the sanity check would
-be good to describe there I think.
-
-Thanks,
-Tom
+ 
+Thanks a lot
+/Hans
