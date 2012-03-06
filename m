@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] bridge: netfilter: don't call iptables on vlan
- packets if sysctl is off
-Date: Tue, 06 Mar 2012 15:15:41 -0500 (EST)
-Message-ID: <20120306.151541.842243311598350897.davem@davemloft.net>
-References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
-	<1331032975-5303-6-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 2/3] tcp: Initial repair mode
+Date: Tue, 06 Mar 2012 15:16:58 -0500 (EST)
+Message-ID: <20120306.151658.221409592839431715.davem@davemloft.net>
+References: <4F55DEDE.1090602@parallels.com>
+	<4F55DF12.6030001@parallels.com>
+	<4F560D13.4000404@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: xemul@parallels.com, netdev@vger.kernel.org, tj@kernel.org,
+	eric.dumazet@gmail.com
+To: glommer@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39157 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39168 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031011Ab2CFUQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:16:45 -0500
-In-Reply-To: <1331032975-5303-6-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1030950Ab2CFURF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:17:05 -0500
+In-Reply-To: <4F560D13.4000404@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue,  6 Mar 2012 12:22:54 +0100
+From: Glauber Costa <glommer@parallels.com>
+Date: Tue, 6 Mar 2012 17:11:47 +0400
 
-> From: Florian Westphal <fw@strlen.de>
+> On 03/06/2012 01:55 PM, Pavel Emelyanov wrote:
+>> This includes (according the the previous description):
+>>
+>> * TCP_REPAIR sockoption
+>>
+>> This one just puts the socket in/out of the repair mode.
+>> Allowed for CAP_SYS_ADMIN and for closed/establised sockets only.
+>> When repair mode is turned off and the socket happens to be in
+>> the established state the window probe is sent to the peer to
+>> 'unlock' the connection.
 > 
-> When net.bridge.bridge-nf-filter-vlan-tagged is 0 (default), vlan packets
-> arriving should not be sent to ip(6)tables by bridge netfilter.
- ...
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Why not CAP_NET_ADMIN, or something similar?
 
-Applied.
+Agreed, we made this kind of mistake with the transparent proxy stuff,
+let's not do that again.
