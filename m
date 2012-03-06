@@ -1,55 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver
-Date: Tue, 6 Mar 2012 01:26:17 +0000
-Message-ID: <1330997177.3022.51.camel@deadeye>
-References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
-	 <1330987524.2538.61.camel@bwh-desktop>
-	 <1330994958.9504.2.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <alexander.h.duyck@intel.com>,
-	<eilong@broadcom.com>, <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <w.sang@pengutronix.de>,
-	<linux-kernel@vger.kernel.org>, <kevin.wells@nxp.com>,
-	<linux-arm-kernel@lists.infradead.org>, <arnd@arndb.de>,
-	<baruch@tkos.co.il>, <joe@perches.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330994958.9504.2.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH 1/2] igb: Support sending custom Ethernet FCS.
+Date: Mon,  5 Mar 2012 17:30:40 -0800
+Message-ID: <1330997441-13324-1-git-send-email-greearb@candelatech.com>
+Cc: jeffrey.t.kirsher@intel.com, Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:57206 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758084Ab2CFBas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 20:30:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-05 at 16:49 -0800, Eric Dumazet wrote:
-> On Mon, 2012-03-05 at 22:45 +0000, Ben Hutchings wrote:
-> > On Mon, 2012-03-05 at 22:40 +0100, Roland Stigge wrote:
-> > [...]
-> 
-> ...
-> 
-> > > +				/* Copy packet from buffer */
-> > > +				memcpy(prdbuf,
-> > > +					pldat->rx_buff_v[rxconsidx], len);
-> > > +
-> > > +				/* Pass to upper layer */
-> > > +				skb->protocol = eth_type_trans(skb, ndev);
-> > > +				netif_rx(skb);
-> > > +				ndev->last_rx = jiffies;
-> > 
-> > Drivers don't need to set last_rx any more.
-> 
-> Also, a NAPI driver should call netif_receive_skb() instead of
-> netif_rx()
-> 
-> netif_rx() is more expensive because of additional queue, while
-> netif_receive_skb() directly calls the upper stacks.
+From: Ben Greear <greearb@candelatech.com>
 
-Yes, but not until the poll function is changed to enable IRQs.
+Including bad FCS, used generate frames with bad FCS
+to test other system's handling of RX of bad packets.
 
-Ben.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 fda8247... e4058ac... M	drivers/net/ethernet/intel/igb/igb_main.c
+ drivers/net/ethernet/intel/igb/igb_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index fda8247..e4058ac 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1964,6 +1964,8 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 				 NETIF_F_IPV6_CSUM |
+ 				 NETIF_F_SG;
+ 
++	netdev->priv_flags |= IFF_SUPP_NOFCS;
++
+ 	if (pci_using_dac) {
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 		netdev->vlan_features |= NETIF_F_HIGHDMA;
+@@ -4292,6 +4294,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 
+ 	/* write last descriptor with RS and EOP bits */
+ 	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
++	if (unlikely(skb->no_fcs))
++		cmd_type &= ~(cpu_to_le32(E1000_ADVTXD_DCMD_IFCS));
+ 	tx_desc->read.cmd_type_len = cmd_type;
+ 
+ 	/* set the timestamp */
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.4
