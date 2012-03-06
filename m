@@ -1,51 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: Support sending custom Ethernet CRC.
-Date: Tue, 06 Mar 2012 14:36:11 -0500 (EST)
-Message-ID: <20120306.143611.152392971093262692.davem@davemloft.net>
-References: <4F558BBD.1050400@candelatech.com>
-	<20120305.231213.1657967586545663587.davem@davemloft.net>
-	<1331050594.2333.5.camel@bwh-desktop>
+Subject: Re: [PATCH] tcp: fix tcp_shift_skb_data() to not shift SACKed data
+ below snd_una
+Date: Tue, 06 Mar 2012 15:14:39 -0500 (EST)
+Message-ID: <20120306.151439.182216414366813515.davem@davemloft.net>
+References: <1331012104-20170-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org, kaber@trash.net
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, ycheng@google.com, therbert@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38763 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39098 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965194Ab2CFThT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 14:37:19 -0500
-In-Reply-To: <1331050594.2333.5.camel@bwh-desktop>
+	with ESMTP id S1030933Ab2CFUO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:14:57 -0500
+In-Reply-To: <1331012104-20170-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 6 Mar 2012 16:16:34 +0000
+From: Neal Cardwell <ncardwell@google.com>
+Date: Tue,  6 Mar 2012 00:35:04 -0500
 
-> On Mon, 2012-03-05 at 23:12 -0500, David Miller wrote:
->> From: Ben Greear <greearb@candelatech.com>
->> Date: Mon, 05 Mar 2012 19:59:57 -0800
->> 
->> > On 03/05/2012 06:14 PM, David Miller wrote:
->> >> From: greearb@candelatech.com
->> >> Date: Mon,  5 Mar 2012 18:05:58 -0800
->> >>
->> >>> NOTE:  You will probably have to disable any
->> >>> VLAN hardware assist on the underlying device to get
->> >>> this to properly send packets with this feature enabled.
->> >>
->> >> This need to be therefore handled specifically on a device-by-device
->> >> basis, and VLAN custom CRC disabled unless the device explicitly
->> >> states that it can handle this situation properly and has any
->> >> necessary feature rule enforcement codified.
->> > 
->> > I'll see what I can come up with.  Maybe figure out how to propagate
->> > a flag up from the NIC when it is in a state that can handle VLAN +
->> > custom-CRC
->> > and only enable the flag on the VLAN in that case...
->> 
->> NETIF_F_CAN_VLAN_WITH_CUSTOM_CRC
+> This commit fixes tcp_shift_skb_data() so that it does not shift
+> SACKed data below snd_una.
 > 
-> Er... vlan_features?
+> This fixes an issue whose symptoms exactly match reports showing
+> tp->sacked_out going negative since 3.3.0-rc4 (see "WARNING: at
+> net/ipv4/tcp_input.c:3418" thread on netdev).
+ ...
+> After those two fixes, my testing has verified that shifting SACKed
+> ranges below snd_una could cause tp->sacked_out to go negative with
+> the following sequence of events:
+> 
+> (1) tcp_shift_skb_data() sees an skb whose end_seq is beyond snd_una,
+>     then shifts a prefix of that skb that is below snd_una
+ ...
+> This fix changes tcp_shift_skb_data() to abort this sequence at step
+> (1) in the scenario above by noticing that the bytes are below snd_una
+> and not shifting them.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Right.
+Applied and queued up for -stable, thanks.
