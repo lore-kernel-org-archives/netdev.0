@@ -1,100 +1,55 @@
-From: greearb@candelatech.com
-Subject: [PATCH 2/2] ixgbe: Support RX-ALL feature flag.
-Date: Mon,  5 Mar 2012 17:18:24 -0800
-Message-ID: <1330996704-13076-2-git-send-email-greearb@candelatech.com>
-References: <1330996704-13076-1-git-send-email-greearb@candelatech.com>
-Cc: jeffrey.t.kirsher@intel.com, Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:40987 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758142Ab2CFBU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 20:20:56 -0500
-In-Reply-To: <1330996704-13076-1-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver
+Date: Tue, 6 Mar 2012 01:26:17 +0000
+Message-ID: <1330997177.3022.51.camel@deadeye>
+References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
+	 <1330987524.2538.61.camel@bwh-desktop>
+	 <1330994958.9504.2.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Roland Stigge <stigge@antcom.de>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <alexander.h.duyck@intel.com>,
+	<eilong@broadcom.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <w.sang@pengutronix.de>,
+	<linux-kernel@vger.kernel.org>, <kevin.wells@nxp.com>,
+	<linux-arm-kernel@lists.infradead.org>, <arnd@arndb.de>,
+	<baruch@tkos.co.il>, <joe@perches.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1330994958.9504.2.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
+On Mon, 2012-03-05 at 16:49 -0800, Eric Dumazet wrote:
+> On Mon, 2012-03-05 at 22:45 +0000, Ben Hutchings wrote:
+> > On Mon, 2012-03-05 at 22:40 +0100, Roland Stigge wrote:
+> > [...]
+> 
+> ...
+> 
+> > > +				/* Copy packet from buffer */
+> > > +				memcpy(prdbuf,
+> > > +					pldat->rx_buff_v[rxconsidx], len);
+> > > +
+> > > +				/* Pass to upper layer */
+> > > +				skb->protocol = eth_type_trans(skb, ndev);
+> > > +				netif_rx(skb);
+> > > +				ndev->last_rx = jiffies;
+> > 
+> > Drivers don't need to set last_rx any more.
+> 
+> Also, a NAPI driver should call netif_receive_skb() instead of
+> netif_rx()
+> 
+> netif_rx() is more expensive because of additional queue, while
+> netif_receive_skb() directly calls the upper stacks.
 
-This allows the NIC to receive all frames available, including
-those with bad FCS, ethernet control frames, and more.
+Yes, but not until the poll function is changed to enable IRQs.
 
-Tested by sending frames with bad FCS.
+Ben.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 b6e51f9... c32be9d... M	drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   23 ++++++++++++++++++++++-
- 1 files changed, 22 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b6e51f9..c32be9d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1605,7 +1605,8 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 
- 		/* ERR_MASK will only have valid bits if EOP set */
- 		if (unlikely(ixgbe_test_staterr(rx_desc,
--					    IXGBE_RXDADV_ERR_FRAME_ERR_MASK))) {
-+					    IXGBE_RXDADV_ERR_FRAME_ERR_MASK) &&
-+			     !(adapter->netdev->features & NETIF_F_RXALL))) {
- 			dev_kfree_skb_any(skb);
- 			goto next_desc;
- 		}
-@@ -3441,6 +3442,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
- 
- 	/* set all bits that we expect to always be set */
-+	fctrl &= ~IXGBE_FCTRL_SBP; /* disable store-bad-packets */
- 	fctrl |= IXGBE_FCTRL_BAM;
- 	fctrl |= IXGBE_FCTRL_DPF; /* discard pause frames when FC enabled */
- 	fctrl |= IXGBE_FCTRL_PMCF;
-@@ -3489,6 +3491,18 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		IXGBE_WRITE_REG(hw, IXGBE_VMOLR(adapter->num_vfs), vmolr);
- 	}
- 
-+	/* This is useful for sniffing bad packets. */
-+	if (adapter->netdev->features & NETIF_F_RXALL) {
-+		/* UPE and MPE will be handled by normal PROMISC logic
-+		 * in e1000e_set_rx_mode */
-+		fctrl |= (IXGBE_FCTRL_SBP | /* Receive bad packets */
-+			  IXGBE_FCTRL_BAM | /* RX All Bcast Pkts */
-+			  IXGBE_FCTRL_PMCF); /* RX All MAC Ctrl Pkts */
-+
-+		fctrl &= ~(IXGBE_FCTRL_DPF);
-+		/* NOTE:  VLAN filtering is disabled by setting PROMISC */
-+	}
-+
- 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
- 
- 	if (netdev->features & NETIF_F_HW_VLAN_RX)
-@@ -7443,6 +7457,7 @@ static int ixgbe_set_features(struct net_device *netdev,
- 	netdev_features_t data)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	netdev_features_t changed = netdev->features ^ data;
- 	bool need_reset = false;
- 
- 	/* Make sure RSC matches LRO, reset if change */
-@@ -7479,6 +7494,10 @@ static int ixgbe_set_features(struct net_device *netdev,
- 		need_reset = true;
- 	}
- 
-+	if (changed & NETIF_F_RXALL)
-+		need_reset = true;
-+
-+	netdev->features = data;
- 	if (need_reset)
- 		ixgbe_do_reset(netdev);
- 
-@@ -7757,6 +7776,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 		break;
- 	}
- 
-+	netdev->hw_features |= NETIF_F_RXALL;
-+
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
- 	netdev->vlan_features |= NETIF_F_IP_CSUM;
 -- 
-1.7.3.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
