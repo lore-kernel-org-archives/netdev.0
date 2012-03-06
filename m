@@ -1,68 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tg3: Fix to use multi queue BQL interfaces
-Date: Mon, 05 Mar 2012 21:56:40 -0800
-Message-ID: <1331013400.2474.30.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1203052147540.19396@pokey.mtv.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] net: make CONFIG_BQL actually end user configurable
+Date: Mon, 5 Mar 2012 21:57:40 -0800
+Message-ID: <CA+mtBx9kZc+Ovrohbffxe=be6zehNneCXQsH7HrgYELmtfLptA@mail.gmail.com>
+References: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
+	<CAA93jw5HadpvBvtZvf6ArK3tdm=7Cs9sLYeHO9WN6rJOfPLPbA@mail.gmail.com>
+	<20120306040921.GA24032@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, cl@gentwo.org,
-	mcarlson@broadcom.com
-To: Tom Herbert <therbert@google.com>
+Cc: Dave Taht <dave.taht@gmail.com>, davem@davemloft.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:48528 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772Ab2CFF4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:56:44 -0500
-Received: by dadp12 with SMTP id p12so6185105dad.11
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 21:56:44 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1203052147540.19396@pokey.mtv.corp.google.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:43167 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881Ab2CFF5k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:57:40 -0500
+Received: by iagz16 with SMTP id z16so6591651iag.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 21:57:40 -0800 (PST)
+In-Reply-To: <20120306040921.GA24032@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 05 mars 2012 =C3=A0 21:53 -0800, Tom Herbert a =C3=A9crit :
-> Fix tg3 to use BQL multi queue related netdev interfaces since the
-> device supports multi queue.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/ethernet/broadcom/tg3.c |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethern=
-et/broadcom/tg3.c
-> index bc236b6..b065746 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -5595,7 +5595,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
->  		}
->  	}
-> =20
-> -	netdev_completed_queue(tp->dev, pkts_compl, bytes_compl);
-> +	netdev_tx_completed_queue(txq, pkts_compl, bytes_compl);
-> =20
->  	tnapi->tx_cons =3D sw_idx;
-> =20
-> @@ -6971,7 +6971,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buf=
-f *skb, struct net_device *dev)
->  	}
-> =20
->  	skb_tx_timestamp(skb);
-> -	netdev_sent_queue(tp->dev, skb->len);
-> +	netdev_tx_sent_queue(txq, skb->len);
-> =20
->  	/* Sync BD data before updating mailbox */
->  	wmb();
-> @@ -7396,8 +7396,8 @@ static void tg3_free_rings(struct tg3 *tp)
-> =20
->  			dev_kfree_skb_any(skb);
->  		}
-> +		netdev_tx_reset_queue(netdev_get_tx_queue(tp->dev, j));
->  	}
-> -	netdev_reset_queue(tp->dev);
->  }
-> =20
->  /* Initialize tx/rx rings for packet processing.
+>> 1) There is no way to tell if a driver has it actually enabled or no=
+t
+>> at run time.
+>
+> In a similar vein, I was interested in a (quick) way to tell if a
+> driver has it actually enabled *correctly*. =A0I'd coded up the basic
+> changes for a common PPC NIC, but I was then left wondering what I
+> could use as a quick high-water-mark to see if I'd really managed
+> to implement it correctly via some level of real run-time testing.
+>
+The sysfs variables should be good to view the operation and effects
+of BQL.  To disable BQL (at least limit checking) "echo max >
+limit_min" should be sufficient.
 
-Reported-by: Christoph Lameter <cl@gentwo.org>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+It is true there is no way to determine that BQL is implement for a
+device, the sysfs variables are always created.  If it is
+unimplemented then inflight and limit variables are always zero.
+
+> If we want to get driver authors involved in adding support to their
+> favourite hardware, some description of a basic sanity test would
+> probably be a worthwhile description to have.
+
+That would be good.  The best window into BQL is the sysfs variables
+(inflight and limit).  Setting zero or max to limit_min should impact
+the number of queued bytes being reported.  ("watch cat *" in tx-0I'm
+still intending to get the document on BQL out, the sanity check would
+be good to describe there I think.
+
+Thanks,
+Tom
