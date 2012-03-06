@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 0/3] TCP connection repair (v2)
-Date: Tue, 06 Mar 2012 16:14:38 -0500 (EST)
-Message-ID: <20120306.161438.1544478436564514191.davem@davemloft.net>
-References: <4F55DEDE.1090602@parallels.com>
+Subject: Re: [PATCH 1/2] cxgb4: Add support for Chelsio's T480-CR and
+ T440-LP-CR adapters
+Date: Tue, 06 Mar 2012 16:21:27 -0500 (EST)
+Message-ID: <20120306.162127.1815503215609928373.davem@davemloft.net>
+References: <1331024197-18474-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tj@kernel.org, eric.dumazet@gmail.com
-To: xemul@parallels.com
+Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com
+To: vipul@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39766 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39846 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031371Ab2CFVOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:14:44 -0500
-In-Reply-To: <4F55DEDE.1090602@parallels.com>
+	with ESMTP id S1754519Ab2CFVVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 16:21:33 -0500
+In-Reply-To: <1331024197-18474-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Tue, 06 Mar 2012 13:54:38 +0400
+From: Vipul Pandya <vipul@chelsio.com>
+Date: Tue,  6 Mar 2012 14:26:36 +0530
 
-> Attempt #2 with transparent TCP connection hijacking.
+> This patch adds PCI device ids for Chelsio's T480-CR and T440-LP-CR
+> adapters.
+> 
+> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 
-This looks a lot better, the TCP_CLOSE state check makes it more clear
-how this is going to be used.
-
-Please fix up the indentation in patch #2.
-
-+		if (!capable(CAP_SYS_ADMIN) || !(sk->sk_state == TCP_CLOSE ||
-+					sk->sk_state == TCP_ESTABLISHED))
-
-And once you sort out the details of the ->{syn,fin} bit in the fake headers
-added to the repair queues you can resubmit this.
-
-Thanks.
+Applied.
