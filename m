@@ -1,45 +1,67 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver
-Date: Tue, 06 Mar 2012 04:13:50 -0800
-Message-ID: <1331036030.2474.40.camel@edumazet-laptop>
-References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
-	 <1330987524.2538.61.camel@bwh-desktop> <4F55D099.5070006@antcom.de>
+Subject: Re: [PATCH 3/6] netfilter: ctnetlink: use GFP_ATOMIC in all
+ allocations
+Date: Tue, 06 Mar 2012 04:50:21 -0800
+Message-ID: <1331038221.9504.9.camel@edumazet-glaptop>
+References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
+	 <1331032975-5303-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
-	eilong@broadcom.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, w.sang@pengutronix.de,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
-	baruch@tkos.co.il, joe@perches.com
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F55D099.5070006@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1331032975-5303-4-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 06 mars 2012 =C3=A0 09:53 +0100, Roland Stigge a =C3=A9crit :
+On Tue, 2012-03-06 at 12:22 +0100, pablo@netfilter.org wrote:
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> All ctnetlink operations are invoked inside rcu_read_lock
+> (see net/netfilter/nfnetlink.c).
+> 
+> Allocations have to be atomic, as RCU requires.
+> 
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+>  net/netfilter/nf_conntrack_netlink.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+> index 1068769..867843f 100644
+> --- a/net/netfilter/nf_conntrack_netlink.c
+> +++ b/net/netfilter/nf_conntrack_netlink.c
+> @@ -1002,7 +1002,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+>  	ct = nf_ct_tuplehash_to_ctrack(h);
+>  
+>  	err = -ENOMEM;
+> -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+>  	if (skb2 == NULL) {
+>  		nf_ct_put(ct);
+>  		return -ENOMEM;
+> @@ -1865,7 +1865,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+>  	}
+>  
+>  	err = -ENOMEM;
+> -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+>  	if (skb2 == NULL) {
+>  		nf_ct_expect_put(exp);
+>  		goto out;
 
-> Sounds reasonable, and will do it.
->=20
-> However, I implemented it from the example of
-> drivers/net/ethernet/via/via-velocity.c:velocity_poll() - is there a
-> good reason for doing it that way in the velocity driver or is it don=
-e
-> incorrectly there, also?
->=20
+This cant be right.
 
-Its done in a non efficient way.
+Really this must be kept as GFP_KERNEL allocations.
 
-It works as is, but its not the right thing to do.
-The NAPI port was very minimal on via-velocity it seems.
+Only if .call_rcu member is used in place of .call rcu_read_lock() is
+held instead of nfnl_lock().
 
-A better way is to hold no locks in the RX handler, allowing calls to
-netif_receive_skb() [ and potential calls to xmit while handling this
-incoming skbs ]
+You should take a look at all GFP_ATOMIC uses in
+net/netfilter/nf_conntrack_netlink.c and check if they can be GFP_KERNEL
+instead.
 
-Problem of saying "we dont expect to be SMP anyway", is that this let
-reference material for future drivers that will copy/paste the code,
-then experience performance problems.
+
+
