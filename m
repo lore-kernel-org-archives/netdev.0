@@ -1,50 +1,33 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net V1] mlx4_core: remove buggy sched_queue masking
-Date: Tue, 6 Mar 2012 15:05:14 +0200
-Message-ID: <4F560B8A.8080508@mellanox.co.il>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH 2/3] tcp: Initial repair mode
+Date: Tue, 6 Mar 2012 17:11:47 +0400
+Message-ID: <4F560D13.4000404@parallels.com>
+References: <4F55DEDE.1090602@parallels.com> <4F55DF12.6030001@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:48892 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750789Ab2CFNFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 08:05:20 -0500
+Received: from mx2.parallels.com ([64.131.90.16]:48544 "EHLO mx2.parallels.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751757Ab2CFNNC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2012 08:13:02 -0500
+In-Reply-To: <4F55DF12.6030001@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 03/06/2012 01:55 PM, Pavel Emelyanov wrote:
+> This includes (according the the previous description):
+>
+> * TCP_REPAIR sockoption
+>
+> This one just puts the socket in/out of the repair mode.
+> Allowed for CAP_SYS_ADMIN and for closed/establised sockets only.
+> When repair mode is turned off and the socket happens to be in
+> the established state the window probe is sent to the peer to
+> 'unlock' the connection.
 
-Fixes a bug introduced by commit fe9a2603c, where the priority bits
-in the schedule queue field were masked out.
-
-Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
-
-Diff from V0:
-  removed the port assignment, it was only used to determine the port type
-  and then to decide whether to do the masking or not.
-
- drivers/net/ethernet/mellanox/mlx4/qp.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 738f950..fb2b367 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -151,11 +151,6 @@ static int __mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		context->log_page_size   = mtt->page_shift - MLX4_ICM_PAGE_SHIFT;
- 	}
- 
--	port = ((context->pri_path.sched_queue >> 6) & 1) + 1;
--	if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH)
--		context->pri_path.sched_queue = (context->pri_path.sched_queue &
--						0xc3);
--
- 	*(__be32 *) mailbox->buf = cpu_to_be32(optpar);
- 	memcpy(mailbox->buf + 8, context, sizeof *context);
- 
--- 
-1.7.7
+Why not CAP_NET_ADMIN, or something similar?
