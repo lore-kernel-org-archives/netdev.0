@@ -1,64 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/2] igb: Support sending custom Ethernet FCS.
-Date: Mon, 05 Mar 2012 17:34:42 -0800
-Message-ID: <1330997682.2817.1.camel@jtkirshe-mobl>
-References: <1330997441-13324-1-git-send-email-greearb@candelatech.com>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-MIli9D//3sbYKMj/Gb4R"
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+From: greearb@candelatech.com
+Subject: [PATCH] vlan:  Support sending custom Ethernet CRC.
+Date: Mon,  5 Mar 2012 18:05:58 -0800
+Message-ID: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
+Cc: kaber@trash.net, Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43004 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758066Ab2CFBfy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 20:35:54 -0500
-In-Reply-To: <1330997441-13324-1-git-send-email-greearb@candelatech.com>
+Received: from mail.candelatech.com ([208.74.158.172]:39711 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758204Ab2CFCGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 21:06:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Greear <greearb@candelatech.com>
 
---=-MIli9D//3sbYKMj/Gb4R
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+If the underlying device supports sending custom Ethernet CRC,
+then enable that feature in the VLANs as well.
 
-On Mon, 2012-03-05 at 17:30 -0800, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
->=20
-> Including bad FCS, used generate frames with bad FCS
-> to test other system's handling of RX of bad packets.
->=20
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
-> ---
-> :100644 100644 fda8247... e4058ac...
-> M  drivers/net/ethernet/intel/igb/igb_main.c
->  drivers/net/ethernet/intel/igb/igb_main.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)=20
+NOTE:  You will probably have to disable any
+VLAN hardware assist on the underlying device to get
+this to properly send packets with this feature enabled.
 
-I have added these as well to my queue, thanks Ben!
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 9988d4a... 6aeb0a3... M	net/8021q/vlan_dev.c
+ net/8021q/vlan_dev.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
---=-MIli9D//3sbYKMj/Gb4R
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPVWmyAAoJEOVv75VaS+3O7VgP/33Gf3DYatfOAncWgr5hYWyO
-VTFl2nzX/9zoLsbUX9pGhCsytIoSOfU70GiOxH1kTpHg+zJn/rp3kKX7nO1ZZTHP
-wZSwwuol/w9cbDyfpmU7LOxUCRCsEsPfgXuCWUVYwnij2bKUZ5QfGAsYCAeHZdId
-BuD6Vkc/HEm4nfT59e2lqaUsnRg4FmsuR8pcg2AsxeZ5TIRvJvDj9u3kyT8b273b
-7hrV+GvtS4NWhkczkrj0i6N8JEY8XqYbFtAldmRdY2QCFLx7tRTK31w6OLtpH7cU
-3Mly+JKH2xUM4srqqNeQokkTHPK8xr7+y1VVqC7k85cFvipImEEMSF+PPVZkluMt
-sqJ+AFiUddPsz+SN7GvxwsQ2RMwNoq8tL+TTO+wrJcAV37lySc0njgPM7J5qjw0z
-6CotSGDs/x6KOv7gdZMDMMsKvA8BKZPsy/fInt9Jo6NSrkkrqc4zokUUBOYwjBK5
-/nasXXWsjktNsVQoN+bX3KFa7ib0OigrpbOiqw7H9MT5yuNMhR6jb5MCjDL0vnnk
-qmlSwA8NQ+54lbctasSRcrpz/FXmB2VT0WlRz6PbopbjEwXiSFHVqWRgbrthp7MW
-ko4oU+o/x9PG47DMTnxFPwymxjqPuJ+fLBTxw0VgK/6xGtLV8lbsuEqFKcrNbL+6
-a5RMgKYS6Ci/VO+Q3j0I
-=/JRi
------END PGP SIGNATURE-----
-
---=-MIli9D//3sbYKMj/Gb4R--
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 9988d4a..6aeb0a3 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -543,6 +543,9 @@ static int vlan_dev_init(struct net_device *dev)
+ 	dev->features |= real_dev->vlan_features | NETIF_F_LLTX;
+ 	dev->gso_max_size = real_dev->gso_max_size;
+ 
++	if (netif_supports_nofcs(real_dev))
++		dev->priv_flags |= IFF_SUPP_NOFCS;
++
+ 	/* ipv6 shared card related stuff */
+ 	dev->dev_id = real_dev->dev_id;
+ 
+-- 
+1.7.3.4
