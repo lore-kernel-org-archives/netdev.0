@@ -1,99 +1,72 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH] tcp: fix tcp_shift_skb_data() to not shift SACKed data below snd_una
-Date: Tue,  6 Mar 2012 00:35:04 -0500
-Message-ID: <1331012104-20170-1-git-send-email-ncardwell@google.com>
-Mime-Version: 1.0
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH] stmmac: Allow stmmac to work with other PHY buses(v2).
+Date: Tue,  6 Mar 2012 06:42:00 +0100
+Message-ID: <1331012520-19574-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f74.google.com ([74.125.82.74]:43716 "EHLO
-	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189Ab2CFFfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:35:07 -0500
-Received: by wgbdt11 with SMTP id dt11so172124wgb.1
-        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 21:35:06 -0800 (PST)
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:38259 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751151Ab2CFFmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:42:12 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BB5BF1A1
+	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 05:42:10 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 528A814FF
+	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 05:42:10 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit fixes tcp_shift_skb_data() so that it does not shift
-SACKed data below snd_una.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This fixes an issue whose symptoms exactly match reports showing
-tp->sacked_out going negative since 3.3.0-rc4 (see "WARNING: at
-net/ipv4/tcp_input.c:3418" thread on netdev).
+After commit "db8857b stmmac: use an unique MDIO bus name" and "90b9a54
+stmmac: fix phy naming inconsistency" stmmac cant work with other MDIO
+buses, because mdio_bus name is fixed in the dirver.
 
-Since 2008 (832d11c5cd076abc0aa1eaf7be96c81d1a59ce41)
-tcp_shift_skb_data() had been shifting SACKed ranges that were below
-snd_una. It checked that the *end* of the skb it was about to shift
-from was above snd_una, but did not check that the end of the actual
-shifted range was above snd_una; this commit adds that check.
+This patch adds new variable phy_bus_name to plat_stmmacenet_data
+struct to let the BSP decide which phy bus to be used by stmmac driver.
+A typical use-case is to have generic MDIO buses like mdio-gpio on top
+of stmmac.
 
-Shifting SACKed ranges below snd_una is problematic because for such
-ranges tcp_sacktag_one() short-circuits: it does not declare anything
-as SACKed and does not increase sacked_out.
-
-Before the fixes in commits cc9a672ee522d4805495b98680f4a3db5d0a0af9
-and daef52bab1fd26e24e8e9578f8fb33ba1d0cb412, shifting SACKed ranges
-below snd_una happened to work because tcp_shifted_skb() was always
-(incorrectly) passing in to tcp_sacktag_one() an skb whose end_seq
-tcp_shift_skb_data() had already guaranteed was beyond snd_una. Hence
-tcp_sacktag_one() never short-circuited and always increased
-tp->sacked_out in this case.
-
-After those two fixes, my testing has verified that shifting SACKed
-ranges below snd_una could cause tp->sacked_out to go negative with
-the following sequence of events:
-
-(1) tcp_shift_skb_data() sees an skb whose end_seq is beyond snd_una,
-    then shifts a prefix of that skb that is below snd_una
-
-(2) tcp_shifted_skb() increments the packet count of the
-    already-SACKed prev sk_buff
-
-(3) tcp_sacktag_one() sees the end of the new SACKed range is below
-    snd_una, so it short-circuits and doesn't increase tp->sacked_out
-
-(5) tcp_clean_rtx_queue() sees the SACKed skb has been ACKed,
-    decrements tp->sacked_out by this "inflated" pcount that was
-    missing a matching increase in tp->sacked_out, and hence
-    tp->sacked_out underflows to a u32 like 0xFFFFFFFF, which casted
-    to s32 is negative.
-
-(6) this leads to the warnings seen in the recent "WARNING: at
-    net/ipv4/tcp_input.c:3418" thread on the netdev list; e.g.:
-    tcp_input.c:3418  WARN_ON((int)tp->sacked_out < 0);
-
-More generally, I think this bug can be tickled in some cases where
-two or more ACKs from the receiver are lost and then a DSACK arrives
-that is immediately above an existing SACKed skb in the write queue.
-
-This fix changes tcp_shift_skb_data() to abort this sequence at step
-(1) in the scenario above by noticing that the bytes are below snd_una
-and not shifting them.
-
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- net/ipv4/tcp_input.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 +++++++-
+ include/linux/stmmac.h                            |    1 +
+ 2 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d9b83d1..b5e315f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1585,6 +1585,10 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
- 		}
- 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6ee593a..da891ef9b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -307,7 +307,13 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	priv->speed = 0;
+ 	priv->oldduplex = -1;
  
-+	/* tcp_sacktag_one() won't SACK-tag ranges below snd_una */
-+	if (!after(TCP_SKB_CB(skb)->seq + len, tp->snd_una))
-+		goto fallback;
+-	snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x", priv->plat->bus_id);
++	if (priv->plat->phy_bus_name)
++		snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
++				priv->plat->phy_bus_name, priv->plat->bus_id);
++	else
++		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
++				priv->plat->bus_id);
 +
- 	if (!skb_shift(prev, skb, len))
- 		goto fallback;
- 	if (!tcp_shifted_skb(sk, skb, state, pcount, len, mss, dup_sack))
+ 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
+ 		 priv->plat->phy_addr);
+ 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 0dddc9e..172b5e1 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -39,6 +39,7 @@ struct stmmac_mdio_bus_data {
+ };
+ 
+ struct plat_stmmacenet_data {
++	char *phy_bus_name;
+ 	int bus_id;
+ 	int phy_addr;
+ 	int interface;
 -- 
-1.7.7.3
+1.7.4.4
