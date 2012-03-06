@@ -1,669 +1,262 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 4/4] stmmac: add the Energy Efficient Ethernet support.
-Date: Tue,  6 Mar 2012 09:28:14 +0100
-Message-ID: <1331022494-12891-5-git-send-email-peppe.cavallaro@st.com>
-References: <4F4E4D4B.3040909@st.com>
- <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	rayagond@vayavyalabs.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:51692 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758646Ab2CFI3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 03:29:09 -0500
-In-Reply-To: <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH 0001/001] xen: multi page ring support for block
+ devices
+Date: Tue, 06 Mar 2012 08:34:54 +0000
+Message-ID: <4F55DA3E0200007800076916@nat28.tlf.novell.com>
+References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
+ <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "David Vrabel" <david.vrabel@citrix.com>,
+	"Ian Campbell" <Ian.Campbell@citrix.com>,
+	"Paul Durrant" <Paul.Durrant@citrix.com>,
+	"waldi@debian.org" <waldi@debian.org>,
+	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>,
+	"jeremy@goop.org" <jeremy@goop.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"joe.jin@oracle.com" <joe.jin@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"lersek@redhat.com" <lersek@redhat.com>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	"dgdegra@tycho.nsa.gov" <dgdegra@tycho.nsa.gov>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jbarnes@virtuousgeek.o
+To: "Santosh Jodh" <Santosh.Jodh@citrix.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+Content-Disposition: inline
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the Energy Efficient Ethernet support.
-Please see the driver's documentation for further
-information about this support in the driver.
+>>> On 05.03.12 at 22:49, Santosh Jodh <Santosh.Jodh@citrix.com> wrote:
 
-Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       |   27 ++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   20 +++
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  101 ++++++++++++-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    7 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   46 ++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  157 +++++++++++++++++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +
- 9 files changed, 347 insertions(+), 18 deletions(-)
+Could this be split up into 3 patches, for easier reviewing:
+- one adjusting the xenbus interface to allow for multiple ring pages (and
+  maybe even that one should be split into the backend and frontend
+  related parts), syncing with the similar netback effort?
+- one for the blkback changes
+- one for the blkfront changes?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 0319d64..4e07692 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,6 +95,16 @@ struct stmmac_extra_stats {
- 	unsigned long poll_n;
- 	unsigned long sched_timer_n;
- 	unsigned long normal_irq_n;
-+	unsigned long mmc_tx_irq_n;
-+	unsigned long mmc_rx_irq_n;
-+	unsigned long mmc_rx_csum_offload_irq_n;
-+	/* EEE */
-+	unsigned long irq_receive_pmt_irq_n;
-+	unsigned long irq_tx_path_in_lpi_mode_n;
-+	unsigned long irq_tx_path_exit_lpi_mode_n;
-+	unsigned long irq_rx_path_in_lpi_mode_n;
-+	unsigned long irq_rx_path_exit_lpi_mode_n;
-+	unsigned long phy_eee_wakeup_error_n;
- };
- 
- #define HASH_TABLE_SIZE 64
-@@ -151,6 +161,17 @@ enum tx_dma_irq_status {
- 	handle_tx_rx = 3,
- };
- 
-+enum core_specific_irq_mask {
-+	core_mmc_tx_irq = 1,
-+	core_mmc_rx_irq = 2,
-+	core_mmc_rx_csum_offload_irq = 4,
-+	core_irq_receive_pmt_irq = 8,
-+	core_irq_tx_path_in_lpi_mode = 16,
-+	core_irq_tx_path_exit_lpi_mode = 32,
-+	core_irq_rx_path_in_lpi_mode = 64,
-+	core_irq_rx_path_exit_lpi_mode = 128,
-+};
-+
- /* DMA HW capabilities */
- struct dma_features {
- 	unsigned int mbps_10_100;
-@@ -266,7 +287,7 @@ struct stmmac_ops {
- 	/* Dump MAC registers */
- 	void (*dump_regs) (void __iomem *ioaddr);
- 	/* Handle extra events on specific interrupts hw dependent */
--	void (*host_irq_status) (void __iomem *ioaddr);
-+	int (*host_irq_status) (void __iomem *ioaddr);
- 	/* Multicast filter setting */
- 	void (*set_filter) (struct net_device *dev);
- 	/* Flow control setting */
-@@ -279,6 +300,10 @@ struct stmmac_ops {
- 			       unsigned int reg_n);
- 	void (*get_umac_addr) (void __iomem *ioaddr, unsigned char *addr,
- 			       unsigned int reg_n);
-+	void (*set_eee_mode) (void __iomem *ioaddr);
-+	void (*reset_eee_mode) (void __iomem *ioaddr);
-+	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
-+	void (*set_eee_pls) (void __iomem *ioaddr, int link);
- };
- 
- struct mac_link {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index cfcef0e..1764f85 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -36,6 +36,7 @@
- 
- #define GMAC_INT_STATUS		0x00000038	/* interrupt status register */
- enum dwmac1000_irq_status {
-+	lpiis_irq = 0x400,
- 	time_stamp_irq = 0x0200,
- 	mmc_rx_csum_offload_irq = 0x0080,
- 	mmc_tx_irq = 0x0040,
-@@ -60,6 +61,25 @@ enum power_event {
- 	power_down = 0x00000001,
- };
- 
-+/* Energy Efficient Ethernet (EEE)
-+ *
-+ * LPI status, timer and control register offset
-+ */
-+#define LPI_CTRL_STATUS	0x0030
-+#define LPI_TIMER_CTRL	0x0034
-+
-+/* LPI control and status defines */
-+#define LPI_CTRL_STATUS_LPITXA	0x00080000	/* Enable LPI TX Automate */
-+#define LPI_CTRL_STATUS_PLSEN	0x00040000	/* Enable PHY Link Status */
-+#define LPI_CTRL_STATUS_PLS	0x00020000	/* PHY Link Status */
-+#define LPI_CTRL_STATUS_LPIEN	0x00010000	/* LPI Enable */
-+#define LPI_CTRL_STATUS_RLPIST	0x00000200	/* Receive LPI state */
-+#define LPI_CTRL_STATUS_TLPIST	0x00000100	/* Transmit LPI state */
-+#define LPI_CTRL_STATUS_RLPIEX	0x00000008	/* Receive LPI Exit */
-+#define LPI_CTRL_STATUS_RLPIEN	0x00000004	/* Receive LPI Entry */
-+#define LPI_CTRL_STATUS_TLPIEX	0x00000002	/* Transmit LPI Exit */
-+#define LPI_CTRL_STATUS_TLPIEN	0x00000001	/* Transmit LPI Entry */
-+
- /* GMAC HW ADDR regs */
- #define GMAC_ADDR_HIGH(reg)		(0x00000040+(reg * 8))
- #define GMAC_ADDR_LOW(reg)		(0x00000044+(reg * 8))
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b1c48b9..a4fab30 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -187,26 +187,107 @@ static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
- }
- 
- 
--static void dwmac1000_irq_status(void __iomem *ioaddr)
-+static int dwmac1000_irq_status(void __iomem *ioaddr)
- {
- 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
-+	int status = 0;
- 
- 	/* Not used events (e.g. MMC interrupts) are not handled. */
--	if ((intr_status & mmc_tx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC tx interrupt: 0x%08x\n",
-+	if ((intr_status & mmc_tx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC tx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_TX_INTR));
--	if (unlikely(intr_status & mmc_rx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx interrupt: 0x%08x\n",
-+		status |= core_mmc_tx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_INTR));
--	if (unlikely(intr_status & mmc_rx_csum_offload_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx csum offload: 0x%08x\n",
-+		status |= core_mmc_rx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_csum_offload_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx csum offload: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_CSUM_OFFLOAD));
-+		status |= core_mmc_rx_csum_offload_irq;
-+	}
- 	if (unlikely(intr_status & pmt_irq)) {
--		CHIP_DBG(KERN_DEBUG "GMAC: received Magic frame\n");
-+		CHIP_DBG(KERN_INFO "GMAC: received Magic frame\n");
- 		/* clear the PMT bits 5 and 6 by reading the PMT
- 		 * status register. */
- 		readl(ioaddr + GMAC_PMT);
-+		status |= core_irq_receive_pmt_irq;
- 	}
-+	/* MAC trx/rx EEE LPI entry/exit interrupts */
-+	if (intr_status & lpiis_irq) {
-+		/* Clean LPI interrupt by reading the Reg 12 */
-+		u32 lpi_status = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC TX entered in LPI\n");
-+			status |= core_irq_tx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC TX exit from LPI\n");
-+			status |= core_irq_tx_path_exit_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC RX entered in LPI\n");
-+			status |= core_irq_rx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC RX exit from LPI\n");
-+			status |= core_irq_rx_path_exit_lpi_mode;
-+		}
-+	}
-+
-+	return status;
-+}
-+
-+static void  dwmac1000_set_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	/* Enable the link status receive on RGMII, SGMII ore SMII
-+	 * receive path and instruct the transmit to enter in LPI
-+	 * state. */
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value |= LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA;
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_reset_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value &= ~(LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA);
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+	if (link)
-+		value |= LPI_CTRL_STATUS_PLS;
-+	else
-+		value &= ~LPI_CTRL_STATUS_PLS;
-+
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
-+{
-+	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
-+
-+	/* Program the timers in the LPI timer control register:
-+	 * LS: minimum time (ms) for which the link
-+	 *  status from PHY should be ok before transmitting
-+	 *  the LPI pattern.
-+	 * TW: minimum time (us) for which the core waits
-+	 *  after it has stopped transmitting the LPI pattern.
-+	 */
-+	writel(value, ioaddr + LPI_TIMER_CTRL);
- }
- 
- static const struct stmmac_ops dwmac1000_ops = {
-@@ -219,6 +300,10 @@ static const struct stmmac_ops dwmac1000_ops = {
- 	.pmt = dwmac1000_pmt,
- 	.set_umac_addr = dwmac1000_set_umac_addr,
- 	.get_umac_addr = dwmac1000_get_umac_addr,
-+	.set_eee_mode =  dwmac1000_set_eee_mode,
-+	.reset_eee_mode =  dwmac1000_reset_eee_mode,
-+	.set_eee_timer =  dwmac1000_set_eee_timer,
-+	.set_eee_pls =  dwmac1000_set_eee_pls,
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 138fb8d..a11370b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -72,9 +72,9 @@ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
- 		readl(ioaddr + MAC_VLAN2));
- }
- 
--static void dwmac100_irq_status(void __iomem *ioaddr)
-+static int dwmac100_irq_status(void __iomem *ioaddr)
- {
--	return;
-+	return 0;
- }
- 
- static void dwmac100_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 437edac..27cbcd7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -69,6 +69,7 @@
- #define DMA_INTR_DEFAULT_MASK	(DMA_INTR_NORMAL | DMA_INTR_ABNORMAL)
- 
- /* DMA Status register defines */
-+#define DMA_STATUS_GLPII	0x40000000	/* GMAC LPI interrupt */
- #define DMA_STATUS_GPI		0x10000000	/* PMT interrupt */
- #define DMA_STATUS_GMI		0x08000000	/* MMC interrupt */
- #define DMA_STATUS_GLI		0x04000000	/* GMAC Line interface int */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index b4b095f..266fcac 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -81,6 +81,10 @@ struct stmmac_priv {
- 	struct stmmac_counters mmc;
- 	struct dma_features dma_cap;
- 	int hw_cap_support;
-+	struct timer_list eee_ctrl_timer;
-+	bool tx_path_in_lpi_mode;
-+	bool eee_enabled;
-+	int lpi_irq;
- };
- 
- extern int phyaddr;
-@@ -99,3 +103,6 @@ int stmmac_dvr_remove(struct net_device *ndev);
- struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 				     struct plat_stmmacenet_data *plat_dat,
- 				     void __iomem *addr);
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv);
-+bool stmmac_eee_init(struct stmmac_priv *priv);
-+
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index f98e151..90cce62 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -93,6 +93,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(poll_n),
- 	STMMAC_STAT(sched_timer_n),
- 	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(mmc_tx_irq_n),
-+	STMMAC_STAT(mmc_rx_irq_n),
-+	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
-+	STMMAC_STAT(irq_receive_pmt_irq_n),
-+	STMMAC_STAT(irq_tx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_tx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(phy_eee_wakeup_error_n),
- };
- #define STMMAC_STATS_LEN ARRAY_SIZE(stmmac_gstrings_stats)
- 
-@@ -366,6 +376,11 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 					     (*(u32 *)p);
- 			}
- 		}
-+		if (priv->eee_enabled) {
-+			int val = phy_get_eee_err(priv->phydev);
-+			if (val)
-+				priv->xstats.phy_eee_wakeup_error_n = val;
-+		}
- 	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
- 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
-@@ -464,6 +479,35 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 	return 0;
- }
- 
-+static int ethtool_op_get_eee(struct net_device *dev, struct ethtool_value *eee)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->dma_cap.eee)
-+		return -EOPNOTSUPP;
-+
-+	eee->data = priv->eee_enabled;
-+
-+	return 0;
-+}
-+
-+static int ethtool_op_set_eee(struct net_device *dev, struct ethtool_value *eee)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	if ((!eee->data) && (priv->eee_enabled)) {
-+		stmmac_disable_eee_mode(priv);
-+		priv->eee_enabled = eee->data;
-+	} else if ((eee->data) && (!priv->eee_enabled))
-+		/* We are asking for enabling the EEE but this
-+		 * has to be verified by invoking the eee_init function.
-+		 * For this reason we cannot set eee_enabled to
-+		 * eee->data, directly. */
-+		priv->eee_enabled = stmmac_eee_init(priv);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
-@@ -481,6 +525,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
- 	.get_sset_count	= stmmac_get_sset_count,
-+	.get_eee = ethtool_op_get_eee,
-+	.set_eee = ethtool_op_set_eee,
- };
- 
- void stmmac_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index e85ffbd..2f69c55 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -133,6 +133,11 @@ static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
- 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
- 
-+static int eee_timer = 1000;
-+module_param(eee_timer, int, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(eee_timer, "LPI tx expiration time in msec");
-+#define STMMAC_LPI_TIMER(x) (jiffies + msecs_to_jiffies(x))
-+
- static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
- 
- #ifdef CONFIG_STMMAC_DEBUG_FS
-@@ -197,6 +202,82 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
- 					  phydev->speed);
- }
- 
-+static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Check and enter in LPI mode */
-+	if ((priv->dirty_tx == priv->cur_tx) &&
-+	    (priv->tx_path_in_lpi_mode == false))
-+		priv->hw->mac->set_eee_mode(priv->ioaddr);
-+}
-+
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Exit and disable EEE in case of we are are in LPI state. */
-+	priv->hw->mac->reset_eee_mode(priv->ioaddr);
-+	del_timer_sync(&priv->eee_ctrl_timer);
-+	priv->tx_path_in_lpi_mode = false;
-+}
-+
-+/**
-+ * stmmac_eee_ctrl_timer
-+ * @arg : data hook
-+ * Description:
-+ *  If there is no data transfer and if we are not in LPI state,
-+ *  then MAC Transmitter can be moved to LPI state.
-+ */
-+static void stmmac_eee_ctrl_timer(unsigned long arg)
-+{
-+	struct stmmac_priv *priv = (struct stmmac_priv *)arg;
-+
-+	stmmac_enable_eee_mode(priv);
-+	mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+}
-+
-+/**
-+ * stmmac_eee_init
-+ * @priv: private device pointer
-+ * Description:
-+ *  If the EEE support has been enabled while configuring the driver,
-+ *  if the GMAC actually supports the EEE (from the HW cap reg) and the
-+ *  phy can also manage EEE, so enable the LPI state and start the timer
-+ *  to verify if the tx path can enter in LPI state.
-+ */
-+bool stmmac_eee_init(struct stmmac_priv *priv)
-+{
-+	bool ret = false;
-+
-+	/* MAC core supports the EEE feature. */
-+	if (priv->dma_cap.eee) {
-+
-+		/* Check if the PHY supports EEE*/
-+		if (phy_check_eee(priv->phydev))
-+			goto out;
-+
-+		init_timer(&priv->eee_ctrl_timer);
-+		priv->eee_ctrl_timer.function = stmmac_eee_ctrl_timer;
-+		priv->eee_ctrl_timer.data = (unsigned long)priv;
-+		priv->eee_ctrl_timer.expires = STMMAC_LPI_TIMER(eee_timer);
-+		add_timer(&priv->eee_ctrl_timer);
-+
-+		priv->hw->mac->set_eee_timer(priv->ioaddr, 0x3e8, 0);
-+
-+		pr_info("stmmac: Energy-Efficient Ethernet initialized\n");
-+
-+		ret = true;
-+	}
-+out:
-+	return ret;
-+}
-+
-+static void stmmac_eee_adjust(struct stmmac_priv *priv)
-+{
-+	/* When the EEE has been already initialised we have to
-+	 * modify the PLS bit in the LPI ctrl & status reg according
-+	 * to the PHY link status. For this reason. */
-+	if (priv->eee_enabled)
-+		priv->hw->mac->set_eee_pls(priv->ioaddr, priv->phydev->link);
-+}
-+
- /**
-  * stmmac_adjust_link
-  * @dev: net device structure
-@@ -217,6 +298,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	    phydev->addr, phydev->link);
- 
- 	spin_lock_irqsave(&priv->lock, flags);
-+
- 	if (phydev->link) {
- 		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
- 
-@@ -283,6 +365,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	if (new_state && netif_msg_link(priv))
- 		phy_print_status(phydev);
- 
-+	stmmac_eee_adjust(priv);
-+
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
- 	DBG(probe, DEBUG, "stmmac_adjust_link: exiting\n");
-@@ -300,7 +384,7 @@ static int stmmac_init_phy(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phydev;
--	char phy_id[MII_BUS_ID_SIZE + 3];
-+	char phy_id_fmt[MII_BUS_ID_SIZE + 3];
- 	char bus_id[MII_BUS_ID_SIZE];
- 	int interface = priv->plat->interface;
- 	priv->oldlink = 0;
-@@ -308,11 +392,13 @@ static int stmmac_init_phy(struct net_device *dev)
- 	priv->oldduplex = -1;
- 
- 	snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x", priv->plat->bus_id);
--	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
-+	snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 		 priv->plat->phy_addr);
--	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
-+	/* (mii bus id:phy device id)  */
-+	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id_fmt);
- 
--	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0, interface);
-+	phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link, 0,
-+			     interface);
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
-@@ -651,6 +737,11 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 		}
- 		netif_tx_unlock(priv->dev);
- 	}
-+
-+	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
-+		stmmac_enable_eee_mode(priv);
-+		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+	}
- 	spin_unlock(&priv->tx_lock);
- }
- 
-@@ -975,6 +1066,17 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
-+	/* Request the IRQ lines */
-+	if (priv->lpi_irq != -ENXIO) {
-+		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
-+				  dev->name, dev);
-+		if (unlikely(ret < 0)) {
-+			pr_err("%s: ERROR: allocating the LPI IRQ %d"
-+			       " (error: %d)\n", __func__, priv->lpi_irq, ret);
-+			goto open_error_lpiirq;
-+		}
-+	}
-+
- 	/* Enable the MAC Rx/Tx */
- 	stmmac_set_mac(priv->ioaddr, true);
- 
-@@ -1010,12 +1112,18 @@ static int stmmac_open(struct net_device *dev)
- 	if (priv->phydev)
- 		phy_start(priv->phydev);
- 
-+	priv->eee_enabled = stmmac_eee_init(priv);
-+
- 	napi_enable(&priv->napi);
- 	skb_queue_head_init(&priv->rx_recycle);
- 	netif_start_queue(dev);
- 
- 	return 0;
- 
-+open_error_lpiirq:
-+	if (priv->wol_irq != dev->irq)
-+		free_irq(priv->wol_irq, dev);
-+
- open_error_wolirq:
- 	free_irq(dev->irq, dev);
- 
-@@ -1039,6 +1147,9 @@ static int stmmac_release(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
-+	if (priv->eee_enabled)
-+		del_timer_sync(&priv->eee_ctrl_timer);
-+
- 	/* Stop and disconnect the PHY */
- 	if (priv->phydev) {
- 		phy_stop(priv->phydev);
-@@ -1061,6 +1172,8 @@ static int stmmac_release(struct net_device *dev)
- 	free_irq(dev->irq, dev);
- 	if (priv->wol_irq != dev->irq)
- 		free_irq(priv->wol_irq, dev);
-+	if (priv->lpi_irq != -ENXIO)
-+		free_irq(priv->lpi_irq, dev);
- 
- 	/* Stop TX/RX DMA and clear the descriptors */
- 	priv->hw->dma->stop_tx(priv->ioaddr);
-@@ -1110,6 +1223,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_lock(&priv->tx_lock);
- 
-+	if (priv->tx_path_in_lpi_mode)
-+		stmmac_disable_eee_mode(priv);
-+
- 	entry = priv->cur_tx % txsize;
- 
- #ifdef STMMAC_XMIT_DEBUG
-@@ -1484,10 +1600,37 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		return IRQ_NONE;
- 	}
- 
--	if (priv->plat->has_gmac)
--		/* To handle GMAC own interrupts */
--		priv->hw->mac->host_irq_status((void __iomem *) dev->base_addr);
-+	/* To handle GMAC own interrupts */
-+	if (priv->plat->has_gmac) {
-+		int status = priv->hw->mac->host_irq_status((void __iomem *)
-+							    dev->base_addr);
-+		if (unlikely(status)) {
-+			if (status & core_mmc_tx_irq)
-+				priv->xstats.mmc_tx_irq_n++;
-+			if (status & core_mmc_rx_irq)
-+				priv->xstats.mmc_rx_irq_n++;
-+			if (status & core_mmc_rx_csum_offload_irq)
-+				priv->xstats.mmc_rx_csum_offload_irq_n++;
-+			if (status & core_irq_receive_pmt_irq)
-+				priv->xstats.irq_receive_pmt_irq_n++;
-+
-+			/* For LPI we need to save the tx status */
-+			if (status & core_irq_tx_path_in_lpi_mode) {
-+				priv->xstats.irq_tx_path_in_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = true;
-+			}
-+			if (status & core_irq_tx_path_exit_lpi_mode) {
-+				priv->xstats.irq_tx_path_exit_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = false;
-+			}
-+			if (status & core_irq_rx_path_in_lpi_mode)
-+				priv->xstats.irq_rx_path_in_lpi_mode_n++;
-+			if (status & core_irq_rx_path_exit_lpi_mode)
-+				priv->xstats.irq_rx_path_exit_lpi_mode_n++;
-+		}
-+	}
- 
-+	/* To handle DMA interrupts */
- 	stmmac_dma_interrupt(priv);
- 
- 	return IRQ_HANDLED;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3aad981..bc0e83f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -94,6 +94,8 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 	if (priv->wol_irq == -ENXIO)
- 		priv->wol_irq = priv->dev->irq;
- 
-+	priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
-+
- 	platform_set_drvdata(pdev, priv->dev);
- 
- 	pr_debug("STMMAC platform driver registration completed");
--- 
-1.7.4.4
+> --- a/drivers/block/xen-blkback/xenbus.c
+> +++ b/drivers/block/xen-blkback/xenbus.c
+> @@ -122,8 +122,8 @@ static struct xen_blkif *xen_blkif_alloc(domid_t domid)
+>         return blkif;
+>  }
+> 
+> -static int xen_blkif_map(struct xen_blkif *blkif, unsigned long shared_page,
+> -                        unsigned int evtchn)
+> +static int xen_blkif_map(struct xen_blkif *blkif, int ring_ref[],
+
+As you need to touch this anyway, can you please switch this to the
+proper type (grant_ref_t) rather than using plain "int" (not just here)?
+
+> +                        unsigned int ring_order, unsigned int evtchn)
+>  {
+>         int err;
+> 
+> --- a/drivers/block/xen-blkfront.c
+> +++ b/drivers/block/xen-blkfront.c
+> @@ -135,7 +139,7 @@ static DEFINE_SPINLOCK(minor_lock);
+>  static int get_id_from_freelist(struct blkfront_info *info)
+>  {
+>         unsigned long free = info->shadow_free;
+> -       BUG_ON(free >= BLK_RING_SIZE);
+> +       BUG_ON(free >= BLK_MAX_RING_SIZE);
+
+Wouldn't you better check against the actual limit here?
+
+>         info->shadow_free = info->shadow[free].req.u.rw.id;
+>         info->shadow[free].req.u.rw.id = 0x0fffffee; /* debug */
+>         return free;
+> @@ -698,16 +704,19 @@ static void blkif_free(struct blkfront_info *info, int suspend)
+>         flush_work_sync(&info->work);
+> 
+>         /* Free resources associated with old device channel. */
+> -       if (info->ring_ref != GRANT_INVALID_REF) {
+> -               gnttab_end_foreign_access(info->ring_ref, 0,
+> -                                         (unsigned long)info->ring.sring);
+> -               info->ring_ref = GRANT_INVALID_REF;
+> -               info->ring.sring = NULL;
+> +       for (i = 0; i < (1 << info->ring_order); i++) {
+> +               if (info->ring_ref[i] != GRANT_INVALID_REF) {
+> +                       gnttab_end_foreign_access(info->ring_ref[i], 0, 0);
+> +                       info->ring_ref[i] = GRANT_INVALID_REF;
+> +               }
+>         }
+> +
+> +       free_pages((unsigned long)info->ring.sring, info->ring_order);
+
+No. The freeing must continue happen in gnttab_end_foreign_access()
+(with the sole exception when a page was allocated but the grant
+didn't get established), since it must be suppressed/delayed when the
+grant is still in use (otherwise the kernel will die on the first re-use of
+the page). I just happened to fix that problem at the end of last week
+in the variant of the patch that we pulled into our tree.
+
+Further, rather than doing a non-zero order allocation here, I'd
+suggest allocating individual pages and vmap()-ing them.
+
+> +       info->ring.sring = NULL;
+> +
+>         if (info->irq)
+>                 unbind_from_irqhandler(info->irq, info);
+>         info->evtchn = info->irq = 0;
+> -
+>  }
+> 
+>  static void blkif_completion(struct blk_shadow *s)
+> @@ -875,8 +883,27 @@ static int talk_to_blkback(struct xenbus_device *dev,
+>  {
+>         const char *message = NULL;
+>         struct xenbus_transaction xbt;
+> +       unsigned int ring_order;
+> +       int legacy_backend;
+> +       int i;
+>         int err;
+> 
+> +       for (i = 0; i < (1 << info->ring_order); i++)
+> +               info->ring_ref[i] = GRANT_INVALID_REF;
+> +
+> +       err = xenbus_scanf(XBT_NIL, dev->otherend, "max-ring-page-order", "%u",
+> +                          &ring_order);
+
+At least the frontend should imo also support the alternative interface
+(using "max-ring-pages" etc).
+
+> +
+> +       legacy_backend = !(err == 1);
+> +
+> +       if (legacy_backend) {
+> +               info->ring_order = 0;
+> +       } else {
+> +               info->ring_order = (ring_order <= xen_blkif_ring_order) ?
+> +                                  ring_order :
+> +                                  xen_blkif_ring_order;
+
+min()?
+
+> +       }
+> +
+>         /* Create shared ring, alloc event channel. */
+>         err = setup_blkring(dev, info);
+>         if (err)
+> @@ -889,12 +916,35 @@ again:
+>                 goto destroy_blkring;
+>         }
+> 
+> -       err = xenbus_printf(xbt, dev->nodename,
+> -                           "ring-ref", "%u", info->ring_ref);
+> -       if (err) {
+> -               message = "writing ring-ref";
+> -               goto abort_transaction;
+> +       if (legacy_backend) {
+
+Why not use the simpler interface always when info->ring_order == 0?
+
+> +               err = xenbus_printf(xbt, dev->nodename,
+> +                                   "ring-ref", "%d", info->ring_ref[0]);
+> +               if (err) {
+> +                       message = "writing ring-ref";
+> +                       goto abort_transaction;
+> +               }
+> +       } else {
+> +               for (i = 0; i < (1 << info->ring_order); i++) {
+> +                       char key[sizeof("ring-ref") + 2];
+> +
+> +                       sprintf(key, "ring-ref%d", i);
+> +
+> +                       err = xenbus_printf(xbt, dev->nodename,
+> +                                           key, "%d", info->ring_ref[i]);
+> +                       if (err) {
+> +                               message = "writing ring-ref";
+> +                               goto abort_transaction;
+> +                       }
+> +               }
+> +
+> +               err = xenbus_printf(xbt, dev->nodename,
+> +                                   "ring-page-order", "%u", info->ring_order);
+> +               if (err) {
+> +                       message = "writing ring-order";
+> +                       goto abort_transaction;
+> +               }
+>         }
+> +
+>         err = xenbus_printf(xbt, dev->nodename,
+>                             "event-channel", "%u", info->evtchn);
+>         if (err) {
+> @@ -996,21 +1046,14 @@ static int blkfront_probe(struct xenbus_device *dev,
+>         info->connected = BLKIF_STATE_DISCONNECTED;
+>         INIT_WORK(&info->work, blkif_restart_queue);
+> 
+> -       for (i = 0; i < BLK_RING_SIZE; i++)
+> +       for (i = 0; i < BLK_MAX_RING_SIZE; i++)
+>                 info->shadow[i].req.u.rw.id = i+1;
+> -       info->shadow[BLK_RING_SIZE-1].req.u.rw.id = 0x0fffffff;
+> +       info->shadow[BLK_MAX_RING_SIZE-1].req.u.rw.id = 0x0fffffff;
+
+A proper terminator must also be written in talk_to_blkback() once
+the actual ring size is known.
+
+Further, blkif_recover() must be able to deal with a change of the
+allowed upper bound.
+
+>         /* Front end dir is a number, which is used as the id. */
+>         info->handle = simple_strtoul(strrchr(dev->nodename, '/')+1, NULL, 0);
+>         dev_set_drvdata(&dev->dev, info);
+> 
+> -       err = talk_to_blkback(dev, info);
+
+Completely removing this here is wrong afaict - what if the backend
+already is in InitWait when the frontend starts?
+
+Further, whatever is done to this call here also needs to be done in
+blkfront_resume().
+
+> -       if (err) {
+> -               kfree(info);
+> -               dev_set_drvdata(&dev->dev, NULL);
+> -               return err;
+> -       }
+> -
+>         return 0;
+>  }
+> 
+> @@ -1307,6 +1349,10 @@ static void blkback_changed(struct xenbus_device *dev,
+>         case XenbusStateClosed:
+>                 break;
+> 
+> +       case XenbusStateInitWait:
+> +               talk_to_blkback(dev, info);
+
+This call can return an error.
+
+> +               break;
+> +
+>         case XenbusStateConnected:
+>                 blkfront_connect(info);
+>                 break;
+> --- a/include/xen/xenbus.h
+> +++ b/include/xen/xenbus.h
+> @@ -195,15 +195,23 @@ int xenbus_watch_pathfmt(struct xenbus_device *dev, struct xenbus_watch *watch,
+>                          const char *pathfmt, ...);
+> 
+>  int xenbus_switch_state(struct xenbus_device *dev, enum xenbus_state new_state);
+> -int xenbus_grant_ring(struct xenbus_device *dev, unsigned long ring_mfn);
+> -int xenbus_map_ring_valloc(struct xenbus_device *dev,
+> -                          int gnt_ref, void **vaddr);
+> -int xenbus_map_ring(struct xenbus_device *dev, int gnt_ref,
+> -                          grant_handle_t *handle, void *vaddr);
+> +
+> +#define        XENBUS_MAX_RING_ORDER   2
+> +#define        XENBUS_MAX_RING_PAGES   (1 << XENBUS_MAX_RING_ORDER)
+
+Why do you need an artificial global limit here? Each driver can decide
+individually what its limit should be.
+
+Jan
