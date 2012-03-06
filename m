@@ -1,44 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver
-Date: Mon, 05 Mar 2012 16:49:18 -0800
-Message-ID: <1330994958.9504.2.camel@edumazet-glaptop>
-References: <1330983641-32622-1-git-send-email-stigge@antcom.de>
-	 <1330987524.2538.61.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
-	eilong@broadcom.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, w.sang@pengutronix.de,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
-	baruch@tkos.co.il, joe@perches.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330987524.2538.61.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH 1/2] ixgbe: Support sending custom Ethernet FCS.
+Date: Mon,  5 Mar 2012 17:18:23 -0800
+Message-ID: <1330996704-13076-1-git-send-email-greearb@candelatech.com>
+Cc: jeffrey.t.kirsher@intel.com, Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:40977 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757930Ab2CFBSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 20:18:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-05 at 22:45 +0000, Ben Hutchings wrote:
-> On Mon, 2012-03-05 at 22:40 +0100, Roland Stigge wrote:
-> [...]
+From: Ben Greear <greearb@candelatech.com>
 
-...
+Including bad FCS, used generate frames with bad FCS
+to test other system's handling of RX of bad packets.
 
-> > +				/* Copy packet from buffer */
-> > +				memcpy(prdbuf,
-> > +					pldat->rx_buff_v[rxconsidx], len);
-> > +
-> > +				/* Pass to upper layer */
-> > +				skb->protocol = eth_type_trans(skb, ndev);
-> > +				netif_rx(skb);
-> > +				ndev->last_rx = jiffies;
-> 
-> Drivers don't need to set last_rx any more.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 23a4665... b6e51f9... M	drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Also, a NAPI driver should call netif_receive_skb() instead of
-netif_rx()
-
-netif_rx() is more expensive because of additional queue, while
-netif_receive_skb() directly calls the upper stacks.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 23a4665..b6e51f9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6754,6 +6754,8 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 		tx_buffer_info->dma = dma;
+ 
+ 		tx_desc->read.buffer_addr = cpu_to_le64(dma + offset);
++		if (unlikely(skb->no_fcs))
++			cmd_type &= ~(cpu_to_le32(IXGBE_ADVTXD_DCMD_IFCS));
+ 		tx_desc->read.cmd_type_len = cmd_type | cpu_to_le32(size);
+ 		tx_desc->read.olinfo_status = olinfo_status;
+ 
+@@ -7762,6 +7764,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	netdev->vlan_features |= NETIF_F_SG;
+ 
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
++	netdev->priv_flags |= IFF_SUPP_NOFCS;
+ 
+ 	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+ 		adapter->flags &= ~(IXGBE_FLAG_RSS_ENABLED |
+-- 
+1.7.3.4
