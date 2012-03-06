@@ -1,72 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH 3/6] netfilter: ctnetlink: use GFP_ATOMIC in all
  allocations
-Date: Tue, 6 Mar 2012 15:48:38 +0100
-Message-ID: <20120306144838.GA1527@1984>
+Date: Tue, 06 Mar 2012 07:09:17 -0800
+Message-ID: <1331046557.2474.45.camel@edumazet-laptop>
 References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
- <1331032975-5303-4-git-send-email-pablo@netfilter.org>
- <1331038221.9504.9.camel@edumazet-glaptop>
+	 <1331032975-5303-4-git-send-email-pablo@netfilter.org>
+	 <1331038221.9504.9.camel@edumazet-glaptop> <20120306144838.GA1527@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1331038221.9504.9.camel@edumazet-glaptop>
+In-Reply-To: <20120306144838.GA1527@1984>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2012 at 04:50:21AM -0800, Eric Dumazet wrote:
-> On Tue, 2012-03-06 at 12:22 +0100, pablo@netfilter.org wrote:
-> > From: Pablo Neira Ayuso <pablo@netfilter.org>
-> > 
-> > All ctnetlink operations are invoked inside rcu_read_lock
-> > (see net/netfilter/nfnetlink.c).
-> > 
-> > Allocations have to be atomic, as RCU requires.
-> > 
-> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> > ---
-> >  net/netfilter/nf_conntrack_netlink.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-> > index 1068769..867843f 100644
-> > --- a/net/netfilter/nf_conntrack_netlink.c
-> > +++ b/net/netfilter/nf_conntrack_netlink.c
-> > @@ -1002,7 +1002,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
-> >  	ct = nf_ct_tuplehash_to_ctrack(h);
-> >  
-> >  	err = -ENOMEM;
-> > -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-> >  	if (skb2 == NULL) {
-> >  		nf_ct_put(ct);
-> >  		return -ENOMEM;
-> > @@ -1865,7 +1865,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
-> >  	}
-> >  
-> >  	err = -ENOMEM;
-> > -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> > +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-> >  	if (skb2 == NULL) {
-> >  		nf_ct_expect_put(exp);
-> >  		goto out;
-> 
-> This cant be right.
-> 
-> Really this must be kept as GFP_KERNEL allocations.
-> 
-> Only if .call_rcu member is used in place of .call rcu_read_lock() is
-> held instead of nfnl_lock().
+Le mardi 06 mars 2012 =C3=A0 15:48 +0100, Pablo Neira Ayuso a =C3=A9cri=
+t :
+> On Tue, Mar 06, 2012 at 04:50:21AM -0800, Eric Dumazet wrote:
 
-I thought we couldn't sleep while holding rcu_read_lock.
+> > This cant be right.
+> >=20
+> > Really this must be kept as GFP_KERNEL allocations.
+> >=20
+> > Only if .call_rcu member is used in place of .call rcu_read_lock() =
+is
+> > held instead of nfnl_lock().
+>=20
+> I thought we couldn't sleep while holding rcu_read_lock.
 
-> You should take a look at all GFP_ATOMIC uses in
-> net/netfilter/nf_conntrack_netlink.c and check if they can be GFP_KERNEL
-> instead.
+True, but as far as I can see we dont hold rcu_read_lock() at this
+point, only a mutex.
 
-David, can you take all patches except this one?
+I added the .call_rcu() mechanism in struct nfnl_callback only for very
+specific needs, namely performance improvements in commit 84a797dd0
+(netfilter: nfnetlink_queue: provide rcu enabled callbacks)
 
-I'll have to rebase my tree after this, sorry.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
