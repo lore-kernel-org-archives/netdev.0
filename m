@@ -1,46 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCHv 2] tcp: properly initialize tcp memory limits part 2
- (fix nfs regression)
-Date: Tue, 06 Mar 2012 11:22:41 +0800
-Message-ID: <4F558301.9000402@redhat.com>
-References: <1330675173-18968-1-git-send-email-slyich@gmail.com> <4F509150.5060904@redhat.com> <20120302202421.753b36bc@sf.home> <20120302205000.088bf231@sf.home> <4F5227C9.7060209@parallels.com> <20120303174322.7e920bc5@sf.home> <4F52A8D5.9090703@parallels.com> <20120304121400.4d756e55@sf.home> <4F545AC3.50004@redhat.com> <20120305212206.43f3abfa@sf.home>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0001/001] xen: multi page ring support for block devices
+Date: Tue, 06 Mar 2012 13:12:49 +1030
+Message-ID: <87ty22xxee.fsf@rustcorp.com.au>
+References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com> <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Glauber Costa <glommer@parallels.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Sergei Trofimovich <slyich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120305212206.43f3abfa@sf.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Jodh <Santosh.Jodh@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>
+To: Santosh Jodh <Santosh.Jodh@citrix.com>,
+	"konrad.wilk\@oracle.com" <konrad.wilk@oracle.com>,
+	"jeremy\@goop.org" <jeremy@goop.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"jbarnes\@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
+	"jbeulich\@novell.com" <jbeulich@novell.com>,
+	"joe.jin\@oracle.com" <joe.jin@oracle.com>,
+	"lersek\@redhat.com" <lersek@redhat.com>,
+	"weiyi.huang\@gmail.com" <weiyi.huang@gmail.com>,
+	"dgdegra\@tycho.nsa.gov" <dgdegra@tycho.nsa.gov>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"paul.gortmaker\@windriver.com" <paul.gortmaker@windriver.com>,
+	"akpm\@linux-foundation.org" <akpm@linux-foundation.org>,
+	"waldi\@debian.org" <waldi@debian.org>,
+	"virtualization\@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci\@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel\@vg
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/06/2012 02:22 AM, Sergei Trofimovich wrote:
->> This one looks small to me, as the tcp_{r,w}mem were count by bytes and
->> >  limit were count by number of pages, so we need to shift PAGE_SHIFT.
->> >  
->> >  As I can't reproduce this locally, in order to narrow down the problem,
->> >  could you please help to check whether the issue were
->> >  introduced/eliminated by commit  4acb4190 or 3dc43e3?
-> I didn't think of server problem. I did run 3.3-rc0 kernel there
-> from the kvm tree (v3.2-10396-g05ef4c6):
->      commit 05ef4c60568ed1740f65bf66a76da30b19060119
->      Author: Michael S. Tsirkin<mst@redhat.com>
->      Date:   Wed Jan 18 20:07:09 2012 +0200
->
->          kvm: fix error handling for out of range irq
->
->      from git://git.kernel.org/pub/scm/virt/kvm/kvm.git
->
-> Updating to current vanilla 3.3-rc6 solved the problem.
-> Are you interested in digging that issue further to find commit
-> breaking the server?
-Hi Sergei:
+On Mon, 5 Mar 2012 13:49:07 -0800, Santosh Jodh <Santosh.Jodh@citrix.com> wrote:
+> +/* Order of maximum shared ring size advertised to the front end. */
+> +int xen_blkif_max_ring_order = XENBUS_MAX_RING_ORDER;
+> +
+> +#define BLK_RING_SIZE(_order) __CONST_RING_SIZE(blkif, PAGE_SIZE << (_order))
+> +
+> +static int set_max_ring_order(const char *buf, struct kernel_param *kp)
+> +{
+> +       int err;
+> +       unsigned long order;
+> +
+> +       err = kstrtol(buf, 0, &order);
+> +       if (err ||
+> +           order < 0 ||
+> +           order > XENBUS_MAX_RING_ORDER)
+> +               return -EINVAL;
 
-So it's very possible that it's a bug which is blacklisted by early 
-commits and uncovered by my commit ( 
-c43b874d5d714f271b80d4c3f49e05d0cbf51ed2). I wish I can help in nfs 
-debugging, but I'm not familiar with that.
+Hmm, order can't be < 0, since it's unsigned.  So did you mean
+kstrtoull?
 
-thanks
+And I think returning err is cleaner (it's -EINVAL for malformed
+strings, -ERANGE for ones too big).
+
+> +       if (xen_blkif_reqs < BLK_RING_SIZE(order))
+> +               printk(KERN_WARNING "WARNING: "
+> +                      "I/O request space (%d reqs) < ring order %ld, "
+> +                      "consider increasing %s.reqs to >= %ld.",
+> +                      xen_blkif_reqs, order, KBUILD_MODNAME,
+> +                      roundup_pow_of_two(BLK_RING_SIZE(order)));
+
+This message doesn't mention the module namr or parameter name
+anywhere.  Think of the poor sysadmins!
+
+Thanks,
+Rusty.
+-- 
+  How could I marry someone with more hair than me?  http://baldalex.org
