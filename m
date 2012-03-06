@@ -1,99 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] lpc32xx: Added ethernet driver
-Date: Tue, 06 Mar 2012 16:20:17 -0500 (EST)
-Message-ID: <20120306.162017.761246743182346842.davem@davemloft.net>
-References: <1331067664-9124-1-git-send-email-stigge@antcom.de>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: 2.6.34 -> 3.0.23 regression?
+Date: Tue, 06 Mar 2012 22:16:19 +0100
+Message-ID: <4F567EA3.5000102@arndnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, baruch@tkos.co.il, ian.campbell@citrix.com,
- arnd@arndb.de, netdev@vger.kernel.org, w.sang@pengutronix.de,
- kevin.wells@nxp.com, eilong@broadcom.com, jeffrey.t.kirsher@intel.com,
- joe@perches.com, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: stigge@antcom.de
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1331067664-9124-1-git-send-email-stigge@antcom.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.unitix.de ([176.9.2.175]:41818 "EHLO mail2.unitix.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755634Ab2CFVYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2012 16:24:25 -0500
+Received: from [192.168.1.64] (77-216.eduroam.rwth-aachen.de [134.61.77.216])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail2.unitix.de (Postfix) with ESMTPSA id 78CAF4EF1
+	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 22:16:19 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roland Stigge <stigge@antcom.de>
-Date: Tue,  6 Mar 2012 22:01:04 +0100
+Hi,
 
-> +#define RXSTATUS_STATUS_ERROR \
-> +	(RXSTATUS_NODESC | RXSTATUS_OVERRUN | RXSTATUS_ALIGN | RXSTATUS_RANGE \
-> +	 | RXSTATUS_LENGTH | RXSTATUS_SYMBOL | RXSTATUS_CRC)
+I upgraded a router box from kernel 2.6.34 to 3.0.23.
+After the upgrade my proxy redirect was not working anymore
+until I manually put the LAN interface (br0) in promisc mode.
 
-Should be:
+Is it expected behavior that I need to set the interface into PROMISC
+mode in order to get DNAT in PREROUTING to work?
+With kernel 2.6.34 this was not needed...
 
-#define RXSTATUS_STATUS_ERROR \
-	(RXSTATUS_NODESC | RXSTATUS_OVERRUN | RXSTATUS_ALIGN | RXSTATUS_RANGE | \
-	 RXSTATUS_LENGTH | RXSTATUS_SYMBOL | RXSTATUS_CRC)
+Details:
+192.168.1.1 is a router box and default gateway for clients
+  connected to 192.168.1.0/24 via br0,
+  connected to internet via wlan0,
+192.168.1.2 is a proxy server running squid on port 3128
 
-> +static int lpc_eth_hard_start_xmit(struct sk_buff *skb,
-> +	struct net_device *ndev);
+Iptables rules -t nat (simplified)
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination
+DNAT       tcp  -- !192.168.1.2          0.0.0.0/0           tcp dpt:80 to:192.168.1.2:3128
 
-Should be:
+Chain POSTROUTING (policy ACCEPT)
+target     prot opt source               destination
+SNAT       tcp  --  192.168.1.0/24       0.0.0.0/0           tcp dpt:3128 to:192.168.1.1
 
-static int lpc_eth_hard_start_xmit(struct sk_buff *skb,
-				   struct net_device *ndev);
 
-> +struct txrx_desc_t {
-> +	u32 packet;
-> +	u32 control;
-> +};
-> +struct rx_status_t {
-> +	u32 statusinfo;
-> +	u32 statushashcrc;
-> +};
-
-What is the endianness of these descriptors?  Based upon the answer to
-that question use __be32 or __le32  instead of u32.
-
-> +static void __lpc_eth_clock_enable(struct netdata_local *pldat,
-> +	int enable)
-
-Should be:
-
-static void __lpc_eth_clock_enable(struct netdata_local *pldat,
-				   int enable)
-
-And you should also use "bool" for enable and pass in true/false
-at the call sites.
-
-> +	writel((LPC_MACINT_RXDONEINTEN | LPC_MACINT_TXDONEINTEN),
-> +		LPC_ENET_INTENABLE(regbase));
-
-Should be:
-
-	writel((LPC_MACINT_RXDONEINTEN | LPC_MACINT_TXDONEINTEN),
-	       LPC_ENET_INTENABLE(regbase));
-
-> +	/* Setup base addresses in hardware to point to buffers and
-> +	   descriptors */
-
-Should be:
-
-	/* Setup base addresses in hardware to point to buffers and
-	 * descriptors.
-	 */
-
-> +	writel((ENET_TX_DESC - 1),
-> +		LPC_ENET_TXDESCRIPTORNUMBER(pldat->net_base));
-
-All of these writel() calls are improperly indented on the second and
-any subsequent lines just like the one I pointed out above, fix them
-all.
-
-> +MODULE_LICENSE("GPL");
-> +
-
-Tailing empty line in this file, please remove.
+Best regards
+Arnd
