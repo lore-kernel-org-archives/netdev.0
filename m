@@ -1,75 +1,72 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next/usb-next v3 0/5] cdc-wdm/qmi_wwan: subdriver
- support
-Date: Tue, 6 Mar 2012 06:35:59 -0800
-Message-ID: <20120306143559.GB23314@kroah.com>
-References: <1330528507-16551-1-git-send-email-bjorn@mork.no>
- <878vjeuebk.fsf@nemi.mork.no>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 3/6] netfilter: ctnetlink: use GFP_ATOMIC in all
+ allocations
+Date: Tue, 6 Mar 2012 15:48:38 +0100
+Message-ID: <20120306144838.GA1527@1984>
+References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
+ <1331032975-5303-4-git-send-email-pablo@netfilter.org>
+ <1331038221.9504.9.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60100 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030750Ab2CFOpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:45:42 -0500
-Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id B4E47210F5
-	for <netdev@vger.kernel.org>; Tue,  6 Mar 2012 09:45:41 -0500 (EST)
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <878vjeuebk.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1331038221.9504.9.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2012 at 01:03:11PM +0100, Bj=F8rn Mork wrote:
-> Bj=F8rn Mork <bjorn@mork.no> writes:
->=20
-> > Note that the netdev patches still depend on the 3 first patches of=
- this
-> > set, and should not be applied independently. The 3 first do not ye=
-t
-> > apply to net-next, as they depend on other patches in usb-next and
-> > linux-next. Please let me know if this sort of cross-system
-> > patch set should be handled otherwise.
-> >
-> > All 5 patches are verified to apply cleanly to linux-next tag next-=
-20120229.
-> > Patches 1-3 are verified to apply to usb-next commit aac1fc386
-> > Patches 4-5 are verified to apply to net-next commit 9100eb012 , bu=
-t will
-> > cause build errors there due to the lack of the required 3 first pa=
-tches
-> > as noted above.
-> >
-> > Bj=F8rn Mork (5):
-> >   usb: cdc-wdm: split out reusable parts of probe
-> >   usb: cdc-wdm: adding list lookup indirection
-> >   usb: cdc-wdm: adding usb_cdc_wdm_register subdriver support
-> >   net: qmi_wwan: support devices having a shared QMI/wwan interface
-> >   net: qmi_wwan: add Gobi and Pantech UML290 device IDs
-> >
->=20
-> Hello Greg,
->=20
-> I believe I may have promised to ping you when these patches were
-> ready.  Please apply patch 1-3 from this series to your usb-next bran=
-ch
-> (for Linux 3.4). They were acked by Oliver a week ago.
+On Tue, Mar 06, 2012 at 04:50:21AM -0800, Eric Dumazet wrote:
+> On Tue, 2012-03-06 at 12:22 +0100, pablo@netfilter.org wrote:
+> > From: Pablo Neira Ayuso <pablo@netfilter.org>
+> > 
+> > All ctnetlink operations are invoked inside rcu_read_lock
+> > (see net/netfilter/nfnetlink.c).
+> > 
+> > Allocations have to be atomic, as RCU requires.
+> > 
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> > ---
+> >  net/netfilter/nf_conntrack_netlink.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+> > index 1068769..867843f 100644
+> > --- a/net/netfilter/nf_conntrack_netlink.c
+> > +++ b/net/netfilter/nf_conntrack_netlink.c
+> > @@ -1002,7 +1002,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+> >  	ct = nf_ct_tuplehash_to_ctrack(h);
+> >  
+> >  	err = -ENOMEM;
+> > -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> > +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+> >  	if (skb2 == NULL) {
+> >  		nf_ct_put(ct);
+> >  		return -ENOMEM;
+> > @@ -1865,7 +1865,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+> >  	}
+> >  
+> >  	err = -ENOMEM;
+> > -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+> > +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+> >  	if (skb2 == NULL) {
+> >  		nf_ct_expect_put(exp);
+> >  		goto out;
+> 
+> This cant be right.
+> 
+> Really this must be kept as GFP_KERNEL allocations.
+> 
+> Only if .call_rcu member is used in place of .call rcu_read_lock() is
+> held instead of nfnl_lock().
 
-Great, can you resend them to me please, with Oliver's ack?  I don't se=
-e
-them in my to-apply queue anymore as I thought they were still under
-review.
+I thought we couldn't sleep while holding rcu_read_lock.
 
-> Patches 4 and 5 (for netdev) will have to wait until the first 3 are
-> merged.
+> You should take a look at all GFP_ATOMIC uses in
+> net/netfilter/nf_conntrack_netlink.c and check if they can be GFP_KERNEL
+> instead.
 
-I can take them through my tree if they are dependant on the first 3,
-that's not a problem.
+David, can you take all patches except this one?
 
-thanks,
-
-greg k-h
+I'll have to rebase my tree after this, sorry.
