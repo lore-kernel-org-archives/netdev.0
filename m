@@ -1,27 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.3.0-rc5: OOps in dql_completed (Broadcom tg3 driver)
-Date: Mon, 05 Mar 2012 21:22:28 -0800
-Message-ID: <1331011348.2474.28.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1203011505510.6685@router.home>
-	 <1330698646.2469.28.camel@edumazet-laptop>
-	 <CA+mtBx_vNcPr-q7FSKXCAsVqvjZt=4UpWfv5eAp0=diG0wnbjQ@mail.gmail.com>
-	 <CA+mtBx8oiDq+k3U705xYaV3xUsi=DnSWwCkymEONRcX3su77Fg@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: fix tcp_shift_skb_data() to not shift SACKed data below snd_una
+Date: Tue,  6 Mar 2012 00:35:04 -0500
+Message-ID: <1331012104-20170-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@gentwo.org>, mcarlson@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+mtBx8oiDq+k3U705xYaV3xUsi=DnSWwCkymEONRcX3su77Fg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f74.google.com ([74.125.82.74]:43716 "EHLO
+	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751189Ab2CFFfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:35:07 -0500
+Received: by wgbdt11 with SMTP id dt11so172124wgb.1
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 21:35:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 05 mars 2012 =C3=A0 21:14 -0800, Tom Herbert a =C3=A9crit :
-> BQL implementation for tg3 does not handle multi queue correctly.
-> Will have a fix for that momentarily.
->=20
+This commit fixes tcp_shift_skb_data() so that it does not shift
+SACKed data below snd_una.
 
-Ah good catch.=20
+This fixes an issue whose symptoms exactly match reports showing
+tp->sacked_out going negative since 3.3.0-rc4 (see "WARNING: at
+net/ipv4/tcp_input.c:3418" thread on netdev).
 
-I never had a multi queue tg3, I couldnt figure out this :)
+Since 2008 (832d11c5cd076abc0aa1eaf7be96c81d1a59ce41)
+tcp_shift_skb_data() had been shifting SACKed ranges that were below
+snd_una. It checked that the *end* of the skb it was about to shift
+from was above snd_una, but did not check that the end of the actual
+shifted range was above snd_una; this commit adds that check.
+
+Shifting SACKed ranges below snd_una is problematic because for such
+ranges tcp_sacktag_one() short-circuits: it does not declare anything
+as SACKed and does not increase sacked_out.
+
+Before the fixes in commits cc9a672ee522d4805495b98680f4a3db5d0a0af9
+and daef52bab1fd26e24e8e9578f8fb33ba1d0cb412, shifting SACKed ranges
+below snd_una happened to work because tcp_shifted_skb() was always
+(incorrectly) passing in to tcp_sacktag_one() an skb whose end_seq
+tcp_shift_skb_data() had already guaranteed was beyond snd_una. Hence
+tcp_sacktag_one() never short-circuited and always increased
+tp->sacked_out in this case.
+
+After those two fixes, my testing has verified that shifting SACKed
+ranges below snd_una could cause tp->sacked_out to go negative with
+the following sequence of events:
+
+(1) tcp_shift_skb_data() sees an skb whose end_seq is beyond snd_una,
+    then shifts a prefix of that skb that is below snd_una
+
+(2) tcp_shifted_skb() increments the packet count of the
+    already-SACKed prev sk_buff
+
+(3) tcp_sacktag_one() sees the end of the new SACKed range is below
+    snd_una, so it short-circuits and doesn't increase tp->sacked_out
+
+(5) tcp_clean_rtx_queue() sees the SACKed skb has been ACKed,
+    decrements tp->sacked_out by this "inflated" pcount that was
+    missing a matching increase in tp->sacked_out, and hence
+    tp->sacked_out underflows to a u32 like 0xFFFFFFFF, which casted
+    to s32 is negative.
+
+(6) this leads to the warnings seen in the recent "WARNING: at
+    net/ipv4/tcp_input.c:3418" thread on the netdev list; e.g.:
+    tcp_input.c:3418  WARN_ON((int)tp->sacked_out < 0);
+
+More generally, I think this bug can be tickled in some cases where
+two or more ACKs from the receiver are lost and then a DSACK arrives
+that is immediately above an existing SACKed skb in the write queue.
+
+This fix changes tcp_shift_skb_data() to abort this sequence at step
+(1) in the scenario above by noticing that the bytes are below snd_una
+and not shifting them.
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d9b83d1..b5e315f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1585,6 +1585,10 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	/* tcp_sacktag_one() won't SACK-tag ranges below snd_una */
++	if (!after(TCP_SKB_CB(skb)->seq + len, tp->snd_una))
++		goto fallback;
++
+ 	if (!skb_shift(prev, skb, len))
+ 		goto fallback;
+ 	if (!tcp_shifted_skb(sk, skb, state, pcount, len, mss, dup_sack))
+-- 
+1.7.7.3
