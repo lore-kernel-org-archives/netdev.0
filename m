@@ -1,64 +1,150 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next 6/8] net/mlx4: fixing sparse warnings for not declared,
- functions
-Date: Tue, 6 Mar 2012 16:04:47 +0200
-Message-ID: <4F56197F.1060403@mellanox.co.il>
+Subject: [PATCH net-next 7/8] net/mlx4: remove unused functions
+Date: Tue, 6 Mar 2012 16:04:54 +0200
+Message-ID: <4F561986.4010400@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:55444 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1030359Ab2CFOEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:04:54 -0500
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:39296 "HELO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1030359Ab2CFOFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 09:05:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-The SET_PORT functions are implemented in port.c, which is part
-of mlx4_core, these functions are exported. The functions are in use by
-the mlx4_en module (were originally part of mlx4_en).
-Their declaration remained in mlx4_en module, moving the declaration to the right location.
+Removing functions that are no longer in use, but still exist
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    4 ----
- include/linux/mlx4/device.h                  |    5 ++++-
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   10 ----
+ drivers/net/ethernet/mellanox/mlx4/mr.c |   75 -------------------------------
+ 2 files changed, 0 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 8f4e655..9e2b911 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -553,10 +553,6 @@ void mlx4_en_rx_irq(struct mlx4_cq *mcq);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 9ea7cab..2a02ba5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -685,16 +685,6 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 	return err;
+ }
  
- int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port, u64 mac, u64 clear, u8 mode);
- int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
--int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
--			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
--int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
--			   u8 promisc);
- 
- int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset);
- int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index aea6190..44d8144 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -622,7 +622,10 @@ int mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac);
- int mlx4_get_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn);
- void mlx4_put_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int qpn);
- void mlx4_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap);
+-int mlx4_QUERY_PORT(struct mlx4_dev *dev, void *ptr, u8 port)
+-{
+-	struct mlx4_cmd_mailbox *outbox = ptr;
 -
-+int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
-+			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
-+int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
-+			   u8 promisc);
- int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
- int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
- void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
+-	return mlx4_cmd_box(dev, 0, outbox->dma, port, 0,
+-			    MLX4_CMD_QUERY_PORT, MLX4_CMD_TIME_CLASS_B,
+-			    MLX4_CMD_WRAPPED);
+-}
+-EXPORT_SYMBOL_GPL(mlx4_QUERY_PORT);
+-
+ int mlx4_map_cmd(struct mlx4_dev *dev, u16 op, struct mlx4_icm *icm, u64 virt)
+ {
+ 	struct mlx4_cmd_mailbox *mailbox;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 25a80d7..9f693e1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -304,29 +304,6 @@ static int mlx4_HW2SW_MPT(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox
+ 			    MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
+ }
+ 
+-int mlx4_mr_reserve_range(struct mlx4_dev *dev, int cnt, int align,
+-			  u32 *base_mridx)
+-{
+-	struct mlx4_priv *priv = mlx4_priv(dev);
+-	u32 mridx;
+-
+-	mridx = mlx4_bitmap_alloc_range(&priv->mr_table.mpt_bitmap, cnt, align);
+-	if (mridx == -1)
+-		return -ENOMEM;
+-
+-	*base_mridx = mridx;
+-	return 0;
+-
+-}
+-EXPORT_SYMBOL_GPL(mlx4_mr_reserve_range);
+-
+-void mlx4_mr_release_range(struct mlx4_dev *dev, u32 base_mridx, int cnt)
+-{
+-	struct mlx4_priv *priv = mlx4_priv(dev);
+-	mlx4_bitmap_free_range(&priv->mr_table.mpt_bitmap, base_mridx, cnt);
+-}
+-EXPORT_SYMBOL_GPL(mlx4_mr_release_range);
+-
+ int mlx4_mr_alloc_reserved(struct mlx4_dev *dev, u32 mridx, u32 pd,
+ 			   u64 iova, u64 size, u32 access, int npages,
+ 			   int page_shift, struct mlx4_mr *mr)
+@@ -852,46 +829,6 @@ err_free:
+ }
+ EXPORT_SYMBOL_GPL(mlx4_fmr_alloc);
+ 
+-int mlx4_fmr_alloc_reserved(struct mlx4_dev *dev, u32 mridx,
+-			    u32 pd, u32 access, int max_pages,
+-			    int max_maps, u8 page_shift, struct mlx4_fmr *fmr)
+-{
+-	struct mlx4_priv *priv = mlx4_priv(dev);
+-	int err = -ENOMEM;
+-
+-	if (page_shift < (ffs(dev->caps.page_size_cap) - 1) || page_shift >= 32)
+-		return -EINVAL;
+-
+-	/* All MTTs must fit in the same page */
+-	if (max_pages * sizeof *fmr->mtts > PAGE_SIZE)
+-		return -EINVAL;
+-
+-	fmr->page_shift = page_shift;
+-	fmr->max_pages  = max_pages;
+-	fmr->max_maps   = max_maps;
+-	fmr->maps = 0;
+-
+-	err = mlx4_mr_alloc_reserved(dev, mridx, pd, 0, 0, access, max_pages,
+-				     page_shift, &fmr->mr);
+-	if (err)
+-		return err;
+-
+-	fmr->mtts = mlx4_table_find(&priv->mr_table.mtt_table,
+-				    fmr->mr.mtt.offset,
+-				    &fmr->dma_handle);
+-	if (!fmr->mtts) {
+-		err = -ENOMEM;
+-		goto err_free;
+-	}
+-
+-	return 0;
+-
+-err_free:
+-	mlx4_mr_free_reserved(dev, &fmr->mr);
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(mlx4_fmr_alloc_reserved);
+-
+ int mlx4_fmr_enable(struct mlx4_dev *dev, struct mlx4_fmr *fmr)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -954,18 +891,6 @@ int mlx4_fmr_free(struct mlx4_dev *dev, struct mlx4_fmr *fmr)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_fmr_free);
+ 
+-int mlx4_fmr_free_reserved(struct mlx4_dev *dev, struct mlx4_fmr *fmr)
+-{
+-	if (fmr->maps)
+-		return -EBUSY;
+-
+-	mlx4_mr_free_reserved(dev, &fmr->mr);
+-	fmr->mr.enabled = MLX4_MR_DISABLED;
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(mlx4_fmr_free_reserved);
+-
+ int mlx4_SYNC_TPT(struct mlx4_dev *dev)
+ {
+ 	return mlx4_cmd(dev, 0, 0, 0, MLX4_CMD_SYNC_TPT, 1000,
 -- 
 1.7.7
