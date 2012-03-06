@@ -1,50 +1,43 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH] net: make CONFIG_BQL actually end user configurable
-Date: Mon, 05 Mar 2012 20:11:26 -0800
-Message-ID: <4F558E6E.4000707@intel.com>
-References: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vlan: Support sending custom Ethernet CRC.
+Date: Mon, 05 Mar 2012 23:12:13 -0500 (EST)
+Message-ID: <20120305.231213.1657967586545663587.davem@davemloft.net>
+References: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
+	<20120305.211449.2159840360912052625.davem@davemloft.net>
+	<4F558BBD.1050400@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, davem@davemloft.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:64454 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964934Ab2CFEL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Mar 2012 23:11:28 -0500
-In-Reply-To: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59329 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964934Ab2CFENS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 23:13:18 -0500
+In-Reply-To: <4F558BBD.1050400@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/5/2012 7:38 PM, Paul Gortmaker wrote:
-> Without the defining string or help text, LKC won't ever bother
-> to ask the end user for a setting for CONFIG_BQL -- you could
-> delete it from your .config and run make oldconfig and not a
-> thing would change -- it would still be silently re-enabled.
-> 
-> While most people will have no reason to turn this off, the
-> ability to do so can be useful for testing BQL support additions
-> on previously BQL-unaware drivers and similar.
-> 
-> The kconfig help text is largely taken from the original RFC
-> patchset 0/N header sent to netdev@vger.kernel.org in fall 2011.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
-> 
-> [Apologies if this was explicitly blocked for a reason; I couldn't
->  find a reason after searching netdev or threads at bufferbloat.net ]
-> 
+From: Ben Greear <greearb@candelatech.com>
+Date: Mon, 05 Mar 2012 19:59:57 -0800
 
-It was intentional "The Kconfig entry and option is merely for
-expressing internal dependencies,". See the comments in the patch
+> On 03/05/2012 06:14 PM, David Miller wrote:
+>> From: greearb@candelatech.com
+>> Date: Mon,  5 Mar 2012 18:05:58 -0800
+>>
+>>> NOTE:  You will probably have to disable any
+>>> VLAN hardware assist on the underlying device to get
+>>> this to properly send packets with this feature enabled.
+>>
+>> This need to be therefore handled specifically on a device-by-device
+>> basis, and VLAN custom CRC disabled unless the device explicitly
+>> states that it can handle this situation properly and has any
+>> necessary feature rule enforcement codified.
+> 
+> I'll see what I can come up with.  Maybe figure out how to propagate
+> a flag up from the NIC when it is in a state that can handle VLAN +
+> custom-CRC
+> and only enable the flag on the VLAN in that case...
 
-http://patchwork.ozlabs.org/patch/128727/
-
-And corresponding mail,
-
-http://lists.openwall.net/netdev/2011/12/01/130
-
-.John
+NETIF_F_CAN_VLAN_WITH_CUSTOM_CRC
