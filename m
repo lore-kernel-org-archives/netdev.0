@@ -1,51 +1,132 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] vlan: Support sending custom Ethernet CRC.
-Date: Tue, 6 Mar 2012 16:16:34 +0000
-Message-ID: <1331050594.2333.5.camel@bwh-desktop>
-References: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
-	 <20120305.211449.2159840360912052625.davem@davemloft.net>
-	 <4F558BBD.1050400@candelatech.com>
-	 <20120305.231213.1657967586545663587.davem@davemloft.net>
+Subject: Re: [net-next 1/4] phy: add the EEE support and the way to access
+ to the MMD regs
+Date: Tue, 6 Mar 2012 16:55:13 +0000
+Message-ID: <1331052913.2333.16.camel@bwh-desktop>
+References: <4F4E4D4B.3040909@st.com>
+	 <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
+	 <1331022494-12891-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <greearb@candelatech.com>, <netdev@vger.kernel.org>,
-	<kaber@trash.net>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<rayagond@vayavyalabs.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:44461 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:22069 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754430Ab2CFQQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 11:16:37 -0500
-In-Reply-To: <20120305.231213.1657967586545663587.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1755637Ab2CFQzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 11:55:17 -0500
+In-Reply-To: <1331022494-12891-2-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-05 at 23:12 -0500, David Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Mon, 05 Mar 2012 19:59:57 -0800
+On Tue, 2012-03-06 at 09:28 +0100, Giuseppe CAVALLARO wrote:
+> This patch adds the initial support for the Energy-Efficient
+> Ethernet (EEE). It has been tested on IC+101G device on ST STB.
 > 
-> > On 03/05/2012 06:14 PM, David Miller wrote:
-> >> From: greearb@candelatech.com
-> >> Date: Mon,  5 Mar 2012 18:05:58 -0800
-> >>
-> >>> NOTE:  You will probably have to disable any
-> >>> VLAN hardware assist on the underlying device to get
-> >>> this to properly send packets with this feature enabled.
-> >>
-> >> This need to be therefore handled specifically on a device-by-device
-> >> basis, and VLAN custom CRC disabled unless the device explicitly
-> >> states that it can handle this situation properly and has any
-> >> necessary feature rule enforcement codified.
-> > 
-> > I'll see what I can come up with.  Maybe figure out how to propagate
-> > a flag up from the NIC when it is in a state that can handle VLAN +
-> > custom-CRC
-> > and only enable the flag on the VLAN in that case...
+> To support the EEE we have to access to the MMD registers 3.20 and
+> 3.60/61. So I added two new functions to read/write the MMD
+> registers (clause 45)
 > 
-> NETIF_F_CAN_VLAN_WITH_CUSTOM_CRC
+> The upper-layer will invoke the phy_check_eee to properly check
+> if the EEE is supported by the PHYs.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/phy/phy_device.c |  136 ++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/mdio.h         |    5 ++
+>  include/linux/mii.h          |   11 ++++
+>  include/linux/phy.h          |    3 +
+>  4 files changed, 155 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index f320f46..c269492e 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+[...]
+> @@ -898,6 +899,141 @@ int genphy_resume(struct phy_device *phydev)
+>  }
+>  EXPORT_SYMBOL(genphy_resume);
+>  
+> +static inline void mmd_phy_cl45(struct mii_bus *bus, int prtad, int devad,
+> +				int addr)
+[...]
+> +/**
+> + * read_phy_mmd - reads data from the MMC register (clause 22 to access to
+> + * clause 45)
+[...]
+> +/**
+> + * write_phy_mmd - writes data to the MMC register (clause 22 to access to
+> + * clause 45)
 
-Er... vlan_features?
+These names need to be changed as phylib also supports (or is intended
+to support) real clause 45 PHYs.
+
+[...]
+> diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+> index dfb9479..a2dfe86 100644
+> --- a/include/linux/mdio.h
+> +++ b/include/linux/mdio.h
+> @@ -43,7 +43,11 @@
+>  #define MDIO_PKGID2		15
+>  #define MDIO_AN_ADVERTISE	16	/* AN advertising (base page) */
+>  #define MDIO_AN_LPA		19	/* AN LP abilities (base page) */
+> +#define MDIO_EEE_CAP		20	/* EEE Capability register */
+> +#define MDIO_EEE_WK_ERR		22	/* EEE wake error counter */
+>  #define MDIO_PHYXS_LNSTAT	24	/* PHY XGXS lane state */
+> +#define MDIO_EEE_ADV		60	/* EEE advertisement */
+> +#define MDIO_EEE_PART_LINK	61	/* EEE link partner ability */
+>  
+>  /* Media-dependent registers. */
+>  #define MDIO_PMA_10GBT_SWAPPOL	130	/* 10GBASE-T pair swap & polarity */
+
+The convention I tried to set here was that register numbers defined for
+only one MMD are named beginning with MDIO_<mmd>_.  I also used 'LP' for
+link partner and 'ABLE' for capability/ability.
+
+So for consistency I think those should be named MDIO_PCS_EEE_ABLE,
+MDIO_PCS_EEE_WK_ERR, MDIO_AN_EEE_ADV, MDIO_AN_EEE_LPABLE.
+
+> @@ -82,6 +86,7 @@
+>  #define MDIO_AN_CTRL1_RESTART		BMCR_ANRESTART
+>  #define MDIO_AN_CTRL1_ENABLE		BMCR_ANENABLE
+>  #define MDIO_AN_CTRL1_XNP		0x2000	/* Enable extended next page */
+> +#define MDIO_PCS_CLK_STOP_ENABLE	0x400	/* Stop the clock during LPI */
+
+Register field mask names should begin with the register number name, so
+that it's easier to see whether you're using them correctly.  So this
+should be something like MDIO_PCS_CTRL1_CLK_STOP_ENABLE or (slightly
+shorter) MDIO_PCS_CTRL1_CLKSTOP_EN.
+ 
+>  /* 10 Gb/s */
+>  #define MDIO_CTRL1_SPEED10G		(MDIO_CTRL1_SPEEDSELEXT | 0x00)
+> diff --git a/include/linux/mii.h b/include/linux/mii.h
+> index 2783eca..18457add 100644
+> --- a/include/linux/mii.h
+> +++ b/include/linux/mii.h
+> @@ -21,6 +21,8 @@
+>  #define MII_EXPANSION		0x06	/* Expansion register          */
+>  #define MII_CTRL1000		0x09	/* 1000BASE-T control          */
+>  #define MII_STAT1000		0x0a	/* 1000BASE-T status           */
+> +#define	MII_MMD_CRTL		0x0d	/* MMD Access Control Register */
+
+Typo: CRTL should be CTRL.
+
+> +#define	MII_MMD_DATA		0x0e	/* MMD Access Data Register */
+>  #define MII_ESTATUS		0x0f	/* Extended Status             */
+>  #define MII_DCOUNTER		0x12	/* Disconnect counter          */
+>  #define MII_FCSCOUNTER		0x13	/* False carrier counter       */
+> @@ -141,6 +143,15 @@
+>  #define FLOW_CTRL_TX		0x01
+>  #define FLOW_CTRL_RX		0x02
+>  
+> +/* MMD Access Control register fields */
+> +#define MII_MMD_CRTL_DEVAD_MASK			0x1f	/* Mask MMD DEVAD*/
+> +#define MII_MMD_CRTL_FUNC_ADDR			0x0000	/* Address */
+[...]
+
+Again here.
 
 Ben.
 
