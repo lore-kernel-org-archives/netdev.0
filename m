@@ -1,67 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/6] netfilter: ctnetlink: use GFP_ATOMIC in all
- allocations
-Date: Tue, 06 Mar 2012 04:50:21 -0800
-Message-ID: <1331038221.9504.9.camel@edumazet-glaptop>
-References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
-	 <1331032975-5303-4-git-send-email-pablo@netfilter.org>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net V1] mlx4_core: remove buggy sched_queue masking
+Date: Tue, 6 Mar 2012 15:05:14 +0200
+Message-ID: <4F560B8A.8080508@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1331032975-5303-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, 2012-03-06 at 12:22 +0100, pablo@netfilter.org wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> All ctnetlink operations are invoked inside rcu_read_lock
-> (see net/netfilter/nfnetlink.c).
-> 
-> Allocations have to be atomic, as RCU requires.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  net/netfilter/nf_conntrack_netlink.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-> index 1068769..867843f 100644
-> --- a/net/netfilter/nf_conntrack_netlink.c
-> +++ b/net/netfilter/nf_conntrack_netlink.c
-> @@ -1002,7 +1002,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
->  	ct = nf_ct_tuplehash_to_ctrack(h);
->  
->  	err = -ENOMEM;
-> -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
->  	if (skb2 == NULL) {
->  		nf_ct_put(ct);
->  		return -ENOMEM;
-> @@ -1865,7 +1865,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
->  	}
->  
->  	err = -ENOMEM;
-> -	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-> +	skb2 = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
->  	if (skb2 == NULL) {
->  		nf_ct_expect_put(exp);
->  		goto out;
-
-This cant be right.
-
-Really this must be kept as GFP_KERNEL allocations.
-
-Only if .call_rcu member is used in place of .call rcu_read_lock() is
-held instead of nfnl_lock().
-
-You should take a look at all GFP_ATOMIC uses in
-net/netfilter/nf_conntrack_netlink.c and check if they can be GFP_KERNEL
-instead.
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:48892 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750789Ab2CFNFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 08:05:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+Fixes a bug introduced by commit fe9a2603c, where the priority bits
+in the schedule queue field were masked out.
 
+Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+
+Diff from V0:
+  removed the port assignment, it was only used to determine the port type
+  and then to decide whether to do the masking or not.
+
+ drivers/net/ethernet/mellanox/mlx4/qp.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index 738f950..fb2b367 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -151,11 +151,6 @@ static int __mlx4_qp_modify(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
+ 		context->log_page_size   = mtt->page_shift - MLX4_ICM_PAGE_SHIFT;
+ 	}
+ 
+-	port = ((context->pri_path.sched_queue >> 6) & 1) + 1;
+-	if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH)
+-		context->pri_path.sched_queue = (context->pri_path.sched_queue &
+-						0xc3);
+-
+ 	*(__be32 *) mailbox->buf = cpu_to_be32(optpar);
+ 	memcpy(mailbox->buf + 8, context, sizeof *context);
+ 
+-- 
+1.7.7
