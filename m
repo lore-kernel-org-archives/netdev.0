@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6] netfilter: nf_conntrack: fix early_drop with
- reliable event delivery
-Date: Tue, 06 Mar 2012 15:16:18 -0500 (EST)
-Message-ID: <20120306.151618.683601515842945468.davem@davemloft.net>
-References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
-	<1331032975-5303-7-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/8] net/mlx4: Performance enhancement and
+ cleanups
+Date: Tue, 06 Mar 2012 15:20:06 -0500 (EST)
+Message-ID: <20120306.152006.1441594424671261261.davem@davemloft.net>
+References: <4F561931.1000002@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1331032975-5303-7-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39211 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030950Ab2CFUUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:20:14 -0500
+In-Reply-To: <4F561931.1000002@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue,  6 Mar 2012 12:22:55 +0100
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 6 Mar 2012 16:03:29 +0200
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Hi Dave,
+> This patch consists of a patch with datapath pointer optimizations, which was submitted a week ago
+> and you agreed to accept it after resubmission.
+> In addition, there are 7 cleanup patches that remove sparse warnings for mlx4 drivers.
 > 
-> If reliable event delivery is enabled and ctnetlink fails to deliver
-> the destroy event in early_drop, the conntrack subsystem cannot
-> drop any the candidate flow that was planned to be evicted.
+> Or Gerlitz (2):
+>   net/mlx4: fix sparse warnings on TX control flags endianess
+>   net/mlx4: fix sparse warnings on TX blue flame buffer
 > 
-> Reported-by: Kerin Millar <kerframil@gmail.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Yevgeny Petrilin (6):
+>   net/mlx4_en: Saving mem access on data path
+>   net/mlx4: fix sparse warnings on wrong type for RSS keys
+>   net/mlx4: fixing sparse warnings when copying mac address to gid entry
+>   net/mlx4: fixing sparse warnings for not declared functions
+>   net/mlx4: remove unused functions
+>   net/mlx4: defining functions as static
 
-Applied.
-
-> +		/* Check if we indeed killed this entry. Reliable event
-> +		   delivery may have inserted it into the dying list. */
-> +		if (test_bit(IPS_DYING_BIT, &ct->status)) {
-
-Please don't allow misformatted comments like this into your
-tree next time, this should be:
-
-		/* Check if we indeed killed this entry. Reliable event
-		 * delivery may have inserted it into the dying list.
-		 */
+Series applied, thanks.
