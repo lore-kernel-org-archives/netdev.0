@@ -1,33 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] 8139too: Add 64bit statistics
-Date: Tue, 06 Mar 2012 00:05:33 -0500 (EST)
-Message-ID: <20120306.000533.1858956415842038668.davem@davemloft.net>
-References: <20120305113353.GA12969@Spy32>
-	<1330954326.2474.9.camel@edumazet-laptop>
-	<20120306031301.GA4516@Spy32>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: 3.3.0-rc5: OOps in dql_completed (Broadcom tg3 driver)
+Date: Mon, 5 Mar 2012 21:14:12 -0800
+Message-ID: <CA+mtBx8oiDq+k3U705xYaV3xUsi=DnSWwCkymEONRcX3su77Fg@mail.gmail.com>
+References: <alpine.DEB.2.00.1203011505510.6685@router.home>
+	<1330698646.2469.28.camel@edumazet-laptop>
+	<CA+mtBx_vNcPr-q7FSKXCAsVqvjZt=4UpWfv5eAp0=diG0wnbjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, greearb@candelatech.com,
-	adobriyan@gmail.com, jasowang@redhat.com, joe@perches.com,
-	netdev@vger.kernel.org
-To: junchangwang@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59572 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710Ab2CFFFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 00:05:43 -0500
-In-Reply-To: <20120306031301.GA4516@Spy32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@gentwo.org>, mcarlson@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+mtBx_vNcPr-q7FSKXCAsVqvjZt=4UpWfv5eAp0=diG0wnbjQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Junchang Wang <junchangwang@gmail.com>
-Date: Tue, 6 Mar 2012 11:13:05 +0800
+BQL implementation for tg3 does not handle multi queue correctly.
+Will have a fix for that momentarily.
 
-> 
-> Switch to use ndo_get_stats64 to get 64bit statistics.
-> Two sync entries are used (one for Rx and one for Tx).
-> 
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+Tom
 
-Applied, thanks.
+On Fri, Mar 2, 2012 at 9:23 AM, Tom Herbert <therbert@google.com> wrote=
+:
+> Hi Christoph, Eric,
+>
+> Looks like we're hitting BUG_ON(count > dql->num_queued -
+> dql->num_completed). =A0This is indicative of mis-accounting occurrin=
+g
+> between netdev_sent_queue and netdev_completed_queue. =A0I don't
+> immediately see how this could happen here in the tg3_tso_bug path,
+> this is still using the same calls to transmit and complete as other
+> paths. =A0I suppose it's possible that skb_gso_segment is somehow
+> munging skb->len in segments.
+>
+> I'll try to reproduce this.
+>
+>> In case we hit BQL limit in one of the tg3_start_xmit() calls, we sh=
+ould
+>> 'abort' the following ones, dont you think ?
+>
+> I'm not sure what you mean Eric. =A0It should be okay to exceed the B=
+QL
+> limit up to the point that num_queued rolls over (probably should be =
+a
+> BUG_ON for that). =A0This is a much greater number than could ever be
+> queued to tg3.
+>
+> Thanks,
+> Tom
+>
+>>
+>> Or maybe thats irrelevant, and only dql_queued() comment is wrong.
+>>
+>> Thanks
+>>
+>>
