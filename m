@@ -1,43 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: Support sending custom Ethernet CRC.
-Date: Mon, 05 Mar 2012 23:12:13 -0500 (EST)
-Message-ID: <20120305.231213.1657967586545663587.davem@davemloft.net>
-References: <1330999558-14270-1-git-send-email-greearb@candelatech.com>
-	<20120305.211449.2159840360912052625.davem@davemloft.net>
-	<4F558BBD.1050400@candelatech.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] net: make CONFIG_BQL actually end user configurable
+Date: Mon, 5 Mar 2012 23:17:43 -0500
+Message-ID: <CAP=VYLquLve9prZ+++NPbwivHLbB4rP8O5ULFnTnzn-Pxjducw@mail.gmail.com>
+References: <1331005096-12332-1-git-send-email-paul.gortmaker@windriver.com>
+	<4F558E6E.4000707@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: therbert@google.com, davem@davemloft.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964934Ab2CFENS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 23:13:18 -0500
-In-Reply-To: <4F558BBD.1050400@candelatech.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:38651 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964955Ab2CFERo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Mar 2012 23:17:44 -0500
+Received: by pbcun15 with SMTP id un15so3586548pbc.19
+        for <netdev@vger.kernel.org>; Mon, 05 Mar 2012 20:17:43 -0800 (PST)
+In-Reply-To: <4F558E6E.4000707@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 05 Mar 2012 19:59:57 -0800
+On Mon, Mar 5, 2012 at 11:11 PM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> On 3/5/2012 7:38 PM, Paul Gortmaker wrote:
 
-> On 03/05/2012 06:14 PM, David Miller wrote:
->> From: greearb@candelatech.com
->> Date: Mon,  5 Mar 2012 18:05:58 -0800
->>
->>> NOTE:  You will probably have to disable any
->>> VLAN hardware assist on the underlying device to get
->>> this to properly send packets with this feature enabled.
->>
->> This need to be therefore handled specifically on a device-by-device
->> basis, and VLAN custom CRC disabled unless the device explicitly
->> states that it can handle this situation properly and has any
->> necessary feature rule enforcement codified.
-> 
-> I'll see what I can come up with.  Maybe figure out how to propagate
-> a flag up from the NIC when it is in a state that can handle VLAN +
-> custom-CRC
-> and only enable the flag on the VLAN in that case...
+[...]
 
-NETIF_F_CAN_VLAN_WITH_CUSTOM_CRC
+>>
+>> [Apologies if this was explicitly blocked for a reason; I couldn't
+>> =A0find a reason after searching netdev or threads at bufferbloat.ne=
+t ]
+>>
+>
+> It was intentional "The Kconfig entry and option is merely for
+> expressing internal dependencies,". See the comments in the patch
+
+Thanks Dave and John.  Something told me this wasn't by accident, but
+somehow I still managed to overlook this in my search.  :(
+
+Paul.
+--
+
+>
+> http://patchwork.ozlabs.org/patch/128727/
+>
+> And corresponding mail,
+>
+> http://lists.openwall.net/netdev/2011/12/01/130
+>
+> .John
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
