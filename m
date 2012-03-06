@@ -1,70 +1,104 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0001/001] xen: multi page ring support for block devices
-Date: Tue, 06 Mar 2012 13:12:49 +1030
-Message-ID: <87ty22xxee.fsf@rustcorp.com.au>
-References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com> <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH 2/3] net: expose ebridge FDB with priv flag IFF_OFFLOADED_FDB
+Date: Mon, 05 Mar 2012 19:34:49 -0800
+Message-ID: <4F5585D9.5080501@intel.com>
+References: <20120229070418.10937.8692.stgit@jf-dev1-dcblab>  <20120229071719.10937.68718.stgit@jf-dev1-dcblab> <1330718193.2611.36.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Jodh <Santosh.Jodh@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: Santosh Jodh <Santosh.Jodh@citrix.com>,
-	"konrad.wilk\@oracle.com" <konrad.wilk@oracle.com>,
-	"jeremy\@goop.org" <jeremy@goop.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"jbarnes\@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	"jbeulich\@novell.com" <jbeulich@novell.com>,
-	"joe.jin\@oracle.com" <joe.jin@oracle.com>,
-	"lersek\@redhat.com" <lersek@redhat.com>,
-	"weiyi.huang\@gmail.com" <weiyi.huang@gmail.com>,
-	"dgdegra\@tycho.nsa.gov" <dgdegra@tycho.nsa.gov>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"paul.gortmaker\@windriver.com" <paul.gortmaker@windriver.com>,
-	"akpm\@linux-foundation.org" <akpm@linux-foundation.org>,
-	"waldi\@debian.org" <waldi@debian.org>,
-	"virtualization\@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pci\@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel\@vg
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, shemminger@vyatta.com, kernel@wantstofly.org,
+	hadi@cyberus.ca, roprabhu@cisco.com, mst@redhat.com,
+	netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:64085 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757214Ab2CFDew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Mar 2012 22:34:52 -0500
+In-Reply-To: <1330718193.2611.36.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 5 Mar 2012 13:49:07 -0800, Santosh Jodh <Santosh.Jodh@citrix.com> wrote:
-> +/* Order of maximum shared ring size advertised to the front end. */
-> +int xen_blkif_max_ring_order = XENBUS_MAX_RING_ORDER;
-> +
-> +#define BLK_RING_SIZE(_order) __CONST_RING_SIZE(blkif, PAGE_SIZE << (_order))
-> +
-> +static int set_max_ring_order(const char *buf, struct kernel_param *kp)
-> +{
-> +       int err;
-> +       unsigned long order;
-> +
-> +       err = kstrtol(buf, 0, &order);
-> +       if (err ||
-> +           order < 0 ||
-> +           order > XENBUS_MAX_RING_ORDER)
-> +               return -EINVAL;
+On 3/2/2012 11:56 AM, Ben Hutchings wrote:
+> On Tue, 2012-02-28 at 23:17 -0800, John Fastabend wrote:
+>> This adds a new private interface flag IFF_OFFLOADED_FDB and an
+>> additional ndmsg flag NTF_EMBEDDED.
+>>
+>> The private flag IFF_OFFLOADED_FDB should be set on devices to
+>> indicate an embedded bridging component exists with a forwarding
+>> database.
+>>
+>> With this set PF_BRIDGE:{RTM_NEWNEIGH|RTM_DELNEIGH|RTM_GETNEIGH}
+>> netlink msgs can manage the unicast address list on these devices
+>> by setting the NTF_EMBEDDED flag in ndm_flags.
+>>
+>> These commands are compatible with the SW bridge allowing the same
+>> user space tools to be used with both SW bridges and HW bridges.
+> [...]
+>> index 9e70191..7b1a581 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -211,6 +211,57 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+>>  	return 0;
+>>  }
+>>  
+>> +static int rtnl_offloaded_fdb_add(struct nlmsghdr *nlh, struct net_device *dev)
+>> +{
+>> +	struct ndmsg *ndm;
+>> +	struct netdev_hw_addr *ha;
+>> +	struct nlattr *tb[NDA_MAX+1];
+>> +	__u8 *addr;
+>> +	int err;
+>> +
+>> +	ASSERT_RTNL();
+>> +
+>> +	if (!(dev->priv_flags & IFF_OFFLOADED_FDB))
+>> +		return -ENODEV;
+> 
+> EOPNOTSUPP
+> 
 
-Hmm, order can't be < 0, since it's unsigned.  So did you mean
-kstrtoull?
+Right thanks.
 
-And I think returning err is cleaner (it's -EINVAL for malformed
-strings, -ERANGE for ones too big).
+[...]
 
-> +       if (xen_blkif_reqs < BLK_RING_SIZE(order))
-> +               printk(KERN_WARNING "WARNING: "
-> +                      "I/O request space (%d reqs) < ring order %ld, "
-> +                      "consider increasing %s.reqs to >= %ld.",
-> +                      xen_blkif_reqs, order, KBUILD_MODNAME,
-> +                      roundup_pow_of_two(BLK_RING_SIZE(order)));
+>> +	if (is_multicast_ether_addr(addr))
+>> +		return -EINVAL;
+> 
+> There is a pending change to the ndo_validate_addr interface which I
+> think would allow us to replace the Ethernet-specific checks with a
+> check against dev->addr_len and a call to ndo_validate_addr.  Not that I
+> really care about anything other than Ethernet, but it would be a little
+> more elegant.
+> 
+>> +	netif_addr_lock_bh(dev);
+>> +	list_for_each_entry(ha, &dev->uc.list, list) {
+>> +		if (!compare_ether_addr(ha->addr, addr)) {
+>> +			netif_addr_unlock_bh(dev);
+>> +			return -EEXIST;
+>> +		}
+>> +	}
+>> +	netif_addr_unlock_bh(dev);
+>> +
+>> +	err = dev_uc_add(dev, addr);
+> [...]
+> 
+> The software bridge makes the duplicate check conditional on NLM_F_EXCL.
+> Shouldn't this be consistent?
 
-This message doesn't mention the module namr or parameter name
-anywhere.  Think of the poor sysadmins!
+Agreed it should be consistent.
+
+> 
+> Also, this seems racy.  If all manipulation of the UC address list is
+> serialised by RTNL (which I think in practice it is) then there is no
+> race and we also don't need to take the netif_addr_lock(), but if we're
+> not allowed to assume that then we shouldn't drop the lock.  Perhaps the
+> check can be moved into a dev_uc_add_exclusive() or something like that.
+> 
+
+Yep I'll at least make this consistent with other usages. And maybe a
+follow up patch to clean up the usage throughout.
 
 Thanks,
-Rusty.
--- 
-  How could I marry someone with more hair than me?  http://baldalex.org
+John
