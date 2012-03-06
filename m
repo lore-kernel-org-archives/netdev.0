@@ -1,47 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 2/2] route: Remove redirect_genid
-Date: Tue, 6 Mar 2012 09:06:22 +0100
-Message-ID: <20120306080622.GE15404@secunet.com>
-References: <20120301062159.GB15404@secunet.com>
- <20120301062316.GD15404@secunet.com>
- <20120304.215505.1141896485416671142.davem@davemloft.net>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Re: WARNING: at net/ipv4/tcp_input.c:3418
+Date: Tue, 6 Mar 2012 09:07:27 +0100
+Message-ID: <20120306080727.GA1641@x4>
+References: <alpine.DEB.2.01.1202261556150.4930@trent.utfs.org>
+ <alpine.DEB.2.01.1202290929520.4930@trent.utfs.org>
+ <CADVnQy=JkVc_8ptpSkhQWe4HJpbe_+JMad+2uqgN1iUfkfFFCw@mail.gmail.com>
+ <CADVnQykqaUCFBYXVqGNq+HmeowAbYJQQNpbXFpQ4Uif3gwf4ig@mail.gmail.com>
+ <CADVnQyk_6LYW2nyjccWjv1NmjivXf5cXBqJ+LsZLjGyOj7kddQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44126 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758399Ab2CFIG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Mar 2012 03:06:29 -0500
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christian Kujau <lists@nerdbynature.de>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120304.215505.1141896485416671142.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CADVnQyk_6LYW2nyjccWjv1NmjivXf5cXBqJ+LsZLjGyOj7kddQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 04, 2012 at 09:55:05PM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Thu, 1 Mar 2012 07:23:16 +0100
-> 
-> >  				peer = rt->peer;
-> > -				if (peer) {
-> > -					if (peer->redirect_learned.a4 != new_gw ||
-> > -					    peer->redirect_genid != redirect_genid) {
-> > -						peer->redirect_learned.a4 = new_gw;
-> > -						peer->redirect_genid = redirect_genid;
-> > -						atomic_inc(&__rt_peer_genid);
-> > -					}
-> > -					check_peer_redir(&rt->dst, peer);
-> > +				if (peer && peer->redirect_learned.a4 != new_gw) {
-> > +					peer->redirect_learned.a4 = new_gw;
-> > +					atomic_inc(&__rt_peer_genid);
-> >  				}
-> > +				check_peer_redir(&rt->dst, peer);
-> >  			}
-> 
-> If peer is NULL you cannot call check_peer_redir() because it assumes
-> that the passed in peer is non-NULL and dereferences it unconditionally.
-> 
+On 2012.03.06 at 00:46 -0500, Neal Cardwell wrote:
+> On Wed, Feb 29, 2012 at 12:41 PM, Christian Kujau <lists@nerdbynature=
+=2Ede> wrote:
+> > This is still happening with 3.3.0-rc5, .config & dmesg here:
+> >
+> > =A0 http://nerdbynature.de/bits/3.3.0-rc4/ipv4/
+>=20
+> I was finally able to reproduce this issue where there are warnings
+> about sacked_out going negative (since 3.3.0-rc4), and my testing
+> shows that this patch seems to fix the issue:
+>=20
+>   http://patchwork.ozlabs.org/patch/144844/
+>=20
+> For folks who were seeing this problem and are so inclined, feel free
+> to try the latest 3.3-rc6 kernel (or davem's "net" tree in git, if
+> that's easier) with that patch applied, and let me know how it goes.
 
-Ugh, indeed. I'll fix it and resend the patchset.
-Thanks for the review!
+Thanks for tracking this down, Neal.
+
+In my case it looks like the issue was an "once in a lifetime" event.
+So no amount of testing would prove anything.
+
+--=20
+Markus
