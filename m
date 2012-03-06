@@ -1,56 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] conntrack, suspicious RCU usage
-Date: Mon, 05 Mar 2012 22:01:09 -0800
-Message-ID: <1331013669.2474.31.camel@edumazet-laptop>
-References: <1330950269-32668-1-git-send-email-hans.schillstrom@ericsson.com>
-	 <20120305170548.GA28986@1984> <20120305223815.GA30456@1984>
-	 <201203060658.16156.hans.schillstrom@ericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tg3: Fix to use multi queue BQL interfaces
+Date: Tue, 06 Mar 2012 01:20:18 -0500 (EST)
+Message-ID: <20120306.012018.1047153868474396421.davem@davemloft.net>
+References: <alpine.DEB.2.00.1203052147540.19396@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201203060658.16156.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, cl@gentwo.org,
+	mcarlson@broadcom.com
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60026 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930Ab2CFGU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 01:20:28 -0500
+In-Reply-To: <alpine.DEB.2.00.1203052147540.19396@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 06 mars 2012 =C3=A0 06:58 +0100, Hans Schillstrom a =C3=A9crit=
- :
-> On Monday 05 March 2012 23:38:15 Pablo Neira Ayuso wrote:
-> > On Mon, Mar 05, 2012 at 06:05:48PM +0100, Pablo Neira Ayuso wrote:
-> > > On Mon, Mar 05, 2012 at 01:24:29PM +0100, Hans Schillstrom wrote:
-> > > > From: Hans Schillstrom <hans@schillstrom.com>
-> > > >=20
-> > > > Hello Pablo
-> > > > I think you lost this patch from Eric, I updated the patch for =
-the=20
-> > > > latest nf_conntrack_netlink.c=20
-> > > >=20
-> > > > Well, __nf_ct_l4proto_find() being out of line and the way we a=
-lready
-> > > > use rcu_read_lock() in this code, it seems following patch is
-> > > > the most natural way to cope with these lockdep warnings.
-> > >=20
-> > > I'll take the previous patch to pass it to current -rc. Thanks Ha=
-ns.
-> >=20
-> > I'll pass it to net-next, otherwise this will result in one conflic=
-t
-> > with one patch already in net-next if I pass it to net.
-> >
-> =20
-> Thanks a lot
-> /Hans
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 5 Mar 2012 21:53:50 -0800 (PST)
 
-Thanks guys, I completely forgot to make sure this patch was applied.
+> Fix tg3 to use BQL multi queue related netdev interfaces since the
+> device supports multi queue.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
