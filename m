@@ -1,103 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/4] phy: add the EEE support and the way to access
- to the MMD regs
-Date: Tue, 6 Mar 2012 17:05:57 +0000
-Message-ID: <1331053557.2333.19.camel@bwh-desktop>
-References: <4F4E4D4B.3040909@st.com>
-	 <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>
-	 <1331022494-12891-2-git-send-email-peppe.cavallaro@st.com>
-	 <1331052913.2333.16.camel@bwh-desktop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bridge: fix "entering disabled state" logging
+Date: Tue, 6 Mar 2012 09:09:05 -0800
+Message-ID: <20120306090905.0bc1a527@nehalam.linuxnetplumber.net>
+References: <20120306142219.31783.30201.stgit@localhost.localdomain>
+ <4F56208E.2090801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<rayagond@vayavyalabs.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Paulius Zaleckas <paulius.zaleckas@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41250 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752045Ab2CFRGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 12:06:00 -0500
-In-Reply-To: <1331052913.2333.16.camel@bwh-desktop>
+Received: from mail.vyatta.com ([76.74.103.46]:42774 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751759Ab2CFRJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2012 12:09:08 -0500
+In-Reply-To: <4F56208E.2090801@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-06 at 16:55 +0000, Ben Hutchings wrote:
-> On Tue, 2012-03-06 at 09:28 +0100, Giuseppe CAVALLARO wrote:
-> > This patch adds the initial support for the Energy-Efficient
-> > Ethernet (EEE). It has been tested on IC+101G device on ST STB.
-> > 
-> > To support the EEE we have to access to the MMD registers 3.20 and
-> > 3.60/61. So I added two new functions to read/write the MMD
-> > registers (clause 45)
-> > 
-> > The upper-layer will invoke the phy_check_eee to properly check
-> > if the EEE is supported by the PHYs.
-> > 
-> > Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> > ---
-> >  drivers/net/phy/phy_device.c |  136 ++++++++++++++++++++++++++++++++++++++++++
-> >  include/linux/mdio.h         |    5 ++
-> >  include/linux/mii.h          |   11 ++++
-> >  include/linux/phy.h          |    3 +
-> >  4 files changed, 155 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> > index f320f46..c269492e 100644
-> > --- a/drivers/net/phy/phy_device.c
-> > +++ b/drivers/net/phy/phy_device.c
-> [...]
-> > @@ -898,6 +899,141 @@ int genphy_resume(struct phy_device *phydev)
-> >  }
-> >  EXPORT_SYMBOL(genphy_resume);
-> >  
-> > +static inline void mmd_phy_cl45(struct mii_bus *bus, int prtad, int devad,
-> > +				int addr)
-> [...]
-> > +/**
-> > + * read_phy_mmd - reads data from the MMC register (clause 22 to access to
-> > + * clause 45)
-> [...]
-> > +/**
-> > + * write_phy_mmd - writes data to the MMC register (clause 22 to access to
-> > + * clause 45)
-> 
-> These names need to be changed as phylib also supports (or is intended
-> to support) real clause 45 PHYs.
-> 
-> [...]
-> > diff --git a/include/linux/mdio.h b/include/linux/mdio.h
-> > index dfb9479..a2dfe86 100644
-> > --- a/include/linux/mdio.h
-> > +++ b/include/linux/mdio.h
-> > @@ -43,7 +43,11 @@
-> >  #define MDIO_PKGID2		15
-> >  #define MDIO_AN_ADVERTISE	16	/* AN advertising (base page) */
-> >  #define MDIO_AN_LPA		19	/* AN LP abilities (base page) */
-> > +#define MDIO_EEE_CAP		20	/* EEE Capability register */
-> > +#define MDIO_EEE_WK_ERR		22	/* EEE wake error counter */
-> >  #define MDIO_PHYXS_LNSTAT	24	/* PHY XGXS lane state */
-> > +#define MDIO_EEE_ADV		60	/* EEE advertisement */
-> > +#define MDIO_EEE_PART_LINK	61	/* EEE link partner ability */
-> >  
-> >  /* Media-dependent registers. */
-> >  #define MDIO_PMA_10GBT_SWAPPOL	130	/* 10GBASE-T pair swap & polarity */
-> 
-> The convention I tried to set here was that register numbers defined for
-> only one MMD are named beginning with MDIO_<mmd>_.  I also used 'LP' for
-> link partner and 'ABLE' for capability/ability.
-> 
-> So for consistency I think those should be named MDIO_PCS_EEE_ABLE,
-> MDIO_PCS_EEE_WK_ERR, MDIO_AN_EEE_ADV, MDIO_AN_EEE_LPABLE.
-[...]
+On Tue, 06 Mar 2012 16:34:54 +0200
+Paulius Zaleckas <paulius.zaleckas@gmail.com> wrote:
 
-And note we already have MDIO_AN_EEE_ADV under 'Media-dependent
-registers'.  I think that may be the wrong section so feel free to move
-it up to 'Generic MDIO registers', but don't make two definitions.
+> On 03/06/2012 04:22 PM, Paulius Zaleckas wrote:
+> > Now we have:
+> > eth0: link down
+> > br0: port 1(eth0) entering forwarding state
+> >
+> > State should be logged *after* it was changed, not before.
+> 
+> The funny thing is that it was introduced:
+> 2010-05-16 	stephen hemminger
+> bridge: change console message interface
+> 28a16c97963d3bc36a2c192859f6d8025ef2967a
+> 
+> and no one noticed since then :D
 
-Ben.
+The message could be corrected to have correct verb tense. s/entering/entered/
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
