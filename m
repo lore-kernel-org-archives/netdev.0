@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/6] netfilter: ebtables: fix wrong name length while
- copying to user-space
-Date: Tue, 06 Mar 2012 15:15:10 -0500 (EST)
-Message-ID: <20120306.151510.2151198631476043192.davem@davemloft.net>
+Subject: Re: [PATCH 4/6] netfilter: bridge: fix wrong pointer dereference
+Date: Tue, 06 Mar 2012 15:15:27 -0500 (EST)
+Message-ID: <20120306.151527.134916407263732962.davem@davemloft.net>
 References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
-	<1331032975-5303-2-git-send-email-pablo@netfilter.org>
+	<1331032975-5303-5-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39129 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030958Ab2CFUQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 15:16:17 -0500
-In-Reply-To: <1331032975-5303-2-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1331032975-5303-5-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: pablo@netfilter.org
-Date: Tue,  6 Mar 2012 12:22:50 +0100
+Date: Tue,  6 Mar 2012 12:22:53 +0100
 
-> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
 > 
-> user-space ebtables expects 32 bytes-long names, but xt_match names
-> use 29 bytes. We have to copy less 29 bytes and then, make sure we
-> fill the remaining bytes with zeroes.
+> In adf7ff8, a invalid dereference was added in ebt_make_names.
 > 
-> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+> CC [M]  net/bridge/netfilter/ebtables.o
+> net/bridge/netfilter/ebtables.c: In function `ebt_make_names':
+> net/bridge/netfilter/ebtables.c:1371:20: warning: `t' may be used uninitialized in this function [-Wuninitialized]
+> 
 > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
 Applied.
