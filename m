@@ -1,35 +1,98 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Tue, 06 Mar 2012 10:23:56 -0800
-Message-ID: <4F56563C.2070206@hp.com>
-References: <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20120217.133327.1178765872497293871.davem@davemloft.net> <1330656317.21053.1411.camel@debian> <20120301.220743.2174015405223036036.davem@davemloft.net> <20120306081117.GA17375@feng-i7>
+From: Venkat Venkatsubra <venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: rds cq event handler issue
+Date: Tue, 06 Mar 2012 12:58:05 -0600
+Message-ID: <4F565E3D.8030206@oracle.com>
+References: <4F5651E5.1020005@opengridcomputing.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alex.shi@intel.com,
-	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
-To: Feng Tang <feng.tang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120306081117.GA17375@feng-i7>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F5651E5.1020005-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/06/2012 12:11 AM, Feng Tang wrote:
-> On some machines, we found there is about 10% resgression of netperf
-> TCP-64K loopback test between 3.2 and 3.3-rc1. The exact test is:
-> ./netperf -t TCP_STREAM -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -s 32768 -S 32768 -m 4096
+On 3/6/2012 12:05 PM, Steve Wise wrote:
+> Hey Venkat,
+>
+> I think I see a bug in the RDS RDMA module where RDS is not adhering 
+> to the RDMA locking context.  From the kernel tree 
+> Documentation/infiniband/core_locking.txt:
+>
+> ---
+>   The context in which completion event and asynchronous event
+>   callbacks run is not defined.  Depending on the low-level driver, it
+>   may be process context, softirq context, or interrupt context.
+>   Upper level protocol consumers may not sleep in a callback.
+> ---
+>
+> So RDMA ULPs cannot assume any certain context for their callback 
+> functions.  Yet I get a BUG_ON() when running RDS with iw_cxgb3 where 
+> RDS is bugging in rds_rdma_free_op():
+>
+> ---
+>                 /* Mark page dirty if it was possibly modified, which
+>                  * is the case for a RDMA_READ which copies from remote
+>                  * to local memory */
+>                 if (!ro->op_write) {
+>                         BUG_ON(irqs_disabled());
+>                         set_page_dirty(page);
+>                 }
+> ---
+>
+> And rds_rdma_free_op() can be called in the cq callback path.  Here's 
+> a stack trace when it bugged:
+>
+> ---
+> Call Trace:
+> <IRQ> [<ffffffff886ca0fc>] :rds:rds_message_purge+0x54/0x79
+> [<ffffffff886ca162>] :rds:rds_message_put+0x41/0x4c
+> [<ffffffff886f616b>] :rds_rdma:rds_iw_send_unmap_rm+0xe2/0xf2
+> [<ffffffff886f63c4>] :rds_rdma:rds_iw_send_cq_comp_handler+0x193/0x2e5
+> [<ffffffff88698a56>] :iw_cxgb3:iwch_ev_dispatch+0x1df/0x2b1
+> [<ffffffff8869f0b2>] :iw_cxgb3:cxio_hal_ev_handler+0x6b/0xb4
+> [<ffffffff882746cd>] :cxgb3:process_rx+0x3d/0xa0
+> [<ffffffff8827b28c>] :cxgb3:process_responses+0x120c/0x1350
+> ---
+>
+> iwch_ev_dispatch() explicitly disables irqs to ensure proper 
+> serialization:
+>
+> ---
+>         spin_lock_irqsave(&chp->comp_handler_lock, flag);
+>         (*chp->ibcq.comp_handler)(&chp->ibcq, chp->ibcq.cq_context);
+>         spin_unlock_irqrestore(&chp->comp_handler_lock, flag);
+> ---
+>
+> I'm not sure if that BUG_ON() in rds_rdma_free_op() is valid or not.  
+> If it is valid, then RDS needs to run this logic in a safe context, 
+> not in the context of the CQ callback.  It BUG_ON() is not valid, we 
+> can remove it :).
+>
+> Can you comment?
+>
+> Thanks,
+>
+> Steve.
+>
+Hi Steve,
 
-Side comment on the netperf command line.  The maximum confidence 
-interactions is silently capped at 30, so that might as well be "-i 
-30,3" 
-http://www.netperf.org/svn/netperf2/tags/netperf-2.5.0/doc/netperf.html#index-g_t_002di_002c-Global-28
+Our internal latest code has a WARN_ON instead:
+---------------------
+                 /* Mark page dirty if it was possibly modified, which
+                  * is the case for a RDMA_READ which copies from remote
+                  * to local memory */
+                 if (!ro->op_write) {
+                         WARN_ON_ONCE(page_mapping(page) && 
+irqs_disabled());
+                         set_page_dirty(page);
+                 }
+---------------------
 
-Also, for reproducibility, it might be desirable to pin netperf and 
-netserver to a specific CPU or CPUs.  That would be with a global -T 
-option: 
-http://www.netperf.org/svn/netperf2/tags/netperf-2.5.0/doc/netperf.html#index-g_t_002dT_002c-Global-41
-
-happy benchmarking,
-
-rick jones
+Venkat
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
