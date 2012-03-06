@@ -1,43 +1,70 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: Re: [PATCH v4] lpc32xx: Added ethernet driver: smp_wmb()
-Date: Tue, 06 Mar 2012 11:43:57 +0100
-Message-ID: <4F55EA6D.3070602@antcom.de>
-References: <1330983641-32622-1-git-send-email-stigge@antcom.de> <1330987524.2538.61.camel@bwh-desktop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169: runtime resume before shutdown.
+Date: Tue, 6 Mar 2012 12:14:12 +0100
+Message-ID: <20120306111412.GA1805@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	arnd@arndb.de, baruch@tkos.co.il, joe@perches.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330987524.2538.61.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Sameer Nanda <snanda@chromium.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57122 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754964Ab2CFLPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Mar 2012 06:15:09 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2012 11:45 PM, Ben Hutchings wrote:
->> +	/* Clear and enable interrupts */
->> +	writel(0xFFFF, LPC_ENET_INTCLEAR(pldat->net_base));
->> +	lpc_eth_enable_int(pldat->net_base);
->> +
->> +	/* Get the next TX buffer output index */
->> +	pldat->num_used_tx_buffs = 0;
->> +	pldat->last_tx_idx =
->> +		readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
-> 
-> Doesn't this need to be done *before* enabling interrupts?  Also, I
-> think you need an smp_wmb() so that the interrupt handler is guaranteed
-> to see all these writes.
+With runtime PM, if the ethernet cable is disconnected, the device is
+transitioned to D3 state to conserve energy. If the system is shutdown
+in this state, any register accesses in rtl_shutdown are dropped on
+the floor. As the device was programmed by .runtime_suspend() to wake
+on link changes, it is thus brought back up as soon as the link recovers.
 
-Do you mean _one_ smp_wmb() directly after lpc_eth_enable_int() (which
-I'm moving behind the above code?
+Resuming every suspended device through the driver core would slow things
+down and it is not clear how many devices really need it now.
 
-Note that there is no SMP in LPCs and NXP is not planning to build one
-AFAIK. However, I'm fine with including smp_wmb() anyway for completeness.
+Original report and D0 transition patch by Sameer Nanda. Patch has been
+changed to comply with advices by Rafael J. Wysocki and the PM folks.
 
-Thanks in advance,
+Reported-by: Sameer Nanda <snanda@chromium.org>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: Hayes Wang <hayeswang@realtek.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+---
 
-Roland
+ This sucker turned my silent wake-on-alarm workstation into an early
+ sunday morning testbed takeoff. Please consider before 3.3 goes out.
+
+ drivers/net/ethernet/realtek/r8169.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 1adf177..bbacb37 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6194,6 +6194,9 @@ static void rtl_shutdown(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
++	struct device *d = &pdev->dev;
++
++	pm_runtime_get_sync(d);
+ 
+ 	rtl8169_net_suspend(dev);
+ 
+@@ -6215,6 +6218,8 @@ static void rtl_shutdown(struct pci_dev *pdev)
+ 		pci_wake_from_d3(pdev, true);
+ 		pci_set_power_state(pdev, PCI_D3hot);
+ 	}
++
++	pm_runtime_put_noidle(d);
+ }
+ 
+ static struct pci_driver rtl8169_pci_driver = {
+-- 
+1.7.7.6
