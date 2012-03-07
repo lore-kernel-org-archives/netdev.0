@@ -1,63 +1,102 @@
-From: Feng Tang <feng.tang@intel.com>
-Subject: Re: TCP_STREAM performance regression on commit b3613118
-Date: Wed, 7 Mar 2012 10:55:25 +0800
-Message-ID: <20120307025525.GB21919@feng-i7>
-References: <1329472239.2861.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20120217.133327.1178765872497293871.davem@davemloft.net>
- <1330656317.21053.1411.camel@debian>
- <20120301.220743.2174015405223036036.davem@davemloft.net>
- <20120306081117.GA17375@feng-i7>
- <4F55CA25.2070503@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 07 Mar 2012 00:22:11 -0500 (EST)
+Message-ID: <20120307.002211.1109938489960237946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, alex.shi@intel.com,
-	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	tim.c.chen@intel.com, ying.huang@intel.com, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F55CA25.2070503@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2012 at 04:26:13PM +0800, Jason Wang wrote:
-> On 03/06/2012 04:11 PM, Feng Tang wrote:
-> >On Thu, Mar 01, 2012 at 10:07:43PM -0500, David Miller wrote:
-> >>>  From: Alex Shi<alex.shi@intel.com>
-> >>>  Date: Fri, 02 Mar 2012 10:45:17 +0800
-> >>>
-> >>>>  >  Add CC to tang feng, He is working on this issue.
-> >>>  >  Is he?  I'm pretty sure this is due to the TCP receive
-> >>window growing
-> >>>  issue Eric Dumazet, Neal Cardwell and I are discussing in the thread
-> >>>  starting at:
-> >>>  >  http://marc.info/?l=linux-netdev&m=132916352815286&w=2
-> >Yes, probably, as we did find some clue related with the tcp_r/wmem.
-> >
-> >Here is the regression we found:
-> >On some machines, we found there is about 10% resgression of netperf
-> >TCP-64K loopback test between 3.2 and 3.3-rc1. The exact test is:
-> >./netperf -t TCP_STREAM -l 60 -H 127.0.0.1 -i 50,3 -I 99,5 -- -s 32768 -S 32768 -m 4096
-> >
-> >
-> >The test machine is a 2 socket Quad Core Core 2 Duo server(2.66GHz) with
-> >8 GB RAM. Following are the debug info (ifconfig/netstat -s/tcp_rwmem)
-> >before and after the test:
-> >
-> >The most obvious differences I can see are:
-> >1) 311 GB vs 241 GB from ifconfig
-> >2) the difference of the tcp_r/wmem
-> 
-> Hi:
-> 
-> Could you try the newest kernel? Looks like the difference has been
-> already fixed by commit c43b874d5d714f271b80d4c3f49e05d0cbf51ed2.
 
-Yeah, with the newest kernel, the regression of this simple test is gone,
-the performance difference with 3.2 kernel is now only about 1-2%. Thanks
-for the info.
+1) TCP can chop up SACK'd SKBs below below the unacked send
+   sequence and that breaks lots of stuff.  Fix from Neal Cardwell.
 
-- Feng
+2) There is code in ipv6 to properly join and leave the all-routers
+   multicast code when the forwarding setting is changed, but once
+   forwarding is turned on, we don't do the join for newly registered
+   devices.  Fix from Li Wei.
 
-> 
-> Thanks
+3) Netfilter's NAT module autoload in ctnetlink drops a spinlock around
+   a sleeping call, problem is this code path doesn't actually hold tha=
+t
+   lock.  Fix from Pablo Neira Ayuso.
+
+4) TG3 uses the wrong interfaces to hook into the new byte queue limit
+   support.  It uses the device level interfaces, which is fine for
+   single queue devices, but on more recent chips this driver supports
+   multiqueue so we have to use the multiqueue BQL APIs.  Fix from Tom
+   Herbert.
+
+5) r8169 resume fix from Francois Romieu.
+
+6) Add some cxgb4 device IDs, from Vipul Pandya.
+
+Please pull, thanks a lot!
+
+The following changes since commit 55062d061790b43aee01ab3f9ac57b859625=
+4f19:
+
+  x86: fix typo in recent find_vma_prev purge (2012-03-06 18:48:13 -080=
+0)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+=46lorian Westphal (1):
+      bridge: netfilter: don't call iptables on vlan packets if sysctl =
+is off
+
+Li Wei (1):
+      IPv6: Fix not join all-router mcast group when forwarding set.
+
+Neal Cardwell (1):
+      tcp: fix tcp_shift_skb_data() to not shift SACKed data below snd_=
+una
+
+Pablo Neira Ayuso (3):
+      netfilter: ctnetlink: remove incorrect spin_[un]lock_bh on NAT mo=
+dule autoload
+      netfilter: bridge: fix wrong pointer dereference
+      netfilter: nf_conntrack: fix early_drop with reliable event deliv=
+ery
+
+Santosh Nayak (1):
+      netfilter: ebtables: fix wrong name length while copying to user-=
+space
+
+Sjur Br=E6ndeland (1):
+      caif-hsi: Set default MTU to 4096
+
+Tom Herbert (1):
+      tg3: Fix to use multi queue BQL interfaces
+
+Vipul Pandya (2):
+      cxgb4: Add support for Chelsio's T480-CR and T440-LP-CR adapters
+      cxgb4vf: Add support for Chelsio's T480-CR and T440-LP-CR adapter=
+s
+
+Yevgeny Petrilin (1):
+      mlx4_core: remove buggy sched_queue masking
+
+fran=E7ois romieu (1):
+      r8169: runtime resume before shutdown.
+
+ drivers/net/caif/caif_hsi.c                        |    2 +-
+ drivers/net/ethernet/broadcom/tg3.c                |    6 ++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |    2 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    2 +
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |    5 ---
+ drivers/net/ethernet/realtek/r8169.c               |    5 +++
+ net/bridge/br_netfilter.c                          |   32 +++++++++++-=
+-------
+ net/bridge/netfilter/ebtables.c                    |   16 ++++++++--
+ net/ipv4/tcp_input.c                               |    4 ++
+ net/ipv6/addrconf.c                                |    4 ++
+ net/netfilter/nf_conntrack_core.c                  |    8 ++++-
+ net/netfilter/nf_conntrack_netlink.c               |    3 --
+ 12 files changed, 58 insertions(+), 31 deletions(-)
