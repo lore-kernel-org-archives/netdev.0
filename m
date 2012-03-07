@@ -1,41 +1,68 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: Re: [PATCH v5] lpc32xx: Added ethernet driver
-Date: Wed, 07 Mar 2012 12:53:28 +0100
-Message-ID: <4F574C38.4030006@antcom.de>
-References: <1331067664-9124-1-git-send-email-stigge@antcom.de> <201203062134.38077.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	baruch@tkos.co.il, joe@perches.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201203062134.38077.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 7/7] [PATCH] lcs: Return zero from ccwgroup devs set_offline function
+Date: Wed, 07 Mar 2012 13:06:29 +0100
+Message-ID: <20120307120708.254004797@de.ibm.com>
+References: <20120307120622.922387262@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Klaus-Dieter Wacker <kdwacker@de.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:38189 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755709Ab2CGMHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 07:07:15 -0500
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Wed, 7 Mar 2012 12:07:13 -0000
+Content-Disposition: inline; filename=607-lcs-offline.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+From: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
 
-On 03/06/2012 10:34 PM, Arnd Bergmann wrote:
-> This should eventually both become run-time options based on the device tree.
-> I don't know if you planned to do that anyway, but if you want the same kernel
-> binary to be used for systems in different configurations, you cannot have
-> compile-time decisions that are exclusive-or. Since you don't support device
-> tree yet but plan to do that in the future, you could add a comment here
-> about it, or you could even prepare it for that case already by passing the
-> device into the functions that will be required for reading the properties.
+A return code of non-zero of the devs ccwgroup set_offline function
+leaves the dev in online state. Having done a partly offlining
+may leave the dev in unusable state. To make sure the dev is set to
+offline, zero is returned. A setup trace entry is written in case
+the offlining steps encountered some trouble.
 
-Good point.
+Signed-off-by: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-I prefer putting a comment for now, because upon the planned device tree
-introduction in lpc32xx, an internal change in lpc_eth.c will be
-necessary anyway, so there is no need to already introduce unused
-parameters at this point.
+ drivers/s390/net/lcs.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-Thanks,
-
-Roland
+diff -urpN linux-2.6/drivers/s390/net/lcs.c linux-2.6-patched/drivers/s390/net/lcs.c
+--- linux-2.6/drivers/s390/net/lcs.c	2012-01-05 00:55:44.000000000 +0100
++++ linux-2.6-patched/drivers/s390/net/lcs.c	2012-03-06 13:35:58.000000000 +0100
+@@ -2240,7 +2240,7 @@ __lcs_shutdown_device(struct ccwgroup_de
+ {
+ 	struct lcs_card *card;
+ 	enum lcs_dev_states recover_state;
+-	int ret;
++	int ret = 0, ret2 = 0, ret3 = 0;
+ 
+ 	LCS_DBF_TEXT(3, setup, "shtdndev");
+ 	card = dev_get_drvdata(&ccwgdev->dev);
+@@ -2255,13 +2255,15 @@ __lcs_shutdown_device(struct ccwgroup_de
+ 	recover_state = card->state;
+ 
+ 	ret = lcs_stop_device(card->dev);
+-	ret = ccw_device_set_offline(card->read.ccwdev);
+-	ret = ccw_device_set_offline(card->write.ccwdev);
++	ret2 = ccw_device_set_offline(card->read.ccwdev);
++	ret3 = ccw_device_set_offline(card->write.ccwdev);
++	if (!ret)
++		ret = (ret2) ? ret2 : ret3;
++	if (ret)
++		LCS_DBF_TEXT_(3, setup, "1err:%d", ret);
+ 	if (recover_state == DEV_STATE_UP) {
+ 		card->state = DEV_STATE_RECOVER;
+ 	}
+-	if (ret)
+-		return ret;
+ 	return 0;
+ }
+ 
