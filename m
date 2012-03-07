@@ -1,33 +1,54 @@
-From: Michael Schmitz <schmitzmic@googlemail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c
-Date: Thu, 8 Mar 2012 07:42:48 +1300
-Message-ID: <CAOmrzkLar4ZfdY1KFkd7QtK1h0i7Zhc0vjubd9_bohWaGpx8Ag@mail.gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>
-	<4F4B2BB6.900@gmail.com>
-	<alpine.DEB.2.00.1203071053360.3196@ayla.of.borg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1203071053360.3196@ayla.of.borg>
-Sender: linux-m68k-owner@vger.kernel.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as driver name
+Date: Wed,  7 Mar 2012 11:05:31 -0800
+Message-ID: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
+Cc: Olaf Hering <olaf@aepfle.de>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Geert,
+From: Olaf Hering <olaf@aepfle.de>
 
-> Netdev people: are these changes to ne.c acceptable?
->
-> If yes, I'll split everything and queue it up (the ne.c part through netdev,
-> the rest through m68k).
-> If not, do you have a better solution[*]?
-> Are there other network drivers using/requiring a similar approach?
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-smc91x requires the same approach - the only changes necessary there
-are to smc91x.h (and Kconfig).
-
-(no patch yet; the code is stuck on my devel PC which refuses to boot ATM).
-
-Cheers,
-
-  Michael
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 0ae7a1a..53d1ee5 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -40,6 +40,8 @@
+ 
+ #include "hyperv_net.h"
+ 
++#define MODULE_NAME "hv_netvsc"
++
+ struct net_device_context {
+ 	/* point back to our device context */
+ 	struct hv_device *device_ctx;
+@@ -310,7 +312,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ static void netvsc_get_drvinfo(struct net_device *net,
+ 			       struct ethtool_drvinfo *info)
+ {
+-	strcpy(info->driver, "hv_netvsc");
++	strcpy(info->driver, MODULE_NAME);
+ 	strcpy(info->version, HV_DRV_VERSION);
+ 	strcpy(info->fw_version, "N/A");
+ }
+@@ -482,7 +484,7 @@ MODULE_DEVICE_TABLE(vmbus, id_table);
+ 
+ /* The one and only one */
+ static struct  hv_driver netvsc_drv = {
+-	.name = "netvsc",
++	.name = MODULE_NAME,
+ 	.id_table = id_table,
+ 	.probe = netvsc_probe,
+ 	.remove = netvsc_remove,
+-- 
+1.7.4.1
