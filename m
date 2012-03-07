@@ -1,8 +1,7 @@
 From: <parav.pandit@emulex.com>
-Subject: [RFC 1/2] be2net: Added function to issue mailbox cmd on MQ.
-Date: Wed, 7 Mar 2012 23:17:06 +0530
-Message-ID: <69adda22-775b-475a-9226-41e1877c40b1@exht1.ad.emulex.com>
-References: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com>
+Subject: [RFC 0/2] be2net: Added functionality to support RoCE driver
+Date: Wed, 7 Mar 2012 23:17:05 +0530
+Message-ID: <102ec66a-5bd6-4e64-81b2-87ea6111e466@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <parav.pandit@emulex.com>
@@ -10,75 +9,39 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:42843 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756103Ab2CGNhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 08:37:36 -0500
-In-Reply-To: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com>
+	with ESMTP id S1755979Ab2CGNhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 08:37:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Parav Pandit <parav.pandit@emulex.com>
 
-- Added generic function to issue mailbox cmd on MQ as export function.
-- RoCE driver will use this before it setups its own MQ.
+This patch is against roland's below Infiniband tree.
+http://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git
+Simiilar patch against netdev net-next tree will be made based on this patch.
 
-Signed-off-by: Parav Pandit <parav.pandit@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |   39 +++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+This patch adds functionality to support RoCE (RDMA over Ethernet) driver.
+- Detecting RoCE supported adapters and creating linked list of them.
+- Enabling 5 more MSIX vectors for RoCE functionality.
+- Calling registered callback functions of the RoCE driver
+  whenever new RoCE capable device is added/removed.
+- Notifying events to RoCE driver when interface is up or down.
+- Provides device specific details to RoCE driver for each roce device.
+- Provides low level mailbox command to be issued by RoCE driver
+  before it can have it own MQ.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 0fcb456..19037b0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -15,6 +15,7 @@
-  * Costa Mesa, CA 92626
-  */
- 
-+#include <linux/module.h>
- #include "be.h"
- #include "be_cmds.h"
- 
-@@ -2391,3 +2392,41 @@ err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
-+
-+int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
-+			int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev_handle);
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_hdr *hdr = (struct be_cmd_req_hdr *) wrb_payload;
-+	struct be_cmd_req_hdr *req;
-+	struct be_cmd_resp_hdr *resp;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+	req = embedded_payload(wrb);
-+	resp = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(req, hdr->subsystem,
-+			       hdr->opcode, wrb_payload_size, wrb, NULL);
-+	memcpy(req, wrb_payload, wrb_payload_size);
-+	be_dws_cpu_to_le(req, wrb_payload_size);
-+
-+	status = be_mcc_notify_wait(adapter);
-+	if (cmd_status)
-+		*cmd_status = (status & 0xffff);
-+	if (ext_status)
-+		*ext_status = 0;
-+	memcpy(wrb_payload, resp, sizeof(*resp) + resp->response_length);
-+	be_dws_le_to_cpu(wrb_payload, sizeof(*resp) + resp->response_length);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+EXPORT_SYMBOL(be_roce_mcc_cmd);
--- 
-1.6.0.2
+Parav Pandit (2):
+  be2net: Added function to issue mailbox cmd on MQ.
+  be2net: Added functionality to support RoCE driver
+
+ drivers/net/ethernet/emulex/benet/Makefile  |    2 +-
+ drivers/net/ethernet/emulex/benet/be.h      |   28 ++++-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   39 ++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    4 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   83 +++++++++++--
+ drivers/net/ethernet/emulex/benet/be_roce.c |  185 +++++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_roce.h |   75 +++++++++++
+ 8 files changed, 404 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.c
+ create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.h
