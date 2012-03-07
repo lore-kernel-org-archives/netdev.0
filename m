@@ -1,80 +1,78 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
- DMADBG_7=0x00008040
-Date: Wed, 07 Mar 2012 09:37:14 -0800
-Message-ID: <4F579CCA.2060907@gmail.com>
-References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com> <4F579A88.6030503@openwrt.org>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH 1/25 v2] rdma/cm: define native IB address
+Date: Wed, 7 Mar 2012 17:45:08 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A823733B7669D7@ORSMSX101.amr.corp.intel.com>
+References: <1828884A29C6694DAF28B7E6B8A8237325661ADD@ORSMSX102.amr.corp.intel.com>
+ <CAL1RGDUu9sUbeWgBwivnAeXf+OWX_m5MRrizfzP4ni-FOGxiTQ@mail.gmail.com>
+ <1828884A29C6694DAF28B7E6B8A82373374F1A64@ORSMSX102.amr.corp.intel.com>
+ <CAL1RGDV-oYkNwQQUkAuUEHTH=HbmLk6Kv7JRnJ3XxN1DMNzLNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mohammed Shafi <shafi.wireless@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linux-netdev <netdev@vger.kernel.org>,
-	Linux-wireless <linux-wireless@vger.kernel.org>
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:51869 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756625Ab2CGRhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 12:37:18 -0500
-In-Reply-To: <4F579A88.6030503@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-rdma (linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDV-oYkNwQQUkAuUEHTH=HbmLk6Kv7JRnJ3XxN1DMNzLNQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/07/2012 09:27 AM, Felix Fietkau wrote:
-> On 2012-03-07 4:24 PM, Justin P. Mattock wrote:
->> On 03/07/2012 07:19 AM, Mohammed Shafi wrote:
->>> On Wed, Mar 7, 2012 at 7:55 PM, Justin P. Mattock
->>> <justinmattock@gmail.com>   wrote:
->>>> ath9k craps out from time to time(more annoying if anything)
->>>>
->>>> [44309.840830] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44309.858246] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->>>> [44309.858255] ath: Could not stop RX, we could be confusing the DMA engine
->>>> when we start RX up
->>>> [44309.932801] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44309.950352] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->>>> [44309.950361] ath: Could not stop RX, we could be confusing the DMA engine
->>>> when we start RX up
->>>> [44310.024301] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44310.041641] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->>>> [44310.041646] ath: Could not stop RX, we could be confusing the DMA engine
->>>> when we start RX up
->>>> [44310.116316] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44310.133909] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->>>> [44310.133918] ath: Could not stop RX, we could be confusing the DMA engine
->>>> when we start RX up
->>>> [44310.208021] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44310.225752] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->>>> [44310.225761] ath: Could not stop RX, we could be confusing the DMA engine
->>>> when we start RX up
->>>> [44310.299922] ath: Failed to stop TX DMA, queues=0x001!
->>>> [44310.317579] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00006040
->>>> [44310.317587] ath: Could not stop RX, we could be confusing the DMA engine
->>>> whe
->>>
->>> this is has become a know issue but less harmful, please try to see if
->>> the workaround of disabling power save helps
->>>
->>> iw dev wlanX set power_save off
->>>
->>
->> ok! I have set that on the machine.. will see if I get this message in
->> the upcoming weeks.
-> Also, please try this patch with powersave enabled:
-> http://nbd.name/ps-fix.patch
->
-> - Felix
->
+> On Mon, Feb 27, 2012 at 2:22 PM, Hefty, Sean <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> w=
+rote:
+> >> > --- a/include/linux/socket.h
+> >> > +++ b/include/linux/socket.h
+> >> > @@ -184,6 +184,7 @@ struct ucred {
+> >> > =A0#define AF_PPPOX =A0 =A0 =A0 24 =A0 =A0 =A0/* PPPoX sockets =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> >> > =A0#define AF_WANPIPE =A0 =A0 25 =A0 =A0 =A0/* Wanpipe API Socke=
+ts */
+> >> > =A0#define AF_LLC =A0 =A0 =A0 =A0 26 =A0 =A0 =A0/* Linux LLC =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> >> > +#define AF_IB =A0 =A0 =A0 =A0 =A027 =A0 =A0 =A0/* Native Infini=
+Band address =A0 =A0*/
+> >> > =A0#define AF_CAN =A0 =A0 =A0 =A0 29 =A0 =A0 =A0/* Controller Ar=
+ea Network =A0 =A0 =A0*/
+> >> > =A0#define AF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A030 =A0 =A0 =A0=
+/* TIPC
+> sockets =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> >> > =A0#define AF_BLUETOOTH =A0 31 =A0 =A0 =A0/* Bluetooth sockets =A0=
+ =A0 =A0 =A0 =A0 =A0*/
+> >> > @@ -227,6 +228,7 @@ struct ucred {
+> >> > =A0#define PF_PPPOX =A0 =A0 =A0 AF_PPPOX
+> >> > =A0#define PF_WANPIPE =A0 =A0 AF_WANPIPE
+> >> > =A0#define PF_LLC =A0 =A0 =A0 =A0 AF_LLC
+> >> > +#define PF_IB =A0 =A0 =A0 =A0 =A0AF_IB
+> >> > =A0#define PF_CAN =A0 =A0 =A0 =A0 AF_CAN
+> >> > =A0#define PF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0AF_TIPC
+> >> > =A0#define PF_BLUETOOTH =A0 AF_BLUETOOTH
+> >>
+> >> Has this been run by the networking community? =A0Are they OK with=
+ this
+> >> assignment?
+> >
+> > I did copy netdev on the original submissions, but I don't remember=
+ any
+> explicit ack or nack.
+>=20
+> David, any feeling yay or nay about adding these?
+>=20
+> Is the kernel the final arbiter of AF_xxx / PF_xxx assignments, or
+> is there anything else we have to worry about?
 
-I will give that a try as well..
+To clarify the intent of this change:
 
-Thanks!
+The RDMA CM allows users to specify addresses using struct sockaddr.  T=
+oday, only INET/6 are supported.  The intent is to allow a user to spec=
+ify native InfiniBand addresses through that interface.  In the more im=
+mediate, this helps to solve InfiniBand scaling issues.  Longer term, t=
+his can also be used to control path failover.
 
-Justin P. Mattock
+- Sean
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
