@@ -1,56 +1,48 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [patch 4/7] [PATCH] ctcm: make ctcmpc debugging compilable
-Date: Wed, 7 Mar 2012 12:20:05 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E90@saturn3.aculab.com>
-References: <20120307120707.933695671@de.ibm.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 6/6] netfilter: nf_conntrack: fix early_drop with
+ reliable event delivery
+Date: Wed, 7 Mar 2012 14:19:20 +0100
+Message-ID: <20120307131920.GA6499@1984>
+References: <1331032975-5303-1-git-send-email-pablo@netfilter.org>
+ <1331032975-5303-7-git-send-email-pablo@netfilter.org>
+ <20120306.151618.683601515842945468.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
-	"Ursula Braun" <ursula.braun@de.ibm.com>
-To: <frank.blaschka@de.ibm.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50696 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757778Ab2CGMU7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 07:20:59 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09502-01 for <netdev@vger.kernel.org>;
- Wed,  7 Mar 2012 12:20:56 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20120307120707.933695671@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120306.151618.683601515842945468.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->  static const struct xid2 init_xid = {
-> @@ -132,7 +132,7 @@ void ctcmpc_dumpit(char *buf, int len)
->  	__u32	ct, sw, rm, dup;
->  	char	*ptr, *rptr;
->  	char	tbuf[82], tdup[82];
-> -	#if (UTS_MACHINE == s390x)
-> +	#ifdef CONFIG_64BIT
->  	char	addr[22];
->  	#else
->  	char	addr[12];
-> @@ -149,8 +149,8 @@ void ctcmpc_dumpit(char *buf, int len)
->  
->  	for (ct = 0; ct < len; ct++, ptr++, rptr++) {
->  		if (sw == 0) {
-> -			#if (UTS_MACHINE == s390x)
-> -			sprintf(addr, "%16.16lx", (__u64)rptr);
-> +			#ifdef CONFIG_64BIT
-> +			sprintf(addr, "%16.16llx", (__u64)rptr);
->  			#else
->  			sprintf(addr, "%8.8X", (__u32)rptr);
->  			#endif
+On Tue, Mar 06, 2012 at 03:16:18PM -0500, David Miller wrote:
+> From: pablo@netfilter.org
+> Date: Tue,  6 Mar 2012 12:22:55 +0100
+> 
+> > From: Pablo Neira Ayuso <pablo@netfilter.org>
+> > 
+> > If reliable event delivery is enabled and ctnetlink fails to deliver
+> > the destroy event in early_drop, the conntrack subsystem cannot
+> > drop any the candidate flow that was planned to be evicted.
+> > 
+> > Reported-by: Kerin Millar <kerframil@gmail.com>
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> Applied.
+> 
+> > +		/* Check if we indeed killed this entry. Reliable event
+> > +		   delivery may have inserted it into the dying list. */
+> > +		if (test_bit(IPS_DYING_BIT, &ct->status)) {
+> 
+> Please don't allow misformatted comments like this into your
+> tree next time, this should be:
+> 
+> 		/* Check if we indeed killed this entry. Reliable event
+> 		 * delivery may have inserted it into the dying list.
+> 		 */
 
-What is wrong with:
-	char addr[24];
-	snprintf(addr, sizeof addr, "%p", rptr);
+Thanks for spotting this.
 
-There seemed to be other 'dangerous' unbounded string
-operations in that code as well.
-
-	David
+Will in the future (probably some patches that I took for net-next
+may not follow this format either, but for upcoming patches I will).
