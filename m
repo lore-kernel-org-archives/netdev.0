@@ -1,51 +1,153 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
-	driver name
-Date: Wed, 7 Mar 2012 11:22:04 -0800
-Message-ID: <20120307192204.GA9163@kroah.com>
-References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/2] bluetooth: hci_core: fix NULL-pointer dereference
+ at unregister
+Date: Wed, 07 Mar 2012 11:29:20 -0800
+Message-ID: <1331148560.3392.189.camel@aeonflux>
+References: <1331136120-27075-1-git-send-email-jhovold@gmail.com>
+	 <1331136120-27075-3-git-send-email-jhovold@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Olaf Hering <olaf@aepfle.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+Cc: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1331136120-27075-3-git-send-email-jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 07, 2012 at 11:05:31AM -0800, Haiyang Zhang wrote:
-> From: Olaf Hering <olaf@aepfle.de>
+Hi Johan,
+
+> Make sure hci_dev_open returns immediately if hci_dev_unregister has
+> been called.
 > 
-> Signed-off-by: Olaf Hering <olaf@aepfle.de>
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> This fixes a race between hci_dev_open and hci_dev_unregister which can
+> lead to a NULL-pointer dereference.
+> 
+> Bug is 100% reproducible using hciattach and a disconnected serial port:
+> 
+> 0. # hciattach -n /dev/ttyO1 any noflow
+> 
+> 1. hci_dev_open called from hci_power_on grabs req lock
+> 2. hci_init_req executes but device fails to initialise (times out
+>    eventually)
+> 3. hci_dev_open is called from hci_sock_ioctl and sleeps on req lock
+> 4. hci_uart_tty_close calls hci_dev_unregister and sleeps on req lock in
+>    hci_dev_do_close
+> 5. hci_dev_open (1) releases req lock
+> 6. hci_dev_do_close grabs req lock and returns as device is not up
+> 7. hci_dev_unregister sleeps in destroy_workqueue
+> 8. hci_dev_open (3) grabs req lock, calls hci_init_req and eventually sleeps
+> 9. hci_dev_unregister finishes, while hci_dev_open is still running...
+> 
+> [   79.627136] INFO: trying to register non-static key.
+> [   79.632354] the code is fine but needs lockdep annotation.
+> [   79.638122] turning off the locking correctness validator.
+> [   79.643920] [<c00188bc>] (unwind_backtrace+0x0/0xf8) from [<c00729c4>] (__lock_acquire+0x1590/0x1ab0)
+> [   79.653594] [<c00729c4>] (__lock_acquire+0x1590/0x1ab0) from [<c00733f8>] (lock_acquire+0x9c/0x128)
+> [   79.663085] [<c00733f8>] (lock_acquire+0x9c/0x128) from [<c0040a88>] (run_timer_softirq+0x150/0x3ac)
+> [   79.672668] [<c0040a88>] (run_timer_softirq+0x150/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
+> [   79.682281] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
+> [   79.690856] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
+> [   79.699157] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
+> [   79.708648] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
+> [   79.718048] Exception stack(0xcf281fb0 to 0xcf281ff8)
+> [   79.723358] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
+> [   79.731933] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+> [   79.740509] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
+> [   79.747497] Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> [   79.756011] pgd = cf3b4000
+> [   79.758850] [00000000] *pgd=8f0c7831, *pte=00000000, *ppte=00000000
+> [   79.765502] Internal error: Oops: 80000007 [#1]
+> [   79.770294] Modules linked in:
+> [   79.773529] CPU: 0    Tainted: G        W     (3.3.0-rc6-00002-gb5d5c87 #421)
+> [   79.781066] PC is at 0x0
+> [   79.783721] LR is at run_timer_softirq+0x16c/0x3ac
+> [   79.788787] pc : [<00000000>]    lr : [<c0040aa4>]    psr: 60000113
+> [   79.788787] sp : cf281ee0  ip : 00000000  fp : cf280000
+> [   79.800903] r10: 00000004  r9 : 00000100  r8 : b6f234d0
+> [   79.806427] r7 : c0519c28  r6 : cf093488  r5 : c0561a00  r4 : 00000000
+> [   79.813323] r3 : 00000000  r2 : c054eee0  r1 : 00000001  r0 : 00000000
+> [   79.820190] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+> [   79.827728] Control: 10c5387d  Table: 8f3b4019  DAC: 00000015
+> [   79.833801] Process gpsd (pid: 1265, stack limit = 0xcf2802e8)
+> [   79.839965] Stack: (0xcf281ee0 to 0xcf282000)
+> [   79.844573] 1ee0: 00000002 00000000 c0040a24 00000000 00000002 cf281f08 00200200 00000000
+> [   79.853210] 1f00: 00000000 cf281f18 cf281f08 00000000 00000000 00000000 cf281f18 cf281f18
+> [   79.861816] 1f20: 00000000 00000001 c056184c 00000000 00000001 b6f234d0 c0561848 00000004
+> [   79.870452] 1f40: cf280000 c003a3b8 c051e79c 00000001 00000000 00000100 3fa9e7b8 0000000a
+> [   79.879089] 1f60: 00000025 cf280000 00000025 00000000 00000000 b6f234d0 00000000 00000004
+> [   79.887756] 1f80: 00000000 c003a924 c053ad38 c0013a50 fa200000 cf281fb0 ffffffff c0008530
+> [   79.896362] 1fa0: 0001e6a0 0000aab8 80000010 c037499c 0001e6a0 be8dab00 0001e698 00036698
+> [   79.904998] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+> [   79.913665] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff 00fbf700 04ffff00
+> [   79.922302] [<c0040aa4>] (run_timer_softirq+0x16c/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
+> [   79.931945] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
+> [   79.940582] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
+> [   79.948913] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
+> [   79.958404] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
+> [   79.967773] Exception stack(0xcf281fb0 to 0xcf281ff8)
+> [   79.973083] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
+> [   79.981658] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+> [   79.990234] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
+> [   79.997161] Code: bad PC value
+> [   80.000396] ---[ end trace 6f6739840475f9ee ]---
+> [   80.005279] Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> Cc: stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Signed-off-by: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  drivers/net/hyperv/netvsc_drv.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
+>  include/net/bluetooth/hci.h |    1 +
+>  net/bluetooth/hci_core.c    |    7 +++++++
+>  2 files changed, 8 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 0ae7a1a..53d1ee5 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -40,6 +40,8 @@
+> diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
+> index 00596e8..f626f44 100644
+> --- a/include/net/bluetooth/hci.h
+> +++ b/include/net/bluetooth/hci.h
+> @@ -86,6 +86,7 @@ enum {
+>  	HCI_DEBUG_KEYS,
 >  
->  #include "hyperv_net.h"
+>  	HCI_RESET,
+> +	HCI_UNREGISTER,
+>  };
+
+what version of the kernel is this patch against? Since we cleaned up
+the flags in bluetooth-next tree. Also in addition you can not just add
+flags here.
+
 >  
-> +#define MODULE_NAME "hv_netvsc"
+>  /*
+> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+> index 5aeb624..3937ce3 100644
+> --- a/net/bluetooth/hci_core.c
+> +++ b/net/bluetooth/hci_core.c
+> @@ -525,6 +525,11 @@ int hci_dev_open(__u16 dev)
+>  
+>  	hci_req_lock(hdev);
+>  
+> +	if (test_bit(HCI_UNREGISTER, &hdev->flags)) {
+> +		ret = -ENODEV;
+> +		goto done;
+> +	}
+> +
+>  	if (hdev->rfkill && rfkill_blocked(hdev->rfkill)) {
+>  		ret = -ERFKILL;
+>  		goto done;
+> @@ -1577,6 +1582,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
+>  
+>  	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
+>  
+> +	set_bit(HCI_UNREGISTER, &hdev->flags);
+> +
+>  	write_lock(&hci_dev_list_lock);
+>  	list_del(&hdev->list);
+>  	write_unlock(&hci_dev_list_lock);
 
-No, please use the built-in macro for this and don't define your own,
-that's totally redundant.
+Is this really enough to protect this race condition?
 
-greg k-h
+Regards
+
+Marcel
