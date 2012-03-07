@@ -1,46 +1,30 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
-	driver name
-Date: Wed, 7 Mar 2012 12:49:46 -0800
-Message-ID: <20120307204946.GA4413@kroah.com>
-References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
-	<20120307201746.GA20900@aepfle.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20120307201746.GA20900@aepfle.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: woodyng1985@yahoo.com.hk
+Subject: Cloud server for FREE
+Date: Thu,  8 Mar 2012 05:04:14 +0800 (HKT)
+Message-ID: <BPeLtEttg@gcn.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-58.sunnyvision.com ([124.248.200.58]:59753 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750987Ab2CGVOl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 16:14:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 07, 2012 at 09:17:46PM +0100, Olaf Hering wrote:
-> On Wed, Mar 07, Haiyang Zhang wrote:
-> 
-> 
-> > @@ -482,7 +484,7 @@ MODULE_DEVICE_TABLE(vmbus, id_table);
-> >  
-> >  /* The one and only one */
-> >  static struct  hv_driver netvsc_drv = {
-> > -	.name = "netvsc",
-> > +	.name = MODULE_NAME,
-> 
-> It would be nice if this could be applied to 3.3.
-> hv_storvsc and hid-hyperv already use the same naming, this patch was
-> send last year already but was not applied for some reason.
+Dear User,
 
-What userspace tools depend on this that requires it to be in 3.3?
+For now. you can using our cloud server for FREE by the following link:
 
-greg k-h
+http://www.36cloud.com/cloud_promotion_2012q1/
+
+Hope you can enjoy our CLOUD server for Web, Email, Shared Drive VPN, Streaming, Game, FTP....or other purpose. 
+
+Many thanks.
+
+Best Regards,
+The 36cloud Team
+
+
+If you do not wish to further receive this event message, email "subscriber@dedicatedserver.com.hk" to unsubscribe this message or revoe your email from the list.
