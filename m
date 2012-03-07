@@ -1,110 +1,82 @@
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: set desired file system root before connecting
- local transports
-Date: Wed, 7 Mar 2012 13:21:11 +0000
-Message-ID: <1331126477.5035.5.camel@lade.trondhjem.org>
-References: <20120229145915.24030.31551.stgit@localhost6.localdomain6>
-	 <1331079588.10560.55.camel@lade.trondhjem.org>
-	 <4F571D83.2010001@parallels.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: 3.3.0-rc6-next20120305 net/ipv4/tcp_ipv4.c:930 suspicious rcu_dereference_check() usage!
+Date: Wed, 07 Mar 2012 08:25:26 -0500
+Message-ID: <30475.1331126726@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"James Bottomley" <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F571D83.2010001-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Content-Language: en-US
-Content-ID: <BAE3B8CFED982F458F914AA38F7BC6B7-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; boundary="==_Exmh_1331126726_3519P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDEyLTAzLTA3IGF0IDEyOjM0ICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
-cm90ZToNCj4gMDcuMDMuMjAxMiAwNDoxOSwgTXlrbGVidXN0LCBUcm9uZCDQv9C40YjQtdGCOg0K
-PiA+IE9uIFdlZCwgMjAxMi0wMi0yOSBhdCAxODo1OSArMDQwMCwgU3RhbmlzbGF2IEtpbnNidXJz
-a3kgd3JvdGU6DQo+ID4+IFRvZGF5LCB0aGVyZSBpcyBhIHByb2JsZW0gaW4gY29ubmVjdGluZyBv
-ZiBsb2NhbCBTVU5SUEMgdGhhbnNwb3J0cy4gVGhlc2UNCj4gPj4gdHJhbnNwb3J0cyB1c2VzIFVO
-SVggc29ja2V0cyBhbmQgY29ubmVjdGlvbiBpdHNlbGYgaXMgZG9uZSBieSBycGNpb2Qgd29ya3F1
-ZXVlLg0KPiA+PiBCdXQgVU5JWCBzb2NrZXRzIGxvb2t1cCBpcyBkb25lIGluIGNvbnRleHQgb2Yg
-cHJvY2VzcyBmaWxlIHN5c3RlbSByb290LiBJLmUuDQo+ID4+IGFsbCBsb2NhbCB0aHVuc3BvcnRz
-IGFyZSBjb25uZWN0aW5nIGluIHJwY2lvZCBjb250ZXh0Lg0KPiA+PiBUaGlzIHdvcmtzIG5pY2Ug
-dW50aWwgd2Ugd2lsbCB0cnkgdG8gbW91bnQgTkZTIGZyb20gcHJvY2VzcyB3aXRoIG90aGVyIHJv
-b3QgLQ0KPiA+PiBmb3IgZXhhbXBsZSBpbiBjb250YWluZXIuIFRoaXMgY29udGFpbmVyIGNhbiBo
-YXZlIGl0J3Mgb3duIChuZXN0ZWQpIHJvb3QgYW5kDQo+ID4+IHJjcGJpbmQgcHJvY2VzcywgbGlz
-dGVuaW5nIG9uIGl0J3Mgb3duIHVuaXggc29ja2V0cy4gQnV0IE5GUyBtb3VudCBhdHRlbXB0IGlu
-DQo+ID4+IHRoaXMgY29udGFpbmVyIHdpbGwgcmVnaXN0ZXIgbmV3IHNlcnZpY2UgKExvY2tkIGZv
-ciBleGFtcGxlKSBpbiBnbG9iYWwgcnBjYmluZA0KPiA+PiAtIG5vdCBjb250YWluZXJzJ3Mgb25l
-Lg0KPiA+PiBUaGlzIHBhdGNoIHNvbHZlcyB0aGUgcHJvYmxlbSBieSBzd2l0Y2hpbmcgcnBjaW9k
-IGtlcm5lbCB0aHJlYWQncyBmaWxlIHN5c3RlbQ0KPiA+PiByb290IHRvIHJpZ2h0IG9uZSAoc3Rv
-cmVkIG9uIHRyYW5zcG9ydCkgd2hpbGUgY29ubmVjdGluZyBvZiBsb2NhbCB0cmFuc3BvcnRzLg0K
-PiA+Pg0KPiA+PiBTaWduZWQtb2ZmLWJ5OiBTdGFuaXNsYXYgS2luc2J1cnNreTxza2luc2J1cnNr
-eUBwYXJhbGxlbHMuY29tPg0KPiA+Pg0KPiA+PiAtLS0NCj4gPj4gICBmcy9mc19zdHJ1Y3QuYyAg
-ICAgICAgfCAgICAxICsNCj4gPj4gICBuZXQvc3VucnBjL3hwcnRzb2NrLmMgfCAgIDMyICsrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKy0tDQo+ID4+ICAgMiBmaWxlcyBjaGFuZ2VkLCAzMSBp
-bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvZnMv
-ZnNfc3RydWN0LmMgYi9mcy9mc19zdHJ1Y3QuYw0KPiA+PiBpbmRleCA3OGI1MTljLi4wZjk4NGMz
-IDEwMDY0NA0KPiA+PiAtLS0gYS9mcy9mc19zdHJ1Y3QuYw0KPiA+PiArKysgYi9mcy9mc19zdHJ1
-Y3QuYw0KPiA+PiBAQCAtMzYsNiArMzYsNyBAQCB2b2lkIHNldF9mc19yb290KHN0cnVjdCBmc19z
-dHJ1Y3QgKmZzLCBzdHJ1Y3QgcGF0aCAqcGF0aCkNCj4gPj4gICAJaWYgKG9sZF9yb290LmRlbnRy
-eSkNCj4gPj4gICAJCXBhdGhfcHV0X2xvbmd0ZXJtKCZvbGRfcm9vdCk7DQo+ID4+ICAgfQ0KPiA+
-PiArRVhQT1JUX1NZTUJPTF9HUEwoc2V0X2ZzX3Jvb3QpOw0KPiA+Pg0KPiA+PiAgIC8qDQo+ID4+
-ICAgICogUmVwbGFjZSB0aGUgZnMtPntwd2RtbnQscHdkfSB3aXRoIHttbnQsZGVudHJ5fS4gUHV0
-IHRoZSBvbGQgdmFsdWVzLg0KPiA+PiBkaWZmIC0tZ2l0IGEvbmV0L3N1bnJwYy94cHJ0c29jay5j
-IGIvbmV0L3N1bnJwYy94cHJ0c29jay5jDQo+ID4+IGluZGV4IDRjODI4MWQuLmM5NGMxODEgMTAw
-NjQ0DQo+ID4+IC0tLSBhL25ldC9zdW5ycGMveHBydHNvY2suYw0KPiA+PiArKysgYi9uZXQvc3Vu
-cnBjL3hwcnRzb2NrLmMNCj4gPj4gQEAgLTM3LDYgKzM3LDcgQEANCj4gPj4gICAjaW5jbHVkZTxs
-aW51eC9zdW5ycGMvc3Zjc29jay5oPg0KPiA+PiAgICNpbmNsdWRlPGxpbnV4L3N1bnJwYy94cHJ0
-c29jay5oPg0KPiA+PiAgICNpbmNsdWRlPGxpbnV4L2ZpbGUuaD4NCj4gPj4gKyNpbmNsdWRlPGxp
-bnV4L2ZzX3N0cnVjdC5oPg0KPiA+PiAgICNpZmRlZiBDT05GSUdfU1VOUlBDX0JBQ0tDSEFOTkVM
-DQo+ID4+ICAgI2luY2x1ZGU8bGludXgvc3VucnBjL2JjX3hwcnQuaD4NCj4gPj4gICAjZW5kaWYN
-Cj4gPj4gQEAgLTI1NSw2ICsyNTYsMTEgQEAgc3RydWN0IHNvY2tfeHBydCB7DQo+ID4+ICAgCXZv
-aWQJCQkoKm9sZF9zdGF0ZV9jaGFuZ2UpKHN0cnVjdCBzb2NrICopOw0KPiA+PiAgIAl2b2lkCQkJ
-KCpvbGRfd3JpdGVfc3BhY2UpKHN0cnVjdCBzb2NrICopOw0KPiA+PiAgIAl2b2lkCQkJKCpvbGRf
-ZXJyb3JfcmVwb3J0KShzdHJ1Y3Qgc29jayAqKTsNCj4gPj4gKw0KPiA+PiArCS8qDQo+ID4+ICsJ
-ICogU2F2ZWQgdHJhbnNwb3J0IGNyZWF0b3Igcm9vdC4gUmVxdWlyZWQgZm9yIGxvY2FsIHRyYW5z
-cG9ydHMgb25seS4NCj4gPj4gKwkgKi8NCj4gPj4gKwlzdHJ1Y3QgcGF0aAkJcm9vdDsNCj4gPj4g
-ICB9Ow0KPiA+Pg0KPiA+PiAgIC8qDQo+ID4+IEBAIC0xODkxLDYgKzE4OTcsNyBAQCBzdGF0aWMg
-dm9pZCB4c19sb2NhbF9zZXR1cF9zb2NrZXQoc3RydWN0IHdvcmtfc3RydWN0ICp3b3JrKQ0KPiA+
-PiAgIAlzdHJ1Y3QgcnBjX3hwcnQgKnhwcnQgPSZ0cmFuc3BvcnQtPnhwcnQ7DQo+ID4+ICAgCXN0
-cnVjdCBzb2NrZXQgKnNvY2s7DQo+ID4+ICAgCWludCBzdGF0dXMgPSAtRUlPOw0KPiA+PiArCXN0
-cnVjdCBwYXRoIHJvb3Q7DQo+ID4+DQo+ID4+ICAgCWlmICh4cHJ0LT5zaHV0ZG93bikNCj4gPj4g
-ICAJCWdvdG8gb3V0Ow0KPiA+PiBAQCAtMTkwOCw3ICsxOTE1LDE0IEBAIHN0YXRpYyB2b2lkIHhz
-X2xvY2FsX3NldHVwX3NvY2tldChzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndvcmspDQo+ID4+ICAgCWRw
-cmludGsoIlJQQzogICAgICAgd29ya2VyIGNvbm5lY3RpbmcgeHBydCAlcCB2aWEgQUZfTE9DQUwg
-dG8gJXNcbiIsDQo+ID4+ICAgCQkJeHBydCwgeHBydC0+YWRkcmVzc19zdHJpbmdzW1JQQ19ESVNQ
-TEFZX0FERFJdKTsNCj4gPj4NCj4gPj4gKwlnZXRfZnNfcm9vdChjdXJyZW50LT5mcywmcm9vdCk7
-DQo+ID4+ICsJc2V0X2ZzX3Jvb3QoY3VycmVudC0+ZnMsJnRyYW5zcG9ydC0+cm9vdCk7DQo+ID4+
-ICsNCj4gPj4gICAJc3RhdHVzID0geHNfbG9jYWxfZmluaXNoX2Nvbm5lY3RpbmcoeHBydCwgc29j
-ayk7DQo+ID4+ICsNCj4gPj4gKwlzZXRfZnNfcm9vdChjdXJyZW50LT5mcywmcm9vdCk7DQo+ID4+
-ICsJcGF0aF9wdXQoJnJvb3QpOw0KPiA+PiArDQo+ID4+ICAgCXN3aXRjaCAoc3RhdHVzKSB7DQo+
-ID4+ICAgCWNhc2UgMDoNCj4gPg0KPiA+IEhpIFN0YW5pc2xhdiwNCj4gPg0KPiA+IFdoYXQgaGFw
-cGVucyBoZXJlIGlmIHRoZSBtb3VudCBuYW1lc3BhY2Ugb2YgdGhlIHByb2Nlc3MgdGhhdCBvcmln
-aW5hbGx5DQo+ID4gY3JlYXRlZCB0aGUgc29ja194cHJ0IG5vIGxvbmdlciBleGlzdHM/IFNob3Vs
-ZCB3ZSBjYXJlIGFib3V0IHRoYXQgY2FzZT8NCj4gPg0KPiANCj4gSGksIFRyb25kLg0KPiBMb29r
-cyBsaWtlIHRoaXMgaXMgbm90IGEgcHJvYmxlbSwgYmVjYXVzZSBwcm9jZXNzIGZzLT5yb290LT5t
-bnQgdXNhZ2UgY291bnRlciANCj4gd2FzIGluY3JlYXNlZCBvbiB0cmFuc3BvcnQgY3JlYXRpb24u
-DQo+IElPVywgdHJhbnNwb3J0IGhvbGRzIGN1cnJlbnQgcm9vdCBhbmQgdGh1cyBtb3VudCBuYW1l
-c3BhY2UgY2FuJ3QgZGlzYXBwZWFyLg0KPiANCg0KVGhhdCBwaW5zIHRoZSByb290IHN0cnVjdCB2
-ZnNtb3VudCwgYnV0IGl0IGRvZXNuJ3QgcGluIHRoZSBhY3R1YWwNCnByb2Nlc3MgbW91bnQgbmFt
-ZXNwYWNlLiBJZiB0aGUgcHJvY2VzcyBpcyBkZWFkLCB0aGVuIGl0IGlzIHF1aXRlDQpwb3NzaWJs
-ZSB0aGF0IHRoZSBzdHJ1Y3QgbW50X25hbWVzcGFjZSBpcyBnb25lLCBpbiB3aGljaCBjYXNlIHdo
-aWxlIHlvdQ0KYXJlIHBpbm5pbmcgdGhlIHJvb3QgKGkuZS4gJy8nKSwgc3VibW91bnRzIHN1Y2gg
-YXMgJy92YXInIG1heSBiZSBnb25lLg0KDQpPVE9ILCBJIHN1cHBvc2UgdGhhdCB5b3UgY2FuIGFy
-Z3VlIHRoYXQgaWYgdGhlIG1udF9uYW1lc3BhY2UgaXMgZ29uZSwNCnRoZW4gcnBjYmluZCBjYW4n
-dCBiZSBsaXN0ZW5pbmcgb24gL3Zhci9ydW4vcnBjYmluZC5zb2NrIGFuZCBzbyB5b3UgYXJlDQpz
-Y3Jld2VkIGFueXdheS4uLg0KDQpPSy4uLi4gUGxlYXNlIGp1c3QgcmVzZW5kIHRoZSBwYXRjaCwg
-Q2NpbmcgQWwgVmlybyBhbmQgQ2hyaXN0b3BoIHNvIHRoYXQNCndlIGNhbiBnZXQgdGhlaXIgb3Bp
-bmlvbi4NCg0KLS0gDQpUcm9uZCBNeWtsZWJ1c3QNCkxpbnV4IE5GUyBjbGllbnQgbWFpbnRhaW5l
-cg0KDQpOZXRBcHANClRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tDQp3d3cubmV0YXBwLmNvbQ0K
-DQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--==_Exmh_1331126726_3519P
+Content-Type: text/plain; charset=us-ascii
+
+Seen in my dmesg.  Dell Latitude E6500.
+
+[  164.842511]
+[  164.842522] ===============================
+[  164.842528] [ INFO: suspicious RCU usage. ]
+[  164.842538] 3.3.0-rc6-next-20120305 #1 Tainted: G           O
+[  164.842544] -------------------------------
+[  164.842552] net/ipv4/tcp_ipv4.c:930 suspicious rcu_dereference_check() usage!
+[  164.842559]
+[  164.842560] other info that might help us debug this:
+[  164.842563]
+[  164.842570]
+[  164.842571] rcu_scheduler_active = 1, debug_locks = 1
+[  164.842579] 2 locks held by ksoftirqd/1/10:
+[  164.842586]  #0:  (&icsk->icsk_retransmit_timer){+.-...}, at: [<ffffffff81039086>] run_timer_softirq+0x17f/0x3e7
+[  164.842620]  #1:  (slock-AF_INET){+.-...}, at: [<ffffffff814b75b3>] tcp_write_timer+0x1a/0x17b
+[  164.842649]
+[  164.842651] stack backtrace:
+[  164.842660] Pid: 10, comm: ksoftirqd/1 Tainted: G           O 3.3.0-rc6-next-20120305 #1
+[  164.842668] Call Trace:
+[  164.842685]  [<ffffffff8106e6a2>] lockdep_rcu_suspicious+0xec/0xf5
+[  164.842698]  [<ffffffff814b7f40>] tcp_md5_do_lookup+0x60/0xbe
+[  164.842710]  [<ffffffff814b7fc0>] tcp_v4_md5_lookup+0xe/0x10
+[  164.842725]  [<ffffffff814b2eb5>] tcp_established_options+0x32/0x110
+[  164.842739]  [<ffffffff814b42d7>] tcp_current_mss+0x50/0x6f
+[  164.842753]  [<ffffffff814b5c50>] tcp_retransmit_skb+0xa9/0x510
+[  164.842766]  [<ffffffff814ab727>] ? tcp_set_ca_state+0x23/0x2f
+[  164.842779]  [<ffffffff814b73ee>] tcp_retransmit_timer+0x376/0x521
+[  164.842791]  [<ffffffff814b7638>] tcp_write_timer+0x9f/0x17b
+[  164.842804]  [<ffffffff8103915e>] run_timer_softirq+0x257/0x3e7
+[  164.842816]  [<ffffffff81039086>] ? run_timer_softirq+0x17f/0x3e7
+[  164.842828]  [<ffffffff814b7599>] ? tcp_retransmit_timer+0x521/0x521
+[  164.842843]  [<ffffffff81032207>] __do_softirq+0x10a/0x25f
+[  164.842857]  [<ffffffff81032411>] run_ksoftirqd+0xb5/0x200
+[  164.842869]  [<ffffffff8103235c>] ? __do_softirq+0x25f/0x25f
+[  164.842884]  [<ffffffff810499bd>] kthread+0x86/0x8e
+[  164.842900]  [<ffffffff815e2434>] kernel_thread_helper+0x4/0x10
+[  164.842914]  [<ffffffff815db41d>] ? retint_restore_args+0xe/0xe
+[  164.842928]  [<ffffffff81049937>] ? flush_kthread_worker+0xcf/0xcf
+[  164.842941]  [<ffffffff815e2430>] ? gs_change+0xb/0xb
+
+
+--==_Exmh_1331126726_3519P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBT1dhxgdmEQWDXROgAQK2UxAAqUt22B1GOx7sxbc70lHTk7qkb4EseU3K
+C44uK+sYu4ijy3uEx7CUgXcWXZeuG39ULaKTAYjYETw2DmKXC1MeA6UxgXXHxqm1
+opiZ9rhoN7cdXSx4EOsBO3EQesoR/xNdafIapZRoJTxUQQDwekCtVFUM4iPuM8XN
+UVL0jLZ27VFEO6SaOLy/SUl3TnRTIbV+BcG5y1FQAWQqXG2ygbmXsoKBTzQuqFna
+s/EGfZyYdow49HM40EeBpFNsKa46fCc+c1R/fofKehpl0hofpa7n7LtN+GHZRkIT
+SdsC8M1871svl2vrW/bMeSU8+hYMWcjU8q9pjv6AybJQJfcZvI1kBVmeIUSGpZNy
+Sq384V1DwdF7Tgj8vqnKDqzw2Hzaay7jl4T8qGWvV4l613gKELZcgXzXW/r63Wdr
+rfKRn2bCIKP/urwPFJwUBjjLMjst6IPHs06xj1FnFs+ZkJ4gBcPFvyDn+W7JXdw5
+I5jgQLF+Mib4Esezh4AWUtCTej4NegZJicGwpL4nVKtnntfQFJvzp/zy6HkTIR5p
+VrmdwndXq9Hj8Lkyu+aDDRLWw4+g5RnpwPdDU0G6SxF1SOQES4Il1xC7r33Jec52
+s6QZ+f8RtRKKNV+vWvErhCau+GBHJCPC5i7efJHLpXDwxsphKE32luAa1wOqnDWQ
+TBj0KbRj8ZM=
+=Yj46
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1331126726_3519P--
