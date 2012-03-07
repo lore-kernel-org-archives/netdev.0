@@ -1,49 +1,72 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [patch 4/7] [PATCH] ctcm: make ctcmpc debugging compilable
-Date: Wed, 07 Mar 2012 17:53:12 +0100
-Message-ID: <1331139192.15095.12.camel@br9gv9yg.de.ibm.com>
-References: <OFA80676C5.CF55E2E0-ONC12579BA.005B3444-C12579BA.005B44A4@de.ibm.com>
+From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
+ DMADBG_7=0x00008040
+Date: Wed, 07 Mar 2012 18:27:36 +0100
+Message-ID: <4F579A88.6030503@openwrt.org>
+References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Uschi IBM <ursula.braun@de.ibm.com>, frank.blaschka@de.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: David.Laight@aculab.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:38224 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756188Ab2CGQxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 11:53:17 -0500
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Wed, 7 Mar 2012 16:53:15 -0000
-In-Reply-To: <OFA80676C5.CF55E2E0-ONC12579BA.005B3444-C12579BA.005B44A4@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mohammed Shafi <shafi.wireless-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F577D9B.7020402-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: "David Laight" <David.Laight@aculab.com>
-> To: <frank.blaschka@de.ibm.com>, <davem@davemloft.net>
-> Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
->  <ursula.braun@de.ibm.com> 
-> Date: 07/03/2012 13:20
-> Subject: RE: [patch 4/7] [PATCH] ctcm: make ctcmpc debugging compilable
+On 2012-03-07 4:24 PM, Justin P. Mattock wrote:
+> On 03/07/2012 07:19 AM, Mohammed Shafi wrote:
+>> On Wed, Mar 7, 2012 at 7:55 PM, Justin P. Mattock
+>> <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>  wrote:
+>>> ath9k craps out from time to time(more annoying if anything)
+>>>
+>>> [44309.840830] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44309.858246] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+>>> [44309.858255] ath: Could not stop RX, we could be confusing the DMA engine
+>>> when we start RX up
+>>> [44309.932801] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44309.950352] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+>>> [44309.950361] ath: Could not stop RX, we could be confusing the DMA engine
+>>> when we start RX up
+>>> [44310.024301] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44310.041641] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+>>> [44310.041646] ath: Could not stop RX, we could be confusing the DMA engine
+>>> when we start RX up
+>>> [44310.116316] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44310.133909] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+>>> [44310.133918] ath: Could not stop RX, we could be confusing the DMA engine
+>>> when we start RX up
+>>> [44310.208021] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44310.225752] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+>>> [44310.225761] ath: Could not stop RX, we could be confusing the DMA engine
+>>> when we start RX up
+>>> [44310.299922] ath: Failed to stop TX DMA, queues=0x001!
+>>> [44310.317579] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+>>> AR_DIAG_SW=0x02000020 DMADBG_7=0x00006040
+>>> [44310.317587] ath: Could not stop RX, we could be confusing the DMA engine
+>>> whe
+>>
+>> this is has become a know issue but less harmful, please try to see if
+>> the workaround of disabling power save helps
+>>
+>> iw dev wlanX set power_save off
+>>
 > 
-> What is wrong with:
->                  char addr[24];
->                  snprintf(addr, sizeof addr, "%p", rptr);
-> 
-> There seemed to be other 'dangerous' unbounded string
-> operations in that code as well.
-> 
->                  David
+> ok! I have set that on the machine.. will see if I get this message in 
+> the upcoming weeks.
+Also, please try this patch with powersave enabled:
+http://nbd.name/ps-fix.patch
 
-David,
-
-nothing is wrong with your proposal to make use of %p here. Quite the
-contrary - it improves the ctcmpc-code. I will keep your proposal in my
-mind for a future follow-on ctcmpc-patch. Thanks!
-
-My patch targets compilability of ctcmpc debugging code only.
-
-Ursula
+- Felix
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
