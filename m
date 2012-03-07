@@ -1,85 +1,77 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
- DMADBG_7=0x00008040
-Date: Wed, 07 Mar 2012 07:24:11 -0800
-Message-ID: <4F577D9B.7020402@gmail.com>
-References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 6/6] Netfilter: xt_LOG: Add timestamp support
+Date: Wed, 7 Mar 2012 16:29:10 +0100
+Message-ID: <20120307152910.GA7044@1984>
+References: <1330989588-26833-1-git-send-email-richard@nod.at>
+ <1330989588-26833-7-git-send-email-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux-netdev <netdev@vger.kernel.org>,
-	Linux-wireless <linux-wireless@vger.kernel.org>
-To: Mohammed Shafi <shafi.wireless@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:36047 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756597Ab2CGPYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 10:24:16 -0500
-In-Reply-To: <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jengelh@medozas.de, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, rostedt@goodmis.org
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1330989588-26833-7-git-send-email-richard@nod.at>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/07/2012 07:19 AM, Mohammed Shafi wrote:
-> On Wed, Mar 7, 2012 at 7:55 PM, Justin P. Mattock
-> <justinmattock@gmail.com>  wrote:
->> ath9k craps out from time to time(more annoying if anything)
->>
->> [44309.840830] ath: Failed to stop TX DMA, queues=0x001!
->> [44309.858246] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->> [44309.858255] ath: Could not stop RX, we could be confusing the DMA engine
->> when we start RX up
->> [44309.932801] ath: Failed to stop TX DMA, queues=0x001!
->> [44309.950352] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->> [44309.950361] ath: Could not stop RX, we could be confusing the DMA engine
->> when we start RX up
->> [44310.024301] ath: Failed to stop TX DMA, queues=0x001!
->> [44310.041641] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->> [44310.041646] ath: Could not stop RX, we could be confusing the DMA engine
->> when we start RX up
->> [44310.116316] ath: Failed to stop TX DMA, queues=0x001!
->> [44310.133909] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->> [44310.133918] ath: Could not stop RX, we could be confusing the DMA engine
->> when we start RX up
->> [44310.208021] ath: Failed to stop TX DMA, queues=0x001!
->> [44310.225752] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
->> [44310.225761] ath: Could not stop RX, we could be confusing the DMA engine
->> when we start RX up
->> [44310.299922] ath: Failed to stop TX DMA, queues=0x001!
->> [44310.317579] ath: DMA failed to stop in 10 ms AR_CR=0x00000024
->> AR_DIAG_SW=0x02000020 DMADBG_7=0x00006040
->> [44310.317587] ath: Could not stop RX, we could be confusing the DMA engine
->> whe
->
-> this is has become a know issue but less harmful, please try to see if
-> the workaround of disabling power save helps
->
-> iw dev wlanX set power_save off
->
+On Tue, Mar 06, 2012 at 12:19:48AM +0100, Richard Weinberger wrote:
+> Using XT_LOG_ADD_TIMESTAMP it is possible to have a timestamp
+> directly in the log message.
+>=20
+> Signed-off-by: Richard Weinberger <richard@nod.at>
+> ---
+>  include/linux/netfilter/xt_LOG.h |    3 ++-
+>  net/netfilter/xt_LOG.c           |    8 ++++++++
+>  2 files changed, 10 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/include/linux/netfilter/xt_LOG.h b/include/linux/netfilt=
+er/xt_LOG.h
+> index 8ac25e0..9361374 100644
+> --- a/include/linux/netfilter/xt_LOG.h
+> +++ b/include/linux/netfilter/xt_LOG.h
+> @@ -8,7 +8,8 @@
+>  #define XT_LOG_UID		0x08	/* Log UID owning local socket */
+>  #define XT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
+>  #define XT_LOG_MACDECODE	0x20	/* Decode MAC header */
+> -#define XT_LOG_MASK		0x2f
+> +#define XT_LOG_ADD_TIMESTAMP	0x40    /* Add a timestamp */
+> +#define XT_LOG_MASK		0x6f
+> =20
+>  struct xt_log_info {
+>          unsigned char level;
+> diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+> index f75f2d7..23db206 100644
+> --- a/net/netfilter/xt_LOG.c
+> +++ b/net/netfilter/xt_LOG.c
+> @@ -499,6 +499,14 @@ log_packet_common(struct sbuff *m,
+>  	if (loginfo->type =3D=3D NF_LOG_TYPE_LOG)
+>  		sb_add(m, "<%d>", loginfo->u.log.level);
+> =20
+> +	if (loginfo->u.log.logflags & XT_LOG_ADD_TIMESTAMP) {
+> +		struct timespec tv;
+> +
+> +		getnstimeofday(&tv);
+> +		sb_add(m, "TIMESTAMP=3D%li.%03u ", tv.tv_sec,
+> +			(unsigned int)tv.tv_nsec / NSEC_PER_MSEC);
 
-ok! I have set that on the machine.. will see if I get this message in 
-the upcoming weeks.
+net/netfilter/xt_LOG.c: In function =E2=80=98log_packet_common=E2=80=99=
+:
+net/netfilter/xt_LOG.c:507:4: warning: format =E2=80=98%u=E2=80=99 expe=
+cts argument of
+type =E2=80=98unsigned int=E2=80=99, but argument 4 has type =E2=80=98l=
+ong int=E2=80=99 [-Wformat]
 
->
->
->>
->>
->> part of dmesg here:
->> http://fpaste.org/xew6/
->> I can supply full log if needed..
->>
->> Justin P. Mattock
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->
+It has to be:
 
-Justin P. Mattock
+                sb_add(m, "TIMESTAMP=3D%li.%03u ", tv.tv_sec,
+                        (unsigned int)(tv.tv_nsec / NSEC_PER_MSEC));
+                                      ^                          ^
+I've fixed, no need to resend this patch.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
