@@ -1,78 +1,57 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH 1/25 v2] rdma/cm: define native IB address
-Date: Wed, 7 Mar 2012 17:45:08 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A823733B7669D7@ORSMSX101.amr.corp.intel.com>
-References: <1828884A29C6694DAF28B7E6B8A8237325661ADD@ORSMSX102.amr.corp.intel.com>
- <CAL1RGDUu9sUbeWgBwivnAeXf+OWX_m5MRrizfzP4ni-FOGxiTQ@mail.gmail.com>
- <1828884A29C6694DAF28B7E6B8A82373374F1A64@ORSMSX102.amr.corp.intel.com>
- <CAL1RGDV-oYkNwQQUkAuUEHTH=HbmLk6Kv7JRnJ3XxN1DMNzLNQ@mail.gmail.com>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: brcmsmac crashed 3.3-rc5 kernel
+Date: Wed, 7 Mar 2012 18:57:02 +0100
+Message-ID: <4F57A16E.8010701@broadcom.com>
+References: <1331136086.2168.0@numa-i>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-rdma (linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDV-oYkNwQQUkAuUEHTH=HbmLk6Kv7JRnJ3XxN1DMNzLNQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: "Helmut Jarausch" <jarausch@igpm.rwth-aachen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1793 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756440Ab2CGR5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 12:57:16 -0500
+In-Reply-To: <1331136086.2168.0@numa-i>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon, Feb 27, 2012 at 2:22 PM, Hefty, Sean <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> w=
-rote:
-> >> > --- a/include/linux/socket.h
-> >> > +++ b/include/linux/socket.h
-> >> > @@ -184,6 +184,7 @@ struct ucred {
-> >> > =A0#define AF_PPPOX =A0 =A0 =A0 24 =A0 =A0 =A0/* PPPoX sockets =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> >> > =A0#define AF_WANPIPE =A0 =A0 25 =A0 =A0 =A0/* Wanpipe API Socke=
-ts */
-> >> > =A0#define AF_LLC =A0 =A0 =A0 =A0 26 =A0 =A0 =A0/* Linux LLC =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> >> > +#define AF_IB =A0 =A0 =A0 =A0 =A027 =A0 =A0 =A0/* Native Infini=
-Band address =A0 =A0*/
-> >> > =A0#define AF_CAN =A0 =A0 =A0 =A0 29 =A0 =A0 =A0/* Controller Ar=
-ea Network =A0 =A0 =A0*/
-> >> > =A0#define AF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A030 =A0 =A0 =A0=
-/* TIPC
-> sockets =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
-> >> > =A0#define AF_BLUETOOTH =A0 31 =A0 =A0 =A0/* Bluetooth sockets =A0=
- =A0 =A0 =A0 =A0 =A0*/
-> >> > @@ -227,6 +228,7 @@ struct ucred {
-> >> > =A0#define PF_PPPOX =A0 =A0 =A0 AF_PPPOX
-> >> > =A0#define PF_WANPIPE =A0 =A0 AF_WANPIPE
-> >> > =A0#define PF_LLC =A0 =A0 =A0 =A0 AF_LLC
-> >> > +#define PF_IB =A0 =A0 =A0 =A0 =A0AF_IB
-> >> > =A0#define PF_CAN =A0 =A0 =A0 =A0 AF_CAN
-> >> > =A0#define PF_TIPC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0AF_TIPC
-> >> > =A0#define PF_BLUETOOTH =A0 AF_BLUETOOTH
-> >>
-> >> Has this been run by the networking community? =A0Are they OK with=
- this
-> >> assignment?
-> >
-> > I did copy netdev on the original submissions, but I don't remember=
- any
-> explicit ack or nack.
->=20
-> David, any feeling yay or nay about adding these?
->=20
-> Is the kernel the final arbiter of AF_xxx / PF_xxx assignments, or
-> is there anything else we have to worry about?
+On 03/07/2012 05:01 PM, Helmut Jarausch wrote:
+> Hi Arend,
+> thanks for your interest.
+>
+> Unfortunately, I have no experience in kernel debugging.
+> If I switch on several flags in the 'kernel hacking' section, I get
+> losts of information on screen - but I don't know how capture these on
+> disk.
 
-To clarify the intent of this change:
+Sometimes your last resort is using a digital camera to capture what is 
+showing on your screen. Can you do that and sent me the picture?
 
-The RDMA CM allows users to specify addresses using struct sockaddr.  T=
-oday, only INET/6 are supported.  The intent is to allow a user to spec=
-ify native InfiniBand addresses through that interface.  In the more im=
-mediate, this helps to solve InfiniBand scaling issues.  Longer term, t=
-his can also be used to control path failover.
+> Meanwhile I have found out that the brcmsmac driver does work under
+> special circumstances.
+>
+> My notebook (HP 625) has to NICs - ethernet and Wlan (BCM4313).
+> If I disconnect my PC from the internet, or configure it not to start
+> the ethernet connection, then I can start the WLAN successfully - and
+> it even seems to be stable.
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What happens when you start ethernet after WLAN?
+
+> On the other hand, if I start the ethernet (RTL8101E/RTL8102E) first
+> and try to start the WLAN next, the kernel crashes each time as
+> reported.
+
+Maybe an issue with shared interrupts. Can you provide the lspci output 
+(ie. lspci -v) to me.
+
+> I can live with this situation but if you like me to find out what's
+> going on I'm willing to help. But for that I need your help on kernel
+> debugging first (currently 3.3-rc6)
+
+Safe the good stuff for later ;-)
+
+Gr. AvS
