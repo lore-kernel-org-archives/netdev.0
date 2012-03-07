@@ -1,89 +1,192 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 2/6] stmmac: Define MDC clock selection macros.
-Date: Wed, 07 Mar 2012 08:19:16 +0100
-Message-ID: <4F570BF4.5070706@st.com>
-References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com> <1330692928-30330-2-git-send-email-deepak.sikri@st.com> <1330692928-30330-3-git-send-email-deepak.sikri@st.com> <4F54CF00.6030005@st.com> <4F57067E.5090104@st.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] inetpeer: Invalidate the inetpeer tree along with the
+ routing cache
+Date: Wed, 7 Mar 2012 08:20:26 +0100
+Message-ID: <20120307072026.GG15404@secunet.com>
+References: <20120307071940.GF15404@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: spear-devel <spear-devel@list.st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Deepak SIKRI <deepak.sikri@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:47305 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751279Ab2CGHUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 02:20:12 -0500
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 332453BB
-	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 07:20:10 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 8A41D1679
-	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 07:20:10 +0000 (GMT)
-In-Reply-To: <4F57067E.5090104@st.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:56844 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751762Ab2CGHUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 02:20:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20120307071940.GF15404@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/7/2012 7:55 AM, Deepak SIKRI wrote:
-> Hello Peppe,
-> 
->>
->> I have some concerns about this patch.
->>
->> We want to have some defines to help on setting the clk_csr (that is is
->> a clk divisor).
->>
->> When you program the "CSR Clock Range" bits in the GMII Address Register
->> you can also set the bit 5 (not supported in older devices e.g. 3.41a).
->> In this case, the defines below do not cover all the cases, I mean:
->>
->> 1000 clk_csr_i/4
->> 1001 clk_csr_i/6
->> 1010 clk_csr_i/8
->> 1011 clk_csr_i/10
->> 1100 clk_csr_i/12
->> 1101 clk_csr_i/14
->> 1110 clk_csr_i/16
->> 1111 clk_csr_i/18
-> 
-> I agree that these macros have been missed. But lets take the change
-> suggested as a separate patch,
-> as this would then be integrated along with the driver.
-> The driver by default is considering the 2.5MHz MDIO clock option only.
-> In this case we require an extra
-> variable to differentiate specification which is higher than IEEE spec
-> of 2.5MHz.
+We initialize the routing metrics with the values cached on the
+inetpeer in rt_init_metrics(). So if we have the metrics cached on the
+inetpeer, we ignore the user configured fib_metrics.
 
-ok, we will have them in a another patch. At any rate, I ask you to add
-a FIXME in the code and detail this issue in the patch comment.
+To fix this issue, we replace the old tree with a fresh initialized
+inet_peer_base. The old tree is removed later with a delayed work queue.
 
-> 
->>> +/* MDC Clock Selection define*/
->>> +#define    STMMAC_CLK_RANGE_60_100M    0    /* MDC = Clk/42 */
->>> +#define    STMMAC_CLK_RANGE_100_150M    1    /* MDC = Clk/62 */
->>> +#define    STMMAC_CLK_RANGE_20_35M        2    /* MDC = Clk/16 */
->>> +#define    STMMAC_CLK_RANGE_35_60M        3    /* MDC = Clk/26 */
->>> +#define    STMMAC_CLK_RANGE_150_250M    4    /* MDC = Clk/102 */
->>> +#define    STMMAC_CLK_RANGE_250_300M    5    /* MDC = Clk/122 */
->> I suggest you to rename these macros as:
->>
->> #define STMMAC_CSR_60_100M    0    /* MDC = Clk/42 */
->> ...
-> 
-> Ok
-> 
->>
->> Also, macros CSR_F_20M should be totally removed.
-> 
-> ok
-> 
->> Peppe
->>
->>> +
->>>   /* Platfrom data for platform device structure's platform_data
->>> field */
->>>
->>>   struct stmmac_mdio_bus_data {
-> Regards
-> Deepak
-> 
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/inetpeer.h |    3 ++
+ net/ipv4/inetpeer.c    |   80 +++++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/route.c       |    1 +
+ 3 files changed, 83 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index 06b795d..ff04a33 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -41,6 +41,7 @@ struct inet_peer {
+ 	u32			pmtu_orig;
+ 	u32			pmtu_learned;
+ 	struct inetpeer_addr_base redirect_learned;
++	struct list_head	gc_list;
+ 	/*
+ 	 * Once inet_peer is queued for deletion (refcnt == -1), following fields
+ 	 * are not available: rid, ip_id_count, tcp_ts, tcp_ts_stamp
+@@ -96,6 +97,8 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr,
+ extern void inet_putpeer(struct inet_peer *p);
+ extern bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
+ 
++extern void inetpeer_invalidate_tree(int family);
++
+ /*
+  * temporary check to make sure we dont access rid, ip_id_count, tcp_ts,
+  * tcp_ts_stamp if no refcount is taken on inet_peer
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index bf4a9c4..897953d 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -17,6 +17,7 @@
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/net.h>
++#include <linux/workqueue.h>
+ #include <net/ip.h>
+ #include <net/inetpeer.h>
+ #include <net/secure_seq.h>
+@@ -66,6 +67,11 @@
+ 
+ static struct kmem_cache *peer_cachep __read_mostly;
+ 
++static LIST_HEAD(gc_list);
++static const int gc_delay = 60 * HZ;
++static struct delayed_work gc_work;
++static DEFINE_SPINLOCK(gc_lock);
++
+ #define node_height(x) x->avl_height
+ 
+ #define peer_avl_empty ((struct inet_peer *)&peer_fake_node)
+@@ -102,6 +108,50 @@ int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries m
+ int inet_peer_minttl __read_mostly = 120 * HZ;	/* TTL under high load: 120 sec */
+ int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min */
+ 
++static void inetpeer_gc_worker(struct work_struct *work)
++{
++	struct inet_peer *p, *n;
++	LIST_HEAD(list);
++
++	spin_lock_bh(&gc_lock);	
++	list_replace_init(&gc_list, &list);
++	spin_unlock_bh(&gc_lock);
++
++	if (list_empty(&list))
++		return;
++
++	list_for_each_entry_safe(p, n, &list, gc_list) {
++
++		if(need_resched())
++			cond_resched();
++
++		if (p->avl_left != peer_avl_empty) {
++			list_add_tail(&p->avl_left->gc_list, &list);
++			p->avl_left = peer_avl_empty;
++		}
++
++		if (p->avl_right != peer_avl_empty) {
++			list_add_tail(&p->avl_right->gc_list, &list);
++			p->avl_right = peer_avl_empty;
++		}
++
++		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
++
++		if (!atomic_read(&p->refcnt)) {
++			list_del(&p->gc_list);
++			kmem_cache_free(peer_cachep, p);
++		}
++	}
++
++	if (list_empty(&list))
++		return;
++
++	spin_lock_bh(&gc_lock);
++	list_splice(&list, &gc_list);
++	spin_unlock_bh(&gc_lock);
++
++	schedule_delayed_work(&gc_work, gc_delay);
++}
+ 
+ /* Called from ip_output.c:ip_init  */
+ void __init inet_initpeers(void)
+@@ -126,6 +176,7 @@ void __init inet_initpeers(void)
+ 			0, SLAB_HWCACHE_ALIGN | SLAB_PANIC,
+ 			NULL);
+ 
++	INIT_DELAYED_WORK_DEFERRABLE(&gc_work, inetpeer_gc_worker);
+ }
+ 
+ static int addr_compare(const struct inetpeer_addr *a,
+@@ -449,7 +500,7 @@ relookup:
+ 		p->pmtu_orig = 0;
+ 		p->redirect_genid = 0;
+ 		memset(&p->redirect_learned, 0, sizeof(p->redirect_learned));
+-
++		INIT_LIST_HEAD(&p->gc_list);
+ 
+ 		/* Link the node. */
+ 		link_to_pool(p, base);
+@@ -509,3 +560,30 @@ bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout)
+ 	return rc;
+ }
+ EXPORT_SYMBOL(inet_peer_xrlim_allow);
++
++void inetpeer_invalidate_tree(int family)
++{
++	struct inet_peer *old, *new, *prev;
++	struct inet_peer_base *base = family_to_base(family);
++
++	write_seqlock_bh(&base->lock);
++
++	old = base->root;
++	if (old == peer_avl_empty_rcu)
++		goto out;
++
++	new = peer_avl_empty_rcu;
++
++	prev = cmpxchg(&base->root, old, new);
++	if (prev == old) {
++		base->total = 0;
++		spin_lock(&gc_lock);
++		list_add_tail(&prev->gc_list, &gc_list);
++		spin_unlock(&gc_lock);
++		schedule_delayed_work(&gc_work, gc_delay);
++	}
++
++out:
++	write_sequnlock_bh(&base->lock);
++}
++EXPORT_SYMBOL(inetpeer_invalidate_tree);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index bcacf54..23ce0c1 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -938,6 +938,7 @@ static void rt_cache_invalidate(struct net *net)
+ 	get_random_bytes(&shuffle, sizeof(shuffle));
+ 	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
+ 	redirect_genid++;
++	inetpeer_invalidate_tree(AF_INET);
+ }
+ 
+ /*
+-- 
+1.7.0.4
