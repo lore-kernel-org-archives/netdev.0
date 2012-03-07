@@ -1,192 +1,107 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/2] inetpeer: Invalidate the inetpeer tree along with the
- routing cache
-Date: Wed, 7 Mar 2012 08:20:26 +0100
-Message-ID: <20120307072026.GG15404@secunet.com>
+Subject: [PATCH 2/2] route: Remove redirect_genid
+Date: Wed, 7 Mar 2012 08:21:10 +0100
+Message-ID: <20120307072110.GH15404@secunet.com>
 References: <20120307071940.GF15404@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: timo.teras@iki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56844 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:56857 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751762Ab2CGHUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2012 02:20:40 -0500
+	id S1752854Ab2CGHVN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 02:21:13 -0500
 Content-Disposition: inline
 In-Reply-To: <20120307071940.GF15404@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We initialize the routing metrics with the values cached on the
-inetpeer in rt_init_metrics(). So if we have the metrics cached on the
-inetpeer, we ignore the user configured fib_metrics.
-
-To fix this issue, we replace the old tree with a fresh initialized
-inet_peer_base. The old tree is removed later with a delayed work queue.
+As we invalidate the inetpeer tree along with the routing cache now,
+we don't need a genid to reset the redirect handling when the routing
+cache is flushed.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/inetpeer.h |    3 ++
- net/ipv4/inetpeer.c    |   80 +++++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv4/route.c       |    1 +
- 3 files changed, 83 insertions(+), 1 deletions(-)
+ include/net/inetpeer.h |    1 -
+ net/ipv4/inetpeer.c    |    1 -
+ net/ipv4/route.c       |   11 ++---------
+ 3 files changed, 2 insertions(+), 11 deletions(-)
 
 diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 06b795d..ff04a33 100644
+index ff04a33..b94765e 100644
 --- a/include/net/inetpeer.h
 +++ b/include/net/inetpeer.h
-@@ -41,6 +41,7 @@ struct inet_peer {
- 	u32			pmtu_orig;
- 	u32			pmtu_learned;
- 	struct inetpeer_addr_base redirect_learned;
-+	struct list_head	gc_list;
- 	/*
- 	 * Once inet_peer is queued for deletion (refcnt == -1), following fields
- 	 * are not available: rid, ip_id_count, tcp_ts, tcp_ts_stamp
-@@ -96,6 +97,8 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr,
- extern void inet_putpeer(struct inet_peer *p);
- extern bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
+@@ -35,7 +35,6 @@ struct inet_peer {
  
-+extern void inetpeer_invalidate_tree(int family);
-+
- /*
-  * temporary check to make sure we dont access rid, ip_id_count, tcp_ts,
-  * tcp_ts_stamp if no refcount is taken on inet_peer
+ 	u32			metrics[RTAX_MAX];
+ 	u32			rate_tokens;	/* rate limiting for ICMP */
+-	int			redirect_genid;
+ 	unsigned long		rate_last;
+ 	unsigned long		pmtu_expires;
+ 	u32			pmtu_orig;
 diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index bf4a9c4..897953d 100644
+index 897953d..4b7c16a 100644
 --- a/net/ipv4/inetpeer.c
 +++ b/net/ipv4/inetpeer.c
-@@ -17,6 +17,7 @@
- #include <linux/kernel.h>
- #include <linux/mm.h>
- #include <linux/net.h>
-+#include <linux/workqueue.h>
- #include <net/ip.h>
- #include <net/inetpeer.h>
- #include <net/secure_seq.h>
-@@ -66,6 +67,11 @@
- 
- static struct kmem_cache *peer_cachep __read_mostly;
- 
-+static LIST_HEAD(gc_list);
-+static const int gc_delay = 60 * HZ;
-+static struct delayed_work gc_work;
-+static DEFINE_SPINLOCK(gc_lock);
-+
- #define node_height(x) x->avl_height
- 
- #define peer_avl_empty ((struct inet_peer *)&peer_fake_node)
-@@ -102,6 +108,50 @@ int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries m
- int inet_peer_minttl __read_mostly = 120 * HZ;	/* TTL under high load: 120 sec */
- int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min */
- 
-+static void inetpeer_gc_worker(struct work_struct *work)
-+{
-+	struct inet_peer *p, *n;
-+	LIST_HEAD(list);
-+
-+	spin_lock_bh(&gc_lock);	
-+	list_replace_init(&gc_list, &list);
-+	spin_unlock_bh(&gc_lock);
-+
-+	if (list_empty(&list))
-+		return;
-+
-+	list_for_each_entry_safe(p, n, &list, gc_list) {
-+
-+		if(need_resched())
-+			cond_resched();
-+
-+		if (p->avl_left != peer_avl_empty) {
-+			list_add_tail(&p->avl_left->gc_list, &list);
-+			p->avl_left = peer_avl_empty;
-+		}
-+
-+		if (p->avl_right != peer_avl_empty) {
-+			list_add_tail(&p->avl_right->gc_list, &list);
-+			p->avl_right = peer_avl_empty;
-+		}
-+
-+		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
-+
-+		if (!atomic_read(&p->refcnt)) {
-+			list_del(&p->gc_list);
-+			kmem_cache_free(peer_cachep, p);
-+		}
-+	}
-+
-+	if (list_empty(&list))
-+		return;
-+
-+	spin_lock_bh(&gc_lock);
-+	list_splice(&list, &gc_list);
-+	spin_unlock_bh(&gc_lock);
-+
-+	schedule_delayed_work(&gc_work, gc_delay);
-+}
- 
- /* Called from ip_output.c:ip_init  */
- void __init inet_initpeers(void)
-@@ -126,6 +176,7 @@ void __init inet_initpeers(void)
- 			0, SLAB_HWCACHE_ALIGN | SLAB_PANIC,
- 			NULL);
- 
-+	INIT_DELAYED_WORK_DEFERRABLE(&gc_work, inetpeer_gc_worker);
- }
- 
- static int addr_compare(const struct inetpeer_addr *a,
-@@ -449,7 +500,7 @@ relookup:
+@@ -498,7 +498,6 @@ relookup:
+ 		p->rate_last = 0;
+ 		p->pmtu_expires = 0;
  		p->pmtu_orig = 0;
- 		p->redirect_genid = 0;
+-		p->redirect_genid = 0;
  		memset(&p->redirect_learned, 0, sizeof(p->redirect_learned));
--
-+		INIT_LIST_HEAD(&p->gc_list);
+ 		INIT_LIST_HEAD(&p->gc_list);
  
- 		/* Link the node. */
- 		link_to_pool(p, base);
-@@ -509,3 +560,30 @@ bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout)
- 	return rc;
- }
- EXPORT_SYMBOL(inet_peer_xrlim_allow);
-+
-+void inetpeer_invalidate_tree(int family)
-+{
-+	struct inet_peer *old, *new, *prev;
-+	struct inet_peer_base *base = family_to_base(family);
-+
-+	write_seqlock_bh(&base->lock);
-+
-+	old = base->root;
-+	if (old == peer_avl_empty_rcu)
-+		goto out;
-+
-+	new = peer_avl_empty_rcu;
-+
-+	prev = cmpxchg(&base->root, old, new);
-+	if (prev == old) {
-+		base->total = 0;
-+		spin_lock(&gc_lock);
-+		list_add_tail(&prev->gc_list, &gc_list);
-+		spin_unlock(&gc_lock);
-+		schedule_delayed_work(&gc_work, gc_delay);
-+	}
-+
-+out:
-+	write_sequnlock_bh(&base->lock);
-+}
-+EXPORT_SYMBOL(inetpeer_invalidate_tree);
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index bcacf54..23ce0c1 100644
+index 23ce0c1..0197747 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -938,6 +938,7 @@ static void rt_cache_invalidate(struct net *net)
+@@ -132,7 +132,6 @@ static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
+ static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
+ static int ip_rt_min_advmss __read_mostly	= 256;
+ static int rt_chain_length_max __read_mostly	= 20;
+-static int redirect_genid;
+ 
+ static struct delayed_work expires_work;
+ static unsigned long expires_ljiffies;
+@@ -937,7 +936,6 @@ static void rt_cache_invalidate(struct net *net)
+ 
  	get_random_bytes(&shuffle, sizeof(shuffle));
  	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
- 	redirect_genid++;
-+	inetpeer_invalidate_tree(AF_INET);
+-	redirect_genid++;
+ 	inetpeer_invalidate_tree(AF_INET);
  }
  
- /*
+@@ -1486,10 +1484,8 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 
+ 				peer = rt->peer;
+ 				if (peer) {
+-					if (peer->redirect_learned.a4 != new_gw ||
+-					    peer->redirect_genid != redirect_genid) {
++					if (peer->redirect_learned.a4 != new_gw) {
+ 						peer->redirect_learned.a4 = new_gw;
+-						peer->redirect_genid = redirect_genid;
+ 						atomic_inc(&__rt_peer_genid);
+ 					}
+ 					check_peer_redir(&rt->dst, peer);
+@@ -1794,8 +1790,6 @@ static void ipv4_validate_peer(struct rtable *rt)
+ 		if (peer) {
+ 			check_peer_pmtu(&rt->dst, peer);
+ 
+-			if (peer->redirect_genid != redirect_genid)
+-				peer->redirect_learned.a4 = 0;
+ 			if (peer->redirect_learned.a4 &&
+ 			    peer->redirect_learned.a4 != rt->rt_gateway)
+ 				check_peer_redir(&rt->dst, peer);
+@@ -1959,8 +1953,7 @@ static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
+ 		dst_init_metrics(&rt->dst, peer->metrics, false);
+ 
+ 		check_peer_pmtu(&rt->dst, peer);
+-		if (peer->redirect_genid != redirect_genid)
+-			peer->redirect_learned.a4 = 0;
++
+ 		if (peer->redirect_learned.a4 &&
+ 		    peer->redirect_learned.a4 != rt->rt_gateway) {
+ 			rt->rt_gateway = peer->redirect_learned.a4;
 -- 
 1.7.0.4
