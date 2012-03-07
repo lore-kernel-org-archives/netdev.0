@@ -1,49 +1,41 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: IPv6: Fix not join all-router mcast group when forwarding set.
-Date: Wed, 7 Mar 2012 14:45:02 +0300
-Message-ID: <20120307114502.GA13204@elgon.mountain>
+From: Roland Stigge <stigge@antcom.de>
+Subject: Re: [PATCH v5] lpc32xx: Added ethernet driver
+Date: Wed, 07 Mar 2012 12:53:28 +0100
+Message-ID: <4F574C38.4030006@antcom.de>
+References: <1331067664-9124-1-git-send-email-stigge@antcom.de> <201203062134.38077.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: lw@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:18610 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751241Ab2CGLpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 06:45:15 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	alexander.h.duyck@intel.com, eilong@broadcom.com,
+	ian.campbell@citrix.com, netdev@vger.kernel.org,
+	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
+	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
+	baruch@tkos.co.il, joe@perches.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201203062134.38077.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Li Wei,
+Hi Arnd,
 
-This is a semi-automatic email about new static checker warnings.
+On 03/06/2012 10:34 PM, Arnd Bergmann wrote:
+> This should eventually both become run-time options based on the device tree.
+> I don't know if you planned to do that anyway, but if you want the same kernel
+> binary to be used for systems in different configurations, you cannot have
+> compile-time decisions that are exclusive-or. Since you don't support device
+> tree yet but plan to do that in the future, you could add a comment here
+> about it, or you could even prepare it for that case already by passing the
+> device into the functions that will be required for reading the properties.
 
-The patch d6ddef9e641d: "IPv6: Fix not join all-router mcast group 
-when forwarding set." from Mar 5, 2012, leads to the following Smatch 
-complaint:
+Good point.
 
-net/ipv6/addrconf.c:438 ipv6_add_dev()
-	 warn: variable dereferenced before check 'dev' (see line 432)
+I prefer putting a comment for now, because upon the planned device tree
+introduction in lpc32xx, an internal change in lpc_eth.c will be
+necessary anyway, so there is no need to already introduce unused
+parameters at this point.
 
-net/ipv6/addrconf.c
-   431		/* protected by rtnl_lock */
-   432		rcu_assign_pointer(dev->ip6_ptr, ndev);
-                                   ^^^^^^^^^^^^
-Old dereference.
+Thanks,
 
-   433	
-   434		/* Join all-node multicast group */
-   435		ipv6_dev_mc_inc(dev, &in6addr_linklocal_allnodes);
-   436	
-   437		/* Join all-router multicast group if forwarding is set */
-   438		if (ndev->cnf.forwarding && dev && (dev->flags & IFF_MULTICAST))
-                                            ^^^
-
-New check.  Probably you can just remove the check?
-
-   439			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
-   440	
-
-regards,
-dan carpenter
+Roland
