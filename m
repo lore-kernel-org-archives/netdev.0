@@ -1,47 +1,56 @@
-From: <parav.pandit@emulex.com>
-Subject: [RFC 0/2] be2net: Added functionality to support RoCE driver
-Date: Wed, 7 Mar 2012 23:17:05 +0530
-Message-ID: <102ec66a-5bd6-4e64-81b2-87ea6111e466@exht1.ad.emulex.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Fix addr valid check in enic_set_vf_mac
+Date: Wed, 07 Mar 2012 05:50:44 -0800
+Message-ID: <20120307135044.17957.92254.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parav.pandit@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:42843 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755979Ab2CGNhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 08:37:35 -0500
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:65002 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754498Ab2CGNup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 08:50:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Parav Pandit <parav.pandit@emulex.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-This patch is against roland's below Infiniband tree.
-http://git.kernel.org/pub/scm/linux/kernel/git/roland/infiniband.git
-Simiilar patch against netdev net-next tree will be made based on this patch.
+zero mac address is a valid address for VIC dynamic vnic and sriov Vf's.
+Fix the check in enic_set_vf_mac appropriately
 
-This patch adds functionality to support RoCE (RDMA over Ethernet) driver.
-- Detecting RoCE supported adapters and creating linked list of them.
-- Enabling 5 more MSIX vectors for RoCE functionality.
-- Calling registered callback functions of the RoCE driver
-  whenever new RoCE capable device is added/removed.
-- Notifying events to RoCE driver when interface is up or down.
-- Provides device specific details to RoCE driver for each roce device.
-- Provides low level mailbox command to be issued by RoCE driver
-  before it can have it own MQ.
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: Sujith Sankar <ssujith@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h      |    2 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Parav Pandit (2):
-  be2net: Added function to issue mailbox cmd on MQ.
-  be2net: Added functionality to support RoCE driver
 
- drivers/net/ethernet/emulex/benet/Makefile  |    2 +-
- drivers/net/ethernet/emulex/benet/be.h      |   28 ++++-
- drivers/net/ethernet/emulex/benet/be_cmds.c |   39 ++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
- drivers/net/ethernet/emulex/benet/be_hw.h   |    4 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   83 +++++++++++--
- drivers/net/ethernet/emulex/benet/be_roce.c |  185 +++++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_roce.h |   75 +++++++++++
- 8 files changed, 404 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.c
- create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.h
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index cf1fb4b..afe9b16 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -32,7 +32,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.38"
++#define DRV_VERSION		"2.1.1.39"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 9080ed6..77b4e87 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1069,7 +1069,7 @@ static int enic_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	if (err)
+ 		return err;
+ 
+-	if (is_valid_ether_addr(mac)) {
++	if (is_valid_ether_addr(mac) || is_zero_ether_addr(mac)) {
+ 		if (vf == PORT_SELF_VF) {
+ 			memcpy(pp->vf_mac, mac, ETH_ALEN);
+ 			return 0;
