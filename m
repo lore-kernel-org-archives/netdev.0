@@ -1,67 +1,56 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 3/7] [PATCH] qeth: synchronize discipline module loading
-Date: Wed, 07 Mar 2012 13:06:25 +0100
-Message-ID: <20120307120707.827023000@de.ibm.com>
-References: <20120307120622.922387262@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: davem@davemloft.net
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [patch 4/7] [PATCH] ctcm: make ctcmpc debugging compilable
+Date: Wed, 7 Mar 2012 12:20:05 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E90@saturn3.aculab.com>
+References: <20120307120707.933695671@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+	"Ursula Braun" <ursula.braun@de.ibm.com>
+To: <frank.blaschka@de.ibm.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:39417 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756513Ab2CGMHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 07:07:46 -0500
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Wed, 7 Mar 2012 12:07:44 -0000
-Content-Disposition: inline; filename=610-qeth-sync-modules.diff
+Received: from mx0.aculab.com ([213.249.233.131]:50696 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757778Ab2CGMU7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 07:20:59 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09502-01 for <netdev@vger.kernel.org>;
+ Wed,  7 Mar 2012 12:20:56 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20120307120707.933695671@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+>  static const struct xid2 init_xid = {
+> @@ -132,7 +132,7 @@ void ctcmpc_dumpit(char *buf, int len)
+>  	__u32	ct, sw, rm, dup;
+>  	char	*ptr, *rptr;
+>  	char	tbuf[82], tdup[82];
+> -	#if (UTS_MACHINE == s390x)
+> +	#ifdef CONFIG_64BIT
+>  	char	addr[22];
+>  	#else
+>  	char	addr[12];
+> @@ -149,8 +149,8 @@ void ctcmpc_dumpit(char *buf, int len)
+>  
+>  	for (ct = 0; ct < len; ct++, ptr++, rptr++) {
+>  		if (sw == 0) {
+> -			#if (UTS_MACHINE == s390x)
+> -			sprintf(addr, "%16.16lx", (__u64)rptr);
+> +			#ifdef CONFIG_64BIT
+> +			sprintf(addr, "%16.16llx", (__u64)rptr);
+>  			#else
+>  			sprintf(addr, "%8.8X", (__u32)rptr);
+>  			#endif
 
-During system startup udev may try to configure devices in
-parallel so we have to synchronize discipline module
-loading.
+What is wrong with:
+	char addr[24];
+	snprintf(addr, sizeof addr, "%p", rptr);
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+There seemed to be other 'dangerous' unbounded string
+operations in that code as well.
 
- drivers/s390/net/qeth_core_main.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff -urpN linux-2.6/drivers/s390/net/qeth_core_main.c linux-2.6-patched/drivers/s390/net/qeth_core_main.c
---- linux-2.6/drivers/s390/net/qeth_core_main.c	2012-03-06 13:35:59.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2012-03-06 13:35:59.000000000 +0100
-@@ -51,6 +51,7 @@ static struct kmem_cache *qeth_qdio_outb
- static struct device *qeth_core_root_dev;
- static unsigned int known_devices[][6] = QETH_MODELLIST_ARRAY;
- static struct lock_class_key qdio_out_skb_queue_key;
-+static struct mutex qeth_mod_mutex;
- 
- static void qeth_send_control_data_cb(struct qeth_channel *,
- 			struct qeth_cmd_buffer *);
-@@ -5040,6 +5041,7 @@ int qeth_core_load_discipline(struct qet
- 		enum qeth_discipline_id discipline)
- {
- 	int rc = 0;
-+	mutex_lock(&qeth_mod_mutex);
- 	switch (discipline) {
- 	case QETH_DISCIPLINE_LAYER3:
- 		card->discipline.ccwgdriver = try_then_request_module(
-@@ -5057,6 +5059,7 @@ int qeth_core_load_discipline(struct qet
- 			"support discipline %d\n", discipline);
- 		rc = -EINVAL;
- 	}
-+	mutex_unlock(&qeth_mod_mutex);
- 	return rc;
- }
- 
-@@ -5540,6 +5543,7 @@ static int __init qeth_core_init(void)
- 	pr_info("loading core functions\n");
- 	INIT_LIST_HEAD(&qeth_core_card_list.list);
- 	rwlock_init(&qeth_core_card_list.rwlock);
-+	mutex_init(&qeth_mod_mutex);
- 
- 	rc = qeth_register_dbf_views();
- 	if (rc)
+	David
