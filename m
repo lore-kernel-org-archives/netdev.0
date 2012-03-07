@@ -1,7 +1,7 @@
 From: Johan Hovold <jhovold@gmail.com>
-Subject: [PATCH 1/2] bluetooth: hci_ldisc: fix NULL-pointer dereference on tty_close
-Date: Wed,  7 Mar 2012 17:01:59 +0100
-Message-ID: <1331136120-27075-2-git-send-email-jhovold@gmail.com>
+Subject: [PATCH 2/2] bluetooth: hci_core: fix NULL-pointer dereference at unregister
+Date: Wed,  7 Mar 2012 17:02:00 +0100
+Message-ID: <1331136120-27075-3-git-send-email-jhovold@gmail.com>
 References: <1331136120-27075-1-git-send-email-jhovold@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -9,104 +9,134 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	stable <stable@vger.kernel.org>
 To: Marcel Holtmann <marcel@holtmann.org>,
 	"Gustavo F. Padovan" <padovan@profusion.mobi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:38052 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756648Ab2CGQDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 11:03:33 -0500
 In-Reply-To: <1331136120-27075-1-git-send-email-jhovold@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do not close protocol driver until device has been unregistered.
+Make sure hci_dev_open returns immediately if hci_dev_unregister has
+been called.
 
-This fixes a race between tty_close and hci_dev_open which can result in
-a NULL-pointer dereference.
-
-The line discipline closes the protocol driver while we may still have
-hci_dev_open sleeping on the req_lock mutex resulting in a NULL-pointer
-dereference when lock is acquired and hci_init_req called.
+This fixes a race between hci_dev_open and hci_dev_unregister which can
+lead to a NULL-pointer dereference.
 
 Bug is 100% reproducible using hciattach and a disconnected serial port:
 
-0. # hciattach -n ttyO1 any noflow
+0. # hciattach -n /dev/ttyO1 any noflow
 
 1. hci_dev_open called from hci_power_on grabs req lock
 2. hci_init_req executes but device fails to initialise (times out
    eventually)
 3. hci_dev_open is called from hci_sock_ioctl and sleeps on req lock
-4. hci_uart_tty_close detaches protocol driver and cancels init req
+4. hci_uart_tty_close calls hci_dev_unregister and sleeps on req lock in
+   hci_dev_do_close
 5. hci_dev_open (1) releases req lock
-6. hci_dev_open (3) grabs req lock, calls hci_init_req, which triggers oops
-   when request is prepared in hci_uart_send_frame
+6. hci_dev_do_close grabs req lock and returns as device is not up
+7. hci_dev_unregister sleeps in destroy_workqueue
+8. hci_dev_open (3) grabs req lock, calls hci_init_req and eventually sleeps
+9. hci_dev_unregister finishes, while hci_dev_open is still running...
 
-[  137.201263] Unable to handle kernel NULL pointer dereference at virtual address 00000028
-[  137.209838] pgd = c0004000
-[  137.212677] [00000028] *pgd=00000000
-[  137.216430] Internal error: Oops: 17 [#1]
-[  137.220642] Modules linked in:
-[  137.223846] CPU: 0    Tainted: G        W     (3.3.0-rc6-dirty #406)
-[  137.230529] PC is at __lock_acquire+0x5c/0x1ab0
-[  137.235290] LR is at lock_acquire+0x9c/0x128
-[  137.239776] pc : [<c0071490>]    lr : [<c00733f8>]    psr: 20000093
-[  137.239776] sp : cf869dd8  ip : c0529554  fp : c051c730
-[  137.251800] r10: 00000000  r9 : cf8673c0  r8 : 00000080
-[  137.257293] r7 : 00000028  r6 : 00000002  r5 : 00000000  r4 : c053fd70
-[  137.264129] r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : 00000001
-[  137.270965] Flags: nzCv  IRQs off  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
-[  137.278717] Control: 10c5387d  Table: 8f0f4019  DAC: 00000015
-[  137.284729] Process kworker/u:1 (pid: 7, stack limit = 0xcf8682e8)
-[  137.291229] Stack: (0xcf869dd8 to 0xcf86a000)
-[  137.295776] 9dc0:                                                       c0529554 00000000
-[  137.304351] 9de0: cf8673c0 cf868000 d03ea1ef cf868000 000001ef 00000470 00000000 00000002
-[  137.312927] 9e00: cf8673c0 00000001 c051c730 c00716ec 0000000c 00000440 c0529554 00000001
-[  137.321533] 9e20: c051c730 cf868000 d03ea1f3 00000000 c053b978 00000000 00000028 cf868000
-[  137.330078] 9e40: 00000000 00000000 00000002 00000000 00000000 c00733f8 00000002 00000080
-[  137.338684] 9e60: 00000000 c02a1d50 00000000 00000001 60000013 c0969a1c 60000093 c053b96c
-[  137.347259] 9e80: 00000002 00000018 20000013 c02a1d50 cf0ac000 00000000 00000002 cf868000
-[  137.355834] 9ea0: 00000089 c0374130 00000002 00000000 c02a1d50 cf0ac000 0000000c cf0fc540
-[  137.364410] 9ec0: 00000018 c02a1d50 cf0fc540 00000000 cf0fc540 c0282238 c028220c cf178d80
-[  137.372985] 9ee0: 127525d8 c02821cc 9a1fa451 c032727c 9a1fa451 127525d8 cf0fc540 cf0ac4ec
-[  137.381561] 9f00: cf0ac000 cf0fc540 cf0ac584 c03285f4 c0328580 cf0ac4ec cf85c740 c05510cc
-[  137.390136] 9f20: ce825400 c004c914 00000002 00000000 c004c884 ce8254f5 cf869f48 00000000
-[  137.398712] 9f40: c0328580 ce825415 c0a7f914 c061af64 00000000 c048cf3c cf8673c0 cf85c740
-[  137.407287] 9f60: c05510cc c051a66c c05510ec c05510c4 cf85c750 cf868000 00000089 c004d6ac
-[  137.415863] 9f80: 00000000 c0073d14 00000001 cf853ed8 cf85c740 c004d558 00000013 00000000
-[  137.424438] 9fa0: 00000000 00000000 00000000 c00516b0 00000000 00000000 cf85c740 00000000
-[  137.433013] 9fc0: 00000001 dead4ead ffffffff ffffffff c0551674 00000000 00000000 c0450aa4
-[  137.441589] 9fe0: cf869fe0 cf869fe0 cf853ed8 c005162c c0013b30 c0013b30 00ffff00 00ffff00
-[  137.450164] [<c0071490>] (__lock_acquire+0x5c/0x1ab0) from [<c00733f8>] (lock_acquire+0x9c/0x128)
-[  137.459503] [<c00733f8>] (lock_acquire+0x9c/0x128) from [<c0374130>] (_raw_spin_lock_irqsave+0x44/0x58)
-[  137.469360] [<c0374130>] (_raw_spin_lock_irqsave+0x44/0x58) from [<c02a1d50>] (skb_queue_tail+0x18/0x48)
-[  137.479339] [<c02a1d50>] (skb_queue_tail+0x18/0x48) from [<c0282238>] (h4_enqueue+0x2c/0x34)
-[  137.488189] [<c0282238>] (h4_enqueue+0x2c/0x34) from [<c02821cc>] (hci_uart_send_frame+0x34/0x68)
-[  137.497497] [<c02821cc>] (hci_uart_send_frame+0x34/0x68) from [<c032727c>] (hci_send_frame+0x50/0x88)
-[  137.507171] [<c032727c>] (hci_send_frame+0x50/0x88) from [<c03285f4>] (hci_cmd_work+0x74/0xd4)
-[  137.516204] [<c03285f4>] (hci_cmd_work+0x74/0xd4) from [<c004c914>] (process_one_work+0x1a0/0x4ec)
-[  137.525604] [<c004c914>] (process_one_work+0x1a0/0x4ec) from [<c004d6ac>] (worker_thread+0x154/0x344)
-[  137.535278] [<c004d6ac>] (worker_thread+0x154/0x344) from [<c00516b0>] (kthread+0x84/0x90)
-[  137.543975] [<c00516b0>] (kthread+0x84/0x90) from [<c0013b30>] (kernel_thread_exit+0x0/0x8)
-[  137.552734] Code: e59f4e5c e5941000 e3510000 0a000031 (e5971000)
-[  137.559234] ---[ end trace 1b75b31a2719ed1e ]---
+[   79.627136] INFO: trying to register non-static key.
+[   79.632354] the code is fine but needs lockdep annotation.
+[   79.638122] turning off the locking correctness validator.
+[   79.643920] [<c00188bc>] (unwind_backtrace+0x0/0xf8) from [<c00729c4>] (__lock_acquire+0x1590/0x1ab0)
+[   79.653594] [<c00729c4>] (__lock_acquire+0x1590/0x1ab0) from [<c00733f8>] (lock_acquire+0x9c/0x128)
+[   79.663085] [<c00733f8>] (lock_acquire+0x9c/0x128) from [<c0040a88>] (run_timer_softirq+0x150/0x3ac)
+[   79.672668] [<c0040a88>] (run_timer_softirq+0x150/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
+[   79.682281] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
+[   79.690856] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
+[   79.699157] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
+[   79.708648] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
+[   79.718048] Exception stack(0xcf281fb0 to 0xcf281ff8)
+[   79.723358] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
+[   79.731933] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+[   79.740509] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
+[   79.747497] Unable to handle kernel NULL pointer dereference at virtual address 00000000
+[   79.756011] pgd = cf3b4000
+[   79.758850] [00000000] *pgd=8f0c7831, *pte=00000000, *ppte=00000000
+[   79.765502] Internal error: Oops: 80000007 [#1]
+[   79.770294] Modules linked in:
+[   79.773529] CPU: 0    Tainted: G        W     (3.3.0-rc6-00002-gb5d5c87 #421)
+[   79.781066] PC is at 0x0
+[   79.783721] LR is at run_timer_softirq+0x16c/0x3ac
+[   79.788787] pc : [<00000000>]    lr : [<c0040aa4>]    psr: 60000113
+[   79.788787] sp : cf281ee0  ip : 00000000  fp : cf280000
+[   79.800903] r10: 00000004  r9 : 00000100  r8 : b6f234d0
+[   79.806427] r7 : c0519c28  r6 : cf093488  r5 : c0561a00  r4 : 00000000
+[   79.813323] r3 : 00000000  r2 : c054eee0  r1 : 00000001  r0 : 00000000
+[   79.820190] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+[   79.827728] Control: 10c5387d  Table: 8f3b4019  DAC: 00000015
+[   79.833801] Process gpsd (pid: 1265, stack limit = 0xcf2802e8)
+[   79.839965] Stack: (0xcf281ee0 to 0xcf282000)
+[   79.844573] 1ee0: 00000002 00000000 c0040a24 00000000 00000002 cf281f08 00200200 00000000
+[   79.853210] 1f00: 00000000 cf281f18 cf281f08 00000000 00000000 00000000 cf281f18 cf281f18
+[   79.861816] 1f20: 00000000 00000001 c056184c 00000000 00000001 b6f234d0 c0561848 00000004
+[   79.870452] 1f40: cf280000 c003a3b8 c051e79c 00000001 00000000 00000100 3fa9e7b8 0000000a
+[   79.879089] 1f60: 00000025 cf280000 00000025 00000000 00000000 b6f234d0 00000000 00000004
+[   79.887756] 1f80: 00000000 c003a924 c053ad38 c0013a50 fa200000 cf281fb0 ffffffff c0008530
+[   79.896362] 1fa0: 0001e6a0 0000aab8 80000010 c037499c 0001e6a0 be8dab00 0001e698 00036698
+[   79.904998] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+[   79.913665] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff 00fbf700 04ffff00
+[   79.922302] [<c0040aa4>] (run_timer_softirq+0x16c/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
+[   79.931945] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
+[   79.940582] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
+[   79.948913] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
+[   79.958404] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
+[   79.967773] Exception stack(0xcf281fb0 to 0xcf281ff8)
+[   79.973083] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
+[   79.981658] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
+[   79.990234] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
+[   79.997161] Code: bad PC value
+[   80.000396] ---[ end trace 6f6739840475f9ee ]---
+[   80.005279] Kernel panic - not syncing: Fatal exception in interrupt
 
 Cc: stable <stable@vger.kernel.org>
 Signed-off-by: Johan Hovold <jhovold@gmail.com>
 ---
- drivers/bluetooth/hci_ldisc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/bluetooth/hci.h |    1 +
+ net/bluetooth/hci_core.c    |    7 +++++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
-index 0711448..6946081 100644
---- a/drivers/bluetooth/hci_ldisc.c
-+++ b/drivers/bluetooth/hci_ldisc.c
-@@ -310,11 +310,11 @@ static void hci_uart_tty_close(struct tty_struct *tty)
- 			hci_uart_close(hdev);
+diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
+index 00596e8..f626f44 100644
+--- a/include/net/bluetooth/hci.h
++++ b/include/net/bluetooth/hci.h
+@@ -86,6 +86,7 @@ enum {
+ 	HCI_DEBUG_KEYS,
  
- 		if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
--			hu->proto->close(hu);
- 			if (hdev) {
- 				hci_unregister_dev(hdev);
- 				hci_free_dev(hdev);
- 			}
-+			hu->proto->close(hu);
- 		}
- 	}
- }
+ 	HCI_RESET,
++	HCI_UNREGISTER,
+ };
+ 
+ /*
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index 5aeb624..3937ce3 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -525,6 +525,11 @@ int hci_dev_open(__u16 dev)
+ 
+ 	hci_req_lock(hdev);
+ 
++	if (test_bit(HCI_UNREGISTER, &hdev->flags)) {
++		ret = -ENODEV;
++		goto done;
++	}
++
+ 	if (hdev->rfkill && rfkill_blocked(hdev->rfkill)) {
+ 		ret = -ERFKILL;
+ 		goto done;
+@@ -1577,6 +1582,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
+ 
+ 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
+ 
++	set_bit(HCI_UNREGISTER, &hdev->flags);
++
+ 	write_lock(&hci_dev_list_lock);
+ 	list_del(&hdev->list);
+ 	write_unlock(&hci_dev_list_lock);
 -- 
 1.7.8.4
