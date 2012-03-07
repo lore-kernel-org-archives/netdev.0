@@ -1,8 +1,8 @@
 From: deepaksi <deepak.sikri@st.com>
-Subject: Re: [PATCH 2/6] stmmac: Define MDC clock selection macros.
-Date: Wed, 7 Mar 2012 12:25:58 +0530
-Message-ID: <4F57067E.5090104@st.com>
-References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com> <1330692928-30330-2-git-send-email-deepak.sikri@st.com> <1330692928-30330-3-git-send-email-deepak.sikri@st.com> <4F54CF00.6030005@st.com>
+Subject: Re: [PATCH 3/6] stmmac: Add support for CPU freq notifiers.
+Date: Wed, 7 Mar 2012 12:47:34 +0530
+Message-ID: <4F570B8E.1010104@st.com>
+References: <1330692928-30330-1-git-send-email-deepak.sikri@st.com> <1330692928-30330-2-git-send-email-deepak.sikri@st.com> <1330692928-30330-3-git-send-email-deepak.sikri@st.com> <1330692928-30330-4-git-send-email-deepak.sikri@st.com> <4F54D62B.2080502@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,73 +10,74 @@ Cc: spear-devel <spear-devel@list.st.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:55344 "EHLO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750906Ab2CGG4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 01:56:32 -0500
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:39735 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750739Ab2CGHSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 02:18:10 -0500
 Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id B8E02F2
-	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 06:48:02 +0000 (GMT)
+	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id C17D0117
+	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 07:09:39 +0000 (GMT)
 Received: from Webmail-ap.st.com (eapex1hubcas4.st.com [10.80.176.69])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id CCBD210FC
-	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 06:56:27 +0000 (GMT)
-In-Reply-To: <4F54CF00.6030005@st.com>
+	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id A1A6C1163
+	for <netdev@vger.kernel.org>; Wed,  7 Mar 2012 07:18:04 +0000 (GMT)
+In-Reply-To: <4F54D62B.2080502@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
 Hello Peppe,
 
+> Hello Deepak
 >
-> I have some concerns about this patch.
->
-> We want to have some defines to help on setting the clk_csr (that is is
-> a clk divisor).
->
-> When you program the "CSR Clock Range" bits in the GMII Address Register
-> you can also set the bit 5 (not supported in older devices e.g. 3.41a).
-> In this case, the defines below do not cover all the cases, I mean:
->
-> 1000 clk_csr_i/4
-> 1001 clk_csr_i/6
-> 1010 clk_csr_i/8
-> 1011 clk_csr_i/10
-> 1100 clk_csr_i/12
-> 1101 clk_csr_i/14
-> 1110 clk_csr_i/16
-> 1111 clk_csr_i/18
+> this patch doesn't apply on net.git.
 
-I agree that these macros have been missed. But lets take the change 
-suggested as a separate patch,
-as this would then be integrated along with the driver.
-The driver by default is considering the 2.5MHz MDIO clock option only. 
-In this case we require an extra
-variable to differentiate specification which is higher than IEEE spec 
-of 2.5MHz.
-
->> +/* MDC Clock Selection define*/
->> +#define	STMMAC_CLK_RANGE_60_100M	0	/* MDC = Clk/42 */
->> +#define	STMMAC_CLK_RANGE_100_150M	1	/* MDC = Clk/62 */
->> +#define	STMMAC_CLK_RANGE_20_35M		2	/* MDC = Clk/16 */
->> +#define	STMMAC_CLK_RANGE_35_60M		3	/* MDC = Clk/26 */
->> +#define	STMMAC_CLK_RANGE_150_250M	4	/* MDC = Clk/102 */
->> +#define	STMMAC_CLK_RANGE_250_300M	5	/* MDC = Clk/122 */
-> I suggest you to rename these macros as:
+I would rebase it again on net.git and send
 >
-> #define STMMAC_CSR_60_100M	0	/* MDC = Clk/42 */
-> ...
+> Concerning the stmmac_clk_csr_set it should treat all the other divisor
+> values as I've just told you in the email #2.
 
-Ok
+I looked through the other divisor values also,. The input clock range 
+coming through those divisors were
+very much overlapping the 2.5 MHz range.
 
+As I had requested to consider the 12.5 MHz MDIO clock provision as a 
+separate patch, I would seek
+some more discussions on this particular thing.
+
+> All the defines from the patch #2:
 >
-> Also, macros CSR_F_20M should be totally removed.
+> +/* CSR Frequency Access Defines*/
+> +#define CSR_F_20M	20000000
+> +#define CSR_F_35M	35000000
+> +#define CSR_F_60M	60000000
+> +#define CSR_F_100M	100000000
+> +#define CSR_F_150M	150000000
+> +#define CSR_F_250M	50000000
+> +#define CSR_F_300M	300000000
+>
+>
+> should be moved from linux/stmmac.h to stmicro/stmmac/common.h
 
 ok
 
-> Peppe
 >
->> +
->>   /* Platfrom data for platform device structure's platform_data field */
->>
->>   struct stmmac_mdio_bus_data {
+> In the end, I kindly ask you to try to remove some of not necessary
+> #ifdef CONFIG_HAVE_CLK  inside the C file.
+>
+> Indeed stmmac_clk is be null in case of there is not this support.
+>
+> Also I wonder if stmmac_clk could be renamed as: stmmac_csr_clk.
+
+Its only at one place that we will need the conditional macro, while we 
+do clk_get. Rest of the
+macros could be do away with.
+I would also rename the stmmac_clk to stmmac_csr_clk.
+
+>
+> Pls, resend the patch against net-git so i'll be happy to continue the
+> review ;-)
+Sure
+
+
 Regards
 Deepak
