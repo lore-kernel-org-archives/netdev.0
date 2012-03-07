@@ -1,61 +1,55 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
- driver name
-Date: Wed, 7 Mar 2012 19:57:53 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCD4CA3@TK5EX14MBXC227.redmond.corp.microsoft.com>
-References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
- <20120307192204.GA9163@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	Olaf Hering <olaf@aepfle.de>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120307192204.GA9163@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH] xfrm: fix hmac(sha256) truncation length
+Date: Wed,  7 Mar 2012 15:12:37 -0500
+Message-ID: <1331151157-19149-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Paul Wouters <pwouters@redhat.com>,
+	Herber Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Martin Willi <martin@strongswan.org>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Commit bc74b0c8af17458ecae77f725e507ab5fd100105 added proper hmac sha384
+and sha512 variants with truncation lengths of 192 and 256 respectively,
+per RFC4868:
 
+http://www.ietf.org/rfc/rfc4868.txt
 
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com]
-> Sent: Wednesday, March 07, 2012 2:22 PM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; Olaf Hering
-> Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
-> driver name
-> 
-> On Wed, Mar 07, 2012 at 11:05:31AM -0800, Haiyang Zhang wrote:
-> > From: Olaf Hering <olaf@aepfle.de>
-> >
-> > Signed-off-by: Olaf Hering <olaf@aepfle.de>
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc_drv.c |    6 ++++--
-> >  1 files changed, 4 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> b/drivers/net/hyperv/netvsc_drv.c
-> > index 0ae7a1a..53d1ee5 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -40,6 +40,8 @@
-> >
-> >  #include "hyperv_net.h"
-> >
-> > +#define MODULE_NAME "hv_netvsc"
-> 
-> No, please use the built-in macro for this and don't define your own,
-> that's totally redundant.
+The already-present hmac sha256 variant was left as-is, with a truncation
+length of 96 bits, per an earlier draft of the RFC, as I understand it (it
+predates 2.6.12-rc2, didn't look further back). This doesn't play well out
+of the box with various other ipsec devices that properly implement the
+current RFC value of 128-bit truncation for hmac sha256. Easy fix,
+assuming there's not some reason I'm not clued into about why this might
+have intentionally been left as-is.
 
-I have submitted a patch using the built-in KBUILD_MODNAME.
-Thanks,
-- Haiyang
+CC: Paul Wouters <pwouters@redhat.com>
+CC: Herber Xu <herbert@gondor.apana.org.au>
+CC: David S. Miller <davem@davemloft.net>
+CC: Martin Willi <martin@strongswan.org>
+CC: netdev@vger.kernel.org
+CC: linux-crypto@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ net/xfrm/xfrm_algo.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index 791ab2e..f2b3ce2 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -203,7 +203,7 @@ static struct xfrm_algo_desc aalg_list[] = {
+ 
+ 	.uinfo = {
+ 		.auth = {
+-			.icv_truncbits = 96,
++			.icv_truncbits = 128,
+ 			.icv_fullbits = 256,
+ 		}
+ 	},
+-- 
+1.7.1
