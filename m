@@ -1,34 +1,33 @@
-From: "RICHARD TANG" <tagnrichard@yahoo.com.hk>
-Subject: MAIL
-Date: Wed, 07 Mar 2012 17:46:54 +0200
-Message-ID: <20120307174654.10753aya0pmgq1ny__43227.6126616218$1331144125$gmane$org@82.137.248.25>
-Reply-To: trichad@yahoo.cn
+From: Michael Schmitz <schmitzmic@googlemail.com>
+Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c
+Date: Thu, 8 Mar 2012 07:42:48 +1300
+Message-ID: <CAOmrzkLar4ZfdY1KFkd7QtK1h0i7Zhc0vjubd9_bohWaGpx8Ag@mail.gmail.com>
+References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>
+	<4F4B2BB6.900@gmail.com>
+	<alpine.DEB.2.00.1203071053360.3196@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw06.190.sy ([82.137.248.25]:42484 "EHLO smtp6.190.sy"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932197Ab2CGSOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2012 13:14:49 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1203071053360.3196@ayla.of.borg>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Geert,
 
+> Netdev people: are these changes to ne.c acceptable?
+>
+> If yes, I'll split everything and queue it up (the ne.c part through netdev,
+> the rest through m68k).
+> If not, do you have a better solution[*]?
+> Are there other network drivers using/requiring a similar approach?
 
-Mail From Tang.
+smc91x requires the same approach - the only changes necessary there
+are to smc91x.h (and Kconfig).
 
-I work with the hang seng Bank Hong Kong.I have a business proposition  
-for you involving a trade in my bank which I know we will be of mutual  
-benefit to both of us, If interested mail me at:trichad@yahoo.cn
+(no patch yet; the code is stuck on my devel PC which refuses to boot ATM).
 
-Regards,
-Richard Tang.
+Cheers,
 
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+  Michael
