@@ -1,170 +1,88 @@
-From: Paul Pluzhnikov <ppluzhnikov@google.com>
-Subject: Re: [PATCH torvalds/linux.git] Make linux/tcp.h C++ friendly (trivial)
-Date: Tue, 6 Mar 2012 16:14:09 -0800
-Message-ID: <CALoOobMSXp4x_+En2gyHmpXcxq=sECQvMZN1LX_j3Yve7Ha6Aw@mail.gmail.com>
-References: <20111229183002.9B4F4190B09@elbrus2.mtv.corp.google.com> <alpine.LNX.2.00.1202032232320.25026@pobox.suse.cz>
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: set desired file system root before connecting
+ local transports
+Date: Wed, 7 Mar 2012 00:19:48 +0000
+Message-ID: <1331079588.10560.55.camel@lade.trondhjem.org>
+References: <20120229145915.24030.31551.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d044287bea8bb3804ba9c0b07
-Cc: netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:44069 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031620Ab2CGAOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Mar 2012 19:14:41 -0500
-Received: by wibhm2 with SMTP id hm2so3012670wib.19
-        for <netdev@vger.kernel.org>; Tue, 06 Mar 2012 16:14:40 -0800 (PST)
-In-Reply-To: <alpine.LNX.2.00.1202032232320.25026@pobox.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---f46d044287bea8bb3804ba9c0b07
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Ping?
-
-I am attaching the patch again so it doesn't get mangled by quoting
-and is easier to apply.
-
-Thanks,
-
-On Fri, Feb 3, 2012 at 1:33 PM, Jiri Kosina <jkosina@suse.cz> wrote:
-> On Thu, 29 Dec 2011, Paul Pluzhnikov wrote:
->
->> Greetings,
->>
->> Using linux/tcp.h from C++ results in:
->>
->> cat t.cc
->>
->> #include <linux/tcp.h>
->> int main() { }
->>
->> g++ -c t.cc
->>
->> In file included from t.cc:1:
->> /usr/include/linux/tcp.h:72: error: '__u32 __fswab32(__u32)' cannot appe=
-ar in a constant-expression
->> /usr/include/linux/tcp.h:72: error: a function call cannot appear in a c=
-onstant-expression
->> ...
->
-> Paul,
->
-> thanks for the patch. I'd however prefer this to go through netdev, not
-> feeling like this is fully appropriate for trivial tree.
->
-> Adding netdev to CC and keeping the changelog and patch below for
-> reference.
->
->>
->> Attached trivial patch fixes this problem.
->>
->> Tested:
->> - the t.cc above compiles with g++ and
->> - the following program generates the same output before/after
->> =A0 the patch:
->>
->> #include <linux/tcp.h>
->> #include <stdio.h>
->>
->> int main ()
->> {
->> #define P(a) printf("%s: %08x\n", #a, (int)a)
->> =A0 P(TCP_FLAG_CWR);
->> =A0 P(TCP_FLAG_ECE);
->> =A0 P(TCP_FLAG_URG);
->> =A0 P(TCP_FLAG_ACK);
->> =A0 P(TCP_FLAG_PSH);
->> =A0 P(TCP_FLAG_RST);
->> =A0 P(TCP_FLAG_SYN);
->> =A0 P(TCP_FLAG_FIN);
->> =A0 P(TCP_RESERVED_BITS);
->> =A0 P(TCP_DATA_OFFSET);
->> #undef P
->> =A0 return 0;
->> }
->>
->> Signed-off-by: Paul Pluzhnikov <ppluzhnikov@google.com>
->>
->>
->> Thanks,
->>
->> P.S. Google has blanket copyright assignment to FSF.
->> --
->> Paul Pluzhnikov
->>
->>
->> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
->> index 7f59ee9..63334f7 100644
->> --- a/include/linux/tcp.h
->> +++ b/include/linux/tcp.h
->> @@ -69,16 +69,16 @@ union tcp_word_hdr {
->> =A0#define tcp_flag_word(tp) ( ((union tcp_word_hdr *)(tp))->words [3])
->>
->> =A0enum {
->> - =A0 =A0 TCP_FLAG_CWR =3D __cpu_to_be32(0x00800000),
->> - =A0 =A0 TCP_FLAG_ECE =3D __cpu_to_be32(0x00400000),
->> - =A0 =A0 TCP_FLAG_URG =3D __cpu_to_be32(0x00200000),
->> - =A0 =A0 TCP_FLAG_ACK =3D __cpu_to_be32(0x00100000),
->> - =A0 =A0 TCP_FLAG_PSH =3D __cpu_to_be32(0x00080000),
->> - =A0 =A0 TCP_FLAG_RST =3D __cpu_to_be32(0x00040000),
->> - =A0 =A0 TCP_FLAG_SYN =3D __cpu_to_be32(0x00020000),
->> - =A0 =A0 TCP_FLAG_FIN =3D __cpu_to_be32(0x00010000),
->> - =A0 =A0 TCP_RESERVED_BITS =3D __cpu_to_be32(0x0F000000),
->> - =A0 =A0 TCP_DATA_OFFSET =3D __cpu_to_be32(0xF0000000)
->> + =A0 =A0 TCP_FLAG_CWR =3D __constant_cpu_to_be32(0x00800000),
->> + =A0 =A0 TCP_FLAG_ECE =3D __constant_cpu_to_be32(0x00400000),
->> + =A0 =A0 TCP_FLAG_URG =3D __constant_cpu_to_be32(0x00200000),
->> + =A0 =A0 TCP_FLAG_ACK =3D __constant_cpu_to_be32(0x00100000),
->> + =A0 =A0 TCP_FLAG_PSH =3D __constant_cpu_to_be32(0x00080000),
->> + =A0 =A0 TCP_FLAG_RST =3D __constant_cpu_to_be32(0x00040000),
->> + =A0 =A0 TCP_FLAG_SYN =3D __constant_cpu_to_be32(0x00020000),
->> + =A0 =A0 TCP_FLAG_FIN =3D __constant_cpu_to_be32(0x00010000),
->> + =A0 =A0 TCP_RESERVED_BITS =3D __constant_cpu_to_be32(0x0F000000),
->> + =A0 =A0 TCP_DATA_OFFSET =3D __constant_cpu_to_be32(0xF0000000)
->> =A0};
->>
->> =A0/*
->>
->
-> --
-> Jiri Kosina
-> SUSE Labs
-
-
-
---=20
-Paul Pluzhnikov
-
---f46d044287bea8bb3804ba9c0b07
-Content-Type: text/plain; charset=US-ASCII; name="linux-tcp_h-patch-20111229.txt"
-Content-Disposition: attachment; filename="linux-tcp_h-patch-20111229.txt"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gzhm7aqn0
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120229145915.24030.31551.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Content-Language: en-US
+Content-ID: <1E0E74313C142F4582D2DBA3872510C1-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvdGNwLmggYi9pbmNsdWRlL2xpbnV4L3RjcC5oCmlu
-ZGV4IDdmNTllZTkuLjYzMzM0ZjcgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvdGNwLmgKKysr
-IGIvaW5jbHVkZS9saW51eC90Y3AuaApAQCAtNjksMTYgKzY5LDE2IEBAIHVuaW9uIHRjcF93b3Jk
-X2hkciB7CiAjZGVmaW5lIHRjcF9mbGFnX3dvcmQodHApICggKCh1bmlvbiB0Y3Bfd29yZF9oZHIg
-KikodHApKS0+d29yZHMgWzNdKSAKIAogZW51bSB7IAotCVRDUF9GTEFHX0NXUiA9IF9fY3B1X3Rv
-X2JlMzIoMHgwMDgwMDAwMCksCi0JVENQX0ZMQUdfRUNFID0gX19jcHVfdG9fYmUzMigweDAwNDAw
-MDAwKSwKLQlUQ1BfRkxBR19VUkcgPSBfX2NwdV90b19iZTMyKDB4MDAyMDAwMDApLAotCVRDUF9G
-TEFHX0FDSyA9IF9fY3B1X3RvX2JlMzIoMHgwMDEwMDAwMCksCi0JVENQX0ZMQUdfUFNIID0gX19j
-cHVfdG9fYmUzMigweDAwMDgwMDAwKSwKLQlUQ1BfRkxBR19SU1QgPSBfX2NwdV90b19iZTMyKDB4
-MDAwNDAwMDApLAotCVRDUF9GTEFHX1NZTiA9IF9fY3B1X3RvX2JlMzIoMHgwMDAyMDAwMCksCi0J
-VENQX0ZMQUdfRklOID0gX19jcHVfdG9fYmUzMigweDAwMDEwMDAwKSwKLQlUQ1BfUkVTRVJWRURf
-QklUUyA9IF9fY3B1X3RvX2JlMzIoMHgwRjAwMDAwMCksCi0JVENQX0RBVEFfT0ZGU0VUID0gX19j
-cHVfdG9fYmUzMigweEYwMDAwMDAwKQorCVRDUF9GTEFHX0NXUiA9IF9fY29uc3RhbnRfY3B1X3Rv
-X2JlMzIoMHgwMDgwMDAwMCksCisJVENQX0ZMQUdfRUNFID0gX19jb25zdGFudF9jcHVfdG9fYmUz
-MigweDAwNDAwMDAwKSwKKwlUQ1BfRkxBR19VUkcgPSBfX2NvbnN0YW50X2NwdV90b19iZTMyKDB4
-MDAyMDAwMDApLAorCVRDUF9GTEFHX0FDSyA9IF9fY29uc3RhbnRfY3B1X3RvX2JlMzIoMHgwMDEw
-MDAwMCksCisJVENQX0ZMQUdfUFNIID0gX19jb25zdGFudF9jcHVfdG9fYmUzMigweDAwMDgwMDAw
-KSwKKwlUQ1BfRkxBR19SU1QgPSBfX2NvbnN0YW50X2NwdV90b19iZTMyKDB4MDAwNDAwMDApLAor
-CVRDUF9GTEFHX1NZTiA9IF9fY29uc3RhbnRfY3B1X3RvX2JlMzIoMHgwMDAyMDAwMCksCisJVENQ
-X0ZMQUdfRklOID0gX19jb25zdGFudF9jcHVfdG9fYmUzMigweDAwMDEwMDAwKSwKKwlUQ1BfUkVT
-RVJWRURfQklUUyA9IF9fY29uc3RhbnRfY3B1X3RvX2JlMzIoMHgwRjAwMDAwMCksCisJVENQX0RB
-VEFfT0ZGU0VUID0gX19jb25zdGFudF9jcHVfdG9fYmUzMigweEYwMDAwMDAwKQogfTsgCiAKIC8q
-Cg==
---f46d044287bea8bb3804ba9c0b07--
+T24gV2VkLCAyMDEyLTAyLTI5IGF0IDE4OjU5ICswNDAwLCBTdGFuaXNsYXYgS2luc2J1cnNreSB3
+cm90ZToNCj4gVG9kYXksIHRoZXJlIGlzIGEgcHJvYmxlbSBpbiBjb25uZWN0aW5nIG9mIGxvY2Fs
+IFNVTlJQQyB0aGFuc3BvcnRzLiBUaGVzZQ0KPiB0cmFuc3BvcnRzIHVzZXMgVU5JWCBzb2NrZXRz
+IGFuZCBjb25uZWN0aW9uIGl0c2VsZiBpcyBkb25lIGJ5IHJwY2lvZCB3b3JrcXVldWUuDQo+IEJ1
+dCBVTklYIHNvY2tldHMgbG9va3VwIGlzIGRvbmUgaW4gY29udGV4dCBvZiBwcm9jZXNzIGZpbGUg
+c3lzdGVtIHJvb3QuIEkuZS4NCj4gYWxsIGxvY2FsIHRodW5zcG9ydHMgYXJlIGNvbm5lY3Rpbmcg
+aW4gcnBjaW9kIGNvbnRleHQuDQo+IFRoaXMgd29ya3MgbmljZSB1bnRpbCB3ZSB3aWxsIHRyeSB0
+byBtb3VudCBORlMgZnJvbSBwcm9jZXNzIHdpdGggb3RoZXIgcm9vdCAtDQo+IGZvciBleGFtcGxl
+IGluIGNvbnRhaW5lci4gVGhpcyBjb250YWluZXIgY2FuIGhhdmUgaXQncyBvd24gKG5lc3RlZCkg
+cm9vdCBhbmQNCj4gcmNwYmluZCBwcm9jZXNzLCBsaXN0ZW5pbmcgb24gaXQncyBvd24gdW5peCBz
+b2NrZXRzLiBCdXQgTkZTIG1vdW50IGF0dGVtcHQgaW4NCj4gdGhpcyBjb250YWluZXIgd2lsbCBy
+ZWdpc3RlciBuZXcgc2VydmljZSAoTG9ja2QgZm9yIGV4YW1wbGUpIGluIGdsb2JhbCBycGNiaW5k
+DQo+IC0gbm90IGNvbnRhaW5lcnMncyBvbmUuDQo+IFRoaXMgcGF0Y2ggc29sdmVzIHRoZSBwcm9i
+bGVtIGJ5IHN3aXRjaGluZyBycGNpb2Qga2VybmVsIHRocmVhZCdzIGZpbGUgc3lzdGVtDQo+IHJv
+b3QgdG8gcmlnaHQgb25lIChzdG9yZWQgb24gdHJhbnNwb3J0KSB3aGlsZSBjb25uZWN0aW5nIG9m
+IGxvY2FsIHRyYW5zcG9ydHMuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTdGFuaXNsYXYgS2luc2J1
+cnNreSA8c2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbT4NCj4gDQo+IC0tLQ0KPiAgZnMvZnNfc3Ry
+dWN0LmMgICAgICAgIHwgICAgMSArDQo+ICBuZXQvc3VucnBjL3hwcnRzb2NrLmMgfCAgIDMyICsr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tDQo+ICAyIGZpbGVzIGNoYW5nZWQsIDMxIGlu
+c2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZnMvZnNfc3Ry
+dWN0LmMgYi9mcy9mc19zdHJ1Y3QuYw0KPiBpbmRleCA3OGI1MTljLi4wZjk4NGMzIDEwMDY0NA0K
+PiAtLS0gYS9mcy9mc19zdHJ1Y3QuYw0KPiArKysgYi9mcy9mc19zdHJ1Y3QuYw0KPiBAQCAtMzYs
+NiArMzYsNyBAQCB2b2lkIHNldF9mc19yb290KHN0cnVjdCBmc19zdHJ1Y3QgKmZzLCBzdHJ1Y3Qg
+cGF0aCAqcGF0aCkNCj4gIAlpZiAob2xkX3Jvb3QuZGVudHJ5KQ0KPiAgCQlwYXRoX3B1dF9sb25n
+dGVybSgmb2xkX3Jvb3QpOw0KPiAgfQ0KPiArRVhQT1JUX1NZTUJPTF9HUEwoc2V0X2ZzX3Jvb3Qp
+Ow0KPiAgDQo+ICAvKg0KPiAgICogUmVwbGFjZSB0aGUgZnMtPntwd2RtbnQscHdkfSB3aXRoIHtt
+bnQsZGVudHJ5fS4gUHV0IHRoZSBvbGQgdmFsdWVzLg0KPiBkaWZmIC0tZ2l0IGEvbmV0L3N1bnJw
+Yy94cHJ0c29jay5jIGIvbmV0L3N1bnJwYy94cHJ0c29jay5jDQo+IGluZGV4IDRjODI4MWQuLmM5
+NGMxODEgMTAwNjQ0DQo+IC0tLSBhL25ldC9zdW5ycGMveHBydHNvY2suYw0KPiArKysgYi9uZXQv
+c3VucnBjL3hwcnRzb2NrLmMNCj4gQEAgLTM3LDYgKzM3LDcgQEANCj4gICNpbmNsdWRlIDxsaW51
+eC9zdW5ycGMvc3Zjc29jay5oPg0KPiAgI2luY2x1ZGUgPGxpbnV4L3N1bnJwYy94cHJ0c29jay5o
+Pg0KPiAgI2luY2x1ZGUgPGxpbnV4L2ZpbGUuaD4NCj4gKyNpbmNsdWRlIDxsaW51eC9mc19zdHJ1
+Y3QuaD4NCj4gICNpZmRlZiBDT05GSUdfU1VOUlBDX0JBQ0tDSEFOTkVMDQo+ICAjaW5jbHVkZSA8
+bGludXgvc3VucnBjL2JjX3hwcnQuaD4NCj4gICNlbmRpZg0KPiBAQCAtMjU1LDYgKzI1NiwxMSBA
+QCBzdHJ1Y3Qgc29ja194cHJ0IHsNCj4gIAl2b2lkCQkJKCpvbGRfc3RhdGVfY2hhbmdlKShzdHJ1
+Y3Qgc29jayAqKTsNCj4gIAl2b2lkCQkJKCpvbGRfd3JpdGVfc3BhY2UpKHN0cnVjdCBzb2NrICop
+Ow0KPiAgCXZvaWQJCQkoKm9sZF9lcnJvcl9yZXBvcnQpKHN0cnVjdCBzb2NrICopOw0KPiArDQo+
+ICsJLyoNCj4gKwkgKiBTYXZlZCB0cmFuc3BvcnQgY3JlYXRvciByb290LiBSZXF1aXJlZCBmb3Ig
+bG9jYWwgdHJhbnNwb3J0cyBvbmx5Lg0KPiArCSAqLw0KPiArCXN0cnVjdCBwYXRoCQlyb290Ow0K
+PiAgfTsNCj4gIA0KPiAgLyoNCj4gQEAgLTE4OTEsNiArMTg5Nyw3IEBAIHN0YXRpYyB2b2lkIHhz
+X2xvY2FsX3NldHVwX3NvY2tldChzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndvcmspDQo+ICAJc3RydWN0
+IHJwY194cHJ0ICp4cHJ0ID0gJnRyYW5zcG9ydC0+eHBydDsNCj4gIAlzdHJ1Y3Qgc29ja2V0ICpz
+b2NrOw0KPiAgCWludCBzdGF0dXMgPSAtRUlPOw0KPiArCXN0cnVjdCBwYXRoIHJvb3Q7DQo+ICAN
+Cj4gIAlpZiAoeHBydC0+c2h1dGRvd24pDQo+ICAJCWdvdG8gb3V0Ow0KPiBAQCAtMTkwOCw3ICsx
+OTE1LDE0IEBAIHN0YXRpYyB2b2lkIHhzX2xvY2FsX3NldHVwX3NvY2tldChzdHJ1Y3Qgd29ya19z
+dHJ1Y3QgKndvcmspDQo+ICAJZHByaW50aygiUlBDOiAgICAgICB3b3JrZXIgY29ubmVjdGluZyB4
+cHJ0ICVwIHZpYSBBRl9MT0NBTCB0byAlc1xuIiwNCj4gIAkJCXhwcnQsIHhwcnQtPmFkZHJlc3Nf
+c3RyaW5nc1tSUENfRElTUExBWV9BRERSXSk7DQo+ICANCj4gKwlnZXRfZnNfcm9vdChjdXJyZW50
+LT5mcywgJnJvb3QpOw0KPiArCXNldF9mc19yb290KGN1cnJlbnQtPmZzLCAmdHJhbnNwb3J0LT5y
+b290KTsNCj4gKw0KPiAgCXN0YXR1cyA9IHhzX2xvY2FsX2ZpbmlzaF9jb25uZWN0aW5nKHhwcnQs
+IHNvY2spOw0KPiArDQo+ICsJc2V0X2ZzX3Jvb3QoY3VycmVudC0+ZnMsICZyb290KTsNCj4gKwlw
+YXRoX3B1dCgmcm9vdCk7DQo+ICsNCj4gIAlzd2l0Y2ggKHN0YXR1cykgew0KPiAgCWNhc2UgMDoN
+Cg0KSGkgU3RhbmlzbGF2LA0KDQpXaGF0IGhhcHBlbnMgaGVyZSBpZiB0aGUgbW91bnQgbmFtZXNw
+YWNlIG9mIHRoZSBwcm9jZXNzIHRoYXQgb3JpZ2luYWxseQ0KY3JlYXRlZCB0aGUgc29ja194cHJ0
+IG5vIGxvbmdlciBleGlzdHM/IFNob3VsZCB3ZSBjYXJlIGFib3V0IHRoYXQgY2FzZT8NCg0KQ2hl
+ZXJzDQogIFRyb25kDQoNCi0tIA0KVHJvbmQgTXlrbGVidXN0DQpMaW51eCBORlMgY2xpZW50IG1h
+aW50YWluZXINCg0KTmV0QXBwDQpUcm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbQ0Kd3d3Lm5ldGFw
+cC5jb20NCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
