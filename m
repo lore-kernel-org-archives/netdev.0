@@ -1,142 +1,140 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2] SUNRPC: set desired file system root before connecting
- local transports
-Date: Wed, 07 Mar 2012 20:25:17 +0400
-Message-ID: <20120307162359.6359.76479.stgit@localhost6.localdomain6>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] dlm, sctp: Do not allocate a fd for peeloff
+Date: Wed, 07 Mar 2012 11:29:20 -0500
+Message-ID: <4F578CE0.6030106@hp.com>
+References: <1331134862-14812-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bfields@fieldses.org, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jbottomley@parallels.com,
-	hch@infradead.org, viro@zeniv.linux.org.uk, davem@davemloft.net,
-	devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:8632 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754569Ab2CGQ0O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2012 11:26:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Christine Caulfield <ccaulfie@redhat.com>,
+	David Teigland <teigland@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, cluster-devel@redhat.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1331134862-14812-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-v2: added Alexander Viro and Christoph Hellwig to recipience.
+On 03/07/2012 10:41 AM, Benjamin Poirier wrote:
+> avoids allocating a fd that a) propagates to every kernel thread and
+> usermodehelper b) is not properly released.
+> 
+> References: http://article.gmane.org/gmane.linux.network.drbd/22529
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-Today, there is a problem in connecting of local SUNRPC thansports. These
-transports uses UNIX sockets and connection itself is done by rpciod workqueue.
-But UNIX sockets lookup is done in context of process file system root. I.e.
-all local thunsports are connecting in rpciod context.
-This works nice until we will try to mount NFS from process with other root -
-for example in container. This container can have it's own (nested) root and
-rcpbind process, listening on it's own unix sockets. But NFS mount attempt in
-this container will register new service (Lockd for example) in global rpcbind
-- not containers's one.
-This patch solves the problem by switching rpciod kernel thread's file system
-root to right one (stored on transport) while connecting of local transports.
+It might make sense to change sctp_do_peeloff to take the association id as
+the first argument and not do the mapping from id to association yourself.
+It's a bit ugly to expose internal sctp structures outside of SCTP.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+-vlad
 
----
- fs/fs_struct.c        |    1 +
- net/sunrpc/xprtsock.c |   32 ++++++++++++++++++++++++++++++--
- 2 files changed, 31 insertions(+), 2 deletions(-)
-
-diff --git a/fs/fs_struct.c b/fs/fs_struct.c
-index 78b519c..0f984c3 100644
---- a/fs/fs_struct.c
-+++ b/fs/fs_struct.c
-@@ -36,6 +36,7 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
- 	if (old_root.dentry)
- 		path_put_longterm(&old_root);
- }
-+EXPORT_SYMBOL_GPL(set_fs_root);
- 
- /*
-  * Replace the fs->{pwdmnt,pwd} with {mnt,dentry}. Put the old values.
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 4c8281d..c94c181 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -37,6 +37,7 @@
- #include <linux/sunrpc/svcsock.h>
- #include <linux/sunrpc/xprtsock.h>
- #include <linux/file.h>
-+#include <linux/fs_struct.h>
- #ifdef CONFIG_SUNRPC_BACKCHANNEL
- #include <linux/sunrpc/bc_xprt.h>
- #endif
-@@ -255,6 +256,11 @@ struct sock_xprt {
- 	void			(*old_state_change)(struct sock *);
- 	void			(*old_write_space)(struct sock *);
- 	void			(*old_error_report)(struct sock *);
-+
-+	/*
-+	 * Saved transport creator root. Required for local transports only.
-+	 */
-+	struct path		root;
- };
- 
- /*
-@@ -1891,6 +1897,7 @@ static void xs_local_setup_socket(struct work_struct *work)
- 	struct rpc_xprt *xprt = &transport->xprt;
- 	struct socket *sock;
- 	int status = -EIO;
-+	struct path root;
- 
- 	if (xprt->shutdown)
- 		goto out;
-@@ -1908,7 +1915,14 @@ static void xs_local_setup_socket(struct work_struct *work)
- 	dprintk("RPC:       worker connecting xprt %p via AF_LOCAL to %s\n",
- 			xprt, xprt->address_strings[RPC_DISPLAY_ADDR]);
- 
-+	get_fs_root(current->fs, &root);
-+	set_fs_root(current->fs, &transport->root);
-+
- 	status = xs_local_finish_connecting(xprt, sock);
-+
-+	set_fs_root(current->fs, &root);
-+	path_put(&root);
-+
- 	switch (status) {
- 	case 0:
- 		dprintk("RPC:       xprt %p connected to %s\n",
-@@ -2213,6 +2227,18 @@ static void xs_connect(struct rpc_task *task)
- 	}
- }
- 
-+static void xs_local_destroy(struct rpc_xprt *xprt)
-+{
-+	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-+	struct path root = transport->root;
-+
-+	dprintk("RPC:       xs_local_destroy xprt %p\n", xprt);
-+
-+	xs_destroy(xprt);
-+
-+	path_put(&root);
-+}
-+
- /**
-  * xs_local_print_stats - display AF_LOCAL socket-specifc stats
-  * @xprt: rpc_xprt struct containing statistics
-@@ -2431,7 +2457,7 @@ static struct rpc_xprt_ops xs_local_ops = {
- 	.send_request		= xs_local_send_request,
- 	.set_retrans_timeout	= xprt_set_retrans_timeout_def,
- 	.close			= xs_close,
--	.destroy		= xs_destroy,
-+	.destroy		= xs_local_destroy,
- 	.print_stats		= xs_local_print_stats,
- };
- 
-@@ -2606,8 +2632,10 @@ static struct rpc_xprt *xs_setup_local(struct xprt_create *args)
- 	dprintk("RPC:       set up xprt to %s via AF_LOCAL\n",
- 			xprt->address_strings[RPC_DISPLAY_ADDR]);
- 
--	if (try_module_get(THIS_MODULE))
-+	if (try_module_get(THIS_MODULE)) {
-+		get_fs_root(current->fs, &transport->root);
- 		return xprt;
-+	}
- 	ret = ERR_PTR(-EINVAL);
- out_err:
- 	xprt_free(xprt);
+> ---
+>  fs/dlm/lowcomms.c       |   28 ++++++++++++++--------------
+>  include/net/sctp/sctp.h |    1 +
+>  net/sctp/socket.c       |    5 +++--
+>  3 files changed, 18 insertions(+), 16 deletions(-)
+> 
+> diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+> index 0b3109e..f6645b2 100644
+> --- a/fs/dlm/lowcomms.c
+> +++ b/fs/dlm/lowcomms.c
+> @@ -52,6 +52,7 @@
+>  #include <linux/mutex.h>
+>  #include <linux/sctp.h>
+>  #include <linux/slab.h>
+> +#include <net/sctp/sctp.h>
+>  #include <net/sctp/user.h>
+>  #include <net/ipv6.h>
+>  
+> @@ -474,9 +475,8 @@ static void process_sctp_notification(struct connection *con,
+>  			int prim_len, ret;
+>  			int addr_len;
+>  			struct connection *new_con;
+> -			sctp_peeloff_arg_t parg;
+> -			int parglen = sizeof(parg);
+> -			int err;
+> +			sctp_assoc_t associd;
+> +			struct sctp_association *asoc;
+>  
+>  			/*
+>  			 * We get this before any data for an association.
+> @@ -525,23 +525,23 @@ static void process_sctp_notification(struct connection *con,
+>  				return;
+>  
+>  			/* Peel off a new sock */
+> -			parg.associd = sn->sn_assoc_change.sac_assoc_id;
+> -			ret = kernel_getsockopt(con->sock, IPPROTO_SCTP,
+> -						SCTP_SOCKOPT_PEELOFF,
+> -						(void *)&parg, &parglen);
+> +			sctp_lock_sock(con->sock->sk);
+> +			associd = sn->sn_assoc_change.sac_assoc_id;
+> +			asoc = sctp_id2assoc(con->sock->sk, associd);
+> +			if (!asoc) {
+> +				log_print("sctp_id2assoc error");
+> +				sctp_release_sock(con->sock->sk);
+> +				return;
+> +			}
+> +			ret = sctp_do_peeloff(asoc, &new_con->sock);
+> +			sctp_release_sock(con->sock->sk);
+>  			if (ret < 0) {
+>  				log_print("Can't peel off a socket for "
+>  					  "connection %d to node %d: err=%d",
+> -					  parg.associd, nodeid, ret);
+> -				return;
+> -			}
+> -			new_con->sock = sockfd_lookup(parg.sd, &err);
+> -			if (!new_con->sock) {
+> -				log_print("sockfd_lookup error %d", err);
+> +					  associd, nodeid, ret);
+>  				return;
+>  			}
+>  			add_sock(new_con->sock, new_con);
+> -			sockfd_put(new_con->sock);
+>  
+>  			log_print("connecting to %d sctp association %d",
+>  				 nodeid, (int)sn->sn_assoc_change.sac_assoc_id);
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index d368561..31e36db 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -413,6 +413,7 @@ static inline sctp_assoc_t sctp_assoc2id(const struct sctp_association *asoc)
+>  /* Look up the association by its id.  */
+>  struct sctp_association *sctp_id2assoc(struct sock *sk, sctp_assoc_t id);
+>  
+> +int sctp_do_peeloff(struct sctp_association *asoc, struct socket **sockp);
+>  
+>  /* A macro to walk a list of skbs.  */
+>  #define sctp_skb_for_each(pos, head, tmp) \
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 408ebd0..ae8944c 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -239,6 +239,7 @@ struct sctp_association *sctp_id2assoc(struct sock *sk, sctp_assoc_t id)
+>  
+>  	return asoc;
+>  }
+> +EXPORT_SYMBOL(sctp_id2assoc);
+>  
+>  /* Look up the transport from an address and an assoc id. If both address and
+>   * id are specified, the associations matching the address and the id should be
+> @@ -4170,8 +4171,7 @@ static int sctp_getsockopt_autoclose(struct sock *sk, int len, char __user *optv
+>  }
+>  
+>  /* Helper routine to branch off an association to a new socket.  */
+> -SCTP_STATIC int sctp_do_peeloff(struct sctp_association *asoc,
+> -				struct socket **sockp)
+> +int sctp_do_peeloff(struct sctp_association *asoc, struct socket **sockp)
+>  {
+>  	struct sock *sk = asoc->base.sk;
+>  	struct socket *sock;
+> @@ -4206,6 +4206,7 @@ SCTP_STATIC int sctp_do_peeloff(struct sctp_association *asoc,
+>  
+>  	return err;
+>  }
+> +EXPORT_SYMBOL(sctp_do_peeloff);
+>  
+>  static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
+>  {
