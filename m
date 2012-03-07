@@ -1,68 +1,41 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH 0001/001] xen: multi page ring support
-	for block devices
-Date: Wed, 07 Mar 2012 09:33:26 +0000
-Message-ID: <4F5739760200007800076DA6@nat28.tlf.novell.com>
-References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
-	<7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
-	<CAPbh3rsExLtohBwVd_scYuO=GN1iZE5egQQ3x5M59YUno5Rtyw@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] atl1c: set ATL1C_WORK_EVENT_RESET bit correctly
+Date: Wed, 7 Mar 2012 13:02:04 +0300
+Message-ID: <20120307100204.GB25452@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "jeremy@goop.org" <jeremy@goop.org>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"waldi@debian.org" <waldi@debian.org>,
-	"joe.jin@oracle.com" <joe.jin@oracle.com>,
-	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"lersek@redhat.com" <lersek@redhat.com>,
-	"dgdegra@ty
-To: "Santosh Jodh" <Santosh.Jodh@citrix.com>,<konrad@darnok.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAPbh3rsExLtohBwVd_scYuO=GN1iZE5egQQ3x5M59YUno5Rtyw@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:20048 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750726Ab2CGKCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 05:02:22 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> On 06.03.12 at 18:20, Konrad Rzeszutek Wilk <konrad@darnok.org> wrote:
->  -> the usage of XenbusStateInitWait? Why do we introduce that? Looks
-> like a fix to something.
+ATL1C_WORK_EVENT_RESET is zero so the original code here is a nop.  The
+intent was to set the zero bit.
 
-No, this is required to get the negotiation working (the frontend must
-not try to read the new nodes until it can be certain that the backend
-populated them). However, as already pointed out in an earlier reply
-to Santosh, the way this is done here doesn't appear to allow for the
-backend to already be in InitWait state when the frontend gets
-invoked.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> -> XENBUS_MAX_RING_PAGES - why 2? Why not 4? What is the optimal
-> default size for SSD usage? 16?
-
-What do SSDs have to do with a XenBus definition? Imo it's wrong (and
-unnecessary) to introduce a limit at the XenBus level at all - each driver
-can do this for itself.
-
-As to the limit for SSDs in the block interface - I don't think the number
-of possibly simultaneous requests has anything to do with this. Instead,
-I'd expect the request number/size/segments extension that NetBSD
-apparently implements to possibly have an effect.
-
-Jan
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 0f21a9b..1ef0c92 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1711,7 +1711,7 @@ static irqreturn_t atl1c_intr(int irq, void *data)
+ 					"atl1c hardware error (status = 0x%x)\n",
+ 					status & ISR_ERROR);
+ 			/* reset MAC */
+-			adapter->work_event |= ATL1C_WORK_EVENT_RESET;
++			set_bit(ATL1C_WORK_EVENT_RESET, &adapter->work_event);
+ 			schedule_work(&adapter->common_task);
+ 			return IRQ_HANDLED;
+ 		}
