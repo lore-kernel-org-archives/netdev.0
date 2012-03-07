@@ -1,91 +1,371 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH] SUNRPC: set desired file system root before connecting
- local transports
-Date: Wed, 7 Mar 2012 00:21:47 +0000
-Message-ID: <1331079707.10560.56.camel@lade.trondhjem.org>
-References: <20120229145915.24030.31551.stgit@localhost6.localdomain6>
-	 <1331079588.10560.55.camel@lade.trondhjem.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"xemul@parallels.com" <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbottomley@parallels.com" <jbottomley@parallels.com>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+From: Takahiro Shimizu <tshimizu818@gmail.com>
+Subject: [PATCH RE-SUBMIT] net/pch_gbe: supports eg20t ptp clock
+Date: Wed,  7 Mar 2012 09:21:08 +0900
+Message-ID: <1331079669-22446-1-git-send-email-tshimizu818@gmail.com>
+Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, Takahiroi Shimizu <tshimizu818@gmail.com>
+To: jeffrey.t.kirsher@intel.com, davem@davemloft.net,
+	lucas.demarchi@profusion.mobi, mirq-linux@rere.qmqm.pl,
+	paul.gortmaker@windriver.com, jdmason@kudzu.us,
+	john.stultz@linaro.org, richardcochran@gmail.com, arnd@arndb.de,
+	khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331079588.10560.55.camel@lade.trondhjem.org>
-Content-Language: en-US
-Content-ID: <1342B3305D261D4D8AEAE9737821F457@tahoe.netapp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDEyLTAzLTA3IGF0IDAwOjE5ICswMDAwLCBNeWtsZWJ1c3QsIFRyb25kIHdyb3Rl
-Og0KPiBPbiBXZWQsIDIwMTItMDItMjkgYXQgMTg6NTkgKzA0MDAsIFN0YW5pc2xhdiBLaW5zYnVy
-c2t5IHdyb3RlOg0KPiA+IFRvZGF5LCB0aGVyZSBpcyBhIHByb2JsZW0gaW4gY29ubmVjdGluZyBv
-ZiBsb2NhbCBTVU5SUEMgdGhhbnNwb3J0cy4gVGhlc2UNCj4gPiB0cmFuc3BvcnRzIHVzZXMgVU5J
-WCBzb2NrZXRzIGFuZCBjb25uZWN0aW9uIGl0c2VsZiBpcyBkb25lIGJ5IHJwY2lvZCB3b3JrcXVl
-dWUuDQo+ID4gQnV0IFVOSVggc29ja2V0cyBsb29rdXAgaXMgZG9uZSBpbiBjb250ZXh0IG9mIHBy
-b2Nlc3MgZmlsZSBzeXN0ZW0gcm9vdC4gSS5lLg0KPiA+IGFsbCBsb2NhbCB0aHVuc3BvcnRzIGFy
-ZSBjb25uZWN0aW5nIGluIHJwY2lvZCBjb250ZXh0Lg0KPiA+IFRoaXMgd29ya3MgbmljZSB1bnRp
-bCB3ZSB3aWxsIHRyeSB0byBtb3VudCBORlMgZnJvbSBwcm9jZXNzIHdpdGggb3RoZXIgcm9vdCAt
-DQo+ID4gZm9yIGV4YW1wbGUgaW4gY29udGFpbmVyLiBUaGlzIGNvbnRhaW5lciBjYW4gaGF2ZSBp
-dCdzIG93biAobmVzdGVkKSByb290IGFuZA0KPiA+IHJjcGJpbmQgcHJvY2VzcywgbGlzdGVuaW5n
-IG9uIGl0J3Mgb3duIHVuaXggc29ja2V0cy4gQnV0IE5GUyBtb3VudCBhdHRlbXB0IGluDQo+ID4g
-dGhpcyBjb250YWluZXIgd2lsbCByZWdpc3RlciBuZXcgc2VydmljZSAoTG9ja2QgZm9yIGV4YW1w
-bGUpIGluIGdsb2JhbCBycGNiaW5kDQo+ID4gLSBub3QgY29udGFpbmVycydzIG9uZS4NCj4gPiBU
-aGlzIHBhdGNoIHNvbHZlcyB0aGUgcHJvYmxlbSBieSBzd2l0Y2hpbmcgcnBjaW9kIGtlcm5lbCB0
-aHJlYWQncyBmaWxlIHN5c3RlbQ0KPiA+IHJvb3QgdG8gcmlnaHQgb25lIChzdG9yZWQgb24gdHJh
-bnNwb3J0KSB3aGlsZSBjb25uZWN0aW5nIG9mIGxvY2FsIHRyYW5zcG9ydHMuDQo+ID4gDQo+ID4g
-U2lnbmVkLW9mZi1ieTogU3RhbmlzbGF2IEtpbnNidXJza3kgPHNraW5zYnVyc2t5QHBhcmFsbGVs
-cy5jb20+DQo+ID4gDQo+ID4gLS0tDQo+ID4gIGZzL2ZzX3N0cnVjdC5jICAgICAgICB8ICAgIDEg
-Kw0KPiA+ICBuZXQvc3VucnBjL3hwcnRzb2NrLmMgfCAgIDMyICsrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKy0tDQo+ID4gIDIgZmlsZXMgY2hhbmdlZCwgMzEgaW5zZXJ0aW9ucygrKSwgMiBk
-ZWxldGlvbnMoLSkNCj4gPiANCj4gPiBkaWZmIC0tZ2l0IGEvZnMvZnNfc3RydWN0LmMgYi9mcy9m
-c19zdHJ1Y3QuYw0KPiA+IGluZGV4IDc4YjUxOWMuLjBmOTg0YzMgMTAwNjQ0DQo+ID4gLS0tIGEv
-ZnMvZnNfc3RydWN0LmMNCj4gPiArKysgYi9mcy9mc19zdHJ1Y3QuYw0KPiA+IEBAIC0zNiw2ICsz
-Niw3IEBAIHZvaWQgc2V0X2ZzX3Jvb3Qoc3RydWN0IGZzX3N0cnVjdCAqZnMsIHN0cnVjdCBwYXRo
-ICpwYXRoKQ0KPiA+ICAJaWYgKG9sZF9yb290LmRlbnRyeSkNCj4gPiAgCQlwYXRoX3B1dF9sb25n
-dGVybSgmb2xkX3Jvb3QpOw0KPiA+ICB9DQo+ID4gK0VYUE9SVF9TWU1CT0xfR1BMKHNldF9mc19y
-b290KTsNCj4gPiAgDQo+ID4gIC8qDQo+ID4gICAqIFJlcGxhY2UgdGhlIGZzLT57cHdkbW50LHB3
-ZH0gd2l0aCB7bW50LGRlbnRyeX0uIFB1dCB0aGUgb2xkIHZhbHVlcy4NCj4gPiBkaWZmIC0tZ2l0
-IGEvbmV0L3N1bnJwYy94cHJ0c29jay5jIGIvbmV0L3N1bnJwYy94cHJ0c29jay5jDQo+ID4gaW5k
-ZXggNGM4MjgxZC4uYzk0YzE4MSAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvc3VucnBjL3hwcnRzb2Nr
-LmMNCj4gPiArKysgYi9uZXQvc3VucnBjL3hwcnRzb2NrLmMNCj4gPiBAQCAtMzcsNiArMzcsNyBA
-QA0KPiA+ICAjaW5jbHVkZSA8bGludXgvc3VucnBjL3N2Y3NvY2suaD4NCj4gPiAgI2luY2x1ZGUg
-PGxpbnV4L3N1bnJwYy94cHJ0c29jay5oPg0KPiA+ICAjaW5jbHVkZSA8bGludXgvZmlsZS5oPg0K
-PiA+ICsjaW5jbHVkZSA8bGludXgvZnNfc3RydWN0Lmg+DQo+ID4gICNpZmRlZiBDT05GSUdfU1VO
-UlBDX0JBQ0tDSEFOTkVMDQo+ID4gICNpbmNsdWRlIDxsaW51eC9zdW5ycGMvYmNfeHBydC5oPg0K
-PiA+ICAjZW5kaWYNCj4gPiBAQCAtMjU1LDYgKzI1NiwxMSBAQCBzdHJ1Y3Qgc29ja194cHJ0IHsN
-Cj4gPiAgCXZvaWQJCQkoKm9sZF9zdGF0ZV9jaGFuZ2UpKHN0cnVjdCBzb2NrICopOw0KPiA+ICAJ
-dm9pZAkJCSgqb2xkX3dyaXRlX3NwYWNlKShzdHJ1Y3Qgc29jayAqKTsNCj4gPiAgCXZvaWQJCQko
-Km9sZF9lcnJvcl9yZXBvcnQpKHN0cnVjdCBzb2NrICopOw0KPiA+ICsNCj4gPiArCS8qDQo+ID4g
-KwkgKiBTYXZlZCB0cmFuc3BvcnQgY3JlYXRvciByb290LiBSZXF1aXJlZCBmb3IgbG9jYWwgdHJh
-bnNwb3J0cyBvbmx5Lg0KPiA+ICsJICovDQo+ID4gKwlzdHJ1Y3QgcGF0aAkJcm9vdDsNCj4gPiAg
-fTsNCj4gPiAgDQo+ID4gIC8qDQo+ID4gQEAgLTE4OTEsNiArMTg5Nyw3IEBAIHN0YXRpYyB2b2lk
-IHhzX2xvY2FsX3NldHVwX3NvY2tldChzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndvcmspDQo+ID4gIAlz
-dHJ1Y3QgcnBjX3hwcnQgKnhwcnQgPSAmdHJhbnNwb3J0LT54cHJ0Ow0KPiA+ICAJc3RydWN0IHNv
-Y2tldCAqc29jazsNCj4gPiAgCWludCBzdGF0dXMgPSAtRUlPOw0KPiA+ICsJc3RydWN0IHBhdGgg
-cm9vdDsNCj4gPiAgDQo+ID4gIAlpZiAoeHBydC0+c2h1dGRvd24pDQo+ID4gIAkJZ290byBvdXQ7
-DQo+ID4gQEAgLTE5MDgsNyArMTkxNSwxNCBAQCBzdGF0aWMgdm9pZCB4c19sb2NhbF9zZXR1cF9z
-b2NrZXQoc3RydWN0IHdvcmtfc3RydWN0ICp3b3JrKQ0KPiA+ICAJZHByaW50aygiUlBDOiAgICAg
-ICB3b3JrZXIgY29ubmVjdGluZyB4cHJ0ICVwIHZpYSBBRl9MT0NBTCB0byAlc1xuIiwNCj4gPiAg
-CQkJeHBydCwgeHBydC0+YWRkcmVzc19zdHJpbmdzW1JQQ19ESVNQTEFZX0FERFJdKTsNCj4gPiAg
-DQo+ID4gKwlnZXRfZnNfcm9vdChjdXJyZW50LT5mcywgJnJvb3QpOw0KPiA+ICsJc2V0X2ZzX3Jv
-b3QoY3VycmVudC0+ZnMsICZ0cmFuc3BvcnQtPnJvb3QpOw0KPiA+ICsNCj4gPiAgCXN0YXR1cyA9
-IHhzX2xvY2FsX2ZpbmlzaF9jb25uZWN0aW5nKHhwcnQsIHNvY2spOw0KPiA+ICsNCj4gPiArCXNl
-dF9mc19yb290KGN1cnJlbnQtPmZzLCAmcm9vdCk7DQo+ID4gKwlwYXRoX3B1dCgmcm9vdCk7DQo+
-ID4gKw0KPiA+ICAJc3dpdGNoIChzdGF0dXMpIHsNCj4gPiAgCWNhc2UgMDoNCj4gDQo+IEhpIFN0
-YW5pc2xhdiwNCj4gDQo+IFdoYXQgaGFwcGVucyBoZXJlIGlmIHRoZSBtb3VudCBuYW1lc3BhY2Ug
-b2YgdGhlIHByb2Nlc3MgdGhhdCBvcmlnaW5hbGx5DQo+IGNyZWF0ZWQgdGhlIHNvY2tfeHBydCBu
-byBsb25nZXIgZXhpc3RzPyBTaG91bGQgd2UgY2FyZSBhYm91dCB0aGF0IGNhc2U/DQo+IA0KPiBD
-aGVlcnMNCj4gICBUcm9uZA0KDQpCVFc6IFdlIHdpbGwgaW4gYW55IGNhc2UgbmVlZCBBbCBWaXJv
-IGFuZCBDaHJpc3RvcGgncyBBQ0sgaW4gb3JkZXIgdG8NCmV4cG9ydCB0aGUgc2V0X2ZzX3Jvb3Qo
-KSBmdW5jdGlvbi4NCg0KLS0gDQpUcm9uZCBNeWtsZWJ1c3QNCkxpbnV4IE5GUyBjbGllbnQgbWFp
-bnRhaW5lcg0KDQpOZXRBcHANClRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tDQp3d3cubmV0YXBw
-LmNvbQ0KDQo=
+From: Takahiroi Shimizu <tshimizu818@gmail.com>
+
+Supports EG20T ptp clock in the driver
+
+Changes e-mail address.
+
+Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   13 ++
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |   13 ++
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |  217 +++++++++++++++++++-
+ 3 files changed, 240 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+index 00bc4fc..bce0164 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+@@ -20,3 +20,16 @@ config PCH_GBE
+ 	  purpose use.
+ 	  ML7223/ML7831 is companion chip for Intel Atom E6xx series.
+ 	  ML7223/ML7831 is completely compatible for Intel EG20T PCH.
++
++if PCH_GBE
++
++config PCH_PTP
++	bool "PCH PTP clock support"
++	default n
++	depends on PTP_1588_CLOCK_PCH
++	---help---
++	  Say Y here if you want to use Precision Time Protocol (PTP) in the
++	  driver. PTP is a method to precisely synchronize distributed clocks
++	  over Ethernet networks.
++
++endif # PCH_GBE
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index a09a071..dd14915 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -630,6 +630,9 @@ struct pch_gbe_adapter {
+ 	unsigned long tx_queue_len;
+ 	bool have_msi;
+ 	bool rx_stop_flag;
++	int hwts_tx_en;
++	int hwts_rx_en;
++	struct pci_dev *ptp_pdev;
+ };
+ 
+ extern const char pch_driver_version[];
+@@ -648,6 +651,16 @@ extern void pch_gbe_free_tx_resources(struct pch_gbe_adapter *adapter,
+ extern void pch_gbe_free_rx_resources(struct pch_gbe_adapter *adapter,
+ 				       struct pch_gbe_rx_ring *rx_ring);
+ extern void pch_gbe_update_stats(struct pch_gbe_adapter *adapter);
++#ifdef CONFIG_PCH_PTP
++extern u32 pch_ch_control_read(struct pci_dev *pdev);
++extern void pch_ch_control_write(struct pci_dev *pdev, u32 val);
++extern u32 pch_ch_event_read(struct pci_dev *pdev);
++extern void pch_ch_event_write(struct pci_dev *pdev, u32 val);
++extern u32 pch_src_uuid_lo_read(struct pci_dev *pdev);
++extern u32 pch_src_uuid_hi_read(struct pci_dev *pdev);
++extern u64 pch_rx_snap_read(struct pci_dev *pdev);
++extern u64 pch_tx_snap_read(struct pci_dev *pdev);
++#endif
+ 
+ /* pch_gbe_param.c */
+ extern void pch_gbe_check_options(struct pch_gbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 3ead111..aa54ede 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (C) 1999 - 2010 Intel Corporation.
+- * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ * Copyright (C) 2010 - 2012 LAPIS SEMICONDUCTOR CO., LTD.
+  *
+  * This code was derived from the Intel e1000e Linux driver.
+  *
+@@ -21,6 +21,10 @@
+ #include "pch_gbe.h"
+ #include "pch_gbe_api.h"
+ #include <linux/module.h>
++#ifdef CONFIG_PCH_PTP
++#include <linux/net_tstamp.h>
++#include <linux/ptp_classify.h>
++#endif
+ 
+ #define DRV_VERSION     "1.00"
+ const char pch_driver_version[] = DRV_VERSION;
+@@ -95,12 +99,195 @@ const char pch_driver_version[] = DRV_VERSION;
+ 
+ #define PCH_GBE_INT_DISABLE_ALL		0
+ 
++#ifdef CONFIG_PCH_PTP
++/* Macros for ieee1588 */
++#define TICKS_NS_SHIFT  5
++
++/* 0x40 Time Synchronization Channel Control Register Bits */
++#define MASTER_MODE   (1<<0)
++#define SLAVE_MODE    (0<<0)
++#define V2_MODE       (1<<31)
++#define CAP_MODE0     (0<<16)
++#define CAP_MODE2     (1<<17)
++
++/* 0x44 Time Synchronization Channel Event Register Bits */
++#define TX_SNAPSHOT_LOCKED (1<<0)
++#define RX_SNAPSHOT_LOCKED (1<<1)
++#endif
++
+ static unsigned int copybreak __read_mostly = PCH_GBE_COPYBREAK_DEFAULT;
+ 
+ static int pch_gbe_mdio_read(struct net_device *netdev, int addr, int reg);
+ static void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg,
+ 			       int data);
+ 
++#ifdef CONFIG_PCH_PTP
++static struct sock_filter ptp_filter[] = {
++	PTP_FILTER
++};
++
++static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
++{
++	u8 *data = skb->data;
++	unsigned int offset;
++	u16 *hi, *id;
++	u32 lo;
++
++	if ((sk_run_filter(skb, ptp_filter) != PTP_CLASS_V2_IPV4) &&
++		(sk_run_filter(skb, ptp_filter) != PTP_CLASS_V1_IPV4)) {
++		return 0;
++	}
++
++	offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
++
++	if (skb->len < offset + OFF_PTP_SEQUENCE_ID + sizeof(seqid))
++		return 0;
++
++	hi = (u16 *)(data + offset + OFF_PTP_SOURCE_UUID);
++	id = (u16 *)(data + offset + OFF_PTP_SEQUENCE_ID);
++
++	memcpy(&lo, &hi[1], sizeof(lo));
++
++	return (uid_hi == *hi &&
++		uid_lo == lo &&
++		seqid  == *id);
++}
++
++static void pch_rx_timestamp(
++			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
++{
++	struct skb_shared_hwtstamps *shhwtstamps;
++	struct pci_dev *pdev;
++	u64 ns;
++	u32 hi, lo, val;
++	u16 uid, seq;
++
++	if (!adapter->hwts_rx_en)
++		return;
++
++	/* Get ieee1588's dev information */
++	pdev = adapter->ptp_pdev;
++
++	val = pch_ch_event_read(pdev);
++
++	if (!(val & RX_SNAPSHOT_LOCKED))
++		return;
++
++	lo = pch_src_uuid_lo_read(pdev);
++	hi = pch_src_uuid_hi_read(pdev);
++
++	uid = hi & 0xffff;
++	seq = (hi >> 16) & 0xffff;
++
++	if (!pch_ptp_match(skb, htons(uid), htonl(lo), htons(seq)))
++		goto out;
++
++	ns = pch_rx_snap_read(pdev);
++	ns <<= TICKS_NS_SHIFT;
++
++	shhwtstamps = skb_hwtstamps(skb);
++	memset(shhwtstamps, 0, sizeof(*shhwtstamps));
++	shhwtstamps->hwtstamp = ns_to_ktime(ns);
++out:
++	pch_ch_event_write(pdev, RX_SNAPSHOT_LOCKED);
++}
++
++static void pch_tx_timestamp(
++			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
++{
++	struct skb_shared_hwtstamps shhwtstamps;
++	struct pci_dev *pdev;
++	struct skb_shared_info *shtx;
++	u64 ns;
++	u32 cnt, val;
++
++	shtx = skb_shinfo(skb);
++	if (unlikely(shtx->tx_flags & SKBTX_HW_TSTAMP && adapter->hwts_tx_en))
++		shtx->tx_flags |= SKBTX_IN_PROGRESS;
++	else
++		return;
++
++	/* Get ieee1588's dev information */
++	pdev = adapter->ptp_pdev;
++
++	/*
++	 * This really stinks, but we have to poll for the Tx time stamp.
++	 * Usually, the time stamp is ready after 4 to 6 microseconds.
++	 */
++	for (cnt = 0; cnt < 100; cnt++) {
++		val = pch_ch_event_read(pdev);
++		if (val & TX_SNAPSHOT_LOCKED)
++			break;
++		udelay(1);
++	}
++	if (!(val & TX_SNAPSHOT_LOCKED)) {
++		shtx->tx_flags &= ~SKBTX_IN_PROGRESS;
++		return;
++	}
++
++	ns = pch_tx_snap_read(pdev);
++	ns <<= TICKS_NS_SHIFT;
++
++	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
++	shhwtstamps.hwtstamp = ns_to_ktime(ns);
++	skb_tstamp_tx(skb, &shhwtstamps);
++
++	pch_ch_event_write(pdev, TX_SNAPSHOT_LOCKED);
++}
++
++static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
++{
++	struct hwtstamp_config cfg;
++	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
++	struct pci_dev *pdev;
++
++	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
++		return -EFAULT;
++
++	if (cfg.flags) /* reserved for future extensions */
++		return -EINVAL;
++
++	/* Get ieee1588's dev information */
++	pdev = adapter->ptp_pdev;
++
++	switch (cfg.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		adapter->hwts_tx_en = 0;
++		break;
++	case HWTSTAMP_TX_ON:
++		adapter->hwts_tx_en = 1;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	switch (cfg.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		adapter->hwts_rx_en = 0;
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++		adapter->hwts_rx_en = 0;
++		pch_ch_control_write(pdev, (SLAVE_MODE | CAP_MODE0));
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++		adapter->hwts_rx_en = 1;
++		pch_ch_control_write(pdev, (MASTER_MODE | CAP_MODE0));
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++		adapter->hwts_rx_en = 1;
++		pch_ch_control_write(pdev, (V2_MODE | CAP_MODE2));
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	/* Clear out any old time stamps. */
++	pch_ch_event_write(pdev, TX_SNAPSHOT_LOCKED | RX_SNAPSHOT_LOCKED);
++
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
++}
++#endif
++
+ inline void pch_gbe_mac_load_mac_addr(struct pch_gbe_hw *hw)
+ {
+ 	iowrite32(0x01, &hw->reg->MAC_ADDR_LOAD);
+@@ -1072,6 +1259,11 @@ static void pch_gbe_tx_queue(struct pch_gbe_adapter *adapter,
+ 	iowrite32(tx_ring->dma +
+ 		  (int)sizeof(struct pch_gbe_tx_desc) * ring_num,
+ 		  &hw->reg->TX_DSC_SW_P);
++
++#ifdef CONFIG_PCH_PTP
++	pch_tx_timestamp(adapter, skb);
++#endif
++
+ 	dev_kfree_skb_any(skb);
+ }
+ 
+@@ -1543,6 +1735,11 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
+ 				adapter->stats.multicast++;
+ 			/* Write meta date of skb */
+ 			skb_put(skb, length);
++
++#ifdef CONFIG_PCH_PTP
++			pch_rx_timestamp(adapter, skb);
++#endif
++
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			if (tcp_ip_status & PCH_GBE_RXD_ACC_STAT_TCPIPOK)
+ 				skb->ip_summed = CHECKSUM_NONE;
+@@ -2147,6 +2344,11 @@ static int pch_gbe_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 
+ 	pr_debug("cmd : 0x%04x\n", cmd);
+ 
++#ifdef CONFIG_PCH_PTP
++	if (cmd == SIOCSHWTSTAMP)
++		return hwtstamp_ioctl(netdev, ifr, cmd);
++#endif
++
+ 	return generic_mii_ioctl(&adapter->mii, if_mii(ifr), cmd, NULL);
+ }
+ 
+@@ -2440,6 +2642,15 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 		goto err_free_netdev;
+ 	}
+ 
++#ifdef CONFIG_PCH_PTP
++	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
++					       PCI_DEVFN(12, 4));
++	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
++		pr_err("Bad ptp filter\n");
++		return -EINVAL;
++	}
++#endif
++
+ 	netdev->netdev_ops = &pch_gbe_netdev_ops;
+ 	netdev->watchdog_timeo = PCH_GBE_WATCHDOG_PERIOD;
+ 	netif_napi_add(netdev, &adapter->napi,
+@@ -2504,7 +2715,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+ 
+-	dev_dbg(&pdev->dev, "OKIsemi(R) PCH Network Connection\n");
++	dev_dbg(&pdev->dev, "PCH Network Connection\n");
+ 
+ 	device_set_wakeup_enable(&pdev->dev, 1);
+ 	return 0;
+@@ -2605,7 +2816,7 @@ module_init(pch_gbe_init_module);
+ module_exit(pch_gbe_exit_module);
+ 
+ MODULE_DESCRIPTION("EG20T PCH Gigabit ethernet Driver");
+-MODULE_AUTHOR("OKI SEMICONDUCTOR, <toshiharu-linux@dsn.okisemi.com>");
++MODULE_AUTHOR("LAPIS SEMICONDUCTOR, <tshimizu818@gmail.com>");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ MODULE_DEVICE_TABLE(pci, pch_gbe_pcidev_id);
+-- 
+1.7.4.4
