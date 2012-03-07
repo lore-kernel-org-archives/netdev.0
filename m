@@ -1,36 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-03-06
-Date: Wed, 07 Mar 2012 15:39:13 -0500 (EST)
-Message-ID: <20120307.153913.824845751182717386.davem@davemloft.net>
-References: <20120306201528.GC3353@tuxdriver.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
+	driver name
+Date: Wed, 7 Mar 2012 12:49:46 -0800
+Message-ID: <20120307204946.GA4413@kroah.com>
+References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
+	<20120307201746.GA20900@aepfle.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120306201528.GC3353-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20120307201746.GA20900@aepfle.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 6 Mar 2012 15:15:28 -0500
-
-> Here are a few more squeakers hoping for 3.3...
+On Wed, Mar 07, 2012 at 09:17:46PM +0100, Olaf Hering wrote:
+> On Wed, Mar 07, Haiyang Zhang wrote:
 > 
-> Two of them are for carl9170: a one-line fix for a memory accounting
-> leak; and a fix that corrects the handling of frames with a couple of
-> status flags set by mac80211 (enabling delivery to sleeping stations).
-> Also included is a one-liner for mwifiex that should have been included
-> in "mwifiex: clear previous security setting during association".
-> Finally, a one-line fix from Johannes Berg for an iwlwifi regression
-> brings-up the rear.
 > 
-> Please let me know if there are problems!
+> > @@ -482,7 +484,7 @@ MODULE_DEVICE_TABLE(vmbus, id_table);
+> >  
+> >  /* The one and only one */
+> >  static struct  hv_driver netvsc_drv = {
+> > -	.name = "netvsc",
+> > +	.name = MODULE_NAME,
+> 
+> It would be nice if this could be applied to 3.3.
+> hv_storvsc and hid-hyperv already use the same naming, this patch was
+> send last year already but was not applied for some reason.
 
-Pulled, but no promises getting these into 3.3
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What userspace tools depend on this that requires it to be in 3.3?
+
+greg k-h
