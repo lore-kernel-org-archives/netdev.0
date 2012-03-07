@@ -1,61 +1,37 @@
-From: deepaksi <deepak.sikri@st.com>
-Subject: Re: [PATCH 3/6] stmmac: Add support for CPU freq notifiers.
-Date: Wed, 7 Mar 2012 12:48:54 +0530
-Message-ID: <4F570BDE.40600@st.com>
-References: <1330692928-30330-2-git-send-email-deepak.sikri@st.com> <1330692928-30330-3-git-send-email-deepak.sikri@st.com> <1330692928-30330-4-git-send-email-deepak.sikri@st.com> <20120304.205045.1678554604028231988.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH v3 0/2] Fix routing metrics
+Date: Wed, 7 Mar 2012 08:19:40 +0100
+Message-ID: <20120307071940.GF15404@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	spear-devel <spear-devel@list.st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:48365 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750747Ab2CGHTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Mar 2012 02:19:33 -0500
-In-Reply-To: <20120304.205045.1678554604028231988.davem@davemloft.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:56823 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751489Ab2CGHTq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 02:19:46 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+At the moment we initialize the routing metrics with the, on the inetpeer
+cached values in rt_init_metrics(). So if we have the metrics cached on
+the inetpeer, we ignore the user configured fib_metrics. This leads to
+the fact that we can't configure the mtu, hoplimit etc. if we have learned
+metrics cached.
 
-Hi David
+The first patch invalidates the inetpeer tree along routing cache.
+This is done by replacing the old tree with a fresh initialized
+inet_peer_base when rt_cache_invalidate() is invoked. The old tree
+is added to a garbage collector list and destroyed later with a delayed
+work queue. I use a delay of 60 seconds, so rt_check_expire() ran at least
+on time before on a default configuration.
 
-+		priv->plat->clk_csr = STMMAC_CLK_RANGE_150_250M;
-+
-+}
+The second patch removes the redirect_genid handling. We don't need this
+any more because we remove the whole inetpeer tree when the redirects
+are invalidated.
 
-> Unnecessary empty lines, remove them.
+Changes from v2:
 
-ok
-
->> +			/*
->> +			 * Decide on the MDC clock dynamically based on the
->> +			 * csr clock input.
-> Format comments:
->
-> 	/* Like
-> 	 * this.
-> 	 */
->
-> Not:
->
-> 	/*
-> 	 * Like
-> 	 * this.
-> 	 */
-
-ok
-
->> +static inline void stmmac_cpufreq_deregister(struct stmmac_priv *priv)
->> +{
->> +
->> +	cpufreq_unregister_notifier(&priv->freq_transition,
-> Unnecessary empty line.
->
-
-Will remove.
-
-Regards
-Deepak
+- Fix possible null pointer dereference in ip_rt_redirect()
