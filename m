@@ -1,60 +1,53 @@
-From: Nick Jones <nick.jones@network-box.com>
-Subject: Re: [PATCH net-next] ipv6: perform inetpeer binding at dst creation,
- with readonly option
-Date: Fri, 09 Mar 2012 00:10:29 +0800
-Message-ID: <4F58D9F5.1080902@network-box.com>
-References: <4F56320B.60400@network-box.com> <20120306.160528.1272258218296495399.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: Ethernet-over-UDP virtual network interface
+Date: Thu, 8 Mar 2012 11:11:38 -0500
+Message-ID: <20120308161138.GB23774@kvack.org>
+References: <CAKLmikOBPB7rTZu2EfK26=3AhOQUR8xg8n4ySUKRMFmBkC1J3g@mail.gmail.com> <20120304170101.GH21526@kvack.org> <CAKLmikOVydmSJEBWwDc=Jv4XPMi3dsS+Pn9=BP_bBePD0L7K8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Nejc Skoberne <nejc@skoberne.net>,
+	Jernej Kos <kostko@unimatrix-one.org>, gw.2012@tnode.com
+To: Mitar <mmitar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from network-box.com ([175.45.17.220]:42463 "EHLO network-box.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757859Ab2CHQKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2012 11:10:35 -0500
-In-Reply-To: <20120306.160528.1272258218296495399.davem@davemloft.net>
+Received: from kanga.kvack.org ([205.233.56.17]:45667 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757980Ab2CHQLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2012 11:11:39 -0500
+Content-Disposition: inline
+In-Reply-To: <CAKLmikOVydmSJEBWwDc=Jv4XPMi3dsS+Pn9=BP_bBePD0L7K8A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/03/2012 5:05 AM, David Miller wrote:
-> From: Nick Jones <nick.jones@network-box.com>
-> Date: Tue, 06 Mar 2012 23:49:31 +0800
-> 
->> A neighbour advertises itself as obsolete and at a later time, the host
->> sends solicitations to the neighbours direct address.  The NS icmp6
->> packets have hoplimit explicitly set to 255.
->>
->> The neighbour re-advertises itself.  All subsequent packets sent to the
->> neighbour address will now have hoplimit stuck at 255 because the setup
->> of the NS packet wrote 255 to the cached metrics of the inetpeer that
->> the neighbour address' ip6_dst was bound to.  If the neighbour was a
->> router, a RA that attempts to update the hoplimit for the route will
->> have no effect because of the way ip6_dst_hoplimit works.
->>
->> This patch adds an rt6_init_metrics method that is called shortly after
->> a call to ip6_dst_alloc, it performs the inetpeer binding at that time.
->>
->> It allows the caller to indicate whether they want the new ip6_dst
->> metrics, and thus the inetpeer metrics, to be writable.  icmp6_dst_alloc
->> will now no longer permanently alter the peer metrics.
->>
->> Signed-off-by: Nick Jones <nick.jones@network-box.com>
-> 
-> So we essentially have two views of the same inetpeer.
-> 
-> I would say that the real fix for this is to just use kmalloc'd
-> metrics for these special icmp6 dsts and leave the rest of the
-> code alone.
+On Tue, Mar 06, 2012 at 12:58:44AM +0100, Mitar wrote:
+> I would like something state-less. I see L2TPv3 has support for
 
-Sure, I'm testing a patch that follows this suggestion and will submit it
-soon.
+How stateless?
 
-However, seeing a kmalloc done for such a transient, sparse structure didn't
-sit so well in the stomach.  If we can be sure that the metrics of a dst for
-an icmp6 packet won't be written to, we could use the static const
-ip6_template_metrics array defined in route.c:~205, it has RTAX_HOPLIMIT
-fixed at 255, and using it avoids a kmalloc.
+> unmanaged tunnels, but they still require tunnel id and session id
+> what (if I assume that they have to be unique) makes it useless for
+> our case. We have (if I simplify) a star-shaped topology with a
+> central server in the middle. To the central server WiFi nodes
+> (hundreds of them) connect. But we do not really want to require from
+> a central server to know each WiFi node and prepare its tunnel
+> endpoint for each node. We would just like that there would be virtual
+> interface and UDP port and any packet send to the UDP port would be
+> decapsulated and output through that virtual interface. The only thing
+> which we would have to make sure is that each WiFi node has a virtual
+> interface with unique MAC address.
 
-I'll produce another patch for this strategy if you think this is a better idea.
+L2TP is commonly used for star topology deployments, but with more 
+flexibility.  The typical scenario is to use LACs (L2TP Access 
+Concentrators) on the edge of the network to tunnel incoming sessions 
+from clients to LNSes (L2TP Network servers) that actually perform the 
+routing for the network.  There is some state involved, but tunnels can 
+be configured without a password, effectively making the addition of new
+LACs requiring no manually configured state on the LNS.  The Babylon PPP 
+stack that I added L2TP and PPPoE support for is able to perform tunnel 
+switching on incoming PPPoE or L2TP sessions.  Sessions can be directed to 
+different LNSes based on the username an incoming session authenticates 
+as.  It only supports L2TPv2 at present, though, but adding L2TPv3 wouldn't 
+be too hard.
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
