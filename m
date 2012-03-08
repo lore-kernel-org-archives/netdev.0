@@ -1,92 +1,73 @@
-From: mdsmith@partychief.com
-Subject: Re: Marvell DSA switch 88E6165 - CPU port in PHY mode
-Date: Thu, 08 Mar 2012 14:57:57 +0100
-Message-ID: <3e74a9ae578a434094cbb4036e0423d9@partychief.com>
-References: <516EEEFC-DEEC-4CF5-BEF6-C5F3F86FCDD5@partychief.com>
- <20120305171224.GU12271@wantstofly.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: Allow stmmac to work with other PHY buses(v2).
+Date: Thu, 08 Mar 2012 15:03:05 +0100
+Message-ID: <4F58BC19.1050702@st.com>
+References: <1331012520-19574-1-git-send-email-peppe.cavallaro@st.com> <20120306.165703.277843706808689044.davem@davemloft.net> <4F57178C.7010407@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: srinivas.kandagatla@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpauth-vit.online.net ([88.190.253.76]:51347 "EHLO
-	smtpauth-vit.online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753169Ab2CHN6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 08:58:00 -0500
-In-Reply-To: <20120305171224.GU12271@wantstofly.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:39724 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755268Ab2CHODv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 09:03:51 -0500
+In-Reply-To: <4F57178C.7010407@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 2012-03-05 18:12, Lennert Buytenhek a =C3=A9crit=C2=A0:
-> On Sun, Mar 04, 2012 at 03:11:53PM +0100, Matthew D. Smith wrote:
->
->> Hello - have a question about CPU port configuration in the net/dsa
->> driver code. Can't seem to work out how to bring up the CPU=20
->> connected
->> port on the switch (in our case this is Port 4 hardware strapped=20
->> with
->> its embedded PHY enabled).
->
-> Hello!  I know of at least a couple of platforms that have a DSA chip
-> connected to the CPU via an MDI type link, but I'm not sure why it's
-> not working for you.  I'd suggest double-checking all the port 5 PHY
-> registers against the chip documentation..
->
+On 3/7/2012 9:08 AM, Srinivas KANDAGATLA wrote:
+> David Miller wrote:
+>> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+>> Date: Tue,  6 Mar 2012 06:42:00 +0100
+>>
+>>   
+>>> After commit "db8857b stmmac: use an unique MDIO bus name" and "90b9a54
+>>> stmmac: fix phy naming inconsistency" stmmac cant work with other MDIO
+>>> buses, because mdio_bus name is fixed in the dirver.
+>>>     
+>>
+>> This sounds inaccurate, you're making it sound like these commits
+>> introduced this limitation, as far as I can tell they did not.
+>>
+>>   
+> Thanks for your comments,
+> 
+> Commit comment is true to some extent, before "db8857b stmmac: use an
+> unique MDIO bus name" and "a77e929 mdio-gpio: use an unique MDIO bus
+> name" we managed to get stmmac use mdio bus by specifying same id in
+> platform data of both the drivers.
+> However after these commits this method was no more possible because
+> stmmac can connect to phys on stmmac-x mdio buses Only.
+> 
+> I think, originally the problem was in stmmac to some extent which
+> became worse after adding prefix mdio bus.
+> Here is the new patch removing the misleading comments.
 
-Hi - perhaps I misunderstood something about the built-in PHY on Port=20
-4. We expected to see the PHY enabled in hardware by setting logic on=20
-the P4_MODE pins. But this doesn't seem to be sufficient as I guess one=
-=20
-still has to enable the PHY in the driver code (like how you do it for=20
-the LAN interfaces in net/dsa/slave.c).
+Thx Srini to have resent the patch
 
-So, after digging through the net/dsa source I found that there is=20
-nothing explicit in the code to enable the CPU port if it needs a PHY. =
-I=20
-would like to say that way it is written assumes that it is always RGMI=
-I=20
-so I guess the other platforms you refer to above use customized=20
-(non-mainline) driver code?
+peppe
 
-I have managed to get the DSA switch working by making the following=20
-changes:
-
---- ./kernel/linux-source-3.2-csb1724/net/dsa/dsa.c
-+++ ./kernel/linux-source-3.2-csb1724/net/dsa/dsa.c (unsaved)
-@@ -124,7 +124,6 @@
-  			}
-  			dst->cpu_switch =3D index;
-  			dst->cpu_port =3D i;
-+			ds->phys_port_mask |=3D 1 << i;
-  		} else if (!strcmp(name, "dsa")) {
-  			ds->dsa_port_mask |=3D 1 << i;
-  		} else {
-
---- ./kernel/linux-source-3.2-csb1724/net/dsa/mv88e6123_61_65.c
-+++ ./kernel/linux-source-3.2-csb1724/net/dsa/mv88e6123_61_65.c=20
-(unsaved)
-@@ -193,7 +193,12 @@
-  	 * full duplex.
-  	 */
-  	if (dsa_is_cpu_port(ds, p) || ds->dsa_port_mask & (1 << p)) {
--		REG_WRITE(addr, 0x01, 0x003e);
-+		REG_WRITE(addr, 0x01, 0x0003);
-  	}
-  	else
-  		REG_WRITE(addr, 0x01, 0x0003);
-
-Basically this tells the DSA driver to create an interface for the CPU=20
-port. Perhaps overkill but it does bring up the built-in PHY in the sam=
-e=20
-way it brings up the LAN slave interfaces. As slave.c sets autoneg on I=
-=20
-needed to change the register value from 1000FD to autoneg. Likewise fo=
-r=20
-the CPU GE01 port in my platform init code.
-
-I don't really like this, but it works. Is there a better way?
-
-regards
-Matthew
+> 
+> 
+>> Before the MDIO bus name was just plain "%x" and the bus_id number
+>> was placed there.  Then it became the same thing, except with some
+>> (potentially fixed) prefix.
+>>
+>> Nothing about that change makes any difference whatsoever about
+>> what you're modifications are trying to allow.
+>>
+>> BTW, also, commit "90b9a54" is ambiguous.
+>>
+>>   
+> Actual commit was : 90b9a5454fd2e626aa1614fe9ece6b63a0dc37af
+> 
+> Thanks,
+> srini
+>> [davem@bql net]$ git show 90b9a54
+>> error: short SHA1 90b9a54 is ambiguous.
+>> error: short SHA1 90b9a54 is ambiguous.
+>> fatal: ambiguous argument '90b9a54': unknown revision or path not in the working tree.
+>>   
+> 
