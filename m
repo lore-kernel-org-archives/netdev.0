@@ -1,260 +1,94 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH v6] lpc32xx: Added ethernet driver
-Date: Thu, 08 Mar 2012 10:27:58 +0100
-Message-ID: <4F587B9E.4000708@openwrt.org>
-References: <1331151693-21726-1-git-send-email-stigge@antcom.de>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH] adjust __net_exit
+Date: Thu, 08 Mar 2012 09:37:32 +0000
+Message-ID: <4F588BEC020000780007710A@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	alexander.h.duyck@intel.com, eilong@broadcom.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	w.sang@pengutronix.de, linux-kernel@vger.kernel.org,
-	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org,
-	arnd@arndb.de, baruch@tkos.co.il, joe@perches.com,
-	bhutchings@solarflare.com
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331151693-21726-1-git-send-email-stigge@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Roland,
+__net_exit, judging by the majority of its uses, was intended to serve
+as an abstraction to allow calling such annotated functions from both
+__init and __exit functions. Using the (bogus and unused elsewhere)
+__exit_refok to implement this is inefficient - any non-modular code
+really can reside in __init (as non-modular __exit code is never used).
 
-Le 03/07/12 21:21, Roland Stigge a =C3=A9crit :
-> This patch adds an ethernet driver for the LPC32xx ARM SoC.
->
-> Signed-off-by: Roland Stigge<stigge@antcom.de>
+Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
+in modules, and __init in the core kernel.
 
-I have a couple of phylib-related comments addressed inline.
+A few other adjustments are necessary/possible with this done - those
+were likely just oversights when added originally.
 
->
-> ---
->
-> Applies to v3.3-rc6
->
-> Changes since v5:
->   * Indentation and whitespace fixes
->   * Use __le32 for descriptors
->   * Use bool for boolean function parameters
->   * Removed unnecessary (u32) cast
->   * Added comment regarding future device tree introduction
->
->   Thanks to David Miller, Arnd Bergmann and Joe Perches for
->   reviewing the last version!
->
->   drivers/net/ethernet/Kconfig       |    1
->   drivers/net/ethernet/Makefile      |    1
->   drivers/net/ethernet/nxp/Kconfig   |    8
->   drivers/net/ethernet/nxp/Makefile  |    1
->   drivers/net/ethernet/nxp/lpc_eth.c | 1616 +++++++++++++++++++++++++=
-++++++++++++
->   5 files changed, 1627 insertions(+)
->
-> --- linux-2.6.orig/drivers/net/ethernet/Kconfig
-> +++ linux-2.6/drivers/net/ethernet/Kconfig
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-> +
-> +static int lpc_mii_probe(struct net_device *ndev)
-> +{
-> +	struct netdata_local *pldat =3D netdev_priv(ndev);
-> +	struct phy_device *phydev =3D NULL;
-> +	int phy_addr;
-> +
-> +	/* find the first phy */
-> +	for (phy_addr =3D 0; phy_addr<  PHY_MAX_ADDR; phy_addr++) {
-> +		if (pldat->mii_bus->phy_map[phy_addr]) {
-> +			phydev =3D pldat->mii_bus->phy_map[phy_addr];
-> +			break;
-> +		}
-> +	}
+---
+ include/net/net_namespace.h    |    6 +++++-
+ net/ipv4/fib_frontend.c        |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c |    8 ++++----
+ 3 files changed, 10 insertions(+), 6 deletions(-)
 
-Please use phy_find_first() instead of open-coding this.
+--- 3.3-rc6/include/net/net_namespace.h
++++ 3.3-rc6-net-exit/include/net/net_namespace.h
+@@ -242,7 +242,11 @@ static inline struct net *read_pnet(stru
+ #define __net_initdata
+ #else
+ #define __net_init	__init
+-#define __net_exit	__exit_refok
++#ifdef MODULE
++#define __net_exit
++#else
++#define __net_exit	__init
++#endif
+ #define __net_initdata	__initdata
+ #endif
+ 
+--- 3.3-rc6/net/ipv4/fib_frontend.c
++++ 3.3-rc6-net-exit/net/ipv4/fib_frontend.c
+@@ -1062,7 +1062,7 @@ fail:
+ 	return err;
+ }
+ 
+-static void ip_fib_net_exit(struct net *net)
++static void __net_exit ip_fib_net_exit(struct net *net)
+ {
+ 	unsigned int i;
+ 
+--- 3.3-rc6/net/netfilter/ipvs/ip_vs_ctl.c
++++ 3.3-rc6-net-exit/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3621,7 +3621,7 @@ static void ip_vs_genl_unregister(void)
+  * per netns intit/exit func.
+  */
+ #ifdef CONFIG_SYSCTL
+-int __net_init ip_vs_control_net_init_sysctl(struct net *net)
++static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ {
+ 	int idx;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+@@ -3680,7 +3680,7 @@ int __net_init ip_vs_control_net_init_sy
+ 	return 0;
+ }
+ 
+-void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net)
++static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+@@ -3691,8 +3691,8 @@ void __net_init ip_vs_control_net_cleanu
+ 
+ #else
+ 
+-int __net_init ip_vs_control_net_init_sysctl(struct net *net) { return 0; }
+-void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net) { }
++static int __net_init ip_vs_control_net_init_sysctl(struct net *net) { return 0; }
++static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net) { }
+ 
+ #endif
+ 
 
-> +
-> +	if (!phydev) {
-> +		netdev_err(ndev, "no PHY found\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	/* Attach to the PHY */
-> +	if (lpc_phy_interface_mode() =3D=3D PHY_INTERFACE_MODE_MII)
-> +		netdev_info(ndev, "using MII interface\n");
-> +	else
-> +		netdev_info(ndev, "using RMII interface\n");
-> +	phydev =3D phy_connect(ndev, dev_name(&phydev->dev),
-> +		&lpc_handle_link_change, 0, lpc_phy_interface_mode());
-> +
-> +	if (IS_ERR(phydev)) {
-> +		netdev_err(ndev, "Could not attach to PHY\n");
-> +		return PTR_ERR(phydev);
-> +	}
-> +
-> +	/* mask with MAC supported features */
-> +	phydev->supported&=3D PHY_BASIC_FEATURES;
-> +
-> +	phydev->advertising =3D phydev->supported;
-> +
-> +	pldat->link =3D 0;
-> +	pldat->speed =3D 0;
-> +	pldat->duplex =3D -1;
-> +	pldat->phy_dev =3D phydev;
-> +
-> +	return 0;
-> +}
-> +
-> +static int lpc_mii_init(struct netdata_local *pldat)
-> +{
-> +	int err =3D -ENXIO, i;
-> +
-> +	pldat->mii_bus =3D mdiobus_alloc();
-> +	if (!pldat->mii_bus) {
-> +		err =3D -ENOMEM;
-> +		goto err_out;
-> +	}
-> +
-> +	/* Setup MII mode */
-> +	if (lpc_phy_interface_mode() =3D=3D PHY_INTERFACE_MODE_MII)
-> +		writel(LPC_COMMAND_PASSRUNTFRAME,
-> +		       LPC_ENET_COMMAND(pldat->net_base));
-> +	else {
-> +		writel((LPC_COMMAND_PASSRUNTFRAME | LPC_COMMAND_RMII),
-> +		       LPC_ENET_COMMAND(pldat->net_base));
-> +		writel(LPC_SUPP_RESET_RMII, LPC_ENET_SUPP(pldat->net_base));
-> +	}
-> +
-> +	pldat->mii_bus->name =3D "lpc_mii_bus";
-> +	pldat->mii_bus->read =3D&lpc_mdio_read;
-> +	pldat->mii_bus->write =3D&lpc_mdio_write;
-> +	pldat->mii_bus->reset =3D&lpc_mdio_reset;
-> +	snprintf(pldat->mii_bus->id, MII_BUS_ID_SIZE, "%x", pldat->pdev->id=
-);
 
-No, makes this bus name unique in the system:
-snprnitf(pldat->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-	pldat->pdev->name, pldat->pdev->id);
 
-> +	pldat->mii_bus->priv =3D pldat;
-> +	pldat->mii_bus->parent =3D&pldat->pdev->dev;
-> +	pldat->mii_bus->phy_mask =3D 0xFFFFFFF0;
-
-I would rather not hardcode the phy_mask here, just leave it to 0, and=20
-let phy_find_first() find the PHY devices for you, or make this platfor=
-m=20
-configurable.
-
-> +
-> +	pldat->mii_bus->irq =3D kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KER=
-NEL);
-> +	if (!pldat->mii_bus->irq) {
-> +		err =3D -ENOMEM;
-> +		goto err_out_1;
-> +	}
-> +
-> +	for (i =3D 0; i<  PHY_MAX_ADDR; i++)
-> +		pldat->mii_bus->irq[i] =3D PHY_POLL;
-> +
-> +	platform_set_drvdata(pldat->pdev, pldat->mii_bus);
-> +
-> +	if (mdiobus_register(pldat->mii_bus))
-> +		goto err_out_free_mdio_irq;
-> +
-> +	if (lpc_mii_probe(pldat->ndev) !=3D 0)
-> +		goto err_out_unregister_bus;
-> +
-> +	return 0;
-> +
-> +err_out_unregister_bus:
-> +	mdiobus_unregister(pldat->mii_bus);
-> +err_out_free_mdio_irq:
-> +	kfree(pldat->mii_bus->irq);
-> +err_out_1:
-> +	mdiobus_free(pldat->mii_bus);
-> +err_out:
-> +	return err;
-> +}
-> +
-
-[snip]
-
-> +
-> +static int lpc_eth_open(struct net_device *ndev)
-> +{
-> +	struct netdata_local *pldat =3D netdev_priv(ndev);
-> +
-> +	/* if the phy is not yet registered, retry later*/
-> +	if (!pldat->phy_dev)
-> +		return -EAGAIN;
-
-You have already probed the mii bus in the driver's probe function, how=
-=20
-can you end up here without a phy being attached here?
-
-[snip]
-
-> +	if (lpc_mii_init(pldat) !=3D 0)
-> +		goto err_out_unregister_netdev;
-> +
-> +	netdev_info(ndev, "LPC mac at 0x%08x irq %d\n",
-> +	       res->start, ndev->irq);
-> +
-> +	phydev =3D pldat->phy_dev;
-> +	netdev_info(ndev,
-> +		"attached PHY driver [%s] (mii_bus:phy_addr=3D%s, irq=3D%d)\n",
-> +		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-
-Most drivers put this informational message in their mii probing=20
-function, please move it here as well.
-
-> +
-> +	device_init_wakeup(&pdev->dev, 1);
-> +	device_set_wakeup_enable(&pdev->dev, 0);
-> +
-> +	return 0;
-> +
-> +err_out_unregister_netdev:
-> +	platform_set_drvdata(pdev, NULL);
-> +	unregister_netdev(ndev);
-> +err_out_dma_unmap:
-> +	if (!use_iram_for_net() ||
-> +	    pldat->dma_buff_size>  lpc32xx_return_iram_size())
-> +		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
-> +				  pldat->dma_buff_base_v,
-> +				  pldat->dma_buff_base_p);
-> +err_out_free_irq:
-> +	free_irq(ndev->irq, ndev);
-> +err_out_iounmap:
-> +	iounmap(pldat->net_base);
-> +err_out_disable_clocks:
-> +	clk_disable(pldat->clk);
-> +	clk_put(pldat->clk);
-> +err_out_free_dev:
-> +	free_netdev(ndev);
-> +err_exit:
-> +	pr_err("%s: not found (%d).\n", MODNAME, ret);
-> +	return ret;
-> +}
-> +
-> +static int lpc_eth_drv_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> +	struct netdata_local *pldat =3D netdev_priv(ndev);
-> +
-> +	unregister_netdev(ndev);
-> +	platform_set_drvdata(pdev, NULL);
-> +
-> +	if (!use_iram_for_net() ||
-> +	    pldat->dma_buff_size>  lpc32xx_return_iram_size())
-> +		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
-> +				  pldat->dma_buff_base_v,
-> +				  pldat->dma_buff_base_p);
-> +	free_irq(ndev->irq, ndev);
-> +	iounmap(pldat->net_base);
-> +	clk_disable(pldat->clk);
-> +	clk_put(pldat->clk);
-> +	free_netdev(ndev);
-
-You are not freeing the mii bus in the driver's remove path.
---
-=46lorian
