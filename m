@@ -1,88 +1,62 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 2/4] net: ethtool: add the EEE support
-Date: Thu, 08 Mar 2012 16:14:10 +0100
-Message-ID: <4F58CCC2.1060304@st.com>
-References: <4F4E4D4B.3040909@st.com>  <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>  <1331022494-12891-3-git-send-email-peppe.cavallaro@st.com> <1331052982.2333.17.camel@bwh-desktop>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
+	driver name
+Date: Thu, 8 Mar 2012 07:52:19 -0800
+Message-ID: <20120308155219.GC5907@kroah.com>
+References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
+	<20120307201746.GA20900@aepfle.de>
+	<20120307204946.GA4413@kroah.com>
+	<20120308061615.GA25237@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	rayagond@vayavyalabs.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:37021 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755238Ab2CHPOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 10:14:48 -0500
-In-Reply-To: <1331052982.2333.17.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	Haiyang Zhang <haiyangz@microsoft.com>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20120308061615.GA25237@aepfle.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Hello Ben
-
-On 3/6/2012 5:56 PM, Ben Hutchings wrote:
-> On Tue, 2012-03-06 at 09:28 +0100, Giuseppe CAVALLARO wrote:
->> This patch adds two new functions to detect if Energy-Efficient
->> Ethernet (EEE) is supported and the way to enable/disable it.
-> [...]
+On Thu, Mar 08, 2012 at 07:16:16AM +0100, Olaf Hering wrote:
+> On Wed, Mar 07, Greg KH wrote:
 > 
-> You haven't fixed any of the problems in the previous version of this
-> patch.
-
-Yes you are right,  sorry :-(
-
-Below there is what you suggested and inline my comments.
-
-Welcome advice!
-
-On 2/29/2012 6:00 PM, Ben Hutchings wrote:
-
-> It is certainly necessary to distinguish:
-> a. PHY is advertising EEE
-> from
-> b. Link partner is advertising EEE
-> or
-> c. EEE will be used (= a && b)
-
-you are perfectly right and indeed I wanted to do that.
-
-> I haven't had anything to do with PHY drivers for a while but it looks
-> like you should be able to map MDIO register 3.20 to supported flags,
-> 7.60 to advertising and 7.61 to lp_advertising.
-
-I have added a function named:
-
-    phy_check_eee
-
-For example, the stmmac driver (only if its HW core supports the EEE
-feature) calls the phy_check_eee to understand if the the points a) and
-b) above are satisfied.
-
-On the Ethtool side, within the driver the .get_eee will pass to the
-user-space if the EEE is used (just point c).
-The .set_eee should used to force the MAC to disable/enable the EEE (if
-actually supported by MAC+PHY).
-I had added this option because the Synopsys GMAC manages the TX LPI
-path through a SW timer :-( that in this case can be disabled via ethtool.
-Indeed, no action should be taken by the user for the PHY side.
-The only thing that could be changed is the clock stop enable bit (3.0.10).
-
-What do you think?
-
-Peppe
-
->
-> Even if your particular device doesn't support these MDIO registers,
-> other devices will.  So I think you should define the flags and then if
-> you don't have that fine control you should check in your set_settings
-> implementation that the advertising value either has all the EEE mode
-> flags clear or has all the modes the hardware supports set.
->
-> Ben.
->
-
-
-
-
-> Ben.
+> > On Wed, Mar 07, 2012 at 09:17:46PM +0100, Olaf Hering wrote:
+> > > On Wed, Mar 07, Haiyang Zhang wrote:
+> > > 
+> > > 
+> > > > @@ -482,7 +484,7 @@ MODULE_DEVICE_TABLE(vmbus, id_table);
+> > > >  
+> > > >  /* The one and only one */
+> > > >  static struct  hv_driver netvsc_drv = {
+> > > > -	.name = "netvsc",
+> > > > +	.name = MODULE_NAME,
+> > > 
+> > > It would be nice if this could be applied to 3.3.
+> > > hv_storvsc and hid-hyperv already use the same naming, this patch was
+> > > send last year already but was not applied for some reason.
+> > 
+> > What userspace tools depend on this that requires it to be in 3.3?
 > 
+> It represents the module names, at least for pci and other bus types.
+
+Yes, but no one should care what the name of the module is.
+
+> hwinfo uses it to recognize a network interface (storage in case of
+> hv_storvsc).
+
+That tool should report the real module name, not rely on the name to
+match based on the structure, if you really care about the real module
+name.
+
+greg k-h
