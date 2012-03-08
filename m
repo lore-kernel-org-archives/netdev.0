@@ -1,164 +1,72 @@
 From: pablo@netfilter.org
-Subject: [PATCH 16/23] netfilter: nf_ct_udp[lite]: convert UDP[lite] timeouts to array
-Date: Thu,  8 Mar 2012 02:01:05 +0100
-Message-ID: <1331168472-5820-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/23] netfilter: xt_LOG: fix bogus extra layer-4 logging information
+Date: Thu,  8 Mar 2012 02:01:03 +0100
+Message-ID: <1331168472-5820-15-git-send-email-pablo@netfilter.org>
 References: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56159 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:56124 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752017Ab2CHBBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2012 20:01:47 -0500
+	id S1751759Ab2CHBBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 20:01:36 -0500
 In-Reply-To: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Richard Weinberger <richard@nod.at>
 
-Use one array to store the UDP timeouts instead of two variables.
+In 16059b5 netfilter: merge ipt_LOG and ip6_LOG into xt_LOG, we have
+merged ipt_LOG and ip6t_LOG.
 
+However:
+
+IN=wlan0 OUT= MAC=xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
+SRC=213.150.61.61 DST=192.168.1.133 LEN=40 TOS=0x00 PREC=0x00 TTL=117
+ID=10539 DF PROTO=TCP SPT=80 DPT=49013 WINDOW=0 RES=0x00 ACK RST
+URGP=0 PROTO=UDPLITE SPT=80 DPT=49013 LEN=45843 PROTO=ICMP TYPE=0
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Several missing break in the code led to including bogus layer-4
+information. This patch fixes this problem.
+
+Signed-off-by: Richard Weinberger <richard@nod.at>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto_udp.c     |   30 ++++++++++++++++++---------
- net/netfilter/nf_conntrack_proto_udplite.c |   25 +++++++++++++++-------
- 2 files changed, 37 insertions(+), 18 deletions(-)
+ net/netfilter/xt_LOG.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 5f35757..5b24ff8 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -25,8 +25,16 @@
- #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
- 
--static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
--static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
-+enum udp_conntrack {
-+	UDP_CT_UNREPLIED,
-+	UDP_CT_REPLIED,
-+	UDP_CT_MAX
-+};
-+
-+static unsigned int udp_timeouts[UDP_CT_MAX] = {
-+	[UDP_CT_UNREPLIED]	= 30*HZ,
-+	[UDP_CT_REPLIED]	= 180*HZ,
-+};
- 
- static bool udp_pkt_to_tuple(const struct sk_buff *skb,
- 			     unsigned int dataoff,
-@@ -74,13 +82,15 @@ static int udp_packet(struct nf_conn *ct,
- 	/* If we've seen traffic both ways, this is some kind of UDP
- 	   stream.  Extend timeout. */
- 	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udp_timeout_stream);
-+		nf_ct_refresh_acct(ct, ctinfo, skb,
-+				   udp_timeouts[UDP_CT_REPLIED]);
- 		/* Also, more likely to be important, and not a probe */
- 		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
- 			nf_conntrack_event_cache(IPCT_ASSURED, ct);
--	} else
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udp_timeout);
--
-+	} else {
-+		nf_ct_refresh_acct(ct, ctinfo, skb,
-+				   udp_timeouts[UDP_CT_UNREPLIED]);
-+	}
- 	return NF_ACCEPT;
- }
- 
-@@ -142,14 +152,14 @@ static struct ctl_table_header *udp_sysctl_header;
- static struct ctl_table udp_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_udp_timeout",
--		.data		= &nf_ct_udp_timeout,
-+		.data		= &udp_timeouts[UDP_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_udp_timeout_stream",
--		.data		= &nf_ct_udp_timeout_stream,
-+		.data		= &udp_timeouts[UDP_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -160,14 +170,14 @@ static struct ctl_table udp_sysctl_table[] = {
- static struct ctl_table udp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_udp_timeout",
--		.data		= &nf_ct_udp_timeout,
-+		.data		= &udp_timeouts[UDP_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_udp_timeout_stream",
--		.data		= &nf_ct_udp_timeout_stream,
-+		.data		= &udp_timeouts[UDP_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index f52ca11..e730717 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -24,8 +24,16 @@
- #include <net/netfilter/nf_conntrack_ecache.h>
- #include <net/netfilter/nf_log.h>
- 
--static unsigned int nf_ct_udplite_timeout __read_mostly = 30*HZ;
--static unsigned int nf_ct_udplite_timeout_stream __read_mostly = 180*HZ;
-+enum udplite_conntrack {
-+	UDPLITE_CT_UNREPLIED,
-+	UDPLITE_CT_REPLIED,
-+	UDPLITE_CT_MAX
-+};
-+
-+static unsigned int udplite_timeouts[UDPLITE_CT_MAX] = {
-+	[UDPLITE_CT_UNREPLIED]	= 30*HZ,
-+	[UDPLITE_CT_REPLIED]	= 180*HZ,
-+};
- 
- static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
-@@ -72,13 +80,14 @@ static int udplite_packet(struct nf_conn *ct,
- 	   stream.  Extend timeout. */
- 	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
- 		nf_ct_refresh_acct(ct, ctinfo, skb,
--				   nf_ct_udplite_timeout_stream);
-+				   udplite_timeouts[UDPLITE_CT_REPLIED]);
- 		/* Also, more likely to be important, and not a probe */
- 		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
- 			nf_conntrack_event_cache(IPCT_ASSURED, ct);
--	} else
--		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_udplite_timeout);
--
-+	} else {
-+		nf_ct_refresh_acct(ct, ctinfo, skb,
-+				   udplite_timeouts[UDPLITE_CT_UNREPLIED]);
-+	}
- 	return NF_ACCEPT;
- }
- 
-@@ -147,14 +156,14 @@ static struct ctl_table_header *udplite_sysctl_header;
- static struct ctl_table udplite_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_udplite_timeout",
--		.data		= &nf_ct_udplite_timeout,
-+		.data		= &udplite_timeouts[UDPLITE_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_udplite_timeout_stream",
--		.data		= &nf_ct_udplite_timeout_stream,
-+		.data		= &udplite_timeouts[UDPLITE_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
+diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+index 1595608..f99f8de 100644
+--- a/net/netfilter/xt_LOG.c
++++ b/net/netfilter/xt_LOG.c
+@@ -216,12 +216,14 @@ static void dump_ipv4_packet(struct sbuff *m,
+ 				    ntohs(ih->frag_off) & IP_OFFSET,
+ 				    iphoff+ih->ihl*4, logflags))
+ 			return;
++		break;
+ 	case IPPROTO_UDP:
+ 	case IPPROTO_UDPLITE:
+ 		if (dump_udp_header(m, skb, ih->protocol,
+ 				    ntohs(ih->frag_off) & IP_OFFSET,
+ 				    iphoff+ih->ihl*4))
+ 			return;
++		break;
+ 	case IPPROTO_ICMP: {
+ 		struct icmphdr _icmph;
+ 		const struct icmphdr *ich;
+@@ -649,10 +651,12 @@ static void dump_ipv6_packet(struct sbuff *m,
+ 		if (dump_tcp_header(m, skb, currenthdr, fragment, ptr,
+ 		    logflags))
+ 			return;
++		break;
+ 	case IPPROTO_UDP:
+ 	case IPPROTO_UDPLITE:
+ 		if (dump_udp_header(m, skb, currenthdr, fragment, ptr))
+ 			return;
++		break;
+ 	case IPPROTO_ICMPV6: {
+ 		struct icmp6hdr _icmp6h;
+ 		const struct icmp6hdr *ic;
 -- 
 1.7.7.3
