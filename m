@@ -1,48 +1,39 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
- driver name
-Date: Thu, 8 Mar 2012 07:16:16 +0100
-Message-ID: <20120308061615.GA25237@aepfle.de>
-References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
- <20120307201746.GA20900@aepfle.de>
- <20120307204946.GA4413@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/23] netfilter updates for net-next
+Date: Wed, 07 Mar 2012 22:48:03 -0800 (PST)
+Message-ID: <20120307.224803.1226286189972431232.davem@davemloft.net>
+References: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Greg KH <greg@kroah.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:25415 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753034Ab2CHGQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 01:16:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20120307204946.GA4413@kroah.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58121 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab2CHGtK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 01:49:10 -0500
+In-Reply-To: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 07, Greg KH wrote:
+From: pablo@netfilter.org
+Date: Thu,  8 Mar 2012 02:00:49 +0100
 
-> On Wed, Mar 07, 2012 at 09:17:46PM +0100, Olaf Hering wrote:
-> > On Wed, Mar 07, Haiyang Zhang wrote:
-> > 
-> > 
-> > > @@ -482,7 +484,7 @@ MODULE_DEVICE_TABLE(vmbus, id_table);
-> > >  
-> > >  /* The one and only one */
-> > >  static struct  hv_driver netvsc_drv = {
-> > > -	.name = "netvsc",
-> > > +	.name = MODULE_NAME,
-> > 
-> > It would be nice if this could be applied to 3.3.
-> > hv_storvsc and hid-hyperv already use the same naming, this patch was
-> > send last year already but was not applied for some reason.
+> The following patchset contains netfilter updates for net-next:
 > 
-> What userspace tools depend on this that requires it to be in 3.3?
+> * Updates for ipset from Jozsef Kadlecsik and Jan Engelhardt.
+> * Enhancements for ctnetlink expectation support from myself.
+> * The new cttimeout infrastructure for fine-grain timeout for
+>   the connection tracking system.
+> * Merge of ipt_LOG and ip6t_LOG to xt_LOG from Richard Weinberger.
+> * A couple of cleanups for nf_ct_ecache from Tony Zelenoff.
+> 
+> I know, I took too long to send them, let me know if there's
+> some chance to get them in.
+> 
+> You can pull them from:
+> 
+> git://1984.lsi.us.es/net-next master
 
-It represents the module names, at least for pci and other bus types.
-hwinfo uses it to recognize a network interface (storage in case of
-hv_storvsc).
-
-Olaf
+Pulled, thanks.
