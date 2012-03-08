@@ -1,296 +1,448 @@
 From: pablo@netfilter.org
-Subject: [PATCH 21/23] netfilter: nf_ct_ext: add timeout extension
-Date: Thu,  8 Mar 2012 02:01:10 +0100
-Message-ID: <1331168472-5820-22-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 22/23] netfilter: xt_CT: allow to attach timeout policy + glue code
+Date: Thu,  8 Mar 2012 02:01:11 +0100
+Message-ID: <1331168472-5820-23-git-send-email-pablo@netfilter.org>
 References: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56149 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751949Ab2CHBBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 20:01:44 -0500
 In-Reply-To: <1331168472-5820-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-This patch adds the timeout extension, which allows you to attach
-specific timeout policies to flows.
+This patch allows you to attach the timeout policy via the
+CT target, it adds a new revision of the target to ensure
+backward compatibility. Moreover, it also contains the glue
+code to stick the timeout object defined via nfnetlink_cttimeout
+to the given flow.
 
-This extension is only used by the template conntrack.
+Example usage (it requires installing the nfct tool and
+libnetfilter_cttimeout):
+
+1) create the timeout policy:
+
+ nfct timeout add tcp-policy0 inet tcp \
+	established 1000 close 10 time_wait 10 last_ack 10
+
+2) attach the timeout policy to the packet:
+
+ iptables -I PREROUTING -t raw -p tcp -j CT --timeout tcp-policy0
+
+You have to install the following user-space software:
+
+a) libnetfilter_cttimeout:
+   git://git.netfilter.org/libnetfilter_cttimeout
+
+b) nfct:
+   git://git.netfilter.org/nfct
+
+You also have to get iptables with -j CT --timeout support.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_extend.h  |    4 +
- include/net/netfilter/nf_conntrack_timeout.h |   78 ++++++++++++++++++++++++++
- net/netfilter/Kconfig                        |   10 +++
- net/netfilter/Makefile                       |    1 +
- net/netfilter/nf_conntrack_core.c            |    7 ++
- net/netfilter/nf_conntrack_timeout.c         |   60 ++++++++++++++++++++
- net/netfilter/nfnetlink_cttimeout.c          |   10 ---
- 7 files changed, 160 insertions(+), 10 deletions(-)
- create mode 100644 include/net/netfilter/nf_conntrack_timeout.h
- create mode 100644 net/netfilter/nf_conntrack_timeout.c
+ include/linux/netfilter/xt_CT.h     |   12 ++
+ net/netfilter/nf_conntrack_core.c   |   11 ++-
+ net/netfilter/nfnetlink_cttimeout.c |   41 +++++++
+ net/netfilter/xt_CT.c               |  220 ++++++++++++++++++++++++++++++++---
+ 4 files changed, 268 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 2dcf317..96755c3 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -20,6 +20,9 @@ enum nf_ct_ext_id {
- #ifdef CONFIG_NF_CONNTRACK_TIMESTAMP
- 	NF_CT_EXT_TSTAMP,
- #endif
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-+	NF_CT_EXT_TIMEOUT,
-+#endif
- 	NF_CT_EXT_NUM,
+diff --git a/include/linux/netfilter/xt_CT.h b/include/linux/netfilter/xt_CT.h
+index b56e768..a064b8a 100644
+--- a/include/linux/netfilter/xt_CT.h
++++ b/include/linux/netfilter/xt_CT.h
+@@ -16,4 +16,16 @@ struct xt_ct_target_info {
+ 	struct nf_conn	*ct __attribute__((aligned(8)));
  };
  
-@@ -29,6 +32,7 @@ enum nf_ct_ext_id {
- #define NF_CT_EXT_ECACHE_TYPE struct nf_conntrack_ecache
- #define NF_CT_EXT_ZONE_TYPE struct nf_conntrack_zone
- #define NF_CT_EXT_TSTAMP_TYPE struct nf_conn_tstamp
-+#define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
- 
- /* Extensions: optional stuff which isn't permanently in struct. */
- struct nf_ct_ext {
-diff --git a/include/net/netfilter/nf_conntrack_timeout.h b/include/net/netfilter/nf_conntrack_timeout.h
-new file mode 100644
-index 0000000..0e04db4
---- /dev/null
-+++ b/include/net/netfilter/nf_conntrack_timeout.h
-@@ -0,0 +1,78 @@
-+#ifndef _NF_CONNTRACK_TIMEOUT_H
-+#define _NF_CONNTRACK_TIMEOUT_H
++struct xt_ct_target_info_v1 {
++	__u16 flags;
++	__u16 zone;
++	__u32 ct_events;
++	__u32 exp_events;
++	char helper[16];
++	char timeout[32];
 +
-+#include <net/net_namespace.h>
-+#include <linux/netfilter/nf_conntrack_common.h>
-+#include <linux/netfilter/nf_conntrack_tuple_common.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
-+
-+#define CTNL_TIMEOUT_NAME_MAX	32
-+
-+struct ctnl_timeout {
-+	struct list_head	head;
-+	struct rcu_head		rcu_head;
-+	atomic_t		refcnt;
-+	char			name[CTNL_TIMEOUT_NAME_MAX];
-+	__u16			l3num;
-+	__u8			l4num;
-+	char			data[0];
++	/* Used internally by the kernel */
++	struct nf_conn	*ct __attribute__((aligned(8)));
 +};
 +
-+struct nf_conn_timeout {
-+	struct ctnl_timeout	*timeout;
-+};
-+
-+#define NF_CT_TIMEOUT_EXT_DATA(__t) (unsigned int *) &((__t)->timeout->data)
-+
-+static inline
-+struct nf_conn_timeout *nf_ct_timeout_find(const struct nf_conn *ct)
-+{
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-+	return nf_ct_ext_find(ct, NF_CT_EXT_TIMEOUT);
-+#else
-+	return NULL;
-+#endif
-+}
-+
-+static inline
-+struct nf_conn_timeout *nf_ct_timeout_ext_add(struct nf_conn *ct,
-+					      struct ctnl_timeout *timeout,
-+					      gfp_t gfp)
-+{
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
+ #endif /* _XT_CT_H */
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 75398c5..81e2aa4 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -912,6 +912,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conntrack_l3proto *l3proto;
+ 	struct nf_conntrack_l4proto *l4proto;
 +	struct nf_conn_timeout *timeout_ext;
-+
-+	timeout_ext = nf_ct_ext_add(ct, NF_CT_EXT_TIMEOUT, gfp);
-+	if (timeout_ext == NULL)
-+		return NULL;
-+
-+	timeout_ext->timeout = timeout;
-+
-+	return timeout_ext;
-+#else
-+	return NULL;
-+#endif
-+};
-+
+ 	unsigned int *timeouts;
+ 	unsigned int dataoff;
+ 	u_int8_t protonum;
+@@ -959,7 +960,15 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 			goto out;
+ 	}
+ 
+-	timeouts = l4proto->get_timeouts(net);
++	/* Decide what timeout policy we want to apply to this flow. */
++	if (tmpl) {
++	        timeout_ext = nf_ct_timeout_find(tmpl);
++		if (timeout_ext)
++			timeouts = NF_CT_TIMEOUT_EXT_DATA(timeout_ext);
++		else
++			timeouts = l4proto->get_timeouts(net);
++	} else
++		timeouts = l4proto->get_timeouts(net);
+ 
+ 	ct = resolve_normal_ct(net, tmpl, skb, dataoff, pf, protonum,
+ 			       l3proto, l4proto, &set_reply, &ctinfo,
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 29b9897..fec29a4 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -29,6 +29,7 @@
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_tuple.h>
++#include <net/netfilter/nf_conntrack_timeout.h>
+ 
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+@@ -331,6 +332,38 @@ cttimeout_del_timeout(struct sock *ctnl, struct sk_buff *skb,
+ 	return ret;
+ }
+ 
 +#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-+extern int nf_conntrack_timeout_init(struct net *net);
-+extern void nf_conntrack_timeout_fini(struct net *net);
-+#else
-+static inline int nf_conntrack_timeout_init(struct net *net)
++static struct ctnl_timeout *ctnl_timeout_find_get(const char *name)
 +{
-+        return 0;
++	struct ctnl_timeout *timeout, *matching = NULL;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(timeout, &cttimeout_list, head) {
++		if (strncmp(timeout->name, name, CTNL_TIMEOUT_NAME_MAX) != 0)
++			continue;
++
++		if (!try_module_get(THIS_MODULE))
++			goto err;
++
++		if (!atomic_inc_not_zero(&timeout->refcnt)) {
++			module_put(THIS_MODULE);
++			goto err;
++		}
++		matching = timeout;
++		break;
++	}
++err:
++	rcu_read_unlock();
++	return matching;
 +}
 +
-+static inline void nf_conntrack_timeout_fini(struct net *net)
++static void ctnl_timeout_put(struct ctnl_timeout *timeout)
 +{
-+        return;
++	atomic_dec(&timeout->refcnt);
++	module_put(THIS_MODULE);
 +}
 +#endif /* CONFIG_NF_CONNTRACK_TIMEOUT */
 +
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-+extern struct ctnl_timeout *(*nf_ct_timeout_find_get_hook)(const char *name);
-+extern void (*nf_ct_timeout_put_hook)(struct ctnl_timeout *timeout);
-+#endif
-+
-+#endif /* _NF_CONNTRACK_TIMEOUT_H */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index f3efb65..0c6f67e 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -103,6 +103,16 @@ config NF_CONNTRACK_EVENTS
- 
- 	  If unsure, say `N'.
- 
-+config NF_CONNTRACK_TIMEOUT
-+	bool  'Connection tracking timeout'
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  This option enables support for connection tracking timeout
-+	  extension. This allows you to attach timeout policies to flow
-+	  via the CT target.
-+
-+	  If unsure, say `N'.
-+
- config NF_CONNTRACK_TIMESTAMP
- 	bool  'Connection tracking timestamping'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index cf7cdd6..ca36765 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -1,6 +1,7 @@
- netfilter-objs := core.o nf_log.o nf_queue.o nf_sockopt.o
- 
- nf_conntrack-y	:= nf_conntrack_core.o nf_conntrack_standalone.o nf_conntrack_expect.o nf_conntrack_helper.o nf_conntrack_proto.o nf_conntrack_l3proto_generic.o nf_conntrack_proto_generic.o nf_conntrack_proto_tcp.o nf_conntrack_proto_udp.o nf_conntrack_extend.o nf_conntrack_acct.o
-+nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMEOUT) += nf_conntrack_timeout.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMESTAMP) += nf_conntrack_timestamp.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_EVENTS) += nf_conntrack_ecache.o
- 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index d18995e..75398c5 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -44,6 +44,7 @@
- #include <net/netfilter/nf_conntrack_ecache.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/nf_conntrack_timestamp.h>
-+#include <net/netfilter/nf_conntrack_timeout.h>
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_core.h>
- 
-@@ -1333,6 +1334,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ static const struct nfnl_callback cttimeout_cb[IPCTNL_MSG_TIMEOUT_MAX] = {
+ 	[IPCTNL_MSG_TIMEOUT_NEW]	= { .call = cttimeout_new_timeout,
+ 					    .attr_count = CTA_TIMEOUT_MAX,
+@@ -362,6 +395,10 @@ static int __init cttimeout_init(void)
+ 			"nfnetlink.\n");
+ 		goto err_out;
  	}
- 
- 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
-+	nf_conntrack_timeout_fini(net);
- 	nf_conntrack_ecache_fini(net);
- 	nf_conntrack_tstamp_fini(net);
- 	nf_conntrack_acct_fini(net);
-@@ -1564,9 +1566,14 @@ static int nf_conntrack_init_net(struct net *net)
- 	ret = nf_conntrack_ecache_init(net);
- 	if (ret < 0)
- 		goto err_ecache;
-+	ret = nf_conntrack_timeout_init(net);
-+	if (ret < 0)
-+		goto err_timeout;
- 
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++	RCU_INIT_POINTER(nf_ct_timeout_find_get_hook, ctnl_timeout_find_get);
++	RCU_INIT_POINTER(nf_ct_timeout_put_hook, ctnl_timeout_put);
++#endif /* CONFIG_NF_CONNTRACK_TIMEOUT */
  	return 0;
  
-+err_timeout:
-+	nf_conntrack_timeout_fini(net);
- err_ecache:
- 	nf_conntrack_tstamp_fini(net);
- err_tstamp:
-diff --git a/net/netfilter/nf_conntrack_timeout.c b/net/netfilter/nf_conntrack_timeout.c
-new file mode 100644
-index 0000000..a878ce5
---- /dev/null
-+++ b/net/netfilter/nf_conntrack_timeout.c
-@@ -0,0 +1,60 @@
-+/*
-+ * (C) 2012 by Pablo Neira Ayuso <pablo@netfilter.org>
-+ * (C) 2012 by Vyatta Inc. <http://www.vyatta.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation (or any later at your option).
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/netfilter.h>
-+#include <linux/skbuff.h>
-+#include <linux/vmalloc.h>
-+#include <linux/stddef.h>
-+#include <linux/err.h>
-+#include <linux/percpu.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/slab.h>
-+#include <linux/export.h>
-+
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_core.h>
-+#include <net/netfilter/nf_conntrack_extend.h>
+ err_out:
+@@ -382,6 +419,10 @@ static void __exit cttimeout_exit(void)
+ 		 */
+ 		kfree_rcu(cur, rcu_head);
+ 	}
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++	RCU_INIT_POINTER(nf_ct_timeout_find_get_hook, NULL);
++	RCU_INIT_POINTER(nf_ct_timeout_put_hook, NULL);
++#endif /* CONFIG_NF_CONNTRACK_TIMEOUT */
+ }
+ 
+ module_init(cttimeout_init);
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 0221d10..b873445 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -16,10 +16,11 @@
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_ecache.h>
 +#include <net/netfilter/nf_conntrack_timeout.h>
-+
-+struct ctnl_timeout *
-+(*nf_ct_timeout_find_get_hook)(const char *name) __read_mostly;
-+EXPORT_SYMBOL_GPL(nf_ct_timeout_find_get_hook);
-+
-+void (*nf_ct_timeout_put_hook)(struct ctnl_timeout *timeout) __read_mostly;
-+EXPORT_SYMBOL_GPL(nf_ct_timeout_put_hook);
-+
-+static struct nf_ct_ext_type timeout_extend __read_mostly = {
-+	.len	= sizeof(struct nf_conn_timeout),
-+	.align	= __alignof__(struct nf_conn_timeout),
-+	.id	= NF_CT_EXT_TIMEOUT,
-+};
-+
-+int nf_conntrack_timeout_init(struct net *net)
+ #include <net/netfilter/nf_conntrack_zones.h>
+ 
+-static unsigned int xt_ct_target(struct sk_buff *skb,
+-				 const struct xt_action_param *par)
++static unsigned int xt_ct_target_v0(struct sk_buff *skb,
++				    const struct xt_action_param *par)
+ {
+ 	const struct xt_ct_target_info *info = par->targinfo;
+ 	struct nf_conn *ct = info->ct;
+@@ -35,6 +36,23 @@ static unsigned int xt_ct_target(struct sk_buff *skb,
+ 	return XT_CONTINUE;
+ }
+ 
++static unsigned int xt_ct_target_v1(struct sk_buff *skb,
++				    const struct xt_action_param *par)
 +{
-+	int ret = 0;
++	const struct xt_ct_target_info_v1 *info = par->targinfo;
++	struct nf_conn *ct = info->ct;
 +
-+	if (net_eq(net, &init_net)) {
-+		ret = nf_ct_extend_register(&timeout_extend);
-+		if (ret < 0) {
-+			printk(KERN_ERR "nf_ct_timeout: Unable to register "
-+					"timeout extension.\n");
-+			return ret;
++	/* Previously seen (loopback)? Ignore. */
++	if (skb->nfct != NULL)
++		return XT_CONTINUE;
++
++	atomic_inc(&ct->ct_general.use);
++	skb->nfct = &ct->ct_general;
++	skb->nfctinfo = IP_CT_NEW;
++
++	return XT_CONTINUE;
++}
++
+ static u8 xt_ct_find_proto(const struct xt_tgchk_param *par)
+ {
+ 	if (par->family == NFPROTO_IPV4) {
+@@ -53,7 +71,7 @@ static u8 xt_ct_find_proto(const struct xt_tgchk_param *par)
+ 		return 0;
+ }
+ 
+-static int xt_ct_tg_check(const struct xt_tgchk_param *par)
++static int xt_ct_tg_check_v0(const struct xt_tgchk_param *par)
+ {
+ 	struct xt_ct_target_info *info = par->targinfo;
+ 	struct nf_conntrack_tuple t;
+@@ -130,7 +148,137 @@ err1:
+ 	return ret;
+ }
+ 
+-static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par)
++static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
++{
++	struct xt_ct_target_info_v1 *info = par->targinfo;
++	struct nf_conntrack_tuple t;
++	struct nf_conn_help *help;
++	struct nf_conn *ct;
++	int ret = 0;
++	u8 proto;
++
++	if (info->flags & ~XT_CT_NOTRACK)
++		return -EINVAL;
++
++	if (info->flags & XT_CT_NOTRACK) {
++		ct = nf_ct_untracked_get();
++		atomic_inc(&ct->ct_general.use);
++		goto out;
++	}
++
++#ifndef CONFIG_NF_CONNTRACK_ZONES
++	if (info->zone)
++		goto err1;
++#endif
++
++	ret = nf_ct_l3proto_try_module_get(par->family);
++	if (ret < 0)
++		goto err1;
++
++	memset(&t, 0, sizeof(t));
++	ct = nf_conntrack_alloc(par->net, info->zone, &t, &t, GFP_KERNEL);
++	ret = PTR_ERR(ct);
++	if (IS_ERR(ct))
++		goto err2;
++
++	ret = 0;
++	if ((info->ct_events || info->exp_events) &&
++	    !nf_ct_ecache_ext_add(ct, info->ct_events, info->exp_events,
++				  GFP_KERNEL))
++		goto err3;
++
++	if (info->helper[0]) {
++		ret = -ENOENT;
++		proto = xt_ct_find_proto(par);
++		if (!proto) {
++			pr_info("You must specify a L4 protocol, "
++				"and not use inversions on it.\n");
++			goto err3;
++		}
++
++		ret = -ENOMEM;
++		help = nf_ct_helper_ext_add(ct, GFP_KERNEL);
++		if (help == NULL)
++			goto err3;
++
++		ret = -ENOENT;
++		help->helper = nf_conntrack_helper_try_module_get(info->helper,
++								  par->family,
++								  proto);
++		if (help->helper == NULL) {
++			pr_info("No such helper \"%s\"\n", info->helper);
++			goto err3;
 +		}
 +	}
 +
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++	if (info->timeout) {
++		typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
++		struct ctnl_timeout *timeout;
++		struct nf_conn_timeout *timeout_ext;
++
++		timeout_find_get =
++			rcu_dereference(nf_ct_timeout_find_get_hook);
++
++		if (timeout_find_get) {
++			const struct ipt_entry *e = par->entryinfo;
++
++			if (e->ip.invflags & IPT_INV_PROTO) {
++				ret = -EINVAL;
++				pr_info("You cannot use inversion on "
++					 "L4 protocol\n");
++				goto err3;
++			}
++			timeout = timeout_find_get(info->timeout);
++			if (timeout == NULL) {
++				ret = -ENOENT;
++				pr_info("No such timeout policy \"%s\"\n",
++					info->timeout);
++				goto err3;
++			}
++			if (timeout->l3num != par->family) {
++				ret = -EINVAL;
++				pr_info("Timeout policy `%s' can only be "
++					"used by L3 protocol number %d\n",
++					info->timeout, timeout->l3num);
++				goto err3;
++			}
++			if (timeout->l4num != e->ip.proto) {
++				ret = -EINVAL;
++				pr_info("Timeout policy `%s' can only be "
++					"used by L4 protocol number %d\n",
++					info->timeout, timeout->l4num);
++				goto err3;
++			}
++			timeout_ext = nf_ct_timeout_ext_add(ct, timeout,
++							    GFP_KERNEL);
++			if (timeout_ext == NULL) {
++				ret = -ENOMEM;
++				goto err3;
++			}
++		} else {
++			ret = -ENOENT;
++			pr_info("Timeout policy base is empty\n");
++			goto err3;
++		}
++	}
++#endif
++
++	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
++	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
++out:
++	info->ct = ct;
 +	return 0;
++
++err3:
++	nf_conntrack_free(ct);
++err2:
++	nf_ct_l3proto_module_put(par->family);
++err1:
++	return ret;
 +}
 +
-+void nf_conntrack_timeout_fini(struct net *net)
++static void xt_ct_tg_destroy_v0(const struct xt_tgdtor_param *par)
+ {
+ 	struct xt_ct_target_info *info = par->targinfo;
+ 	struct nf_conn *ct = info->ct;
+@@ -146,25 +294,67 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par)
+ 	nf_ct_put(info->ct);
+ }
+ 
+-static struct xt_target xt_ct_tg __read_mostly = {
+-	.name		= "CT",
+-	.family		= NFPROTO_UNSPEC,
+-	.targetsize	= sizeof(struct xt_ct_target_info),
+-	.checkentry	= xt_ct_tg_check,
+-	.destroy	= xt_ct_tg_destroy,
+-	.target		= xt_ct_target,
+-	.table		= "raw",
+-	.me		= THIS_MODULE,
++static void xt_ct_tg_destroy_v1(const struct xt_tgdtor_param *par)
 +{
-+	if (net_eq(net, &init_net))
-+		nf_ct_extend_unregister(&timeout_extend);
++	struct xt_ct_target_info_v1 *info = par->targinfo;
++	struct nf_conn *ct = info->ct;
++	struct nf_conn_help *help;
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++	struct nf_conn_timeout *timeout_ext;
++	typeof(nf_ct_timeout_put_hook) timeout_put;
++#endif
++	if (!nf_ct_is_untracked(ct)) {
++		help = nfct_help(ct);
++		if (help)
++			module_put(help->helper->me);
++
++		nf_ct_l3proto_module_put(par->family);
++
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++		timeout_put = rcu_dereference(nf_ct_timeout_put_hook);
++
++		if (timeout_put) {
++			timeout_ext = nf_ct_timeout_find(ct);
++			if (timeout_ext)
++				timeout_put(timeout_ext->timeout);
++		}
++#endif
++	}
++	nf_ct_put(info->ct);
 +}
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index b860d52..29b9897 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -37,16 +37,6 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
- MODULE_DESCRIPTION("cttimeout: Extended Netfilter Connection Tracking timeout tuning");
++
++static struct xt_target xt_ct_tg_reg[] __read_mostly = {
++	{
++		.name		= "CT",
++		.family		= NFPROTO_UNSPEC,
++		.targetsize	= sizeof(struct xt_ct_target_info),
++		.checkentry	= xt_ct_tg_check_v0,
++		.destroy	= xt_ct_tg_destroy_v0,
++		.target		= xt_ct_target_v0,
++		.table		= "raw",
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "CT",
++		.family		= NFPROTO_UNSPEC,
++		.revision	= 1,
++		.targetsize	= sizeof(struct xt_ct_target_info_v1),
++		.checkentry	= xt_ct_tg_check_v1,
++		.destroy	= xt_ct_tg_destroy_v1,
++		.target		= xt_ct_target_v1,
++		.table		= "raw",
++		.me		= THIS_MODULE,
++	},
+ };
  
--struct ctnl_timeout {
--	struct list_head	head;
--	struct rcu_head		rcu_head;
--	atomic_t		refcnt;
--	char			name[CTNL_TIMEOUT_NAME_MAX];
--	__u16			l3num;
--	__u8			l4num;
--	char			data[0];
--};
--
- static LIST_HEAD(cttimeout_list);
+ static int __init xt_ct_tg_init(void)
+ {
+-	return xt_register_target(&xt_ct_tg);
++	return xt_register_targets(xt_ct_tg_reg, ARRAY_SIZE(xt_ct_tg_reg));
+ }
  
- static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
+ static void __exit xt_ct_tg_exit(void)
+ {
+-	xt_unregister_target(&xt_ct_tg);
++	xt_unregister_targets(xt_ct_tg_reg, ARRAY_SIZE(xt_ct_tg_reg));
+ }
+ 
+ module_init(xt_ct_tg_init);
 -- 
 1.7.7.3
-
