@@ -1,52 +1,120 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC 2/2] be2net: Added functionality to support RoCE driver
-Date: Thu, 8 Mar 2012 20:41:06 +0100
-Message-ID: <20120308194106.GA3008@electric-eye.fr.zoreil.com>
-References: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com> <1331142427-23721-2-git-send-email-parav.pandit@emulex.com> <470f5ea2-9344-42d5-b130-130d90a42250@exht1.ad.emulex.com> <20120308114859.GA23807@electric-eye.fr.zoreil.com> <3cd7ea39-a8d3-4d63-9753-0c64fb7e3609@exht1.ad.emulex.com> <20120308162716.GA31576@electric-eye.fr.zoreil.com> <88B766C272F2C64B944B21AD078333151C956BD34F@EXMAIL.ad.emulex.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH v2 1/2] sctp: Export sctp_do_peeloff
+Date: Thu, 08 Mar 2012 15:07:40 -0500
+Message-ID: <4F59118C.9090605@hp.com>
+References: <20120308.002447.1062706659978103072.davem@davemloft.net> <1331222159-28980-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Parav.Pandit@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:36532 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753151Ab2CHTmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Mar 2012 14:42:06 -0500
-Content-Disposition: inline
-In-Reply-To: <88B766C272F2C64B944B21AD078333151C956BD34F@EXMAIL.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Christine Caulfield <ccaulfie@redhat.com>,
+	David Teigland <teigland@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, cluster-devel@redhat.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1331222159-28980-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Parav.Pandit@Emulex.Com <Parav.Pandit@Emulex.Com> :
-> From: Francois Romieu [romieu@fr.zoreil.com]
-[...]
-> You can init the adequate operations set at dev_add / registration time so
-> that the remaining be_roce_dev_xyz methods turn into noop for NIC without
-> ROCE.
-> [Parav] What do we gain by executing NO_OP function, where there is no need to do that?
+On 03/08/2012 10:55 AM, Benjamin Poirier wrote:
+> lookup sctp_association within sctp_do_peeloff() to enable its use outside of
+> the sctp code with minimal knowledge of the former.
+> 
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> 
 
-We do not execute anything for NIC without ROCE.
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-For the ROCE case, it costs a new set of net_device_ops where the .open() and
-.close() callbacks are different from the ones in be_netdev_ops. The former
-.open() and .close() call into the latter. The current code does the opposite.
+-vlad
 
-> What is the problem in performing this check and not executing those function? I find it more simpler and clean.
-
-It is not a big problem. ROCE depends on NIC. The implementation exhibits a
-dependency in the opposite order.
-
-> Also, add(), remove() etc operations are at driver level and not at device level. So with proposed implementation there is no need to store those 3 fn_pointers to device structure.
-
-The functions pointers are already there. The driver .remove() handler can
-not be replaced but it can exchange the be_roce_supported() test for a
-!ocrdma_dev test. It should allow to remove if_type from be_adapter as
-it won't be used beyond .probe() (I only did a quick check).
-
-It is up to you to weigh the net_device_ops cost. If more methods need to be
-modified for ROCE, the extra layer could be worth it. Your call.
-
-Off for jogging.
-
--- 
-Ueimor
+> ---
+> Changes from v1:
+> * make sctp_do_peeloff() take the assoc id as argument so that the dlm code
+>   doesn't need to do the id to struct lookup itself
+> * split those sctp changes to their own patch
+> 
+>  include/net/sctp/sctp.h |    1 +
+>  net/sctp/socket.c       |   24 +++++++++---------------
+>  2 files changed, 10 insertions(+), 15 deletions(-)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index d368561..6ee44b2 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -413,6 +413,7 @@ static inline sctp_assoc_t sctp_assoc2id(const struct sctp_association *asoc)
+>  /* Look up the association by its id.  */
+>  struct sctp_association *sctp_id2assoc(struct sock *sk, sctp_assoc_t id);
+>  
+> +int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp);
+>  
+>  /* A macro to walk a list of skbs.  */
+>  #define sctp_skb_for_each(pos, head, tmp) \
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 408ebd0..06b42b7 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4170,14 +4170,16 @@ static int sctp_getsockopt_autoclose(struct sock *sk, int len, char __user *optv
+>  }
+>  
+>  /* Helper routine to branch off an association to a new socket.  */
+> -SCTP_STATIC int sctp_do_peeloff(struct sctp_association *asoc,
+> -				struct socket **sockp)
+> +int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
+>  {
+> -	struct sock *sk = asoc->base.sk;
+> +	struct sctp_association *asoc = sctp_id2assoc(sk, id);
+>  	struct socket *sock;
+>  	struct sctp_af *af;
+>  	int err = 0;
+>  
+> +	if (!asoc)
+> +		return -EINVAL;
+> +
+>  	/* An association cannot be branched off from an already peeled-off
+>  	 * socket, nor is this supported for tcp style sockets.
+>  	 */
+> @@ -4206,13 +4208,13 @@ SCTP_STATIC int sctp_do_peeloff(struct sctp_association *asoc,
+>  
+>  	return err;
+>  }
+> +EXPORT_SYMBOL(sctp_do_peeloff);
+>  
+>  static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval, int __user *optlen)
+>  {
+>  	sctp_peeloff_arg_t peeloff;
+>  	struct socket *newsock;
+>  	int retval = 0;
+> -	struct sctp_association *asoc;
+>  
+>  	if (len < sizeof(sctp_peeloff_arg_t))
+>  		return -EINVAL;
+> @@ -4220,15 +4222,7 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
+>  	if (copy_from_user(&peeloff, optval, len))
+>  		return -EFAULT;
+>  
+> -	asoc = sctp_id2assoc(sk, peeloff.associd);
+> -	if (!asoc) {
+> -		retval = -EINVAL;
+> -		goto out;
+> -	}
+> -
+> -	SCTP_DEBUG_PRINTK("%s: sk: %p asoc: %p\n", __func__, sk, asoc);
+> -
+> -	retval = sctp_do_peeloff(asoc, &newsock);
+> +	retval = sctp_do_peeloff(sk, peeloff.associd, &newsock);
+>  	if (retval < 0)
+>  		goto out;
+>  
+> @@ -4239,8 +4233,8 @@ static int sctp_getsockopt_peeloff(struct sock *sk, int len, char __user *optval
+>  		goto out;
+>  	}
+>  
+> -	SCTP_DEBUG_PRINTK("%s: sk: %p asoc: %p newsk: %p sd: %d\n",
+> -			  __func__, sk, asoc, newsock->sk, retval);
+> +	SCTP_DEBUG_PRINTK("%s: sk: %p newsk: %p sd: %d\n",
+> +			  __func__, sk, newsock->sk, retval);
+>  
+>  	/* Return the fd mapped to the new socket.  */
+>  	peeloff.sd = retval;
