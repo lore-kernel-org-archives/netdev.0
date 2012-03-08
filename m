@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mlx4_core: fix bug in modify_cq wrapper for resize
- flow.
-Date: Thu, 08 Mar 2012 00:28:57 -0800 (PST)
-Message-ID: <20120308.002857.343249677648165570.davem@davemloft.net>
-References: <4F578533.3090405@mellanox.co.il>
+Subject: Re: [patch] atl1c: set ATL1C_WORK_EVENT_RESET bit correctly
+Date: Thu, 08 Mar 2012 00:29:03 -0800 (PST)
+Message-ID: <20120308.002903.2204810112948469308.davem@davemloft.net>
+References: <20120307100204.GB25452@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jackm@dev.mellanox.co.il
-To: yevgenyp@mellanox.co.il
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, ian.campbell@citrix.com,
+	eric.dumazet@gmail.com, jpirko@redhat.com, mirq-linux@rere.qmqm.pl,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58937 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58960 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755162Ab2CHI3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 03:29:05 -0500
-In-Reply-To: <4F578533.3090405@mellanox.co.il>
+	with ESMTP id S1754274Ab2CHIaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 03:30:17 -0500
+In-Reply-To: <20120307100204.GB25452@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Wed, 7 Mar 2012 17:56:35 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 7 Mar 2012 13:02:04 +0300
 
-> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> ATL1C_WORK_EVENT_RESET is zero so the original code here is a nop.  The
+> intent was to set the zero bit.
 > 
-> The actual FW command is called in procedure "handle_resize".
-> Code incorrectly invoked the FW command again (in good flow), in
-> the modify_cq wrapper function.
-> 
-> Fix by skipping second FW invocation unconditionally for resize.
-> 
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
