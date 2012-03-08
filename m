@@ -1,53 +1,76 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] openvswitch: Honor dp_ifindex, when specified,
-	for vport lookup by name.
-Date: Wed,  7 Mar 2012 18:56:07 -0800
-Message-ID: <1331175368-32692-2-git-send-email-jesse@nicira.com>
-References: <1331175368-32692-1-git-send-email-jesse@nicira.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] bridge: fix "entering disabled state" logging
+Date: Thu, 8 Mar 2012 04:59:14 +0100
+Message-ID: <20120308035914.GK591081@jupiter.n2.diac24.net>
+References: <20120306142219.31783.30201.stgit@localhost.localdomain>
+ <20120306.143323.1591818099708591757.davem@davemloft.net>
+ <4F571674.6000107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1331175368-32692-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="8tUgZ4IE8L4vmMyh"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:52642 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754963Ab2CHD7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Mar 2012 22:59:24 -0500
+Content-Disposition: inline
+In-Reply-To: <4F571674.6000107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-When OVS_VPORT_ATTR_NAME is specified and dp_ifindex is nonzero, the
-logical behavior would be for the vport name lookup scope to be limited
-to the specified datapath, but in fact the dp_ifindex value was ignored.
-This commit causes the search scope to be honored.
+--8tUgZ4IE8L4vmMyh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
----
- net/openvswitch/datapath.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+On Wed, Mar 07, 2012 at 10:04:04AM +0200, Paulius Zaleckas wrote:
+> On 03/06/2012 09:33 PM, David Miller wrote:
+> > From: Paulius Zaleckas<paulius.zaleckas@gmail.com>
+> > Date: Tue, 06 Mar 2012 16:22:19 +0200
+> >
+> >> Now we have:
+> >> eth0: link *down*
+> >> br0: port 1(eth0) entering *forwarding* state
+> >>
+> >> State should be logged *after* it was changed, not before.
+> >>
+> >> Reported-by: Zilvinas Valinskas<zilvinas@wilibox.com>
+> >> Signed-off-by: Paulius Zaleckas<paulius.zaleckas@gmail.com>
+> >
+> > This is intentional, this was a discussion about this.
+> >
+> > "Entering" means "about to" therefore we say it before it happens.
+>=20
+> You have missed the whole point here... please look at dmesg output, I=20
+> have bolded what you should pay attention to. It should say "entering=20
+> disabled state" instead of "entering forwarding state".
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ce64c18..2c03050 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1521,6 +1521,9 @@ static struct vport *lookup_vport(struct ovs_header *ovs_header,
- 		vport = ovs_vport_locate(nla_data(a[OVS_VPORT_ATTR_NAME]));
- 		if (!vport)
- 			return ERR_PTR(-ENODEV);
-+		if (ovs_header->dp_ifindex &&
-+		    ovs_header->dp_ifindex != get_dpifindex(vport->dp))
-+			return ERR_PTR(-ENODEV);
- 		return vport;
- 	} else if (a[OVS_VPORT_ATTR_PORT_NO]) {
- 		u32 port_no = nla_get_u32(a[OVS_VPORT_ATTR_PORT_NO]);
--- 
-1.7.5.4
+To make this even more clear so it's not dismissed another time:
+
+it says "entering forwarding state" when it is actually entering
+disabled state. Because the print references the value before the
+change. Which is changed to disabled just after.
+
+Whatever the tense of the verb, it prints the state that's just being
+left instead of the one being entered.
+
+
+-David
+
+--8tUgZ4IE8L4vmMyh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.18 (GNU/Linux)
+
+iF4EAREIAAYFAk9YLpIACgkQCy20tTec6ePuyQD+MZ8fMsZzELeAm7yp7ZFhRsuE
+EPlOjlAwEtQ0kU9wlZkA/Ah634DowvybenpZpR8K9Vibn/lDBbyGUk/Whmhoz/YS
+=jNaB
+-----END PGP SIGNATURE-----
+
+--8tUgZ4IE8L4vmMyh--
