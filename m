@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dlm, sctp: Do not allocate a fd for peeloff
-Date: Thu, 08 Mar 2012 00:24:47 -0800 (PST)
-Message-ID: <20120308.002447.1062706659978103072.davem@davemloft.net>
-References: <1331134862-14812-1-git-send-email-bpoirier@suse.de>
-	<4F578CE0.6030106@hp.com>
+Subject: Re: [PATCH 1/2] bridge: br_log_state() s/entering/entered/
+Date: Thu, 08 Mar 2012 00:25:35 -0800 (PST)
+Message-ID: <20120308.002535.1307528364263033103.davem@davemloft.net>
+References: <20120307082514.6293.59158.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bpoirier@suse.de, ccaulfie@redhat.com, teigland@redhat.com,
-	sri@us.ibm.com, cluster-devel@redhat.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vladislav.yasevich@hp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F578CE0.6030106@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: paulius.zaleckas@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120307082514.6293.59158.stgit@localhost.localdomain>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 07 Mar 2012 11:29:20 -0500
+From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+Date: Wed, 07 Mar 2012 10:25:14 +0200
 
-> On 03/07/2012 10:41 AM, Benjamin Poirier wrote:
->> avoids allocating a fd that a) propagates to every kernel thread and
->> usermodehelper b) is not properly released.
->> 
->> References: http://article.gmane.org/gmane.linux.network.drbd/22529
->> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> When br_log_state() is reporting state it should say "entered"
+> istead of "entering" since state at this point is already
+> changed.
 > 
-> It might make sense to change sctp_do_peeloff to take the association id as
-> the first argument and not do the mapping from id to association yourself.
-> It's a bit ugly to expose internal sctp structures outside of SCTP.
+> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
 
-Agreed.
+Applied.
