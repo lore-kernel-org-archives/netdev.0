@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net] Open vSwitch
-Date: Wed, 07 Mar 2012 22:49:24 -0800 (PST)
-Message-ID: <20120307.224924.1147619629202212630.davem@davemloft.net>
-References: <1331175368-32692-1-git-send-email-jesse@nicira.com>
+Subject: Re: [patch 0/7] s390: network driver fixes for net-next
+Date: Wed, 07 Mar 2012 22:52:40 -0800 (PST)
+Message-ID: <20120307.225240.2140592477867705902.davem@davemloft.net>
+References: <20120307120622.922387262@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58130 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58153 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688Ab2CHGt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 01:49:28 -0500
-In-Reply-To: <1331175368-32692-1-git-send-email-jesse@nicira.com>
+	with ESMTP id S1753238Ab2CHGwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 01:52:45 -0500
+In-Reply-To: <20120307120622.922387262@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Wed,  7 Mar 2012 18:56:06 -0800
+From: frank.blaschka@de.ibm.com
+Date: Wed, 07 Mar 2012 13:06:22 +0100
 
-> A few last minute patches for net/3.3 if there is time.
-> 
-> The following changes since commit dcd6c92267155e70a94b3927bce681ce74b80d1f:
-> 
->   Linux 3.3-rc1 (2012-01-19 15:04:48 -0800)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+> here is a couple of s390 network driver fixes for net-next
 
-Pulled, thanks.
+All applied, thanks.
