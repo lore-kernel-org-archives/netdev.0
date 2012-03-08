@@ -1,76 +1,90 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH] bridge: fix "entering disabled state" logging
-Date: Thu, 8 Mar 2012 04:59:14 +0100
-Message-ID: <20120308035914.GK591081@jupiter.n2.diac24.net>
-References: <20120306142219.31783.30201.stgit@localhost.localdomain>
- <20120306.143323.1591818099708591757.davem@davemloft.net>
- <4F571674.6000107@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH 0/7] powerpc: remove the legacy iSeries platform specific
+ drivers
+Date: Thu, 8 Mar 2012 15:28:53 +1100
+Message-ID: <20120308152853.b5010336abbb8f90e8a2500c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="8tUgZ4IE8L4vmMyh"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Paulius Zaleckas <paulius.zaleckas@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:52642 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754963Ab2CHD7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Mar 2012 22:59:24 -0500
-Content-Disposition: inline
-In-Reply-To: <4F571674.6000107@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__8_Mar_2012_15_28_53_+1100_FAEEpVFrow/u5bwP"
+Cc: ppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	<netdev@vger.kernel.org>, Alan Cox <alan@linux.intel.com>,
+	Brian King <brking@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-scsi@vger.kernel.org, linux-serial@vger.kernel.org,
+	Jens Axboe <axboe@kernel.dk>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---8tUgZ4IE8L4vmMyh
-Content-Type: text/plain; charset=us-ascii
+--Signature=_Thu__8_Mar_2012_15_28_53_+1100_FAEEpVFrow/u5bwP
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, Mar 07, 2012 at 10:04:04AM +0200, Paulius Zaleckas wrote:
-> On 03/06/2012 09:33 PM, David Miller wrote:
-> > From: Paulius Zaleckas<paulius.zaleckas@gmail.com>
-> > Date: Tue, 06 Mar 2012 16:22:19 +0200
-> >
-> >> Now we have:
-> >> eth0: link *down*
-> >> br0: port 1(eth0) entering *forwarding* state
-> >>
-> >> State should be logged *after* it was changed, not before.
-> >>
-> >> Reported-by: Zilvinas Valinskas<zilvinas@wilibox.com>
-> >> Signed-off-by: Paulius Zaleckas<paulius.zaleckas@gmail.com>
-> >
-> > This is intentional, this was a discussion about this.
-> >
-> > "Entering" means "about to" therefore we say it before it happens.
->=20
-> You have missed the whole point here... please look at dmesg output, I=20
-> have bolded what you should pay attention to. It should say "entering=20
-> disabled state" instead of "entering forwarding state".
+Hi all,
 
-To make this even more clear so it's not dismissed another time:
+This series of patches removes all the legacy iSeries platform specific
+drivers (and the iSeries specific part of one).  The legacy iSeries
+platform main code has already bee removed along with CONFIG_PPC_ISERIES,
+so none of this code is selectable or needed any more.
 
-it says "entering forwarding state" when it is actually entering
-disabled state. Because the print references the value before the
-change. Which is changed to disabled just after.
+It would probably be easiest if all these patches were merged via the
+powerpc tree to eliminate any dependencies between them.  Their impact on
+generic code is very small.
 
-Whatever the tense of the verb, it prints the state that's just being
-left instead of the one being entered.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
+ arch/powerpc/include/asm/iseries/hv_call_event.h |  201 ---
+ arch/powerpc/include/asm/iseries/hv_lp_event.h   |  162 --
+ arch/powerpc/include/asm/iseries/iommu.h         |   37 -
+ arch/powerpc/include/asm/iseries/vio.h           |  265 ----
+ arch/powerpc/kernel/vio.c                        |   18 +-
+ drivers/base/driver.c                            |   30 -
+ drivers/block/viodasd.c                          |  809 ----------
+ drivers/cdrom/viocd.c                            |  739 ----------
+ drivers/char/viotape.c                           | 1041 -------------
+ drivers/net/ethernet/ibm/Kconfig                 |    4 -
+ drivers/net/ethernet/ibm/Makefile                |    1 -
+ drivers/net/ethernet/ibm/iseries_veth.c          | 1710 ------------------=
+----
+ drivers/scsi/Kconfig                             |    3 +-
+ drivers/scsi/ibmvscsi/Makefile                   |    1 -
+ drivers/scsi/ibmvscsi/ibmvscsi.c                 |   12 +-
+ drivers/scsi/ibmvscsi/ibmvscsi.h                 |    1 -
+ drivers/scsi/ibmvscsi/iseries_vscsi.c            |  173 ---
+ drivers/tty/hvc/Kconfig                          |   10 -
+ drivers/tty/hvc/Makefile                         |    1 -
+ drivers/tty/hvc/hvc_iseries.c                    |  599 --------
+ drivers/tty/serial/Kconfig                       |    2 +-
+ include/linux/device.h                           |    4 -
+ 22 files changed, 5 insertions(+), 5818 deletions(-)
 
--David
-
---8tUgZ4IE8L4vmMyh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+--Signature=_Thu__8_Mar_2012_15_28_53_+1100_FAEEpVFrow/u5bwP
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-iF4EAREIAAYFAk9YLpIACgkQCy20tTec6ePuyQD+MZ8fMsZzELeAm7yp7ZFhRsuE
-EPlOjlAwEtQ0kU9wlZkA/Ah634DowvybenpZpR8K9Vibn/lDBbyGUk/Whmhoz/YS
-=jNaB
+iQIcBAEBCAAGBQJPWDWFAAoJEECxmPOUX5FEbBAP/ibeDxIYy4XOacIv4XHMxS6w
+1w4/Ubt50Mn/iXAcumqfQZPcbWjuIhmsfozJ71v12svc4XyGAvyfabnmyYdFtsaz
+/jFUmB2RHYeMh1qbpMRvhV4UDws5g63w/IRbuFNIMOLf4SptuUsGLIWD/AIamFeO
+OiEel64pSbrUY1ZihHDunnSA0Pl9riE0uvfMtmlFiF7Fdvum9VP6PLGKQssjFya4
+//B4D4U1yWj5mw/a6oUY4HAuartCDXRKI5m9/lFdbkaWBjxneAez0ogynEYY2tqT
+IIfPbRO64DVMZPEae4hg+h4o1MAu+HP+0UFOKazSh2oN9BJjAs3UZjqBPNQz3969
+xZvH2TtTEkNu8qBu55/FZ9awutBWNESAnvhh1kAVal6pNmL998KOLht/LDzywacl
+jPNSxOnv+6bCPvTFHW3j2MLDKslSfZkb40SyWamvm0Pp/uSqBSf6L+3DEpYg9VRH
+MHXGaX9B8YFqkHEARCsw31v+SMoB9+RQtag5mzqQWYEouC+2VjUp1KFFQ+ltqWxX
+wozF7KGZD5pIZKqtJMH6k/2Ju5rfOflzhqEwaBDSi1457fPAdRB4TK0RcoxujMpx
+Ez9ahrKk03qRrDv1xSHX1Szzs3jj7X4RfEVbhmPLeVcIlz6puNpI53vB5dXTYK42
+HkNbjPVfY4LyHm1bmGd6
+=1lw0
 -----END PGP SIGNATURE-----
 
---8tUgZ4IE8L4vmMyh--
+--Signature=_Thu__8_Mar_2012_15_28_53_+1100_FAEEpVFrow/u5bwP--
