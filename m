@@ -1,43 +1,92 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] net/hyperv: Advertise hv_netvsc instead of netvsc as
- driver name
-Date: Thu, 8 Mar 2012 09:42:20 -0800
-Message-ID: <20120308174220.GB17192@kroah.com>
-References: <1331147131-6660-1-git-send-email-haiyangz@microsoft.com>
- <20120307201746.GA20900@aepfle.de>
- <20120307204946.GA4413@kroah.com>
- <20120308061615.GA25237@aepfle.de>
- <20120308155219.GC5907@kroah.com>
- <20120308161221.GA31415@aepfle.de>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/2] bluetooth: hci_core: fix NULL-pointer dereference
+ at unregister
+Date: Thu, 08 Mar 2012 09:43:26 -0800
+Message-ID: <1331228606.14217.5.camel@aeonflux>
+References: <1331136120-27075-1-git-send-email-jhovold@gmail.com>
+	 <1331136120-27075-3-git-send-email-jhovold@gmail.com>
+	 <1331148560.3392.189.camel@aeonflux> <20120308115647.GA4497@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120308161221.GA31415@aepfle.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120308115647.GA4497@localhost>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 08, 2012 at 05:12:21PM +0100, Olaf Hering wrote:
-> On Thu, Mar 08, Greg KH wrote:
+Hi Johan,
+
+> > > Make sure hci_dev_open returns immediately if hci_dev_unregister has
+> > > been called.
+> > > 
+> > > This fixes a race between hci_dev_open and hci_dev_unregister which can
+> > > lead to a NULL-pointer dereference.
 > 
-> > > hwinfo uses it to recognize a network interface (storage in case of
-> > > hv_storvsc).
+> [...]
+> 
+> > what version of the kernel is this patch against? Since we cleaned up
+> > the flags in bluetooth-next tree. Also in addition you can not just add
+> > flags here.
+> 
+> As this to be fixed in 3.3 it is against 3.3-rc6.
+> 
+> > >  /*
+> > > diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+> > > index 5aeb624..3937ce3 100644
+> > > --- a/net/bluetooth/hci_core.c
+> > > +++ b/net/bluetooth/hci_core.c
+> > > @@ -525,6 +525,11 @@ int hci_dev_open(__u16 dev)
+> > >  
+> > >  	hci_req_lock(hdev);
+> > >  
+> > > +	if (test_bit(HCI_UNREGISTER, &hdev->flags)) {
+> > > +		ret = -ENODEV;
+> > > +		goto done;
+> > > +	}
+> > > +
+> > >  	if (hdev->rfkill && rfkill_blocked(hdev->rfkill)) {
+> > >  		ret = -ERFKILL;
+> > >  		goto done;
+> > > @@ -1577,6 +1582,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
+> > >  
+> > >  	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
+> > >  
+> > > +	set_bit(HCI_UNREGISTER, &hdev->flags);
+> > > +
+> > >  	write_lock(&hci_dev_list_lock);
+> > >  	list_del(&hdev->list);
+> > >  	write_unlock(&hci_dev_list_lock);
 > > 
-> > That tool should report the real module name, not rely on the name to
-> > match based on the structure, if you really care about the real module
-> > name.
+> > Is this really enough to protect this race condition?
 > 
-> Its about the driver symlink, not the module name. 
+> 1. first hci_dev_open grabs req lock
+> 2. second hci_dev_open sleeps on req lock
+> 3. hci_dev_unregister sleep on req lock (in do_close)
+> 4. first hci_dev_open times out and releases req lock
 > 
-> I think most, if not all, (relevant) drivers use some sort of
-> KBUILD_MODNAME. Why should this driver be any different?
+> Now either a) the second open grabs the lock or b) close does. 
+> 
+> a) The second open will time out eventually as well and setting a flag
+>    at unregister will only speed things up (at least when the first
+>    patch in my series is applied -- otherwise this leads to a
+>    NULL-pointer exception as well).
+> 
+> b) If close grabs the lock while we have open sleeping on it things go
+>    really bad and this is the case this patch intends to fix.
+> 
+> As far as I can see, a flag set at unregister (before acquiring the lock)
+> will suffice to fix this race, but perhaps I'm missing something?
+> 
+> Where should such an internal flag be added as hdev->flags can not be
+> used? hdev->dev_flags?
 
-It shouldn't, I'm not saying that at all.  I'm only objecting to the
-insistance that this be something worthwhile for 3.3-final which should
-be out any day now.
+please add them to hdev->dev_flags as internal flag.
 
-greg k-h
+Regards
+
+Marcel
