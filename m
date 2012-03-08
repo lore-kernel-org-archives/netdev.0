@@ -1,15 +1,15 @@
 From: design@dedicatedserver.com.hk
 Subject: Web development service
 Date: Thu,  8 Mar 2012 19:24:13 +0800 (HKT)
-Message-ID: <9jlejsZTgTYWeq@tcts.seed.net.tw>
+Message-ID: <O7OSSiHaA__8247.00115849755$1331206837$gmane$org@tcts1.seed.net.tw>
 Content-Type: text/plain;
 Content-Transfer-Encoding: Quoted-Printable
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-57.sunnyvision.com ([124.248.200.57]:54105 "EHLO
+Received: from 124-248-200-58.sunnyvision.com ([124.248.200.58]:47441 "EHLO
 	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752089Ab2CHLZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 06:25:31 -0500
+	by vger.kernel.org with ESMTP id S1756684Ab2CHLkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 06:40:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
