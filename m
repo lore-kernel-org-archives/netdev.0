@@ -1,38 +1,41 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/7] powerpc: remove the legacy iSeries platform specific
- drivers
-Date: Thu, 8 Mar 2012 09:59:41 -0800
-Message-ID: <20120308175941.GB26516@kroah.com>
-References: <20120308152853.b5010336abbb8f90e8a2500c@canb.auug.org.au>
+From: Roland Dreier <roland@purestorage.com>
+Subject: Re: [RFC 2/2] be2net: Added functionality to support RoCE driver
+Date: Thu, 8 Mar 2012 10:08:19 -0800
+Message-ID: <CAL1RGDWB3jgBMZAiE6guNgFy-QVvh4NBj1sXd6k7eK1hDnv51Q@mail.gmail.com>
+References: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com>
+ <1331142427-23721-2-git-send-email-parav.pandit@emulex.com>
+ <470f5ea2-9344-42d5-b130-130d90a42250@exht1.ad.emulex.com> <20120308114859.GA23807@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	ppc-dev <linuxppc-dev@lists.ozlabs.org>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	netdev@vger.kernel.org, Alan Cox <alan@linux.intel.com>,
-	Brian King <brking@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>, linux-scsi@vger.kernel.org,
-	linux-serial@vger.kernel.org, Jens Axboe <axboe@kernel.dk>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120308152853.b5010336abbb8f90e8a2500c@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: parav.pandit@emulex.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys010aog112.obsmtp.com ([74.125.245.92]:57347 "HELO
+	na3sys010aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752862Ab2CHSIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Mar 2012 13:08:40 -0500
+Received: by obbuo6 with SMTP id uo6so957996obb.19
+        for <netdev@vger.kernel.org>; Thu, 08 Mar 2012 10:08:39 -0800 (PST)
+In-Reply-To: <20120308114859.GA23807@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 08, 2012 at 03:28:53PM +1100, Stephen Rothwell wrote:
-> Hi all,
-> 
-> This series of patches removes all the legacy iSeries platform specific
-> drivers (and the iSeries specific part of one).  The legacy iSeries
-> platform main code has already bee removed along with CONFIG_PPC_ISERIES,
-> so none of this code is selectable or needed any more.
-> 
-> It would probably be easiest if all these patches were merged via the
-> powerpc tree to eliminate any dependencies between them.  Their impact on
-> generic code is very small.
+On Thu, Mar 8, 2012 at 3:48 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Are there real use-cases where the device and the ocrdma_drv could be
+> loaded in different relative ordering ?
 
-No objection from me at all.
+Yes -- two cases are pretty standard:
 
-greg k-h
+ - be2net driver loads, probes all devices, then roce driver loads
+ - be2net and roce driver loads, then a device is probed later
+   (PCI hotplug, new SR-IOV virtual function, etc)
+
+so we need to deal with the case where both the core be2net driver
+is probing devices and the roce driver loads later, and also the case
+where the roce driver loads first and then gets notified as the be2net
+driver probes a device.
+
+(This is pretty much the same as mlx4_core / mlx4_ib BTW)
+
+ - R.
