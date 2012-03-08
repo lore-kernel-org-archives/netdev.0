@@ -1,61 +1,52 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH net-next/usb-next v3 0/5] cdc-wdm/qmi_wwan: subdriver
- support
-Date: Thu, 8 Mar 2012 10:53:24 -0800
-Message-ID: <20120308185324.GA13836@kroah.com>
-References: <1330528507-16551-1-git-send-email-bjorn@mork.no>
- <878vjeuebk.fsf@nemi.mork.no>
- <20120306143559.GB23314@kroah.com>
- <87r4x5u478.fsf@nemi.mork.no>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC 2/2] be2net: Added functionality to support RoCE driver
+Date: Thu, 8 Mar 2012 20:41:06 +0100
+Message-ID: <20120308194106.GA3008@electric-eye.fr.zoreil.com>
+References: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com> <1331142427-23721-2-git-send-email-parav.pandit@emulex.com> <470f5ea2-9344-42d5-b130-130d90a42250@exht1.ad.emulex.com> <20120308114859.GA23807@electric-eye.fr.zoreil.com> <3cd7ea39-a8d3-4d63-9753-0c64fb7e3609@exht1.ad.emulex.com> <20120308162716.GA31576@electric-eye.fr.zoreil.com> <88B766C272F2C64B944B21AD078333151C956BD34F@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Parav.Pandit@Emulex.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36532 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753151Ab2CHTmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Mar 2012 14:42:06 -0500
 Content-Disposition: inline
-In-Reply-To: <87r4x5u478.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <88B766C272F2C64B944B21AD078333151C956BD34F@EXMAIL.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 06, 2012 at 04:41:47PM +0100, Bj=F8rn Mork wrote:
-> Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org> writes:
-> > On Tue, Mar 06, 2012 at 01:03:11PM +0100, Bj=F8rn Mork wrote:
-> >
-> >> I believe I may have promised to ping you when these patches were
-> >> ready.  Please apply patch 1-3 from this series to your usb-next b=
-ranch
-> >> (for Linux 3.4). They were acked by Oliver a week ago.
-> >
-> > Great, can you resend them to me please, with Oliver's ack?  I don'=
-t see
-> > them in my to-apply queue anymore as I thought they were still unde=
-r
-> > review.
->=20
-> OK. Will do.
->=20
-> >> Patches 4 and 5 (for netdev) will have to wait until the first 3 a=
-re
-> >> merged.
-> >
-> > I can take them through my tree if they are dependant on the first =
-3,
-> > that's not a problem.
->=20
-> I've managed to make them dependent on not-yet-merged patches in
-> net-next as well (the initial addition of the qmi_wwan driver), so I
-> believe that will be equally difficult.  Bad planning from my side I
-> guess...
+Parav.Pandit@Emulex.Com <Parav.Pandit@Emulex.Com> :
+> From: Francois Romieu [romieu@fr.zoreil.com]
+[...]
+> You can init the adequate operations set at dev_add / registration time so
+> that the remaining be_roce_dev_xyz methods turn into noop for NIC without
+> ROCE.
+> [Parav] What do we gain by executing NO_OP function, where there is no need to do that?
 
-I can take those patches as well if needed, to help unwind the
-dependancy mess, and the network maintainer doesn't mind.
+We do not execute anything for NIC without ROCE.
 
-thanks,
+For the ROCE case, it costs a new set of net_device_ops where the .open() and
+.close() callbacks are different from the ones in be_netdev_ops. The former
+.open() and .close() call into the latter. The current code does the opposite.
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> What is the problem in performing this check and not executing those function? I find it more simpler and clean.
+
+It is not a big problem. ROCE depends on NIC. The implementation exhibits a
+dependency in the opposite order.
+
+> Also, add(), remove() etc operations are at driver level and not at device level. So with proposed implementation there is no need to store those 3 fn_pointers to device structure.
+
+The functions pointers are already there. The driver .remove() handler can
+not be replaced but it can exchange the be_roce_supported() test for a
+!ocrdma_dev test. It should allow to remove if_type from be_adapter as
+it won't be used beyond .probe() (I only did a quick check).
+
+It is up to you to weigh the net_device_ops cost. If more methods need to be
+modified for ROCE, the extra layer could be worth it. Your call.
+
+Off for jogging.
+
+-- 
+Ueimor
