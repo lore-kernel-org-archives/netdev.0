@@ -1,266 +1,41 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 2/2] net/hyperv: Add support for vlan trunking from guests
-Date: Fri,  9 Mar 2012 13:27:17 -0800
-Message-ID: <1331328437-26852-2-git-send-email-haiyangz@microsoft.com>
-References: <1331328437-26852-1-git-send-email-haiyangz@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RE-SUBMIT 1/2] supports eg20t ptp clock
+Date: Fri, 09 Mar 2012 13:56:24 -0800 (PST)
+Message-ID: <20120309.135624.1280331660653754919.davem@davemloft.net>
+References: <1331194587-29114-1-git-send-email-tshimizu818@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1331328437-26852-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+Cc: jeffrey.t.kirsher@intel.com, lucas.demarchi@profusion.mobi,
+	mirq-linux@rere.qmqm.pl, paul.gortmaker@windriver.com,
+	jdmason@kudzu.us, john.stultz@linaro.org, richardcochran@gmail.com,
+	arnd@arndb.de, khc@pm.waw.pl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qi.wang@intel.com,
+	yong.y.wang@intel.com, joel.clark@intel.com, kok.howg.ewe@intel.com
+To: tshimizu818@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1331194587-29114-1-git-send-email-tshimizu818@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With this feature, a Linux guest can now configure multiple vlans through
-a single synthetic NIC on Win8 Hyper-V host.
+From: Takahiro Shimizu <tshimizu818@gmail.com>
+Date: Thu,  8 Mar 2012 17:16:26 +0900
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |   34 ++++++++++++++++++++-
- drivers/net/hyperv/netvsc.c       |    3 +-
- drivers/net/hyperv/netvsc_drv.c   |    8 ++++-
- drivers/net/hyperv/rndis_filter.c |   60 +++++++++++++++++++++++++++++++++++++
- 4 files changed, 101 insertions(+), 4 deletions(-)
+> Supports EG20T ptp clock in the driver
+> 
+> Changes e-mail address.
+> 
+> Adds number.
+> 
+> Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index dec5836..c358245 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -49,6 +49,7 @@ struct hv_netvsc_packet {
- 
- 	struct hv_device *device;
- 	bool is_data_pkt;
-+	u16 vlan_tci;
- 
- 	/*
- 	 * Valid only for receives when we break a xfer page packet
-@@ -926,9 +927,40 @@ struct rndis_oobd {
- struct rndis_per_packet_info {
- 	u32 size;
- 	u32 type;
--	u32 per_pkt_info_offset;
-+	u32 ppi_offset;
-+};
-+
-+enum ndis_per_pkt_info_type {
-+	TCPIP_CHKSUM_PKTINFO,
-+	IPSEC_PKTINFO,
-+	TCP_LARGESEND_PKTINFO,
-+	CLASSIFICATION_HANDLE_PKTINFO,
-+	NDIS_RESERVED,
-+	SG_LIST_PKTINFO,
-+	IEEE_8021Q_INFO,
-+	ORIGINAL_PKTINFO,
-+	PACKET_CANCEL_ID,
-+	ORIGINAL_NET_BUFLIST,
-+	CACHED_NET_BUFLIST,
-+	SHORT_PKT_PADINFO,
-+	MAX_PER_PKT_INFO
-+};
-+
-+struct ndis_pkt_8021q_info {
-+	union {
-+		struct {
-+			u32 pri:3; /* User Priority */
-+			u32 cfi:1; /* Canonical Format ID */
-+			u32 vlanid:12; /* VLAN ID */
-+			u32 reserved:16;
-+		};
-+		u32 value;
-+	};
- };
- 
-+#define NDIS_VLAN_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
-+		sizeof(struct ndis_pkt_8021q_info))
-+
- /* Format of Information buffer passed in a SetRequest for the OID */
- /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
- struct rndis_config_parameter_info {
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 8965b45..d025c83 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -300,6 +300,7 @@ static int negotiate_nvsp_ver(struct hv_device *device,
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 	init_packet->hdr.msg_type = NVSP_MSG2_TYPE_SEND_NDIS_CONFIG;
- 	init_packet->msg.v2_msg.send_ndis_config.mtu = net_device->ndev->mtu;
-+	init_packet->msg.v2_msg.send_ndis_config.capability.ieee8021q = 1;
- 
- 	ret = vmbus_sendpacket(device->channel, init_packet,
- 				sizeof(struct nvsp_message),
-@@ -341,7 +342,7 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	/* Send the ndis version */
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 
--	ndis_version = 0x00050000;
-+	ndis_version = 0x00050001;
- 
- 	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_NDIS_VER;
- 	init_packet->msg.v1_msg.
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 217dfed..0f8e834 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -159,7 +159,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
- 			 (num_pages * sizeof(struct hv_page_buffer)) +
--			 sizeof(struct rndis_filter_packet), GFP_ATOMIC);
-+			 sizeof(struct rndis_filter_packet) +
-+			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
- 		/* out of memory, drop packet */
- 		netdev_err(net, "unable to allocate hv_netvsc_packet\n");
-@@ -169,6 +170,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	packet->vlan_tci = skb->vlan_tci;
-+
- 	packet->extension = (void *)(unsigned long)packet +
- 				sizeof(struct hv_netvsc_packet) +
- 				    (num_pages * sizeof(struct hv_page_buffer));
-@@ -293,6 +296,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 
- 	skb->protocol = eth_type_trans(skb, net);
- 	skb->ip_summed = CHECKSUM_NONE;
-+	skb->vlan_tci = packet->vlan_tci;
- 
- 	net->stats.rx_packets++;
- 	net->stats.rx_bytes += packet->total_data_buflen;
-@@ -407,7 +411,7 @@ static int netvsc_probe(struct hv_device *dev,
- 
- 	/* TODO: Add GSO and Checksum offload */
- 	net->hw_features = NETIF_F_SG;
--	net->features = NETIF_F_SG;
-+	net->features = NETIF_F_SG | NETIF_F_HW_VLAN_TX;
- 
- 	SET_ETHTOOL_OPS(net, &ethtool_ops);
- 	SET_NETDEV_DEV(net, &dev->device);
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 0c3d7d9..d6be64b 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -26,6 +26,7 @@
- #include <linux/io.h>
- #include <linux/if_ether.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- 
- #include "hyperv_net.h"
- 
-@@ -303,12 +304,39 @@ static void rndis_filter_receive_indicate_status(struct rndis_device *dev,
- 	}
- }
- 
-+/*
-+ * Get the Per-Packet-Info with the specified type
-+ * return NULL if not found.
-+ */
-+static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
-+{
-+	struct rndis_per_packet_info *ppi;
-+	int len;
-+
-+	if (rpkt->per_pkt_info_offset == 0)
-+		return NULL;
-+
-+	ppi = (struct rndis_per_packet_info *)((ulong)rpkt +
-+		rpkt->per_pkt_info_offset);
-+	len = rpkt->per_pkt_info_len;
-+
-+	while (len > 0) {
-+		if (ppi->type == type)
-+			return (void *)((ulong)ppi + ppi->ppi_offset);
-+		len -= ppi->size;
-+		ppi = (struct rndis_per_packet_info *)((ulong)ppi + ppi->size);
-+	}
-+
-+	return NULL;
-+}
-+
- static void rndis_filter_receive_data(struct rndis_device *dev,
- 				   struct rndis_message *msg,
- 				   struct hv_netvsc_packet *pkt)
- {
- 	struct rndis_packet *rndis_pkt;
- 	u32 data_offset;
-+	struct ndis_pkt_8021q_info *vlan;
- 
- 	rndis_pkt = &msg->msg.pkt;
- 
-@@ -344,6 +372,14 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
- 
- 	pkt->is_data_pkt = true;
- 
-+	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
-+	if (vlan) {
-+		pkt->vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
-+			(vlan->pri << VLAN_PRIO_SHIFT);
-+	} else {
-+		pkt->vlan_tci = 0;
-+	}
-+
- 	netvsc_recv_callback(dev->net_dev->dev, pkt);
- }
- 
-@@ -759,12 +795,15 @@ int rndis_filter_send(struct hv_device *dev,
- 	struct rndis_message *rndis_msg;
- 	struct rndis_packet *rndis_pkt;
- 	u32 rndis_msg_size;
-+	bool isvlan = pkt->vlan_tci & VLAN_TAG_PRESENT;
- 
- 	/* Add the rndis header */
- 	filter_pkt = (struct rndis_filter_packet *)pkt->extension;
- 
- 	rndis_msg = &filter_pkt->msg;
- 	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
-+	if (isvlan)
-+		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
- 
- 	rndis_msg->ndis_msg_type = REMOTE_NDIS_PACKET_MSG;
- 	rndis_msg->msg_len = pkt->total_data_buflen +
-@@ -772,8 +811,29 @@ int rndis_filter_send(struct hv_device *dev,
- 
- 	rndis_pkt = &rndis_msg->msg.pkt;
- 	rndis_pkt->data_offset = sizeof(struct rndis_packet);
-+	if (isvlan)
-+		rndis_pkt->data_offset += NDIS_VLAN_PPI_SIZE;
- 	rndis_pkt->data_len = pkt->total_data_buflen;
- 
-+	if (isvlan) {
-+		struct rndis_per_packet_info *ppi;
-+		struct ndis_pkt_8021q_info *vlan;
-+
-+		rndis_pkt->per_pkt_info_offset = sizeof(struct rndis_packet);
-+		rndis_pkt->per_pkt_info_len = NDIS_VLAN_PPI_SIZE;
-+
-+		ppi = (struct rndis_per_packet_info *)((ulong)rndis_pkt +
-+			rndis_pkt->per_pkt_info_offset);
-+		ppi->size = NDIS_VLAN_PPI_SIZE;
-+		ppi->type = IEEE_8021Q_INFO;
-+		ppi->ppi_offset = sizeof(struct rndis_per_packet_info);
-+
-+		vlan = (struct ndis_pkt_8021q_info *)((ulong)ppi +
-+			ppi->ppi_offset);
-+		vlan->vlanid = pkt->vlan_tci & VLAN_VID_MASK;
-+		vlan->pri = (pkt->vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-+	}
-+
- 	pkt->is_data_pkt = true;
- 	pkt->page_buf[0].pfn = virt_to_phys(rndis_msg) >> PAGE_SHIFT;
- 	pkt->page_buf[0].offset =
--- 
-1.7.4.1
+Applied, but I had to fix trailing empty lines you added to a file:
+
+> +++ b/drivers/ptp/ptp_pch.c
+> @@ -0,0 +1,731 @@
+ ...
+> +MODULE_DESCRIPTION("PTP clock using the EG20T timer");
+> +MODULE_LICENSE("GPL");
+> +
+
+There.
