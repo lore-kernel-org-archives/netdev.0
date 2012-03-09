@@ -1,78 +1,68 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the tty tree with the net-next tree
-Date: Fri, 9 Mar 2012 17:02:01 +1100
-Message-ID: <20120309170201.93eec7e1108165c02ba2311c@canb.auug.org.au>
+From: <Parav.Pandit@Emulex.Com>
+Subject: RE: [RFC 2/2] be2net: Added functionality to support RoCE driver
+Date: Thu, 8 Mar 2012 22:16:13 -0800
+Message-ID: <88B766C272F2C64B944B21AD078333151C961A10F5@EXMAIL.ad.emulex.com>
+References: <1331142427-23721-1-git-send-email-parav.pandit@emulex.com>
+ <1331142427-23721-2-git-send-email-parav.pandit@emulex.com>
+ <470f5ea2-9344-42d5-b130-130d90a42250@exht1.ad.emulex.com>
+ <20120308114859.GA23807@electric-eye.fr.zoreil.com>
+ <3cd7ea39-a8d3-4d63-9753-0c64fb7e3609@exht1.ad.emulex.com>
+ <20120308162716.GA31576@electric-eye.fr.zoreil.com>
+ <88B766C272F2C64B944B21AD078333151C956BD34F@EXMAIL.ad.emulex.com>
+ <20120308194106.GA3008@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Jiri Slaby <jslaby@suse.cz>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:53763 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135Ab2CIGCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 01:02:18 -0500
+Received: from exht1.emulex.com ([138.239.113.183]:6614 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750707Ab2CIGQg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 01:16:36 -0500
+In-Reply-To: <20120308194106.GA3008@electric-eye.fr.zoreil.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Inline.
 
-Hi Greg,
+-----Original Message-----
+From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+Sent: Friday, March 09, 2012 1:11 AM
+To: Pandit, Parav
+Cc: netdev@vger.kernel.org
+Subject: Re: [RFC 2/2] be2net: Added functionality to support RoCE driver
 
-Today's linux-next merge of the tty tree got a conflict in
-drivers/isdn/gigaset/interface.c between commit 5bd49735db39 ("gigaset:
-Use semicolons to terminate statements") from the net-next tree and
-commit 2f16669d322e ("TTY: remove re-assignments to tty_driver members")
-from the tty tree.
+Parav.Pandit@Emulex.Com <Parav.Pandit@Emulex.Com> :
+> From: Francois Romieu [romieu@fr.zoreil.com]
+[...]
+> You can init the adequate operations set at dev_add / registration 
+> time so that the remaining be_roce_dev_xyz methods turn into noop for 
+> NIC without ROCE.
+> [Parav] What do we gain by executing NO_OP function, where there is no need to do that?
 
-I fixed it up (see below) and can carry the fix as necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+We do not execute anything for NIC without ROCE.
 
-diff --cc drivers/isdn/gigaset/interface.c
-index b826dac,8f8814a..0000000
---- a/drivers/isdn/gigaset/interface.c
-+++ b/drivers/isdn/gigaset/interface.c
-@@@ -679,9 -593,8 +593,8 @@@ void gigaset_if_initdriver(struct gigas
-  	if (tty =3D=3D NULL)
-  		goto enomem;
- =20
-- 	tty->magic =3D		TTY_DRIVER_MAGIC;
- -	tty->type =3D		TTY_DRIVER_TYPE_SERIAL,
- -	tty->subtype =3D		SERIAL_TYPE_NORMAL,
- +	tty->type =3D		TTY_DRIVER_TYPE_SERIAL;
- +	tty->subtype =3D		SERIAL_TYPE_NORMAL;
-  	tty->flags =3D		TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
- =20
-  	tty->driver_name =3D	procname;
+For the ROCE case, it costs a new set of net_device_ops where the .open() and
+.close() callbacks are different from the ones in be_netdev_ops. The former
+.open() and .close() call into the latter. The current code does the opposite.
 
---Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z
-Content-Type: application/pgp-signature
+> What is the problem in performing this check and not executing those function? I find it more simpler and clean.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+It is not a big problem. ROCE depends on NIC. The implementation exhibits a dependency in the opposite order.
 
-iQIcBAEBCAAGBQJPWZzZAAoJEECxmPOUX5FErNMP/3+T+1zQ7refcekItmt/nfEq
-h8MBwXsCMQxW77CkJZoNK6M18Ie3R1cYcyJ9XKaHRU12d//smZIqgkwHZhlfsNc7
-wo6b4tKCLDHlds9O658hwCDG8ijlyqEX5IFLeS5Js/v5k4LUSCcWGogCl2ucNFlD
-sJuhmOCshrmObgllNwZGNpNjrX3EeTtBYlKr7GqcmcNYScn1rN91srvhDhzJcqH5
-1pMhS7eo1RoukSpM0Kl36KYArjF8CihzbXrhN033TRxy2wyBeVnUiJzonfufey9L
-RQpHW1mWT7Y/nbgisTnnlRvYH+eaF3uVf5RuYwYOtbPlXZLIY0+k90qMlRSurcDW
-vVuR/EdZm69b/RK/KM4jLaejH2kG1ZBJaLWsxQj+6ptfILSKi+p4nhSBi4LQJusM
-+iqRwHCcRnV7BEPMeWRIsJXgkrCu0WaFAWLtoBUVkmSjjH3fCvQd9cvjEhwWg08R
-fYwt5Pn0v2amZuluHdifSHFXKnSWPtrpXiRc9iLTPt2T9PJqIrrzW+Gc9OBS6/mt
-Z0ctPHnOB3NhS/lhcHpGvxHZO3XwIQPXRgh9G9K579VKoo975yN6+SG6WfBXywGQ
-QSXR38v10Gshh88u10C40SuLQk6ICsySdatHaD0e2UhZo9rpM1FsHbSzE/sE/gdz
-+QHGxccNYEH07x4yEMRu
-=MTsI
------END PGP SIGNATURE-----
+> Also, add(), remove() etc operations are at driver level and not at device level. So with proposed implementation there is no need to store those 3 fn_pointers to device structure.
 
---Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z--
+The functions pointers are already there. The driver .remove() handler can not be replaced but it can exchange the be_roce_supported() test for a !ocrdma_dev test. It should allow to remove if_type from be_adapter as it won't be used beyond .probe() (I only did a quick check).
+
+It is up to you to weigh the net_device_ops cost. If more methods need to be modified for ROCE, the extra layer could be worth it. Your call.
+
+[Parav] I understand your proposed design and benefit if we have more such differences with ROCE vs non ROCE NICs.
+In near future those device_specific checks in either way doesn't differ much in either implementation.  So I would like to keep it current way. When we add more features it will be more logical to adopt your newly proposed approach and use different netdev_ops structure.
+I'll be addressing other review comments and one specifically to change void* to ocrdma_dev* with forward declaration.
+
+Off for jogging.
+
+--
+Ueimor
