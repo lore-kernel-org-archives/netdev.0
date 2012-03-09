@@ -1,78 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net-next tree with the powerpc
- tree
-Date: Fri, 9 Mar 2012 17:44:16 +1100
-Message-ID: <20120309174416.2b936c5a4a116d56f9a25502@canb.auug.org.au>
-References: <20120309133646.fb8cc30d8c2fd0ef7784d72c@canb.auug.org.au>
-	<20120308.221534.712157352097242982.davem@davemloft.net>
+From: Joerg Neikes <j.neikes-NmdbQyELdx1A/GT6Tjx8Qw@public.gmane.org>
+Subject: Patch for Sitecom LN-031
+Date: Fri, 09 Mar 2012 09:11:37 +0100
+Message-ID: <1331280697.5426.4.camel@mobile>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, benh@kernel.crashing.org,
-	paulus@samba.org, linuxppc-dev@lists.ozlabs.org, joe@perches.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120308.221534.712157352097242982.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch adds support for the Sitecom LN-031 USB adapter with a AX88178 chip.
 
-Hi Dave,
+Added USB id to find correct driver for AX88178 1000 Ethernet adapter.
 
-On Thu, 08 Mar 2012 22:15:34 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 9 Mar 2012 13:36:46 +1100
->=20
-> > Today's linux-next merge of the net-next tree got a conflict in
-> > drivers/net/ethernet/ibm/iseries_veth.c between commit e92a665949f6
-> > ("net: powerpc: remove the legacy iSeries ethernet driver") from the
-> > powerpc tree and commit 41de8d4cff21 ("drivers/net: Remove alloc_etherd=
-ev
-> > error messages") from the net-next tree.
-> >=20
-> > I just removed the file.
->=20
-> If it makes life easier for anyone I can put the driver removal patch
-> into net-next.
+Signed-off-by: Joerg Neikes <j.neikes-NmdbQyELdx1A/GT6Tjx8Qw@public.gmane.org>
 
-In this case, I think it will actually help, thanks.  Note that it won;t
-apply cleanly to your tree, but the fixup is easy :-)
 
-And I discovered that "git am" doesn't like the style of patch I did
-(without the body of the deleted file).  If you just delete
-drivers/net/ethernet/ibm/iseries_veth.c before trying to apply the patch
-it will probably work.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
 
---Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A
-Content-Type: application/pgp-signature
+--- linux-3.2.6-gentoo/drivers/net/usb/asix.c	2012-02-14 14:54:11.079152551 +0100
++++ linux-3.2.9-gentoo/drivers/net/usb/asix.c	2012-03-09 00:01:34.657806558 +0100
+@@ -1595,6 +1595,10 @@ static const struct usb_device_id	produc
+ 	USB_DEVICE (0x6189, 0x182d),
+ 	.driver_info =  (unsigned long) &ax8817x_info,
+ }, {
++	// Sitecom LN-031 "USB 2.0 10/100/1000 Ethernet adapter"
++	USB_DEVICE (0x0df6, 0x0056),
++	.driver_info =  (unsigned long) &ax88178_info,
++}, {
+ 	// corega FEther USB2-TX
+ 	USB_DEVICE (0x07aa, 0x0017),
+ 	.driver_info =  (unsigned long) &ax8817x_info,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJPWabAAAoJEECxmPOUX5FEzWAP/R3Cn2VaCfSqhKOWLSvnK2If
-6oNWyTA79xH9/0qoOqtR6GGcYaWoEhZKeKqI9K3oQB5+c6nA76mqxzVMydVkgJvC
-oe0Rn8G7QJg6RJ/lbV8m4F8dmzfCmk1OywLdd25l3miNQvTSda9qCHG9DtsoITA/
-uWs7tLCq2TuYNmFcCasLEA7SjyxAsN2c34KCxfZJuj53hy9MIFA0he4f7x79pIkK
-p0wJ7bF1mQYFdS3Q04p3IdoINWz2gS7ceioj9cWZxAskhiAXytV41q7ia01VnrNX
-VXs5H9kP/hFOI8JiaX8UqLC9mDlqQKVahiJplIVQipJhaZk26JGAf8jHNV6AocdO
-XFteSJzHbIuicI2dDXHkI0coh3dk7qTEg8D0O6PRw+tKXHIB5lThJGR0BGQgHQeb
-MQsDXVibwnZdFFYDKIkYQl6uyhZ3ARvcbGvQr9frSQhdiEcTmW8YtXOorbhuCmuj
-rnxgjAgiFuSCVMgbBPxi5rSoKfgbAvtX93ehN11A5/N4hy41c33ClHsBxgWuuUSl
-3kSR+K/XObDDkv2QRHhY3RMlNLwDiAuQMssjZlYTZEzKGuHA6H3wneUx5YBDU9m8
-m0kVBswkHocCnJhwKChIrKmSk5/frohEPYYPlDE54TWgnYxbRVuUKIe+PiprM+HW
-D6GIajSwb847xtn1kZ9I
-=D9p1
------END PGP SIGNATURE-----
 
---Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
