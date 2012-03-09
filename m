@@ -1,60 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/4] net: Use bool in skbuff.h helper functions.
-Date: Fri, 09 Mar 2012 14:36:27 -0800 (PST)
-Message-ID: <20120309.143627.781339523401035125.davem@davemloft.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [RFC PATCH v1 0/4] net: bridge: FDB management
+Date: Fri, 09 Mar 2012 14:47:50 -0800
+Message-ID: <20120309223621.2514.82321.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51119 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822Ab2CIWg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 17:36:28 -0500
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q29MaRbt018623
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 9 Mar 2012 14:36:28 -0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi@cyberus.ca, roprabhu@cisco.com, netdev@vger.kernel.org,
+	mst@redhat.com, chrisw@redhat.com, davem@davemloft.net,
+	gregory.v.rose@intel.com, kvm@vger.kernel.org, sri@us.ibm.com,
+	chealy@imsco-us.com
+To: jhs@mojatatu.com, shemminger@vyatta.com, bhutchings@solarflare.com
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This series is a follow up to the previous thread here:
 
-In particular do this for skb_is_nonlinear(), skb_is_gso(), and
-skb_is_gso_v6().
+http://lists.openwall.net/netdev/2012/02/29/31
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+There are some significant changes in this series. First
+I add two NTF_XXX bits to signal if the PF_BRIDGE netlink
+command should be parsed by the embedded bridge or the
+SW bridge. The insight here is the SW bridge is always the
+master device (NTF_MASTER) and the embedded bridge is
+the lower device (NTF_LOWERDEV). Without either flag set
+the command is parsed by the SW bridge to support existing
+tooling.
+
+To make this work correctly I added three new ndo ops
+
+	ndo_fdb_add
+	ndo_fdb_del
+	ndo_fdb_dump
+
+to add, delete, and dump FDB entries. These operations
+can be used by drivers to program embedded nics or by
+software bridges. We have at least three SW bridge now
+net/bridge, openvswitch, and macvlan. And three variants
+of embedded bridges SR-IOV devices, multi-function devices
+and Distributed Switch Architecture (DSA).
+
+I think at least in this case adding netdevice ops is
+the cleanest way to implement this. I thought about
+notifier hooks and other methods but for now at least
+this seems to be the simplest.
+
+I'm going to drop this into my testbed and let it run
+for a few days. But I think (hope?) this series is close
+to being ready for a non-RFC submission. I'll probably
+audit the patches once more as well.
+
+Thanks to Stephen, Ben, and Jamal for bearing with me
+and the feedback on the last round of patches.
+
+As always any comments/feedback is appreciated!
+
 ---
- include/linux/skbuff.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 79ef820..8dc8257 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1173,7 +1173,7 @@ static inline struct sk_buff *__skb_dequeue_tail(struct sk_buff_head *list)
- }
- 
- 
--static inline int skb_is_nonlinear(const struct sk_buff *skb)
-+static inline bool skb_is_nonlinear(const struct sk_buff *skb)
- {
- 	return skb->data_len;
- }
-@@ -2469,12 +2469,12 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
- }
- #endif
- 
--static inline int skb_is_gso(const struct sk_buff *skb)
-+static inline bool skb_is_gso(const struct sk_buff *skb)
- {
- 	return skb_shinfo(skb)->gso_size;
- }
- 
--static inline int skb_is_gso_v6(const struct sk_buff *skb)
-+static inline bool skb_is_gso_v6(const struct sk_buff *skb)
- {
- 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
- }
+John Fastabend (4):
+      ixgbe: enable FDB netdevice ops
+      net: add fdb generic dump routine
+      net: addr_list: add exclusive dev_uc_add
+      net: add generic PF_BRIDGE:RTM_XXX FDB hooks
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   59 ++++++++
+ include/linux/neighbour.h                     |    3 
+ include/linux/netdevice.h                     |   27 +++
+ include/linux/rtnetlink.h                     |    4 +
+ net/bridge/br_device.c                        |    3 
+ net/bridge/br_fdb.c                           |  128 ++++------------
+ net/bridge/br_netlink.c                       |   12 --
+ net/bridge/br_private.h                       |   15 ++
+ net/core/dev_addr_lists.c                     |   19 ++
+ net/core/rtnetlink.c                          |  194 +++++++++++++++++++++++++
+ 10 files changed, 352 insertions(+), 112 deletions(-)
+
 -- 
-1.7.6.5
+Signature
