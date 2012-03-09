@@ -1,178 +1,97 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-Date: Fri, 9 Mar 2012 10:34:49 -0600
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A8AB3B75@MNEXMB1.qlogic.org>
-References: <1330789663-30481-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Christophe Alladoum <Christophe.Alladoum@hsc.fr>
+Subject: Possible integer overflow in ping_common.c
+Date: Fri, 9 Mar 2012 17:33:00 +0100
+Message-ID: <20120309163300.GC1925@taz.hsc.fr>
+Reply-To: Christophe.Alladoum@hsc.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: santosh nayak <santoshprasadnayak@gmail.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1330789663-30481-1-git-send-email-santoshprasadnayak@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="/04w6evG8XlLl3ft"
+Content-Transfer-Encoding: 8bit
+Cc: Romain Coltel <Romain.Coltel@hsc.fr>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from itesec.hsc.fr ([192.70.106.33]:33459 "EHLO itesec.hsc.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756764Ab2CIQmg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2012 11:42:36 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> -----Original Message-----
-> From: santosh nayak [mailto:santoshprasadnayak@gmail.com]
-> Sent: Saturday, March 03, 2012 9:18 PM
-> To: Sony Chacko
-> Cc: Rajesh Borundia; netdev; linux-kernel; kernel-
-> janitors@vger.kernel.org; Santosh Nayak
-> Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-> 
-> From: Santosh Nayak <santoshprasadnayak@gmail.com>
-> 
-> Fix endian bug.
-> 
-> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
-> ---
->  drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
->  drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |   12 +++++++-----
->  .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    2 +-
->  3 files changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-> b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-> index 2eeac32..b5de8a7 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-> @@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
-> 
->  struct nx_vlan_ip_list {
->  	struct list_head list;
-> -	u32 ip_addr;
-> +	__be32 ip_addr;
->  };
-> 
->  /*
-> @@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct
-> nx_host_sds_ring *sds_ring, int max);
->  void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
->  int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
->  int netxen_config_rss(struct netxen_adapter *adapter, int enable);
-> -int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int
-> cmd);
-> +int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip,
-> int cmd);
->  int netxen_linkevent_request(struct netxen_adapter *adapter, int
-> enable);
->  void netxen_advert_link_change(struct netxen_adapter *adapter, int
-> linkup);
->  void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-> index 6f37470..0f81287 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-> @@ -909,10 +909,11 @@ int netxen_config_rss(struct netxen_adapter
-> *adapter, int enable)
->  	return rv;
->  }
-> 
-> -int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int
-> cmd)
-> +int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip,
-> int cmd)
->  {
->  	nx_nic_req_t req;
->  	u64 word;
-> +	u64 ip_addr;
->  	int rv;
-> 
->  	memset(&req, 0, sizeof(nx_nic_req_t));
-> @@ -922,7 +923,8 @@ int netxen_config_ipaddr(struct netxen_adapter
-> *adapter, u32 ip, int cmd)
->  	req.req_hdr = cpu_to_le64(word);
-> 
->  	req.words[0] = cpu_to_le64(cmd);
-> -	req.words[1] = cpu_to_le64(ip);
-> +	ip_addr = be32_to_cpu(ip);
-> +	*(__be64 *)&req.words[1] = cpu_to_be64(ip_addr);
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
 
-Adapter requires ip value in big endian stored at lower 32 bit address.
-The cpu_to_be64 will swap the lower 32 bit with higher 32 bit and adapter
-Will get incorrect ip addr. Instead u can do.
+Hi list,
 
-       U32 *ip_addr;
-       ip_addr = (u32 *)&req.words[1];
-       *ip_addr = ip;
+A collegue and I found a possible integer overflow in ping_common.c that could
+lead to excessive CPU usage when triggered.
 
-     
-> 
->  	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0
-> *)&req, 1);
->  	if (rv != 0) {
-> @@ -1050,7 +1052,7 @@ int netxen_get_flash_mac_addr(struct
-> netxen_adapter *adapter, u64 *mac)
->  	if (netxen_get_flash_block(adapter, offset, sizeof(u64), pmac) ==
-> -1)
->  		return -1;
-> 
-> -	if (*mac == cpu_to_le64(~0ULL)) {
-> +	if (*mac == ~0ULL) {
+PoC :
+{{{
+$ ping -i 3600 google.com
+PING google.com (173.194.66.102) 56(84) bytes of data.
+64 bytes from we-in-f102.1e100.net (173.194.66.102): icmp_req=1 ttl=50 time=11.4 ms
+[...]
+(check your CPU usage)
+}}}
 
-*mac is in little endian format so compare it with cpu_to_le64.
+Here, ping will loop in main_loop() loop in this section of code :
+{{{
+/* from iputils-s20101006 source */
+/* ping_common.c */
 
-> 
->  		offset = NX_OLD_MAC_ADDR_OFFSET +
->  			(adapter->portnum * sizeof(u64));
-> @@ -1059,7 +1061,7 @@ int netxen_get_flash_mac_addr(struct
-> netxen_adapter *adapter, u64 *mac)
->  					offset, sizeof(u64), pmac) == -1)
->  			return -1;
-> 
-> -		if (*mac == cpu_to_le64(~0ULL))
-> +		if (*mac == ~0ULL)
+    546 void main_loop(int icmp_sock, __u8 *packet, int packlen)
+    547 {
+[...]
+    559         for (;;) {
+[...]
+    572                 do {
+    573                         next = pinger();
+    574                         next = schedule_exit(next);
+    575                 } while (next <= 0);
+[...]
+    588                 if ((options & (F_ADAPTIVE|F_FLOOD_POLL)) || next<SCHINT(interval)) {
+[...]
+    593                         if (1000*next <= 1000000/(int)HZ) {
+}}}
 
-*mac here is in little endian format so compare it with cpu_to_le64.
+If interval parameter (-i) is set, then condition L593 will overflow, making
+this statement "always true" for big values (e.g. -i 3600). As a consequence, 
+ping process will start looping actively as long as condition is true (could be
+pretty long).
 
->  			return -1;
->  	}
->  	return 0;
-> @@ -2178,7 +2180,7 @@ lock_try:
->  		NX_WR_DUMP_REG(FLASH_ROM_WINDOW, adapter->ahw.pci_base0,
-> waddr);
->  		raddr = FLASH_ROM_DATA + (fl_addr & 0x0000FFFF);
->  		NX_RD_DUMP_REG(raddr, adapter->ahw.pci_base0, &val);
-> -		*data_buff++ = cpu_to_le32(val);
-> +		*data_buff++ = val;
+Tested on Fedora/Debian/Gentoo Linux system (2.6.x x86_32 and x86_64) on iputils
+version 20101006. ping6 seems also to be affected since it's relying on
+ping_common.c functions.
 
-It should be cpu_to_le32 as it is returned to tool which requires
-output in little endian.
+Quick'n dirty patch (full patch in appendix) is to cast test result as long long:
+{{{
+    593                         if (((long long)1000*next) <= (long long)1000000/(int)HZ) {
+}}}
 
->  		fl_addr += sizeof(val);
->  	}
->  	readl((void __iomem *)(adapter->ahw.pci_base0 +
-> NX_FLASH_SEM2_ULK));
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> index 8dc4a134..70783b4 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> @@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter
-> *adapter)
->  			adapter->driver_mismatch = 1;
->  			return;
->  		}
-> -		ptr32[i] = cpu_to_le32(val);
-> +		ptr32[i] = val;
+Can you confirm this bug?
 
-Here val should be in little endian (cpu_to_le32) as it will be referenced by byte array to print serial number.
+Thanks
+-- 
+Christophe Alladoum - <christophe.alladoum@hsc.fr>
+Hervé Schauer Consultants - <http://www.hsc.fr>
 
->  		offset += sizeof(u32);
->  	}
-> 
-> --
-> 1.7.4.4
-> 
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="ping_interger_overflow.patch"
 
+--- /home/chris/downloads/iputils-s20101006/ping_common.c	2010-10-06 13:59:20.000000000 +0200
++++ /home/chris/downloads/iputils-s20101006-patched/ping_common.c	2012-03-09 16:42:46.878151032 +0100
+@@ -590,7 +590,7 @@
+ 
+ 			/* If we are here, recvmsg() is unable to wait for
+ 			 * required timeout. */
+-			if (1000*next <= 1000000/(int)HZ) {
++		if (((long long)1000*next) <= (long long)1000000/(int)HZ) {
+ 				/* Very short timeout... So, if we wait for
+ 				 * something, we sleep for MININTERVAL.
+ 				 * Otherwise, spin! */
 
-Sorry for Late reply.
-
-Rajesh
+--/04w6evG8XlLl3ft--
