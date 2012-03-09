@@ -1,74 +1,101 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/4] phy: add the EEE support and the way to access
- to the MMD regs
-Date: Fri, 09 Mar 2012 15:39:45 +0100
-Message-ID: <4F5A1631.9010006@st.com>
-References: <4F4E4D4B.3040909@st.com>   <1331022494-12891-1-git-send-email-peppe.cavallaro@st.com>   <1331022494-12891-2-git-send-email-peppe.cavallaro@st.com>   <1331052913.2333.16.camel@bwh-desktop>  <1331053557.2333.19.camel@bwh-desktop> <4F58C821.3040104@st.com> <1331231373.2481.7.camel@bwh-desktop>
+From: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2 v2] bluetooth: hci_core: fix NULL-pointer dereference
+ at unregister
+Date: Fri, 9 Mar 2012 15:48:04 +0100
+Message-ID: <20120309144804.GF4497@localhost>
+References: <1331228606.14217.5.camel@aeonflux>
+ <1331297594-13332-1-git-send-email-jhovold@gmail.com>
+ <CANq1E4Rt0ctZ5cpXipJE--YmkR4OjKBXLBQkeTKWP3+Q-q37Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	rayagond@vayavyalabs.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:57877 "EHLO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756671Ab2CIOka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 09:40:30 -0500
-In-Reply-To: <1331231373.2481.7.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Herrmann <dh.herrmann-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CANq1E4Rt0ctZ5cpXipJE--YmkR4OjKBXLBQkeTKWP3+Q-q37Yw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/8/2012 7:29 PM, Ben Hutchings wrote:
-> On Thu, 2012-03-08 at 15:54 +0100, Giuseppe CAVALLARO wrote:
->> Hello Ben
->>
->> thanks for your review and sorry for my delay.
->>
->> On 3/6/2012 6:05 PM, Ben Hutchings wrote:
-> [...]
->>>>> +static inline void mmd_phy_cl45(struct mii_bus *bus, int prtad, int devad,
->>>>> +				int addr)
->>>> [...]
->>>>> +/**
->>>>> + * read_phy_mmd - reads data from the MMC register (clause 22 to access to
->>>>> + * clause 45)
->>>> [...]
->>>>> +/**
->>>>> + * write_phy_mmd - writes data to the MMC register (clause 22 to access to
->>>>> + * clause 45)
->>>>
->>>> These names need to be changed as phylib also supports (or is intended
->>>> to support) real clause 45 PHYs.
->>
->>
->> What do you suggest? Do I have to rename these functions for example as?
->>
->> write_phy_mmd  ---->    phy_write_mmd_cl45
->> read_phy_mmd   ---->    phy_read_mmd_cl45
-> 
-> These are a means to access MMDs through the clause 22 MDIO protocol, so
+Hi David,
 
-yes indeed :-)
+On Fri, Mar 09, 2012 at 03:04:11PM +0100, David Herrmann wrote:
+> On Fri, Mar 9, 2012 at 1:53 PM, Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+e:
+> > Make sure hci_dev_open returns immediately if hci_dev_unregister ha=
+s
+> > been called.
+> >
+> > This fixes a race between hci_dev_open and hci_dev_unregister which=
+ can
+> > lead to a NULL-pointer dereference.
+> >
+> > Bug is 100% reproducible using hciattach and a disconnected serial =
+port:
+> >
+> > 0. # hciattach -n /dev/ttyO1 any noflow
+> >
+> > 1. hci_dev_open called from hci_power_on grabs req lock
+> > 2. hci_init_req executes but device fails to initialise (times out
+> > =A0 eventually)
+> > 3. hci_dev_open is called from hci_sock_ioctl and sleeps on req loc=
+k
+> > 4. hci_uart_tty_close calls hci_dev_unregister and sleeps on req lo=
+ck in
+> > =A0 hci_dev_do_close
+> > 5. hci_dev_open (1) releases req lock
+> > 6. hci_dev_do_close grabs req lock and returns as device is not up
+> > 7. hci_dev_unregister sleeps in destroy_workqueue
+> > 8. hci_dev_open (3) grabs req lock, calls hci_init_req and eventual=
+ly sleeps
+> > 9. hci_dev_unregister finishes, while hci_dev_open is still running=
+=2E..
 
-> it seems to me that the name should include '22' and not '45'.  But
-> perhaps it would be more obvious to use the word 'indirect'.
+[...]
 
-ok for phy_write/read_mmd_indirect
+> > diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hc=
+i.h
+> > index 00596e8..e8879b9 100644
+> > --- a/include/net/bluetooth/hci.h
+> > +++ b/include/net/bluetooth/hci.h
+> > @@ -93,6 +93,8 @@ enum {
+> > =A0* states from the controller.
+> > =A0*/
+> > =A0enum {
+> > + =A0 =A0 =A0 HCI_UNREGISTER,
+> > +
+> > =A0 =A0 =A0 =A0HCI_LE_SCAN,
+> > =A0};
+> >
+> > diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+> > index d6448f0..22b6781 100644
+> > --- a/net/bluetooth/hci_core.c
+> > +++ b/net/bluetooth/hci_core.c
+> > @@ -525,6 +525,11 @@ int hci_dev_open(__u16 dev)
+> >
+> > =A0 =A0 =A0 =A0hci_req_lock(hdev);
+> >
+> > + =A0 =A0 =A0 if (test_bit(HCI_UNREGISTER, &hdev->dev_flags)) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -ENODEV;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto done;
+> > + =A0 =A0 =A0 }
+> > +
+>=20
+> Isn't it enough to check for HCI_RUNNING here? We obviously have a
+> race here as we take the device with hci_dev_get(), then sleep and
+> then we do not check whether the device is still alive. However,
+> drivers are required to reset HCI_RUNNING before calling
+> hci_unregister_dev() (which is bogus anyway, but its the way we
+> handled it in the past) therefore it should be enough for us to check
+> for HCI_RUNNING.
 
-> 
->> I've also another doubt. I put this code in phy_device.c. Is it correct?
->>
->> Maybe, it could be better have it in phy.c? What do you think?
-> [...]
-> 
-> No idea, I don't have any involvement in phylib.
+I'm afraid this won't work as hci_dev_open is responsible for setting
+HCI_RUNNING in the first place (set in hdev->open(hdev) called from
+hci_dev_open).
 
-ok. I'll keep the code in phy_device unless to have further feedback
-from other developers.
-
-peppe
-
-> 
-> Ben.
-> 
+Thanks,
+Johan
