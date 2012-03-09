@@ -1,46 +1,64 @@
-From: "Mr.Saeed Ahmed." <sael@as.net>
-Subject: Will You Be Trusted
-Date: Fri, 09 Mar 2012 06:48:49 -0500
-Message-ID: <20120309064849.lbe3qrbd44o8cko0@webmail.educacao.niteroi.rj.gov.br>
-Reply-To: saeed0k04@linuxmail.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c
+Date: Fri, 9 Mar 2012 08:32:41 -0500
+Message-ID: <4F5A0679.1020604@windriver.com>
+References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com>	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com> <CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from educacao.niteroi.urbi.com.br ([200.152.56.131]:38150 "EHLO
-	FMEmail.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753286Ab2CINHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 08:07:01 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Schmitz <schmitzmic@googlemail.com>,
+	<linux-m68k@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 12-03-09 01:35 AM, Geert Uytterhoeven wrote:
+> On Fri, Mar 9, 2012 at 04:11, Paul Gortmaker
+> <paul.gortmaker@windriver.com> wrote:
+>>> diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
+>>> index f92ea2a..28b8781 100644
+>>> --- a/drivers/net/ethernet/8390/ne.c
+>>> +++ b/drivers/net/ethernet/8390/ne.c
+>>> @@ -55,6 +55,9 @@ static const char version2[] =
+>>>
+>>>  #include <asm/system.h>
+>>>  #include <asm/io.h>
+>>> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
+>>> +#include <asm/atariints.h>
+>>> +#endif
+>>
+>> Do you really need the #if here?  Should be avoidable.
+> 
+> <asm/atariints.h> exists on m68k only, and is not included by any header in
+> arch/m68k/include/.
 
+This kind of arch specific stuff still shouldn't need to
+bubble right up to the driver level  I'd think a driver
+should be able to include <asm/irq.h> and have whatever
+arch specific goo like this be present.
 
-Dear Friend,
+So maybe this kind of magic should be in arch/m68k/include/asm/irq*
+instead of here?
 
-As you read this, I don't want you to feel sorry for me,because, I
-believe everyone will die someday,and am contacting you because
-I really do need your help and I want you to help me with all your
-effort and time for just seven to fourteen workings days of your time.I
-want you to be honest and truthful with me that you will help me
-with my last wish as a dying man.
+And on re-reading the comments in the other part of the patch, i.e.
+"...emulates the card interrupt via a timer"  --perhaps the driver
+should be just fixed to support generic netpoll, instead of adding
+an arch specific thing that amounts to netpoll.  Then anyone can
+attempt to limp along and use one of these ancient relics w/o IRQ.
 
-Please i need a reliable person who will usethe Money($18 milliondollars)to
-build orphanage home or charityorganization.
+Paul.
+--
 
-Please kindly reply to my most confidential email if you are really
-interested in helping me please:saeed0k04@linuxmail.org
-
-
-God be with you.
-
-Mr.Saeed Ahmed
-
-----------------------------------------------------------------
-FME Webmail
-www.educacao.niteroi.rj.gov.br
+> 
+> Gr{oetje,eeting}s,
+> 
+>                         Geert
+> 
+> --
+> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> 
+> In personal conversations with technical people, I call myself a hacker. But
+> when I'm talking to journalists I just say "programmer" or something like that.
+>                                 -- Linus Torvalds
