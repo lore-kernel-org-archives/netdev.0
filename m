@@ -1,64 +1,51 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: Re: [PATCH 2/3] bluetooth: hci_ldisc: fix NULL-pointer dereference
- on tty_close
-Date: Fri, 9 Mar 2012 16:50:07 +0100
-Message-ID: <20120309155007.GI4497@localhost>
-References: <1331307806-21761-1-git-send-email-jhovold@gmail.com>
- <1331307806-21761-3-git-send-email-jhovold@gmail.com>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] iproute: fix tc -iec display of Mibit rates
+Date: Fri, 9 Mar 2012 17:09:19 +0100
+Message-ID: <20120309160919.GA22767@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	stable <stable@vger.kernel.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>
-To: David Herrmann <dh.herrmann@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Thomas =?iso-8859-1?Q?M=FChlgrabner?= <muehltom@cable.vol.at>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay-b12.telenor.se ([62.127.194.21]:60242 "EHLO
+	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932325Ab2CIQGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 11:06:43 -0500
+Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
+	by smtprelay-b12.telenor.se (Postfix) with ESMTP id 181AAD326
+	for <netdev@vger.kernel.org>; Fri,  9 Mar 2012 17:06:40 +0100 (CET)
 Content-Disposition: inline
-In-Reply-To: <1331307806-21761-3-git-send-email-jhovold@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 09, 2012 at 04:43:25PM +0100, Johan Hovold wrote:
-> Do not close protocol driver until device has been unregistered.
-> 
-> This fixes a race between tty_close and hci_dev_open which can result in
-> a NULL-pointer dereference.
-> 
-> The line discipline closes the protocol driver while we may still have
-> hci_dev_open sleeping on the req_lock mutex resulting in a NULL-pointer
-> dereference when lock is acquired and hci_init_req called.
+As reported by Thomas M=FChlgrabner <muehltom@cable.vol.at>
+in http://bugs.debian.org/662979 :
 
-[...]
+ When showing htb class configuration with "tc -iec class show",
+ the output for Mibit is actually the value for bit.
+ Example: configure a class with a ceil of 1000Mibit.
+ Output states 1048576000 Mibit.
 
-> Cc: stable <stable@vger.kernel.org>
-> Signed-off-by: Johan Hovold <jhovold@gmail.com>
+The cause is missing parenteses in the display code of tc....
 
-David (Herrmann), I forgot to add your Reviewed-by on this one. Feel
-free to add it again if you want to.
+(Please also note that a lower value of 100Mibit will be displayed
+as 102400 Kibit, which I think is kind of ugly.)
 
-Thanks,
-Johan
+Reported-by: Thomas M=FChlgrabner <muehltom@cable.vol.at>
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
-> ---
->  drivers/bluetooth/hci_ldisc.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
-> index 97c5faa..5119c4b 100644
-> --- a/drivers/bluetooth/hci_ldisc.c
-> +++ b/drivers/bluetooth/hci_ldisc.c
-> @@ -309,11 +309,11 @@ static void hci_uart_tty_close(struct tty_struct *tty)
->  			hci_uart_close(hdev);
->  
->  		if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
-> -			hu->proto->close(hu);
->  			if (hdev) {
->  				hci_unregister_dev(hdev);
->  				hci_free_dev(hdev);
->  			}
-> +			hu->proto->close(hu);
->  		}
->  		kfree(hu);
->  	}
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 5829d61..36e3c7d 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -203,7 +203,7 @@ void print_rate(char *buf, int len, __u32 rate)
+=20
+ 	if (use_iec) {
+ 		if (tmp >=3D 1000.0*1024.0*1024.0)
+-			snprintf(buf, len, "%.0fMibit", tmp/1024.0*1024.0);
++			snprintf(buf, len, "%.0fMibit", tmp/(1024.0*1024.0));
+ 		else if (tmp >=3D 1000.0*1024)
+ 			snprintf(buf, len, "%.0fKibit", tmp/1024);
+ 		else
