@@ -1,76 +1,78 @@
-From: Michael Schmitz <schmitzmic@googlemail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c
-Date: Fri, 09 Mar 2012 17:58:36 +1300
-Message-ID: <4F598DFC.70507@gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com> <CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tty tree with the net-next tree
+Date: Fri, 9 Mar 2012 17:02:01 +1100
+Message-ID: <20120309170201.93eec7e1108165c02ba2311c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Schmitz <schmitzmic@googlemail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Jiri Slaby <jslaby@suse.cz>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from haggis.pcug.org.au ([203.10.76.10]:53763 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135Ab2CIGCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 01:02:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paul Gortmaker wrote:
->
->> diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
->> index f92ea2a..28b8781 100644
->> --- a/drivers/net/ethernet/8390/ne.c
->> +++ b/drivers/net/ethernet/8390/ne.c
->> @@ -55,6 +55,9 @@ static const char version2[] =
->>
->>  #include <asm/system.h>
->>  #include <asm/io.h>
->> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->> +#include <asm/atariints.h>
->> +#endif
->>     
->
-> Do you really need the #if here?  Should be avoidable.
->
->   
-Looks like that one's unneeded.
->>  #include "8390.h"
->>
->> @@ -165,7 +168,8 @@ bad_clone_list[] __initdata = {
->>  #if defined(CONFIG_PLAT_MAPPI)
->>  #  define DCR_VAL 0x4b
->>  #elif defined(CONFIG_PLAT_OAKS32R)  || \
->> -   defined(CONFIG_MACH_TX49XX)
->> +   defined(CONFIG_MACH_TX49XX) || \
->> +   IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->>  #  define DCR_VAL 0x48        /* 8-bit mode */
->>  #else
->>  #  define DCR_VAL 0x49
->> @@ -492,7 +496,16 @@ static int __init ne_probe1(struct net_device *dev,
->> unsigned long ioaddr)
->>
->>     /* Snarf the interrupt now.  There's no point in waiting since we cannot
->>        share and the board will usually be enabled. */
->> -    ret = request_irq(dev->irq, eip_interrupt, 0, name, dev);
->> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->> +    if (MACH_IS_ATARI) {
->> +        /* Atari EtherNEC emulates the card interrupt via a timer -
->> +           this needs to be shared with the smc91C111 driver and with
->> +           a dummy handler to catch unhandled interrupts ! */
->> +        ret = request_irq(dev->irq, eip_interrupt, IRQF_SHARED, name, dev);
->> +    } else
->> +#endif
->> +        ret = request_irq(dev->irq, eip_interrupt, 0, name, dev);
->> +
->>     
->
-> There has to be a cleaner way than this.  Something as simple as creating
-> a platform specific 8380_IRQ_FLAGS would get rid of this ifdef'ery in
-> the driver and that is with only 20s of thought invested.
->   
-That would have been the alternative - would you prefer to have this 
-added in 8390.h or ne.c?
+--Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
+Hi Greg,
 
-  Michael
+Today's linux-next merge of the tty tree got a conflict in
+drivers/isdn/gigaset/interface.c between commit 5bd49735db39 ("gigaset:
+Use semicolons to terminate statements") from the net-next tree and
+commit 2f16669d322e ("TTY: remove re-assignments to tty_driver members")
+from the tty tree.
+
+I fixed it up (see below) and can carry the fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/isdn/gigaset/interface.c
+index b826dac,8f8814a..0000000
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@@ -679,9 -593,8 +593,8 @@@ void gigaset_if_initdriver(struct gigas
+  	if (tty =3D=3D NULL)
+  		goto enomem;
+ =20
+- 	tty->magic =3D		TTY_DRIVER_MAGIC;
+ -	tty->type =3D		TTY_DRIVER_TYPE_SERIAL,
+ -	tty->subtype =3D		SERIAL_TYPE_NORMAL,
+ +	tty->type =3D		TTY_DRIVER_TYPE_SERIAL;
+ +	tty->subtype =3D		SERIAL_TYPE_NORMAL;
+  	tty->flags =3D		TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
+ =20
+  	tty->driver_name =3D	procname;
+
+--Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPWZzZAAoJEECxmPOUX5FErNMP/3+T+1zQ7refcekItmt/nfEq
+h8MBwXsCMQxW77CkJZoNK6M18Ie3R1cYcyJ9XKaHRU12d//smZIqgkwHZhlfsNc7
+wo6b4tKCLDHlds9O658hwCDG8ijlyqEX5IFLeS5Js/v5k4LUSCcWGogCl2ucNFlD
+sJuhmOCshrmObgllNwZGNpNjrX3EeTtBYlKr7GqcmcNYScn1rN91srvhDhzJcqH5
+1pMhS7eo1RoukSpM0Kl36KYArjF8CihzbXrhN033TRxy2wyBeVnUiJzonfufey9L
+RQpHW1mWT7Y/nbgisTnnlRvYH+eaF3uVf5RuYwYOtbPlXZLIY0+k90qMlRSurcDW
+vVuR/EdZm69b/RK/KM4jLaejH2kG1ZBJaLWsxQj+6ptfILSKi+p4nhSBi4LQJusM
++iqRwHCcRnV7BEPMeWRIsJXgkrCu0WaFAWLtoBUVkmSjjH3fCvQd9cvjEhwWg08R
+fYwt5Pn0v2amZuluHdifSHFXKnSWPtrpXiRc9iLTPt2T9PJqIrrzW+Gc9OBS6/mt
+Z0ctPHnOB3NhS/lhcHpGvxHZO3XwIQPXRgh9G9K579VKoo975yN6+SG6WfBXywGQ
+QSXR38v10Gshh88u10C40SuLQk6ICsySdatHaD0e2UhZo9rpM1FsHbSzE/sE/gdz
++QHGxccNYEH07x4yEMRu
+=MTsI
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__9_Mar_2012_17_02_01_+1100_qdMZ3G.=3ir6u07Z--
