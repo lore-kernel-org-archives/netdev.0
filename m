@@ -1,7 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v1 2/4] net: addr_list: add exclusive dev_uc_add
-Date: Fri, 09 Mar 2012 14:48:01 -0800
-Message-ID: <20120309224801.2514.18418.stgit@jf-dev1-dcblab>
+Subject: [RFC PATCH v1 3/4] net: add fdb generic dump routine
+Date: Fri, 09 Mar 2012 14:48:07 -0800
+Message-ID: <20120309224806.2514.50237.stgit@jf-dev1-dcblab>
 References: <20120309223621.2514.82321.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,66 +11,90 @@ Cc: hadi@cyberus.ca, roprabhu@cisco.com, netdev@vger.kernel.org,
 	gregory.v.rose@intel.com, kvm@vger.kernel.org, sri@us.ibm.com,
 	chealy@imsco-us.com
 To: jhs@mojatatu.com, shemminger@vyatta.com, bhutchings@solarflare.com
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:11056 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758603Ab2CIXAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Mar 2012 18:00:22 -0500
 In-Reply-To: <20120309223621.2514.82321.stgit@jf-dev1-dcblab>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds a dev_uc_add_excl() call similar to the original
-dev_uc_add() except it sets the global bit. With this
-change the reference count will not be bumped and -EEXIST
-will be returned if a duplicate address exists.
-
-This is useful for drivers that support SR-IOV and want
-to manage the unicast lists.
+This adds a generic dump routine drivers can call. It
+should be sufficient to handle any bridging model that
+uses the unicast address list. This should be most SR-IOV
+enabled NICs.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdevice.h |    1 +
- net/core/dev_addr_lists.c |   19 +++++++++++++++++++
- 2 files changed, 20 insertions(+), 0 deletions(-)
+ net/core/rtnetlink.c |   56 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 56 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3963992..7e4a86f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2553,6 +2553,7 @@ extern int dev_addr_init(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 8c3278a..35ee2d6 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2082,6 +2082,62 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	return err;
+ }
  
- /* Functions used for unicast addresses handling */
- extern int dev_uc_add(struct net_device *dev, unsigned char *addr);
-+extern int dev_uc_add_excl(struct net_device *dev, unsigned char *addr);
- extern int dev_uc_del(struct net_device *dev, unsigned char *addr);
- extern int dev_uc_sync(struct net_device *to, struct net_device *from);
- extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
-diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index 29c07fe..c7d27ad 100644
---- a/net/core/dev_addr_lists.c
-+++ b/net/core/dev_addr_lists.c
-@@ -377,6 +377,25 @@ EXPORT_SYMBOL(dev_addr_del_multiple);
-  */
- 
- /**
-+ *	dev_uc_add_excl - Add a global secondary unicast address
-+ *	@dev: device
-+ *	@addr: address to add
++/**
++ * ndo_dflt_fdb_dump: default netdevice operation to dump an FDB table.
++ * @nlh: netlink message header
++ * @dev: netdevice
++ *
++ * Default netdevice operation to dump the existing unicast address list.
++ * Returns zero on success.
 + */
-+int dev_uc_add_excl(struct net_device *dev, unsigned char *addr)
++int ndo_dflt_fdb_dump(struct sk_buff *skb,
++		      struct netlink_callback *cb,
++		      struct net_device *dev,
++		      int idx)
 +{
-+	int err;
++	struct netdev_hw_addr *ha;
++	struct nlmsghdr *nlh;
++	struct ndmsg *ndm;
++	u32 pid, seq;
++
++	pid = NETLINK_CB(cb->skb).pid;
++	seq = cb->nlh->nlmsg_seq;
 +
 +	netif_addr_lock_bh(dev);
-+	err = __hw_addr_add_ex(&dev->uc, addr, dev->addr_len,
-+			       NETDEV_HW_ADDR_T_UNICAST, true);
-+	if (!err)
-+		__dev_set_rx_mode(dev);
-+	netif_addr_unlock_bh(dev);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_uc_add_excl);
++	list_for_each_entry(ha, &dev->uc.list, list) {
++		if (idx < cb->args[0])
++			goto skip;
 +
-+/**
-  *	dev_uc_add - Add a secondary unicast address
-  *	@dev: device
-  *	@addr: address to add
-
++		nlh = nlmsg_put(skb, pid, seq,
++				RTM_NEWNEIGH, sizeof(*ndm), NLM_F_MULTI);
++		if (!nlh)
++			break;
++
++		ndm = nlmsg_data(nlh);
++		ndm->ndm_family  = AF_BRIDGE;
++		ndm->ndm_pad1	 = 0;
++		ndm->ndm_pad2    = 0;
++		ndm->ndm_flags	 = NTF_LOWERDEV;
++		ndm->ndm_type	 = 0;
++		ndm->ndm_ifindex = dev->ifindex;
++		ndm->ndm_state   = NUD_PERMANENT;
++
++		NLA_PUT(skb, NDA_LLADDR, ETH_ALEN, ha->addr);
++
++		nlmsg_end(skb, nlh);
++skip:
++		++idx;
++	}
++	netif_addr_unlock_bh(dev);
++
++	return idx;
++nla_put_failure:
++	netif_addr_unlock_bh(dev);
++	nlmsg_cancel(skb, nlh);
++	return idx;
++}
++EXPORT_SYMBOL(ndo_dflt_fdb_dump);
++
+ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx = 0;
