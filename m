@@ -1,143 +1,87 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: [PATCH 2/2 v2] bluetooth: hci_core: fix NULL-pointer dereference at unregister
-Date: Fri,  9 Mar 2012 13:53:14 +0100
-Message-ID: <1331297594-13332-1-git-send-email-jhovold@gmail.com>
-References: <1331228606.14217.5.camel@aeonflux>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Johan Hovold <jhovold@gmail.com>,
-	stable <stable@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331228606.14217.5.camel@aeonflux>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] bluetooth: hci_ldisc: fix NULL-pointer dereference
+ on tty_close
+Date: Fri, 9 Mar 2012 14:04:13 +0100
+Message-ID: <20120309130413.GC4497@localhost>
+References: <1331136120-27075-1-git-send-email-jhovold@gmail.com>
+ <1331136120-27075-2-git-send-email-jhovold@gmail.com>
+ <1331148797.3392.191.camel@aeonflux>
+ <20120308115721.GB4497@localhost>
+ <1331228722.14217.7.camel@aeonflux>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1331228722.14217.7.camel@aeonflux>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Make sure hci_dev_open returns immediately if hci_dev_unregister has
-been called.
+On Thu, Mar 08, 2012 at 09:45:22AM -0800, Marcel Holtmann wrote:
+> Hi Johan,
+> 
+> > > > Do not close protocol driver until device has been unregistered.
+> > > > 
+> > > > This fixes a race between tty_close and hci_dev_open which can result in
+> > > > a NULL-pointer dereference.
+> > > > 
+> > > > The line discipline closes the protocol driver while we may still have
+> > > > hci_dev_open sleeping on the req_lock mutex resulting in a NULL-pointer
+> > > > dereference when lock is acquired and hci_init_req called.
+> > 
+> > [...]
+> > 
+> > > what kernel version is this against? Our changes in bluetooth-next fixed
+> > > some of the destruct handling.
+> > 
+> > This is against the latest rc as it needs to be fixed in 3.3, but I
+> > missed a dependency to bluetooth-next as you point out below.
+> > 
+> > > Also hci_unregister_dev should be calling the destruct handler and thus
+> > > your change is now accessing hu but it got freed already.
+> > 
+> > You're right, my patch depends on 010666a126fc ("Bluetooth: Make
+> > hci-destruct callback optional") and 797fe796c4 ("Bluetooth: uart-ldisc:
+> > Fix memory leak and remove destruct cb") from bluetooth-next. 
+> > 
+> > But since the latter one fixes a memory leak it should have been marked
+> > for stable as well as pushed to Linus for 3.3, right?
+> 
+> we need to look into this and propose patches for -stable. Is your
+> problem still present with bluetooth-next or not?
 
-This fixes a race between hci_dev_open and hci_dev_unregister which can
-lead to a NULL-pointer dereference.
+Yes, both races are present in bluetooth-next of today (b8622cbd58f34)
+and only takes an additional manual step to trigger (as the core no
+longer tries to open the device twice automatically).
 
-Bug is 100% reproducible using hciattach and a disconnected serial port:
+My two patches on top of either the two patches by David Herrmann
+mentioned above or the following minimal fix of the same memory leak
+would be sufficient to fix both races in 3.3:
 
-0. # hciattach -n /dev/ttyO1 any noflow
-
-1. hci_dev_open called from hci_power_on grabs req lock
-2. hci_init_req executes but device fails to initialise (times out
-   eventually)
-3. hci_dev_open is called from hci_sock_ioctl and sleeps on req lock
-4. hci_uart_tty_close calls hci_dev_unregister and sleeps on req lock in
-   hci_dev_do_close
-5. hci_dev_open (1) releases req lock
-6. hci_dev_do_close grabs req lock and returns as device is not up
-7. hci_dev_unregister sleeps in destroy_workqueue
-8. hci_dev_open (3) grabs req lock, calls hci_init_req and eventually sleeps
-9. hci_dev_unregister finishes, while hci_dev_open is still running...
-
-[   79.627136] INFO: trying to register non-static key.
-[   79.632354] the code is fine but needs lockdep annotation.
-[   79.638122] turning off the locking correctness validator.
-[   79.643920] [<c00188bc>] (unwind_backtrace+0x0/0xf8) from [<c00729c4>] (__lock_acquire+0x1590/0x1ab0)
-[   79.653594] [<c00729c4>] (__lock_acquire+0x1590/0x1ab0) from [<c00733f8>] (lock_acquire+0x9c/0x128)
-[   79.663085] [<c00733f8>] (lock_acquire+0x9c/0x128) from [<c0040a88>] (run_timer_softirq+0x150/0x3ac)
-[   79.672668] [<c0040a88>] (run_timer_softirq+0x150/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
-[   79.682281] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
-[   79.690856] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
-[   79.699157] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
-[   79.708648] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
-[   79.718048] Exception stack(0xcf281fb0 to 0xcf281ff8)
-[   79.723358] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
-[   79.731933] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
-[   79.740509] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
-[   79.747497] Unable to handle kernel NULL pointer dereference at virtual address 00000000
-[   79.756011] pgd = cf3b4000
-[   79.758850] [00000000] *pgd=8f0c7831, *pte=00000000, *ppte=00000000
-[   79.765502] Internal error: Oops: 80000007 [#1]
-[   79.770294] Modules linked in:
-[   79.773529] CPU: 0    Tainted: G        W     (3.3.0-rc6-00002-gb5d5c87 #421)
-[   79.781066] PC is at 0x0
-[   79.783721] LR is at run_timer_softirq+0x16c/0x3ac
-[   79.788787] pc : [<00000000>]    lr : [<c0040aa4>]    psr: 60000113
-[   79.788787] sp : cf281ee0  ip : 00000000  fp : cf280000
-[   79.800903] r10: 00000004  r9 : 00000100  r8 : b6f234d0
-[   79.806427] r7 : c0519c28  r6 : cf093488  r5 : c0561a00  r4 : 00000000
-[   79.813323] r3 : 00000000  r2 : c054eee0  r1 : 00000001  r0 : 00000000
-[   79.820190] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-[   79.827728] Control: 10c5387d  Table: 8f3b4019  DAC: 00000015
-[   79.833801] Process gpsd (pid: 1265, stack limit = 0xcf2802e8)
-[   79.839965] Stack: (0xcf281ee0 to 0xcf282000)
-[   79.844573] 1ee0: 00000002 00000000 c0040a24 00000000 00000002 cf281f08 00200200 00000000
-[   79.853210] 1f00: 00000000 cf281f18 cf281f08 00000000 00000000 00000000 cf281f18 cf281f18
-[   79.861816] 1f20: 00000000 00000001 c056184c 00000000 00000001 b6f234d0 c0561848 00000004
-[   79.870452] 1f40: cf280000 c003a3b8 c051e79c 00000001 00000000 00000100 3fa9e7b8 0000000a
-[   79.879089] 1f60: 00000025 cf280000 00000025 00000000 00000000 b6f234d0 00000000 00000004
-[   79.887756] 1f80: 00000000 c003a924 c053ad38 c0013a50 fa200000 cf281fb0 ffffffff c0008530
-[   79.896362] 1fa0: 0001e6a0 0000aab8 80000010 c037499c 0001e6a0 be8dab00 0001e698 00036698
-[   79.904998] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
-[   79.913665] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff 00fbf700 04ffff00
-[   79.922302] [<c0040aa4>] (run_timer_softirq+0x16c/0x3ac) from [<c003a3b8>] (__do_softirq+0xd4/0x22c)
-[   79.931945] [<c003a3b8>] (__do_softirq+0xd4/0x22c) from [<c003a924>] (irq_exit+0x8c/0x94)
-[   79.940582] [<c003a924>] (irq_exit+0x8c/0x94) from [<c0013a50>] (handle_IRQ+0x34/0x84)
-[   79.948913] [<c0013a50>] (handle_IRQ+0x34/0x84) from [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c)
-[   79.958404] [<c0008530>] (omap3_intc_handle_irq+0x48/0x4c) from [<c037499c>] (__irq_usr+0x3c/0x60)
-[   79.967773] Exception stack(0xcf281fb0 to 0xcf281ff8)
-[   79.973083] 1fa0:                                     0001e6a0 be8dab00 0001e698 00036698
-[   79.981658] 1fc0: 0002df98 0002df38 0000001f 00000000 b6f234d0 00000000 00000004 00000000
-[   79.990234] 1fe0: 0001e6f8 be8d6aa0 be8dac50 0000aab8 80000010 ffffffff
-[   79.997161] Code: bad PC value
-[   80.000396] ---[ end trace 6f6739840475f9ee ]---
-[   80.005279] Kernel panic - not syncing: Fatal exception in interrupt
-
-Cc: stable <stable@vger.kernel.org>
-Signed-off-by: Johan Hovold <jhovold@gmail.com>
----
-
-v2: use hdev->dev_flags for internal unregister flag 
-
-
- include/net/bluetooth/hci.h |    2 ++
- net/bluetooth/hci_core.c    |    7 +++++++
- 2 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
-index 00596e8..e8879b9 100644
---- a/include/net/bluetooth/hci.h
-+++ b/include/net/bluetooth/hci.h
-@@ -93,6 +93,8 @@ enum {
-  * states from the controller.
-  */
- enum {
-+	HCI_UNREGISTER,
-+
- 	HCI_LE_SCAN,
- };
+diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
+index 0711448..97c5faa 100644
+--- a/drivers/bluetooth/hci_ldisc.c
++++ b/drivers/bluetooth/hci_ldisc.c
+@@ -237,7 +237,6 @@ static void hci_uart_destruct(struct hci_dev *hdev)
+                return;
  
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index d6448f0..22b6781 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -525,6 +525,11 @@ int hci_dev_open(__u16 dev)
+        BT_DBG("%s", hdev->name);
+-       kfree(hdev->driver_data);
+ }
  
- 	hci_req_lock(hdev);
- 
-+	if (test_bit(HCI_UNREGISTER, &hdev->dev_flags)) {
-+		ret = -ENODEV;
-+		goto done;
-+	}
-+
- 	if (hdev->rfkill && rfkill_blocked(hdev->rfkill)) {
- 		ret = -ERFKILL;
- 		goto done;
-@@ -1577,6 +1582,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
- 
- 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
- 
-+	set_bit(HCI_UNREGISTER, &hdev->dev_flags);
-+
- 	write_lock(&hci_dev_list_lock);
- 	list_del(&hdev->list);
- 	write_unlock(&hci_dev_list_lock);
--- 
-1.7.8.4
+ /* ------ LDISC part ------ */
+@@ -316,6 +315,7 @@ static void hci_uart_tty_close(struct tty_struct *tty)
+                                hci_free_dev(hdev);
+                        }
+                }
++               kfree(hu);
+        }
+ }
+
+
+Thanks,
+Johan
