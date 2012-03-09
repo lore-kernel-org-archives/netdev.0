@@ -1,54 +1,78 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c
-Date: Fri, 9 Mar 2012 07:35:12 +0100
-Message-ID: <CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>
-	<4F4B2BB6.900@gmail.com>
-	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the powerpc
+ tree
+Date: Fri, 9 Mar 2012 17:44:16 +1100
+Message-ID: <20120309174416.2b936c5a4a116d56f9a25502@canb.auug.org.au>
+References: <20120309133646.fb8cc30d8c2fd0ef7784d72c@canb.auug.org.au>
+	<20120308.221534.712157352097242982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Schmitz <schmitzmic@googlemail.com>,
-	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, benh@kernel.crashing.org,
+	paulus@samba.org, linuxppc-dev@lists.ozlabs.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120308.221534.712157352097242982.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 9, 2012 at 04:11, Paul Gortmaker
-<paul.gortmaker@windriver.com> wrote:
->> diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8=
-390/ne.c
->> index f92ea2a..28b8781 100644
->> --- a/drivers/net/ethernet/8390/ne.c
->> +++ b/drivers/net/ethernet/8390/ne.c
->> @@ -55,6 +55,9 @@ static const char version2[] =3D
->>
->> =C2=A0#include <asm/system.h>
->> =C2=A0#include <asm/io.h>
->> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->> +#include <asm/atariints.h>
->> +#endif
+--Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Dave,
+
+On Thu, 08 Mar 2012 22:15:34 -0800 (PST) David Miller <davem@davemloft.net>=
+ wrote:
 >
-> Do you really need the #if here? =C2=A0Should be avoidable.
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Fri, 9 Mar 2012 13:36:46 +1100
+>=20
+> > Today's linux-next merge of the net-next tree got a conflict in
+> > drivers/net/ethernet/ibm/iseries_veth.c between commit e92a665949f6
+> > ("net: powerpc: remove the legacy iSeries ethernet driver") from the
+> > powerpc tree and commit 41de8d4cff21 ("drivers/net: Remove alloc_etherd=
+ev
+> > error messages") from the net-next tree.
+> >=20
+> > I just removed the file.
+>=20
+> If it makes life easier for anyone I can put the driver removal patch
+> into net-next.
 
-<asm/atariints.h> exists on m68k only, and is not included by any heade=
-r in
-arch/m68k/include/.
+In this case, I think it will actually help, thanks.  Note that it won;t
+apply cleanly to your tree, but the fixup is easy :-)
 
-Gr{oetje,eeting}s,
+And I discovered that "git am" doesn't like the style of patch I did
+(without the body of the deleted file).  If you just delete
+drivers/net/ethernet/ibm/iseries_veth.c before trying to apply the patch
+it will probably work.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
+--Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A
+Content-Type: application/pgp-signature
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+iQIcBAEBCAAGBQJPWabAAAoJEECxmPOUX5FEzWAP/R3Cn2VaCfSqhKOWLSvnK2If
+6oNWyTA79xH9/0qoOqtR6GGcYaWoEhZKeKqI9K3oQB5+c6nA76mqxzVMydVkgJvC
+oe0Rn8G7QJg6RJ/lbV8m4F8dmzfCmk1OywLdd25l3miNQvTSda9qCHG9DtsoITA/
+uWs7tLCq2TuYNmFcCasLEA7SjyxAsN2c34KCxfZJuj53hy9MIFA0he4f7x79pIkK
+p0wJ7bF1mQYFdS3Q04p3IdoINWz2gS7ceioj9cWZxAskhiAXytV41q7ia01VnrNX
+VXs5H9kP/hFOI8JiaX8UqLC9mDlqQKVahiJplIVQipJhaZk26JGAf8jHNV6AocdO
+XFteSJzHbIuicI2dDXHkI0coh3dk7qTEg8D0O6PRw+tKXHIB5lThJGR0BGQgHQeb
+MQsDXVibwnZdFFYDKIkYQl6uyhZ3ARvcbGvQr9frSQhdiEcTmW8YtXOorbhuCmuj
+rnxgjAgiFuSCVMgbBPxi5rSoKfgbAvtX93ehN11A5/N4hy41c33ClHsBxgWuuUSl
+3kSR+K/XObDDkv2QRHhY3RMlNLwDiAuQMssjZlYTZEzKGuHA6H3wneUx5YBDU9m8
+m0kVBswkHocCnJhwKChIrKmSk5/frohEPYYPlDE54TWgnYxbRVuUKIe+PiprM+HW
+D6GIajSwb847xtn1kZ9I
+=D9p1
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__9_Mar_2012_17_44_16_+1100_Xa7Sppg5lHzHMH4A--
