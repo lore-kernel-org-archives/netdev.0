@@ -1,47 +1,96 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH net-next/usb-next v3 0/5] cdc-wdm/qmi_wwan: subdriver
- support
-Date: Fri, 9 Mar 2012 13:13:10 -0800
-Message-ID: <20120309211310.GA22272@kroah.com>
-References: <20120306143559.GB23314@kroah.com>
- <87r4x5u478.fsf@nemi.mork.no>
- <20120308185324.GA13836@kroah.com>
- <20120308.134338.1946356302291460775.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120308.134338.1946356302291460775.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH 1/2] net/hyperv: Fix data corruption in rndis_filter_receive()
+Date: Fri,  9 Mar 2012 13:27:16 -0800
+Message-ID: <1331328437-26852-1-git-send-email-haiyangz@microsoft.com>
+To: haiyangz@microsoft.com, kys@microsoft.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 08, 2012 at 01:43:38PM -0800, David Miller wrote:
-> From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-> Date: Thu, 8 Mar 2012 10:53:24 -0800
->=20
-> > On Tue, Mar 06, 2012 at 04:41:47PM +0100, Bj=F8rn Mork wrote:
-> >> I've managed to make them dependent on not-yet-merged patches in
-> >> net-next as well (the initial addition of the qmi_wwan driver), so=
- I
-> >> believe that will be equally difficult.  Bad planning from my side=
- I
-> >> guess...
-> >=20
-> > I can take those patches as well if needed, to help unwind the
-> > dependancy mess, and the network maintainer doesn't mind.
->=20
-> I don't mind :)
+Limiting the memcpy to be the sizeof(struct rndis_message) can truncate
+the message if there are Per-Packet-Info or Out-of-Band data.
 
-Thanks, I've picked the one patch in your tree up, and applied these ne=
-w
-ones as well.
+In my earlier patch (commit 45326342), the unnecessary kmap_atomic and
+kunmap_atomic surrounding this memcpy have been removed because the memory
+in the receive buffer is always mapped. This memcpy is not necessary
+either. To fix the bug, I removed the memcpy.
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c |   33 +++++++++------------------------
+ 1 files changed, 9 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 136efd8..0c3d7d9 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -352,8 +352,7 @@ int rndis_filter_receive(struct hv_device *dev,
+ {
+ 	struct netvsc_device *net_dev = hv_get_drvdata(dev);
+ 	struct rndis_device *rndis_dev;
+-	struct rndis_message rndis_msg;
+-	struct rndis_message *rndis_hdr;
++	struct rndis_message *rndis_msg;
+ 	struct net_device *ndev;
+ 
+ 	if (!net_dev)
+@@ -375,46 +374,32 @@ int rndis_filter_receive(struct hv_device *dev,
+ 		return -ENODEV;
+ 	}
+ 
+-	rndis_hdr = pkt->data;
+-
+-	/* Make sure we got a valid rndis message */
+-	if ((rndis_hdr->ndis_msg_type != REMOTE_NDIS_PACKET_MSG) &&
+-	    (rndis_hdr->msg_len > sizeof(struct rndis_message))) {
+-		netdev_err(ndev, "incoming rndis message buffer overflow "
+-			   "detected (got %u, max %zu)..marking it an error!\n",
+-			   rndis_hdr->msg_len,
+-			   sizeof(struct rndis_message));
+-	}
++	rndis_msg = pkt->data;
+ 
+-	memcpy(&rndis_msg, rndis_hdr,
+-		(rndis_hdr->msg_len > sizeof(struct rndis_message)) ?
+-			sizeof(struct rndis_message) :
+-			rndis_hdr->msg_len);
++	dump_rndis_message(dev, rndis_msg);
+ 
+-	dump_rndis_message(dev, &rndis_msg);
+-
+-	switch (rndis_msg.ndis_msg_type) {
++	switch (rndis_msg->ndis_msg_type) {
+ 	case REMOTE_NDIS_PACKET_MSG:
+ 		/* data msg */
+-		rndis_filter_receive_data(rndis_dev, &rndis_msg, pkt);
++		rndis_filter_receive_data(rndis_dev, rndis_msg, pkt);
+ 		break;
+ 
+ 	case REMOTE_NDIS_INITIALIZE_CMPLT:
+ 	case REMOTE_NDIS_QUERY_CMPLT:
+ 	case REMOTE_NDIS_SET_CMPLT:
+ 		/* completion msgs */
+-		rndis_filter_receive_response(rndis_dev, &rndis_msg);
++		rndis_filter_receive_response(rndis_dev, rndis_msg);
+ 		break;
+ 
+ 	case REMOTE_NDIS_INDICATE_STATUS_MSG:
+ 		/* notification msgs */
+-		rndis_filter_receive_indicate_status(rndis_dev, &rndis_msg);
++		rndis_filter_receive_indicate_status(rndis_dev, rndis_msg);
+ 		break;
+ 	default:
+ 		netdev_err(ndev,
+ 			"unhandled rndis message (type %u len %u)\n",
+-			   rndis_msg.ndis_msg_type,
+-			   rndis_msg.msg_len);
++			   rndis_msg->ndis_msg_type,
++			   rndis_msg->msg_len);
+ 		break;
+ 	}
+ 
+-- 
+1.7.4.1
