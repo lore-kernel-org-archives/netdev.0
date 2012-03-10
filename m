@@ -1,56 +1,42 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 1/1] MAINTAINERS: add an entry for the PHC code
-Date: Sat, 10 Mar 2012 12:55:53 +0100
-Message-ID: <24d5bd16fdf73810d57fe1756401277f92628e71.1331380050.git.richardcochran@gmail.com>
-References: <cover.1331380050.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: <netdev@vger.kernel.org>
+From: Simon Kirby <sim@netnation.com>
+Subject: TCP syn flood handling regression
+Date: Sat, 10 Mar 2012 04:27:25 -0800
+Message-ID: <20120310122725.GA31129@hostway.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:54701 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752620Ab2CJL4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 06:56:04 -0500
-Received: by wejx9 with SMTP id x9so1810295wej.19
-        for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 03:56:03 -0800 (PST)
-In-Reply-To: <cover.1331380050.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1331380050.git.richardcochran@gmail.com>
-References: <cover.1331380050.git.richardcochran@gmail.com>
+Received: from peace.netnation.com ([204.174.223.2]:33365 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753637Ab2CJMoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 07:44:21 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some months ago, tglx asked me off list if I would maintain the PTP
-Hardware Clock code. Since then, the code has been fully merged, and I
-am actively looking after it. This patch makes it official.
+Hello!
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-Acked-by: John Stultz <john.stultz@linaro.org>
----
- MAINTAINERS |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+A typical port 80 SYN flood started up to one of our clusters, but this
+time, it didn't work so well. Legitimate connections and trying to fetch
+server-status via localhost would hang for ~30 seconds before responding,
+even though though the box had plenty of spare cycles. An strace of all
+Apache processes showed quite a bit of sleeping in accept4().
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 0d01192..209a3862 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5317,6 +5317,17 @@ L:	cbe-oss-dev@lists.ozlabs.org
- S:	Maintained
- F:	drivers/block/ps3vram.c
- 
-+PTP HARDWARE CLOCK SUPPORT
-+M:	Richard Cochran <richardcochran@gmail.com>
-+S:	Maintained
-+W:	http://linuxptp.sourceforge.net/
-+F:	Documentation/ABI/testing/sysfs-ptp
-+F:	Documentation/ptp/*
-+F:	drivers/net/gianfar_ptp.c
-+F:	drivers/net/phy/dp83640*
-+F:	drivers/ptp/*
-+F:	include/linux/ptp_cl*
-+
- PTRACE SUPPORT
- M:	Roland McGrath <roland@redhat.com>
- M:	Oleg Nesterov <oleg@redhat.com>
--- 
-1.7.2.5
+This was with 3.2.9, so I went back in kernel builds and found that 3.1
+and 3.0 were also broken, while 2.6.39 works as I remember -- when syn
+cookies are enabled, everything just works and is fast. The DoS kept up,
+so I was able to feed a bit to a node to do some bisection.
+
+Of course, the DoS stopped literally seconds before the last bisection
+test, but I got it down to:
+
+# good: [0e734419923bd8e599858f8fc196c7804bb85564] ipv4: Use inet_csk_route_child_sock() in DCCP and TCP.
+# bad: [ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0] ipv4: Don't use rt->rt_{src,dst} in ip_queue_xmit().
+
+...leaving ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0 and
+d9d8da805dcb503ef8ee49918a94d49085060f23 as culprits.
+
+I've stared at them but can't see what could be doing this.
+
+Simon-
