@@ -1,64 +1,51 @@
-From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 4/4] batman-adv: Remove spaces after a cast
-Date: Sun, 11 Mar 2012 06:44:51 +0800
-Message-ID: <1331419491-21333-5-git-send-email-lindner_marek@yahoo.de>
-References: <1331419491-21333-1-git-send-email-lindner_marek@yahoo.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch] e1000e, igbvf: fix default message level
+Date: Sat, 10 Mar 2012 23:06:29 +0000
+Message-ID: <1331420789.3022.100.camel@deadeye>
+References: <20120310084921.GA4647@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm9-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.240]:22637 "HELO
-	nm9-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752522Ab2CJWqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 17:46:10 -0500
-In-Reply-To: <1331419491-21333-1-git-send-email-lindner_marek@yahoo.de>
+Received: from mail.solarflare.com ([216.237.3.220]:55290 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752482Ab2CJXGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 18:06:38 -0500
+In-Reply-To: <20120310084921.GA4647@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+On Sat, 2012-03-10 at 11:49 +0300, Dan Carpenter wrote:
+> The intent here was to enable both NETIF_MSG_DRV and NETIF_MSG_PROBE
+> messages, but in the original code only the NETIF_MSG_DRV bit was set.
+> 
+> NETIF_MSG_DRV and NETIF_MSG_PROBE are bits 0 and 1, they are not
+> supposed to be used to do a shift.  I think the confusion is because
+> the msg_enable can also be controlled through ethtool which passes a bit
+> number that is used to do a bit shift.
+[...]
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/send.c    |    2 +-
- net/batman-adv/unicast.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+No, the ethtool interface also uses a mask.
 
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index f261ccf..af7a674 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -56,7 +56,7 @@ int send_skb_packet(struct sk_buff *skb, struct hard_iface *hard_iface,
- 
- 	skb_reset_mac_header(skb);
- 
--	ethhdr = (struct ethhdr *) skb_mac_header(skb);
-+	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 	memcpy(ethhdr->h_source, hard_iface->net_dev->dev_addr, ETH_ALEN);
- 	memcpy(ethhdr->h_dest, dst_addr, ETH_ALEN);
- 	ethhdr->h_proto = __constant_htons(ETH_P_BATMAN);
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index 0897dfa..676f6a6 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -66,7 +66,7 @@ static struct sk_buff *frag_merge_packet(struct list_head *head,
- 	kfree_skb(tmp_skb);
- 
- 	memmove(skb->data + uni_diff, skb->data, hdr_len);
--	unicast_packet = (struct unicast_packet *) skb_pull(skb, uni_diff);
-+	unicast_packet = (struct unicast_packet *)skb_pull(skb, uni_diff);
- 	unicast_packet->header.packet_type = BAT_UNICAST;
- 
- 	return skb;
-@@ -238,7 +238,7 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
- 		goto dropped;
- 	skb_reserve(frag_skb, ucf_hdr_len);
- 
--	unicast_packet = (struct unicast_packet *) skb->data;
-+	unicast_packet = (struct unicast_packet *)skb->data;
- 	memcpy(&tmp_uc, unicast_packet, uc_hdr_len);
- 	skb_split(skb, frag_skb, data_len / 2 + uc_hdr_len);
- 
+However netif_msg_init() is commonly used to initialise the msg_enable
+mask based on a module parameter that's a bit number.
+
+Ben.
+
 -- 
-1.7.9.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
