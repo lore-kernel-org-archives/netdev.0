@@ -1,42 +1,22 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: linux-next: Tree for Mar 9 (netfilter)
-Date: Sat, 10 Mar 2012 08:45:22 -0800
-Message-ID: <4F5B8522.8050707@xenotime.net>
-References: <20120309191101.8634973f7d9988c602143f7c@canb.auug.org.au> <4F5A6872.3050502@xenotime.net> <20120310112154.GA22478@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv4: Allow administrative updates of inetpeer cache metrics
+Date: Sat, 10 Mar 2012 12:06:04 -0500 (EST)
+Message-ID: <20120310.120604.2169889346978923618.davem@davemloft.net>
+References: <20120310134905.GA3703@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120310112154.GA22478@1984>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 03/10/2012 03:21 AM, Pablo Neira Ayuso wrote:
-
-> On Fri, Mar 09, 2012 at 12:30:42PM -0800, Randy Dunlap wrote:
->> On 03/09/2012 12:11 AM, Stephen Rothwell wrote:
->>
->>> Hi all,
->>>
->>> There will be no linux-next release on March 12 due to a public holiday.
->>>
->>> Changes since 20120308:
->>
->>
->> xt_LOG.c:(.text+0x789b1): undefined reference to `ip6t_ext_hdr'
->>
->> Full randconfig file is attached.
-> 
-> The patch attached fixes this problem, thanks!
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57937 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009Ab2CJRGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 12:06:12 -0500
+In-Reply-To: <20120310134905.GA3703@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
-
-Thanks.
-
--- 
-~Randy
+Herbert, look at Steffen Klassert's changes which went in two days
+ago, they take care of this problem.
