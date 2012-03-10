@@ -1,103 +1,71 @@
-From: E-MAIL SENDER 2012 <vgcxvg34@aol.com>
-Subject: =?utf-8?Q?=D8=AC=D8=A7=D8=A6=D8=B2=D8=A9_=D8=A7=D9=84=D8=A7=D9=84=D9=83?=
- =?utf-8?Q?=D8=AA=D8=B1=D9=88=D9=86=D9=8A=D8=A9_=D8=A7=D9=84=D9=81=D8=A7?=
- =?utf-8?Q?=D8=A6=D8=B2=D8=A9_=D8=A5=D8=B9=D9=84=D8=A7=D9=85:_=D8=A7?=
- =?utf-8?Q?=D9=84=D8=A7=D8=AA=D8=B5=D8=A7=D9=84_=D8=A8=D9=83_=D9=88?=
- =?utf-8?Q?=D9=83=D9=8A=D9=84_=D8=A7=D9=84=D9=85=D8=B7=D8=A7=D9=84=D8=A8?=
- =?utf-8?Q?=D8=A7=D8=AA_(customercare.cl?=
- =?utf-8?Q?aimsunit.02@gmail.com?=
- =?utf-8?Q?)?=
-Date: Sat, 10 Mar 2012 12:44:08 -0500 (EST)
-Message-ID: <8CECCFC87796EC8-1BA8-6453@Webmail-m121.sysops.aol.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP syn flood handling regression
+Date: Sat, 10 Mar 2012 09:56:22 -0800
+Message-ID: <1331402182.2453.30.camel@edumazet-laptop>
+References: <20120310122725.GA31129@hostway.ca>
+	 <1331401490.2453.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Simon Kirby <sim@netnation.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-m13.mx.aol.com ([64.12.207.146]:53631 "EHLO
-	ims-m13.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab2CJRp1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 12:45:27 -0500
-Received: from oms-mb02.r1000.mx.aol.com (oms-mb02.r1000.mx.aol.com [64.12.102.138])
-	by ims-m13.mx.aol.com (8.14.1/8.14.1) with ESMTP id q2AHjL9q025992
-	for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 12:45:21 -0500
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:55807 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751447Ab2CJR43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 12:56:29 -0500
+Received: by wibhq7 with SMTP id hq7so1825944wib.1
+        for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 09:56:28 -0800 (PST)
+In-Reply-To: <1331401490.2453.28.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ELECTRONIC =D8=AD=D8=A7=D8=A6=D8=B2=D8=A9 =D8=B9=D9=84=D9=89 =D8=AC=D9=88=
-=D8=A7=D8=A6=D8=B2 =D8=A7=D9=84=D8=A5=D8=AE=D8=B7=D8=A7=D8=B1
+Le samedi 10 mars 2012 =C3=A0 09:44 -0800, Eric Dumazet a =C3=A9crit :
+> Le samedi 10 mars 2012 =C3=A0 04:27 -0800, Simon Kirby a =C3=A9crit :
+> > Hello!
+> >=20
+> > A typical port 80 SYN flood started up to one of our clusters, but =
+this
+> > time, it didn't work so well. Legitimate connections and trying to =
+fetch
+> > server-status via localhost would hang for ~30 seconds before respo=
+nding,
+> > even though though the box had plenty of spare cycles. An strace of=
+ all
+> > Apache processes showed quite a bit of sleeping in accept4().
+> >=20
+> > This was with 3.2.9, so I went back in kernel builds and found that=
+ 3.1
+> > and 3.0 were also broken, while 2.6.39 works as I remember -- when =
+syn
+> > cookies are enabled, everything just works and is fast. The DoS kep=
+t up,
+> > so I was able to feed a bit to a node to do some bisection.
+> >=20
+> > Of course, the DoS stopped literally seconds before the last bisect=
+ion
+> > test, but I got it down to:
+> >=20
+> > # good: [0e734419923bd8e599858f8fc196c7804bb85564] ipv4: Use inet_c=
+sk_route_child_sock() in DCCP and TCP.
+> > # bad: [ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0] ipv4: Don't use r=
+t->rt_{src,dst} in ip_queue_xmit().
+> >=20
+> > ...leaving ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0 and
+> > d9d8da805dcb503ef8ee49918a94d49085060f23 as culprits.
+> >=20
+> > I've stared at them but can't see what could be doing this.
+> >=20
+>=20
+> Hi Simon, thanks a lot for this report.
+>=20
+> This sounds as a SYNCOOKIE side effect
+>=20
 
-=D8=A7=D9=84=D9=85=D8=B1=D8=AC=D8=B9: 475061725
-=D8=AF=D9=81=D8=B9=D8=A9: 9056490902/188
-=D9=88=D8=AA=D9=88 =D9=86=D9=88=D8=B9: =D9=85=D9=8A=D8=AC=D8=A7 =D9=85=D9=
-=84=D9=8A=D9=88=D9=86
-=D8=B9=D8=AF=D8=AF =D8=A7=D9=84=D8=A7=D9=88=D8=B1=D8=A7=D9=82 =D8=A7=D9=
-=84=D8=B1=D8=A7=D8=A8=D8=AD=D8=A9: GB8701/LPRC
+It seems we miss a rebuild_header() indeed in the case of a syncookie
+initiated socket.
 
-=D8=B9=D8=B2=D9=8A=D8=B2=D9=8A =D8=A7=D9=84=D9=81=D8=A7=D8=A6=D8=B2=D8=8C
+So inet->cork.fl.u.ip4 is not correctly setup and
+ea4fc0d6193ff56fcef39b0d2210d402a7acb5f relied on this.
 
-=D9=83=D8=A7=D9=85=D9=84 =D8=A7=D9=84=D8=A7=D8=B3=D8=AA=D8=B1=D8=A7=D9=84=
-=D9=8A=D8=A9 =D8=AA=D9=86=D8=B8=D9=8A=D9=85 =D9=8A=D8=A7=D9=86=D8=B5=D9=
-=8A=D8=A8 =D9=88=D8=B7=D9=86=D9=8A =D8=A3=D8=B4=D8=B9=D8=B1 =D8=A8=D8=A7=
-=D9=84=D8=B3=D8=B9=D8=A7=D8=AF=D8=A9
-=D8=A3=D9=86 =D8=A3=D8=AD=D9=8A=D8=B7=D9=83=D9=85 =D8=B9=D9=84=D9=85=D8=
-=A7 =D8=A8=D8=A3=D9=86 =D8=A7=D9=84=D8=A8=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=
-=D8=A5=D9=84=D9=83=D8=AA=D8=B1=D9=88=D9=86=D9=8A =D8=A7=D9=84=D8=AE=D8=A7=
-=D8=B5 =D8=A8=D9=83 =D9=82=D8=AF =D9=81=D8=A7=D8=B2 =D8=A8=D8=A7=D9=84=D8=
-=AC=D8=A7=D8=A6=D8=B2=D8=A9 =D9=85=D9=86 =D8=A7=D9=84=D9=85=D8=A7=D9=84
-=D8=B3=D8=AA =D9=85=D8=A7=D8=A6=D8=A9 =D9=88=D8=AE=D9=85=D8=B3=D9=8A=D9=
-=86 =D8=A3=D9=84=D9=81 =D8=AF=D9=88=D9=84=D8=A7=D8=B1 =D8=A3=D9=85=D9=8A=
-=D8=B1=D9=83=D9=8A ($ 650=D8=8C000=D8=8C00) =D9=81=D9=8A
-2011 =D8=AC=D8=A7=D8=A6=D8=B2=D8=A9 =D9=84=D8=AA=D8=B4=D8=AC=D9=8A=D8=B9=
- =D8=AA=D9=86=D8=B8=D9=8A=D9=85 =D8=A7=D9=84=D9=85=D8=A4=D8=AA=D9=85=D8=
-=B1 =D8=A7=D9=84=D9=88=D8=B7=D9=86=D9=8A =D8=A7=D9=84=D8=B9=D8=B1=D8=A7=
-=D9=82=D9=8A =D8=A7=D9=84=D9=85=D8=B3=D8=A4=D9=88=D9=84 =D8=B9=D9=86 =D8=
-=A7=D9=84=D9=85=D9=88=D9=82=D8=B9
-
-=D9=8A=D8=B1=D8=AC=D9=89 =D9=85=D9=84=D8=A7=D8=AD=D8=B8=D8=A9 =D8=A3=D9=
-=86 =D8=B9=D8=AF=D8=AF =D9=85=D8=AD=D8=B8=D9=88=D8=B8 =D9=81=D9=88=D8=B2=
-=D9=83 =D9=8A=D9=86=D8=AF=D8=B1=D8=AC =D9=81=D9=8A =D8=A3=D9=88=D8=B1=D9=
-=88=D8=A8=D8=A7 =D9=84=D8=AF=D9=8A=D9=86=D8=A7
-=D9=83=D8=AA=D9=8A=D8=A8 =D9=85=D9=83=D8=AA=D8=A8 =D8=AA=D9=85=D8=AB=D9=
-=8A=D9=84=D9=8A =D9=81=D9=8A =D8=A3=D9=81=D8=B1=D9=8A=D9=82=D9=8A=D8=A7=
- =D9=83=D9=85=D8=A7 =D9=87=D9=88 =D9=85=D8=A8=D9=8A=D9=86 =D9=81=D9=8A =
-=D8=A7=D9=84=D8=AE=D8=A7=D8=B5
-=D8=A7=D9=84=D9=82=D8=B3=D9=8A=D9=85=D8=A9. =D9=86=D8=B8=D8=B1=D8=A7 =D8=
-=A5=D9=84=D9=89 =D9=87=D8=B0=D8=A7=D8=8C =D8=B3=D9=8A=D8=AA=D9=85 =D8=A7=
-=D9=84=D8=A7=D9=81=D8=B1=D8=A7=D8=AC =D8=B9=D9=86 $ 650=D8=8C000.00 =D9=
-=84=D9=83=D9=85 =D9=84=D9=83=D9=85
-=D9=85=D9=86 =D9=82=D8=A8=D9=84 =D8=A3=D9=8A =D9=85=D9=86 =D9=85=D9=83=D8=
-=A7=D8=AA=D8=A8 =D8=A7=D9=84=D8=AF=D9=81=D8=B9 =D9=84=D8=AF=D9=8A=D9=86=
-=D8=A7 =D9=81=D9=8A =D8=A7=D9=81=D8=B1=D9=8A=D9=82=D9=8A=D8=A7.
-
-=D9=84=D9=84=D9=85=D8=B7=D8=A7=D9=84=D8=A8=D8=A9 =D8=A7=D9=84=D9=85=D8=A7=
-=D9=84 =D8=A7=D9=84=D8=AE=D8=A7=D8=B5 =D8=A8=D8=A7=D9=84=D8=AC=D8=A7=D8=
-=A6=D8=B2=D8=A9=D8=8C =D8=A7=D9=84=D8=B1=D8=AC=D8=A7=D8=A1 =D8=A7=D9=84=
-=D8=A7=D8=AA=D8=B5=D8=A7=D9=84 =D9=85=D8=B9 =D9=88=D9=83=D9=8A=D9=84 =D8=
-=A7=D9=84=D8=A7=D8=A6=D8=AA=D9=85=D8=A7=D9=86=D9=8A=D8=A9
-=D8=A7=D9=84=D9=85=D8=AD=D8=A7=D9=85=D9=8A =D8=A8=D9=88=D9=84 =D8=A3=D9=
-=86=D8=AF=D8=B1=D8=B3=D9=88=D9=86 =D8=B9=D8=A8=D8=B1 =D8=A7=D9=84=D8=A8=
-=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=D8=A7=D9=84=D9=83=D8=AA=D8=B1=D9=88=D9=86=
-=D9=8A =D9=85=D8=B9 =D8=A7=D9=84=D9=85=D8=B9=D9=84=D9=88=D9=85=D8=A7=D8=
-=AA =D8=A7=D9=84=D8=AA=D8=A7=D9=84=D9=8A=D8=A9:
-=D9=85=D8=B9=D9=84=D9=88=D9=85=D8=A7=D8=AA =D8=A7=D9=84=D8=A7=D8=AA=D8=B5=
-=D8=A7=D9=84:
-
-=D8=A7=D9=84=D8=A7=D8=B3=D9=85: =D8=A7=D9=84=D9=85=D8=AD=D8=A7=D9=85=D9=
-=8A =D8=A8=D9=88=D9=84 =D8=A3=D9=86=D8=AF=D8=B1=D8=B3=D9=88=D9=86
-=D8=A7=D9=84=D8=A8=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=D8=A7=D9=84=D9=83=D8=AA=
-=D8=B1=D9=88=D9=86=D9=8A:customercare.claimsunit.02@gmail.com
-=D9=87=D8=A7=D8=AA=D9=81: +23470-6910-3666
-
-Contact your claims agent:customercare.claimsunit.02@gmail.com
-
-=D9=85=D8=B9 =D8=A3=D8=B7=D9=8A=D8=A8 =D8=A7=D9=84=D8=AA=D8=AD=D9=8A=D8=
-=A7=D8=AA=D8=8C
-=D8=A2=D8=AF=D9=85 =D8=B1=D9=88=D8=B2 (=D8=A7=D9=84=D8=B3=D9=8A=D8=AF=D8=
-=A9)
-
-=D8=B3=D9=88=D9=81 =D8=A7=D9=86=D8=AA=D9=87=D8=A7=D9=83 =D9=84=D9=84=D8=
-=B3=D8=B1=D9=8A=D8=A9 =D9=85=D9=86 =D8=AC=D8=A7=D9=86=D8=A8 =D9=81=D8=A7=
-=D8=A6=D8=B2=D9=8A=D9=86 =D8=A7=D9=84=D9=86=D8=AA=D9=8A=D8=AC=D8=A9 =D8=
-=A5=D9=84=D9=89 =D9=81=D9=82=D8=AF=D8=A7=D9=86 =D8=A7=D9=84=D8=A3=D9=87=
-=D9=84=D9=8A=D8=A9
+I'll send a patch once tested.
