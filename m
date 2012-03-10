@@ -1,143 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP syn flood handling regression
-Date: Sat, 10 Mar 2012 09:44:50 -0800
-Message-ID: <1331401490.2453.28.camel@edumazet-laptop>
-References: <20120310122725.GA31129@hostway.ca>
+From: E-MAIL SENDER 2012 <vgcxvg34@aol.com>
+Subject: =?utf-8?Q?=D8=AC=D8=A7=D8=A6=D8=B2=D8=A9_=D8=A7=D9=84=D8=A7=D9=84=D9=83?=
+ =?utf-8?Q?=D8=AA=D8=B1=D9=88=D9=86=D9=8A=D8=A9_=D8=A7=D9=84=D9=81=D8=A7?=
+ =?utf-8?Q?=D8=A6=D8=B2=D8=A9_=D8=A5=D8=B9=D9=84=D8=A7=D9=85:_=D8=A7?=
+ =?utf-8?Q?=D9=84=D8=A7=D8=AA=D8=B5=D8=A7=D9=84_=D8=A8=D9=83_=D9=88?=
+ =?utf-8?Q?=D9=83=D9=8A=D9=84_=D8=A7=D9=84=D9=85=D8=B7=D8=A7=D9=84=D8=A8?=
+ =?utf-8?Q?=D8=A7=D8=AA_(customercare.cl?=
+ =?utf-8?Q?aimsunit.02@gmail.com?=
+ =?utf-8?Q?)?=
+Date: Sat, 10 Mar 2012 12:44:08 -0500 (EST)
+Message-ID: <8CECCFC87796EC8-1BA8-6453@Webmail-m121.sysops.aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Simon Kirby <sim@netnation.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:43161 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235Ab2CJRo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 12:44:57 -0500
-Received: by wejx9 with SMTP id x9so1982315wej.19
-        for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 09:44:56 -0800 (PST)
-In-Reply-To: <20120310122725.GA31129@hostway.ca>
+Received: from ims-m13.mx.aol.com ([64.12.207.146]:53631 "EHLO
+	ims-m13.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751264Ab2CJRp1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 12:45:27 -0500
+Received: from oms-mb02.r1000.mx.aol.com (oms-mb02.r1000.mx.aol.com [64.12.102.138])
+	by ims-m13.mx.aol.com (8.14.1/8.14.1) with ESMTP id q2AHjL9q025992
+	for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 12:45:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 10 mars 2012 =C3=A0 04:27 -0800, Simon Kirby a =C3=A9crit :
-> Hello!
->=20
-> A typical port 80 SYN flood started up to one of our clusters, but th=
-is
-> time, it didn't work so well. Legitimate connections and trying to fe=
-tch
-> server-status via localhost would hang for ~30 seconds before respond=
-ing,
-> even though though the box had plenty of spare cycles. An strace of a=
-ll
-> Apache processes showed quite a bit of sleeping in accept4().
->=20
-> This was with 3.2.9, so I went back in kernel builds and found that 3=
-=2E1
-> and 3.0 were also broken, while 2.6.39 works as I remember -- when sy=
-n
-> cookies are enabled, everything just works and is fast. The DoS kept =
-up,
-> so I was able to feed a bit to a node to do some bisection.
->=20
-> Of course, the DoS stopped literally seconds before the last bisectio=
-n
-> test, but I got it down to:
->=20
-> # good: [0e734419923bd8e599858f8fc196c7804bb85564] ipv4: Use inet_csk=
-_route_child_sock() in DCCP and TCP.
-> # bad: [ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0] ipv4: Don't use rt-=
->rt_{src,dst} in ip_queue_xmit().
->=20
-> ...leaving ea4fc0d6193ff56fcef39b0d2210d402a7acb5f0 and
-> d9d8da805dcb503ef8ee49918a94d49085060f23 as culprits.
->=20
-> I've stared at them but can't see what could be doing this.
->=20
+ELECTRONIC =D8=AD=D8=A7=D8=A6=D8=B2=D8=A9 =D8=B9=D9=84=D9=89 =D8=AC=D9=88=
+=D8=A7=D8=A6=D8=B2 =D8=A7=D9=84=D8=A5=D8=AE=D8=B7=D8=A7=D8=B1
 
-Hi Simon, thanks a lot for this report.
+=D8=A7=D9=84=D9=85=D8=B1=D8=AC=D8=B9: 475061725
+=D8=AF=D9=81=D8=B9=D8=A9: 9056490902/188
+=D9=88=D8=AA=D9=88 =D9=86=D9=88=D8=B9: =D9=85=D9=8A=D8=AC=D8=A7 =D9=85=D9=
+=84=D9=8A=D9=88=D9=86
+=D8=B9=D8=AF=D8=AF =D8=A7=D9=84=D8=A7=D9=88=D8=B1=D8=A7=D9=82 =D8=A7=D9=
+=84=D8=B1=D8=A7=D8=A8=D8=AD=D8=A9: GB8701/LPRC
 
-This sounds as a SYNCOOKIE side effect
+=D8=B9=D8=B2=D9=8A=D8=B2=D9=8A =D8=A7=D9=84=D9=81=D8=A7=D8=A6=D8=B2=D8=8C
 
-I could reproduce this with a typical DOS on ssh port.
+=D9=83=D8=A7=D9=85=D9=84 =D8=A7=D9=84=D8=A7=D8=B3=D8=AA=D8=B1=D8=A7=D9=84=
+=D9=8A=D8=A9 =D8=AA=D9=86=D8=B8=D9=8A=D9=85 =D9=8A=D8=A7=D9=86=D8=B5=D9=
+=8A=D8=A8 =D9=88=D8=B7=D9=86=D9=8A =D8=A3=D8=B4=D8=B9=D8=B1 =D8=A8=D8=A7=
+=D9=84=D8=B3=D8=B9=D8=A7=D8=AF=D8=A9
+=D8=A3=D9=86 =D8=A3=D8=AD=D9=8A=D8=B7=D9=83=D9=85 =D8=B9=D9=84=D9=85=D8=
+=A7 =D8=A8=D8=A3=D9=86 =D8=A7=D9=84=D8=A8=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=
+=D8=A5=D9=84=D9=83=D8=AA=D8=B1=D9=88=D9=86=D9=8A =D8=A7=D9=84=D8=AE=D8=A7=
+=D8=B5 =D8=A8=D9=83 =D9=82=D8=AF =D9=81=D8=A7=D8=B2 =D8=A8=D8=A7=D9=84=D8=
+=AC=D8=A7=D8=A6=D8=B2=D8=A9 =D9=85=D9=86 =D8=A7=D9=84=D9=85=D8=A7=D9=84
+=D8=B3=D8=AA =D9=85=D8=A7=D8=A6=D8=A9 =D9=88=D8=AE=D9=85=D8=B3=D9=8A=D9=
+=86 =D8=A3=D9=84=D9=81 =D8=AF=D9=88=D9=84=D8=A7=D8=B1 =D8=A3=D9=85=D9=8A=
+=D8=B1=D9=83=D9=8A ($ 650=D8=8C000=D8=8C00) =D9=81=D9=8A
+2011 =D8=AC=D8=A7=D8=A6=D8=B2=D8=A9 =D9=84=D8=AA=D8=B4=D8=AC=D9=8A=D8=B9=
+ =D8=AA=D9=86=D8=B8=D9=8A=D9=85 =D8=A7=D9=84=D9=85=D8=A4=D8=AA=D9=85=D8=
+=B1 =D8=A7=D9=84=D9=88=D8=B7=D9=86=D9=8A =D8=A7=D9=84=D8=B9=D8=B1=D8=A7=
+=D9=82=D9=8A =D8=A7=D9=84=D9=85=D8=B3=D8=A4=D9=88=D9=84 =D8=B9=D9=86 =D8=
+=A7=D9=84=D9=85=D9=88=D9=82=D8=B9
 
-Yes, it seems first messages are not sent at all, only after several tc=
-p
-timeouts :
+=D9=8A=D8=B1=D8=AC=D9=89 =D9=85=D9=84=D8=A7=D8=AD=D8=B8=D8=A9 =D8=A3=D9=
+=86 =D8=B9=D8=AF=D8=AF =D9=85=D8=AD=D8=B8=D9=88=D8=B8 =D9=81=D9=88=D8=B2=
+=D9=83 =D9=8A=D9=86=D8=AF=D8=B1=D8=AC =D9=81=D9=8A =D8=A3=D9=88=D8=B1=D9=
+=88=D8=A8=D8=A7 =D9=84=D8=AF=D9=8A=D9=86=D8=A7
+=D9=83=D8=AA=D9=8A=D8=A8 =D9=85=D9=83=D8=AA=D8=A8 =D8=AA=D9=85=D8=AB=D9=
+=8A=D9=84=D9=8A =D9=81=D9=8A =D8=A3=D9=81=D8=B1=D9=8A=D9=82=D9=8A=D8=A7=
+ =D9=83=D9=85=D8=A7 =D9=87=D9=88 =D9=85=D8=A8=D9=8A=D9=86 =D9=81=D9=8A =
+=D8=A7=D9=84=D8=AE=D8=A7=D8=B5
+=D8=A7=D9=84=D9=82=D8=B3=D9=8A=D9=85=D8=A9. =D9=86=D8=B8=D8=B1=D8=A7 =D8=
+=A5=D9=84=D9=89 =D9=87=D8=B0=D8=A7=D8=8C =D8=B3=D9=8A=D8=AA=D9=85 =D8=A7=
+=D9=84=D8=A7=D9=81=D8=B1=D8=A7=D8=AC =D8=B9=D9=86 $ 650=D8=8C000.00 =D9=
+=84=D9=83=D9=85 =D9=84=D9=83=D9=85
+=D9=85=D9=86 =D9=82=D8=A8=D9=84 =D8=A3=D9=8A =D9=85=D9=86 =D9=85=D9=83=D8=
+=A7=D8=AA=D8=A8 =D8=A7=D9=84=D8=AF=D9=81=D8=B9 =D9=84=D8=AF=D9=8A=D9=86=
+=D8=A7 =D9=81=D9=8A =D8=A7=D9=81=D8=B1=D9=8A=D9=82=D9=8A=D8=A7.
 
-Here my sshd write() its first frame (23 bytes) right after the 3WHS,
-but we can see first frame leaves the machine 17 seconds later :
+=D9=84=D9=84=D9=85=D8=B7=D8=A7=D9=84=D8=A8=D8=A9 =D8=A7=D9=84=D9=85=D8=A7=
+=D9=84 =D8=A7=D9=84=D8=AE=D8=A7=D8=B5 =D8=A8=D8=A7=D9=84=D8=AC=D8=A7=D8=
+=A6=D8=B2=D8=A9=D8=8C =D8=A7=D9=84=D8=B1=D8=AC=D8=A7=D8=A1 =D8=A7=D9=84=
+=D8=A7=D8=AA=D8=B5=D8=A7=D9=84 =D9=85=D8=B9 =D9=88=D9=83=D9=8A=D9=84 =D8=
+=A7=D9=84=D8=A7=D8=A6=D8=AA=D9=85=D8=A7=D9=86=D9=8A=D8=A9
+=D8=A7=D9=84=D9=85=D8=AD=D8=A7=D9=85=D9=8A =D8=A8=D9=88=D9=84 =D8=A3=D9=
+=86=D8=AF=D8=B1=D8=B3=D9=88=D9=86 =D8=B9=D8=A8=D8=B1 =D8=A7=D9=84=D8=A8=
+=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=D8=A7=D9=84=D9=83=D8=AA=D8=B1=D9=88=D9=86=
+=D9=8A =D9=85=D8=B9 =D8=A7=D9=84=D9=85=D8=B9=D9=84=D9=88=D9=85=D8=A7=D8=
+=AA =D8=A7=D9=84=D8=AA=D8=A7=D9=84=D9=8A=D8=A9:
+=D9=85=D8=B9=D9=84=D9=88=D9=85=D8=A7=D8=AA =D8=A7=D9=84=D8=A7=D8=AA=D8=B5=
+=D8=A7=D9=84:
 
-17:42:49.958432 IP 10.170.237.2.37550 > 192.168.20.110.22: S 3066771530=
-:3066771530(0) win 14600 <mss 1460,sackOK,timestamp 19981015 0,nop,wsca=
-le 6>
-17:42:49.958438 IP 192.168.20.110.22 > 10.170.237.2.37550: S 881027529:=
-881027529(0) ack 3066771531 win 14480 <mss 1460,sackOK,timestamp 155035=
-3622 19981015,nop,wscale 4>
-17:42:50.137163 IP 10.170.237.2.37550 > 192.168.20.110.22: . ack 1 win =
-229 <nop,nop,timestamp 19981060 1550353622>
+=D8=A7=D9=84=D8=A7=D8=B3=D9=85: =D8=A7=D9=84=D9=85=D8=AD=D8=A7=D9=85=D9=
+=8A =D8=A8=D9=88=D9=84 =D8=A3=D9=86=D8=AF=D8=B1=D8=B3=D9=88=D9=86
+=D8=A7=D9=84=D8=A8=D8=B1=D9=8A=D8=AF =D8=A7=D9=84=D8=A7=D9=84=D9=83=D8=AA=
+=D8=B1=D9=88=D9=86=D9=8A:customercare.claimsunit.02@gmail.com
+=D9=87=D8=A7=D8=AA=D9=81: +23470-6910-3666
 
-17:43:07.557096 IP 192.168.20.110.22 > 10.170.237.2.37550: P 1:24(23) a=
-ck 1 win 913 <nop,nop,timestamp 1550371264 19981060>
-17:43:07.757096 IP 10.170.237.2.37550 > 192.168.20.110.22: . ack 24 win=
- 229 <nop,nop,timestamp 19985459 1550371264>
-17:43:07.936756 IP 10.170.237.2.37550 > 192.168.20.110.22: P 1:40(39) a=
-ck 24 win 229 <nop,nop,timestamp 19985459 1550371264>
-17:43:07.936769 IP 192.168.20.110.22 > 10.170.237.2.37550: . ack 40 win=
- 913 <nop,nop,timestamp 1550371643 19985459>
-17:43:07.937384 IP 192.168.20.110.22 > 10.170.237.2.37550: P 24:664(640=
-) ack 40 win 913 <nop,nop,timestamp 1550371644 19985459>
-17:43:08.156252 IP 10.170.237.2.37550 > 192.168.20.110.22: P 40:1184(11=
-44) ack 24 win 229 <nop,nop,timestamp 19985554 1550371643>
+Contact your claims agent:customercare.claimsunit.02@gmail.com
 
-To check that its indeed the tcp retransmits that trigger and eventuall=
-y send the frame :
+=D9=85=D8=B9 =D8=A3=D8=B7=D9=8A=D8=A8 =D8=A7=D9=84=D8=AA=D8=AD=D9=8A=D8=
+=A7=D8=AA=D8=8C
+=D8=A2=D8=AF=D9=85 =D8=B1=D9=88=D8=B2 (=D8=A7=D9=84=D8=B3=D9=8A=D8=AF=D8=
+=A9)
 
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      23                        ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(on,700ms,0=
-) ino:11067765 sk:f3564780
-	 mem:(r0,w2240,f1856,t0) ts sack bic wscale:6,4 rto:1209 rtt:403/201.5=
- cwnd:10 ssthresh:5 send 287.4Kbps rcv_space:14600
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      23                        ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(on,1.529ms=
-,1) ino:11067765 sk:f3564780
-	 mem:(r0,w2240,f1856,t0) ts sack bic wscale:6,4 rto:2418 rtt:403/201.5=
- ssthresh:5 send 57.5Kbps rcv_space:14600
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      23                        ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(on,4.005ms=
-,2) ino:11067765 sk:f3564780
-	 mem:(r0,w2240,f1856,t0) ts sack bic wscale:6,4 rto:4836 rtt:403/201.5=
- ssthresh:5 send 57.5Kbps rcv_space:14600
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      23                        ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(on,1.773ms=
-,2) ino:11067765 sk:f3564780
-	 mem:(r0,w2240,f1856,t0) ts sack bic wscale:6,4 rto:4836 rtt:403/201.5=
- ssthresh:5 send 57.5Kbps rcv_space:14600
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      23                        ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(on,8.574ms=
-,3) ino:11067765 sk:f3564780
-	 mem:(r0,w2240,f1856,t0) ts sack bic wscale:6,4 rto:9672 rtt:403/201.5=
- ssthresh:5 send 57.5Kbps rcv_space:14600
-$ ss -emoi dst 10.170.237.2
-State       Recv-Q Send-Q                            Local Address:Port=
-                                Peer Address:Port  =20
-ESTAB       0      0                         ::ffff:192.168.20.110:ssh =
-                         ::ffff:10.170.237.2:37604    timer:(keepalive,=
-48min,0) ino:11067765 sk:f3564780
-	 mem:(r0,w0,f0,t0) ts sack bic wscale:6,4 rto:806 rtt:263.875/105.5 at=
-o:40 cwnd:6 ssthresh:5 send 263.4Kbps rcv_rtt:181 rcv_space:14600
+=D8=B3=D9=88=D9=81 =D8=A7=D9=86=D8=AA=D9=87=D8=A7=D9=83 =D9=84=D9=84=D8=
+=B3=D8=B1=D9=8A=D8=A9 =D9=85=D9=86 =D8=AC=D8=A7=D9=86=D8=A8 =D9=81=D8=A7=
+=D8=A6=D8=B2=D9=8A=D9=86 =D8=A7=D9=84=D9=86=D8=AA=D9=8A=D8=AC=D8=A9 =D8=
+=A5=D9=84=D9=89 =D9=81=D9=82=D8=AF=D8=A7=D9=86 =D8=A7=D9=84=D8=A3=D9=87=
+=D9=84=D9=8A=D8=A9
