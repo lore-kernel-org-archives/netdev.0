@@ -1,57 +1,42 @@
-From: Mitar <mmitar@gmail.com>
-Subject: Re: Ethernet-over-UDP virtual network interface
-Date: Sat, 10 Mar 2012 08:31:28 -0800
-Message-ID: <CAKLmikPtvOLgzuSTF=vwfZcMD7jWWRSgWaLxnSxBsa=2RSnPVA@mail.gmail.com>
-References: <CAKLmikOBPB7rTZu2EfK26=3AhOQUR8xg8n4ySUKRMFmBkC1J3g@mail.gmail.com>
-	<20120304170101.GH21526@kvack.org>
-	<CAKLmikOVydmSJEBWwDc=Jv4XPMi3dsS+Pn9=BP_bBePD0L7K8A@mail.gmail.com>
-	<20120308161138.GB23774@kvack.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: linux-next: Tree for Mar 9 (netfilter)
+Date: Sat, 10 Mar 2012 08:45:22 -0800
+Message-ID: <4F5B8522.8050707@xenotime.net>
+References: <20120309191101.8634973f7d9988c602143f7c@canb.auug.org.au> <4F5A6872.3050502@xenotime.net> <20120310112154.GA22478@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Nejc Skoberne <nejc@skoberne.net>,
-	Jernej Kos <kostko@unimatrix-one.org>, gw.2012@tnode.com
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:56510 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751908Ab2CJQb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 11:31:29 -0500
-Received: by vcqp1 with SMTP id p1so2553094vcq.19
-        for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 08:31:28 -0800 (PST)
-In-Reply-To: <20120308161138.GB23774@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120310112154.GA22478@1984>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+On 03/10/2012 03:21 AM, Pablo Neira Ayuso wrote:
 
-On Thu, Mar 8, 2012 at 8:11 AM, Benjamin LaHaise <bcrl@kvack.org> wrote:
-> On Tue, Mar 06, 2012 at 12:58:44AM +0100, Mitar wrote:
->> I would like something state-less. I see L2TPv3 has support for
->
-> How stateless?
-
-Stateless in the ethernet-like manner: each incoming packet is simply
-decapsulated and seen as it came over the (virtual) ethernet wire.
-
-Of course this is because I have one implementation of our needs in my
-head. Probably stateless is not necessary if everything is done
-automatically. But what I am saying is that it could be even
-stateless, something very very simple (and efficient). That we do not
-need state/sessions (on a tunnel level, of course on the IP level of
-packets send around then network kernel can (and should) keep state).
-Not much CPU computation, not much memory copying, no user-space
-context switching.
-
-The idea is that we need a very simple solution, robust, no
-encryption, no authentication. Just to improve the throughput on
-consumer routers (today with N protocol you can easily have 15Mbit/s+
-links and with fiber to tunnel them further this means that CPU is
-often a bottleneck).
-
-As I see there is no simple (both in implementation and configuration
-manner) solution to this problem yet? Would it be then interesting to
-develop such kernel module as I described in my initial post? Is there
-any chance of it being accepted into the kernel?
+> On Fri, Mar 09, 2012 at 12:30:42PM -0800, Randy Dunlap wrote:
+>> On 03/09/2012 12:11 AM, Stephen Rothwell wrote:
+>>
+>>> Hi all,
+>>>
+>>> There will be no linux-next release on March 12 due to a public holiday.
+>>>
+>>> Changes since 20120308:
+>>
+>>
+>> xt_LOG.c:(.text+0x789b1): undefined reference to `ip6t_ext_hdr'
+>>
+>> Full randconfig file is attached.
+> 
+> The patch attached fixes this problem, thanks!
 
 
-Mitar
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+
+Thanks.
+
+-- 
+~Randy
