@@ -1,17 +1,17 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 4/8] r8169: move rtl_set_rx_mode before its rtl_hw_start callers.
-Date: Sat, 10 Mar 2012 23:19:51 +0100
-Message-ID: <20120310221951.GE9692@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 5/8] r8169: move rtl8169_open after rtl_task it depends on.
+Date: Sat, 10 Mar 2012 23:20:06 +0100
+Message-ID: <20120310222006.GF9692@electric-eye.fr.zoreil.com>
 References: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41091 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:41097 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752673Ab2CJWVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2012 17:21:04 -0500
+	id S1752673Ab2CJWVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2012 17:21:18 -0500
 Content-Disposition: inline
 In-Reply-To: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,134 +20,208 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |  101 +++++++++++++++++-----------------
- 1 files changed, 50 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |  168 ++++++++++++++++-----------------
+ 1 files changed, 81 insertions(+), 87 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 5ce9f64..abb6dea 100644
+index abb6dea..8d4515e 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -777,7 +777,6 @@ MODULE_FIRMWARE(FIRMWARE_8168F_2);
+@@ -775,10 +775,6 @@ MODULE_FIRMWARE(FIRMWARE_8168F_1);
+ MODULE_FIRMWARE(FIRMWARE_8168F_2);
+ 
  static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance);
- static int rtl8169_init_ring(struct net_device *dev);
- static void rtl_hw_start(struct net_device *dev);
--static void rtl_set_rx_mode(struct net_device *dev);
- static void rtl8169_rx_clear(struct rtl8169_private *tp);
- static int rtl8169_poll(struct napi_struct *napi, int budget);
+-static int rtl8169_init_ring(struct net_device *dev);
+-static void rtl_hw_start(struct net_device *dev);
+-static void rtl8169_rx_clear(struct rtl8169_private *tp);
+-static int rtl8169_poll(struct napi_struct *napi, int budget);
  
-@@ -4223,6 +4222,56 @@ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
- 	}
- }
- 
-+static void rtl_set_rx_mode(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u32 mc_filter[2];	/* Multicast hash filter */
-+	int rx_mode;
-+	u32 tmp = 0;
-+
-+	if (dev->flags & IFF_PROMISC) {
-+		/* Unconditionally log net taps. */
-+		netif_notice(tp, link, dev, "Promiscuous mode enabled\n");
-+		rx_mode =
-+		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
-+		    AcceptAllPhys;
-+		mc_filter[1] = mc_filter[0] = 0xffffffff;
-+	} else if ((netdev_mc_count(dev) > multicast_filter_limit) ||
-+		   (dev->flags & IFF_ALLMULTI)) {
-+		/* Too many to filter perfectly -- accept all multicasts. */
-+		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
-+		mc_filter[1] = mc_filter[0] = 0xffffffff;
-+	} else {
-+		struct netdev_hw_addr *ha;
-+
-+		rx_mode = AcceptBroadcast | AcceptMyPhys;
-+		mc_filter[1] = mc_filter[0] = 0;
-+		netdev_for_each_mc_addr(ha, dev) {
-+			int bit_nr = ether_crc(ETH_ALEN, ha->addr) >> 26;
-+			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
-+			rx_mode |= AcceptMulticast;
-+		}
-+	}
-+
-+	if (dev->features & NETIF_F_RXALL)
-+		rx_mode |= (AcceptErr | AcceptRunt);
-+
-+	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
-+
-+	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
-+		u32 data = mc_filter[0];
-+
-+		mc_filter[0] = swab32(mc_filter[1]);
-+		mc_filter[1] = swab32(data);
-+	}
-+
-+	RTL_W32(MAR0 + 4, mc_filter[1]);
-+	RTL_W32(MAR0 + 0, mc_filter[0]);
-+
-+	RTL_W32(RxConfig, tmp);
-+}
-+
- static void rtl_hw_start_8169(struct net_device *dev)
+ static void rtl_lock_work(struct rtl8169_private *tp)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -5757,56 +5806,6 @@ static int rtl8169_close(struct net_device *dev)
- 	return 0;
+@@ -4033,88 +4029,6 @@ static void rtl_request_firmware(struct rtl8169_private *tp)
+ 		rtl_request_uncached_firmware(tp);
  }
  
--static void rtl_set_rx_mode(struct net_device *dev)
+-static void rtl_task(struct work_struct *);
+-
+-static int rtl8169_open(struct net_device *dev)
 -{
 -	struct rtl8169_private *tp = netdev_priv(dev);
 -	void __iomem *ioaddr = tp->mmio_addr;
--	u32 mc_filter[2];	/* Multicast hash filter */
--	int rx_mode;
--	u32 tmp = 0;
+-	struct pci_dev *pdev = tp->pci_dev;
+-	int retval = -ENOMEM;
 -
--	if (dev->flags & IFF_PROMISC) {
--		/* Unconditionally log net taps. */
--		netif_notice(tp, link, dev, "Promiscuous mode enabled\n");
--		rx_mode =
--		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
--		    AcceptAllPhys;
--		mc_filter[1] = mc_filter[0] = 0xffffffff;
--	} else if ((netdev_mc_count(dev) > multicast_filter_limit) ||
--		   (dev->flags & IFF_ALLMULTI)) {
--		/* Too many to filter perfectly -- accept all multicasts. */
--		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
--		mc_filter[1] = mc_filter[0] = 0xffffffff;
--	} else {
--		struct netdev_hw_addr *ha;
+-	pm_runtime_get_sync(&pdev->dev);
 -
--		rx_mode = AcceptBroadcast | AcceptMyPhys;
--		mc_filter[1] = mc_filter[0] = 0;
--		netdev_for_each_mc_addr(ha, dev) {
--			int bit_nr = ether_crc(ETH_ALEN, ha->addr) >> 26;
--			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
--			rx_mode |= AcceptMulticast;
--		}
--	}
+-	/*
+-	 * Rx and Tx desscriptors needs 256 bytes alignment.
+-	 * dma_alloc_coherent provides more.
+-	 */
+-	tp->TxDescArray = dma_alloc_coherent(&pdev->dev, R8169_TX_RING_BYTES,
+-					     &tp->TxPhyAddr, GFP_KERNEL);
+-	if (!tp->TxDescArray)
+-		goto err_pm_runtime_put;
 -
--	if (dev->features & NETIF_F_RXALL)
--		rx_mode |= (AcceptErr | AcceptRunt);
+-	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, R8169_RX_RING_BYTES,
+-					     &tp->RxPhyAddr, GFP_KERNEL);
+-	if (!tp->RxDescArray)
+-		goto err_free_tx_0;
 -
--	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
+-	retval = rtl8169_init_ring(dev);
+-	if (retval < 0)
+-		goto err_free_rx_1;
 -
--	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
--		u32 data = mc_filter[0];
+-	INIT_WORK(&tp->wk.work, rtl_task);
 -
--		mc_filter[0] = swab32(mc_filter[1]);
--		mc_filter[1] = swab32(data);
--	}
+-	smp_mb();
 -
--	RTL_W32(MAR0 + 4, mc_filter[1]);
--	RTL_W32(MAR0 + 0, mc_filter[0]);
+-	rtl_request_firmware(tp);
 -
--	RTL_W32(RxConfig, tmp);
+-	retval = request_irq(dev->irq, rtl8169_interrupt,
+-			     (tp->features & RTL_FEATURE_MSI) ? 0 : IRQF_SHARED,
+-			     dev->name, dev);
+-	if (retval < 0)
+-		goto err_release_fw_2;
+-
+-	rtl_lock_work(tp);
+-
+-	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
+-
+-	napi_enable(&tp->napi);
+-
+-	rtl8169_init_phy(dev, tp);
+-
+-	__rtl8169_set_features(dev, dev->features);
+-
+-	rtl_pll_power_up(tp);
+-
+-	rtl_hw_start(dev);
+-
+-	netif_start_queue(dev);
+-
+-	rtl_unlock_work(tp);
+-
+-	tp->saved_wolopts = 0;
+-	pm_runtime_put_noidle(&pdev->dev);
+-
+-	rtl8169_check_link_status(dev, tp, ioaddr);
+-out:
+-	return retval;
+-
+-err_release_fw_2:
+-	rtl_release_firmware(tp);
+-	rtl8169_rx_clear(tp);
+-err_free_rx_1:
+-	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
+-			  tp->RxPhyAddr);
+-	tp->RxDescArray = NULL;
+-err_free_tx_0:
+-	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
+-			  tp->TxPhyAddr);
+-	tp->TxDescArray = NULL;
+-err_pm_runtime_put:
+-	pm_runtime_put_noidle(&pdev->dev);
+-	goto out;
 -}
 -
+ static void rtl_rx_close(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -5806,6 +5720,86 @@ static int rtl8169_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtl_open(struct net_device *dev)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	struct pci_dev *pdev = tp->pci_dev;
++	int retval = -ENOMEM;
++
++	pm_runtime_get_sync(&pdev->dev);
++
++	/*
++	 * Rx and Tx desscriptors needs 256 bytes alignment.
++	 * dma_alloc_coherent provides more.
++	 */
++	tp->TxDescArray = dma_alloc_coherent(&pdev->dev, R8169_TX_RING_BYTES,
++					     &tp->TxPhyAddr, GFP_KERNEL);
++	if (!tp->TxDescArray)
++		goto err_pm_runtime_put;
++
++	tp->RxDescArray = dma_alloc_coherent(&pdev->dev, R8169_RX_RING_BYTES,
++					     &tp->RxPhyAddr, GFP_KERNEL);
++	if (!tp->RxDescArray)
++		goto err_free_tx_0;
++
++	retval = rtl8169_init_ring(dev);
++	if (retval < 0)
++		goto err_free_rx_1;
++
++	INIT_WORK(&tp->wk.work, rtl_task);
++
++	smp_mb();
++
++	rtl_request_firmware(tp);
++
++	retval = request_irq(dev->irq, rtl8169_interrupt,
++			     (tp->features & RTL_FEATURE_MSI) ? 0 : IRQF_SHARED,
++			     dev->name, dev);
++	if (retval < 0)
++		goto err_release_fw_2;
++
++	rtl_lock_work(tp);
++
++	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
++
++	napi_enable(&tp->napi);
++
++	rtl8169_init_phy(dev, tp);
++
++	__rtl8169_set_features(dev, dev->features);
++
++	rtl_pll_power_up(tp);
++
++	rtl_hw_start(dev);
++
++	netif_start_queue(dev);
++
++	rtl_unlock_work(tp);
++
++	tp->saved_wolopts = 0;
++	pm_runtime_put_noidle(&pdev->dev);
++
++	rtl8169_check_link_status(dev, tp, ioaddr);
++out:
++	return retval;
++
++err_release_fw_2:
++	rtl_release_firmware(tp);
++	rtl8169_rx_clear(tp);
++err_free_rx_1:
++	dma_free_coherent(&pdev->dev, R8169_RX_RING_BYTES, tp->RxDescArray,
++			  tp->RxPhyAddr);
++	tp->RxDescArray = NULL;
++err_free_tx_0:
++	dma_free_coherent(&pdev->dev, R8169_TX_RING_BYTES, tp->TxDescArray,
++			  tp->TxPhyAddr);
++	tp->TxDescArray = NULL;
++err_pm_runtime_put:
++	pm_runtime_put_noidle(&pdev->dev);
++	goto out;
++}
++
  static struct rtnl_link_stats64 *
  rtl8169_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
  {
+@@ -6043,7 +6037,7 @@ static void __devexit rtl_remove_one(struct pci_dev *pdev)
+ }
+ 
+ static const struct net_device_ops rtl_netdev_ops = {
+-	.ndo_open		= rtl8169_open,
++	.ndo_open		= rtl_open,
+ 	.ndo_stop		= rtl8169_close,
+ 	.ndo_get_stats64	= rtl8169_get_stats64,
+ 	.ndo_start_xmit		= rtl8169_start_xmit,
 -- 
 1.7.7.6
