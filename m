@@ -1,97 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: regarding trill implementation
-Date: Sat, 10 Mar 2012 09:27:03 -0800
-Message-ID: <20120310092703.16059851@nehalam.linuxnetplumber.net>
-References: <CAAZheXnWv-td=YmTftijmJ079mP_Cc4UDHPg9YNCMHQ3h4QsPQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 0/8] Pull request for 'davem-next.r8169' branch
+Date: Sat, 10 Mar 2012 23:17:51 +0100
+Message-ID: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51315 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752008Ab2CJUG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2012 15:06:57 -0500
-In-Reply-To: <CAAZheXnWv-td=YmTftijmJ079mP_Cc4UDHPg9YNCMHQ3h4QsPQ@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:41067 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752673Ab2CJWTI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2012 17:19:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 Mar 2012 23:13:42 +0500
-Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk> wrote:
+Please pull from branch 'davem-next.r8169' in repository
 
-> Hi,
->     I have got the point where packet data is truncated. The function
-> nf_bridge_maybe_copy_header( ) in  br_dev_queue_push_xmit( ) actually
-> truncates it.
-> Can you please tell me the purpose of nf_bridge_maybe_copy_headers( ).
+git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
 
-Packets that go through a transparent bridge need to have special processing.
-The original header is copied to an area above the header, so that netfilter
-rules see the original header, not the header of destination.
+to get the changes below.
 
-    
+This patchset tidies up the dependencies within the driver. I have not
+merged the patches to avoid confusing diff.
 
-               +----------+
-               | Original |
-               | Ethernet |
-               | Header   |
-               +----------+<-------+ skb->data
-               | Bridged  |
-               | Ethernet |
-               | Header   |
-               +----------+
-               | IP and   |
-               | rest     |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               |          |
-               +----------+
+I have a patchkit similar to the last patch in the series ("r8169: stop
+using net_device.{base_addr, irq}.") for some PCI only drivers. Depending
+on the driver, it contains either a few lines of changes (~20 drivers) or
+a complete conversion to __iomem + pci_iomap (4~6 drivers). Would it be
+appropriate to send a patch per driver for the latter and only a single
+patch for the former ?
 
+Distance from 'base' (b2d3298e0916fa059712691c85a0e97becc4ab9f)
+---------------------------------------------------------------
 
-When allocating skb's, dev_alloc_skb and other routines setup the
-required padding.
+92a7c4e7183bcd29e2366f1ee784ad395c291134
+31fa8b1855cb1f1fd99e2f2f9b8f2c8f113e9f2e
+dc1c00ce70da5d3bb3fc97707e04f598ff72e7ba
+df43ac7831a0e321b6b183b7eb48ae4577207453
+e6b763ea0527f1038752a591e4b45cffacc4bba2
+fa9c385ef57c1a04966f01314f96fb7c9347d924
+3b6cf25de260d5607fa1fe48ba1af0f6d057708e
+e27566ed370da09e3b812d3d76dce002915a5bdd
 
->  As far as i have understood, it is used for vlan or pppoe header
-> encapsulation. I don't understand the purpose of netfilters as vlan
-> and pppoe data is copied from skb->nf_bridge->data to skb->data but do
-> so in case of when netfilters are configured.
-> 
-> Should i put my encapsulation headers also in skb->nf_bridge->data?
-> And modify the function nf_bridge_encap_header_len(const struct
-> sk_buff *skb) by adding a "case" for trill header. So that header will
-> be put in skb->data in  function   skb_copy_to_linear_data_offset(skb,
-> -header_size, skb->nf_bridge->data, header_size);
-> 
-> Temporarily, i have called a function create_trill_header( ) in
-> br_dev_queue_push_xmit( ).
-> 
-> Actual is:
-> 
->   int br_dev_queue_push_xmit(struct sk_buff *skb)
->   {
->           /* ip_fragment doesn't copy the MAC header */
->           if (nf_bridge_maybe_copy_header(skb) ||
->               (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))) {
->                   kfree_skb(skb);
->           } else {
->                   skb_push(skb, ETH_HLEN);
->                   dev_queue_xmit(skb);
->           }
-> 
->           return 0;
->   }
-> 
-> 
-> Now after addition of trill hooks:
+Diffstat
+--------
 
-Trill should be a tunnel (look at gretap) that can be added to bridge
-transparently.
+ drivers/net/ethernet/realtek/r8169.c | 1966 +++++++++++++++++-----------------
+ 1 files changed, 971 insertions(+), 995 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (8):
+      r8169: move the driver removal method to the end of the driver file.
+      r8169: move the driver probe method to the end of the driver file.
+      r8169: move net_device_ops beyond the methods it references.
+      r8169: move rtl_set_rx_mode before its rtl_hw_start callers.
+      r8169: move rtl8169_open after rtl_task it depends on.
+      r8169: move the netpoll handler after the irq handler.
+      r8169: move rtl_cfg_info closer to its caller.
+      r8169: stop using net_device.{base_addr, irq}.
+
+-- 
+Ueimor
