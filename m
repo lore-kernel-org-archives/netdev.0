@@ -1,17 +1,17 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 6/8] r8169: move the netpoll handler after the irq handler.
-Date: Sat, 10 Mar 2012 23:20:23 +0100
-Message-ID: <20120310222023.GG9692@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 7/8] r8169: move rtl_cfg_info closer to its caller.
+Date: Sat, 10 Mar 2012 23:20:49 +0100
+Message-ID: <20120310222049.GH9692@electric-eye.fr.zoreil.com>
 References: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41103 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:41111 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752673Ab2CJWVf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Mar 2012 17:21:35 -0500
+	id S1752952Ab2CJWWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Mar 2012 17:22:02 -0500
 Content-Disposition: inline
 In-Reply-To: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,53 +20,151 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   20 +++++++++-----------
- 1 files changed, 9 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |  118 ++++++++++++++++-----------------
+ 1 files changed, 57 insertions(+), 61 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 8d4515e..12329c5 100644
+index 12329c5..390e69a 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -774,8 +774,6 @@ MODULE_FIRMWARE(FIRMWARE_8105E_1);
- MODULE_FIRMWARE(FIRMWARE_8168F_1);
- MODULE_FIRMWARE(FIRMWARE_8168F_2);
+@@ -255,10 +255,6 @@ enum cfg_version {
+ 	RTL_CFG_2
+ };
  
--static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance);
+-static void rtl_hw_start_8169(struct net_device *);
+-static void rtl_hw_start_8168(struct net_device *);
+-static void rtl_hw_start_8101(struct net_device *);
 -
- static void rtl_lock_work(struct rtl8169_private *tp)
- {
- 	mutex_lock(&tp->wk.mutex);
-@@ -3289,15 +3287,6 @@ static void rtl8169_phy_timer(unsigned long __opaque)
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_PHY_PENDING);
+ static DEFINE_PCI_DEVICE_TABLE(rtl8169_pci_tbl) = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), 0, 0, RTL_CFG_0 },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8136), 0, 0, RTL_CFG_2 },
+@@ -3438,63 +3434,6 @@ static int rtl_tbi_ioctl(struct rtl8169_private *tp, struct mii_ioctl_data *data
+ 	return -EOPNOTSUPP;
  }
  
--#ifdef CONFIG_NET_POLL_CONTROLLER
--static void rtl8169_netpoll(struct net_device *dev)
+-static const struct rtl_cfg_info {
+-	void (*hw_start)(struct net_device *);
+-	unsigned int region;
+-	unsigned int align;
+-	u16 event_slow;
+-	unsigned features;
+-	u8 default_ver;
+-} rtl_cfg_infos [] = {
+-	[RTL_CFG_0] = {
+-		.hw_start	= rtl_hw_start_8169,
+-		.region		= 1,
+-		.align		= 0,
+-		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver,
+-		.features	= RTL_FEATURE_GMII,
+-		.default_ver	= RTL_GIGA_MAC_VER_01,
+-	},
+-	[RTL_CFG_1] = {
+-		.hw_start	= rtl_hw_start_8168,
+-		.region		= 2,
+-		.align		= 8,
+-		.event_slow	= SYSErr | LinkChg | RxOverflow,
+-		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
+-		.default_ver	= RTL_GIGA_MAC_VER_11,
+-	},
+-	[RTL_CFG_2] = {
+-		.hw_start	= rtl_hw_start_8101,
+-		.region		= 2,
+-		.align		= 8,
+-		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
+-				  PCSTimeout,
+-		.features	= RTL_FEATURE_MSI,
+-		.default_ver	= RTL_GIGA_MAC_VER_13,
+-	}
+-};
+-
+-/* Cfg9346_Unlock assumed. */
+-static unsigned rtl_try_msi(struct rtl8169_private *tp,
+-			    const struct rtl_cfg_info *cfg)
 -{
--	struct rtl8169_private *tp = netdev_priv(dev);
+-	void __iomem *ioaddr = tp->mmio_addr;
+-	unsigned msi = 0;
+-	u8 cfg2;
 -
--	rtl8169_interrupt(tp->pci_dev->irq, dev);
+-	cfg2 = RTL_R8(Config2) & ~MSIEnable;
+-	if (cfg->features & RTL_FEATURE_MSI) {
+-		if (pci_enable_msi(tp->pci_dev)) {
+-			netif_info(tp, hw, tp->dev, "no MSI. Back to INTx.\n");
+-		} else {
+-			cfg2 |= MSIEnable;
+-			msi = RTL_FEATURE_MSI;
+-		}
+-	}
+-	if (tp->mac_version <= RTL_GIGA_MAC_VER_06)
+-		RTL_W8(Config2, cfg2);
+-	return msi;
 -}
--#endif
 -
- static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
- 				  void __iomem *ioaddr)
+ static void rtl_disable_msi(struct pci_dev *pdev, struct rtl8169_private *tp)
  {
-@@ -5720,6 +5709,15 @@ static int rtl8169_close(struct net_device *dev)
- 	return 0;
- }
+ 	if (tp->features & RTL_FEATURE_MSI) {
+@@ -6053,6 +5992,63 @@ static const struct net_device_ops rtl_netdev_ops = {
  
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void rtl8169_netpoll(struct net_device *dev)
+ };
+ 
++static const struct rtl_cfg_info {
++	void (*hw_start)(struct net_device *);
++	unsigned int region;
++	unsigned int align;
++	u16 event_slow;
++	unsigned features;
++	u8 default_ver;
++} rtl_cfg_infos [] = {
++	[RTL_CFG_0] = {
++		.hw_start	= rtl_hw_start_8169,
++		.region		= 1,
++		.align		= 0,
++		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver,
++		.features	= RTL_FEATURE_GMII,
++		.default_ver	= RTL_GIGA_MAC_VER_01,
++	},
++	[RTL_CFG_1] = {
++		.hw_start	= rtl_hw_start_8168,
++		.region		= 2,
++		.align		= 8,
++		.event_slow	= SYSErr | LinkChg | RxOverflow,
++		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
++		.default_ver	= RTL_GIGA_MAC_VER_11,
++	},
++	[RTL_CFG_2] = {
++		.hw_start	= rtl_hw_start_8101,
++		.region		= 2,
++		.align		= 8,
++		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
++				  PCSTimeout,
++		.features	= RTL_FEATURE_MSI,
++		.default_ver	= RTL_GIGA_MAC_VER_13,
++	}
++};
++
++/* Cfg9346_Unlock assumed. */
++static unsigned rtl_try_msi(struct rtl8169_private *tp,
++			    const struct rtl_cfg_info *cfg)
 +{
-+	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	unsigned msi = 0;
++	u8 cfg2;
 +
-+	rtl8169_interrupt(tp->pci_dev->irq, dev);
++	cfg2 = RTL_R8(Config2) & ~MSIEnable;
++	if (cfg->features & RTL_FEATURE_MSI) {
++		if (pci_enable_msi(tp->pci_dev)) {
++			netif_info(tp, hw, tp->dev, "no MSI. Back to INTx.\n");
++		} else {
++			cfg2 |= MSIEnable;
++			msi = RTL_FEATURE_MSI;
++		}
++	}
++	if (tp->mac_version <= RTL_GIGA_MAC_VER_06)
++		RTL_W8(Config2, cfg2);
++	return msi;
 +}
-+#endif
 +
- static int rtl_open(struct net_device *dev)
+ static int __devinit
+ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
 -- 
 1.7.7.6
