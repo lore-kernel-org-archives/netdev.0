@@ -1,184 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 10/10] sfc: Log the part number on probe
-Date: Sat, 10 Mar 2012 00:53:03 +0000
-Message-ID: <1331340783.2537.20.camel@bwh-desktop>
-References: <1331340409.2537.10.camel@bwh-desktop>
+From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+Subject: [ANN] compat-wireless released based on 3.3-rc6
+Date: Fri, 9 Mar 2012 17:03:36 -0800
+Message-ID: <CAB=NE6W98XLxHq-Uom4g0q_bFKaNGJ4WN11x9_9oqWDZFXOy0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:51327 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755217Ab2CJAxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 19:53:06 -0500
-In-Reply-To: <1331340409.2537.10.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	lf_driver_backport@lists.linux-foundation.org,
+	Felix Fietkau <nbd@openwrt.org>,
+	Kathy Giori <kgiori@qca.qualcomm.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-During probe of each port, read and log the part number from VPD.
-Remove the Falcon-specific board name lookup.
+We chug along and are now at 3.3-rc6. We're close to the final release
+so we push out the first Wireless / Bluetooth / Ethernet backport rc
+release based on rc6. We have two releases for this update, a vanilla
+one [0] and a -n release [1] which has 14 patches cherry picked from
+linux-next.git as suggested by nbd as listed below. These additional
+patches are patches which have been deemed as non-critical-fix but
+important for AP mode users at least. As explained previously, we have
+directories to help with coping with "emergency" fixes or "extra
+fixes" or "hot fixes" or whatever your favorite PHB wants to call it
+[2], we categorize these patches accordingly to help ensure we keep
+patches in route upstream. If you want patches merged into these
+releases that fit those descriptions just send me a patch!
 
-Initial version by Stuart Hodgson <smhodgson@solarflare.com>.
+For complete details of this release you can read the
+ChangeLog-3.3-wireless file [3]. And yes, I should clarify this is not
+just a release for wireless, it includes wireless, bluetooth and
+ethernet. They all use the shared compat module [4] but
+compat-wireless [5] is the framework that pulls them all together.
+What's new now is we have a shiny web page for the compat module [4].
+If you're curious about hacking on compat-wireless see the hacking
+page [6] and if you want to help as a student go check out the Google
+Summer of Code project [7]
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c           |   53 ++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/falcon_boards.c |   13 -------
- drivers/net/ethernet/sfc/nic.h           |    4 --
- 3 files changed, 53 insertions(+), 17 deletions(-)
+Please report any issues you see with this release.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 7683e53..3cbfbff 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2497,6 +2497,57 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
- 	free_netdev(efx->net_dev);
- };
- 
-+/* NIC VPD information
-+ * Called during probe to display the part number of the
-+ * installed NIC.  VPD is potentially very large but this should
-+ * always appear within the first 512 bytes.
-+ */
-+#define SFC_VPD_LEN 512
-+static void efx_print_product_vpd(struct efx_nic *efx)
-+{
-+	struct pci_dev *dev = efx->pci_dev;
-+	char vpd_data[SFC_VPD_LEN];
-+	ssize_t vpd_size;
-+	int i, j;
-+
-+	/* Get the vpd data from the device */
-+	vpd_size = pci_read_vpd(dev, 0, sizeof(vpd_data), vpd_data);
-+	if (vpd_size <= 0) {
-+		netif_err(efx, drv, efx->net_dev, "Unable to read VPD\n");
-+		return;
-+	}
-+
-+	/* Get the Read only section */
-+	i = pci_vpd_find_tag(vpd_data, 0, vpd_size, PCI_VPD_LRDT_RO_DATA);
-+	if (i < 0) {
-+		netif_err(efx, drv, efx->net_dev, "VPD Read-only not found\n");
-+		return;
-+	}
-+
-+	j = pci_vpd_lrdt_size(&vpd_data[i]);
-+	i += PCI_VPD_LRDT_TAG_SIZE;
-+	if (i + j > vpd_size)
-+		j = vpd_size - i;
-+
-+	/* Get the Part number */
-+	i = pci_vpd_find_info_keyword(vpd_data, i, j, "PN");
-+	if (i < 0) {
-+		netif_err(efx, drv, efx->net_dev, "Part number not found\n");
-+		return;
-+	}
-+
-+	j = pci_vpd_info_field_size(&vpd_data[i]);
-+	i += PCI_VPD_INFO_FLD_HDR_SIZE;
-+	if (i + j > vpd_size) {
-+		netif_err(efx, drv, efx->net_dev, "Incomplete part number\n");
-+		return;
-+	}
-+
-+	netif_info(efx, drv, efx->net_dev,
-+		   "Part Number : %.*s\n", j, &vpd_data[i]);
-+}
-+
-+
- /* Main body of NIC initialisation
-  * This is called at module load (or hotplug insertion, theoretically).
-  */
-@@ -2586,6 +2637,8 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
- 	netif_info(efx, probe, efx->net_dev,
- 		   "Solarflare NIC detected\n");
- 
-+	efx_print_product_vpd(efx);
-+
- 	/* Set up basic I/O (BAR mappings etc) */
- 	rc = efx_init_io(efx);
- 	if (rc)
-diff --git a/drivers/net/ethernet/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
-index 2084cc6..8687a6c 100644
---- a/drivers/net/ethernet/sfc/falcon_boards.c
-+++ b/drivers/net/ethernet/sfc/falcon_boards.c
-@@ -709,8 +709,6 @@ static int sfe4003_init(struct efx_nic *efx)
- static const struct falcon_board_type board_types[] = {
- 	{
- 		.id		= FALCON_BOARD_SFE4001,
--		.ref_model	= "SFE4001",
--		.gen_type	= "10GBASE-T adapter",
- 		.init		= sfe4001_init,
- 		.init_phy	= efx_port_dummy_op_void,
- 		.fini		= sfe4001_fini,
-@@ -719,8 +717,6 @@ static const struct falcon_board_type board_types[] = {
- 	},
- 	{
- 		.id		= FALCON_BOARD_SFE4002,
--		.ref_model	= "SFE4002",
--		.gen_type	= "XFP adapter",
- 		.init		= sfe4002_init,
- 		.init_phy	= sfe4002_init_phy,
- 		.fini		= efx_fini_lm87,
-@@ -729,8 +725,6 @@ static const struct falcon_board_type board_types[] = {
- 	},
- 	{
- 		.id		= FALCON_BOARD_SFE4003,
--		.ref_model	= "SFE4003",
--		.gen_type	= "10GBASE-CX4 adapter",
- 		.init		= sfe4003_init,
- 		.init_phy	= sfe4003_init_phy,
- 		.fini		= efx_fini_lm87,
-@@ -739,8 +733,6 @@ static const struct falcon_board_type board_types[] = {
- 	},
- 	{
- 		.id		= FALCON_BOARD_SFN4112F,
--		.ref_model	= "SFN4112F",
--		.gen_type	= "SFP+ adapter",
- 		.init		= sfn4112f_init,
- 		.init_phy	= sfn4112f_init_phy,
- 		.fini		= efx_fini_lm87,
-@@ -763,11 +755,6 @@ int falcon_probe_board(struct efx_nic *efx, u16 revision_info)
- 			board->type = &board_types[i];
- 
- 	if (board->type) {
--		netif_info(efx, probe, efx->net_dev, "board is %s rev %c%d\n",
--			 (efx->pci_dev->subsystem_vendor ==
--			  PCI_VENDOR_ID_SOLARFLARE)
--			 ? board->type->ref_model : board->type->gen_type,
--			 'A' + board->major, board->minor);
- 		return 0;
- 	} else {
- 		netif_err(efx, probe, efx->net_dev, "unknown board type %d\n",
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index f46e2ce..f48ccf6 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -69,8 +69,6 @@ enum {
- /**
-  * struct falcon_board_type - board operations and type information
-  * @id: Board type id, as found in NVRAM
-- * @ref_model: Model number of Solarflare reference design
-- * @gen_type: Generic board type description
-  * @init: Allocate resources and initialise peripheral hardware
-  * @init_phy: Do board-specific PHY initialisation
-  * @fini: Shut down hardware and free resources
-@@ -79,8 +77,6 @@ enum {
-  */
- struct falcon_board_type {
- 	u8 id;
--	const char *ref_model;
--	const char *gen_type;
- 	int (*init) (struct efx_nic *nic);
- 	void (*init_phy) (struct efx_nic *efx);
- 	void (*fini) (struct efx_nic *nic);
--- 
-1.7.7.6
+mcgrof@tux ~/devel/compat-wireless (git::linux-3.3.y)$ ls -1
+linux-next-cherry-picks/
+0001-mac80211-Fix-incorrect-num_sta_ps-decrement-in-__sta.patch
+0002-mac80211-Fix-incorrect-num_sta_ps-decrement-in-ap_st.patch
+0003-mac80211-Move-num_sta_ps-counter-decrement-after-syn.patch
+0004-ath9k-Initialize-NF-values-properly.patch
+0005-ath9k-Fix-programming-SYNTH4-for-AR9462.patch
+0006-ath9k-Fix-descriptor-length-for-AR9462.patch
+0007-mac80211-handle-non-bufferable-MMPDUs-correctly.patch
+0008-Revert-ath9k_hw-Fix-false-tx-hung-detection-in-AR900.patch
+0009-ath9k-do-not-call-ath9k_hw_txprocdesc-on-AR9003-outs.patch
+0010-ath9k_hw-enable-interrupts-for-beacon-tx-completion-.patch
+0011-ath9k-fix-drv_tx_last_beacon-on-AR9003-by-processing.patch
+0012-ath9k_hw-use-cold-instead-of-warm-reset-on-AR9280.patch
+0013-mac80211-add-an-rx-flag-for-ignoring-a-packet-s-sign.patch
+0014-ath9k-fix-signal-strength-reporting-issues.patch
 
+[0] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/compat-wireless-3.3-rc6-1.tar.bz2
+[1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/compat-wireless-3.3-rc6-1-n.tar.bz2
+[2] http://wireless.kernel.org/en/users/Download/stable/#Additional_patches_to_stable_releases
+[3] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/ChangeLog-3.3-wireless
+[4] http://mcgrof.github.com/compat/
+[5] http://wireless.kernel.org/en/users/Download/
+[6] http://wireless.kernel.org/en/users/Download/hacking
+[7] https://www.linuxfoundation.org/collaborate/workgroups/gsoc/2012-gsoc-driver-backports
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+  Luis
