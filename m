@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 06/10] sfc: Test all event queues in parallel
-Date: Sat, 10 Mar 2012 00:50:36 +0000
-Message-ID: <1331340636.2537.16.camel@bwh-desktop>
+Subject: [PATCH net-next 07/10] sfc: Encapsulate access to
+ efx_{channel,nic}::last_irq_cpu in self-test
+Date: Sat, 10 Mar 2012 00:51:10 +0000
+Message-ID: <1331340670.2537.17.camel@bwh-desktop>
 References: <1331340409.2537.10.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,182 +10,127 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:51263 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754990Ab2CJAuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 19:50:39 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:51275 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755217Ab2CJAvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Mar 2012 19:51:13 -0500
 In-Reply-To: <1331340409.2537.10.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case all event queues are broken for some reason, this means it
-will only take about a second to check them all, rather than up to 32
-seconds.  This may also speed up testing in the successful case.
+Cleanup in preparation for doing an event test on ifup.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/selftest.c |  114 ++++++++++++++++++++---------------
- 1 files changed, 65 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/sfc/nic.c      |    8 ++++++--
+ drivers/net/ethernet/sfc/nic.h      |   13 +++++++++++--
+ drivers/net/ethernet/sfc/selftest.c |   14 ++++----------
+ 3 files changed, 21 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index dc330b9..e4b4c8a 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -178,69 +178,88 @@ static int efx_test_interrupts(struct efx_nic *efx,
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 5da8af5..4c47b75 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -1332,8 +1332,10 @@ void efx_nic_remove_eventq(struct efx_channel *channel)
  }
  
- /* Test generation and receipt of interrupting events */
--static int efx_test_eventq_irq(struct efx_channel *channel,
-+static int efx_test_eventq_irq(struct efx_nic *efx,
- 			       struct efx_self_tests *tests)
+
+-void efx_nic_generate_test_event(struct efx_channel *channel)
++void efx_nic_event_test_start(struct efx_channel *channel)
  {
--	struct efx_nic *efx = channel->efx;
--	unsigned int read_ptr;
--	bool napi_ran, dma_seen, int_seen;
-+	struct efx_channel *channel;
-+	unsigned int read_ptr[EFX_MAX_CHANNELS];
-+	unsigned long napi_ran = 0, dma_pend = 0, int_pend = 0;
- 	unsigned long timeout, wait;
++	channel->last_irq_cpu = -1;
++	smp_wmb();
+ 	efx_magic_event(channel, EFX_CHANNEL_MAGIC_TEST(channel));
+ }
  
--	read_ptr = channel->eventq_read_ptr;
--	channel->last_irq_cpu = -1;
--	smp_wmb();
-+	BUILD_BUG_ON(EFX_MAX_CHANNELS > BITS_PER_LONG);
+@@ -1382,8 +1384,10 @@ void efx_nic_disable_interrupts(struct efx_nic *efx)
+  * Interrupt must already have been enabled, otherwise nasty things
+  * may happen.
+  */
+-void efx_nic_generate_interrupt(struct efx_nic *efx)
++void efx_nic_irq_test_start(struct efx_nic *efx)
+ {
++	efx->last_irq_cpu = -1;
++	smp_wmb();
+ 	efx_nic_interrupts(efx, true, true);
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index ac12f7f..e0e8596 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -301,14 +301,23 @@ extern void falcon_update_stats_xmac(struct efx_nic *efx);
+ /* Interrupts and test events */
+ extern int efx_nic_init_interrupt(struct efx_nic *efx);
+ extern void efx_nic_enable_interrupts(struct efx_nic *efx);
+-extern void efx_nic_generate_test_event(struct efx_channel *channel);
+-extern void efx_nic_generate_interrupt(struct efx_nic *efx);
++extern void efx_nic_event_test_start(struct efx_channel *channel);
++extern void efx_nic_irq_test_start(struct efx_nic *efx);
+ extern void efx_nic_disable_interrupts(struct efx_nic *efx);
+ extern void efx_nic_fini_interrupt(struct efx_nic *efx);
+ extern irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx);
+ extern irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id);
+ extern void falcon_irq_ack_a1(struct efx_nic *efx);
+ 
++static inline int efx_nic_event_test_irq_cpu(struct efx_channel *channel)
++{
++	return ACCESS_ONCE(channel->last_irq_cpu);
++}
++static inline int efx_nic_irq_test_irq_cpu(struct efx_nic *efx)
++{
++	return ACCESS_ONCE(efx->last_irq_cpu);
++}
 +
-+	efx_for_each_channel(channel, efx) {
-+		read_ptr[channel->channel] = channel->eventq_read_ptr;
-+		set_bit(channel->channel, &dma_pend);
-+		set_bit(channel->channel, &int_pend);
-+		channel->last_irq_cpu = -1;
-+		smp_wmb();
-+		efx_nic_generate_test_event(channel);
-+	}
+ /* Global Resources */
+ extern int efx_nic_flush_queues(struct efx_nic *efx);
+ extern void falcon_start_nic_stats(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index e4b4c8a..aa4ab53 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -149,11 +149,7 @@ static int efx_test_interrupts(struct efx_nic *efx,
+ 	netif_dbg(efx, drv, efx->net_dev, "testing interrupts\n");
+ 	tests->interrupt = -1;
  
--	efx_nic_generate_test_event(channel);
+-	/* Reset interrupt flag */
+-	efx->last_irq_cpu = -1;
+-	smp_wmb();
+-
+-	efx_nic_generate_interrupt(efx);
++	efx_nic_irq_test_start(efx);
  	timeout = jiffies + IRQ_TIMEOUT;
  	wait = 1;
  
--	/* Wait for arrival of interrupt.  NAPI processing may or may
-+	/* Wait for arrival of interrupts.  NAPI processing may or may
- 	 * not complete in time, but we can cope in any case.
- 	 */
+@@ -161,7 +157,7 @@ static int efx_test_interrupts(struct efx_nic *efx,
+ 	netif_dbg(efx, drv, efx->net_dev, "waiting for test interrupt\n");
  	do {
  		schedule_timeout_uninterruptible(wait);
- 
--		napi_disable(&channel->napi_str);
--		if (channel->eventq_read_ptr != read_ptr) {
--			napi_ran = true;
--			dma_seen = true;
--			int_seen = true;
--		} else {
--			napi_ran = false;
--			dma_seen = efx_nic_event_present(channel);
--			int_seen = ACCESS_ONCE(channel->last_irq_cpu) >= 0;
-+		efx_for_each_channel(channel, efx) {
-+			napi_disable(&channel->napi_str);
-+			if (channel->eventq_read_ptr !=
-+			    read_ptr[channel->channel]) {
-+				set_bit(channel->channel, &napi_ran);
-+				clear_bit(channel->channel, &dma_pend);
-+				clear_bit(channel->channel, &int_pend);
-+			} else {
-+				if (efx_nic_event_present(channel))
-+					clear_bit(channel->channel, &dma_pend);
-+				if (ACCESS_ONCE(channel->last_irq_cpu) >= 0)
-+					clear_bit(channel->channel, &int_pend);
-+			}
-+			napi_enable(&channel->napi_str);
-+			efx_nic_eventq_read_ack(channel);
- 		}
--		napi_enable(&channel->napi_str);
--		efx_nic_eventq_read_ack(channel);
- 
+-		cpu = ACCESS_ONCE(efx->last_irq_cpu);
++		cpu = efx_nic_irq_test_irq_cpu(efx);
+ 		if (cpu >= 0)
+ 			goto success;
  		wait *= 2;
--	} while (!(dma_seen && int_seen) && time_before(jiffies, timeout));
--
--	tests->eventq_dma[channel->channel] = dma_seen ? 1 : -1;
--	tests->eventq_int[channel->channel] = int_seen ? 1 : -1;
-+	} while ((dma_pend || int_pend) && time_before(jiffies, timeout));
- 
--	if (dma_seen && int_seen) {
--		netif_dbg(efx, drv, efx->net_dev,
--			  "channel %d event queue passed (with%s NAPI)\n",
--			  channel->channel, napi_ran ? "" : "out");
--		return 0;
--	} else {
--		/* Report failure and whether either interrupt or DMA worked */
--		netif_err(efx, drv, efx->net_dev,
--			  "channel %d timed out waiting for event queue\n",
--			  channel->channel);
--		if (int_seen)
--			netif_err(efx, drv, efx->net_dev,
--				  "channel %d saw interrupt "
--				  "during event queue test\n",
--				  channel->channel);
--		if (dma_seen)
-+	efx_for_each_channel(channel, efx) {
-+		bool dma_seen = !test_bit(channel->channel, &dma_pend);
-+		bool int_seen = !test_bit(channel->channel, &int_pend);
-+
-+		tests->eventq_dma[channel->channel] = dma_seen ? 1 : -1;
-+		tests->eventq_int[channel->channel] = int_seen ? 1 : -1;
-+
-+		if (dma_seen && int_seen) {
-+			netif_dbg(efx, drv, efx->net_dev,
-+				  "channel %d event queue passed (with%s NAPI)\n",
-+				  channel->channel,
-+				  test_bit(channel->channel, &napi_ran) ?
-+				  "" : "out");
-+		} else {
-+			/* Report failure and whether either interrupt or DMA
-+			 * worked
-+			 */
- 			netif_err(efx, drv, efx->net_dev,
--				  "channel %d event was generated, but "
--				  "failed to trigger an interrupt\n",
-+				  "channel %d timed out waiting for event queue\n",
- 				  channel->channel);
--		return -ETIMEDOUT;
-+			if (int_seen)
-+				netif_err(efx, drv, efx->net_dev,
-+					  "channel %d saw interrupt "
-+					  "during event queue test\n",
-+					  channel->channel);
-+			if (dma_seen)
-+				netif_err(efx, drv, efx->net_dev,
-+					  "channel %d event was generated, but "
-+					  "failed to trigger an interrupt\n",
-+					  channel->channel);
-+		}
+@@ -192,9 +188,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
+ 		read_ptr[channel->channel] = channel->eventq_read_ptr;
+ 		set_bit(channel->channel, &dma_pend);
+ 		set_bit(channel->channel, &int_pend);
+-		channel->last_irq_cpu = -1;
+-		smp_wmb();
+-		efx_nic_generate_test_event(channel);
++		efx_nic_event_test_start(channel);
  	}
-+
-+	return (dma_pend || int_pend) ? -ETIMEDOUT : 0;
- }
  
- static int efx_test_phy(struct efx_nic *efx, struct efx_self_tests *tests,
-@@ -687,7 +706,6 @@ int efx_selftest(struct efx_nic *efx, struct efx_self_tests *tests,
- 	enum efx_loopback_mode loopback_mode = efx->loopback_mode;
- 	int phy_mode = efx->phy_mode;
- 	enum reset_type reset_method = RESET_TYPE_INVISIBLE;
--	struct efx_channel *channel;
- 	int rc_test = 0, rc_reset = 0, rc;
- 
- 	/* Online (i.e. non-disruptive) testing
-@@ -705,11 +723,9 @@ int efx_selftest(struct efx_nic *efx, struct efx_self_tests *tests,
- 	if (rc && !rc_test)
- 		rc_test = rc;
- 
--	efx_for_each_channel(channel, efx) {
--		rc = efx_test_eventq_irq(channel, tests);
--		if (rc && !rc_test)
--			rc_test = rc;
--	}
-+	rc = efx_test_eventq_irq(efx, tests);
-+	if (rc && !rc_test)
-+		rc_test = rc;
- 
- 	if (rc_test)
- 		return rc_test;
+ 	timeout = jiffies + IRQ_TIMEOUT;
+@@ -216,7 +210,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
+ 			} else {
+ 				if (efx_nic_event_present(channel))
+ 					clear_bit(channel->channel, &dma_pend);
+-				if (ACCESS_ONCE(channel->last_irq_cpu) >= 0)
++				if (efx_nic_event_test_irq_cpu(channel) >= 0)
+ 					clear_bit(channel->channel, &int_pend);
+ 			}
+ 			napi_enable(&channel->napi_str);
 -- 
 1.7.7.6
 
