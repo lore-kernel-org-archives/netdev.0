@@ -1,87 +1,105 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] intel: make wired ethernet driver message
- level consistent
-Date: Sat, 10 Mar 2012 16:44:35 -0800
-Message-ID: <20120310164435.70bcd0e5@nehalam.linuxnetplumber.net>
-References: <20120310084921.GA4647@elgon.mountain>
-	<20120310160153.1d3e5f19@nehalam.linuxnetplumber.net>
-	<1331426337.3022.106.camel@deadeye>
+From: Mitar <mmitar@gmail.com>
+Subject: Re: Ethernet-over-UDP virtual network interface
+Date: Sat, 10 Mar 2012 19:08:29 -0800
+Message-ID: <CAKLmikPUo9JTrarmkG66FLurLS2TAwbhDNJA9RB+cFDo7odpFg@mail.gmail.com>
+References: <CAKLmikOBPB7rTZu2EfK26=3AhOQUR8xg8n4ySUKRMFmBkC1J3g@mail.gmail.com>
+	<20120304170101.GH21526@kvack.org>
+	<CAKLmikOVydmSJEBWwDc=Jv4XPMi3dsS+Pn9=BP_bBePD0L7K8A@mail.gmail.com>
+	<20120308161138.GB23774@kvack.org>
+	<CAKLmikPtvOLgzuSTF=vwfZcMD7jWWRSgWaLxnSxBsa=2RSnPVA@mail.gmail.com>
+	<20120310170619.GC22880@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
-	Peter, "David S. Miller" <davem@davemloft.net>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1331426337.3022.106.camel@deadeye>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Nejc Skoberne <nejc@skoberne.net>,
+	Jernej Kos <kostko@unimatrix-one.org>, gw.2012@tnode.com
+To: Benjamin LaHaise <bcrl@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:50924 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088Ab2CKDIb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 22:08:31 -0500
+Received: by vcqp1 with SMTP id p1so2920875vcq.19
+        for <netdev@vger.kernel.org>; Sat, 10 Mar 2012 19:08:30 -0800 (PST)
+In-Reply-To: <20120310170619.GC22880@kvack.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Mar 2012 00:38:57 +0000
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Hi!
 
-> On Sat, 2012-03-10 at 16:01 -0800, Stephen Hemminger wrote:
-> > Dan Carpenter noticed that ixgbevf initial default was different than
-> > the rest. But the problem is broader than that, only one Intel driver (ixgb)
-> > was doing it right.
-> > 
-> > The convention for default debug level should be consistent among
-> > Intel drivers and follow established convention.
-> [...]
-> > --- a/drivers/net/ethernet/intel/e1000/e1000_main.c	2012-02-27 08:43:02.348936997 -0800
-> > +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c	2012-03-10 15:50:57.199452804 -0800
-> > @@ -215,7 +215,8 @@ MODULE_DESCRIPTION("Intel(R) PRO/1000 Ne
-> >  MODULE_LICENSE("GPL");
-> >  MODULE_VERSION(DRV_VERSION);
-> >  
-> > -static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
-> > +#define DEFAULT_DEBUG_LEVEL_SHIFT 3
-> 
-> Wonder if this should really be 2 (enable DRV and PROBE) or 3 (enable
-> DRV, PROBE and LINK; equivalent to current behaviour)?
+On Sat, Mar 10, 2012 at 9:06 AM, Benjamin LaHaise <bcrl@kvack.org> wrot=
+e:
+> To be honest, I don't see any new stateless protocol actually being w=
+idely
+> supported.
 
-That is really up to intel, the link up/down is useful, but nuisance
-with lots of devices.
+Yes, I agree. This is probably because our use case is quite specific:
+using consumer low-price range network equipment without any dedicated
+network chips and so on. So simplicity is much more important to use
+than, for example, security (which we do not care much on VPN links
+because we already have everything open in the mesh so anybody can
+capture or inject packets already, so there is no big reason why to do
+any encryption or authentication (on the link level) on VPN links.
 
-> > +static int debug = DEFAULT_DEBUG_LEVEL_SHIFT;
-> >  module_param(debug, int, 0);
-> >  MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
-> >  
-> > @@ -979,7 +980,7 @@ static int __devinit e1000_probe(struct
-> >  	adapter = netdev_priv(netdev);
-> >  	adapter->netdev = netdev;
-> >  	adapter->pdev = pdev;
-> > -	adapter->msg_enable = (1 << debug) - 1;
-> > +	adapter->msg_enable = netif_msg_init(debug, DEFAULT_DEBUG_LEVEL_SHIFT);
-> [...]
-> 
-> This works, but not the way you intended.  The first parameter is
-> supposed to be a module parameter with a default of -1.  The second
-> parameter is supposed to be the bitmask to use when that default is not
-> overridden.
+>=C2=A0Building a completely proprietary solution (regardless of it
+> being open source or not) that isn't supported by any common hardware=
+ or
+> software networking platforms will paint yourself into a corner when =
+it
+> comes time to upgrade the network with additional capacity.
 
-I'll fix that.
+That's why I am trying to coordinate our efforts with at least Linux
+kernel to be included in the kernel. And also, for example, OpenWrt
+distribution. Then we will mostly cover all our target devices.
+
+I am not sure what problems do you have in mind for when upgrading our
+network with additional capacity?
+
+> If you're using Linux as a router, I'd probably lean towards a VLAN b=
+ased
+> protocol, as anything exotic won't be supported by common nic's hardw=
+are
+> checksum offloading.
+
+I do not understand what VLANs have with tunneling over the Internet?
+We are building a mesh network, we parts of this network, which do not
+see each other wirelessly, to connect through VPN tunnels. Because we
+have cheap hardware we want simplest (CPU light) VPN solution to
+connect those parts over existing infrastructure (read: ISPs).
+=46urthermore, because nodes are deployed in chaotic and uncoordinated
+fashion by volunteers those tunnels have to be self-configuring (or
+zero-configuring). We can provide few VPN servers and all nodes then
+connect there, connecting nodes connected to them to the rest of the
+network.
+
+> Stateless !=3D robust. =C2=A0To deal with failed links you need some =
+sort of state
+> that is maintained by the system to switch over to backup links.
+
+No. This we do on L3 with dynamic routing protocol (like OLSR) which
+we are already using because of the wireless nature of our network
+(and because nodes are coming up and down as volunteers' mothers pull
+out nodes' power supplies when they are vacuuming). So we just need L2
+links. If they work (are not firewalled, VPN servers are online, ...)
+or not then determines L3 routing protocol and setup routes
+accordingly.
+
+>=C2=A0Existing options (MPLS, GVRP, L2TP) can
+> all be configured with a minimum amount of state, are widely used for=
+ the
+> scenario you're describing, and have migration paths when you need to
+> upgrade to higher capacity switches/routers.
+
+Will have to check this a bit more. I admit I do not know much about
+MPLS and GVRP. But true, state is not so big problem if tunnels can
+still be:
+
+- kernel space only
+- no encryption
+- zero or auto configuration
+- one server can accept multiple connections
+- using UDP (and not IP) for transport
+- of course, supported in Linux kernel
 
 
-
-------------------------------------------------------------------------------
-Virtualization & Cloud Management Using Capacity Planning
-Cloud computing makes use of virtualization - but cloud computing 
-also focuses on allowing computing to be delivered as a service.
-http://www.accelacomm.com/jaw/sfnl/114/51521223/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Mitar
