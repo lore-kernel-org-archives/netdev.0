@@ -1,29 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipv4: Allow administrative updates of inetpeer cache metrics
-Date: Sun, 11 Mar 2012 11:19:07 +1100
-Message-ID: <20120311001907.GA7001@gondor.apana.org.au>
-References: <20120310134905.GA3703@gondor.apana.org.au> <20120310.120604.2169889346978923618.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] intel: make wired ethernet driver message
+ level consistent
+Date: Sun, 11 Mar 2012 00:38:57 +0000
+Message-ID: <1331426337.3022.106.camel@deadeye>
+References: <20120310084921.GA4647@elgon.mountain>
+	<20120310160153.1d3e5f19@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:33812 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751609Ab2CKATJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Mar 2012 19:19:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20120310.120604.2169889346978923618.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, Greg,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20120310160153.1d3e5f19@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 10, 2012 at 12:06:04PM -0500, David Miller wrote:
+On Sat, 2012-03-10 at 16:01 -0800, Stephen Hemminger wrote:
+> Dan Carpenter noticed that ixgbevf initial default was different than
+> the rest. But the problem is broader than that, only one Intel driver (ixgb)
+> was doing it right.
 > 
-> Herbert, look at Steffen Klassert's changes which went in two days
-> ago, they take care of this problem.
+> The convention for default debug level should be consistent among
+> Intel drivers and follow established convention.
+[...]
+> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c	2012-02-27 08:43:02.348936997 -0800
+> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c	2012-03-10 15:50:57.199452804 -0800
+> @@ -215,7 +215,8 @@ MODULE_DESCRIPTION("Intel(R) PRO/1000 Ne
+>  MODULE_LICENSE("GPL");
+>  MODULE_VERSION(DRV_VERSION);
+>  
+> -static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
+> +#define DEFAULT_DEBUG_LEVEL_SHIFT 3
 
-Great :)
+Wonder if this should really be 2 (enable DRV and PROBE) or 3 (enable
+DRV, PROBE and LINK; equivalent to current behaviour)?
+
+> +static int debug = DEFAULT_DEBUG_LEVEL_SHIFT;
+>  module_param(debug, int, 0);
+>  MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+>  
+> @@ -979,7 +980,7 @@ static int __devinit e1000_probe(struct
+>  	adapter = netdev_priv(netdev);
+>  	adapter->netdev = netdev;
+>  	adapter->pdev = pdev;
+> -	adapter->msg_enable = (1 << debug) - 1;
+> +	adapter->msg_enable = netif_msg_init(debug, DEFAULT_DEBUG_LEVEL_SHIFT);
+[...]
+
+This works, but not the way you intended.  The first parameter is
+supposed to be a module parameter with a default of -1.  The second
+parameter is supposed to be the bitmask to use when that default is not
+overridden.
+
+Ben.
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+------------------------------------------------------------------------------
+Virtualization & Cloud Management Using Capacity Planning
+Cloud computing makes use of virtualization - but cloud computing 
+also focuses on allowing computing to be delivered as a service.
+http://www.accelacomm.com/jaw/sfnl/114/51521223/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
