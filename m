@@ -1,156 +1,78 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 3.3-rc7: Reported regressions from 3.2
-Date: Sun, 11 Mar 2012 22:23:26 +0100 (CET)
-Message-ID: <WuYv90FoNpB.A.O8.ktRXPB@chimera>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 3/7] drivers/net/irda/{ali-ircc,via-ircc,w83977af-ir}.c: ensure arguments to request_irq and free_irq are compatible
+Date: Sun, 11 Mar 2012 22:49:02 +0100
+Message-ID: <1331502542-18094-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:38906 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752472Ab2CKVtK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Mar 2012 17:49:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBtZXNzYWdlIGNvbnRhaW5zIGEgbGlzdCBvZiBzb21lIHJlZ3Jlc3Npb25zIGZyb20gMy4y
-LApmb3Igd2hpY2ggdGhlcmUgYXJlIG5vIGZpeGVzIGluIHRoZSBtYWlubGluZSBrbm93biB0byB0
-aGUgdHJhY2tpbmcgdGVhbS4KSWYgYW55IG9mIHRoZW0gaGF2ZSBiZWVuIGZpeGVkIGFscmVhZHks
-IHBsZWFzZSBsZXQgdXMga25vdy4KCklmIHlvdSBrbm93IG9mIGFueSBvdGhlciB1bnJlc29sdmVk
-IHJlZ3Jlc3Npb25zIGZyb20gMy4yLCBwbGVhc2UgbGV0IHVzCmtub3cgZWl0aGVyIGFuZCB3ZSds
-bCBhZGQgdGhlbSB0byB0aGUgbGlzdC4gIE1vcmVvdmVyLCB3aGVuIHlvdSBhcmUKcmVwb3J0aW5n
-IGEga2VybmVsIHJlZ3Jlc3Npb24sIHBsZWFzZSBzZW5kIGEgQ0Mgb2YgeW91ciByZXBvcnQgdG8g
-dGhlIExLTUwKKG9yIGZvcndhcmQgaXQgdG8gdGhlIExLTUwgaWYgeW91IGFyZSBub3QgcmVwb3J0
-aW5nIHRoZSByZWdyZXNzaW9uIGJ5IGUtbWFpbCkKd2l0aCB0aGUgd29yZCAicmVncmVzc2lvbiIg
-aW4gdGhlIHN1YmplY3QsIGFzIHRoYXQgd2lsbCBtYWtlIGl0IG11Y2gKZWFzaWVyIGZvciB1cyB0
-byBmaW5kIGl0LiAgQWxzbywgcGxlYXNlIGxldCB1cyBrbm93IGlmIGFueSBvZiB0aGUgZW50cmll
-cwpiZWxvdyBhcmUgaW52YWxpZC4KCkVhY2ggZW50cnkgZnJvbSB0aGUgbGlzdCB3aWxsIGJlIHNl
-bnQgYWRkaXRpb25hbGx5IGluIGFuIGF1dG9tYXRpYyByZXBseQp0byB0aGlzIG1lc3NhZ2Ugd2l0
-aCBDQ3MgdG8gdGhlIHBlb3BsZSBpbnZvbHZlZCBpbiByZXBvcnRpbmcgYW5kIGhhbmRsaW5nCnRo
-ZSBpc3N1ZS4KCgpMaXN0ZWQgcmVncmVzc2lvbnMgc3RhdGlzdGljczoKCiAgRGF0ZSAgICAgICAg
-ICBUb3RhbCAgUGVuZGluZyAgVW5yZXNvbHZlZAogIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0KICAyMDEyLTAzLTExICAgICAgIDI2ICAgICAgIDE1ICAgICAgICAgIDE1
-CiAgMjAxMi0wMy0wNCAgICAgICAyMyAgICAgICAxNSAgICAgICAgICAxNQogIDIwMTItMDItMjMg
-ICAgICAgMTUgICAgICAgMTMgICAgICAgICAgMTMKCgpVbnJlc29sdmVkIHJlZ3Jlc3Npb25zCi0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0KCkJ1Zy1FbnRyeQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVs
-Lm9yZy9zaG93X2J1Zy5jZ2k/aWQ9NDI5MDcKU3ViamVjdAkJOiAzLjMuMC1yYzUrZ2l0OiBXQVJO
-SU5HOiBhdCBkcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2lycS5jOjY1MiBpcm9ubGFrZV9pcnFf
-aGFuZGxlcisweDRlYS8weDUwMCgpClN1Ym1pdHRlcgk6IFNvZXJlbiBTb25uZW5idXJnIDxzb25u
-ZUBkZWJpYW4ub3JnPgpEYXRlCQk6IDIwMTItMDMtMDUgMjM6NTkgKDcgZGF5cyBvbGQpCk1lc3Nh
-Z2UtSUQJOiA8MTMzMDk5MTk3Ni45MjIzLjE2LmNhbWVsQG5vPgpSZWZlcmVuY2VzCTogaHR0cDov
-L21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMzMwOTkyNDI4MTAzMzImdz0yCgoKQnVnLUVu
-dHJ5CTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD00MjkwNQpT
-dWJqZWN0CQk6IHNvdW5kIHJlZ3Jlc3Npb24gaW4gMy4yLXJjMyAobGVub3ZvIGxhcHRvcHMpClN1
-Ym1pdHRlcgk6IENocmlzIE1hc29uIDxjaHJpcy5tYXNvbkBvcmFjbGUuY29tPgpEYXRlCQk6IDIw
-MTItMDMtMDUgMjE6MTEgKDcgZGF5cyBvbGQpCkZpcnN0LUJhZC1Db21taXQ6IGh0dHA6Ly9naXQu
-a2VybmVsLm9yZy9saW51cy8yOWM1ZmJiY2ZlZmJhNTIyNWE2NzgzNjgzYzQ2YzM5ZTEwODc3NzAz
-Ck1lc3NhZ2UtSUQJOiA8MjAxMjAzMDUyMTExMTIuR0E0MTkxQHNoaW55PgpSZWZlcmVuY2VzCTog
-aHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMzMwOTgxOTQxMDY1MTkmdz0yCgoK
-QnVnLUVudHJ5CTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD00
-Mjg2OQpTdWJqZWN0CQk6IFszLjMtcmMxIHJlZ3Jlc3Npb25dIFtub3V2ZWF1XSBTcHVyaW91cyBU
-Vi1vdXQgZGV0ZWN0ZWQKU3VibWl0dGVyCTogQW5kcmVhcyBTY2h3YWIgPHNjaHdhYkBsaW51eC1t
-NjhrLm9yZz4KRGF0ZQkJOiAyMDEyLTAzLTA1IDE0OjIxICg3IGRheXMgb2xkKQoKCkJ1Zy1FbnRy
-eQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9NDI4NjAKU3Vi
-amVjdAkJOiAzLjMuMC1yYzU6IE9PcHMgaW4gZHFsX2NvbXBsZXRlZCAoQnJvYWRjb20gdGczIGRy
-aXZlcikKU3VibWl0dGVyCTogQ2hyaXN0b3BoIExhbWV0ZXIgPGNsQGdlbnR3by5vcmc+CkRhdGUJ
-CTogMjAxMi0wMy0wMSAyMToxMyAoMTEgZGF5cyBvbGQpCk1lc3NhZ2UtSUQJOiA8YWxwaW5lLkRF
-Qi4yLjAwLjEyMDMwMTE1MDU1MTAuNjY4NUByb3V0ZXIuaG9tZT4KUmVmZXJlbmNlcwk6IGh0dHA6
-Ly9tYXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTMzMDYzNjQ1MjI0MzczJnc9MgoKCkJ1Zy1F
-bnRyeQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9NDI4NTAK
-U3ViamVjdAkJOiBbQlVHXSBLZXJuZWwgQnVnIGF0IGZzL2J0cmZzL3ZvbHVtZXMuYzozNjM4ClN1
-Ym1pdHRlcgk6IE5hZ2Vzd2FyYSBSIFNhc3RyeSA8cm5zYXN0cnlAbGludXgudm5ldC5pYm0uY29t
-PgpEYXRlCQk6IDIwMTItMDItMjQgMTA6NTMgKDE3IGRheXMgb2xkKQpNZXNzYWdlLUlECTogPDRG
-NDc2OTU5LjIwMTA0MDBAbGludXgudm5ldC5pYm0uY29tPgpSZWZlcmVuY2VzCTogaHR0cDovL21h
-cmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMzMwMDgwMTMzMzIyNTEmdz0yCgoKQnVnLUVudHJ5
-CTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD00MjgyMwpTdWJq
-ZWN0CQk6IFdBUk5JTkc6IGF0IGJsb2NrL2dlbmhkLmM6MTQ2NQpTdWJtaXR0ZXIJOiBDaHJpc3Rp
-YW4gS3VqYXUgPGxpc3RzQG5lcmRieW5hdHVyZS5kZT4KRGF0ZQkJOiAyMDEyLTAyLTIxIDExOjAw
-ICgyMCBkYXlzIG9sZCkKTWVzc2FnZS1JRAk6IDxhbHBpbmUuREVCLjIuMDEuMTIwMjIxMDI0NjQw
-MC40OTMwQHRyZW50LnV0ZnMub3JnPgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1s
-aW51eC1rZXJuZWwmbT0xMzI5ODIyNTkyMTM5NDEmdz0yCgoKQnVnLUVudHJ5CTogaHR0cHM6Ly9i
-dWd6aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD00MjgyMgpTdWJqZWN0CQk6IFszLjMu
-MC1yYzNdW3V2Y3ZpZGVvXVtyZWdyZXNzaW9uXSBvb3BzIC0gdXZjX3ZpZGVvX2Nsb2NrX3VwZGF0
-ZQpTdWJtaXR0ZXIJOiBTaGF3biBTdGFyciA8c2hhd24uc3RhcnJAcm9nZXJzLmNvbT4KRGF0ZQkJ
-OiAyMDEyLTAyLTIwIDE6MDggKDIxIGRheXMgb2xkKQpNZXNzYWdlLUlECTogPDU4ODcxNDIuWk1U
-REFqYzRxZkBzZWdmYXVsdC5zaDBuLm5ldD4KUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8v
-P2w9bGludXgta2VybmVsJm09MTMyOTcwMDU3NjExNjQyJnc9MgoKCkJ1Zy1FbnRyeQk6IGh0dHBz
-Oi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93X2J1Zy5jZ2k/aWQ9NDI4MjEKU3ViamVjdAkJOiBh
-bHBoYTogZnV0ZXggcmVncmVzc2lvbiBiaXNlY3RlZApTdWJtaXR0ZXIJOiBNaWNoYWVsIENyZWUg
-PG1jcmVlQG9yY29uLm5ldC5uej4KRGF0ZQkJOiAyMDEyLTAyLTIwIDg6MjAgKDIxIGRheXMgb2xk
-KQpGaXJzdC1CYWQtQ29tbWl0OiBodHRwOi8vZ2l0Lmtlcm5lbC5vcmcvbGludXMvOGQ3NzE4YWEw
-ODJhYWYzMGEwYjQ5ODllMWYwNDg1ODk1MmY5NDFiYwpNZXNzYWdlLUlECTogPDRGNDIwMjU2LjIw
-OTA2MDBAb3Jjb24ubmV0Lm56PgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51
-eC1rZXJuZWwmbT0xMzI5NzI2MDY5MTcwNjkmdz0yCgoKQnVnLUVudHJ5CTogaHR0cHM6Ly9idWd6
-aWxsYS5rZXJuZWwub3JnL3Nob3dfYnVnLmNnaT9pZD00Mjc3NgpTdWJqZWN0CQk6IE9GLXJlbGF0
-ZWQgYm9vdCBjcmFzaCBpbiAzLjMuMC1yYzMtMDAxODgtZzNlYzFlODgKU3VibWl0dGVyCTogTWVl
-bGlzIFJvb3MgPG1yb29zQGxpbnV4LmVlPgpEYXRlCQk6IDIwMTItMDItMTMgNzo0NSAoMjggZGF5
-cyBvbGQpCk1lc3NhZ2UtSUQJOiA8YWxwaW5lLlNPQy4xLjAwLjEyMDIxMzA5NDIwMzAuMTQ4OEBt
-YXRoLnV0LmVlPgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwm
-bT0xMzI5MTE5MTYzMzE2MTUmdz0yCgkJICBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWtlcm5l
-bCZtPTEzMjk5MzI5NDAxODc2MiZ3PTIKCgpCdWctRW50cnkJOiBodHRwczovL2J1Z3ppbGxhLmtl
-cm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTQyNzYxClN1YmplY3QJCTogUG9zc2libGUgY2lyY3Vs
-YXIgbG9ja2luZyBkZXBlbmRlbmN5ICgzLjMtcmMyKQpTdWJtaXR0ZXIJOiBGZWxpcGUgQmFsYmkg
-PGJhbGJpQHRpLmNvbT4KRGF0ZQkJOiAyMDEyLTAyLTA4IDEyOjQxICgzMyBkYXlzIG9sZCkKTWVz
-c2FnZS1JRAk6IDwyMDEyMDIwODEyNDE0Ny5HRjE2MzM0QGxlZ29sYXMuZW1lYS5kaGNwLnRpLmNv
-bT4KUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgta2VybmVsJm09MTMyODcw
-NDkyMzExODU4Jnc9MgoKCkJ1Zy1FbnRyeQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9z
-aG93X2J1Zy5jZ2k/aWQ9NDI3NDYKU3ViamVjdAkJOiAzLjMtcmMyIHNuZF9wY20gbG9ja2RlcCBi
-YWNrdHJhY2UKU3VibWl0dGVyCTogSm9zaCBCb3llciA8andib3llckByZWRoYXQuY29tPgpEYXRl
-CQk6IDIwMTItMDItMDYgMTQ6NTYgKDM1IGRheXMgb2xkKQpNZXNzYWdlLUlECTogPDIwMTIwMjA2
-MTQ1NjIxLkdBNDc3MUB6b2QuYm9zLnJlZGhhdC5jb20+ClJlZmVyZW5jZXMJOiBodHRwOi8vbWFy
-Yy5pbmZvLz9sPWxpbnV4LWtlcm5lbCZtPTEzMjg1NDA0MDkxNjE3MiZ3PTIKCgpCdWctRW50cnkJ
-OiBodHRwczovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcuY2dpP2lkPTQyNzMzClN1Ympl
-Y3QJCTogUmVncmVzc2lvbiAzLjIgLT4gMy4zLXJjMSAxMCBzZWMgaGFuZyBhdCBib290IGFuZCBy
-ZXN1bWUsIENPTVJFU0VUIGZhaWxlZApTdWJtaXR0ZXIJOiBOb3JiZXJ0IFByZWluaW5nIDxwcmVp
-bmluZ0Bsb2dpYy5hdD4KRGF0ZQkJOiAyMDEyLTAyLTAyIDU6MTIgKDM5IGRheXMgb2xkKQpNZXNz
-YWdlLUlECTogPDIwMTIwMjAyMDUxMjU4LkdBMTU1NTBAZ2FtbWEubG9naWMudHV3aWVuLmFjLmF0
-PgpSZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMzI4MTU5
-Nzg2MTUxMTImdz0yCgoKQnVnLUVudHJ5CTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3No
-b3dfYnVnLmNnaT9pZD00MjcxMwpTdWJqZWN0CQk6IFJlZ3Jlc3Npb24gaW4gc2tnZSB0aGF0IHN0
-YXJ0ZWQgYXJvdW5kIGFjYjQyYTMgKHNvIHBhc3QgdjMuMy1yYzEpClN1Ym1pdHRlcgk6IEtvbnJh
-ZCBSemVzenV0ZWsgV2lsayA8a29ucmFkLndpbGtAb3JhY2xlLmNvbT4KRGF0ZQkJOiAyMDEyLTAx
-LTMwIDE1OjU4ICg0MiBkYXlzIG9sZCkKTWVzc2FnZS1JRAk6IDwyMDEyMDEzMDE1NTgxNi5HQTE0
-MDBAcGhlbm9tLmR1bXBkYXRhLmNvbT4KUmVmZXJlbmNlcwk6IGh0dHA6Ly9tYXJjLmluZm8vP2w9
-bGludXgta2VybmVsJm09MTMyNzkzOTQ0MjIwMjYyJnc9MgoJCSAgaHR0cHM6Ly9sa21sLm9yZy9s
-a21sLzIwMTIvMi82LzQ4NgoKCkJ1Zy1FbnRyeQk6IGh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9y
-Zy9zaG93X2J1Zy5jZ2k/aWQ9NDI2ODYKU3ViamVjdAkJOiBpd2xhZ24gaXMgZ2V0dGluZyBldmVu
-IHdvcnNlIHdpdGggMy4zLXJjMQpTdWJtaXR0ZXIJOiBOb3JiZXJ0IFByZWluaW5nIDxwcmVpbmlu
-Z0Bsb2dpYy5hdD4KRGF0ZQkJOiAyMDEyLTAxLTI0IDE6MzYgKDQ4IGRheXMgb2xkKQpNZXNzYWdl
-LUlECTogPDIwMTIwMTI0MDEzNjI1LkdCMTg0MzZAZ2FtbWEubG9naWMudHV3aWVuLmFjLmF0PgpS
-ZWZlcmVuY2VzCTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1rZXJuZWwmbT0xMzI3MzY5MTgz
-MjUzNzgmdz0yCgoKQnVnLUVudHJ5CTogaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3JnL3Nob3df
-YnVnLmNnaT9pZD00MjY3OApTdWJqZWN0CQk6IFszLjMtcmMxXSByYWRlb24gc3R1Y2sgaW4ga2Vy
-bmVsIGFmdGVyIGxvY2t1cApTdWJtaXR0ZXIJOiBUb3JzdGVuIEthaXNlciA8anVzdC5mb3IubGtt
-bEBnb29nbGVtYWlsLmNvbT4KRGF0ZQkJOiAyMDEyLTAxLTIxIDE5OjAzICg1MSBkYXlzIG9sZCkK
-TWVzc2FnZS1JRAk6IDxDQVBWb1N2U1hNdlJiPTFpdHU5RGpGK3M9NnpmQUNodlV4Uy14PWI4RVY5
-a09aaW5OcEFAbWFpbC5nbWFpbC5jb20+ClJlZmVyZW5jZXMJOiBodHRwOi8vbWFyYy5pbmZvLz9s
-PWxpbnV4LWtlcm5lbCZtPTEzMjcxNzI3OTYwNjY3MCZ3PTIKSGFuZGxlZC1CeQk6IErDqXLDtG1l
-IEdsaXNzZSA8Z2xpc3NlQGZyZWVkZXNrdG9wLm9yZz4KCgpGb3IgZGV0YWlscywgcGxlYXNlIHZp
-c2l0IHRoZSBidWcgZW50cmllcyBhbmQgZm9sbG93IHRoZSBsaW5rcyBnaXZlbiBpbgpyZWZlcmVu
-Y2VzLgoKQXMgeW91IGNhbiBzZWUsIHRoZXJlIGlzIGEgQnVnemlsbGEgZW50cnkgZm9yIGVhY2gg
-b2YgdGhlIGxpc3RlZCByZWdyZXNzaW9ucy4KVGhlcmUgYWxzbyBpcyBhIEJ1Z3ppbGxhIGVudHJ5
-IHVzZWQgZm9yIHRyYWNraW5nIHRoZSByZWdyZXNzaW9ucyBmcm9tIDMuMiwKdW5yZXNvbHZlZCBh
-cyB3ZWxsIGFzIHJlc29sdmVkLCBhdDoKCmh0dHBzOi8vYnVnemlsbGEua2VybmVsLm9yZy9zaG93
-X2J1Zy5jZ2k/aWQ9NDI2NDQKClBsZWFzZSBsZXQgdGhlIHRyYWNraW5nIHRlYW0ga25vdyBpZiB0
-aGVyZSBhcmUgYW55IEJ1Z3ppbGxhIGVudHJpZXMgdGhhdApzaG91bGQgYmUgYWRkZWQgdG8gdGhl
-IGxpc3QgaW4gdGhlcmUuCgpUaGFua3MhCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpsaW51eC1wbSBtYWlsaW5nIGxpc3QKbGludXgtcG1AbGlzdHMubGlu
-dXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxt
-YW4vbGlzdGluZm8vbGludXgtcG0=
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+
+Convert calls to free_irq so that the second argument is the same as the
+last argument of the corresponding call to request_irq.  Without this
+property, free_irq does nothing.
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+Version 2, avoids changing request_irq.
+
+ drivers/net/irda/ali-ircc.c    |    2 +-
+ drivers/net/irda/via-ircc.c    |    4 ++--
+ drivers/net/irda/w83977af_ir.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+index 963067d..dcc80d6 100644
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -1368,7 +1368,7 @@ static int ali_ircc_net_open(struct net_device *dev)
+ 		IRDA_WARNING("%s, unable to allocate dma=%d\n",
+ 			     ALI_IRCC_DRIVER_NAME,
+ 			     self->io.dma);
+-		free_irq(self->io.irq, self);
++		free_irq(self->io.irq, dev);
+ 		return -EAGAIN;
+ 	}
+ 	
+diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
+index 2d456dd..1a89fd4 100644
+--- a/drivers/net/irda/via-ircc.c
++++ b/drivers/net/irda/via-ircc.c
+@@ -1495,14 +1495,14 @@ static int via_ircc_net_open(struct net_device *dev)
+ 	if (request_dma(self->io.dma, dev->name)) {
+ 		IRDA_WARNING("%s, unable to allocate dma=%d\n", driver_name,
+ 			     self->io.dma);
+-		free_irq(self->io.irq, self);
++		free_irq(self->io.irq, dev);
+ 		return -EAGAIN;
+ 	}
+ 	if (self->io.dma2 != self->io.dma) {
+ 		if (request_dma(self->io.dma2, dev->name)) {
+ 			IRDA_WARNING("%s, unable to allocate dma2=%d\n",
+ 				     driver_name, self->io.dma2);
+-			free_irq(self->io.irq, self);
++			free_irq(self->io.irq, dev);
+ 			free_dma(self->io.dma);
+ 			return -EAGAIN;
+ 		}
+diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
+index 7d43506..f5bb92f 100644
+--- a/drivers/net/irda/w83977af_ir.c
++++ b/drivers/net/irda/w83977af_ir.c
+@@ -1172,7 +1172,7 @@ static int w83977af_net_open(struct net_device *dev)
+ 	 * and clean up on failure.
+ 	 */
+ 	if (request_dma(self->io.dma, dev->name)) {
+-		free_irq(self->io.irq, self);
++		free_irq(self->io.irq, dev);
+ 		return -EAGAIN;
+ 	}
+ 		
