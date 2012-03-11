@@ -1,50 +1,57 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: linux-next: Tree for Mar 9 (netfilter)
-Date: Sun, 11 Mar 2012 17:58:02 +0100
-Message-ID: <20120311165802.GB27265@1984>
-References: <giupeu1.0f6dad72b5ddb117e753f5f660263a5d@obelix.schillstrom.com>
- <20120311165630.GA27265@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tun: don't hold network namespace by tun sockets
+Date: Sun, 11 Mar 2012 10:29:29 -0700
+Message-ID: <1331486969.2449.15.camel@edumazet-laptop>
+References: <20120311152053.30481.29572.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45786 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753566Ab2CKQ6F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Mar 2012 12:58:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20120311165630.GA27265@1984>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, ebiederm@aristanetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xemul@parallel.com, shemminger@vyatta.com, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120311152053.30481.29572.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Hans,
+Le dimanche 11 mars 2012 =C3=A0 19:21 +0400, Stanislav Kinsbursky a =C3=
+=A9crit :
+> TUN was designed to destroy it's socket on network namesapce shutdown=
+=2E But this
+> will never happen for persistent device, because it's socket holds ne=
+twork
+> namespace.
+> This patch removes of holding network namespace by TUN socket and rep=
+laces it
+> by creating socket in init_net and then changing it's net it to desir=
+ed one. On
+> shutdown socket is moved back to init_net prior to final put.
+>=20
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+>=20
+> ---
+>  drivers/net/tun.c |   10 +++++++---
+>  1 files changed, 7 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 2c5d349..92ef539 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -358,8 +358,11 @@ static void tun_net_uninit(struct net_device *de=
+v)
+>  static void tun_free_netdev(struct net_device *dev)
+>  {
+>  	struct tun_struct *tun =3D netdev_priv(dev);
+> +	struct sock *sk =3D tun->socket.sk;
+> =20
+> -	sock_put(tun->socket.sk);
+> +	release_net(sock_net(sk));
+> +	sock_net_set(sk, get_net(&init_net));
+> +	sock_put(sk);
 
-On Sun, Mar 11, 2012 at 05:14:01PM +0100, Hans Schillstrom wrote:
-> >Perhaps I'm missing anything but either way (IPv6 as module or
-> >built-in) the symbol is still defined. With my patch applied, xt_LOG
-> >now depends on IP6_NF_IPTABLES, which depends on IPV6.
-> >
-> >Moreover we've got other xt_ target and matches that contain both IPv4
-> >and IPv6 support that don't require this.
-> >
-> >Let me know.
-> 
-> if you compile ipv6 as a module and xt_LOG as builtin (=y)  there is a missing ref to  `ip6t_ext_hdr' at link time ...
 
-ip6t_ext_hdr is defined by ip6_tables:
+Hmm, maybe use sk_release_kernel(), as its should be the thing
+associated with sk_change_net().
 
-net/ipv6/netfilter/ip6_tables.c:ip6t_ext_hdr(u8 nexthdr)
-
-AFAICS the dependency should rely on CONFIG_IP6_NF_IPTABLES.
-
-An alternative is to define ip6t_ext_hdr as static inline in
-include/linux/netfilter_ipv6/ip6_tables.h, it's fairly small and it's
-invoked in the typical packet path if this LOG is used.
-
-> What I did was to resolve that issue i.e. force xt_LOG to be a module if ipv6 is a module
-
-Thanks for reporting this.
+Or at least make intent clear, since its not obvious.
