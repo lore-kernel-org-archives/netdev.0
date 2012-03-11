@@ -1,8 +1,9 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 Subject: Re: linux-next: Tree for Mar 9 (netfilter)
-Date: Sun, 11 Mar 2012 16:52:41 +0100
-Message-ID: <20120311155241.GA27058@1984>
-References: <giupeu1.ee21a87813f836d9f587ea0b0e19a695@obelix.schillstrom.com>
+Date: Sun, 11 Mar 2012 17:58:02 +0100
+Message-ID: <20120311165802.GB27265@1984>
+References: <giupeu1.0f6dad72b5ddb117e753f5f660263a5d@obelix.schillstrom.com>
+ <20120311165630.GA27265@1984>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Randy Dunlap <rdunlap@xenotime.net>,
@@ -10,43 +11,40 @@ Cc: Randy Dunlap <rdunlap@xenotime.net>,
 	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <linux-next-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45786 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753566Ab2CKQ6F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Mar 2012 12:58:05 -0400
 Content-Disposition: inline
-In-Reply-To: <giupeu1.ee21a87813f836d9f587ea0b0e19a695@obelix.schillstrom.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120311165630.GA27265@1984>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Hans,
 
-On Sun, Mar 11, 2012 at 01:37:25PM +0100, Hans Schillstrom wrote:
-> Hello
-> >On Fri, Mar 09, 2012 at 12:30:42PM -0800, Randy Dunlap wrote:
-> >> On 03/09/2012 12:11 AM, Stephen Rothwell wrote:
-> >>
-> >> > Hi all,
-> >> >
-> >> > There will be no linux-next release on March 12 due to a public holiday.
-> >> >
-> >> > Changes since 20120308:
-> >>
-> >>
-> >> xt_LOG.c:(.text+0x789b1): undefined reference to `ip6t_ext_hdr'
-> >>
-> >> Full randconfig file is attached.
+On Sun, Mar 11, 2012 at 05:14:01PM +0100, Hans Schillstrom wrote:
+> >Perhaps I'm missing anything but either way (IPv6 as module or
+> >built-in) the symbol is still defined. With my patch applied, xt_LOG
+> >now depends on IP6_NF_IPTABLES, which depends on IPV6.
 > >
-> >The patch attached fixes this problem, thanks!
+> >Moreover we've got other xt_ target and matches that contain both IPv4
+> >and IPv6 support that don't require this.
+> >
+> >Let me know.
 > 
-> 
-> This one is needed as well,
-> 
-> To force xt_LOG  to be configured as a module if ipv6 is a module,
-> otherwise you end up in the same linking problem
+> if you compile ipv6 as a module and xt_LOG as builtin (=y)  there is a missing ref to  `ip6t_ext_hdr' at link time ...
 
-Perhaps I'm missing anything but either way (IPv6 as module or
-built-in) the symbol is still defined. With my patch applied, xt_LOG
-now depends on IP6_NF_IPTABLES, which depends on IPV6.
+ip6t_ext_hdr is defined by ip6_tables:
 
-Moreover we've got other xt_ target and matches that contain both IPv4
-and IPv6 support that don't require this.
+net/ipv6/netfilter/ip6_tables.c:ip6t_ext_hdr(u8 nexthdr)
 
-Let me know.
+AFAICS the dependency should rely on CONFIG_IP6_NF_IPTABLES.
+
+An alternative is to define ip6t_ext_hdr as static inline in
+include/linux/netfilter_ipv6/ip6_tables.h, it's fairly small and it's
+invoked in the typical packet path if this LOG is used.
+
+> What I did was to resolve that issue i.e. force xt_LOG to be a module if ipv6 is a module
+
+Thanks for reporting this.
