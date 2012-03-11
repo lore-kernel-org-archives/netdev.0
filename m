@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix syncookie regression
-Date: Sun, 11 Mar 2012 15:54:33 -0700 (PDT)
-Message-ID: <20120311.155433.1130321864592795162.davem@davemloft.net>
-References: <1331401490.2453.28.camel@edumazet-laptop>
-	<1331402182.2453.30.camel@edumazet-laptop>
-	<1331407221.2453.42.camel@edumazet-laptop>
+Subject: Re: [PATCH] IPv6: Fix Smatch warning.
+Date: Sun, 11 Mar 2012 15:57:36 -0700 (PDT)
+Message-ID: <20120311.155736.298099455288242780.davem@davemloft.net>
+References: <4F58041F.5060209@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sim@netnation.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org
+To: lw@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41923 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41971 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab2CKWyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 18:54:36 -0400
-In-Reply-To: <1331407221.2453.42.camel@edumazet-laptop>
+	with ESMTP id S1753602Ab2CKW5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 18:57:47 -0400
+In-Reply-To: <4F58041F.5060209@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 10 Mar 2012 11:20:21 -0800
+From: Li Wei <lw@cn.fujitsu.com>
+Date: Thu, 08 Mar 2012 08:58:07 +0800
 
-> commit ea4fc0d619 (ipv4: Don't use rt->rt_{src,dst} in ip_queue_xmit())
-> added a serious regression on synflood handling.
 > 
-> Simon Kirby discovered a successful connection was delayed by 20 seconds
-> before being responsive.
+> With commit d6ddef9e641d(IPv6: Fix not join all-router mcast group
+> when forwarding set.) I check 'dev' after it's dereference that
+> leads to a Smatch complaint:
 > 
-> In my tests, I discovered that xmit frames were lost, and needed ~4
-> retransmits and a socket dst rebuild before being really sent.
+> net/ipv6/addrconf.c:438 ipv6_add_dev()
+> 	 warn: variable dereferenced before check 'dev' (see line 432)
+ ...
+> Remove the check to avoid the complaint as 'dev' can't be NULL.
 > 
-> In case of syncookie initiated connection, we use a different path to
-> initialize the socket dst, and inet->cork.fl.u.ip4 is left cleared.
-> 
-> As ip_queue_xmit() now depends on inet flow being setup, fix this by
-> copying the temp flowi4 we use in cookie_v4_check().
-> 
-> Reported-by: Simon Kirby <sim@netnation.com>
-> Bisected-by: Simon Kirby <sim@netnation.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
