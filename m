@@ -1,41 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Pull request for 'davem-next.r8169' branch
-Date: Sun, 11 Mar 2012 15:34:15 -0700 (PDT)
-Message-ID: <20120311.153415.1118556368758210021.davem@davemloft.net>
-References: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-03-11
+Date: Sun, 11 Mar 2012 15:36:48 -0700 (PDT)
+Message-ID: <20120311.153648.908965108967679080.davem@davemloft.net>
+References: <1331419491-21333-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41751 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040Ab2CKWfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 18:35:24 -0400
-In-Reply-To: <20120310221751.GA9692@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1331419491-21333-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 10 Mar 2012 23:17:51 +0100
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Sun, 11 Mar 2012 06:44:47 +0800
 
-> Please pull from branch 'davem-next.r8169' in repository
-> 
-> git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
-> 
-> to get the changes below.
-> 
-> This patchset tidies up the dependencies within the driver. I have not
-> merged the patches to avoid confusing diff.
+> here are a few late coming patches intended to be merged into net-next-2.6/3.4
+> if possible. This is nothing fancy: They make peace with the recently 
+> introduced checkpatch changes. Let me know if there any problems.
 
 Pulled, thanks.
-
-> I have a patchkit similar to the last patch in the series ("r8169: stop
-> using net_device.{base_addr, irq}.") for some PCI only drivers. Depending
-> on the driver, it contains either a few lines of changes (~20 drivers) or
-> a complete conversion to __iomem + pci_iomap (4~6 drivers). Would it be
-> appropriate to send a patch per driver for the latter and only a single
-> patch for the former ?
-
-Maybe a patch per-driver for this case.
