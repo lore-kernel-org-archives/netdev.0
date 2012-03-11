@@ -1,57 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tun: don't hold network namespace by tun sockets
-Date: Sun, 11 Mar 2012 10:29:29 -0700
-Message-ID: <1331486969.2449.15.camel@edumazet-laptop>
-References: <20120311152053.30481.29572.stgit@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ebiederm@aristanetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	xemul@parallel.com, shemminger@vyatta.com, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120311152053.30481.29572.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 5/7] drivers/atm/eni.c: ensure arguments to request_irq and free_irq are compatible
+Date: Sun, 11 Mar 2012 20:36:25 +0100
+Message-ID: <1331494587-12196-6-git-send-email-Julia.Lawall@lip6.fr>
+References: <1331494587-12196-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chas Williams <chas@cmf.nrl.navy.mil>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:50211 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751534Ab2CKTgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Mar 2012 15:36:39 -0400
+In-Reply-To: <1331494587-12196-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 11 mars 2012 =C3=A0 19:21 +0400, Stanislav Kinsbursky a =C3=
-=A9crit :
-> TUN was designed to destroy it's socket on network namesapce shutdown=
-=2E But this
-> will never happen for persistent device, because it's socket holds ne=
-twork
-> namespace.
-> This patch removes of holding network namespace by TUN socket and rep=
-laces it
-> by creating socket in init_net and then changing it's net it to desir=
-ed one. On
-> shutdown socket is moved back to init_net prior to final put.
->=20
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
->=20
-> ---
->  drivers/net/tun.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 2c5d349..92ef539 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -358,8 +358,11 @@ static void tun_net_uninit(struct net_device *de=
-v)
->  static void tun_free_netdev(struct net_device *dev)
->  {
->  	struct tun_struct *tun =3D netdev_priv(dev);
-> +	struct sock *sk =3D tun->socket.sk;
-> =20
-> -	sock_put(tun->socket.sk);
-> +	release_net(sock_net(sk));
-> +	sock_net_set(sk, get_net(&init_net));
-> +	sock_put(sk);
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
+Convert call to request_irq so that the last argument is the same as the
+second argument of the subsequent call to free_irq.  Without this
+property, free_irq does nothing.
 
-Hmm, maybe use sk_release_kernel(), as its should be the thing
-associated with sk_change_net().
+I have chosen to keep the call to free_irq as is, because its second
+argument is more like its first argument.
 
-Or at least make intent clear, since its not obvious.
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+Not tested.  I don't know if I have made the right choice.
+
+ drivers/atm/eni.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 956e9ac..89e7223 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -1800,7 +1800,8 @@ static int __devinit eni_start(struct atm_dev *dev)
+ 
+ 	DPRINTK(">eni_start\n");
+ 	eni_dev = ENI_DEV(dev);
+-	if (request_irq(eni_dev->irq,&eni_int,IRQF_SHARED,DEV_LABEL,dev)) {
++	if (request_irq(eni_dev->irq, &eni_int, IRQF_SHARED, DEV_LABEL,
++			eni_dev)) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): IRQ%d is already in use\n",
+ 		    dev->number,eni_dev->irq);
+ 		error = -EAGAIN;
