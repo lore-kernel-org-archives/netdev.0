@@ -1,637 +1,409 @@
-From: <parav.pandit@emulex.com>
-Subject: [RFC V1 2/2] be2net: Added functionality to support RoCE driver
-Date: Sun, 11 Mar 2012 16:19:30 +0530
-Message-ID: <8cd729bc-a494-4b12-a9b2-1fdfdce0fe9c@exht1.ad.emulex.com>
-References: <1331462970-18690-1-git-send-email-parav.pandit@emulex.com>
- <1331462970-18690-2-git-send-email-parav.pandit@emulex.com>
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+Date: Sun, 11 Mar 2012 14:46:48 +0530
+Message-ID: <CAOD=uF4Vx581zvpAT0dHKjUkrdsiZo-DTNR352V8tALM_P2roA@mail.gmail.com>
+References: <1330789663-30481-1-git-send-email-santoshprasadnayak@gmail.com>
+	<13A253B3F9BEFE43B93C09CF75F63CAA81A8AB3B75@MNEXMB1.qlogic.org>
+	<CAOD=uF7=28Bx4eSpGfP-uTND42k1xKE3tvQ6+exSJha9Yjf-_w@mail.gmail.com>
+	<13A253B3F9BEFE43B93C09CF75F63CAA81A8AB3C07@MNEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parav.pandit@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:34479 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751186Ab2CKGkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 01:40:22 -0500
-In-Reply-To: <1331462970-18690-2-git-send-email-parav.pandit@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA81A8AB3C07@MNEXMB1.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Parav Pandit <parav.pandit@emulex.com>
+Thanks Rajesh for clarification.
+Included all your inputs in the following patch.
+This is for review not a formal one. Once review is done I will send a
+formal patch.
 
-- Increased MSIX vectors by 5 for RoCE traffic.
-- Added macro to check roce support on a device.
-- Added device specific doorbell, msix vector fields shared with nic functionality.
-- Provides RoCE driver registration and deregistration functions.
-- Added support functions which will be invoked on adapter
-  add/remove and port up/down events.
-- Traverses through the list of adapters for invoking callback functions.
 
-Signed-off-by: Parav Pandit <parav.pandit@emulex.com>
----
- drivers/net/ethernet/emulex/benet/Makefile  |    2 +-
- drivers/net/ethernet/emulex/benet/be.h      |   38 ++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
- drivers/net/ethernet/emulex/benet/be_hw.h   |    4 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   83 ++++++++++--
- drivers/net/ethernet/emulex/benet/be_roce.c |  183 +++++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_roce.h |   75 +++++++++++
- 7 files changed, 370 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.c
- create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.h
 
-diff --git a/drivers/net/ethernet/emulex/benet/Makefile b/drivers/net/ethernet/emulex/benet/Makefile
-index a60cd80..1a91b27 100644
---- a/drivers/net/ethernet/emulex/benet/Makefile
-+++ b/drivers/net/ethernet/emulex/benet/Makefile
-@@ -4,4 +4,4 @@
- 
- obj-$(CONFIG_BE2NET) += be2net.o
- 
--be2net-y :=  be_main.o be_cmds.o be_ethtool.o
-+be2net-y :=  be_main.o be_cmds.o be_ethtool.o be_roce.o
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index cbdec25..fc094d9 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -32,6 +32,7 @@
- #include <linux/u64_stats_sync.h>
- 
- #include "be_hw.h"
-+#include "be_roce.h"
- 
- #define DRV_VER			"4.0.100u"
- #define DRV_NAME		"be2net"
-@@ -92,7 +93,7 @@ static inline char *nic_name(struct pci_dev *pdev)
- #define MAX_RSS_QS		4	/* BE limit is 4 queues/port */
- #define MAX_RX_QS		(MAX_RSS_QS + 1) /* RSS qs + 1 def Rx */
- #define MAX_TX_QS		8
--#define BE_MAX_MSIX_VECTORS	(MAX_RX_QS + 1)/* RX + TX */
-+#define BE_MAX_MSIX_VECTORS	(MAX_RX_QS + 1 + 5)/* RX + TX  + 5 RoCE */
- #define BE_NAPI_WEIGHT		64
- #define MAX_RX_POST 		BE_NAPI_WEIGHT /* Frags posted at a time */
- #define RX_FRAGS_REFILL_WM	(RX_Q_LEN - MAX_RX_POST)
-@@ -320,6 +321,7 @@ struct be_adapter {
- 
- 	struct msix_entry msix_entries[BE_MAX_MSIX_VECTORS];
- 	u32 num_msix_vec;
-+	u32 num_eqs;
- 	bool isr_registered;
- 
- 	/* TX Rings */
-@@ -372,6 +374,16 @@ struct be_adapter {
- 	u8 transceiver;
- 	u8 autoneg;
- 	u8 generation;		/* BladeEngine ASIC generation */
-+	u32 if_type;
-+	struct {
-+		u8 __iomem *base;	/* Door Bell */
-+		u32 size;
-+		u32 total_size;
-+		u64 io_addr;
-+	} roce_db;
-+	struct ocrdma_dev *ocrdma_dev;
-+	struct list_head entry;
-+
- 	u32 flash_status;
- 	struct completion flash_compl;
- 
-@@ -399,6 +411,10 @@ struct be_adapter {
- #define lancer_chip(adapter)	((adapter->pdev->device == OC_DEVICE_ID3) || \
- 				 (adapter->pdev->device == OC_DEVICE_ID4))
- 
-+#define be_roce_supported(adapter) ((adapter->if_type == SLI_INTF_TYPE_3 || \
-+				adapter->sli_family == SKYHAWK_SLI_FAMILY) && \
-+				(adapter->function_mode & RDMA_ENABLED))
-+
- extern const struct ethtool_ops be_ethtool_ops;
- 
- #define msix_enabled(adapter)		(adapter->num_msix_vec > 0)
-@@ -539,9 +555,29 @@ static inline bool be_error(struct be_adapter *adapter)
- 	return adapter->eeh_err || adapter->ue_detected || adapter->fw_timeout;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 2eeac32..b5de8a7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
+
+ struct nx_vlan_ip_list {
+ 	struct list_head list;
+-	u32 ip_addr;
++	__be32 ip_addr;
+ };
+
+ /*
+@@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct
+nx_host_sds_ring *sds_ring, int max);
+ void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
+ int netxen_config_rss(struct netxen_adapter *adapter, int enable);
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int c=
+md);
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, in=
+t cmd);
+ int netxen_linkevent_request(struct netxen_adapter *adapter, int enabl=
+e);
+ void netxen_advert_link_change(struct netxen_adapter *adapter, int lin=
+kup);
+ void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 6f37470..59d5ee7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -909,7 +909,7 @@ int netxen_config_rss(struct netxen_adapter
+*adapter, int enable)
+ 	return rv;
  }
- 
-+
-+static inline bool be_type_2_3(struct be_adapter *adapter)
-+{
-+	return (adapter->if_type == SLI_INTF_TYPE_2 ||
-+		adapter->if_type == SLI_INTF_TYPE_3) ? true : false;
-+}
-+
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, u8 link_status);
- extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
-+
-+/*
-+ * internal function to initialize-cleanup roce device.
-+ */
-+extern void be_roce_dev_add(struct be_adapter *);
-+extern void be_roce_dev_remove(struct be_adapter *);
-+
-+/*
-+ * internal function to open-close roce device during ifup-ifdown.
-+ */
-+extern void be_roce_dev_open(struct be_adapter *);
-+extern void be_roce_dev_close(struct be_adapter *);
-+
- #endif				/* BE_H */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index dca8924..d7ad03b 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1057,6 +1057,7 @@ struct be_cmd_resp_modify_eq_delay {
- #define FLEX10_MODE				0x400
- #define VNIC_MODE				0x20000
- #define UMC_ENABLED				0x1000000
-+#define RDMA_ENABLED				0x4
- struct be_cmd_req_query_fw_cfg {
- 	struct be_cmd_req_hdr hdr;
- 	u32 rsvd[31];
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index f2c89e3..0aa6509 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -98,11 +98,13 @@
- #define SLI_INTF_REV_SHIFT			4
- #define SLI_INTF_FT_MASK			0x00000001
- 
-+#define SLI_INTF_TYPE_2		2
-+#define SLI_INTF_TYPE_3		3
- 
- /* SLI family */
- #define BE_SLI_FAMILY		0x0
- #define LANCER_A0_SLI_FAMILY	0xA
--
-+#define SKYHAWK_SLI_FAMILY	0x2
- 
- /********* ISR0 Register offset **********/
- #define CEV_ISR0_OFFSET 			0xC18
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index e703d64..043fbe3 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1697,8 +1697,10 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
- 	be_eq_clean(adapter, &adapter->tx_eq);
- 
- 	q = &adapter->tx_eq.q;
--	if (q->created)
-+	if (q->created) {
- 		be_cmd_q_destroy(adapter, q, QTYPE_EQ);
-+		adapter->num_eqs -= 1;
-+	}
- 	be_queue_free(adapter, q);
- }
- 
-@@ -1740,6 +1742,7 @@ static int be_tx_queues_create(struct be_adapter *adapter)
- 	if (be_cmd_eq_create(adapter, eq, adapter->tx_eq.cur_eqd))
- 		goto err;
- 	adapter->tx_eq.eq_idx = adapter->eq_next_idx++;
-+	adapter->num_eqs += 1;
- 
- 	for_all_tx_queues(adapter, txo, i) {
- 		cq = &txo->cq;
-@@ -1777,8 +1780,10 @@ static void be_rx_queues_destroy(struct be_adapter *adapter)
- 		be_queue_free(adapter, q);
- 
- 		q = &rxo->rx_eq.q;
--		if (q->created)
-+		if (q->created) {
- 			be_cmd_q_destroy(adapter, q, QTYPE_EQ);
-+			adapter->num_eqs -= 1;
-+		}
- 		be_queue_free(adapter, q);
- 	}
- }
-@@ -1824,6 +1829,7 @@ static int be_rx_queues_create(struct be_adapter *adapter)
- 		rc = be_cmd_eq_create(adapter, eq, rxo->rx_eq.cur_eqd);
- 		if (rc)
- 			goto err;
-+		adapter->num_eqs += 1;
- 
- 		rxo->rx_eq.eq_idx = adapter->eq_next_idx++;
- 
-@@ -2120,6 +2126,12 @@ static void be_msix_enable(struct be_adapter *adapter)
- 
- 	num_vec = be_num_rxqs_want(adapter) + 1;
- 
-+	if (be_roce_supported(adapter)) {
-+		num_vec += min_t(u32, MAX_ROCE_MSIX_VECTORS,
-+					(num_online_cpus() + 1));
-+	}
-+	num_vec = min(num_vec, BE_MAX_MSIX_VECTORS);
-+
- 	for (i = 0; i < num_vec; i++)
- 		adapter->msix_entries[i].entry = i;
- 
-@@ -2330,6 +2342,8 @@ static int be_close(struct net_device *netdev)
- 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
- 	int vec, i;
- 
-+	be_roce_dev_close(adapter);
-+
- 	be_async_mcc_disable(adapter);
- 
- 	if (!lancer_chip(adapter))
-@@ -2442,6 +2456,8 @@ static int be_open(struct net_device *netdev)
- 	if (!status)
- 		be_link_status_update(adapter, link_status);
- 
-+	be_roce_dev_open(adapter);
-+
- 	return 0;
- err:
- 	be_close(adapter->netdev);
-@@ -3139,19 +3155,44 @@ static void be_unmap_pci_bars(struct be_adapter *adapter)
- 		iounmap(adapter->csr);
- 	if (adapter->db)
- 		iounmap(adapter->db);
-+	if (adapter->roce_db.base)
-+		pci_iounmap(adapter->pdev, adapter->roce_db.base);
-+}
-+
-+static int lancer_roce_map_pci_bars(struct be_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	u8 __iomem *addr;
-+
-+	addr = pci_iomap(pdev, 2, 0);
-+	if (addr == NULL)
-+		return -ENOMEM;
-+
-+	adapter->roce_db.base = addr;
-+	adapter->roce_db.io_addr = pci_resource_start(pdev, 2);
-+	adapter->roce_db.size = 8192;
-+	adapter->roce_db.total_size = pci_resource_len(pdev, 2);
-+	return 0;
- }
- 
- static int be_map_pci_bars(struct be_adapter *adapter)
+
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int c=
+md)
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, in=
+t cmd)
  {
-+	struct pci_dev *pdev = adapter->pdev;
- 	u8 __iomem *addr;
- 	int db_reg;
- 
- 	if (lancer_chip(adapter)) {
--		addr = ioremap_nocache(pci_resource_start(adapter->pdev, 0),
--			pci_resource_len(adapter->pdev, 0));
--		if (addr == NULL)
--			return -ENOMEM;
--		adapter->db = addr;
-+		if (be_type_2_3(adapter)) {
-+			addr = ioremap_nocache(pci_resource_start(pdev, 0),
-+			    pci_resource_len(adapter->pdev, 0));
-+			if (addr == NULL)
-+				return -ENOMEM;
-+			adapter->db = addr;
-+		}
-+		if (adapter->if_type == SLI_INTF_TYPE_3) {
-+			if (lancer_roce_map_pci_bars(adapter))
-+				goto pci_map_err;
-+		}
- 		return 0;
+ 	nx_nic_req_t req;
+ 	u64 word;
+@@ -922,7 +922,7 @@ int netxen_config_ipaddr(struct netxen_adapter
+*adapter, u32 ip, int cmd)
+ 	req.req_hdr =3D cpu_to_le64(word);
+
+ 	req.words[0] =3D cpu_to_le64(cmd);
+-	req.words[1] =3D cpu_to_le64(ip);
++	memcpy(&req.words[1], &ip, sizeof(u32));
+
+ 	rv =3D netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, =
+1);
+ 	if (rv !=3D 0) {
+@@ -1050,7 +1050,7 @@ int netxen_get_flash_mac_addr(struct
+netxen_adapter *adapter, u64 *mac)
+ 	if (netxen_get_flash_block(adapter, offset, sizeof(u64), pmac) =3D=3D=
+ -1)
+ 		return -1;
+
+-	if (*mac =3D=3D cpu_to_le64(~0ULL)) {
++	if (*(__le64 *)mac =3D=3D cpu_to_le64(~0ULL)) {
+
+ 		offset =3D NX_OLD_MAC_ADDR_OFFSET +
+ 			(adapter->portnum * sizeof(u64));
+@@ -1059,7 +1059,7 @@ int netxen_get_flash_mac_addr(struct
+netxen_adapter *adapter, u64 *mac)
+ 					offset, sizeof(u64), pmac) =3D=3D -1)
+ 			return -1;
+
+-		if (*mac =3D=3D cpu_to_le64(~0ULL))
++		if (*(__le64 *)mac =3D=3D cpu_to_le64(~0ULL))
+ 			return -1;
  	}
- 
-@@ -3176,7 +3217,11 @@ static int be_map_pci_bars(struct be_adapter *adapter)
- 	if (addr == NULL)
- 		goto pci_map_err;
- 	adapter->db = addr;
--
-+	if (adapter->sli_family == SKYHAWK_SLI_FAMILY) {
-+		adapter->roce_db.size = 4096;
-+		adapter->roce_db.io_addr = pci_resource_start(pdev, db_reg);
-+		adapter->roce_db.total_size = pci_resource_len(pdev, db_reg);
-+	}
  	return 0;
- pci_map_err:
- 	be_unmap_pci_bars(adapter);
-@@ -3289,6 +3334,8 @@ static void __devexit be_remove(struct pci_dev *pdev)
- 	if (!adapter)
- 		return;
- 
-+	be_roce_dev_remove(adapter);
-+
- 	cancel_delayed_work_sync(&adapter->work);
- 
- 	unregister_netdev(adapter->netdev);
-@@ -3334,7 +3381,7 @@ static int be_get_config(struct be_adapter *adapter)
- static int be_dev_family_check(struct be_adapter *adapter)
+@@ -2155,7 +2155,7 @@ static u32 netxen_md_rd_crb(struct
+netxen_adapter *adapter,
+ static u32
+ netxen_md_rdrom(struct netxen_adapter *adapter,
+ 			struct netxen_minidump_entry_rdrom
+-				*romEntry, u32 *data_buff)
++				*romEntry, __le32 *data_buff)
  {
- 	struct pci_dev *pdev = adapter->pdev;
--	u32 sli_intf = 0, if_type;
-+	u32 sli_intf = 0;
- 
- 	switch (pdev->device) {
- 	case BE_DEVICE_ID1:
-@@ -3343,17 +3390,25 @@ static int be_dev_family_check(struct be_adapter *adapter)
- 		break;
- 	case BE_DEVICE_ID2:
- 	case OC_DEVICE_ID2:
--	case OC_DEVICE_ID5:
- 		adapter->generation = BE_GEN3;
- 		break;
- 	case OC_DEVICE_ID3:
- 	case OC_DEVICE_ID4:
- 		pci_read_config_dword(pdev, SLI_INTF_REG_OFFSET, &sli_intf);
--		if_type = (sli_intf & SLI_INTF_IF_TYPE_MASK) >>
-+		adapter->if_type = (sli_intf & SLI_INTF_IF_TYPE_MASK) >>
- 						SLI_INTF_IF_TYPE_SHIFT;
--
- 		if (((sli_intf & SLI_INTF_VALID_MASK) != SLI_INTF_VALID) ||
--			if_type != 0x02) {
-+			!be_type_2_3(adapter)) {
-+			dev_err(&pdev->dev, "SLI_INTF reg val is not valid\n");
-+			return -EINVAL;
-+		}
-+		adapter->sli_family = ((sli_intf & SLI_INTF_FAMILY_MASK) >>
-+							SLI_INTF_FAMILY_SHIFT);
-+		adapter->generation = BE_GEN3;
-+		break;
-+	case OC_DEVICE_ID5:
-+		pci_read_config_dword(pdev, SLI_INTF_REG_OFFSET, &sli_intf);
-+		if ((sli_intf & SLI_INTF_VALID_MASK) != SLI_INTF_VALID) {
- 			dev_err(&pdev->dev, "SLI_INTF reg val is not valid\n");
- 			return -EINVAL;
- 		}
-@@ -3621,6 +3676,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 	if (status != 0)
- 		goto unsetup;
- 
-+	be_roce_dev_add(adapter);
-+
- 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
- 
- 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
-diff --git a/drivers/net/ethernet/emulex/benet/be_roce.c b/drivers/net/ethernet/emulex/benet/be_roce.c
-new file mode 100644
-index 0000000..0b3e0b7
---- /dev/null
-+++ b/drivers/net/ethernet/emulex/benet/be_roce.c
-@@ -0,0 +1,183 @@
-+/*
-+ * Copyright (C) 2005 - 2011 Emulex
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation. The full GNU General
-+ * Public License is included in this distribution in the file called COPYING.
-+ *
-+ * Contact Information:
-+ * linux-drivers@emulex.com
-+ *
-+ * Emulex
-+ * 3333 Susan Street
-+ * Costa Mesa, CA 92626
-+ */
-+
-+#include <linux/mutex.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/module.h>
-+
-+#include "be.h"
-+#include "be_cmds.h"
-+
-+static struct ocrdma_driver *ocrdma_drv;
-+static LIST_HEAD(be_adapter_list);
-+static DEFINE_MUTEX(be_adapter_list_lock);
-+
-+static void _be_roce_dev_add(struct be_adapter *adapter)
-+{
-+	struct be_dev_info dev_info;
-+	int i, roce_vect_cnt;
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	if (!ocrdma_drv)
-+		return;
-+	if (pdev->device == OC_DEVICE_ID5) {
-+		/* only msix is supported on these devices */
-+		if (!msix_enabled(adapter))
-+			return;
-+		/* DPP region address and length */
-+		dev_info.dpp_unmapped_addr = pci_resource_start(pdev, 2);
-+		dev_info.dpp_unmapped_len = pci_resource_len(pdev, 2);
-+	} else {
-+		dev_info.dpp_unmapped_addr = 0;
-+		dev_info.dpp_unmapped_len = 0;
-+	}
-+	dev_info.pdev = adapter->pdev;
-+	if (adapter->sli_family == SKYHAWK_SLI_FAMILY)
-+		dev_info.db = adapter->db;
-+	else
-+		dev_info.db = adapter->roce_db.base;
-+	dev_info.unmapped_db = adapter->roce_db.io_addr;
-+	dev_info.db_page_size = adapter->roce_db.size;
-+	dev_info.db_total_size = adapter->roce_db.total_size;
-+	dev_info.netdev = adapter->netdev;
-+	memcpy(dev_info.mac_addr, adapter->netdev->dev_addr, ETH_ALEN);
-+	dev_info.dev_family = adapter->sli_family;
-+	if (msix_enabled(adapter)) {
-+		/* provide all the vectors, so that EQ creation response
-+		 * can decide which one to use.
-+		 */
-+		roce_vect_cnt = adapter->num_msix_vec;
-+		dev_info.intr_mode = BE_INTERRUPT_MODE_MSIX;
-+		dev_info.msix.num_vectors =
-+		    min(roce_vect_cnt, MAX_ROCE_MSIX_VECTORS);
-+		/* provide start index of the vector,
-+		 * so in case of linear usage,
-+		 * it can use the base as starting point.
-+		 */
-+		dev_info.msix.start_vector = adapter->num_eqs;
-+		for (i = 0; i < dev_info.msix.num_vectors; i++) {
-+			dev_info.msix.vector_list[i] =
-+			    adapter->msix_entries[i].vector;
-+		}
-+	} else {
-+		dev_info.msix.num_vectors = 0;
-+		dev_info.intr_mode = BE_INTERRUPT_MODE_INTX;
-+	}
-+	adapter->ocrdma_dev = ocrdma_drv->add(&dev_info);
-+}
-+
-+void be_roce_dev_add(struct be_adapter *adapter)
-+{
-+	if (be_roce_supported(adapter)) {
-+		INIT_LIST_HEAD(&adapter->entry);
-+		mutex_lock(&be_adapter_list_lock);
-+		list_add_tail(&adapter->entry, &be_adapter_list);
-+
-+		/* invoke add() routine of roce driver only if
-+		 * valid driver registered with add method and add() is not yet
-+		 * invoked on a given adapter.
-+		 */
-+		_be_roce_dev_add(adapter);
-+		mutex_unlock(&be_adapter_list_lock);
-+	}
-+}
-+
-+void _be_roce_dev_remove(struct be_adapter *adapter)
-+{
-+	if (ocrdma_drv && ocrdma_drv->remove && adapter->ocrdma_dev)
-+		ocrdma_drv->remove(adapter->ocrdma_dev);
-+	adapter->ocrdma_dev = NULL;
-+}
-+
-+void be_roce_dev_remove(struct be_adapter *adapter)
-+{
-+	if (be_roce_supported(adapter)) {
-+		mutex_lock(&be_adapter_list_lock);
-+		_be_roce_dev_remove(adapter);
-+		list_del(&adapter->entry);
-+		mutex_unlock(&be_adapter_list_lock);
-+	}
-+}
-+
-+void _be_roce_dev_open(struct be_adapter *adapter)
-+{
-+	if (ocrdma_drv && adapter->ocrdma_dev &&
-+	    ocrdma_drv->state_change_handler)
-+		ocrdma_drv->state_change_handler(adapter->ocrdma_dev, 0);
-+}
-+
-+void be_roce_dev_open(struct be_adapter *adapter)
-+{
-+	if (be_roce_supported(adapter)) {
-+		mutex_lock(&be_adapter_list_lock);
-+		_be_roce_dev_open(adapter);
-+		mutex_unlock(&be_adapter_list_lock);
-+	}
-+}
-+
-+void _be_roce_dev_close(struct be_adapter *adapter)
-+{
-+	if (ocrdma_drv && adapter->ocrdma_dev &&
-+	    ocrdma_drv->state_change_handler)
-+		ocrdma_drv->state_change_handler(adapter->ocrdma_dev, 1);
-+}
-+
-+void be_roce_dev_close(struct be_adapter *adapter)
-+{
-+	if (be_roce_supported(adapter)) {
-+		mutex_lock(&be_adapter_list_lock);
-+		_be_roce_dev_close(adapter);
-+		mutex_unlock(&be_adapter_list_lock);
-+	}
-+}
-+
-+int be_roce_register_driver(struct ocrdma_driver *drv)
-+{
-+	struct be_adapter *dev;
-+
-+	mutex_lock(&be_adapter_list_lock);
-+	if (ocrdma_drv) {
-+		mutex_unlock(&be_adapter_list_lock);
-+		return -EINVAL;
-+	}
-+	ocrdma_drv = drv;
-+	list_for_each_entry(dev, &be_adapter_list, entry) {
-+		struct net_device *netdev;
-+		_be_roce_dev_add(dev);
-+		netdev = dev->netdev;
-+		if (netif_running(netdev) && netif_oper_up(netdev))
-+			_be_roce_dev_open(dev);
-+	}
-+	mutex_unlock(&be_adapter_list_lock);
-+	return 0;
-+}
-+EXPORT_SYMBOL(be_roce_register_driver);
-+
-+void be_roce_unregister_driver(struct ocrdma_driver *drv)
-+{
-+	struct be_adapter *dev;
-+
-+	mutex_lock(&be_adapter_list_lock);
-+	list_for_each_entry(dev, &be_adapter_list, entry) {
-+		if (dev->ocrdma_dev)
-+			_be_roce_dev_remove(dev);
-+	}
-+	ocrdma_drv = NULL;
-+	mutex_unlock(&be_adapter_list_lock);
-+}
-+EXPORT_SYMBOL(be_roce_unregister_driver);
-diff --git a/drivers/net/ethernet/emulex/benet/be_roce.h b/drivers/net/ethernet/emulex/benet/be_roce.h
-new file mode 100644
-index 0000000..db4ea80
---- /dev/null
-+++ b/drivers/net/ethernet/emulex/benet/be_roce.h
-@@ -0,0 +1,75 @@
-+/*
-+ * Copyright (C) 2005 - 2011 Emulex
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation. The full GNU General
-+ * Public License is included in this distribution in the file called COPYING.
-+ *
-+ * Contact Information:
-+ * linux-drivers@emulex.com
-+ *
-+ * Emulex
-+ * 3333 Susan Street
-+ * Costa Mesa, CA 92626
-+ */
-+
-+#ifndef BE_ROCE_H
-+#define BE_ROCE_H
-+
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+
-+struct ocrdma_dev;
-+
-+enum be_interrupt_mode {
-+	BE_INTERRUPT_MODE_MSIX	= 0,
-+	BE_INTERRUPT_MODE_INTX	= 1,
-+	BE_INTERRUPT_MODE_MSI	= 2,
-+};
-+
-+#define MAX_ROCE_MSIX_VECTORS   16
-+struct be_dev_info {
-+	u8 __iomem *db;
-+	u64 unmapped_db;
-+	u32 db_page_size;
-+	u32 db_total_size;
-+	u64 dpp_unmapped_addr;
-+	u32 dpp_unmapped_len;
-+	struct pci_dev *pdev;
-+	struct net_device *netdev;
-+	u8 mac_addr[ETH_ALEN];
-+	u32 dev_family;
-+	enum be_interrupt_mode intr_mode;
-+	struct {
-+		int num_vectors;
-+		int start_vector;
-+		u32 vector_list[MAX_ROCE_MSIX_VECTORS];
-+	} msix;
-+};
-+
-+/* ocrdma driver register's the callback functions with nic driver. */
-+struct ocrdma_driver {
-+	unsigned char name[32];
-+	struct ocrdma_dev *(*add) (struct be_dev_info *dev_info);
-+	void (*remove) (struct ocrdma_dev *);
-+	void (*state_change_handler) (struct ocrdma_dev *, u32 new_state);
-+};
-+
-+enum {
-+	BE_DEV_UP	= 0,
-+	BE_DEV_DOWN	= 1
-+};
-+
-+/* APIs for RoCE driver to register callback handlers,
-+ * which will be invoked when device is added, removed, ifup, ifdown
-+ */
-+int be_roce_register_driver(struct ocrdma_driver *drv);
-+void be_roce_unregister_driver(struct ocrdma_driver *drv);
-+
-+/* API for RoCE driver to issue mailbox commands */
-+int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
-+		    int wrb_payload_size, u16 *cmd_status, u16 *ext_status);
-+
-+#endif /* BE_ROCE_H */
--- 
-1.6.0.2
+ 	int i, count =3D 0;
+ 	u32 size, lck_val;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 7648995..65a718f 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -805,12 +805,12 @@ netxen_check_options(struct netxen_adapter *adapt=
+er)
+ 	char brd_name[NETXEN_MAX_SHORT_NAME];
+ 	char serial_num[32];
+ 	int i, offset, val, err;
+-	int *ptr32;
++	__le32 *ptr32;
+ 	struct pci_dev *pdev =3D adapter->pdev;
+
+ 	adapter->driver_mismatch =3D 0;
+
+-	ptr32 =3D (int *)&serial_num;
++	ptr32 =3D (__le32 *)&serial_num;
+ 	offset =3D NX_FW_SERIAL_NUM_OFFSET;
+ 	for (i =3D 0; i < 8; i++) {
+ 		if (netxen_rom_fast_read(adapter, offset, &val) =3D=3D -1) {
+
+
+
+On Sun, Mar 11, 2012 at 12:31 AM, Rajesh Borundia
+<rajesh.borundia@qlogic.com> wrote:
+>
+>
+>> -----Original Message-----
+>> From: santosh prasad nayak [mailto:santoshprasadnayak@gmail.com]
+>> Sent: Saturday, March 10, 2012 12:20 AM
+>> To: Rajesh Borundia
+>> Cc: Sony Chacko; netdev; linux-kernel; kernel-janitors@vger.kernel.o=
+rg
+>> Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+>>
+>> On Fri, Mar 9, 2012 at 10:04 PM, Rajesh Borundia
+>> <rajesh.borundia@qlogic.com> wrote:
+>> >
+>> >> -----Original Message-----
+>> >> From: santosh nayak [mailto:santoshprasadnayak@gmail.com]
+>> >> Sent: Saturday, March 03, 2012 9:18 PM
+>> >> To: Sony Chacko
+>> >> Cc: Rajesh Borundia; netdev; linux-kernel; kernel-
+>> >> janitors@vger.kernel.org; Santosh Nayak
+>> >> Subject: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+>> >>
+>> >> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+>> >>
+>> >> Fix endian bug.
+>> >>
+>> >> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+>> >> ---
+>> >> =A0drivers/net/ethernet/qlogic/netxen/netxen_nic.h =A0 =A0| =A0 =A0=
+4 ++--
+>> >> =A0drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | =A0 12 ++=
++++++--
+>> ---
+>> >> =A0.../net/ethernet/qlogic/netxen/netxen_nic_main.c =A0 | =A0 =A0=
+2 +-
+>> >> =A03 files changed, 10 insertions(+), 8 deletions(-)
+>> >>
+>> >> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+>> >> b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+>> >> index 2eeac32..b5de8a7 100644
+>> >> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+>> >> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+>> >> @@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
+>> >>
+>> >> =A0struct nx_vlan_ip_list {
+>> >> =A0 =A0 =A0 struct list_head list;
+>> >> - =A0 =A0 u32 ip_addr;
+>> >> + =A0 =A0 __be32 ip_addr;
+>> >> =A0};
+>> >>
+>> >> =A0/*
+>> >> @@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct
+>> >> nx_host_sds_ring *sds_ring, int max);
+>> >> =A0void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
+>> >> =A0int netxen_config_intr_coalesce(struct netxen_adapter *adapter=
+);
+>> >> =A0int netxen_config_rss(struct netxen_adapter *adapter, int enab=
+le);
+>> >> -int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip,
+>> int
+>> >> cmd);
+>> >> +int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 =
+ip,
+>> >> int cmd);
+>> >> =A0int netxen_linkevent_request(struct netxen_adapter *adapter, i=
+nt
+>> >> enable);
+>> >> =A0void netxen_advert_link_change(struct netxen_adapter *adapter,=
+ int
+>> >> linkup);
+>> >> =A0void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u6=
+4 *);
+>> >> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+>> >> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+>> >> index 6f37470..0f81287 100644
+>> >> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+>> >> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+>> >> @@ -909,10 +909,11 @@ int netxen_config_rss(struct netxen_adapter
+>> >> *adapter, int enable)
+>> >> =A0 =A0 =A0 return rv;
+>> >> =A0}
+>> >>
+>> >> -int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip,
+>> int
+>> >> cmd)
+>> >> +int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 =
+ip,
+>> >> int cmd)
+>> >> =A0{
+>> >> =A0 =A0 =A0 nx_nic_req_t req;
+>> >> =A0 =A0 =A0 u64 word;
+>> >> + =A0 =A0 u64 ip_addr;
+>> >> =A0 =A0 =A0 int rv;
+>> >>
+>> >> =A0 =A0 =A0 memset(&req, 0, sizeof(nx_nic_req_t));
+>> >> @@ -922,7 +923,8 @@ int netxen_config_ipaddr(struct netxen_adapte=
+r
+>> >> *adapter, u32 ip, int cmd)
+>> >> =A0 =A0 =A0 req.req_hdr =3D cpu_to_le64(word);
+>> >>
+>> >> =A0 =A0 =A0 req.words[0] =3D cpu_to_le64(cmd);
+>> >> - =A0 =A0 req.words[1] =3D cpu_to_le64(ip);
+>> >> + =A0 =A0 ip_addr =3D be32_to_cpu(ip);
+>> >> + =A0 =A0 *(__be64 *)&req.words[1] =3D cpu_to_be64(ip_addr);
+>> >
+>>
+>>
+>> > Adapter requires ip value in big endian stored at lower 32 bit
+>> address.
+>> > The cpu_to_be64 will swap the lower 32 bit with higher 32 bit and
+>> adapter
+>> > Will get incorrect ip addr. Instead u can do.
+>> >
+>> > =A0 =A0 =A0 U32 *ip_addr;
+>> > =A0 =A0 =A0 ip_addr =3D (u32 *)&req.words[1];
+>> > =A0 =A0 =A0 *ip_addr =3D ip;
+>>
+>>
+>> 1. =A0It looks incomplete.
+>> =A0 =A0 In the function call "netxen_send_cmd_descs" we have to pass=
+ "&req"
+>> as
+>> =A0 =A02nd argument =A0not =A0"ipaddr".
+>
+> =A0I should have sent a patch. This piece of code was just to show ho=
+w to
+> copy ip addr in =A0req.words[1].
+>
+>>
+>> 2. Your above suggestion is with assumption that the data type of 2n=
+d
+>> argument "ip"
+>> =A0 =A0 =A0in "netxen_config_ipaddr()" is still "u32". =A0This is no=
+t true.
+>>
+>> =A0 =A0 =A0Some days back you suggested to change the data type to "=
+__be32".
+>> =A0In the present patch
+>> =A0 =A0 =A0the "ip" =A0is in "__be32" format i.e already in Big endi=
+an format
+>> as per requirement.
+>> =A0 =A0 =A0We need to only convert this 32 bit to 64 bit. =A0There a=
+re two
+>> ways:
+>>
+> =A0No I did not assume that ip is u32, ip is still __be32(ip value is=
+ in form of big endian)
+> =A0though I should have mentioned it explicitly. But the ip value sho=
+uld be copied to lower 32 bit of req.words[1].
+>
+>
+>> =A0 =A0 =A0a. =A0 *(__be64 *)&req.words[1] =3D ip; =A0 // auto conve=
+rsion
+> In big endian machine MSB is copied into MSB first. So ip will get co=
+pied into higher 32 bit of
+> req.words[1] but adapter requires it in lower 32 bit.
+>>
+>> =A0 =A0 =A0b. =A0 *(__be64 *)&req.words[1] =3D cpu_to_be64(be32_to_c=
+pu(ip));
+>> =A0 =A0 =A0 =A0 =A0 =A0 // explicit conversion.
+>>
+> If you follow second cpu_to_be64 it will swap lower 32 bit of ip with=
+ higher 32 bit in little endian machine.
+> But adapter requires it in lower 32 bit.
+>
+> Simple solution to copy ip in req.words[1] could be memcpy(&req.words=
+[1], &ip, sizeof(u32));
+>
+>
+>>
+>> =A0Please correct me if I am wrong.
+>>
+>>
+>> regards
+>> Santosh
+>>
+>>
+>>
+>>
+>> >
+>> >
+>> >>
+>> >> =A0 =A0 =A0 rv =3D netxen_send_cmd_descs(adapter, (struct cmd_des=
+c_type0
+>> >> *)&req, 1);
+>> >> =A0 =A0 =A0 if (rv !=3D 0) {
+>> >> @@ -1050,7 +1052,7 @@ int netxen_get_flash_mac_addr(struct
+>> >> netxen_adapter *adapter, u64 *mac)
+>> >> =A0 =A0 =A0 if (netxen_get_flash_block(adapter, offset, sizeof(u6=
+4), pmac)
+>> =3D=3D
+>> >> -1)
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
+>> >>
+>> >> - =A0 =A0 if (*mac =3D=3D cpu_to_le64(~0ULL)) {
+>> >> + =A0 =A0 if (*mac =3D=3D ~0ULL) {
+>> >
+>> > *mac is in little endian format so compare it with cpu_to_le64.
+>> >
+>> >>
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 offset =3D NX_OLD_MAC_ADDR_OFFSET +
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (adapter->portnum * s=
+izeof(u64));
+>> >> @@ -1059,7 +1061,7 @@ int netxen_get_flash_mac_addr(struct
+>> >> netxen_adapter *adapter, u64 *mac)
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 offset, sizeof(u64), pmac) =3D=3D
+>> -1)
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
+>> >>
+>> >> - =A0 =A0 =A0 =A0 =A0 =A0 if (*mac =3D=3D cpu_to_le64(~0ULL))
+>> >> + =A0 =A0 =A0 =A0 =A0 =A0 if (*mac =3D=3D ~0ULL)
+>> >
+>> > *mac here is in little endian format so compare it with cpu_to_le6=
+4.
+>> >
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
+>> >> =A0 =A0 =A0 }
+>> >> =A0 =A0 =A0 return 0;
+>> >> @@ -2178,7 +2180,7 @@ lock_try:
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 NX_WR_DUMP_REG(FLASH_ROM_WINDOW, adap=
+ter-
+>> >ahw.pci_base0,
+>> >> waddr);
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 raddr =3D FLASH_ROM_DATA + (fl_addr &=
+ 0x0000FFFF);
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 NX_RD_DUMP_REG(raddr, adapter->ahw.pc=
+i_base0, &val);
+>> >> - =A0 =A0 =A0 =A0 =A0 =A0 *data_buff++ =3D cpu_to_le32(val);
+>> >> + =A0 =A0 =A0 =A0 =A0 =A0 *data_buff++ =3D val;
+>> >
+>> > It should be cpu_to_le32 as it is returned to tool which requires
+>> > output in little endian.
+>> >
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 fl_addr +=3D sizeof(val);
+>> >> =A0 =A0 =A0 }
+>> >> =A0 =A0 =A0 readl((void __iomem *)(adapter->ahw.pci_base0 +
+>> >> NX_FLASH_SEM2_ULK));
+>> >> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>> >> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>> >> index 8dc4a134..70783b4 100644
+>> >> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>> >> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+>> >> @@ -818,7 +818,7 @@ netxen_check_options(struct netxen_adapter
+>> >> *adapter)
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 adapter->driver_misma=
+tch =3D 1;
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> >> - =A0 =A0 =A0 =A0 =A0 =A0 ptr32[i] =3D cpu_to_le32(val);
+>> >> + =A0 =A0 =A0 =A0 =A0 =A0 ptr32[i] =3D val;
+>> >
+>> > Here val should be in little endian (cpu_to_le32) as it will be
+>> referenced by byte array to print serial number.
+>> >
+>> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 offset +=3D sizeof(u32);
+>> >> =A0 =A0 =A0 }
+>> >>
+>> >> --
+>> >> 1.7.4.4
+>> >>
+>> >
+>> >
+>> > Sorry for Late reply.
+>> >
+>> > Rajesh
+>> >
+>
+>
