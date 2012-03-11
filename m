@@ -1,100 +1,72 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/7] drivers/net/irda/{ali-ircc,via-ircc,w83977af-ir}.c: ensure arguments to request_irq and free_irq are compatible
-Date: Sun, 11 Mar 2012 20:36:23 +0100
-Message-ID: <1331494587-12196-4-git-send-email-Julia.Lawall@lip6.fr>
-References: <1331494587-12196-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331494587-12196-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next 2/2] caif: make zero a legal caif connetion id.
+Date: Sun, 11 Mar 2012 21:28:32 +0100
+Message-ID: <1331497712-13534-2-git-send-email-sjur.brandeland@stericsson.com>
+References: <1331497712-13534-1-git-send-email-sjur.brandeland@stericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sjurbren@gmail.com,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:64089 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751725Ab2CKU2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 16:28:48 -0400
+Received: by lahj13 with SMTP id j13so3064319lah.19
+        for <netdev@vger.kernel.org>; Sun, 11 Mar 2012 13:28:47 -0700 (PDT)
+In-Reply-To: <1331497712-13534-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+Connection ID configured through RTNL must allow zero as
+connection id. If connection-id is not given when creating the
+interface, configure a loopback interface using ifindex as
+connection-id.
 
-Convert calls to free_irq so that the second argument is the same as the
-last argument of the corresponding call to request_irq.  Without this
-property, free_irq does nothing.
-
-In each case, there is one call to free_irq with self as the second
-argument and one with dev as the second argument.  Even though dev was also
-the last argument of request_irq, I have changed all of the calls to use
-self, as it fits better with the first argument to each function.
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
 ---
-Not tested.  I don't know if I have made the right choice.
+ net/caif/chnl_net.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
- drivers/net/irda/ali-ircc.c    |    4 ++--
- drivers/net/irda/via-ircc.c    |    4 ++--
- drivers/net/irda/w83977af_ir.c |    4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
-index 963067d..7e732d7 100644
---- a/drivers/net/irda/ali-ircc.c
-+++ b/drivers/net/irda/ali-ircc.c
-@@ -1352,7 +1352,7 @@ static int ali_ircc_net_open(struct net_device *dev)
- 	iobase = self->io.fir_base;
- 	
- 	/* Request IRQ and install Interrupt Handler */
--	if (request_irq(self->io.irq, ali_ircc_interrupt, 0, dev->name, dev)) 
-+	if (request_irq(self->io.irq, ali_ircc_interrupt, 0, dev->name, self))
- 	{
- 		IRDA_WARNING("%s, unable to allocate irq=%d\n",
- 			     ALI_IRCC_DRIVER_NAME,
-@@ -1424,7 +1424,7 @@ static int ali_ircc_net_close(struct net_device *dev)
- 	/* Disable interrupts */
- 	SetCOMInterrupts(self, FALSE);
- 	       
--	free_irq(self->io.irq, dev);
-+	free_irq(self->io.irq, self);
- 	free_dma(self->io.dma);
- 
- 	IRDA_DEBUG(2, "%s(), ----------------- End ------------------\n", __func__ );
-diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index 2d456dd..c0678be 100644
---- a/drivers/net/irda/via-ircc.c
-+++ b/drivers/net/irda/via-ircc.c
-@@ -1483,7 +1483,7 @@ static int via_ircc_net_open(struct net_device *dev)
- 	dev->stats.rx_packets = 0;
- 	IRDA_ASSERT(self != NULL, return 0;);
- 	iobase = self->io.fir_base;
--	if (request_irq(self->io.irq, via_ircc_interrupt, 0, dev->name, dev)) {
-+	if (request_irq(self->io.irq, via_ircc_interrupt, 0, dev->name, self)) {
- 		IRDA_WARNING("%s, unable to allocate irq=%d\n", driver_name,
- 			     self->io.irq);
- 		return -EAGAIN;
-@@ -1562,7 +1562,7 @@ static int via_ircc_net_close(struct net_device *dev)
- 
- 	/* Disable interrupts */
- 	EnAllInt(iobase, OFF);
--	free_irq(self->io.irq, dev);
-+	free_irq(self->io.irq, self);
- 	free_dma(self->io.dma);
- 	if (self->io.dma2 != self->io.dma)
- 		free_dma(self->io.dma2);
-diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index 7d43506..c0c430c 100644
---- a/drivers/net/irda/w83977af_ir.c
-+++ b/drivers/net/irda/w83977af_ir.c
-@@ -1164,7 +1164,7 @@ static int w83977af_net_open(struct net_device *dev)
- 	iobase = self->io.fir_base;
- 
- 	if (request_irq(self->io.irq, w83977af_interrupt, 0, dev->name, 
--			(void *) dev)) {
-+			self)) {
- 		return -EAGAIN;
- 	}
- 	/*
-@@ -1244,7 +1244,7 @@ static int w83977af_net_close(struct net_device *dev)
- 	switch_bank(iobase, SET0);
- 	outb(0, iobase+ICR); 
- 
--	free_irq(self->io.irq, dev);
-+	free_irq(self->io.irq, self);
- 	free_dma(self->io.dma);
- 
- 	/* Restore bank register */
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+index e866234..20618dd 100644
+--- a/net/caif/chnl_net.c
++++ b/net/caif/chnl_net.c
+@@ -28,6 +28,7 @@
+ /* 5 sec. connect timeout */
+ #define CONNECT_TIMEOUT (5 * HZ)
+ #define CAIF_NET_DEFAULT_QUEUE_LEN 500
++#define UNDEF_CONNID 0xffffffff
+=20
+ /*This list is protected by the rtnl lock. */
+ static LIST_HEAD(chnl_net_list);
+@@ -408,7 +409,7 @@ static void ipcaif_net_setup(struct net_device *dev=
+)
+ 	priv->conn_req.link_selector =3D CAIF_LINK_HIGH_BANDW;
+ 	priv->conn_req.priority =3D CAIF_PRIO_LOW;
+ 	/* Insert illegal value */
+-	priv->conn_req.sockaddr.u.dgm.connection_id =3D 0;
++	priv->conn_req.sockaddr.u.dgm.connection_id =3D UNDEF_CONNID;
+ 	priv->flowenabled =3D false;
+=20
+ 	init_waitqueue_head(&priv->netmgmt_wq);
+@@ -471,9 +472,11 @@ static int ipcaif_newlink(struct net *src_net, str=
+uct net_device *dev,
+ 	else
+ 		list_add(&caifdev->list_field, &chnl_net_list);
+=20
+-	/* Take ifindex as connection-id if null */
+-	if (caifdev->conn_req.sockaddr.u.dgm.connection_id =3D=3D 0)
++	/* Use ifindex as connection id, and use loopback channel default. */
++	if (caifdev->conn_req.sockaddr.u.dgm.connection_id =3D=3D UNDEF_CONNI=
+D) {
+ 		caifdev->conn_req.sockaddr.u.dgm.connection_id =3D dev->ifindex;
++		caifdev->conn_req.protocol =3D CAIFPROTO_DATAGRAM_LOOP;
++	}
+ 	return ret;
+ }
+=20
+--=20
+1.7.0.4
