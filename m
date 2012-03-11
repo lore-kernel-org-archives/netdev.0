@@ -1,33 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-03-11
-Date: Sun, 11 Mar 2012 15:36:48 -0700 (PDT)
-Message-ID: <20120311.153648.908965108967679080.davem@davemloft.net>
-References: <1331419491-21333-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] caif: Fix for a race in socket transmit
+ with flow control.
+Date: Sun, 11 Mar 2012 15:38:32 -0700 (PDT)
+Message-ID: <20120311.153832.1595701722068992237.davem@davemloft.net>
+References: <1331497712-13534-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: lindner_marek-LWAfsSFWpa4@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1331419491-21333-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
+	dmitry.tarnyagin@stericsson.com
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41779 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557Ab2CKWii convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 18:38:38 -0400
+In-Reply-To: <1331497712-13534-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Date: Sun, 11 Mar 2012 06:44:47 +0800
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Sun, 11 Mar 2012 21:28:31 +0100
 
-> here are a few late coming patches intended to be merged into net-next-2.6/3.4
-> if possible. This is nothing fancy: They make peace with the recently 
-> introduced checkpatch changes. Let me know if there any problems.
+> From: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>
+>=20
+> Kill faulty checks on flow-off leading to connection drop at race con=
+ditions.
+> caif_socket checks for flow-on before transmitting and goes to sleep =
+or
+> return -EAGAIN upon flow stop. Remove faulty subsequent checks on flo=
+w-off
+> leading to connection drop. Also fix memory leaks on some of the erro=
+rs paths.
+>=20
+> Signed-off-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
-Pulled, thanks.
+Applied.
