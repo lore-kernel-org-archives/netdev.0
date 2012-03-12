@@ -1,22 +1,22 @@
-From: Diego Woitasen <diego@woitasen.com.ar>
-Subject: (unknown)
-Date: Mon, 12 Mar 2012 00:37:10 -0300
-Message-ID: <CAA7UhcmzsO2y9ORAsuBu9RPGShBSxWWGkmvJ-UUyteKtzj7ZnQ@mail.gmail.com>
+From: Mr Leung Cheung <okaraman@posta.adiyaman.edu.tr>
+Subject: Good Day
+Date: Mon, 12 Mar 2012 05:24:57 +0200 (EET)
+Message-ID: <1631867995.7941.1331522697634.JavaMail.root@posta.adiyaman.edu.tr>
+Reply-To: Mr Leung Cheung <cheungl@kimo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:63325 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751338Ab2CLDhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 23:37:11 -0400
-Received: by yhmm54 with SMTP id m54so2127074yhm.19
-        for <netdev@vger.kernel.org>; Sun, 11 Mar 2012 20:37:10 -0700 (PDT)
-Subject: 
+Received: from posta.adiyaman.edu.tr ([193.255.110.6]:59777 "EHLO
+	posta.adiyaman.edu.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752206Ab2CLDxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 23:53:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-subscribe netdev
 
--- 
-Diego Woitasen
+
+I need your assistance to transfer an abandoned $22.5 Million Dollars from Hong-Kong to your country. You will get more info when i receive a positive reply from you.
+
+Best Regards,
