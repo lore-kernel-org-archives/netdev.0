@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Subject: Re: [Devel] [PATCH v2] tun: don't hold network namespace by tun sockets
-Date: Mon, 12 Mar 2012 17:05:31 +0400
-Message-ID: <4F5DF49B.7030704@parallels.com>
+Date: Mon, 12 Mar 2012 17:07:35 +0400
+Message-ID: <4F5DF517.7030406@parallels.com>
 References: <20120312111826.26257.40812.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
