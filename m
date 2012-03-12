@@ -1,39 +1,33 @@
-From: Joerg Neikes <j.neikes@midlandgate.de>
-Subject: Re: Patch for Sitecom LN-031
-Date: Mon, 12 Mar 2012 13:02:00 +0100
-Message-ID: <1331553720.6203.5.camel@mobile>
-References: <1331282643.5426.6.camel@mobile>
-	 <20120311.155308.854791460127462538.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Namespaces and inetpeer
+Date: Mon, 12 Mar 2012 23:11:30 +1100
+Message-ID: <20120312121130.GA17547@gondor.apana.org.au>
+References: <20120310132529.GA3631@gondor.apana.org.au> <20120312085756.GL15404@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120311.155308.854791460127462538.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sting.hengli.com.au ([178.18.18.71]:54596 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754745Ab2CLMLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 08:11:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20120312085756.GL15404@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Sonntag, den 11.03.2012, 15:53 -0700 schrieb David Miller:
-> From: Joerg Neikes <j.neikes@midlandgate.de>
-> Date: Fri, 09 Mar 2012 09:44:03 +0100
-> 
-> > This patch adds support for the Sitecom LN-031 USB adapter with a AX88178 chip.
-> > 
-> > Added USB id to find correct driver for AX88178 1000 Ethernet adapter.
-> > 
-> > Signed-off-by: Joerg Neikes <j.neikes@midlandgate.de>
-> 
-> Applied, but please put more appropriate content in your subject
-> lines in the future.
-> 
-> You should, at a minimum, prefix the subject line with the driver or
-> subsystem name you are modifying.  In this case something like
-> "asix: " would have been appropriate.
-> 
+On Mon, Mar 12, 2012 at 09:57:56AM +0100, Steffen Klassert wrote:
+>
+> Actually, it would be nice if we could have an inetpeer base per
+> fib table. This would imply namespace awareness and it would
+> handle the problem when we have mulitiple routes (with different
+> metrics etc.) to the same ip address on policy routing.
 
-Thanks for the information about the subsystem.
-Next time i will write it to the subject line.
+How would you handle incoming ICMP need-to-frag messages?
 
-This was my first change ever send for Kernel adding.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
