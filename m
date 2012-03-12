@@ -1,124 +1,27 @@
-From: Simon Kirby <sim@netnation.com>
-Subject: Re: [PATCH] tcp: fix syncookie regression
-Date: Mon, 12 Mar 2012 13:30:34 -0700
-Message-ID: <20120312203034.GB24431@hostway.ca>
-References: <20120310122725.GA31129@hostway.ca> <1331401490.2453.28.camel@edumazet-laptop> <1331402182.2453.30.camel@edumazet-laptop> <1331407221.2453.42.camel@edumazet-laptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2: generic-receive-offload causes packet drops
+Date: Mon, 12 Mar 2012 14:16:23 -0700
+Message-ID: <1331586983.5136.48.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1331542469.10004.26.camel@tablet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Peter Volkov" <pva@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from peace.netnation.com ([204.174.223.2]:34188 "EHLO
-	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752920Ab2CLUaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 16:30:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1331407221.2453.42.camel@edumazet-laptop>
+Received: from mms2.broadcom.com ([216.31.210.18]:2861 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756661Ab2CLVQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2012 17:16:35 -0400
+In-Reply-To: <1331542469.10004.26.camel@tablet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 10, 2012 at 11:20:21AM -0800, Eric Dumazet wrote:
-
-> commit ea4fc0d619 (ipv4: Don't use rt->rt_{src,dst} in ip_queue_xmit())
-> added a serious regression on synflood handling.
+On Mon, 2012-03-12 at 12:54 +0400, Peter Volkov wrote:
+> So questions:  Is this expected? What information can we provide to
+> debug is issue?
 > 
-> Simon Kirby discovered a successful connection was delayed by 20 seconds
-> before being responsive.
+Please provide ethtool -S on all the bnx2 devices that are experiencing
+packet drops.  Thanks.
 > 
-> In my tests, I discovered that xmit frames were lost, and needed ~4
-> retransmits and a socket dst rebuild before being really sent.
-> 
-> In case of syncookie initiated connection, we use a different path to
-> initialize the socket dst, and inet->cork.fl.u.ip4 is left cleared.
-> 
-> As ip_queue_xmit() now depends on inet flow being setup, fix this by
-> copying the temp flowi4 we use in cookie_v4_check().
-> 
-> Reported-by: Simon Kirby <sim@netnation.com>
-> Bisected-by: Simon Kirby <sim@netnation.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/ipv4/syncookies.c |   30 ++++++++++++++++--------------
->  net/ipv4/tcp_ipv4.c   |   10 +++++++---
->  2 files changed, 23 insertions(+), 17 deletions(-)
-> 
-> diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-> index 51fdbb4..eab2a7f 100644
-> --- a/net/ipv4/syncookies.c
-> +++ b/net/ipv4/syncookies.c
-> @@ -278,6 +278,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
->  	struct rtable *rt;
->  	__u8 rcv_wscale;
->  	bool ecn_ok = false;
-> +	struct flowi4 fl4;
->  
->  	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
->  		goto out;
-> @@ -346,20 +347,16 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
->  	 * hasn't changed since we received the original syn, but I see
->  	 * no easy way to do this.
->  	 */
-> -	{
-> -		struct flowi4 fl4;
-> -
-> -		flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-> -				   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-> -				   inet_sk_flowi_flags(sk),
-> -				   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-> -				   ireq->loc_addr, th->source, th->dest);
-> -		security_req_classify_flow(req, flowi4_to_flowi(&fl4));
-> -		rt = ip_route_output_key(sock_net(sk), &fl4);
-> -		if (IS_ERR(rt)) {
-> -			reqsk_free(req);
-> -			goto out;
-> -		}
-> +	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-> +			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-> +			   inet_sk_flowi_flags(sk),
-> +			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-> +			   ireq->loc_addr, th->source, th->dest);
-> +	security_req_classify_flow(req, flowi4_to_flowi(&fl4));
-> +	rt = ip_route_output_key(sock_net(sk), &fl4);
-> +	if (IS_ERR(rt)) {
-> +		reqsk_free(req);
-> +		goto out;
->  	}
->  
->  	/* Try to redo what tcp_v4_send_synack did. */
-> @@ -373,5 +370,10 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
->  	ireq->rcv_wscale  = rcv_wscale;
->  
->  	ret = get_cookie_sock(sk, skb, req, &rt->dst);
-> +	/* ip_queue_xmit() depends on our flow being setup
-> +	 * Normal sockets get it right from inet_csk_route_child_sock()
-> +	 */
-> +	if (ret)
-> +		inet_sk(ret)->cork.fl.u.ip4 = fl4;
->  out:	return ret;
->  }
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 94d683a..fd54c5f 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1466,9 +1466,13 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
->  		inet_csk(newsk)->icsk_ext_hdr_len = inet_opt->opt.optlen;
->  	newinet->inet_id = newtp->write_seq ^ jiffies;
->  
-> -	if (!dst && (dst = inet_csk_route_child_sock(sk, newsk, req)) == NULL)
-> -		goto put_and_exit;
-> -
-> +	if (!dst) {
-> +		dst = inet_csk_route_child_sock(sk, newsk, req);
-> +		if (!dst)
-> +			goto put_and_exit;
-> +	} else {
-> +		/* syncookie case : see end of cookie_v4_check() */
-> +	}
->  	sk_setup_caps(newsk, dst);
->  
->  	tcp_mtup_init(newsk);
-
-Tested under real SYN flood on 3.3-rc7 and 3.2.9 -- works! Thanks!
-
-Simon-
