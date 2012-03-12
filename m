@@ -1,160 +1,156 @@
-From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Subject: Re: davinci_emac/mdio: SOFT_RESET of EMAC module resets MDIO on AM1808
-Date: Mon, 12 Mar 2012 08:04:52 +0100
-Message-ID: <CABkLObos_RrKLb338x-JMA4yDg_TEB2S3nr-R6SefRoYCOanBw@mail.gmail.com>
-References: <B6A220404B6BFC4BBD2AB91C54D39DF431775E1B@DBDE01.ent.ti.com>
-	<1330092923-10899-1-git-send-email-christian.riesch@omicron.at>
-	<B6A220404B6BFC4BBD2AB91C54D39DF431776D23@DBDE01.ent.ti.com>
+From: Dor Laor <dlaor@redhat.com>
+Subject: Re: [PATCH 2/2] vhost-net: add a spin_threshold parameter
+Date: Mon, 12 Mar 2012 10:12:34 +0200
+Message-ID: <4F5DAFF2.7030008@redhat.com>
+References: <1329519726-25763-1-git-send-email-aliguori@us.ibm.com> <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>
+Reply-To: dlaor@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0181050159=="
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org"
-	<davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        "Gole,  Anant"
-	<anantgole-l0cyMroinI0@public.gmane.org>
-To: "Rajashekhara, Sudhakar" <sudhakar.raj-l0cyMroinI0@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <B6A220404B6BFC4BBD2AB91C54D39DF431776D23-Er742YJ7I/eIQmiDNMet8wC/G2K4zDHf@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---===============0181050159==
-Content-Type: multipart/alternative; boundary="20cf303f6a26deff0204bb065b1c"
-
---20cf303f6a26deff0204bb065b1c
-Content-Type: text/plain; charset="UTF-8"
-
-On Tuesday, February 28, 2012, Rajashekhara, Sudhakar <sudhakar.raj-l0cyMroinI0@public.gmane.org>
-wrote:
-> Hi Christian,
->
-> On Mon, Feb 27, 2012 at 15:44:54, Rajashekhara, Sudhakar wrote:
->> Hi Christian,
->>
->> On Fri, Feb 24, 2012 at 19:45:23, Christian Riesch wrote:
->> > Hello Sudhakar,
->> >
->> > On Fri, Feb 24, 2012 at 2:02 PM, Rajashekhara, Sudhakar <
-sudhakar.raj-l0cyMroinI0@public.gmane.org> wrote:
->> > > On Thu, Feb 23, 2012 at 14:39:49, Christian Riesch wrote:
->> > >> Hi,
->> > >> I observed this behavior on a Texas Instruments AM1808 SoC (AM1808
->> > >> experimenter's kit) running the current mainline kernel:
->> > >>
->>
->> [snip]
->>
->> > >>
->> > >> According to the AM1808 Technical Reference Manual (sections
-18.2.14.1
->> > >> and 18.3.3.34 in [1]), writing a 1 to the EMAC_SOFTRESET register
->> > >> resets the EMAC module, but not the MDIO module. However, when I
->> > >> comment out the code above, the MDIO control register is not
-affected
->> > >> and the warning 'resetting idled controller' disappears.
->> > >>
->> > >
->> > > But this was not the case for me. Even after commenting out the
-above lines,
->> > > I could still see that MDIO was getting reset.
->> >
->> > Uh, I am sorry. I forgot to mention that there is a second
->> > emac_write(EMAC_SOFTRESET,1); in emac_dev_stop() in davinci_emac.c.
->> > This one must also be commented out to make the resetting idled
-controller
->> > message go away.
->> >
->> > The patch below shows that changes that I did. May I please ask you to
-try
->> > again with these changes?
->> >
->>
->> I was able to reproduce the issue. I'll debug this further and get back
-to you.
->>
->
-> I was going through the mailing list discussions where a work around for
-emac
-> soft-reset tie-up to mdio controller has been proposed. I think this was
-a known
-> issue on TI's da8xx family of devices. Please refer to the thread at
-> http://www.spinics.net/lists/netdev/msg140465.html.
->
-> Cyril,
-> As you have mentioned in your patch, did you get any confirmation from TI
-designer
-> regarding emac soft reset behavior? I see that nothing has been mentioned
-in the
-> EMAC user guide.
-
-Ping?
-
-Thanks, Christian
-
---20cf303f6a26deff0204bb065b1c
-Content-Type: text/html; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-<br><br>On Tuesday, February 28, 2012, Rajashekhara, Sudhakar &lt;<a href=
-=3D"mailto:sudhakar.raj-l0cyMroinI0@public.gmane.org">sudhakar.raj-l0cyMroinI0@public.gmane.org</a>&gt; wrote:<br>&gt; =
-Hi Christian,<br>&gt;<br>&gt; On Mon, Feb 27, 2012 at 15:44:54, Rajashekhar=
-a, Sudhakar wrote:<br>
-&gt;&gt; Hi Christian,<br>&gt;&gt;<br>&gt;&gt; On Fri, Feb 24, 2012 at 19:4=
-5:23, Christian Riesch wrote:<br>&gt;&gt; &gt; Hello Sudhakar,<br>&gt;&gt; =
-&gt;<br>&gt;&gt; &gt; On Fri, Feb 24, 2012 at 2:02 PM, Rajashekhara, Sudhak=
-ar &lt;<a href=3D"mailto:sudhakar.raj-l0cyMroinI0@public.gmane.org">sudhakar.raj-l0cyMroinI0@public.gmane.org</a>&gt; w=
-rote:<br>
-&gt;&gt; &gt; &gt; On Thu, Feb 23, 2012 at 14:39:49, Christian Riesch wrote=
-:<br>&gt;&gt; &gt; &gt;&gt; Hi,<br>&gt;&gt; &gt; &gt;&gt; I observed this b=
-ehavior on a Texas Instruments AM1808 SoC (AM1808<br>&gt;&gt; &gt; &gt;&gt;=
- experimenter&#39;s kit) running the current mainline kernel:<br>
-&gt;&gt; &gt; &gt;&gt;<br>&gt;&gt;<br>&gt;&gt; [snip]<br>&gt;&gt;<br>&gt;&g=
-t; &gt; &gt;&gt;<br>&gt;&gt; &gt; &gt;&gt; According to the AM1808 Technica=
-l Reference Manual (sections 18.2.14.1<br>&gt;&gt; &gt; &gt;&gt; and 18.3.3=
-.34 in [1]), writing a 1 to the EMAC_SOFTRESET register<br>
-&gt;&gt; &gt; &gt;&gt; resets the EMAC module, but not the MDIO module. How=
-ever, when I<br>&gt;&gt; &gt; &gt;&gt; comment out the code above, the MDIO=
- control register is not affected<br>&gt;&gt; &gt; &gt;&gt; and the warning=
- &#39;resetting idled controller&#39; disappears.<br>
-&gt;&gt; &gt; &gt;&gt;<br>&gt;&gt; &gt; &gt;<br>&gt;&gt; &gt; &gt; But this=
- was not the case for me. Even after commenting out the above lines,<br>&gt=
-;&gt; &gt; &gt; I could still see that MDIO was getting reset.<br>&gt;&gt; =
-&gt;<br>
-&gt;&gt; &gt; Uh, I am sorry. I forgot to mention that there is a second<br=
->&gt;&gt; &gt; emac_write(EMAC_SOFTRESET,1); in emac_dev_stop() in davinci_=
-emac.c.<br>&gt;&gt; &gt; This one must also be commented out to make the re=
-setting idled controller<br>
-&gt;&gt; &gt; message go away.<br>&gt;&gt; &gt;<br>&gt;&gt; &gt; The patch =
-below shows that changes that I did. May I please ask you to try<br>&gt;&gt=
-; &gt; again with these changes?<br>&gt;&gt; &gt;<br>&gt;&gt;<br>&gt;&gt; I=
- was able to reproduce the issue. I&#39;ll debug this further and get back =
-to you.<br>
-&gt;&gt;<br>&gt;<br>&gt; I was going through the mailing list discussions w=
-here a work around for emac<br>&gt; soft-reset tie-up to mdio controller ha=
-s been proposed. I think this was a known<br>&gt; issue on TI&#39;s da8xx f=
-amily of devices. Please refer to the thread at<br>
-&gt; <a href=3D"http://www.spinics.net/lists/netdev/msg140465.html">http://=
-www.spinics.net/lists/netdev/msg140465.html</a>.<br>&gt;<br>&gt; Cyril,<br>=
-&gt; As you have mentioned in your patch, did you get any confirmation from=
- TI designer<br>
-&gt; regarding emac soft reset behavior? I see that nothing has been mentio=
-ned in the<br>&gt; EMAC user guide.<br><br>Ping?<br><br>Thanks, Christian
-
---20cf303f6a26deff0204bb065b1c--
-
---===============0181050159==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, Michael Tsirkin <mst@redhat.com>,
+	Tom Lendacky <toml@us.ibm.com>,
+	Cristian Viana <vianac@br.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: Anthony Liguori <aliguori@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29040 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753239Ab2CLIMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2012 04:12:41 -0400
+In-Reply-To: <1329519726-25763-3-git-send-email-aliguori@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 02/18/2012 01:02 AM, Anthony Liguori wrote:
+> With workloads that are dominated by very high rates of small packets, we see
+> considerable overhead in virtio notifications.
+>
+> The best strategy we've been able to come up with to deal with this is adaptive
+> polling.  This patch simply adds the infrastructure needed to experiment with
+> polling strategies.  It is not meant for inclusion.
+>
+> Here are the results with various polling values.  The spinning is not currently
+> a net win due to the high mutex contention caused by the broadcast wakeup.  With
+> a patch attempting to signal wakeup, we see up to 170+ transactions per second
+> with TCP_RR 60 instance.
 
---===============0181050159==--
+Do you really consider to add busy loop to the code? There would 
+probably be another way to solve it.
+
+One of the options we talked about it to add a ethtool-controllable knob 
+in the guest to set the min/max time for wakeup.
+
+>
+> N  Baseline	Spin 0		Spin 1000	Spin 5000
+>
+> TCP_RR
+>
+> 1  9,639.66	10,164.06	9,825.43	9,827.45	101.95%
+> 10 62,819.55	54,059.78	63,114.30	60,767.23	96.73%
+> 30 84,715.60	131,241.86	120,922.38	89,776.39	105.97%
+> 60 124,614.71	148,720.66	158,678.08	141,400.05	113.47%
+>
+> UDP_RR
+>
+> 1  9,652.50	10,343.72	9,493.95	9,569.54	99.14%
+> 10 53,830.26	58,235.90	50,145.29	48,820.53	90.69%
+> 30 89,471.01	97,634.53	95,108.34	91,263.65	102.00%
+> 60 103,640.59	164,035.01	157,002.22	128,646.73	124.13%
+>
+> TCP_STREAM
+> 1  2,622.63	2,610.71	2,688.49	2,678.61	102.13%
+> 4  4,928.02	4,812.05	4,971.00	5,104.57	103.58%
+>
+> 1  5,639.89	5,751.28	5,819.81	5,593.62	99.18%
+> 4  5,874.72	6,575.55	6,324.87	6,502.33	110.68%
+>
+> 1  6,257.42	7,655.22	7,610.52	7,424.74	118.65%
+> 4  5,370.78	6,044.83	5,784.23	6,209.93	115.62%
+>
+> 1  6,346.63	7,267.44	7,567.39	7,677.93	120.98%
+> 4  5,198.02	5,657.12	5,528.94	5,792.42	111.44%
+>
+> TCP_MAERTS
+>
+> 1  2,091.38	1,765.62	2,142.56	2,312.94	110.59%
+> 4  5,319.52	5,619.49	5,544.50	5,645.81	106.13%
+>
+> 1  7,030.66	7,593.61	7,575.67	7,622.07	108.41%
+> 4  9,040.53	7,275.84	7,322.07	6,681.34	73.90%
+>
+> 1  9,160.93	9,318.15	9,065.82	8,586.82	93.73%
+> 4  9,372.49	8,875.63	8,959.03	9,056.07	96.62%
+>
+> 1  9,183.28	9,134.02	8,945.12	8,657.72	94.28%
+> 4  9,377.17	8,877.52	8,959.54	9,071.53	96.74%
+>
+> Cc: Tom Lendacky<toml@us.ibm.com>
+> Cc: Cristian Viana<vianac@br.ibm.com>
+> Signed-off-by: Anthony Liguori<aliguori@us.ibm.com>
+> ---
+>   drivers/vhost/net.c |   14 ++++++++++++++
+>   1 files changed, 14 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 47175cd..e9e5866 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -37,6 +37,10 @@ static int workers = 2;
+>   module_param(workers, int, 0444);
+>   MODULE_PARM_DESC(workers, "Set the number of worker threads");
+>
+> +static ulong spin_threshold = 0;
+> +module_param(spin_threshold, ulong, 0444);
+> +MODULE_PARM_DESC(spin_threshold, "The polling threshold for the tx queue");
+> +
+>   /* Max number of bytes transferred before requeueing the job.
+>    * Using this limit prevents one virtqueue from starving others. */
+>   #define VHOST_NET_WEIGHT 0x80000
+> @@ -65,6 +69,7 @@ struct vhost_net {
+>   	 * We only do this when socket buffer fills up.
+>   	 * Protected by tx vq lock. */
+>   	enum vhost_net_poll_state tx_poll_state;
+> +	size_t spin_threshold;
+>   };
+>
+>   static bool vhost_sock_zcopy(struct socket *sock)
+> @@ -149,6 +154,7 @@ static void handle_tx(struct vhost_net *net)
+>   	size_t hdr_size;
+>   	struct socket *sock;
+>   	struct vhost_ubuf_ref *uninitialized_var(ubufs);
+> +	size_t spin_count;
+>   	bool zcopy;
+>
+>   	/* TODO: check that we are running from vhost_worker? */
+> @@ -172,6 +178,7 @@ static void handle_tx(struct vhost_net *net)
+>   	hdr_size = vq->vhost_hlen;
+>   	zcopy = vhost_sock_zcopy(sock);
+>
+> +	spin_count = 0;
+>   	for (;;) {
+>   		/* Release DMAs done buffers first */
+>   		if (zcopy)
+> @@ -205,9 +212,15 @@ static void handle_tx(struct vhost_net *net)
+>   				set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
+>   				break;
+>   			}
+> +			if (spin_count<  net->spin_threshold) {
+> +				spin_count++;
+> +				continue;
+> +			}
+>   			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
+>   				vhost_disable_notify(&net->dev, vq);
+>   				continue;
+> +			} else {
+> +				spin_count = 0;
+>   			}
+>   			break;
+>   		}
+> @@ -506,6 +519,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>   		return -ENOMEM;
+>
+>   	dev =&n->dev;
+> +	n->spin_threshold = spin_threshold;
+>   	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
+>   	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
+>   	r = vhost_dev_init(dev, n->vqs, workers, VHOST_NET_VQ_MAX);
