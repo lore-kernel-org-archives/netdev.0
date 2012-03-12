@@ -1,107 +1,42 @@
-From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v14 11/13] x86: Enable HAVE_ARCH_SECCOMP_FILTER
-Date: Mon, 12 Mar 2012 16:28:33 -0500
-Message-ID: <1331587715-26069-11-git-send-email-wad@chromium.org>
-References: <1331587715-26069-1-git-send-email-wad@chromium.org>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org,
-	x86@kernel.org,
-	arnd@arndb.de,
-	davem@davemloft.net,
-	hpa@zytor.com,
-	mingo@redhat.com,
-	oleg@redhat.com,
-	peterz@infradead.org,
-	rdunlap@xenotime.net,
-	mcgrathr@chromium.org,
-	tglx@linutronix.de,
-	luto@mit.edu,
-	eparis@redhat.com,
-	serge.hallyn@canonical.com,
-	djm@mindrot.org,
-	scarybeasts@gmail.com,
-	indan@nul.nu,
-	pmoore@redhat.com,
-	akpm@linux-foundation.org,
-	corbet@lwn.net,
-	eric.dumazet@gmail.com,
-	markus@chromium.org,
-	coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org,
-	Will Drewry <wad@chromium.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1099-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1331587715-26069-1-git-send-email-wad@chromium.org>
-List-Id: netdev.vger.kernel.org
+From: Luigi Rizzo <rizzo@iet.unipi.it>
+Subject: netmap for linux now available
+Date: Tue, 13 Mar 2012 00:08:09 +0100
+Message-ID: <20120312230809.GA45615@onelab2.iet.unipi.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from onelab2.iet.unipi.it ([131.114.59.238]:57273 "EHLO
+	onelab2.iet.unipi.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757693Ab2CLW4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 18:56:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable support for seccomp filter on x86:
-- asm/tracehook.h exists
-- syscall_get_arguments() works
-- syscall_rollback() works
-- ptrace_report_syscall() works
-- secure_computing() return value is honored (see below)
+just in case you might be interested...
 
-This also adds support for honoring the return
-value from secure_computing().
+i have recently completed a linux port of the netmap framework.
+Code, documentation and PicoBSD/Tinycore bootable images are at
 
-SECCOMP_RET_TRACE and SECCOMP_RET_TRAP may result in seccomp needing to
-skip a system call without killing the process.  This is done by
-returning a non-zero (-1) value from secure_computing.  This change
-makes x86 respect that return value.
+	http://info.iet.unipi.it/~luigi/netmap/
 
-To ensure that minimal kernel code is exposed, a non-zero return value
-results in an immediate return to user space (with an invalid syscall
-number).
+Netmap is a device-independent framework for packet generation and
+capture from user space; it can do line rate at 10Gbit/s (14.88Mpps)
+with just one core at about 1GHz.
 
-Signed-off-by: Will Drewry <wad@chromium.org>
----
- arch/x86/Kconfig         |    1 +
- arch/x86/kernel/ptrace.c |    7 ++++++-
- 2 files changed, 7 insertions(+), 1 deletions(-)
+Netmap relies on a kernel module (netmap_lin.ko) and slightly
+modified device drivers (about 4-500 lines per driver).  It requires
+no kernel patches apart from device drivers (and abusing the ax25
+field in struct netdevice).
+Userspace programs can use the native API (documented in netmap.4)
+or a libpcap emulation library. It has been integrated in FreeBSD
+last fall, and the linux version uses mostly the same code plus a bit
+of glue to adapt the BSD<->linux kernel ABI.
 
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 5bed94e..4c9012b 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -82,6 +82,7 @@ config X86
- 	select CLKEVT_I8253
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
-+	select HAVE_ARCH_SECCOMP_FILTER
- 
- config INSTRUCTION_DECODER
- 	def_bool (KPROBES || PERF_EVENTS)
-diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
-index 5026738..90d465a 100644
---- a/arch/x86/kernel/ptrace.c
-+++ b/arch/x86/kernel/ptrace.c
-@@ -1380,7 +1380,11 @@ long syscall_trace_enter(struct pt_regs *regs)
- 		regs->flags |= X86_EFLAGS_TF;
- 
- 	/* do the secure computing check first */
--	secure_computing(regs->orig_ax);
-+	if (secure_computing(regs->orig_ax)) {
-+		/* seccomp failures shouldn't expose any additional code. */
-+		ret = -1L;
-+		goto out;
-+	}
- 
- 	if (unlikely(test_thread_flag(TIF_SYSCALL_EMU)))
- 		ret = -1L;
-@@ -1405,6 +1409,7 @@ long syscall_trace_enter(struct pt_regs *regs)
- 				    regs->dx, regs->r10);
- #endif
- 
-+out:
- 	return ret ?: regs->orig_ax;
- }
- 
--- 
-1.7.5.4
+The current version supporting the ixgbe and e1000/e1000e driver.
+Patches for other devices (igb, r8169, forcedeth) are avaiable but
+untested.
+
+	cheers
+	luigi
