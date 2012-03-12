@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v14 04/13] arch/x86: add syscall_get_arch to syscall.h
-Date: Mon, 12 Mar 2012 16:28:26 -0500
-Message-ID: <1331587715-26069-4-git-send-email-wad@chromium.org>
+Subject: [PATCH v14 09/13] seccomp: Add SECCOMP_RET_TRAP
+Date: Mon, 12 Mar 2012 16:28:31 -0500
+Message-ID: <1331587715-26069-9-git-send-email-wad@chromium.org>
 References: <1331587715-26069-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-arch@vger.kernel.org,
@@ -33,7 +33,7 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1091-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1092-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -41,65 +41,128 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1331587715-26069-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-Add syscall_get_arch() to export the current AUDIT_ARCH_* based on system call
-entry path.
+Adds a new return value to seccomp filters that triggers a SIGSYS to be
+delivered with the new SYS_SECCOMP si_code.
 
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+This allows in-process system call emulation, including just specifying
+an errno or cleanly dumping core, rather than just dying.
+
+v14: - rebase/nochanges
+v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
+v12: - rebase on to linux-next
+v11: - clarify the comment (indan@nul.nu)
+     - s/sigtrap/sigsys
+v10: - use SIGSYS, syscall_get_arch, updates arch/Kconfig
+       note suggested-by (though original suggestion had other behaviors)
+v9:  - changes to SIGILL
+v8:  - clean up based on changes to dependent patches
+v7:  - introduction
+
+Suggested-by: Markus Gutschke <markus@chromium.org>
+Suggested-by: Julien Tinnes <jln@chromium.org>
 Signed-off-by: Will Drewry <wad@chromium.org>
-
-v14: rebase/nochanges
-v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
 ---
- arch/x86/include/asm/syscall.h |   23 +++++++++++++++++++++++
- 1 files changed, 23 insertions(+), 0 deletions(-)
+ arch/Kconfig                  |   14 +++++++++-----
+ include/asm-generic/siginfo.h |    2 +-
+ include/linux/seccomp.h       |    1 +
+ kernel/seccomp.c              |   28 ++++++++++++++++++++++++++++
+ 4 files changed, 39 insertions(+), 6 deletions(-)
 
-diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
-index d962e56..1d713e4 100644
---- a/arch/x86/include/asm/syscall.h
-+++ b/arch/x86/include/asm/syscall.h
-@@ -13,6 +13,7 @@
- #ifndef _ASM_X86_SYSCALL_H
- #define _ASM_X86_SYSCALL_H
+diff --git a/arch/Kconfig b/arch/Kconfig
+index dd4e067..d92a78e 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -202,11 +202,15 @@ config HAVE_CMPXCHG_DOUBLE
+ config HAVE_ARCH_SECCOMP_FILTER
+ 	bool
+ 	help
+-	  This symbol should be selected by an architecure if it provides
+-	  asm/syscall.h, specifically syscall_get_arguments(),
+-	  syscall_get_arch(), and syscall_set_return_value().  Additionally,
+-	  its system call entry path must respect a return value of -1 from
+-	  __secure_computing_int() and/or secure_computing().
++	  This symbol should be selected by an architecure if it provides:
++	  asm/syscall.h:
++	  - syscall_get_arch()
++	  - syscall_get_arguments()
++	  - syscall_rollback()
++	  - syscall_set_return_value()
++	  SIGSYS siginfo_t support must be implemented.
++	  __secure_computing_int()/secure_computing()'s return value must be
++	  checked, with -1 resulting in the syscall being skipped.
  
-+#include <linux/audit.h>
- #include <linux/sched.h>
- #include <linux/err.h>
- #include <asm/asm-offsets.h>	/* For NR_syscalls */
-@@ -87,6 +88,12 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->bx + i, args, n * sizeof(args[0]));
+ config SECCOMP_FILTER
+ 	def_bool y
+diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
+index 31306f5..af5d035 100644
+--- a/include/asm-generic/siginfo.h
++++ b/include/asm-generic/siginfo.h
+@@ -93,7 +93,7 @@ typedef struct siginfo {
+ 
+ 		/* SIGSYS */
+ 		struct {
+-			void __user *_call_addr; /* calling insn */
++			void __user *_call_addr; /* calling user insn */
+ 			int _syscall;	/* triggering system call number */
+ 			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
+ 		} _sigsys;
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index eb36185..e6d4b56 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -19,6 +19,7 @@
+  * selects the least permissive choice.
+  */
+ #define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
++#define SECCOMP_RET_TRAP	0x00020000U /* disallow and force a SIGSYS */
+ #define SECCOMP_RET_ERRNO	0x00030000U /* returns an errno */
+ #define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
+ 
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 8cb9b69..140490a 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -315,6 +315,26 @@ void put_seccomp_filter(struct task_struct *tsk)
+ 		kfree(freeme);
+ 	}
  }
- 
-+static inline int syscall_get_arch(struct task_struct *task,
-+				   struct pt_regs *regs)
-+{
-+	return AUDIT_ARCH_I386;
-+}
 +
- #else	 /* CONFIG_X86_64 */
- 
- static inline void syscall_get_arguments(struct task_struct *task,
-@@ -211,6 +218,22 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		}
- }
- 
-+static inline int syscall_get_arch(struct task_struct *task,
-+				   struct pt_regs *regs)
++/**
++ * seccomp_send_sigsys - signals the task to allow in-process syscall emulation
++ * @syscall: syscall number to send to userland
++ * @reason: filter-supplied reason code to send to userland (via si_errno)
++ *
++ * Forces a SIGSYS with a code of SYS_SECCOMP and related sigsys info.
++ */
++static void seccomp_send_sigsys(int syscall, int reason)
 +{
-+#ifdef CONFIG_IA32_EMULATION
-+	/*
-+	 * TS_COMPAT is set for 32-bit syscall entries and then
-+	 * remains set until we return to user mode.
-+	 *
-+	 * TIF_IA32 tasks should always have TS_COMPAT set at
-+	 * system call time.
-+	 */
-+	if (task_thread_info(task)->status & TS_COMPAT)
-+		return AUDIT_ARCH_I386;
-+#endif
-+	return AUDIT_ARCH_X86_64;
++	struct siginfo info;
++	memset(&info, 0, sizeof(info));
++	info.si_signo = SIGSYS;
++	info.si_code = SYS_SECCOMP;
++	info.si_call_addr = (void __user *)KSTK_EIP(current);
++	info.si_errno = reason;
++	info.si_arch = syscall_get_arch(current, task_pt_regs(current));
++	info.si_syscall = syscall;
++	force_sig_info(SIGSYS, &info, current);
 +}
- #endif	/* CONFIG_X86_32 */
+ #endif	/* CONFIG_SECCOMP_FILTER */
  
- #endif	/* _ASM_X86_SYSCALL_H */
+ /*
+@@ -369,6 +389,14 @@ int __secure_computing_int(int this_syscall)
+ 						 -(action & SECCOMP_RET_DATA),
+ 						 0);
+ 			return -1;
++		case SECCOMP_RET_TRAP: {
++			int reason_code = action & SECCOMP_RET_DATA;
++			/* Show the handler the original registers. */
++			syscall_rollback(current, task_pt_regs(current));
++			/* Let the filter pass back 16 bits of data. */
++			seccomp_send_sigsys(this_syscall, reason_code);
++			return -1;
++		}
+ 		case SECCOMP_RET_ALLOW:
+ 			return 0;
+ 		case SECCOMP_RET_KILL:
 -- 
 1.7.5.4
