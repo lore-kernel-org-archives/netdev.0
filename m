@@ -1,63 +1,91 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/2] net/hyperv: Fix data corruption in
- rndis_filter_receive()
-Date: Mon, 12 Mar 2012 15:39:02 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCE4044@TK5EX14MBXC223.redmond.corp.microsoft.com>
-References: <1331328437-26852-1-git-send-email-haiyangz@microsoft.com>
- <20120311.155111.1595145426893784653.davem@davemloft.net>
+From: Roberto Suarez Soto <robe@allenta.com>
+Subject: High ksoftirq CPU load, high latency, __xfrm4_find_bundle likely
+ culprit?
+Date: Mon, 12 Mar 2012 16:50:35 +0100
+Message-ID: <4F5E1B4B.2070807@allenta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120311.155111.1595145426893784653.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns313441.ovh.net ([188.165.228.125]:49667 "EHLO
+	mohawk.allenta.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239Ab2CLP5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 11:57:16 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mohawk.allenta.com (Postfix) with ESMTP id EEE6AC84C75
+	for <netdev@vger.kernel.org>; Mon, 12 Mar 2012 16:50:23 +0100 (CET)
+Received: from mohawk.allenta.com ([127.0.0.1])
+	by localhost (mohawk.allenta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id fPvpyj+Nr4YA for <netdev@vger.kernel.org>;
+	Mon, 12 Mar 2012 16:50:22 +0100 (CET)
+Received: from [192.168.1.246] (protagoras.allenta.com [212.51.59.18])
+	by mohawk.allenta.com (Postfix) with ESMTPSA id 40A8EBBFCC4
+	for <netdev@vger.kernel.org>; Mon, 12 Mar 2012 16:50:22 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+	we've got a load problem in one of our IPSec gateways, running openswa=
+n=20
+1:2.6.28+dfsg-5+squeeze1 and kernel 2.6.32-5-686-bigmem (Debian Squeeze=
+). The=20
+symptoms are:
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Sunday, March 11, 2012 6:51 PM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH 1/2] net/hyperv: Fix data corruption in
-> rndis_filter_receive()
-> 
-> 
-> It is very tiring explaining how to submit patches properly, and here you've
-> made a poor submission once again.
-> 
-> You haven't indicated what tree you want these changes applied to.
-> 
-> You also mixed bug fixes and feature patches into the same patch set.
-> 
-> So the patch set isn't appropriate for the 'net' tree, because only the most
-> critical bug fixes can go there now.
-> 
-> And this patch set is also not appropriate for the 'net-next' tree because I can
-> only presume you want the important bug fix propagated upstream as fast as
-> possible but it cannot go in with the feature patch since the feature patch is
-> absolutely not appropriate for the 'net' tree right now.
-> 
-> I really don't see why it's such a hard thing to simply say where you want
-> patches applied when you submit them.  Do you want me to simply guess?
-> How else am I supposed to figure out what you want?
+	- High ksoftirqd load
+	- High network latency (pings up to 200ms in the same switch)
+	- At those times, "perf top" shows a high CPU usage for syscalls=20
+__xfrm4_find_bundle, des3_ede_decrypt and des3_ede_encrypt
 
-I want both patches go to the 'net-next' tree. The patch [1/2] is required by the 
-vlan trunking feature [2/2]. So they should go together.
+	We've already discarded NIC problems, and traffic is not so high as to=
+=20
+justify these problems. In particular, we have a bond0 for the two NICs=
+ that=20
+deal with LAN traffic, and when the problem appears the stats are quite=
+ tame:=20
+3k-4k packets per second, 3MBytes/s.
 
-The bug in rndis_filter_receive() does NOT happen until we start to use 
-'per-packet-data' by the vlan trunking feature, so the bug fix [1/2] isn't urgent 
-to be applied into 'net' tree.
+	We're migrating away from 3DES to mitigate this problem, but the real =
+culprit=20
+seems to be __xfrm4_find_bundle. Is there something wrong? Is it a bug,=
+ or=20
+something that we've not tuned properly?
 
-And, thanks for the reminder, I will specify the target tree in future submissions.
+	Thanks,
 
-Thanks,
-- Haiyang
+--=20
+         Roberto Suarez Soto                             Allenta Consul=
+ting
+         robe@allenta.com                                   www.allenta=
+=2Ecom
+                                                            +34 881 922=
+ 600
+
+Este correo electr=F3nico contiene informaci=F3n estrictamente confiden=
+cial y
+es de uso exclusivo del destinatario, quedando prohibida a cualquier ot=
+ra
+persona su revelaci=F3n, copia, distribuci=F3n, o el ejercicio de cualq=
+uier
+acci=F3n relativa a su contenido. Si ha recibido este mensaje por error=
+, por
+favor conteste a su remitente mediante correo electr=F3nico y proceda a
+borrarlo de su sistema. Rogamos nos comunique inmediatamente sobre
+cualquier inconveniente que pueda tener usted en relaci=F3n al env=EDo =
+de este
+tipo de correo electr=F3nico.
+
+Sus datos personales ser=E1n tratados de forma confidencial y no ser=E1=
+n
+cedidos a terceros ajenos a ALLENTA CONSULTING, S.L. En cualquier caso,
+podr=E1 ejercer los derecho de oposici=F3n, acceso, rectificaci=F3n y c=
+ancelaci=F3n
+de acuerdo con lo establecido en la Ley Org=E1nica 15/99, de 13 de dici=
+embre,
+de Protecci=F3n de Datos de Car=E1cter Personal dirigi=E9ndose a ALLENT=
+A
+CONSULTING, S.L. en C/Enrique Mari=F1as 36, 2=BA piso, oficina 8, 15009=
+ =96 A
+Coru=F1a  o en la direcci=F3n de electr=F3nico info@allenta.com
