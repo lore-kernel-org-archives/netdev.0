@@ -1,55 +1,52 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-Date: Mon, 12 Mar 2012 09:37:47 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E99@saturn3.aculab.com>
-References: <CAOD=uF4Vx581zvpAT0dHKjUkrdsiZo-DTNR352V8tALM_P2roA@mail.gmail.com>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: Re: [PATCH 2.6.32.y] netxen: support for GbE port settings
+Date: Mon, 12 Mar 2012 04:40:39 -0500
+Message-ID: <20120312093919.GA17642@burratino>
+References: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
+ <20120312043539.GA15903@burratino>
+ <20120312090950.GC11569@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sony Chacko" <sony.chacko@qlogic.com>,
-	"netdev" <netdev@vger.kernel.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>
-To: "santosh prasad nayak" <santoshprasadnayak@gmail.com>,
-	"Rajesh Borundia" <rajesh.borundia@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@vger.kernel.org, Sony Chacko <sony.chacko@qlogic.com>,
+	Ana Guerrero <ana@debian.org>,
+	Michael Mastrogiacomo <mmastrogiacomo@ultralogistics.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47357 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755054Ab2CLJiq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 05:38:46 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11831-03 for <netdev@vger.kernel.org>;
- Mon, 12 Mar 2012 09:38:42 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <CAOD=uF4Vx581zvpAT0dHKjUkrdsiZo-DTNR352V8tALM_P2roA@mail.gmail.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:37449 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754902Ab2CLJkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 05:40:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20120312090950.GC11569@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+Hi Willy,
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of santosh 
-> prasad nayak
-> Sent: 11 March 2012 09:17
-> To: Rajesh Borundia
-> Cc: Sony Chacko; netdev; linux-kernel; kernel-janitors@vger.kernel.org
-> Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-> 
-> Thanks Rajesh for clarification.
-> Included all your inputs in the following patch.
-> This is for review not a formal one. Once review is done I will send a
-> formal patch.
+Willy Tarreau wrote:
+> On Sun, Mar 11, 2012 at 11:35:39PM -0500, Jonathan Nieder wrote:
 
-I'm not sure of the exact nature of the issues here,
-but whenever I see code that casts between the addresses
-of integer types large bells start ringing - such code
-tends to have unwanted dependencies against the sizes
-and endiannesses of the relevant fields.
-This code might be ok, but lines like:
-> +	if (*(__le64 *)mac == cpu_to_le64(~0ULL)) {
-rather give me the willies.
+>> From: Sony Chacko <sony.chacko@qlogic.com>
+>> Date: Tue, 15 Mar 2011 14:54:55 -0700
+>>
+>> commit bfd823bd74333615783d8108889814c6d82f2ab0 upstream.
+[...]
+> One very important requirement for merging such a
+> fix is that it is already present in more recent stable releases :
+> when users upgrade from 2.6.32 to 3.0, we don't want them to get
+> the bug again.
 
-	David
+Thanks for explaining.  To answer this question: since the patch
+(v2.6.39-rc1~468^2~23) was in mainline in 2.6.39, it gets the
+privilege of inclusion in 3.0.y by default.
+
+> If this requirement is satisfied and David is not opposed to merging
+> the patch, then we can include it (even in this release, considering
+> the authors and reviewers are already CC'd).
+
+Cheers,
+Jonathan
