@@ -1,51 +1,165 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Fw: [Bug 42912] Kernel freeze. tcp_input.c:3418 tcp_clean_rtx_queue
-Date: Mon, 12 Mar 2012 09:27:58 -0700
-Message-ID: <20120312092758.7eec914d@nehalam.linuxnetplumber.net>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [v10 PATCH 0/3] NETFILTER new target module, HMARK
+Date: Mon, 12 Mar 2012 17:31:37 +0100
+Message-ID: <1331569900-2032-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50854 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753190Ab2CLQ2A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2012 12:28:00 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 0AC64141000D
-	for <netdev@vger.kernel.org>; Mon, 12 Mar 2012 09:28:00 -0700 (PDT)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id SCvgdIQeqysY for <netdev@vger.kernel.org>;
-	Mon, 12 Mar 2012 09:27:59 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 2064F1410001
-	for <netdev@vger.kernel.org>; Mon, 12 Mar 2012 09:27:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+The target allows you to create rules in the "raw" and "mangle" tables
+which alter the netfilter mark (nfmark) field within a given range.
+First a 32 bit hash value is generated then modulus by <limit> and
+finally an offset is added before it's written to nfmark.
+Prior to routing, the nfmark can influence the routing method (see
+"Use netfilter MARK value as routing key") and can also be used by
+other subsystems to change their behavior.
+
+The mark match can also be used to match nfmark produced by this module.
+See the kernel module for more info.
+
+REVISION
+Version 10
+        Even more simplified NAT handling just one switch --hmark-ct
+        some renaming and some minor changes.
+        Renaming of vars in xt_hmark_info
+        Adding helptext and updated man due to --hmark-ct switch
+        Changes are based on Pablos review.
+
+Version 9
+        Simpliefied nat handling in IPv4, some formating
+        checkentry() used in kernel. 
+        Most changes are based on Pablos review.
+
+Version 8
+        method L3 / L3-4 added i.e. Fragment handling changed to:
+        - don't handle in "method L3-4"
+        Syntax change in user mode to be more NF compatible.
+        Most changes are based on Pablos review.
+
+Version 7
+	ahuum, IPv6 descending into icmp error hdr didn't work as expected
+        with ipv6_find_hdr() Now it works as expected.
+
+Version 6
+        Removed ipv6_find_hdr() wrapper (Pablo)
+	NAT / Conntrack compilation switches.
+
+Version 5
+	Use length of mask an smask and dmask and whole IPv6 addr (Jan E)
+	Modify ipv6_find_hdr() and use it while traversing the IPv6 header.
+        Manual changes.
+	More or less all comments implemented.
+
+Version 4
+	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
+	removed one pskb_may_pull()
+	xtoption parse used in the user space part.
+
+Version 3
+        Handling of SCTP for IPv6 added.
+
+Version 2
+	NAT Added for IPv4
+	IPv6 ICMP handling enhanced.
+	Usage example added
+
+Version 1
+	Initial RFC
+
+
+We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
+handles up to 70 ipvs running in parallel in clusters.
+However hmark is not restricted to run in front of IPVS it can also be used as
+"poor mans" load balancer.
+With this version is also NAT supported as an option, with very high flows
+you might not want to use conntrack.
+
+The idea is to generate a direction independent fw mark range to use as input to
+the routing (i.e. ip rule add fwmark ...).
+Pretty straight forward and simple.
+
+
+Example:
+                                      App Server (Real Server)
+
+                                           +---------+
+                                        -->| Service |
+     Gateway A                             +---------+
+                          /
+            +----------+ /     +----+      +---------+
+--- if -A---| selector |---->  |ipvs|  --->| Service |
+            +----------+ \     +----+      +---------+
+                          \
+                               +----+      +---------+
+                               |ipvs|   -->| Service |
+                               +----+      +---------+
+      Gateway C
+            +----------+ /     +----+
+--- if-B ---| selector | --->  |ipvs|
+            +----------+ \     +----+      +---------+
+                                           | Service |
+                                           +---------+
+                          /
+            +----------+ /     +----+     ..
+--- if-B ---| selector | --->  |ipvs|      +---------+
+            +----------+ \     +----+      | Service |
+                          \                +---------+
+#
+# Example with four ipvs loadbalancers
+#
+iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
+
+ip rule add fwmark 100 table 100
+ip rule add fwmark 101 table 101
+ip rule add fwmark 102 table 102
+ip rule add fwmark 103 table 103
+
+ip ro ad table 100 default via x.y.z.1 dev bond1
+ip ro ad table 101 default via x.y.z.2 dev bond1
+ip ro ad table 102 default via x.y.z.3 dev bond1
+ip ro ad table 103 default via x.y.z.4 dev bond1
+
+
+If conntrack doesn't handle the return path,
+do the oposite with HMARK and send it back right to ipvs.
+
+Another exmaple of usage could be if you have cluster originated connections
+and want to spread the connections over a number of interfaces
+(NAT will complpicate things for you in this case)
 
 
 
-Begin forwarded message:
+                     \  Blade 1
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+   +------+
+-- | Gw-A |          \  Blade 2
+   +------+           \ +----------+      +---------+
+   +------+         <-- | selector | <--- | Service |
+-- | Gw-B |           / +----------+      +---------+
+   +------+          /
+   +------+
+-- | Gw-C |          \
+   +------+           \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
 
-Date: Mon, 12 Mar 2012 16:24:43 GMT
-From: bugzilla-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 42912] Kernel freeze. tcp_input.c:3418 tcp_clean_rtx_queue
+                     \  Blande -n
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
 
 
-https://bugzilla.kernel.org/show_bug.cgi?id=42912
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-
-
-
-
---- Comment #2 from Reinis Rozitis <r@roze.lv>  2012-03-12 16:24:43 ---
-I have found that a similar bug has been reported with some earlier kernel
-version ( https://bugzilla.kernel.org/show_bug.cgi?id=31282 ), but the status
-has never been changed.
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
