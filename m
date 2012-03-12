@@ -1,88 +1,47 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2] tun: don't hold network namespace by tun sockets
-Date: Mon, 12 Mar 2012 15:20:19 +0400
-Message-ID: <20120312111826.26257.40812.stgit@localhost6.localdomain6>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next 2/8] bnx2x: removed unused function
+ bnx2x_queue_set_cos_cid
+Date: Mon, 12 Mar 2012 14:53:08 -0400
+Message-ID: <1331578394-1153-3-git-send-email-yuvalmin@broadcom.com>
+References: <1331578394-1153-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, ebiederm@aristanetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, devel@openvz.org
-To: davem@davemloft.net
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:3379 "EHLO relay.sw.ru"
+Received: from mms2.broadcom.com ([216.31.210.18]:1168 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752340Ab2CLLUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2012 07:20:35 -0400
+	id S1754660Ab2CLL71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2012 07:59:27 -0400
+In-Reply-To: <1331578394-1153-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: sk_release_kernel() used for socket release. Dummy tun_release() is
-required for sk_release_kernel() ---> sock_release() ---> sock->ops->release()
-call.
-
-TUN was designed to destroy it's socket on network namespace shutdown. But this
-will never happen for persistent device, because it's socket holds network
-namespace.
-This patch removes of holding network namespace by TUN socket and replaces it
-by creating socket in init_net and then changing it's net it to the desired
-one. On shutdown socket is moved back to init_net prior to final put.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/tun.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2c5d349..b13ee48 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -359,7 +359,7 @@ static void tun_free_netdev(struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
- 
--	sock_put(tun->socket.sk);
-+	sk_release_kernel(tun->socket.sk);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index f7896c2..2b18ccd 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -5181,13 +5181,6 @@ void bnx2x_init_queue_obj(struct bnx2x *bp,
+ 	obj->set_pending = bnx2x_queue_set_pending;
  }
  
- /* Net device open. */
-@@ -980,10 +980,16 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	return ret;
- }
- 
-+static int tun_release(struct socket *sock)
-+{
-+	return 0;
-+}
-+
- /* Ops structure to mimic raw sockets with tun */
- static const struct proto_ops tun_socket_ops = {
- 	.sendmsg = tun_sendmsg,
- 	.recvmsg = tun_recvmsg,
-+	.release = tun_release,
- };
- 
- static struct proto tun_proto = {
-@@ -1110,10 +1116,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
- 
- 		err = -ENOMEM;
--		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-+		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
- 		if (!sk)
- 			goto err_free_dev;
- 
-+		sk_change_net(sk, net);
- 		tun->socket.wq = &tun->wq;
- 		init_waitqueue_head(&tun->wq.wait);
- 		tun->socket.ops = &tun_socket_ops;
-@@ -1174,7 +1181,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 	return 0;
- 
-  err_free_sk:
--	sock_put(sk);
-+	tun_free_netdev(dev);
-  err_free_dev:
- 	free_netdev(dev);
-  failed:
+-void bnx2x_queue_set_cos_cid(struct bnx2x *bp,
+-			     struct bnx2x_queue_sp_obj *obj,
+-			     u32 cid, u8 index)
+-{
+-	obj->cids[index] = cid;
+-}
+-
+ /********************** Function state object *********************************/
+ enum bnx2x_func_state bnx2x_func_get_state(struct bnx2x *bp,
+ 					   struct bnx2x_func_sp_obj *o)
+-- 
+1.7.9.rc2
