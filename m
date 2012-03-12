@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v14 06/13] seccomp: add system call filtering using BPF
-Date: Mon, 12 Mar 2012 16:28:28 -0500
-Message-ID: <1331587715-26069-6-git-send-email-wad@chromium.org>
+Subject: [PATCH v14 12/13] Documentation: prctl/seccomp_filter
+Date: Mon, 12 Mar 2012 16:28:34 -0500
+Message-ID: <1331587715-26069-12-git-send-email-wad@chromium.org>
 References: <1331587715-26069-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-arch@vger.kernel.org,
@@ -33,7 +33,7 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1094-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1096-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -41,765 +41,983 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1331587715-26069-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-[This patch depends on luto@mit.edu's no_new_privs patch:
-   https://lkml.org/lkml/2012/1/30/264
- The whole series including Andrew's patches can be found here:
-   https://github.com/redpig/linux/tree/seccomp
- Complete diff here:
-   https://github.com/redpig/linux/compare/1dc65fed...seccomp
- A GPG signed tag 'seccomp/v14/posted' will be pushed shortly.
-]
+Documents how system call filtering using Berkeley Packet
+Filter programs works and how it may be used.
+Includes an example for x86 and a semi-generic
+example using a macro-based code generator.
 
-This patch adds support for seccomp mode 2.  Mode 2 introduces the
-ability for unprivileged processes to install system call filtering
-policy expressed in terms of a Berkeley Packet Filter (BPF) program.
-This program will be evaluated in the kernel for each system call
-the task makes and computes a result based on data in the format
-of struct seccomp_data.
-
-A filter program may be installed by calling:
-  struct sock_fprog fprog = { ... };
-  ...
-  prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &fprog);
-
-The return value of the filter program determines if the system call is
-allowed to proceed or denied.  If the first filter program installed
-allows prctl(2) calls, then the above call may be made repeatedly
-by a task to further reduce its access to the kernel.  All attached
-programs must be evaluated before a system call will be allowed to
-proceed.
-
-Filter programs will be inherited across fork/clone and execve.
-However, if the task attaching the filter is unprivileged
-(!CAP_SYS_ADMIN) the no_new_privs bit will be set on the task.  This
-ensures that unprivileged tasks cannot attach filters that affect
-privileged tasks (e.g., setuid binary).
-
-There are a number of benefits to this approach. A few of which are
-as follows:
-- BPF has been exposed to userland for a long time
-- BPF optimization (and JIT'ing) are well understood
-- Userland already knows its ABI: system call numbers and desired
-  arguments
-- No time-of-check-time-of-use vulnerable data accesses are possible.
-- system call arguments are loaded on access only to minimize copying
-  required for system call policy decisions.
-
-Mode 2 support is restricted to architectures that enable
-HAVE_ARCH_SECCOMP_FILTER.  In this patch, the primary dependency is on
-syscall_get_arguments().  The full desired scope of this feature will
-add a few minor additional requirements expressed later in this series.
-Based on discussion, SECCOMP_RET_ERRNO and SECCOMP_RET_TRACE seem to be
-the desired additional functionality.
-
-No architectures are enabled in this patch.
-
-v14: - put/get_seccomp_filter takes struct task_struct
-       (indan@nul.nu,keescook@chromium.org)
-     - adds seccomp_chk_filter and drops general bpf_run/chk_filter user
-     - add seccomp_bpf_load for use by net/core/filter.c
-     - lower max per-process/per-hierarchy: 1MB
-     - moved nnp/capability check prior to allocation
-       (all of the above: indan@nul.nu)
+v14: - rebase/nochanges
 v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-v12: - added a maximum instruction count per path (indan@nul.nu,oleg@redhat.com)
-     - removed copy_seccomp (keescook@chromium.org,indan@nul.nu)
-     - reworded the prctl_set_seccomp comment (indan@nul.nu)
-v11: - reorder struct seccomp_data to allow future args expansion (hpa@zytor.com)
-     - style clean up, @compat dropped, compat_sock_fprog32 (indan@nul.nu)
-     - do_exit(SIGSYS) (keescook@chromium.org, luto@mit.edu)
-     - pare down Kconfig doc reference.
-     - extra comment clean up
-v10: - seccomp_data has changed again to be more aesthetically pleasing
-       (hpa@zytor.com)
-     - calling convention is noted in a new u32 field using syscall_get_arch.
-       This allows for cross-calling convention tasks to use seccomp filters.
-       (hpa@zytor.com)
-     - lots of clean up (thanks, Indan!)
- v9: - n/a
- v8: - use bpf_chk_filter, bpf_run_filter. update load_fns
-     - Lots of fixes courtesy of indan@nul.nu:
-     -- fix up load behavior, compat fixups, and merge alloc code,
-     -- renamed pc and dropped __packed, use bool compat.
-     -- Added a hidden CONFIG_SECCOMP_FILTER to synthesize non-arch
-        dependencies
- v7:  (massive overhaul thanks to Indan, others)
-     - added CONFIG_HAVE_ARCH_SECCOMP_FILTER
-     - merged into seccomp.c
-     - minimal seccomp_filter.h
-     - no config option (part of seccomp)
-     - no new prctl
-     - doesn't break seccomp on systems without asm/syscall.h
-       (works but arg access always fails)
-     - dropped seccomp_init_task, extra free functions, ...
-     - dropped the no-asm/syscall.h code paths
-     - merges with network sk_run_filter and sk_chk_filter
- v6: - fix memory leak on attach compat check failure
-     - require no_new_privs || CAP_SYS_ADMIN prior to filter
-       installation. (luto@mit.edu)
-     - s/seccomp_struct_/seccomp_/ for macros/functions (amwang@redhat.com)
-     - cleaned up Kconfig (amwang@redhat.com)
-     - on block, note if the call was compat (so the # means something)
- v5: - uses syscall_get_arguments
-       (indan@nul.nu,oleg@redhat.com, mcgrathr@chromium.org)
-      - uses union-based arg storage with hi/lo struct to
-        handle endianness.  Compromises between the two alternate
-        proposals to minimize extra arg shuffling and account for
-        endianness assuming userspace uses offsetof().
-        (mcgrathr@chromium.org, indan@nul.nu)
-      - update Kconfig description
-      - add include/seccomp_filter.h and add its installation
-      - (naive) on-demand syscall argument loading
-      - drop seccomp_t (eparis@redhat.com)
- v4:  - adjusted prctl to make room for PR_[SG]ET_NO_NEW_PRIVS
-      - now uses current->no_new_privs
-        (luto@mit.edu,torvalds@linux-foundation.com)
-      - assign names to seccomp modes (rdunlap@xenotime.net)
-      - fix style issues (rdunlap@xenotime.net)
-      - reworded Kconfig entry (rdunlap@xenotime.net)
- v3:  - macros to inline (oleg@redhat.com)
-      - init_task behavior fixed (oleg@redhat.com)
-      - drop creator entry and extra NULL check (oleg@redhat.com)
-      - alloc returns -EINVAL on bad sizing (serge.hallyn@canonical.com)
-      - adds tentative use of "always_unprivileged" as per
-        torvalds@linux-foundation.org and luto@mit.edu
- v2:  - (patch 2 only)
-
-Reviewed-by: Indan Zupancic <indan@nul.nu>
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+v12: - comment on the ptrace_event use
+     - update arch support comment
+     - note the behavior of SECCOMP_RET_DATA when there are multiple filters
+       (keescook@chromium.org)
+     - lots of samples/ clean up incl 64-bit bpf-direct support
+       (markus@chromium.org)
+     - rebase to linux-next
+v11: - overhaul return value language, updates (keescook@chromium.org)
+     - comment on do_exit(SIGSYS)
+v10: - update for SIGSYS
+     - update for new seccomp_data layout
+     - update for ptrace option use
+v9: - updated bpf-direct.c for SIGILL
+v8: - add PR_SET_NO_NEW_PRIVS to the samples.
+v7: - updated for all the new stuff in v7: TRAP, TRACE
+    - only talk about PR_SET_SECCOMP now
+    - fixed bad JLE32 check (coreyb@linux.vnet.ibm.com)
+    - adds dropper.c: a simple system call disabler
+v6: - tweak the language to note the requirement of
+      PR_SET_NO_NEW_PRIVS being called prior to use. (luto@mit.edu)
+v5: - update sample to use system call arguments
+    - adds a "fancy" example using a macro-based generator
+    - cleaned up bpf in the sample
+    - update docs to mention arguments
+    - fix prctl value (eparis@redhat.com)
+    - language cleanup (rdunlap@xenotime.net)
+v4: - update for no_new_privs use
+    - minor tweaks
+v3: - call out BPF <-> Berkeley Packet Filter (rdunlap@xenotime.net)
+    - document use of tentative always-unprivileged
+    - guard sample compilation for i386 and x86_64
+v2: - move code to samples (corbet@lwn.net)
 
 Signed-off-by: Will Drewry <wad@chromium.org>
 ---
- arch/Kconfig            |   17 +++
- include/linux/Kbuild    |    1 +
- include/linux/seccomp.h |   76 +++++++++-
- kernel/fork.c           |    3 +
- kernel/seccomp.c        |  366 ++++++++++++++++++++++++++++++++++++++++++++---
- kernel/sys.c            |    2 +-
- 6 files changed, 442 insertions(+), 23 deletions(-)
+ Documentation/prctl/seccomp_filter.txt |  156 +++++++++++++++++++++
+ samples/Makefile                       |    2 +-
+ samples/seccomp/Makefile               |   38 +++++
+ samples/seccomp/bpf-direct.c           |  176 +++++++++++++++++++++++
+ samples/seccomp/bpf-fancy.c            |  102 ++++++++++++++
+ samples/seccomp/bpf-helper.c           |   89 ++++++++++++
+ samples/seccomp/bpf-helper.h           |  238 ++++++++++++++++++++++++++++++++
+ samples/seccomp/dropper.c              |   68 +++++++++
+ 8 files changed, 868 insertions(+), 1 deletions(-)
+ create mode 100644 Documentation/prctl/seccomp_filter.txt
+ create mode 100644 samples/seccomp/Makefile
+ create mode 100644 samples/seccomp/bpf-direct.c
+ create mode 100644 samples/seccomp/bpf-fancy.c
+ create mode 100644 samples/seccomp/bpf-helper.c
+ create mode 100644 samples/seccomp/bpf-helper.h
+ create mode 100644 samples/seccomp/dropper.c
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 4f55c73..7c6bd48 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -199,4 +199,21 @@ config HAVE_CMPXCHG_LOCAL
- config HAVE_CMPXCHG_DOUBLE
- 	bool
+diff --git a/Documentation/prctl/seccomp_filter.txt b/Documentation/prctl/seccomp_filter.txt
+new file mode 100644
+index 0000000..4aa3e78
+--- /dev/null
++++ b/Documentation/prctl/seccomp_filter.txt
+@@ -0,0 +1,156 @@
++		SECure COMPuting with filters
++		=============================
++
++Introduction
++------------
++
++A large number of system calls are exposed to every userland process
++with many of them going unused for the entire lifetime of the process.
++As system calls change and mature, bugs are found and eradicated.  A
++certain subset of userland applications benefit by having a reduced set
++of available system calls.  The resulting set reduces the total kernel
++surface exposed to the application.  System call filtering is meant for
++use with those applications.
++
++Seccomp filtering provides a means for a process to specify a filter for
++incoming system calls.  The filter is expressed as a Berkeley Packet
++Filter (BPF) program, as with socket filters, except that the data
++operated on is related to the system call being made: system call
++number and the system call arguments.  This allows for expressive
++filtering of system calls using a filter program language with a long
++history of being exposed to userland and a straightforward data set.
++
++Additionally, BPF makes it impossible for users of seccomp to fall prey
++to time-of-check-time-of-use (TOCTOU) attacks that are common in system
++call interposition frameworks.  BPF programs may not dereference
++pointers which constrains all filters to solely evaluating the system
++call arguments directly.
++
++What it isn't
++-------------
++
++System call filtering isn't a sandbox.  It provides a clearly defined
++mechanism for minimizing the exposed kernel surface.  It is meant to be
++a tool for sandbox developers to use.  Beyond that, policy for logical
++behavior and information flow should be managed with a combination of
++other system hardening techniques and, potentially, an LSM of your
++choosing.  Expressive, dynamic filters provide further options down this
++path (avoiding pathological sizes or selecting which of the multiplexed
++system calls in socketcall() is allowed, for instance) which could be
++construed, incorrectly, as a more complete sandboxing solution.
++
++Usage
++-----
++
++An additional seccomp mode is added and is enabled using the same
++prctl(2) call as the strict seccomp.  If the architecture has
++CONFIG_HAVE_ARCH_SECCOMP_FILTER, then filters may be added as below:
++
++PR_SET_SECCOMP:
++	Now takes an additional argument which specifies a new filter
++	using a BPF program.
++	The BPF program will be executed over struct seccomp_data
++	reflecting the system call number, arguments, and other
++	metadata.  The BPF program must then return one of the
++	acceptable values to inform the kernel which action should be
++	taken.
++
++	Usage:
++		prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, prog);
++
++	The 'prog' argument is a pointer to a struct sock_fprog which
++	will contain the filter program.  If the program is invalid, the
++	call will return -1 and set errno to EINVAL.
++
++	Note, is_compat_task is also tracked for the @prog.  This means
++	that once set the calling task will have all of its system calls
++	blocked if it switches its system call ABI.
++
++	If fork/clone and execve are allowed by @prog, any child
++	processes will be constrained to the same filters and system
++	call ABI as the parent.
++
++	Prior to use, the task must call prctl(PR_SET_NO_NEW_PRIVS, 1) or
++	run with CAP_SYS_ADMIN privileges in its namespace.  If these are not
++	true, -EACCES will be returned.  This requirement ensures that filter
++	programs cannot be applied to child processes with greater privileges
++	than the task that installed them.
++
++	Additionally, if prctl(2) is allowed by the attached filter,
++	additional filters may be layered on which will increase evaluation
++	time, but allow for further decreasing the attack surface during
++	execution of a process.
++
++The above call returns 0 on success and non-zero on error.
++
++Return values
++-------------
++A seccomp filter may return any of the following values. If multiple
++filters exist, the return value for the evaluation of a given system
++call will always use the highest precedent value. (For example,
++SECCOMP_RET_KILL will always take precedence.)
++
++In precedence order, they are:
++
++SECCOMP_RET_KILL:
++	Results in the task exiting immediately without executing the
++	system call.  The exit status of the task (status & 0x7f) will
++	be SIGSYS, not SIGKILL.
++
++SECCOMP_RET_TRAP:
++	Results in the kernel sending a SIGSYS signal to the triggering
++	task without executing the system call.  The kernel will
++	rollback the register state to just before the system call
++	entry such that a signal handler in the task will be able to
++	inspect the ucontext_t->uc_mcontext registers and emulate
++	system call success or failure upon return from the signal
++	handler.
++
++	The SECCOMP_RET_DATA portion of the return value will be passed
++	as si_errno.
++
++	SIGSYS triggered by seccomp will have a si_code of SYS_SECCOMP.
++
++SECCOMP_RET_ERRNO:
++	Results in the lower 16-bits of the return value being passed
++	to userland as the errno without executing the system call.
++
++SECCOMP_RET_TRACE:
++	When returned, this value will cause the kernel to attempt to
++	notify a ptrace()-based tracer prior to executing the system
++	call.  If there is no tracer present, -ENOSYS is returned to
++	userland and the system call is not executed.
++
++	A tracer will be notified if it requests PTRACE_O_TRACESECCOMP
++	using ptrace(PTRACE_SETOPTIONS).  The tracer will be notified
++	of a PTRACE_EVENT_SECCOMP and the SECCOMP_RET_DATA portion of
++	the BPF program return value will be available to the tracer
++	via PTRACE_GETEVENTMSG.
++
++SECCOMP_RET_ALLOW:
++	Results in the system call being executed.
++
++If multiple filters exist, the return value for the evaluation of a
++given system call will always use the highest precedent value.
++
++Precedence is only determined using the SECCOMP_RET_ACTION mask.  When
++multiple filters return values of the same precedence, only the
++SECCOMP_RET_DATA from the most recently installed filter will be
++returned.
++
++
++Example
++-------
++
++The samples/seccomp/ directory contains both an x86-specific example
++and a more generic example of a higher level macro interface for BPF
++program generation.
++
++Adding architecture support
++-----------------------
++
++See arch/Kconfig for the authoritative requirements.  In general, if an
++architecture supports both ptrace_event and seccomp, it will be able to
++support seccomp filter with minor fixup: SIGSYS support and seccomp return
++value checking.  Then it must just add CONFIG_HAVE_ARCH_SECCOMP_FILTER
++to its arch-specific Kconfig.
+diff --git a/samples/Makefile b/samples/Makefile
+index 6280817..f29b19c 100644
+--- a/samples/Makefile
++++ b/samples/Makefile
+@@ -1,4 +1,4 @@
+ # Makefile for Linux samples code
  
-+config HAVE_ARCH_SECCOMP_FILTER
-+	bool
-+	help
-+	  This symbol should be selected by an architecure if it provides
-+	  asm/syscall.h, specifically syscall_get_arguments() and
-+	  syscall_get_arch().
+ obj-$(CONFIG_SAMPLES)	+= kobject/ kprobes/ tracepoints/ trace_events/ \
+-			   hw_breakpoint/ kfifo/ kdb/ hidraw/
++			   hw_breakpoint/ kfifo/ kdb/ hidraw/ seccomp/
+diff --git a/samples/seccomp/Makefile b/samples/seccomp/Makefile
+new file mode 100644
+index 0000000..e8fe0f5
+--- /dev/null
++++ b/samples/seccomp/Makefile
+@@ -0,0 +1,38 @@
++# kbuild trick to avoid linker error. Can be omitted if a module is built.
++obj- := dummy.o
 +
-+config SECCOMP_FILTER
-+	def_bool y
-+	depends on HAVE_ARCH_SECCOMP_FILTER && SECCOMP && NET
-+	help
-+	  Enable tasks to build secure computing environments defined
-+	  in terms of Berkeley Packet Filter programs which implement
-+	  task-defined system call filtering polices.
++hostprogs-$(CONFIG_SECCOMP) := bpf-fancy dropper
++bpf-fancy-objs := bpf-fancy.o bpf-helper.o
 +
-+	  See Documentation/prctl/seccomp_filter.txt for details.
++HOSTCFLAGS_bpf-fancy.o += -I$(objtree)/usr/include
++HOSTCFLAGS_bpf-fancy.o += -idirafter $(objtree)/include
++HOSTCFLAGS_bpf-helper.o += -I$(objtree)/usr/include
++HOSTCFLAGS_bpf-helper.o += -idirafter $(objtree)/include
 +
- source "kernel/gcov/Kconfig"
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index c94e717..d41ba12 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -330,6 +330,7 @@ header-y += scc.h
- header-y += sched.h
- header-y += screen_info.h
- header-y += sdla.h
-+header-y += seccomp.h
- header-y += securebits.h
- header-y += selinux_netlink.h
- header-y += sem.h
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index d61f27f..ce980a8 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -1,14 +1,67 @@
- #ifndef _LINUX_SECCOMP_H
- #define _LINUX_SECCOMP_H
- 
-+#include <linux/compiler.h>
-+#include <linux/types.h>
++HOSTCFLAGS_dropper.o += -I$(objtree)/usr/include
++HOSTCFLAGS_dropper.o += -idirafter $(objtree)/include
++dropper-objs := dropper.o
 +
++# bpf-direct.c is x86-only.
++ifeq ($(SRCARCH),x86)
++# List of programs to build
++hostprogs-$(CONFIG_SECCOMP) += bpf-direct
++bpf-direct-objs := bpf-direct.o
++endif
 +
-+/* Valid values for seccomp.mode and prctl(PR_SET_SECCOMP, <mode>) */
-+#define SECCOMP_MODE_DISABLED	0 /* seccomp is not in use. */
-+#define SECCOMP_MODE_STRICT	1 /* uses hard-coded filter. */
-+#define SECCOMP_MODE_FILTER	2 /* uses user-supplied filter. */
++HOSTCFLAGS_bpf-direct.o += -I$(objtree)/usr/include
++HOSTCFLAGS_bpf-direct.o += -idirafter $(objtree)/include
 +
++# Try to match the kernel target.
++ifeq ($(CONFIG_64BIT),)
++HOSTCFLAGS_bpf-direct.o += -m32
++HOSTCFLAGS_dropper.o += -m32
++HOSTCFLAGS_bpf-helper.o += -m32
++HOSTCFLAGS_bpf-fancy.o += -m32
++HOSTLOADLIBES_bpf-direct += -m32
++HOSTLOADLIBES_bpf-fancy += -m32
++HOSTLOADLIBES_dropper += -m32
++endif
++
++# Tell kbuild to always build the programs
++always := $(hostprogs-y)
+diff --git a/samples/seccomp/bpf-direct.c b/samples/seccomp/bpf-direct.c
+new file mode 100644
+index 0000000..f1567ad
+--- /dev/null
++++ b/samples/seccomp/bpf-direct.c
+@@ -0,0 +1,176 @@
 +/*
-+ * All BPF programs must return a 32-bit value.
-+ * The bottom 16-bits are reserved for future use.
-+ * The upper 16-bits are ordered from least permissive values to most.
++ * Seccomp filter example for x86 (32-bit and 64-bit) with BPF macros
 + *
-+ * The ordering ensures that a min_t() over composed return values always
-+ * selects the least permissive choice.
++ * Copyright (c) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ * Author: Will Drewry <wad@chromium.org>
++ *
++ * The code may be used by anyone for any purpose,
++ * and can serve as a starting point for developing
++ * applications using prctl(PR_SET_SECCOMP, 2, ...).
 + */
-+#define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
-+#define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
++#define __USE_GNU 1
++#define _GNU_SOURCE 1
 +
-+/* Masks for the return value sections. */
-+#define SECCOMP_RET_ACTION	0xffff0000U
-+#define SECCOMP_RET_DATA	0x0000ffffU
-+
-+/**
-+ * struct seccomp_data - the format the BPF program executes over.
-+ * @nr: the system call number
-+ * @arch: indicates system call convention as an AUDIT_ARCH_* value
-+ *        as defined in <linux/audit.h>.
-+ * @instruction_pointer: at the time of the system call.
-+ * @args: up to 6 system call arguments always stored as 64-bit values
-+ *        regardless of the architecture.
-+ */
-+struct seccomp_data {
-+	int nr;
-+	__u32 arch;
-+	__u64 instruction_pointer;
-+	__u64 args[6];
-+};
- 
-+#ifdef __KERNEL__
- #ifdef CONFIG_SECCOMP
- 
- #include <linux/thread_info.h>
- #include <asm/seccomp.h>
- 
-+struct seccomp_filter;
-+/**
-+ * struct seccomp - the state of a seccomp'ed process
-+ *
-+ * @mode:  indicates one of the valid values above for controlled
-+ *         system calls available to a process.
-+ * @filter: The metadata and ruleset for determining what system calls
-+ *          are allowed for a task.
-+ *
-+ *          @filter must only be accessed from the context of current as there
-+ *          is no locking.
-+ */
- struct seccomp {
- 	int mode;
-+	struct seccomp_filter *filter;
- };
- 
- extern void __secure_computing(int);
-@@ -19,7 +72,7 @@ static inline void secure_computing(int this_syscall)
- }
- 
- extern long prctl_get_seccomp(void);
--extern long prctl_set_seccomp(unsigned long);
-+extern long prctl_set_seccomp(unsigned long, char __user *);
- 
- static inline int seccomp_mode(struct seccomp *s)
- {
-@@ -31,15 +84,16 @@ static inline int seccomp_mode(struct seccomp *s)
- #include <linux/errno.h>
- 
- struct seccomp { };
-+struct seccomp_filter { };
- 
--#define secure_computing(x) do { } while (0)
-+#define secure_computing(x) 0
- 
- static inline long prctl_get_seccomp(void)
- {
- 	return -EINVAL;
- }
- 
--static inline long prctl_set_seccomp(unsigned long arg2)
-+static inline long prctl_set_seccomp(unsigned long arg2, char __user *arg3)
- {
- 	return -EINVAL;
- }
-@@ -48,7 +102,21 @@ static inline int seccomp_mode(struct seccomp *s)
- {
- 	return 0;
- }
--
- #endif /* CONFIG_SECCOMP */
- 
-+#ifdef CONFIG_SECCOMP_FILTER
-+extern void put_seccomp_filter(struct task_struct *tsk);
-+extern void get_seccomp_filter(struct task_struct *tsk);
-+extern u32 seccomp_bpf_load(int off);
-+#else  /* CONFIG_SECCOMP_FILTER */
-+static inline void put_seccomp_filter(struct task_struct *tsk)
-+{
-+	return;
-+}
-+static inline void get_seccomp_filter(struct task_struct *tsk)
-+{
-+	return;
-+}
-+#endif /* CONFIG_SECCOMP_FILTER */
-+#endif /* __KERNEL__ */
- #endif /* _LINUX_SECCOMP_H */
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 26a7a67..4f7a186 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -34,6 +34,7 @@
- #include <linux/cgroup.h>
- #include <linux/security.h>
- #include <linux/hugetlb.h>
-+#include <linux/seccomp.h>
- #include <linux/swap.h>
- #include <linux/syscalls.h>
- #include <linux/jiffies.h>
-@@ -170,6 +171,7 @@ void free_task(struct task_struct *tsk)
- 	free_thread_info(tsk->stack);
- 	rt_mutex_debug_task_free(tsk);
- 	ftrace_graph_exit_task(tsk);
-+	put_seccomp_filter(tsk);
- 	free_task_struct(tsk);
- }
- EXPORT_SYMBOL(free_task);
-@@ -1143,6 +1145,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
- 		goto fork_out;
- 
- 	ftrace_graph_init_task(p);
-+	get_seccomp_filter(p);
- 
- 	rt_mutex_init_task(p);
- 
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index e8d76c5..82f5a36 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -3,16 +3,314 @@
-  *
-  * Copyright 2004-2005  Andrea Arcangeli <andrea@cpushare.com>
-  *
-- * This defines a simple but solid secure-computing mode.
-+ * Copyright (C) 2012 Google, Inc.
-+ * Will Drewry <wad@chromium.org>
-+ *
-+ * This defines a simple but solid secure-computing facility.
-+ *
-+ * Mode 1 uses a fixed list of allowed system calls.
-+ * Mode 2 allows user-defined system call filters in the form
-+ *        of Berkeley Packet Filters/Linux Socket Filters.
-  */
- 
-+#include <linux/atomic.h>
- #include <linux/audit.h>
--#include <linux/seccomp.h>
--#include <linux/sched.h>
- #include <linux/compat.h>
++#include <linux/types.h>
 +#include <linux/filter.h>
-+#include <linux/sched.h>
 +#include <linux/seccomp.h>
-+#include <linux/security.h>
-+#include <linux/slab.h>
-+#include <linux/uaccess.h>
++#include <linux/unistd.h>
++#include <signal.h>
++#include <stdio.h>
++#include <stddef.h>
++#include <string.h>
++#include <sys/prctl.h>
++#include <unistd.h>
 +
-+#include <linux/tracehook.h>
-+#include <asm/syscall.h>
- 
- /* #define SECCOMP_DEBUG 1 */
--#define NR_SECCOMP_MODES 1
++#define syscall_arg(_n) (offsetof(struct seccomp_data, args[_n]))
++#define syscall_nr (offsetof(struct seccomp_data, nr))
 +
-+#ifdef CONFIG_SECCOMP_FILTER
-+/**
-+ * struct seccomp_filter - container for seccomp BPF programs
-+ *
-+ * @usage: reference count to manage the object liftime.
-+ *         get/put helpers should be used when accessing an instance
-+ *         outside of a lifetime-guarded section.  In general, this
-+ *         is only needed for handling filters shared across tasks.
-+ * @prev: points to a previously installed, or inherited, filter
-+ * @insns: the BPF program instructions to evaluate
-+ * @len: the number of instructions in the program
-+ *
-+ * seccomp_filter objects are organized in a tree linked via the @prev
-+ * pointer.  For any task, it appears to be a singly-linked list starting
-+ * with current->seccomp.filter, the most recently attached or inherited filter.
-+ * However, multiple filters may share a @prev node, by way of fork(), which
-+ * results in a unidirectional tree existing in memory.  This is similar to
-+ * how namespaces work.
-+ *
-+ * seccomp_filter objects should never be modified after being attached
-+ * to a task_struct (other than @usage).
-+ */
-+struct seccomp_filter {
-+	atomic_t usage;
-+	struct seccomp_filter *prev;
-+	unsigned short len;  /* Instruction count */
-+	struct sock_filter insns[];
-+};
-+
-+/* Limit any path through the tree to 1 megabytes worth of instructions. */
-+#define MAX_INSNS_PER_PATH ((1 << 20) / sizeof(struct sock_filter))
-+
-+static void seccomp_filter_log_failure(int syscall)
-+{
-+	int compat = 0;
-+#ifdef CONFIG_COMPAT
-+	compat = is_compat_task();
++#if defined(__i386__)
++#define REG_RESULT	REG_EAX
++#define REG_SYSCALL	REG_EAX
++#define REG_ARG0	REG_EBX
++#define REG_ARG1	REG_ECX
++#define REG_ARG2	REG_EDX
++#define REG_ARG3	REG_ESI
++#define REG_ARG4	REG_EDI
++#define REG_ARG5	REG_EBP
++#elif defined(__x86_64__)
++#define REG_RESULT	REG_RAX
++#define REG_SYSCALL	REG_RAX
++#define REG_ARG0	REG_RDI
++#define REG_ARG1	REG_RSI
++#define REG_ARG2	REG_RDX
++#define REG_ARG3	REG_R10
++#define REG_ARG4	REG_R8
++#define REG_ARG5	REG_R9
++#else
++#error Unsupported platform
 +#endif
-+	pr_info("%s[%d]: %ssystem call %d blocked at 0x%lx\n",
-+		current->comm, task_pid_nr(current),
-+		(compat ? "compat " : ""),
-+		syscall, KSTK_EIP(current));
-+}
 +
-+/**
-+ * get_u32 - returns a u32 offset into data
-+ * @data: a unsigned 64 bit value
-+ * @index: 0 or 1 to return the first or second 32-bits
-+ *
-+ * This inline exists to hide the length of unsigned long.
-+ * If a 32-bit unsigned long is passed in, it will be extended
-+ * and the top 32-bits will be 0. If it is a 64-bit unsigned
-+ * long, then whatever data is resident will be properly returned.
-+ */
-+static inline u32 get_u32(u64 data, int index)
++#ifndef PR_SET_NO_NEW_PRIVS
++#define PR_SET_NO_NEW_PRIVS 36
++#endif
++
++#ifndef SYS_SECCOMP
++#define SYS_SECCOMP 1
++#endif
++
++static void emulator(int nr, siginfo_t *info, void *void_context)
 +{
-+	return ((u32 *)&data)[index];
-+}
++	ucontext_t *ctx = (ucontext_t *)(void_context);
++	int syscall;
++	char *buf;
++	ssize_t bytes;
++	size_t len;
++	if (info->si_code != SYS_SECCOMP)
++		return;
++	if (!ctx)
++		return;
++	syscall = ctx->uc_mcontext.gregs[REG_SYSCALL];
++	buf = (char *) ctx->uc_mcontext.gregs[REG_ARG1];
++	len = (size_t) ctx->uc_mcontext.gregs[REG_ARG2];
 +
-+/* Helper for bpf_load below. */
-+#define BPF_DATA(_name) offsetof(struct seccomp_data, _name)
-+/**
-+ * bpf_load: checks and returns a pointer to the requested offset
-+ * @off: offset into struct seccomp_data to load from
-+ *
-+ * Returns the requested 32-bits of data.
-+ * seccomp_chk_filter() should assure that @off is 32-bit aligned
-+ * and not out of bounds.  Failure to do so is a BUG.
-+ */
-+u32 seccomp_bpf_load(int off)
-+{
-+	struct pt_regs *regs = task_pt_regs(current);
-+
-+	if (off == BPF_DATA(nr))
-+		return syscall_get_nr(current, regs);
-+	if (off == BPF_DATA(arch))
-+		return syscall_get_arch(current, regs);
-+	if (off == BPF_DATA(instruction_pointer))
-+		return get_u32(KSTK_EIP(current), 0);
-+	if (off == BPF_DATA(instruction_pointer) + sizeof(u32))
-+		return get_u32(KSTK_EIP(current), 1);
-+	if (off >= BPF_DATA(args[0]) && off < BPF_DATA(args[6])) {
-+		unsigned long value;
-+		int arg = (off - BPF_DATA(args[0])) / sizeof(u64);
-+		int index = !!(off % sizeof(u64));
-+		syscall_get_arguments(current, regs, arg, 1, &value);
-+		return get_u32(value, index);
++	if (syscall != __NR_write)
++		return;
++	if (ctx->uc_mcontext.gregs[REG_ARG0] != STDERR_FILENO)
++		return;
++	/* Redirect stderr messages to stdout. Doesn't handle EINTR, etc */
++	ctx->uc_mcontext.gregs[REG_RESULT] = -1;
++	if (write(STDOUT_FILENO, "[ERR] ", 6) > 0) {
++		bytes = write(STDOUT_FILENO, buf, len);
++		ctx->uc_mcontext.gregs[REG_RESULT] = bytes;
 +	}
-+	/* seccomp_chk_filter should make this impossible. */
-+	BUG();
++	return;
 +}
 +
-+/**
-+ *	seccomp_chk_filter - verify seccomp filter code
-+ *	@filter: filter to verify
-+ *	@flen: length of filter
-+ *
-+ * Takes a previously checked filter (by sk_chk_filter) and
-+ * redirects all filter code that loads struct sk_buff data
-+ * and related data through seccomp_bpf_load.  It also
-+ * enforces length and alignment checking of those loads.
-+ *
-+ * Returns 0 if the rule set is legal or -EINVAL if not.
-+ */
-+static int seccomp_chk_filter(struct sock_filter *filter, unsigned int flen)
++static int install_emulator(void)
 +{
-+	int pc;
-+	for (pc = 0; pc < flen; pc++) {
-+		struct sock_filter *ftest = &filter[pc];
-+		u16 code = ftest->code;
-+		u32 k = ftest->k;
-+		if (code <= BPF_S_ALU_NEG)
++	struct sigaction act;
++	sigset_t mask;
++	memset(&act, 0, sizeof(act));
++	sigemptyset(&mask);
++	sigaddset(&mask, SIGSYS);
++
++	act.sa_sigaction = &emulator;
++	act.sa_flags = SA_SIGINFO;
++	if (sigaction(SIGSYS, &act, NULL) < 0) {
++		perror("sigaction");
++		return -1;
++	}
++	if (sigprocmask(SIG_UNBLOCK, &mask, NULL)) {
++		perror("sigprocmask");
++		return -1;
++	}
++	return 0;
++}
++
++static int install_filter(void)
++{
++	struct sock_filter filter[] = {
++		/* Grab the system call number */
++		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, syscall_nr),
++		/* Jump table for the allowed syscalls */
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_rt_sigreturn, 0, 1),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++#ifdef __NR_sigreturn
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_sigreturn, 0, 1),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++#endif
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_exit_group, 0, 1),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_exit, 0, 1),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_read, 1, 0),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_write, 3, 2),
++
++		/* Check that read is only using stdin. */
++		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, syscall_arg(0)),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, STDIN_FILENO, 4, 0),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
++
++		/* Check that write is only using stdout */
++		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, syscall_arg(0)),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, STDOUT_FILENO, 1, 0),
++		/* Trap attempts to write to stderr */
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, STDERR_FILENO, 1, 2),
++
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_TRAP),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
++	};
++	struct sock_fprog prog = {
++		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
++		.filter = filter,
++	};
++
++	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
++		perror("prctl(NO_NEW_PRIVS)");
++		return 1;
++	}
++
++
++	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
++		perror("prctl");
++		return 1;
++	}
++	return 0;
++}
++
++#define payload(_c) (_c), sizeof((_c))
++int main(int argc, char **argv)
++{
++	char buf[4096];
++	ssize_t bytes = 0;
++	if (install_emulator())
++		return 1;
++	if (install_filter())
++		return 1;
++	syscall(__NR_write, STDOUT_FILENO,
++		payload("OHAI! WHAT IS YOUR NAME? "));
++	bytes = syscall(__NR_read, STDIN_FILENO, buf, sizeof(buf));
++	syscall(__NR_write, STDOUT_FILENO, payload("HELLO, "));
++	syscall(__NR_write, STDOUT_FILENO, buf, bytes);
++	syscall(__NR_write, STDERR_FILENO,
++		payload("Error message going to STDERR\n"));
++	return 0;
++}
+diff --git a/samples/seccomp/bpf-fancy.c b/samples/seccomp/bpf-fancy.c
+new file mode 100644
+index 0000000..bf1f6b5
+--- /dev/null
++++ b/samples/seccomp/bpf-fancy.c
+@@ -0,0 +1,102 @@
++/*
++ * Seccomp BPF example using a macro-based generator.
++ *
++ * Copyright (c) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ * Author: Will Drewry <wad@chromium.org>
++ *
++ * The code may be used by anyone for any purpose,
++ * and can serve as a starting point for developing
++ * applications using prctl(PR_ATTACH_SECCOMP_FILTER).
++ */
++
++#include <linux/filter.h>
++#include <linux/seccomp.h>
++#include <linux/unistd.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/prctl.h>
++#include <unistd.h>
++
++#include "bpf-helper.h"
++
++#ifndef PR_SET_NO_NEW_PRIVS
++#define PR_SET_NO_NEW_PRIVS 36
++#endif
++
++int main(int argc, char **argv)
++{
++	struct bpf_labels l;
++	static const char msg1[] = "Please type something: ";
++	static const char msg2[] = "You typed: ";
++	char buf[256];
++	struct sock_filter filter[] = {
++		/* TODO: LOAD_SYSCALL_NR(arch) and enforce an arch */
++		LOAD_SYSCALL_NR,
++		SYSCALL(__NR_exit, ALLOW),
++		SYSCALL(__NR_exit_group, ALLOW),
++		SYSCALL(__NR_write, JUMP(&l, write_fd)),
++		SYSCALL(__NR_read, JUMP(&l, read)),
++		DENY,  /* Don't passthrough into a label */
++
++		LABEL(&l, read),
++		ARG(0),
++		JNE(STDIN_FILENO, DENY),
++		ARG(1),
++		JNE((unsigned long)buf, DENY),
++		ARG(2),
++		JGE(sizeof(buf), DENY),
++		ALLOW,
++
++		LABEL(&l, write_fd),
++		ARG(0),
++		JEQ(STDOUT_FILENO, JUMP(&l, write_buf)),
++		JEQ(STDERR_FILENO, JUMP(&l, write_buf)),
++		DENY,
++
++		LABEL(&l, write_buf),
++		ARG(1),
++		JEQ((unsigned long)msg1, JUMP(&l, msg1_len)),
++		JEQ((unsigned long)msg2, JUMP(&l, msg2_len)),
++		JEQ((unsigned long)buf, JUMP(&l, buf_len)),
++		DENY,
++
++		LABEL(&l, msg1_len),
++		ARG(2),
++		JLT(sizeof(msg1), ALLOW),
++		DENY,
++
++		LABEL(&l, msg2_len),
++		ARG(2),
++		JLT(sizeof(msg2), ALLOW),
++		DENY,
++
++		LABEL(&l, buf_len),
++		ARG(2),
++		JLT(sizeof(buf), ALLOW),
++		DENY,
++	};
++	struct sock_fprog prog = {
++		.filter = filter,
++		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
++	};
++	ssize_t bytes;
++	bpf_resolve_jumps(&l, filter, sizeof(filter)/sizeof(*filter));
++
++	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
++		perror("prctl(NO_NEW_PRIVS)");
++		return 1;
++	}
++
++	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
++		perror("prctl(SECCOMP)");
++		return 1;
++	}
++	syscall(__NR_write, STDOUT_FILENO, msg1, strlen(msg1));
++	bytes = syscall(__NR_read, STDIN_FILENO, buf, sizeof(buf)-1);
++	bytes = (bytes > 0 ? bytes : 0);
++	syscall(__NR_write, STDERR_FILENO, msg2, strlen(msg2));
++	syscall(__NR_write, STDERR_FILENO, buf, bytes);
++	/* Now get killed */
++	syscall(__NR_write, STDERR_FILENO, msg2, strlen(msg2)+2);
++	return 0;
++}
+diff --git a/samples/seccomp/bpf-helper.c b/samples/seccomp/bpf-helper.c
+new file mode 100644
+index 0000000..579cfe3
+--- /dev/null
++++ b/samples/seccomp/bpf-helper.c
+@@ -0,0 +1,89 @@
++/*
++ * Seccomp BPF helper functions
++ *
++ * Copyright (c) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ * Author: Will Drewry <wad@chromium.org>
++ *
++ * The code may be used by anyone for any purpose,
++ * and can serve as a starting point for developing
++ * applications using prctl(PR_ATTACH_SECCOMP_FILTER).
++ */
++
++#include <stdio.h>
++#include <string.h>
++
++#include "bpf-helper.h"
++
++int bpf_resolve_jumps(struct bpf_labels *labels,
++		      struct sock_filter *filter, size_t count)
++{
++	struct sock_filter *begin = filter;
++	__u8 insn = count - 1;
++
++	if (count < 1)
++		return -1;
++	/*
++	* Walk it once, backwards, to build the label table and do fixups.
++	* Since backward jumps are disallowed by BPF, this is easy.
++	*/
++	filter += insn;
++	for (; filter >= begin; --insn, --filter) {
++		if (filter->code != (BPF_JMP+BPF_JA))
 +			continue;
-+		/* Do not allow ancillary codes (incl. BPF_S_ANC_SECCOMP_*) */
-+		if (code >= BPF_S_ANC_PROTOCOL)
-+			return -EINVAL;
-+		if (code >= BPF_S_LDX_IMM)
++		switch ((filter->jt<<8)|filter->jf) {
++		case (JUMP_JT<<8)|JUMP_JF:
++			if (labels->labels[filter->k].location == 0xffffffff) {
++				fprintf(stderr, "Unresolved label: '%s'\n",
++					labels->labels[filter->k].label);
++				return 1;
++			}
++			filter->k = labels->labels[filter->k].location -
++				    (insn + 1);
++			filter->jt = 0;
++			filter->jf = 0;
 +			continue;
-+		switch (code) {
-+		case BPF_S_LD_W_ABS:
-+			ftest->code = BPF_S_ANC_SECCOMP_LD_W;
-+			/* 32-bit aligned and not out of bounds. */
-+			if (k >= sizeof(struct seccomp_data) || k & 3)
-+				return -EINVAL;
++		case (LABEL_JT<<8)|LABEL_JF:
++			if (labels->labels[filter->k].location != 0xffffffff) {
++				fprintf(stderr, "Duplicate label use: '%s'\n",
++					labels->labels[filter->k].label);
++				return 1;
++			}
++			labels->labels[filter->k].location = insn;
++			filter->k = 0; /* fall through */
++			filter->jt = 0;
++			filter->jf = 0;
 +			continue;
-+		case BPF_S_LD_W_LEN:
-+			ftest->code = BPF_S_LD_IMM;
-+			ftest->k = sizeof(struct seccomp_data);
-+			continue;
-+		case BPF_S_LD_IMM:
-+			continue;
-+		case BPF_S_LDX_W_LEN:
-+			ftest->code = BPF_S_LDX_IMM;
-+			ftest->k = sizeof(struct seccomp_data);
-+			continue;
-+		case BPF_S_LD_W_IND:
-+			/* XXX: would runtime seccomp_bpf_load checking k */
-+		default:
-+			return -EINVAL;
 +		}
 +	}
 +	return 0;
 +}
 +
-+/**
-+ * seccomp_run_filters - evaluates all seccomp filters against @syscall
-+ * @syscall: number of the current system call
-+ *
-+ * Returns valid seccomp BPF response codes.
-+ */
-+static u32 seccomp_run_filters(int syscall)
++/* Simple lookup table for labels. */
++__u32 seccomp_bpf_label(struct bpf_labels *labels, const char *label)
 +{
-+	struct seccomp_filter *f;
-+	u32 ret = SECCOMP_RET_KILL;
-+	/*
-+	 * All filters are evaluated in order of youngest to oldest. The lowest
-+	 * BPF return value always takes priority.
-+	 */
-+	for (f = current->seccomp.filter; f; f = f->prev) {
-+		ret = sk_run_filter(NULL, f->insns);
-+		if (ret != SECCOMP_RET_ALLOW)
-+			break;
++	struct __bpf_label *begin = labels->labels, *end;
++	int id;
++	if (labels->count == 0) {
++		begin->label = label;
++		begin->location = 0xffffffff;
++		labels->count++;
++		return 0;
 +	}
-+	return ret;
++	end = begin + labels->count;
++	for (id = 0; begin < end; ++begin, ++id) {
++		if (!strcmp(label, begin->label))
++			return id;
++	}
++	begin->label = label;
++	begin->location = 0xffffffff;
++	labels->count++;
++	return id;
 +}
 +
-+/**
-+ * seccomp_attach_filter: Attaches a seccomp filter to current.
-+ * @fprog: BPF program to install
-+ *
-+ * Returns 0 on success or an errno on failure.
-+ */
-+static long seccomp_attach_filter(struct sock_fprog *fprog)
++void seccomp_bpf_print(struct sock_filter *filter, size_t count)
 +{
-+	struct seccomp_filter *filter;
-+	unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
-+	unsigned long total_insns = 0;
-+	long ret;
++	struct sock_filter *end = filter + count;
++	for ( ; filter < end; ++filter)
++		printf("{ code=%u,jt=%u,jf=%u,k=%u },\n",
++			filter->code, filter->jt, filter->jf, filter->k);
++}
+diff --git a/samples/seccomp/bpf-helper.h b/samples/seccomp/bpf-helper.h
+new file mode 100644
+index 0000000..643279d
+--- /dev/null
++++ b/samples/seccomp/bpf-helper.h
+@@ -0,0 +1,238 @@
++/*
++ * Example wrapper around BPF macros.
++ *
++ * Copyright (c) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ * Author: Will Drewry <wad@chromium.org>
++ *
++ * The code may be used by anyone for any purpose,
++ * and can serve as a starting point for developing
++ * applications using prctl(PR_SET_SECCOMP, 2, ...).
++ *
++ * No guarantees are provided with respect to the correctness
++ * or functionality of this code.
++ */
++#ifndef __BPF_HELPER_H__
++#define __BPF_HELPER_H__
 +
-+	if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
-+		return -EINVAL;
++#include <asm/bitsperlong.h>	/* for __BITS_PER_LONG */
++#include <endian.h>
++#include <linux/filter.h>
++#include <linux/seccomp.h>	/* for seccomp_data */
++#include <linux/types.h>
++#include <linux/unistd.h>
++#include <stddef.h>
 +
-+	for (filter = current->seccomp.filter; filter; filter = filter->prev)
-+		total_insns += filter->len;
-+	if (total_insns > MAX_INSNS_PER_PATH - fprog->len)
-+		return -ENOSPC;
++#define BPF_LABELS_MAX 256
++struct bpf_labels {
++	int count;
++	struct __bpf_label {
++		const char *label;
++		__u32 location;
++	} labels[BPF_LABELS_MAX];
++};
 +
-+	/*
-+	 * Installing a seccomp filter requires that the task have
-+	 * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
-+	 * This avoids scenarios where unprivileged tasks can affect the
-+	 * behavior of privileged children.
-+	 */
-+	if (!current->no_new_privs &&
-+	    security_capable_noaudit(current_cred(), current_user_ns(),
-+				     CAP_SYS_ADMIN) != 0)
-+		return -EACCES;
++int bpf_resolve_jumps(struct bpf_labels *labels,
++		      struct sock_filter *filter, size_t count);
++__u32 seccomp_bpf_label(struct bpf_labels *labels, const char *label);
++void seccomp_bpf_print(struct sock_filter *filter, size_t count);
 +
-+	/* Allocate a new seccomp_filter */
-+	filter = kzalloc(sizeof(struct seccomp_filter) + fp_size, GFP_KERNEL);
-+	if (!filter)
-+		return -ENOMEM;
-+	atomic_set(&filter->usage, 1);
-+	filter->len = fprog->len;
++#define JUMP_JT 0xff
++#define JUMP_JF 0xff
++#define LABEL_JT 0xfe
++#define LABEL_JF 0xfe
 +
-+	/* Copy the instructions from fprog. */
-+	ret = -EFAULT;
-+	if (copy_from_user(filter->insns, fprog->filter, fp_size))
-+		goto fail;
++#define ALLOW \
++	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
++#define DENY \
++	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL)
++#define JUMP(labels, label) \
++	BPF_JUMP(BPF_JMP+BPF_JA, FIND_LABEL((labels), (label)), \
++		 JUMP_JT, JUMP_JF)
++#define LABEL(labels, label) \
++	BPF_JUMP(BPF_JMP+BPF_JA, FIND_LABEL((labels), (label)), \
++		 LABEL_JT, LABEL_JF)
++#define SYSCALL(nr, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (nr), 0, 1), \
++	jt
 +
-+	/* Check and rewrite the fprog via the skb checker */
-+	ret = sk_chk_filter(filter->insns, filter->len);
-+	if (ret)
-+		goto fail;
++/* Lame, but just an example */
++#define FIND_LABEL(labels, label) seccomp_bpf_label((labels), #label)
 +
-+	/* Check and rewrite the fprog for seccomp use */
-+	ret = seccomp_chk_filter(filter->insns, filter->len);
-+	if (ret)
-+		goto fail;
++#define EXPAND(...) __VA_ARGS__
++/* Map all width-sensitive operations */
++#if __BITS_PER_LONG == 32
 +
-+	/*
-+	 * If there is an existing filter, make it the prev and don't drop its
-+	 * task reference.
-+	 */
-+	filter->prev = current->seccomp.filter;
-+	current->seccomp.filter = filter;
++#define JEQ(x, jt) JEQ32(x, EXPAND(jt))
++#define JNE(x, jt) JNE32(x, EXPAND(jt))
++#define JGT(x, jt) JGT32(x, EXPAND(jt))
++#define JLT(x, jt) JLT32(x, EXPAND(jt))
++#define JGE(x, jt) JGE32(x, EXPAND(jt))
++#define JLE(x, jt) JLE32(x, EXPAND(jt))
++#define JA(x, jt) JA32(x, EXPAND(jt))
++#define ARG(i) ARG_32(i)
++#define LO_ARG(idx) offsetof(struct seccomp_data, args[(idx)])
++
++#elif __BITS_PER_LONG == 64
++
++/* Ensure that we load the logically correct offset. */
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++#define ENDIAN(_lo, _hi) _lo, _hi
++#define LO_ARG(idx) offsetof(struct seccomp_data, args[(idx)])
++#define HI_ARG(idx) offsetof(struct seccomp_data, args[(idx)]) + sizeof(__u32)
++#elif __BYTE_ORDER == __BIG_ENDIAN
++#define ENDIAN(_lo, _hi) _hi, _lo
++#define LO_ARG(idx) offsetof(struct seccomp_data, args[(idx)]) + sizeof(__u32)
++#define HI_ARG(idx) offsetof(struct seccomp_data, args[(idx)])
++#else
++#error "Unknown endianness"
++#endif
++
++union arg64 {
++	struct {
++		__u32 ENDIAN(lo32, hi32);
++	};
++	__u64 u64;
++};
++
++#define JEQ(x, jt) \
++	JEQ64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++#define JGT(x, jt) \
++	JGT64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++#define JGE(x, jt) \
++	JGE64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++#define JNE(x, jt) \
++	JNE64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++#define JLT(x, jt) \
++	JLT64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++#define JLE(x, jt) \
++	JLE64(((union arg64){.u64 = (x)}).lo32, \
++	      ((union arg64){.u64 = (x)}).hi32, \
++	      EXPAND(jt))
++
++#define JA(x, jt) \
++	JA64(((union arg64){.u64 = (x)}).lo32, \
++	       ((union arg64){.u64 = (x)}).hi32, \
++	       EXPAND(jt))
++#define ARG(i) ARG_64(i)
++
++#else
++#error __BITS_PER_LONG value unusable.
++#endif
++
++/* Loads the arg into A */
++#define ARG_32(idx) \
++	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, LO_ARG(idx))
++
++/* Loads hi into A and lo in X */
++#define ARG_64(idx) \
++	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, LO_ARG(idx)), \
++	BPF_STMT(BPF_ST, 0), /* lo -> M[0] */ \
++	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, HI_ARG(idx)), \
++	BPF_STMT(BPF_ST, 1) /* hi -> M[1] */
++
++#define JEQ32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (value), 0, 1), \
++	jt
++
++#define JNE32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (value), 1, 0), \
++	jt
++
++/* Checks the lo, then swaps to check the hi. A=lo,X=hi */
++#define JEQ64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 0, 5), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (lo), 0, 2), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JNE64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 5, 0), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (lo), 2, 0), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JA32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JSET+BPF_K, (value), 0, 1), \
++	jt
++
++#define JA64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JSET+BPF_K, (hi), 3, 0), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JSET+BPF_K, (lo), 0, 2), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JGE32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGE+BPF_K, (value), 0, 1), \
++	jt
++
++#define JLT32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGE+BPF_K, (value), 1, 0), \
++	jt
++
++/* Shortcut checking if hi > arg.hi. */
++#define JGE64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (hi), 4, 0), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 0, 5), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JGE+BPF_K, (lo), 0, 2), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JLT64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGE+BPF_K, (hi), 0, 4), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 0, 5), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (lo), 2, 0), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JGT32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (value), 0, 1), \
++	jt
++
++#define JLE32(value, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (value), 1, 0), \
++	jt
++
++/* Check hi > args.hi first, then do the GE checking */
++#define JGT64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (hi), 4, 0), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 0, 5), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (lo), 0, 2), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define JLE64(lo, hi, jt) \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (hi), 6, 0), \
++	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, (hi), 0, 3), \
++	BPF_STMT(BPF_LD+BPF_MEM, 0), /* swap in lo */ \
++	BPF_JUMP(BPF_JMP+BPF_JGT+BPF_K, (lo), 2, 0), \
++	BPF_STMT(BPF_LD+BPF_MEM, 1), /* passed: swap hi back in */ \
++	jt, \
++	BPF_STMT(BPF_LD+BPF_MEM, 1) /* failed: swap hi back in */
++
++#define LOAD_SYSCALL_NR \
++	BPF_STMT(BPF_LD+BPF_W+BPF_ABS, \
++		 offsetof(struct seccomp_data, nr))
++
++#endif  /* __BPF_HELPER_H__ */
+diff --git a/samples/seccomp/dropper.c b/samples/seccomp/dropper.c
+new file mode 100644
+index 0000000..c69c347
+--- /dev/null
++++ b/samples/seccomp/dropper.c
+@@ -0,0 +1,68 @@
++/*
++ * Naive system call dropper built on seccomp_filter.
++ *
++ * Copyright (c) 2012 The Chromium OS Authors <chromium-os-dev@chromium.org>
++ * Author: Will Drewry <wad@chromium.org>
++ *
++ * The code may be used by anyone for any purpose,
++ * and can serve as a starting point for developing
++ * applications using prctl(PR_SET_SECCOMP, 2, ...).
++ *
++ * When run, returns the specified errno for the specified
++ * system call number against the given architecture.
++ *
++ * Run this one as root as PR_SET_NO_NEW_PRIVS is not called.
++ */
++
++#include <errno.h>
++#include <linux/audit.h>
++#include <linux/filter.h>
++#include <linux/seccomp.h>
++#include <linux/unistd.h>
++#include <stdio.h>
++#include <stddef.h>
++#include <stdlib.h>
++#include <sys/prctl.h>
++#include <unistd.h>
++
++static int install_filter(int nr, int arch, int error)
++{
++	struct sock_filter filter[] = {
++		BPF_STMT(BPF_LD+BPF_W+BPF_ABS,
++			 (offsetof(struct seccomp_data, arch))),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, arch, 0, 3),
++		BPF_STMT(BPF_LD+BPF_W+BPF_ABS,
++			 (offsetof(struct seccomp_data, nr))),
++		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, nr, 0, 1),
++		BPF_STMT(BPF_RET+BPF_K,
++			 SECCOMP_RET_ERRNO|(error & SECCOMP_RET_DATA)),
++		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
++	};
++	struct sock_fprog prog = {
++		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
++		.filter = filter,
++	};
++	if (prctl(PR_SET_SECCOMP, 2, &prog)) {
++		perror("prctl");
++		return 1;
++	}
 +	return 0;
-+fail:
-+	kfree(filter);
-+	return ret;
 +}
 +
-+/**
-+ * seccomp_attach_user_filter - attaches a user-supplied sock_fprog
-+ * @user_filter: pointer to the user data containing a sock_fprog.
-+ *
-+ * Returns 0 on success and non-zero otherwise.
-+ */
-+long seccomp_attach_user_filter(char __user *user_filter)
++int main(int argc, char **argv)
 +{
-+	struct sock_fprog fprog;
-+	long ret = -EFAULT;
-+
-+	if (!user_filter)
-+		goto out;
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task()) {
-+		struct compat_sock_fprog fprog32;
-+		if (copy_from_user(&fprog32, user_filter, sizeof(fprog32)))
-+			goto out;
-+		fprog.len = fprog32.len;
-+		fprog.filter = compat_ptr(fprog32.filter);
-+	} else /* falls through to the if below. */
-+#endif
-+	if (copy_from_user(&fprog, user_filter, sizeof(fprog)))
-+		goto out;
-+	ret = seccomp_attach_filter(&fprog);
-+out:
-+	return ret;
-+}
-+
-+/* get_seccomp_filter - increments the reference count of the filter on @tsk */
-+void get_seccomp_filter(struct task_struct *tsk)
-+{
-+	struct seccomp_filter *orig = tsk->seccomp.filter;
-+	if (!orig)
-+		return;
-+	/* Reference count is bounded by the number of total processes. */
-+	atomic_inc(&orig->usage);
-+}
-+
-+/* put_seccomp_filter - decrements the ref count of tsk->seccomp.filter */
-+void put_seccomp_filter(struct task_struct *tsk)
-+{
-+	struct seccomp_filter *orig = tsk->seccomp.filter;
-+	/* Clean up single-reference branches iteratively. */
-+	while (orig && atomic_dec_and_test(&orig->usage)) {
-+		struct seccomp_filter *freeme = orig;
-+		orig = orig->prev;
-+		kfree(freeme);
++	if (argc < 5) {
++		fprintf(stderr, "Usage:\n"
++			"dropper <syscall_nr> <arch> <errno> <prog> [<args>]\n"
++			"Hint:	AUDIT_ARCH_I386: 0x%X\n"
++			"	AUDIT_ARCH_X86_64: 0x%X\n"
++			"\n", AUDIT_ARCH_I386, AUDIT_ARCH_X86_64);
++		return 1;
 +	}
++	if (install_filter(strtol(argv[1], NULL, 0), strtol(argv[2], NULL, 0),
++			   strtol(argv[3], NULL, 0)))
++		return 1;
++	execv(argv[4], &argv[4]);
++	printf("Failed to execv\n");
++	return 255;
 +}
-+#endif	/* CONFIG_SECCOMP_FILTER */
- 
- /*
-  * Secure computing mode 1 allows only read/write/exit/sigreturn.
-@@ -34,10 +332,11 @@ static int mode1_syscalls_32[] = {
- void __secure_computing(int this_syscall)
- {
- 	int mode = current->seccomp.mode;
--	int * syscall;
-+	int exit_code = SIGKILL;
-+	int *syscall;
- 
- 	switch (mode) {
--	case 1:
-+	case SECCOMP_MODE_STRICT:
- 		syscall = mode1_syscalls;
- #ifdef CONFIG_COMPAT
- 		if (is_compat_task())
-@@ -48,6 +347,14 @@ void __secure_computing(int this_syscall)
- 				return;
- 		} while (*++syscall);
- 		break;
-+#ifdef CONFIG_SECCOMP_FILTER
-+	case SECCOMP_MODE_FILTER:
-+		if (seccomp_run_filters(this_syscall) == SECCOMP_RET_ALLOW)
-+			return;
-+		seccomp_filter_log_failure(this_syscall);
-+		exit_code = SIGSYS;
-+		break;
-+#endif
- 	default:
- 		BUG();
- 	}
-@@ -56,7 +363,7 @@ void __secure_computing(int this_syscall)
- 	dump_stack();
- #endif
- 	audit_seccomp(this_syscall);
--	do_exit(SIGKILL);
-+	do_exit(exit_code);
- }
- 
- long prctl_get_seccomp(void)
-@@ -64,25 +371,48 @@ long prctl_get_seccomp(void)
- 	return current->seccomp.mode;
- }
- 
--long prctl_set_seccomp(unsigned long seccomp_mode)
-+/**
-+ * prctl_set_seccomp: configures current->seccomp.mode
-+ * @seccomp_mode: requested mode to use
-+ * @filter: optional struct sock_fprog for use with SECCOMP_MODE_FILTER
-+ *
-+ * This function may be called repeatedly with a @seccomp_mode of
-+ * SECCOMP_MODE_FILTER to install additional filters.  Every filter
-+ * successfully installed will be evaluated (in reverse order) for each system
-+ * call the task makes.
-+ *
-+ * Once current->seccomp.mode is non-zero, it may not be changed.
-+ *
-+ * Returns 0 on success or -EINVAL on failure.
-+ */
-+long prctl_set_seccomp(unsigned long seccomp_mode, char __user *filter)
- {
--	long ret;
-+	long ret = -EINVAL;
- 
--	/* can set it only once to be even more secure */
--	ret = -EPERM;
--	if (unlikely(current->seccomp.mode))
-+	if (current->seccomp.mode &&
-+	    current->seccomp.mode != seccomp_mode)
- 		goto out;
- 
--	ret = -EINVAL;
--	if (seccomp_mode && seccomp_mode <= NR_SECCOMP_MODES) {
--		current->seccomp.mode = seccomp_mode;
--		set_thread_flag(TIF_SECCOMP);
-+	switch (seccomp_mode) {
-+	case SECCOMP_MODE_STRICT:
-+		ret = 0;
- #ifdef TIF_NOTSC
- 		disable_TSC();
- #endif
--		ret = 0;
-+		break;
-+#ifdef CONFIG_SECCOMP_FILTER
-+	case SECCOMP_MODE_FILTER:
-+		ret = seccomp_attach_user_filter(filter);
-+		if (ret)
-+			goto out;
-+		break;
-+#endif
-+	default:
-+		goto out;
- 	}
- 
-- out:
-+	current->seccomp.mode = seccomp_mode;
-+	set_thread_flag(TIF_SECCOMP);
-+out:
- 	return ret;
- }
-diff --git a/kernel/sys.c b/kernel/sys.c
-index 12e862a..038e6b7 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -1899,7 +1899,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
- 			error = prctl_get_seccomp();
- 			break;
- 		case PR_SET_SECCOMP:
--			error = prctl_set_seccomp(arg2);
-+			error = prctl_set_seccomp(arg2, (char __user *)arg3);
- 			break;
- 		case PR_GET_TSC:
- 			error = GET_TSC_CTL(arg2);
 -- 
 1.7.5.4
