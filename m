@@ -1,52 +1,61 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [PATCH 2.6.32.y] netxen: support for GbE port settings
-Date: Mon, 12 Mar 2012 04:40:39 -0500
-Message-ID: <20120312093919.GA17642@burratino>
-References: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
- <20120312043539.GA15903@burratino>
- <20120312090950.GC11569@1wt.eu>
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
+Date: Mon, 12 Mar 2012 15:17:36 +0530
+Message-ID: <CAOD=uF4CisG9QeVoVjcrBHWfrXk4i6aBhYQxwNL=uUVa978RMw@mail.gmail.com>
+References: <CAOD=uF4Vx581zvpAT0dHKjUkrdsiZo-DTNR352V8tALM_P2roA@mail.gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6E99@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	stable@vger.kernel.org, Sony Chacko <sony.chacko@qlogic.com>,
-	Ana Guerrero <ana@debian.org>,
-	Michael Mastrogiacomo <mmastrogiacomo@ultralogistics.com>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:37449 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902Ab2CLJkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 05:40:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20120312090950.GC11569@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E99@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Willy,
+here "mac" is in "u64" and I have casted it to "__le64".
+Because its required there.
 
-Willy Tarreau wrote:
-> On Sun, Mar 11, 2012 at 11:35:39PM -0500, Jonathan Nieder wrote:
+If you have any better suggestion, please let me know.
 
->> From: Sony Chacko <sony.chacko@qlogic.com>
->> Date: Tue, 15 Mar 2011 14:54:55 -0700
+
+regards
+santosh
+
+On Mon, Mar 12, 2012 at 3:07 PM, David Laight <David.Laight@aculab.com>=
+ wrote:
+>
+>
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org
+>> [mailto:netdev-owner@vger.kernel.org] On Behalf Of santosh
+>> prasad nayak
+>> Sent: 11 March 2012 09:17
+>> To: Rajesh Borundia
+>> Cc: Sony Chacko; netdev; linux-kernel; kernel-janitors@vger.kernel.o=
+rg
+>> Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
 >>
->> commit bfd823bd74333615783d8108889814c6d82f2ab0 upstream.
-[...]
-> One very important requirement for merging such a
-> fix is that it is already present in more recent stable releases :
-> when users upgrade from 2.6.32 to 3.0, we don't want them to get
-> the bug again.
-
-Thanks for explaining.  To answer this question: since the patch
-(v2.6.39-rc1~468^2~23) was in mainline in 2.6.39, it gets the
-privilege of inclusion in 3.0.y by default.
-
-> If this requirement is satisfied and David is not opposed to merging
-> the patch, then we can include it (even in this release, considering
-> the authors and reviewers are already CC'd).
-
-Cheers,
-Jonathan
+>> Thanks Rajesh for clarification.
+>> Included all your inputs in the following patch.
+>> This is for review not a formal one. Once review is done I will send=
+ a
+>> formal patch.
+>
+> I'm not sure of the exact nature of the issues here,
+> but whenever I see code that casts between the addresses
+> of integer types large bells start ringing - such code
+> tends to have unwanted dependencies against the sizes
+> and endiannesses of the relevant fields.
+> This code might be ok, but lines like:
+>> + =A0 =A0 if (*(__le64 *)mac =3D=3D cpu_to_le64(~0ULL)) {
+> rather give me the willies.
+>
+> =A0 =A0 =A0 =A0David
+>
+>
