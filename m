@@ -1,93 +1,199 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] tun: don't hold network namespace by tun sockets
-Date: Mon, 12 Mar 2012 17:49:08 +0400
-Message-ID: <20120312130858.25180.63460.stgit@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, ebiederm@aristanetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, devel@openvz.org
-To: davem@davemloft.net
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH] stmmac: Add device-tree support
+Date: Mon, 12 Mar 2012 15:05:57 +0100
+Message-ID: <1331561157-3820-1-git-send-email-sr@denx.de>
+Cc: linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@ozlabs.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Viresh Kumar <viresh.kumar@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:19089 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752604Ab2CLNtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2012 09:49:24 -0400
+Received: from mo-p05-ob.rzone.de ([81.169.146.182]:46895 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661Ab2CLOGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 10:06:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3: added previously removed sock_put() to the tun_release() callback, because
-sk_release_kernel() doesn't drop the socket reference.
+This patch adds support to configure the STMMAC ethernet driver via
+device-tree instead of platform_data.
 
-v2: sk_release_kernel() used for socket release. Dummy tun_release() is
-required for sk_release_kernel() ---> sock_release() ---> sock->ops->release()
-call.
+Currently, only the properties needed on SPEAr600 are provided. All
+other properties should be added once needed on other platforms.
 
-TUN was designed to destroy it's socket on network namesapce shutdown. But this
-will never happen for persistent device, because it's socket holds network
-namespace.
-This patch removes of holding network namespace by TUN socket and replaces it
-by creating socket in init_net and then changing it's net it to desired one. On
-shutdown socket is moved back to init_net prior to final put.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
+Signed-off-by: Stefan Roese <sr@denx.de>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Viresh Kumar <viresh.kumar@st.com>
 ---
- drivers/net/tun.c |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+ Documentation/devicetree/bindings/net/stmmac.txt   |   38 +++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   66 +++++++++++++++++++-
+ 2 files changed, 103 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/devicetree/bindings/net/stmmac.txt
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2c5d349..74d7f76 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -359,7 +359,7 @@ static void tun_free_netdev(struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
+diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+new file mode 100644
+index 0000000..386a47f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@ -0,0 +1,38 @@
++* STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
++
++Required properties:
++- compatible: Should be "stm,gmac"
++- reg: Address and length of the register set for the device
++- interrupt-parent: Should be the phandle for the interrupt controller
++  that services interrupts for this device
++- interrupts: Should contain the STMMAC interrupts
++- interrupt-names: Should contain the interrupt names "macirq"
++  "eth_wake_irq" if this interrupt is supported in the "interrupts"
++  property
++- phy-mode: String, operation mode of the PHY interface.
++  Supported values are: "mii", "rmii", "gmii", "rgmii".
++- phy-addr: MDIO address of the PHY
++
++Optional properties:
++- stm,prog-burst-len: Specify the burst length
++- stm,has-gmac: Indicates that the controller supports 1000Mbps
++- stm,has-pmt: Indicates that the controller supports power management
++- mac-address: 6 bytes, mac address
++
++Examples:
++
++	gmac0: stmmac@e0800000 {
++		compatible = "stm,gmac";
++		reg = <0xe0800000 0x8000>;
++		interrupt-parent = <&vic1>;
++		interrupts = <24 23>;
++		interrupt-names = "macirq", "eth_wake_irq";
++		mac-address = [000000000000]; /* Filled in by U-Boot */
++
++		stm,prog-burst-len = <8>;
++		stm,has-gmac;
++		stm,has-pmt;
++
++		phy-mode = "gmii";
++		phy-addr = <0>;
++	};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 3aad981..fcf46c7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -24,8 +24,43 @@
  
--	sock_put(tun->socket.sk);
-+	sk_release_kernel(tun->socket.sk);
- }
+ #include <linux/platform_device.h>
+ #include <linux/io.h>
++#include <linux/of.h>
++#include <linux/of_net.h>
+ #include "stmmac.h"
  
- /* Net device open. */
-@@ -980,10 +980,18 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	return ret;
- }
- 
-+static int tun_release(struct socket *sock)
++#ifdef CONFIG_OF
++static int __devinit stmmac_probe_config_dt(struct platform_device *pdev,
++					    struct plat_stmmacenet_data *plat,
++					    const char **mac)
 +{
-+	if (sock->sk)
-+		sock_put(sock->sk);
++	struct device_node *np = pdev->dev.of_node;
++
++	if (!np)
++		return -ENODEV;
++
++	*mac = of_get_mac_address(np);
++
++	plat->interface = of_get_phy_mode(np);
++	of_property_read_u32(np, "phy-addr", &plat->phy_addr);
++	plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
++					   sizeof(struct stmmac_mdio_bus_data),
++					   GFP_KERNEL);
++
++	/*
++	 * Currently only the properties needed on SPEAr600
++	 * are provided. All other properties should be added
++	 * once needed on other platforms.
++	 */
++	of_property_read_u32(np, "stm,prog-burst-len", &plat->pbl);
++	if (of_get_property(np, "stm,has-gmac", NULL))
++		plat->has_gmac = 1;
++	if (of_get_property(np, "stm,has-pmt", NULL))
++		plat->pmt = 1;
++
 +	return 0;
 +}
++#endif /* CONFIG_OF */
 +
- /* Ops structure to mimic raw sockets with tun */
- static const struct proto_ops tun_socket_ops = {
- 	.sendmsg = tun_sendmsg,
- 	.recvmsg = tun_recvmsg,
-+	.release = tun_release,
+ /**
+  * stmmac_pltfr_probe
+  * @pdev: platform device pointer
+@@ -39,7 +74,8 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	void __iomem *addr = NULL;
+ 	struct stmmac_priv *priv = NULL;
+-	struct plat_stmmacenet_data *plat_dat;
++	struct plat_stmmacenet_data *plat_dat = NULL;
++	const char *mac = NULL;
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!res)
+@@ -58,6 +94,22 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 		ret = -ENOMEM;
+ 		goto out_release_region;
+ 	}
++
++#ifdef CONFIG_OF
++	plat_dat = devm_kzalloc(&pdev->dev, sizeof(struct plat_stmmacenet_data),
++				GFP_KERNEL);
++	if (!plat_dat) {
++		pr_err("%s: ERROR: no memory", __func__);
++		ret = -ENOMEM;
++		goto out_unmap;
++	}
++
++	ret = stmmac_probe_config_dt(pdev, plat_dat, &mac);
++	if (ret) {
++		pr_err("%s: main dt probe failed", __func__);
++		goto out_unmap;
++	}
++#else
+ 	plat_dat = pdev->dev.platform_data;
+ 
+ 	/* Custom initialisation (if needed)*/
+@@ -66,6 +118,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 		if (unlikely(ret))
+ 			goto out_unmap;
+ 	}
++#endif
+ 
+ 	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat, addr);
+ 	if (!priv) {
+@@ -73,6 +126,10 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 		goto out_unmap;
+ 	}
+ 
++	/* Get MAC address if available (DT) */
++	if (mac)
++		memcpy(priv->dev->dev_addr, mac, ETH_ALEN);
++
+ 	/* Get the MAC information */
+ 	priv->dev->irq = platform_get_irq_byname(pdev, "macirq");
+ 	if (priv->dev->irq == -ENXIO) {
+@@ -178,6 +235,12 @@ static const struct dev_pm_ops stmmac_pltfr_pm_ops = {
+ static const struct dev_pm_ops stmmac_pltfr_pm_ops;
+ #endif /* CONFIG_PM */
+ 
++static const struct of_device_id stmmac_dt_ids[] = {
++	{ .compatible = "stm,gmac", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
++
+ static struct platform_driver stmmac_driver = {
+ 	.probe = stmmac_pltfr_probe,
+ 	.remove = stmmac_pltfr_remove,
+@@ -185,6 +248,7 @@ static struct platform_driver stmmac_driver = {
+ 		   .name = STMMAC_RESOURCE_NAME,
+ 		   .owner = THIS_MODULE,
+ 		   .pm = &stmmac_pltfr_pm_ops,
++		   .of_match_table = of_match_ptr(stmmac_dt_ids),
+ 		   },
  };
  
- static struct proto tun_proto = {
-@@ -1110,10 +1118,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
- 
- 		err = -ENOMEM;
--		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-+		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
- 		if (!sk)
- 			goto err_free_dev;
- 
-+		sk_change_net(sk, net);
- 		tun->socket.wq = &tun->wq;
- 		init_waitqueue_head(&tun->wq.wait);
- 		tun->socket.ops = &tun_socket_ops;
-@@ -1174,7 +1183,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 	return 0;
- 
-  err_free_sk:
--	sock_put(sk);
-+	tun_free_netdev(dev);
-  err_free_dev:
- 	free_netdev(dev);
-  failed:
+-- 
+1.7.9.2
