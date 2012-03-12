@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: get rid of some pointless casts to sockaddr
-Date: Sun, 11 Mar 2012 19:49:04 -0700 (PDT)
-Message-ID: <20120311.194904.1190726266951277668.davem@davemloft.net>
-References: <1331506310-16613-1-git-send-email-zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: Provide SYN packet for passive connections
+Date: Sun, 11 Mar 2012 19:55:42 -0700 (PDT)
+Message-ID: <20120311.195542.1995263719633128071.davem@davemloft.net>
+References: <alpine.DEB.2.00.1203111944520.1019@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: maze@google.com, netdev@vger.kernel.org
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43176 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43207 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab2CLCtI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 22:49:08 -0400
-In-Reply-To: <1331506310-16613-1-git-send-email-zenczykowski@gmail.com>
+	with ESMTP id S1750770Ab2CLCzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Mar 2012 22:55:45 -0400
+In-Reply-To: <alpine.DEB.2.00.1203111944520.1019@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Sun, 11 Mar 2012 15:51:50 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 11 Mar 2012 19:48:46 -0700 (PDT)
 
-> From: Maciej =AFenczykowski <maze@google.com>
->=20
-> The following 4 functions:
->   move_addr_to_kernel
->   move_addr_to_user
->   verify_iovec
->   verify_compat_iovec
-> are always effectively called with a sockaddr_storage.
->=20
-> Make this explicit by changing their signature.
->=20
-> This removes a large number of casts from sockaddr_storage to sockadd=
-r.
->=20
-> Signed-off-by: Maciej =AFenczykowski <maze@google.com>
+> This patch allows a server application to get the TCP SYN packets for
+> its passive connections.  This is useful if the server is doing
+> fingerprinting of clients based on SYN packet contents.
+> 
+> Two socket options are added: TCP_SAVE_SYN and TCP_SAVED_SYN.  The
+> first is used on a listener socket to enable saving the SYN packets
+> for child connections.  The latter is used to retrieve the SYN for
+> and accepted connection.  TCP_SAVED_SYN is read once, it frees the
+> saved SYN packet.
+> 
+> The data returned TCP_SAVED_SYN is the IP header (v4 or v6) through
+> the TCP header.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Applied, thanks.
+I dunno, bloating up the socket and the mini-req structure by 8+ bytes
+for what's essentially a very fringe feature?
