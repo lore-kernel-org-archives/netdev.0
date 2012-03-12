@@ -1,61 +1,45 @@
-From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
-Date: Mon, 12 Mar 2012 15:17:36 +0530
-Message-ID: <CAOD=uF4CisG9QeVoVjcrBHWfrXk4i6aBhYQxwNL=uUVa978RMw@mail.gmail.com>
-References: <CAOD=uF4Vx581zvpAT0dHKjUkrdsiZo-DTNR352V8tALM_P2roA@mail.gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6E99@saturn3.aculab.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Namespaces and inetpeer
+Date: Mon, 12 Mar 2012 10:58:40 +0100
+Message-ID: <20120312095840.GM15404@secunet.com>
+References: <20120310132529.GA3631@gondor.apana.org.au>
+ <20120312085756.GL15404@secunet.com>
+ <20120312.023505.2024370184180125281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E99@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:40386 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750865Ab2CLJ6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Mar 2012 05:58:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20120312.023505.2024370184180125281.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-here "mac" is in "u64" and I have casted it to "__le64".
-Because its required there.
+On Mon, Mar 12, 2012 at 02:35:05AM -0700, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Mon, 12 Mar 2012 09:57:56 +0100
+> 
+> > On Sun, Mar 11, 2012 at 12:25:29AM +1100, Herbert Xu wrote:
+> >> Hi:
+> >> 
+> >> While looking through the inetpeer code I noticed that there is
+> >> no namespace support at all.  This means that metric and other
+> >> information will be leaking across namespaces.  As IP addresses
+> >> are meant to be independent between them, this is not a good thing.
+> >> 
+> > 
+> > Actually, it would be nice if we could have an inetpeer base per
+> > fib table. This would imply namespace awareness and it would
+> > handle the problem when we have mulitiple routes (with different
+> > metrics etc.) to the same ip address on policy routing.
+> 
+> Then you will ask for one per security policy too, to handle IPSEC.
 
-If you have any better suggestion, please let me know.
+Hm, I don't see why this would be needed too.
 
-
-regards
-santosh
-
-On Mon, Mar 12, 2012 at 3:07 PM, David Laight <David.Laight@aculab.com>=
- wrote:
->
->
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org
->> [mailto:netdev-owner@vger.kernel.org] On Behalf Of santosh
->> prasad nayak
->> Sent: 11 March 2012 09:17
->> To: Rajesh Borundia
->> Cc: Sony Chacko; netdev; linux-kernel; kernel-janitors@vger.kernel.o=
-rg
->> Subject: Re: [PATCH 3/3] netxen: qlogic ethernet : Fix Endian Bug.
->>
->> Thanks Rajesh for clarification.
->> Included all your inputs in the following patch.
->> This is for review not a formal one. Once review is done I will send=
- a
->> formal patch.
->
-> I'm not sure of the exact nature of the issues here,
-> but whenever I see code that casts between the addresses
-> of integer types large bells start ringing - such code
-> tends to have unwanted dependencies against the sizes
-> and endiannesses of the relevant fields.
-> This code might be ok, but lines like:
->> + =A0 =A0 if (*(__le64 *)mac =3D=3D cpu_to_le64(~0ULL)) {
-> rather give me the willies.
->
-> =A0 =A0 =A0 =A0David
->
->
+It was just an idea to handle the metrcis with policy routing.
+Better ideas are very welcome of course :)
