@@ -1,29 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: High ksoftirq CPU load, high latency, __xfrm4_find_bundle
- likely culprit?
-Date: Mon, 12 Mar 2012 12:51:47 -0700 (PDT)
-Message-ID: <20120312.125147.1873592382305681577.davem@davemloft.net>
-References: <4F5E1B4B.2070807@allenta.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH 1/2] net/hyperv: Fix data corruption in
+ rndis_filter_receive()
+Date: Mon, 12 Mar 2012 19:52:20 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCE4276@TK5EX14MBXC223.redmond.corp.microsoft.com>
+References: <1331328437-26852-1-git-send-email-haiyangz@microsoft.com>
+	<20120311.155111.1595145426893784653.davem@davemloft.net>
+	<A1F3067C9B68744AA19F6802BAB8FFDC0DCE4044@TK5EX14MBXC223.redmond.corp.microsoft.com>
+ <20120312.125102.65764809953128692.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: robe@allenta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50592 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756878Ab2CLTvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 15:51:51 -0400
-In-Reply-To: <4F5E1B4B.2070807@allenta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120312.125102.65764809953128692.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roberto Suarez Soto <robe@allenta.com>
-Date: Mon, 12 Mar 2012 16:50:35 +0100
 
-> 	we've got a load problem in one of our IPSec gateways, running
-> 	openswan 1:2.6.28+dfsg-5+squeeze1 and kernel 2.6.32-5-686-bigmem
-> 	(Debian Squeeze). The symptoms are:
 
-We had bugs where IPSEC routes weren't cached properly, and these were fixed
-after 2.6.32 for sure.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, March 12, 2012 3:51 PM
+> To: Haiyang Zhang
+> Cc: KY Srinivasan; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH 1/2] net/hyperv: Fix data corruption in
+> rndis_filter_receive()
+> 
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Mon, 12 Mar 2012 15:39:02 +0000
+> 
+> > And, thanks for the reminder, I will specify the target tree in future
+> submissions.
+> 
+> You still have to formally resubmit these patches, with the proper indication
+> of where the patches go.  Just replying to my complaint with an answer
+> won't make your patches get replied, as I've completely dropped this
+> submission.
+
+Sure, I'm re-submitting them right now.
+
+Thanks,
+- Haiyang
