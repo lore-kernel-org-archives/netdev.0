@@ -1,57 +1,25 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net 4/4] bnx2x: FCoE statistics id fixed
-Date: Mon, 12 Mar 2012 17:22:07 -0400
-Message-ID: <1331587327-26279-5-git-send-email-yuvalmin@broadcom.com>
-References: <1331587327-26279-1-git-send-email-yuvalmin@broadcom.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [Devel] [PATCH] tun: don't hold network namespace by tun sockets
+Date: Mon, 12 Mar 2012 18:28:31 +0400
+Message-ID: <4F5E080F.9020802@parallels.com>
+References: <20120312130858.25180.63460.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4394 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754075Ab2CLO2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Mar 2012 10:28:22 -0400
-In-Reply-To: <1331587327-26279-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pavel Emelianov <xemul@parallels.com>,
+	"ebiederm@aristanetworks.com" <ebiederm@aristanetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120312130858.25180.63460.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-FCoE statistics ids were distinguished from the L2's statistics ids.
-However, not all of the change was committed. This causes a possible
-collision of indices when FCoE is present. 
+Drop this. Sorry for inconvenience - mail server problems.
 
-This patch fixes the issue.
-
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index bf27c54..0f4d034 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -1179,10 +1179,16 @@ static inline int bnx2x_alloc_rx_bds(struct bnx2x_fastpath *fp,
-  */
- static inline u8 bnx2x_stats_id(struct bnx2x_fastpath *fp)
- {
--	if (!CHIP_IS_E1x(fp->bp))
-+	struct bnx2x *bp = fp->bp;
-+	if (!CHIP_IS_E1x(bp)) {
-+#ifdef BCM_CNIC
-+		/* there are special statistics counters for FCoE 136..140 */
-+		if (IS_FCOE_FP(fp))
-+			return bp->cnic_base_cl_id + (bp->pf_num >> 1);
-+#endif
- 		return fp->cl_id;
--	else
--		return fp->cl_id + BP_PORT(fp->bp) * FP_SB_MAX_E1x;
-+	}
-+	return fp->cl_id + BP_PORT(bp) * FP_SB_MAX_E1x;
- }
- 
- static inline void bnx2x_init_vlan_mac_fp_objs(struct bnx2x_fastpath *fp,
 -- 
-1.7.9.rc2
+Best regards,
+Stanislav Kinsbursky
