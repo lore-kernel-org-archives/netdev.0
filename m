@@ -1,145 +1,48 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [V4 PATCH] virtio-net: send gratuitous packet when needed
-Date: Tue, 13 Mar 2012 17:08:41 +0800
-Message-ID: <20120313090841.11110.82654.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Namespaces and inetpeer
+Date: Tue, 13 Mar 2012 10:41:11 +0100
+Message-ID: <20120313094111.GN15404@secunet.com>
+References: <20120310132529.GA3631@gondor.apana.org.au>
+ <20120312085756.GL15404@secunet.com>
+ <20120312121130.GA17547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:56251 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759774Ab2CMJl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2012 05:41:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20120312121130.GA17547@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As hypervior does not have the knowledge of guest network configuration, it's
-better to ask guest to send gratuitous packet when needed.
+On Mon, Mar 12, 2012 at 11:11:30PM +1100, Herbert Xu wrote:
+> On Mon, Mar 12, 2012 at 09:57:56AM +0100, Steffen Klassert wrote:
+> >
+> > Actually, it would be nice if we could have an inetpeer base per
+> > fib table. This would imply namespace awareness and it would
+> > handle the problem when we have mulitiple routes (with different
+> > metrics etc.) to the same ip address on policy routing.
+> 
+> How would you handle incoming ICMP need-to-frag messages?
+> 
 
-Guest test VIRTIO_NET_S_ANNOUNCE bit during config change interrupt and when it
-is set, a workqueue is scheduled to send gratuitous packet through
-NETDEV_NOTIFY_PEERS. This feature is negotiated through bit
-VIRTIO_NET_F_GUEST_ANNOUNCE.
+I thought we could do a (reverse) lookup for the fib table
+on incomming ICMP messages. While this would probaply work
+if the source address etc. was used as the lookup key for the
+initial fib table lookup, this is a real problem if a netfilter
+mark was used as the lookup key.
 
-Changes from v3:
-- cancel the workqueue during freeze
+While looking closer at this issue, I've got some doubts if we
+ever handled the metrics correct when we choose the fib tables
+based on marks. And indeed, in this case it never really worked.
+When we updated the mtu based on an incomming ICMP from a certain
+IP address, all routes to this ip address used this updated mtu.
 
-Changes from v2:
-- fix the race between unregister_dev() and workqueue
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c   |   31 ++++++++++++++++++++++++++++++-
- include/linux/virtio_net.h |    2 ++
- 2 files changed, 32 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4880aa8..45f7ac6 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -72,6 +72,9 @@ struct virtnet_info {
- 	/* Work struct for refilling if we run low on memory. */
- 	struct delayed_work refill;
- 
-+	/* Work struct for sending gratituous packet. */
-+	struct work_struct announce;
-+
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
-@@ -512,6 +515,13 @@ static void refill_work(struct work_struct *work)
- 		queue_delayed_work(system_nrt_wq, &vi->refill, HZ/2);
- }
- 
-+static void announce_work(struct work_struct *work)
-+{
-+	struct virtnet_info *vi = container_of(work, struct virtnet_info,
-+					       announce);
-+	netif_notify_peers(vi->dev);
-+}
-+
- static int virtnet_poll(struct napi_struct *napi, int budget)
- {
- 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
-@@ -787,6 +797,8 @@ static int virtnet_close(struct net_device *dev)
- 
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
-+		cancel_work_sync(&vi->announce);
- 	napi_disable(&vi->napi);
- 
- 	return 0;
-@@ -962,11 +974,23 @@ static void virtnet_update_status(struct virtnet_info *vi)
- 		return;
- 
- 	/* Ignore unknown (future) status bits */
--	v &= VIRTIO_NET_S_LINK_UP;
-+	v &= VIRTIO_NET_S_LINK_UP | VIRTIO_NET_S_ANNOUNCE;
- 
- 	if (vi->status == v)
- 		return;
- 
-+	if (v & VIRTIO_NET_S_ANNOUNCE) {
-+		v &= ~VIRTIO_NET_S_ANNOUNCE;
-+		vi->vdev->config->set(vi->vdev,
-+				      offsetof(struct virtio_net_config,
-+					       status),
-+				      &v, sizeof(v));
-+
-+		if ((v & VIRTIO_NET_S_LINK_UP) &&
-+		    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
-+			schedule_work(&vi->announce);
-+	}
-+
- 	vi->status = v;
- 
- 	if (vi->status & VIRTIO_NET_S_LINK_UP) {
-@@ -1076,6 +1100,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto free;
- 
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
-+		INIT_WORK(&vi->announce, announce_work);
- 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
- 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
- 
-@@ -1187,6 +1213,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	virtqueue_disable_cb(vi->svq);
- 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
- 		virtqueue_disable_cb(vi->cvq);
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
-+		cancel_work_sync(&vi->announce);
- 
- 	netif_device_detach(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
-@@ -1233,6 +1261,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
- 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
-+	VIRTIO_NET_F_GUEST_ANNOUNCE,
- };
- 
- static struct virtio_driver virtio_net_driver = {
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 970d5a2..44a38d6 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -49,8 +49,10 @@
- #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
- #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
- #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
-+#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can send gratituous packet */
- 
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
-+#define VIRTIO_NET_S_ANNOUNCE   2       /* Announcement is needed */
- 
- struct virtio_net_config {
- 	/* The config defining mac address (if VIRTIO_NET_F_MAC) */
+If we choose the fib table based on source addresses, it worked as
+long as we cached the metrics in the routing cache entries.
+While we probaply could fix this case, I don't see how we can handle
+the metrics when the initial fib table lookup is base on marks.
