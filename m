@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8] bnx2x feature patch series
-Date: Mon, 12 Mar 2012 17:11:08 -0700 (PDT)
-Message-ID: <20120312.171108.683676146461714437.davem@davemloft.net>
-References: <1331578394-1153-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH v7] lpc32xx: Added ethernet driver
+Date: Mon, 12 Mar 2012 17:08:47 -0700 (PDT)
+Message-ID: <20120312.170847.850148121128150069.davem@davemloft.net>
+References: <1331243357-27497-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53079 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754467Ab2CMALK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 20:11:10 -0400
-In-Reply-To: <1331578394-1153-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, w.sang@pengutronix.de,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
+	baruch@tkos.co.il, joe@perches.com, bhutchings@solarflare.com,
+	florian@openwrt.org
+To: stigge@antcom.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1331243357-27497-1-git-send-email-stigge@antcom.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Mon, 12 Mar 2012 14:53:06 -0400
+From: Roland Stigge <stigge@antcom.de>
+Date: Thu,  8 Mar 2012 22:49:17 +0100
 
-> This patch series contains several small features to the bnx2x driver,
-> as well as small changes which are mostly semantic, but make the driver's
-> various flows more uniform.
+> This patch adds an ethernet driver for the LPC32xx ARM SoC.
 > 
-> Please consider applying it to 'net-next'.
+> Signed-off-by: Roland Stigge <stigge@antcom.de>
 
-All applied, thanks.
+Applied to net-next, thanks.
