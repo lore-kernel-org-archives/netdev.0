@@ -1,175 +1,195 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH 8/8] net/mlx4_en: num cores tx rings for every UP
-Date: Tue, 13 Mar 2012 19:22:03 +0200
-Message-ID: <1331659323-12904-9-git-send-email-amirv@mellanox.com>
+Subject: [PATCH 1/8] net/mlx4_en: Force user priority by QP attribute
+Date: Tue, 13 Mar 2012 19:21:56 +0200
+Message-ID: <1331659323-12904-2-git-send-email-amirv@mellanox.com>
 References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:42141 "HELO
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:36352 "HELO
 	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758615Ab2CMRWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:22:25 -0400
+	by vger.kernel.org with SMTP id S1758595Ab2CMRWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:22:23 -0400
 In-Reply-To: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirv@mellanox.co.il>
 
-Instead of having num cores tx rings for untagged traffic and only 1 tx ring
-per UP, allocate num cores * num UP's tx rings - There is no reason why all
-cores will share the same tx_ring when using tagged traffic.
+Instead of relying on HW to change schedule queue by UP, schedule
+queue is fixed for a tx_ring, and UP in WQE is ignored in this aspect.  This
+resolves two issues with untagged traffic:
+1. untagged traffic has no UP in packet which is needed for QoS. The change
+   above allows setting the schedule queue (and by that the UP) of such a stream.
+2. BlueFlame uses the same field used by vlan tag. So forcing UP from QPC
+   allows using BF for untagged but prioritized traffic.
+
+In old firmware that force UP is not supported, untagged traffic will not subject to
+QoS.
+
+Because UP is set by QP, need to always have a tx ring per UP, even if pfcrx
+module paramter is false.
 
 Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_main.c   |    6 ++++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   23 ++++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    5 +++--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    6 ++++--
- 4 files changed, 31 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |    3 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +++++-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |    8 ++++----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    6 +++---
+ include/linux/mlx4/qp.h                           |    3 ++-
+ 7 files changed, 19 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index 346fdb2..988b242 100644
+index 2097a7d..346fdb2 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -101,6 +101,8 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 	int i;
- 
- 	params->udp_rss = udp_rss;
-+	params->num_tx_rings_p_up = min_t(int, num_online_cpus(),
-+			MLX4_EN_MAX_TX_RING_P_UP);
- 	if (params->udp_rss && !(mdev->dev->caps.flags
- 					& MLX4_DEV_CAP_FLAG_UDP_RSS)) {
- 		mlx4_warn(mdev, "UDP RSS is not supported on this device.\n");
-@@ -113,8 +115,8 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 		params->prof[i].tx_ppp = pfctx;
+@@ -114,7 +114,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
  		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
  		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
--		params->prof[i].tx_ring_num = MLX4_EN_NUM_TX_RINGS +
--			MLX4_EN_NUM_PPP_RINGS;
-+		params->prof[i].tx_ring_num = params->num_tx_rings_p_up *
-+			MLX4_EN_NUM_UP;
+ 		params->prof[i].tx_ring_num = MLX4_EN_NUM_TX_RINGS +
+-			(!!pfcrx) * MLX4_EN_NUM_PPP_RINGS;
++			MLX4_EN_NUM_PPP_RINGS;
  		params->prof[i].rss_rings = 0;
  	}
  
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 22c4da6..993e148 100644
+index 31b455a..2322622 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -659,7 +659,7 @@ int mlx4_en_start_port(struct net_device *dev)
+@@ -650,7 +650,8 @@ int mlx4_en_start_port(struct net_device *dev)
+ 
  		/* Configure ring */
  		tx_ring = &priv->tx_ring[i];
- 		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn,
--				max(0, i - MLX4_EN_NUM_TX_RINGS));
-+			i / priv->mdev->profile.num_tx_rings_p_up);
+-		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn);
++		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn,
++				max(0, i - MLX4_EN_NUM_TX_RINGS));
  		if (err) {
  			en_err(priv, "Failed allocating Tx ring\n");
  			mlx4_en_deactivate_cq(priv, cq);
-@@ -991,6 +991,8 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- #ifdef CONFIG_MLX4_EN_DCB
- 	vfree(priv->mlx4_en_ieee_ets);
- #endif
-+	vfree(priv->tx_ring);
-+	vfree(priv->tx_cq);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+index bcbc54c..10c24c7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+@@ -39,7 +39,7 @@
  
- 	free_netdev(dev);
- }
-@@ -1073,6 +1075,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	struct mlx4_en_priv *priv;
- 	int i;
- 	int err;
-+	unsigned int q, offset = 0;
+ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 			     int is_tx, int rss, int qpn, int cqn,
+-			     struct mlx4_qp_context *context)
++			     int user_prio, struct mlx4_qp_context *context)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
  
- 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
- 	    prof->tx_ring_num, prof->rx_ring_num);
-@@ -1098,6 +1101,17 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	priv->ctrl_flags = cpu_to_be32(MLX4_WQE_CTRL_CQ_UPDATE |
- 			MLX4_WQE_CTRL_SOLICITED);
- 	priv->tx_ring_num = prof->tx_ring_num;
-+	priv->tx_ring = vzalloc(sizeof(struct mlx4_en_tx_ring) *
-+			priv->tx_ring_num);
-+	if (!priv->tx_ring) {
-+		err = -ENOMEM;
-+		goto out;
+@@ -57,6 +57,10 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 	context->local_qpn = cpu_to_be32(qpn);
+ 	context->pri_path.ackto = 1 & 0x07;
+ 	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
++	if (user_prio >= 0) {
++		context->pri_path.sched_queue |= user_prio << 3;
++		context->pri_path.feup = 1 << 6;
 +	}
-+	priv->tx_cq = vzalloc(sizeof(struct mlx4_en_cq) * priv->tx_ring_num);
-+	if (!priv->tx_cq) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
- 	priv->rx_ring_num = prof->rx_ring_num;
- 	priv->mac_index = -1;
- 	priv->msg_enable = MLX4_EN_MSG_LEVEL;
-@@ -1155,8 +1169,11 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
+ 	context->pri_path.counter_index = 0xff;
+ 	context->cqn_send = cpu_to_be32(cqn);
+ 	context->cqn_recv = cpu_to_be32(cqn);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 9adbd53..d49a7ac 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -823,7 +823,7 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
  
- 	/* Partition Tx queues evenly amongst UP's */
--	for (i = 0; i < MLX4_EN_NUM_UP; i++)
--		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
-+	q = priv->tx_ring_num / MLX4_EN_NUM_UP;
-+	for (i = 0; i < MLX4_EN_NUM_UP; i++) {
-+		netdev_set_tc_queue(dev, i, q, offset);
-+		offset += q;
-+	}
+ 	memset(context, 0, sizeof *context);
+ 	mlx4_en_fill_qp_context(priv, ring->actual_size, ring->stride, 0, 0,
+-				qpn, ring->cqn, context);
++				qpn, ring->cqn, -1, context);
+ 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
  
- 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+ 	/* Cancel FCS removal if FW allows */
+@@ -890,7 +890,7 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
+ 	}
+ 	rss_map->indir_qp.event = mlx4_en_sqp_event;
+ 	mlx4_en_fill_qp_context(priv, 0, 0, 0, 1, priv->base_qpn,
+-				priv->rx_ring[0].cqn, &context);
++				priv->rx_ring[0].cqn, -1, &context);
  
+ 	if (!priv->prof->rss_rings || priv->prof->rss_rings > priv->rx_ring_num)
+ 		rss_rings = priv->rx_ring_num;
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index d0d96e3..c9b9e84 100644
+index 1796824..9787539 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -570,6 +570,8 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+@@ -156,7 +156,7 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
  
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 			     struct mlx4_en_tx_ring *ring,
+-			     int cq)
++			     int cq, int user_prio)
  {
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	u16 qcount = priv->mdev->profile.num_tx_rings_p_up;
- 	int up = 0;
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err;
+@@ -174,7 +174,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->doorbell_qpn = ring->qp.qpn << 8;
  
- 	if (vlan_tx_tag_present(skb))
-@@ -577,8 +579,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	else if (dev->num_tc)
- 		up = netdev_get_prio_tc_map(dev, skb->priority);
+ 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
+-				ring->cqn, &ring->context);
++				ring->cqn, user_prio, &ring->context);
+ 	if (ring->bf_enabled)
+ 		ring->context.usr_page = cpu_to_be32(ring->bf.uar->index);
  
--	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS,
--			MLX4_EN_NUM_TX_RINGS + up, 1);
-+	return __skb_tx_hash(dev, skb, qcount, qcount * up, qcount);
+@@ -576,12 +576,12 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	/* If we support per priority flow control and the packet contains
+ 	 * a vlan tag, send the packet to the TX ring assigned to that priority
+ 	 */
+-	if (priv->prof->rx_ppp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
+ 	}
+ 
+-	return skb_tx_hash(dev, skb);
++	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
  }
  
  static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 32b447d..a739d3e 100644
+index 9e2b911..5bd7c2a 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -113,6 +113,7 @@ enum {
- #define MLX4_EN_NUM_TX_RINGS		8
- #define MLX4_EN_NUM_PPP_RINGS		8
- #define MAX_TX_RINGS			(MLX4_EN_NUM_TX_RINGS + MLX4_EN_NUM_PPP_RINGS)
-+#define MLX4_EN_MAX_TX_RING_P_UP	32
- #define MLX4_EN_NUM_UP			8
- #define MLX4_EN_DEF_TX_RING_SIZE	512
- #define MLX4_EN_DEF_RX_RING_SIZE  	1024
-@@ -339,6 +340,7 @@ struct mlx4_en_profile {
- 	u32 active_ports;
- 	u32 small_pkt_int;
- 	u8 no_reset;
-+	u8 num_tx_rings_p_up;
- 	struct mlx4_en_port_profile prof[MLX4_MAX_PORTS + 1];
+@@ -521,7 +521,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ri
+ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ring);
+ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 			     struct mlx4_en_tx_ring *ring,
+-			     int cq);
++			     int cq, int user_prio);
+ void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_tx_ring *ring);
+ 
+@@ -539,8 +539,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
+ 			  int budget);
+ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
+ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+-			     int is_tx, int rss, int qpn, int cqn,
+-			     struct mlx4_qp_context *context);
++		int is_tx, int rss, int qpn, int cqn, int user_prio,
++		struct mlx4_qp_context *context);
+ void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event);
+ int mlx4_en_map_buffer(struct mlx4_buf *buf);
+ void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 091f9e7..96005d7 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -139,7 +139,8 @@ struct mlx4_qp_path {
+ 	u8			rgid[16];
+ 	u8			sched_queue;
+ 	u8			vlan_index;
+-	u8			reserved3[2];
++	u8			feup;
++	u8			reserved3;
+ 	u8			reserved4[2];
+ 	u8			dmac[6];
  };
- 
-@@ -477,9 +479,9 @@ struct mlx4_en_priv {
- 	u16 num_frags;
- 	u16 log_rx_info;
- 
--	struct mlx4_en_tx_ring tx_ring[MAX_TX_RINGS];
-+	struct mlx4_en_tx_ring *tx_ring;
- 	struct mlx4_en_rx_ring rx_ring[MAX_RX_RINGS];
--	struct mlx4_en_cq tx_cq[MAX_TX_RINGS];
-+	struct mlx4_en_cq *tx_cq;
- 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
- 	struct work_struct mcast_task;
- 	struct work_struct mac_task;
 -- 
 1.7.8.2
