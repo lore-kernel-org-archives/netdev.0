@@ -1,53 +1,47 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: tun oops dereferencing garbage nsproxy-> address.
-Date: Tue, 13 Mar 2012 14:26:46 -0400
-Message-ID: <20120313182646.GB11500@redhat.com>
-References: <20120313034201.GA13156@redhat.com>
- <m1vcm8e537.fsf@fess.ebiederm.org>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH 4/8] net/mlx4_en: Set max rate-limit for a TC
+Date: Tue, 13 Mar 2012 12:16:35 -0700
+Message-ID: <CAA93jw425JDVJODhPok8WWNu6ngxGCGAX9ekp6fn8QiA5gq3zA@mail.gmail.com>
+References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
+	<1331659323-12904-5-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m1vcm8e537.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@mellanox.co.il>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:49543 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758255Ab2CMTQh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 15:16:37 -0400
+Received: by wejx9 with SMTP id x9so885221wej.19
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 12:16:36 -0700 (PDT)
+In-Reply-To: <1331659323-12904-5-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 13, 2012 at 11:19:40AM -0700, Eric W. Biederman wrote:
+On Tue, Mar 13, 2012 at 10:21 AM, Amir Vadai <amirv@mellanox.com> wrote=
+:
+> From: Amir Vadai <amirv@mellanox.co.il>
+>
+> Set max rate-limit using sysfs file /sys/class/net/<interface>/qos/ra=
+telimit
+>
+> To set, enter a space separated list of values in units of 100Mbps. =A0=
+=46or
+> example to set ratelimit of 5G to TC0 and 10G for the reset on eth2 i=
+ssue:
+> echo 50 100 100 100 100 100 100 100 100 > /sys/class/net/eth2/qos/rat=
+elimit
 
- > > oops happened here..
- > >
- > >         tfile->net = get_net(current->nsproxy->net_ns);
- > >      548:       48 8b 92 50 05 00 00    mov    0x550(%rdx),%rdx
- > >      54f:       48 8b 52 28             mov    0x28(%rdx),%rdx
- > >
- > > My guess is the fuzzer called some syscall that set current->nsproxy
- > > to garbage (0x0000000100000001), which later got dereferenced when it
- > > subsequently randomly did an open() on tun.
- > >
- > > Any thoughts ?
- > 
- > It smells like a memory stomp.  current->nsproxy is always supposed to
- > have a valid value, and it never would have an odd value.  The value
- > should always be at least 8 byte aligned.
- > 
- > Since the value is impossible this doesn't feel like a path where the
- > error handling is wrong.
+At least in my world, rates go down as low as 128k.
 
-0x0000000100000001 looks like one of strange values my fuzzer passes syscalls
-when they ask for an address.
+If this 'qos' sys value is intended to be a generic mechanism to be
+used instead of (say) htb,
+for more than one type of ethernet device.... I would argue that the
+units need to be specified.
 
-So something managed to get that set as nsproxy.  The fuzzer avoids calling
-clone(), so are there other syscalls that might set this ?
-
- > So I am guessing this is a memory stomp.  My guess it would take the
- > same sequence of system calls on the same kernel build to reproduce
- > this problem in the same place.
- > 
- > Do you have any more information?
-
-I've not managed to reproduce it, and that run sadly had logging turned off,
-so I don't have the exact syscall sequence that caused it.
-
-	Dave
+Similarly what else is intended to live below the 'qos' subdir?
