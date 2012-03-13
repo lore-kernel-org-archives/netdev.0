@@ -1,103 +1,100 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH 5/8] net/mlx4_en: sk_prio <=> UP for untagged traffic
-Date: Tue, 13 Mar 2012 19:22:00 +0200
-Message-ID: <1331659323-12904-6-git-send-email-amirv@mellanox.com>
+Subject: [PATCH 6/8] IB/rdma_cm: TOS <=> UP mapping for IBoE
+Date: Tue, 13 Mar 2012 19:22:01 +0200
+Message-ID: <1331659323-12904-7-git-send-email-amirv@mellanox.com>
 References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.co.il>
+	Amir Vadai <amirv@mellanox.co.il>,
+	Sean Hefty <sean.hefty@intel.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:57931 "HELO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758603Ab2CMRWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:22:23 -0400
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:40073 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758603Ab2CMRXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:23:10 -0400
 In-Reply-To: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirv@mellanox.co.il>
 
-Since vlan egress map is only good for tagged traffic, need to have other
-mapping to be used by untagged traffic.
-For that, the driver uses sch_mqprio mapping. This mapping could be set by
-using tc tool from iproute2 package.
-Mapped UP will be used by the HW for QoS purposes, but won't go out on the
-wire.
+Both tagged traffic and untagged traffic use tc tool mapping.
+Treat RDMA TOS same as IP TOS when mapping to SL
+
+Since IP TOS to priority mapping is not exported, had to borrow the code from
+net/ipv4/route.c
 
 Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   15 +++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   16 ++++++++--------
- 2 files changed, 23 insertions(+), 8 deletions(-)
+CC: Sean Hefty <sean.hefty@intel.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index f45d544..22c4da6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -45,6 +45,14 @@
- #include "mlx4_en.h"
- #include "en_port.h"
+---
+
+We can export IP TOS to priority mapping if the networking maintainers will say
+where they want it.
+---
+ drivers/infiniband/core/cma.c |   35 ++++++++++++++++++++++++++++++++++-
+ 1 files changed, 34 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index e3e470f..c0eeb2c 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -42,6 +42,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/pkt_sched.h>
  
-+static int mlx4_en_setup_tc(struct net_device *dev, u8 up)
-+{
-+	if (up != MLX4_EN_NUM_UP)
-+		return -EINVAL;
+ #include <net/tcp.h>
+ #include <net/ipv6.h>
+@@ -1781,6 +1782,32 @@ static int cma_resolve_iw_route(struct rdma_id_private *id_priv, int timeout_ms)
+ 	return 0;
+ }
+ 
++#define ECN_OR_COST(class)	TC_PRIO_##class
 +
-+	return 0;
++static const __u8 tos2prio[16] = {
++	TC_PRIO_BESTEFFORT,
++	ECN_OR_COST(BESTEFFORT),
++	TC_PRIO_BESTEFFORT,
++	ECN_OR_COST(BESTEFFORT),
++	TC_PRIO_BULK,
++	ECN_OR_COST(BULK),
++	TC_PRIO_BULK,
++	ECN_OR_COST(BULK),
++	TC_PRIO_INTERACTIVE,
++	ECN_OR_COST(INTERACTIVE),
++	TC_PRIO_INTERACTIVE,
++	ECN_OR_COST(INTERACTIVE),
++	TC_PRIO_INTERACTIVE_BULK,
++	ECN_OR_COST(INTERACTIVE_BULK),
++	TC_PRIO_INTERACTIVE_BULK,
++	ECN_OR_COST(INTERACTIVE_BULK)
++};
++
++static inline char cma_tos2priority(u8 tos)
++{
++	return tos2prio[IPTOS_TOS(tos)>>1];
 +}
 +
- static int mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
+ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
  {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1055,6 +1063,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_poll_controller	= mlx4_en_netpoll,
- #endif
- 	.ndo_set_features	= mlx4_en_set_features,
-+	.ndo_setup_tc		= mlx4_en_setup_tc,
- };
+ 	struct rdma_route *route = &id_priv->id.route;
+@@ -1826,7 +1853,13 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ 	route->path_rec->reversible = 1;
+ 	route->path_rec->pkey = cpu_to_be16(0xffff);
+ 	route->path_rec->mtu_selector = IB_SA_EQ;
+-	route->path_rec->sl = id_priv->tos >> 5;
++	if (ndev->priv_flags & IFF_802_1Q_VLAN)
++		route->path_rec->sl =
++			netdev_get_prio_tc_map(vlan_dev_real_dev(ndev),
++					cma_tos2priority(id_priv->tos));
++	else
++		route->path_rec->sl = netdev_get_prio_tc_map(ndev,
++				cma_tos2priority(id_priv->tos));
  
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-@@ -1143,6 +1152,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
-+	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
-+
-+	/* Partition Tx queues evenly amongst UP's */
-+	for (i = 0; i < MLX4_EN_NUM_UP; i++)
-+		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
-+
- 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
- 
- 	/* Set defualt MAC */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 9787539..7a49830 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -571,15 +571,15 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
--	u16 vlan_tag = 0;
-+	int up = -1;
- 
--	/* If we support per priority flow control and the packet contains
--	 * a vlan tag, send the packet to the TX ring assigned to that priority
--	 */
--	if (vlan_tx_tag_present(skb)) {
--		vlan_tag = vlan_tx_tag_get(skb);
--		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
--	}
-+	if (vlan_tx_tag_present(skb))
-+		up = (vlan_tx_tag_get(skb) >> 13);
-+	else if (dev->num_tc)
-+		up = netdev_get_prio_tc_map(dev, skb->priority);
-+
-+	if (up >= 0)
-+		return MLX4_EN_NUM_TX_RINGS + up;
- 
- 	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
- }
+ 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
+ 	route->path_rec->rate_selector = IB_SA_EQ;
 -- 
 1.7.8.2
