@@ -1,97 +1,115 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: tun oops dereferencing garbage nsproxy-> address.
-Date: Tue, 13 Mar 2012 11:19:40 -0700
-Message-ID: <m1vcm8e537.fsf@fess.ebiederm.org>
-References: <20120313034201.GA13156@redhat.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH 7/8] net: support tx_ring per UP in HW based QoS mechanism
+Date: Tue, 13 Mar 2012 11:23:03 -0700
+Message-ID: <4F5F9087.7090607@intel.com>
+References: <1331659323-12904-1-git-send-email-amirv@mellanox.com> <1331659323-12904-8-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>, serue@us.ibm.com
-To: Dave Jones <davej@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120313034201.GA13156@redhat.com> (Dave Jones's message of
-	"Mon, 12 Mar 2012 23:42:02 -0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@mellanox.co.il>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:17197 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758733Ab2CMSXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2012 14:23:07 -0400
+In-Reply-To: <1331659323-12904-8-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave Jones <davej@redhat.com> writes:
+On 3/13/2012 10:22 AM, Amir Vadai wrote:
+> From: Amir Vadai <amirv@mellanox.co.il>
+> 
+> The Current HW based QoS mechanism which was introduced in commit 4f57c087de9
+> "net: implement mechanism for HW based QOS" is in orientation to ETS traffic
+> class. This patch introduces an approach which allow to use this mechanism also
+> with hardware who has queues per user priority (UP). After the change,
+> __skb_tx_hash() will direct a flow to a tx ring from a range of tx rings. This
+> range is defined by the caller function by the specific HW. If TC based queues,
+> the range is by TC number and for UP based queues, the range is by UP.
+> 
 
-> BUG: unable to handle kernel paging request at 0000000100000029
-> IP: [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
-> PGD 5ae4f067 PUD 0 
-> Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-> CPU 1 
-> Modules linked in: tun binfmt_misc can_bcm cmtp kernelcapi nfnetlink bnep can_raw af_802154 phonet bluetooth can pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key rose ax25 appletalk atm ipx p8022 psnap llc p8023 tcp_lp iwlwifi mac80211 cfg80211 nfs fscache auth_rpcgss nfs_acl fuse lockd ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xts gf128mul dm_crypt dm_mirror dm_region_hash dm_log arc4 snd_hda_codec_hdmi uvcvideo snd_hda_codec_idt videobuf2_core snd_usb_audio snd_hda_intel videodev snd_hda_codec dell_wmi sparse_keymap media snd_usbmidi_lib snd_hwdep v4l2_compat_ioctl32 snd_rawmidi cdc_ether videobuf2_vmalloc videobuf2_memops snd_seq usbnet cdc_wdm mii cdc_acm snd_seq_device snd_pcm dell_laptop dcdb
- as joydev microcode snd_timer tg3 snd pcspkr i2c_i801 iTCO_wdt iTCO_vendor_support soundcore snd_page_alloc rfkill wmi sunrpc i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded: cfg80211]
->
-> Pid: 15413, comm: trinity Not tainted 3.3.0-rc7+ #54 Dell Inc. Adamo 13   /0N70T0
-> RIP: 0010:[<ffffffffa06ec54f>]  [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
-> RSP: 0018:ffff8800a5e29bc8  EFLAGS: 00010286
-> RAX: ffff88012036fd88 RBX: ffff8801084c4dc0 RCX: 0000000000000006
-> RDX: 0000000100000001 RSI: ffff88000fd9abc8 RDI: 0000000000000292
-> RBP: ffff8800a5e29bd8 R08: 0000000000000000 R09: 0000000000000001
-> R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801084c4dc0
-> R13: ffff88012eb10d20 R14: ffffffffa06f0000 R15: ffffffff81856ae0
-> FS:  00007f3ebcb1a700(0000) GS:ffff88013b400000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000100000029 CR3: 00000000032bb000 CR4: 00000000000406e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process trinity (pid: 15413, threadinfo ffff8800a5e28000, task ffff88000fd9a4a0)
-> Stack:
->  00000000000000c8 0000000000000000 ffff8800a5e29c38 ffffffff813fcf38
->  ffffffff81c54838 0000000000000001 ffff8800a5e29c18 ffffffff816a1afd
->  ffff8801084c4dc0 ffff8801396bbab8 ffff88012eb10d20 0000000000000000
-> Call Trace:
->  [<ffffffff813fcf38>] misc_open+0x1d8/0x670
->  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
->  [<ffffffff811c2978>] chrdev_open+0x258/0x350
->  [<ffffffff811baa04>] __dentry_open+0x384/0x550
->  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
->  [<ffffffff811c2720>] ? cdev_put+0x30/0x30
->  [<ffffffff811bc224>] nameidata_to_filp+0x74/0x80
->  [<ffffffff811ce59c>] do_last+0x26c/0x930
->  [<ffffffff811ced76>] path_openat+0xd6/0x3e0
->  [<ffffffff810a6298>] ? sched_clock_cpu+0xb8/0x130
->  [<ffffffff811cf1a2>] do_filp_open+0x42/0xa0
->  [<ffffffff8169d845>] ? _raw_spin_unlock+0x35/0x60
->  [<ffffffff811dd7cd>] ? alloc_fd+0x18d/0x210
->  [<ffffffff811bc328>] do_sys_open+0xf8/0x1d0
->  [<ffffffff810faadc>] ? __audit_syscall_entry+0xcc/0x310
->  [<ffffffff811bc421>] sys_open+0x21/0x30
->  [<ffffffff816a5a69>] system_call_fastpath+0x16/0x1b
-> Code: 00 00 00 e8 64 8d ab e0 48 85 c0 74 46 c7 00 00 00 00 00 48 c7 40 08 00 00 00 00 65 48 8b 14 25 00 c9 00 00 48 8b 92 50 05 00 00 <48> 8b 52 28 f0 ff 42 04 48 89 50 10 48 89 83 28 01 00 00 31 c0 
-> RIP  [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
->  RSP <ffff8800a5e29bc8>
-> CR2: 0000000100000029
-> Disabling lock debugging due to kernel taint
-> ---[ end trace 9e00e91b0629ad80 ]---
->
->
-> oops happened here..
->
->         tfile->net = get_net(current->nsproxy->net_ns);
->      548:       48 8b 92 50 05 00 00    mov    0x550(%rdx),%rdx
->      54f:       48 8b 52 28             mov    0x28(%rdx),%rdx
->
-> My guess is the fuzzer called some syscall that set current->nsproxy
-> to garbage (0x0000000100000001), which later got dereferenced when it
-> subsequently randomly did an open() on tun.
->
-> Any thoughts ?
+ETS is one specific use case for mqprio it can easily be used with other
+hardware transmission selection algorithms 802.1Q std based or otherwise.
 
-It smells like a memory stomp.  current->nsproxy is always supposed to
-have a valid value, and it never would have an odd value.  The value
-should always be at least 8 byte aligned.
+The mapping is really just an skb->priority to group of queues (qoffset and
+qcount). I happened to call the queue grouping a traffic class because that
+aligns with 802.1Q but it _really_ is just a queue grouping.
 
-Since the value is impossible this doesn't feel like a path where the
-error handling is wrong.
+In your case what would it mean to change the map and num_tc see 'tc':
 
-So I am guessing this is a memory stomp.  My guess it would take the
-same sequence of system calls on the same kernel build to reproduce
-this problem in the same place.
+[root@jf-dev1-dcblab netperf]# tc qdisc add dev eth3 root mqprio help
+Usage: ... mqprio [num_tc NUMBER] [map P0 P1 ...]
+                  [queues count1@offset1 count2@offset2 ...] [hw 1|0]
 
-Do you have any more information?
+For example setting 'num_tc 8 map 0 1 2 3 0 1 2 3' looks like it might
+not work correctly. Would you end up with an skb tagged with priority
+4,5,6,7 being sent out UP queues 0,1,2,3? My quess is that won't work
+with PFC or your ETS correctly.
 
-Eric
+In the canonical iSCSI case we put iscsid in a net_prio cgroup to get the
+priority set then use the priority to steer the skb to the correct queue
+groupings. In your case I think you can just fail any num_tc != 8 and keep
+the dflt map 1:1 then this should work. What did I miss? It looks like you
+already fail the num_tc != 8 case so why do we need this change?
+
+At most maybe we need a flag to indicate the mqprio map can't be changed in
+some cases.
+
+
+> CC: John Fastabend <john.r.fastabend@intel.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   11 ++++++++++-
+>  drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    9 +++------
+>  include/linux/netdevice.h                       |   12 +++++++++++-
+>  include/linux/skbuff.h                          |    3 ++-
+>  net/core/dev.c                                  |   10 +---------
+>  5 files changed, 27 insertions(+), 18 deletions(-)
+> 
+
+[...]
+
+>  
+>  void bnx2x_set_num_queues(struct bnx2x *bp)
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 7a49830..d0d96e3 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -570,18 +570,15 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+>  
+>  u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	struct mlx4_en_priv *priv = netdev_priv(dev);
+> -	int up = -1;
+> +	int up = 0;
+>  
+>  	if (vlan_tx_tag_present(skb))
+>  		up = (vlan_tx_tag_get(skb) >> 13);
+
+I was trying to avoid logic like this in select_queue().
+
+Can we get the same behavior by keeping the egress map and mqprio
+map in sync?
+
+>  	else if (dev->num_tc)
+>  		up = netdev_get_prio_tc_map(dev, skb->priority);
+>  
+> -	if (up >= 0)
+> -		return MLX4_EN_NUM_TX_RINGS + up;
+> -
+> -	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
+> +	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS,
+> +			MLX4_EN_NUM_TX_RINGS + up, 1);
+>  }
+>  
+
+Thanks,
+John
