@@ -1,37 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ip route show shows the routes in the inverse order?
-Date: Tue, 13 Mar 2012 09:47:33 -0700
-Message-ID: <1331657253.4449.2.camel@edumazet-glaptop>
-References: <CAA7Uhc=xFxiAc9ZL0KHQJ1Opr0m=Do_OuLmL7WWd7PU4JuUNnQ@mail.gmail.com>
-	 <20120312193204.5be5b4b8@nehalam.linuxnetplumber.net>
-	 <20120313021529.97514922.billfink@mindspring.com>
-	 <20120312.235234.73408595516828250.davem@davemloft.net>
-	 <CAA7UhcmMYa+N4VUFjfM_qjCdhy3zAE0C8eN+Z0nsACNZeJ4RKA@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
+Date: Tue, 13 Mar 2012 16:55:14 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Diego Woitasen <diego@woitasen.com.ar>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>,
+	"Maciej Zenczykowski" <zenczykowski@gmail.com>,
+	"Maciej Zenczykowski" <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:39273 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751660Ab2CMQri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:47:38 -0400
-Received: by ghrr11 with SMTP id r11so756718ghr.19
-        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 09:47:38 -0700 (PDT)
-In-Reply-To: <CAA7UhcmMYa+N4VUFjfM_qjCdhy3zAE0C8eN+Z0nsACNZeJ4RKA@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:43684 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757666Ab2CMQ4P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:56:15 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04026-01 for <netdev@vger.kernel.org>;
+ Tue, 13 Mar 2012 16:56:13 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-13 at 11:26 -0300, Diego Woitasen wrote:
+ 
+> > +	/* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
+> > +	return ((26468 >> (i+i)) & 3) - 1;
+> 
+> That expression doesn't seem quite right to me ...
+> 	return (int)(0x12131210 >> (i * 4)) & 3) - 1;
+> probably does what is wanted.
 
-> I don't aggree at this point. First, it was the behavior for years,
-> like a "de facto" standard. Second, there a "natural ordering"  for
-> routes. More specific match first, so it makes sense for them to be in
-> the first place.
+Hmmm... I'm going blind - I read that as 'i+1' not 'i+i'.
+But using 'i * 4' and putting the constant in base 16
+make the code rather less obscure.
 
-Please provide an iproute2 patch, this is not a kernel issue at all.
-
-Keep in mind it might be very tricky, since a machine can have tons of
-routes.
+	David
