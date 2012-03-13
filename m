@@ -1,54 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
-Date: Mon, 12 Mar 2012 22:54:35 -0700 (PDT)
-Message-ID: <20120312.225435.1585479447873313061.davem@davemloft.net>
-References: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
+Subject: Re: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 12 Mar 2012 22:55:07 -0700 (PDT)
+Message-ID: <20120312.225507.622335605888426296.davem@davemloft.net>
+References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: maze@google.com, netdev@vger.kernel.org
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55906 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55917 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759728Ab2CMFyk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 01:54:40 -0400
-In-Reply-To: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
+	with ESMTP id S1759244Ab2CMFzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 01:55:11 -0400
+In-Reply-To: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Mon, 12 Mar 2012 22:12:21 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 12 Mar 2012 21:03:38 -0700
 
-> From: Maciej =AFenczykowski <maze@google.com>
->=20
-> See ffs(x) definition in arch/x86/include/asm/bitops.h
->=20
->   ffs - find first set bit in word
->=20
->   ffs(value) returns 0 if value is 0 or the position of the first
->   set bit if value is nonzero. The first (least significant) bit
->   is at position 1.
->=20
-> On x86_64 ffs(x) is effectively:
->   Z :=3D -1
->   BSFL X, Z
->   return Z + 1
->=20
-> Since we subtract one, we effectively end up with:
->   Z :=3D -1
->   BSFL X, Z
->   return Z
->=20
-> This is certainly more readable than the open coded array that
-> was there before, supports an easier change in the number of bands,
-> and is probably faster to boot (no memory lookup).
->=20
-> However, on other architectures ffs() might not be so pretty,
-> hence use a clever arithmetic hack on other archs.
-> Unfortunately it only support 3 bands.
->=20
-> Signed-off-by: Maciej =AFenczykowski <maze@google.com>
+> This series of patches contains fixes/cleanups igb, ixgbe and net.
+> Majority of the patches are against ixgbe and this series is part
+> one of three to update ixgbe.
+> 
+> The following are changes since commit f124488e4713dc9afa2028553261b1d399286e68:
+>   bnx2x: code doesn't use stats for allocating Rx BDs
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-It's about the same cost, the non-ffs() version, so I would just
-use that for now.  Conditionalized code is such a pain in the butt.
+Pulled, thanks Jeff.
