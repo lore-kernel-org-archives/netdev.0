@@ -1,273 +1,97 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH 2.6.32.y] netxen: support for GbE port settings
-Date: Tue, 13 Mar 2012 12:43:14 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A8AB3DC9@MNEXMB1.qlogic.org>
-References: <1300172175-16853-1-git-send-email-amit.salecha@qlogic.com>
- <20120312043539.GA15903@burratino>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: tun oops dereferencing garbage nsproxy-> address.
+Date: Tue, 13 Mar 2012 11:19:40 -0700
+Message-ID: <m1vcm8e537.fsf@fess.ebiederm.org>
+References: <20120313034201.GA13156@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Ana Guerrero <ana@debian.org>,
-	Michael Mastrogiacomo <mmastrogiacomo@ultralogistics.com>,
-	zz-930768 <amit.salecha@qlogic.com>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Jonathan Nieder <jrnieder@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:41243
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758939Ab2CMRna convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2012 13:43:30 -0400
-In-Reply-To: <20120312043539.GA15903@burratino>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>, serue@us.ibm.com
+To: Dave Jones <davej@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120313034201.GA13156@redhat.com> (Dave Jones's message of
+	"Mon, 12 Mar 2012 23:42:02 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Dave Jones <davej@redhat.com> writes:
 
+> BUG: unable to handle kernel paging request at 0000000100000029
+> IP: [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
+> PGD 5ae4f067 PUD 0 
+> Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> CPU 1 
+> Modules linked in: tun binfmt_misc can_bcm cmtp kernelcapi nfnetlink bnep can_raw af_802154 phonet bluetooth can pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key rose ax25 appletalk atm ipx p8022 psnap llc p8023 tcp_lp iwlwifi mac80211 cfg80211 nfs fscache auth_rpcgss nfs_acl fuse lockd ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xts gf128mul dm_crypt dm_mirror dm_region_hash dm_log arc4 snd_hda_codec_hdmi uvcvideo snd_hda_codec_idt videobuf2_core snd_usb_audio snd_hda_intel videodev snd_hda_codec dell_wmi sparse_keymap media snd_usbmidi_lib snd_hwdep v4l2_compat_ioctl32 snd_rawmidi cdc_ether videobuf2_vmalloc videobuf2_memops snd_seq usbnet cdc_wdm mii cdc_acm snd_seq_device snd_pcm dell_laptop dcdb
+ as joydev microcode snd_timer tg3 snd pcspkr i2c_i801 iTCO_wdt iTCO_vendor_support soundcore snd_page_alloc rfkill wmi sunrpc i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded: cfg80211]
+>
+> Pid: 15413, comm: trinity Not tainted 3.3.0-rc7+ #54 Dell Inc. Adamo 13   /0N70T0
+> RIP: 0010:[<ffffffffa06ec54f>]  [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
+> RSP: 0018:ffff8800a5e29bc8  EFLAGS: 00010286
+> RAX: ffff88012036fd88 RBX: ffff8801084c4dc0 RCX: 0000000000000006
+> RDX: 0000000100000001 RSI: ffff88000fd9abc8 RDI: 0000000000000292
+> RBP: ffff8800a5e29bd8 R08: 0000000000000000 R09: 0000000000000001
+> R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801084c4dc0
+> R13: ffff88012eb10d20 R14: ffffffffa06f0000 R15: ffffffff81856ae0
+> FS:  00007f3ebcb1a700(0000) GS:ffff88013b400000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000100000029 CR3: 00000000032bb000 CR4: 00000000000406e0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process trinity (pid: 15413, threadinfo ffff8800a5e28000, task ffff88000fd9a4a0)
+> Stack:
+>  00000000000000c8 0000000000000000 ffff8800a5e29c38 ffffffff813fcf38
+>  ffffffff81c54838 0000000000000001 ffff8800a5e29c18 ffffffff816a1afd
+>  ffff8801084c4dc0 ffff8801396bbab8 ffff88012eb10d20 0000000000000000
+> Call Trace:
+>  [<ffffffff813fcf38>] misc_open+0x1d8/0x670
+>  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
+>  [<ffffffff811c2978>] chrdev_open+0x258/0x350
+>  [<ffffffff811baa04>] __dentry_open+0x384/0x550
+>  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
+>  [<ffffffff811c2720>] ? cdev_put+0x30/0x30
+>  [<ffffffff811bc224>] nameidata_to_filp+0x74/0x80
+>  [<ffffffff811ce59c>] do_last+0x26c/0x930
+>  [<ffffffff811ced76>] path_openat+0xd6/0x3e0
+>  [<ffffffff810a6298>] ? sched_clock_cpu+0xb8/0x130
+>  [<ffffffff811cf1a2>] do_filp_open+0x42/0xa0
+>  [<ffffffff8169d845>] ? _raw_spin_unlock+0x35/0x60
+>  [<ffffffff811dd7cd>] ? alloc_fd+0x18d/0x210
+>  [<ffffffff811bc328>] do_sys_open+0xf8/0x1d0
+>  [<ffffffff810faadc>] ? __audit_syscall_entry+0xcc/0x310
+>  [<ffffffff811bc421>] sys_open+0x21/0x30
+>  [<ffffffff816a5a69>] system_call_fastpath+0x16/0x1b
+> Code: 00 00 00 e8 64 8d ab e0 48 85 c0 74 46 c7 00 00 00 00 00 48 c7 40 08 00 00 00 00 65 48 8b 14 25 00 c9 00 00 48 8b 92 50 05 00 00 <48> 8b 52 28 f0 ff 42 04 48 89 50 10 48 89 83 28 01 00 00 31 c0 
+> RIP  [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
+>  RSP <ffff8800a5e29bc8>
+> CR2: 0000000100000029
+> Disabling lock debugging due to kernel taint
+> ---[ end trace 9e00e91b0629ad80 ]---
+>
+>
+> oops happened here..
+>
+>         tfile->net = get_net(current->nsproxy->net_ns);
+>      548:       48 8b 92 50 05 00 00    mov    0x550(%rdx),%rdx
+>      54f:       48 8b 52 28             mov    0x28(%rdx),%rdx
+>
+> My guess is the fuzzer called some syscall that set current->nsproxy
+> to garbage (0x0000000100000001), which later got dereferenced when it
+> subsequently randomly did an open() on tun.
+>
+> Any thoughts ?
 
-> -----Original Message-----
-> From: Jonathan Nieder [mailto:jrnieder@gmail.com]
-> Sent: Monday, March 12, 2012 10:06 AM
-> To: David Miller
-> Cc: netdev; stable@vger.kernel.org; Sony Chacko; Ana Guerrero; Michael
-> Mastrogiacomo; zz-930768; Ameen Rahman; Anirban Chakraborty
-> Subject: [PATCH 2.6.32.y] netxen: support for GbE port settings
-> 
-> From: Sony Chacko <sony.chacko@qlogic.com>
-> Date: Tue, 15 Mar 2011 14:54:55 -0700
-> 
-> commit bfd823bd74333615783d8108889814c6d82f2ab0 upstream.
-> 
-> o Enable setting speed and auto negotiation parameters for GbE ports.
-> o Hardware do not support half duplex setting currently.
-> 
-> David Miller:
-> 	Amit please update your patch to silently reject link setting
-> 	attempts that are unsupported by the device.
-> 
-> [jn: backported for 2.6.32.y by Ana Guerrero]
-> 
-> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> Tested-by: Ana Guerrero <ana@debian.org> # HP NC375i
-> Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
-> ---
-> Hi Dave,
-> 
-> Michael Mastrogiacomo reports[1]:
-> 
-> > The HP NC375i network card on an HP ML370 G6 server with Debian
-> > squeeze OS installed as problems.
-> >
-> > The server is connected to a switch that does only 100/full and it
-> > fails to autonegotiate correctly during reboot.  A network
-> > connection can be used if the switch side gets locked to 100 half
-> > however which seems to be what the HP card assumes if negotiaton
-> > fails.  The HP card seems to assume a speed of 1000 which is
-> > incorrect.  It should learn a speed of 100 advertised by the switch
-> > which it fails to do.
-> >
-> > Certain ethtool and miitool functions do not seem to work such as
-> > ethtool -s (you can't set any parameters at all).   ethtool -t also
-> > fails.
-> 
-> Ana Guerrero wrote:
-> 
-> > Yes, it is a driver bug. We hit in this same problem because the
-> > switches are not configured to allow auto-negociated GbE.
-> > Eg with ethtool:
-> >
-> > # ethtool -s eth0 autoneg off
-> >     Cannot set new settings: Input/output error not setting autoneg
-> > #
-> >
-> > The patch at
-> > [...]h=bfd823bd74333615783d8108889814c6d82f2ab0
-> >
-> > fixes this problem. I am attaching it already updated to work on top
-> > of 2.6.32-41.
-> >
-> > The patch has been tested successfully with a HP NC3751 card like
-> > the reporter.
-> 
-> Therefore I would like to see this patch in a future 2.6.32.y kernel,
-> so everyone using that as a baseline can benefit from the fix.  The
-> patch hit mainline in the 2.6.39 merge window.
-> 
-> What is the right way to submit networking patches for the 2.6.32.y
-> tree?  Should I send them to you or directly to Willy, are your
-> requirements for them the same as the usual stable_kernel_rules.txt or
-> other ones, and is [2] the right place to find a preview of patches
-> destined for longterm trees or do they go somewhere else?
-> 
-> Looking forward to your thoughts,
-> Jonathan
-> 
-> [1] http://bugs.debian.org/638921
-> [2] http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
-> 
->  drivers/net/netxen/netxen_nic.h         |    7 +++-
->  drivers/net/netxen/netxen_nic_ctx.c     |   15 ++++++++
->  drivers/net/netxen/netxen_nic_ethtool.c |   58 ++++++++---------------
-> --------
->  3 files changed, 35 insertions(+), 45 deletions(-)
-> 
-> diff --git a/drivers/net/netxen/netxen_nic.h
-> b/drivers/net/netxen/netxen_nic.h
-> index e52af5b75b18..50d2af886cd1 100644
-> --- a/drivers/net/netxen/netxen_nic.h
-> +++ b/drivers/net/netxen/netxen_nic.h
-> @@ -700,7 +700,8 @@ struct netxen_recv_context {
->  #define NX_CDRP_CMD_READ_PEXQ_PARAMETERS	0x0000001c
->  #define NX_CDRP_CMD_GET_LIC_CAPABILITIES	0x0000001d
->  #define NX_CDRP_CMD_READ_MAX_LRO_PER_BOARD	0x0000001e
-> -#define NX_CDRP_CMD_MAX				0x0000001f
-> +#define NX_CDRP_CMD_CONFIG_GBE_PORT		0x0000001f
-> +#define NX_CDRP_CMD_MAX				0x00000020
-> 
->  #define NX_RCODE_SUCCESS		0
->  #define NX_RCODE_NO_HOST_MEM		1
-> @@ -1015,6 +1016,7 @@ typedef struct {
->  #define NX_FW_CAPABILITY_BDG			(1 << 8)
->  #define NX_FW_CAPABILITY_FVLANTX		(1 << 9)
->  #define NX_FW_CAPABILITY_HW_LRO			(1 << 10)
-> +#define NX_FW_CAPABILITY_GBE_LINK_CFG		(1 << 11)
-> 
->  /* module types */
->  #define LINKEVENT_MODULE_NOT_PRESENT			1
-> @@ -1323,6 +1325,9 @@ int netxen_config_ipaddr(struct netxen_adapter
-> *adapter, u32 ip, int cmd);
->  int netxen_linkevent_request(struct netxen_adapter *adapter, int
-> enable);
->  void netxen_advert_link_change(struct netxen_adapter *adapter, int
-> linkup);
-> 
-> +int nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-> +		u32 speed, u32 duplex, u32 autoneg);
-> +
->  int nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu);
->  int netxen_nic_change_mtu(struct net_device *netdev, int new_mtu);
->  int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable);
-> diff --git a/drivers/net/netxen/netxen_nic_ctx.c
-> b/drivers/net/netxen/netxen_nic_ctx.c
-> index 9cb8f6878047..f48cdb2bfaf0 100644
-> --- a/drivers/net/netxen/netxen_nic_ctx.c
-> +++ b/drivers/net/netxen/netxen_nic_ctx.c
-> @@ -112,6 +112,21 @@ nx_fw_cmd_set_mtu(struct netxen_adapter *adapter,
-> int mtu)
->  	return 0;
->  }
-> 
-> +int
-> +nx_fw_cmd_set_gbe_port(struct netxen_adapter *adapter,
-> +	u32 speed, u32 duplex, u32 autoneg)
-> +{
-> +
-> +	return netxen_issue_cmd(adapter,
-> +		adapter->ahw.pci_func,
-> +		NXHAL_VERSION,
-> +		speed,
-> +		duplex,
-> +		autoneg,
-> +		NX_CDRP_CMD_CONFIG_GBE_PORT);
-> +
-> +}
-> +
->  static int
->  nx_fw_cmd_create_rx_ctx(struct netxen_adapter *adapter)
->  {
-> diff --git a/drivers/net/netxen/netxen_nic_ethtool.c
-> b/drivers/net/netxen/netxen_nic_ethtool.c
-> index 714f38791a9a..7e34840dfe59 100644
-> --- a/drivers/net/netxen/netxen_nic_ethtool.c
-> +++ b/drivers/net/netxen/netxen_nic_ethtool.c
-> @@ -216,7 +216,6 @@ skip:
->  			check_sfp_module = netif_running(dev) &&
->  				adapter->has_link_events;
->  		} else {
-> -			ecmd->autoneg = AUTONEG_ENABLE;
->  			ecmd->supported |= (SUPPORTED_TP |SUPPORTED_Autoneg);
->  			ecmd->advertising |=
->  				(ADVERTISED_TP | ADVERTISED_Autoneg);
-> @@ -254,53 +253,24 @@ static int
->  netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd
-> *ecmd)
->  {
->  	struct netxen_adapter *adapter = netdev_priv(dev);
-> -	__u32 status;
-> +	int ret;
-> 
-> -	/* read which mode */
-> -	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
-> -		/* autonegotiation */
-> -		if (adapter->phy_write
-> -		    && adapter->phy_write(adapter,
-> -					  NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
-> -					  ecmd->autoneg) != 0)
-> -			return -EIO;
-> -		else
-> -			adapter->link_autoneg = ecmd->autoneg;
-> +	if (adapter->ahw.port_type != NETXEN_NIC_GBE)
-> +		return -EOPNOTSUPP;
-> 
-> -		if (adapter->phy_read
-> -		    && adapter->phy_read(adapter,
-> -					 NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-> -					 &status) != 0)
-> -			return -EIO;
-> +	if (!(adapter->capabilities & NX_FW_CAPABILITY_GBE_LINK_CFG))
-> +		return -EOPNOTSUPP;
-> 
-> -		/* speed */
-> -		switch (ecmd->speed) {
-> -		case SPEED_10:
-> -			netxen_set_phy_speed(status, 0);
-> -			break;
-> -		case SPEED_100:
-> -			netxen_set_phy_speed(status, 1);
-> -			break;
-> -		case SPEED_1000:
-> -			netxen_set_phy_speed(status, 2);
-> -			break;
-> -		}
-> -		/* set duplex mode */
-> -		if (ecmd->duplex == DUPLEX_HALF)
-> -			netxen_clear_phy_duplex(status);
-> -		if (ecmd->duplex == DUPLEX_FULL)
-> -			netxen_set_phy_duplex(status);
-> -		if (adapter->phy_write
-> -		    && adapter->phy_write(adapter,
-> -					  NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
-> -					  *((int *)&status)) != 0)
-> -			return -EIO;
-> -		else {
-> -			adapter->link_speed = ecmd->speed;
-> -			adapter->link_duplex = ecmd->duplex;
-> -		}
-> -	} else
-> +	ret = nx_fw_cmd_set_gbe_port(adapter, ecmd->speed, ecmd->duplex,
-> +				     ecmd->autoneg);
-> +	if (ret == NX_RCODE_NOT_SUPPORTED)
->  		return -EOPNOTSUPP;
-> +	else if (ret)
-> +		return -EIO;
-> +
-> +	adapter->link_speed = ecmd->speed;
-> +	adapter->link_duplex = ecmd->duplex;
-> +	adapter->link_autoneg = ecmd->autoneg;
-> 
->  	if (!netif_running(dev))
->  		return 0;
-> --
-> 1.7.9.2
-> 
+It smells like a memory stomp.  current->nsproxy is always supposed to
+have a valid value, and it never would have an odd value.  The value
+should always be at least 8 byte aligned.
 
-Looks fine to me.
+Since the value is impossible this doesn't feel like a path where the
+error handling is wrong.
 
-Rajesh
+So I am guessing this is a memory stomp.  My guess it would take the
+same sequence of system calls on the same kernel build to reproduce
+this problem in the same place.
+
+Do you have any more information?
+
+Eric
