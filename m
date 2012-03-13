@@ -1,47 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Provide SYN packet for passive connections
-Date: Mon, 12 Mar 2012 22:56:00 -0700 (PDT)
-Message-ID: <20120312.225600.124181041257683930.davem@davemloft.net>
-References: <CA+mtBx_LqwUpe5Df3VPw-L=h-WUjr=fxh86rgNuYnMacNikuOA@mail.gmail.com>
-	<20120311.211424.996831768685832926.davem@davemloft.net>
-	<1331611319.7787.37.camel@edumazet-glaptop>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: ip route show shows the routes in the inverse order?
+Date: Tue, 13 Mar 2012 02:15:29 -0400
+Message-ID: <20120313021529.97514922.billfink@mindspring.com>
+References: <CAA7Uhc=xFxiAc9ZL0KHQJ1Opr0m=Do_OuLmL7WWd7PU4JuUNnQ@mail.gmail.com>
+	<20120312193204.5be5b4b8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Diego Woitasen <diego@woitasen.com.ar>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55926 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759674Ab2CMF4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 01:56:03 -0400
-In-Reply-To: <1331611319.7787.37.camel@edumazet-glaptop>
+Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:37555 "EHLO
+	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758136Ab2CMGPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 02:15:42 -0400
+In-Reply-To: <20120312193204.5be5b4b8@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 12 Mar 2012 21:01:59 -0700
+On Mon, 12 Mar 2012, Stephen Hemminger wrote:
 
-> [PATCH net-next] inet: embed icsk_accept_queue in an union
+> On Mon, 12 Mar 2012 22:18:48 -0300
+> Diego Woitasen <diego@woitasen.com.ar> wrote:
 > 
-> icsk_accept_queue is currently used only for LISTEN sockets. We could
-> share its space with fields used for other kind of inet sockets.
+> > Hi,
+> >  I've noticed that iproute and the old route command show the routes
+> > in the inverse order. This new behavior looks related to the removal
+> > of fib_hash (replaceed by fib_trie). I think that the old behavior
+> > should be recovered. More specific routes in the first place looks
+> > more natural for me and it's been the behavior for years. It doesn't
+> > make any sense to change it.
+> > 
+> >  Sorry if this was already discussed, I couldn't find anything in the archives.
+> > 
+> > Regards,
+> >  Diego
+> > 
 > 
-> For active connections, this area is zeroed in socket setup, and for
-> passive ones, we clear the whole area in inet_csk_clone_lock() to make
-> sure we dont use content inherited from (listener) parent.
-> 
-> /* Deinitialize accept_queue to trap illegal accesses. */
-> memset(&newicsk->icsk_accept_queue, 0, sizeof(newicsk->icsk_accept_queue));
-> 
-> For 100% safety, we could do the same in inet_csk_listen_stop(), or we can
-> double check that fields added in this union later are only accessed by non
-> LISTEN sockets.
-> 
-> All these fields must have a null default value.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Suggested-by: Tom Herbert <therbert@google.com>
+> The kerne never guaranteed any order in returned values. If you want a given
+> order than you need to sort them your self.
 
-We can put this in when something that makes use of the new union
-is added.
+I understand the kernel doesn't guarantee any order to the routes.
+But it does make sense for the userspace tools like ip to do this
+for the user since the kernel is no longer doing this.  And having
+more specific routes first also makes sense.  Some scripts may depend
+on this plus its much more efficent that way if trying to find a
+matching route since you can quit on the first match instead of
+having to scan the entire routing table.
+
+						-Bill
