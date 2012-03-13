@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] tun: don't hold network namespace by tun sockets
-Date: Mon, 12 Mar 2012 17:14:11 -0700 (PDT)
-Message-ID: <20120312.171411.899890153797891857.davem@davemloft.net>
-References: <20120312125833.24166.72610.stgit@localhost6.localdomain6>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: ipv4: Standardize prefixes for message
+ logging
+Date: Mon, 12 Mar 2012 17:35:52 -0700
+Message-ID: <1331598952.13200.43.camel@joe2Laptop>
+References: <1331526971.13200.9.camel@joe2Laptop>
+	 <20120311.234846.455580505379366792.davem@davemloft.net>
+	 <1331571812.13200.23.camel@joe2Laptop>
+	 <20120312.170558.584205292599435892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, ebiederm@aristanetworks.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shemminger@vyatta.com, devel@openvz.org
-To: skinsbursky@parallels.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120312125833.24166.72610.stgit@localhost6.localdomain6>
+In-Reply-To: <20120312.170558.584205292599435892.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-aFrom: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Date: Mon, 12 Mar 2012 16:59:41 +0400
+On Mon, 2012-03-12 at 17:05 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Mon, 12 Mar 2012 10:03:32 -0700
+> > Add #define pr_fmt(fmt) as appropriate.
+> > Add "IPv4: ", "TCP: ", and "IPsec: " to appropriate files.
+> > Standardize on "UDPLite: " for appropriate uses.
+> > Some prefixes were previously "UDPLITE: " and "UDP-Lite: ".
+[]
+> Looks good, and applied,
 
-> v3: added previously removed sock_put() to the tun_release() callback, because
-> sk_release_kernel() doesn't drop the socket reference.
-> 
-> v2: sk_release_kernel() used for socket release. Dummy tun_release() is
-> required for sk_release_kernel() ---> sock_release() ---> sock->ops->release()
-> call.
-> 
-> TUN was designed to destroy it's socket on network namesapce shutdown. But this
-> will never happen for persistent device, because it's socket holds network
-> namespace.
-> This patch removes of holding network namespace by TUN socket and replaces it
-> by creating socket in init_net and then changing it's net it to desired one. On
-> shutdown socket is moved back to init_net prior to final put.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+OK.  I'll submit a similar change for net/ipv6 in awhile.
 
-Looks good, applied, thanks.
+> but I left out this hunk:
+ 
+> > diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+> > index 63b64c4..56d6768 100644
+> > --- a/net/ipv4/ipcomp.c
+> > +++ b/net/ipv4/ipcomp.c
+> > @@ -13,6 +13,7 @@
+> >   *   - Compression stats.
+> >   *   - Adaptive compression.
+> >   */
+> > +
+> >  #include <linux/module.h>
+> >  #include <linux/err.h>
+> >  #include <linux/rtnetlink.h>
+> 
+> As it seemed accidental, if not gratuitous.
+
+It wasn't accidental, though I could have mentioned it
+in the changelog.  Most files have a blank line between
+an initial block commment and the first #include.
+
+I just do that by habit when looking if a file could
+benefit from a #define pr_fmt.
+
+I added a similar blank line to udplite.c, but there
+I also added pr_fmt.
+
+cheers, Joe
