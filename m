@@ -1,73 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] net: Fix issue with netdev_tx_reset_queue not resetting queue from XOFF state
-Date: Mon, 12 Mar 2012 21:03:42 -0700
-Message-ID: <1331611432-30109-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] ixgbe: remove tie between NAPI work limits and interrupt moderation
+Date: Mon, 12 Mar 2012 21:03:40 -0700
+Message-ID: <1331611432-30109-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:43936 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284Ab2CMED6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2012 00:03:58 -0400
+	id S1751016Ab2CMED5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2012 00:03:57 -0400
 In-Reply-To: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+As noted by Ben Hutchings and David Miller, work limits for NAPI
+should not be tied to interrupt moderation parameters.  This
+should be handled by NAPI, possibly through sysfs.
 
-We are seeing dev_watchdog hangs on several drivers.  I suspect this is due
-to the __QUEUE_STATE_STACK_XOFF bit being set prior to a reset for link
-change, and then not being cleared by netdev_tx_reset_queue.  This change
-corrects that.
+Neil Horman & Stephen Hemminger are working on a solution for
+NAPI currently.  In the meantime, remove this tie between
+work limits and interrupt moderation.
 
-In addition we were seeing dev_watchdog hangs on igb after running the
-ethtool tests.  We found this to be due to the fact that the ethtool test
-runs the same logic as ndo_start_xmit, but we were never clearing the XOFF
-flag since the loopback test in ethtool does not do byte queue accounting.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    3 ++-
- include/linux/netdevice.h                 |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fda8247..e96cef8 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2752,6 +2752,8 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
- 
- 	txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
- 	wr32(E1000_TXDCTL(reg_idx), txdctl);
-+
-+	netdev_tx_reset_queue(txring_txq(ring));
- }
- 
- /**
-@@ -3244,7 +3246,6 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
- 		buffer_info = &tx_ring->tx_buffer_info[i];
- 		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
- 	}
--	netdev_tx_reset_queue(txring_txq(tx_ring));
- 
- 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
- 	memset(tx_ring->tx_buffer_info, 0, size);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b195a34..4bf314f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1939,6 +1939,7 @@ static inline void netdev_completed_queue(struct net_device *dev,
- static inline void netdev_tx_reset_queue(struct netdev_queue *q)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 8e2e473..4846206 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2108,8 +2108,6 @@ static int ixgbe_get_coalesce(struct net_device *netdev,
  {
- #ifdef CONFIG_BQL
-+	clear_bit(__QUEUE_STATE_STACK_XOFF, &q->state);
- 	dql_reset(&q->dql);
- #endif
- }
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
+-	ec->tx_max_coalesced_frames_irq = adapter->tx_work_limit;
+-
+ 	/* only valid if in constant ITR mode */
+ 	if (adapter->rx_itr_setting <= 1)
+ 		ec->rx_coalesce_usecs = adapter->rx_itr_setting;
+@@ -2177,9 +2175,6 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 	    && ec->tx_coalesce_usecs)
+ 		return -EINVAL;
+ 
+-	if (ec->tx_max_coalesced_frames_irq)
+-		adapter->tx_work_limit = ec->tx_max_coalesced_frames_irq;
+-
+ 	if ((ec->rx_coalesce_usecs > (IXGBE_MAX_EITR >> 2)) ||
+ 	    (ec->tx_coalesce_usecs > (IXGBE_MAX_EITR >> 2)))
+ 		return -EINVAL;
+@@ -2214,7 +2209,6 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 
+ 	for (i = 0; i < num_vectors; i++) {
+ 		q_vector = adapter->q_vector[i];
+-		q_vector->tx.work_limit = adapter->tx_work_limit;
+ 		if (q_vector->tx.count && !q_vector->rx.count)
+ 			/* tx only */
+ 			q_vector->itr = tx_itr_param;
 -- 
 1.7.7.6
