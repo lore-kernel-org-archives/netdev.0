@@ -1,114 +1,278 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: VLAN regression caused by: e1000: do vlan cleanup (799d531).
-Date: Tue, 13 Mar 2012 10:59:42 +0100
-Message-ID: <20120313095942.GC2239@minipsycho.brq.redhat.com>
-References: <4F5E3DCF.6010307@candelatech.com>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+Date: Tue, 13 Mar 2012 11:04:42 +0100
+Message-ID: <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel list <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55962 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756167Ab2CMJ75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2012 05:59:57 -0400
-Content-Disposition: inline
-In-Reply-To: <4F5E3DCF.6010307@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org, "Will Drewry" <wad@chromium.org>
+To: "Will Drewry" <wad@chromium.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1331587715-26069-1-git-send-email-wad@chromium.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Mar 12, 2012 at 07:17:51PM CET, greearb@candelatech.com wrote:
->This commit breaks 802.1Q VLANs on my e1000 NIC, and it remains broken in top-of-tree
->(as of 2 days ago, at least).
->
->commit 5622e4044a916de1af84bfcc4d437ce0c799d531
->Author: Jiri Pirko <jpirko@redhat.com>
->Date:   Thu Jul 21 03:26:31 2011 +0000
->
->    e1000: do vlan cleanup
->
->    - unify vlan and nonvlan rx path
->    - kill adapter->vlgrp and e1000_vlan_rx_register
->    - allow to turn on/off rx/tx vlan accel via ethtool (set_features)
->
->    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->    Signed-off-by: David S. Miller <davem@davemloft.net>
->
->
->My OS is RH 8, 32-bit.
->
->My e1000 hardware is:
->
->05:01.0 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
->	Subsystem: Intel Corporation PRO/1000 MT Dual Port Server Adapter
->	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx-
->	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
->	Latency: 52 (63750ns min), Cache Line Size: 32 bytes
->	Interrupt: pin A routed to IRQ 24
->	Region 0: Memory at d8100000 (64-bit, non-prefetchable) [size=128K]
->	Region 4: I/O ports at 3000 [size=64]
->	Capabilities: [dc] Power Management version 2
->		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
->		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->	Capabilities: [e4] PCI-X non-bridge device
->		Command: DPERE- ERO+ RBC=512 OST=1
->		Status: Dev=05:01.0 64bit+ 133MHz+ SCD- USC- DC=simple DMMRBC=2048 DMOST=1 DMCRS=16 RSCEM- 266MHz- 533MHz-
->	Capabilities: [f0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable-
->		Address: 0000000000000000  Data: 0000
->	Kernel driver in use: e1000
->	Kernel modules: e1000
->
->05:01.1 Ethernet controller: Intel Corporation 82546GB Gigabit Ethernet Controller (rev 03)
->	Subsystem: Intel Corporation PRO/1000 MT Dual Port Server Adapter
->	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx-
->	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
->	Latency: 52 (63750ns min), Cache Line Size: 32 bytes
->	Interrupt: pin B routed to IRQ 25
->	Region 0: Memory at d8120000 (64-bit, non-prefetchable) [size=128K]
->	Region 4: I/O ports at 3040 [size=64]
->	Capabilities: [dc] Power Management version 2
->		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
->		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->	Capabilities: [e4] PCI-X non-bridge device
->		Command: DPERE- ERO+ RBC=512 OST=1
->		Status: Dev=05:01.1 64bit+ 133MHz+ SCD- USC- DC=simple DMMRBC=2048 DMOST=1 DMCRS=16 RSCEM- 266MHz- 533MHz-
->	Capabilities: [f0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable-
->		Address: 0000000000000000  Data: 0000
->	Kernel driver in use: e1000
->	Kernel modules: e1000
->
->
->I'm attaching ethregs output from good and bad kernels, in case that helps.
->
->The symptom is that pkts show up as 'ISL' instead of Ethernet frames.  I'm
->including a capture of that as well.  I am sending UDP pkts from one NIC to the other,
->on vlan 8, though because ARP fails, no UDP is ever sent.  The sniff shows rcvd pkts
->as looking funky, but it could be they are transmitted badly once they hit the NIC,
->so I don't know if it's actually rx or tx (or both) logic that is busted at this point.
->
->I'm using routing rules to make send-to-self work, but the kernel is un-patched.
->
->Please let me know if you need additional info.  I'll be happy to test patches,
->I have a good setup to reproduce this easily.
+Hello,
 
-Thanks for the report Ben.
+I made a quick pseudo-patch for BPF JIT support. As far as I can tell,
+the actual code itself is very simple, just:
 
-It would help it you try to enable/disable vlan hw accel by ethtool to
-see if it helps.
+case BPF_S_ANC_SECCOMP_LD_W:
+	/* SECCOMP doesn't use SKB, no need to preserve %rdi. */
+	t_offset = seccomp_bpf_load - (image + addrs[i]);
+	EMIT1_off32(0xbf, K); /* mov imm32,%rdi */
+	EMIT1_off32(0xe8, t_offset); /* call */
+	break;
 
-I have suspition that vlan filter must be on/offed along with vlan
-accel.
+EAX is set directly as it's the return register, EBX is preserved by the
+callee, RDI and other registers are unused by seccomp, so no need for
+trampoline code AFAIK.
 
-Thanks.
+The rest of the patch just makes the JIT code suitable for sharing.
+Only real change is that after this patch unused insns memory is freed.
 
-Jirka
+The code is untested and even uncompiled, as I've only access to my 32-bit
+laptop at the moment.
 
->
->Thanks,
->Ben
->
->-- 
->Ben Greear <greearb@candelatech.com>
->Candela Technologies Inc  http://www.candelatech.com
->
+Would be interesting to know if this actually works and what the performance
+difference is for seccomp.
+
+Greetings,
+
+Indan
+
+
+ arch/x86/net/bpf_jit_comp.c |   47 ++++++++++++++++++++----------------------
+ include/linux/filter.h      |   14 +++++++-----
+ net/core/filter.c           |   27 ++++++++++++++++++++++--
+ 3 files changed, 54 insertions(+), 34 deletions(-)
+
+---
+
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 7c1b765..3cd6626 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -118,7 +118,7 @@ static inline void bpf_flush_icache(void *start, void *end)
+ }
+
+
+-void bpf_jit_compile(struct sk_filter *fp)
++bpf_func_t bpf_jit_compile(const struct sock_filter* filter, int flen, int use_skb)
+ {
+ 	u8 temp[64];
+ 	u8 *prog;
+@@ -131,15 +131,13 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	int pc_ret0 = -1; /* bpf index of first RET #0 instruction (if any) */
+ 	unsigned int cleanup_addr; /* epilogue code offset */
+ 	unsigned int *addrs;
+-	const struct sock_filter *filter = fp->insns;
+-	int flen = fp->len;
+
+ 	if (!bpf_jit_enable)
+-		return;
++		return NULL;
+
+ 	addrs = kmalloc(flen * sizeof(*addrs), GFP_KERNEL);
+ 	if (addrs == NULL)
+-		return;
++		return NULL;
+
+ 	/* Before first pass, make a rough estimation of addrs[]
+ 	 * each bpf instruction is translated to less than 64 bytes
+@@ -151,11 +149,16 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	cleanup_addr = proglen; /* epilogue address */
+
+ 	for (pass = 0; pass < 10; pass++) {
+-		u8 seen_or_pass0 = (pass == 0) ? (SEEN_XREG | SEEN_DATAREF | SEEN_MEM) : seen;
++		u8 seen_or_pass0 = seen;
+ 		/* no prologue/epilogue for trivial filters (RET something) */
+ 		proglen = 0;
+ 		prog = temp;
+
++		if (pass == 0) {
++			seen_or_pass0 = SEEN_XREG | SEEN_MEM;
++			if (use_skb)
++				seen_or_pass0 |= SEEN_DATAREF;
++		}
+ 		if (seen_or_pass0) {
+ 			EMIT4(0x55, 0x48, 0x89, 0xe5); /* push %rbp; mov %rsp,%rbp */
+ 			EMIT4(0x48, 0x83, 0xec, 96);	/* subq  $96,%rsp	*/
+@@ -472,6 +475,14 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 				CLEAR_A();
+ #endif
+ 				break;
++#ifdef CONFIG_SECCOMP_FILTER
++			case BPF_S_ANC_SECCOMP_LD_W:
++				/* SECCOMP doesn't use SKB, no need to preserve %rdi. */
++				t_offset = seccomp_bpf_load - (image + addrs[i]);
++				EMIT1_off32(0xbf, K); /* mov imm32,%rdi */
++				EMIT1_off32(0xe8, t_offset); /* call */
++				break;
++#endif
+ 			case BPF_S_LD_W_ABS:
+ 				func = sk_load_word;
+ common_load:			seen |= SEEN_DATAREF;
+@@ -588,13 +599,14 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 				/* hmm, too complex filter, give up with jit compiler */
+ 				goto out;
+ 			}
++			BUG_ON(!use_skb && (seen & SEEN_DATAREF));
+ 			ilen = prog - temp;
+ 			if (image) {
+ 				if (unlikely(proglen + ilen > oldproglen)) {
+ 					pr_err("bpb_jit_compile fatal error\n");
+ 					kfree(addrs);
+ 					module_free(NULL, image);
+-					return;
++					return NULL;
+ 				}
+ 				memcpy(image + proglen, temp, ilen);
+ 			}
+@@ -635,28 +647,13 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 				       16, 1, image, proglen, false);
+
+ 		bpf_flush_icache(image, image + proglen);
+-
+-		fp->bpf_func = (void *)image;
+ 	}
+ out:
+ 	kfree(addrs);
+-	return;
++	return (void *)image;
+ }
+
+-static void jit_free_defer(struct work_struct *arg)
++void bpf_jit_free(bpf_func_t image)
+ {
+-	module_free(NULL, arg);
+-}
+-
+-/* run from softirq, we must use a work_struct to call
+- * module_free() from process context
+- */
+-void bpf_jit_free(struct sk_filter *fp)
+-{
+-	if (fp->bpf_func != sk_run_filter) {
+-		struct work_struct *work = (struct work_struct *)fp->bpf_func;
+-
+-		INIT_WORK(work, jit_free_defer);
+-		schedule_work(work);
+-	}
++	module_free(NULL, image);
+ }
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 8eeb205..292ccca 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -135,12 +135,13 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ struct sk_buff;
+ struct sock;
+
++typedef unsigned int (*bpf_func_t)(const struct sk_buff*, const struct sock_filter*);
++
+ struct sk_filter
+ {
+ 	atomic_t		refcnt;
+ 	unsigned int         	len;	/* Number of filter blocks */
+-	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+-					    const struct sock_filter *filter);
++	bpf_func_t		bpf_func;
+ 	struct rcu_head		rcu;
+ 	struct sock_filter     	insns[0];
+ };
+@@ -158,14 +159,15 @@ extern int sk_detach_filter(struct sock *sk);
+ extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
+
+ #ifdef CONFIG_BPF_JIT
+-extern void bpf_jit_compile(struct sk_filter *fp);
+-extern void bpf_jit_free(struct sk_filter *fp);
++extern bpf_func_t bpf_jit_compile(const struct sock_filter*, int flen, int use_skb);
++extern void bpf_jit_free(bpf_funct_t);
+ #define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
+ #else
+-static inline void bpf_jit_compile(struct sk_filter *fp)
++static inline bpf_func_t bpf_jit_compile(const struct sock_filter*, int flen, int use_skb)
+ {
++	return NULL;
+ }
+-static inline void bpf_jit_free(struct sk_filter *fp)
++static inline void bpf_jit_free(bpf_func_t)
+ {
+ }
+ #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 5dea452..03e3ea3 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -574,6 +574,14 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ }
+ EXPORT_SYMBOL(sk_chk_filter);
+
++/* run from softirq, we must use a work_struct to call
++ * bpf_jit_free() from process context
++ */
++static void jit_free_defer(struct work_struct *arg)
++{
++	bpf_jit_free((bpf_func_t)arg);
++}
++
+ /**
+  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+  *	@rcu: rcu_head that contains the sk_filter to free
+@@ -582,7 +590,12 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
+ {
+ 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+
+-	bpf_jit_free(fp);
++	if (fp->bpf_func != sk_run_filter) {
++		struct work_struct *work = (struct work_struct *)fp->bpf_func;
++
++		INIT_WORK(work, jit_free_defer);
++		schedule_work(work);
++	}
+ 	kfree(fp);
+ }
+ EXPORT_SYMBOL(sk_filter_release_rcu);
+@@ -599,9 +612,10 @@ EXPORT_SYMBOL(sk_filter_release_rcu);
+  */
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+-	struct sk_filter *fp, *old_fp;
++	struct sk_filter *fp, *old_fp, *new_fp;
+ 	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
+ 	int err;
++	bpf_func_t jit;
+
+ 	/* Make sure new filter is there and in the right amounts. */
+ 	if (fprog->filter == NULL)
+@@ -625,7 +639,14 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 		return err;
+ 	}
+
+-	bpf_jit_compile(fp);
++	jit = bpf_jit_compile(fp->insns, fp->len, 1);
++	if (jit) {
++		fp->bpf_func = jit;
++		/* Free unused insns memory */
++		newfp = krealloc(fp, sizeof(*fp), GFP_KERNEL);
++		if (newfp)
++			fp = newfp;
++	}
+
+ 	old_fp = rcu_dereference_protected(sk->sk_filter,
+ 					   sock_owned_by_user(sk));
+
+
+
