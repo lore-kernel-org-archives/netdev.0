@@ -1,126 +1,145 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH 3/3 v3] netxen: qlogic ethernet : Fix endian bug.
-Date: Tue, 13 Mar 2012 14:28:24 +0530
-Message-ID: <1331629104-3283-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: rajesh.borundia@qlogic.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: sony.chacko@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [V4 PATCH] virtio-net: send gratuitous packet when needed
+Date: Tue, 13 Mar 2012 17:08:41 +0800
+Message-ID: <20120313090841.11110.82654.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+As hypervior does not have the knowledge of guest network configuration, it's
+better to ask guest to send gratuitous packet when needed.
 
-Change the datatype of "ip_addr" to __be32 as 'ip' should be in
-big endian format.
+Guest test VIRTIO_NET_S_ANNOUNCE bit during config change interrupt and when it
+is set, a workqueue is scheduled to send gratuitous packet through
+NETDEV_NOTIFY_PEERS. This feature is negotiated through bit
+VIRTIO_NET_F_GUEST_ANNOUNCE.
 
-Adapter needs "ip address" in big endian format stored at lower 32bit
-of req.word[1]. netxen_config_ipaddr() now receives 'ip' in big endian
-format. To satisfy adapter's need, use memcpy() to copy byte by byte
-of 'ip' into lower 32bit of req.word[1].
+Changes from v3:
+- cancel the workqueue during freeze
 
-Mac address and serial number of adapter need to be in little endian format.
-Change the data type of the related  variables to __le32 / __le64 or cast it
-explicitly to __le32 / __le64 depending upon the requirement.
+Changes from v2:
+- fix the race between unregister_dev() and workqueue
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |   10 +++++-----
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    4 ++--
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/virtio_net.c   |   31 ++++++++++++++++++++++++++++++-
+ include/linux/virtio_net.h |    2 ++
+ 2 files changed, 32 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-index 2eeac32..b5de8a7 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-@@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 4880aa8..45f7ac6 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -72,6 +72,9 @@ struct virtnet_info {
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
  
- struct nx_vlan_ip_list {
- 	struct list_head list;
--	u32 ip_addr;
-+	__be32 ip_addr;
- };
++	/* Work struct for sending gratituous packet. */
++	struct work_struct announce;
++
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
  
- /*
-@@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct nx_host_sds_ring *sds_ring, int max);
- void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
- int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
- int netxen_config_rss(struct netxen_adapter *adapter, int enable);
--int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd);
-+int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd);
- int netxen_linkevent_request(struct netxen_adapter *adapter, int enable);
- void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
- void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index 6f37470..de96a94 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -909,7 +909,7 @@ int netxen_config_rss(struct netxen_adapter *adapter, int enable)
- 	return rv;
+@@ -512,6 +515,13 @@ static void refill_work(struct work_struct *work)
+ 		queue_delayed_work(system_nrt_wq, &vi->refill, HZ/2);
  }
  
--int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
-+int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd)
++static void announce_work(struct work_struct *work)
++{
++	struct virtnet_info *vi = container_of(work, struct virtnet_info,
++					       announce);
++	netif_notify_peers(vi->dev);
++}
++
+ static int virtnet_poll(struct napi_struct *napi, int budget)
  {
- 	nx_nic_req_t req;
- 	u64 word;
-@@ -922,7 +922,7 @@ int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
- 	req.req_hdr = cpu_to_le64(word);
+ 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
+@@ -787,6 +797,8 @@ static int virtnet_close(struct net_device *dev)
  
- 	req.words[0] = cpu_to_le64(cmd);
--	req.words[1] = cpu_to_le64(ip);
-+	memcpy(&req.words[1], &ip, sizeof(u32));
+ 	/* Make sure refill_work doesn't re-enable napi! */
+ 	cancel_delayed_work_sync(&vi->refill);
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		cancel_work_sync(&vi->announce);
+ 	napi_disable(&vi->napi);
  
- 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
- 	if (rv != 0) {
-@@ -1050,7 +1050,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- 	if (netxen_get_flash_block(adapter, offset, sizeof(u64), pmac) == -1)
- 		return -1;
- 
--	if (*mac == cpu_to_le64(~0ULL)) {
-+	if (*mac == ~0ULL) {
- 
- 		offset = NX_OLD_MAC_ADDR_OFFSET +
- 			(adapter->portnum * sizeof(u64));
-@@ -1059,7 +1059,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
- 					offset, sizeof(u64), pmac) == -1)
- 			return -1;
- 
--		if (*mac == cpu_to_le64(~0ULL))
-+		if (*mac == ~0ULL)
- 			return -1;
- 	}
  	return 0;
-@@ -2155,7 +2155,7 @@ static u32 netxen_md_rd_crb(struct netxen_adapter *adapter,
- static u32
- netxen_md_rdrom(struct netxen_adapter *adapter,
- 			struct netxen_minidump_entry_rdrom
--				*romEntry, u32 *data_buff)
-+				*romEntry, __le32 *data_buff)
- {
- 	int i, count = 0;
- 	u32 size, lck_val;
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 7648995..65a718f 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -805,12 +805,12 @@ netxen_check_options(struct netxen_adapter *adapter)
- 	char brd_name[NETXEN_MAX_SHORT_NAME];
- 	char serial_num[32];
- 	int i, offset, val, err;
--	int *ptr32;
-+	__le32 *ptr32;
- 	struct pci_dev *pdev = adapter->pdev;
+@@ -962,11 +974,23 @@ static void virtnet_update_status(struct virtnet_info *vi)
+ 		return;
  
- 	adapter->driver_mismatch = 0;
+ 	/* Ignore unknown (future) status bits */
+-	v &= VIRTIO_NET_S_LINK_UP;
++	v &= VIRTIO_NET_S_LINK_UP | VIRTIO_NET_S_ANNOUNCE;
  
--	ptr32 = (int *)&serial_num;
-+	ptr32 = (__le32 *)&serial_num;
- 	offset = NX_FW_SERIAL_NUM_OFFSET;
- 	for (i = 0; i < 8; i++) {
- 		if (netxen_rom_fast_read(adapter, offset, &val) == -1) {
--- 
-1.7.4.4
+ 	if (vi->status == v)
+ 		return;
+ 
++	if (v & VIRTIO_NET_S_ANNOUNCE) {
++		v &= ~VIRTIO_NET_S_ANNOUNCE;
++		vi->vdev->config->set(vi->vdev,
++				      offsetof(struct virtio_net_config,
++					       status),
++				      &v, sizeof(v));
++
++		if ((v & VIRTIO_NET_S_LINK_UP) &&
++		    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++			schedule_work(&vi->announce);
++	}
++
+ 	vi->status = v;
+ 
+ 	if (vi->status & VIRTIO_NET_S_LINK_UP) {
+@@ -1076,6 +1100,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto free;
+ 
+ 	INIT_DELAYED_WORK(&vi->refill, refill_work);
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		INIT_WORK(&vi->announce, announce_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+ 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+ 
+@@ -1187,6 +1213,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 	virtqueue_disable_cb(vi->svq);
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
+ 		virtqueue_disable_cb(vi->cvq);
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		cancel_work_sync(&vi->announce);
+ 
+ 	netif_device_detach(vi->dev);
+ 	cancel_delayed_work_sync(&vi->refill);
+@@ -1233,6 +1261,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+ 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
++	VIRTIO_NET_F_GUEST_ANNOUNCE,
+ };
+ 
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 970d5a2..44a38d6 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -49,8 +49,10 @@
+ #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
++#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can send gratituous packet */
+ 
+ #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
++#define VIRTIO_NET_S_ANNOUNCE   2       /* Announcement is needed */
+ 
+ struct virtio_net_config {
+ 	/* The config defining mac address (if VIRTIO_NET_F_MAC) */
