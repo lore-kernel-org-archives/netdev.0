@@ -1,78 +1,126 @@
-From: Viresh Kumar <viresh.kumar@st.com>
-Subject: Re: [PATCH v2] stmmac: Add device-tree support
-Date: Tue, 13 Mar 2012 14:23:06 +0530
-Message-ID: <4F5F0AF2.1070508@st.com>
-References: <1331623394-14600-1-git-send-email-sr@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree-discuss@ozlabs.org" <devicetree-discuss@ozlabs.org>,
-	spear-devel <spear-devel@list.st.com>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>
-To: Stefan Roese <sr@denx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:44634 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753177Ab2CMIzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 04:55:02 -0400
-In-Reply-To: <1331623394-14600-1-git-send-email-sr@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 3/3 v3] netxen: qlogic ethernet : Fix endian bug.
+Date: Tue, 13 Mar 2012 14:28:24 +0530
+Message-ID: <1331629104-3283-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: rajesh.borundia@qlogic.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: sony.chacko@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/13/2012 12:53 PM, Stefan Roese wrote:
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+Change the datatype of "ip_addr" to __be32 as 'ip' should be in
+big endian format.
 
-> +#ifdef CONFIG_OF
-> +static int __devinit stmmac_probe_config_dt(struct platform_device *pdev,
-> +					    struct plat_stmmacenet_data *plat,
-> +					    const char **mac)
-> +{
+Adapter needs "ip address" in big endian format stored at lower 32bit
+of req.word[1]. netxen_config_ipaddr() now receives 'ip' in big endian
+format. To satisfy adapter's need, use memcpy() to copy byte by byte
+of 'ip' into lower 32bit of req.word[1].
 
-<snip...>
+Mac address and serial number of adapter need to be in little endian format.
+Change the data type of the related  variables to __le32 / __le64 or cast it
+explicitly to __le32 / __le64 depending upon the requirement.
 
-> +}
-> +#else
-> +static int __devinit stmmac_probe_config_dt(struct platform_device *pdev,
-> +					    struct plat_stmmacenet_data *plat,
-> +					    const char **mac)
-> +{
-> +	return ERR_PTR(-ENOSYS);
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |   10 +++++-----
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    4 ++--
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-why ERR_PTR()?
-
-> +}
-> +#endif /* CONFIG_OF */
-> +
->  /**
->   * stmmac_pltfr_probe
->   * @pdev: platform device pointer
-
-> @@ -58,7 +101,25 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
->  		ret = -ENOMEM;
->  		goto out_release_region;
->  	}
-> -	plat_dat = pdev->dev.platform_data;
-> +
-> +	if (pdev->dev.of_node) {
-> +		plat_dat = devm_kzalloc(&pdev->dev,
-> +					sizeof(struct plat_stmmacenet_data),
-> +					GFP_KERNEL);
-> +		if (!plat_dat) {
-> +			pr_err("%s: ERROR: no memory", __func__);
-
-why don't we use dev_err here?
-
-> +			ret = -ENOMEM;
-> +			goto out_unmap;
-> +		}
-> +
-> +		ret = stmmac_probe_config_dt(pdev, plat_dat, &mac);
-> +		if (ret) {
-> +			pr_err("%s: main dt probe failed", __func__);
-
-here too?
-
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 2eeac32..b5de8a7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -954,7 +954,7 @@ typedef struct nx_mac_list_s {
+ 
+ struct nx_vlan_ip_list {
+ 	struct list_head list;
+-	u32 ip_addr;
++	__be32 ip_addr;
+ };
+ 
+ /*
+@@ -1780,7 +1780,7 @@ int netxen_process_rcv_ring(struct nx_host_sds_ring *sds_ring, int max);
+ void netxen_p3_free_mac_list(struct netxen_adapter *adapter);
+ int netxen_config_intr_coalesce(struct netxen_adapter *adapter);
+ int netxen_config_rss(struct netxen_adapter *adapter, int enable);
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd);
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd);
+ int netxen_linkevent_request(struct netxen_adapter *adapter, int enable);
+ void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
+ void netxen_pci_camqm_read_2M(struct netxen_adapter *, u64, u64 *);
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 6f37470..de96a94 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -909,7 +909,7 @@ int netxen_config_rss(struct netxen_adapter *adapter, int enable)
+ 	return rv;
+ }
+ 
+-int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
++int netxen_config_ipaddr(struct netxen_adapter *adapter, __be32 ip, int cmd)
+ {
+ 	nx_nic_req_t req;
+ 	u64 word;
+@@ -922,7 +922,7 @@ int netxen_config_ipaddr(struct netxen_adapter *adapter, u32 ip, int cmd)
+ 	req.req_hdr = cpu_to_le64(word);
+ 
+ 	req.words[0] = cpu_to_le64(cmd);
+-	req.words[1] = cpu_to_le64(ip);
++	memcpy(&req.words[1], &ip, sizeof(u32));
+ 
+ 	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+ 	if (rv != 0) {
+@@ -1050,7 +1050,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ 	if (netxen_get_flash_block(adapter, offset, sizeof(u64), pmac) == -1)
+ 		return -1;
+ 
+-	if (*mac == cpu_to_le64(~0ULL)) {
++	if (*mac == ~0ULL) {
+ 
+ 		offset = NX_OLD_MAC_ADDR_OFFSET +
+ 			(adapter->portnum * sizeof(u64));
+@@ -1059,7 +1059,7 @@ int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 *mac)
+ 					offset, sizeof(u64), pmac) == -1)
+ 			return -1;
+ 
+-		if (*mac == cpu_to_le64(~0ULL))
++		if (*mac == ~0ULL)
+ 			return -1;
+ 	}
+ 	return 0;
+@@ -2155,7 +2155,7 @@ static u32 netxen_md_rd_crb(struct netxen_adapter *adapter,
+ static u32
+ netxen_md_rdrom(struct netxen_adapter *adapter,
+ 			struct netxen_minidump_entry_rdrom
+-				*romEntry, u32 *data_buff)
++				*romEntry, __le32 *data_buff)
+ {
+ 	int i, count = 0;
+ 	u32 size, lck_val;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 7648995..65a718f 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -805,12 +805,12 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 	char brd_name[NETXEN_MAX_SHORT_NAME];
+ 	char serial_num[32];
+ 	int i, offset, val, err;
+-	int *ptr32;
++	__le32 *ptr32;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+ 	adapter->driver_mismatch = 0;
+ 
+-	ptr32 = (int *)&serial_num;
++	ptr32 = (__le32 *)&serial_num;
+ 	offset = NX_FW_SERIAL_NUM_OFFSET;
+ 	for (i = 0; i < 8; i++) {
+ 		if (netxen_rom_fast_read(adapter, offset, &val) == -1) {
 -- 
-viresh
+1.7.4.4
