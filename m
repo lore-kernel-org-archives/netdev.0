@@ -1,27 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7] lpc32xx: Added ethernet driver
-Date: Mon, 12 Mar 2012 17:08:47 -0700 (PDT)
-Message-ID: <20120312.170847.850148121128150069.davem@davemloft.net>
-References: <1331243357-27497-1-git-send-email-stigge@antcom.de>
+Subject: Re: [PATCH v3] tun: don't hold network namespace by tun sockets
+Date: Mon, 12 Mar 2012 17:14:11 -0700 (PDT)
+Message-ID: <20120312.171411.899890153797891857.davem@davemloft.net>
+References: <20120312125833.24166.72610.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, w.sang@pengutronix.de,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
-	baruch@tkos.co.il, joe@perches.com, bhutchings@solarflare.com,
-	florian@openwrt.org
-To: stigge@antcom.de
+Cc: xemul@parallels.com, ebiederm@aristanetworks.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	shemminger@vyatta.com, devel@openvz.org
+To: skinsbursky@parallels.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331243357-27497-1-git-send-email-stigge@antcom.de>
+In-Reply-To: <20120312125833.24166.72610.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Stigge <stigge@antcom.de>
-Date: Thu,  8 Mar 2012 22:49:17 +0100
+aFrom: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Date: Mon, 12 Mar 2012 16:59:41 +0400
 
-> This patch adds an ethernet driver for the LPC32xx ARM SoC.
+> v3: added previously removed sock_put() to the tun_release() callback, because
+> sk_release_kernel() doesn't drop the socket reference.
 > 
-> Signed-off-by: Roland Stigge <stigge@antcom.de>
+> v2: sk_release_kernel() used for socket release. Dummy tun_release() is
+> required for sk_release_kernel() ---> sock_release() ---> sock->ops->release()
+> call.
+> 
+> TUN was designed to destroy it's socket on network namesapce shutdown. But this
+> will never happen for persistent device, because it's socket holds network
+> namespace.
+> This patch removes of holding network namespace by TUN socket and replaces it
+> by creating socket in init_net and then changing it's net it to desired one. On
+> shutdown socket is moved back to init_net prior to final put.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-Applied to net-next, thanks.
+Looks good, applied, thanks.
