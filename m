@@ -1,27 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/4] bnx2x bug fixes patch series
-Date: Mon, 12 Mar 2012 17:01:42 -0700 (PDT)
-Message-ID: <20120312.170142.1707100998684398630.davem@davemloft.net>
-References: <1331587327-26279-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] net: ipv4: Standardize prefixes for message
+ logging
+Date: Mon, 12 Mar 2012 17:05:58 -0700 (PDT)
+Message-ID: <20120312.170558.584205292599435892.davem@davemloft.net>
+References: <1331526971.13200.9.camel@joe2Laptop>
+	<20120311.234846.455580505379366792.davem@davemloft.net>
+	<1331571812.13200.23.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52992 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788Ab2CMABr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Mar 2012 20:01:47 -0400
-In-Reply-To: <1331587327-26279-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1331571812.13200.23.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Mon, 12 Mar 2012 17:22:03 -0400
+From: Joe Perches <joe@perches.com>
+Date: Mon, 12 Mar 2012 10:03:32 -0700
 
-> This patch series fixes several bugs in the bnx2x driver.
+> Add #define pr_fmt(fmt) as appropriate.
 > 
-> Please consider applying it to 'net'.
+> Add "IPv4: ", "TCP: ", and "IPsec: " to appropriate files.
+> Standardize on "UDPLite: " for appropriate uses.
+> Some prefixes were previously "UDPLITE: " and "UDP-Lite: ".
+> 
+> Add KBUILD_MODNAME ": " to icmp and gre.
+> Remove embedded prefixes as appropriate.
+> 
+> Add missing "\n" to pr_info in gre.c.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-All applied, thanks.
+Looks good, and applied, but I left out this hunk:
+
+> diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+> index 63b64c4..56d6768 100644
+> --- a/net/ipv4/ipcomp.c
+> +++ b/net/ipv4/ipcomp.c
+> @@ -13,6 +13,7 @@
+>   *   - Compression stats.
+>   *   - Adaptive compression.
+>   */
+> +
+>  #include <linux/module.h>
+>  #include <linux/err.h>
+>  #include <linux/rtnetlink.h>
+
+As it seemed accidental, if not gratuitous.
