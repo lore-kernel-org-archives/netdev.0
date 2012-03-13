@@ -1,40 +1,45 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
-Date: Tue, 13 Mar 2012 16:55:14 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: fix syncookie regression
+Date: Tue, 13 Mar 2012 12:52:42 -0400
+Message-ID: <CADVnQy=U3rZM7NUWEGrNaRjAj4vUM+2chyucRXhnswx2UCzxGA@mail.gmail.com>
+References: <20120310122725.GA31129@hostway.ca>
+	<1331401490.2453.28.camel@edumazet-laptop>
+	<1331402182.2453.30.camel@edumazet-laptop>
+	<1331407221.2453.42.camel@edumazet-laptop>
+	<20120313072643.GA32306@hostway.ca>
+	<20120313140737.GA1424@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Laight" <David.Laight@ACULAB.COM>,
-	"Maciej Zenczykowski" <zenczykowski@gmail.com>,
-	"Maciej Zenczykowski" <maze@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Kirby <sim@netnation.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43684 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757666Ab2CMQ4P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:56:15 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04026-01 for <netdev@vger.kernel.org>;
- Tue, 13 Mar 2012 16:56:13 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
+Received: from mail-fa0-f46.google.com ([209.85.161.46]:61677 "EHLO
+	mail-fa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757506Ab2CMQ6i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:58:38 -0400
+Received: by faas1 with SMTP id s1so214764faa.19
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 09:58:36 -0700 (PDT)
+In-Reply-To: <20120313140737.GA1424@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> > +	/* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
-> > +	return ((26468 >> (i+i)) & 3) - 1;
-> 
-> That expression doesn't seem quite right to me ...
-> 	return (int)(0x12131210 >> (i * 4)) & 3) - 1;
-> probably does what is wanted.
+On Tue, Mar 13, 2012 at 10:07 AM, Dave Jones <davej@redhat.com> wrote:
+> On Tue, Mar 13, 2012 at 12:26:44AM -0700, Simon Kirby wrote:
+>
+> =A0> Oops two seconds later, scrolled off console, didn't get written=
+ to disk
+> =A0> or remote syslog server, all we have is syslog-broadcasted Oops =
+and Code
+> =A0> lines due to broken printk priorities:
+>
+> I posted two reports we've had against Fedora yesterday which look li=
+ke this bug.
+>
+> https://bugzilla.redhat.com/show_bug.cgi?id=3D801599
+> https://bugzilla.redhat.com/show_bug.cgi?id=3D802660
 
-Hmmm... I'm going blind - I read that as 'i+1' not 'i+i'.
-But using 'i * 4' and putting the constant in base 16
-make the code rather less obscure.
+Yes, these look like the same issue.
 
-	David
+neal
