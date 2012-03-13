@@ -1,152 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] ixgbe: Simplify logic for ethtool loopback frame creation and testing
-Date: Mon, 12 Mar 2012 21:03:52 -0700
-Message-ID: <1331611432-30109-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] ixgbe: Correct Adaptive Interrupt Moderation so that it will change values
+Date: Mon, 12 Mar 2012 21:03:47 -0700
+Message-ID: <1331611432-30109-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:43936 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11875 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265Ab2CMEEH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Mar 2012 00:04:07 -0400
+	id S1751620Ab2CMEEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Mar 2012 00:04:04 -0400
 In-Reply-To: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes it a bit easier to do the loopback frame creating and
-testing.  Previously we were doing an and to drop the last bit, and then
-dividing the frame_size by 2 in order to get locations for frame bytes and
-testing.  Instead we can simplify it by just shifting the register one bit
-to the right and using that for the frame offsets.
-
-This change also replaces all instances of rx_buffer_info with just
-rx_buffer since that is closer to the name of the actual structure being
-used and can save a few extra characters.
-
-In addition I have updated the logic for cleaning up a test frame so that
-we pass an rx_buffer instead of the sk_buff.  The main motivation behind
-this is changes that will replace the sk_buff with just a page in the
-future.
+This change corrects an issue in which Adaptive Interrupt Moderation was
+not changing values due to the fact that we were performing an and
+operation on the resultant value that was causing the value to never change
+from the default 20K interrupts per second.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   63 +++++++++++-----------
- 1 files changed, 32 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 51d159b..1216bae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1701,63 +1701,65 @@ static void ixgbe_loopback_cleanup(struct ixgbe_adapter *adapter)
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index fc3c33a..bad9c05 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1834,7 +1834,7 @@ void ixgbe_write_eitr(struct ixgbe_q_vector *q_vector)
+ 	struct ixgbe_adapter *adapter = q_vector->adapter;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int v_idx = q_vector->v_idx;
+-	u32 itr_reg = q_vector->itr;
++	u32 itr_reg = q_vector->itr & IXGBE_MAX_EITR;
  
- static void ixgbe_create_lbtest_frame(struct sk_buff *skb,
--                                      unsigned int frame_size)
-+				      unsigned int frame_size)
- {
- 	memset(skb->data, 0xFF, frame_size);
--	frame_size &= ~1;
--	memset(&skb->data[frame_size / 2], 0xAA, frame_size / 2 - 1);
--	memset(&skb->data[frame_size / 2 + 10], 0xBE, 1);
--	memset(&skb->data[frame_size / 2 + 12], 0xAF, 1);
-+	frame_size >>= 1;
-+	memset(&skb->data[frame_size], 0xAA, frame_size / 2 - 1);
-+	memset(&skb->data[frame_size + 10], 0xBE, 1);
-+	memset(&skb->data[frame_size + 12], 0xAF, 1);
- }
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82598EB:
+@@ -1886,7 +1886,7 @@ static void ixgbe_set_itr(struct ixgbe_q_vector *q_vector)
+ 			  ((9 * new_itr) + q_vector->itr);
  
--static int ixgbe_check_lbtest_frame(struct sk_buff *skb,
--                                    unsigned int frame_size)
-+static bool ixgbe_check_lbtest_frame(struct ixgbe_rx_buffer *rx_buffer,
-+				     unsigned int frame_size)
- {
--	frame_size &= ~1;
--	if (*(skb->data + 3) == 0xFF) {
--		if ((*(skb->data + frame_size / 2 + 10) == 0xBE) &&
--		    (*(skb->data + frame_size / 2 + 12) == 0xAF)) {
--			return 0;
--		}
--	}
--	return 13;
-+	unsigned char *data;
-+	bool match = true;
-+
-+	frame_size >>= 1;
-+
-+	data = rx_buffer->skb->data;
-+
-+	if (data[3] != 0xFF ||
-+	    data[frame_size + 10] != 0xBE ||
-+	    data[frame_size + 12] != 0xAF)
-+		match = false;
-+
-+	return match;
- }
+ 		/* save the algorithm value here */
+-		q_vector->itr = new_itr & IXGBE_MAX_EITR;
++		q_vector->itr = new_itr;
  
- static u16 ixgbe_clean_test_rings(struct ixgbe_ring *rx_ring,
--                                  struct ixgbe_ring *tx_ring,
--                                  unsigned int size)
-+				  struct ixgbe_ring *tx_ring,
-+				  unsigned int size)
- {
- 	union ixgbe_adv_rx_desc *rx_desc;
--	struct ixgbe_rx_buffer *rx_buffer_info;
--	struct ixgbe_tx_buffer *tx_buffer_info;
--	const int bufsz = rx_ring->rx_buf_len;
--	u32 staterr;
-+	struct ixgbe_rx_buffer *rx_buffer;
-+	struct ixgbe_tx_buffer *tx_buffer;
- 	u16 rx_ntc, tx_ntc, count = 0;
- 
- 	/* initialize next to clean and descriptor values */
- 	rx_ntc = rx_ring->next_to_clean;
- 	tx_ntc = tx_ring->next_to_clean;
- 	rx_desc = IXGBE_RX_DESC(rx_ring, rx_ntc);
--	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
- 
--	while (staterr & IXGBE_RXD_STAT_DD) {
-+	while (ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_DD)) {
- 		/* check Rx buffer */
--		rx_buffer_info = &rx_ring->rx_buffer_info[rx_ntc];
-+		rx_buffer = &rx_ring->rx_buffer_info[rx_ntc];
- 
- 		/* unmap Rx buffer, will be remapped by alloc_rx_buffers */
- 		dma_unmap_single(rx_ring->dev,
--		                 rx_buffer_info->dma,
--				 bufsz,
-+				 rx_buffer->dma,
-+				 rx_ring->rx_buf_len,
- 				 DMA_FROM_DEVICE);
--		rx_buffer_info->dma = 0;
-+		rx_buffer->dma = 0;
- 
- 		/* verify contents of skb */
--		if (!ixgbe_check_lbtest_frame(rx_buffer_info->skb, size))
-+		if (ixgbe_check_lbtest_frame(rx_buffer, size))
- 			count++;
- 
- 		/* unmap buffer on Tx side */
--		tx_buffer_info = &tx_ring->tx_buffer_info[tx_ntc];
--		ixgbe_unmap_and_free_tx_resource(tx_ring, tx_buffer_info);
-+		tx_buffer = &tx_ring->tx_buffer_info[tx_ntc];
-+		ixgbe_unmap_and_free_tx_resource(tx_ring, tx_buffer);
- 
- 		/* increment Rx/Tx next to clean counters */
- 		rx_ntc++;
-@@ -1769,7 +1771,6 @@ static u16 ixgbe_clean_test_rings(struct ixgbe_ring *rx_ring,
- 
- 		/* fetch next descriptor */
- 		rx_desc = IXGBE_RX_DESC(rx_ring, rx_ntc);
--		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 		ixgbe_write_eitr(q_vector);
  	}
- 
- 	/* re-map buffers to ring, store next to clean values */
 -- 
 1.7.7.6
