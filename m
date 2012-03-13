@@ -1,100 +1,48 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH 6/8] IB/rdma_cm: TOS <=> UP mapping for IBoE
-Date: Tue, 13 Mar 2012 19:22:01 +0200
-Message-ID: <1331659323-12904-7-git-send-email-amirv@mellanox.com>
-References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.co.il>,
-	Sean Hefty <sean.hefty@intel.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
+Date: Tue, 13 Mar 2012 10:34:23 -0700
+Message-ID: <1331660063.4449.23.camel@edumazet-glaptop>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Maciej Zenczykowski <zenczykowski@gmail.com>,
+	Maciej Zenczykowski <maze@google.com>, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:40073 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758603Ab2CMRXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:23:10 -0400
-In-Reply-To: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:38238 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758059Ab2CMRe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 13:34:26 -0400
+Received: by yenl12 with SMTP id l12so803925yen.19
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 10:34:26 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.co.il>
+On Tue, 2012-03-13 at 16:55 +0000, David Laight wrote:
+> > > +	/* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
+> > > +	return ((26468 >> (i+i)) & 3) - 1;
+> > 
+> > That expression doesn't seem quite right to me ...
+> > 	return (int)(0x12131210 >> (i * 4)) & 3) - 1;
+> > probably does whats wanted.
+> 
+> Hmmm... I'm going blind - I read that as 'i+1' not 'i+i'.
+> But using 'i * 4' and putting the constant in base 16
+> make the code rather less obscure.
 
-Both tagged traffic and untagged traffic use tc tool mapping.
-Treat RDMA TOS same as IP TOS when mapping to SL
+Point was to get short/fast code.
 
-Since IP TOS to priority mapping is not exported, had to borrow the code from
-net/ipv4/route.c
+26458 can probably be expressed with a macro so that it is self
+explained.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
-CC: Sean Hefty <sean.hefty@intel.com>
+Check asm output if your way is better. Its probably not the case
+because some arches can use smaller code to manipulate small constants.
 
----
+I am not sure the memory lookup is that expensive anyway
+(we probably could use 'char' instead of 'int' to reduce the siwe of
+this memory blob)
 
-We can export IP TOS to priority mapping if the networking maintainers will say
-where they want it.
----
- drivers/infiniband/core/cma.c |   35 ++++++++++++++++++++++++++++++++++-
- 1 files changed, 34 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index e3e470f..c0eeb2c 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -42,6 +42,7 @@
- #include <linux/inetdevice.h>
- #include <linux/slab.h>
- #include <linux/module.h>
-+#include <linux/pkt_sched.h>
- 
- #include <net/tcp.h>
- #include <net/ipv6.h>
-@@ -1781,6 +1782,32 @@ static int cma_resolve_iw_route(struct rdma_id_private *id_priv, int timeout_ms)
- 	return 0;
- }
- 
-+#define ECN_OR_COST(class)	TC_PRIO_##class
-+
-+static const __u8 tos2prio[16] = {
-+	TC_PRIO_BESTEFFORT,
-+	ECN_OR_COST(BESTEFFORT),
-+	TC_PRIO_BESTEFFORT,
-+	ECN_OR_COST(BESTEFFORT),
-+	TC_PRIO_BULK,
-+	ECN_OR_COST(BULK),
-+	TC_PRIO_BULK,
-+	ECN_OR_COST(BULK),
-+	TC_PRIO_INTERACTIVE,
-+	ECN_OR_COST(INTERACTIVE),
-+	TC_PRIO_INTERACTIVE,
-+	ECN_OR_COST(INTERACTIVE),
-+	TC_PRIO_INTERACTIVE_BULK,
-+	ECN_OR_COST(INTERACTIVE_BULK),
-+	TC_PRIO_INTERACTIVE_BULK,
-+	ECN_OR_COST(INTERACTIVE_BULK)
-+};
-+
-+static inline char cma_tos2priority(u8 tos)
-+{
-+	return tos2prio[IPTOS_TOS(tos)>>1];
-+}
-+
- static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- {
- 	struct rdma_route *route = &id_priv->id.route;
-@@ -1826,7 +1853,13 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- 	route->path_rec->reversible = 1;
- 	route->path_rec->pkey = cpu_to_be16(0xffff);
- 	route->path_rec->mtu_selector = IB_SA_EQ;
--	route->path_rec->sl = id_priv->tos >> 5;
-+	if (ndev->priv_flags & IFF_802_1Q_VLAN)
-+		route->path_rec->sl =
-+			netdev_get_prio_tc_map(vlan_dev_real_dev(ndev),
-+					cma_tos2priority(id_priv->tos));
-+	else
-+		route->path_rec->sl = netdev_get_prio_tc_map(ndev,
-+				cma_tos2priority(id_priv->tos));
- 
- 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
- 	route->path_rec->rate_selector = IB_SA_EQ;
--- 
-1.7.8.2
+Code is also read from memory, so you have to trade icache/dcache
+issues.
