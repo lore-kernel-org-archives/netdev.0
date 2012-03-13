@@ -1,50 +1,109 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
-Date: Tue, 13 Mar 2012 13:37:25 -0700
-Message-ID: <CANP3RGe6zQzsuvZ=qpcWFou6EY99HhWq0ekf6UkfqKCvj+eiRA@mail.gmail.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Laight <David.Laight@aculab.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH][iproute2] ip: xfrm: report nat-t/encapsulation portmapping updates
+Date: Tue, 13 Mar 2012 23:35:25 +0100
+Message-ID: <1331678125-5307-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44798 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823Ab2CMUh2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 16:37:28 -0400
-Received: by eekc41 with SMTP id c41so621771eek.19
-        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 13:37:26 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EA1@saturn3.aculab.com>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:55499 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759840Ab2CMWjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 18:39:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-but a 16-bit constant will be better than a 32-bit one on 16-bit platfo=
-rms
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ ip/xfrm_monitor.c |   56 ++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 49 insertions(+), 7 deletions(-)
 
-On Tue, Mar 13, 2012 at 9:55 AM, David Laight <David.Laight@aculab.com>=
- wrote:
->
->> > + =C2=A0 /* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
->> > + =C2=A0 return ((26468 >> (i+i)) & 3) - 1;
->>
->> That expression doesn't seem quite right to me ...
->> =C2=A0 =C2=A0 =C2=A0 return (int)(0x12131210 >> (i * 4)) & 3) - 1;
->> probably does what is wanted.
->
-> Hmmm... I'm going blind - I read that as 'i+1' not 'i+i'.
-> But using 'i * 4' and putting the constant in base 16
-> make the code rather less obscure.
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0David
->
->
-
-
-
---=20
-Maciej A. =C5=BBenczykowski
-Kernel Networking Developer @ Google
-1600 Amphitheatre Parkway, Mountain View, CA 94043
-tel: +1 (650) 253-0062
+diff --git a/ip/xfrm_monitor.c b/ip/xfrm_monitor.c
+index 6a5b331..ea17987 100644
+--- a/ip/xfrm_monitor.c
++++ b/ip/xfrm_monitor.c
+@@ -221,6 +221,20 @@ void xfrm_ae_flags_print(__u32 flags, void *arg)
+ 
+ }
+ 
++static void xfrm_usersa_print(const struct xfrm_usersa_id *sa_id, __u32 reqid, FILE *fp)
++{
++	char buf[256];
++
++	buf[0] = 0;
++	fprintf(fp, "dst %s ", rt_addr_n2a(sa_id->family,
++		sizeof(sa_id->daddr), &sa_id->daddr, buf, sizeof(buf)));
++
++	fprintf(fp, " reqid 0x%x", reqid);
++
++	fprintf(fp, " protocol %s ", strxf_proto(sa_id->proto));
++	fprintf(fp, " SPI 0x%x", ntohl(sa_id->spi));
++}
++
+ static int xfrm_ae_print(const struct sockaddr_nl *who,
+ 			     struct nlmsghdr *n, void *arg)
+ {
+@@ -235,13 +249,8 @@ static int xfrm_ae_print(const struct sockaddr_nl *who,
+ 	fprintf(fp, "src %s ", rt_addr_n2a(id->sa_id.family,
+ 		sizeof(id->saddr), &id->saddr,
+ 		abuf, sizeof(abuf)));
+-	memset(abuf, '\0', sizeof(abuf));
+-	fprintf(fp, "dst %s ", rt_addr_n2a(id->sa_id.family,
+-		sizeof(id->sa_id.daddr), &id->sa_id.daddr,
+-		abuf, sizeof(abuf)));
+-	fprintf(fp, " reqid 0x%x", id->reqid);
+-	fprintf(fp, " protocol %s ", strxf_proto(id->sa_id.proto));
+-	fprintf(fp, " SPI 0x%x", ntohl(id->sa_id.spi));
++
++	xfrm_usersa_print(&id->sa_id, id->reqid, fp);
+ 
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+@@ -249,6 +258,36 @@ static int xfrm_ae_print(const struct sockaddr_nl *who,
+ 	return 0;
+ }
+ 
++static void xfrm_print_addr(FILE *fp, int family, xfrm_address_t *a, size_t s)
++{
++	char buf[256];
++
++	buf[0] = 0;
++	fprintf(fp, "%s", rt_addr_n2a(family, s, a, buf, sizeof(buf)));
++}
++
++static int xfrm_mapping_print(const struct sockaddr_nl *who,
++			     struct nlmsghdr *n, void *arg)
++{
++	FILE *fp = (FILE*)arg;
++	struct xfrm_user_mapping *map = NLMSG_DATA(n);
++
++	fprintf(fp, "Mapping change ");
++	xfrm_print_addr(fp, map->id.family, &map->old_saddr,
++			sizeof(map->old_saddr));
++
++	fprintf(fp, ":%d -> ", ntohs(map->old_sport));
++	xfrm_print_addr(fp, map->id.family, &map->new_saddr,
++			sizeof(map->new_saddr));
++	fprintf(fp, ":%d\n\t", ntohs(map->new_sport));
++
++	xfrm_usersa_print(&map->id, map->reqid, fp);
++
++	fprintf(fp, "\n");
++	fflush(fp);
++	return 0;
++}
++
+ static int xfrm_accept_msg(const struct sockaddr_nl *who,
+ 			   struct nlmsghdr *n, void *arg)
+ {
+@@ -285,6 +324,9 @@ static int xfrm_accept_msg(const struct sockaddr_nl *who,
+ 	case XFRM_MSG_NEWAE:
+ 		xfrm_ae_print(who, n, arg);
+ 		return 0;
++	case XFRM_MSG_MAPPING:
++		xfrm_mapping_print(who, n, arg);
++		return 0;
+ 	default:
+ 		break;
+ 	}
+-- 
+1.7.3.4
