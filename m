@@ -1,65 +1,37 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: fix syncookie regression
-Date: Tue, 13 Mar 2012 12:44:00 -0400
-Message-ID: <CADVnQynM5F=B60-7AMFHn0A9g-jvcBzo+dSg-C0isDBo_UMyjw@mail.gmail.com>
-References: <20120310122725.GA31129@hostway.ca>
-	<1331401490.2453.28.camel@edumazet-laptop>
-	<1331402182.2453.30.camel@edumazet-laptop>
-	<1331407221.2453.42.camel@edumazet-laptop>
-	<20120313072643.GA32306@hostway.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ip route show shows the routes in the inverse order?
+Date: Tue, 13 Mar 2012 09:47:33 -0700
+Message-ID: <1331657253.4449.2.camel@edumazet-glaptop>
+References: <CAA7Uhc=xFxiAc9ZL0KHQJ1Opr0m=Do_OuLmL7WWd7PU4JuUNnQ@mail.gmail.com>
+	 <20120312193204.5be5b4b8@nehalam.linuxnetplumber.net>
+	 <20120313021529.97514922.billfink@mindspring.com>
+	 <20120312.235234.73408595516828250.davem@davemloft.net>
+	 <CAA7UhcmMYa+N4VUFjfM_qjCdhy3zAE0C8eN+Z0nsACNZeJ4RKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Simon Kirby <sim@netnation.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, billfink@mindspring.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Diego Woitasen <diego@woitasen.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39457 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755534Ab2CMQoC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:44:02 -0400
-Received: by eekc41 with SMTP id c41so397769eek.19
-        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 09:44:01 -0700 (PDT)
-In-Reply-To: <20120313072643.GA32306@hostway.ca>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:39273 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660Ab2CMQri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 12:47:38 -0400
+Received: by ghrr11 with SMTP id r11so756718ghr.19
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 09:47:38 -0700 (PDT)
+In-Reply-To: <CAA7UhcmMYa+N4VUFjfM_qjCdhy3zAE0C8eN+Z0nsACNZeJ4RKA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 13, 2012 at 3:26 AM, Simon Kirby <sim@netnation.com> wrote:
->
-> While deploying this on top of 3.2.9, we hit what seems to be the bug
-> fixed by 4648dc97af9d496218a05353b0e442b3dfa6aaab in 3.3. I see 3.2.9=
- has
-> daef52bab1fd26e24e8e9578f8fb33ba1d0cb412, so maybe this is exposed in=
- 3.2
-> now?
-=2E..
-> net/ipv4/tcp_input.c:
-> =A0 =A0 3438 #if FASTRETRANS_DEBUG > 0
-> ---> 3439 =A0 =A0 =A0 =A0 WARN_ON((int)tp->sacked_out < 0);
-> =A0 =A0 3440 =A0 =A0 =A0 =A0 WARN_ON((int)tp->lost_out < 0);
-> =A0 =A0 3441 =A0 =A0 =A0 =A0 WARN_ON((int)tp->retrans_out < 0);
-> =A0 =A0 3442 =A0 =A0 =A0 =A0 if (!tp->packets_out && tcp_is_sack(tp))=
- {
-> ...
-> =A0 =A0 3057 =A0 =A0 =A0 =A0 /* D. Check consistency of the current s=
-tate. */
-> ---> 3058 =A0 =A0 =A0 =A0 tcp_verify_left_out(tp);
+On Tue, 2012-03-13 at 11:26 -0300, Diego Woitasen wrote:
 
-Yes, exactly. 3.2.9 and 3.2.10 have
-daef52bab1fd26e24e8e9578f8fb33ba1d0cb412 but not the
-4648dc97af9d496218a05353b0e442b3dfa6aaab that fixes the resulting
-issue with sacked_out going negative, and these lines you've flagged
-are exactly the symptoms we'd expect because of that. The fix is
-queued up for the -stable series already, so it should be in 3.2.11, I
-presume. The fix is already in 3.3-rc7.
+> I don't aggree at this point. First, it was the behavior for years,
+> like a "de facto" standard. Second, there a "natural ordering"  for
+> routes. More specific match first, so it makes sense for them to be in
+> the first place.
 
-> Oops two seconds later, scrolled off console, didn't get written to d=
-isk
-> or remote syslog server, all we have is syslog-broadcasted Oops and C=
-ode
-> lines due to broken printk priorities:
+Please provide an iproute2 patch, this is not a kernel issue at all.
 
-As you can imagine, the oops is probably connected to sacked_out going
-negative; others have reported an oops along with sacked_out going
-negative. The fix should take care of that.
-
-neal
+Keep in mind it might be very tricky, since a machine can have tons of
+routes.
