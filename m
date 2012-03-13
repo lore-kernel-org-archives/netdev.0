@@ -1,35 +1,31 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
-Date: Tue, 13 Mar 2012 11:04:21 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
-References: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
+From: Viresh Kumar <viresh.kumar@st.com>
+Subject: Re: [PATCH v2] stmmac: Add device-tree support
+Date: Tue, 13 Mar 2012 16:41:18 +0530
+Message-ID: <4F5F2B56.2060504@st.com>
+References: <1331623394-14600-1-git-send-email-sr@denx.de> <4F5F0AF2.1070508@st.com> <201203131129.34449.sr@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Maciej Zenczykowski" <zenczykowski@gmail.com>,
-	"Maciej Zenczykowski" <maze@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree-discuss@ozlabs.org" <devicetree-discuss@ozlabs.org>,
+	spear-devel <spear-devel@list.st.com>,
+	Peppe CAVALLARO <peppe.cavallaro@st.com>
+To: Stefan Roese <sr@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36846 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752481Ab2CMLFU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 07:05:20 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 23833-09 for <netdev@vger.kernel.org>;
- Tue, 13 Mar 2012 11:05:18 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:55846 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754305Ab2CMLML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 07:12:11 -0400
+In-Reply-To: <201203131129.34449.sr@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> +	/* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
-> +	return ((26468 >> (i+i)) & 3) - 1;
+On 3/13/2012 3:59 PM, Stefan Roese wrote:
+> Consistency. pr_err is used in this driver. So I'm sticking to it with this 
+> patch as well.
 
-That expression doesn't seem quite right to me ...
-	return (int)(0x12131210 >> (i * 4)) & 3) - 1;
-probably does what is wanted.
+Hmmm. I don't know, but can you add another patch before this one to move those
+prints.
 
-	David
+-- 
+viresh
