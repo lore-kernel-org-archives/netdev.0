@@ -1,57 +1,35 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 1/1] net: phylib: add error checking if no phy found
-Date: Tue, 13 Mar 2012 18:58:22 +0800
-Message-ID: <1331636302-18256-1-git-send-email-b29396@freescale.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: pfifo_fast - use ffs(x)-1 instead of array lookup
+Date: Tue, 13 Mar 2012 11:04:21 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6E9E@saturn3.aculab.com>
+References: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <timur@freescale.com>,
-	<rdunlap@xenotime.net>, <kernel@pengutronix.de>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "Maciej Zenczykowski" <zenczykowski@gmail.com>,
+	"Maciej Zenczykowski" <maze@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:36846 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752481Ab2CMLFU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 07:05:20 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 23833-09 for <netdev@vger.kernel.org>;
+ Tue, 13 Mar 2012 11:05:18 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1331615541-18214-1-git-send-email-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dong Aisheng <dong.aisheng@linaro.org>
+ 
+> +	/* For i in 0..7 returns {-1, 0, 1, 0, 2, 0, 1, 0}[i] */
+> +	return ((26468 >> (i+i)) & 3) - 1;
 
-Signed-off-by: Dong Aisheng <dong.aisheng@linaro.org>
----
- drivers/net/phy/mdio_bus.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+That expression doesn't seem quite right to me ...
+	return (int)(0x12131210 >> (i * 4)) & 3) - 1;
+probably does what is wanted.
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 88cc5db..d8e044d 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -101,6 +101,7 @@ static struct class mdio_bus_class = {
- int mdiobus_register(struct mii_bus *bus)
- {
- 	int i, err;
-+	u32 phynum = 0;
- 
- 	if (NULL == bus || NULL == bus->name ||
- 			NULL == bus->read ||
-@@ -134,12 +135,20 @@ int mdiobus_register(struct mii_bus *bus)
- 			if (IS_ERR(phydev)) {
- 				err = PTR_ERR(phydev);
- 				goto error;
-+			} else if (phydev != NULL) {
-+				phynum++;
- 			}
- 		}
- 	}
- 
-+	if (!phynum) {
-+		err = -ENODEV;
-+		printk(KERN_ERR "%s: no phys found\n", bus->name);
-+		goto error;
-+	}
-+
- 	bus->state = MDIOBUS_REGISTERED;
--	pr_info("%s: probed\n", bus->name);
-+	pr_info("%s: %d phys probed\n", bus->name, phynum);
- 	return 0;
- 
- error:
--- 
-1.7.0.4
+	David
