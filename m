@@ -1,50 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv4: Standardize prefixes for message
- logging
-Date: Mon, 12 Mar 2012 17:05:58 -0700 (PDT)
-Message-ID: <20120312.170558.584205292599435892.davem@davemloft.net>
-References: <1331526971.13200.9.camel@joe2Laptop>
-	<20120311.234846.455580505379366792.davem@davemloft.net>
-	<1331571812.13200.23.camel@joe2Laptop>
+Subject: Re: [PATCH 0/2] net/hyperv: Add support for vlan trunking from
+ guests
+Date: Mon, 12 Mar 2012 17:06:58 -0700 (PDT)
+Message-ID: <20120312.170658.1637379523228794072.davem@davemloft.net>
+References: <1331583650-29686-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: kys@microsoft.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1331571812.13200.23.camel@joe2Laptop>
+In-Reply-To: <1331583650-29686-1-git-send-email-haiyangz@microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 12 Mar 2012 10:03:32 -0700
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 12 Mar 2012 13:20:48 -0700
 
-> Add #define pr_fmt(fmt) as appropriate.
+> This patch series add vlan trunking feature from guests. With this feature,
+> a Linux guest can now configure multiple vlans through a single synthetic
+> NIC on Win8 Hyper-V host.
 > 
-> Add "IPv4: ", "TCP: ", and "IPsec: " to appropriate files.
-> Standardize on "UDPLite: " for appropriate uses.
-> Some prefixes were previously "UDPLITE: " and "UDP-Lite: ".
+> Note: Both patches should go to the 'net-next' tree. The patch [1/2] is
+> required by the vlan trunking feature [2/2]. So they should go together.
 > 
-> Add KBUILD_MODNAME ": " to icmp and gre.
-> Remove embedded prefixes as appropriate.
-> 
-> Add missing "\n" to pr_info in gre.c.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The bug in rndis_filter_receive() does NOT happen until we start to use 
+> 'per-packet-data' by the vlan trunking feature, so the bug fix [1/2] isn't
+> urgent to be applied into 'net' tree.
 
-Looks good, and applied, but I left out this hunk:
-
-> diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-> index 63b64c4..56d6768 100644
-> --- a/net/ipv4/ipcomp.c
-> +++ b/net/ipv4/ipcomp.c
-> @@ -13,6 +13,7 @@
->   *   - Compression stats.
->   *   - Adaptive compression.
->   */
-> +
->  #include <linux/module.h>
->  #include <linux/err.h>
->  #include <linux/rtnetlink.h>
-
-As it seemed accidental, if not gratuitous.
+Both applied, thanks.
