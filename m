@@ -1,70 +1,114 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
- performance degration
-Date: Wed, 14 Mar 2012 19:01:56 +0200
-Message-ID: <20120314190156.622c8cd5@vostro>
+From: Justin Gibbs <justing@spectralogic.com>
+Subject: Re: [Xen-devel] [PATCH 0001/001] xen: multi page ring support for
+	block devices
+Date: Wed, 14 Mar 2012 06:32:55 +0000
+Message-ID: <230A793A-C929-468E-97BE-1C68920749E1@spectralogic.com>
+References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
+	<7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+	<CAPbh3rsExLtohBwVd_scYuO=GN1iZE5egQQ3x5M59YUno5Rtyw@mail.gmail.com>
+	<4F5739760200007800076DA6@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:52589 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761201Ab2CNRCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:02:37 -0400
-Received: by bkcik5 with SMTP id ik5so1466380bkc.19
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:02:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "jeremy@goop.org" <jeremy@goop.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"waldi@debian.org" <waldi@debian.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"joe.jin@oracle.com" <joe.jin@oracle.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
+	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Santosh Jodh <Santosh.Jodh@citrix.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"<konrad@darnok.org>" <konrad@darnok.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualizati
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4F5739760200007800076DA6@nat28.tlf.novell.com>
+Content-Language: en-US
+Content-ID: <FDFA958FB04A0E439CDD2091E5CD7AA7@spectralogic.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-I have a router box running linux-3.0.18 (with grsec patches).
+On Mar 7, 2012, at 2:33 AM, Jan Beulich wrote:
 
-with the NIC hardware:
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-r8169 0000:00:09.0: (unregistered net_device): no PCI Express capability
-r8169 0000:00:09.0: eth0: RTL8169sc/8110sc at 0xf82f8000, 00:30:18:ab:6b:54, XID 18000000 IRQ 18
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:00:0b.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
-r8169 0000:00:0b.0: (unregistered net_device): no PCI Express capability
-r8169 0000:00:0b.0: eth1: RTL8169sc/8110sc at 0xf82fa000, 00:30:18:ab:6b:55, XID 18000000 IRQ 19
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-r8169 0000:00:0c.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-r8169 0000:00:0c.0: (unregistered net_device): no PCI Express capability
-r8169 0000:00:0c.0: eth2: RTL8169sc/8110sc at 0xf82fc000, 00:30:18:ab:6b:56, XID 18000000 IRQ 16
+>>>> On 06.03.12 at 18:20, Konrad Rzeszutek Wilk <konrad@darnok.org> wrote:
+>> -> XENBUS_MAX_RING_PAGES - why 2? Why not 4? What is the optimal
+>> default size for SSD usage? 16?
+> 
+> What do SSDs have to do with a XenBus definition? Imo it's wrong (and
+> unnecessary) to introduce a limit at the XenBus level at all - each driver
+> can do this for itself.
+> 
+> As to the limit for SSDs in the block interface - I don't think the number
+> of possibly simultaneous requests has anything to do with this. Instead,
+> I'd expect the request number/size/segments extension that NetBSD
+> apparently implements to possibly have an effect.
+> 
+> Jan
 
-This box is working just as a plain IPv4 router (internal RFC1918
-address space) forwarding packets.
+There's another problem here that I brought up during the Xen
+Hack-a-thon.  The ring macros require that the ring element count
+be a power of two.  This doesn't mean that the ring will be a power
+of 2 pages in size.  To illustrate this point, I modified the FreeBSD
+blkback driver to provide negotiated ring stats via sysctl.
 
-It routes basically from eth2 to multiple vlans over bond0 consisting of eth0 and eth1.
+Here's a connection to a Windows VM running the Citrix PV drivers:
 
-I have most hw accel stuff turned off, and "ethtool -k eth0" says:
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
+    dev.xbbd.2.max_requests: 128
+    dev.xbbd.2.max_request_segments: 11
+    dev.xbbd.2.max_request_size: 45056
+    dev.xbbd.2.ring_elem_size: 108  <= 32bit ABI
+    dev.xbbd.2.ring_pages: 4
+    dev.xbbd.2.ring_elements: 128
+    dev.xbbd.2.ring_waste: 2496
 
-The same applies for all interfaces (except lo).
+Over half a page is wasted when ring-page-order is 2.  I'm sure you
+can see where this is going.  :-)
 
-However, tcpdump on this box indicates that I'm receiving very
-long (tcp length more than mtu) incoming packets on eth2 implying that
-gso/tso got turned on somehow. eth2 is connected with cross-over cable
-to similar box running a bit older linux box; but gso/tso is turned off
-there too. When dumping simultaneously on the other side, it indicates
-that all packets sent are normal length, and no merging was performed
-earlier (fits mtu 1500).
+Here are the limits published by our backend to the XenStore:
 
-So it would appear that the router box somehow insists on doing gso/tso,
-and sadly it will also mess up on the send path (the incoming merged
-packet is forwarded, but sent out short) causing lost segments and
-serious performance degration.
+    max-ring-pages = "113"
+    max-ring-page-order = "7"
+    max-requests = "256"
+    max-request-segments = "129"
+    max-request-size = "524288"
 
-Any pointers how to next debug/fix/workaround this issue?
+Because we allow so many concurrent, large requests in our product,
+the ring wastage really adds up if the front end doesn't support
+the "ring-pages" variant of the extension.  However, you only need
+a ring-page-order of 3 with this protocol to start seeing pages of
+wasted ring space.
 
--Timo
+You don't really want to negotiate "ring-pages" either.  The backends
+often need to support multiple ABIs.  I can easily construct a set
+of limits for the FreeBSD blkback driver which will cause the ring
+limits to vary by a page between the 32bit and 64bit ABIs.
+
+With all this in mind, the backend must do a dance of rounding up,
+taking the max of the ring sizes for the different ABIs, and then
+validating the front-end published limits taking its ABI into
+account.  The front-end does some of this too.  Its way too messy
+and error prone because we don't communicate the ring element limit
+directly.
+
+"max-ring-element-order" anyone? :-)
+
+--
+Justin
