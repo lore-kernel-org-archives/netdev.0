@@ -1,63 +1,92 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
  tx ip checksum
-Date: Wed, 14 Mar 2012 20:35:55 +0000
-Message-ID: <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Wed, 14 Mar 2012 20:45:40 +0000
+Message-ID: <138EA028228D124A900F5E6746F3C2160F6B3154@ORSMSX102.amr.corp.intel.com>
 References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20120314082529.584a669f@nehalam.linuxnetplumber.net>
+	<138EA028228D124A900F5E6746F3C2160F6B0F97@ORSMSX102.amr.corp.intel.com>
+ <20120314123247.687be130@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Yi Zou <yi.zou@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:9963 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755332Ab2CNUf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:35:59 -0400
-In-Reply-To: <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mga01.intel.com ([192.55.52.88]:35749 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761435Ab2CNUp4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:45:56 -0400
+In-Reply-To: <20120314123247.687be130@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-03-14 at 00:01 -0700, Jeff Kirsher wrote:
-> From: Yi Zou <yi.zou@intel.com>
 > 
-> Fix a bug when using 'ethtool -K ethx tx off' to turn off tx ip checksum,
-> FCoE CRC offload should not be impacte. The skb_checksum_help() is needed
-> only if it's not FCoE traffic for ip checksum, regardless of ethtool toggling
-> the tx ip checksum on or off.
-[...]
+> On Wed, 14 Mar 2012 18:54:32 +0000
+> "Zou, Yi" <yi.zou@intel.com> wrote:
+> 
+> > >
+> > > On Wed, 14 Mar 2012 00:01:58 -0700
+> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > >
+> > > > From: Yi Zou <yi.zou@intel.com>
+> > > >
+> > > > Fix a bug when using 'ethtool -K ethx tx off' to turn off tx ip
+> > > checksum,
+> > > > FCoE CRC offload should not be impacte. The skb_checksum_help() is
+> > > needed
+> > > > only if it's not FCoE traffic for ip checksum, regardless of
+> ethtool
+> > > toggling
+> > > > the tx ip checksum on or off.
+> > > >
+> > > > Signed-off-by: Yi Zou <yi.zou@intel.com>
+> > > > Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > > ---
+> > > >  net/core/dev.c |    3 +++
+> > > >  1 files changed, 3 insertions(+), 0 deletions(-)
+> > > >
+> > > > diff --git a/net/core/dev.c b/net/core/dev.c
+> > > > index 6ca32f6..9e378009 100644
+> > > > --- a/net/core/dev.c
+> > > > +++ b/net/core/dev.c
+> > > > @@ -1913,6 +1913,9 @@ int skb_checksum_help(struct sk_buff *skb)
+> > > >  	__wsum csum;
+> > > >  	int ret = 0, offset;
+> > > >
+> > > > +	if (skb->protocol == htons(ETH_P_FCOE))
+> > > > +		goto out;
+> > > > +
+> > > >  	if (skb->ip_summed == CHECKSUM_COMPLETE)
+> > > >  		goto out_set_summed;
+> > > >
+> > >
+> > > Shouldn't this be done in the offending driver rather than the core?
+> > Well, yes and no, the driver is already using NETIF_F_FCOE_CRC to
+> indicate
+> > the FCoE CRC offload capability, and can_checksum_protocol() indicates
+> that.
+> > The fcoe protocol stack then uses CHECKSUM_PARTIAL and NETIF_F_FCOE_CRC
+> to
+> > pass through netdev w/o doing skb_checksum(), which is not captured
+> here
+> > in dev_hard_start_xmit() as it looks at NETIF_F_ALL_CSUM only before
+> calling
+> > skb_checksum_help().
+> 
+> But your change would break any code (if there is any) generating this
+> kind of packet and going through firewall, etc. For example a bridge or
+> router for FCOE packets.
 
-I think the bug is more fundamental, and it's not just a problem for
-FCoE.  For the transmit path, the ip_summed values are specified as:
+I don't know anything like that exists right now but in that case for fcoe,
+you dan't want to use CHECKSUM_PARTIAL on output. Still, the point is the 
+skb_checksum_help() only makes sense for ip checksum.
 
-[forwarding]
- *	COMPLETE: the most generic way. Device supplied checksum of _all_
- *	    the packet as seen by netif_rx in skb->csum.
- *	    NOTE: Even if device supports only some protocols, but
- *	    is able to produce some skb->csum, it MUST use COMPLETE,
- *	    not UNNECESSARY.
-
-[locally-generated]
- *	NONE: skb is checksummed by protocol or csum is not required.
- *
- *	PARTIAL: device is required to csum packet as seen by hard_start_xmit
- *	from skb->csum_start to the end and to record the checksum
- *	at skb->csum_start + skb->csum_offset.
-
-It's implicit that the checksum algorithm for CHECKSUM_PARTIAL is as
-specified for TCP/IP.  So none of those is correct when a different
-algorithm is to be used.
-
-It seems like we may need another ip_summed value for FCoE, SCTP or any
-other protocol with a different checksum algorithm that will be
-offloaded.  Maybe allow CHECKSUM_UNNECESSARY to be used on output in
-that case?
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+yi
