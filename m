@@ -1,53 +1,45 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 1/5] qlcnic: skip IDC ack check in fw reset path.
-Date: Wed, 14 Mar 2012 09:23:08 -0700
-Message-ID: <1331742193-13234-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH 2/5] qlcnic: reset loopback mode if promiscous mode setting fails.
+Date: Wed, 14 Mar 2012 09:23:09 -0700
+Message-ID: <1331742193-13234-2-git-send-email-anirban.chakraborty@qlogic.com>
+References: <1331742193-13234-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
 	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sritej Velaga <sritej.velaga@qlogic.com>
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:24455
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:43768
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756602Ab2CNQhQ (ORCPT
+	by vger.kernel.org with ESMTP id S1756146Ab2CNQhQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 12:37:16 -0400
+In-Reply-To: <1331742193-13234-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-In fw reset path, we should consider any change in device state as an
-ack from the other driver. When that happens, we don't have to wait for
-an explicit ack.
+If promiscous mode setting fails, reset loopback mode setting in firmware.
 
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 106503f..2edffce 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2840,8 +2840,15 @@ qlcnic_fwinit_work(struct work_struct *work)
- 		goto wait_npar;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 74e9d7b..bcb81e4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -566,7 +566,7 @@ int qlcnic_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 		return -EIO;
+ 
+ 	if (qlcnic_nic_set_promisc(adapter, VPORT_MISS_MODE_ACCEPT_ALL)) {
+-		qlcnic_set_fw_loopback(adapter, mode);
++		qlcnic_set_fw_loopback(adapter, 0);
+ 		return -EIO;
  	}
  
-+	if (dev_state == QLCNIC_DEV_INITIALIZING ||
-+	    dev_state == QLCNIC_DEV_READY) {
-+		dev_info(&adapter->pdev->dev, "Detected state change from "
-+				"DEV_NEED_RESET, skipping ack check\n");
-+		goto skip_ack_check;
-+	}
-+
- 	if (adapter->fw_wait_cnt++ > adapter->reset_ack_timeo) {
--		dev_err(&adapter->pdev->dev, "Reset:Failed to get ack %d sec\n",
-+		dev_info(&adapter->pdev->dev, "Reset:Failed to get ack %d sec\n",
- 					adapter->reset_ack_timeo);
- 		goto skip_ack_check;
- 	}
 -- 
 1.7.4.1
