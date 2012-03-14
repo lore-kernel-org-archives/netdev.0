@@ -1,66 +1,40 @@
-From: Shaun Ruffell <sruffell@digium.com>
-Subject: 3.3-rc6 netjet.ko sleeping while in atomic.
-Date: Wed, 14 Mar 2012 14:16:50 -0500
-Message-ID: <20120314191650.GB18135@digium.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Wed, 14 Mar 2012 13:12:45 -0700
+Message-ID: <1331755965.6022.55.camel@edumazet-glaptop>
+References: <20120314190156.622c8cd5@vostro>
+	 <1331745314.6022.27.camel@edumazet-glaptop>
+	 <20120314192945.65867e9f@vostro>
+	 <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120314215142.655ae607@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.digium.com ([216.207.245.2]:1264 "EHLO mail.digium.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755435Ab2CNUCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 16:02:05 -0400
-Content-Disposition: inline
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:48328 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030518Ab2CNUMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:12:48 -0400
+Received: by gghe5 with SMTP id e5so2245070ggh.19
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 13:12:48 -0700 (PDT)
+In-Reply-To: <20120314215142.655ae607@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Karsten,
+On Wed, 2012-03-14 at 21:51 +0200, Timo Teras wrote:
 
-I hit this today when unloading netjet.ko which was attached to a
-Digium TDM400 card. Looks like flush_work_sync() is called while in
-a spin_lock_irqsave() block. Not sure if it matters to you but I
-thought I would send it along:
+> Very good point. I thought gso also enabled gro, but seems that my
+> ethtool was old.
+> 
+> And GRO was enabled along with some other stuff. Turning GRO off made
+> my tcp performance immediately a lot better; jumped from 2MB/s to 8MB/s
+> or so (not ideal yet, though; but the remainder of the difference could
+> be related to other issue).
+> 
+> So something is definitely broke in 3.0.x with GRO enabled, but GSO off.
 
-  BUG: sleeping function called from invalid context at kernel/workqueue.c:2445
-  in_atomic(): 1, irqs_disabled(): 1, pid: 30652, name: modprobe
-  3 locks held by modprobe/30652:
-   #0:  (&__lockdep_no_validate__){......}, at: [<c0669fd2>] driver_detach+0x37/0x95
-   #1:  (&__lockdep_no_validate__){......}, at: [<c0669fde>] driver_detach+0x43/0x95
-   #2:  (&(&card->lock)->rlock){-.-...}, at: [<fa6f4657>] nj_release+0x14b/0x1b0 [netjet]
-  irq event stamp: 4262
-  hardirqs last  enabled at (4261): [<c0476648>] debug_check_no_locks_freed+0x7a/0x138
-  hardirqs last disabled at (4262): [<c07be2ea>] _raw_spin_lock_irqsave+0x18/0x7f
-  softirqs last  enabled at (1564): [<c0430cc1>] __do_softirq+0x10c/0x2fe
-  softirqs last disabled at (1517): [<c04040b2>] call_on_stack+0x12/0x18
-  Pid: 30652, comm: modprobe Tainted: G           O 3.3.0-rc6.sruffelldbg+ #35
-  Call Trace:
-   [<c04542ce>] __might_sleep+0x10b/0x197
-   [<c0444df1>] start_flush_work+0x26/0x132
-   [<c0474b1c>] ? trace_hardirqs_off_caller+0x18/0x92
-   [<c0444f19>] flush_work_sync+0x1c/0x50
-   [<c0474442>] ? lock_release_holdtime+0x68/0xca
-   [<c07beb5f>] ? _raw_spin_unlock_irqrestore+0x34/0x4c
-   [<c0474ba1>] ? trace_hardirqs_off+0xb/0xd
-   [<c07beb5f>] ? _raw_spin_unlock_irqrestore+0x34/0x4c
-   [<c06fe174>] ? skb_dequeue+0x47/0x52
-   [<fa63824c>] mISDN_freedchannel+0x5e/0x63 [mISDN_core]
-   [<fa69509a>] isac_release+0x9a/0xc0 [mISDNipac]
-   [<fa6f4683>] nj_release+0x177/0x1b0 [netjet]
-   [<c044fea8>] ? __blocking_notifier_call_chain+0x5c/0x89
-   [<fa6f5ad7>] nj_remove+0x17/0x2f [netjet]
-   [<c05e4bd4>] pci_device_remove+0x1e/0x3f
-   [<c06698fa>] __device_release_driver+0x4e/0x96
-   [<c066a02c>] driver_detach+0x91/0x95
-   [<c0668bce>] bus_remove_driver+0x6e/0xcf
-   [<c066a399>] driver_unregister+0x42/0x6c
-   [<c066a593>] ? driver_remove_file+0x14/0x16
-   [<c05e4924>] pci_unregister_driver+0x2d/0x78
-   [<fa6f5ab5>] nj_cleanup+0xd/0x18 [netjet]
-   [<c04833c8>] sys_delete_module+0x123/0x219
-   [<c045be28>] ? local_clock+0x29/0x42
-   [<c049586d>] ? __audit_syscall_exit+0x2a4/0x440
-   [<c07c468c>] sysenter_do_call+0x12/0x32
-
-Cheers,
-Shaun
+"ifconfig eth2 ; netstat -s" can really help, I suspect tcp stack drops
