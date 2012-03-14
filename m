@@ -1,48 +1,50 @@
-From: Albert Herranz <albert_herranz-mRCrAkd8dF0@public.gmane.org>
-Subject: Re: [PATCH] usbnet: fix spinlock recursion
-Date: Wed, 14 Mar 2012 19:04:43 +0100
-Message-ID: <4F60DDBB.2080704@yahoo.es>
-References: <1331732727-16665-1-git-send-email-mvs@tigris.de> <20120314154211.GA6101@kroah.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 0/3] bluetooth: bug fixes for 3.3
+Date: Wed, 14 Mar 2012 11:16:54 -0700
+Message-ID: <1331749014.14217.112.camel@aeonflux>
+References: <1331307806-21761-1-git-send-email-jhovold@gmail.com>
+	 <20120314112543.GA5136@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Maximilian Schwerin <mvs-Uf0zVKHSUsGzQB+pC5nmwQ@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120314154211.GA6101-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	David Herrmann <dh.herrmann@googlemail.com>,
+	Greg KH <gregkh@linuxfoundation.org>
+To: Johan Hovold <jhovold@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120314112543.GA5136@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/14/2012 04:42 PM, Greg KH wrote:
-> On Wed, Mar 14, 2012 at 02:45:27PM +0100, Maximilian Schwerin wrote:
->> From: Albert Herranz <albert_herranz-mRCrAkd8dF0@public.gmane.org>
->>
->> This patch fixes the following spinlock recursion bug seen when bringing down
->> the ethernet interface.
->>
-[...]
-> Hint, use scripts/get_maintainer.pl to find the right person to send
-> this patch to (you missed a list, and because of that, the patch will
-> never get applied...)
+Hi Johan,
+
+> > This is a revised series which also contains a minimal fix to the memory leak
+> > discovered by David Hermann upon which the first NULL-pointer-dereference fix
+> > also depends.
+> > 
+> > These patches need to get to Linus ASAP as the problems are present in 3.3-rc6
+> > as well as earlier kernels and thus should be backported to the stable trees as
+> > well.
 > 
-> thanks,
+> Any chance to get these into 3.3? Otherwise, is it possible to rebase
+> bluetooth-next on top of these so that Greg can get them into 3.3.1 (and
+> the other stable trees) once bluetooth-next is merged?
 > 
-> greg k-h
-> 
+> All three bugs can be used to crash any kernel with HCI-UART support and
+> can probably be used for exploits as they are extremely easy to trigger
+> reliably.
 
-Hi,
+only if you have access to the TTY device node in the first place. If
+you do not have access to that device node, you can not crash the
+kernel.
 
-I think that David Miller already picked up a similar patch recently (with a different approach).
+Can you resend a clean set of patches for bluetooth-next and once we
+have that merged, we can talk on how to backport this to 3.3 and also
+-stable.
 
-http://marc.info/?l=linux-netdev&m=133115161606222&w=2
+Regards
 
-Cheers,
-Albert
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Marcel
