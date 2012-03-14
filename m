@@ -1,47 +1,124 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
-Date: Wed, 14 Mar 2012 01:05:57 -0700
-Message-ID: <1331712357.2456.58.camel@edumazet-laptop>
-References: <1331587715-26069-1-git-send-email-wad@chromium.org>
-	 <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
-	 <1331658828.4449.16.camel@edumazet-glaptop>
-	 <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
-	 <1331704535.2456.37.camel@edumazet-laptop>
-	 <3f56b0860272f4ca8925c0a249a30539.squirrel@webmail.greenhost.nl>
-Reply-To: kernel-hardening@lists.openwall.com
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH 0001/001] xen: multi page ring support
+	for block devices
+Date: Wed, 14 Mar 2012 08:35:24 +0000
+Message-ID: <4F60665C0200007800078341@nat28.tlf.novell.com>
+References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
+	<7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
+	<CAPbh3rsExLtohBwVd_scYuO=GN1iZE5egQQ3x5M59YUno5Rtyw@mail.gmail.com>
+	<4F5739760200007800076DA6@nat28.tlf.novell.com>
+	<230A793A-C929-468E-97BE-1C68920749E1@spectralogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
- linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
- kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
- x86@kernel.org,  arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
- mingo@redhat.com, oleg@redhat.com,  peterz@infradead.org,
- rdunlap@xenotime.net, mcgrathr@chromium.org,  tglx@linutronix.de,
- luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
- djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
- akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
- coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Indan Zupancic <indan@nul.nu>
-Return-path: <kernel-hardening-return-1114-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <3f56b0860272f4ca8925c0a249a30539.squirrel@webmail.greenhost.nl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "jeremy@goop.org" <jeremy@goop.org>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"waldi@debian.org" <waldi@debian.org>,
+	"joe.jin@oracle.com" <joe.jin@oracle.com>,
+	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	DavidVrabel <david.vrabel@citrix.com>,
+	Santosh Jodh <Santosh.Jodh@citrix.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"<konrad@darnok.org>" <konrad@darnok.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"xen-devel@lists.xen.or
+To: "Justin Gibbs" <justing@spectralogic.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <230A793A-C929-468E-97BE-1C68920749E1@spectralogic.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 14 mars 2012 à 08:59 +0100, Indan Zupancic a écrit :
+>>> On 14.03.12 at 07:32, Justin Gibbs <justing@spectralogic.com> wrote:
+> There's another problem here that I brought up during the Xen
+> Hack-a-thon.  The ring macros require that the ring element count
+> be a power of two.  This doesn't mean that the ring will be a power
+> of 2 pages in size.  To illustrate this point, I modified the FreeBSD
+> blkback driver to provide negotiated ring stats via sysctl.
+> 
+> Here's a connection to a Windows VM running the Citrix PV drivers:
+> 
+>     dev.xbbd.2.max_requests: 128
+>     dev.xbbd.2.max_request_segments: 11
+>     dev.xbbd.2.max_request_size: 45056
+>     dev.xbbd.2.ring_elem_size: 108  <= 32bit ABI
+>     dev.xbbd.2.ring_pages: 4
+>     dev.xbbd.2.ring_elements: 128
+>     dev.xbbd.2.ring_waste: 2496
+> 
+> Over half a page is wasted when ring-page-order is 2.  I'm sure you
+> can see where this is going.  :-)
+> 
+> Here are the limits published by our backend to the XenStore:
+> 
+>     max-ring-pages = "113"
+>     max-ring-page-order = "7"
+>     max-requests = "256"
+>     max-request-segments = "129"
+>     max-request-size = "524288"
+> 
+> Because we allow so many concurrent, large requests in our product,
+> the ring wastage really adds up if the front end doesn't support
+> the "ring-pages" variant of the extension.  However, you only need
+> a ring-page-order of 3 with this protocol to start seeing pages of
+> wasted ring space.
+> 
+> You don't really want to negotiate "ring-pages" either.  The backends
+> often need to support multiple ABIs.  I can easily construct a set
+> of limits for the FreeBSD blkback driver which will cause the ring
+> limits to vary by a page between the 32bit and 64bit ABIs.
+> 
+> With all this in mind, the backend must do a dance of rounding up,
+> taking the max of the ring sizes for the different ABIs, and then
+> validating the front-end published limits taking its ABI into
+> account.  The front-end does some of this too.  Its way too messy
+> and error prone because we don't communicate the ring element limit
+> directly.
+> 
+> "max-ring-element-order" anyone? :-)
 
-> The only remaining question is, is it worth the extra code to release
-> up to 32kB of unused memory? It seems a waste to not free it, but if
-> people think it's not worth it then let's just leave it around.
+Interesting observation - yes, I think deprecating both pre-existing
+methods in favor of something along those lines would be desirable.
+(But I'd favor not using the term "order" here as it is - at least in
+Linux - usually implied to be used on pages. "max-ringent-log2"
+perhaps?)
 
-Quite frankly its not an issue, given JIT BPF is not yet default
-enabled.
+What you say also implies that all currently floating around Linux
+backend patches are flawed in their way of calculating the number
+of ring entries, as this number really depends on the protocol the
+frontend advertises.
 
-I am not sure all bugs were found and fixed. I would warn users before
-considering using it in production.
+Further, if you're concerned about wasting ring space (and
+particularly in the context of your request number/size/segments
+extension), shouldn't we bother to define pairs (or larger groups)
+of struct blkif_request_segment (as currently a quarter of the space
+is mere padding)? Or split grefs from {first,last}_sect altogether?
 
-If you have time, I would appreciate if you could double check and find
-last bugs in it.
+Finally, while looking at all this again, I stumbled across the use
+of blkif_vdev_t in the ring structures: At least Linux'es blkback
+completely ignores this field - {xen_,}vbd_translate() simply
+overwrites what dispatch_rw_block_io() put there (and with this,
+struct phys_req's dev and bdev members seem rather pointless too).
+Does anyone recall what the original intention with this request field
+was? Allowing I/O on multiple devices over a single ring?
+
+Bottom line - shouldn't we define a blkif2 interface to cleanly
+accommodate all the various extensions (and do away with the
+protocol variations)?
+
+Jan
