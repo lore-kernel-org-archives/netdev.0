@@ -1,57 +1,66 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH] net/hyperv: fix erroneous NETDEV_TX_BUSY use
-Date: Wed, 14 Mar 2012 20:00:46 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCE702F@TK5EX14MBXC223.redmond.corp.microsoft.com>
-References: <1331751214.6022.47.camel@edumazet-glaptop>
-	 <4F60E9F7.4000402@candelatech.com>
- <1331752632.6022.49.camel@edumazet-glaptop>
+From: Shaun Ruffell <sruffell@digium.com>
+Subject: 3.3-rc6 netjet.ko sleeping while in atomic.
+Date: Wed, 14 Mar 2012 14:16:50 -0500
+Message-ID: <20120314191650.GB18135@digium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:35847
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757033Ab2CNUBK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:01:10 -0400
-In-Reply-To: <1331752632.6022.49.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mail.digium.com ([216.207.245.2]:1264 "EHLO mail.digium.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755435Ab2CNUCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2012 16:02:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBNYXJjaCAx
-NCwgMjAxMiAzOjE3IFBNDQo+IFRvOiBCZW4gR3JlZWFyDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5l
-dGRldjsgS1kgU3Jpbml2YXNhbjsgSGFpeWFuZyBaaGFuZzsgR3JlZyBLcm9haC1IYXJ0bWFuDQo+
-IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9oeXBlcnY6IGZpeCBlcnJvbmVvdXMgTkVUREVWX1RY
-X0JVU1kgdXNlDQo+IA0KPiBPbiBXZWQsIDIwMTItMDMtMTQgYXQgMTE6NTYgLTA3MDAsIEJlbiBH
-cmVlYXIgd3JvdGU6DQo+ID4gT24gMDMvMTQvMjAxMiAxMTo1MyBBTSwgRXJpYyBEdW1hemV0IHdy
-b3RlOg0KPiA+ID4gQSBkcml2ZXIgc3RhcnRfeG1pdCgpIG1ldGhvZCBjYW5ub3QgZnJlZSBza2Ig
-YW5kIHJldHVybg0KPiBORVRERVZfVFhfQlVTWSwNCj4gPiA+IHNpbmNlIGNhbGxlciBpcyBnb2lu
-ZyB0byByZXVzZSBmcmVlZCBza2IuDQo+ID4gPg0KPiA+ID4gVGhpcyBpcyBtb3N0bHkgYSByZXZl
-cnQgb2YgY29tbWl0IGJmNzY5Mzc1YyAoc3RhZ2luZzogaHY6IGZpeCB0aGUNCj4gcmV0dXJuDQo+
-ID4gPiBzdGF0dXMgb2YgbmV0dnNjX3N0YXJ0X3htaXQoKSkNCj4gPiA+DQo+ID4gPiBJbiBmYWN0
-IG5ldGlmX3R4X3N0b3BfcXVldWUoKSAvIG5ldGlmX3N0b3BfcXVldWUoKSBpcyBuZWVkZWQgYmVm
-b3JlDQo+ID4gPiByZXR1cm5pbmcgTkVUREVWX1RYX0JVU1kgb3IgeW91IGNhbiB0cmlnZ2VyIGEg
-a3NvZnRpcnFkIGZhdGFsIGxvb3AuDQo+ID4gPg0KPiA+ID4gSW4gY2FzZSBvZiBtZW1vcnkgYWxs
-b2NhdGlvbiBlcnJvciwgb25seSBzYWZlIHdheSBpcyB0byBkcm9wIHRoZQ0KPiBwYWNrZXQNCj4g
-PiA+IGFuZCByZXR1cm4gTkVUREVWX1RYX09LDQo+ID4NCj4gPiBDYW4geW91IG5vdCBqdXN0IGxl
-YXZlIHRoZSBza2IgYWxvbmUsIG5vdCBidW1wIGFueSB0eC1kcm9wcGVkDQo+ID4gc3RhdHMsIGFu
-ZCByZXR1cm4gTkVUREVWX1RYX0JVU1k/DQo+ID4NCj4gDQo+IE5vcGUuIFRoaW5rIGFib3V0IE9P
-TS4NCj4gDQo+IElmIHdlIGRvIHRoYXQsIHdlIHJlcXVldWUgcGFja2V0IG9uIHFkaXNjLCBhbmQg
-c2NoZWR1bGUgVFggc29mdGlycS4NCj4gDQo+IC0+IGxvb3ANCj4gDQo+IFJlYWxseSwgTkVUREVW
-X1RYX0JVU1kgaXMgbm90IGZvciB0aGlzIGtpbmQgb2Ygc2l0dWF0aW9uLg0KPiANCg0KQWN0dWFs
-bHksIEknbSB3b3JraW5nIG9uIHRoaXMgYnVnLCBhbmQgaGF2ZSBhIHBhdGNoIHVuZGVyIG91ciBp
-bnRlcm5hbCANCnJldmlldyBub3cuIE15IGZpeCBpcyBhY3R1YWxseSBub3QgZnJlZWluZyB0aGUg
-U0tCLCBhbmQgcmV0dXJuIE5FVERFVl9UWF9CVVNZLg0KDQpFdmVuIGlmIHRoZSB2bWJ1cyByaW5n
-IGJ1ZmZlciBpcyBidXN5IGN1cnJlbnRseSwgaXQgY2FuIGJlIGF2YWlsYWJsZSBkdXJpbmcNCnRo
-ZSBuZXh0IHJlLXRyeSwgYmVjYXVzZSB0aGUgaG9zdCBpcyB0YWtpbmcgYXdheSBkYXRhIGZyb20g
-cmluZyBidWZmZXIuIFRoZSANCnN0b3Avd2FrZSBxdWV1ZSBtZWNoYW5pc20gaXMgaW4gdGhlIG5l
-dHZzYy5jIGZpbGUuDQoNCkluIHRoZSBvdXQtb2YtbWVtb3J5IGNhc2UsIGRyb3BwaW5nIHBhY2tl
-dCBhbmQgcmV0dXJuIE5FVERFVl9UWF9PSyBzZWVtcyBmaW5lLg0KDQpUaGFua3MsDQotIEhhaXlh
-bmcNCg0K
+Karsten,
+
+I hit this today when unloading netjet.ko which was attached to a
+Digium TDM400 card. Looks like flush_work_sync() is called while in
+a spin_lock_irqsave() block. Not sure if it matters to you but I
+thought I would send it along:
+
+  BUG: sleeping function called from invalid context at kernel/workqueue.c:2445
+  in_atomic(): 1, irqs_disabled(): 1, pid: 30652, name: modprobe
+  3 locks held by modprobe/30652:
+   #0:  (&__lockdep_no_validate__){......}, at: [<c0669fd2>] driver_detach+0x37/0x95
+   #1:  (&__lockdep_no_validate__){......}, at: [<c0669fde>] driver_detach+0x43/0x95
+   #2:  (&(&card->lock)->rlock){-.-...}, at: [<fa6f4657>] nj_release+0x14b/0x1b0 [netjet]
+  irq event stamp: 4262
+  hardirqs last  enabled at (4261): [<c0476648>] debug_check_no_locks_freed+0x7a/0x138
+  hardirqs last disabled at (4262): [<c07be2ea>] _raw_spin_lock_irqsave+0x18/0x7f
+  softirqs last  enabled at (1564): [<c0430cc1>] __do_softirq+0x10c/0x2fe
+  softirqs last disabled at (1517): [<c04040b2>] call_on_stack+0x12/0x18
+  Pid: 30652, comm: modprobe Tainted: G           O 3.3.0-rc6.sruffelldbg+ #35
+  Call Trace:
+   [<c04542ce>] __might_sleep+0x10b/0x197
+   [<c0444df1>] start_flush_work+0x26/0x132
+   [<c0474b1c>] ? trace_hardirqs_off_caller+0x18/0x92
+   [<c0444f19>] flush_work_sync+0x1c/0x50
+   [<c0474442>] ? lock_release_holdtime+0x68/0xca
+   [<c07beb5f>] ? _raw_spin_unlock_irqrestore+0x34/0x4c
+   [<c0474ba1>] ? trace_hardirqs_off+0xb/0xd
+   [<c07beb5f>] ? _raw_spin_unlock_irqrestore+0x34/0x4c
+   [<c06fe174>] ? skb_dequeue+0x47/0x52
+   [<fa63824c>] mISDN_freedchannel+0x5e/0x63 [mISDN_core]
+   [<fa69509a>] isac_release+0x9a/0xc0 [mISDNipac]
+   [<fa6f4683>] nj_release+0x177/0x1b0 [netjet]
+   [<c044fea8>] ? __blocking_notifier_call_chain+0x5c/0x89
+   [<fa6f5ad7>] nj_remove+0x17/0x2f [netjet]
+   [<c05e4bd4>] pci_device_remove+0x1e/0x3f
+   [<c06698fa>] __device_release_driver+0x4e/0x96
+   [<c066a02c>] driver_detach+0x91/0x95
+   [<c0668bce>] bus_remove_driver+0x6e/0xcf
+   [<c066a399>] driver_unregister+0x42/0x6c
+   [<c066a593>] ? driver_remove_file+0x14/0x16
+   [<c05e4924>] pci_unregister_driver+0x2d/0x78
+   [<fa6f5ab5>] nj_cleanup+0xd/0x18 [netjet]
+   [<c04833c8>] sys_delete_module+0x123/0x219
+   [<c045be28>] ? local_clock+0x29/0x42
+   [<c049586d>] ? __audit_syscall_exit+0x2a4/0x440
+   [<c07c468c>] sysenter_do_call+0x12/0x32
+
+Cheers,
+Shaun
