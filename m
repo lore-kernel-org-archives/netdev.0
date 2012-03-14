@@ -1,41 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
-Date: Tue, 13 Mar 2012 22:02:12 -0700
-Message-ID: <1331701332.2456.25.camel@edumazet-laptop>
-References: <1327570722.8191.46.camel@probook>
-	 <1331697865.2456.19.camel@edumazet-laptop>
-	 <CAA93jw4kYqCWg424SXkrtQeg9bPfpfgH-x_7tjg=m8uxk_GNaA@mail.gmail.com>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+Date: Wed, 14 Mar 2012 06:12:52 +0100
+Message-ID: <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
+    <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+    <1331658828.4449.16.camel@edumazet-glaptop>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jdb@comx.dk, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:33162 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191Ab2CNFCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 01:02:15 -0400
-Received: by yhmm54 with SMTP id m54so1385192yhm.19
-        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 22:02:14 -0700 (PDT)
-In-Reply-To: <CAA93jw4kYqCWg424SXkrtQeg9bPfpfgH-x_7tjg=m8uxk_GNaA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "Will Drewry" <wad@chromium.org>,
+ linux-kernel@vger.kernel.org,
+ linux-arch@vger.kernel.org,
+ linux-doc@vger.kernel.org,
+ kernel-hardening@lists.openwall.com,
+ netdev@vger.kernel.org,
+ x86@kernel.org,
+ arnd@arndb.de,
+ davem@davemloft.net,
+ hpa@zytor.com,
+ mingo@redhat.com,
+ oleg@redhat.com,
+ peterz@infradead.org,
+ rdunlap@xenotime.net,
+ mcgrathr@chromium.org,
+ tglx@linutronix.de,
+ luto@mit.edu,
+ eparis@redhat.com,
+ serge.hallyn@canonical.com,
+ djm@mindrot.org,
+ scarybeasts@gmail.com,
+ pmoore@redhat.com,
+ akpm@linux-foundation.org,
+ corbet@lwn.net,
+ markus@chromium.org,
+ coreyb@linux.vnet.ibm.com,
+ keescook@chromium.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <kernel-hardening-return-1110-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1331658828.4449.16.camel@edumazet-glaptop>
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 14 mars 2012 =C3=A0 04:52 +0000, Dave Taht a =C3=A9crit :
+Hello,
 
-> I had some hope for a semi-random alternating queue
->=20
+On Tue, March 13, 2012 18:13, Eric Dumazet wrote:
+> On Tue, 2012-03-13 at 11:04 +0100, Indan Zupancic wrote:
+>> -	bpf_jit_compile(fp);
+>> +	jit = bpf_jit_compile(fp->insns, fp->len, 1);
+>> +	if (jit) {
+>> +		fp->bpf_func = jit;
+>> +		/* Free unused insns memory */
+>> +		newfp = krealloc(fp, sizeof(*fp), GFP_KERNEL);
+>> +		if (newfp)
+>> +			fp = newfp;
+>> +	}
+>>
+>>  	old_fp = rcu_dereference_protected(sk->sk_filter,
+>>  					   sock_owned_by_user(sk));
+>
+> Dont mix unrelated changes in a single patch.
 
-I spent some time implementing two queues, one for new flows, one for
-old flows. As soon as a new flow uses its initial quantum, its moved at
-the tail of 'old flows queue'.
+I know, but it was just a quick proof-of-concept. It just showed
+a possible advantage of the API change for the current networking
+code. The real patch would be split into an API change, the memory
+freeing change, and the seccomp support.
 
-But I always could find a way to starve some flows, even adding some
-kind of persistence. Right now, as soon as we empty one flow, we forget
-its history.
+>
+> Current krealloc() doesnt alloc a new area if the current one is bigger
+> than 'new_size', but this might change in next kernel versions.
+>
+> So this part of your patch does nothing.
 
-Next packet coming will create a "new flow" with a full quantum credit,
-even if we nearly consume all flow quantum in the last micro second.
+Problem is that 'old_size' can be up to 32kB in size and it would be nice
+if that memory could be released. If it isn't, then using JIT increases
+memory usage, while also not accounting it to the socket.
 
-Thats definitely not a trivial problem.
+>
+> If it did, this kind of 'optimization' can actually be not good, because
+> sizeof(*fp) is small enough (less than half cache line size) to trigger
+> a possible false sharing issue. (other part of the cache line could be
+> used to hold a often dirtied object)
+
+It could avoid this by allocating at least a cache size. But this is a
+problem for all small kmalloc's, isn't it?
+
+What about something like the below:
+
+@@ -625,7 +639,18 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 		return err;
+ 	}
+
+-	bpf_jit_compile(fp);
++	jit = bpf_jit_compile(fp->insns, fp->len, 1);
++	if (jit) {
++		int size = max(cache_line_size(), sizeof(*fp));
++		fp->bpf_func = jit;
++		/* Free unused insns memory */
++		newfp = kmalloc(size, GFP_KERNEL);
++		if (newfp) {
++			memcpy(newfp, fp, size);
++			kfree(fp);
++			fp = newfp;
++		}
++	}
+
+ 	old_fp = rcu_dereference_protected(sk->sk_filter,
+ 					   sock_owned_by_user(sk));
+
+Not sure whether to use cache_line_size() or just L1_CACHE_BYTES or
+something else.
+
+Greeings,
+
+Indan
