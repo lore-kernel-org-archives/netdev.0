@@ -1,77 +1,46 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
- tx ip checksum
-Date: Wed, 14 Mar 2012 18:54:32 +0000
-Message-ID: <138EA028228D124A900F5E6746F3C2160F6B0F97@ORSMSX102.amr.corp.intel.com>
-References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120314082529.584a669f@nehalam.linuxnetplumber.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] net/hyperv: fix erroneous NETDEV_TX_BUSY use
+Date: Wed, 14 Mar 2012 11:56:55 -0700
+Message-ID: <4F60E9F7.4000402@candelatech.com>
+References: <1331751214.6022.47.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:60569 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753018Ab2CNSye convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 14:54:34 -0400
-In-Reply-To: <20120314082529.584a669f@nehalam.linuxnetplumber.net>
-Content-Language: en-US
+Received: from mail.candelatech.com ([208.74.158.172]:60534 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756314Ab2CNS5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 14:57:03 -0400
+In-Reply-To: <1331751214.6022.47.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> On Wed, 14 Mar 2012 00:01:58 -0700
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> 
-> > From: Yi Zou <yi.zou@intel.com>
-> >
-> > Fix a bug when using 'ethtool -K ethx tx off' to turn off tx ip
-> checksum,
-> > FCoE CRC offload should not be impacte. The skb_checksum_help() is
-> needed
-> > only if it's not FCoE traffic for ip checksum, regardless of ethtool
-> toggling
-> > the tx ip checksum on or off.
-> >
-> > Signed-off-by: Yi Zou <yi.zou@intel.com>
-> > Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >  net/core/dev.c |    3 +++
-> >  1 files changed, 3 insertions(+), 0 deletions(-)
-> >
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 6ca32f6..9e378009 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -1913,6 +1913,9 @@ int skb_checksum_help(struct sk_buff *skb)
-> >  	__wsum csum;
-> >  	int ret = 0, offset;
-> >
-> > +	if (skb->protocol == htons(ETH_P_FCOE))
-> > +		goto out;
-> > +
-> >  	if (skb->ip_summed == CHECKSUM_COMPLETE)
-> >  		goto out_set_summed;
-> >
-> 
-> Shouldn't this be done in the offending driver rather than the core?
-Well, yes and no, the driver is already using NETIF_F_FCOE_CRC to indicate
-the FCoE CRC offload capability, and can_checksum_protocol() indicates that.
-The fcoe protocol stack then uses CHECKSUM_PARTIAL and NETIF_F_FCOE_CRC to
-pass through netdev w/o doing skb_checksum(), which is not captured here
-in dev_hard_start_xmit() as it looks at NETIF_F_ALL_CSUM only before calling
-skb_checksum_help().
+On 03/14/2012 11:53 AM, Eric Dumazet wrote:
+> A driver start_xmit() method cannot free skb and return NETDEV_TX_BUSY,
+> since caller is going to reuse freed skb.
+>
+> This is mostly a revert of commit bf769375c (staging: hv: fix the return
+> status of netvsc_start_xmit())
+>
+> In fact netif_tx_stop_queue() / netif_stop_queue() is needed before
+> returning NETDEV_TX_BUSY or you can trigger a ksoftirqd fatal loop.
+>
+> In case of memory allocation error, only safe way is to drop the packet
+> and return NETDEV_TX_OK
 
-Yi
+Can you not just leave the skb alone, not bump any tx-dropped
+stats, and return NETDEV_TX_BUSY?
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Been a while since I looked at this code however...
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
