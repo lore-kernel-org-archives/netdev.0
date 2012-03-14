@@ -1,89 +1,139 @@
-From: Andy Gospodarek <gospo@redhat.com>
-Subject: Re: [PATCH net V2] bonding: send igmp report for its master
-Date: Wed, 14 Mar 2012 13:22:37 -0400
-Message-ID: <20120314172237.GA12372@quad.redhat.com>
-References: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
- <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
+Date: Wed, 14 Mar 2012 17:22:52 +0000
+Message-ID: <CAA93jw67JfUXvZZxs8TGHJ23UBsBkedo2-Ve3u9ufF1ob3FpRQ@mail.gmail.com>
+References: <1327570722.8191.46.camel@probook>
+	<1331697865.2456.19.camel@edumazet-laptop>
+	<CAA93jw4kYqCWg424SXkrtQeg9bPfpfgH-x_7tjg=m8uxk_GNaA@mail.gmail.com>
+	<1331724732.7651.58.camel@probook>
+	<1331733899.2456.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"open list:BONDING DRIVER" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Weiping Pan <panweiping3@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jdb@comx.dk, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jesper Dangaard Brouer <netoptimizer@brouer.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4454 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756209Ab2CNRVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 13:21:49 -0400
-Content-Disposition: inline
-In-Reply-To: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:45082 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755051Ab2CNRWx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:22:53 -0400
+Received: by wibhj6 with SMTP id hj6so7516752wib.1
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:22:52 -0700 (PDT)
+In-Reply-To: <1331733899.2456.66.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 14, 2012 at 11:37:22AM +0800, Weiping Pan wrote:
-> Liang Zheng(lzheng@redhat.com) found that in the following topo,
-> bonding does not send igmp report when we trigger a fail-over of bonding.
-> 
-> eth0--
->       |-- bond0 -- br0
-> eth1--
-> 
-> modprobe bonding mode=1 miimon=100 resend_igmp=10
-> ifconfig bond0 up
-> ifenslave bond0 eth0 eth1
-> 
-> brctl addbr br0
-> ifconfig br0 192.168.100.2/24 up
-> brctl addif br0 bond0
-> 
-> Add 192.168.100.2(br0) into a multicast group, like 224.10.10.10,
-> then trigger a fali-over in bonding.
-> You can see that parameter "resend_igmp" does not work.
-> 
-> The reason is that when we add br0 into a multicast group,
-> it does not propagate multicast knowledge down to its ports.
-> 
-> If we choose to propagate multicast knowledge down to all ports for bridge,
-> then we have to track every change that is done to bridge, and keep a backup
-> for all ports. It is hard to track, I think.
-> 
-> Instead I choose to modify bonding to send igmp report for its master.
-> 
-> Changelog:
-> V2: correct comments
-> 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
-> ---
->  drivers/net/bonding/bond_main.c |    8 ++++++++
->  1 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 435984a..300c490 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -794,6 +794,14 @@ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
->  {
->  	struct bonding *bond = container_of(work, struct bonding,
->  					    mcast_work.work);
-> +	struct net_device *bond_dev, *master_dev = NULL;
-> +	bond_dev = bond->dev;
-> +	master_dev = bond_dev->master;
-> +
-> +	if (unlikely(master_dev)) {
-> +		__bond_resend_igmp_join_requests(master_dev);
-> +	}
-> +
->  	bond_resend_igmp_join_requests(bond);
->  }
->  
+On Wed, Mar 14, 2012 at 2:04 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mercredi 14 mars 2012 =E0 12:32 +0100, Jesper Dangaard Brouer a =E9=
+crit :
+>> ons, 14 03 2012 kl. 04:52 +0000, skrev Dave Taht:
+>> > On Wed, Mar 14, 2012 at 4:04 AM, Eric Dumazet <eric.dumazet@gmail.=
+com> wrote:
+>
+>> > As the depth of the sfq queue increases it gets increasingly hard =
+to
+>> > trigger the problem. I've been using values in the 200-300 range, =
+and
+>> > in combination with red, haven't seen it happen.
+>>
+>> I don't think you should adjust the "depth", but instead "limit" or
+>> "flows".
 
-This check and call to __bond_resend_igmp_join_requests  would be better
-in bond_resend_igmp_join_requests for 2 reasons:
+Sorry, I'd meant 'limit' above, with limiting the per flow depth (at
+4Mbit depths of 12-24 are good + red doing byte limiting starting at
+3000), and having lots of flows in the hash....
 
-1.  bond_resend_igmp_join_requests already has a check for vlan devices.
-It seems logical to check for the bridging case there also.
+Anyway, as this change to sfq currently has pathological edge cases, I =
+suggest:
 
-2.  Calling __bond_resend_igmp_join_requests will not work as expected
-when igmp_retrans>1 since no decrementing or rescheduling is done in
-__bond_resend_igmp_join_requests.
+1) reverting this patch (the new features of sfq - hugely increased
+number of flows, and increased limit, head drop/marking support, red,
+ecn, etc, can stay - and are rather nice in and of themselves)
+
+2) trying again, but not in the context of sfq - starting with sfq as
+a base, with a copy and rename, getting the iproute infrastructure
+around it working, more thorough tests going. I'll note that while
+flow management is needed, it needent be red-based.
+
+nsfq? efq?
+
+
+>>
+>> The problem can be solved by SFQ parameter tuning. =A0Perhaps, we co=
+uld
+>> just change the default parameters?
+
+I can't think of a way to make existing users of sfq not hit this probl=
+em
+if they are overriding the default params in the first place. thus my
+suggestion we start again in a new namespace.
+
+>> The problem occurs when all flows have ONE packet, then sfq_drop()
+>> cannot find a good flow to drop packets from...
+>>
+>> This situation can occur because the default setting is "limit=3D127=
+"
+>> packets and "flows=3D127". =A0If we just make sure that "limit" > "f=
+lows",
+>> then one flow with >=3D2 packets should exist, which is then chosen =
+for
+>> drop.
+>> My practical experiments show that "limit" should be between 10-20
+>> packets larger than "flows" (I'm not completely sure why this is
+>> needed).
+
+flows and/or depth?
+
+if flows, then we could drop the flows parameter entirely and just use =
+limit
+to calculate flows. But I think that it's more subtle than just this.
+
+more thorough tests exploring the pathological cases are needed. I'm on=
+ it.
+
+>>
+>
+> There are many ways to starve SFQ if we dont revert the patch or add =
+new
+> logic in linux-3.4
+>
+> Even if we change default settings, we can have following situation :
+>
+> SFQ in a state with several regular flows in queue, correctly behavin=
+g
+> because they are nice.
+>
+> loop repeat_as_many_times_you_can_think
+> =A0enqueue : packet comes for a new flow X.
+> =A0 =A0 =A0 =A0 =A0 OK lets favor this new flow against 'old' ones.
+> =A0dequeue : takes the packet for flow X.
+> =A0 =A0 =A0 =A0 =A0 forget about flow X since dequeue all its packets=
+=2E
+> endloop
+>
+> All other flows are in a frozen state.
+
+some thoughts
+
+1) Keeping more history around during the next X packet deliveries woul=
+d help.
+2) in case of being close up against various limits randomly enqueue on=
+ tail
+
+I note that htb introduces a window for new flows to win
+pathologically by holding onto a packet
+which perhaps it should be peeking (or so I understand it)
+>
+>
+>
+
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+http://www.bufferbloat.net
