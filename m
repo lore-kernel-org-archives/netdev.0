@@ -1,243 +1,243 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 1/4] cdc_ncm: reduce driver latency in the data path
-Date: Wed, 14 Mar 2012 22:26:10 +0100
-Message-ID: <1331760373-1914-1-git-send-email-alexey.orishko@stericsson.com>
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Subject: [PATCH net-next 3/4] cdc_ncm: avoid discarding datagrams in rx path
+Date: Wed, 14 Mar 2012 22:26:12 +0100
+Message-ID: <1331760373-1914-3-git-send-email-alexey.orishko@stericsson.com>
+References: <1331760373-1914-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, gregkh@linuxfoundation.org,
+	Alexey Orishko <alexey.orishko@stericsson.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, oliver@neukum.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:56690 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932388Ab2CNV0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 17:26:41 -0400
+In-Reply-To: <1331760373-1914-1-git-send-email-alexey.orishko@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Changes:
-- use high resolution timer
-  latency became approx. 10-15 times less than before
-- use taklet for sending remaining data in tx path
+- removed a limit for amount of datagrams for IN NTB
+- using pointer to traverse NTB in rx_fixup()
+- renamed "temp" to "len" in rx_fixup()
+- do NTB sequence number check in rx path
 Tested on Intel/ARM.
 
-Reviewed-by: Sjur Br=C3=A6ndeland <sjur.brandeland-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Tested-by: Dmitry Tarnyagin <Dmitry.Tarnyagin-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Reviewed-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+Tested-by: Dmitry Tarnyagin <Dmitry.Tarnyagin@stericsson.com>
+Signed-off-by: Alexey Orishko <alexey.orishko@stericsson.com>
 ---
- drivers/net/usb/cdc_ncm.c |   94 ++++++++++++++++++++++++-------------=
--------
- 1 files changed, 51 insertions(+), 43 deletions(-)
+ drivers/net/usb/cdc_ncm.c |  102 +++++++++++++++++++++----------------=
+--------
+ 1 files changed, 47 insertions(+), 55 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 81f86b8..a8e2a62 100644
+index f8f1946..7adc9f6 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -1,7 +1,7 @@
+@@ -71,13 +71,10 @@
+=20
  /*
-  * cdc_ncm.c
-  *
-- * Copyright (C) ST-Ericsson 2010-2011
-+ * Copyright (C) ST-Ericsson 2010-2012
-  * Contact: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-  * Original author: Hans Petter Selasky <hans.petter.selasky@stericsso=
-n.com>
-  *
-@@ -47,13 +47,12 @@
- #include <linux/mii.h>
- #include <linux/crc32.h>
- #include <linux/usb.h>
--#include <linux/timer.h>
--#include <linux/spinlock.h>
-+#include <linux/hrtimer.h>
- #include <linux/atomic.h>
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc.h>
+  * Maximum amount of datagrams in NCM Datagram Pointer Table, not coun=
+ting
+- * the last NULL entry. Any additional datagrams in NTB would be disca=
+rded.
++ * the last NULL entry.
+  */
+ #define	CDC_NCM_DPT_DATAGRAMS_MAX		40
 =20
--#define	DRIVER_VERSION				"04-Aug-2011"
-+#define	DRIVER_VERSION				"14-Mar-2012"
-=20
- /* CDC NCM subclass 3.2.1 */
- #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
-@@ -81,6 +80,8 @@
-=20
+-/* Maximum amount of IN datagrams in NTB */
+-#define	CDC_NCM_DPT_DATAGRAMS_IN_MAX		0 /* unlimited */
+-
  /* Restart the timer, if amount of datagrams is less than given value =
 */
  #define	CDC_NCM_RESTART_TIMER_DATAGRAM_CNT	3
-+#define	CDC_NCM_TIMER_PENDING_CNT		2
-+#define CDC_NCM_TIMER_INTERVAL			(400UL * NSEC_PER_USEC)
+ #define	CDC_NCM_TIMER_PENDING_CNT		2
+@@ -95,7 +92,6 @@ struct cdc_ncm_data {
+ };
 =20
- /* The following macro defines the minimum header space */
- #define	CDC_NCM_MIN_HDR_SIZE \
-@@ -97,7 +98,8 @@ struct cdc_ncm_ctx {
- 	struct cdc_ncm_data rx_ncm;
+ struct cdc_ncm_ctx {
+-	struct cdc_ncm_data rx_ncm;
  	struct cdc_ncm_data tx_ncm;
  	struct usb_cdc_ncm_ntb_parameters ncm_parm;
--	struct timer_list tx_timer;
-+	struct hrtimer tx_timer;
-+	struct tasklet_struct bh;
-=20
- 	const struct usb_cdc_ncm_desc *func_desc;
- 	const struct usb_cdc_header_desc *header_desc;
-@@ -117,6 +119,7 @@ struct cdc_ncm_ctx {
- 	struct sk_buff *tx_rem_skb;
-=20
- 	spinlock_t mtx;
-+	atomic_t stop;
-=20
- 	u32 tx_timer_pending;
- 	u32 tx_curr_offset;
-@@ -135,7 +138,9 @@ struct cdc_ncm_ctx {
+ 	struct hrtimer tx_timer;
+@@ -135,6 +131,7 @@ struct cdc_ncm_ctx {
+ 	u16 tx_modulus;
+ 	u16 tx_ndp_modulus;
+ 	u16 tx_seq;
++	u16 rx_seq;
  	u16 connected;
  };
 =20
--static void cdc_ncm_tx_timeout(unsigned long arg);
-+static void cdc_ncm_txpath_bh(unsigned long param);
-+static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
-+static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_tim=
-er);
- static const struct driver_info cdc_ncm_info;
- static struct usb_driver cdc_ncm_driver;
- static const struct ethtool_ops cdc_ncm_ethtool_ops;
-@@ -441,8 +446,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
- 	if (ctx =3D=3D NULL)
- 		return;
-=20
--	del_timer_sync(&ctx->tx_timer);
--
- 	if (ctx->tx_rem_skb !=3D NULL) {
- 		dev_kfree_skb_any(ctx->tx_rem_skb);
- 		ctx->tx_rem_skb =3D NULL;
-@@ -469,7 +472,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 	if (ctx =3D=3D NULL)
- 		return -ENODEV;
-=20
--	init_timer(&ctx->tx_timer);
-+	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-+	ctx->tx_timer.function =3D &cdc_ncm_tx_timer_cb;
-+	ctx->bh.data =3D (unsigned long)ctx;
-+	ctx->bh.func =3D cdc_ncm_txpath_bh;
-+	atomic_set(&ctx->stop, 0);
- 	spin_lock_init(&ctx->mtx);
- 	ctx->netdev =3D dev->net;
-=20
-@@ -617,6 +624,13 @@ static void cdc_ncm_unbind(struct usbnet *dev, str=
-uct usb_interface *intf)
- 	if (ctx =3D=3D NULL)
- 		return;		/* no setup */
-=20
-+	atomic_set(&ctx->stop, 1);
-+
-+	if (hrtimer_active(&ctx->tx_timer))
-+		hrtimer_cancel(&ctx->tx_timer);
-+
-+	tasklet_kill(&ctx->bh);
-+
- 	/* disconnect master --> disconnect slave */
- 	if (intf =3D=3D ctx->control && ctx->data) {
- 		usb_set_intfdata(ctx->data, NULL);
-@@ -787,7 +801,7 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, stru=
-ct sk_buff *skb)
- 		ctx->tx_curr_last_offset =3D last_offset;
- 		/* set the pending count */
- 		if (n < CDC_NCM_RESTART_TIMER_DATAGRAM_CNT)
--			ctx->tx_timer_pending =3D 2;
-+			ctx->tx_timer_pending =3D CDC_NCM_TIMER_PENDING_CNT;
- 		goto exit_no_skb;
-=20
- 	} else {
-@@ -867,44 +881,49 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, st=
-ruct sk_buff *skb)
-=20
- 	/* return skb */
- 	ctx->tx_curr_skb =3D NULL;
-+	ctx->netdev->stats.tx_packets +=3D ctx->tx_curr_frame_num;
- 	return skb_out;
-=20
- exit_no_skb:
-+	/* Start timer, if there is a remaining skb */
-+	if (ctx->tx_curr_skb !=3D NULL)
-+		cdc_ncm_tx_timeout_start(ctx);
- 	return NULL;
- }
-=20
- static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx)
+@@ -956,108 +953,103 @@ error:
+ static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in=
+)
  {
- 	/* start timer, if not already started */
--	if (timer_pending(&ctx->tx_timer) =3D=3D 0) {
--		ctx->tx_timer.function =3D &cdc_ncm_tx_timeout;
--		ctx->tx_timer.data =3D (unsigned long)ctx;
--		ctx->tx_timer.expires =3D jiffies + ((HZ + 999) / 1000);
--		add_timer(&ctx->tx_timer);
--	}
-+	if (!(hrtimer_active(&ctx->tx_timer) || atomic_read(&ctx->stop)))
-+		hrtimer_start(&ctx->tx_timer,
-+				ktime_set(0, CDC_NCM_TIMER_INTERVAL),
-+				HRTIMER_MODE_REL);
- }
+ 	struct sk_buff *skb;
+-	struct cdc_ncm_ctx *ctx;
+-	int sumlen;
+-	int actlen;
+-	int temp;
++	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
++	int len;
+ 	int nframes;
+ 	int x;
+ 	int offset;
++	struct usb_cdc_ncm_nth16 *nth16;
++	struct usb_cdc_ncm_ndp16 *ndp16;
++	struct usb_cdc_ncm_dpe16 *dpe16;
 =20
--static void cdc_ncm_tx_timeout(unsigned long arg)
-+static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *timer)
- {
--	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)arg;
--	u8 restart;
-+	struct cdc_ncm_ctx *ctx =3D
-+			container_of(timer, struct cdc_ncm_ctx, tx_timer);
-=20
--	spin_lock(&ctx->mtx);
--	if (ctx->tx_timer_pending !=3D 0) {
--		ctx->tx_timer_pending--;
--		restart =3D 1;
--	} else {
--		restart =3D 0;
--	}
-+	if (!atomic_read(&ctx->stop))
-+		tasklet_schedule(&ctx->bh);
-+	return HRTIMER_NORESTART;
-+}
-=20
--	spin_unlock(&ctx->mtx);
-+static void cdc_ncm_txpath_bh(unsigned long param)
-+{
-+	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)param;
-=20
--	if (restart) {
--		spin_lock(&ctx->mtx);
-+	spin_lock_bh(&ctx->mtx);
-+	if (ctx->tx_timer_pending !=3D 0) {
-+		ctx->tx_timer_pending--;
- 		cdc_ncm_tx_timeout_start(ctx);
--		spin_unlock(&ctx->mtx);
-+		spin_unlock_bh(&ctx->mtx);
- 	} else if (ctx->netdev !=3D NULL) {
-+		spin_unlock_bh(&ctx->mtx);
-+		netif_tx_lock_bh(ctx->netdev);
- 		usbnet_start_xmit(NULL, ctx->netdev);
-+		netif_tx_unlock_bh(ctx->netdev);
- 	}
- }
-=20
-@@ -913,7 +932,6 @@ cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff=
- *skb, gfp_t flags)
- {
- 	struct sk_buff *skb_out;
- 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--	u8 need_timer =3D 0;
-=20
- 	/*
- 	 * The Ethernet API we are using does not support transmitting
-@@ -925,19 +943,9 @@ cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buf=
-f *skb, gfp_t flags)
+-	ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
  	if (ctx =3D=3D NULL)
  		goto error;
 =20
--	spin_lock(&ctx->mtx);
-+	spin_lock_bh(&ctx->mtx);
- 	skb_out =3D cdc_ncm_fill_tx_frame(ctx, skb);
--	if (ctx->tx_curr_skb !=3D NULL)
--		need_timer =3D 1;
+-	actlen =3D skb_in->len;
+-	sumlen =3D CDC_NCM_NTB_MAX_SIZE_RX;
 -
--	/* Start timer, if there is a remaining skb */
--	if (need_timer)
--		cdc_ncm_tx_timeout_start(ctx);
+-	if (actlen < (sizeof(ctx->rx_ncm.nth16) + sizeof(ctx->rx_ncm.ndp16)))=
+ {
++	if (skb_in->len < (sizeof(struct usb_cdc_ncm_nth16) +
++					sizeof(struct usb_cdc_ncm_ndp16))) {
+ 		pr_debug("frame too short\n");
+ 		goto error;
+ 	}
+=20
+-	memcpy(&(ctx->rx_ncm.nth16), ((u8 *)skb_in->data),
+-						sizeof(ctx->rx_ncm.nth16));
++	nth16 =3D (struct usb_cdc_ncm_nth16 *)skb_in->data;
+=20
+-	if (le32_to_cpu(ctx->rx_ncm.nth16.dwSignature) !=3D
+-	    USB_CDC_NCM_NTH16_SIGN) {
++	if (le32_to_cpu(nth16->dwSignature) !=3D USB_CDC_NCM_NTH16_SIGN) {
+ 		pr_debug("invalid NTH16 signature <%u>\n",
+-			 le32_to_cpu(ctx->rx_ncm.nth16.dwSignature));
++					le32_to_cpu(nth16->dwSignature));
+ 		goto error;
+ 	}
+=20
+-	temp =3D le16_to_cpu(ctx->rx_ncm.nth16.wBlockLength);
+-	if (temp > sumlen) {
+-		pr_debug("unsupported NTB block length %u/%u\n", temp, sumlen);
++	len =3D le16_to_cpu(nth16->wBlockLength);
++	if (len > ctx->rx_max) {
++		pr_debug("unsupported NTB block length %u/%u\n", len,
++								ctx->rx_max);
+ 		goto error;
+ 	}
+=20
+-	temp =3D le16_to_cpu(ctx->rx_ncm.nth16.wNdpIndex);
+-	if ((temp + sizeof(ctx->rx_ncm.ndp16)) > actlen) {
+-		pr_debug("invalid DPT16 index\n");
++	if ((ctx->rx_seq + 1) !=3D le16_to_cpu(nth16->wSequence) &&
++		(ctx->rx_seq || le16_to_cpu(nth16->wSequence)) &&
++		!((ctx->rx_seq =3D=3D 0xffff) && !le16_to_cpu(nth16->wSequence))) {
++		pr_debug("sequence number glitch prev=3D%d curr=3D%d\n",
++				ctx->rx_seq, le16_to_cpu(nth16->wSequence));
++	}
++	ctx->rx_seq =3D le16_to_cpu(nth16->wSequence);
++
++	len =3D le16_to_cpu(nth16->wNdpIndex);
++	if ((len + sizeof(struct usb_cdc_ncm_ndp16)) > skb_in->len) {
++		pr_debug("invalid DPT16 index <%u>\n",
++					le16_to_cpu(nth16->wNdpIndex));
+ 		goto error;
+ 	}
+=20
+-	memcpy(&(ctx->rx_ncm.ndp16), ((u8 *)skb_in->data) + temp,
+-						sizeof(ctx->rx_ncm.ndp16));
++	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)(((u8 *)skb_in->data) + len);
+=20
+-	if (le32_to_cpu(ctx->rx_ncm.ndp16.dwSignature) !=3D
+-	    USB_CDC_NCM_NDP16_NOCRC_SIGN) {
++	if (le32_to_cpu(ndp16->dwSignature) !=3D USB_CDC_NCM_NDP16_NOCRC_SIGN=
+) {
+ 		pr_debug("invalid DPT16 signature <%u>\n",
+-			 le32_to_cpu(ctx->rx_ncm.ndp16.dwSignature));
++					le32_to_cpu(ndp16->dwSignature));
+ 		goto error;
+ 	}
+=20
+-	if (le16_to_cpu(ctx->rx_ncm.ndp16.wLength) <
+-	    USB_CDC_NCM_NDP16_LENGTH_MIN) {
++	if (le16_to_cpu(ndp16->wLength) < USB_CDC_NCM_NDP16_LENGTH_MIN) {
+ 		pr_debug("invalid DPT16 length <%u>\n",
+-			 le32_to_cpu(ctx->rx_ncm.ndp16.dwSignature));
++					le32_to_cpu(ndp16->dwSignature));
+ 		goto error;
+ 	}
+=20
+-	nframes =3D ((le16_to_cpu(ctx->rx_ncm.ndp16.wLength) -
++	nframes =3D ((le16_to_cpu(ndp16->wLength) -
+ 					sizeof(struct usb_cdc_ncm_ndp16)) /
+ 					sizeof(struct usb_cdc_ncm_dpe16));
+ 	nframes--; /* we process NDP entries except for the last one */
+=20
+-	pr_debug("nframes =3D %u\n", nframes);
++	len +=3D sizeof(struct usb_cdc_ncm_ndp16);
+=20
+-	temp +=3D sizeof(ctx->rx_ncm.ndp16);
 -
--	if (skb_out)
--		dev->net->stats.tx_packets +=3D ctx->tx_curr_frame_num;
+-	if ((temp + nframes * (sizeof(struct usb_cdc_ncm_dpe16))) > actlen) {
++	if ((len + nframes * (sizeof(struct usb_cdc_ncm_dpe16))) >
++								skb_in->len) {
+ 		pr_debug("Invalid nframes =3D %d\n", nframes);
+ 		goto error;
+ 	}
+=20
+-	if (nframes > CDC_NCM_DPT_DATAGRAMS_MAX) {
+-		pr_debug("Truncating number of frames from %u to %u\n",
+-					nframes, CDC_NCM_DPT_DATAGRAMS_MAX);
+-		nframes =3D CDC_NCM_DPT_DATAGRAMS_MAX;
+-	}
+-
+-	memcpy(&(ctx->rx_ncm.dpe16), ((u8 *)skb_in->data) + temp,
+-				nframes * (sizeof(struct usb_cdc_ncm_dpe16)));
++	dpe16 =3D (struct usb_cdc_ncm_dpe16 *)(((u8 *)skb_in->data) + len);
+=20
+-	for (x =3D 0; x < nframes; x++) {
+-		offset =3D le16_to_cpu(ctx->rx_ncm.dpe16[x].wDatagramIndex);
+-		temp =3D le16_to_cpu(ctx->rx_ncm.dpe16[x].wDatagramLength);
++	for (x =3D 0; x < nframes; x++, dpe16++) {
++		offset =3D le16_to_cpu(dpe16->wDatagramIndex);
++		len =3D le16_to_cpu(dpe16->wDatagramLength);
+=20
+ 		/*
+ 		 * CDC NCM ch. 3.7
+ 		 * All entries after first NULL entry are to be ignored
+ 		 */
+-		if ((offset =3D=3D 0) || (temp =3D=3D 0)) {
++		if ((offset =3D=3D 0) || (len =3D=3D 0)) {
+ 			if (!x)
+ 				goto error; /* empty NTB */
+ 			break;
+ 		}
+=20
+ 		/* sanity checking */
+-		if (((offset + temp) > actlen) ||
+-		    (temp > CDC_NCM_MAX_DATAGRAM_SIZE) || (temp < ETH_HLEN)) {
++		if (((offset + len) > skb_in->len) ||
++				(len > ctx->rx_max) || (len < ETH_HLEN)) {
+ 			pr_debug("invalid frame detected (ignored)"
+ 					"offset[%u]=3D%u, length=3D%u, skb=3D%p\n",
+-					x, offset, temp, skb_in);
++					x, offset, len, skb_in);
+ 			if (!x)
+ 				goto error;
+ 			break;
+@@ -1066,9 +1058,9 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, s=
+truct sk_buff *skb_in)
+ 			skb =3D skb_clone(skb_in, GFP_ATOMIC);
+ 			if (!skb)
+ 				goto error;
+-			skb->len =3D temp;
++			skb->len =3D len;
+ 			skb->data =3D ((u8 *)skb_in->data) + offset;
+-			skb_set_tail_pointer(skb, temp);
++			skb_set_tail_pointer(skb, len);
+ 			usbnet_skb_return(dev, skb);
+ 		}
+ 	}
+--=20
+1.7.4.1
