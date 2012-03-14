@@ -1,54 +1,57 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
- performance degration
-Date: Wed, 14 Mar 2012 21:51:42 +0200
-Message-ID: <20120314215142.655ae607@vostro>
-References: <20120314190156.622c8cd5@vostro>
-	<1331745314.6022.27.camel@edumazet-glaptop>
-	<20120314192945.65867e9f@vostro>
-	<1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: fix erroneous NETDEV_TX_BUSY use
+Date: Wed, 14 Mar 2012 20:00:46 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCE702F@TK5EX14MBXC223.redmond.corp.microsoft.com>
+References: <1331751214.6022.47.camel@edumazet-glaptop>
+	 <4F60E9F7.4000402@candelatech.com>
+ <1331752632.6022.49.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:61256 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030724Ab2CNTwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 15:52:19 -0400
-Received: by bkcik5 with SMTP id ik5so1585459bkc.19
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 12:52:16 -0700 (PDT)
-In-Reply-To: <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:35847
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757033Ab2CNUBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:01:10 -0400
+In-Reply-To: <1331752632.6022.49.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Mar 2012 19:29:14 +0000 Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-
-> On Wed, 2012-03-14 at 19:29 +0200, Timo Teras wrote:
-> [...]
-> > gro off. I am even trying now with:
-> > 
-> > Offload parameters for eth2:
-> > rx-checksumming: off
-> > tx-checksumming: off
-> > scatter-gather: off
-> > tcp segmentation offload: off
-> > udp fragmentation offload: off
-> > generic segmentation offload: off
-> [...]
-> 
-> GRO isn't even reported there!  Apparently you need a newer version of
-> ethtool.
-
-Very good point. I thought gso also enabled gro, but seems that my
-ethtool was old.
-
-And GRO was enabled along with some other stuff. Turning GRO off made
-my tcp performance immediately a lot better; jumped from 2MB/s to 8MB/s
-or so (not ideal yet, though; but the remainder of the difference could
-be related to other issue).
-
-So something is definitely broke in 3.0.x with GRO enabled, but GSO off.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBNYXJjaCAx
+NCwgMjAxMiAzOjE3IFBNDQo+IFRvOiBCZW4gR3JlZWFyDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5l
+dGRldjsgS1kgU3Jpbml2YXNhbjsgSGFpeWFuZyBaaGFuZzsgR3JlZyBLcm9haC1IYXJ0bWFuDQo+
+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9oeXBlcnY6IGZpeCBlcnJvbmVvdXMgTkVUREVWX1RY
+X0JVU1kgdXNlDQo+IA0KPiBPbiBXZWQsIDIwMTItMDMtMTQgYXQgMTE6NTYgLTA3MDAsIEJlbiBH
+cmVlYXIgd3JvdGU6DQo+ID4gT24gMDMvMTQvMjAxMiAxMTo1MyBBTSwgRXJpYyBEdW1hemV0IHdy
+b3RlOg0KPiA+ID4gQSBkcml2ZXIgc3RhcnRfeG1pdCgpIG1ldGhvZCBjYW5ub3QgZnJlZSBza2Ig
+YW5kIHJldHVybg0KPiBORVRERVZfVFhfQlVTWSwNCj4gPiA+IHNpbmNlIGNhbGxlciBpcyBnb2lu
+ZyB0byByZXVzZSBmcmVlZCBza2IuDQo+ID4gPg0KPiA+ID4gVGhpcyBpcyBtb3N0bHkgYSByZXZl
+cnQgb2YgY29tbWl0IGJmNzY5Mzc1YyAoc3RhZ2luZzogaHY6IGZpeCB0aGUNCj4gcmV0dXJuDQo+
+ID4gPiBzdGF0dXMgb2YgbmV0dnNjX3N0YXJ0X3htaXQoKSkNCj4gPiA+DQo+ID4gPiBJbiBmYWN0
+IG5ldGlmX3R4X3N0b3BfcXVldWUoKSAvIG5ldGlmX3N0b3BfcXVldWUoKSBpcyBuZWVkZWQgYmVm
+b3JlDQo+ID4gPiByZXR1cm5pbmcgTkVUREVWX1RYX0JVU1kgb3IgeW91IGNhbiB0cmlnZ2VyIGEg
+a3NvZnRpcnFkIGZhdGFsIGxvb3AuDQo+ID4gPg0KPiA+ID4gSW4gY2FzZSBvZiBtZW1vcnkgYWxs
+b2NhdGlvbiBlcnJvciwgb25seSBzYWZlIHdheSBpcyB0byBkcm9wIHRoZQ0KPiBwYWNrZXQNCj4g
+PiA+IGFuZCByZXR1cm4gTkVUREVWX1RYX09LDQo+ID4NCj4gPiBDYW4geW91IG5vdCBqdXN0IGxl
+YXZlIHRoZSBza2IgYWxvbmUsIG5vdCBidW1wIGFueSB0eC1kcm9wcGVkDQo+ID4gc3RhdHMsIGFu
+ZCByZXR1cm4gTkVUREVWX1RYX0JVU1k/DQo+ID4NCj4gDQo+IE5vcGUuIFRoaW5rIGFib3V0IE9P
+TS4NCj4gDQo+IElmIHdlIGRvIHRoYXQsIHdlIHJlcXVldWUgcGFja2V0IG9uIHFkaXNjLCBhbmQg
+c2NoZWR1bGUgVFggc29mdGlycS4NCj4gDQo+IC0+IGxvb3ANCj4gDQo+IFJlYWxseSwgTkVUREVW
+X1RYX0JVU1kgaXMgbm90IGZvciB0aGlzIGtpbmQgb2Ygc2l0dWF0aW9uLg0KPiANCg0KQWN0dWFs
+bHksIEknbSB3b3JraW5nIG9uIHRoaXMgYnVnLCBhbmQgaGF2ZSBhIHBhdGNoIHVuZGVyIG91ciBp
+bnRlcm5hbCANCnJldmlldyBub3cuIE15IGZpeCBpcyBhY3R1YWxseSBub3QgZnJlZWluZyB0aGUg
+U0tCLCBhbmQgcmV0dXJuIE5FVERFVl9UWF9CVVNZLg0KDQpFdmVuIGlmIHRoZSB2bWJ1cyByaW5n
+IGJ1ZmZlciBpcyBidXN5IGN1cnJlbnRseSwgaXQgY2FuIGJlIGF2YWlsYWJsZSBkdXJpbmcNCnRo
+ZSBuZXh0IHJlLXRyeSwgYmVjYXVzZSB0aGUgaG9zdCBpcyB0YWtpbmcgYXdheSBkYXRhIGZyb20g
+cmluZyBidWZmZXIuIFRoZSANCnN0b3Avd2FrZSBxdWV1ZSBtZWNoYW5pc20gaXMgaW4gdGhlIG5l
+dHZzYy5jIGZpbGUuDQoNCkluIHRoZSBvdXQtb2YtbWVtb3J5IGNhc2UsIGRyb3BwaW5nIHBhY2tl
+dCBhbmQgcmV0dXJuIE5FVERFVl9UWF9PSyBzZWVtcyBmaW5lLg0KDQpUaGFua3MsDQotIEhhaXlh
+bmcNCg0K
