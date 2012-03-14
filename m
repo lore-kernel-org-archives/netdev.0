@@ -1,89 +1,27 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
- tx ip checksum
-Date: Wed, 14 Mar 2012 23:23:17 +0000
-Message-ID: <138EA028228D124A900F5E6746F3C2160F6B557A@ORSMSX102.amr.corp.intel.com>
-References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
-	 <138EA028228D124A900F5E6746F3C2160F6B3176@ORSMSX102.amr.corp.intel.com>
- <1331764214.2564.33.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Tarek Mansour Daw" <mansourda-wtarek@yahoo.es>
+Subject: Investing In Your Firm
+Date: Wed, 14 Mar 2012 18:30:01 -0400
+Message-ID: <auto-000173133021@cgpro.wliinc.com>
+Reply-To: <mansourdawtarek@yahoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45635 "EHLO mga09.intel.com"
+Received: from mail.wliinc.com ([65.38.23.90]:2800 "EHLO cgpro.wliinc.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751546Ab2CNXYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 19:24:18 -0400
-In-Reply-To: <1331764214.2564.33.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+	id S1760591Ab2CNXYY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2012 19:24:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBXZWQsIDIwMTItMDMtMTQgYXQgMjA6NDggKzAwMDAsIFpvdSwgWWkgd3JvdGU6DQo+ID4g
-Pg0KPiA+ID4gT24gV2VkLCAyMDEyLTAzLTE0IGF0IDAwOjAxIC0wNzAwLCBKZWZmIEtpcnNoZXIg
-d3JvdGU6DQo+ID4gPiA+IEZyb206IFlpIFpvdSA8eWkuem91QGludGVsLmNvbT4NCj4gPiA+ID4N
-Cj4gPiA+ID4gRml4IGEgYnVnIHdoZW4gdXNpbmcgJ2V0aHRvb2wgLUsgZXRoeCB0eCBvZmYnIHRv
-IHR1cm4gb2ZmIHR4IGlwDQo+ID4gPiBjaGVja3N1bSwNCj4gPiA+ID4gRkNvRSBDUkMgb2ZmbG9h
-ZCBzaG91bGQgbm90IGJlIGltcGFjdGUuIFRoZSBza2JfY2hlY2tzdW1faGVscCgpIGlzDQo+ID4g
-PiBuZWVkZWQNCj4gPiA+ID4gb25seSBpZiBpdCdzIG5vdCBGQ29FIHRyYWZmaWMgZm9yIGlwIGNo
-ZWNrc3VtLCByZWdhcmRsZXNzIG9mDQo+IGV0aHRvb2wNCj4gPiA+IHRvZ2dsaW5nDQo+ID4gPiA+
-IHRoZSB0eCBpcCBjaGVja3N1bSBvbiBvciBvZmYuDQo+ID4gPiBbLi4uXQ0KPiA+ID4NCj4gPiA+
-IEkgdGhpbmsgdGhlIGJ1ZyBpcyBtb3JlIGZ1bmRhbWVudGFsLCBhbmQgaXQncyBub3QganVzdCBh
-IHByb2JsZW0gZm9yDQo+ID4gPiBGQ29FLiAgRm9yIHRoZSB0cmFuc21pdCBwYXRoLCB0aGUgaXBf
-c3VtbWVkIHZhbHVlcyBhcmUgc3BlY2lmaWVkIGFzOg0KPiA+ID4NCj4gPiA+IFtmb3J3YXJkaW5n
-XQ0KPiA+ID4gICoJQ09NUExFVEU6IHRoZSBtb3N0IGdlbmVyaWMgd2F5LiBEZXZpY2Ugc3VwcGxp
-ZWQgY2hlY2tzdW0gb2YNCj4gX2FsbF8NCj4gPiA+ICAqCSAgICB0aGUgcGFja2V0IGFzIHNlZW4g
-YnkgbmV0aWZfcnggaW4gc2tiLT5jc3VtLg0KPiA+ID4gICoJICAgIE5PVEU6IEV2ZW4gaWYgZGV2
-aWNlIHN1cHBvcnRzIG9ubHkgc29tZSBwcm90b2NvbHMsIGJ1dA0KPiA+ID4gICoJICAgIGlzIGFi
-bGUgdG8gcHJvZHVjZSBzb21lIHNrYi0+Y3N1bSwgaXQgTVVTVCB1c2UgQ09NUExFVEUsDQo+ID4g
-PiAgKgkgICAgbm90IFVOTkVDRVNTQVJZLg0KPiA+ID4NCj4gPiA+IFtsb2NhbGx5LWdlbmVyYXRl
-ZF0NCj4gPiA+ICAqCU5PTkU6IHNrYiBpcyBjaGVja3N1bW1lZCBieSBwcm90b2NvbCBvciBjc3Vt
-IGlzIG5vdCByZXF1aXJlZC4NCj4gPiA+ICAqDQo+ID4gPiAgKglQQVJUSUFMOiBkZXZpY2UgaXMg
-cmVxdWlyZWQgdG8gY3N1bSBwYWNrZXQgYXMgc2VlbiBieQ0KPiA+ID4gaGFyZF9zdGFydF94bWl0
-DQo+ID4gPiAgKglmcm9tIHNrYi0+Y3N1bV9zdGFydCB0byB0aGUgZW5kIGFuZCB0byByZWNvcmQg
-dGhlIGNoZWNrc3VtDQo+ID4gPiAgKglhdCBza2ItPmNzdW1fc3RhcnQgKyBza2ItPmNzdW1fb2Zm
-c2V0Lg0KPiA+ID4NCj4gPiA+IEl0J3MgaW1wbGljaXQgdGhhdCB0aGUgY2hlY2tzdW0gYWxnb3Jp
-dGhtIGZvciBDSEVDS1NVTV9QQVJUSUFMIGlzIGFzDQo+ID4gPiBzcGVjaWZpZWQgZm9yIFRDUC9J
-UC4gIFNvIG5vbmUgb2YgdGhvc2UgaXMgY29ycmVjdCB3aGVuIGEgZGlmZmVyZW50DQo+ID4gPiBh
-bGdvcml0aG0gaXMgdG8gYmUgdXNlZC4NCj4gPiA+DQo+ID4gPiBJdCBzZWVtcyBsaWtlIHdlIG1h
-eSBuZWVkIGFub3RoZXIgaXBfc3VtbWVkIHZhbHVlIGZvciBGQ29FLCBTQ1RQIG9yDQo+IGFueQ0K
-PiA+ID4gb3RoZXIgcHJvdG9jb2wgd2l0aCBhIGRpZmZlcmVudCBjaGVja3N1bSBhbGdvcml0aG0g
-dGhhdCB3aWxsIGJlDQo+ID4gPiBvZmZsb2FkZWQuICBNYXliZSBhbGxvdyBDSEVDS1NVTV9VTk5F
-Q0VTU0FSWSB0byBiZSB1c2VkIG9uIG91dHB1dCBpbg0KPiA+ID4gdGhhdCBjYXNlPw0KPiA+ID4N
-Cj4gPiA+IEJlbi4NCj4gPg0KPiA+IENIRUNLU1VNX1VOTkVDRVNTQVJZIHNvdW5kcyBnb29kIHRv
-IG1lLCBpZiBpdCdzIG9rIHRvIGJlIHVzZWQgb24gdGhlIHR4DQo+IHBhdGgNCj4gPiBhcyB3ZWxs
-LA0KPiANCj4gSSBkb24ndCBiZWxpZXZlIGl0IGlzIHlldC4NCj4gDQo+ID4gSSB0aGluayBzbyBi
-dXQgSSBhbSBub3QgMTAwJSBzdXJlLCBpdCdkIHJlc29sdmUgdGhpcyBmb3IgZmNvZSBhbmQgc2N0
-cA0KPiA+IGxpa2UsIGRvd25zaWRlIGlzIGl0J3MgYSBiaWdnZXIgY2hhbmdlIHRoYXQgcmVxdWly
-ZXMgY29ycmVzcG9uZGluZw0KPiBjaGFuZ2VzIGluDQo+ID4gdGhlc2UgcHJvdG9jb2wgZHJpdmVy
-IHN0YWNrcyBhcyB3ZWxsLg0KPiANCj4gWWVzLCBidXQgdGhpcyBzaG91bGQgYmUgZG9uZSBwcm9w
-ZXJseSByYXRoZXIgdGhhbiBwYXRjaGVkIHVwIHdpdGggYQ0KPiBidW5jaCBvZiBjaGVja3MgZm9y
-IHNwZWNpZmljIHByb3RvY29scy4NCj4gDQo+IEJlbi4NCkFncmVlZCwgaG93ZXZlciwgSSB3aWxs
-IHN0aWxsIGhhdmUgdG8gZml4IHRoZSBuZXRpZl9uZWVkc19nc28oKSBsaWtlIGJlbG93DQp0byBi
-ZSBhYmxlIHRvIHVzZSBDSEVDS1NVTV9VTk5FQ0VTU0FSWSB0byBub3QgZ28gZG93biB0aGUgZGV2
-X2dzb19zZWdtZW50KCkNCnBhdGggZm9yIEZDb0UsIHdoaWNoIGlzIHVzaW5nIFNLQl9HU09fRkNP
-RS4NCg0KU28sIGFueW9uZSBzZWUgdGhpcyB3b3VsZCBicmVhayBhbnl0aGluZz8gaS5lLiwgdXNp
-bmcgQ0hFQ0tTVU1fVU5ORUNFU1NBUlkNCmJ1dCBzdGlsbCB3YW50IHRvIGRvIGRldl9nc29fc2Vn
-bWVudD8gSWYgb2ssIEkgd2lsbCByZXNlbmQgdGhlIHBhdGNoIHRvDQpkbyB0aGUgZm9sbG93aW5n
-Lg0KDQpUaGFua3MsDQp5aQ0KDQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2Uu
-aCBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCmluZGV4IDBlYWMwN2MuLmMxYjJiNWYgMTAw
-NjQ0DQotLS0gYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oDQorKysgYi9pbmNsdWRlL2xpbnV4
-L25ldGRldmljZS5oDQpAQCAtMjYzNiw3ICsyNjM2LDggQEAgc3RhdGljIGlubGluZSBpbnQgbmV0
-aWZfbmVlZHNfZ3NvKHN0cnVjdCBza19idWZmICpza2IsDQogICAgICAgIG5ldGRldl9mZWF0dXJl
-c190IGZlYXR1cmVzKQ0KIHsNCiAgICAgICAgcmV0dXJuIHNrYl9pc19nc28oc2tiKSAmJiAoIXNr
-Yl9nc29fb2soc2tiLCBmZWF0dXJlcykgfHwNCi0gICAgICAgICAgICAgICB1bmxpa2VseShza2It
-PmlwX3N1bW1lZCAhPSBDSEVDS1NVTV9QQVJUSUFMKSk7DQorICAgICAgICAgICAgICAgdW5saWtl
-bHkoKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1BBUlRJQUwpICYmDQorICAgICAgICAgICAg
-ICAgICAgICAgICAgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1VOTkVDRVNTQVJZKSkpOw0K
-IH0NCg0KDQoNCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xh
-cmZsYXJlDQo+IE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0
-aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFy
-ZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+ Dear Sir,
+
+My name is Tarek Mansour Daw from Libya, the only son of Mr. Mansour Daw. Please contact me via my email as we will like to invest our family funds in a renewable energy / biodiesel/farming projects. You can contact me via email for more clarifications.
+ 
+I wait to hear from you.
+ 
+Thank you.
+ 
+Tarek Mansour Daw 
