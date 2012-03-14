@@ -1,94 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 13 Mar 2012 17:53:12 -0700 (PDT)
-Message-ID: <20120313.175312.248147811152254607.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] sch_sfq: revert dont put new flow at the end of flows
+Date: Tue, 13 Mar 2012 21:04:25 -0700
+Message-ID: <1331697865.2456.19.camel@edumazet-laptop>
+References: <1327570722.8191.46.camel@probook>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dave Taht <dave.taht@gmail.com>, netdev <netdev@vger.kernel.org>
+To: jdb@comx.dk, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:38195 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860Ab2CNEE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 00:04:27 -0400
+Received: by gghe5 with SMTP id e5so1377228ggh.19
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 21:04:27 -0700 (PDT)
+In-Reply-To: <1327570722.8191.46.camel@probook>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This reverts commit d47a0ac7b6 (sch_sfq: dont put new flow at the end of
+flows)
 
-The most important bit here is the TCP syncookies issue, which seems
-to have been busted for some time.  That fix has been verified in
-production by the reporter.
+As Jesper found out, patch sounded great but has bad side effects.
 
-1) Persistent TUN devices erroneously hold on to the network
-   namespace in such a way that it cannot be shutdown.  Fix
-   from Stanislav Kinsbursky with help from Eric Dumazet.
+In stress situation, pushing new flows in front of the queue can prevent
+old flows doing any progress. Packets can stay in SFQ queue for
+unlimited amount of time.
 
-2) TCP SYN cookies have been broken for a while due to how the route
-   lookup flow key is managed, connections can be delayed by as much
-   as 20 seconds due to this bug.  Fix from Eric Dumazet.
+It's possible to add heuristics to limit this problem, but this would
+add complexity outside of SFQ scope.
 
-3) Missing jiffies.h include in lib/dynamic_queue_limits.c can break
-   the build, from Tom Herbert.
+A more sensible answer to Dave Taht concerns (who reported the issued I
+tried to solve in original commit) is probably to use a qdisc hierarchy
+so that high prio packets dont enter a potentially crowded SFQ qdisc.
 
-4) Add USB device ID for Sitecom LN-031, from Joerg Neikes.
+Reported-by: Jesper Dangaard Brouer <jdb@comx.dk>
+Cc: Dave Taht <dave.taht@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+I tried various tricks to avoid a revert but in the end it sounds better
+to use a single queue.
 
-5) Fix OOPS in delayed workqueue in iwlegacy, from Stanislaw Gruszka.
+ net/sched/sch_sfq.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-6) rt2x00 TX queue can be disabled forever due to races, fix by
-   synchronizing pause/unpause with a lock.  Also from Stanislaw
-   Gruszka.
-
-7) Statistics and endian fix in bnx2x driver from Yuval Mintz,
-   Eilon Greenstein, and Ariel Elior.
-
-Please pull, thanks a lot.
-
-The following changes since commit 2f1c2b8155865ba3c2909f468ac8be60f52ed56b:
-
-  Merge branch 'for_linus' of git://cavan.codon.org.uk/platform-drivers-x86 (2012-03-12 22:59:34 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-Ariel Elior (1):
-      bnx2x: added cpu_to_le16 when preparing ramrod's data
-
-Eric Dumazet (1):
-      tcp: fix syncookie regression
-
-Joerg Neikes (1):
-      usb: asix: Patch for Sitecom LN-031
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
-
-Stanislav Kinsbursky (1):
-      tun: don't hold network namespace by tun sockets
-
-Stanislaw Gruszka (2):
-      iwl3945: fix possible il->txq NULL pointer dereference in delayed works
-      rt2x00: fix random stalls
-
-Tom Herbert (1):
-      dql: Fix undefined jiffies
-
-Yuval Mintz (3):
-      bnx2x: pfc statistics counts pfc events twice
-      bnx2x: dcb bit indices flags used as bits
-      bnx2x: FCoE statistics id fixed
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |   12 ++++++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c   |    8 +++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |   12 --------
- drivers/net/tun.c                                 |   15 ++++++++--
- drivers/net/usb/asix.c                            |    4 +++
- drivers/net/wireless/iwlegacy/3945-mac.c          |    2 +-
- drivers/net/wireless/iwlegacy/3945.c              |    7 +++--
- drivers/net/wireless/rt2x00/rt2x00dev.c           |    6 +++-
- drivers/net/wireless/rt2x00/rt2x00mac.c           |    9 ++++++
- drivers/net/wireless/rt2x00/rt2x00queue.c         |    3 ++
- lib/dynamic_queue_limits.c                        |    1 +
- net/ipv4/syncookies.c                             |   30 +++++++++++---------
- net/ipv4/tcp_ipv4.c                               |   10 +++++--
- 15 files changed, 78 insertions(+), 45 deletions(-)
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 60d4718..02a21ab 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -469,11 +469,15 @@ enqueue:
+ 	if (slot->qlen == 1) {		/* The flow is new */
+ 		if (q->tail == NULL) {	/* It is the first flow */
+ 			slot->next = x;
+-			q->tail = slot;
+ 		} else {
+ 			slot->next = q->tail->next;
+ 			q->tail->next = x;
+ 		}
++		/* We put this flow at the end of our flow list.
++		 * This might sound unfair for a new flow to wait after old ones,
++		 * but we could endup servicing new flows only, and freeze old ones.
++		 */
++		q->tail = slot;
+ 		/* We could use a bigger initial quantum for new flows */
+ 		slot->allot = q->scaled_quantum;
+ 	}
