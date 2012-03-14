@@ -1,92 +1,63 @@
 From: "Zou, Yi" <yi.zou@intel.com>
 Subject: RE: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
  tx ip checksum
-Date: Wed, 14 Mar 2012 20:45:40 +0000
-Message-ID: <138EA028228D124A900F5E6746F3C2160F6B3154@ORSMSX102.amr.corp.intel.com>
+Date: Wed, 14 Mar 2012 20:48:03 +0000
+Message-ID: <138EA028228D124A900F5E6746F3C2160F6B3176@ORSMSX102.amr.corp.intel.com>
 References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20120314082529.584a669f@nehalam.linuxnetplumber.net>
-	<138EA028228D124A900F5E6746F3C2160F6B0F97@ORSMSX102.amr.corp.intel.com>
- <20120314123247.687be130@nehalam.linuxnetplumber.net>
+	 <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35749 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:31153 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761435Ab2CNUp4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:45:56 -0400
-In-Reply-To: <20120314123247.687be130@nehalam.linuxnetplumber.net>
+	id S1761463Ab2CNUsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2012 16:48:04 -0400
+In-Reply-To: <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> On Wed, 14 Mar 2012 18:54:32 +0000
-> "Zou, Yi" <yi.zou@intel.com> wrote:
-> 
-> > >
-> > > On Wed, 14 Mar 2012 00:01:58 -0700
-> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > >
-> > > > From: Yi Zou <yi.zou@intel.com>
-> > > >
-> > > > Fix a bug when using 'ethtool -K ethx tx off' to turn off tx ip
-> > > checksum,
-> > > > FCoE CRC offload should not be impacte. The skb_checksum_help() is
-> > > needed
-> > > > only if it's not FCoE traffic for ip checksum, regardless of
-> ethtool
-> > > toggling
-> > > > the tx ip checksum on or off.
-> > > >
-> > > > Signed-off-by: Yi Zou <yi.zou@intel.com>
-> > > > Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > >  net/core/dev.c |    3 +++
-> > > >  1 files changed, 3 insertions(+), 0 deletions(-)
-> > > >
-> > > > diff --git a/net/core/dev.c b/net/core/dev.c
-> > > > index 6ca32f6..9e378009 100644
-> > > > --- a/net/core/dev.c
-> > > > +++ b/net/core/dev.c
-> > > > @@ -1913,6 +1913,9 @@ int skb_checksum_help(struct sk_buff *skb)
-> > > >  	__wsum csum;
-> > > >  	int ret = 0, offset;
-> > > >
-> > > > +	if (skb->protocol == htons(ETH_P_FCOE))
-> > > > +		goto out;
-> > > > +
-> > > >  	if (skb->ip_summed == CHECKSUM_COMPLETE)
-> > > >  		goto out_set_summed;
-> > > >
-> > >
-> > > Shouldn't this be done in the offending driver rather than the core?
-> > Well, yes and no, the driver is already using NETIF_F_FCOE_CRC to
-> indicate
-> > the FCoE CRC offload capability, and can_checksum_protocol() indicates
-> that.
-> > The fcoe protocol stack then uses CHECKSUM_PARTIAL and NETIF_F_FCOE_CRC
-> to
-> > pass through netdev w/o doing skb_checksum(), which is not captured
-> here
-> > in dev_hard_start_xmit() as it looks at NETIF_F_ALL_CSUM only before
-> calling
-> > skb_checksum_help().
-> 
-> But your change would break any code (if there is any) generating this
-> kind of packet and going through firewall, etc. For example a bridge or
-> router for FCOE packets.
-
-I don't know anything like that exists right now but in that case for fcoe,
-you dan't want to use CHECKSUM_PARTIAL on output. Still, the point is the 
-skb_checksum_help() only makes sense for ip checksum.
-
-yi
+PiANCj4gT24gV2VkLCAyMDEyLTAzLTE0IGF0IDAwOjAxIC0wNzAwLCBKZWZmIEtpcnNoZXIgd3Jv
+dGU6DQo+ID4gRnJvbTogWWkgWm91IDx5aS56b3VAaW50ZWwuY29tPg0KPiA+DQo+ID4gRml4IGEg
+YnVnIHdoZW4gdXNpbmcgJ2V0aHRvb2wgLUsgZXRoeCB0eCBvZmYnIHRvIHR1cm4gb2ZmIHR4IGlw
+DQo+IGNoZWNrc3VtLA0KPiA+IEZDb0UgQ1JDIG9mZmxvYWQgc2hvdWxkIG5vdCBiZSBpbXBhY3Rl
+LiBUaGUgc2tiX2NoZWNrc3VtX2hlbHAoKSBpcw0KPiBuZWVkZWQNCj4gPiBvbmx5IGlmIGl0J3Mg
+bm90IEZDb0UgdHJhZmZpYyBmb3IgaXAgY2hlY2tzdW0sIHJlZ2FyZGxlc3Mgb2YgZXRodG9vbA0K
+PiB0b2dnbGluZw0KPiA+IHRoZSB0eCBpcCBjaGVja3N1bSBvbiBvciBvZmYuDQo+IFsuLi5dDQo+
+IA0KPiBJIHRoaW5rIHRoZSBidWcgaXMgbW9yZSBmdW5kYW1lbnRhbCwgYW5kIGl0J3Mgbm90IGp1
+c3QgYSBwcm9ibGVtIGZvcg0KPiBGQ29FLiAgRm9yIHRoZSB0cmFuc21pdCBwYXRoLCB0aGUgaXBf
+c3VtbWVkIHZhbHVlcyBhcmUgc3BlY2lmaWVkIGFzOg0KPiANCj4gW2ZvcndhcmRpbmddDQo+ICAq
+CUNPTVBMRVRFOiB0aGUgbW9zdCBnZW5lcmljIHdheS4gRGV2aWNlIHN1cHBsaWVkIGNoZWNrc3Vt
+IG9mIF9hbGxfDQo+ICAqCSAgICB0aGUgcGFja2V0IGFzIHNlZW4gYnkgbmV0aWZfcnggaW4gc2ti
+LT5jc3VtLg0KPiAgKgkgICAgTk9URTogRXZlbiBpZiBkZXZpY2Ugc3VwcG9ydHMgb25seSBzb21l
+IHByb3RvY29scywgYnV0DQo+ICAqCSAgICBpcyBhYmxlIHRvIHByb2R1Y2Ugc29tZSBza2ItPmNz
+dW0sIGl0IE1VU1QgdXNlIENPTVBMRVRFLA0KPiAgKgkgICAgbm90IFVOTkVDRVNTQVJZLg0KPiAN
+Cj4gW2xvY2FsbHktZ2VuZXJhdGVkXQ0KPiAgKglOT05FOiBza2IgaXMgY2hlY2tzdW1tZWQgYnkg
+cHJvdG9jb2wgb3IgY3N1bSBpcyBub3QgcmVxdWlyZWQuDQo+ICAqDQo+ICAqCVBBUlRJQUw6IGRl
+dmljZSBpcyByZXF1aXJlZCB0byBjc3VtIHBhY2tldCBhcyBzZWVuIGJ5DQo+IGhhcmRfc3RhcnRf
+eG1pdA0KPiAgKglmcm9tIHNrYi0+Y3N1bV9zdGFydCB0byB0aGUgZW5kIGFuZCB0byByZWNvcmQg
+dGhlIGNoZWNrc3VtDQo+ICAqCWF0IHNrYi0+Y3N1bV9zdGFydCArIHNrYi0+Y3N1bV9vZmZzZXQu
+DQo+IA0KPiBJdCdzIGltcGxpY2l0IHRoYXQgdGhlIGNoZWNrc3VtIGFsZ29yaXRobSBmb3IgQ0hF
+Q0tTVU1fUEFSVElBTCBpcyBhcw0KPiBzcGVjaWZpZWQgZm9yIFRDUC9JUC4gIFNvIG5vbmUgb2Yg
+dGhvc2UgaXMgY29ycmVjdCB3aGVuIGEgZGlmZmVyZW50DQo+IGFsZ29yaXRobSBpcyB0byBiZSB1
+c2VkLg0KPiANCj4gSXQgc2VlbXMgbGlrZSB3ZSBtYXkgbmVlZCBhbm90aGVyIGlwX3N1bW1lZCB2
+YWx1ZSBmb3IgRkNvRSwgU0NUUCBvciBhbnkNCj4gb3RoZXIgcHJvdG9jb2wgd2l0aCBhIGRpZmZl
+cmVudCBjaGVja3N1bSBhbGdvcml0aG0gdGhhdCB3aWxsIGJlDQo+IG9mZmxvYWRlZC4gIE1heWJl
+IGFsbG93IENIRUNLU1VNX1VOTkVDRVNTQVJZIHRvIGJlIHVzZWQgb24gb3V0cHV0IGluDQo+IHRo
+YXQgY2FzZT8NCj4gDQo+IEJlbi4NCg0KQ0hFQ0tTVU1fVU5ORUNFU1NBUlkgc291bmRzIGdvb2Qg
+dG8gbWUsIGlmIGl0J3Mgb2sgdG8gYmUgdXNlZCBvbiB0aGUgdHggcGF0aA0KYXMgd2VsbCwgSSB0
+aGluayBzbyBidXQgSSBhbSBub3QgMTAwJSBzdXJlLCBpdCdkIHJlc29sdmUgdGhpcyBmb3IgZmNv
+ZSBhbmQgc2N0cA0KbGlrZSwgZG93bnNpZGUgaXMgaXQncyBhIGJpZ2dlciBjaGFuZ2UgdGhhdCBy
+ZXF1aXJlcyBjb3JyZXNwb25kaW5nIGNoYW5nZXMgaW4NCnRoZXNlIHByb3RvY29sIGRyaXZlciBz
+dGFja3MgYXMgd2VsbC4NCg0KeWkNCg0KPiANCj4gLS0NCj4gQmVuIEh1dGNoaW5ncywgU3RhZmYg
+RW5naW5lZXIsIFNvbGFyZmxhcmUNCj4gTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhh
+dCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhleSBhc2tlZCB1cyB0byBu
+b3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCg0K
