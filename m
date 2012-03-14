@@ -1,80 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
- performance degration
-Date: Wed, 14 Mar 2012 10:15:14 -0700
-Message-ID: <1331745314.6022.27.camel@edumazet-glaptop>
-References: <20120314190156.622c8cd5@vostro>
+From: Andy Gospodarek <gospo@redhat.com>
+Subject: Re: [PATCH net V2] bonding: send igmp report for its master
+Date: Wed, 14 Mar 2012 13:22:37 -0400
+Message-ID: <20120314172237.GA12372@quad.redhat.com>
+References: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
+ <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"open list:BONDING DRIVER" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:46121 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761148Ab2CNRPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:15:18 -0400
-Received: by ghrr11 with SMTP id r11so2042225ghr.19
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:15:18 -0700 (PDT)
-In-Reply-To: <20120314190156.622c8cd5@vostro>
+Received: from mx1.redhat.com ([209.132.183.28]:4454 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756209Ab2CNRVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Mar 2012 13:21:49 -0400
+Content-Disposition: inline
+In-Reply-To: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-03-14 at 19:01 +0200, Timo Teras wrote:
-> Hi,
+On Wed, Mar 14, 2012 at 11:37:22AM +0800, Weiping Pan wrote:
+> Liang Zheng(lzheng@redhat.com) found that in the following topo,
+> bonding does not send igmp report when we trigger a fail-over of bonding.
 > 
-> I have a router box running linux-3.0.18 (with grsec patches).
+> eth0--
+>       |-- bond0 -- br0
+> eth1--
 > 
-> with the NIC hardware:
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
-> r8169 0000:00:09.0: (unregistered net_device): no PCI Express capability
-> r8169 0000:00:09.0: eth0: RTL8169sc/8110sc at 0xf82f8000, 00:30:18:ab:6b:54, XID 18000000 IRQ 18
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:0b.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
-> r8169 0000:00:0b.0: (unregistered net_device): no PCI Express capability
-> r8169 0000:00:0b.0: eth1: RTL8169sc/8110sc at 0xf82fa000, 00:30:18:ab:6b:55, XID 18000000 IRQ 19
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:0c.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> r8169 0000:00:0c.0: (unregistered net_device): no PCI Express capability
-> r8169 0000:00:0c.0: eth2: RTL8169sc/8110sc at 0xf82fc000, 00:30:18:ab:6b:56, XID 18000000 IRQ 16
+> modprobe bonding mode=1 miimon=100 resend_igmp=10
+> ifconfig bond0 up
+> ifenslave bond0 eth0 eth1
 > 
-> This box is working just as a plain IPv4 router (internal RFC1918
-> address space) forwarding packets.
+> brctl addbr br0
+> ifconfig br0 192.168.100.2/24 up
+> brctl addif br0 bond0
 > 
-> It routes basically from eth2 to multiple vlans over bond0 consisting of eth0 and eth1.
+> Add 192.168.100.2(br0) into a multicast group, like 224.10.10.10,
+> then trigger a fali-over in bonding.
+> You can see that parameter "resend_igmp" does not work.
 > 
-> I have most hw accel stuff turned off, and "ethtool -k eth0" says:
-> Offload parameters for eth0:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: off
-> tcp segmentation offload: off
-> udp fragmentation offload: off
-> generic segmentation offload: off
+> The reason is that when we add br0 into a multicast group,
+> it does not propagate multicast knowledge down to its ports.
 > 
-> The same applies for all interfaces (except lo).
+> If we choose to propagate multicast knowledge down to all ports for bridge,
+> then we have to track every change that is done to bridge, and keep a backup
+> for all ports. It is hard to track, I think.
 > 
-> However, tcpdump on this box indicates that I'm receiving very
-> long (tcp length more than mtu) incoming packets on eth2 implying that
-> gso/tso got turned on somehow. eth2 is connected with cross-over cable
-> to similar box running a bit older linux box; but gso/tso is turned off
-> there too. When dumping simultaneously on the other side, it indicates
-> that all packets sent are normal length, and no merging was performed
-> earlier (fits mtu 1500).
+> Instead I choose to modify bonding to send igmp report for its master.
 > 
-> So it would appear that the router box somehow insists on doing gso/tso,
-> and sadly it will also mess up on the send path (the incoming merged
-> packet is forwarded, but sent out short) causing lost segments and
-> serious performance degration.
+> Changelog:
+> V2: correct comments
 > 
-> Any pointers how to next debug/fix/workaround this issue?
+> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    8 ++++++++
+>  1 files changed, 8 insertions(+), 0 deletions(-)
 > 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 435984a..300c490 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -794,6 +794,14 @@ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+>  {
+>  	struct bonding *bond = container_of(work, struct bonding,
+>  					    mcast_work.work);
+> +	struct net_device *bond_dev, *master_dev = NULL;
+> +	bond_dev = bond->dev;
+> +	master_dev = bond_dev->master;
+> +
+> +	if (unlikely(master_dev)) {
+> +		__bond_resend_igmp_join_requests(master_dev);
+> +	}
+> +
+>  	bond_resend_igmp_join_requests(bond);
+>  }
+>  
 
-You are fighting the wrong side ;)
+This check and call to __bond_resend_igmp_join_requests  would be better
+in bond_resend_igmp_join_requests for 2 reasons:
 
-Here, its GRO doing the aggregation on receiver.
+1.  bond_resend_igmp_join_requests already has a check for vlan devices.
+It seems logical to check for the bridging case there also.
 
-What kind of problems do you experiment because of this ?
-
-ethtool -k eth2
+2.  Calling __bond_resend_igmp_join_requests will not work as expected
+when igmp_retrans>1 since no decrementing or rescheduling is done in
+__bond_resend_igmp_join_requests.
