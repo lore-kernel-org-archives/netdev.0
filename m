@@ -1,35 +1,55 @@
-From: Simon Kirby <sim@netnation.com>
-Subject: Re: [PATCH] tcp: fix syncookie regression
-Date: Tue, 13 Mar 2012 17:36:27 -0700
-Message-ID: <20120314003627.GC10358@hostway.ca>
-References: <20120313072643.GA32306@hostway.ca> <CADVnQynM5F=B60-7AMFHn0A9g-jvcBzo+dSg-C0isDBo_UMyjw@mail.gmail.com> <1331660251.4449.24.camel@edumazet-glaptop> <20120313.155906.1275225317793926230.davem@davemloft.net> <1331681457.4449.67.camel@edumazet-glaptop>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: pktgen -- arm build failures (Was: linux-next: triage for March
+ 13, 2012)
+Date: Tue, 13 Mar 2012 20:52:11 -0400
+Message-ID: <CAP=VYLoQbNqHnc6_hzF5hYZq_=9L5qaGm7TNF1Mh5YZH57yjMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from peace.netnation.com ([204.174.223.2]:34766 "EHLO
-	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757591Ab2CNAg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Mar 2012 20:36:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1331681457.4449.67.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Russell King <rmk@arm.linux.org.uk>, tony@bakeyournoodle.com,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 13, 2012 at 04:30:57PM -0700, Eric Dumazet wrote:
+[PG: adding netdev to CC list]
 
-> On Tue, 2012-03-13 at 15:59 -0700, David Miller wrote:
-> 
-> > The syncookie regression fix isn't even pushed to Linus's tree yet,
-> > and once it's there it still needs to cook for a few more days before
-> > I'm willing to sent it to -stable.
-> 
-> Yeah, discussion diverged from tcp syncookie to other stuff (tcp at
-> least ;) )
-
-Yes, sorry, at first I thought it might be related. Anyway, the syncookie
-fix is cooking in production(tm) for us, and working well. Thanks,
-
-Simon-
+On Tue, Mar 13, 2012 at 8:41 PM, Stephen Rothwell <sfr@canb.auug.org.au=
+> wrote:
+> On Tue, 13 Mar 2012 19:47:07 -0400 Paul Gortmaker <paul.gortmaker@win=
+driver.com> wrote:
+>>
+>> ARM:netx_defconfig,pnx4008_defconfig
+>> =A0 =A0 =A0 when: =A0 Mar 14, 02:43
+>> =A0 =A0 =A0 why: =A0 =A0net/core/pktgen.c: can't find a register in =
+class 'GENERAL_REGS'
+>> =A0 =A0 =A0 status:
+>> =A0 =A0 =A0 fix:
+>> =A0 =A0 =A0 ref: =A0 =A0http://kisskb.ellerman.id.au/kisskb/buildres=
+ult/5869486/
+>
+> This is this:
+>
+> net/core/pktgen.c:682:2775: error: can't find a register in class 'GE=
+NERAL_REGS' while reloading 'asm'
+> net/core/pktgen.c:682:3153: error: can't find a register in class 'GE=
+NERAL_REGS' while reloading 'asm'
+> net/core/pktgen.c:682:2775: error: 'asm' operand has impossible const=
+raints
+> net/core/pktgen.c:682:3153: error: 'asm' operand has impossible const=
+raints
+>
+> Which is a do_div() call. =A0The relevant code does not appear to hav=
+e
+> changed, so this may well be a result of our toolchain changing from
+> "arm-linux-gcc (GCC) 4.4.0, GNU ld (GNU Binutils) 2.19.1" to
+> "arm-unknown-linux-gnueabi-gcc (GCC) 4.6.3, GNU ld (GNU Binutils) 2.2=
+2".
+>
+> Anyone have any thoughts?
+> --
+> Cheers,
+> Stephen Rothwell =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sfr@canb.auug=
+=2Eorg.au
