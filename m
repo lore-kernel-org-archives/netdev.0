@@ -1,290 +1,53 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH net-next] bonding: remove entries for master_ip and vlan_ip and query devices instead
-Date: Wed, 14 Mar 2012 12:21:09 -0400
-Message-ID: <1331742069-16602-1-git-send-email-andy@greyhouse.net>
-Cc: Ralf Zeidler <ralf.zeidler@nsn.com>
-To: netdev@vger.kernel.org
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: [PATCH 1/5] qlcnic: skip IDC ack check in fw reset path.
+Date: Wed, 14 Mar 2012 09:23:08 -0700
+Message-ID: <1331742193-13234-1-git-send-email-anirban.chakraborty@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12512 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755085Ab2CNQUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 12:20:19 -0400
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:24455
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756602Ab2CNQhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 12:37:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch aimed to resolve an issue where secondary, tertiary,
-etc. addresses added to bond interfaces could overwrite the
-bond->master_ip and vlan_ip values.
+From: Sritej Velaga <sritej.velaga@qlogic.com>
 
-	commit 917fbdb32f37e9a93b00bb12ee83532982982df3
-	Author: Henrik Saavedra Persson <henrik.e.persson@ericsson.com>
-	Date:   Wed Nov 23 23:37:15 2011 +0000
+In fw reset path, we should consider any change in device state as an
+ack from the other driver. When that happens, we don't have to wait for
+an explicit ack.
 
-	    bonding: only use primary address for ARP
-
-That patch was good because it prevented bonds using ARP monitoring from
-sending frames with an invalid source IP address.  Unfortunately, it
-didn't always work as expected.
-
-When using an ioctl (like ifconfig does) to set the IP address and
-netmask, 2 separate ioctls are actually called to set the IP and netmask
-if the mask chosen doesn't match the standard mask for that class of
-address.  The first ioctl did not have a mask that matched the one in
-the primary address and would still cause the device address to be
-overwritten.  The second ioctl that was called to set the mask would
-then detect as secondary and ignored, but the damage was already done.
-
-This was not an issue when using an application that used netlink
-sockets as the setting of IP and netmask came down at once.  The
-inconsistent behavior between those two interfaces was something that
-needed to be resolved.
-
-While I was thinking about how I wanted to resolve this, Ralf Zeidler
-came with a patch that resolved this on a RHEL kernel by keeping a full
-shadow of the entries in dev->ifa_list for the bonding device and vlan
-devices in the bonding driver.  I didn't like the duplication of the
-list as I want to see the 'bonding' struct and code shrink rather than
-grow, but liked the general idea.
-
-As the Subject indicates this patch drops the master_ip and vlan_ip
-elements from the 'bonding' and 'vlan_entry' structs, respectively.
-This can be done because a device's address-list is now traversed to
-determine the optimal source IP address for ARP requests and for checks
-to see if the bonding device has a particular IP address.  This code
-could have all be contained inside the bonding driver, but it made more
-sense to me to EXPORT and call inet_confirm_addr since it did exactly
-what was needed.
-
-I tested this and a backported patch and everything works as expected.
-Ralf also helped with verification of the backported patch.
-
-Thanks to Ralf for all his help on this.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-CC: Ralf Zeidler <ralf.zeidler@nsn.com>
-
+Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/bonding/bond_main.c |   86 +++++++++------------------------------
- drivers/net/bonding/bonding.h   |   17 +++++++-
- net/ipv4/devinet.c              |    1 +
- 3 files changed, 35 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 435984a..67d58cd 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2561,12 +2561,18 @@ re_arm:
- static int bond_has_this_ip(struct bonding *bond, __be32 ip)
- {
- 	struct vlan_entry *vlan;
-+	struct net_device *vlan_dev;
- 
--	if (ip == bond->master_ip)
-+	if (ip == bond_confirm_addr(bond->dev, 0, ip))
- 		return 1;
- 
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--		if (ip == vlan->vlan_ip)
-+		rcu_read_lock();
-+		vlan_dev = __vlan_find_dev_deep(bond->dev,
-+						vlan->vlan_id);
-+		rcu_read_unlock();
-+		if (vlan_dev &&
-+		    ip == bond_confirm_addr(vlan_dev, 0, ip))
- 			return 1;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 106503f..2edffce 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2840,8 +2840,15 @@ qlcnic_fwinit_work(struct work_struct *work)
+ 		goto wait_npar;
  	}
  
-@@ -2608,7 +2614,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 	int i, vlan_id;
- 	__be32 *targets = bond->params.arp_targets;
- 	struct vlan_entry *vlan;
--	struct net_device *vlan_dev;
-+	struct net_device *vlan_dev = NULL;
- 	struct rtable *rt;
- 
- 	for (i = 0; (i < BOND_MAX_ARP_TARGETS); i++) {
-@@ -2618,7 +2624,9 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 		if (!bond_vlan_used(bond)) {
- 			pr_debug("basa: empty vlan: arp_send\n");
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--				      bond->master_ip, 0);
-+				      bond_confirm_addr(bond->dev,
-+							targets[i],
-+							0), 0);
- 			continue;
- 		}
- 
-@@ -2644,7 +2652,9 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			ip_rt_put(rt);
- 			pr_debug("basa: rtdev == bond->dev: arp_send\n");
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--				      bond->master_ip, 0);
-+				      bond_confirm_addr(bond->dev,
-+							targets[i],
-+							0), 0);
- 			continue;
- 		}
- 
-@@ -2662,10 +2672,12 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			}
- 		}
- 
--		if (vlan_id) {
-+		if (vlan_id && vlan_dev) {
- 			ip_rt_put(rt);
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--				      vlan->vlan_ip, vlan_id);
-+				      bond_confirm_addr(vlan_dev,
-+							targets[i],
-+							0), vlan_id);
- 			continue;
- 		}
- 
-@@ -3287,68 +3299,10 @@ static int bond_netdev_event(struct notifier_block *this,
- 	return NOTIFY_DONE;
- }
- 
--/*
-- * bond_inetaddr_event: handle inetaddr notifier chain events.
-- *
-- * We keep track of device IPs primarily to use as source addresses in
-- * ARP monitor probes (rather than spewing out broadcasts all the time).
-- *
-- * We track one IP for the main device (if it has one), plus one per VLAN.
-- */
--static int bond_inetaddr_event(struct notifier_block *this, unsigned long event, void *ptr)
--{
--	struct in_ifaddr *ifa = ptr;
--	struct net_device *vlan_dev, *event_dev = ifa->ifa_dev->dev;
--	struct bond_net *bn = net_generic(dev_net(event_dev), bond_net_id);
--	struct bonding *bond;
--	struct vlan_entry *vlan;
--
--	/* we only care about primary address */
--	if(ifa->ifa_flags & IFA_F_SECONDARY)
--		return NOTIFY_DONE;
--
--	list_for_each_entry(bond, &bn->dev_list, bond_list) {
--		if (bond->dev == event_dev) {
--			switch (event) {
--			case NETDEV_UP:
--				bond->master_ip = ifa->ifa_local;
--				return NOTIFY_OK;
--			case NETDEV_DOWN:
--				bond->master_ip = 0;
--				return NOTIFY_OK;
--			default:
--				return NOTIFY_DONE;
--			}
--		}
--
--		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
--			vlan_dev = __vlan_find_dev_deep(bond->dev,
--							vlan->vlan_id);
--			if (vlan_dev == event_dev) {
--				switch (event) {
--				case NETDEV_UP:
--					vlan->vlan_ip = ifa->ifa_local;
--					return NOTIFY_OK;
--				case NETDEV_DOWN:
--					vlan->vlan_ip = 0;
--					return NOTIFY_OK;
--				default:
--					return NOTIFY_DONE;
--				}
--			}
--		}
--	}
--	return NOTIFY_DONE;
--}
--
- static struct notifier_block bond_netdev_notifier = {
- 	.notifier_call = bond_netdev_event,
- };
- 
--static struct notifier_block bond_inetaddr_notifier = {
--	.notifier_call = bond_inetaddr_event,
--};
--
- /*---------------------------- Hashing Policies -----------------------------*/
- 
- /*
-@@ -4917,7 +4871,6 @@ static int __init bonding_init(void)
++	if (dev_state == QLCNIC_DEV_INITIALIZING ||
++	    dev_state == QLCNIC_DEV_READY) {
++		dev_info(&adapter->pdev->dev, "Detected state change from "
++				"DEV_NEED_RESET, skipping ack check\n");
++		goto skip_ack_check;
++	}
++
+ 	if (adapter->fw_wait_cnt++ > adapter->reset_ack_timeo) {
+-		dev_err(&adapter->pdev->dev, "Reset:Failed to get ack %d sec\n",
++		dev_info(&adapter->pdev->dev, "Reset:Failed to get ack %d sec\n",
+ 					adapter->reset_ack_timeo);
+ 		goto skip_ack_check;
  	}
- 
- 	register_netdevice_notifier(&bond_netdev_notifier);
--	register_inetaddr_notifier(&bond_inetaddr_notifier);
- out:
- 	return res;
- err:
-@@ -4931,7 +4884,6 @@ err_link:
- static void __exit bonding_exit(void)
- {
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
--	unregister_inetaddr_notifier(&bond_inetaddr_notifier);
- 
- 	bond_destroy_debugfs();
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 1aecc37..4fc9659 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -21,6 +21,7 @@
- #include <linux/cpumask.h>
- #include <linux/in6.h>
- #include <linux/netpoll.h>
-+#include <linux/inetdevice.h>
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
-@@ -166,7 +167,6 @@ struct bond_parm_tbl {
- 
- struct vlan_entry {
- 	struct list_head vlan_list;
--	__be32 vlan_ip;
- 	unsigned short vlan_id;
- };
- 
-@@ -232,7 +232,6 @@ struct bonding {
- 	struct   list_head bond_list;
- 	struct   netdev_hw_addr_list mc_list;
- 	int      (*xmit_hash_policy)(struct sk_buff *, int);
--	__be32   master_ip;
- 	u16      rr_tx_counter;
- 	struct   ad_bond_info ad_info;
- 	struct   alb_bond_info alb_info;
-@@ -378,6 +377,20 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
- 	return slave->inactive;
- }
- 
-+static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
-+{
-+	struct in_device *in_dev;
-+	__be32 addr = 0;
-+
-+	rcu_read_lock();
-+	in_dev = __in_dev_get_rcu(dev);
-+	rcu_read_unlock();
-+
-+	if (in_dev)
-+		addr = inet_confirm_addr(in_dev, dst, local, RT_SCOPE_HOST);
-+	return addr;
-+}
-+
- struct bond_net;
- 
- struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e41c40f..d4fad5c 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1079,6 +1079,7 @@ __be32 inet_confirm_addr(struct in_device *in_dev,
- 
- 	return addr;
- }
-+EXPORT_SYMBOL(inet_confirm_addr);
- 
- /*
-  *	Device notifier
 -- 
-1.7.4.4
+1.7.4.1
