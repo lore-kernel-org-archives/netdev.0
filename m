@@ -1,62 +1,76 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ip route show shows the routes in the inverse order?
-Date: Tue, 13 Mar 2012 22:32:43 -0700
-Message-ID: <20120313223243.7d0ebf1f@nehalam.linuxnetplumber.net>
-References: <CAA7Uhc=xFxiAc9ZL0KHQJ1Opr0m=Do_OuLmL7WWd7PU4JuUNnQ@mail.gmail.com>
-	<20120312193204.5be5b4b8@nehalam.linuxnetplumber.net>
-	<20120313021529.97514922.billfink@mindspring.com>
-	<20120312.235234.73408595516828250.davem@davemloft.net>
-	<4F5F69C6.7000900@candelatech.com>
-	<20120314013021.4c73af0d.billfink@mindspring.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+Date: Tue, 13 Mar 2012 22:55:35 -0700
+Message-ID: <1331704535.2456.37.camel@edumazet-laptop>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
+	 <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+	 <1331658828.4449.16.camel@edumazet-glaptop>
+	 <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>, diego@woitasen.com.ar,
-	netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45512 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964940Ab2CNFcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 01:32:46 -0400
-In-Reply-To: <20120314013021.4c73af0d.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Indan Zupancic <indan@nul.nu>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Mar 2012 01:30:21 -0400
-Bill Fink <billfink@mindspring.com> wrote:
+Le mercredi 14 mars 2012 =C3=A0 06:12 +0100, Indan Zupancic a =C3=A9cri=
+t :
 
-> On Tue, 13 Mar 2012, Ben Greear wrote:
-> 
-> > On 03/12/2012 11:52 PM, David Miller wrote:
-> > > From: Bill Fink<billfink@mindspring.com>
-> > > Date: Tue, 13 Mar 2012 02:15:29 -0400
-> > >
-> > >> Some scripts may depend on this plus its much more efficent that way
-> > >> if trying to find a matching route since you can quit on the first
-> > >> match instead of having to scan the entire routing table.
-> > >
-> > > No script should be doing stuff like this, let the tool do it for you
-> > > via "ip route get ADDR"
-> > >
-> > > There is absolutely no argument for routes to be listed in one order
-> > > or another, and anything depending upon order is extremely fragile
-> > > and needs to be fixed up anyways.
-> > 
-> > The argument is ease of use by whatever human is reading the
-> > information..but it could be done in the 'ip' tool.
-> > 
-> > Humans are fragile indeed, but it's often easier to fix the
-> > computer than fix the humans.
-> 
-> Speaking from experience, it's a royal point to look at unsorted
-> routes.  Perhaps it would be useful to add a sort option to the
-> "ip route show" command.
-> 
-> It makes more sense to fix a single user tool like "ip" than make
-> hundreds (or thousands) of admins work around the new behavior.
-> 
-> 						-Bill
+> Problem is that 'old_size' can be up to 32kB in size and it would be =
+nice
+> if that memory could be released. If it isn't, then using JIT increas=
+es
+> memory usage, while also not accounting it to the socket.
+>=20
 
-patches accepted.
+It is accounted for, since jit size is in relation with standard filter
+size. Check sock_kmalloc()
+
+=46act we can have a litle underestimation was already the case without
+jit, since kmalloc() does a roundup to next power of two.
+
+I dont think this discussion has anything to do with SECCOMP anyway.
+
+These accounting dont need to be 100% precise, we only want a limit to
+prevent rogue users from using all kernel memory.
+
+> >
+> > If it did, this kind of 'optimization' can actually be not good, be=
+cause
+> > sizeof(*fp) is small enough (less than half cache line size) to tri=
+gger
+> > a possible false sharing issue. (other part of the cache line could=
+ be
+> > used to hold a often dirtied object)
+>=20
+> It could avoid this by allocating at least a cache size. But this is =
+a
+> problem for all small kmalloc's, isn't it?
+
+Its a problem that was already met on several critical paths :
+
+# find net|xargs grep -n L1_CACHE_BYTES
+net/core/dev_addr_lists.c:51:	if (alloc_size < L1_CACHE_BYTES)
+net/core/dev_addr_lists.c:52:		alloc_size =3D L1_CACHE_BYTES;
+net/core/net-sysfs.c:586:	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_CA=
+CHE_BYTES),
+net/core/net-sysfs.c:1111:	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GFP_=
+KERNEL);
+net/ipv6/ip6_fib.c:1612:	size =3D max_t(size_t, size, L1_CACHE_BYTES);
+net/ipv4/fib_frontend.c:1049:	size =3D max_t(size_t, size, L1_CACHE_BYT=
+ES);
+
+
+
