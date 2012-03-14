@@ -1,139 +1,131 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
-Date: Wed, 14 Mar 2012 17:22:52 +0000
-Message-ID: <CAA93jw67JfUXvZZxs8TGHJ23UBsBkedo2-Ve3u9ufF1ob3FpRQ@mail.gmail.com>
-References: <1327570722.8191.46.camel@probook>
-	<1331697865.2456.19.camel@edumazet-laptop>
-	<CAA93jw4kYqCWg424SXkrtQeg9bPfpfgH-x_7tjg=m8uxk_GNaA@mail.gmail.com>
-	<1331724732.7651.58.camel@probook>
-	<1331733899.2456.66.camel@edumazet-laptop>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Wed, 14 Mar 2012 19:29:45 +0200
+Message-ID: <20120314192945.65867e9f@vostro>
+References: <20120314190156.622c8cd5@vostro>
+	<1331745314.6022.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jdb@comx.dk, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <netoptimizer@brouer.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:45082 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755051Ab2CNRWx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:22:53 -0400
-Received: by wibhj6 with SMTP id hj6so7516752wib.1
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:22:52 -0700 (PDT)
-In-Reply-To: <1331733899.2456.66.camel@edumazet-laptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:55697 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761289Ab2CNRaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:30:22 -0400
+Received: by bkcik5 with SMTP id ik5so1487496bkc.19
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:30:21 -0700 (PDT)
+In-Reply-To: <1331745314.6022.27.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 14, 2012 at 2:04 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mercredi 14 mars 2012 =E0 12:32 +0100, Jesper Dangaard Brouer a =E9=
-crit :
->> ons, 14 03 2012 kl. 04:52 +0000, skrev Dave Taht:
->> > On Wed, Mar 14, 2012 at 4:04 AM, Eric Dumazet <eric.dumazet@gmail.=
-com> wrote:
->
->> > As the depth of the sfq queue increases it gets increasingly hard =
-to
->> > trigger the problem. I've been using values in the 200-300 range, =
-and
->> > in combination with red, haven't seen it happen.
->>
->> I don't think you should adjust the "depth", but instead "limit" or
->> "flows".
+On Wed, 14 Mar 2012 10:15:14 -0700 Eric Dumazet
+<eric.dumazet@gmail.com> wrote:
 
-Sorry, I'd meant 'limit' above, with limiting the per flow depth (at
-4Mbit depths of 12-24 are good + red doing byte limiting starting at
-3000), and having lots of flows in the hash....
+> On Wed, 2012-03-14 at 19:01 +0200, Timo Teras wrote:
+> > Hi,
+> > 
+> > I have a router box running linux-3.0.18 (with grsec patches).
+> > 
+> > with the NIC hardware:
+> > r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> > r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+> > r8169 0000:00:09.0: (unregistered net_device): no PCI Express
+> > capability r8169 0000:00:09.0: eth0: RTL8169sc/8110sc at
+> > 0xf82f8000, 00:30:18:ab:6b:54, XID 18000000 IRQ 18 r8169 Gigabit
+> > Ethernet driver 2.3LK-NAPI loaded r8169 0000:00:0b.0: PCI INT A ->
+> > GSI 19 (level, low) -> IRQ 19 r8169 0000:00:0b.0: (unregistered
+> > net_device): no PCI Express capability r8169 0000:00:0b.0: eth1:
+> > RTL8169sc/8110sc at 0xf82fa000, 00:30:18:ab:6b:55, XID 18000000 IRQ
+> > 19 r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded r8169
+> > 0000:00:0c.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16 r8169
+> > 0000:00:0c.0: (unregistered net_device): no PCI Express capability
+> > r8169 0000:00:0c.0: eth2: RTL8169sc/8110sc at 0xf82fc000,
+> > 00:30:18:ab:6b:56, XID 18000000 IRQ 16
+> > 
+> > This box is working just as a plain IPv4 router (internal RFC1918
+> > address space) forwarding packets.
+> > 
+> > It routes basically from eth2 to multiple vlans over bond0
+> > consisting of eth0 and eth1.
+> > 
+> > I have most hw accel stuff turned off, and "ethtool -k eth0" says:
+> > Offload parameters for eth0:
+> > rx-checksumming: on
+> > tx-checksumming: on
+> > scatter-gather: off
+> > tcp segmentation offload: off
+> > udp fragmentation offload: off
+> > generic segmentation offload: off
+> > 
+> > The same applies for all interfaces (except lo).
+> > 
+> > However, tcpdump on this box indicates that I'm receiving very
+> > long (tcp length more than mtu) incoming packets on eth2 implying
+> > that gso/tso got turned on somehow. eth2 is connected with
+> > cross-over cable to similar box running a bit older linux box; but
+> > gso/tso is turned off there too. When dumping simultaneously on the
+> > other side, it indicates that all packets sent are normal length,
+> > and no merging was performed earlier (fits mtu 1500).
+> > 
+> > So it would appear that the router box somehow insists on doing
+> > gso/tso, and sadly it will also mess up on the send path (the
+> > incoming merged packet is forwarded, but sent out short) causing
+> > lost segments and serious performance degration.
+> > 
+> > Any pointers how to next debug/fix/workaround this issue?
+> > 
+> 
+> You are fighting the wrong side ;)
+> 
+> Here, its GRO doing the aggregation on receiver.
 
-Anyway, as this change to sfq currently has pathological edge cases, I =
-suggest:
+Yes, I figured this much. But I have explictly turned GRO off and it's
+still happening.
 
-1) reverting this patch (the new features of sfq - hugely increased
-number of flows, and increased limit, head drop/marking support, red,
-ecn, etc, can stay - and are rather nice in and of themselves)
+> What kind of problems do you experiment because of this ?
 
-2) trying again, but not in the context of sfq - starting with sfq as
-a base, with a copy and rename, getting the iproute infrastructure
-around it working, more thorough tests going. I'll note that while
-flow management is needed, it needent be red-based.
+I'm getting lost packets (the non-first TCP segments off the GRO merged
+packet). This causes serious TCP speed degration (should get 10MB/s
+through 100mbit/s link; but I'm getting only 2-3MB/s). Doing the same
+transfer on the next hop router gives full speed, so the problem is
+definitely on this router and due to GRO badness.
 
-nsfq? efq?
+I also remember this working before, so this seems a regression from
+upgrading 2.6.35.x kernel or something like that.
 
+> ethtool -k eth2
 
->>
->> The problem can be solved by SFQ parameter tuning. =A0Perhaps, we co=
-uld
->> just change the default parameters?
+gro off. I am even trying now with:
 
-I can't think of a way to make existing users of sfq not hit this probl=
-em
-if they are overriding the default params in the first place. thus my
-suggestion we start again in a new namespace.
+Offload parameters for eth2:
+rx-checksumming: off
+tx-checksumming: off
+scatter-gather: off
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
 
->> The problem occurs when all flows have ONE packet, then sfq_drop()
->> cannot find a good flow to drop packets from...
->>
->> This situation can occur because the default setting is "limit=3D127=
-"
->> packets and "flows=3D127". =A0If we just make sure that "limit" > "f=
-lows",
->> then one flow with >=3D2 packets should exist, which is then chosen =
-for
->> drop.
->> My practical experiments show that "limit" should be between 10-20
->> packets larger than "flows" (I'm not completely sure why this is
->> needed).
+Additionally, I'm looking at my other router boxes with same hardware
+but different kernel versions. Looks that all of them are acting as GRO
+is enabled, even though it's turned off by ethtool.
 
-flows and/or depth?
+I can verify that 2.6.35.8, 2.6.38.8, and 3.0.18 (all of these with
+grsec patch) are doing GRO for this r8169 hardware, even though it's
+configured OFF on all boxes.
 
-if flows, then we could drop the flows parameter entirely and just use =
-limit
-to calculate flows. But I think that it's more subtle than just this.
+There seems to be no performance issues in 2.6.35.8 kernel. This would
+indicate that the incoming GRO packets are properly handled and
+segmented (likely by software) on the path out. However, I'm also
+having issues with the 2.6.38.8 box, and badness on GRO send path
+seems to be the cause. And of course to mention that GRO is happening
+even though it's turned off.
 
-more thorough tests exploring the pathological cases are needed. I'm on=
- it.
+Additionally, it seems that at the 2.6.38.8 and 3.0.18 kernels are
+having the performance issues even if it's locally terminated TCP
+connection. So it's not limited to the forward path. The latest good
+kernel I can verify is 2.6.35.x.
 
->>
->
-> There are many ways to starve SFQ if we dont revert the patch or add =
-new
-> logic in linux-3.4
->
-> Even if we change default settings, we can have following situation :
->
-> SFQ in a state with several regular flows in queue, correctly behavin=
-g
-> because they are nice.
->
-> loop repeat_as_many_times_you_can_think
-> =A0enqueue : packet comes for a new flow X.
-> =A0 =A0 =A0 =A0 =A0 OK lets favor this new flow against 'old' ones.
-> =A0dequeue : takes the packet for flow X.
-> =A0 =A0 =A0 =A0 =A0 forget about flow X since dequeue all its packets=
-=2E
-> endloop
->
-> All other flows are in a frozen state.
-
-some thoughts
-
-1) Keeping more history around during the next X packet deliveries woul=
-d help.
-2) in case of being close up against various limits randomly enqueue on=
- tail
-
-I note that htb introduces a window for new flows to win
-pathologically by holding onto a packet
-which perhaps it should be peeking (or so I understand it)
->
->
->
-
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-http://www.bufferbloat.net
+- Timo
