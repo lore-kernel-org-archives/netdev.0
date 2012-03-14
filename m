@@ -1,76 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
-Date: Tue, 13 Mar 2012 22:55:35 -0700
-Message-ID: <1331704535.2456.37.camel@edumazet-laptop>
-References: <1331587715-26069-1-git-send-email-wad@chromium.org>
-	 <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
-	 <1331658828.4449.16.camel@edumazet-glaptop>
-	 <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
+Date: Wed, 14 Mar 2012 06:07:57 +0000
+Message-ID: <CAA93jw7mpV0pVN=7e2JNKBw7_Piax07P3sjC81Wbj36aPP42UA@mail.gmail.com>
+References: <1327570722.8191.46.camel@probook>
+	<1331697865.2456.19.camel@edumazet-laptop>
+	<CAA93jw4kYqCWg424SXkrtQeg9bPfpfgH-x_7tjg=m8uxk_GNaA@mail.gmail.com>
+	<1331701332.2456.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
-	akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Indan Zupancic <indan@nul.nu>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jdb@comx.dk, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:49905 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756614Ab2CNGH6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 02:07:58 -0400
+Received: by wibhj6 with SMTP id hj6so6574212wib.1
+        for <netdev@vger.kernel.org>; Tue, 13 Mar 2012 23:07:57 -0700 (PDT)
+In-Reply-To: <1331701332.2456.25.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 14 mars 2012 =C3=A0 06:12 +0100, Indan Zupancic a =C3=A9cri=
-t :
+On Wed, Mar 14, 2012 at 5:02 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mercredi 14 mars 2012 =E0 04:52 +0000, Dave Taht a =E9crit :
+>
+>> I had some hope for a semi-random alternating queue
+>>
+>
+> I spent some time implementing two queues, one for new flows, one for
+> old flows. As soon as a new flow uses its initial quantum, its moved =
+at
+> the tail of 'old flows queue'.
+>
+> But I always could find a way to starve some flows, even adding some
+> kind of persistence. Right now, as soon as we empty one flow, we forg=
+et
+> its history.
+>
+> Next packet coming will create a "new flow" with a full quantum credi=
+t,
+> even if we nearly consume all flow quantum in the last micro second.
+>
+> Thats definitely not a trivial problem.
 
-> Problem is that 'old_size' can be up to 32kB in size and it would be =
-nice
-> if that memory could be released. If it isn't, then using JIT increas=
-es
-> memory usage, while also not accounting it to the socket.
->=20
+I've expended brain cells on this too (nobody has any experience with h=
+ead drop,
+aqm managed queues!), and was unable to come up with a way of dealing w=
+ith
+the corner case of too many new streams inside of sfq's current archite=
+cture.
 
-It is accounted for, since jit size is in relation with standard filter
-size. Check sock_kmalloc()
+But I gotta say that the overall effect of this on optimizing sparse st=
+reams
+(dns,dhcp,tcp syn,ra,other routing packets,gaming packets,etc) was pret=
+ty
+freaking amazing, and it nearly eliminated any need for classification =
+and
+prioritization, BE, and BK were enough.
 
-=46act we can have a litle underestimation was already the case without
-jit, since kmalloc() does a roundup to next power of two.
+Ah, well. The other stuff in 3.3 is really good, too.
 
-I dont think this discussion has anything to do with SECCOMP anyway.
+Sometimes you win, sometimes you lose, sometimes... it rains.
 
-These accounting dont need to be 100% precise, we only want a limit to
-prevent rogue users from using all kernel memory.
-
-> >
-> > If it did, this kind of 'optimization' can actually be not good, be=
-cause
-> > sizeof(*fp) is small enough (less than half cache line size) to tri=
-gger
-> > a possible false sharing issue. (other part of the cache line could=
- be
-> > used to hold a often dirtied object)
->=20
-> It could avoid this by allocating at least a cache size. But this is =
-a
-> problem for all small kmalloc's, isn't it?
-
-Its a problem that was already met on several critical paths :
-
-# find net|xargs grep -n L1_CACHE_BYTES
-net/core/dev_addr_lists.c:51:	if (alloc_size < L1_CACHE_BYTES)
-net/core/dev_addr_lists.c:52:		alloc_size =3D L1_CACHE_BYTES;
-net/core/net-sysfs.c:586:	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_CA=
-CHE_BYTES),
-net/core/net-sysfs.c:1111:	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GFP_=
-KERNEL);
-net/ipv6/ip6_fib.c:1612:	size =3D max_t(size_t, size, L1_CACHE_BYTES);
-net/ipv4/fib_frontend.c:1049:	size =3D max_t(size_t, size, L1_CACHE_BYT=
-ES);
+>
+>
+>
 
 
 
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+http://www.bufferbloat.net
