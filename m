@@ -1,54 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net/usbnet: reserve headroom on rx skbs
-Date: Wed, 14 Mar 2012 09:56:25 -0700
-Message-ID: <1331744185.6022.25.camel@edumazet-glaptop>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Wed, 14 Mar 2012 19:01:56 +0200
+Message-ID: <20120314190156.622c8cd5@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Oliver Neukum <oneukum@suse.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: David Miller <davem@davemloft.net>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:44933 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755748Ab2CNQ42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 12:56:28 -0400
-Received: by dadp12 with SMTP id p12so3217461dad.11
-        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 09:56:28 -0700 (PDT)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:52589 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761201Ab2CNRCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 13:02:37 -0400
+Received: by bkcik5 with SMTP id ik5so1466380bkc.19
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 10:02:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-network drivers should reserve some headroom on incoming skbs so that we
-dont need expensive reallocations, eg forwarding packets in tunnels.
+Hi,
 
-This NET_SKB_PAD padding is done in various helpers, like
-__netdev_alloc_skb_ip_align() in this patch, combining NET_SKB_PAD and
-NET_IP_ALIGN magic.
+I have a router box running linux-3.0.18 (with grsec patches).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Oliver Neukum <oneukum@suse.de>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/usb/usbnet.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+with the NIC hardware:
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+r8169 0000:00:09.0: (unregistered net_device): no PCI Express capability
+r8169 0000:00:09.0: eth0: RTL8169sc/8110sc at 0xf82f8000, 00:30:18:ab:6b:54, XID 18000000 IRQ 18
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:0b.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
+r8169 0000:00:0b.0: (unregistered net_device): no PCI Express capability
+r8169 0000:00:0b.0: eth1: RTL8169sc/8110sc at 0xf82fa000, 00:30:18:ab:6b:55, XID 18000000 IRQ 19
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:0c.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
+r8169 0000:00:0c.0: (unregistered net_device): no PCI Express capability
+r8169 0000:00:0c.0: eth2: RTL8169sc/8110sc at 0xf82fc000, 00:30:18:ab:6b:56, XID 18000000 IRQ 16
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 83dcc53..5903aea 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -328,13 +328,13 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
- 	unsigned long		lockflags;
- 	size_t			size = dev->rx_urb_size;
- 
--	if ((skb = alloc_skb (size + NET_IP_ALIGN, flags)) == NULL) {
-+	skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
-+	if (!skb) {
- 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
- 		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
- 		usb_free_urb (urb);
- 		return -ENOMEM;
- 	}
--	skb_reserve (skb, NET_IP_ALIGN);
- 
- 	entry = (struct skb_data *) skb->cb;
- 	entry->urb = urb;
+This box is working just as a plain IPv4 router (internal RFC1918
+address space) forwarding packets.
+
+It routes basically from eth2 to multiple vlans over bond0 consisting of eth0 and eth1.
+
+I have most hw accel stuff turned off, and "ethtool -k eth0" says:
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: off
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+The same applies for all interfaces (except lo).
+
+However, tcpdump on this box indicates that I'm receiving very
+long (tcp length more than mtu) incoming packets on eth2 implying that
+gso/tso got turned on somehow. eth2 is connected with cross-over cable
+to similar box running a bit older linux box; but gso/tso is turned off
+there too. When dumping simultaneously on the other side, it indicates
+that all packets sent are normal length, and no merging was performed
+earlier (fits mtu 1500).
+
+So it would appear that the router box somehow insists on doing gso/tso,
+and sadly it will also mess up on the send path (the incoming merged
+packet is forwarded, but sent out short) causing lost segments and
+serious performance degration.
+
+Any pointers how to next debug/fix/workaround this issue?
+
+-Timo
