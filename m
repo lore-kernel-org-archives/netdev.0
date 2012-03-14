@@ -1,33 +1,50 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net V2] bonding: send igmp report for its master
-Date: Wed, 14 Mar 2012 21:58:46 +0800
-Message-ID: <4F60A416.30903@gmail.com>
-References: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com> <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] usbnet: use netif_tx_wake_queue instead of netif_start_queue
+Date: Wed, 14 Mar 2012 15:00:24 +0100
+Message-ID: <1331733624-23266-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Weiping Pan <panweiping3@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:49176 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964940Ab2CNN6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 09:58:55 -0400
-In-Reply-To: <f5d199e12d78dadcfb932e103984276d36b186e0.1331539261.git.panweiping3@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/14/2012 11:37 AM, Weiping Pan wrote:
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 435984a..300c490 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -794,6 +794,14 @@ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
->   {
->   	struct bonding *bond = container_of(work, struct bonding,
->   					    mcast_work.work);
-> +	struct net_device *bond_dev, *master_dev = NULL;
-> +	bond_dev = bond->dev;
+If host is going to autosuspend function with two interfaces and
+if IP packet has arrived in-between of two usbnet_suspend() callbacks,
+i.e usbnet_resume() is called in-between, tx data flow is stopped.
+When autosuspend timer expires and device is put to autosuspend
+again, tx queue is waked up and data can be sent again.
+This behavior might be repeated several times in a row.
 
-IIRC, you need to hold read_lock for this...
+Tested on Intel/ARM.
+
+Reviewed-by: Sjur Br=C3=A6ndeland <sjur.brandeland-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Tested-by: Dmitry Tarnyagin <dmitry.tarnyagin-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 83dcc53..5394b4e 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1535,7 +1535,7 @@ int usbnet_resume (struct usb_interface *intf)
+=20
+ 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
+ 			if (!(dev->txq.qlen >=3D TX_QLEN(dev)))
+-				netif_start_queue(dev->net);
++				netif_tx_wake_all_queues(dev->net);
+ 			tasklet_schedule (&dev->bh);
+ 		}
+ 	}
+--=20
+1.7.4.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
