@@ -1,246 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/7] ixgbe: Fix race condition where RX buffer could become corrupted.
-Date: Wed, 14 Mar 2012 00:55:25 -0700
-Message-ID: <1331711726-9439-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/7] ixgbe: dcb: use DCB config values for FCoE traffic class on open
+Date: Wed, 14 Mar 2012 00:55:26 -0700
+Message-ID: <1331711726-9439-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1331711726-9439-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Atita Shirwaikar <atita.shirwaikar@intel.com>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7678 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:7812 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759099Ab2CNHzd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754299Ab2CNHzd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 14 Mar 2012 03:55:33 -0400
 In-Reply-To: <1331711726-9439-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Atita Shirwaikar <atita.shirwaikar@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-There was a race condition in the reset path where the RX buffer
-could become corrupted during Fdir configuration.This is due to
-a HW bug.The fix right now is to lock the buffer while we do the
-fdir configuration.Since we were using similar workaround for another bug,
-I moved the existing code to a function and reused it.HW team also recommended
-that IXGBE_MAX_SECRX_POLL value be changed from 30 to 40.The erratum for this
-bug will be published in the next release 82599 Spec Update
+Disabling and enabling DCB can cause FCoE hardware initialization to
+occur on the incorrect traffic class when the up2tc mapping has not
+yet been reconfigured.
 
-Signed-off-by: Atita Shirwaikar <atita.shirwaikar@intel.com>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Fix this by using the DCB configuration maps that are correct
+and will be pushed at mqprio after DCB driver setup completes
+successfully.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |   29 ++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   52 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   21 +++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    2 +
- 6 files changed, 84 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e39df22..9c14685 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1907,38 +1907,17 @@ out:
-  **/
- static s32 ixgbe_enable_rx_dma_82599(struct ixgbe_hw *hw, u32 regval)
- {
--#define IXGBE_MAX_SECRX_POLL 30
--	int i;
--	int secrxreg;
--
- 	/*
- 	 * Workaround for 82599 silicon errata when enabling the Rx datapath.
- 	 * If traffic is incoming before we enable the Rx unit, it could hang
- 	 * the Rx DMA unit.  Therefore, make sure the security engine is
- 	 * completely disabled prior to enabling the Rx unit.
- 	 */
--	secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXCTRL);
--	secrxreg |= IXGBE_SECRXCTRL_RX_DIS;
--	IXGBE_WRITE_REG(hw, IXGBE_SECRXCTRL, secrxreg);
--	for (i = 0; i < IXGBE_MAX_SECRX_POLL; i++) {
--		secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXSTAT);
--		if (secrxreg & IXGBE_SECRXSTAT_SECRX_RDY)
--			break;
--		else
--			/* Use interrupt-safe sleep just in case */
--			udelay(10);
--	}
--
--	/* For informational purposes only */
--	if (i >= IXGBE_MAX_SECRX_POLL)
--		hw_dbg(hw, "Rx unit being enabled before security "
--		       "path fully disabled.  Continuing with init.\n");
-+	hw->mac.ops.disable_rx_buff(hw);
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, regval);
--	secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXCTRL);
--	secrxreg &= ~IXGBE_SECRXCTRL_RX_DIS;
--	IXGBE_WRITE_REG(hw, IXGBE_SECRXCTRL, secrxreg);
--	IXGBE_WRITE_FLUSH(hw);
-+
-+	hw->mac.ops.enable_rx_buff(hw);
- 
- 	return 0;
- }
-@@ -2103,6 +2082,8 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.get_media_type         = &ixgbe_get_media_type_82599,
- 	.get_supported_physical_layer = &ixgbe_get_supported_physical_layer_82599,
- 	.enable_rx_dma          = &ixgbe_enable_rx_dma_82599,
-+	.disable_rx_buff	= &ixgbe_disable_rx_buff_generic,
-+	.enable_rx_buff		= &ixgbe_enable_rx_buff_generic,
- 	.get_mac_addr           = &ixgbe_get_mac_addr_generic,
- 	.get_san_mac_addr       = &ixgbe_get_san_mac_addr_generic,
- 	.get_device_caps        = &ixgbe_get_device_caps_generic,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 67ec37b..6117bfd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -2578,6 +2578,58 @@ void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask)
- }
- 
- /**
-+ *  ixgbe_disable_rx_buff_generic - Stops the receive data path
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Stops the receive data path and waits for the HW to internally
-+ *  empty the Rx security block.
-+ **/
-+s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw)
-+{
-+#define IXGBE_MAX_SECRX_POLL 40
-+	int i;
-+	int secrxreg;
-+
-+	secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXCTRL);
-+	secrxreg |= IXGBE_SECRXCTRL_RX_DIS;
-+	IXGBE_WRITE_REG(hw, IXGBE_SECRXCTRL, secrxreg);
-+	for (i = 0; i < IXGBE_MAX_SECRX_POLL; i++) {
-+		secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXSTAT);
-+		if (secrxreg & IXGBE_SECRXSTAT_SECRX_RDY)
-+			break;
-+		else
-+			/* Use interrupt-safe sleep just in case */
-+			udelay(10);
-+	}
-+
-+	/* For informational purposes only */
-+	if (i >= IXGBE_MAX_SECRX_POLL)
-+		hw_dbg(hw, "Rx unit being enabled before security "
-+		       "path fully disabled.  Continuing with init.\n");
-+
-+	return 0;
-+
-+}
-+
-+/**
-+ *  ixgbe_enable_rx_buff - Enables the receive data path
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Enables the receive data path
-+ **/
-+s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw)
-+{
-+	int secrxreg;
-+
-+	secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXCTRL);
-+	secrxreg &= ~IXGBE_SECRXCTRL_RX_DIS;
-+	IXGBE_WRITE_REG(hw, IXGBE_SECRXCTRL, secrxreg);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	return 0;
-+}
-+
-+/**
-  *  ixgbe_enable_rx_dma_generic - Enable the Rx DMA unit
-  *  @hw: pointer to hardware structure
-  *  @regval: register value to write to RXCTRL
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 2c834c4..204f062 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -74,6 +74,8 @@ s32 ixgbe_update_mc_addr_list_generic(struct ixgbe_hw *hw,
- 				      struct net_device *netdev);
- s32 ixgbe_enable_mc_generic(struct ixgbe_hw *hw);
- s32 ixgbe_disable_mc_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
- s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num);
- s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index fce33f1..e1444bd 100644
+index e1444bd..167e898 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3661,6 +3661,8 @@ static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
+@@ -4391,11 +4391,13 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ 	 * configuration later.
+ 	 */
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
++		u8 prio_tc[MAX_USER_PRIORITY] = {0};
+ 		int tc;
+ 		struct ixgbe_ring_feature *f =
+ 					&adapter->ring_feature[RING_F_FCOE];
  
- static void ixgbe_configure(struct ixgbe_adapter *adapter)
- {
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
- 	ixgbe_configure_pb(adapter);
- #ifdef CONFIG_IXGBE_DCB
- 	ixgbe_configure_dcb(adapter);
-@@ -3674,6 +3676,16 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 		ixgbe_configure_fcoe(adapter);
- 
- #endif /* IXGBE_FCOE */
-+
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		hw->mac.ops.disable_rx_buff(hw);
-+		break;
-+	default:
-+		break;
-+	}
-+
- 	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
- 		ixgbe_init_fdir_signature_82599(&adapter->hw,
- 						adapter->fdir_pballoc);
-@@ -3683,6 +3695,15 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
- 		ixgbe_fdir_filter_restore(adapter);
+-		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
++		ixgbe_dcb_unpack_map(&adapter->dcb_cfg, DCB_TX_CONFIG, prio_tc);
++		tc = prio_tc[adapter->fcoe.up];
+ 		f->indices = dev->tc_to_txq[tc].count;
+ 		f->mask = dev->tc_to_txq[tc].offset;
  	}
- 
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		hw->mac.ops.enable_rx_buff(hw);
-+		break;
-+	default:
-+		break;
-+	}
-+
- 	ixgbe_configure_virtualization(adapter);
- 
- 	ixgbe_configure_tx(adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 54e2a5e..8636e83 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2728,6 +2728,8 @@ struct ixgbe_mac_operations {
- 	s32 (*read_analog_reg8)(struct ixgbe_hw*, u32, u8*);
- 	s32 (*write_analog_reg8)(struct ixgbe_hw*, u32, u8);
- 	s32 (*setup_sfp)(struct ixgbe_hw *);
-+	s32 (*disable_rx_buff)(struct ixgbe_hw *);
-+	s32 (*enable_rx_buff)(struct ixgbe_hw *);
- 	s32 (*enable_rx_dma)(struct ixgbe_hw *, u32);
- 	s32 (*acquire_swfw_sync)(struct ixgbe_hw *, u16);
- 	void (*release_swfw_sync)(struct ixgbe_hw *, u16);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 5e9f05f..97a9914 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -847,6 +847,8 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.set_vlan_anti_spoofing = &ixgbe_set_vlan_anti_spoofing,
- 	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync_X540,
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync_X540,
-+	.disable_rx_buff	= &ixgbe_disable_rx_buff_generic,
-+	.enable_rx_buff		= &ixgbe_enable_rx_buff_generic,
- };
- 
- static struct ixgbe_eeprom_operations eeprom_ops_X540 = {
 -- 
 1.7.7.6
