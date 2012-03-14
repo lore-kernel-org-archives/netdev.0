@@ -1,131 +1,57 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH 7/8] net: support tx_ring per UP in HW based QoS mechanism
-Date: Wed, 14 Mar 2012 12:09:30 +0200
-Message-ID: <4F606E5A.6080407@mellanox.com>
-References: <1331659323-12904-1-git-send-email-amirv@mellanox.com> <1331659323-12904-8-git-send-email-amirv@mellanox.com> <4F5F9087.7090607@intel.com>
+Subject: Re: [PATCH 4/8] net/mlx4_en: Set max rate-limit for a TC
+Date: Wed, 14 Mar 2012 12:31:15 +0200
+Message-ID: <4F607373.7090001@mellanox.com>
+References: <1331659323-12904-1-git-send-email-amirv@mellanox.com> <1331659323-12904-5-git-send-email-amirv@mellanox.com> <4F5F915E.4020505@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Roland Dreier <roland@purestorage.com>,
 	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.co.il>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Eilon Greenstein <eilong@broadcom.com>
+	Amir Vadai <amirv@mellanox.co.il>
 To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:60605 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1760368Ab2CNKJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 06:09:42 -0400
-In-Reply-To: <4F5F9087.7090607@intel.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:40845 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1760447Ab2CNKb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 06:31:27 -0400
+In-Reply-To: <4F5F915E.4020505@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2012 08:23 PM, John Fastabend wrote:
-> On 3/13/2012 10:22 AM, Amir Vadai wrote:
+On 03/13/2012 08:26 PM, John Fastabend wrote:
+> On 3/13/2012 10:21 AM, Amir Vadai wrote:
 >> From: Amir Vadai<amirv@mellanox.co.il>
 >>
->> The Current HW based QoS mechanism which was introduced in commit 4f57c087de9
->> "net: implement mechanism for HW based QOS" is in orientation to ETS traffic
->> class. This patch introduces an approach which allow to use this mechanism also
->> with hardware who has queues per user priority (UP). After the change,
->> __skb_tx_hash() will direct a flow to a tx ring from a range of tx rings. This
->> range is defined by the caller function by the specific HW. If TC based queues,
->> the range is by TC number and for UP based queues, the range is by UP.
+>> Set max rate-limit using sysfs file /sys/class/net/<interface>/qos/ratelimit
 >>
-> ETS is one specific use case for mqprio it can easily be used with other
-> hardware transmission selection algorithms 802.1Q std based or otherwise.
->
-> The mapping is really just an skb->priority to group of queues (qoffset and
-> qcount). I happened to call the queue grouping a traffic class because that
-> aligns with 802.1Q but it _really_ is just a queue grouping.
-This is good for untagged traffic, but for tagged traffic I can see 2 
-problems with this approach:
-1. mqprio mapping could contradict egress map or 8021Qaz mapping (UP <=> 
-TC). This could be solved (not very elegantly) by forcing the mappings 
-to be synced.
-2. egress map is per vlan, and mqprio mapping is one global mapping.
->
-> In your case what would it mean to change the map and num_tc see 'tc':
->
-> [root@jf-dev1-dcblab netperf]# tc qdisc add dev eth3 root mqprio help
-> Usage: ... mqprio [num_tc NUMBER] [map P0 P1 ...]
->                    [queues count1@offset1 count2@offset2 ...] [hw 1|0]
->
-> For example setting 'num_tc 8 map 0 1 2 3 0 1 2 3' looks like it might
-> not work correctly. Would you end up with an skb tagged with priority
-> 4,5,6,7 being sent out UP queues 0,1,2,3? My quess is that won't work
-> with PFC or your ETS correctly.
-I don't see a problem here. For example, skb tagged with priority 5 is 
-mapped to UP 1. And sent through one of the tx rings of UP 1. All the 
-rings of UP 1 share the same transmission queue (schedule queue) which 
-is controlled by PFC and ETS by the HW. What is the problem here?
->
-> In the canonical iSCSI case we put iscsid in a net_prio cgroup to get the
-> priority set then use the priority to steer the skb to the correct queue
-> groupings. In your case I think you can just fail any num_tc != 8 and keep
-> the dflt map 1:1 then this should work. What did I miss? It looks like you
-> already fail the num_tc != 8 case so why do we need this change?
->
-> At most maybe we need a flag to indicate the mqprio map can't be changed in
-> some cases.
-What you suggest is that the priority in net_prio cgroup will be the 
-User Priority, and not just the skb priority?
-And also, for tagged traffic, how could it be forced to be synced with 
-egress map?
->
->
->> CC: John Fastabend<john.r.fastabend@intel.com>
->> CC: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->> CC: Eilon Greenstein<eilong@broadcom.com>
+>> To set, enter a space separated list of values in units of 100Mbps.  For
+>> example to set ratelimit of 5G to TC0 and 10G for the reset on eth2 issue:
+>> echo 50 100 100 100 100 100 100 100 100>  /sys/class/net/eth2/qos/ratelimit
+>>
 >> Signed-off-by: Amir Vadai<amirv@mellanox.co.il>
 >> ---
->>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   11 ++++++++++-
->>   drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    9 +++------
->>   include/linux/netdevice.h                       |   12 +++++++++++-
->>   include/linux/skbuff.h                          |    3 ++-
->>   net/core/dev.c                                  |   10 +---------
->>   5 files changed, 27 insertions(+), 18 deletions(-)
 >>
-> [...]
+>> We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
+>> open to other suggestions to add generic support for max bw, e.g add call to
+>> the DCBX NL API.
+>>
 >
->>
->>   void bnx2x_set_num_queues(struct bnx2x *bp)
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> index 7a49830..d0d96e3 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> @@ -570,18 +570,15 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
->>
->>   u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
->>   {
->> -	struct mlx4_en_priv *priv = netdev_priv(dev);
->> -	int up = -1;
->> +	int up = 0;
->>
->>   	if (vlan_tx_tag_present(skb))
->>   		up = (vlan_tx_tag_get(skb)>>  13);
-> I was trying to avoid logic like this in select_queue().
-Why?
+> Its not really part of DCB so adding it to DCBnl seems a bit forced. But how
+> about adding it as an attribute of the mqprio which "knows" about the queue
+> groupings?
+See my answer below
 >
-> Can we get the same behavior by keeping the egress map and mqprio
-> map in sync?
-As I said above, if we force egress map to be synced to mqprio mapping, 
-we loose it's power - mqprio is global, and egress map is per vlan.
+> Does the rate limiter take into account the user priority to tc mapping or
+> is it really just a group of queues with a rate limit? The code makes it
+> look like it really is per 802.1Q traffic class.
+This is true, the rate limiter is per 802.1Q traffic class, and the HW 
+is using the UP to TC mapping when enforcing it.
+That's why it can't be added to mqprio, which is a group of queues and 
+not 802.1Q traffic class.
 >
->>   	else if (dev->num_tc)
->>   		up = netdev_get_prio_tc_map(dev, skb->priority);
->>
->> -	if (up>= 0)
->> -		return MLX4_EN_NUM_TX_RINGS + up;
->> -
->> -	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
->> +	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS,
->> +			MLX4_EN_NUM_TX_RINGS + up, 1);
->>   }
->>
-> Thanks,
-> John
+> .John
+
 Thanks,
 Amir
