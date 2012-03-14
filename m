@@ -1,39 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and performance degration
-Date: Wed, 14 Mar 2012 21:53:19 +0100
-Message-ID: <20120314205319.GA28394@electric-eye.fr.zoreil.com>
-References: <20120314190156.622c8cd5@vostro> <1331745314.6022.27.camel@edumazet-glaptop> <20120314192945.65867e9f@vostro> <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com> <20120314215142.655ae607@vostro> <1331755965.6022.55.camel@edumazet-glaptop> <20120314223343.23dc9df3@vostro>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [PATCH]  fix sierra_net endianess bug
+Date: Wed, 14 Mar 2012 22:10:35 +0100
+Message-ID: <m2pqce51o4.fsf@igel.home>
+References: <4F60A695.4040601@mt.lv> <m2399bmcfq.fsf@igel.home>
+	<1331753062.2564.6.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain
+Cc: Maris Paupe <marisp@mt.lv>, <epasheva@sierrawireless.com>,
+	<rfiler@sierrawireless.com>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50378 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761455Ab2CNUyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 16:54:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20120314223343.23dc9df3@vostro>
+Received: from mail-out.m-online.net ([212.18.0.10]:47558 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755489Ab2CNVKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 17:10:41 -0400
+In-Reply-To: <1331753062.2564.6.camel@bwh-desktop.uk.solarflarecom.com> (Ben
+	Hutchings's message of "Wed, 14 Mar 2012 19:24:22 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timo Teras <timo.teras@iki.fi> :
-[...]
-> # ethtool -S eth2
-> NIC statistics:
->      tx_packets: 2069391193
->      rx_packets: 3245815642
->      tx_errors: 0
->      rx_errors: 645238
->      rx_missed: 31414
+Ben Hutchings <bhutchings@solarflare.com> writes:
 
-It does not look like stuff for the higher layers guys.
+> On Wed, 2012-03-14 at 16:26 +0100, Andreas Schwab wrote:
+>> Maris Paupe <marisp@mt.lv> writes:
+>> 
+>> > I have found that sierra_net does not work properly on big-endian
+>> > systems, it works if bytes are flipped in this particular location.
+>> 
+>> That should probably be fixed in sierra_net_get_fw_attr (and the author
+>> of sierra_net_get_fw_attr should be hit with a cluestick to not use
+>> kmalloc for allocating a single u16).
+>
+> You cannot use stack buffers for DMA, which includes all USB I/O.
 
-Can you tshark -w foobar on the sender side and
-'while : ; do sleep 1; ethtool -S eth2 >> glop; done' on the receiver
-during a bad wget (a big zero filled file should compress well).
+Ok, sorry, I didn't know that.
+
+Andreas.
 
 -- 
-Ueimor
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
