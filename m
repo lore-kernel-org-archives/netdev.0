@@ -1,94 +1,58 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH 0001/001] xen: multi page ring support
-	for block devices
-Date: Wed, 14 Mar 2012 15:34:16 +0000
-Message-ID: <4F60C888020000780007861F@nat28.tlf.novell.com>
-References: <1330701099-18281-1-git-send-email-santoshprasadnayak@gmail.com>
-	<7914B38A4445B34AA16EB9F1352942F1010A1FA12364@SJCPMAILBOX01.citrite.net>
-	<CAPbh3rsExLtohBwVd_scYuO=GN1iZE5egQQ3x5M59YUno5Rtyw@mail.gmail.com>
-	<4F5739760200007800076DA6@nat28.tlf.novell.com>
-	<230A793A-C929-468E-97BE-1C68920749E1@spectralogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "jeremy@goop.org" <jeremy@goop.org>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"waldi@debian.org" <waldi@debian.org>,
-	"joe.jin@oracle.com" <joe.jin@oracle.com>,
-	"weiyi.huang@gmail.com" <weiyi.huang@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	DavidVrabel <david.vrabel@citrix.com>,
-	Santosh Jodh <Santosh.Jodh@citrix.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"<konrad@darnok.org>" <konrad@darnok.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"xen-devel@lists.xen.or
-To: "Justin Gibbs" <justing@spectralogic.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <230A793A-C929-468E-97BE-1C68920749E1@spectralogic.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: boris@cloudluca.com
+Subject: Server Rental Service in HK
+Date: Wed, 14 Mar 2012 20:45:44 +0800 (HKT)
+Message-ID: <Eh0UpTmGUC1Tz@hotmail.com>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-65.sunnyvision.com ([124.248.200.65]:34158 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757465Ab2CNPuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 11:50:40 -0400
+Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
+	by teamb04.edmhongkong.com (Postfix) with ESMTP id 383DB543C8
+	for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 20:45:45 +0800 (HKT)
+Received: from sample (unknown [124.248.200.17])
+	by smtp1.edmhongkong.com (Postfix) with SMTP id 93BAE4FAFB
+	for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 20:45:44 +0800 (HKT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> On 14.03.12 at 07:32, Justin Gibbs <justing@spectralogic.com> wrote:
-> There's another problem here that I brought up during the Xen
-> Hack-a-thon.  The ring macros require that the ring element count
-> be a power of two.  This doesn't mean that the ring will be a power
-> of 2 pages in size.  To illustrate this point, I modified the FreeBSD
-> blkback driver to provide negotiated ring stats via sysctl.
-> 
-> Here's a connection to a Windows VM running the Citrix PV drivers:
-> 
->     dev.xbbd.2.max_requests: 128
->     dev.xbbd.2.max_request_segments: 11
->     dev.xbbd.2.max_request_size: 45056
->     dev.xbbd.2.ring_elem_size: 108  <= 32bit ABI
->     dev.xbbd.2.ring_pages: 4
->     dev.xbbd.2.ring_elements: 128
->     dev.xbbd.2.ring_waste: 2496
-> 
-> Over half a page is wasted when ring-page-order is 2.  I'm sure you
-> can see where this is going.  :-)
+Dear All,
 
-Having looked a little closer on how the wasted space is progressing,
-I find myself in the odd position that I can't explain the original (and
-still active) definition of BLKIF_MAX_SEGMENTS_PER_REQUEST (11):
-With ring-order zero, there's 0x240/0x1c0 bytes (32/64-bit
-respectively) are unused. With 32 requests fitting in the ring, and with
-each segment occupying 6 bytes (padded to 8), in the 64-bit variant
-there's enough space for a 12th segment (32-bit would even have
-space for a 13th). Am I missing anything here?
+We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
 
-Plus all this assumes a page size of 4k, yet ia64 had always been using
-pages of 16k iirc.
+Dell=3F PowerEdge=3F EnterpriseRack Mount Server
+-Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
+-8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
+-500GB, 3.5", 6Gbps SAS x 2
+-Raid 1 Mirroring Protection
+-Remote KVM (iDRAC6 Enterprise)
 
-> Here are the limits published by our backend to the XenStore:
->
->     max-ring-pages = "113"
->     max-ring-page-order = "7"
->     max-requests = "256"
->     max-request-segments = "129"
->     max-request-size = "524288"
+Dell(TM) PowerEdge(TM) R410 Rack Mount Server
+-Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
+-4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
+-500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
+-iDRAC6 Enterprise or Express (Remote KVM Management)
 
-Oh, so this protocol doesn't require ring-pages (and max-ring-pages)
-to be a power of two? In which case I think it is a mistake to also
-advertise max-ring-page-order, as at least the (Linux) frontend code
-I know of interprets this as being able to set up a ring of (using the
-numbers above) 128 pages (unless, of course, your backend can deal
-with this regardless of the max-ring-pages value it announces).
+Every Dedicated Server Hosting Solution Also Includes: 
+ 
+Software Specification 
+- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
+- Full root-level access 
+- Data Center Facilities 
+- Shared Local & International Bandwidth 
+- 2 IP Addresses Allocation 
+- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
+- FM200=A1=A7based fire suppression system 
+- 24x7 CRAC Air Conditioning and Humidity Control 
+- 24x7 Security Control 
+- 24x7 Remote Hand Service 
 
-Jan
+Pls send us email for further information.Thanks,
+
+Boris 
+boris@cloudluca.com
+
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
