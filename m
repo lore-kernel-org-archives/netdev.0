@@ -1,112 +1,96 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/7] ixgbe: Replace eitr_low and eitr_high with static values in ixgbe_update_itr
-Date: Wed, 14 Mar 2012 00:55:22 -0700
-Message-ID: <1331711726-9439-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1331711726-9439-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:47737 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757865Ab2CNHzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 03:55:31 -0400
-In-Reply-To: <1331711726-9439-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [PATCH v14 01/13] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+Date: Wed, 14 Mar 2012 08:59:04 +0100
+Message-ID: <3f56b0860272f4ca8925c0a249a30539.squirrel@webmail.greenhost.nl>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
+    <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+    <1331658828.4449.16.camel@edumazet-glaptop>
+    <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+    <1331704535.2456.37.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Will Drewry" <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1331704535.2456.37.camel@edumazet-laptop>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Wed, March 14, 2012 06:55, Eric Dumazet wrote:
+> Le mercredi 14 mars 2012 =C3=A0 06:12 +0100, Indan Zupancic a =C3=A9c=
+rit :
+>
+>> Problem is that 'old_size' can be up to 32kB in size and it would be=
+ nice
+>> if that memory could be released. If it isn't, then using JIT increa=
+ses
+>> memory usage, while also not accounting it to the socket.
+>>
+>
+> It is accounted for, since jit size is in relation with standard filt=
+er
+> size. Check sock_kmalloc()
+>
+> Fact we can have a litle underestimation was already the case without
+> jit, since kmalloc() does a roundup to next power of two.
 
-There isn't much point in using variables to store the values of eitr_low
-and eitr_high since they are not user changeable.  As such I am replacing
-them with the constants 10 and 20 in order to avoid any confusion on what
-the values actually are.
+OK.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    4 ----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   21 ++++++++-------------
- 2 files changed, 8 insertions(+), 17 deletions(-)
+> I dont think this discussion has anything to do with SECCOMP anyway.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 03175cb..f069c1b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -511,10 +511,6 @@ struct ixgbe_adapter {
- #endif /* IXGBE_FCOE */
- 	u32 wol;
- 
--	/* Interrupt Throttle Rate */
--	u16 eitr_low;
--	u16 eitr_high;
--
- 	u16 bd_number;
- 
- 	u16 eeprom_verh;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ac35324..71ced43 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1782,20 +1782,19 @@ enum latency_range {
- static void ixgbe_update_itr(struct ixgbe_q_vector *q_vector,
- 			     struct ixgbe_ring_container *ring_container)
- {
--	u64 bytes_perint;
--	struct ixgbe_adapter *adapter = q_vector->adapter;
- 	int bytes = ring_container->total_bytes;
- 	int packets = ring_container->total_packets;
- 	u32 timepassed_us;
-+	u64 bytes_perint;
- 	u8 itr_setting = ring_container->itr;
- 
- 	if (packets == 0)
- 		return;
- 
- 	/* simple throttlerate management
--	 *    0-20MB/s lowest (100000 ints/s)
--	 *   20-100MB/s low   (20000 ints/s)
--	 *  100-1249MB/s bulk (8000 ints/s)
-+	 *   0-10MB/s   lowest (100000 ints/s)
-+	 *  10-20MB/s   low    (20000 ints/s)
-+	 *  20-1249MB/s bulk   (8000 ints/s)
- 	 */
- 	/* what was last interrupt timeslice? */
- 	timepassed_us = q_vector->itr >> 2;
-@@ -1803,17 +1802,17 @@ static void ixgbe_update_itr(struct ixgbe_q_vector *q_vector,
- 
- 	switch (itr_setting) {
- 	case lowest_latency:
--		if (bytes_perint > adapter->eitr_low)
-+		if (bytes_perint > 10)
- 			itr_setting = low_latency;
- 		break;
- 	case low_latency:
--		if (bytes_perint > adapter->eitr_high)
-+		if (bytes_perint > 20)
- 			itr_setting = bulk_latency;
--		else if (bytes_perint <= adapter->eitr_low)
-+		else if (bytes_perint <= 10)
- 			itr_setting = lowest_latency;
- 		break;
- 	case bulk_latency:
--		if (bytes_perint <= adapter->eitr_high)
-+		if (bytes_perint <= 20)
- 			itr_setting = low_latency;
- 		break;
- 	}
-@@ -5239,10 +5238,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->rx_itr_setting = 1;
- 	adapter->tx_itr_setting = 1;
- 
--	/* set defaults for eitr in MegaBytes */
--	adapter->eitr_low = 10;
--	adapter->eitr_high = 20;
--
- 	/* set default ring sizes */
- 	adapter->tx_ring_count = IXGBE_DEFAULT_TXD;
- 	adapter->rx_ring_count = IXGBE_DEFAULT_RXD;
--- 
-1.7.7.6
+Certainly true.
+
+> These accounting dont need to be 100% precise, we only want a limit t=
+o
+> prevent rogue users from using all kernel memory.
+
+=46air enough.
+
+The only remaining question is, is it worth the extra code to release
+up to 32kB of unused memory? It seems a waste to not free it, but if
+people think it's not worth it then let's just leave it around.
+
+>> >
+>> > If it did, this kind of 'optimization' can actually be not good, b=
+ecause
+>> > sizeof(*fp) is small enough (less than half cache line size) to tr=
+igger
+>> > a possible false sharing issue. (other part of the cache line coul=
+d be
+>> > used to hold a often dirtied object)
+>>
+>> It could avoid this by allocating at least a cache size. But this is=
+ a
+>> problem for all small kmalloc's, isn't it?
+>
+> Its a problem that was already met on several critical paths :
+>
+> # find net|xargs grep -n L1_CACHE_BYTES
+> net/core/dev_addr_lists.c:51:	if (alloc_size < L1_CACHE_BYTES)
+> net/core/dev_addr_lists.c:52:		alloc_size =3D L1_CACHE_BYTES;
+> net/core/net-sysfs.c:586:	    RPS_MAP_SIZE(cpumask_weight(mask)), L1_=
+CACHE_BYTES),
+> net/core/net-sysfs.c:1111:	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GF=
+P_KERNEL);
+> net/ipv6/ip6_fib.c:1612:	size =3D max_t(size_t, size, L1_CACHE_BYTES)=
+;
+> net/ipv4/fib_frontend.c:1049:	size =3D max_t(size_t, size, L1_CACHE_B=
+YTES);
+
+So using L1_CACHE_BYTES is the more common thing to do, I'll keep that =
+in
+mind for next time.
+
+Thanks,
+
+Indan
