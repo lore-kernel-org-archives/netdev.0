@@ -1,34 +1,41 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH]  fix sierra_net endianess bug
-Date: Wed, 14 Mar 2012 19:24:22 +0000
-Message-ID: <1331753062.2564.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4F60A695.4040601@mt.lv> <m2399bmcfq.fsf@igel.home>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Wed, 14 Mar 2012 19:29:14 +0000
+Message-ID: <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120314190156.622c8cd5@vostro>
+	 <1331745314.6022.27.camel@edumazet-glaptop>
+	 <20120314192945.65867e9f@vostro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Maris Paupe <marisp@mt.lv>, <epasheva@sierrawireless.com>,
-	<rfiler@sierrawireless.com>, <netdev@vger.kernel.org>
-To: Andreas Schwab <schwab@linux-m68k.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40792 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932101Ab2CNTY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 15:24:26 -0400
-In-Reply-To: <m2399bmcfq.fsf@igel.home>
+Received: from mail.solarflare.com ([216.237.3.220]:42792 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753142Ab2CNT3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 15:29:17 -0400
+In-Reply-To: <20120314192945.65867e9f@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-03-14 at 16:26 +0100, Andreas Schwab wrote:
-> Maris Paupe <marisp@mt.lv> writes:
+On Wed, 2012-03-14 at 19:29 +0200, Timo Teras wrote:
+[...]
+> gro off. I am even trying now with:
 > 
-> > I have found that sierra_net does not work properly on big-endian
-> > systems, it works if bytes are flipped in this particular location.
-> 
-> That should probably be fixed in sierra_net_get_fw_attr (and the author
-> of sierra_net_get_fw_attr should be hit with a cluestick to not use
-> kmalloc for allocating a single u16).
+> Offload parameters for eth2:
+> rx-checksumming: off
+> tx-checksumming: off
+> scatter-gather: off
+> tcp segmentation offload: off
+> udp fragmentation offload: off
+> generic segmentation offload: off
+[...]
 
-You cannot use stack buffers for DMA, which includes all USB I/O.
+GRO isn't even reported there!  Apparently you need a newer version of
+ethtool.
 
 Ben.
 
