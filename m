@@ -1,63 +1,43 @@
-From: "Zou, Yi" <yi.zou@intel.com>
-Subject: RE: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
- tx ip checksum
-Date: Wed, 14 Mar 2012 20:48:03 +0000
-Message-ID: <138EA028228D124A900F5E6746F3C2160F6B3176@ORSMSX102.amr.corp.intel.com>
-References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Wed, 14 Mar 2012 13:52:44 -0700
+Message-ID: <1331758364.6022.66.camel@edumazet-glaptop>
+References: <20120314190156.622c8cd5@vostro>
+	 <1331745314.6022.27.camel@edumazet-glaptop>
+	 <20120314192945.65867e9f@vostro>
+	 <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120314215142.655ae607@vostro>
+	 <1331755965.6022.55.camel@edumazet-glaptop>
+	 <20120314223343.23dc9df3@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31153 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761463Ab2CNUsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 16:48:04 -0400
-In-Reply-To: <1331757355.2564.31.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:40438 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757489Ab2CNUwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 16:52:47 -0400
+Received: by dadp12 with SMTP id p12so3499591dad.11
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 13:52:47 -0700 (PDT)
+In-Reply-To: <20120314223343.23dc9df3@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gT24gV2VkLCAyMDEyLTAzLTE0IGF0IDAwOjAxIC0wNzAwLCBKZWZmIEtpcnNoZXIgd3Jv
-dGU6DQo+ID4gRnJvbTogWWkgWm91IDx5aS56b3VAaW50ZWwuY29tPg0KPiA+DQo+ID4gRml4IGEg
-YnVnIHdoZW4gdXNpbmcgJ2V0aHRvb2wgLUsgZXRoeCB0eCBvZmYnIHRvIHR1cm4gb2ZmIHR4IGlw
-DQo+IGNoZWNrc3VtLA0KPiA+IEZDb0UgQ1JDIG9mZmxvYWQgc2hvdWxkIG5vdCBiZSBpbXBhY3Rl
-LiBUaGUgc2tiX2NoZWNrc3VtX2hlbHAoKSBpcw0KPiBuZWVkZWQNCj4gPiBvbmx5IGlmIGl0J3Mg
-bm90IEZDb0UgdHJhZmZpYyBmb3IgaXAgY2hlY2tzdW0sIHJlZ2FyZGxlc3Mgb2YgZXRodG9vbA0K
-PiB0b2dnbGluZw0KPiA+IHRoZSB0eCBpcCBjaGVja3N1bSBvbiBvciBvZmYuDQo+IFsuLi5dDQo+
-IA0KPiBJIHRoaW5rIHRoZSBidWcgaXMgbW9yZSBmdW5kYW1lbnRhbCwgYW5kIGl0J3Mgbm90IGp1
-c3QgYSBwcm9ibGVtIGZvcg0KPiBGQ29FLiAgRm9yIHRoZSB0cmFuc21pdCBwYXRoLCB0aGUgaXBf
-c3VtbWVkIHZhbHVlcyBhcmUgc3BlY2lmaWVkIGFzOg0KPiANCj4gW2ZvcndhcmRpbmddDQo+ICAq
-CUNPTVBMRVRFOiB0aGUgbW9zdCBnZW5lcmljIHdheS4gRGV2aWNlIHN1cHBsaWVkIGNoZWNrc3Vt
-IG9mIF9hbGxfDQo+ICAqCSAgICB0aGUgcGFja2V0IGFzIHNlZW4gYnkgbmV0aWZfcnggaW4gc2ti
-LT5jc3VtLg0KPiAgKgkgICAgTk9URTogRXZlbiBpZiBkZXZpY2Ugc3VwcG9ydHMgb25seSBzb21l
-IHByb3RvY29scywgYnV0DQo+ICAqCSAgICBpcyBhYmxlIHRvIHByb2R1Y2Ugc29tZSBza2ItPmNz
-dW0sIGl0IE1VU1QgdXNlIENPTVBMRVRFLA0KPiAgKgkgICAgbm90IFVOTkVDRVNTQVJZLg0KPiAN
-Cj4gW2xvY2FsbHktZ2VuZXJhdGVkXQ0KPiAgKglOT05FOiBza2IgaXMgY2hlY2tzdW1tZWQgYnkg
-cHJvdG9jb2wgb3IgY3N1bSBpcyBub3QgcmVxdWlyZWQuDQo+ICAqDQo+ICAqCVBBUlRJQUw6IGRl
-dmljZSBpcyByZXF1aXJlZCB0byBjc3VtIHBhY2tldCBhcyBzZWVuIGJ5DQo+IGhhcmRfc3RhcnRf
-eG1pdA0KPiAgKglmcm9tIHNrYi0+Y3N1bV9zdGFydCB0byB0aGUgZW5kIGFuZCB0byByZWNvcmQg
-dGhlIGNoZWNrc3VtDQo+ICAqCWF0IHNrYi0+Y3N1bV9zdGFydCArIHNrYi0+Y3N1bV9vZmZzZXQu
-DQo+IA0KPiBJdCdzIGltcGxpY2l0IHRoYXQgdGhlIGNoZWNrc3VtIGFsZ29yaXRobSBmb3IgQ0hF
-Q0tTVU1fUEFSVElBTCBpcyBhcw0KPiBzcGVjaWZpZWQgZm9yIFRDUC9JUC4gIFNvIG5vbmUgb2Yg
-dGhvc2UgaXMgY29ycmVjdCB3aGVuIGEgZGlmZmVyZW50DQo+IGFsZ29yaXRobSBpcyB0byBiZSB1
-c2VkLg0KPiANCj4gSXQgc2VlbXMgbGlrZSB3ZSBtYXkgbmVlZCBhbm90aGVyIGlwX3N1bW1lZCB2
-YWx1ZSBmb3IgRkNvRSwgU0NUUCBvciBhbnkNCj4gb3RoZXIgcHJvdG9jb2wgd2l0aCBhIGRpZmZl
-cmVudCBjaGVja3N1bSBhbGdvcml0aG0gdGhhdCB3aWxsIGJlDQo+IG9mZmxvYWRlZC4gIE1heWJl
-IGFsbG93IENIRUNLU1VNX1VOTkVDRVNTQVJZIHRvIGJlIHVzZWQgb24gb3V0cHV0IGluDQo+IHRo
-YXQgY2FzZT8NCj4gDQo+IEJlbi4NCg0KQ0hFQ0tTVU1fVU5ORUNFU1NBUlkgc291bmRzIGdvb2Qg
-dG8gbWUsIGlmIGl0J3Mgb2sgdG8gYmUgdXNlZCBvbiB0aGUgdHggcGF0aA0KYXMgd2VsbCwgSSB0
-aGluayBzbyBidXQgSSBhbSBub3QgMTAwJSBzdXJlLCBpdCdkIHJlc29sdmUgdGhpcyBmb3IgZmNv
-ZSBhbmQgc2N0cA0KbGlrZSwgZG93bnNpZGUgaXMgaXQncyBhIGJpZ2dlciBjaGFuZ2UgdGhhdCBy
-ZXF1aXJlcyBjb3JyZXNwb25kaW5nIGNoYW5nZXMgaW4NCnRoZXNlIHByb3RvY29sIGRyaXZlciBz
-dGFja3MgYXMgd2VsbC4NCg0KeWkNCg0KPiANCj4gLS0NCj4gQmVuIEh1dGNoaW5ncywgU3RhZmYg
-RW5naW5lZXIsIFNvbGFyZmxhcmUNCj4gTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhh
-dCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj4gVGhleSBhc2tlZCB1cyB0byBu
-b3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4NCg0K
+On Wed, 2012-03-14 at 22:33 +0200, Timo Teras wrote:
+
+> # ethtool -S eth2
+> NIC statistics:
+>      tx_packets: 2069391193
+>      rx_packets: 3245815642
+>      tx_errors: 0
+>      rx_errors: 645238
+>      rx_missed: 31414
+
+So many packets on your tests, did you fresh reboot your machine before
+doing them ?
+
+Is your cpu fully loaded when doing your wget ?
