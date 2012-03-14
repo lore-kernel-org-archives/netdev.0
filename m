@@ -1,55 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net 2/2] net: fix a bug of dropping FCoE frames when disabling
- tx ip checksum
-Date: Wed, 14 Mar 2012 08:25:29 -0700
-Message-ID: <20120314082529.584a669f@nehalam.linuxnetplumber.net>
-References: <1331708518-28120-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [PATCH]  fix sierra_net endianess bug
+Date: Wed, 14 Mar 2012 16:26:01 +0100
+Message-ID: <m2399bmcfq.fsf@igel.home>
+References: <4F60A695.4040601@mt.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Yi Zou <yi.zou@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: epasheva@sierrawireless.com, rfiler@sierrawireless.com,
+	netdev@vger.kernel.org
+To: Maris Paupe <marisp@mt.lv>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49002 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753563Ab2CNPZc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Mar 2012 11:25:32 -0400
-In-Reply-To: <1331708518-28120-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-out.m-online.net ([212.18.0.9]:33583 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531Ab2CNP0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 11:26:05 -0400
+In-Reply-To: <4F60A695.4040601@mt.lv> (Maris Paupe's message of "Wed, 14 Mar
+	2012 16:09:25 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Mar 2012 00:01:58 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+Maris Paupe <marisp@mt.lv> writes:
 
-> From: Yi Zou <yi.zou@intel.com>
-> 
-> Fix a bug when using 'ethtool -K ethx tx off' to turn off tx ip checksum,
-> FCoE CRC offload should not be impacte. The skb_checksum_help() is needed
-> only if it's not FCoE traffic for ip checksum, regardless of ethtool toggling
-> the tx ip checksum on or off.
-> 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  net/core/dev.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6ca32f6..9e378009 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1913,6 +1913,9 @@ int skb_checksum_help(struct sk_buff *skb)
->  	__wsum csum;
->  	int ret = 0, offset;
->  
-> +	if (skb->protocol == htons(ETH_P_FCOE))
-> +		goto out;
-> +
->  	if (skb->ip_summed == CHECKSUM_COMPLETE)
->  		goto out_set_summed;
->  
+> I have found that sierra_net does not work properly on big-endian
+> systems, it works if bytes are flipped in this particular location.
 
-Shouldn't this be done in the offending driver rather than the core?
+That should probably be fixed in sierra_net_get_fw_attr (and the author
+of sierra_net_get_fw_attr should be hit with a cluestick to not use
+kmalloc for allocating a single u16).
+
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
