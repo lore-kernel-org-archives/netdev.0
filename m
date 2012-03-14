@@ -1,75 +1,84 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next/usb-next v3 0/5] cdc-wdm/qmi_wwan: subdriver support
-Date: Wed, 14 Mar 2012 13:51:51 +0100
-Message-ID: <87obrzjqfs.fsf@nemi.mork.no>
-References: <1330528507-16551-1-git-send-email-bjorn@mork.no>
-	<878vjeuebk.fsf@nemi.mork.no> <4F608D56.9070704@phoenixhaven.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] stmmac: Add device-tree support
+Date: Wed, 14 Mar 2012 13:07:55 +0000
+Message-ID: <201203141307.55808.arnd@arndb.de>
+References: <1331561157-3820-1-git-send-email-sr@denx.de>
+ <20120312143825.GB13869@game.jcrosoft.org> <4F60832E.6060100@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org,
-	Dan Williams <dcbw@redhat.com>,
-	Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org
-To: "Nin Lil'izi" <nin-lil-izi@cf-protected.phoenixhaven.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43595 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760916Ab2CNMxa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Mar 2012 08:53:30 -0400
-In-Reply-To: <4F608D56.9070704@phoenixhaven.net> (Nin Lil'izi's message of
-	"Wed, 14 Mar 2012 12:21:42 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>, Stefan Roese <sr@denx.de>,
+ Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+ devicetree-discuss@ozlabs.org, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4F60832E.6060100@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-"Nin Lil'izi" <nin-lil-izi@cf-protected.phoenixhaven.net> writes:
+On Wednesday 14 March 2012, Giuseppe CAVALLARO wrote:
+> On 3/12/2012 3:38 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > On 15:05 Mon 12 Mar     , Stefan Roese wrote:
+> >> This patch adds support to configure the STMMAC ethernet driver via
+> >> device-tree instead of platform_data.
+> >>
+> >> Currently, only the properties needed on SPEAr600 are provided. All
+> >> other properties should be added once needed on other platforms.
+> >>
+> >> Signed-off-by: Stefan Roese <sr@denx.de>
+> >> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> >> Cc: Viresh Kumar <viresh.kumar@st.com>
+> >> ---
+> >>  Documentation/devicetree/bindings/net/stmmac.txt   |   38 +++++++++++
+> >>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   66 +++++++++++++++++++-
+> >>  2 files changed, 103 insertions(+), 1 deletion(-)
+> >>  create mode 100644 Documentation/devicetree/bindings/net/stmmac.txt
+> >>
+> >> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> >> new file mode 100644
+> >> index 0000000..386a47f
+> >> --- /dev/null
+> >> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> >> @@ -0,0 +1,38 @@
+> >> +* STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
+> >> +
+> >> +Required properties:
+> >> +- compatible: Should be "stm,gmac"
+> 
+> > this IP have 2 version at least the GMAC for the second generation and mac for
+> > the first generation
+> 
+> yes you are right. STMMAC supports two device generations I named:
+> dwma10/100 and dwmac1000 (gmac).
+> 
+> Concerning the latter, we support several different versions of the
+> synopsys GMAC cores ... from 3.30 to 3.61a.
+> 
+> For example, stx7108 and Stx7109 have the same GMAC core (also SPEAr600
+> IIRC).
+> SPEAr13xx has 3.50a
+> New ST SoC Stxh415 has the 3.60a. etc.
 
-> Please forgive me for spamming this list.
-> But is this module going to make it into the 3.3.0 final release?
->
-> I've been testing it on my laptop while travelling on trains and thin=
-gs
-> using recent git pulls. And it releaves so much frustration vs the
-> option module.
-> As in spotty signal areas it drops in and out seamlessly without havi=
-ng
-> to manually reconnect everytime the train passes through a deadspot. =
-And
-> generally the connection is noticiably more stable in this use case :=
-D
->
-> Anyway I'd like to try it on my home connection which is run off an a=
-tom
-> device in a radio blackspot from hell. Which results in stuff having =
-to
-> be reconnected very often, even with huge external antenna attached. =
-So
-> this is like a dream come true in frustration saving but it takes
-> 12hours to build a kernel. And cross compilation is labour intensive
-> when you don't have the toolchain setup first. So am waiting for this=
- to
-> hit a stable release before building it on that machine to save my sa=
-nity.
+In that case, you should definitely list the exact device versions in the
+compatible string, like:
 
-Thanks for the nice feedback. =20
+compatible = "stm,spear600-gmac", "snps,dw-gmac-3.50a", "snps,dw-gmac";
 
-This was submitted far too late for it to be considered 3.3 material.
-Not much to do about that.  Most of the developement happened after
-3.3-rc1 anyway.  So I'm afraid you'll have to wait a couple months more
-for the 3.4 release.
+When we have other socs with the same version, that lets us add quirks
+for the specific version by checking the compatible property once in the
+driver.
 
-I understand that wasn't the message you wanted, but it does give us al=
-l
-a chance to test it thoroughly on different types of hardware. And mayb=
-e
-even prepare some userspace tools :-)
-
-Which brings me to a couple of questions I have for you: What radio
-hardware do you use (lsusb -v), and which userspace tools?
-
-But we should maybe continue any userspace tool discussion here instead=
-,
-where it's a bit more on topic:
-http://lists.freedesktop.org/mailman/listinfo/libqmi-devel
+It also sounds to me that the entire stmmac driver should live in the
+drivers/net/ethernet/synopsys directory, not stmicro, but that is a
+different issue.
 
 
-Bj=C3=B8rn
+	Arnd
