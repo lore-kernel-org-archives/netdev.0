@@ -1,74 +1,115 @@
-From: Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: bluetooth: bug fixes for bluetooth-next
-Date: Thu, 15 Mar 2012 14:47:35 +0100
-Message-ID: <20120315134735.GA19821@localhost>
-References: <1331307806-21761-1-git-send-email-jhovold@gmail.com>
- <20120314112543.GA5136@localhost>
- <1331749014.14217.112.camel@aeonflux>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Herrmann <dh.herrmann-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Johan Hovold <jhovold-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1331749014.14217.112.camel@aeonflux>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Johan Hovold <jhovold@gmail.com>
+Subject: [PATCH 1/2] bluetooth: hci_ldisc: fix NULL-pointer dereference on tty_close
+Date: Thu, 15 Mar 2012 14:48:40 +0100
+Message-ID: <1331819321-13018-1-git-send-email-jhovold@gmail.com>
+References: <20120315134735.GA19821@localhost>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	David Herrmann <dh.herrmann@googlemail.com>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Johan Hovold <jhovold@gmail.com>,
+	stable <stable@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120315134735.GA19821@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 14, 2012 at 11:16:54AM -0700, Marcel Holtmann wrote:
-> > > This is a revised series which also contains a minimal fix to the memory leak
-> > > discovered by David Hermann upon which the first NULL-pointer-dereference fix
-> > > also depends.
-> > > 
-> > > These patches need to get to Linus ASAP as the problems are present in 3.3-rc6
-> > > as well as earlier kernels and thus should be backported to the stable trees as
-> > > well.
-> > 
-> > Any chance to get these into 3.3? Otherwise, is it possible to rebase
-> > bluetooth-next on top of these so that Greg can get them into 3.3.1 (and
-> > the other stable trees) once bluetooth-next is merged?
-> > 
-> > All three bugs can be used to crash any kernel with HCI-UART support and
-> > can probably be used for exploits as they are extremely easy to trigger
-> > reliably.
-> 
-> only if you have access to the TTY device node in the first place. If
-> you do not have access to that device node, you can not crash the
-> kernel.
-> 
-> Can you resend a clean set of patches for bluetooth-next and once we
-> have that merged, we can talk on how to backport this to 3.3 and also
-> -stable.
+Do not close protocol driver until device has been unregistered.
 
-I'll respond to this mail with the two NULL-deref fixes against
-bluetooth-next of today (44e612b3e6566f0b).
+This fixes a race between tty_close and hci_dev_open which can result in
+a NULL-pointer dereference.
 
-As I've mentioned before, a fix for the memory leak is already in
-bluetooth-next and my first patch depends on it. Unfortunately, the
-memory-leak fix in bluetooth-next is not a minimal fix but a more
-invasive one:
+The line discipline closes the protocol driver while we may still have
+hci_dev_open sleeping on the req_lock mutex resulting in a NULL-pointer
+dereference when lock is acquired and hci_init_req called.
 
-	797fe796c4335b3 ("Bluetooth: uart-ldisc: Fix memory leak and
-			  remove destruct cb")
-	
-and it also depends on a second commit (from bluetooth-next):
+Bug is 100% reproducible using hciattach and a disconnected serial port:
 
-	010666a126fce7b ("Bluetooth: Make hci-destruct callback
-			  optional")
+0. # hciattach -n ttyO1 any noflow
 
-Neither is marked for stable (and at least the latter probably shouldn't
-be).
+1. hci_dev_open called from hci_power_on grabs req lock
+2. hci_init_req executes but device fails to initialise (times out
+   eventually)
+3. hci_dev_open is called from hci_sock_ioctl and sleeps on req lock
+4. hci_uart_tty_close detaches protocol driver and cancels init req
+5. hci_dev_open (1) releases req lock
+6. hci_dev_open (3) grabs req lock, calls hci_init_req, which triggers oops
+   when request is prepared in hci_uart_send_frame
 
-Please make sure that the memory leak fix also gets backported to
-stable. A minimal (2-line) fix can be found here:
+[  137.201263] Unable to handle kernel NULL pointer dereference at virtual address 00000028
+[  137.209838] pgd = c0004000
+[  137.212677] [00000028] *pgd=00000000
+[  137.216430] Internal error: Oops: 17 [#1]
+[  137.220642] Modules linked in:
+[  137.223846] CPU: 0    Tainted: G        W     (3.3.0-rc6-dirty #406)
+[  137.230529] PC is at __lock_acquire+0x5c/0x1ab0
+[  137.235290] LR is at lock_acquire+0x9c/0x128
+[  137.239776] pc : [<c0071490>]    lr : [<c00733f8>]    psr: 20000093
+[  137.239776] sp : cf869dd8  ip : c0529554  fp : c051c730
+[  137.251800] r10: 00000000  r9 : cf8673c0  r8 : 00000080
+[  137.257293] r7 : 00000028  r6 : 00000002  r5 : 00000000  r4 : c053fd70
+[  137.264129] r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : 00000001
+[  137.270965] Flags: nzCv  IRQs off  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+[  137.278717] Control: 10c5387d  Table: 8f0f4019  DAC: 00000015
+[  137.284729] Process kworker/u:1 (pid: 7, stack limit = 0xcf8682e8)
+[  137.291229] Stack: (0xcf869dd8 to 0xcf86a000)
+[  137.295776] 9dc0:                                                       c0529554 00000000
+[  137.304351] 9de0: cf8673c0 cf868000 d03ea1ef cf868000 000001ef 00000470 00000000 00000002
+[  137.312927] 9e00: cf8673c0 00000001 c051c730 c00716ec 0000000c 00000440 c0529554 00000001
+[  137.321533] 9e20: c051c730 cf868000 d03ea1f3 00000000 c053b978 00000000 00000028 cf868000
+[  137.330078] 9e40: 00000000 00000000 00000002 00000000 00000000 c00733f8 00000002 00000080
+[  137.338684] 9e60: 00000000 c02a1d50 00000000 00000001 60000013 c0969a1c 60000093 c053b96c
+[  137.347259] 9e80: 00000002 00000018 20000013 c02a1d50 cf0ac000 00000000 00000002 cf868000
+[  137.355834] 9ea0: 00000089 c0374130 00000002 00000000 c02a1d50 cf0ac000 0000000c cf0fc540
+[  137.364410] 9ec0: 00000018 c02a1d50 cf0fc540 00000000 cf0fc540 c0282238 c028220c cf178d80
+[  137.372985] 9ee0: 127525d8 c02821cc 9a1fa451 c032727c 9a1fa451 127525d8 cf0fc540 cf0ac4ec
+[  137.381561] 9f00: cf0ac000 cf0fc540 cf0ac584 c03285f4 c0328580 cf0ac4ec cf85c740 c05510cc
+[  137.390136] 9f20: ce825400 c004c914 00000002 00000000 c004c884 ce8254f5 cf869f48 00000000
+[  137.398712] 9f40: c0328580 ce825415 c0a7f914 c061af64 00000000 c048cf3c cf8673c0 cf85c740
+[  137.407287] 9f60: c05510cc c051a66c c05510ec c05510c4 cf85c750 cf868000 00000089 c004d6ac
+[  137.415863] 9f80: 00000000 c0073d14 00000001 cf853ed8 cf85c740 c004d558 00000013 00000000
+[  137.424438] 9fa0: 00000000 00000000 00000000 c00516b0 00000000 00000000 cf85c740 00000000
+[  137.433013] 9fc0: 00000001 dead4ead ffffffff ffffffff c0551674 00000000 00000000 c0450aa4
+[  137.441589] 9fe0: cf869fe0 cf869fe0 cf853ed8 c005162c c0013b30 c0013b30 00ffff00 00ffff00
+[  137.450164] [<c0071490>] (__lock_acquire+0x5c/0x1ab0) from [<c00733f8>] (lock_acquire+0x9c/0x128)
+[  137.459503] [<c00733f8>] (lock_acquire+0x9c/0x128) from [<c0374130>] (_raw_spin_lock_irqsave+0x44/0x58)
+[  137.469360] [<c0374130>] (_raw_spin_lock_irqsave+0x44/0x58) from [<c02a1d50>] (skb_queue_tail+0x18/0x48)
+[  137.479339] [<c02a1d50>] (skb_queue_tail+0x18/0x48) from [<c0282238>] (h4_enqueue+0x2c/0x34)
+[  137.488189] [<c0282238>] (h4_enqueue+0x2c/0x34) from [<c02821cc>] (hci_uart_send_frame+0x34/0x68)
+[  137.497497] [<c02821cc>] (hci_uart_send_frame+0x34/0x68) from [<c032727c>] (hci_send_frame+0x50/0x88)
+[  137.507171] [<c032727c>] (hci_send_frame+0x50/0x88) from [<c03285f4>] (hci_cmd_work+0x74/0xd4)
+[  137.516204] [<c03285f4>] (hci_cmd_work+0x74/0xd4) from [<c004c914>] (process_one_work+0x1a0/0x4ec)
+[  137.525604] [<c004c914>] (process_one_work+0x1a0/0x4ec) from [<c004d6ac>] (worker_thread+0x154/0x344)
+[  137.535278] [<c004d6ac>] (worker_thread+0x154/0x344) from [<c00516b0>] (kthread+0x84/0x90)
+[  137.543975] [<c00516b0>] (kthread+0x84/0x90) from [<c0013b30>] (kernel_thread_exit+0x0/0x8)
+[  137.552734] Code: e59f4e5c e5941000 e3510000 0a000031 (e5971000)
+[  137.559234] ---[ end trace 1b75b31a2719ed1e ]---
 
-	http://marc.info/?l=linux-bluetooth&m=133130797428708&w=2
+Cc: stable <stable@vger.kernel.org>
+Signed-off-by: Johan Hovold <jhovold@gmail.com>
+---
+ drivers/bluetooth/hci_ldisc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks,
-Johan
+diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
+index fd5adb4..98a8c05 100644
+--- a/drivers/bluetooth/hci_ldisc.c
++++ b/drivers/bluetooth/hci_ldisc.c
+@@ -299,11 +299,11 @@ static void hci_uart_tty_close(struct tty_struct *tty)
+ 			hci_uart_close(hdev);
+ 
+ 		if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
+-			hu->proto->close(hu);
+ 			if (hdev) {
+ 				hci_unregister_dev(hdev);
+ 				hci_free_dev(hdev);
+ 			}
++			hu->proto->close(hu);
+ 		}
+ 
+ 		kfree(hu);
+-- 
+1.7.8.4
