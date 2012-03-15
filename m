@@ -1,75 +1,88 @@
-From: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
-Subject: Methods to communicate between kernel network stack and user space
-Date: Thu, 15 Mar 2012 20:00:05 +0500
-Message-ID: <CAAZheX=0v2AK0aDN0ZE=6n13JF27Nd-jOyi7GPzSSc4cYpnkeA@mail.gmail.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Thu, 15 Mar 2012 17:11:48 +0200
+Message-ID: <20120315171148.0050714d@vostro>
+References: <20120314190156.622c8cd5@vostro>
+	<1331745314.6022.27.camel@edumazet-glaptop>
+	<20120314192945.65867e9f@vostro>
+	<1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120314215142.655ae607@vostro>
+	<1331755965.6022.55.camel@edumazet-glaptop>
+	<20120314223343.23dc9df3@vostro>
+	<20120314205319.GA28394@electric-eye.fr.zoreil.com>
+	<20120315080635.1f76512b@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:65460 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030379Ab2COPAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 11:00:09 -0400
-Received: by vcqp1 with SMTP id p1so3223588vcq.19
-        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 08:00:05 -0700 (PDT)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:47905 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964859Ab2COPM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 11:12:29 -0400
+Received: by bkcik5 with SMTP id ik5so2194997bkc.19
+        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 08:12:26 -0700 (PDT)
+In-Reply-To: <20120315080635.1f76512b@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-   Consider the figure below:
+On Thu, 15 Mar 2012 08:06:35 +0200 Timo Teras <timo.teras@iki.fi> wrote:
 
-                                     +-----------------------------------+
-                                      |                                    |
-                                      |              TRILL  IS-IS<--|---------
-                                      |  Quagga protocol  suite  |         |
+> On Wed, 14 Mar 2012 21:53:19 +0100 Francois Romieu
+> <romieu@fr.zoreil.com> wrote:
+> 
+> > Timo Teras <timo.teras@iki.fi> :
+> > [...]
+> > > # ethtool -S eth2
+> > > NIC statistics:
+> > >      tx_packets: 2069391193
+> > >      rx_packets: 3245815642
+> > >      tx_errors: 0
+> > >      rx_errors: 645238
+> > >      rx_missed: 31414
+> > 
+> > It does not look like stuff for the higher layers guys.
+> > 
+> > Can you tshark -w foobar on the sender side and
+> > 'while : ; do sleep 1; ethtool -S eth2 >> glop; done' on the
+> > receiver during a bad wget (a big zero filled file should compress
+> > well).
+> 
+> Indeed.
+> 
+> It seems that my earlier test about the "GRO off" effect were mistaken
+> (I used accidentally proxy, and that gave the illusion that things are
+> working. Whoops.)
+> 
+> So far I changed the cross-over cable and it didn't help. However,
+> forcing the NIC to 100mbit/full-duplex mode fixes the rx_errors. It
+> seems that something bad is happening in the gigabit mode.
+> 
+> I wonder if it's using pause frames and that's messing things up.
+> Seems that I can't turn it off, though.
+> 
+> I can also double check my cables, though it is factory made Cat-5E
+> cross-over cable; and happens with two different cables.
 
-+-----------------------------------+         |
-       user space                                                              |
-         ---------------------------------------------------------------------------|-----
-       kernel space                                                           |
+Ok. So far I have two of these boxes with same r8169 hardware. Both
+generate bad packets on transmit only; and on both 3 nic systems it's
+the middle eth1 nic. The symptoms are identical: in 1GB mode I have
+minor packet loss, where as 100Mbit/s mode seems to work just fine.
 
-             |
+The first box, that I've been talking so far about, is as mentioned
+connected to another similar box. The r8169 there reports rx_errors.
+The cable is ok; I've tried with two different ones.
 
-+------------------------------------------+   |
-                                     |         TCP / UDP / ICMP      |   |
-                                     |
-          |   |
+The other broken box is connected to a HP ProCurve 4202vl-48G, and the
+switch is reporting drops due to FCS Rx errors.
 
-+------------------------------------------+   |
-                                     |               IPv4 /IPv6
-     |   |
-                                     |
-          |   |
+So I have two broken pieces of hardware, or there is a driver bug.
 
-+------------------------------------------+  |
-                                     |
-+-------------+  |   |
-                                     |                         |TRILL
-  |<--|---
-                                     |           Bridging   +------------+  |
-
-+------------------------------------------+
-                                     |    Interface between Device    |
-                                     |Driver and network stack(dev.c)|
-
-+------------------------------------------+
-                                     |            Device Driver            |
-                                     |
-          |
-                                     +-----------------|
-|------------------+
-                                                        |     |
-                                                         NIC
-
-
-                      As you may know, TRILL uses IS-IS protocol to
-calculate pairwise optimal paths and other control plane parameters.
-Now i want to communicate between TRILL forwarding in bridging with
-TRILL IS-IS in quagga protocol suite to send and receive control plane
-packets. I don't know what method should i use for this kind of
-communication.
-
-Netlink sockets are appropriate for this purpose?
-Or please suggest something else.
-
-Thanks in Advance...!!
+I'll try upgrading my kernel to 3.0.x series on the sender box and see
+if it's fixing anything. Suggestions for further testing would be
+appreciated.
