@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v15 10/13] seccomp: Add SECCOMP_RET_TRAP
-Date: Wed, 14 Mar 2012 22:12:02 -0500
-Message-ID: <1331781125-15658-11-git-send-email-wad@chromium.org>
+Subject: [PATCH v15 07/13] seccomp: remove duplicated failure logging
+Date: Wed, 14 Mar 2012 22:11:59 -0500
+Message-ID: <1331781125-15658-8-git-send-email-wad@chromium.org>
 References: <1331781125-15658-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-arch@vger.kernel.org,
@@ -33,7 +33,7 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1127-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1123-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -41,128 +41,130 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1331781125-15658-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-Adds a new return value to seccomp filters that triggers a SIGSYS to be
-delivered with the new SYS_SECCOMP si_code.
+From: Kees Cook <keescook@chromium.org>
 
-This allows in-process system call emulation, including just specifying
-an errno or cleanly dumping core, rather than just dying.
+This consolidates the seccomp filter error logging path and adds more
+details to the audit log.
 
-v15: - use audit_seccomp/skip
-     - pad out error spacing; clean up switch (indan@nul.nu)
-v14: - n/a
-v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-v12: - rebase on to linux-next
-v11: - clarify the comment (indan@nul.nu)
-     - s/sigtrap/sigsys
-v10: - use SIGSYS, syscall_get_arch, updates arch/Kconfig
-       note suggested-by (though original suggestion had other behaviors)
-v9:  - changes to SIGILL
-v8:  - clean up based on changes to dependent patches
-v7:  - introduction
-
-Suggested-by: Markus Gutschke <markus@chromium.org>
-Suggested-by: Julien Tinnes <jln@chromium.org>
 Signed-off-by: Will Drewry <wad@chromium.org>
----
- arch/Kconfig                  |   14 +++++++++-----
- include/asm-generic/siginfo.h |    2 +-
- include/linux/seccomp.h       |    1 +
- kernel/seccomp.c              |   26 ++++++++++++++++++++++++++
- 4 files changed, 37 insertions(+), 6 deletions(-)
+Signed-off-by: Kees Cook <keescook@chromium.org>
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index dd4e067..d92a78e 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -202,11 +202,15 @@ config HAVE_CMPXCHG_DOUBLE
- config HAVE_ARCH_SECCOMP_FILTER
- 	bool
- 	help
--	  This symbol should be selected by an architecure if it provides
--	  asm/syscall.h, specifically syscall_get_arguments(),
--	  syscall_get_arch(), and syscall_set_return_value().  Additionally,
--	  its system call entry path must respect a return value of -1 from
--	  __secure_computing_int() and/or secure_computing().
-+	  This symbol should be selected by an architecure if it provides:
-+	  asm/syscall.h:
-+	  - syscall_get_arch()
-+	  - syscall_get_arguments()
-+	  - syscall_rollback()
-+	  - syscall_set_return_value()
-+	  SIGSYS siginfo_t support must be implemented.
-+	  __secure_computing_int()/secure_computing()'s return value must be
-+	  checked, with -1 resulting in the syscall being skipped.
+v15: added a return code to the audit_seccomp path by wad@chromium.org
+     (suggested by eparis@redhat.com)
+v*: original by keescook@chromium.org
+---
+ include/linux/audit.h |    8 ++++----
+ kernel/auditsc.c      |   10 ++++++++--
+ kernel/seccomp.c      |   15 +--------------
+ 3 files changed, 13 insertions(+), 20 deletions(-)
+
+diff --git a/include/linux/audit.h b/include/linux/audit.h
+index 9ff7a2c..1b95270 100644
+--- a/include/linux/audit.h
++++ b/include/linux/audit.h
+@@ -463,7 +463,7 @@ extern void audit_putname(const char *name);
+ extern void __audit_inode(const char *name, const struct dentry *dentry);
+ extern void __audit_inode_child(const struct dentry *dentry,
+ 				const struct inode *parent);
+-extern void __audit_seccomp(unsigned long syscall);
++extern void __audit_seccomp(unsigned long syscall, long signr, int code);
+ extern void __audit_ptrace(struct task_struct *t);
  
- config SECCOMP_FILTER
- 	def_bool y
-diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
-index 31306f5..af5d035 100644
---- a/include/asm-generic/siginfo.h
-+++ b/include/asm-generic/siginfo.h
-@@ -93,7 +93,7 @@ typedef struct siginfo {
+ static inline int audit_dummy_context(void)
+@@ -508,10 +508,10 @@ static inline void audit_inode_child(const struct dentry *dentry,
+ }
+ void audit_core_dumps(long signr);
  
- 		/* SIGSYS */
- 		struct {
--			void __user *_call_addr; /* calling insn */
-+			void __user *_call_addr; /* calling user insn */
- 			int _syscall;	/* triggering system call number */
- 			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
- 		} _sigsys;
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index 12bb2e3..a5078fb 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -19,6 +19,7 @@
-  * selects the least permissive choice.
-  */
- #define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
-+#define SECCOMP_RET_TRAP	0x00030000U /* disallow and force a SIGSYS */
- #define SECCOMP_RET_ERRNO	0x00050000U /* returns an errno */
- #define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
+-static inline void audit_seccomp(unsigned long syscall)
++static inline void audit_seccomp(unsigned long syscall, long signr, int code)
+ {
+ 	if (unlikely(!audit_dummy_context()))
+-		__audit_seccomp(syscall);
++		__audit_seccomp(syscall, signr, code);
+ }
+ 
+ static inline void audit_ptrace(struct task_struct *t)
+@@ -634,7 +634,7 @@ extern int audit_signals;
+ #define audit_inode(n,d) do { (void)(d); } while (0)
+ #define audit_inode_child(i,p) do { ; } while (0)
+ #define audit_core_dumps(i) do { ; } while (0)
+-#define audit_seccomp(i) do { ; } while (0)
++#define audit_seccomp(i,s,c) do { ; } while (0)
+ #define auditsc_get_stamp(c,t,s) (0)
+ #define audit_get_loginuid(t) (-1)
+ #define audit_get_sessionid(t) (-1)
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index af1de0f..10dc528 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -67,6 +67,7 @@
+ #include <linux/syscalls.h>
+ #include <linux/capability.h>
+ #include <linux/fs_struct.h>
++#include <linux/compat.h>
+ 
+ #include "audit.h"
+ 
+@@ -2710,13 +2711,18 @@ void audit_core_dumps(long signr)
+ 	audit_log_end(ab);
+ }
+ 
+-void __audit_seccomp(unsigned long syscall)
++void __audit_seccomp(unsigned long syscall, long signr, int code)
+ {
+ 	struct audit_buffer *ab;
+ 
+ 	ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_ANOM_ABEND);
+-	audit_log_abend(ab, "seccomp", SIGKILL);
++	audit_log_abend(ab, "seccomp", signr);
+ 	audit_log_format(ab, " syscall=%ld", syscall);
++#ifdef CONFIG_COMPAT
++	audit_log_format(ab, " compat=%d", is_compat_task());
++#endif
++	audit_log_format(ab, " ip=0x%lx", KSTK_EIP(current));
++	audit_log_format(ab, " code=0x%x", code);
+ 	audit_log_end(ab);
+ }
  
 diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index af3db09..fb3b993 100644
+index 9e50174..51c3462 100644
 --- a/kernel/seccomp.c
 +++ b/kernel/seccomp.c
-@@ -327,6 +327,26 @@ void put_seccomp_filter(struct task_struct *tsk)
- 		kfree(freeme);
- 	}
- }
-+
-+/**
-+ * seccomp_send_sigsys - signals the task to allow in-process syscall emulation
-+ * @syscall: syscall number to send to userland
-+ * @reason: filter-supplied reason code to send to userland (via si_errno)
-+ *
-+ * Forces a SIGSYS with a code of SYS_SECCOMP and related sigsys info.
-+ */
-+static void seccomp_send_sigsys(int syscall, int reason)
-+{
-+	struct siginfo info;
-+	memset(&info, 0, sizeof(info));
-+	info.si_signo = SIGSYS;
-+	info.si_code = SYS_SECCOMP;
-+	info.si_call_addr = (void __user *)KSTK_EIP(current);
-+	info.si_errno = reason;
-+	info.si_arch = syscall_get_arch(current, task_pt_regs(current));
-+	info.si_syscall = syscall;
-+	force_sig_info(SIGSYS, &info, current);
-+}
- #endif	/* CONFIG_SECCOMP_FILTER */
+@@ -60,18 +60,6 @@ struct seccomp_filter {
+ /* Limit any path through the tree to 256KB worth of instructions. */
+ #define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
  
- /*
-@@ -384,6 +404,12 @@ int __secure_computing_int(int this_syscall)
- 			syscall_set_return_value(current, task_pt_regs(current),
- 						 -data, 0);
- 			goto skip;
-+		case SECCOMP_RET_TRAP:
-+			/* Show the handler the original registers. */
-+			syscall_rollback(current, task_pt_regs(current));
-+			/* Let the filter pass back 16 bits of data. */
-+			seccomp_send_sigsys(this_syscall, data);
-+			goto skip;
- 		case SECCOMP_RET_ALLOW:
- 			return 0;
- 		case SECCOMP_RET_KILL:
+-static void seccomp_filter_log_failure(int syscall)
+-{
+-	int compat = 0;
+-#ifdef CONFIG_COMPAT
+-	compat = is_compat_task();
+-#endif
+-	pr_info("%s[%d]: %ssystem call %d blocked at 0x%lx\n",
+-		current->comm, task_pid_nr(current),
+-		(compat ? "compat " : ""),
+-		syscall, KSTK_EIP(current));
+-}
+-
+ /**
+  * get_u32 - returns a u32 offset into data
+  * @data: a unsigned 64 bit value
+@@ -376,7 +364,6 @@ void __secure_computing(int this_syscall)
+ 	case SECCOMP_MODE_FILTER:
+ 		if (seccomp_run_filters(this_syscall) == SECCOMP_RET_ALLOW)
+ 			return;
+-		seccomp_filter_log_failure(this_syscall);
+ 		exit_sig = SIGSYS;
+ 		break;
+ #endif
+@@ -387,7 +374,7 @@ void __secure_computing(int this_syscall)
+ #ifdef SECCOMP_DEBUG
+ 	dump_stack();
+ #endif
+-	audit_seccomp(this_syscall);
++	audit_seccomp(this_syscall, exit_code, SECCOMP_RET_KILL);
+ 	do_exit(exit_sig);
+ }
+ 
 -- 
 1.7.5.4
