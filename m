@@ -1,42 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Patch to ip(8) manpage
-Date: Thu, 15 Mar 2012 14:34:35 -0700
-Message-ID: <20120315143435.7f3b8482@nehalam.linuxnetplumber.net>
-References: <alpine.DEB.2.00.1203031007180.22132@bakacsin.ki.iif.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: linux-can-next 2012-03-08
+Date: Thu, 15 Mar 2012 14:35:24 -0700 (PDT)
+Message-ID: <20120315.143524.1857925618874502215.davem@davemloft.net>
+References: <1331200230-1118-1-git-send-email-mkl@pengutronix.de>
+	<20120308.132050.1759923507049489031.davem@davemloft.net>
+	<4F61EF7F.60406@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Kiss Gabor (Bitman)" <kissg@ssg.ki.iif.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47173 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030370Ab2COVei (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 17:34:38 -0400
-In-Reply-To: <alpine.DEB.2.00.1203031007180.22132@bakacsin.ki.iif.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F61EF7F.60406@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 3 Mar 2012 10:18:01 +0100 (CET)
-"Kiss Gabor (Bitman)" <kissg@ssg.ki.iif.hu> wrote:
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 15 Mar 2012 14:32:47 +0100
 
-> Dear folks,
+> On 03/08/2012 10:20 PM, David Miller wrote:
+>> [davem@dokdo net-next]$ git pull git@gitorious.org:linux-can/linux-can-next.git master
+>> Permission denied (publickey).
+>> fatal: The remote end hung up unexpectedly
 > 
-> For a while I did not understand why I get
-> "RTNETLINK answers: Numerical result out of range"
-> message when adding more addresses to an interface.
+> Doh! - Now with the correct URL.
 > 
-> The attached patch may help some peoples to avoid wasting
-> time with investigating this strange error. :-)
+> The following changes since commit cdf485be3a63d1f34293740fb726088c6840ceea:
 > 
-> Regards
+>   ixgbe: dcb: use DCB config values for FCoE traffic class on open (2012-03-14 00:49:10 -0700)
 > 
-> Gabor
+> are available in the git repository at:
+>   git://gitorious.org/linux-can/linux-can-next.git master
 
-There are many  values limited to 16 characters, this is an API
-restriction back to BSD days (see IFNAMSIZ).  The man page could mention
-this, but it is well known limitation. The manpage idea is good,
-but don't reference net/if.h since somebody might get the idea that is
-the only thing that needs to change to allow longer names. Just state
-that interface names are limited to 15 characters (need to account for
-the nul at end).
+Pulled, thanks.
