@@ -1,159 +1,154 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 26/34] de2104x: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:23 +0100
-Message-ID: <15bee571dc5bdd3164718b6030d994628c7ddc62.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 24/34] xircom_cb: fix device probe error path.
+Date: Thu, 15 Mar 2012 14:57:21 +0100
+Message-ID: <c55334ebf0479837862671e84137f2ff3ef55279.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
 	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51891 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51889 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761258Ab2CON74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 09:59:56 -0400
+	id S1760929Ab2CON7z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 09:59:55 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- unbalanced pci_disable_device
+- PCI ressources were not released
+- mismatching pci_alloc_.../kfree pairs are replaced by DMA alloc helpers.
+
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/dec/tulip/de2104x.c |   34 ++++++++++++++---------------
- 1 files changed, 16 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/dec/tulip/xircom_cb.c |   53 ++++++++++++++++++----------
+ 1 files changed, 34 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
-index 68f1c39..61cc093 100644
---- a/drivers/net/ethernet/dec/tulip/de2104x.c
-+++ b/drivers/net/ethernet/dec/tulip/de2104x.c
-@@ -1380,6 +1380,7 @@ static void de_free_rings (struct de_private *de)
- static int de_open (struct net_device *dev)
+diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+index fdb329f..cbcc6d6 100644
+--- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
++++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+@@ -192,15 +192,18 @@ static const struct net_device_ops netdev_ops = {
+  */
+ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  {
- 	struct de_private *de = netdev_priv(dev);
-+	const int irq = de->pdev->irq;
- 	int rc;
++	struct device *d = &pdev->dev;
+ 	struct net_device *dev = NULL;
+ 	struct xircom_private *private;
+ 	unsigned long flags;
+ 	unsigned short tmp16;
++	int rc;
  
- 	netif_dbg(de, ifup, dev, "enabling interface\n");
-@@ -1394,10 +1395,9 @@ static int de_open (struct net_device *dev)
+ 	/* First do the PCI initialisation */
  
- 	dw32(IntrMask, 0);
+-	if (pci_enable_device(pdev))
+-		return -ENODEV;
++	rc = pci_enable_device(pdev);
++	if (rc < 0)
++		goto out;
  
--	rc = request_irq(dev->irq, de_interrupt, IRQF_SHARED, dev->name, dev);
-+	rc = request_irq(irq, de_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (rc) {
--		netdev_err(dev, "IRQ %d request failure, err=%d\n",
--			   dev->irq, rc);
-+		netdev_err(dev, "IRQ %d request failure, err=%d\n", irq, rc);
- 		goto err_out_free;
+ 	/* disable all powermanagement */
+ 	pci_write_config_dword(pdev, PCI_POWERMGMT, 0x0000);
+@@ -211,11 +214,13 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	pci_read_config_word (pdev,PCI_STATUS, &tmp16);
+ 	pci_write_config_word (pdev, PCI_STATUS,tmp16);
+ 
+-	if (!request_region(pci_resource_start(pdev, 0), 128, "xircom_cb")) {
++	rc = pci_request_regions(pdev, "xircom_cb");
++	if (rc < 0) {
+ 		pr_err("%s: failed to allocate io-region\n", __func__);
+-		return -ENODEV;
++		goto err_disable;
  	}
  
-@@ -1413,7 +1413,7 @@ static int de_open (struct net_device *dev)
- 	return 0;
++	rc = -ENOMEM;
+ 	/*
+ 	   Before changing the hardware, allocate the memory.
+ 	   This way, we can fail gracefully if not enough memory
+@@ -223,17 +228,21 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	 */
+ 	dev = alloc_etherdev(sizeof(struct xircom_private));
+ 	if (!dev)
+-		goto device_fail;
++		goto err_release;
  
- err_out_free_irq:
--	free_irq(dev->irq, dev);
-+	free_irq(irq, dev);
- err_out_free:
- 	de_free_rings(de);
- 	return rc;
-@@ -1434,7 +1434,7 @@ static int de_close (struct net_device *dev)
- 	netif_carrier_off(dev);
- 	spin_unlock_irqrestore(&de->lock, flags);
+ 	private = netdev_priv(dev);
  
--	free_irq(dev->irq, dev);
-+	free_irq(de->pdev->irq, dev);
- 
- 	de_free_rings(de);
- 	de_adapter_sleep(de);
-@@ -1444,6 +1444,7 @@ static int de_close (struct net_device *dev)
- static void de_tx_timeout (struct net_device *dev)
- {
- 	struct de_private *de = netdev_priv(dev);
-+	const int irq = de->pdev->irq;
- 
- 	netdev_dbg(dev, "NIC status %08x mode %08x sia %08x desc %u/%u/%u\n",
- 		   dr32(MacStatus), dr32(MacMode), dr32(SIAStatus),
-@@ -1451,7 +1452,7 @@ static void de_tx_timeout (struct net_device *dev)
- 
- 	del_timer_sync(&de->media_timer);
- 
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 	spin_lock_irq(&de->lock);
- 
- 	de_stop_hw(de);
-@@ -1459,12 +1460,12 @@ static void de_tx_timeout (struct net_device *dev)
- 	netif_carrier_off(dev);
- 
- 	spin_unlock_irq(&de->lock);
--	enable_irq(dev->irq);
-+	enable_irq(irq);
- 
- 	/* Update the error counts. */
- 	__de_get_stats(de);
- 
--	synchronize_irq(dev->irq);
-+	synchronize_irq(irq);
- 	de_clean_rings(de);
- 
- 	de_init_rings(de);
-@@ -2024,8 +2025,6 @@ static int __devinit de_init_one (struct pci_dev *pdev,
- 		goto err_out_res;
+ 	/* Allocate the send/receive buffers */
+-	private->rx_buffer = pci_alloc_consistent(pdev,8192,&private->rx_dma_handle);
++	private->rx_buffer = dma_alloc_coherent(d, 8192,
++						&private->rx_dma_handle,
++						GFP_KERNEL);
+ 	if (private->rx_buffer == NULL) {
+ 		pr_err("%s: no memory for rx buffer\n", __func__);
+ 		goto rx_buf_fail;
  	}
- 
--	dev->irq = pdev->irq;
--
- 	/* obtain and check validity of PCI I/O address */
- 	pciaddr = pci_resource_start(pdev, 1);
- 	if (!pciaddr) {
-@@ -2050,7 +2049,6 @@ static int __devinit de_init_one (struct pci_dev *pdev,
- 		       pciaddr, pci_name(pdev));
- 		goto err_out_res;
- 	}
--	dev->base_addr = (unsigned long) regs;
- 	de->regs = regs;
- 
- 	de_adapter_wake(de);
-@@ -2078,11 +2076,9 @@ static int __devinit de_init_one (struct pci_dev *pdev,
- 		goto err_out_iomap;
- 
- 	/* print info about board and interface just registered */
--	netdev_info(dev, "%s at 0x%lx, %pM, IRQ %d\n",
-+	netdev_info(dev, "%s at %p, %pM, IRQ %d\n",
- 		    de->de21040 ? "21040" : "21041",
--		    dev->base_addr,
--		    dev->dev_addr,
--		    dev->irq);
-+		    regs, dev->dev_addr, pdev->irq);
- 
+-	private->tx_buffer = pci_alloc_consistent(pdev,8192,&private->tx_dma_handle);
++	private->tx_buffer = dma_alloc_coherent(d, 8192,
++						&private->tx_dma_handle,
++						GFP_KERNEL);
+ 	if (private->tx_buffer == NULL) {
+ 		pr_err("%s: no memory for tx buffer\n", __func__);
+ 		goto tx_buf_fail;
+@@ -256,7 +265,8 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	dev->netdev_ops = &netdev_ops;
  	pci_set_drvdata(pdev, dev);
  
-@@ -2130,9 +2126,11 @@ static int de_suspend (struct pci_dev *pdev, pm_message_t state)
+-	if (register_netdev(dev)) {
++	rc = register_netdev(dev);
++	if (rc < 0) {
+ 		pr_err("%s: netdevice registration failed\n", __func__);
+ 		goto reg_fail;
+ 	}
+@@ -273,17 +283,21 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	spin_unlock_irqrestore(&private->lock,flags);
  
- 	rtnl_lock();
- 	if (netif_running (dev)) {
-+		const int irq = pdev->irq;
-+
- 		del_timer_sync(&de->media_timer);
+ 	trigger_receive(private);
+-
+-	return 0;
++out:
++	return rc;
  
--		disable_irq(dev->irq);
-+		disable_irq(irq);
- 		spin_lock_irq(&de->lock);
+ reg_fail:
+-	kfree(private->tx_buffer);
++	pci_set_drvdata(pdev, NULL);
++	dma_free_coherent(d, 8192, private->tx_buffer, private->tx_dma_handle);
+ tx_buf_fail:
+-	kfree(private->rx_buffer);
++	dma_free_coherent(d, 8192, private->rx_buffer, private->rx_dma_handle);
+ rx_buf_fail:
+ 	free_netdev(dev);
+-device_fail:
+-	return -ENODEV;
++err_release:
++	pci_release_regions(pdev);
++err_disable:
++	pci_disable_device(pdev);
++	goto out;
+ }
  
- 		de_stop_hw(de);
-@@ -2141,12 +2139,12 @@ static int de_suspend (struct pci_dev *pdev, pm_message_t state)
- 		netif_carrier_off(dev);
  
- 		spin_unlock_irq(&de->lock);
--		enable_irq(dev->irq);
-+		enable_irq(irq);
+@@ -297,14 +311,15 @@ static void __devexit xircom_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct xircom_private *card = netdev_priv(dev);
++	struct device *d = &pdev->dev;
  
- 		/* Update the error counts. */
- 		__de_get_stats(de);
+-	pci_free_consistent(pdev,8192,card->rx_buffer,card->rx_dma_handle);
+-	pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
+-
+-	release_region(dev->base_addr, 128);
+ 	unregister_netdev(dev);
+-	free_netdev(dev);
+ 	pci_set_drvdata(pdev, NULL);
++	dma_free_coherent(d, 8192, card->tx_buffer, card->tx_dma_handle);
++	dma_free_coherent(d, 8192, card->rx_buffer, card->rx_dma_handle);
++	free_netdev(dev);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
+ }
  
--		synchronize_irq(dev->irq);
-+		synchronize_irq(irq);
- 		de_clean_rings(de);
- 
- 		de_adapter_sleep(de);
+ static irqreturn_t xircom_interrupt(int irq, void *dev_instance)
 -- 
 1.7.7.6
