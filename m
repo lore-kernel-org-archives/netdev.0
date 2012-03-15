@@ -1,14 +1,14 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 18/34] winbond840: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:15 +0100
-Message-ID: <0f2b180e691fa543beb6179a429d4efa59a791df.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 22/34] sunhme: stop using net_device.{base_addr, irq}.
+Date: Thu, 15 Mar 2012 14:57:19 +0100
+Message-ID: <e8b3465856499347b5e223cdc82d724308ce99b1.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51856 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51861 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761115Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752752Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Mar 2012 09:59:46 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,87 +16,94 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/dec/tulip/winbond-840.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/sun/sunhme.c |   20 +++++++++-----------
+ drivers/net/ethernet/sun/sunhme.h |    1 +
+ 2 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
-index 2ac6fff..4d1ffca 100644
---- a/drivers/net/ethernet/dec/tulip/winbond-840.c
-+++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
-@@ -400,9 +400,6 @@ static int __devinit w840_probe1 (struct pci_dev *pdev,
- 	   No hold time required! */
- 	iowrite32(0x00000001, ioaddr + PCIBusCfg);
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index 8b627e2..a470f38 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -2183,13 +2183,14 @@ static int happy_meal_open(struct net_device *dev)
+ 	 * into a single source which we register handling at probe time.
+ 	 */
+ 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO) {
+-		if (request_irq(dev->irq, happy_meal_interrupt,
+-				IRQF_SHARED, dev->name, (void *)dev)) {
++		res = request_irq(hp->irq, happy_meal_interrupt, IRQF_SHARED,
++				  dev->name, dev);
++		if (res < 0) {
+ 			HMD(("EAGAIN\n"));
+ 			printk(KERN_ERR "happy_meal(SBUS): Can't order irq %d to go.\n",
+-			       dev->irq);
++			       hp->irq);
  
--	dev->base_addr = (unsigned long)ioaddr;
--	dev->irq = irq;
+-			return -EAGAIN;
++			return res;
+ 		}
+ 	}
+ 
+@@ -2200,7 +2201,7 @@ static int happy_meal_open(struct net_device *dev)
+ 	spin_unlock_irq(&hp->happy_lock);
+ 
+ 	if (res && ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO))
+-		free_irq(dev->irq, dev);
++		free_irq(hp->irq, dev);
+ 	return res;
+ }
+ 
+@@ -2222,7 +2223,7 @@ static int happy_meal_close(struct net_device *dev)
+ 	 * time and never unregister.
+ 	 */
+ 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO)
+-		free_irq(dev->irq, dev);
++		free_irq(hp->irq, dev);
+ 
+ 	return 0;
+ }
+@@ -2778,7 +2779,7 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
+ 	dev->features |= dev->hw_features | NETIF_F_RXCSUM;
+ 
+-	dev->irq = op->archdata.irqs[0];
++	hp->irq = op->archdata.irqs[0];
+ 
+ #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
+ 	/* Hook up SBUS register/descriptor accessors. */
+@@ -2982,8 +2983,6 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
+ 	if (hme_version_printed++ == 0)
+ 		printk(KERN_INFO "%s", version);
+ 
+-	dev->base_addr = (long) pdev;
 -
- 	np = netdev_priv(dev);
- 	np->pci_dev = pdev;
- 	np->chip_id = chip_idx;
-@@ -635,17 +632,18 @@ static int netdev_open(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base_addr;
-+	const int irq = np->pci_dev->irq;
- 	int i;
+ 	hp = netdev_priv(dev);
  
- 	iowrite32(0x00000001, ioaddr + PCIBusCfg);		/* Reset */
+ 	hp->happy_dev = pdev;
+@@ -3088,12 +3087,11 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
  
- 	netif_device_detach(dev);
--	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
-+	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
- 	if (i)
- 		goto out_err;
+ 	init_timer(&hp->happy_timer);
  
- 	if (debug > 1)
--		netdev_dbg(dev, "w89c840_open() irq %d\n", dev->irq);
-+		netdev_dbg(dev, "w89c840_open() irq %d\n", irq);
++	hp->irq = pdev->irq;
+ 	hp->dev = dev;
+ 	dev->netdev_ops = &hme_netdev_ops;
+ 	dev->watchdog_timeo = 5*HZ;
+ 	dev->ethtool_ops = &hme_ethtool_ops;
+-	dev->irq = pdev->irq;
+-	dev->dma = 0;
  
- 	if((i=alloc_ringdesc(dev)))
- 		goto out_err;
-@@ -932,6 +930,7 @@ static void tx_timeout(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base_addr;
-+	const int irq = np->pci_dev->irq;
+ 	/* Happy Meal can do it all... */
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
+diff --git a/drivers/net/ethernet/sun/sunhme.h b/drivers/net/ethernet/sun/sunhme.h
+index 64f2783..f430765 100644
+--- a/drivers/net/ethernet/sun/sunhme.h
++++ b/drivers/net/ethernet/sun/sunhme.h
+@@ -432,6 +432,7 @@ struct happy_meal {
  
- 	dev_warn(&dev->dev, "Transmit timed out, status %08x, resetting...\n",
- 		 ioread32(ioaddr + IntrStatus));
-@@ -951,7 +950,7 @@ static void tx_timeout(struct net_device *dev)
- 	       np->cur_tx, np->dirty_tx, np->tx_full, np->tx_q_bytes);
- 	printk(KERN_DEBUG "Tx Descriptor addr %xh\n", ioread32(ioaddr+0x4C));
- 
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 	spin_lock_irq(&np->lock);
- 	/*
- 	 * Under high load dirty_tx and the internal tx descriptor pointer
-@@ -966,7 +965,7 @@ static void tx_timeout(struct net_device *dev)
- 	init_rxtx_rings(dev);
- 	init_registers(dev);
- 	spin_unlock_irq(&np->lock);
--	enable_irq(dev->irq);
-+	enable_irq(irq);
- 
- 	netif_wake_queue(dev);
- 	dev->trans_start = jiffies; /* prevent tx timeout */
-@@ -1500,7 +1499,7 @@ static int netdev_close(struct net_device *dev)
- 	iowrite32(0x0000, ioaddr + IntrEnable);
- 	spin_unlock_irq(&np->lock);
- 
--	free_irq(dev->irq, dev);
-+	free_irq(np->pci_dev->irq, dev);
- 	wmb();
- 	netif_device_attach(dev);
- 
-@@ -1589,7 +1588,7 @@ static int w840_suspend (struct pci_dev *pdev, pm_message_t state)
- 		iowrite32(0, ioaddr + IntrEnable);
- 		spin_unlock_irq(&np->lock);
- 
--		synchronize_irq(dev->irq);
-+		synchronize_irq(np->pci_dev->irq);
- 		netif_tx_disable(dev);
- 
- 		np->stats.rx_missed_errors += ioread32(ioaddr + RxMissed) & 0xffff;
+ 	dma_addr_t                hblock_dvma;    /* DVMA visible address happy block  */
+ 	unsigned int              happy_flags;    /* Driver state flags                */
++	int                       irq;
+ 	enum happy_transceiver    tcvr_type;      /* Kind of transceiver in use        */
+ 	unsigned int              happy_bursts;   /* Get your mind out of the gutter   */
+ 	unsigned int              paddr;          /* PHY address for transceiver       */
 -- 
 1.7.7.6
