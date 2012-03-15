@@ -1,63 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ath9k: fix a memory leak in ath_rx_tasklet()
-Date: Thu, 15 Mar 2012 13:43:29 -0700
-Message-ID: <1331844209.19406.11.camel@edumazet-glaptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next 17/34] bnx2: stop using
+ net_device.{base_addr, irq}.
+Date: Thu, 15 Mar 2012 13:47:39 -0700
+Message-ID: <1331844459.5136.83.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <cover.1331814082.git.romieu@fr.zoreil.com>
+ <13067b771f01e58a2f09e0fb3041cd41dcae6c21.1331814082.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jouni@qca.qualcomm.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	Trond Wuellner <trond@chromium.org>,
-	Grant Grundler <grundler@chromium.org>,
-	Paul Stewart <pstew@chromium.org>,
-	netdev <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:33003 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031833Ab2COUne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 16:43:34 -0400
-Received: by dajr28 with SMTP id r28so5021941daj.19
-        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 13:43:34 -0700 (PDT)
+Received: from mms2.broadcom.com ([216.31.210.18]:2097 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161383Ab2COUrx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 16:47:53 -0400
+In-Reply-To: <13067b771f01e58a2f09e0fb3041cd41dcae6c21.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 0d95521ea7 (ath9k: use split rx buffers to get rid of order-1 skb
-allocations) added in memory leak in error path.
+On Thu, 2012-03-15 at 14:57 +0100, Francois Romieu wrote:
+> @@ -8480,22 +8469,21 @@ bnx2_init_one(struct pci_dev *pdev, const
+> struct pci_device_id *ent)
+>                 goto error;
+>         }
+>  
+> -       netdev_info(dev, "%s (%c%d) %s found at mem %lx, IRQ %d, node
+> addr %pM\n",
+> -                   board_info[ent->driver_data].name,
+> +       netdev_info(dev, "%s (%c%d) %s found at mem %p, IRQ %d, "
+> +                   "node addr %pM\n",
+> board_info[ent->driver_data].name,
+>                     ((CHIP_ID(bp) & 0xf000) >> 12) + 'A',
+>                     ((CHIP_ID(bp) & 0x0ff0) >> 4),
+> -                   bnx2_bus_string(bp, str),
+> -                   dev->base_addr,
+> -                   bp->pdev->irq, dev->dev_addr);
+> +                   bnx2_bus_string(bp, str), bp->regview,
 
-sc->rx.frag should be cleared after the pskb_expand_head() call, or else
-we jump to requeue_drop_frag and leak an skb.
+I think we should either remove the string "found at mem %lx", or keep
+it the same as before by using pci_resource_start(pdev, 0) to display
+the BAR address.  Changing it to display the mapped kernel address is
+not useful to the user.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jouni Malinen <jouni@qca.qualcomm.com>
-Cc: Felix Fietkau <nbd@openwrt.org>
-Cc: John W. Linville <linville@tuxdriver.com>
-Cc: Trond Wuellner <trond@chromium.org>
-Cc: Grant Grundler <grundler@chromium.org>
-Cc: Paul Stewart <pstew@chromium.org>
-Cc: David Miller <davem@davemloft.net>
----
- drivers/net/wireless/ath/ath9k/recv.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
-index 7e1a91a..e74fc99 100644
---- a/drivers/net/wireless/ath/ath9k/recv.c
-+++ b/drivers/net/wireless/ath/ath9k/recv.c
-@@ -1917,13 +1917,13 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 		if (sc->rx.frag) {
- 			int space = skb->len - skb_tailroom(hdr_skb);
- 
--			sc->rx.frag = NULL;
--
- 			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
- 				dev_kfree_skb(skb);
- 				goto requeue_drop_frag;
- 			}
- 
-+			sc->rx.frag = NULL;
-+
- 			skb_copy_from_linear_data(skb, skb_put(hdr_skb, skb->len),
- 						  skb->len);
- 			dev_kfree_skb_any(skb);
+> +                   pdev->irq, dev->dev_addr);
+>  
+>         return 0;
+>  
+>  error:
+> -       if (bp->regview)
+> -               iounmap(bp->regview);
+> +       iounmap(bp->regview);
+>         pci_release_regions(pdev);
+>         pci_disable_device(pdev);
+>         pci_set_drvdata(pdev, NULL);
+> +err_free:
+>         free_netdev(dev);
+>         return rc;
+>  } 
