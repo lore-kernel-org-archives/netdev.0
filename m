@@ -1,59 +1,94 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] arp: allow arp processing to honor per interface arp_accept sysctl
-Date: Thu, 15 Mar 2012 11:25:58 -0400
-Message-ID: <1331825158-17584-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Nick Jones <nick.jones@network-box.com>
+Subject: [PATCH net-next v2] ipv6: Allocate unique metrics for icmp6 packets
+ to prevent tainting dst metrics
+Date: Thu, 15 Mar 2012 23:41:57 +0800
+Message-ID: <4F620DC5.7080607@network-box.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54716 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030543Ab2COP0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 11:26:09 -0400
+Received: from network-box.com ([175.45.17.220]:39332 "EHLO network-box.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030466Ab2COPmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 11:42:00 -0400
+Received: from hqnickjones-macbook.local (unknown [10.8.2.241])
+	by network-box.com (Postfix) with ESMTP id A35FD3EC90
+	for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 23:41:57 +0800 (HKT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found recently that the arp_process function which handles all of our received
-arp frames, is using IPV4_DEVCONF_ALL macro to check the state of the arp_process
-flag.  This seems wrong, as it implies that either none or all of the network
-interfaces accept gratuitous arps.  This patch corrects that, allowing
-per-interface arp_accept configuration to deviate from the all setting.  Note
-this also brings us into line with the way the arp_filter setting is handled
-during arp_process execution.
+The generation of an icmp6 packet, targeted to a specific desination
+address, will cause the shared metrics of the ip6_dst and inetpeer
+of that address to be tainted with the hoplimit value 255.
+All subsequent packets to the dst, will have this hoplimit value, and
+if the destination is a router, not even advertisements specifying a
+new hoplimit value will have any effect reverting this due to the way
+ip6_dst_hoplimit works.
 
-Tested this myself on my home network, and confirmed it works as expected.
+By allocating a unique metrics array for the icmp6 packet, the shared
+metrics will not be tainted.  A ip6_dst flag is added to indicate that
+the metrics for the dst don't belong to the peer, thus are not unique
+and should be freed when the dst is destroyed.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Nick Jones <nick.jones@network-box.com>
 ---
- include/linux/inetdevice.h |    1 +
- net/ipv4/arp.c             |    2 +-
- 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 5f81466..597f4a9 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -139,6 +139,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
- 	  IN_DEV_ORCONF((in_dev), ACCEPT_REDIRECTS)))
- 
- #define IN_DEV_ARPFILTER(in_dev)	IN_DEV_ORCONF((in_dev), ARPFILTER)
-+#define IN_DEV_ARP_ACCEPT(in_dev)	IN_DEV_ORCONF((in_dev), ARP_ACCEPT)
- #define IN_DEV_ARP_ANNOUNCE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_ANNOUNCE)
- #define IN_DEV_ARP_IGNORE(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_IGNORE)
- #define IN_DEV_ARP_NOTIFY(in_dev)	IN_DEV_MAXCONF((in_dev), ARP_NOTIFY)
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 63e4989..73f46d6 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -889,7 +889,7 @@ static int arp_process(struct sk_buff *skb)
- 
- 	n = __neigh_lookup(&arp_tbl, &sip, dev, 0);
- 
--	if (IPV4_DEVCONF_ALL(dev_net(dev), ARP_ACCEPT)) {
-+	if (IN_DEV_ARP_ACCEPT(in_dev)) {
- 		/* Unsolicited ARP is not accepted by default.
- 		   It is possible, that this option should be enabled for some
- 		   devices (strip is candidate)
+v2: Take care of destroy side, that was neglected in the previous
+    version, by setting a flag on the dst to indicate its metrics are
+    unique, thus should be destroyed along with the dst.
+
+ include/net/dst.h |    1 +
+ net/ipv6/route.c  |   12 ++++++++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 344c8dd..ee7a781 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -54,6 +54,7 @@ struct dst_entry {
+ #define DST_NOCACHE		0x0010
+ #define DST_NOCOUNT		0x0020
+ #define DST_NOPEER		0x0040
++#define DST_NOPEERMETRICS	0x0080
+
+ 	short			error;
+ 	short			obsolete;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 92be12b..f0a1839 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -278,7 +278,7 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct inet6_dev *idev = rt->rt6i_idev;
+ 	struct inet_peer *peer = rt->rt6i_peer;
+
+-	if (!(rt->dst.flags & DST_HOST))
++	if (!(rt->dst.flags & DST_HOST) || (rt->dst.flags & DST_NOPEERMETRICS))
+ 		dst_destroy_metrics_generic(dst);
+
+ 	if (idev) {
+@@ -1110,13 +1110,21 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 		}
+ 	}
+
+-	rt->dst.flags |= DST_HOST;
++	rt->dst.flags |= (DST_HOST | DST_NOPEERMETRICS);
+ 	rt->dst.output  = ip6_output;
+ 	dst_set_neighbour(&rt->dst, neigh);
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->rt6i_dst.addr = fl6->daddr;
+ 	rt->rt6i_dst.plen = 128;
+ 	rt->rt6i_idev     = idev;
++
++	u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_ATOMIC);
++	if (unlikely(!metrics)) {
++		in6_dev_put(idev);
++		dst_free(&rt->dst);
++		return ERR_CAST(-ENOMEM);
++	}
++	dst_init_metrics(&rt->dst, metrics, 0);
+ 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
+
+ 	spin_lock_bh(&icmp6_dst_lock);
 -- 
-1.7.7.6
+1.7.1
