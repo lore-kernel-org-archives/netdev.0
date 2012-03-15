@@ -1,417 +1,495 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 31/34] uli526x: stop using net_device.{base_addr, irq} and convert to __iomem.
-Date: Thu, 15 Mar 2012 14:57:28 +0100
-Message-ID: <01b3ae027e23d903f38da93ebc9e6c0d18c940a3.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 32/34] epic100: stop using net_device.{base_addr, irq} and convert to __iomem.
+Date: Thu, 15 Mar 2012 14:57:29 +0100
+Message-ID: <3d526697eb55c30b9eaa8e003519ae22cbb97f59.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>
+Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51893 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51875 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761251Ab2CON74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 09:59:56 -0400
+	id S1761123Ab2CON7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 09:59:51 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/dec/tulip/uli526x.c |  138 ++++++++++++++++--------------
- 1 files changed, 73 insertions(+), 65 deletions(-)
+ drivers/net/ethernet/smsc/epic100.c |  145 ++++++++++++++++++-----------------
+ 1 files changed, 73 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
-index c9b3396..2035791 100644
---- a/drivers/net/ethernet/dec/tulip/uli526x.c
-+++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-@@ -42,6 +42,8 @@
- #include <asm/dma.h>
- #include <asm/uaccess.h>
+diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
+index 2a662e6..408fd0c 100644
+--- a/drivers/net/ethernet/smsc/epic100.c
++++ b/drivers/net/ethernet/smsc/epic100.c
+@@ -146,6 +146,12 @@ enum chip_capability_flags { MII_PWRDWN=1, TYPE2_INTR=2, NO_MII=4 };
+ #define EPIC_TOTAL_SIZE 0x100
+ #define USE_IO_OPS 1
  
-+#define outl	iowrite32
-+#define inl	ioread32
- 
- /* Board/System/Debug information/definition ---------------- */
- #define PCI_ULI5261_ID  0x526110B9	/* ULi M5261 ID*/
-@@ -137,7 +139,7 @@ struct uli526x_board_info {
- 	struct pci_dev *pdev;		/* PCI device */
- 	spinlock_t lock;
- 
--	long ioaddr;			/* I/O base address */
-+	void __iomem *ioaddr;		/* I/O base address */
- 	u32 cr0_data;
- 	u32 cr5_data;
- 	u32 cr6_data;
-@@ -227,21 +229,21 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *,
- static int uli526x_stop(struct net_device *);
- static void uli526x_set_filter_mode(struct net_device *);
- static const struct ethtool_ops netdev_ethtool_ops;
--static u16 read_srom_word(long, int);
-+static u16 read_srom_word(void __iomem *, int);
- static irqreturn_t uli526x_interrupt(int, void *);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void uli526x_poll(struct net_device *dev);
- #endif
--static void uli526x_descriptor_init(struct net_device *, unsigned long);
-+static void uli526x_descriptor_init(struct net_device *, void __iomem *);
- static void allocate_rx_buffer(struct net_device *);
--static void update_cr6(u32, unsigned long);
-+static void update_cr6(u32, void __iomem *);
- static void send_filter_frame(struct net_device *, int);
--static u16 phy_read(unsigned long, u8, u8, u32);
--static u16 phy_readby_cr10(unsigned long, u8, u8);
--static void phy_write(unsigned long, u8, u8, u16, u32);
--static void phy_writeby_cr10(unsigned long, u8, u8, u16);
--static void phy_write_1bit(unsigned long, u32, u32);
--static u16 phy_read_1bit(unsigned long, u32);
-+static u16 phy_read(void __iomem *, u8, u8, u32);
-+static u16 phy_readby_cr10(void __iomem *, u8, u8);
-+static void phy_write(void __iomem *, u8, u8, u16, u32);
-+static void phy_writeby_cr10(void __iomem *, u8, u8, u16);
-+static void phy_write_1bit(void __iomem *, u32, u32);
-+static u16 phy_read_1bit(void __iomem *, u32);
- static u8 uli526x_sense_speed(struct uli526x_board_info *);
- static void uli526x_process_mode(struct uli526x_board_info *);
- static void uli526x_timer(unsigned long);
-@@ -339,13 +341,15 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	db->buf_pool_dma_start = db->buf_pool_dma_ptr;
- 
- 	db->chip_id = ent->driver_data;
--	db->ioaddr = pci_resource_start(pdev, 0);
++#ifdef USE_IO_OPS
++#define EPIC_BAR	0
++#else
++#define EPIC_BAR	1
++#endif
 +
-+	/* IO region. */
-+	db->ioaddr = pci_iomap(pdev, 0, 0);
-+	if (!db->ioaddr)
-+		goto err_out_free_tx_buf;
+ typedef enum {
+ 	SMSC_83C170_0,
+ 	SMSC_83C170,
+@@ -177,20 +183,12 @@ static DEFINE_PCI_DEVICE_TABLE(epic_pci_tbl) = {
+ MODULE_DEVICE_TABLE (pci, epic_pci_tbl);
  
- 	db->pdev = pdev;
- 	db->init = 1;
  
--	dev->base_addr = db->ioaddr;
--	dev->irq = pdev->irq;
- 	pci_set_drvdata(pdev, dev);
+-#ifndef USE_IO_OPS
+-#undef inb
+-#undef inw
+-#undef inl
+-#undef outb
+-#undef outw
+-#undef outl
+ #define inb readb
+ #define inw readw
+ #define inl readl
+ #define outb writeb
+ #define outw writew
+ #define outl writel
+-#endif
  
- 	/* Register some necessary functions */
-@@ -384,16 +388,18 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	}
- 	err = register_netdev (dev);
- 	if (err)
--		goto err_out_free_tx_buf;
-+		goto err_out_unmap;
+ /* Offsets to registers, using the (ugh) SMC names. */
+ enum epic_registers {
+@@ -275,6 +273,7 @@ struct epic_private {
+ 	u32 irq_mask;
+ 	unsigned int rx_buf_sz;				/* Based on MTU+slack. */
  
- 	netdev_info(dev, "ULi M%04lx at pci%s, %pM, irq %d\n",
- 		    ent->driver_data >> 16, pci_name(pdev),
--		    dev->dev_addr, dev->irq);
-+		    dev->dev_addr, pdev->irq);
- 
- 	pci_set_master(pdev);
- 
- 	return 0;
- 
-+err_out_unmap:
-+	pci_iounmap(pdev, db->ioaddr);
- err_out_free_tx_buf:
- 	pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
- 			    db->buf_pool_ptr, db->buf_pool_dma_ptr);
-@@ -418,6 +424,7 @@ static void __devexit uli526x_remove_one (struct pci_dev *pdev)
- 	struct uli526x_board_info *db = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
-+	pci_iounmap(pdev, db->ioaddr);
- 	pci_free_consistent(db->pdev, sizeof(struct tx_desc) *
- 				DESC_ALL_CNT + 0x20, db->desc_pool_ptr,
-  				db->desc_pool_dma_ptr);
-@@ -460,7 +467,8 @@ static int uli526x_open(struct net_device *dev)
- 	/* Initialize ULI526X board */
- 	uli526x_init(dev);
- 
--	ret = request_irq(dev->irq, uli526x_interrupt, IRQF_SHARED, dev->name, dev);
-+	ret = request_irq(db->pdev->irq, uli526x_interrupt, IRQF_SHARED,
-+			  dev->name, dev);
- 	if (ret)
- 		return ret;
- 
-@@ -488,7 +496,7 @@ static int uli526x_open(struct net_device *dev)
- static void uli526x_init(struct net_device *dev)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
--	unsigned long ioaddr = db->ioaddr;
-+	void __iomem *ioaddr = db->ioaddr;
- 	u8	phy_tmp;
- 	u8	timeout;
- 	u16	phy_value;
-@@ -571,6 +579,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 					    struct net_device *dev)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
-+	void __iomem *ioaddr = db->ioaddr;
- 	struct tx_desc *txptr;
- 	unsigned long flags;
- 
-@@ -596,7 +605,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 	}
- 
- 	/* Disable NIC interrupt */
--	outl(0, dev->base_addr + DCR7);
-+	outl(0, ioaddr + DCR7);
- 
- 	/* transmit this packet */
- 	txptr = db->tx_insert_ptr;
-@@ -610,7 +619,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 	if ( (db->tx_packet_cnt < TX_DESC_CNT) ) {
- 		txptr->tdes0 = cpu_to_le32(0x80000000);	/* Set owner bit */
- 		db->tx_packet_cnt++;			/* Ready to send */
--		outl(0x1, dev->base_addr + DCR1);	/* Issue Tx polling */
-+		outl(0x1, ioaddr + DCR1);	/* Issue Tx polling */
- 		dev->trans_start = jiffies;		/* saved time stamp */
- 	}
- 
-@@ -620,7 +629,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- 
- 	/* Restore CR7 to enable interrupt */
- 	spin_unlock_irqrestore(&db->lock, flags);
--	outl(db->cr7_data, dev->base_addr + DCR7);
-+	outl(db->cr7_data, ioaddr + DCR7);
- 
- 	/* free this SKB */
- 	dev_kfree_skb(skb);
-@@ -637,7 +646,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
- static int uli526x_stop(struct net_device *dev)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
--	unsigned long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = db->ioaddr;
- 
- 	ULI526X_DBUG(0, "uli526x_stop", 0);
- 
-@@ -653,7 +662,7 @@ static int uli526x_stop(struct net_device *dev)
- 	phy_write(db->ioaddr, db->phy_addr, 0, 0x8000, db->chip_id);
- 
- 	/* free interrupt */
--	free_irq(dev->irq, dev);
-+	free_irq(db->pdev->irq, dev);
- 
- 	/* free allocated rx buffer */
- 	uli526x_free_rxbuffer(db);
-@@ -671,7 +680,7 @@ static irqreturn_t uli526x_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = dev_id;
- 	struct uli526x_board_info *db = netdev_priv(dev);
--	unsigned long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = db->ioaddr;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&db->lock, flags);
-@@ -719,8 +728,10 @@ static irqreturn_t uli526x_interrupt(int irq, void *dev_id)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void uli526x_poll(struct net_device *dev)
- {
-+	struct uli526x_board_info *db = netdev_priv(dev);
-+
- 	/* ISR grabs the irqsave lock, so this should be safe */
--	uli526x_interrupt(dev->irq, dev);
-+	uli526x_interrupt(db->pdev->irq, dev);
- }
- #endif
- 
-@@ -954,12 +965,7 @@ static void netdev_get_drvinfo(struct net_device *dev,
- 
- 	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
- 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
--	if (np->pdev)
--		strlcpy(info->bus_info, pci_name(np->pdev),
--			sizeof(info->bus_info));
--	else
--		sprintf(info->bus_info, "EISA 0x%lx %d",
--			dev->base_addr, dev->irq);
-+	strlcpy(info->bus_info, pci_name(np->pdev), sizeof(info->bus_info));
- }
- 
- static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd) {
-@@ -1020,7 +1026,7 @@ static void uli526x_timer(unsigned long data)
- 	/* TX polling kick monitor */
- 	if ( db->tx_packet_cnt &&
- 	     time_after(jiffies, dev_trans_start(dev) + ULI526X_TX_KICK) ) {
--		outl(0x1, dev->base_addr + DCR1);   // Tx polling again
-+		outl(0x1, db->ioaddr + DCR1);   // Tx polling again
- 
- 		// TX Timeout
- 		if ( time_after(jiffies, dev_trans_start(dev) + ULI526X_TX_TIMEOUT) ) {
-@@ -1111,12 +1117,13 @@ static void uli526x_timer(unsigned long data)
- static void uli526x_reset_prepare(struct net_device *dev)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
-+	void __iomem *ioaddr = db->ioaddr;
- 
- 	/* Sopt MAC controller */
- 	db->cr6_data &= ~(CR6_RXSC | CR6_TXSC);	/* Disable Tx/Rx */
--	update_cr6(db->cr6_data, dev->base_addr);
--	outl(0, dev->base_addr + DCR7);		/* Disable Interrupt */
--	outl(inl(dev->base_addr + DCR5), dev->base_addr + DCR5);
-+	update_cr6(db->cr6_data, ioaddr);
-+	outl(0, ioaddr + DCR7);		/* Disable Interrupt */
-+	outl(inl(ioaddr + DCR5), ioaddr + DCR5);
- 
- 	/* Disable upper layer interface */
- 	netif_stop_queue(dev);
-@@ -1281,7 +1288,7 @@ static void uli526x_reuse_skb(struct uli526x_board_info *db, struct sk_buff * sk
-  *	Using Chain structure, and allocate Tx/Rx buffer
-  */
- 
--static void uli526x_descriptor_init(struct net_device *dev, unsigned long ioaddr)
-+static void uli526x_descriptor_init(struct net_device *dev, void __iomem *ioaddr)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
- 	struct tx_desc *tmp_tx;
-@@ -1345,7 +1352,7 @@ static void uli526x_descriptor_init(struct net_device *dev, unsigned long ioaddr
-  *	Firstly stop ULI526X, then written value and start
-  */
- 
--static void update_cr6(u32 cr6_data, unsigned long ioaddr)
-+static void update_cr6(u32 cr6_data, void __iomem *ioaddr)
- {
- 
- 	outl(cr6_data, ioaddr + DCR6);
-@@ -1367,6 +1374,7 @@ static void update_cr6(u32 cr6_data, unsigned long ioaddr)
- static void send_filter_frame(struct net_device *dev, int mc_cnt)
- {
- 	struct uli526x_board_info *db = netdev_priv(dev);
-+	void __iomem *ioaddr = db->ioaddr;
- 	struct netdev_hw_addr *ha;
- 	struct tx_desc *txptr;
- 	u16 * addrptr;
-@@ -1412,9 +1420,9 @@ static void send_filter_frame(struct net_device *dev, int mc_cnt)
- 		/* Resource Empty */
- 		db->tx_packet_cnt++;
- 		txptr->tdes0 = cpu_to_le32(0x80000000);
--		update_cr6(db->cr6_data | 0x2000, dev->base_addr);
--		outl(0x1, dev->base_addr + DCR1);	/* Issue Tx polling */
--		update_cr6(db->cr6_data, dev->base_addr);
-+		update_cr6(db->cr6_data | 0x2000, ioaddr);
-+		outl(0x1, ioaddr + DCR1);	/* Issue Tx polling */
-+		update_cr6(db->cr6_data, ioaddr);
- 		dev->trans_start = jiffies;
- 	} else
- 		netdev_err(dev, "No Tx resource - Send_filter_frame!\n");
-@@ -1457,11 +1465,11 @@ static void allocate_rx_buffer(struct net_device *dev)
-  *	Read one word data from the serial ROM
-  */
- 
--static u16 read_srom_word(long ioaddr, int offset)
-+static u16 read_srom_word(void __iomem *ioaddr, int offset)
- {
--	int i;
-+	void __iomem *cr9_ioaddr = ioaddr + DCR9;
- 	u16 srom_data = 0;
--	long cr9_ioaddr = ioaddr + DCR9;
-+	int i;
- 
- 	outl(CR9_SROM_READ, cr9_ioaddr);
- 	outl(CR9_SROM_READ | CR9_SRCS, cr9_ioaddr);
-@@ -1615,18 +1623,18 @@ static void uli526x_process_mode(struct uli526x_board_info *db)
-  *	Write a word to Phy register
-  */
- 
--static void phy_write(unsigned long iobase, u8 phy_addr, u8 offset, u16 phy_data, u32 chip_id)
-+static void phy_write(void __iomem *iobase, u8 phy_addr, u8 offset,
-+		      u16 phy_data, u32 chip_id)
- {
-+	/* M5261/M5263 Chip */
-+	void __iomem *ioaddr = iobase + DCR9;
- 	u16 i;
--	unsigned long ioaddr;
- 
- 	if(chip_id == PCI_ULI5263_ID)
- 	{
- 		phy_writeby_cr10(iobase, phy_addr, offset, phy_data);
- 		return;
- 	}
--	/* M5261/M5263 Chip */
--	ioaddr = iobase + DCR9;
- 
- 	/* Send 33 synchronization clock to Phy controller */
- 	for (i = 0; i < 35; i++)
-@@ -1663,11 +1671,11 @@ static void phy_write(unsigned long iobase, u8 phy_addr, u8 offset, u16 phy_data
-  *	Read a word data from phy register
-  */
- 
--static u16 phy_read(unsigned long iobase, u8 phy_addr, u8 offset, u32 chip_id)
-+static u16 phy_read(void __iomem *iobase, u8 phy_addr, u8 offset, u32 chip_id)
- {
 +	void __iomem *ioaddr;
- 	int i;
- 	u16 phy_data;
--	unsigned long ioaddr;
+ 	struct pci_dev *pci_dev;			/* PCI bus location. */
+ 	int chip_id, chip_flags;
  
- 	if(chip_id == PCI_ULI5263_ID)
- 		return phy_readby_cr10(iobase, phy_addr, offset);
-@@ -1706,41 +1714,41 @@ static u16 phy_read(unsigned long iobase, u8 phy_addr, u8 offset, u32 chip_id)
- 	return phy_data;
- }
+@@ -290,7 +289,7 @@ struct epic_private {
+ };
  
--static u16 phy_readby_cr10(unsigned long iobase, u8 phy_addr, u8 offset)
-+static u16 phy_readby_cr10(void __iomem *iobase, u8 phy_addr, u8 offset)
+ static int epic_open(struct net_device *dev);
+-static int read_eeprom(long ioaddr, int location);
++static int read_eeprom(void __iomem *, int location);
+ static int mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int loc, int val);
+ static void epic_restart(struct net_device *dev);
+@@ -322,10 +321,10 @@ static const struct net_device_ops epic_netdev_ops = {
+ };
+ 
+ static int __devinit epic_init_one (struct pci_dev *pdev,
+-				    const struct pci_device_id *ent)
++			    const struct pci_device_id *ent)
  {
--	unsigned long ioaddr,cr10_value;
-+	void __iomem *ioaddr = iobase + DCR10;
-+	u32 cr10_value;
+ 	static int card_idx = -1;
+-	long ioaddr;
++	void __iomem *ioaddr;
+ 	int chip_idx = (int) ent->driver_data;
+ 	int irq;
+ 	struct net_device *dev;
+@@ -368,19 +367,15 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
  
--	ioaddr = iobase + DCR10;
- 	cr10_value = phy_addr;
--	cr10_value = (cr10_value<<5) + offset;
--	cr10_value = (cr10_value<<16) + 0x08000000;
--	outl(cr10_value,ioaddr);
-+	cr10_value = (cr10_value <<  5) + offset;
-+	cr10_value = (cr10_value << 16) + 0x08000000;
-+	outl(cr10_value, ioaddr);
- 	udelay(1);
--	while(1)
--	{
-+	while(1) {
- 		cr10_value = inl(ioaddr);
--		if(cr10_value&0x10000000)
-+		if (cr10_value & 0x10000000)
- 			break;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-#ifdef USE_IO_OPS
+-	ioaddr = pci_resource_start (pdev, 0);
+-#else
+-	ioaddr = pci_resource_start (pdev, 1);
+-	ioaddr = (long) pci_ioremap_bar(pdev, 1);
++	ioaddr = pci_iomap(pdev, EPIC_BAR, 0);
+ 	if (!ioaddr) {
+ 		dev_err(&pdev->dev, "ioremap failed\n");
+ 		goto err_out_free_netdev;
  	}
- 	return cr10_value & 0x0ffff;
+-#endif
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 	ep = netdev_priv(dev);
++	ep->ioaddr = ioaddr;
+ 	ep->mii.dev = dev;
+ 	ep->mii.mdio_read = mdio_read;
+ 	ep->mii.mdio_write = mdio_write;
+@@ -409,9 +404,6 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
+ 			duplex = full_duplex[card_idx];
+ 	}
+ 
+-	dev->base_addr = ioaddr;
+-	dev->irq = irq;
+-
+ 	spin_lock_init(&ep->lock);
+ 	spin_lock_init(&ep->napi_lock);
+ 	ep->reschedule_in_poll = 0;
+@@ -501,8 +493,8 @@ static int __devinit epic_init_one (struct pci_dev *pdev,
+ 	if (ret < 0)
+ 		goto err_out_unmap_rx;
+ 
+-	printk(KERN_INFO "%s: %s at %#lx, IRQ %d, %pM\n",
+-	       dev->name, pci_id_tbl[chip_idx].name, ioaddr, dev->irq,
++	printk(KERN_INFO "%s: %s at %p, IRQ %d, %pM\n",
++	       dev->name, pci_id_tbl[chip_idx].name, ioaddr, pdev->irq,
+ 	       dev->dev_addr);
+ 
+ out:
+@@ -513,10 +505,8 @@ err_out_unmap_rx:
+ err_out_unmap_tx:
+ 	pci_free_consistent(pdev, TX_TOTAL_SIZE, ep->tx_ring, ep->tx_ring_dma);
+ err_out_iounmap:
+-#ifndef USE_IO_OPS
+-	iounmap(ioaddr);
++	pci_iounmap(pdev, ioaddr);
+ err_out_free_netdev:
+-#endif
+ 	free_netdev(dev);
+ err_out_free_res:
+ 	pci_release_regions(pdev);
+@@ -550,12 +540,12 @@ err_out_disable:
+ 
+ static void epic_disable_int(struct net_device *dev, struct epic_private *ep)
+ {
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	outl(0x00000000, ioaddr + INTMASK);
  }
  
--static void phy_writeby_cr10(unsigned long iobase, u8 phy_addr, u8 offset, u16 phy_data)
-+static void phy_writeby_cr10(void __iomem *iobase, u8 phy_addr, u8 offset,
-+			     u16 phy_data)
+-static inline void __epic_pci_commit(long ioaddr)
++static inline void __epic_pci_commit(void __iomem *ioaddr)
  {
--	unsigned long ioaddr,cr10_value;
-+	void __iomem *ioaddr = iobase + DCR10;
-+	u32 cr10_value;
+ #ifndef USE_IO_OPS
+ 	inl(ioaddr + INTMASK);
+@@ -565,7 +555,7 @@ static inline void __epic_pci_commit(long ioaddr)
+ static inline void epic_napi_irq_off(struct net_device *dev,
+ 				     struct epic_private *ep)
+ {
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
  
--	ioaddr = iobase + DCR10;
- 	cr10_value = phy_addr;
--	cr10_value = (cr10_value<<5) + offset;
--	cr10_value = (cr10_value<<16) + 0x04000000 + phy_data;
--	outl(cr10_value,ioaddr);
-+	cr10_value = (cr10_value <<  5) + offset;
-+	cr10_value = (cr10_value << 16) + 0x04000000 + phy_data;
-+	outl(cr10_value, ioaddr);
- 	udelay(1);
+ 	outl(ep->irq_mask & ~EpicNapiEvent, ioaddr + INTMASK);
+ 	__epic_pci_commit(ioaddr);
+@@ -574,17 +564,17 @@ static inline void epic_napi_irq_off(struct net_device *dev,
+ static inline void epic_napi_irq_on(struct net_device *dev,
+ 				    struct epic_private *ep)
+ {
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	/* No need to commit possible posted write */
+ 	outl(ep->irq_mask | EpicNapiEvent, ioaddr + INTMASK);
  }
- /*
-  *	Write one bit data to Phy Controller
-  */
  
--static void phy_write_1bit(unsigned long ioaddr, u32 phy_data, u32 chip_id)
-+static void phy_write_1bit(void __iomem *ioaddr, u32 phy_data, u32 chip_id)
+-static int __devinit read_eeprom(long ioaddr, int location)
++static int __devinit read_eeprom(void __iomem *ioaddr, int location)
  {
- 	outl(phy_data , ioaddr);			/* MII Clock Low */
- 	udelay(1);
-@@ -1755,7 +1763,7 @@ static void phy_write_1bit(unsigned long ioaddr, u32 phy_data, u32 chip_id)
-  *	Read one bit phy data from PHY controller
-  */
++	void __iomem *ee_addr = ioaddr + EECTL;
+ 	int i;
+ 	int retval = 0;
+-	long ee_addr = ioaddr + EECTL;
+ 	int read_cmd = location |
+ 		(inl(ee_addr) & 0x40 ? EE_READ64_CMD : EE_READ256_CMD);
  
--static u16 phy_read_1bit(unsigned long ioaddr, u32 chip_id)
-+static u16 phy_read_1bit(void __iomem *ioaddr, u32 chip_id)
+@@ -618,7 +608,8 @@ static int __devinit read_eeprom(long ioaddr, int location)
+ #define MII_WRITEOP		2
+ static int mdio_read(struct net_device *dev, int phy_id, int location)
  {
- 	u16 phy_data;
+-	long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int read_cmd = (phy_id << 9) | (location << 4) | MII_READOP;
+ 	int i;
  
+@@ -641,7 +632,8 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
+ 
+ static void mdio_write(struct net_device *dev, int phy_id, int loc, int value)
+ {
+-	long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int i;
+ 
+ 	outw(value, ioaddr + MIIData);
+@@ -657,17 +649,18 @@ static void mdio_write(struct net_device *dev, int phy_id, int loc, int value)
+ static int epic_open(struct net_device *dev)
+ {
+ 	struct epic_private *ep = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
+-	int i;
+-	int retval;
++	void __iomem *ioaddr = ep->ioaddr;
++	const int irq = ep->pci_dev->irq;
++	int rc, i;
+ 
+ 	/* Soft reset the chip. */
+ 	outl(0x4001, ioaddr + GENCTL);
+ 
+ 	napi_enable(&ep->napi);
+-	if ((retval = request_irq(dev->irq, epic_interrupt, IRQF_SHARED, dev->name, dev))) {
++	rc = request_irq(irq, epic_interrupt, IRQF_SHARED, dev->name, dev);
++	if (rc < 0) {
+ 		napi_disable(&ep->napi);
+-		return retval;
++		return rc;
+ 	}
+ 
+ 	epic_init_ring(dev);
+@@ -746,11 +739,12 @@ static int epic_open(struct net_device *dev)
+ 		 | CntFull | TxUnderrun
+ 		 | RxError | RxHeader | EpicNapiEvent, ioaddr + INTMASK);
+ 
+-	if (debug > 1)
+-		printk(KERN_DEBUG "%s: epic_open() ioaddr %lx IRQ %d status %4.4x "
+-			   "%s-duplex.\n",
+-			   dev->name, ioaddr, dev->irq, (int)inl(ioaddr + GENCTL),
+-			   ep->mii.full_duplex ? "full" : "half");
++	if (debug > 1) {
++		printk(KERN_DEBUG "%s: epic_open() ioaddr %p IRQ %d "
++		       "status %4.4x %s-duplex.\n",
++		       dev->name, ioaddr, irq, (int)inl(ioaddr + GENCTL),
++		       ep->mii.full_duplex ? "full" : "half");
++	}
+ 
+ 	/* Set the timer to switch to check for link beat and perhaps switch
+ 	   to an alternate media type. */
+@@ -760,14 +754,15 @@ static int epic_open(struct net_device *dev)
+ 	ep->timer.function = epic_timer;				/* timer handler */
+ 	add_timer(&ep->timer);
+ 
+-	return 0;
++	return rc;
+ }
+ 
+ /* Reset the chip to recover from a PCI transaction error.
+    This may occur at interrupt time. */
+ static void epic_pause(struct net_device *dev)
+ {
+-	long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	netif_stop_queue (dev);
+ 
+@@ -789,8 +784,8 @@ static void epic_pause(struct net_device *dev)
+ 
+ static void epic_restart(struct net_device *dev)
+ {
+-	long ioaddr = dev->base_addr;
+ 	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int i;
+ 
+ 	/* Soft reset the chip. */
+@@ -842,7 +837,7 @@ static void epic_restart(struct net_device *dev)
+ static void check_media(struct net_device *dev)
+ {
+ 	struct epic_private *ep = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int mii_lpa = ep->mii_phy_cnt ? mdio_read(dev, ep->phys[0], MII_LPA) : 0;
+ 	int negotiated = mii_lpa & ep->mii.advertising;
+ 	int duplex = (negotiated & 0x0100) || (negotiated & 0x01C0) == 0x0040;
+@@ -864,7 +859,7 @@ static void epic_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct epic_private *ep = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int next_tick = 5*HZ;
+ 
+ 	if (debug > 3) {
+@@ -885,7 +880,7 @@ static void epic_timer(unsigned long data)
+ static void epic_tx_timeout(struct net_device *dev)
+ {
+ 	struct epic_private *ep = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	if (debug > 0) {
+ 		printk(KERN_WARNING "%s: Transmit timeout using MII device, "
+@@ -901,7 +896,7 @@ static void epic_tx_timeout(struct net_device *dev)
+ 		outl(RestartTx, ioaddr + COMMAND);
+ 	} else {
+ 		epic_restart(dev);
+-		outl(TxQueued, dev->base_addr + COMMAND);
++		outl(TxQueued, ioaddr + COMMAND);
+ 	}
+ 
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+@@ -959,6 +954,7 @@ static void epic_init_ring(struct net_device *dev)
+ static netdev_tx_t epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int entry, free_count;
+ 	u32 ctrl_word;
+ 	unsigned long flags;
+@@ -999,13 +995,13 @@ static netdev_tx_t epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore(&ep->lock, flags);
+ 	/* Trigger an immediate transmit demand. */
+-	outl(TxQueued, dev->base_addr + COMMAND);
++	outl(TxQueued, ioaddr + COMMAND);
+ 
+ 	if (debug > 4)
+ 		printk(KERN_DEBUG "%s: Queued Tx packet size %d to slot %d, "
+ 			   "flag %2.2x Tx status %8.8x.\n",
+ 			   dev->name, (int)skb->len, entry, ctrl_word,
+-			   (int)inl(dev->base_addr + TxSTAT));
++			   (int)inl(ioaddr + TxSTAT));
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -1086,7 +1082,7 @@ static irqreturn_t epic_interrupt(int irq, void *dev_instance)
+ {
+ 	struct net_device *dev = dev_instance;
+ 	struct epic_private *ep = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 	unsigned int handled = 0;
+ 	int status;
+ 
+@@ -1248,7 +1244,7 @@ static int epic_rx(struct net_device *dev, int budget)
+ 
+ static void epic_rx_err(struct net_device *dev, struct epic_private *ep)
+ {
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 	int status;
+ 
+ 	status = inl(ioaddr + INTSTAT);
+@@ -1266,7 +1262,7 @@ static int epic_poll(struct napi_struct *napi, int budget)
+ 	struct epic_private *ep = container_of(napi, struct epic_private, napi);
+ 	struct net_device *dev = ep->mii.dev;
+ 	int work_done = 0;
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ rx_action:
+ 
+@@ -1303,8 +1299,9 @@ rx_action:
+ 
+ static int epic_close(struct net_device *dev)
+ {
+-	long ioaddr = dev->base_addr;
+ 	struct epic_private *ep = netdev_priv(dev);
++	struct pci_dev *pdev = ep->pci_dev;
++	void __iomem *ioaddr = ep->ioaddr;
+ 	struct sk_buff *skb;
+ 	int i;
+ 
+@@ -1319,7 +1316,7 @@ static int epic_close(struct net_device *dev)
+ 
+ 	epic_disable_int(dev, ep);
+ 
+-	free_irq(dev->irq, dev);
++	free_irq(pdev->irq, dev);
+ 
+ 	epic_pause(dev);
+ 
+@@ -1330,7 +1327,7 @@ static int epic_close(struct net_device *dev)
+ 		ep->rx_ring[i].rxstatus = 0;		/* Not owned by Epic chip. */
+ 		ep->rx_ring[i].buflength = 0;
+ 		if (skb) {
+-			pci_unmap_single(ep->pci_dev, ep->rx_ring[i].bufaddr,
++			pci_unmap_single(pdev, ep->rx_ring[i].bufaddr,
+ 				 	 ep->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 			dev_kfree_skb(skb);
+ 		}
+@@ -1341,8 +1338,8 @@ static int epic_close(struct net_device *dev)
+ 		ep->tx_skbuff[i] = NULL;
+ 		if (!skb)
+ 			continue;
+-		pci_unmap_single(ep->pci_dev, ep->tx_ring[i].bufaddr,
+-				 skb->len, PCI_DMA_TODEVICE);
++		pci_unmap_single(pdev, ep->tx_ring[i].bufaddr, skb->len,
++				 PCI_DMA_TODEVICE);
+ 		dev_kfree_skb(skb);
+ 	}
+ 
+@@ -1354,7 +1351,8 @@ static int epic_close(struct net_device *dev)
+ 
+ static struct net_device_stats *epic_get_stats(struct net_device *dev)
+ {
+-	long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	if (netif_running(dev)) {
+ 		/* Update the error counts. */
+@@ -1373,8 +1371,8 @@ static struct net_device_stats *epic_get_stats(struct net_device *dev)
+ 
+ static void set_rx_mode(struct net_device *dev)
+ {
+-	long ioaddr = dev->base_addr;
+ 	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 	unsigned char mc_filter[8];		 /* Multicast hash filter */
+ 	int i;
+ 
+@@ -1466,9 +1464,11 @@ static void netdev_set_msglevel(struct net_device *dev, u32 value)
+ 
+ static int ethtool_begin(struct net_device *dev)
+ {
+-	unsigned long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
++
+ 	/* power-up, if interface is down */
+-	if (! netif_running(dev)) {
++	if (!netif_running(dev)) {
+ 		outl(0x0200, ioaddr + GENCTL);
+ 		outl((inl(ioaddr + NVCTL) & ~0x003C) | 0x4800, ioaddr + NVCTL);
+ 	}
+@@ -1477,9 +1477,11 @@ static int ethtool_begin(struct net_device *dev)
+ 
+ static void ethtool_complete(struct net_device *dev)
+ {
+-	unsigned long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
++
+ 	/* power-down, if interface is down */
+-	if (! netif_running(dev)) {
++	if (!netif_running(dev)) {
+ 		outl(0x0008, ioaddr + GENCTL);
+ 		outl((inl(ioaddr + NVCTL) & ~0x483C) | 0x0000, ioaddr + NVCTL);
+ 	}
+@@ -1500,7 +1502,7 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct epic_private *np = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = np->ioaddr;
+ 	struct mii_ioctl_data *data = if_mii(rq);
+ 	int rc;
+ 
+@@ -1524,7 +1526,7 @@ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ }
+ 
+ 
+-static void __devexit epic_remove_one (struct pci_dev *pdev)
++static void __devexit epic_remove_one(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct epic_private *ep = netdev_priv(dev);
+@@ -1532,9 +1534,7 @@ static void __devexit epic_remove_one (struct pci_dev *pdev)
+ 	pci_free_consistent(pdev, TX_TOTAL_SIZE, ep->tx_ring, ep->tx_ring_dma);
+ 	pci_free_consistent(pdev, RX_TOTAL_SIZE, ep->rx_ring, ep->rx_ring_dma);
+ 	unregister_netdev(dev);
+-#ifndef USE_IO_OPS
+-	iounmap((void*) dev->base_addr);
+-#endif
++	pci_iounmap(pdev, ep->ioaddr);
+ 	pci_release_regions(pdev);
+ 	free_netdev(dev);
+ 	pci_disable_device(pdev);
+@@ -1548,7 +1548,8 @@ static void __devexit epic_remove_one (struct pci_dev *pdev)
+ static int epic_suspend (struct pci_dev *pdev, pm_message_t state)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	long ioaddr = dev->base_addr;
++	struct epic_private *ep = netdev_priv(dev);
++	void __iomem *ioaddr = ep->ioaddr;
+ 
+ 	if (!netif_running(dev))
+ 		return 0;
 -- 
 1.7.7.6
