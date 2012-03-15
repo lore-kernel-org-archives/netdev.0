@@ -1,62 +1,37 @@
-From: Will Drewry <wad@chromium.org>
-Subject: Re: [PATCH v15 11/13] ptrace,seccomp: Add PTRACE_SECCOMP support
-Date: Thu, 15 Mar 2012 09:40:13 -0500
-Message-ID: <CABqD9hZ-i-Aa5+7DTmtQ5JU4EAKQfP=HenqgJeFZ2pftQqoUcg@mail.gmail.com>
-References: <1331781125-15658-1-git-send-email-wad@chromium.org>
-	<1331781125-15658-12-git-send-email-wad@chromium.org>
-	<d2e03d5f063de84d1bae3c3e06296f81.squirrel@webmail.greenhost.nl>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Dave Jones <davej@redhat.com>
+Subject: Re: 3.3-rc snmp6 panic
+Date: Thu, 15 Mar 2012 10:42:27 -0400
+Message-ID: <20120315144226.GA5409@redhat.com>
+References: <20120315052506.GA5974@redhat.com>
+ <1331794575.2543.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	hpa@zytor.com, mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, pmoore@redhat.com, akpm@linux-foundation.org,
-	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Indan Zupancic <indan@nul.nu>
-Return-path: <kernel-hardening-return-1134-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <d2e03d5f063de84d1bae3c3e06296f81.squirrel@webmail.greenhost.nl>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29340 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756213Ab2COOm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 10:42:29 -0400
+Content-Disposition: inline
+In-Reply-To: <1331794575.2543.17.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 14, 2012 at 11:49 PM, Indan Zupancic <indan@nul.nu> wrote:
-> Hi Will,
->
-> On Thu, March 15, 2012 04:12, Will Drewry wrote:
->> @@ -73,6 +74,7 @@
->> =A0#define PTRACE_EVENT_VFORK_DONE =A0 =A0 =A05
->> =A0#define PTRACE_EVENT_EXIT =A0 =A06
->> =A0#define PTRACE_EVENT_STOP =A0 =A07
->> +#define PTRACE_EVENT_SECCOMP 8
->>
->> =A0#include <asm/ptrace.h>
->>
->> @@ -101,8 +103,9 @@
->> =A0#define PT_TRACE_EXEC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PT_EVENT_FLAG(PT=
-RACE_EVENT_EXEC)
->> =A0#define PT_TRACE_VFORK_DONE =A0PT_EVENT_FLAG(PTRACE_EVENT_VFORK_DONE)
->> =A0#define PT_TRACE_EXIT =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PT_EVENT_FLAG(PT=
-RACE_EVENT_EXIT)
->> +#define PT_TRACE_SECCOMP =A0 =A0 PT_EVENT_FLAG(PTRACE_EVENT_SECCOMP)
->>
->> -#define PT_TRACE_MASK =A0 =A0 =A0 =A00x000003f4
->> +#define PT_TRACE_MASK =A0 =A0 =A0 =A00x00000ff4
->
-> Did you miss this bit?
+On Wed, Mar 14, 2012 at 11:56:15PM -0700, Eric Dumazet wrote:
+ 
+ > > This machine is running an snmpd, for my mrtg setup, so the teardown of that
+ > > service is probably what's triggering it. But I can start/stop it in a loop
+ > > as much as I want without it happening, so maybe the kernel needs to accumulate
+ > > some state from it for a while first ?
+ > > 
+ > > Anyone have any ideas what's happening here ?
+ > 
+ > Hmm, please try :
 
-Kinda.  I'll go ahead and switch it to 0xbf4, but PT_TRACE_MASK
-doesn't exist in linux-next so this bit disappears on merge.  However,
-it is relevant if people are backporting this code, so I'll push a new
-rev of it in a bit if I don't get any other comments (or include it in
-the next rev if there are comments).
+Will do. Given I can't reproduce it quickly though, it might be a while
+before I can provide feedback on whether it does the trick :)
 
-Thanks!
-will
+thanks,
+
+	Dave
