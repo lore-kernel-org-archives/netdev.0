@@ -1,37 +1,77 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: 3.3-rc snmp6 panic
-Date: Thu, 15 Mar 2012 10:42:27 -0400
-Message-ID: <20120315144226.GA5409@redhat.com>
-References: <20120315052506.GA5974@redhat.com>
- <1331794575.2543.17.camel@edumazet-laptop>
+From: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
+Subject: Methods to communicate between kernel network stack and user space
+Date: Thu, 15 Mar 2012 19:49:40 +0500
+Message-ID: <CAAZheX=zq-zgK+svW_K6sRZ6GH-xn_W4C9+MiS_JLwJO84zC6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29340 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756213Ab2COOm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 10:42:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1331794575.2543.17.camel@edumazet-laptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:62439 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030448Ab2COOtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 10:49:42 -0400
+Received: by eekc41 with SMTP id c41so1610311eek.19
+        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 07:49:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 14, 2012 at 11:56:15PM -0700, Eric Dumazet wrote:
- 
- > > This machine is running an snmpd, for my mrtg setup, so the teardown of that
- > > service is probably what's triggering it. But I can start/stop it in a loop
- > > as much as I want without it happening, so maybe the kernel needs to accumulate
- > > some state from it for a while first ?
- > > 
- > > Anyone have any ideas what's happening here ?
- > 
- > Hmm, please try :
+Hi,
+    Consider the figure below:
 
-Will do. Given I can't reproduce it quickly though, it might be a while
-before I can provide feedback on whether it does the trick :)
+                                      +-----------------------------------+
+                                       |                                    |
+                                       |              TRILL  IS-IS<--|---------
+                                       |  Quagga protocol  suite  |         |
 
-thanks,
++-----------------------------------+         |
+                      user space
+         |
 
-	Dave
+----------------------------------------------------------|----------------------
+                      kernel space                                             |
+
+              |
+
++------------------------------------------+   |
+                                      |         TCP / UDP / ICMP      |   |
+                                      |
+           |   |
+
++------------------------------------------+   |
+                                      |               IPv4 /IPv6
+      |   |
+                                      |
+           |   |
+
++------------------------------------------+  |
+                                      |
++-------------+  |   |
+                                      |                          |
+TRILL    |<-|---
+                                      |           Bridging   +------------+  |
+
++------------------------------------------+
+                                      |    Interface between Device    |
+                                      |Driver and network stack(dev.c)|
+
++------------------------------------------+
+                                      |            Device Driver            |
+                                      |
+           |
+                                      +-----------------|
+|------------------+
+                                                         |     |
+                                                          NIC
+
+
+                       As you may know, TRILL uses IS-IS protocol to
+calculate pairwise optimal paths and other control plane parameters.
+Now i want to communicate between TRILL forwarding in bridging with
+TRILL IS-IS in quagga protocol suite to send and receive control plane
+packets. I don't know what method should i use for this kind of
+communication.
+
+Netlink sockets are appropriate for this purpose?
+Or please suggest something else.
+
+Thanks in Advance...!!
