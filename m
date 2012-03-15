@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net next git tree cloning - a problem
-Date: Thu, 15 Mar 2012 14:52:45 -0700 (PDT)
-Message-ID: <20120315.145245.226262148458282250.davem@davemloft.net>
-References: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 00/34] Pull request for
+ 'davem-next.base_addr.removal' branch
+Date: Thu, 15 Mar 2012 15:05:26 -0700 (PDT)
+Message-ID: <20120315.150526.353003174998399838.davem@davemloft.net>
+References: <cover.1331814082.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: wkevils@gmail.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59684 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59776 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751733Ab2COVwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 17:52:47 -0400
-In-Reply-To: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
+	with ESMTP id S1755240Ab2COWGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 18:06:30 -0400
+In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Wilson <wkevils@gmail.com>
-Date: Thu, 15 Mar 2012 21:51:41 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 15 Mar 2012 14:56:57 +0100
 
-> commit cdf485be3a63d1f34293740fb726088c6840ceea
-> Author: John Fastabend <john.r.fastabend@intel.com>
-> Date:   Sat Feb 11 06:26:00 2012 +0000
+> Please pull from branch 'davem-next.base_addr.removal' in repository
 > 
+> git://violet.fr.zoreil.com/romieu/linux davem-next.base_addr.removal
 > 
-> I suppose there were patches since Feb 11 ...
+> to get the changes below.
 
-Are you really this dense?
+I don't think you can blindly override outl, readl, etc. with defines
+without first properly undefining them.  Otherwise via indirect header
+inclusion the asm/io.h definition will be present already and this
+will result in compiler failures.
 
-The change was written on February 11th, but it was merged into my
-tree on March 14th.
+Frankly, I think you should just do it right, by overriding some
+private macro for this purpose in such drivers and then do the
+necessary sed 's/outl/foow32/' or whatever over the whole driver.
+
+Please also address the other feedback you've received so far.
+
+Thanks.
