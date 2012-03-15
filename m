@@ -1,75 +1,24 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: iproute2: iplink_ stuff cleanup
-Date: Thu, 15 Mar 2012 09:18:57 -0700
-Message-ID: <20120315091857.2114cb48@nehalam.linuxnetplumber.net>
-References: <CAGm1_kuHYCRuoUEfBeV6GbjypUJgr1_058f-e4AhojHP1fTJWg@mail.gmail.com>
+Subject: Re: Methods to communicate between kernel network stack and user
+ space
+Date: Thu, 15 Mar 2012 09:26:58 -0700
+Message-ID: <20120315092658.55f21a3d@nehalam.linuxnetplumber.net>
+References: <CAAZheX=0v2AK0aDN0ZE=6n13JF27Nd-jOyi7GPzSSc4cYpnkeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Yegor Yefremov <yegorslists@googlemail.com>
+To: Syed Muhammad Mohsin Kazmi <08beesmmkazmi@seecs.edu.pk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52266 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:53181 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031662Ab2COQTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 12:19:00 -0400
-In-Reply-To: <CAGm1_kuHYCRuoUEfBeV6GbjypUJgr1_058f-e4AhojHP1fTJWg@mail.gmail.com>
+	id S1031664Ab2COQ1A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 12:27:00 -0400
+In-Reply-To: <CAAZheX=0v2AK0aDN0ZE=6n13JF27Nd-jOyi7GPzSSc4cYpnkeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Mar 2012 14:53:51 +0100
-Yegor Yefremov <yegorslists@googlemail.com> wrote:
+Look at existing RSTP daemon, it uses bridge netlink and there is no
+reason to think TRILL needs anything special.
 
-> Hello Stephen,
-> 
-> I'm still struggling to get ip/iplink_* routines to show up in
-> Android's ip binary
-> (https://groups.google.com/d/topic/android-building/yjV4iYnT1Zc/discussion).
-> I've looked at the algorithm that is used to access those functions
-> (like can_parse_opt, vlan_parse_opt etc.)
-> 
->  snprintf(buf, sizeof(buf), LIBDIR "/ip/link_%s.so", id);
->         dlh = dlopen(buf, RTLD_LAZY);
->         if (dlh == NULL) {
->                 /* look in current binary, only open once */
->                 dlh = BODY;
->                 if (dlh == NULL) {
->                         dlh = BODY = dlopen(NULL, RTLD_LAZY);
->                         if (dlh == NULL)
->                                 return NULL;
->                 }
->         }
-> 
->         snprintf(buf, sizeof(buf), "%s_link_util", id);
->         l = dlsym(dlh, buf);
->         if (l == NULL)
->                 return NULL;
-> 
-> as far as I can see from the ip/Makefile there are no dynamic libs
-> like /ip/link_%s.so. Wouldn't it be simpler to let all iplink_*
-> objects to export their interfaces via header files and just make a
-> table in ip/iplink.c to hold protocol ID and pointer at link_utils
-> struct.
-> 
-> struct link_util can_link_util = {
->         .id             = "can",
->         .maxattr        = IFLA_CAN_MAX,
->         .parse_opt      = can_parse_opt,
->         .print_opt      = can_print_opt,
->         .print_xstats   = can_print_xstats,
-> };
-> 
-> Am I missing something?
-> 
-> Regards,
-> Yegor
-
-Ip utilities have dynamic extensibility, it is possible for someone
-to add shared libraries for new functionality. This is a cool feature
-but isn't used directly by the standard code. It does use it indirectly
-by using dlopen() to find functions locally.
-
-Think of it as introspection in C.
-
-I won't take it out of the standard version, but you may have to find
-another way to handle it on the Android universe.
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/rstp.git
