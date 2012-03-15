@@ -1,99 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
- performance degration
-Date: Thu, 15 Mar 2012 09:11:46 -0700
-Message-ID: <1331827906.4874.4.camel@edumazet-glaptop>
-References: <20120314190156.622c8cd5@vostro>
-	 <1331745314.6022.27.camel@edumazet-glaptop>
-	 <20120314192945.65867e9f@vostro>
-	 <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120314215142.655ae607@vostro>
-	 <1331755965.6022.55.camel@edumazet-glaptop>
-	 <20120314223343.23dc9df3@vostro>
-	 <20120314205319.GA28394@electric-eye.fr.zoreil.com>
-	 <20120315080635.1f76512b@vostro>  <20120315171148.0050714d@vostro>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2: iplink_ stuff cleanup
+Date: Thu, 15 Mar 2012 09:18:57 -0700
+Message-ID: <20120315091857.2114cb48@nehalam.linuxnetplumber.net>
+References: <CAGm1_kuHYCRuoUEfBeV6GbjypUJgr1_058f-e4AhojHP1fTJWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Cc: netdev@vger.kernel.org
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:63163 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031638Ab2COQLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 12:11:49 -0400
-Received: by dadp12 with SMTP id p12so5089382dad.11
-        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 09:11:48 -0700 (PDT)
-In-Reply-To: <20120315171148.0050714d@vostro>
+Received: from mail.vyatta.com ([76.74.103.46]:52266 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031662Ab2COQTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Mar 2012 12:19:00 -0400
+In-Reply-To: <CAGm1_kuHYCRuoUEfBeV6GbjypUJgr1_058f-e4AhojHP1fTJWg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-03-15 at 17:11 +0200, Timo Teras wrote:
-> On Thu, 15 Mar 2012 08:06:35 +0200 Timo Teras <timo.teras@iki.fi> wrote:
-> 
-> > On Wed, 14 Mar 2012 21:53:19 +0100 Francois Romieu
-> > <romieu@fr.zoreil.com> wrote:
-> > 
-> > > Timo Teras <timo.teras@iki.fi> :
-> > > [...]
-> > > > # ethtool -S eth2
-> > > > NIC statistics:
-> > > >      tx_packets: 2069391193
-> > > >      rx_packets: 3245815642
-> > > >      tx_errors: 0
-> > > >      rx_errors: 645238
-> > > >      rx_missed: 31414
-> > > 
-> > > It does not look like stuff for the higher layers guys.
-> > > 
-> > > Can you tshark -w foobar on the sender side and
-> > > 'while : ; do sleep 1; ethtool -S eth2 >> glop; done' on the
-> > > receiver during a bad wget (a big zero filled file should compress
-> > > well).
-> > 
-> > Indeed.
-> > 
-> > It seems that my earlier test about the "GRO off" effect were mistaken
-> > (I used accidentally proxy, and that gave the illusion that things are
-> > working. Whoops.)
-> > 
-> > So far I changed the cross-over cable and it didn't help. However,
-> > forcing the NIC to 100mbit/full-duplex mode fixes the rx_errors. It
-> > seems that something bad is happening in the gigabit mode.
-> > 
-> > I wonder if it's using pause frames and that's messing things up.
-> > Seems that I can't turn it off, though.
-> > 
-> > I can also double check my cables, though it is factory made Cat-5E
-> > cross-over cable; and happens with two different cables.
-> 
-> Ok. So far I have two of these boxes with same r8169 hardware. Both
-> generate bad packets on transmit only; and on both 3 nic systems it's
-> the middle eth1 nic. The symptoms are identical: in 1GB mode I have
-> minor packet loss, where as 100Mbit/s mode seems to work just fine.
-> 
-> The first box, that I've been talking so far about, is as mentioned
-> connected to another similar box. The r8169 there reports rx_errors.
-> The cable is ok; I've tried with two different ones.
-> 
-> The other broken box is connected to a HP ProCurve 4202vl-48G, and the
-> switch is reporting drops due to FCS Rx errors.
-> 
-> So I have two broken pieces of hardware, or there is a driver bug.
-> 
-> I'll try upgrading my kernel to 3.0.x series on the sender box and see
-> if it's fixing anything. Suggestions for further testing would be
-> appreciated.
+On Thu, 15 Mar 2012 14:53:51 +0100
+Yegor Yefremov <yegorslists@googlemail.com> wrote:
 
-r8169 has to make an additional copy of incoming frames, because of
-hardware flaw and security requirements.
+> Hello Stephen,
+> 
+> I'm still struggling to get ip/iplink_* routines to show up in
+> Android's ip binary
+> (https://groups.google.com/d/topic/android-building/yjV4iYnT1Zc/discussion).
+> I've looked at the algorithm that is used to access those functions
+> (like can_parse_opt, vlan_parse_opt etc.)
+> 
+>  snprintf(buf, sizeof(buf), LIBDIR "/ip/link_%s.so", id);
+>         dlh = dlopen(buf, RTLD_LAZY);
+>         if (dlh == NULL) {
+>                 /* look in current binary, only open once */
+>                 dlh = BODY;
+>                 if (dlh == NULL) {
+>                         dlh = BODY = dlopen(NULL, RTLD_LAZY);
+>                         if (dlh == NULL)
+>                                 return NULL;
+>                 }
+>         }
+> 
+>         snprintf(buf, sizeof(buf), "%s_link_util", id);
+>         l = dlsym(dlh, buf);
+>         if (l == NULL)
+>                 return NULL;
+> 
+> as far as I can see from the ip/Makefile there are no dynamic libs
+> like /ip/link_%s.so. Wouldn't it be simpler to let all iplink_*
+> objects to export their interfaces via header files and just make a
+> table in ip/iplink.c to hold protocol ID and pointer at link_utils
+> struct.
+> 
+> struct link_util can_link_util = {
+>         .id             = "can",
+>         .maxattr        = IFLA_CAN_MAX,
+>         .parse_opt      = can_parse_opt,
+>         .print_opt      = can_print_opt,
+>         .print_xstats   = can_print_xstats,
+> };
+> 
+> Am I missing something?
+> 
+> Regards,
+> Yegor
 
-This was added in 2.6.37 or 2.6.38, dont remember exactly.
+Ip utilities have dynamic extensibility, it is possible for someone
+to add shared libraries for new functionality. This is a cool feature
+but isn't used directly by the standard code. It does use it indirectly
+by using dlopen() to find functions locally.
 
-So your cpu might be to slow to handle the load at 1Gb speed.
+Think of it as introspection in C.
 
-If you have one flow, there is nothing to do, but if your workload has
-several flows and your machine is SMP, you can try RPS/RFS as documented
-in Documentation/networking/scaling.txt
+I won't take it out of the standard version, but you may have to find
+another way to handle it on the Android universe.
