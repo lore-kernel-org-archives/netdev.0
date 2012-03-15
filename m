@@ -1,45 +1,63 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: Re: net next git tree cloning - a problem
-Date: Thu, 15 Mar 2012 22:36:47 +0200
-Message-ID: <CAGXs5wUCNvFNNxy=toY7KW9tA+HNq4RcA2bWxqessPHOZmkeDQ@mail.gmail.com>
-References: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
-	<1331842912.23722.6.camel@frustration.ornl.gov>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ath9k: fix a memory leak in ath_rx_tasklet()
+Date: Thu, 15 Mar 2012 13:43:29 -0700
+Message-ID: <1331844209.19406.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jouni@qca.qualcomm.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	Trond Wuellner <trond@chromium.org>,
+	Grant Grundler <grundler@chromium.org>,
+	Paul Stewart <pstew@chromium.org>,
+	netdev <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:41382 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161450Ab2COUgs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 16:36:48 -0400
-Received: by vcqp1 with SMTP id p1so3561275vcq.19
-        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 13:36:47 -0700 (PDT)
-In-Reply-To: <1331842912.23722.6.camel@frustration.ornl.gov>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:33003 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031833Ab2COUne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 16:43:34 -0400
+Received: by dajr28 with SMTP id r28so5021941daj.19
+        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 13:43:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HI,
-Yes , this is indeed so
-thnk!
+commit 0d95521ea7 (ath9k: use split rx buffers to get rid of order-1 skb
+allocations) added in memory leak in error path.
 
-kw
+sc->rx.frag should be cleared after the pskb_expand_head() call, or else
+we jump to requeue_drop_frag and leak an skb.
 
-On Thu, Mar 15, 2012 at 10:21 PM, David Dillow <dave@thedillows.org> wr=
-ote:
-> On Thu, 2012-03-15 at 21:51 +0200, Kevin Wilson wrote:
->> git log | more
->>
->> shows:
->>
->> commit cdf485be3a63d1f34293740fb726088c6840ceea
->> Author: John Fastabend <john.r.fastabend@intel.com>
->> Date: =A0 Sat Feb 11 06:26:00 2012 +0000
->
-> git shows the date the patch was written by default, not the date it =
-was
-> committed to the tree. Use 'git log --pretty=3Dfuller' and you'll see=
- the
-> commit date was much more recent.
->
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jouni Malinen <jouni@qca.qualcomm.com>
+Cc: Felix Fietkau <nbd@openwrt.org>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: Trond Wuellner <trond@chromium.org>
+Cc: Grant Grundler <grundler@chromium.org>
+Cc: Paul Stewart <pstew@chromium.org>
+Cc: David Miller <davem@davemloft.net>
+---
+ drivers/net/wireless/ath/ath9k/recv.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
+index 7e1a91a..e74fc99 100644
+--- a/drivers/net/wireless/ath/ath9k/recv.c
++++ b/drivers/net/wireless/ath/ath9k/recv.c
+@@ -1917,13 +1917,13 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 		if (sc->rx.frag) {
+ 			int space = skb->len - skb_tailroom(hdr_skb);
+ 
+-			sc->rx.frag = NULL;
+-
+ 			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
+ 				dev_kfree_skb(skb);
+ 				goto requeue_drop_frag;
+ 			}
+ 
++			sc->rx.frag = NULL;
++
+ 			skb_copy_from_linear_data(skb, skb_put(hdr_skb, skb->len),
+ 						  skb->len);
+ 			dev_kfree_skb_any(skb);
