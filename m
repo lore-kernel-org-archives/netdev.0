@@ -1,169 +1,160 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-Date: Wed, 14 Mar 2012 23:18:32 -0700
-Message-ID: <1331792312.2543.16.camel@edumazet-laptop>
+From: Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
+Date: Wed, 14 Mar 2012 23:42:00 -0700
+Message-ID: <CANEJEGtndncj1biMZSBC1rt36a66iWGp7wU_OxCxpA_PVBGZqA@mail.gmail.com>
+References: <1331792312.2543.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Aurelien Jacobs <aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org>,
 	Trond Wuellner <trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1331792312.2543.16.camel@edumazet-laptop>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-asix_rx_fixup() is complex, and does some unnecessary memory copies (at
-least on x86 where NET_IP_ALIGN is 0)
-
-Also, it tends to provide skbs with a big truesize (4096+256 with
-MTU=1500) to upper stack, so incoming trafic consume a lot of memory and
-I noticed early packet drops because we hit socket rcvbuf too fast.
-
-Switch to a different strategy, using copybreak so that we provide nice
-skbs to upper stack (including the NET_SKB_PAD to avoid future head
-reallocations in some paths)
-
-With this patch, I no longer see packets drops or tcp collapses on
-various tcp workload with a AX88772 adapter.
-
-Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Aurelien Jacobs <aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org>
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Cc: Trond Wuellner <trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Cc: Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Cc: Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
----
- drivers/net/usb/asix.c |   90 +++++++++------------------------------
- 1 file changed, 21 insertions(+), 69 deletions(-)
-
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 8e84f5b..27d5440 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -305,88 +305,40 @@ asix_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value, u16 index,
- 
- static int asix_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- {
--	u8  *head;
--	u32  header;
--	char *packet;
--	struct sk_buff *ax_skb;
--	u16 size;
-+	int offset = 0;
- 
--	head = (u8 *) skb->data;
--	memcpy(&header, head, sizeof(header));
--	le32_to_cpus(&header);
--	packet = head + sizeof(header);
--
--	skb_pull(skb, 4);
--
--	while (skb->len > 0) {
--		if ((header & 0x07ff) != ((~header >> 16) & 0x07ff))
--			netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
-+	while (offset + sizeof(u32) < skb->len) {
-+		struct sk_buff *ax_skb;
-+		u16 size;
-+		u32 header = get_unaligned_le32(skb->data + offset);
- 
-+		offset += sizeof(u32);
-+	
- 		/* get the packet length */
--		size = (u16) (header & 0x000007ff);
--
--		if ((skb->len) - ((size + 1) & 0xfffe) == 0) {
--			u8 alignment = (unsigned long)skb->data & 0x3;
--			if (alignment != 0x2) {
--				/*
--				 * not 16bit aligned so use the room provided by
--				 * the 32 bit header to align the data
--				 *
--				 * note we want 16bit alignment as MAC header is
--				 * 14bytes thus ip header will be aligned on
--				 * 32bit boundary so accessing ipheader elements
--				 * using a cast to struct ip header wont cause
--				 * an unaligned accesses.
--				 */
--				u8 realignment = (alignment + 2) & 0x3;
--				memmove(skb->data - realignment,
--					skb->data,
--					size);
--				skb->data -= realignment;
--				skb_set_tail_pointer(skb, size);
--			}
--			return 2;
-+		size = (u16) (header & 0x7ff);
-+		if (size != ((~header >> 16) & 0x07ff)) {
-+			netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
-+			return 0;
- 		}
- 
--		if (size > dev->net->mtu + ETH_HLEN) {
-+		if ((size > dev->net->mtu + ETH_HLEN) ||
-+		    (size + offset > skb->len)) {
- 			netdev_err(dev->net, "asix_rx_fixup() Bad RX Length %d\n",
- 				   size);
- 			return 0;
- 		}
--		ax_skb = skb_clone(skb, GFP_ATOMIC);
--		if (ax_skb) {
--			u8 alignment = (unsigned long)packet & 0x3;
--			ax_skb->len = size;
--
--			if (alignment != 0x2) {
--				/*
--				 * not 16bit aligned use the room provided by
--				 * the 32 bit header to align the data
--				 */
--				u8 realignment = (alignment + 2) & 0x3;
--				memmove(packet - realignment, packet, size);
--				packet -= realignment;
--			}
--			ax_skb->data = packet;
--			skb_set_tail_pointer(ax_skb, size);
--			usbnet_skb_return(dev, ax_skb);
--		} else {
-+		ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
-+		if (!ax_skb)
- 			return 0;
--		}
--
--		skb_pull(skb, (size + 1) & 0xfffe);
- 
--		if (skb->len < sizeof(header))
--			break;
-+		skb_put(ax_skb, size);
-+		memcpy(ax_skb->data, skb->data + offset, size);
-+		usbnet_skb_return(dev, ax_skb);
- 
--		head = (u8 *) skb->data;
--		memcpy(&header, head, sizeof(header));
--		le32_to_cpus(&header);
--		packet = head + sizeof(header);
--		skb_pull(skb, 4);
-+		offset += (size + 1) & 0xfffe;
- 	}
- 
--	if (skb->len < 0) {
-+	if (skb->len != offset) {
- 		netdev_err(dev->net, "asix_rx_fixup() Bad SKB Length %d\n",
- 			   skb->len);
- 		return 0;
-@@ -1541,7 +1493,7 @@ static const struct driver_info ax88772_info = {
- 	.status = asix_status,
- 	.link_reset = ax88772_link_reset,
- 	.reset = ax88772_reset,
--	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR | FLAG_MULTI_PACKET,
- 	.rx_fixup = asix_rx_fixup,
- 	.tx_fixup = asix_tx_fixup,
- };
-
-
+QWRkaW5nIEFTSVggKEFsbGFuIENob3UpCgpPbiBXZWQsIE1hciAxNCwgMjAxMiBhdCAxMToxOCBQ
+TSwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToKPiBhc2l4X3J4
+X2ZpeHVwKCkgaXMgY29tcGxleCwgYW5kIGRvZXMgc29tZSB1bm5lY2Vzc2FyeSBtZW1vcnkgY29w
+aWVzIChhdAo+IGxlYXN0IG9uIHg4NiB3aGVyZSBORVRfSVBfQUxJR04gaXMgMCkKPgo+IEFsc28s
+IGl0IHRlbmRzIHRvIHByb3ZpZGUgc2ticyB3aXRoIGEgYmlnIHRydWVzaXplICg0MDk2KzI1NiB3
+aXRoCj4gTVRVPTE1MDApIHRvIHVwcGVyIHN0YWNrLCBzbyBpbmNvbWluZyB0cmFmaWMgY29uc3Vt
+ZSBhIGxvdCBvZiBtZW1vcnkgYW5kCj4gSSBub3RpY2VkIGVhcmx5IHBhY2tldCBkcm9wcyBiZWNh
+dXNlIHdlIGhpdCBzb2NrZXQgcmN2YnVmIHRvbyBmYXN0Lgo+Cj4gU3dpdGNoIHRvIGEgZGlmZmVy
+ZW50IHN0cmF0ZWd5LCB1c2luZyBjb3B5YnJlYWsgc28gdGhhdCB3ZSBwcm92aWRlIG5pY2UKPiBz
+a2JzIHRvIHVwcGVyIHN0YWNrIChpbmNsdWRpbmcgdGhlIE5FVF9TS0JfUEFEIHRvIGF2b2lkIGZ1
+dHVyZSBoZWFkCj4gcmVhbGxvY2F0aW9ucyBpbiBzb21lIHBhdGhzKQoKWW91ciByZXdyaXRlIGlz
+IGRlZmluaXRlbHkgY2xlYW5lci9zaW1wbGVyLiBJZiBpdCB3b3Jrcywgc2hpcCBpdCEgOikKCkkn
+bSB0cmF2ZWxpbmcgcmlnaHQgbm93IGFuZCBkb24ndCBoYXZlIGFjY2VzcyB0byB0aGUgSFcgdG8g
+dGVzdCBpdC4KSSdtIGhvcGluZyB0aGF0IEFTSVggY291bGQgcnVuIGEgZmV3IHNpbXBsZSB0ZXN0
+cyBhcyB3ZWxsLgoKPiBXaXRoIHRoaXMgcGF0Y2gsIEkgbm8gbG9uZ2VyIHNlZSBwYWNrZXRzIGRy
+b3BzIG9yIHRjcCBjb2xsYXBzZXMgb24KPiB2YXJpb3VzIHRjcCB3b3JrbG9hZCB3aXRoIGEgQVg4
+ODc3MiBhZGFwdGVyLgo+Cj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
+ZXRAZ21haWwuY29tPgo+IENjOiBBdXJlbGllbiBKYWNvYnMgPGF1cmVsQGdudWFnZS5vcmc+Cj4g
+Q2M6IEdyZWcgS3JvYWgtSGFydG1hbiA8Z3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmc+Cj4gQ2M6
+IFRyb25kIFd1ZWxsbmVyIDx0cm9uZEBjaHJvbWl1bS5vcmc+Cj4gQ2M6IEdyYW50IEdydW5kbGVy
+IDxncnVuZGxlckBjaHJvbWl1bS5vcmc+CgpSZXZpZXdlZC1ieTogR3JhbnQgR3J1bmRsZXIgPGdy
+dW5kbGVyQGNocm9taXVtLm9yZz4KCnRoYW5rcyEKZ3JhbnQKCj4gQ2M6IFBhdWwgU3Rld2FydCA8
+cHN0ZXdAY2hyb21pdW0ub3JnPgo+IC0tLQo+IMKgZHJpdmVycy9uZXQvdXNiL2FzaXguYyB8IMKg
+IDkwICsrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IMKgMSBmaWxlIGNo
+YW5nZWQsIDIxIGluc2VydGlvbnMoKyksIDY5IGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L3VzYi9hc2l4LmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeC5jCj4gaW5kZXgg
+OGU4NGY1Yi4uMjdkNTQ0MCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC91c2IvYXNpeC5jCj4g
+KysrIGIvZHJpdmVycy9uZXQvdXNiL2FzaXguYwo+IEBAIC0zMDUsODggKzMwNSw0MCBAQCBhc2l4
+X3dyaXRlX2NtZF9hc3luYyhzdHJ1Y3QgdXNibmV0ICpkZXYsIHU4IGNtZCwgdTE2IHZhbHVlLCB1
+MTYgaW5kZXgsCj4KPiDCoHN0YXRpYyBpbnQgYXNpeF9yeF9maXh1cChzdHJ1Y3QgdXNibmV0ICpk
+ZXYsIHN0cnVjdCBza19idWZmICpza2IpCj4gwqB7Cj4gLSDCoCDCoCDCoCB1OCDCoCpoZWFkOwo+
+IC0gwqAgwqAgwqAgdTMyIMKgaGVhZGVyOwo+IC0gwqAgwqAgwqAgY2hhciAqcGFja2V0Owo+IC0g
+wqAgwqAgwqAgc3RydWN0IHNrX2J1ZmYgKmF4X3NrYjsKPiAtIMKgIMKgIMKgIHUxNiBzaXplOwo+
+ICsgwqAgwqAgwqAgaW50IG9mZnNldCA9IDA7Cj4KPiAtIMKgIMKgIMKgIGhlYWQgPSAodTggKikg
+c2tiLT5kYXRhOwo+IC0gwqAgwqAgwqAgbWVtY3B5KCZoZWFkZXIsIGhlYWQsIHNpemVvZihoZWFk
+ZXIpKTsKPiAtIMKgIMKgIMKgIGxlMzJfdG9fY3B1cygmaGVhZGVyKTsKPiAtIMKgIMKgIMKgIHBh
+Y2tldCA9IGhlYWQgKyBzaXplb2YoaGVhZGVyKTsKPiAtCj4gLSDCoCDCoCDCoCBza2JfcHVsbChz
+a2IsIDQpOwo+IC0KPiAtIMKgIMKgIMKgIHdoaWxlIChza2ItPmxlbiA+IDApIHsKPiAtIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIGlmICgoaGVhZGVyICYgMHgwN2ZmKSAhPSAoKH5oZWFkZXIgPj4gMTYp
+ICYgMHgwN2ZmKSkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG5ldGRldl9l
+cnIoZGV2LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIEhlYWRlciBMZW5ndGhcbiIpOwo+ICsg
+wqAgwqAgwqAgd2hpbGUgKG9mZnNldCArIHNpemVvZih1MzIpIDwgc2tiLT5sZW4pIHsKPiArIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIHN0cnVjdCBza19idWZmICpheF9za2I7Cj4gKyDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCB1MTYgc2l6ZTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHUzMiBoZWFkZXIg
+PSBnZXRfdW5hbGlnbmVkX2xlMzIoc2tiLT5kYXRhICsgb2Zmc2V0KTsKPgo+ICsgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgb2Zmc2V0ICs9IHNpemVvZih1MzIpOwo+ICsKPiDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoC8qIGdldCB0aGUgcGFja2V0IGxlbmd0aCAqLwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgc2l6ZSA9ICh1MTYpIChoZWFkZXIgJiAweDAwMDAwN2ZmKTsKPiAtCj4gLSDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCBpZiAoKHNrYi0+bGVuKSAtICgoc2l6ZSArIDEpICYgMHhmZmZlKSA9PSAwKSB7
+Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1OCBhbGlnbm1lbnQgPSAodW5z
+aWduZWQgbG9uZylza2ItPmRhdGEgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCBpZiAoYWxpZ25tZW50ICE9IDB4Mikgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgLyoKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgKiBub3QgMTZiaXQgYWxpZ25lZCBzbyB1c2UgdGhlIHJvb20g
+cHJvdmlkZWQgYnkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgKiB0aGUgMzIgYml0IGhlYWRlciB0byBhbGlnbiB0aGUgZGF0YQo+IC0gwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqCj4gLSDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogbm90ZSB3ZSB3YW50IDE2Yml0IGFs
+aWdubWVudCBhcyBNQUMgaGVhZGVyIGlzCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCogMTRieXRlcyB0aHVzIGlwIGhlYWRlciB3aWxsIGJlIGFsaWdu
+ZWQgb24KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+KiAzMmJpdCBib3VuZGFyeSBzbyBhY2Nlc3NpbmcgaXBoZWFkZXIgZWxlbWVudHMKPiAtIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKiB1c2luZyBhIGNhc3Qg
+dG8gc3RydWN0IGlwIGhlYWRlciB3b250IGNhdXNlCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogYW4gdW5hbGlnbmVkIGFjY2Vzc2VzLgo+IC0gwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqLwo+IC0gwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdTggcmVhbGlnbm1lbnQgPSAo
+YWxpZ25tZW50ICsgMikgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCBtZW1tb3ZlKHNrYi0+ZGF0YSAtIHJlYWxpZ25tZW50LAo+IC0gwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5k
+YXRhLAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgc2l6ZSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCBza2ItPmRhdGEgLT0gcmVhbGlnbm1lbnQ7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2Jfc2V0X3RhaWxfcG9pbnRlcihza2IsIHNpemUp
+Owo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQo+IC0gwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIDI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBz
+aXplID0gKHUxNikgKGhlYWRlciAmIDB4N2ZmKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlm
+IChzaXplICE9ICgofmhlYWRlciA+PiAxNikgJiAweDA3ZmYpKSB7Cj4gKyDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCBuZXRkZXZfZXJyKGRldi0+bmV0LCAiYXNpeF9yeF9maXh1cCgp
+IEJhZCBIZWFkZXIgTGVuZ3RoXG4iKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIHJldHVybiAwOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+Cj4gLSDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCBpZiAoc2l6ZSA+IGRldi0+bmV0LT5tdHUgKyBFVEhfSExFTikgewo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgaWYgKChzaXplID4gZGV2LT5uZXQtPm10dSArIEVUSF9ITEVOKSB8
+fAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgKHNpemUgKyBvZmZzZXQgPiBza2ItPmxl
+bikpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG5ldGRldl9lcnIoZGV2
+LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIFJYIExlbmd0aCAlZFxuIiwKPiDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzaXplKTsKPiDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJldHVybiAwOwo+IMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgfQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgYXhfc2tiID0gc2tiX2Nsb25lKHNrYiwg
+R0ZQX0FUT01JQyk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoYXhfc2tiKSB7Cj4gLSDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1OCBhbGlnbm1lbnQgPSAodW5zaWduZWQg
+bG9uZylwYWNrZXQgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBh
+eF9za2ItPmxlbiA9IHNpemU7Cj4gLQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgaWYgKGFsaWdubWVudCAhPSAweDIpIHsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIC8qCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCogbm90IDE2Yml0IGFsaWduZWQgdXNlIHRoZSByb29tIHByb3ZpZGVk
+IGJ5Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCog
+dGhlIDMyIGJpdCBoZWFkZXIgdG8gYWxpZ24gdGhlIGRhdGEKPiAtIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKi8KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHU4IHJlYWxpZ25tZW50ID0gKGFsaWdubWVudCArIDIp
+ICYgMHgzOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+bWVtbW92ZShwYWNrZXQgLSByZWFsaWdubWVudCwgcGFja2V0LCBzaXplKTsKPiAtIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBhY2tldCAtPSByZWFsaWdubWVu
+dDsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIH0KPiAtIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGF4X3NrYi0+ZGF0YSA9IHBhY2tldDsKPiAtIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHNrYl9zZXRfdGFpbF9wb2ludGVyKGF4X3NrYiwgc2l6
+ZSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1c2JuZXRfc2tiX3JldHVy
+bihkZXYsIGF4X3NrYik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9IGVsc2Ugewo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgYXhfc2tiID0gbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbihkZXYt
+Pm5ldCwgc2l6ZSk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoIWF4X3NrYikKPiDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJldHVybiAwOwo+IC0gwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgfQo+IC0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHNrYl9wdWxsKHNrYiwgKHNp
+emUgKyAxKSAmIDB4ZmZmZSk7Cj4KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChza2ItPmxl
+biA8IHNpemVvZihoZWFkZXIpKQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+YnJlYWs7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2JfcHV0KGF4X3NrYiwgc2l6ZSk7Cj4g
+KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBtZW1jcHkoYXhfc2tiLT5kYXRhLCBza2ItPmRhdGEgKyBv
+ZmZzZXQsIHNpemUpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdXNibmV0X3NrYl9yZXR1cm4o
+ZGV2LCBheF9za2IpOwo+Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBoZWFkID0gKHU4ICopIHNr
+Yi0+ZGF0YTsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG1lbWNweSgmaGVhZGVyLCBoZWFkLCBz
+aXplb2YoaGVhZGVyKSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBsZTMyX3RvX2NwdXMoJmhl
+YWRlcik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwYWNrZXQgPSBoZWFkICsgc2l6ZW9mKGhl
+YWRlcik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2JfcHVsbChza2IsIDQpOwo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgb2Zmc2V0ICs9IChzaXplICsgMSkgJiAweGZmZmU7Cj4gwqAgwqAg
+wqAgwqB9Cj4KPiAtIMKgIMKgIMKgIGlmIChza2ItPmxlbiA8IDApIHsKPiArIMKgIMKgIMKgIGlm
+IChza2ItPmxlbiAhPSBvZmZzZXQpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG5ldGRldl9l
+cnIoZGV2LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIFNLQiBMZW5ndGggJWRcbiIsCj4gwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5sZW4pOwo+IMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgcmV0dXJuIDA7Cj4gQEAgLTE1NDEsNyArMTQ5Myw3IEBAIHN0YXRpYyBj
+b25zdCBzdHJ1Y3QgZHJpdmVyX2luZm8gYXg4ODc3Ml9pbmZvID0gewo+IMKgIMKgIMKgIMKgLnN0
+YXR1cyA9IGFzaXhfc3RhdHVzLAo+IMKgIMKgIMKgIMKgLmxpbmtfcmVzZXQgPSBheDg4NzcyX2xp
+bmtfcmVzZXQsCj4gwqAgwqAgwqAgwqAucmVzZXQgPSBheDg4NzcyX3Jlc2V0LAo+IC0gwqAgwqAg
+wqAgLmZsYWdzID0gRkxBR19FVEhFUiB8IEZMQUdfRlJBTUlOR19BWCB8IEZMQUdfTElOS19JTlRS
+LAo+ICsgwqAgwqAgwqAgLmZsYWdzID0gRkxBR19FVEhFUiB8IEZMQUdfRlJBTUlOR19BWCB8IEZM
+QUdfTElOS19JTlRSIHwgRkxBR19NVUxUSV9QQUNLRVQsCj4gwqAgwqAgwqAgwqAucnhfZml4dXAg
+PSBhc2l4X3J4X2ZpeHVwLAo+IMKgIMKgIMKgIMKgLnR4X2ZpeHVwID0gYXNpeF90eF9maXh1cCwK
+PiDCoH07Cj4KPgo=
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
