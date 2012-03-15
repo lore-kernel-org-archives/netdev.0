@@ -1,265 +1,149 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 28/34] natsemi: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:25 +0100
-Message-ID: <2e58a04f13c2d5bc31134c0169311d5ea8f6515b.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 27/34] smsc9420: stop using net_device.{base_addr, irq}.
+Date: Thu, 15 Mar 2012 14:57:24 +0100
+Message-ID: <4aba570ae9594788bffa6ad3b1f043e6f4fd1b9c.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
-	Tim Hockin <thockin@hockin.org>
+	Steve Glendinning <steve.glendinning@smsc.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51879 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51878 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761238Ab2CON7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761209Ab2CON7v (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Mar 2012 09:59:51 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's useless to check mem_start on a newly allocated device.
+The device private data pointer can not be NULL in smsc9420_open().
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Tim Hockin <thockin@hockin.org>
+Cc: Steve Glendinning <steve.glendinning@smsc.com>
 ---
- drivers/net/ethernet/natsemi/natsemi.c |   67 ++++++++++++++++++-------------
- 1 files changed, 39 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/smsc/smsc9420.c |   36 ++++++++++++++++-----------------
+ 1 files changed, 17 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
-index d38e48d..5b61d12 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -547,6 +547,7 @@ struct netdev_private {
- 	struct sk_buff *tx_skbuff[TX_RING_SIZE];
- 	dma_addr_t tx_dma[TX_RING_SIZE];
- 	struct net_device *dev;
-+	void __iomem *ioaddr;
- 	struct napi_struct napi;
- 	/* Media monitoring timer */
- 	struct timer_list timer;
-@@ -699,7 +700,9 @@ static ssize_t natsemi_set_dspcfg_workaround(struct device *dev,
- 
- static inline void __iomem *ns_ioaddr(struct net_device *dev)
- {
--	return (void __iomem *) dev->base_addr;
-+	struct netdev_private *np = netdev_priv(dev);
-+
-+	return np->ioaddr;
- }
- 
- static inline void natsemi_irq_enable(struct net_device *dev)
-@@ -863,10 +866,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	/* Store MAC Address in perm_addr */
- 	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
- 
--	dev->base_addr = (unsigned long __force) ioaddr;
--	dev->irq = irq;
--
- 	np = netdev_priv(dev);
-+	np->ioaddr = ioaddr;
-+
- 	netif_napi_add(dev, &np->napi, natsemi_poll, 64);
- 	np->dev = dev;
- 
-@@ -914,9 +916,6 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	}
- 
- 	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
--	if (dev->mem_start)
--		option = dev->mem_start;
--
- 	/* The lower four bits are the media type. */
- 	if (option) {
- 		if (option & 0x200)
-@@ -1532,20 +1531,21 @@ static int netdev_open(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
-+	const int irq = np->pci_dev->irq;
- 	int i;
- 
- 	/* Reset the chip, just in case. */
- 	natsemi_reset(dev);
- 
--	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
-+	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
- 	if (i) return i;
- 
- 	if (netif_msg_ifup(np))
- 		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
--			dev->name, dev->irq);
-+			dev->name, irq);
- 	i = alloc_ring(dev);
- 	if (i < 0) {
--		free_irq(dev->irq, dev);
-+		free_irq(irq, dev);
- 		return i;
- 	}
- 	napi_enable(&np->napi);
-@@ -1794,6 +1794,7 @@ static void netdev_timer(unsigned long data)
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
- 	int next_tick = NATSEMI_TIMER_FREQ;
-+	const int irq = np->pci_dev->irq;
- 
- 	if (netif_msg_timer(np)) {
- 		/* DO NOT read the IntrStatus register,
-@@ -1817,14 +1818,14 @@ static void netdev_timer(unsigned long data)
- 				if (netif_msg_drv(np))
- 					printk(KERN_NOTICE "%s: possible phy reset: "
- 						"re-initializing\n", dev->name);
--				disable_irq(dev->irq);
-+				disable_irq(irq);
- 				spin_lock_irq(&np->lock);
- 				natsemi_stop_rxtx(dev);
- 				dump_ring(dev);
- 				reinit_ring(dev);
- 				init_registers(dev);
- 				spin_unlock_irq(&np->lock);
--				enable_irq(dev->irq);
-+				enable_irq(irq);
- 			} else {
- 				/* hurry back */
- 				next_tick = HZ;
-@@ -1841,10 +1842,10 @@ static void netdev_timer(unsigned long data)
- 		spin_unlock_irq(&np->lock);
- 	}
- 	if (np->oom) {
--		disable_irq(dev->irq);
-+		disable_irq(irq);
- 		np->oom = 0;
- 		refill_rx(dev);
--		enable_irq(dev->irq);
-+		enable_irq(irq);
- 		if (!np->oom) {
- 			writel(RxOn, ioaddr + ChipCmd);
- 		} else {
-@@ -1885,8 +1886,9 @@ static void ns_tx_timeout(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
-+	const int irq = np->pci_dev->irq;
- 
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 	spin_lock_irq(&np->lock);
- 	if (!np->hands_off) {
- 		if (netif_msg_tx_err(np))
-@@ -1905,7 +1907,7 @@ static void ns_tx_timeout(struct net_device *dev)
- 			dev->name);
- 	}
- 	spin_unlock_irq(&np->lock);
--	enable_irq(dev->irq);
-+	enable_irq(irq);
- 
- 	dev->trans_start = jiffies; /* prevent tx timeout */
- 	dev->stats.tx_errors++;
-@@ -2470,9 +2472,12 @@ static struct net_device_stats *get_stats(struct net_device *dev)
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index 3838647..fa1489e 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -720,9 +720,12 @@ static irqreturn_t smsc9420_isr(int irq, void *dev_id)
  #ifdef CONFIG_NET_POLL_CONTROLLER
- static void natsemi_poll_controller(struct net_device *dev)
+ static void smsc9420_poll_controller(struct net_device *dev)
  {
 -	disable_irq(dev->irq);
--	intr_handler(dev->irq, dev);
--	enable_irq(dev->irq);
-+	struct netdev_private *np = netdev_priv(dev);
-+	const int irq = np->pci_dev->irq;
++	struct smsc9420_pdata *pd = netdev_priv(dev);
++	const int irq = pd->pdev->irq;
 +
 +	disable_irq(irq);
-+	intr_handler(irq, dev);
+ 	smsc9420_isr(0, dev);
+-	enable_irq(dev->irq);
 +	enable_irq(irq);
  }
- #endif
+ #endif /* CONFIG_NET_POLL_CONTROLLER */
  
-@@ -2523,8 +2528,9 @@ static int natsemi_change_mtu(struct net_device *dev, int new_mtu)
- 	if (netif_running(dev)) {
- 		struct netdev_private *np = netdev_priv(dev);
- 		void __iomem * ioaddr = ns_ioaddr(dev);
-+		const int irq = np->pci_dev->irq;
+@@ -759,7 +762,7 @@ static int smsc9420_stop(struct net_device *dev)
+ 	smsc9420_stop_rx(pd);
+ 	smsc9420_free_rx_ring(pd);
  
--		disable_irq(dev->irq);
-+		disable_irq(irq);
- 		spin_lock(&np->lock);
- 		/* stop engines */
- 		natsemi_stop_rxtx(dev);
-@@ -2537,7 +2543,7 @@ static int natsemi_change_mtu(struct net_device *dev, int new_mtu)
- 		/* restart engines */
- 		writel(RxOn | TxOn, ioaddr + ChipCmd);
- 		spin_unlock(&np->lock);
--		enable_irq(dev->irq);
-+		enable_irq(irq);
+-	free_irq(dev->irq, pd);
++	free_irq(pd->pdev->irq, pd);
+ 
+ 	smsc9420_dmac_soft_reset(pd);
+ 
+@@ -1331,15 +1334,12 @@ out:
+ 
+ static int smsc9420_open(struct net_device *dev)
+ {
+-	struct smsc9420_pdata *pd;
++	struct smsc9420_pdata *pd = netdev_priv(dev);
+ 	u32 bus_mode, mac_cr, dmac_control, int_cfg, dma_intr_ena, int_ctl;
++	const int irq = pd->pdev->irq;
+ 	unsigned long flags;
+ 	int result = 0, timeout;
+ 
+-	BUG_ON(!dev);
+-	pd = netdev_priv(dev);
+-	BUG_ON(!pd);
+-
+ 	if (!is_valid_ether_addr(dev->dev_addr)) {
+ 		smsc_warn(IFUP, "dev_addr is not a valid MAC address");
+ 		result = -EADDRNOTAVAIL;
+@@ -1358,10 +1358,10 @@ static int smsc9420_open(struct net_device *dev)
+ 	smsc9420_reg_write(pd, INT_STAT, 0xFFFFFFFF);
+ 	smsc9420_pci_flush_write(pd);
+ 
+-	if (request_irq(dev->irq, smsc9420_isr, IRQF_SHARED | IRQF_DISABLED,
+-			DRV_NAME, pd)) {
+-		smsc_warn(IFUP, "Unable to use IRQ = %d", dev->irq);
+-		result = -ENODEV;
++	result = request_irq(irq, smsc9420_isr, IRQF_SHARED | IRQF_DISABLED,
++			     DRV_NAME, pd);
++	if (result < 0) {
++		smsc_warn(IFUP, "Unable to use IRQ = %d", irq);
+ 		goto out_0;
  	}
- 	return 0;
+ 
+@@ -1395,7 +1395,7 @@ static int smsc9420_open(struct net_device *dev)
+ 	smsc9420_pci_flush_write(pd);
+ 
+ 	/* test the IRQ connection to the ISR */
+-	smsc_dbg(IFUP, "Testing ISR using IRQ %d", dev->irq);
++	smsc_dbg(IFUP, "Testing ISR using IRQ %d", irq);
+ 	pd->software_irq_signal = false;
+ 
+ 	spin_lock_irqsave(&pd->int_lock, flags);
+@@ -1430,7 +1430,7 @@ static int smsc9420_open(struct net_device *dev)
+ 		goto out_free_irq_1;
+ 	}
+ 
+-	smsc_dbg(IFUP, "ISR passed test using IRQ %d", dev->irq);
++	smsc_dbg(IFUP, "ISR passed test using IRQ %d", irq);
+ 
+ 	result = smsc9420_alloc_tx_ring(pd);
+ 	if (result) {
+@@ -1490,7 +1490,7 @@ out_free_rx_ring_3:
+ out_free_tx_ring_2:
+ 	smsc9420_free_tx_ring(pd);
+ out_free_irq_1:
+-	free_irq(dev->irq, pd);
++	free_irq(irq, pd);
+ out_0:
+ 	return result;
  }
-@@ -3135,6 +3141,7 @@ static int netdev_close(struct net_device *dev)
- {
- 	void __iomem * ioaddr = ns_ioaddr(dev);
- 	struct netdev_private *np = netdev_priv(dev);
-+	const int irq = np->pci_dev->irq;
+@@ -1519,7 +1519,7 @@ static int smsc9420_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		smsc9420_stop_rx(pd);
+ 		smsc9420_free_rx_ring(pd);
  
- 	if (netif_msg_ifdown(np))
- 		printk(KERN_DEBUG
-@@ -3156,14 +3163,14 @@ static int netdev_close(struct net_device *dev)
- 	 */
+-		free_irq(dev->irq, pd);
++		free_irq(pd->pdev->irq, pd);
  
- 	del_timer_sync(&np->timer);
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 	spin_lock_irq(&np->lock);
- 	natsemi_irq_disable(dev);
- 	np->hands_off = 1;
- 	spin_unlock_irq(&np->lock);
--	enable_irq(dev->irq);
-+	enable_irq(irq);
+ 		netif_device_detach(dev);
+ 	}
+@@ -1552,6 +1552,7 @@ static int smsc9420_resume(struct pci_dev *pdev)
+ 		smsc_warn(IFUP, "pci_enable_wake failed: %d", err);
  
--	free_irq(dev->irq, dev);
-+	free_irq(irq, dev);
- 
- 	/* Interrupt disabled, interrupt handler released,
- 	 * queue stopped, timer deleted, rtnl_lock held
-@@ -3256,9 +3263,11 @@ static int natsemi_suspend (struct pci_dev *pdev, pm_message_t state)
- 
- 	rtnl_lock();
- 	if (netif_running (dev)) {
-+		const int irq = np->pci_dev->irq;
-+
- 		del_timer_sync(&np->timer);
- 
--		disable_irq(dev->irq);
-+		disable_irq(irq);
- 		spin_lock_irq(&np->lock);
- 
- 		natsemi_irq_disable(dev);
-@@ -3267,7 +3276,7 @@ static int natsemi_suspend (struct pci_dev *pdev, pm_message_t state)
- 		netif_stop_queue(dev);
- 
- 		spin_unlock_irq(&np->lock);
--		enable_irq(dev->irq);
-+		enable_irq(irq);
- 
- 		napi_disable(&np->napi);
- 
-@@ -3307,6 +3316,8 @@ static int natsemi_resume (struct pci_dev *pdev)
- 	if (netif_device_present(dev))
- 		goto out;
  	if (netif_running(dev)) {
-+		const int irq = np->pci_dev->irq;
-+
- 		BUG_ON(!np->hands_off);
- 		ret = pci_enable_device(pdev);
- 		if (ret < 0) {
-@@ -3320,13 +3331,13 @@ static int natsemi_resume (struct pci_dev *pdev)
- 
- 		natsemi_reset(dev);
- 		init_ring(dev);
--		disable_irq(dev->irq);
-+		disable_irq(irq);
- 		spin_lock_irq(&np->lock);
- 		np->hands_off = 0;
- 		init_registers(dev);
++		/* FIXME: gross. It looks like ancient PM relic.*/
+ 		err = smsc9420_open(dev);
  		netif_device_attach(dev);
- 		spin_unlock_irq(&np->lock);
--		enable_irq(dev->irq);
-+		enable_irq(irq);
- 
- 		mod_timer(&np->timer, round_jiffies(jiffies + 1*HZ));
  	}
+@@ -1625,8 +1626,6 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	/* registers are double mapped with 0 offset for LE and 0x200 for BE */
+ 	virt_addr += LAN9420_CPSR_ENDIAN_OFFSET;
+ 
+-	dev->base_addr = (ulong)virt_addr;
+-
+ 	pd = netdev_priv(dev);
+ 
+ 	/* pci descriptors are created in the PCI consistent area */
+@@ -1669,7 +1668,6 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	dev->netdev_ops = &smsc9420_netdev_ops;
+ 	dev->ethtool_ops = &smsc9420_ethtool_ops;
+-	dev->irq = pdev->irq;
+ 
+ 	netif_napi_add(dev, &pd->napi, smsc9420_rx_poll, NAPI_WEIGHT);
+ 
 -- 
 1.7.7.6
