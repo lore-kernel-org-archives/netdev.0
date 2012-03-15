@@ -1,161 +1,86 @@
-From: Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-Date: Wed, 14 Mar 2012 23:42:00 -0700
-Message-ID: <CANEJEGtndncj1biMZSBC1rt36a66iWGp7wU_OxCxpA_PVBGZqA@mail.gmail.com>
-References: <1331792312.2543.16.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.3-rc snmp6 panic
+Date: Wed, 14 Mar 2012 23:56:15 -0700
+Message-ID: <1331794575.2543.17.camel@edumazet-laptop>
+References: <20120315052506.GA5974@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Aurelien Jacobs <aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org>,
-	Trond Wuellner <trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Paul Stewart <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1331792312.2543.16.camel@edumazet-laptop>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:58032 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754472Ab2COG4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 02:56:18 -0400
+Received: by dadp12 with SMTP id p12so4355107dad.11
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 23:56:18 -0700 (PDT)
+In-Reply-To: <20120315052506.GA5974@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWRkaW5nIEFTSVggKEFsbGFuIENob3UpCgpPbiBXZWQsIE1hciAxNCwgMjAxMiBhdCAxMToxOCBQ
-TSwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiB3cm90ZToKPiBhc2l4X3J4
-X2ZpeHVwKCkgaXMgY29tcGxleCwgYW5kIGRvZXMgc29tZSB1bm5lY2Vzc2FyeSBtZW1vcnkgY29w
-aWVzIChhdAo+IGxlYXN0IG9uIHg4NiB3aGVyZSBORVRfSVBfQUxJR04gaXMgMCkKPgo+IEFsc28s
-IGl0IHRlbmRzIHRvIHByb3ZpZGUgc2ticyB3aXRoIGEgYmlnIHRydWVzaXplICg0MDk2KzI1NiB3
-aXRoCj4gTVRVPTE1MDApIHRvIHVwcGVyIHN0YWNrLCBzbyBpbmNvbWluZyB0cmFmaWMgY29uc3Vt
-ZSBhIGxvdCBvZiBtZW1vcnkgYW5kCj4gSSBub3RpY2VkIGVhcmx5IHBhY2tldCBkcm9wcyBiZWNh
-dXNlIHdlIGhpdCBzb2NrZXQgcmN2YnVmIHRvbyBmYXN0Lgo+Cj4gU3dpdGNoIHRvIGEgZGlmZmVy
-ZW50IHN0cmF0ZWd5LCB1c2luZyBjb3B5YnJlYWsgc28gdGhhdCB3ZSBwcm92aWRlIG5pY2UKPiBz
-a2JzIHRvIHVwcGVyIHN0YWNrIChpbmNsdWRpbmcgdGhlIE5FVF9TS0JfUEFEIHRvIGF2b2lkIGZ1
-dHVyZSBoZWFkCj4gcmVhbGxvY2F0aW9ucyBpbiBzb21lIHBhdGhzKQoKWW91ciByZXdyaXRlIGlz
-IGRlZmluaXRlbHkgY2xlYW5lci9zaW1wbGVyLiBJZiBpdCB3b3Jrcywgc2hpcCBpdCEgOikKCkkn
-bSB0cmF2ZWxpbmcgcmlnaHQgbm93IGFuZCBkb24ndCBoYXZlIGFjY2VzcyB0byB0aGUgSFcgdG8g
-dGVzdCBpdC4KSSdtIGhvcGluZyB0aGF0IEFTSVggY291bGQgcnVuIGEgZmV3IHNpbXBsZSB0ZXN0
-cyBhcyB3ZWxsLgoKPiBXaXRoIHRoaXMgcGF0Y2gsIEkgbm8gbG9uZ2VyIHNlZSBwYWNrZXRzIGRy
-b3BzIG9yIHRjcCBjb2xsYXBzZXMgb24KPiB2YXJpb3VzIHRjcCB3b3JrbG9hZCB3aXRoIGEgQVg4
-ODc3MiBhZGFwdGVyLgo+Cj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
-ZXRAZ21haWwuY29tPgo+IENjOiBBdXJlbGllbiBKYWNvYnMgPGF1cmVsQGdudWFnZS5vcmc+Cj4g
-Q2M6IEdyZWcgS3JvYWgtSGFydG1hbiA8Z3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmc+Cj4gQ2M6
-IFRyb25kIFd1ZWxsbmVyIDx0cm9uZEBjaHJvbWl1bS5vcmc+Cj4gQ2M6IEdyYW50IEdydW5kbGVy
-IDxncnVuZGxlckBjaHJvbWl1bS5vcmc+CgpSZXZpZXdlZC1ieTogR3JhbnQgR3J1bmRsZXIgPGdy
-dW5kbGVyQGNocm9taXVtLm9yZz4KCnRoYW5rcyEKZ3JhbnQKCj4gQ2M6IFBhdWwgU3Rld2FydCA8
-cHN0ZXdAY2hyb21pdW0ub3JnPgo+IC0tLQo+IMKgZHJpdmVycy9uZXQvdXNiL2FzaXguYyB8IMKg
-IDkwICsrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IMKgMSBmaWxlIGNo
-YW5nZWQsIDIxIGluc2VydGlvbnMoKyksIDY5IGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3VzYi9hc2l4LmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeC5jCj4gaW5kZXgg
-OGU4NGY1Yi4uMjdkNTQ0MCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC91c2IvYXNpeC5jCj4g
-KysrIGIvZHJpdmVycy9uZXQvdXNiL2FzaXguYwo+IEBAIC0zMDUsODggKzMwNSw0MCBAQCBhc2l4
-X3dyaXRlX2NtZF9hc3luYyhzdHJ1Y3QgdXNibmV0ICpkZXYsIHU4IGNtZCwgdTE2IHZhbHVlLCB1
-MTYgaW5kZXgsCj4KPiDCoHN0YXRpYyBpbnQgYXNpeF9yeF9maXh1cChzdHJ1Y3QgdXNibmV0ICpk
-ZXYsIHN0cnVjdCBza19idWZmICpza2IpCj4gwqB7Cj4gLSDCoCDCoCDCoCB1OCDCoCpoZWFkOwo+
-IC0gwqAgwqAgwqAgdTMyIMKgaGVhZGVyOwo+IC0gwqAgwqAgwqAgY2hhciAqcGFja2V0Owo+IC0g
-wqAgwqAgwqAgc3RydWN0IHNrX2J1ZmYgKmF4X3NrYjsKPiAtIMKgIMKgIMKgIHUxNiBzaXplOwo+
-ICsgwqAgwqAgwqAgaW50IG9mZnNldCA9IDA7Cj4KPiAtIMKgIMKgIMKgIGhlYWQgPSAodTggKikg
-c2tiLT5kYXRhOwo+IC0gwqAgwqAgwqAgbWVtY3B5KCZoZWFkZXIsIGhlYWQsIHNpemVvZihoZWFk
-ZXIpKTsKPiAtIMKgIMKgIMKgIGxlMzJfdG9fY3B1cygmaGVhZGVyKTsKPiAtIMKgIMKgIMKgIHBh
-Y2tldCA9IGhlYWQgKyBzaXplb2YoaGVhZGVyKTsKPiAtCj4gLSDCoCDCoCDCoCBza2JfcHVsbChz
-a2IsIDQpOwo+IC0KPiAtIMKgIMKgIMKgIHdoaWxlIChza2ItPmxlbiA+IDApIHsKPiAtIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIGlmICgoaGVhZGVyICYgMHgwN2ZmKSAhPSAoKH5oZWFkZXIgPj4gMTYp
-ICYgMHgwN2ZmKSkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG5ldGRldl9l
-cnIoZGV2LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIEhlYWRlciBMZW5ndGhcbiIpOwo+ICsg
-wqAgwqAgwqAgd2hpbGUgKG9mZnNldCArIHNpemVvZih1MzIpIDwgc2tiLT5sZW4pIHsKPiArIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHN0cnVjdCBza19idWZmICpheF9za2I7Cj4gKyDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCB1MTYgc2l6ZTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHUzMiBoZWFkZXIg
-PSBnZXRfdW5hbGlnbmVkX2xlMzIoc2tiLT5kYXRhICsgb2Zmc2V0KTsKPgo+ICsgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgb2Zmc2V0ICs9IHNpemVvZih1MzIpOwo+ICsKPiDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoC8qIGdldCB0aGUgcGFja2V0IGxlbmd0aCAqLwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgc2l6ZSA9ICh1MTYpIChoZWFkZXIgJiAweDAwMDAwN2ZmKTsKPiAtCj4gLSDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCBpZiAoKHNrYi0+bGVuKSAtICgoc2l6ZSArIDEpICYgMHhmZmZlKSA9PSAwKSB7
-Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1OCBhbGlnbm1lbnQgPSAodW5z
-aWduZWQgbG9uZylza2ItPmRhdGEgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBpZiAoYWxpZ25tZW50ICE9IDB4Mikgewo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgLyoKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgKiBub3QgMTZiaXQgYWxpZ25lZCBzbyB1c2UgdGhlIHJvb20g
-cHJvdmlkZWQgYnkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgKiB0aGUgMzIgYml0IGhlYWRlciB0byBhbGlnbiB0aGUgZGF0YQo+IC0gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqCj4gLSDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogbm90ZSB3ZSB3YW50IDE2Yml0IGFs
-aWdubWVudCBhcyBNQUMgaGVhZGVyIGlzCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCogMTRieXRlcyB0aHVzIGlwIGhlYWRlciB3aWxsIGJlIGFsaWdu
-ZWQgb24KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-KiAzMmJpdCBib3VuZGFyeSBzbyBhY2Nlc3NpbmcgaXBoZWFkZXIgZWxlbWVudHMKPiAtIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKiB1c2luZyBhIGNhc3Qg
-dG8gc3RydWN0IGlwIGhlYWRlciB3b250IGNhdXNlCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogYW4gdW5hbGlnbmVkIGFjY2Vzc2VzLgo+IC0gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqLwo+IC0gwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdTggcmVhbGlnbm1lbnQgPSAo
-YWxpZ25tZW50ICsgMikgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCBtZW1tb3ZlKHNrYi0+ZGF0YSAtIHJlYWxpZ25tZW50LAo+IC0gwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5k
-YXRhLAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgc2l6ZSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBza2ItPmRhdGEgLT0gcmVhbGlnbm1lbnQ7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2Jfc2V0X3RhaWxfcG9pbnRlcihza2IsIHNpemUp
-Owo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQo+IC0gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgcmV0dXJuIDI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBz
-aXplID0gKHUxNikgKGhlYWRlciAmIDB4N2ZmKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlm
-IChzaXplICE9ICgofmhlYWRlciA+PiAxNikgJiAweDA3ZmYpKSB7Cj4gKyDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCBuZXRkZXZfZXJyKGRldi0+bmV0LCAiYXNpeF9yeF9maXh1cCgp
-IEJhZCBIZWFkZXIgTGVuZ3RoXG4iKTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIHJldHVybiAwOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+Cj4gLSDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCBpZiAoc2l6ZSA+IGRldi0+bmV0LT5tdHUgKyBFVEhfSExFTikgewo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgaWYgKChzaXplID4gZGV2LT5uZXQtPm10dSArIEVUSF9ITEVOKSB8
-fAo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgKHNpemUgKyBvZmZzZXQgPiBza2ItPmxl
-bikpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG5ldGRldl9lcnIoZGV2
-LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIFJYIExlbmd0aCAlZFxuIiwKPiDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzaXplKTsKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJldHVybiAwOwo+IMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgfQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgYXhfc2tiID0gc2tiX2Nsb25lKHNrYiwg
-R0ZQX0FUT01JQyk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoYXhfc2tiKSB7Cj4gLSDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1OCBhbGlnbm1lbnQgPSAodW5zaWduZWQg
-bG9uZylwYWNrZXQgJiAweDM7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBh
-eF9za2ItPmxlbiA9IHNpemU7Cj4gLQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgaWYgKGFsaWdubWVudCAhPSAweDIpIHsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIC8qCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCogbm90IDE2Yml0IGFsaWduZWQgdXNlIHRoZSByb29tIHByb3ZpZGVk
-IGJ5Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCog
-dGhlIDMyIGJpdCBoZWFkZXIgdG8gYWxpZ24gdGhlIGRhdGEKPiAtIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKi8KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHU4IHJlYWxpZ25tZW50ID0gKGFsaWdubWVudCArIDIp
-ICYgMHgzOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-bWVtbW92ZShwYWNrZXQgLSByZWFsaWdubWVudCwgcGFja2V0LCBzaXplKTsKPiAtIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBhY2tldCAtPSByZWFsaWdubWVu
-dDsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIH0KPiAtIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIGF4X3NrYi0+ZGF0YSA9IHBhY2tldDsKPiAtIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHNrYl9zZXRfdGFpbF9wb2ludGVyKGF4X3NrYiwgc2l6
-ZSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1c2JuZXRfc2tiX3JldHVy
-bihkZXYsIGF4X3NrYik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9IGVsc2Ugewo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgYXhfc2tiID0gbmV0ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbihkZXYt
-Pm5ldCwgc2l6ZSk7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoIWF4X3NrYikKPiDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJldHVybiAwOwo+IC0gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgfQo+IC0KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHNrYl9wdWxsKHNrYiwgKHNp
-emUgKyAxKSAmIDB4ZmZmZSk7Cj4KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChza2ItPmxl
-biA8IHNpemVvZihoZWFkZXIpKQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-YnJlYWs7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2JfcHV0KGF4X3NrYiwgc2l6ZSk7Cj4g
-KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBtZW1jcHkoYXhfc2tiLT5kYXRhLCBza2ItPmRhdGEgKyBv
-ZmZzZXQsIHNpemUpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdXNibmV0X3NrYl9yZXR1cm4o
-ZGV2LCBheF9za2IpOwo+Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBoZWFkID0gKHU4ICopIHNr
-Yi0+ZGF0YTsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG1lbWNweSgmaGVhZGVyLCBoZWFkLCBz
-aXplb2YoaGVhZGVyKSk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBsZTMyX3RvX2NwdXMoJmhl
-YWRlcik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwYWNrZXQgPSBoZWFkICsgc2l6ZW9mKGhl
-YWRlcik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2JfcHVsbChza2IsIDQpOwo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgb2Zmc2V0ICs9IChzaXplICsgMSkgJiAweGZmZmU7Cj4gwqAgwqAg
-wqAgwqB9Cj4KPiAtIMKgIMKgIMKgIGlmIChza2ItPmxlbiA8IDApIHsKPiArIMKgIMKgIMKgIGlm
-IChza2ItPmxlbiAhPSBvZmZzZXQpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoG5ldGRldl9l
-cnIoZGV2LT5uZXQsICJhc2l4X3J4X2ZpeHVwKCkgQmFkIFNLQiBMZW5ndGggJWRcbiIsCj4gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiLT5sZW4pOwo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgcmV0dXJuIDA7Cj4gQEAgLTE1NDEsNyArMTQ5Myw3IEBAIHN0YXRpYyBj
-b25zdCBzdHJ1Y3QgZHJpdmVyX2luZm8gYXg4ODc3Ml9pbmZvID0gewo+IMKgIMKgIMKgIMKgLnN0
-YXR1cyA9IGFzaXhfc3RhdHVzLAo+IMKgIMKgIMKgIMKgLmxpbmtfcmVzZXQgPSBheDg4NzcyX2xp
-bmtfcmVzZXQsCj4gwqAgwqAgwqAgwqAucmVzZXQgPSBheDg4NzcyX3Jlc2V0LAo+IC0gwqAgwqAg
-wqAgLmZsYWdzID0gRkxBR19FVEhFUiB8IEZMQUdfRlJBTUlOR19BWCB8IEZMQUdfTElOS19JTlRS
-LAo+ICsgwqAgwqAgwqAgLmZsYWdzID0gRkxBR19FVEhFUiB8IEZMQUdfRlJBTUlOR19BWCB8IEZM
-QUdfTElOS19JTlRSIHwgRkxBR19NVUxUSV9QQUNLRVQsCj4gwqAgwqAgwqAgwqAucnhfZml4dXAg
-PSBhc2l4X3J4X2ZpeHVwLAo+IMKgIMKgIMKgIMKgLnR4X2ZpeHVwID0gYXNpeF90eF9maXh1cCwK
-PiDCoH07Cj4KPgo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Le jeudi 15 mars 2012 =C3=A0 01:25 -0400, Dave Jones a =C3=A9crit :
+> I've been seeing an occasional panic when I shut down my router
+> since I put 3.3 on there. It happens about once a week, always during
+> shutdown.  It wedges before I can get a good capture of the trace.
+> This is the best I've captured so far.. https://twitpic.com/8wh5l5
+> (apologies in advance for blurriness)
+>=20
+> From comparing the Code: line, and the objdump output, the code it's
+> choking on in mld_sendpack seems to be a skb_dst macro in the NF_HOOK=
+=2E.
+>=20
+>=20
+>         err =3D NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL, s=
+kb->dev,
+>     2dd9:       4c 8b 43 20             mov    0x20(%rbx),%r8
+>     2ddd:       e9 00 00 00 00          jmpq   2de2 <mld_sendpack+0x1=
+b2>
+> static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
+> {
+>         /* If refdst was not refcounted, check we still are in a=20
+>          * rcu_read_lock section
+>          */
+>         WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
+>     2de2:       48 8b 43 58             mov    0x58(%rbx),%rax
+>     2de6:       a8 01                   test   $0x1,%al
+>     2de8:       0f 85 d2 01 00 00       jne    2fc0 <mld_sendpack+0x3=
+90>
+>                 !rcu_read_lock_held() &&
+>                 !rcu_read_lock_bh_held());
+>         return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMAS=
+K);
+>     2dee:       48 83 e0 fe             and    $0xfffffffffffffffe,%r=
+ax
+>     2df2:       48 89 df                mov    %rbx,%rdi
+>     2df5:       ff 50 58                callq  *0x58(%rax)           =
+<-----  BOOM
+>=20
+>=20
+> This machine is running an snmpd, for my mrtg setup, so the teardown =
+of that
+> service is probably what's triggering it. But I can start/stop it in =
+a loop
+> as much as I want without it happening, so maybe the kernel needs to =
+accumulate
+> some state from it for a while first ?
+>=20
+> Anyone have any ideas what's happening here ?
+>=20
+
+Hmm, please try :
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8c2e3ab..22b7664 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1077,7 +1077,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_devi=
+ce *dev,
+ 	struct net *net =3D dev_net(dev);
+=20
+ 	if (unlikely(!idev))
+-		return NULL;
++		return ERR_PTR(-ENODEV);
+=20
+ 	rt =3D ip6_dst_alloc(&net->ipv6.ip6_dst_ops, dev, 0);
+ 	if (unlikely(!rt)) {
