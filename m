@@ -1,89 +1,94 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net V3] bonding: send igmp report for its master
-Date: Thu, 15 Mar 2012 11:11:58 +0800
-Message-ID: <3072c40712c2f5506fc57937da921da0d3d83450.1331778582.git.panweiping3@gmail.com>
-References: <20120314172237.GA12372@quad.redhat.com>
-Cc: Weiping Pan <panweiping3@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
-	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
-	netdev@vger.kernel.org (open list:BONDING DRIVER),
-	linux-kernel@vger.kernel.org (open list)
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120314172237.GA12372@quad.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Will Drewry <wad@chromium.org>
+Subject: [PATCH v15 00/13] seccomp_filter: syscall filtering using BPF
+Date: Wed, 14 Mar 2012 22:11:52 -0500
+Message-ID: <1331781125-15658-1-git-send-email-wad@chromium.org>
+Cc: linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	Will Drewry <wad@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Liang Zheng(lzheng@redhat.com) found that in the following topo,
-bonding does not send igmp report when we trigger a fail-over of bonding.
+Please see prior revisions of this patch series for a high
+level blurb.
 
-eth0--
-      |-- bond0 -- br0
-eth1--
+This revision makes a number of refinements and tweaks. The biggest
+change is a slight renumbering of the return codes which will break
+existing code using this patch series.
 
-modprobe bonding mode=1 miimon=100 resend_igmp=10
-ifconfig bond0 up
-ifenslave bond0 eth0 eth1
+I believe this patch is in good shape, and I don't see the need for
+any more API changes at this point.  I plan to start using this revision
+more extensively, and I'd certainly appreciate any testing.
 
-brctl addbr br0
-ifconfig br0 192.168.100.2/24 up
-brctl addif br0 bond0
+Thanks!
+will
 
-Add 192.168.100.2(br0) into a multicast group, like 224.10.10.10,
-then trigger a fali-over in bonding.
-You can see that parameter "resend_igmp" does not work.
 
-The reason is that when we add br0 into a multicast group,
-it does not propagate multicast knowledge down to its ports.
+Kees Cook (1):
+  seccomp: remove duplicated failure logging
 
-If we choose to propagate multicast knowledge down to all ports for bridge,
-then we have to track every change that is done to bridge, and keep a backup
-for all ports. It is hard to track, I think.
+Will Drewry (12):
+  sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+  net/compat.c,linux/filter.h: share compat_sock_fprog
+  seccomp: kill the seccomp_t typedef
+  arch/x86: add syscall_get_arch to syscall.h
+  asm/syscall.h: add syscall_get_arch
+  seccomp: add system call filtering using BPF
+  seccomp: add SECCOMP_RET_ERRNO
+  signal, x86: add SIGSYS info and make it synchronous.
+  seccomp: Add SECCOMP_RET_TRAP
+  ptrace,seccomp: Add PTRACE_SECCOMP support
+  x86: Enable HAVE_ARCH_SECCOMP_FILTER
+  Documentation: prctl/seccomp_filter
 
-Instead I choose to modify bonding to send igmp report for its master.
+ Documentation/prctl/seccomp_filter.txt |  156 +++++++++++
+ arch/Kconfig                           |   24 ++
+ arch/x86/Kconfig                       |    1 +
+ arch/x86/ia32/ia32_signal.c            |    4 +
+ arch/x86/include/asm/ia32.h            |    6 +
+ arch/x86/include/asm/syscall.h         |   23 ++
+ arch/x86/kernel/ptrace.c               |    7 +-
+ include/asm-generic/siginfo.h          |   22 ++
+ include/asm-generic/syscall.h          |   14 +
+ include/linux/Kbuild                   |    1 +
+ include/linux/audit.h                  |    8 +-
+ include/linux/filter.h                 |   12 +
+ include/linux/ptrace.h                 |    7 +-
+ include/linux/sched.h                  |    2 +-
+ include/linux/seccomp.h                |  105 +++++++-
+ kernel/auditsc.c                       |   10 +-
+ kernel/fork.c                          |    3 +
+ kernel/ptrace.c                        |    3 +
+ kernel/seccomp.c                       |  446 ++++++++++++++++++++++++++++++--
+ kernel/signal.c                        |    9 +-
+ kernel/sys.c                           |    2 +-
+ net/compat.c                           |    8 -
+ net/core/filter.c                      |    6 +
+ samples/Makefile                       |    2 +-
+ samples/seccomp/Makefile               |   38 +++
+ samples/seccomp/bpf-direct.c           |  176 +++++++++++++
+ samples/seccomp/bpf-fancy.c            |  102 ++++++++
+ samples/seccomp/bpf-helper.c           |   89 +++++++
+ samples/seccomp/bpf-helper.h           |  238 +++++++++++++++++
+ samples/seccomp/dropper.c              |   68 +++++
+ 30 files changed, 1538 insertions(+), 54 deletions(-)
+ create mode 100644 Documentation/prctl/seccomp_filter.txt
+ create mode 100644 samples/seccomp/Makefile
+ create mode 100644 samples/seccomp/bpf-direct.c
+ create mode 100644 samples/seccomp/bpf-fancy.c
+ create mode 100644 samples/seccomp/bpf-helper.c
+ create mode 100644 samples/seccomp/bpf-helper.h
+ create mode 100644 samples/seccomp/dropper.c
 
-Changelog:
-V2: correct comments
-V3: move this check into bond_resend_igmp_join_requests()
-
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- drivers/net/bonding/bond_main.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 435984a..037fdd3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -766,18 +766,26 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
-  */
- static void bond_resend_igmp_join_requests(struct bonding *bond)
- {
--	struct net_device *vlan_dev;
-+	struct net_device *bond_dev, *vlan_dev, *master_dev;
- 	struct vlan_entry *vlan;
- 
- 	read_lock(&bond->lock);
- 
-+	bond_dev = bond->dev;
-+
- 	/* rejoin all groups on bond device */
--	__bond_resend_igmp_join_requests(bond->dev);
-+	__bond_resend_igmp_join_requests(bond_dev);
-+
-+	/* rejoin all groups on its master */
-+	master_dev = bond_dev->master;
-+	if (unlikely(master_dev)) {
-+		__bond_resend_igmp_join_requests(master_dev);
-+	}
- 
- 	/* rejoin all groups on vlan devices */
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
- 		rcu_read_lock();
--		vlan_dev = __vlan_find_dev_deep(bond->dev,
-+		vlan_dev = __vlan_find_dev_deep(bond_dev,
- 						vlan->vlan_id);
- 		rcu_read_unlock();
- 		if (vlan_dev)
 -- 
-1.7.4.4
+1.7.5.4
+
