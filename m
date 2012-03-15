@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v15 11/13] ptrace,seccomp: Add PTRACE_SECCOMP support
-Date: Wed, 14 Mar 2012 22:12:03 -0500
-Message-ID: <1331781125-15658-12-git-send-email-wad@chromium.org>
+Subject: [PATCH v15 09/13] signal, x86: add SIGSYS info and make it synchronous.
+Date: Wed, 14 Mar 2012 22:12:01 -0500
+Message-ID: <1331781125-15658-10-git-send-email-wad@chromium.org>
 References: <1331781125-15658-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-arch@vger.kernel.org,
@@ -33,7 +33,7 @@ Cc: linux-arch@vger.kernel.org,
 	keescook@chromium.org,
 	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1128-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1132-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -41,179 +41,163 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1331781125-15658-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-This change adds support for a new ptrace option, PTRACE_O_TRACESECCOMP,
-and a new return value for seccomp BPF programs, SECCOMP_RET_TRACE.
+This change enables SIGSYS, defines _sigfields._sigsys, and adds
+x86 (compat) arch support.  _sigsys defines fields which allow
+a signal handler to receive the triggering system call number,
+the relevant AUDIT_ARCH_* value for that number, and the address
+of the callsite.
 
-When a tracer specifies the PTRACE_O_TRACESECCOMP ptrace option, the
-tracer will be notified, via PTRACE_EVENT_SECCOMP, for any syscall that
-results in a BPF program returning SECCOMP_RET_TRACE.  The 16-bit
-SECCOMP_RET_DATA mask of the BPF program return value will be passed as
-the ptrace_message and may be retrieved using PTRACE_GETEVENTMSG.
+SIGSYS is added to the SYNCHRONOUS_MASK because it is desirable for it
+to have setup_frame() called for it. The goal is to ensure that
+ucontext_t reflects the machine state from the time-of-syscall and not
+from another signal handler.
 
-If the subordinate process is not using seccomp filter, then no
-system call notifications will occur even if the option is specified.
+The first consumer of SIGSYS would be seccomp filter.  In particular,
+a filter program could specify a new return value, SECCOMP_RET_TRAP,
+which would result in the system call being denied and the calling
+thread signaled.  This also means that implementing arch-specific
+support can be dependent upon HAVE_ARCH_SECCOMP_FILTER.
 
-If there is no tracer with PTRACE_O_TRACESECCOMP when SECCOMP_RET_TRACE
-is returned, the system call will not be executed and an -ENOSYS errno
-will be returned to userspace.
-
-This change adds a dependency on the system call slow path.  Any future
-efforts to use the system call fast path for seccomp filter will need to
-address this restriction.
-
-v15: - add audit support for non-zero return codes
-     - clean up style (indan@nul.nu)
 v14: - rebase/nochanges
 v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-       (Brings back a change to ptrace.c and the masks.)
-v12: - rebase to linux-next
-     - use ptrace_event and update arch/Kconfig to mention slow-path dependency
-     - drop all tracehook changes and inclusion (oleg@redhat.com)
-v11: - invert the logic to just make it a PTRACE_SYSCALL accelerator
-       (indan@nul.nu)
-v10: - moved to PTRACE_O_SECCOMP / PT_TRACE_SECCOMP
-v9:  - n/a
-v8:  - guarded PTRACE_SECCOMP use with an ifdef
-v7:  - introduced
+v12: - reworded changelog (oleg@redhat.com)
+v11: - fix dropped words in the change description
+     - added fallback copy_siginfo support.
+     - added __ARCH_SIGSYS define to allow stepped arch support.
+v10: - first version based on suggestion
 
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Suggested-by: H. Peter Anvin <hpa@zytor.com>
 Signed-off-by: Will Drewry <wad@chromium.org>
 ---
- arch/Kconfig            |   11 ++++++-----
- include/linux/ptrace.h  |    7 +++++--
- include/linux/seccomp.h |    1 +
- kernel/ptrace.c         |    3 +++
- kernel/seccomp.c        |   13 +++++++++++--
- 5 files changed, 26 insertions(+), 9 deletions(-)
+ arch/x86/ia32/ia32_signal.c   |    4 ++++
+ arch/x86/include/asm/ia32.h   |    6 ++++++
+ include/asm-generic/siginfo.h |   22 ++++++++++++++++++++++
+ kernel/signal.c               |    9 ++++++++-
+ 4 files changed, 40 insertions(+), 1 deletions(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index d92a78e..3f8132c 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -202,15 +202,16 @@ config HAVE_CMPXCHG_DOUBLE
- config HAVE_ARCH_SECCOMP_FILTER
- 	bool
- 	help
--	  This symbol should be selected by an architecure if it provides:
--	  asm/syscall.h:
-+	  An arch should select this symbol if it provides all of these things:
- 	  - syscall_get_arch()
- 	  - syscall_get_arguments()
- 	  - syscall_rollback()
- 	  - syscall_set_return_value()
--	  SIGSYS siginfo_t support must be implemented.
--	  __secure_computing_int()/secure_computing()'s return value must be
--	  checked, with -1 resulting in the syscall being skipped.
-+	  - SIGSYS siginfo_t support
-+	  - uses __secure_computing_int() or secure_computing()
-+	  - secure_computing is called from a ptrace_event()-safe context
-+	  - secure_computing return value is checked and a return value of -1
-+	    results in the system call being skipped immediately.
- 
- config SECCOMP_FILTER
- 	def_bool y
-diff --git a/include/linux/ptrace.h b/include/linux/ptrace.h
-index c2f1f6a..84b3418 100644
---- a/include/linux/ptrace.h
-+++ b/include/linux/ptrace.h
-@@ -62,8 +62,9 @@
- #define PTRACE_O_TRACEEXEC	0x00000010
- #define PTRACE_O_TRACEVFORKDONE	0x00000020
- #define PTRACE_O_TRACEEXIT	0x00000040
-+#define PTRACE_O_TRACESECCOMP	0x00000080
- 
--#define PTRACE_O_MASK		0x0000007f
-+#define PTRACE_O_MASK		0x000000ff
- 
- /* Wait extended result codes for the above trace options.  */
- #define PTRACE_EVENT_FORK	1
-@@ -73,6 +74,7 @@
- #define PTRACE_EVENT_VFORK_DONE	5
- #define PTRACE_EVENT_EXIT	6
- #define PTRACE_EVENT_STOP	7
-+#define PTRACE_EVENT_SECCOMP	8
- 
- #include <asm/ptrace.h>
- 
-@@ -101,8 +103,9 @@
- #define PT_TRACE_EXEC		PT_EVENT_FLAG(PTRACE_EVENT_EXEC)
- #define PT_TRACE_VFORK_DONE	PT_EVENT_FLAG(PTRACE_EVENT_VFORK_DONE)
- #define PT_TRACE_EXIT		PT_EVENT_FLAG(PTRACE_EVENT_EXIT)
-+#define PT_TRACE_SECCOMP	PT_EVENT_FLAG(PTRACE_EVENT_SECCOMP)
- 
--#define PT_TRACE_MASK	0x000003f4
-+#define PT_TRACE_MASK	0x00000ff4
- 
- /* single stepping state bits (used on ARM and PA-RISC) */
- #define PT_SINGLESTEP_BIT	31
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index a5078fb..306733e 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -21,6 +21,7 @@
- #define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
- #define SECCOMP_RET_TRAP	0x00030000U /* disallow and force a SIGSYS */
- #define SECCOMP_RET_ERRNO	0x00050000U /* returns an errno */
-+#define SECCOMP_RET_TRACE	0x7ff00000U /* pass to a tracer or disallow */
- #define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
- 
- /* Masks for the return value sections. */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 00ab2ca..8cf6da1 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -551,6 +551,9 @@ static int ptrace_setoptions(struct task_struct *child, unsigned long data)
- 	if (data & PTRACE_O_TRACEEXIT)
- 		child->ptrace |= PT_TRACE_EXIT;
- 
-+	if (data & PTRACE_O_TRACESECCOMP)
-+		child->ptrace |= PT_TRACE_SECCOMP;
-+
- 	return (data & ~PTRACE_O_MASK) ? -EINVAL : 0;
- }
- 
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index fb3b993..725e83e 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -17,13 +17,13 @@
- #include <linux/audit.h>
- #include <linux/compat.h>
- #include <linux/filter.h>
-+#include <linux/ptrace.h>
- #include <linux/sched.h>
- #include <linux/seccomp.h>
- #include <linux/security.h>
- #include <linux/slab.h>
- #include <linux/uaccess.h>
- 
--#include <linux/tracehook.h>
- #include <asm/syscall.h>
- 
- /* #define SECCOMP_DEBUG 1 */
-@@ -398,7 +398,7 @@ int __secure_computing_int(int this_syscall)
- 	case SECCOMP_MODE_FILTER:
- 		ret = seccomp_run_filters(this_syscall);
- 		data = ret & SECCOMP_RET_DATA;
--		switch (code & SECCOMP_RET_ACTION) {
-+		switch (ret & SECCOMP_RET_ACTION) {
- 		case SECCOMP_RET_ERRNO:
- 			/* Set the low-order 16-bits as a errno. */
- 			syscall_set_return_value(current, task_pt_regs(current),
-@@ -410,6 +410,15 @@ int __secure_computing_int(int this_syscall)
- 			/* Let the filter pass back 16 bits of data. */
- 			seccomp_send_sigsys(this_syscall, data);
- 			goto skip;
-+		case SECCOMP_RET_TRACE:
-+			/* Skip these calls if there is no tracer. */
-+			if (!ptrace_event_enabled(current, PTRACE_EVENT_SECCOMP))
-+				goto skip;
-+			/* Allow the BPF to provide the event message */
-+			ptrace_event(PTRACE_EVENT_SECCOMP, data);
-+			if (fatal_signal_pending(current))
+diff --git a/arch/x86/ia32/ia32_signal.c b/arch/x86/ia32/ia32_signal.c
+index 6557769..c81d2c7 100644
+--- a/arch/x86/ia32/ia32_signal.c
++++ b/arch/x86/ia32/ia32_signal.c
+@@ -73,6 +73,10 @@ int copy_siginfo_to_user32(compat_siginfo_t __user *to, siginfo_t *from)
+ 			switch (from->si_code >> 16) {
+ 			case __SI_FAULT >> 16:
+ 				break;
++			case __SI_SYS >> 16:
++				put_user_ex(from->si_syscall, &to->si_syscall);
++				put_user_ex(from->si_arch, &to->si_arch);
 +				break;
-+			return 0;
- 		case SECCOMP_RET_ALLOW:
- 			return 0;
- 		case SECCOMP_RET_KILL:
+ 			case __SI_CHLD >> 16:
+ 				put_user_ex(from->si_utime, &to->si_utime);
+ 				put_user_ex(from->si_stime, &to->si_stime);
+diff --git a/arch/x86/include/asm/ia32.h b/arch/x86/include/asm/ia32.h
+index 1f7e625..541485f 100644
+--- a/arch/x86/include/asm/ia32.h
++++ b/arch/x86/include/asm/ia32.h
+@@ -126,6 +126,12 @@ typedef struct compat_siginfo {
+ 			int _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
+ 			int _fd;
+ 		} _sigpoll;
++
++		struct {
++			unsigned int _call_addr; /* calling insn */
++			int _syscall;	/* triggering system call number */
++			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
++		} _sigsys;
+ 	} _sifields;
+ } compat_siginfo_t;
+ 
+diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
+index 0dd4e87..31306f5 100644
+--- a/include/asm-generic/siginfo.h
++++ b/include/asm-generic/siginfo.h
+@@ -90,9 +90,18 @@ typedef struct siginfo {
+ 			__ARCH_SI_BAND_T _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
+ 			int _fd;
+ 		} _sigpoll;
++
++		/* SIGSYS */
++		struct {
++			void __user *_call_addr; /* calling insn */
++			int _syscall;	/* triggering system call number */
++			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
++		} _sigsys;
+ 	} _sifields;
+ } siginfo_t;
+ 
++/* If the arch shares siginfo, then it has SIGSYS. */
++#define __ARCH_SIGSYS
+ #endif
+ 
+ /*
+@@ -116,6 +125,11 @@ typedef struct siginfo {
+ #define si_addr_lsb	_sifields._sigfault._addr_lsb
+ #define si_band		_sifields._sigpoll._band
+ #define si_fd		_sifields._sigpoll._fd
++#ifdef __ARCH_SIGSYS
++#define si_call_addr	_sifields._sigsys._call_addr
++#define si_syscall	_sifields._sigsys._syscall
++#define si_arch		_sifields._sigsys._arch
++#endif
+ 
+ #ifdef __KERNEL__
+ #define __SI_MASK	0xffff0000u
+@@ -126,6 +140,7 @@ typedef struct siginfo {
+ #define __SI_CHLD	(4 << 16)
+ #define __SI_RT		(5 << 16)
+ #define __SI_MESGQ	(6 << 16)
++#define __SI_SYS	(7 << 16)
+ #define __SI_CODE(T,N)	((T) | ((N) & 0xffff))
+ #else
+ #define __SI_KILL	0
+@@ -135,6 +150,7 @@ typedef struct siginfo {
+ #define __SI_CHLD	0
+ #define __SI_RT		0
+ #define __SI_MESGQ	0
++#define __SI_SYS	0
+ #define __SI_CODE(T,N)	(N)
+ #endif
+ 
+@@ -232,6 +248,12 @@ typedef struct siginfo {
+ #define NSIGPOLL	6
+ 
+ /*
++ * SIGSYS si_codes
++ */
++#define SYS_SECCOMP		(__SI_SYS|1)	/* seccomp triggered */
++#define NSIGSYS	1
++
++/*
+  * sigevent definitions
+  * 
+  * It seems likely that SIGEV_THREAD will have to be handled from 
+diff --git a/kernel/signal.c b/kernel/signal.c
+index c73c428..15a9e9b 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -160,7 +160,7 @@ void recalc_sigpending(void)
+ 
+ #define SYNCHRONOUS_MASK \
+ 	(sigmask(SIGSEGV) | sigmask(SIGBUS) | sigmask(SIGILL) | \
+-	 sigmask(SIGTRAP) | sigmask(SIGFPE))
++	 sigmask(SIGTRAP) | sigmask(SIGFPE) | sigmask(SIGSYS))
+ 
+ int next_signal(struct sigpending *pending, sigset_t *mask)
+ {
+@@ -2686,6 +2686,13 @@ int copy_siginfo_to_user(siginfo_t __user *to, siginfo_t *from)
+ 		err |= __put_user(from->si_uid, &to->si_uid);
+ 		err |= __put_user(from->si_ptr, &to->si_ptr);
+ 		break;
++#ifdef __ARCH_SIGSYS
++	case __SI_SYS:
++		err |= __put_user(from->si_call_addr, &to->si_call_addr);
++		err |= __put_user(from->si_syscall, &to->si_syscall);
++		err |= __put_user(from->si_arch, &to->si_arch);
++		break;
++#endif
+ 	default: /* this is just in case for now ... */
+ 		err |= __put_user(from->si_pid, &to->si_pid);
+ 		err |= __put_user(from->si_uid, &to->si_uid);
 -- 
 1.7.5.4
