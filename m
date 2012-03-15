@@ -1,30 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.3-rc6 netjet.ko sleeping while in atomic.
-Date: Thu, 15 Mar 2012 11:07:33 +0100
-Message-ID: <20120315100733.GA6407@electric-eye.fr.zoreil.com>
-References: <20120314191650.GB18135@digium.com> <20120315084840.GA20202@gw.linux-pingi.de>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb
+ truesizes
+Date: Thu, 15 Mar 2012 04:49:45 -0700
+Message-ID: <1331812185.2543.25.camel@edumazet-laptop>
+References: <1331792312.2543.16.camel@edumazet-laptop>
+	 <CANEJEGtndncj1biMZSBC1rt36a66iWGp7wU_OxCxpA_PVBGZqA@mail.gmail.com>
+	 <001401cd029f$999ab140$ccd013c0$@com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Karsten Keil <kkeil@linux-pingi.de>, netdev@vger.kernel.org,
-	Shaun Ruffell <sruffell@digium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51425 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757863Ab2COKJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 06:09:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20120315084840.GA20202@gw.linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: 'Grant Grundler' <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	'Greg Kroah-Hartman' <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, 'netdev' <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	'Aurelien Jacobs' <aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org>,
+	'Trond Wuellner' <trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	'Paul Stewart' <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: "ASIX Allan Email [office]" <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <001401cd029f$999ab140$ccd013c0$@com.tw>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Karsten Keil <kkeil@linux-pingi.de> :
-> Thanks for the report.
-> I will have a look on this.
+Le jeudi 15 mars 2012 =C3=A0 19:34 +0800, ASIX Allan Email [office] a =C3=
+=A9crit :
+> Dear Grant and All,
+>=20
+> We are going to do some testing on the revised asix.c driver with
+> ASIX's different USB to LAN solutions
+> (AX88178/AX88772B/AX88772A/AX88772). Please advise where can I
+> download the latest revised asix.c driver source with this driver
+> patch for further testing? (Sorry I am newbie on Linux kernel driver
+> patch threads. =3D_=3D"") Thanks a lot.
+>=20
+Hi Allan
 
-Beyond the bug in itsel, nj_irq can currently be called just after the
-lock release in the first 'if (card->base_s)' bloc from nj_release.
-I am not sure this is very safe either. It would imho not hurt to put
-the driver in such a position that free_irq gets called sooner.
+I based this patch on net-next tree, the official network 'next' tree
+maintained by David Miller, available here :
 
--- 
-Ueimor
+http://git2.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dsum=
+mary
+
+Does it answer to your question ?
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
