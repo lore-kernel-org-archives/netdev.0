@@ -1,93 +1,135 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 15/34] starfire: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:12 +0100
-Message-ID: <71828a700b2e7768626050c4f1fc3e2ee914d0ae.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 16/34] starfire: remove deprecated options.
+Date: Thu, 15 Mar 2012 14:57:13 +0100
+Message-ID: <1c40391c12d3bbe8f47c6825b18cb4cbd9f4668b.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
 	Ion Badulescu <ionut@badula.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51863 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51862 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761156Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761143Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Mar 2012 09:59:46 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's useless to check mem_start on a newly allocated device as well.
+Some settings are duplicated between ethtool link management and module
+options. The latter is trimmed. The half duplex, speed and autonegotiation
+defaults are kept unchanged.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Ion Badulescu <ionut@badula.org>
 ---
- drivers/net/ethernet/adaptec/starfire.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/adaptec/starfire.c |   40 ++++--------------------------
+ 1 files changed, 6 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
-index d896816..4f27bff 100644
+index 4f27bff..d920a52 100644
 --- a/drivers/net/ethernet/adaptec/starfire.c
 +++ b/drivers/net/ethernet/adaptec/starfire.c
-@@ -753,9 +753,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
- 	/* wait a little longer */
- 	udelay(1000);
+@@ -114,15 +114,6 @@ static int rx_copybreak /* = 0 */;
+ #define DMA_BURST_SIZE 128
+ #endif
  
--	dev->base_addr = (unsigned long)base;
--	dev->irq = irq;
+-/* Used to pass the media type, etc.
+-   Both 'options[]' and 'full_duplex[]' exist for driver interoperability.
+-   The media type is usually passed in 'options[]'.
+-   These variables are deprecated, use ethtool instead. -Ion
+-*/
+-#define MAX_UNITS 8		/* More are supported, limit only on options */
+-static int options[MAX_UNITS] = {0, };
+-static int full_duplex[MAX_UNITS] = {0, };
 -
- 	np = netdev_priv(dev);
- 	np->dev = dev;
- 	np->base = base;
-@@ -773,8 +770,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
- 	drv_flags = netdrv_tbl[chip_idx].drv_flags;
+ /* Operational parameters that are set at compile time. */
  
- 	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
--	if (dev->mem_start)
--		option = dev->mem_start;
+ /* The "native" ring sizes are either 256 or 2048.
+@@ -192,8 +183,6 @@ module_param(debug, int, 0);
+ module_param(rx_copybreak, int, 0);
+ module_param(intr_latency, int, 0);
+ module_param(small_frames, int, 0);
+-module_param_array(options, int, NULL, 0);
+-module_param_array(full_duplex, int, NULL, 0);
+ module_param(enable_hw_cksum, int, 0);
+ MODULE_PARM_DESC(max_interrupt_work, "Maximum events handled per interrupt");
+ MODULE_PARM_DESC(mtu, "MTU (all boards)");
+@@ -201,8 +190,6 @@ MODULE_PARM_DESC(debug, "Debug level (0-6)");
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+ MODULE_PARM_DESC(intr_latency, "Maximum interrupt latency, in microseconds");
+ MODULE_PARM_DESC(small_frames, "Maximum size of receive frames that bypass interrupt latency (0,64,128,256,512)");
+-MODULE_PARM_DESC(options, "Deprecated: Bits 0-3: media type, bit 17: full duplex");
+-MODULE_PARM_DESC(full_duplex, "Deprecated: Forced full-duplex setting (0/1)");
+ MODULE_PARM_DESC(enable_hw_cksum, "Enable/disable hardware cksum support (0/1)");
  
- 	/* The lower four bits are the media type. */
- 	if (option & 0x200)
-@@ -909,13 +904,14 @@ static int netdev_open(struct net_device *dev)
- 	const __be32 *fw_rx_data, *fw_tx_data;
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base;
-+	const int irq = np->pci_dev->irq;
- 	int i, retval;
- 	size_t tx_size, rx_size;
- 	size_t tx_done_q_size, rx_done_q_size, tx_ring_size, rx_ring_size;
+ /*
+@@ -657,10 +644,10 @@ static const struct net_device_ops netdev_ops = {
+ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 				       const struct pci_device_id *ent)
+ {
++	struct device *d = &pdev->dev;
+ 	struct netdev_private *np;
+-	int i, irq, option, chip_idx = ent->driver_data;
++	int i, irq, chip_idx = ent->driver_data;
+ 	struct net_device *dev;
+-	static int card_idx = -1;
+ 	long ioaddr;
+ 	void __iomem *base;
+ 	int drv_flags, io_size;
+@@ -673,15 +660,13 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 		printk(version);
+ #endif
  
- 	/* Do we ever need to reset the chip??? */
+-	card_idx++;
+-
+ 	if (pci_enable_device (pdev))
+ 		return -EIO;
  
--	retval = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
-+	retval = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
- 	if (retval)
- 		return retval;
- 
-@@ -924,7 +920,7 @@ static int netdev_open(struct net_device *dev)
- 	writel(1, ioaddr + PCIDeviceConfig);
- 	if (debug > 1)
- 		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
--		       dev->name, dev->irq);
-+		       dev->name, irq);
- 
- 	/* Allocate the various queues. */
- 	if (!np->queue_mem) {
-@@ -935,7 +931,7 @@ static int netdev_open(struct net_device *dev)
- 		np->queue_mem_size = tx_done_q_size + rx_done_q_size + tx_ring_size + rx_ring_size;
- 		np->queue_mem = pci_alloc_consistent(np->pci_dev, np->queue_mem_size, &np->queue_mem_dma);
- 		if (np->queue_mem == NULL) {
--			free_irq(dev->irq, dev);
-+			free_irq(irq, dev);
- 			return -ENOMEM;
- 		}
- 
-@@ -1962,7 +1958,7 @@ static int netdev_close(struct net_device *dev)
- 		}
+ 	ioaddr = pci_resource_start(pdev, 0);
+ 	io_size = pci_resource_len(pdev, 0);
+ 	if (!ioaddr || ((pci_resource_flags(pdev, 0) & IORESOURCE_MEM) == 0)) {
+-		printk(KERN_ERR DRV_NAME " %d: no PCI MEM resources, aborting\n", card_idx);
++		dev_err(d, "no PCI MEM resources, aborting\n");
+ 		return -ENODEV;
  	}
  
--	free_irq(dev->irq, dev);
-+	free_irq(np->pci_dev->irq, dev);
+@@ -694,14 +679,14 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 	irq = pdev->irq;
  
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 	if (pci_request_regions (pdev, DRV_NAME)) {
+-		printk(KERN_ERR DRV_NAME " %d: cannot reserve PCI resources, aborting\n", card_idx);
++		dev_err(d, "cannot reserve PCI resources, aborting\n");
+ 		goto err_out_free_netdev;
+ 	}
+ 
+ 	base = ioremap(ioaddr, io_size);
+ 	if (!base) {
+-		printk(KERN_ERR DRV_NAME " %d: cannot remap %#x @ %#lx, aborting\n",
+-			card_idx, io_size, ioaddr);
++		dev_err(d, "cannot remap %#x @ %#lx, aborting\n",
++			io_size, ioaddr);
+ 		goto err_out_free_res;
+ 	}
+ 
+@@ -769,19 +754,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 
+ 	drv_flags = netdrv_tbl[chip_idx].drv_flags;
+ 
+-	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
+-
+-	/* The lower four bits are the media type. */
+-	if (option & 0x200)
+-		np->mii_if.full_duplex = 1;
+-
+-	if (card_idx < MAX_UNITS && full_duplex[card_idx] > 0)
+-		np->mii_if.full_duplex = 1;
+-
+-	if (np->mii_if.full_duplex)
+-		np->mii_if.force_media = 1;
+-	else
+-		np->mii_if.force_media = 0;
+ 	np->speed100 = 1;
+ 
+ 	/* timer resolution is 128 * 0.8us */
 -- 
 1.7.7.6
