@@ -1,109 +1,93 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 22/34] sunhme: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:19 +0100
-Message-ID: <e8b3465856499347b5e223cdc82d724308ce99b1.1331814082.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 15/34] starfire: stop using net_device.{base_addr, irq}.
+Date: Thu, 15 Mar 2012 14:57:12 +0100
+Message-ID: <71828a700b2e7768626050c4f1fc3e2ee914d0ae.1331814082.git.romieu@fr.zoreil.com>
 References: <cover.1331814082.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>
+Cc: "David Miller" <davem@davemloft.net>,
+	Ion Badulescu <ionut@badula.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51861 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51863 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752752Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761156Ab2CON7q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Mar 2012 09:59:46 -0400
 In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/sun/sunhme.c |   20 +++++++++-----------
- drivers/net/ethernet/sun/sunhme.h |    1 +
- 2 files changed, 10 insertions(+), 11 deletions(-)
+It's useless to check mem_start on a newly allocated device as well.
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 8b627e2..a470f38 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -2183,13 +2183,14 @@ static int happy_meal_open(struct net_device *dev)
- 	 * into a single source which we register handling at probe time.
- 	 */
- 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO) {
--		if (request_irq(dev->irq, happy_meal_interrupt,
--				IRQF_SHARED, dev->name, (void *)dev)) {
-+		res = request_irq(hp->irq, happy_meal_interrupt, IRQF_SHARED,
-+				  dev->name, dev);
-+		if (res < 0) {
- 			HMD(("EAGAIN\n"));
- 			printk(KERN_ERR "happy_meal(SBUS): Can't order irq %d to go.\n",
--			       dev->irq);
-+			       hp->irq);
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Ion Badulescu <ionut@badula.org>
+---
+ drivers/net/ethernet/adaptec/starfire.c |   14 +++++---------
+ 1 files changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
+index d896816..4f27bff 100644
+--- a/drivers/net/ethernet/adaptec/starfire.c
++++ b/drivers/net/ethernet/adaptec/starfire.c
+@@ -753,9 +753,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 	/* wait a little longer */
+ 	udelay(1000);
  
--			return -EAGAIN;
-+			return res;
+-	dev->base_addr = (unsigned long)base;
+-	dev->irq = irq;
+-
+ 	np = netdev_priv(dev);
+ 	np->dev = dev;
+ 	np->base = base;
+@@ -773,8 +770,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 	drv_flags = netdrv_tbl[chip_idx].drv_flags;
+ 
+ 	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
+-	if (dev->mem_start)
+-		option = dev->mem_start;
+ 
+ 	/* The lower four bits are the media type. */
+ 	if (option & 0x200)
+@@ -909,13 +904,14 @@ static int netdev_open(struct net_device *dev)
+ 	const __be32 *fw_rx_data, *fw_tx_data;
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base;
++	const int irq = np->pci_dev->irq;
+ 	int i, retval;
+ 	size_t tx_size, rx_size;
+ 	size_t tx_done_q_size, rx_done_q_size, tx_ring_size, rx_ring_size;
+ 
+ 	/* Do we ever need to reset the chip??? */
+ 
+-	retval = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
++	retval = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
+ 	if (retval)
+ 		return retval;
+ 
+@@ -924,7 +920,7 @@ static int netdev_open(struct net_device *dev)
+ 	writel(1, ioaddr + PCIDeviceConfig);
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
+-		       dev->name, dev->irq);
++		       dev->name, irq);
+ 
+ 	/* Allocate the various queues. */
+ 	if (!np->queue_mem) {
+@@ -935,7 +931,7 @@ static int netdev_open(struct net_device *dev)
+ 		np->queue_mem_size = tx_done_q_size + rx_done_q_size + tx_ring_size + rx_ring_size;
+ 		np->queue_mem = pci_alloc_consistent(np->pci_dev, np->queue_mem_size, &np->queue_mem_dma);
+ 		if (np->queue_mem == NULL) {
+-			free_irq(dev->irq, dev);
++			free_irq(irq, dev);
+ 			return -ENOMEM;
+ 		}
+ 
+@@ -1962,7 +1958,7 @@ static int netdev_close(struct net_device *dev)
  		}
  	}
  
-@@ -2200,7 +2201,7 @@ static int happy_meal_open(struct net_device *dev)
- 	spin_unlock_irq(&hp->happy_lock);
+-	free_irq(dev->irq, dev);
++	free_irq(np->pci_dev->irq, dev);
  
- 	if (res && ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO))
--		free_irq(dev->irq, dev);
-+		free_irq(hp->irq, dev);
- 	return res;
- }
- 
-@@ -2222,7 +2223,7 @@ static int happy_meal_close(struct net_device *dev)
- 	 * time and never unregister.
- 	 */
- 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO)
--		free_irq(dev->irq, dev);
-+		free_irq(hp->irq, dev);
- 
- 	return 0;
- }
-@@ -2778,7 +2779,7 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
- 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
- 	dev->features |= dev->hw_features | NETIF_F_RXCSUM;
- 
--	dev->irq = op->archdata.irqs[0];
-+	hp->irq = op->archdata.irqs[0];
- 
- #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
- 	/* Hook up SBUS register/descriptor accessors. */
-@@ -2982,8 +2983,6 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
- 	if (hme_version_printed++ == 0)
- 		printk(KERN_INFO "%s", version);
- 
--	dev->base_addr = (long) pdev;
--
- 	hp = netdev_priv(dev);
- 
- 	hp->happy_dev = pdev;
-@@ -3088,12 +3087,11 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
- 
- 	init_timer(&hp->happy_timer);
- 
-+	hp->irq = pdev->irq;
- 	hp->dev = dev;
- 	dev->netdev_ops = &hme_netdev_ops;
- 	dev->watchdog_timeo = 5*HZ;
- 	dev->ethtool_ops = &hme_ethtool_ops;
--	dev->irq = pdev->irq;
--	dev->dma = 0;
- 
- 	/* Happy Meal can do it all... */
- 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
-diff --git a/drivers/net/ethernet/sun/sunhme.h b/drivers/net/ethernet/sun/sunhme.h
-index 64f2783..f430765 100644
---- a/drivers/net/ethernet/sun/sunhme.h
-+++ b/drivers/net/ethernet/sun/sunhme.h
-@@ -432,6 +432,7 @@ struct happy_meal {
- 
- 	dma_addr_t                hblock_dvma;    /* DVMA visible address happy block  */
- 	unsigned int              happy_flags;    /* Driver state flags                */
-+	int                       irq;
- 	enum happy_transceiver    tcvr_type;      /* Kind of transceiver in use        */
- 	unsigned int              happy_bursts;   /* Get your mind out of the gutter   */
- 	unsigned int              paddr;          /* PHY address for transceiver       */
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
 -- 
 1.7.7.6
