@@ -1,48 +1,31 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: net next git tree cloning - a problem
-Date: Thu, 15 Mar 2012 21:51:41 +0200
-Message-ID: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: net next git tree cloning - a problem
+Date: Thu, 15 Mar 2012 16:21:52 -0400
+Message-ID: <1331842912.23722.6.camel@frustration.ornl.gov>
+References: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Kevin Wilson <wkevils@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:51752 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031828Ab2COTvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 15:51:42 -0400
-Received: by vcqp1 with SMTP id p1so3517756vcq.19
-        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 12:51:41 -0700 (PDT)
+Received: from mta02.ornl.gov ([128.219.14.62]:46062 "EHLO mta02.ornl.gov"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161428Ab2COUbb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 16:31:31 -0400
+In-Reply-To: <CAGXs5wVqqD=v3OruOPMewmUdEyMtGEV3RHwsNih+yBeFr5-fvQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I want to clone net-next tree of davem.
+On Thu, 2012-03-15 at 21:51 +0200, Kevin Wilson wrote:
+> git log | more
+> 
+> shows:
+> 
+> commit cdf485be3a63d1f34293740fb726088c6840ceea
+> Author: John Fastabend <john.r.fastabend@intel.com>
+> Date:   Sat Feb 11 06:26:00 2012 +0000
 
-AFAIK, this is the url to clone:
-http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-Also according to next link, this is the url:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=summary
-
-
-I tried today
-git clone http://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-and got a tree.
-But
-git log | more
-
-shows:
-
-commit cdf485be3a63d1f34293740fb726088c6840ceea
-Author: John Fastabend <john.r.fastabend@intel.com>
-Date:   Sat Feb 11 06:26:00 2012 +0000
-
-
-I suppose there were patches since Feb 11 ...
-
-Is there a different url for cloning net-next ?
-
-
-rgs,
-Kevin
+git shows the date the patch was written by default, not the date it was
+committed to the tree. Use 'git log --pretty=fuller' and you'll see the
+commit date was much more recent.
