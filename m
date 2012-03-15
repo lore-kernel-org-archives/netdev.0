@@ -1,68 +1,95 @@
-From: Dave Jones <davej@redhat.com>
-Subject: 3.3-rc snmp6 panic
-Date: Thu, 15 Mar 2012 01:25:06 -0400
-Message-ID: <20120315052506.GA5974@redhat.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Thu, 15 Mar 2012 08:06:35 +0200
+Message-ID: <20120315080635.1f76512b@vostro>
+References: <20120314190156.622c8cd5@vostro>
+	<1331745314.6022.27.camel@edumazet-glaptop>
+	<20120314192945.65867e9f@vostro>
+	<1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120314215142.655ae607@vostro>
+	<1331755965.6022.55.camel@edumazet-glaptop>
+	<20120314223343.23dc9df3@vostro>
+	<20120314205319.GA28394@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10870 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966Ab2COF4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 01:56:05 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q2F5u3iw019626
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 01:56:04 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-49.phx2.redhat.com [10.3.113.49])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q2F5P8Mr003070
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 01:25:09 -0400
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id q2F5P7PS008656
-	for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 01:25:07 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id q2F5P6Tt008654
-	for netdev@vger.kernel.org; Thu, 15 Mar 2012 01:25:06 -0400
-Content-Disposition: inline
+Received: from mail-we0-f174.google.com ([74.125.82.174]:49331 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753182Ab2COGHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 02:07:17 -0400
+Received: by wejx9 with SMTP id x9so2451518wej.19
+        for <netdev@vger.kernel.org>; Wed, 14 Mar 2012 23:07:16 -0700 (PDT)
+In-Reply-To: <20120314205319.GA28394@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been seeing an occasional panic when I shut down my router
-since I put 3.3 on there. It happens about once a week, always during
-shutdown.  It wedges before I can get a good capture of the trace.
-This is the best I've captured so far.. https://twitpic.com/8wh5l5
-(apologies in advance for blurriness)
+On Wed, 14 Mar 2012 21:53:19 +0100 Francois Romieu
+<romieu@fr.zoreil.com> wrote:
 
->From comparing the Code: line, and the objdump output, the code it's
-choking on in mld_sendpack seems to be a skb_dst macro in the NF_HOOK..
+> Timo Teras <timo.teras@iki.fi> :
+> [...]
+> > # ethtool -S eth2
+> > NIC statistics:
+> >      tx_packets: 2069391193
+> >      rx_packets: 3245815642
+> >      tx_errors: 0
+> >      rx_errors: 645238
+> >      rx_missed: 31414
+> 
+> It does not look like stuff for the higher layers guys.
+> 
+> Can you tshark -w foobar on the sender side and
+> 'while : ; do sleep 1; ethtool -S eth2 >> glop; done' on the receiver
+> during a bad wget (a big zero filled file should compress well).
+
+Indeed.
+
+It seems that my earlier test about the "GRO off" effect were mistaken
+(I used accidentally proxy, and that gave the illusion that things are
+working. Whoops.)
+
+So far I changed the cross-over cable and it didn't help. However,
+forcing the NIC to 100mbit/full-duplex mode fixes the rx_errors. It
+seems that something bad is happening in the gigabit mode.
+
+# ethtool eth2
+Settings for eth2:
+	Supported ports: [ TP MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Half 1000baseT/Full 
+	Supported pause frame use: No
+	Supports auto-negotiation: Yes
+	Advertised link modes:  100baseT/Full 
+	Advertised pause frame use: Symmetric Receive-only
+	Advertised auto-negotiation: Yes
+	Link partner advertised link modes:  10baseT/Half 10baseT/Full 
+	                                     100baseT/Half 100baseT/Full 
+	Link partner advertised pause frame use: Symmetric Receive-only
+	Link partner advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: MII
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Supports Wake-on: pumbg
+	Wake-on: g
+	Current message level: 0x00000033 (51)
+			       drv probe ifdown ifup
+	Link detected: yes
 
 
-        err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL, skb->dev,
-    2dd9:       4c 8b 43 20             mov    0x20(%rbx),%r8
-    2ddd:       e9 00 00 00 00          jmpq   2de2 <mld_sendpack+0x1b2>
-static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
-{
-        /* If refdst was not refcounted, check we still are in a 
-         * rcu_read_lock section
-         */
-        WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
-    2de2:       48 8b 43 58             mov    0x58(%rbx),%rax
-    2de6:       a8 01                   test   $0x1,%al
-    2de8:       0f 85 d2 01 00 00       jne    2fc0 <mld_sendpack+0x390>
-                !rcu_read_lock_held() &&
-                !rcu_read_lock_bh_held());
-        return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK);
-    2dee:       48 83 e0 fe             and    $0xfffffffffffffffe,%rax
-    2df2:       48 89 df                mov    %rbx,%rdi
-    2df5:       ff 50 58                callq  *0x58(%rax)           <-----  BOOM
+I wonder if it's using pause frames and that's messing things up. Seems
+that I can't turn it off, though.
 
+I can also double check my cables, though it is factory made Cat-5E
+cross-over cable; and happens with two different cables.
 
-This machine is running an snmpd, for my mrtg setup, so the teardown of that
-service is probably what's triggering it. But I can start/stop it in a loop
-as much as I want without it happening, so maybe the kernel needs to accumulate
-some state from it for a while first ?
-
-Anyone have any ideas what's happening here ?
-
-	Dave
+-Timo
