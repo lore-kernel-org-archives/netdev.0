@@ -1,69 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 08/34] sundance: stop using net_device.{base_addr, irq}.
-Date: Thu, 15 Mar 2012 14:57:05 +0100
-Message-ID: <7b58b85fa2e4e46a9e5874a4c917bd4a415d7073.1331814082.git.romieu@fr.zoreil.com>
-References: <cover.1331814082.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51836 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750966Ab2CON7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 09:59:43 -0400
-In-Reply-To: <cover.1331814082.git.romieu@fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v15 11/13] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Thu, 15 Mar 2012 09:40:13 -0500
+Message-ID: <CABqD9hZ-i-Aa5+7DTmtQ5JU4EAKQfP=HenqgJeFZ2pftQqoUcg@mail.gmail.com>
+References: <1331781125-15658-1-git-send-email-wad@chromium.org>
+	<1331781125-15658-12-git-send-email-wad@chromium.org>
+	<d2e03d5f063de84d1bae3c3e06296f81.squirrel@webmail.greenhost.nl>
+Reply-To: kernel-hardening@lists.openwall.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
+	hpa@zytor.com, mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Indan Zupancic <indan@nul.nu>
+Return-path: <kernel-hardening-return-1134-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <d2e03d5f063de84d1bae3c3e06296f81.squirrel@webmail.greenhost.nl>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/dlink/sundance.c |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+On Wed, Mar 14, 2012 at 11:49 PM, Indan Zupancic <indan@nul.nu> wrote:
+> Hi Will,
+>
+> On Thu, March 15, 2012 04:12, Will Drewry wrote:
+>> @@ -73,6 +74,7 @@
+>> =A0#define PTRACE_EVENT_VFORK_DONE =A0 =A0 =A05
+>> =A0#define PTRACE_EVENT_EXIT =A0 =A06
+>> =A0#define PTRACE_EVENT_STOP =A0 =A07
+>> +#define PTRACE_EVENT_SECCOMP 8
+>>
+>> =A0#include <asm/ptrace.h>
+>>
+>> @@ -101,8 +103,9 @@
+>> =A0#define PT_TRACE_EXEC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PT_EVENT_FLAG(PT=
+RACE_EVENT_EXEC)
+>> =A0#define PT_TRACE_VFORK_DONE =A0PT_EVENT_FLAG(PTRACE_EVENT_VFORK_DONE)
+>> =A0#define PT_TRACE_EXIT =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PT_EVENT_FLAG(PT=
+RACE_EVENT_EXIT)
+>> +#define PT_TRACE_SECCOMP =A0 =A0 PT_EVENT_FLAG(PTRACE_EVENT_SECCOMP)
+>>
+>> -#define PT_TRACE_MASK =A0 =A0 =A0 =A00x000003f4
+>> +#define PT_TRACE_MASK =A0 =A0 =A0 =A00x00000ff4
+>
+> Did you miss this bit?
 
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index d783f4f..d7bb52a 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -522,9 +522,6 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
- 			cpu_to_le16(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
--	dev->base_addr = (unsigned long)ioaddr;
--	dev->irq = irq;
--
- 	np = netdev_priv(dev);
- 	np->base = ioaddr;
- 	np->pci_dev = pdev;
-@@ -828,18 +825,19 @@ static int netdev_open(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base;
-+	const int irq = np->pci_dev->irq;
- 	unsigned long flags;
- 	int i;
- 
- 	/* Do we need to reset the chip??? */
- 
--	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
-+	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
- 	if (i)
- 		return i;
- 
- 	if (netif_msg_ifup(np))
--		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
--			   dev->name, dev->irq);
-+		printk(KERN_DEBUG "%s: netdev_open() irq %d\n", dev->name, irq);
-+
- 	init_ring(dev);
- 
- 	iowrite32(np->rx_ring_dma, ioaddr + RxListPtr);
-@@ -1814,7 +1812,7 @@ static int netdev_close(struct net_device *dev)
- 	}
- #endif /* __i386__ debugging only */
- 
--	free_irq(dev->irq, dev);
-+	free_irq(np->pci_dev->irq, dev);
- 
- 	del_timer_sync(&np->timer);
- 
--- 
-1.7.7.6
+Kinda.  I'll go ahead and switch it to 0xbf4, but PT_TRACE_MASK
+doesn't exist in linux-next so this bit disappears on merge.  However,
+it is relevant if people are backporting this code, so I'll push a new
+rev of it in a bit if I don't get any other comments (or include it in
+the next rev if there are comments).
+
+Thanks!
+will
