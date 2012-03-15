@@ -1,94 +1,99 @@
-From: Nick Jones <nick.jones@network-box.com>
-Subject: [PATCH net-next v2] ipv6: Allocate unique metrics for icmp6 packets
- to prevent tainting dst metrics
-Date: Thu, 15 Mar 2012 23:41:57 +0800
-Message-ID: <4F620DC5.7080607@network-box.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and
+ performance degration
+Date: Thu, 15 Mar 2012 09:11:46 -0700
+Message-ID: <1331827906.4874.4.camel@edumazet-glaptop>
+References: <20120314190156.622c8cd5@vostro>
+	 <1331745314.6022.27.camel@edumazet-glaptop>
+	 <20120314192945.65867e9f@vostro>
+	 <1331753354.2564.7.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120314215142.655ae607@vostro>
+	 <1331755965.6022.55.camel@edumazet-glaptop>
+	 <20120314223343.23dc9df3@vostro>
+	 <20120314205319.GA28394@electric-eye.fr.zoreil.com>
+	 <20120315080635.1f76512b@vostro>  <20120315171148.0050714d@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from network-box.com ([175.45.17.220]:39332 "EHLO network-box.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030466Ab2COPmA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 11:42:00 -0400
-Received: from hqnickjones-macbook.local (unknown [10.8.2.241])
-	by network-box.com (Postfix) with ESMTP id A35FD3EC90
-	for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 23:41:57 +0800 (HKT)
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:63163 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031638Ab2COQLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 12:11:49 -0400
+Received: by dadp12 with SMTP id p12so5089382dad.11
+        for <netdev@vger.kernel.org>; Thu, 15 Mar 2012 09:11:48 -0700 (PDT)
+In-Reply-To: <20120315171148.0050714d@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The generation of an icmp6 packet, targeted to a specific desination
-address, will cause the shared metrics of the ip6_dst and inetpeer
-of that address to be tainted with the hoplimit value 255.
-All subsequent packets to the dst, will have this hoplimit value, and
-if the destination is a router, not even advertisements specifying a
-new hoplimit value will have any effect reverting this due to the way
-ip6_dst_hoplimit works.
+On Thu, 2012-03-15 at 17:11 +0200, Timo Teras wrote:
+> On Thu, 15 Mar 2012 08:06:35 +0200 Timo Teras <timo.teras@iki.fi> wrote:
+> 
+> > On Wed, 14 Mar 2012 21:53:19 +0100 Francois Romieu
+> > <romieu@fr.zoreil.com> wrote:
+> > 
+> > > Timo Teras <timo.teras@iki.fi> :
+> > > [...]
+> > > > # ethtool -S eth2
+> > > > NIC statistics:
+> > > >      tx_packets: 2069391193
+> > > >      rx_packets: 3245815642
+> > > >      tx_errors: 0
+> > > >      rx_errors: 645238
+> > > >      rx_missed: 31414
+> > > 
+> > > It does not look like stuff for the higher layers guys.
+> > > 
+> > > Can you tshark -w foobar on the sender side and
+> > > 'while : ; do sleep 1; ethtool -S eth2 >> glop; done' on the
+> > > receiver during a bad wget (a big zero filled file should compress
+> > > well).
+> > 
+> > Indeed.
+> > 
+> > It seems that my earlier test about the "GRO off" effect were mistaken
+> > (I used accidentally proxy, and that gave the illusion that things are
+> > working. Whoops.)
+> > 
+> > So far I changed the cross-over cable and it didn't help. However,
+> > forcing the NIC to 100mbit/full-duplex mode fixes the rx_errors. It
+> > seems that something bad is happening in the gigabit mode.
+> > 
+> > I wonder if it's using pause frames and that's messing things up.
+> > Seems that I can't turn it off, though.
+> > 
+> > I can also double check my cables, though it is factory made Cat-5E
+> > cross-over cable; and happens with two different cables.
+> 
+> Ok. So far I have two of these boxes with same r8169 hardware. Both
+> generate bad packets on transmit only; and on both 3 nic systems it's
+> the middle eth1 nic. The symptoms are identical: in 1GB mode I have
+> minor packet loss, where as 100Mbit/s mode seems to work just fine.
+> 
+> The first box, that I've been talking so far about, is as mentioned
+> connected to another similar box. The r8169 there reports rx_errors.
+> The cable is ok; I've tried with two different ones.
+> 
+> The other broken box is connected to a HP ProCurve 4202vl-48G, and the
+> switch is reporting drops due to FCS Rx errors.
+> 
+> So I have two broken pieces of hardware, or there is a driver bug.
+> 
+> I'll try upgrading my kernel to 3.0.x series on the sender box and see
+> if it's fixing anything. Suggestions for further testing would be
+> appreciated.
 
-By allocating a unique metrics array for the icmp6 packet, the shared
-metrics will not be tainted.  A ip6_dst flag is added to indicate that
-the metrics for the dst don't belong to the peer, thus are not unique
-and should be freed when the dst is destroyed.
+r8169 has to make an additional copy of incoming frames, because of
+hardware flaw and security requirements.
 
-Signed-off-by: Nick Jones <nick.jones@network-box.com>
----
+This was added in 2.6.37 or 2.6.38, dont remember exactly.
 
-v2: Take care of destroy side, that was neglected in the previous
-    version, by setting a flag on the dst to indicate its metrics are
-    unique, thus should be destroyed along with the dst.
+So your cpu might be to slow to handle the load at 1Gb speed.
 
- include/net/dst.h |    1 +
- net/ipv6/route.c  |   12 ++++++++++--
- 2 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 344c8dd..ee7a781 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -54,6 +54,7 @@ struct dst_entry {
- #define DST_NOCACHE		0x0010
- #define DST_NOCOUNT		0x0020
- #define DST_NOPEER		0x0040
-+#define DST_NOPEERMETRICS	0x0080
-
- 	short			error;
- 	short			obsolete;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 92be12b..f0a1839 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -278,7 +278,7 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- 	struct inet6_dev *idev = rt->rt6i_idev;
- 	struct inet_peer *peer = rt->rt6i_peer;
-
--	if (!(rt->dst.flags & DST_HOST))
-+	if (!(rt->dst.flags & DST_HOST) || (rt->dst.flags & DST_NOPEERMETRICS))
- 		dst_destroy_metrics_generic(dst);
-
- 	if (idev) {
-@@ -1110,13 +1110,21 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
- 		}
- 	}
-
--	rt->dst.flags |= DST_HOST;
-+	rt->dst.flags |= (DST_HOST | DST_NOPEERMETRICS);
- 	rt->dst.output  = ip6_output;
- 	dst_set_neighbour(&rt->dst, neigh);
- 	atomic_set(&rt->dst.__refcnt, 1);
- 	rt->rt6i_dst.addr = fl6->daddr;
- 	rt->rt6i_dst.plen = 128;
- 	rt->rt6i_idev     = idev;
-+
-+	u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_ATOMIC);
-+	if (unlikely(!metrics)) {
-+		in6_dev_put(idev);
-+		dst_free(&rt->dst);
-+		return ERR_CAST(-ENOMEM);
-+	}
-+	dst_init_metrics(&rt->dst, metrics, 0);
- 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
-
- 	spin_lock_bh(&icmp6_dst_lock);
--- 
-1.7.1
+If you have one flow, there is nothing to do, but if your workload has
+several flows and your machine is SMP, you can try RPS/RFS as documented
+in Documentation/networking/scaling.txt
