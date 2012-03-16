@@ -1,52 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: Don't dev_hold(dev) in ip6_mc_find_dev_rcu.
-Date: Fri, 16 Mar 2012 07:15:53 -0700
-Message-ID: <1331907353.2420.1.camel@edumazet-laptop>
-References: <1331888054-21072-1-git-send-email-roy.qing.li@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] ath9k: fix a memory leak in ath_rx_tasklet()
+Date: Fri, 16 Mar 2012 10:00:10 -0400
+Message-ID: <20120316140010.GB2563@tuxdriver.com>
+References: <1331844209.19406.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Jouni Malinen <jouni@qca.qualcomm.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	Trond Wuellner <trond@chromium.org>,
+	Grant Grundler <grundler@chromium.org>,
+	Paul Stewart <pstew@chromium.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:39316 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754852Ab2CPOP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 10:15:57 -0400
-Received: by pbcun15 with SMTP id un15so209242pbc.19
-        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 07:15:56 -0700 (PDT)
-In-Reply-To: <1331888054-21072-1-git-send-email-roy.qing.li@gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39729 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758476Ab2CPORM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 10:17:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1331844209.19406.11.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 mars 2012 =C3=A0 16:54 +0800, roy.qing.li@gmail.com a =C3=
-=A9crit :
-> From: RongQing.Li <roy.qing.li@gmail.com>
->=20
-> ip6_mc_find_dev_rcu() is called with rcu_read_lock(), so don't
-> need to dev_hold().
-> With dev_hold(), not corresponding dev_put(), will lead to leak.
->=20
-> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+On Thu, Mar 15, 2012 at 01:43:29PM -0700, Eric Dumazet wrote:
+> commit 0d95521ea7 (ath9k: use split rx buffers to get rid of order-1 skb
+> allocations) added in memory leak in error path.
+> 
+> sc->rx.frag should be cleared after the pskb_expand_head() call, or else
+> we jump to requeue_drop_frag and leak an skb.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jouni Malinen <jouni@qca.qualcomm.com>
+> Cc: Felix Fietkau <nbd@openwrt.org>
+> Cc: John W. Linville <linville@tuxdriver.com>
+> Cc: Trond Wuellner <trond@chromium.org>
+> Cc: Grant Grundler <grundler@chromium.org>
+> Cc: Paul Stewart <pstew@chromium.org>
+> Cc: David Miller <davem@davemloft.net>
+
+Acked-by: John W. Linville <linville@tuxdriver.com>
+
+Dave, will you pick this up yourself?  Or should I take it around the bend?
+
+John
+
 > ---
->  net/ipv6/mcast.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index b853f06..16c33e3 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -257,7 +257,6 @@ static struct inet6_dev *ip6_mc_find_dev_rcu(stru=
-ct net *net,
-> =20
->  		if (rt) {
->  			dev =3D rt->dst.dev;
-> -			dev_hold(dev);
->  			dst_release(&rt->dst);
->  		}
->  	} else
+>  drivers/net/wireless/ath/ath9k/recv.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
+> index 7e1a91a..e74fc99 100644
+> --- a/drivers/net/wireless/ath/ath9k/recv.c
+> +++ b/drivers/net/wireless/ath/ath9k/recv.c
+> @@ -1917,13 +1917,13 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+>  		if (sc->rx.frag) {
+>  			int space = skb->len - skb_tailroom(hdr_skb);
+>  
+> -			sc->rx.frag = NULL;
+> -
+>  			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
+>  				dev_kfree_skb(skb);
+>  				goto requeue_drop_frag;
+>  			}
+>  
+> +			sc->rx.frag = NULL;
+> +
+>  			skb_copy_from_linear_data(skb, skb_put(hdr_skb, skb->len),
+>  						  skb->len);
+>  			dev_kfree_skb_any(skb);
+> 
+> 
+> 
 
-Nice catch, bug introduced in 96b52e61be1 (ipv6: mcast: RCU conversions=
-)
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
