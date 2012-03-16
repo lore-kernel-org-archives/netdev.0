@@ -1,38 +1,36 @@
-From: "Nguyen Thi Phuong Chi" <chintp@datxanh.com.vn>
-Subject: Re-Confirm Your Email Account.
-Date: Fri, 16 Mar 2012 11:30:49 +0700
-Message-ID: <WC20120316043049.0100E7@datxanh.com.vn>
+From: "Roberto De Ioris" <roberto@unbit.it>
+Subject: [RFC] add SIOBKLGQ command to unix socket ioctl
+Date: Fri, 16 Mar 2012 07:49:18 +0100
+Message-ID: <2f0e25f9694e236485bd5c6736ba314e.squirrel@manage.unbit.it>
+Reply-To: roberto@unbit.it
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1310.superdata.vn ([27.0.13.10]:4193 "EHLO
-	mail9242.dotvndns.vn" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751841Ab2CPEit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 00:38:49 -0400
+Received: from sabretooth.unbit.it ([81.174.68.19]:20860 "EHLO
+	sabretooth.unbit.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032Ab2CPGyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 02:54:54 -0400
+Received: from magneto.unbit.it (unknown [192.168.0.61])
+	by sabretooth.unbit.it (Postfix) with ESMTP id AC556200D17D
+	for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 07:49:18 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi everyone, in the uWSGI project we use TCP_INFO
+datas to know the status of the socket backlog queue (this helps
+the master process identifying overloads)
 
+http://projects.unbit.it/uwsgi/browser/master.c#L202
 
-Dear Esteemed User,
+We would like to have a similar feature in unix sockets.
+After a bit of investigation we decided to add an ioctl to get the backlog
+size. This has been applied only to unix socket but i suppose it could be
+used for other network families.
 
-Click on the link below and fill the details to improve the spam filter 
-services in our webmail 
+Patch follow
 
-systems for better online services to avoid virus and spam mails.
-
-http://www.halalcandyuk.com/feedbackform/use/spam/form1.html
-
-Do not ignore this message.
-
-
-Dear Esteemed User,
-
-Click on the link below and fill the details to improve the spam filter services in our webmail 
-
-systems for better online services to avoid virus and spam mails.
-
-http://www.halalcandyuk.com/feedbackform/use/spam/form1.html
-
-Do not ignore this message.
+-- 
+Roberto De Ioris
+http://unbit.it
