@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] bnx2x: fix a crash on corrupt firmware file
-Date: Fri, 16 Mar 2012 01:57:51 -0700 (PDT)
-Message-ID: <20120316.015751.382113862064102627.davem@davemloft.net>
-References: <1331856509-9159-1-git-send-email-mschmidt@redhat.com>
-	<1331882650.4251.9.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [PATCH] net/usbnet: reserve headroom on rx skbs
+Date: Fri, 16 Mar 2012 02:02:10 -0700 (PDT)
+Message-ID: <20120316.020210.382790286150729745.davem@davemloft.net>
+References: <1331744185.6022.25.camel@edumazet-glaptop>
+	<201203151801.03399.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org, yuvalmin@broadcom.com,
-	yanivr@broadcom.com, dmitry@broadcom.com
-To: eilong@broadcom.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36349 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36381 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031942Ab2CPI5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:57:54 -0400
-In-Reply-To: <1331882650.4251.9.camel@lb-tlvb-eilong.il.broadcom.com>
+	with ESMTP id S965068Ab2CPJCS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 05:02:18 -0400
+In-Reply-To: <201203151801.03399.oneukum@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Fri, 16 Mar 2012 09:24:09 +0200
+=46rom: Oliver Neukum <oneukum@suse.de>
+Date: Thu, 15 Mar 2012 18:01:03 +0100
 
-> On Fri, 2012-03-16 at 01:08 +0100, Michal Schmidt wrote:
->> If the requested firmware is deemed corrupt and then released, reset the
->> pointer to NULL in order to avoid double-freeing it in
->> bnx2x_release_firmware() or dereferencing it in bnx2x_init_firmware().
->> 
->> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+> Am Mittwoch, 14. M=E4rz 2012, 17:56:25 schrieb Eric Dumazet:
+>> network drivers should reserve some headroom on incoming skbs so tha=
+t we
+>> dont need expensive reallocations, eg forwarding packets in tunnels.
+>>=20
+>> This NET_SKB_PAD padding is done in various helpers, like
+>> __netdev_alloc_skb_ip_align() in this patch, combining NET_SKB_PAD a=
+nd
+>> NET_IP_ALIGN magic.
+>>=20
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Oliver Neukum <oneukum@suse.de>
+>> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Acked-by: Oliver Neukum <oneukum@suse.de>
 
 Applied.
