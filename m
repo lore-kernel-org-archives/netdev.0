@@ -1,122 +1,74 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware
- Clock instead of the timecompare method
-Date: Fri, 16 Mar 2012 07:55:38 +0100
-Message-ID: <20120316065537.GB2199@netboy.at.omicron.at>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
-	<CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	john.ronciak@intel.com, john.stultz@linaro.org,
-	jacob.e.keller@intel.com, tglx@linutronix.de
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Roberto De Ioris <roberto@unbit.it>
+Subject: [PATCH 1/1] add SIOBKLGQ command to unix socket ioctl
+Date: Fri, 16 Mar 2012 07:49:39 +0100
+Message-ID: <1331880579-22416-1-git-send-email-roberto@unbit.it>
+Cc: Roberto De Ioris <roberto@unbit.it>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lupo.unbit.it ([81.174.68.6]:39170 "EHLO smtp.unbit.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1030278Ab2CPG6P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Mar 2012 02:58:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 15, 2012 at 01:18:26PM -0400, chetan loke wrote:
-> 
-> 1) how can I use igb->PHC to set/discipline my system time?
->  a) clock_gettime(IGB_CLK_ID...);
->  b) clock_settime(REAL_TIME,...) ? Good/bad idea?
 
-This is a very crude method, and it will cause frequent jumps in your
-system clock.
+Signed-off-by: Roberto De Ioris <roberto@unbit.it>
+---
+ include/linux/sockios.h |    1 +
+ net/socket.c            |    1 +
+ net/unix/af_unix.c      |   15 +++++++++++++++
+ 3 files changed, 17 insertions(+), 0 deletions(-)
 
-Better would be:
-
-    a = clock_gettime(igb_clk_id);
-    clock_settime(CLOCK_REALTIME, a);
-
-    once_every_second()
-    {
-        a = clock_gettime(igb_clk_id);
-        b = clock_gettime(CLOCK_REALTIME);
-        offset = a - b;
-        freq_adj = pi_servo(offset);
-        clock_adjtime(CLOCK_REALTIME, freq_adj);
-    }
-
-There is a program, phc2sys, that does something very similar to this
-(but using a kernel PPS time stamp instead of clock_gettime) in the
-linuxptp code. You could modify that program to do the above fairly
-easily. With a heavy enough filter, it might even be acceptable.
-
-    http://linuxptp.sourceforge.net/
-
-Even better would be to use the internal PPS provided by some PHC
-hardware to get a better time stamp from the system clock. The IGB
-could provide this (I think), but it is not implemented yet.
-
-> 2) what is this deadlock from intel's datasheet
-> (http://download.intel.com/design/network/datashts/82576_Datasheet.pdf)
-> - goto pg 426
->   2.1) Is this applicable? If not please ignore this question.
->   2.2) Do we need to worry about it. Just asking because a quick
-> visual scan didn't pull up - TIMADJL/H.
-
-Do you mean RXSTMPL/H?
-
-Looking at igb_rx_hwtstamp() in igb_main.c, it appears that the 82576
-might deliver wrong time stamps with a received packet, if ever a
-packet gets time stamped in hardware but does not make it into the Rx
-ring buffer.
-
-The 82580 delivers the time stamp with the frame and does not have this
-problem.
-
-> 3) Testing IGB PHC (couple of months from now because I'm busy with
-> something else):
-> 
->    3.1) CardX(It's a different non-intel NIC) and CardY(intel) are in
-> hostA. Both cards will use the same time-source Z.
->    3.2) CardX is time-sync'd using PTP.
->    3.3) CardY - is a dual port card. Port 0 will receive PTP packets
-> via time-srcZ.
->    3.4) Wait for some time for both the cards to get in-sync.
->    3.5) feed same traffic to Card X and CardY-Port1.
->    3.6) measure time-difference across packets from different NICs on hostA.
-> 
->    Is this a good test configuration? Now, ofcourse there will be some
-> delta but the intention is to get a feel. See how far off are both the
-> adapters.
-
-The best way to do this is to compare a 1 PPS output from each card. I
-think the IGB hardware can provide a PPS output, but driver support is
-not yet there. Also, the pin providing the signal may or may not be
-accessible on your card. Talk to Intel about this.
+diff --git a/include/linux/sockios.h b/include/linux/sockios.h
+index 7997a50..b179613 100644
+--- a/include/linux/sockios.h
++++ b/include/linux/sockios.h
+@@ -23,6 +23,7 @@
+ /* Linux-specific socket ioctls */
+ #define SIOCINQ		FIONREAD
+ #define SIOCOUTQ	TIOCOUTQ        /* output queue size (not sent + not acked) */
++#define SIOBKLGQ	0x8908
  
-> 4) possible contention on tmreg_lock?
-> I will read previous emails/patches shortly but I was thinking - what
-> if there are many readers who would like to use PHC as reference time?
-> Then do we want them to block the driver who wants to time-stamp the
-> packet?
->  igb_gettime->spin_lock::tmreg_lock         <---contention--->  driver
-> ->igb_systim_to_hwtstamp->spin_lock::tmreg_lock
-
-Under normal use cases, I would not expect much contention at all.
-
-HTH,
-
-Richard
-
-------------------------------------------------------------------------------
-This SF email is sponsosred by:
-Try Windows Azure free for 90 days Click Here 
-http://p.sf.net/sfu/sfd2d-msazure
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+diff --git a/net/socket.c b/net/socket.c
+index 28a96af..d188f18 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -3186,6 +3186,7 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
+ 	case SIOCSIFVLAN:
+ 	case SIOCADDDLCI:
+ 	case SIOCDELDLCI:
++	case SIOBKLGQ:
+ 		return sock_ioctl(file, cmd, arg);
+ 
+ 	case SIOCGIFFLAGS:
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 85d3bb7..d2797e9 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2095,6 +2095,21 @@ static int unix_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		amount = unix_outq_len(sk);
+ 		err = put_user(amount, (int __user *)arg);
+ 		break;
++	case SIOBKLGQ:
++		if (sk->sk_state != TCP_LISTEN) {
++			err = -EINVAL;
++			break;
++		}
++		if (sk->sk_type != SOCK_STREAM &&
++			sk->sk_type != SOCK_SEQPACKET) {
++			err = -EINVAL;
++			break;
++		}
++		spin_lock(&sk->sk_receive_queue.lock);
++		amount = (long) skb_queue_len(&sock->sk->sk_receive_queue);
++		spin_unlock(&sk->sk_receive_queue.lock);
++		err = put_user(amount, (int __user *)arg);
++		break;
+ 	case SIOCINQ:
+ 		amount = unix_inq_len(sk);
+ 		if (amount < 0)
+-- 
+1.7.9.1
