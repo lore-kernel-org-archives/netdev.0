@@ -1,30 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-03-16
-Date: Fri, 16 Mar 2012 14:12:59 -0700 (PDT)
-Message-ID: <20120316.141259.763231410586629587.davem@davemloft.net>
-References: <20120316180428.GD2563@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ethtool: Added a field fw dump_state
+Date: Fri, 16 Mar 2012 14:22:42 -0700
+Message-ID: <1331932962.19406.23.camel@edumazet-glaptop>
+References: <CB88F67C.2A1CE%anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120316180428.GD2563@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Manish Chopra <manish.chopra@qlogic.com>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:50420 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754267Ab2CPVWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 17:22:44 -0400
+Received: by pbcun15 with SMTP id un15so275570pbc.19
+        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 14:22:43 -0700 (PDT)
+In-Reply-To: <CB88F67C.2A1CE%anirban.chakraborty@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 16 Mar 2012 14:04:29 -0400
-
-> Yet another batch of updates intended for 3.4 -- they keep on
-> coming! :-)
+On Fri, 2012-03-16 at 14:10 -0700, Anirban Chakraborty wrote:
 > 
-> Highlights here include a batch of ath6kl updates, a batch of mwifiex
-> code cleanups, a number of mac80211 refactoring patches from Johannes,
-> the usual level of activity around iwlwifi and ath9k, and a handful
-> of updates to other drivers.
+> On 3/16/12 11:27 AM, "Ben Hutchings" <bhutchings@solarflare.com> wrote:
 > 
-> Please let me know if there are problems!
+> >On Fri, 2012-03-16 at 10:58 -0700, Anirban Chakraborty wrote:
+> >> +
+> >>  struct ethtool_dump {
+> >>  	__u32	cmd;
+> >>  	__u32	version;
+> >>  	__u32	flag;
+> >>  	__u32	len;
+> >>  	__u8	data[0];
+> >> +	__u8	dump_state;
+> >
+> >Don't be ridiculous.
+> 
+> Yeah I know, especially when there is a flag field already present there.
+> The only
+> reason, we considered for adding it is to keep the backward compatibility
+> of scripts.
+> Right now, the flag field sets/gets the dump level of fw. If we use it to
+> control the
+> dump state, then it would break the existing scripts, if there are any.
+> 
 
-Pulled, thanks John.
+You missed the point... data[0] must be the last element in the
+structure.
