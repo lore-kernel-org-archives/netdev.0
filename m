@@ -1,33 +1,44 @@
-From: Mircea Gherzan <mgherzan@gmail.com>
-Subject: Re: [PATCH v8] ARM: net: JIT compiler for packet filters
-Date: Fri, 16 Mar 2012 21:22:30 +0100
-Message-ID: <4F63A106.9060603@gmail.com>
-References: <1331885844-30575-1-git-send-email-mgherzan@gmail.com>  <4F639787.7070801@gmail.com> <1331929062.19406.21.camel@edumazet-glaptop>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: time stamping packets (on Rx side)
+Date: Fri, 16 Mar 2012 16:37:29 -0400
+Message-ID: <CAAsGZS72pKdOhsf11VG1y=CHhvjBW02q_Om7dnBvAa=raswdyA@mail.gmail.com>
+References: <CAAsGZS4OvqyRr-1vvTzW5+Lx5007tuwP5GsZHRDXEOY4q1Mw1A@mail.gmail.com>
+	<20120316071039.GC2199@netboy.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:58137 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756945Ab2CPUWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 16:22:34 -0400
-Received: by wibhj6 with SMTP id hj6so1381381wib.1
-        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 13:22:33 -0700 (PDT)
-In-Reply-To: <1331929062.19406.21.camel@edumazet-glaptop>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:47670 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752517Ab2CPUhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 16:37:31 -0400
+Received: by ghrr11 with SMTP id r11so4628034ghr.19
+        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 13:37:29 -0700 (PDT)
+In-Reply-To: <20120316071039.GC2199@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 16.03.2012 21:17, schrieb Eric Dumazet:
-> On Fri, 2012-03-16 at 20:41 +0100, Mircea Gherzan wrote:
-> 
->> Updated in the patch tracking system as 7259/3. Hopefully it's not too
->> late for the inclusion in 3.4.
-> 
-> What was the point of copy/pasting the whole mail ?
+On Fri, Mar 16, 2012 at 3:10 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
 
-I forgot to cc netdev in the first mail. Sorry.
+>
+> Not sure what you mean by NIC/host side.
+>
+> But, yes, time stamping every received packet in the MAC is a nice
 
-Mircea
+Yup, that's what I meant.
+
+
+> Some cards can provide a time stamp in the frame or in its control
+> block, and thus time stamp every packet. The Intel 82580 can do this,
+
+aaaah, I somehow missed the following - (rx_desc,
+E1000_RXDADV_STAT_TSIP) check in the code.
+
+
+> HTH,
+> Richard
+>
+thanks
+Chetan
