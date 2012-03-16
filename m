@@ -1,32 +1,52 @@
-From: boris@cloudluca.com
-Subject: Oppertunities to co-operate
-Date: Fri, 16 Mar 2012 21:28:58 +0800 (HKT)
-Message-ID: <l9hkfNaJAfO@microsoft.com>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: Don't dev_hold(dev) in ip6_mc_find_dev_rcu.
+Date: Fri, 16 Mar 2012 07:15:53 -0700
+Message-ID: <1331907353.2420.1.camel@edumazet-laptop>
+References: <1331888054-21072-1-git-send-email-roy.qing.li@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-65.sunnyvision.com ([124.248.200.65]:46072 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1761782Ab2CPOK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 10:10:59 -0400
-Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id 33A7E14ED08
-	for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 21:30:24 +0800 (HKT)
-Received: from sample (unknown [124.248.200.17])
-	by smtp1.edmhongkong.com (Postfix) with SMTP id E89CA51E5B
-	for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 21:28:58 +0800 (HKT)
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:39316 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754852Ab2CPOP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 10:15:57 -0400
+Received: by pbcun15 with SMTP id un15so209242pbc.19
+        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 07:15:56 -0700 (PDT)
+In-Reply-To: <1331888054-21072-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
- 
-This is Boris Lam from cloudluca. We are one of the top Hosting Solution Provider which located in Hong Kong.  We have a very good network infrastructure in Asia especially in Hong Kong and providing Hosting management, Dedicated server and Co-location Service. 
- 
-As one of the top data center in Hong Kong, we have our own Data Center (located in Kowloon Side) with TIA-945 Standard Tier 3+ level and providing One-stop and Total Hosting solution to our clients, with our state-of-art technologies and professional technical support, we have help for over 10,000 IT projects launched in past 13 years.
- 
-We would like to ask if your side considering to co-locate/make a server site in our datacenter. If you have any IT projects that need our assist, please let us know. Thanks.
- 
-Best Regards,
-Boris Lam
-Senior Sales Executive
+Le vendredi 16 mars 2012 =C3=A0 16:54 +0800, roy.qing.li@gmail.com a =C3=
+=A9crit :
+> From: RongQing.Li <roy.qing.li@gmail.com>
+>=20
+> ip6_mc_find_dev_rcu() is called with rcu_read_lock(), so don't
+> need to dev_hold().
+> With dev_hold(), not corresponding dev_put(), will lead to leak.
+>=20
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+> ---
+>  net/ipv6/mcast.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index b853f06..16c33e3 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -257,7 +257,6 @@ static struct inet6_dev *ip6_mc_find_dev_rcu(stru=
+ct net *net,
+> =20
+>  		if (rt) {
+>  			dev =3D rt->dst.dev;
+> -			dev_hold(dev);
+>  			dst_release(&rt->dst);
+>  		}
+>  	} else
+
+Nice catch, bug introduced in 96b52e61be1 (ipv6: mcast: RCU conversions=
+)
+
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
