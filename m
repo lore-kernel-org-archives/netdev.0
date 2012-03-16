@@ -1,7 +1,7 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH 2/5] net: sh_eth: remove unnecessary members/definitions
-Date: Fri, 16 Mar 2012 17:46:12 +0900
-Message-ID: <4F62FDD4.40703@renesas.com>
+Subject: [PATCH 5/5] net: sh_eth: use NAPI
+Date: Fri, 16 Mar 2012 17:46:18 +0900
+Message-ID: <4F62FDDA.9070708@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -11,133 +11,205 @@ Return-path: <linux-sh-owner@vger.kernel.org>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes unnecessary members in sh_th_private.
-This patch also removes unnecessary definitions in sh_eth.h
+This patch modifies the driver to use NAPI.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    7 +---
- drivers/net/ethernet/renesas/sh_eth.h |   69 ---------------------------------
- 2 files changed, 1 insertions(+), 75 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   88 +++++++++++++++++++++++----------
+ drivers/net/ethernet/renesas/sh_eth.h |    3 +
+ 2 files changed, 64 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 2c99b10..6718ba0 100644
+index 62458d9..02878af 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -776,7 +776,6 @@ static int sh_eth_dev_init(struct net_device *ndev)
+@@ -871,7 +871,7 @@ static int sh_eth_txfree(struct net_device *ndev)
+ 		if (mdp->tx_skbuff[entry]) {
+ 			dma_unmap_single(&ndev->dev, txdesc->addr,
+ 					 txdesc->buffer_length, DMA_TO_DEVICE);
+-			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
++			dev_kfree_skb(mdp->tx_skbuff[entry]);
+ 			mdp->tx_skbuff[entry] = NULL;
+ 			freeNum++;
+ 		}
+@@ -886,7 +886,7 @@ static int sh_eth_txfree(struct net_device *ndev)
+ }
+
+ /* Packet receive function */
+-static int sh_eth_rx(struct net_device *ndev)
++static int sh_eth_rx(struct net_device *ndev, int *work, int budget)
  {
- 	int ret = 0;
  	struct sh_eth_private *mdp = netdev_priv(ndev);
--	u_int32_t rx_int_var, tx_int_var;
- 	u32 val;
+ 	struct sh_eth_rxdesc *rxdesc;
+@@ -898,7 +898,8 @@ static int sh_eth_rx(struct net_device *ndev)
+ 	u32 desc_status;
 
- 	/* Soft Reset */
-@@ -804,9 +803,7 @@ static int sh_eth_dev_init(struct net_device *ndev)
- 	/* Frame recv control */
- 	sh_eth_write(ndev, mdp->cd->rmcr_value, RMCR);
+ 	rxdesc = &mdp->rx_ring[entry];
+-	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
++	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT)) &&
++	       *work < budget) {
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+ 		pkt_len = rxdesc->frame_length;
 
--	rx_int_var = mdp->rx_int_var = DESC_I_RINT8 | DESC_I_RINT5;
--	tx_int_var = mdp->tx_int_var = DESC_I_TINT2;
--	sh_eth_write(ndev, rx_int_var | tx_int_var, TRSCER);
-+	sh_eth_write(ndev, DESC_I_RINT8 | DESC_I_RINT5 | DESC_I_TINT2, TRSCER);
+@@ -934,13 +935,16 @@ static int sh_eth_rx(struct net_device *ndev)
+ 				skb_reserve(skb, NET_IP_ALIGN);
+ 			skb_put(skb, pkt_len);
+ 			skb->protocol = eth_type_trans(skb, ndev);
+-			netif_rx(skb);
+-			ndev->stats.rx_packets++;
+-			ndev->stats.rx_bytes += pkt_len;
++			if (netif_receive_skb(skb) == NET_RX_DROP) {
++				ndev->stats.rx_dropped++;
++			} else {
++				ndev->stats.rx_packets++;
++				ndev->stats.rx_bytes += pkt_len;
++			}
+ 		}
+-		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
+ 		entry = (++mdp->cur_rx) % RX_RING_SIZE;
+ 		rxdesc = &mdp->rx_ring[entry];
++		(*work)++;
+ 	}
 
- 	if (mdp->cd->bculr)
- 		sh_eth_write(ndev, 0x800, BCULR);	/* Burst sycle set */
-@@ -2160,8 +2157,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* Refill the Rx ring buffers. */
+@@ -972,7 +976,7 @@ static int sh_eth_rx(struct net_device *ndev)
 
- 	/* debug message level */
- 	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
--	mdp->post_rx = POST_RX >> (devno << 1);
--	mdp->post_fw = POST_FW >> (devno << 1);
+ 	/* Restart Rx engine if stopped. */
+ 	/* If we don't need to check status, don't. -KDU */
+-	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
++	if (*work < budget && !(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
+ 		/* fix the values for the next receiving */
+ 		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
+ 					       sh_eth_read(ndev, RDLAR)) >> 4;
+@@ -1128,38 +1132,61 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
 
- 	/* read and set MAC address */
- 	read_mac_address(ndev, pd->mac_addr);
+ 	/* Get interrpt stat */
+ 	intr_status = sh_eth_read(ndev, EESR);
+-	/* Clear interrupt */
+ 	if (intr_status & (EESR_FRC | EESR_RMAF | EESR_RRF |
+ 			EESR_RTLF | EESR_RTSF | EESR_PRE | EESR_CERF |
+ 			cd->tx_check | cd->eesr_err_check)) {
+-		sh_eth_write(ndev, intr_status, EESR);
++		if (napi_schedule_prep(&mdp->napi)) {
++			/* Disable all interrupts */
++			sh_eth_write(ndev, 0, EESIPR);
++			__napi_schedule(&mdp->napi);
++		}
+ 		ret = IRQ_HANDLED;
+-	} else
+-		goto other_irq;
+-
+-	if (intr_status & (EESR_FRC | /* Frame recv*/
+-			EESR_RMAF | /* Multi cast address recv*/
+-			EESR_RRF  | /* Bit frame recv */
+-			EESR_RTLF | /* Long frame recv*/
+-			EESR_RTSF | /* short frame recv */
+-			EESR_PRE  | /* PHY-LSI recv error */
+-			EESR_CERF)){ /* recv frame CRC error */
+-		sh_eth_rx(ndev);
+ 	}
+
+-	/* Tx Check */
+-	if (intr_status & cd->tx_check) {
+-		sh_eth_txfree(ndev);
++	spin_unlock(&mdp->lock);
++
++	return ret;
++}
++
++static int sh_eth_poll(struct napi_struct *napi, int budget)
++{
++	struct sh_eth_private *mdp = container_of(napi, struct sh_eth_private,
++						  napi);
++	struct net_device *ndev = mdp->ndev;
++	struct sh_eth_cpu_data *cd = mdp->cd;
++	int work_done = 0, txfree_num;
++	u32 intr_status = sh_eth_read(ndev, EESR);
++
++	spin_lock(&mdp->lock);
++
++	/* Clear interrupt flags */
++	sh_eth_write(ndev, intr_status, EESR);
++
++	/* check txdesc */
++	txfree_num = sh_eth_txfree(ndev);
++	if (txfree_num)
+ 		netif_wake_queue(ndev);
+-	}
+
++	/* check rxdesc */
++	sh_eth_rx(ndev, &work_done, budget);
++
++	/* check error flags */
+ 	if (intr_status & cd->eesr_err_check)
+ 		sh_eth_error(ndev, intr_status);
+
+-other_irq:
++	/* get current interrupt flags */
++	intr_status = sh_eth_read(ndev, EESR);
+ 	spin_unlock(&mdp->lock);
+
+-	return ret;
++	/* check whether the controller doesn't have any events */
++	if (!txfree_num && !(intr_status & cd->eesr_err_check) &&
++	    work_done < budget) {
++		napi_complete(napi);
++		/* Enable all interrupts */
++		sh_eth_write(ndev, cd->eesipr_value, EESIPR);
++	}
++
++	return work_done;
+ }
+
+ /* PHY state control function */
+@@ -1380,6 +1407,8 @@ static int sh_eth_open(struct net_device *ndev)
+
+ 	pm_runtime_get_sync(&mdp->pdev->dev);
+
++	napi_enable(&mdp->napi);
++
+ 	ret = request_irq(ndev->irq, sh_eth_interrupt,
+ #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+ 	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
+@@ -1520,6 +1549,8 @@ static int sh_eth_close(struct net_device *ndev)
+ 		phy_disconnect(mdp->phydev);
+ 	}
+
++	napi_disable(&mdp->napi);
++
+ 	free_irq(ndev->irq, ndev);
+
+ 	/* Free all the skbuffs in the Rx queue. */
+@@ -2152,6 +2183,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ #endif
+ 	sh_eth_set_default_cpu_data(mdp->cd);
+
++	mdp->ndev = ndev;
++	netif_napi_add(ndev, &mdp->napi, sh_eth_poll, SH_ETH_NAPI_WEIGHT);
++
+ 	/* set function */
+ 	ndev->netdev_ops = &sh_eth_netdev_ops;
+ 	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
 diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index e4e4d18..9ab3f8b 100644
+index 667bdd2..9f4c91e 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.h
 +++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -580,71 +580,6 @@ enum RPADIR_BIT {
- /* FDR */
- #define DEFAULT_FDR_INIT	0x00000707
+@@ -31,6 +31,7 @@
+ #define PKT_BUF_SZ		1538
+ #define SH_ETH_TSU_TIMEOUT_MS	500
+ #define SH_ETH_TSU_CAM_ENTRIES	32
++#define SH_ETH_NAPI_WEIGHT	32
 
--enum phy_offsets {
--	PHY_CTRL = 0, PHY_STAT = 1, PHY_IDT1 = 2, PHY_IDT2 = 3,
--	PHY_ANA = 4, PHY_ANL = 5, PHY_ANE = 6,
--	PHY_16 = 16,
--};
--
--/* PHY_CTRL */
--enum PHY_CTRL_BIT {
--	PHY_C_RESET = 0x8000, PHY_C_LOOPBK = 0x4000, PHY_C_SPEEDSL = 0x2000,
--	PHY_C_ANEGEN = 0x1000, PHY_C_PWRDN = 0x0800, PHY_C_ISO = 0x0400,
--	PHY_C_RANEG = 0x0200, PHY_C_DUPLEX = 0x0100, PHY_C_COLT = 0x0080,
--};
--#define DM9161_PHY_C_ANEGEN 0	/* auto nego special */
--
--/* PHY_STAT */
--enum PHY_STAT_BIT {
--	PHY_S_100T4 = 0x8000, PHY_S_100X_F = 0x4000, PHY_S_100X_H = 0x2000,
--	PHY_S_10T_F = 0x1000, PHY_S_10T_H = 0x0800, PHY_S_ANEGC = 0x0020,
--	PHY_S_RFAULT = 0x0010, PHY_S_ANEGA = 0x0008, PHY_S_LINK = 0x0004,
--	PHY_S_JAB = 0x0002, PHY_S_EXTD = 0x0001,
--};
--
--/* PHY_ANA */
--enum PHY_ANA_BIT {
--	PHY_A_NP = 0x8000, PHY_A_ACK = 0x4000, PHY_A_RF = 0x2000,
--	PHY_A_FCS = 0x0400, PHY_A_T4 = 0x0200, PHY_A_FDX = 0x0100,
--	PHY_A_HDX = 0x0080, PHY_A_10FDX = 0x0040, PHY_A_10HDX = 0x0020,
--	PHY_A_SEL = 0x001e,
--};
--/* PHY_ANL */
--enum PHY_ANL_BIT {
--	PHY_L_NP = 0x8000, PHY_L_ACK = 0x4000, PHY_L_RF = 0x2000,
--	PHY_L_FCS = 0x0400, PHY_L_T4 = 0x0200, PHY_L_FDX = 0x0100,
--	PHY_L_HDX = 0x0080, PHY_L_10FDX = 0x0040, PHY_L_10HDX = 0x0020,
--	PHY_L_SEL = 0x001f,
--};
--
--/* PHY_ANE */
--enum PHY_ANE_BIT {
--	PHY_E_PDF = 0x0010, PHY_E_LPNPA = 0x0008, PHY_E_NPA = 0x0004,
--	PHY_E_PRX = 0x0002, PHY_E_LPANEGA = 0x0001,
--};
--
--/* DM9161 */
--enum PHY_16_BIT {
--	PHY_16_BP4B45 = 0x8000, PHY_16_BPSCR = 0x4000, PHY_16_BPALIGN = 0x2000,
--	PHY_16_BP_ADPOK = 0x1000, PHY_16_Repeatmode = 0x0800,
--	PHY_16_TXselect = 0x0400,
--	PHY_16_Rsvd = 0x0200, PHY_16_RMIIEnable = 0x0100,
--	PHY_16_Force100LNK = 0x0080,
--	PHY_16_APDLED_CTL = 0x0040, PHY_16_COLLED_CTL = 0x0020,
--	PHY_16_RPDCTR_EN = 0x0010,
--	PHY_16_ResetStMch = 0x0008, PHY_16_PreamSupr = 0x0004,
--	PHY_16_Sleepmode = 0x0002,
--	PHY_16_RemoteLoopOut = 0x0001,
--};
--
--#define POST_RX		0x08
--#define POST_FW		0x04
--#define POST0_RX	(POST_RX)
--#define POST0_FW	(POST_FW)
--#define POST1_RX	(POST_RX >> 2)
--#define POST1_FW	(POST_FW >> 2)
--#define POST_ALL	(POST0_RX | POST0_FW | POST1_RX | POST1_FW)
--
- /* ARSTR */
- enum ARSTR_BIT { ARSTR_ARSTR = 0x00000001, };
-
-@@ -779,10 +714,6 @@ struct sh_eth_private {
- 	int msg_enable;
- 	int speed;
+ enum {
+ 	/* E-DMAC registers */
+@@ -716,6 +717,8 @@ struct sh_eth_private {
  	int duplex;
--	u32 rx_int_var, tx_int_var;	/* interrupt control variables */
--	char post_rx;		/* POST receive */
--	char post_fw;		/* POST forward */
--	struct net_device_stats tsu_stats;	/* TSU forward status */
  	int port;		/* for TSU */
  	int vlan_num_ids;	/* for VLAN tag filter */
++	struct napi_struct napi;
++	struct net_device *ndev;
 
+ 	unsigned no_ether_link:1;
+ 	unsigned ether_link_active_low:1;
 -- 
 1.7.1
