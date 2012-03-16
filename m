@@ -1,27 +1,23 @@
-From: David Miller <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] Replace IS_ENABLED(CONFIG_FCOE) in linux/netdevice.h
-Date: Thu, 15 Mar 2012 20:51:39 -0400 (EDT)
-Message-ID: <20120315.205139.858349725408037483.davem@davemloft.net>
+Date: Fri, 16 Mar 2012 00:55:45 +0000
+Message-ID: <1331859345.2424.38.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1331857815-2333-1-git-send-email-tony@bakeyournoodle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: robert.w.love@intel.com, JBottomley@parallels.com,
-	devel@open-fcoe.org, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tony@bakeyournoodle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750Ab2CPAx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Mar 2012 20:53:58 -0400
+Cc: Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>, <devel@open-fcoe.org>,
+	<netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Tony Breeds <tony@bakeyournoodle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1331857815-2333-1-git-send-email-tony@bakeyournoodle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Breeds <tony@bakeyournoodle.com>
-Date: Fri, 16 Mar 2012 11:30:15 +1100
-
+On Fri, 2012-03-16 at 11:30 +1100, Tony Breeds wrote:
 > On platforms that (or configs that do not have PCI support building any
 > code that includes linux/netdevice.h we see the following warnings:
 > 
@@ -30,8 +26,13 @@ Date: Fri, 16 Mar 2012 11:30:15 +1100
 > 
 > In the case of this file we can trivially fallback to the old school
 >  #if defined(...) syntax.
-> 
-> Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
+[...]
 
-Fix IS_ENABLED to handle cases like this so we don't need special
-cases like this scattered around the tree.
+The script that generates those symbols should be fixed instead.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
