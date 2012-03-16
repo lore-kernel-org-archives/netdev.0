@@ -1,52 +1,42 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH 4/5] net: sh_eth: add CONFIG_SH_ETH_NUM_RXDESC option
-Date: Fri, 16 Mar 2012 17:46:16 +0900
-Message-ID: <4F62FDD8.9010907@renesas.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb
+ truesizes
+Date: Fri, 16 Mar 2012 01:52:30 -0700 (PDT)
+Message-ID: <20120316.015230.503523246344631871.davem@davemloft.net>
+References: <1331792312.2543.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: SH-Linux <linux-sh@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org, trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1331792312.2543.16.camel@edumazet-laptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows you to configure the number of RX descriptors.
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 14 Mar 2012 23:18:32 -0700
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/ethernet/renesas/Kconfig  |    8 ++++++++
- drivers/net/ethernet/renesas/sh_eth.h |    2 +-
- 2 files changed, 9 insertions(+), 1 deletions(-)
+> asix_rx_fixup() is complex, and does some unnecessary memory copies (at
+> least on x86 where NET_IP_ALIGN is 0)
+> 
+> Also, it tends to provide skbs with a big truesize (4096+256 with
+> MTU=1500) to upper stack, so incoming trafic consume a lot of memory and
+> I noticed early packet drops because we hit socket rcvbuf too fast.
+> 
+> Switch to a different strategy, using copybreak so that we provide nice
+> skbs to upper stack (including the NET_SKB_PAD to avoid future head
+> reallocations in some paths)
+> 
+> With this patch, I no longer see packets drops or tcp collapses on
+> various tcp workload with a AX88772 adapter.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-index 9755b49..32c093b 100644
---- a/drivers/net/ethernet/renesas/Kconfig
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -17,3 +17,11 @@ config SH_ETH
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
- 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
-+
-+config SH_ETH_NUM_RXDESC
-+	int "Number of RX descriptor"
-+	depends on SH_ETH
-+	default "64"
-+	---help---
-+	  If you want to need more RX descriptors, you can configure
-+	  the number of RX descriptors by this option.
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 9ab3f8b..667bdd2 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -26,7 +26,7 @@
- #define CARDNAME	"sh-eth"
- #define TX_TIMEOUT	(5*HZ)
- #define TX_RING_SIZE	64	/* Tx ring size */
--#define RX_RING_SIZE	64	/* Rx ring size */
-+#define RX_RING_SIZE	CONFIG_SH_ETH_NUM_RXDESC	/* Rx ring size */
- #define ETHERSMALL		60
- #define PKT_BUF_SZ		1538
- #define SH_ETH_TSU_TIMEOUT_MS	500
--- 
-1.7.1
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
