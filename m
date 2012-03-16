@@ -1,8 +1,7 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next] qlcnic: ethtool change to provide the dump_state information
-Date: Fri, 16 Mar 2012 10:58:31 -0700
-Message-ID: <1331920711-16049-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1331920711-16049-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next] ethtool: Added a field fw dump_state
+Date: Fri, 16 Mar 2012 10:58:30 -0700
+Message-ID: <1331920711-16049-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
@@ -11,40 +10,49 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	Manish chopra <manish.chopra@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:32975
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:35267
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753795Ab2CPSMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 14:12:39 -0400
-In-Reply-To: <1331920711-16049-1-git-send-email-anirban.chakraborty@qlogic.com>
+	by vger.kernel.org with ESMTP id S1753795Ab2CPSMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 14:12:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Manish chopra <manish.chopra@qlogic.com>
 
-o dump_state will be either enabled/disabled that is 1/0
+This field is added to enable/disable firmware dump.
 
 Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ include/linux/ethtool.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 89ddf7f..56f7ebc 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1136,6 +1136,12 @@ qlcnic_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
- 		dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
- 	else
- 		dump->len = 0;
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index e1d9e0e..6ebc7de 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -666,15 +666,22 @@ struct ethtool_flash {
+  * 	 %ETHTOOL_GET_DUMP_DATA and this is returned as dump length by driver
+  * 	 for %ETHTOOL_GET_DUMP_FLAG command
+  * @data: data collected for get dump data operation
++ * @dump_state: state of the firmware dump. which can be enable/disable.
+  */
 +
-+	if (fw_dump->enable)
-+		dump->dump_state = ETH_FW_DUMP_ENABLE;
-+	else
-+		dump->dump_state = ETH_FW_DUMP_DISABLE;
++#define ETH_FW_DUMP_ENABLE	1
++#define ETH_FW_DUMP_DISABLE	0
 +
- 	dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
- 	dump->version = adapter->fw_version;
- 	return 0;
+ struct ethtool_dump {
+ 	__u32	cmd;
+ 	__u32	version;
+ 	__u32	flag;
+ 	__u32	len;
+ 	__u8	data[0];
++	__u8	dump_state;
+ };
+ 
++
+ /* for returning and changing feature sets */
+ 
+ /**
 -- 
 1.7.1
