@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
-Date: Fri, 16 Mar 2012 01:56:25 -0700 (PDT)
-Message-ID: <20120316.015625.2065025946513016046.davem@davemloft.net>
-References: <1327570722.8191.46.camel@probook>
-	<1331697865.2456.19.camel@edumazet-laptop>
+Subject: Re: [PATCH net 2/2] bnx2x: fix memory leak in bnx2x_init_firmware()
+Date: Fri, 16 Mar 2012 01:57:57 -0700 (PDT)
+Message-ID: <20120316.015757.1890511102561562139.davem@davemloft.net>
+References: <1331856509-9159-1-git-send-email-mschmidt@redhat.com>
+	<1331856509-9159-2-git-send-email-mschmidt@redhat.com>
+	<1331882675.4251.10.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdb@comx.dk, dave.taht@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org, yuvalmin@broadcom.com,
+	yanivr@broadcom.com, dmitry@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36335 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36352 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031800Ab2CPI4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:56:32 -0400
-In-Reply-To: <1331697865.2456.19.camel@edumazet-laptop>
+	with ESMTP id S1031942Ab2CPI57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:57:59 -0400
+In-Reply-To: <1331882675.4251.10.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 13 Mar 2012 21:04:25 -0700
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Fri, 16 Mar 2012 09:24:34 +0200
 
-> This reverts commit d47a0ac7b6 (sch_sfq: dont put new flow at the end of
-> flows)
+> On Fri, 2012-03-16 at 01:08 +0100, Michal Schmidt wrote:
+>> When cycling the interface down and up, bnx2x_init_firmware() knows that
+>> the firmware is already loaded, but nevertheless it allocates certain
+>> arrays anew (init_data, init_ops, init_ops_offsets, iro_arr). The old
+>> arrays are leaked.
+>> 
+>> Fix the leaks by returning early if the firmware was already loaded.
+>> Because if the firmware is loaded, so are the arrays.
+>> 
+>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 > 
-> As Jesper found out, patch sounded great but has bad side effects.
 > 
-> In stress situation, pushing new flows in front of the queue can prevent
-> old flows doing any progress. Packets can stay in SFQ queue for
-> unlimited amount of time.
-> 
-> It's possible to add heuristics to limit this problem, but this would
-> add complexity outside of SFQ scope.
-> 
-> A more sensible answer to Dave Taht concerns (who reported the issued I
-> tried to solve in original commit) is probably to use a qdisc hierarchy
-> so that high prio packets dont enter a potentially crowded SFQ qdisc.
-> 
-> Reported-by: Jesper Dangaard Brouer <jdb@comx.dk>
-> Cc: Dave Taht <dave.taht@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied, thanks Eric.
+Applied.
