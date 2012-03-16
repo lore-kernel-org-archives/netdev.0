@@ -1,40 +1,68 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net 1/2] bnx2x: fix a crash on corrupt firmware file
-Date: Fri, 16 Mar 2012 01:08:28 +0100
-Message-ID: <1331856509-9159-1-git-send-email-mschmidt@redhat.com>
-Cc: Yuval Mintz <yuvalmin@broadcom.com>,
-	Yaniv Rosner <yanivr@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2086 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161705Ab2CPAIe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Mar 2012 20:08:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Breeds <tony@bakeyournoodle.com>
+Subject: [PATCH] Replace IS_ENABLED(CONFIG_FCOE) in linux/netdevice.h
+Date: Fri, 16 Mar 2012 11:30:15 +1100
+Message-ID: <1331857815-2333-1-git-send-email-tony@bakeyournoodle.com>
+Cc: devel@open-fcoe.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Robert Love <robert.w.love@intel.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the requested firmware is deemed corrupt and then released, reset the
-pointer to NULL in order to avoid double-freeing it in
-bnx2x_release_firmware() or dereferencing it in bnx2x_init_firmware().
+On platforms that (or configs that do not have PCI support building any
+code that includes linux/netdevice.h we see the following warnings:
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+include/linux/netdevice.h:964:1: warning: "__enabled_CONFIG_FCOE" is not defined [-Wundef]
+include/linux/netdevice.h:964:1: warning: "__enabled_CONFIG_FCOE_MODULE" is not defined [-Wundef]
+
+In the case of this file we can trivially fallback to the old school
+ #if defined(...) syntax.
+
+Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
+To: Robert Love <robert.w.love@intel.com>
+To: "James E.J. Bottomley" <JBottomley@parallels.com>
+To: "David S. Miller" <davem@davemloft.net>
+CC: devel@open-fcoe.org
+CC: netdev@vger.kernel.org
+CC: linux-scsi@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 2545213..00ff62f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10901,6 +10901,7 @@ init_ops_alloc_err:
- 	kfree(bp->init_data);
- request_firmware_exit:
- 	release_firmware(bp->firmware);
-+	bp->firmware = NULL;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0eac07c..3e4bbbc 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -961,7 +961,7 @@ struct net_device_ops {
+ 	int			(*ndo_get_vf_port)(struct net_device *dev,
+ 						   int vf, struct sk_buff *skb);
+ 	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
+-#if IS_ENABLED(CONFIG_FCOE)
++#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_disable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_ddp_setup)(struct net_device *dev,
+@@ -978,7 +978,7 @@ struct net_device_ops {
+ 							struct netdev_fcoe_hbainfo *hbainfo);
+ #endif
  
- 	return rc;
- }
+-#if IS_ENABLED(CONFIG_LIBFCOE)
++#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ #define NETDEV_FCOE_WWNN 0
+ #define NETDEV_FCOE_WWPN 1
+ 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
+@@ -1286,7 +1286,7 @@ struct net_device {
+ 	struct netdev_tc_txq tc_to_txq[TC_MAX_QUEUE];
+ 	u8 prio_tc_map[TC_BITMASK + 1];
+ 
+-#if IS_ENABLED(CONFIG_FCOE)
++#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	/* max exchange id for FCoE LRO by ddp */
+ 	unsigned int		fcoe_ddp_xid;
+ #endif
 -- 
 1.7.7.6
+
