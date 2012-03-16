@@ -1,43 +1,44 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] ipv6: fix incorrent ipv6 ipsec packet fragment
-Date: Fri, 16 Mar 2012 16:57:15 +0800
-Message-ID: <1331888235-10368-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: steffen.klassert@secunet.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sch_sfq: revert dont put new flow at the end of flows
+Date: Fri, 16 Mar 2012 01:56:25 -0700 (PDT)
+Message-ID: <20120316.015625.2065025946513016046.davem@davemloft.net>
+References: <1327570722.8191.46.camel@probook>
+	<1331697865.2456.19.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jdb@comx.dk, dave.taht@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:41681 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753830Ab2CPI4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Mar 2012 04:56:22 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:36335 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031800Ab2CPI4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:56:32 -0400
+In-Reply-To: <1331697865.2456.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem)
-In func ip6_append_data,after call skb_put(skb, fraglen + dst_exthdrlen)
-the skb->len contains dst_exthdrlen,and we don't reduce dst_exthdrlen at last
-This will make fraggap>0 in next "while cycle",and cause the size of skb incorrent
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Mar 2012 21:04:25 -0700
 
-Call skb_pull reduce skb->len before next "while cycle"
+> This reverts commit d47a0ac7b6 (sch_sfq: dont put new flow at the end of
+> flows)
+> 
+> As Jesper found out, patch sounded great but has bad side effects.
+> 
+> In stress situation, pushing new flows in front of the queue can prevent
+> old flows doing any progress. Packets can stay in SFQ queue for
+> unlimited amount of time.
+> 
+> It's possible to add heuristics to limit this problem, but this would
+> add complexity outside of SFQ scope.
+> 
+> A more sensible answer to Dave Taht concerns (who reported the issued I
+> tried to solve in original commit) is probably to use a qdisc hierarchy
+> so that high prio packets dont enter a potentially crowded SFQ qdisc.
+> 
+> Reported-by: Jesper Dangaard Brouer <jdb@comx.dk>
+> Cc: Dave Taht <dave.taht@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv6/ip6_output.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d97e071..f67f840 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1450,7 +1450,8 @@ alloc_new_skb:
- 				kfree_skb(skb);
- 				goto error;
- 			}
--
-+
-+			skb_pull(skb, dst_exthdrlen);
- 			offset += copy;
- 			length -= datalen - fraggap;
- 			transhdrlen = 0;
--- 
-1.7.5.4
+Applied, thanks Eric.
