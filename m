@@ -1,8 +1,7 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH 3/5] net: sh_eth: fix the rxdesc pointer when rx descriptor
- empty happens
-Date: Fri, 16 Mar 2012 17:46:14 +0900
-Message-ID: <4F62FDD6.60508@renesas.com>
+Subject: [PATCH 4/5] net: sh_eth: add CONFIG_SH_ETH_NUM_RXDESC option
+Date: Fri, 16 Mar 2012 17:46:16 +0900
+Message-ID: <4F62FDD8.9010907@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -12,41 +11,42 @@ Return-path: <linux-sh-owner@vger.kernel.org>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When Receive Descriptor Empty happens, rxdesc pointer of the driver
-and actual next descriptor of the controller may be mismatch.
-This patch fixes it.
+This patch allows you to configure the number of RX descriptors.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/renesas/Kconfig  |    8 ++++++++
+ drivers/net/ethernet/renesas/sh_eth.h |    2 +-
+ 2 files changed, 9 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 6718ba0..62458d9 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -972,8 +972,12 @@ static int sh_eth_rx(struct net_device *ndev)
-
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
--	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R))
-+	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
-+		/* fix the values for the next receiving */
-+		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
-+					       sh_eth_read(ndev, RDLAR)) >> 4;
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
-+	}
-
- 	return 0;
- }
-@@ -1070,8 +1074,6 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 		/* Receive Descriptor Empty int */
- 		ndev->stats.rx_over_errors++;
-
--		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
--			sh_eth_write(ndev, EDRRR_R, EDRRR);
- 		if (netif_msg_rx_err(mdp))
- 			dev_err(&ndev->dev, "Receive Descriptor Empty\n");
- 	}
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 9755b49..32c093b 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -17,3 +17,11 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
++
++config SH_ETH_NUM_RXDESC
++	int "Number of RX descriptor"
++	depends on SH_ETH
++	default "64"
++	---help---
++	  If you want to need more RX descriptors, you can configure
++	  the number of RX descriptors by this option.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 9ab3f8b..667bdd2 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -26,7 +26,7 @@
+ #define CARDNAME	"sh-eth"
+ #define TX_TIMEOUT	(5*HZ)
+ #define TX_RING_SIZE	64	/* Tx ring size */
+-#define RX_RING_SIZE	64	/* Rx ring size */
++#define RX_RING_SIZE	CONFIG_SH_ETH_NUM_RXDESC	/* Rx ring size */
+ #define ETHERSMALL		60
+ #define PKT_BUF_SZ		1538
+ #define SH_ETH_TSU_TIMEOUT_MS	500
 -- 
 1.7.1
