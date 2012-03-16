@@ -1,9 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] cdc_ncm: reduce driver latency in the
- data path
-Date: Fri, 16 Mar 2012 02:08:41 -0700 (PDT)
-Message-ID: <20120316.020841.1681244927487867952.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/4] cdc_ncm: fix MTU and max_datagram_size
+ handling
+Date: Fri, 16 Mar 2012 02:08:48 -0700 (PDT)
+Message-ID: <20120316.020848.389712633807154921.davem@davemloft.net>
 References: <1331760373-1914-1-git-send-email-alexey.orishko@stericsson.com>
+	<1331760373-1914-2-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,21 +13,22 @@ Cc: netdev@vger.kernel.org, oliver@neukum.org,
 	alexey.orishko@stericsson.com
 To: alexey.orishko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36447 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36454 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753676Ab2CPJIs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 05:08:48 -0400
-In-Reply-To: <1331760373-1914-1-git-send-email-alexey.orishko@stericsson.com>
+	with ESMTP id S1161356Ab2CPJIz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 05:08:55 -0400
+In-Reply-To: <1331760373-1914-2-git-send-email-alexey.orishko@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Alexey Orishko <alexey.orishko@gmail.com>
-Date: Wed, 14 Mar 2012 22:26:10 +0100
+Date: Wed, 14 Mar 2012 22:26:11 +0100
 
-> Changes:
-> - use high resolution timer
->   latency became approx. 10-15 times less than before
-> - use taklet for sending remaining data in tx path
+> Changes/fixes:
+> - inform device if max_datagram_size was changed by host
+> - max_datagram_size can't be bigger MTU in ETH func descr
+> - fix constants definitions to enable running CAIF service over NCM
+>=20
 > Tested on Intel/ARM.
 >=20
 > Reviewed-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
