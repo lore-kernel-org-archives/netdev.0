@@ -1,113 +1,61 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/5] net: sh_eth: remove unnecessary function
-Date: Fri, 16 Mar 2012 10:57:19 +0100
-Message-ID: <4F630E7F.3060304@openwrt.org>
-References: <4F62FDCE.8010609@renesas.com>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
+Date: Fri, 16 Mar 2012 10:21:40 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E029317AD881@DBDE01.ent.ti.com>
+References: <1330490737-28973-1-git-send-email-mugunthanvnm@ti.com>
+	<1330490737-28973-3-git-send-email-mugunthanvnm@ti.com>
+	<87pqcxdbmp.fsf@macbook.be.48ers.dk>
+	<EB1619762EAF8B4E97A227FB77B7E02931793847@DBDE01.ent.ti.com>
+ <87zkc0783i.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4F62FDCE.8010609@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Peter Korsgaard <jacmet@sunsite.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:36251 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031136Ab2CPKV5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 06:21:57 -0400
+In-Reply-To: <87zkc0783i.fsf@macbook.be.48ers.dk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Peter
 
-Le 03/16/12 09:46, Shimoda, Yoshihiro a =C3=A9crit :
-> The sh_eth_timer() called mod_timer() for itself.
-> So, this patch removes the function.
+> -----Original Message-----
+> From: Peter Korsgaard [mailto:jacmet@gmail.com] On Behalf Of Peter
+> Korsgaard
+> Sent: Thursday, March 01, 2012 7:10 PM
+> To: N, Mugunthan V
+> Cc: netdev@vger.kernel.org; davem@davemloft.net
+> Subject: Re: [PATCH v4 2/2] netdev: driver: ethernet: Add TI CPSW driver
+> 
+> >>>>> "N" == N, Mugunthan V <mugunthanvnm@ti.com> writes:
+> 
+> Hi,
+> 
+>  >> Is this really platform specific data (rather than SoC specific)? If
+>  >> it's purely a difference between 335x and 814x just use an id_table
+> with
+>  >> different platform device names instead.
+> 
+>  N> Instead of driver maintaining the SoC specific offsets, SoC specific
+>  N> files in arch/arm/mach-omap2/ can hold this. Another reason is
+>  N> currently this IP is present in 2 SoCs, there are other SoC coming
+>  N> up where the offsets may change.
+> 
+> Sure, it's the same amount of code no matter where it gets put, but the
+> idea is to move code from arch/arm to drivers/ where possible. This will
+> also help if the IP is ever used on non-omap2 platforms and for device
+> tree support.
 
-You could avoid using this timer if you implement PHYLIB in your driver=
-,=20
-which will poll the PHY for you and report the link state consistently.
+Instead of keeping the SoC Specific data in driver keeping it in hwmod will
+be fine and while supporting Device tree, driver will receive the same data
+from device tree, so I will keep the offsets in hwmod itself.
 
->
-> Signed-off-by: Yoshihiro Shimoda<yoshihiro.shimoda.uh@renesas.com>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c |   22 ----------------------
->   drivers/net/ethernet/renesas/sh_eth.h |    1 -
->   2 files changed, 0 insertions(+), 23 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethe=
-rnet/renesas/sh_eth.c
-> index 8615961..2c99b10 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1163,14 +1163,6 @@ other_irq:
->   	return ret;
->   }
->
-> -static void sh_eth_timer(unsigned long data)
-> -{
-> -	struct net_device *ndev =3D (struct net_device *)data;
-> -	struct sh_eth_private *mdp =3D netdev_priv(ndev);
-> -
-> -	mod_timer(&mdp->timer, jiffies + (10 * HZ));
-> -}
-> -
->   /* PHY state control function */
->   static void sh_eth_adjust_link(struct net_device *ndev)
->   {
-> @@ -1418,11 +1410,6 @@ static int sh_eth_open(struct net_device *ndev=
-)
->   	if (ret)
->   		goto out_free_irq;
->
-> -	/* Set the timer to check for link beat. */
-> -	init_timer(&mdp->timer);
-> -	mdp->timer.expires =3D (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
-> -	setup_timer(&mdp->timer, sh_eth_timer, (unsigned long)ndev);
-> -
->   	return ret;
->
->   out_free_irq:
-> @@ -1447,9 +1434,6 @@ static void sh_eth_tx_timeout(struct net_device=
- *ndev)
->   	/* tx_errors count up */
->   	ndev->stats.tx_errors++;
->
-> -	/* timer off */
-> -	del_timer_sync(&mdp->timer);
-> -
->   	/* Free all the skbuffs in the Rx queue. */
->   	for (i =3D 0; i<  RX_RING_SIZE; i++) {
->   		rxdesc =3D&mdp->rx_ring[i];
-> @@ -1467,10 +1451,6 @@ static void sh_eth_tx_timeout(struct net_devic=
-e *ndev)
->
->   	/* device init */
->   	sh_eth_dev_init(ndev);
-> -
-> -	/* timer on */
-> -	mdp->timer.expires =3D (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
-> -	add_timer(&mdp->timer);
->   }
->
->   /* Packet transmit function */
-> @@ -1543,8 +1523,6 @@ static int sh_eth_close(struct net_device *ndev=
-)
->
->   	free_irq(ndev->irq, ndev);
->
-> -	del_timer_sync(&mdp->timer);
-> -
->   	/* Free all the skbuffs in the Rx queue. */
->   	sh_eth_ring_free(ndev);
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethe=
-rnet/renesas/sh_eth.h
-> index 57dc262..e4e4d18 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -765,7 +765,6 @@ struct sh_eth_private {
->   	struct sh_eth_txdesc *tx_ring;
->   	struct sk_buff **rx_skbuff;
->   	struct sk_buff **tx_skbuff;
-> -	struct timer_list timer;
->   	spinlock_t lock;
->   	u32 cur_rx, dirty_rx;	/* Producer/consumer ring indices */
->   	u32 cur_tx, dirty_tx;
+> 
+> --
+> Bye, Peter Korsgaard
