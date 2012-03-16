@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/usbnet: reserve headroom on rx skbs
-Date: Fri, 16 Mar 2012 02:02:10 -0700 (PDT)
-Message-ID: <20120316.020210.382790286150729745.davem@davemloft.net>
-References: <1331744185.6022.25.camel@edumazet-glaptop>
-	<201203151801.03399.oneukum@suse.de>
+Subject: Re: [PATCH] wimax/i2400m: fix erroneous NETDEV_TX_BUSY use
+Date: Fri, 16 Mar 2012 02:02:46 -0700 (PDT)
+Message-ID: <20120316.020246.792440183234503872.davem@davemloft.net>
+References: <1331752904.6022.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org
-To: oneukum@suse.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, inaky.perez-gonzalez@intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36381 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36395 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965068Ab2CPJCS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 05:02:18 -0400
-In-Reply-To: <201203151801.03399.oneukum@suse.de>
+	with ESMTP id S1753676Ab2CPJCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 05:02:49 -0400
+In-Reply-To: <1331752904.6022.53.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Oliver Neukum <oneukum@suse.de>
-Date: Thu, 15 Mar 2012 18:01:03 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 14 Mar 2012 12:21:44 -0700
 
-> Am Mittwoch, 14. M=E4rz 2012, 17:56:25 schrieb Eric Dumazet:
->> network drivers should reserve some headroom on incoming skbs so tha=
-t we
->> dont need expensive reallocations, eg forwarding packets in tunnels.
->>=20
->> This NET_SKB_PAD padding is done in various helpers, like
->> __netdev_alloc_skb_ip_align() in this patch, combining NET_SKB_PAD a=
-nd
->> NET_IP_ALIGN magic.
->>=20
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: Oliver Neukum <oneukum@suse.de>
->> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Acked-by: Oliver Neukum <oneukum@suse.de>
+> A driver start_xmit() method cannot free skb and return NETDEV_TX_BUSY,
+> since caller is going to reuse freed skb.
+> 
+> In fact netif_tx_stop_queue() / netif_stop_queue() is needed before
+> returning NETDEV_TX_BUSY or you can trigger a ksoftirqd fatal loop.
+> 
+> In case of memory allocation error, only safe way is to drop the packet
+> and return NETDEV_TX_OK
+> 
+> Also increments tx_dropped counter
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 
-Applied.
+Applied, but Eric:
+
+> @@ -367,38 +367,28 @@ netdev_tx_t i2400m_hard_start_xmit(struct sk_buff
+> *skb,
+
+Your mailer chopped up that line and I had to fix it up.
