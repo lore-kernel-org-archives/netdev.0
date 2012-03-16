@@ -1,46 +1,94 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH] isdn: Return -EINTR in gigaset_start() if locking attempts fails.
-Date: Fri, 16 Mar 2012 18:40:13 +0530
-Message-ID: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: tilman@imap.cc, isdn@linux-pingi.de,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: hjlipp@web.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:33966 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838Ab2CPNLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 09:11:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Gospodarek <gospo@redhat.com>
+Subject: Re: [PATCH net V3] bonding: send igmp report for its master
+Date: Fri, 16 Mar 2012 09:38:03 -0400
+Message-ID: <20120316133803.GB12372@quad.redhat.com>
+References: <20120314172237.GA12372@quad.redhat.com>
+ <3072c40712c2f5506fc57937da921da0d3d83450.1331778582.git.panweiping3@gmail.com>
+ <31016.1331869399@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"open list:BONDING DRIVER" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <31016.1331869399@death.nxdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Thu, Mar 15, 2012 at 08:43:19PM -0700, Jay Vosburgh wrote:
+> Weiping Pan <panweiping3@gmail.com> wrote:
+> 
+> >Liang Zheng(lzheng@redhat.com) found that in the following topo,
+> >bonding does not send igmp report when we trigger a fail-over of bonding.
+> >
+> >eth0--
+> >      |-- bond0 -- br0
+> >eth1--
+> >
+> >modprobe bonding mode=1 miimon=100 resend_igmp=10
+> >ifconfig bond0 up
+> >ifenslave bond0 eth0 eth1
+> >
+> >brctl addbr br0
+> >ifconfig br0 192.168.100.2/24 up
+> >brctl addif br0 bond0
+> >
+> >Add 192.168.100.2(br0) into a multicast group, like 224.10.10.10,
+> >then trigger a fali-over in bonding.
+> >You can see that parameter "resend_igmp" does not work.
+> >
+> >The reason is that when we add br0 into a multicast group,
+> >it does not propagate multicast knowledge down to its ports.
+> >
+> >If we choose to propagate multicast knowledge down to all ports for bridge,
+> >then we have to track every change that is done to bridge, and keep a backup
+> >for all ports. It is hard to track, I think.
+> >
+> >Instead I choose to modify bonding to send igmp report for its master.
+> >
+> >Changelog:
+> >V2: correct comments
+> >V3: move this check into bond_resend_igmp_join_requests()
+> >
+> >Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+> >---
+> > drivers/net/bonding/bond_main.c |   14 +++++++++++---
+> > 1 files changed, 11 insertions(+), 3 deletions(-)
+> >
+> >diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> >index 435984a..037fdd3 100644
+> >--- a/drivers/net/bonding/bond_main.c
+> >+++ b/drivers/net/bonding/bond_main.c
+> >@@ -766,18 +766,26 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
+> >  */
+> > static void bond_resend_igmp_join_requests(struct bonding *bond)
+> > {
+> >-	struct net_device *vlan_dev;
+> >+	struct net_device *bond_dev, *vlan_dev, *master_dev;
+> > 	struct vlan_entry *vlan;
+> >
+> > 	read_lock(&bond->lock);
+> >
+> >+	bond_dev = bond->dev;
+> >+
+> > 	/* rejoin all groups on bond device */
+> >-	__bond_resend_igmp_join_requests(bond->dev);
+> >+	__bond_resend_igmp_join_requests(bond_dev);
+> >+
+> >+	/* rejoin all groups on its master */
+> >+	master_dev = bond_dev->master;
+> >+	if (unlikely(master_dev)) {
+> >+		__bond_resend_igmp_join_requests(master_dev);
+> >+	}
+> 
+> 	Will this do the right thing if the master is not a bridge?
+> Granted, right now the only other possible master is a team (since
+> bonding will not enslave itself), but is this generically safe and
+> desirable for any possible master_dev?
+> 
 
-If locking attempt was interrupted by a signal then we should
-return -EINTR so that caller can take appropriate action.
-
-We have 3 callers: gigaset_probe(), gigaset_tty_open() and
-gigaset_probe(). Each caller tries to free allocated memory
-if lock fails. This is possible if we returns -EINTR.
-
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- drivers/isdn/gigaset/common.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index 7679270..2d10f3a 100644
---- a/drivers/isdn/gigaset/common.c
-+++ b/drivers/isdn/gigaset/common.c
-@@ -903,7 +903,7 @@ int gigaset_start(struct cardstate *cs)
- 	unsigned long flags;
- 
- 	if (mutex_lock_interruptible(&cs->mutex))
--		return 0;
-+		return -EINTR;
- 
- 	spin_lock_irqsave(&cs->lock, flags);
- 	cs->connected = 1;
--- 
-1.7.4.4
+I agree with Jay.  You should also check the private flags to see if
+IFF_BRIDGE_PORT is set.
