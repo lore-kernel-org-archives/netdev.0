@@ -1,40 +1,36 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipv6: Don't dev_hold(dev) in ip6_mc_find_dev_rcu.
-Date: Fri, 16 Mar 2012 16:54:14 +0800
-Message-ID: <1331888054-21072-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.3-rc snmp6 panic
+Date: Fri, 16 Mar 2012 01:53:57 -0700 (PDT)
+Message-ID: <20120316.015357.1184207404095280795.davem@davemloft.net>
+References: <20120315052506.GA5974@redhat.com>
+	<1331794575.2543.17.camel@edumazet-laptop>
+	<1331795591.2543.22.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:51153 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422635Ab2CPIxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:53:52 -0400
-Received: by eekc41 with SMTP id c41so1993621eek.19
-        for <netdev@vger.kernel.org>; Fri, 16 Mar 2012 01:53:51 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:36302 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422635Ab2CPIyA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Mar 2012 04:54:00 -0400
+In-Reply-To: <1331795591.2543.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: RongQing.Li <roy.qing.li@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 15 Mar 2012 00:13:11 -0700
 
-ip6_mc_find_dev_rcu() is called with rcu_read_lock(), so don't
-need to dev_hold().
-With dev_hold(), not corresponding dev_put(), will lead to leak.
+> [PATCH] ipv6: fix icmp6_dst_alloc()
+> 
+> commit 87a115783 ( ipv6: Move xfrm_lookup() call down into
+> icmp6_dst_alloc().) forgot to convert one error path, leading
+> to crashes in mld_sendpack()
+> 
+> Many thanks to Dave Jones for providing a very complete bug report.
+> 
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
----
- net/ipv6/mcast.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index b853f06..16c33e3 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -257,7 +257,6 @@ static struct inet6_dev *ip6_mc_find_dev_rcu(struct net *net,
- 
- 		if (rt) {
- 			dev = rt->dst.dev;
--			dev_hold(dev);
- 			dst_release(&rt->dst);
- 		}
- 	} else
--- 
-1.7.1
+Applied and queued up for -stable, thanks.
