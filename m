@@ -1,67 +1,66 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC 1/8] phc: Add a method for obtaining the device index.
-Date: Sat, 17 Mar 2012 13:12:27 +0100
-Message-ID: <1c74bab66cd1b5a03ac72435398637b8a887ee58.1331983687.git.richardcochran@gmail.com>
+Subject: [PATCH RFC 3/8] bfin_mac: Support the get_ts_info ethtool method.
+Date: Sat, 17 Mar 2012 13:12:29 +0100
+Message-ID: <c390ad4cf2f5dcd8cedaf0074f21f772f7db9e95.1331983687.git.richardcochran@gmail.com>
 References: <cover.1331983685.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:48091 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030660Ab2CQMMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 08:12:45 -0400
-Received: by wibhj6 with SMTP id hj6so1964362wib.1
-        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 05:12:44 -0700 (PDT)
+Received: from mail-we0-f174.google.com ([74.125.82.174]:43430 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030803Ab2CQMMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 08:12:49 -0400
+Received: by mail-we0-f174.google.com with SMTP id x9so4653078wej.19
+        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 05:12:49 -0700 (PDT)
 In-Reply-To: <cover.1331983685.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1331983685.git.richardcochran@gmail.com>
 References: <cover.1331983685.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds a method that MAC drivers may call in order to find out
-the device number of their associated PTP Hardware Clock.
-
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/ptp/ptp_clock.c          |    6 ++++++
- include/linux/ptp_clock_kernel.h |    9 +++++++++
- 2 files changed, 15 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index f519a13..1e528b5 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -304,6 +304,12 @@ void ptp_clock_event(struct ptp_clock *ptp, struct ptp_clock_event *event)
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index ab4daec..db22278 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -548,6 +548,25 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
+ 	return 0;
  }
- EXPORT_SYMBOL(ptp_clock_event);
  
-+int ptp_clock_index(struct ptp_clock *ptp)
++static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
++	struct ethtool_ts_info *info);
 +{
-+	return ptp->index;
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_HARDWARE |
++		SOF_TIMESTAMPING_RX_HARDWARE |
++		SOF_TIMESTAMPING_SYS_HARDWARE;
++	info->phc_index = -1;
++	info->tx_types =
++		(1 << HWTSTAMP_TX_OFF) |
++		(1 << HWTSTAMP_TX_ON);
++	info->rx_filters =
++		(1 << HWTSTAMP_FILTER_NONE) |
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
++		(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
++		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
++	return 0;
 +}
-+EXPORT_SYMBOL(ptp_clock_index);
 +
- /* module operations */
+ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+ 	.get_settings = bfin_mac_ethtool_getsettings,
+ 	.set_settings = bfin_mac_ethtool_setsettings,
+@@ -555,6 +574,7 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+ 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
+ 	.get_wol = bfin_mac_ethtool_getwol,
+ 	.set_wol = bfin_mac_ethtool_setwol,
++	.get_ts_info = bfin_mac_ethtool_get_ts_info,
+ };
  
- static void __exit ptp_exit(void)
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index dd2e44f..58008a2 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -136,4 +136,13 @@ struct ptp_clock_event {
- extern void ptp_clock_event(struct ptp_clock *ptp,
- 			    struct ptp_clock_event *event);
- 
-+/**
-+ * ptp_clock_index() - obtain the device index of a PTP clock
-+ *
-+ * @ptp:    The clock obtained from ptp_clock_register().
-+ * @event:  Message structure describing the event.
-+ */
-+
-+extern int ptp_clock_index(struct ptp_clock *ptp);
-+
- #endif
+ /**************************************************************************/
 -- 
 1.7.2.5
