@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/12] ixgbe: cleanup logic in ixgbe_change_mtu
-Date: Sat, 17 Mar 2012 01:50:54 -0700
-Message-ID: <1331974260-6383-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/12] ixgbe: Place skb on first buffer_info structure to avoid using stack space
+Date: Sat, 17 Mar 2012 01:50:58 -0700
+Message-ID: <1331974260-6383-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1331974260-6383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,61 +10,261 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:51651 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753595Ab2CQIve (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Mar 2012 04:51:34 -0400
+	id S1756176Ab2CQIvh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Mar 2012 04:51:37 -0400
 In-Reply-To: <1331974260-6383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to just cleanup the logic in ixgbe_change_mtu since we
-are making it unnecessarily complex due to a workaround required for 82599
-when SR-IOV is enabled.
+Instead of keeping a local copy of the skb on the stack for as long as long
+as we do it makes sense to instead just place it on the first tx_buffer
+structure so that we can save space on the stack and avoid unnecessary
+read/write operations copying the pointer out of the stack and onto the
+ring later.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   11 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    6 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   52 ++++++++++++++----------
+ 3 files changed, 40 insertions(+), 29 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 6d4ef1a..55f31fe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -150,12 +150,12 @@ struct vf_macvlans {
+ struct ixgbe_tx_buffer {
+ 	union ixgbe_adv_tx_desc *next_to_watch;
+ 	unsigned long time_stamp;
++	struct sk_buff *skb;
++	unsigned int bytecount;
++	unsigned short gso_segs;
+ 	dma_addr_t dma;
+-	u32 length;
++	unsigned int length;
+ 	u32 tx_flags;
+-	struct sk_buff *skb;
+-	u32 bytecount;
+-	u16 gso_segs;
+ };
+ 
+ struct ixgbe_rx_buffer {
+@@ -631,7 +631,8 @@ extern void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
+ extern void ixgbe_do_reset(struct net_device *netdev);
+ #ifdef IXGBE_FCOE
+ extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
+-extern int ixgbe_fso(struct ixgbe_ring *tx_ring, struct sk_buff *skb,
++extern int ixgbe_fso(struct ixgbe_ring *tx_ring,
++		     struct ixgbe_tx_buffer *first,
+                      u32 tx_flags, u8 *hdr_len);
+ extern void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index da7da75..910847a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -447,7 +447,7 @@ ddp_out:
+ /**
+  * ixgbe_fso - ixgbe FCoE Sequence Offload (FSO)
+  * @tx_ring: tx desc ring
+- * @skb: associated skb
++ * @first: first tx_buffer structure containing skb, tx_flags, and protocol
+  * @tx_flags: tx flags
+  * @hdr_len: hdr_len to be returned
+  *
+@@ -455,9 +455,11 @@ ddp_out:
+  *
+  * Returns : 0 indicates no FSO, > 0 for FSO, < 0 for error
+  */
+-int ixgbe_fso(struct ixgbe_ring *tx_ring, struct sk_buff *skb,
++int ixgbe_fso(struct ixgbe_ring *tx_ring,
++	      struct ixgbe_tx_buffer *first,
+               u32 tx_flags, u8 *hdr_len)
+ {
++	struct sk_buff *skb = first->skb;
+ 	struct fc_frame_header *fh;
+ 	u32 vlan_macip_lens;
+ 	u32 fcoe_sof_eof = 0;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e97ef45..db1f17c 100644
+index 832a9fc..c05d560 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5544,20 +5544,24 @@ static void ixgbe_free_all_rx_resources(struct ixgbe_adapter *adapter)
- static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+@@ -763,12 +763,16 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		/* clear next_to_watch to prevent false hangs */
+ 		tx_buffer->next_to_watch = NULL;
+ 
++		/* free the skb */
++		dev_kfree_skb_any(tx_buffer->skb);
++
++		/* clear tx_buffer data */
++		tx_buffer->skb = NULL;
++
+ 		do {
+ 			ixgbe_unmap_tx_resource(tx_ring, tx_buffer);
+ 			if (likely(tx_desc == eop_desc)) {
+ 				eop_desc = NULL;
+-				dev_kfree_skb_any(tx_buffer->skb);
+-				tx_buffer->skb = NULL;
+ 
+ 				total_bytes += tx_buffer->bytecount;
+ 				total_packets += tx_buffer->gso_segs;
+@@ -6551,9 +6555,11 @@ void ixgbe_tx_ctxtdesc(struct ixgbe_ring *tx_ring, u32 vlan_macip_lens,
+ 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
+ }
+ 
+-static int ixgbe_tso(struct ixgbe_ring *tx_ring, struct sk_buff *skb,
++static int ixgbe_tso(struct ixgbe_ring *tx_ring,
++		     struct ixgbe_tx_buffer *first,
+ 		     u32 tx_flags, __be16 protocol, u8 *hdr_len)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	struct ixgbe_hw *hw = &adapter->hw;
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
++	struct sk_buff *skb = first->skb;
+ 	int err;
+ 	u32 vlan_macip_lens, type_tucmd;
+ 	u32 mss_l4len_idx, l4len;
+@@ -6607,9 +6613,10 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring, struct sk_buff *skb,
+ }
  
- 	/* MTU < 68 is an error and causes problems on some kernels */
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED &&
--	    hw->mac.type != ixgbe_mac_X540) {
--		if ((new_mtu < 68) || (max_frame > MAXIMUM_ETHERNET_VLAN_SIZE))
--			return -EINVAL;
--	} else {
--		if ((new_mtu < 68) || (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE))
-+	if ((new_mtu < 68) || (max_frame > IXGBE_MAX_JUMBO_FRAME_SIZE))
-+		return -EINVAL;
-+
-+	/*
-+	 * For 82599EB we cannot allow PF to change MTU greater than 1500
-+	 * in SR-IOV mode as it may cause buffer overruns in guest VFs that
-+	 * don't allocate and chain buffers correctly.
-+	 */
-+	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
-+	    (adapter->hw.mac.type == ixgbe_mac_82599EB) &&
-+	    (max_frame > MAXIMUM_ETHERNET_VLAN_SIZE))
- 			return -EINVAL;
--	}
+ static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+-			  struct sk_buff *skb, u32 tx_flags,
+-			  __be16 protocol)
++			  struct ixgbe_tx_buffer *first,
++			  u32 tx_flags, __be16 protocol)
+ {
++	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens = 0;
+ 	u32 mss_l4len_idx = 0;
+ 	u32 type_tucmd = 0;
+@@ -6733,11 +6740,11 @@ static __le32 ixgbe_tx_olinfo_status(u32 tx_flags, unsigned int paylen)
+ 		       IXGBE_TXD_CMD_RS)
  
- 	e_info(probe, "changing MTU from %d to %d\n", netdev->mtu, new_mtu);
+ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+-			 struct sk_buff *skb,
+ 			 struct ixgbe_tx_buffer *first,
+ 			 u32 tx_flags,
+ 			 const u8 hdr_len)
+ {
++	struct sk_buff *skb = first->skb;
+ 	struct device *dev = tx_ring->dev;
+ 	struct ixgbe_tx_buffer *tx_buffer_info;
+ 	union ixgbe_adv_tx_desc *tx_desc;
+@@ -6850,7 +6857,6 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	/* multiply data chunks by size of headers */
+ 	tx_buffer_info->bytecount = paylen + (gso_segs * hdr_len);
+ 	tx_buffer_info->gso_segs = gso_segs;
+-	tx_buffer_info->skb = skb;
+ 
+ 	netdev_tx_sent_queue(txring_txq(tx_ring), tx_buffer_info->bytecount);
+ 
+@@ -6878,7 +6884,7 @@ dma_error:
+ 	/* clear dma mappings for failed tx_buffer_info map */
+ 	for (;;) {
+ 		tx_buffer_info = &tx_ring->tx_buffer_info[i];
+-		ixgbe_unmap_tx_resource(tx_ring, tx_buffer_info);
++		ixgbe_unmap_and_free_tx_resource(tx_ring, tx_buffer_info);
+ 		if (tx_buffer_info == first)
+ 			break;
+ 		if (i == 0)
+@@ -6886,12 +6892,11 @@ dma_error:
+ 		i--;
+ 	}
+ 
+-	dev_kfree_skb_any(skb);
+-
+ 	tx_ring->next_to_use = i;
+ }
+ 
+-static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
++static void ixgbe_atr(struct ixgbe_ring *ring,
++		      struct ixgbe_tx_buffer *first,
+ 		      u32 tx_flags, __be16 protocol)
+ {
+ 	struct ixgbe_q_vector *q_vector = ring->q_vector;
+@@ -6916,7 +6921,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
+ 	ring->atr_count++;
+ 
+ 	/* snag network header to get L4 type and address */
+-	hdr.network = skb_network_header(skb);
++	hdr.network = skb_network_header(first->skb);
+ 
+ 	/* Currently only IPv4/IPv6 with TCP is supported */
+ 	if ((protocol != __constant_htons(ETH_P_IPV6) ||
+@@ -6925,7 +6930,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
+ 	     hdr.ipv4->protocol != IPPROTO_TCP))
+ 		return;
+ 
+-	th = tcp_hdr(skb);
++	th = tcp_hdr(first->skb);
+ 
+ 	/* skip this packet since it is invalid or the socket is closing */
+ 	if (!th || th->fin)
+@@ -7063,6 +7068,10 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* record the location of the first descriptor for this packet */
++	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
++	first->skb = skb;
 +
- 	/* must set new MTU before calling down or up */
- 	netdev->mtu = new_mtu;
+ 	/* if we have a HW VLAN tag being added default to the HW one */
+ 	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT;
+@@ -7109,14 +7118,11 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	/* record the location of the first descriptor for this packet */
+-	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
+-
+ #ifdef IXGBE_FCOE
+ 	/* setup tx offload for FCoE */
+ 	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
+ 	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
+-		tso = ixgbe_fso(tx_ring, skb, tx_flags, &hdr_len);
++		tso = ixgbe_fso(tx_ring, first, tx_flags, &hdr_len);
+ 		if (tso < 0)
+ 			goto out_drop;
+ 		else if (tso)
+@@ -7133,29 +7139,31 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 	if (protocol == __constant_htons(ETH_P_IP))
+ 		tx_flags |= IXGBE_TX_FLAGS_IPV4;
+ 
+-	tso = ixgbe_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
++	tso = ixgbe_tso(tx_ring, first, tx_flags, protocol, &hdr_len);
+ 	if (tso < 0)
+ 		goto out_drop;
+ 	else if (tso)
+ 		tx_flags |= IXGBE_TX_FLAGS_TSO | IXGBE_TX_FLAGS_CSUM;
+-	else if (ixgbe_tx_csum(tx_ring, skb, tx_flags, protocol))
++	else if (ixgbe_tx_csum(tx_ring, first, tx_flags, protocol))
+ 		tx_flags |= IXGBE_TX_FLAGS_CSUM;
+ 
+ 	/* add the ATR filter if ATR is on */
+ 	if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
+-		ixgbe_atr(tx_ring, skb, tx_flags, protocol);
++		ixgbe_atr(tx_ring, first, tx_flags, protocol);
+ 
+ #ifdef IXGBE_FCOE
+ xmit_fcoe:
+ #endif /* IXGBE_FCOE */
+-	ixgbe_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
++	ixgbe_tx_map(tx_ring, first, tx_flags, hdr_len);
+ 
+ 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-	dev_kfree_skb_any(skb);
++	dev_kfree_skb_any(first->skb);
++	first->skb = NULL;
++
+ 	return NETDEV_TX_OK;
+ }
  
 -- 
 1.7.7.6
