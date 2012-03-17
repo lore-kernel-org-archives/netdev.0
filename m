@@ -1,64 +1,56 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking attempts
- fails.
-Date: Sat, 17 Mar 2012 11:31:55 +0100
-Message-ID: <4F64681B.8030406@imap.cc>
-References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Philipp Zabel <philipp.zabel@gmail.com>
+Subject: Re: [PATCH] net/irda: add clk_prepare/clk_unprepare to pxaficp_ir
+Date: Sat, 17 Mar 2012 11:43:09 +0100
+Message-ID: <CA+gwMceyQcfs-xM6+PB79uPOBNPKJ5fER=DjDPpmdqS5OcnTXA@mail.gmail.com>
+References: <1331835569.14662.11.camel@flow>
+	<20120316.231047.1919840752101978309.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4DE7A07E51A22DB415AFD90E"
-Cc: hjlipp@web.de, isdn@linux-pingi.de,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: santosh nayak <santoshprasadnayak@gmail.com>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, eric.y.miao@gmail.com,
+	haojian.zhuang@marvell.com, samuel@sortiz.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:38464 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756743Ab2CQKnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 06:43:09 -0400
+Received: by obbeh20 with SMTP id eh20so133013obb.19
+        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 03:43:09 -0700 (PDT)
+In-Reply-To: <20120316.231047.1919840752101978309.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4DE7A07E51A22DB415AFD90E
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Sat, Mar 17, 2012 at 7:10 AM, David Miller <davem@davemloft.net> wrote:
+> From: Philipp Zabel <philipp.zabel@gmail.com>
+> Date: Thu, 15 Mar 2012 19:19:29 +0100
+>
+>> This patch adds clk_prepare/clk_unprepare calls to the pxaficp_ir
+>> driver by using the helper functions clk_prepare_enable and
+>> clk_disable_unprepare.
+>>
+>> Signed-off-by: Philipp Zabel <philipp.zabel@gmail.com>
+>
+> This is terrible.
+>
+> So the problem was that clk_enable can't be invoked from atomic
+> context, because it wants to take a mutex for some implementation.
+>
+> Therefore an existing routine with well defined semantics,
+> clk_enable(), was turned into a NOP.
+>
+> And this silently breaks drivers.
+>
+> Instead of silently breaking things, make direct
+> clk_enable()/clk_disable() invocations either result in a compile
+> error or a run-time BUG_ON().
 
-Am 16.03.2012 14:10, schrieb santosh nayak:
-> From: Santosh Nayak <santoshprasadnayak@gmail.com>
->=20
-> If locking attempt was interrupted by a signal then we should
-> return -EINTR so that caller can take appropriate action.
+I expect that anybody who turns clk_enable/clk_disable into
+no-ops for their platform will be sensible enough to take care of this.
+The common struct clk framework already keeps a prepare_count
+variable and clk_enable does WARN_ON(clk->prepare_count == 0).
 
-NACK.
+In case of PXA, it's the clk_prepare/clk_unprepare calls that are the
+no-ops anyway, so thanks for applying.
 
-The return value of gigaset_start(), as documented in its
-header comment, is:
- *	1 - success, 0 - error
-Its callers rely on this. If you want to change it, you must
-also change the documentation and the callers accordingly.
-In its current form the patch would just break the driver.
-
-Thanks,
-Tilman
-
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
-
-
---------------enig4DE7A07E51A22DB415AFD90E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk9kaBwACgkQQ3+did9BuFsK7ACfbFVdNyHEQHIdPQBwdFoaOBRL
-zvwAn2VU1GEKbCVw67P6G5UQPKEWyXOM
-=c+S5
------END PGP SIGNATURE-----
-
---------------enig4DE7A07E51A22DB415AFD90E--
+regards
+Philipp
