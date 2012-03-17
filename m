@@ -1,27 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] drivers: net: Remove unnecessary line continuations
-Date: Sat, 17 Mar 2012 15:41:06 -0700 (PDT)
-Message-ID: <20120317.154106.2065585022630172500.davem@davemloft.net>
-References: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com>
-	<67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] adjust __net_exit
+Date: Sun, 18 Mar 2012 00:03:18 +0100
+Message-ID: <20120317230318.GA19460@merkur.ravnborg.org>
+References: <4F588BEC020000780007710A@nat28.tlf.novell.com> <20120316.221813.236130733754848615.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: geoff@infradead.org, kou.ishizaki@toshiba.co.jp, jens@de.ibm.com,
-	samuel@sortiz.org, wg@grandegger.com, mkl@pengutronix.de,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
-To: joe@perches.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: JBeulich@suse.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, xemul@openvz.org,
+	ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.snhosting.dk ([87.238.248.203]:63980 "EHLO
+	smtp.domainteam.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799Ab2CQXDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 19:03:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20120316.221813.236130733754848615.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 17 Mar 2012 12:14:03 -0700
-
-> Line continuations are error prone so just remove them.
+On Fri, Mar 16, 2012 at 10:18:13PM -0700, David Miller wrote:
+> From: "Jan Beulich" <JBeulich@suse.com>
+> Date: Thu, 08 Mar 2012 09:37:32 +0000
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> > __net_exit, judging by the majority of its uses, was intended to serve
+> > as an abstraction to allow calling such annotated functions from both
+> > __init and __exit functions. Using the (bogus and unused elsewhere)
+> > __exit_refok to implement this is inefficient - any non-modular code
+> > really can reside in __init (as non-modular __exit code is never used).
+> > 
+> > Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
+> > in modules, and __init in the core kernel.
+> > 
+> > A few other adjustments are necessary/possible with this done - those
+> > were likely just oversights when added originally.
+> > 
+> > Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> 
+> [ I have been waiting for more than a week for a netns developer
+>   to review this patch, I guess I'm too optimistic these days. :-( ]
+> 
+> The only reason you think __exit_refok is "bogus" is because it's
+> semantics got changed by Sam Ravnborg in commit
+> 312b1485fb509c9bc32eda28ad29537896658cb8 ("Introduce new section
+> reference annotations tags: __ref, __refdata, __refconst")
+> 
+> Beforehand the __exit_refok was a real .exit section, so it got
+> completely discarded AT LINK TIME.  Now it sits together with
+> __init_refok which is an unremovable kernel image section, which
+> neither gets removed at compile time nor boot time.
 
-Applied.
+Some misunderstanding is going on here.
+
+The *ref* annotation is used to teach modpost that this function (or data)
+may reference functions (or data) which is annotated __init*.
+And the *ref* annotation never caused the annotated code to be discarded.
+
+This was true before the above mentioned patch - and it is still true.
+
+Before the path ("Introduce new section reference ....") the __exit_refok
+annotation moved functions to the section named ".exit.text.refok"
+which was explicit part of .text (TEXT_TEXT in vmlinux).
+
+So __exit_refok does exactly what it is intended to do:
+It puts the function in a section so modpost does not warn about
+references to __init or __exit sections.
+
+As Jan points out there is only a single user left - so
+this would be a good time to kill it. It is even documented
+in init.h that this is a backward compatibility define.
+
+The intention with Jan's patch is to move functions annotated
+__net_exit to a discardable section in the core kernel.
+Then at least __exit should be used - there is no logic
+using __init for exit code.
+
+I suggest to:
+1) fix the patch to use __exit
+2) fix up the bogus commit message
+
+Then it should be OK - iff the assumption hold that the functions
+can be discarded in the core kernel.
+I have grepped a little and saw no uses where this did not hold true.
+So based on this I assume the assumption is OK.
+
+	Sam
