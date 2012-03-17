@@ -1,105 +1,198 @@
 From: Karsten Keil <isdn@linux-pingi.de>
-Subject: [PATCH 14/28] mISDN: Layer1 statemachine fix
-Date: Sat, 17 Mar 2012 16:07:55 +0100
-Message-ID: <20120423170550.79C269FBAA@pingi6.linux-pingi.de>
+Subject: [PATCH 12/28] mISDN: L2 timeouts need to be queued as L2 event
+Date: Sat, 17 Mar 2012 16:01:12 +0100
+Message-ID: <20120423170550.331249FBA7@pingi6.linux-pingi.de>
 Cc: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56985 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.8]:62432 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754158Ab2DWRIW (ORCPT
+	with ESMTP id S1754199Ab2DWRIW (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:08:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The timer3 and the activation delay timer need to be
-independent.
-Now layer1 pass TBR3 again.
+To be full preemptiv safe, we cannot handle a L2 timeout in
+the timer context itself, we should do all actions via
+the D-channel thread.
 
 Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- drivers/isdn/mISDN/layer1.c |   23 ++++++++++++++---------
- 1 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/isdn/mISDN/layer2.c |   58 +++++++++++++++++++++++++++++++++++++++---
+ drivers/isdn/mISDN/tei.c    |   13 +++++++--
+ include/linux/mISDNif.h     |    9 ++++++-
+ 3 files changed, 71 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
-index 65912bd..7feb78a 100644
---- a/drivers/isdn/mISDN/layer1.c
-+++ b/drivers/isdn/mISDN/layer1.c
-@@ -28,7 +28,8 @@ static u_int *debug;
- struct layer1 {
- 	u_long Flags;
- 	struct FsmInst l1m;
--	struct FsmTimer timer;
-+	struct FsmTimer timer3;
-+	struct FsmTimer timerX;
- 	int delay;
- 	int			t3_value;
- 	struct dchannel *dch;
-@@ -135,7 +136,7 @@ l1_deact_req_s(struct FsmInst *fi, int event, void *arg)
- 	struct layer1 *l1 = fi->userdata;
- 
- 	mISDN_FsmChangeState(fi, ST_L1_F3);
--	mISDN_FsmRestartTimer(&l1->timer, 550, EV_TIMER_DEACT, NULL, 2);
-+	mISDN_FsmRestartTimer(&l1->timerX, 550, EV_TIMER_DEACT, NULL, 2);
- 	test_and_set_bit(FLG_L1_DEACTTIMER, &l1->Flags);
+diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
+index 39d7375..d421495 100644
+--- a/drivers/isdn/mISDN/layer2.c
++++ b/drivers/isdn/mISDN/layer2.c
+@@ -58,6 +58,8 @@ enum {
+ 	EV_L1_DEACTIVATE,
+ 	EV_L2_T200,
+ 	EV_L2_T203,
++	EV_L2_T200I,
++	EV_L2_T203I,
+ 	EV_L2_SET_OWN_BUSY,
+ 	EV_L2_CLEAR_OWN_BUSY,
+ 	EV_L2_FRAME_ERROR,
+@@ -86,6 +88,8 @@ static char *strL2Event[] =
+ 	"EV_L1_DEACTIVATE",
+ 	"EV_L2_T200",
+ 	"EV_L2_T203",
++	"EV_L2_T200I",
++	"EV_L2_T203I",
+ 	"EV_L2_SET_OWN_BUSY",
+ 	"EV_L2_CLEAR_OWN_BUSY",
+ 	"EV_L2_FRAME_ERROR",
+@@ -276,6 +280,31 @@ ph_data_confirm(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb) {
+ 	return ret;
  }
  
-@@ -180,11 +181,11 @@ l1_info4_ind(struct FsmInst *fi, int event, void *arg)
- 	mISDN_FsmChangeState(fi, ST_L1_F7);
- 	l1->dcb(l1->dch, INFO3_P8);
- 	if (test_and_clear_bit(FLG_L1_DEACTTIMER, &l1->Flags))
--		mISDN_FsmDelTimer(&l1->timer, 4);
-+		mISDN_FsmDelTimer(&l1->timerX, 4);
- 	if (!test_bit(FLG_L1_ACTIVATED, &l1->Flags)) {
- 		if (test_and_clear_bit(FLG_L1_T3RUN, &l1->Flags))
--			mISDN_FsmDelTimer(&l1->timer, 3);
--		mISDN_FsmRestartTimer(&l1->timer, 110, EV_TIMER_ACT, NULL, 2);
-+			mISDN_FsmDelTimer(&l1->timer3, 3);
-+		mISDN_FsmRestartTimer(&l1->timerX, 110, EV_TIMER_ACT, NULL, 2);
- 		test_and_set_bit(FLG_L1_ACTTIMER, &l1->Flags);
- 	}
- }
-@@ -201,8 +202,9 @@ l1_timer3(struct FsmInst *fi, int event, void *arg)
- 		l1->dcb(l1->dch, PH_DEACTIVATE_IND);
- 	}
- 	if (l1->l1m.state != ST_L1_F6) {
-+		/* keep in F6 */
- 		mISDN_FsmChangeState(fi, ST_L1_F3);
--		l1->dcb(l1->dch, HW_POWERUP_REQ);
-+		/* do not force anything here, we need send INFO 0 */
- 	}
- }
- 
-@@ -234,8 +236,9 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
++static void
++l2_timeout(struct FsmInst *fi, int event, void *arg)
++{
++	struct layer2 *l2 = fi->userdata;
++	struct sk_buff *skb;
++	struct mISDNhead *hh;
++
++	skb = mI_alloc_skb(0, GFP_ATOMIC);
++	if (!skb) {
++		printk(KERN_WARNING "L2(%d,%d) nr:%x timer %s lost - no skb\n",
++			l2->sapi, l2->tei, l2->ch.nr, event == EV_L2_T200 ?
++			"T200" : "T203");
++		return;
++	}
++	hh = mISDN_HEAD_P(skb);
++	hh->prim = event == EV_L2_T200 ? DL_TIMER200_IND : DL_TIMER203_IND;
++	hh->id = l2->ch.nr;
++	if (*debug & DEBUG_TIMER)
++		printk(KERN_DEBUG "L2(%d,%d) nr:%x timer %s expired\n",
++			l2->sapi, l2->tei, l2->ch.nr, event == EV_L2_T200 ?
++			"T200" : "T203");
++	if (l2->ch.st)
++		l2->ch.st->own.recv(&l2->ch.st->own, skb);
++}
++
+ static int
+ l2mgr(struct layer2 *l2, u_int prim, void *arg) {
+ 	long c = (long)arg;
+@@ -1814,11 +1843,16 @@ static struct FsmNode L2FnList[] =
+ 	{ST_L2_8, EV_L2_SUPER, l2_st8_got_super},
+ 	{ST_L2_7, EV_L2_I, l2_got_iframe},
+ 	{ST_L2_8, EV_L2_I, l2_got_iframe},
+-	{ST_L2_5, EV_L2_T200, l2_st5_tout_200},
+-	{ST_L2_6, EV_L2_T200, l2_st6_tout_200},
+-	{ST_L2_7, EV_L2_T200, l2_st7_tout_200},
+-	{ST_L2_8, EV_L2_T200, l2_st8_tout_200},
+-	{ST_L2_7, EV_L2_T203, l2_st7_tout_203},
++	{ST_L2_5, EV_L2_T200, l2_timeout},
++	{ST_L2_6, EV_L2_T200, l2_timeout},
++	{ST_L2_7, EV_L2_T200, l2_timeout},
++	{ST_L2_8, EV_L2_T200, l2_timeout},
++	{ST_L2_7, EV_L2_T203, l2_timeout},
++	{ST_L2_5, EV_L2_T200I, l2_st5_tout_200},
++	{ST_L2_6, EV_L2_T200I, l2_st6_tout_200},
++	{ST_L2_7, EV_L2_T200I, l2_st7_tout_200},
++	{ST_L2_8, EV_L2_T200I, l2_st8_tout_200},
++	{ST_L2_7, EV_L2_T203I, l2_st7_tout_203},
+ 	{ST_L2_7, EV_L2_ACK_PULL, l2_pull_iqueue},
+ 	{ST_L2_7, EV_L2_SET_OWN_BUSY, l2_set_own_busy},
+ 	{ST_L2_8, EV_L2_SET_OWN_BUSY, l2_set_own_busy},
+@@ -1932,6 +1966,14 @@ l2_send(struct mISDNchannel *ch, struct sk_buff *skb)
+ 	if (*debug & DEBUG_L2_RECV)
+ 		printk(KERN_DEBUG "%s: prim(%x) id(%x) sapi(%d) tei(%d)\n",
+ 		       __func__, hh->prim, hh->id, l2->sapi, l2->tei);
++	if (hh->prim == DL_INTERN_MSG) {
++		struct mISDNhead *chh = hh + 1; /* saved copy */
++
++		*hh = *chh;
++		if (*debug & DEBUG_L2_RECV)
++			printk(KERN_DEBUG "%s: prim(%x) id(%x) internal msg\n",
++				__func__, hh->prim, hh->id);
++	}
+ 	switch (hh->prim) {
+ 	case PH_DATA_IND:
+ 		ret = ph_data_indication(l2, hh, skb);
+@@ -1987,6 +2029,12 @@ l2_send(struct mISDNchannel *ch, struct sk_buff *skb)
+ 		ret = mISDN_FsmEvent(&l2->l2m, EV_L2_DL_RELEASE_REQ,
+ 				     skb);
+ 		break;
++	case DL_TIMER200_IND:
++		mISDN_FsmEvent(&l2->l2m, EV_L2_T200I, NULL);
++		break;
++	case DL_TIMER203_IND:
++		mISDN_FsmEvent(&l2->l2m, EV_L2_T203I, NULL);
++		break;
+ 	default:
+ 		if (*debug & DEBUG_L2)
+ 			l2m_debug(&l2->l2m, "l2 unknown pr %04x",
+diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
+index 25ed826..c7f6bea 100644
+--- a/drivers/isdn/mISDN/tei.c
++++ b/drivers/isdn/mISDN/tei.c
+@@ -1293,7 +1293,7 @@ static int
+ mgr_bcast(struct mISDNchannel *ch, struct sk_buff *skb)
  {
- 	struct layer1 *l1 = fi->userdata;
+ 	struct manager		*mgr = container_of(ch, struct manager, bcast);
+-	struct mISDNhead	*hh = mISDN_HEAD_P(skb);
++	struct mISDNhead	*hhc, *hh = mISDN_HEAD_P(skb);
+ 	struct sk_buff		*cskb = NULL;
+ 	struct layer2		*l2;
+ 	u_long			flags;
+@@ -1308,10 +1308,17 @@ mgr_bcast(struct mISDNchannel *ch, struct sk_buff *skb)
+ 				skb = NULL;
+ 			} else {
+ 				if (!cskb)
+-					cskb = skb_copy(skb, GFP_KERNEL);
++					cskb = skb_copy(skb, GFP_ATOMIC);
+ 			}
+ 			if (cskb) {
+-				ret = l2->ch.send(&l2->ch, cskb);
++				hhc = mISDN_HEAD_P(cskb);
++				/* save original header behind normal header */
++				hhc++;
++				*hhc = *hh;
++				hhc--;
++				hhc->prim = DL_INTERN_MSG;
++				hhc->id = l2->ch.nr;
++				ret = ch->st->own.recv(&ch->st->own, cskb);
+ 				if (ret) {
+ 					if (*debug & DEBUG_SEND_ERR)
+ 						printk(KERN_DEBUG
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index bdda647..b7457e8 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -37,7 +37,7 @@
+  */
+ #define	MISDN_MAJOR_VERSION	1
+ #define	MISDN_MINOR_VERSION	1
+-#define MISDN_RELEASE		24
++#define MISDN_RELEASE		26
  
--	mISDN_FsmRestartTimer(&l1->timer, l1->t3_value, EV_TIMER3, NULL, 2);
-+	mISDN_FsmRestartTimer(&l1->timer3, l1->t3_value, EV_TIMER3, NULL, 2);
- 	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
-+	/* Tell HW to send INFO 1 */
- 	l1->dcb(l1->dch, HW_RESET_REQ);
- }
+ /* primitives for information exchange
+  * generell format
+@@ -115,6 +115,11 @@
+ #define MDL_ERROR_IND		0x1F04
+ #define MDL_ERROR_RSP		0x5F04
  
-@@ -303,7 +306,8 @@ static struct FsmNode L1SFnList[] =
++/* intern layer 2 */
++#define DL_TIMER200_IND		0x7004
++#define DL_TIMER203_IND		0x7304
++#define DL_INTERN_MSG		0x7804
++
+ /* DL_INFORMATION_IND types */
+ #define DL_INFO_L2_CONNECT	0x0001
+ #define DL_INFO_L2_REMOVED	0x0002
+@@ -289,6 +294,8 @@ struct mISDNversion {
+ 	unsigned short	release;
+ };
  
- static void
- release_l1(struct layer1 *l1) {
--	mISDN_FsmDelTimer(&l1->timer, 0);
-+	mISDN_FsmDelTimer(&l1->timerX, 0);
-+	mISDN_FsmDelTimer(&l1->timer3, 0);
- 	if (l1->dch)
- 		l1->dch->l1 = NULL;
- 	module_put(THIS_MODULE);
-@@ -395,7 +399,8 @@ create_l1(struct dchannel *dch, dchannel_l1callback *dcb) {
- 	nl1->l1m.printdebug = l1m_debug;
- 	nl1->dch = dch;
- 	nl1->dcb = dcb;
--	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timer);
-+	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timer3);
-+	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timerX);
- 	__module_get(THIS_MODULE);
- 	dch->l1 = nl1;
- 	return 0;
++#define MAX_DEVICE_ID 63
++
+ struct mISDN_devinfo {
+ 	u_int			id;
+ 	u_int			Dprotocols;
 -- 
 1.7.3.4
