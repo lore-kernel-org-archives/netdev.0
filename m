@@ -1,47 +1,47 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking attempts
- fails.
-Date: Sat, 17 Mar 2012 22:28:47 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1203172225080.2364@localhost6.localdomain6>
-References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com> <20120316.231856.1071253468993560433.davem@davemloft.net> <CAOD=uF6JJiiGjQwybzwdU3Zw9pC8YbDPxm_Pg9E9WNAXbfTiUQ@mail.gmail.com>
- <20120317.135854.570143927282385505.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and performance degration
+Date: Sat, 17 Mar 2012 23:20:04 +0100
+Message-ID: <20120317222004.GA25455@electric-eye.fr.zoreil.com>
+References: <20120314215142.655ae607@vostro> <1331755965.6022.55.camel@edumazet-glaptop> <20120314223343.23dc9df3@vostro> <20120314205319.GA28394@electric-eye.fr.zoreil.com> <20120315080635.1f76512b@vostro> <20120315171148.0050714d@vostro> <20120315191118.GA19809@electric-eye.fr.zoreil.com> <20120316221557.235f5ffd@vostro> <20120317115625.3fc04de4@vostro> <20120317113501.GC20532@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: santoshprasadnayak@gmail.com, hjlipp@web.de, tilman@imap.cc,
-	isdn@linux-pingi.de, gigaset307x-common@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-media@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <20120317.135854.570143927282385505.davem@davemloft.net>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57320 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932487Ab2CQWVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Mar 2012 18:21:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20120317113501.GC20532@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 17 Mar 2012, David Miller wrote:
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> > Or as easy alternative, enabling the VPD bit in Config1 should allow me
+> > to read the EEPROM contents using the PCI /sys/.../vpd interface, right?
+> 
+> In theory, yes. I have not tested it. Imho both access methods will be
+> useful.
 
-> From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-> Date: Sat, 17 Mar 2012 21:26:14 +0530
->
->> Caller is interpreting 0 in opposite way of normal sequence.
->> Thats why I misunderstood it.
->
-> The simple fact is that you didn't even look at the code at the call
-> sites when you wrote this patch, and that's the first thing anyone is
-> going to do when reviewing it.
->
-> Therefore your laziness results in more useless work for other people.
-> I just wanted to point out how selfish and anti-social this kind of
-> behavior is.
+I tried vpd and got the eeprom content, duplicated 256 times.
 
-Not to pour too much salt on a wound, but just 5 lines above the patch 
-site is the comment:
+The eeprom content is fairly boring:
 
-  * Return value:
-  *      1 - success, 0 - error
+# ethtool -e 8169sc-1                                                                      
+Offset          Values
+------          ------
+0x0000          29 81 ec 10 67 81 ec 10 67 81 20 40 01 a1 00 e0 
+0x0010          4c 67 00 01 15 cd c2 f7 ff 80 ff ff ff ff ff 13 
+0x0020          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0030          ff ff fa d6 ff ff ff ff ff ff ff ff ff ff ff 20 
+0x0040          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0050          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0060          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0070          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
 
-And the error label also returns 0.  So there is a lot of local 
-information that one can use to see what protocol the function follows.
-
-That said, it's a bit too bad that two protocols have to coexist.
-
-julia
+-- 
+Ueimor
