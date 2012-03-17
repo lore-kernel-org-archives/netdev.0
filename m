@@ -1,159 +1,107 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC 2/8] ethtool: Introduce a method for getting time stamping capabilities.
-Date: Sat, 17 Mar 2012 13:12:28 +0100
-Message-ID: <ce96bacb7b99ebace235794ab7bd7dfabeab7f7d.1331983687.git.richardcochran@gmail.com>
+Subject: [PATCH RFC 5/8] gianfar: Support the get_ts_info ethtool method.
+Date: Sat, 17 Mar 2012 13:12:31 +0100
+Message-ID: <914f876b267865916a9c891ff3091a2d2ef8de48.1331983687.git.richardcochran@gmail.com>
 References: <cover.1331983685.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:43430 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030798Ab2CQMMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 08:12:48 -0400
-Received: by wejx9 with SMTP id x9so4653078wej.19
-        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 05:12:47 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:48091 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030809Ab2CQMMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 08:12:55 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hj6so1964362wib.1
+        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 05:12:54 -0700 (PDT)
 In-Reply-To: <cover.1331983685.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1331983685.git.richardcochran@gmail.com>
 References: <cover.1331983685.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds a new ethtool ioctl that exposes the SO_TIMESTAMPING
-capabilities of a network interface. In addition, user space programs
-can use this ioctl to discover the PTP Hardware Clock (PHC) device
-associated with the interface.
-
-Since software receive time stamps are handled by the stack, the generic
-ethtool code can answer the query correctly in case the MAC or PHY
-drivers lack special time stamping features.
-
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- include/linux/ethtool.h |   20 ++++++++++++++++++++
- include/linux/phy.h     |    3 +++
- net/core/ethtool.c      |   36 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 59 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.h         |    3 ++
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |   29 ++++++++++++++++++++++
+ drivers/net/ethernet/freescale/gianfar_ptp.c     |    2 +
+ 3 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index e1d9e0e..72ffda9 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -726,6 +726,24 @@ struct ethtool_sfeatures {
- 	struct ethtool_set_features_block features[0];
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 4fe0f34..e1829e2 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1213,4 +1213,7 @@ struct filer_table {
+ 	struct gfar_filer_entry fe[MAX_FILER_CACHE_IDX + 20];
  };
  
-+/**
-+ * struct ethtool_ts_info - holds a device's timestamping and PHC association
-+ * @cmd: command number = %ETHTOOL_GET_TS_INFO
-+ * @so_timestamping: bit mask of SO_TIMESTAMPING modes supported by the device
-+ * @phc_index: device index of the associated PHC, or -1 if there is none
-+ * @tx_types: bit mask of hwtstamp_tx_types modes supported by the device
-+ * @rx_filters: bit mask of hwtstamp_rx_filters modes supported by the device
-+ */
-+struct ethtool_ts_info {
-+	__u32	cmd;
-+	__u32	so_timestamping;
-+	__s32	phc_index;
-+	__u32	tx_types;
-+	__u32	tx_reserved[3];
-+	__u32	rx_filters;
-+	__u32	rx_reserved[3];
-+};
++/* The gianfar_ptp module will set this variable */
++extern int gfar_phc_index;
 +
- /*
-  * %ETHTOOL_SFEATURES changes features present in features[].valid to the
-  * values of corresponding bits in features[].requested. Bits in .requested
-@@ -955,6 +973,7 @@ struct ethtool_ops {
- 	int	(*get_dump_data)(struct net_device *,
- 				 struct ethtool_dump *, void *);
- 	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
-+	int	(*get_ts_info)(struct net_device *, struct ethtool_ts_info *);
- 
- };
- #endif /* __KERNEL__ */
-@@ -1029,6 +1048,7 @@ struct ethtool_ops {
- #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
- #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
- #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
-+#define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index c599f7ec..497b5c0 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -411,6 +411,9 @@ struct phy_driver {
- 	/* Clears up any memory if needed */
- 	void (*remove)(struct phy_device *phydev);
- 
-+	/* Handles ethtool queries for hardware time stamping. */
-+	int (*ts_info)(struct phy_device *phydev, struct ethtool_ts_info *ti);
-+
- 	/* Handles SIOCSHWTSTAMP ioctl for hardware time stamping. */
- 	int  (*hwtstamp)(struct phy_device *phydev, struct ifreq *ifr);
- 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 6d6d7d2..d6eff4b 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -17,6 +17,8 @@
- #include <linux/errno.h>
- #include <linux/ethtool.h>
- #include <linux/netdevice.h>
-+#include <linux/net_tstamp.h>
-+#include <linux/phy.h>
- #include <linux/bitops.h>
- #include <linux/uaccess.h>
- #include <linux/vmalloc.h>
-@@ -1278,6 +1280,37 @@ out:
+ #endif /* __GIANFAR_H */
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 5a78d55..3115c4a 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -1739,6 +1739,34 @@ static int gfar_get_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
  	return ret;
  }
  
-+static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
++int gfar_phc_index = -1;
++
++static int gfar_get_ts_info(struct net_device *dev,
++			    struct ethtool_ts_info *info)
 +{
-+	int err = 0;
-+	struct ethtool_ts_info info;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	struct phy_device *phydev = dev->phydev;
++	struct gfar_private *priv = netdev_priv(dev);
 +
-+	memset(&info, 0, sizeof(info));
-+	info.cmd = ETHTOOL_GET_TS_INFO;
-+
-+	if (phydev && phydev->drv && phydev->drv->ts_info)
-+		err = phydev->drv->ts_info(phydev, &info);
-+
-+	else if (dev->ethtool_ops->get_ts_info)
-+		err = ops->get_ts_info(dev, &info);
-+	else {
-+		info.so_timestamping =
++	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)) {
++		info->so_timestamping =
 +			SOF_TIMESTAMPING_RX_SOFTWARE |
 +			SOF_TIMESTAMPING_SOFTWARE;
-+		info.phc_index = -1;
++		info->phc_index = -1;
++		return 0;
 +	}
-+
-+	if (err)
-+		return err;
-+
-+	if (copy_to_user(useraddr, &info, sizeof(info)))
-+		err = -EFAULT;
-+
-+	return err;
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_HARDWARE |
++		SOF_TIMESTAMPING_RX_HARDWARE |
++		SOF_TIMESTAMPING_RAW_HARDWARE;
++	info->phc_index = gfar_phc_index;
++	info->tx_types =
++		(1 << HWTSTAMP_TX_OFF) |
++		(1 << HWTSTAMP_TX_ON);
++	info->rx_filters =
++		(1 << HWTSTAMP_FILTER_NONE) |
++		(1 << HWTSTAMP_FILTER_ALL);
++	return 0;
 +}
 +
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1496,6 +1529,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GET_DUMP_DATA:
- 		rc = ethtool_get_dump_data(dev, useraddr);
- 		break;
-+	case ETHTOOL_GET_TS_INFO:
-+		rc = ethtool_get_ts_info(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
+ const struct ethtool_ops gfar_ethtool_ops = {
+ 	.get_settings = gfar_gsettings,
+ 	.set_settings = gfar_ssettings,
+@@ -1761,4 +1789,5 @@ const struct ethtool_ops gfar_ethtool_ops = {
+ #endif
+ 	.set_rxnfc = gfar_set_nfc,
+ 	.get_rxnfc = gfar_get_nfc,
++	.get_ts_info = gfar_get_ts_info,
+ };
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index 5fd620b..c08e5d4 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -515,6 +515,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 		err = PTR_ERR(etsects->clock);
+ 		goto no_clock;
  	}
++	gfar_phc_clock = ptp_clock_index(etsects->clock);
+ 
+ 	dev_set_drvdata(&dev->dev, etsects);
+ 
+@@ -538,6 +539,7 @@ static int gianfar_ptp_remove(struct platform_device *dev)
+ 	gfar_write(&etsects->regs->tmr_temask, 0);
+ 	gfar_write(&etsects->regs->tmr_ctrl,   0);
+ 
++	gfar_phc_clock = -1;
+ 	ptp_clock_unregister(etsects->clock);
+ 	iounmap(etsects->regs);
+ 	release_resource(etsects->rsrc);
 -- 
 1.7.2.5
