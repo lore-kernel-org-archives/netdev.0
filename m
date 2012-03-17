@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking
- attempts fails.
-Date: Fri, 16 Mar 2012 23:18:56 -0700 (PDT)
-Message-ID: <20120316.231856.1071253468993560433.davem@davemloft.net>
-References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: santoshprasadnayak@gmail.com
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next 0/1] Update my email address in MODULE_AUTHOR
+Date: Sat, 17 Mar 2012 09:39:28 +0100
+Message-ID: <cover.1331973209.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754226Ab2CQGTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 02:19:16 -0400
-In-Reply-To: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:48972 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002Ab2CQIjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 04:39:35 -0400
+Received: by wejx9 with SMTP id x9so4560686wej.19
+        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 01:39:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Date: Fri, 16 Mar 2012 18:40:13 +0530
+I keep on getting email messages saying, "I tried to email you at the
+other address, but it bounces."
 
-> We have 3 callers: gigaset_probe(), gigaset_tty_open() and
-> gigaset_probe(). Each caller tries to free allocated memory
-> if lock fails. This is possible if we returns -EINTR.
+This patch correct my email address in four PTP related modules.
 
-Look again at the callers.
+Richard Cochran (1):
+  phc: Update author's email address.
 
-They interpret "0" as an error, so your patch would break the driver.
+ drivers/net/ethernet/freescale/gianfar_ptp.c |    2 +-
+ drivers/net/phy/dp83640.c                    |    2 +-
+ drivers/ptp/ptp_clock.c                      |    2 +-
+ drivers/ptp/ptp_ixp46x.c                     |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+-- 
+1.7.2.5
