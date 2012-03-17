@@ -1,100 +1,46 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH] gianfar: Fix possible overrun and simplify interrupt name field creation
-Date: Sat, 17 Mar 2012 12:05:38 -0700
-Message-ID: <17d93e9eb16cbad75b20cdbcaf38f268260d6fd5.1332010469.git.joe@perches.com>
-Cc: Sandeep Gopalpet <sandeep.kumar@freescale.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 1/2] rtlwifi: Use is_zero_ether_addr, remove line continuation
+Date: Sat, 17 Mar 2012 12:13:30 -0700
+Message-ID: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:49249 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753180Ab2CQTNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Mar 2012 15:13:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Space allocated for int_name_<foo> is unsufficient for
-maximal device name, expand it.
+Use the normal kernel facilities and use %pM
+to print the all zero mac address.
 
-Code to create int_name_<foo> is obscure, simplify it
-by using sprintf.
-
-Found by looking for unnecessary \ line continuations.
-Uncompiled, untested.
+Remove unnecessary line continuation.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c |   39 +++++------------------------
- drivers/net/ethernet/freescale/gianfar.h |    2 +-
- 2 files changed, 8 insertions(+), 33 deletions(-)
+ drivers/net/wireless/rtlwifi/cam.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index adb0ae4..770b8cf 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -971,7 +971,6 @@ static int gfar_probe(struct platform_device *ofdev)
- 	struct gfar_private *priv = NULL;
- 	struct gfar __iomem *regs = NULL;
- 	int err = 0, i, grp_idx = 0;
--	int len_devname;
- 	u32 rstat = 0, tstat = 0, rqueue = 0, tqueue = 0;
- 	u32 isrg = 0;
- 	u32 __iomem *baddr;
-@@ -1172,40 +1171,16 @@ static int gfar_probe(struct platform_device *ofdev)
- 		priv->device_flags & FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
- 
- 	/* fill out IRQ number and name fields */
--	len_devname = strlen(dev->name);
- 	for (i = 0; i < priv->num_grps; i++) {
--		strncpy(&priv->gfargrp[i].int_name_tx[0], dev->name,
--				len_devname);
- 		if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
--			strncpy(&priv->gfargrp[i].int_name_tx[len_devname],
--				"_g", sizeof("_g"));
--			priv->gfargrp[i].int_name_tx[
--				strlen(priv->gfargrp[i].int_name_tx)] = i+48;
--			strncpy(&priv->gfargrp[i].int_name_tx[strlen(
--				priv->gfargrp[i].int_name_tx)],
--				"_tx", sizeof("_tx") + 1);
--
--			strncpy(&priv->gfargrp[i].int_name_rx[0], dev->name,
--					len_devname);
--			strncpy(&priv->gfargrp[i].int_name_rx[len_devname],
--					"_g", sizeof("_g"));
--			priv->gfargrp[i].int_name_rx[
--				strlen(priv->gfargrp[i].int_name_rx)] = i+48;
--			strncpy(&priv->gfargrp[i].int_name_rx[strlen(
--				priv->gfargrp[i].int_name_rx)],
--				"_rx", sizeof("_rx") + 1);
--
--			strncpy(&priv->gfargrp[i].int_name_er[0], dev->name,
--					len_devname);
--			strncpy(&priv->gfargrp[i].int_name_er[len_devname],
--				"_g", sizeof("_g"));
--			priv->gfargrp[i].int_name_er[strlen(
--					priv->gfargrp[i].int_name_er)] = i+48;
--			strncpy(&priv->gfargrp[i].int_name_er[strlen(\
--				priv->gfargrp[i].int_name_er)],
--				"_er", sizeof("_er") + 1);
-+			sprintf(priv->gfargrp[i].int_name_tx, "%s%s%c%s",
-+				dev->name, "_g", '0' + i, "_tx");
-+			sprintf(priv->gfargrp[i].int_name_rx, "%s%s%c%s",
-+				dev->name, "_g", '0' + i, "_rx");
-+			sprintf(priv->gfargrp[i].int_name_er, "%s%s%c%s",
-+				dev->name, "_g", '0' + i, "_er");
- 		} else
--			priv->gfargrp[i].int_name_tx[len_devname] = '\0';
-+			strcpy(priv->gfargrp[i].int_name_tx, dev->name);
+diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+index 5c7d579..3d8cc4a 100644
+--- a/drivers/net/wireless/rtlwifi/cam.c
++++ b/drivers/net/wireless/rtlwifi/cam.c
+@@ -328,10 +328,9 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG, "sta_addr is NULL\n");
  	}
  
- 	/* Initialize the filer table */
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 4fe0f34..e537d81 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -520,7 +520,7 @@ extern const char gfar_driver_version[];
- #define RXFCB_PERR_MASK		0x000c
- #define RXFCB_PERR_BADL3	0x0008
- 
--#define GFAR_INT_NAME_MAX	IFNAMSIZ + 4
-+#define GFAR_INT_NAME_MAX	(IFNAMSIZ + 6)	/* '_g#_xx' */
- 
- struct txbd8
- {
+-	if ((sta_addr[0]|sta_addr[1]|sta_addr[2]|sta_addr[3]|\
+-				sta_addr[4]|sta_addr[5]) == 0) {
++	if (is_zero_ether_addr(sta_addr)) {
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG,
+-			 "sta_addr is 00:00:00:00:00:00\n");
++			 "sta_addr is %pM\n", sta_addr);
+ 		return;
+ 	}
+ 	/* Does STA already exist? */
 -- 
 1.7.8.111.gad25c.dirty
