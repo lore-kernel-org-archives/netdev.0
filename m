@@ -1,46 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3] ipv6: Allocate unique metrics for icmp6
- packets to prevent tainting dst metrics
-Date: Sat, 17 Mar 2012 09:36:41 -0700
-Message-ID: <1332002201.19406.25.camel@edumazet-glaptop>
-References: <4F620DC5.7080607@network-box.com>
-	 <20120316.230245.1004014834159539357.davem@davemloft.net>
-	 <4F64B203.40307@network-box.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] wl12xx: fix DMA-API-related warnings
+Date: Sat, 17 Mar 2012 16:44:14 +0000
+Message-ID: <201203171644.14573.arnd@arndb.de>
+References: <1332001592-17074-1-git-send-email-mgherzan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Nick Jones <nick.jones@network-box.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:43103 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040Ab2CQQgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 12:36:45 -0400
-Received: by dajr28 with SMTP id r28so7705806daj.19
-        for <netdev@vger.kernel.org>; Sat, 17 Mar 2012 09:36:44 -0700 (PDT)
-In-Reply-To: <4F64B203.40307@network-box.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Mircea Gherzan <mgherzan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1332001592-17074-1-git-send-email-mgherzan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-03-17 at 23:47 +0800, Nick Jones wrote:
-> The generation of an icmp6 packet, targeted to a specific desination
-> address, will cause the shared metrics of the ip6_dst and inetpeer
-> of that address to be tainted with the hoplimit value 255.
-> All packets, icmp6 or otherwise, will have this hoplimit value, and
-> if the destination is a router, not even advertisements specifying a
-> new hoplimit value will have any effect due to the way
-> ip6_dst_hoplimit works.
-> 
-> By allocating a unique metrics array for the icmp6 packet, the shared
-> metrics will not be tainted.  A ip6_dst flag is added to indicate that
-> the metrics for the dst don't belong to the peer, thus are not unique
-> and should be freed when the dst is freed.
-> 
-> Signed-off-by: Nick Jones <nick.jones@network-box.com>
-> ---
+On Saturday 17 March 2012, Mircea Gherzan wrote:
+>  int wl1271_event_handle(struct wl1271 *wl, u8 mbox_num)
+>  {
+> -       struct event_mailbox mbox;
+> -       int ret;
+> +       struct event_mailbox *mbox;
+> +       int ret = 0;
+>  
+>         wl1271_debug(DEBUG_EVENT, "EVENT on mbox %d", mbox_num);
+>  
+>         if (mbox_num > 1)
+>                 return -EINVAL;
+>  
+> +       /* no GFP_ATOMIC: we're called from the threaded IRQ handler */
+> +       mbox = kmalloc(sizeof(*mbox), GFP_DMA);
+> +
+>         /* first we read the mbox descriptor */
+> -       wl1271_read(wl, wl->mbox_ptr[mbox_num], &mbox,
+> -                   sizeof(struct event_mailbox), false);
+> +       wl1271_read(wl, wl->mbox_ptr[mbox_num], mbox, sizeof(*mbox), false);
+>  
+>         /* process the descriptor */
+> -       ret = wl1271_event_process(wl, &mbox);
+> +       ret = wl1271_event_process(wl, mbox);
+>         if (ret < 0)
+> -               return ret;
+> +               goto out;
+>  
+>         /* then we let the firmware know it can go on...*/
+>         wl1271_write32(wl, ACX_REG_INTERRUPT_TRIG, INTR_TRIG_EVENT_ACK);
+>  
+> -       return 0;
+> +out:
+> +       kfree(mbox);
+> +       return ret;
+>  }
 
-> +	}
-> +	dst_init_metrics(&rt->dst, metrics, 0);
+I think it would be better here to put another field into struct wl1271 to hold
+the mailbox. There is no point allocating and freeing the field every time
+you get into the interrupt handler.
 
-Dont be fooled by 8e2ec639 precedent, third argument is a bool, so
-please use 'false' instead of 0
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
