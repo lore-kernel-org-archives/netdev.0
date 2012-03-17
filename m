@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] eni: fix driver remove function and
- driver probe error path.
-Date: Fri, 16 Mar 2012 23:13:45 -0700 (PDT)
-Message-ID: <20120316.231345.1740081457384627356.davem@davemloft.net>
-References: <20120316115204.GA2028@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking
+ attempts fails.
+Date: Fri, 16 Mar 2012 23:18:56 -0700 (PDT)
+Message-ID: <20120316.231856.1071253468993560433.davem@davemloft.net>
+References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santoshprasadnayak@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39941 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39961 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030740Ab2CQGOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 02:14:50 -0400
-In-Reply-To: <20120316115204.GA2028@electric-eye.fr.zoreil.com>
+	with ESMTP id S1754226Ab2CQGTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 02:19:16 -0400
+In-Reply-To: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 16 Mar 2012 12:52:04 +0100
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Date: Fri, 16 Mar 2012 18:40:13 +0530
 
-> - add eni_do_release() to balance eni_do_init
-> - turn the zeroes DMA area into a per device data
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> We have 3 callers: gigaset_probe(), gigaset_tty_open() and
+> gigaset_probe(). Each caller tries to free allocated memory
+> if lock fails. This is possible if we returns -EINTR.
 
-Ouch... applied, thanks a lot!
+Look again at the callers.
+
+They interpret "0" as an error, so your patch would break the driver.
