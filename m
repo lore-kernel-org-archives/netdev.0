@@ -1,66 +1,79 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/2] drivers: net: Remove unnecessary line continuations
-Date: Sat, 17 Mar 2012 20:21:37 +0100
-Message-ID: <4F64E441.1010806@pengutronix.de>
-References: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com> <67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigC13B6932E2237BCE0BF9A2C1"
-Cc: Geoff Levand <geoff@infradead.org>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Jens Osterkamp <jens@de.ibm.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] rtlwifi: Simplify rtl_get/set inline functions
+Date: Sat, 17 Mar 2012 13:36:30 -0700
+Message-ID: <b3abde4a48c61f2064953d020fd985c37d6594ac.1332016501.git.joe@perches.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:42439 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756437Ab2CQUgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Mar 2012 16:36:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigC13B6932E2237BCE0BF9A2C1
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Use a temporary to make the code a bit neater.
 
-On 03/17/2012 08:14 PM, Joe Perches wrote:
-> Line continuations are error prone so just remove them.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/can/usb/peak_usb/pcan_usb_pro.c  |    4 ++--
->  drivers/net/ethernet/micrel/ks8695net.c      |    4 ++--
->  drivers/net/ethernet/toshiba/ps3_gelic_net.c |    3 +--
->  drivers/net/ethernet/toshiba/spider_net.c    |    4 ++--
->  drivers/net/irda/bfin_sir.c                  |    4 ++--
->  drivers/net/phy/et1011c.c                    |    9 +++++----
->  6 files changed, 14 insertions(+), 14 deletions(-)
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/rtlwifi/wifi.h |   24 +++++++++++-------------
+ 1 files changed, 11 insertions(+), 13 deletions(-)
 
-For the peak_usb:
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigC13B6932E2237BCE0BF9A2C1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk9k5EYACgkQjTAFq1RaXHNvqACfcA8xYJdhqLIJuZ9UNECRiD6P
-AdcAoJS+B5nTjsu/VOTdaegOYL8PeJJt
-=QmIL
------END PGP SIGNATURE-----
-
---------------enigC13B6932E2237BCE0BF9A2C1--
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index b591614..0f1d211 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -1954,37 +1954,35 @@ static inline void rtl_write_dword(struct rtl_priv *rtlpriv,
+ static inline u32 rtl_get_bbreg(struct ieee80211_hw *hw,
+ 				u32 regaddr, u32 bitmask)
+ {
+-	return ((struct rtl_priv *)(hw)->priv)->cfg->ops->get_bbreg(hw,
+-								    regaddr,
+-								    bitmask);
++	struct rtl_priv *rtlpriv = hw->priv;
++
++	return rtlpriv->cfg->ops->get_bbreg(hw, regaddr, bitmask);
+ }
+ 
+ static inline void rtl_set_bbreg(struct ieee80211_hw *hw, u32 regaddr,
+ 				 u32 bitmask, u32 data)
+ {
+-	((struct rtl_priv *)(hw)->priv)->cfg->ops->set_bbreg(hw,
+-							     regaddr, bitmask,
+-							     data);
++	struct rtl_priv *rtlpriv = hw->priv;
+ 
++	rtlpriv->cfg->ops->set_bbreg(hw, regaddr, bitmask, data);
+ }
+ 
+ static inline u32 rtl_get_rfreg(struct ieee80211_hw *hw,
+ 				enum radio_path rfpath, u32 regaddr,
+ 				u32 bitmask)
+ {
+-	return ((struct rtl_priv *)(hw)->priv)->cfg->ops->get_rfreg(hw,
+-								    rfpath,
+-								    regaddr,
+-								    bitmask);
++	struct rtl_priv *rtlpriv = hw->priv;
++
++	return rtlpriv->cfg->ops->get_rfreg(hw, rfpath, regaddr, bitmask);
+ }
+ 
+ static inline void rtl_set_rfreg(struct ieee80211_hw *hw,
+ 				 enum radio_path rfpath, u32 regaddr,
+ 				 u32 bitmask, u32 data)
+ {
+-	((struct rtl_priv *)(hw)->priv)->cfg->ops->set_rfreg(hw,
+-							     rfpath, regaddr,
+-							     bitmask, data);
++	struct rtl_priv *rtlpriv = hw->priv;
++
++	rtlpriv->cfg->ops->set_rfreg(hw, rfpath, regaddr, bitmask, data);
+ }
+ 
+ static inline bool is_hal_stop(struct rtl_hal *rtlhal)
+-- 
+1.7.8.111.gad25c.dirty
