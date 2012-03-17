@@ -1,54 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix incorrent ipv6 ipsec packet fragment
-Date: Fri, 16 Mar 2012 21:58:13 -0700 (PDT)
-Message-ID: <20120316.215813.1949007994742764009.davem@davemloft.net>
-References: <1331888235-10368-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] adjust __net_exit
+Date: Fri, 16 Mar 2012 22:18:13 -0700 (PDT)
+Message-ID: <20120316.221813.236130733754848615.davem@davemloft.net>
+References: <4F588BEC020000780007710A@nat28.tlf.novell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39420 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143Ab2CQE62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 00:58:28 -0400
-In-Reply-To: <1331888235-10368-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	sam@ravnborg.org, xemul@openvz.org, ebiederm@xmission.com
+To: JBeulich@suse.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4F588BEC020000780007710A@nat28.tlf.novell.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Fri, 16 Mar 2012 16:57:15 +0800
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Thu, 08 Mar 2012 09:37:32 +0000
 
-> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem)
-> In func ip6_append_data,after call skb_put(skb, fraglen + dst_exthdrlen)
-> the skb->len contains dst_exthdrlen,and we don't reduce dst_exthdrlen at last
-> This will make fraggap>0 in next "while cycle",and cause the size of skb incorrent
+> __net_exit, judging by the majority of its uses, was intended to serve
+> as an abstraction to allow calling such annotated functions from both
+> __init and __exit functions. Using the (bogus and unused elsewhere)
+> __exit_refok to implement this is inefficient - any non-modular code
+> really can reside in __init (as non-modular __exit code is never used).
 > 
-> Call skb_pull reduce skb->len before next "while cycle"
+> Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
+> in modules, and __init in the core kernel.
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-
-Steffen please review this patch.
-
-> ---
->  net/ipv6/ip6_output.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
+> A few other adjustments are necessary/possible with this done - those
+> were likely just oversights when added originally.
 > 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index d97e071..f67f840 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1450,7 +1450,8 @@ alloc_new_skb:
->  				kfree_skb(skb);
->  				goto error;
->  			}
-> -
-> +
-> +			skb_pull(skb, dst_exthdrlen);
->  			offset += copy;
->  			length -= datalen - fraggap;
->  			transhdrlen = 0;
-> -- 
-> 1.7.5.4
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+
+[ I have been waiting for more than a week for a netns developer
+  to review this patch, I guess I'm too optimistic these days. :-( ]
+
+The only reason you think __exit_refok is "bogus" is because it's
+semantics got changed by Sam Ravnborg in commit
+312b1485fb509c9bc32eda28ad29537896658cb8 ("Introduce new section
+reference annotations tags: __ref, __refdata, __refconst")
+
+Beforehand the __exit_refok was a real .exit section, so it got
+completely discarded AT LINK TIME.  Now it sits together with
+__init_refok which is an unremovable kernel image section, which
+neither gets removed at compile time nor boot time.
+
+So __exit_refok did exactly what you say it should do before Sam's
+change.
+
+It's just completely stupid to change the netns section defines,
+and instead we should revert __exit_refok to mean what it always
+meant previously.
+
+I'm not applying this patch.
