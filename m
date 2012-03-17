@@ -1,205 +1,106 @@
-From: Mircea Gherzan <mgherzan@gmail.com>
-Subject: [PATCH v2] wl12xx: fix DMA-API-related warnings
-Date: Sat, 17 Mar 2012 18:41:53 +0100
-Message-ID: <1332006114-30230-1-git-send-email-mgherzan@gmail.com>
-Cc: Mircea Gherzan <mgherzan@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luciano Coelho <coelho@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nick Jones <nick.jones@network-box.com>
+Subject: [PATCH net-next v4] ipv6: Allocate unique metrics for icmp6 packets
+ to prevent tainting dst metrics
+Date: Sun, 18 Mar 2012 01:43:39 +0800
+Message-ID: <4F64CD4B.4070203@network-box.com>
+References: <4F620DC5.7080607@network-box.com>  <20120316.230245.1004014834159539357.davem@davemloft.net>  <4F64B203.40307@network-box.com> <1332002201.19406.25.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from network-box.com ([175.45.17.220]:35492 "EHLO network-box.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756881Ab2CQRnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Mar 2012 13:43:42 -0400
+In-Reply-To: <1332002201.19406.25.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On the PandaBoard (omap_hsmmc + wl12xx_sdio) with DMA_API_DEBUG:
+The generation of an icmp6 packet, targeted to a specific desination
+address, will cause the shared metrics of the ip6_dst and inetpeer
+of that address to be tainted with the hoplimit value 255.
+All packets, icmp6 or otherwise, will have this hoplimit value, and
+if the destination is a router, not even advertisements specifying a
+new hoplimit value will have any effect due to the way
+ip6_dst_hoplimit works.
 
- WARNING: at lib/dma-debug.c:930 check_for_stack.part.8+0x7c/0xe0()
- omap_hsmmc omap_hsmmc.4: DMA-API: device driver maps memory fromstack
+By allocating a unique metrics array for the icmp6 packet, the shared
+metrics will not be tainted.  A ip6_dst flag is added to indicate that
+the metrics for the dst don't belong to the peer, thus are not unique
+and should be freed when the dst is freed.
 
-Signed-off-by: Mircea Gherzan <mgherzan@gmail.com>
+Signed-off-by: Nick Jones <nick.jones@network-box.com>
 ---
- drivers/net/wireless/wl12xx/boot.c   |   14 +++++++++++---
- drivers/net/wireless/wl12xx/cmd.c    |   25 ++++++++++++++++---------
- drivers/net/wireless/wl12xx/event.c  |   10 +++++-----
- drivers/net/wireless/wl12xx/event.h  |    2 ++
- drivers/net/wireless/wl12xx/main.c   |    9 +++++++++
- drivers/net/wireless/wl12xx/wl12xx.h |    3 +++
- 6 files changed, 46 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/wireless/wl12xx/boot.c b/drivers/net/wireless/wl12xx/boot.c
-index 8f9cf5a..89c78d1 100644
---- a/drivers/net/wireless/wl12xx/boot.c
-+++ b/drivers/net/wireless/wl12xx/boot.c
-@@ -142,14 +142,22 @@ static void wl1271_parse_fw_ver(struct wl1271 *wl)
- 
- static void wl1271_boot_fw_version(struct wl1271 *wl)
- {
--	struct wl1271_static_data static_data;
-+	struct wl1271_static_data *static_data;
- 
--	wl1271_read(wl, wl->cmd_box_addr, &static_data, sizeof(static_data),
-+	static_data = kmalloc(sizeof(*static_data), GFP_DMA);
-+	if (!static_data) {
-+		__WARN();
-+		return;
-+	}
-+
-+	wl1271_read(wl, wl->cmd_box_addr, static_data, sizeof(*static_data),
- 		    false);
- 
--	strncpy(wl->chip.fw_ver_str, static_data.fw_version,
-+	strncpy(wl->chip.fw_ver_str, static_data->fw_version,
- 		sizeof(wl->chip.fw_ver_str));
- 
-+	kfree(static_data);
-+
- 	/* make sure the string is NULL-terminated */
- 	wl->chip.fw_ver_str[sizeof(wl->chip.fw_ver_str) - 1] = '\0';
- 
-diff --git a/drivers/net/wireless/wl12xx/cmd.c b/drivers/net/wireless/wl12xx/cmd.c
-index 25990bd..a5c8800 100644
---- a/drivers/net/wireless/wl12xx/cmd.c
-+++ b/drivers/net/wireless/wl12xx/cmd.c
-@@ -342,8 +342,12 @@ int wl1271_cmd_ext_radio_parms(struct wl1271 *wl)
-  */
- static int wl1271_cmd_wait_for_event_or_timeout(struct wl1271 *wl, u32 mask)
- {
--	u32 events_vector, event;
-+	u32 *events_vector;
-+	u32 event;
- 	unsigned long timeout;
-+	int ret = 0;
-+
-+	events_vector = kmalloc(sizeof(*events_vector), GFP_DMA);
- 
- 	timeout = jiffies + msecs_to_jiffies(WL1271_EVENT_TIMEOUT);
- 
-@@ -351,21 +355,24 @@ static int wl1271_cmd_wait_for_event_or_timeout(struct wl1271 *wl, u32 mask)
- 		if (time_after(jiffies, timeout)) {
- 			wl1271_debug(DEBUG_CMD, "timeout waiting for event %d",
- 				     (int)mask);
--			return -ETIMEDOUT;
-+			ret = -ETIMEDOUT;
-+			goto out;
+v2: Forgot to handle destroy side, as pointed out by David Miller.
+    Achieved by setting a flag on the dst to indicate its metrics are
+    unique, thus should be destroyed along with the dst.
+v3: David Miller reminds that metrics pointer should be declared at
+    function top.
+v4: Eric Dumazet suggest argument of dst_init_metrics change to from
+    literal 0 to keyword 'false'.
+
+ include/net/dst.h |    1 +
+ net/ipv6/route.c  |   13 +++++++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 344c8dd..ee7a781 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -54,6 +54,7 @@ struct dst_entry {
+ #define DST_NOCACHE		0x0010
+ #define DST_NOCOUNT		0x0020
+ #define DST_NOPEER		0x0040
++#define DST_NOPEERMETRICS	0x0080
+
+ 	short			error;
+ 	short			obsolete;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 92be12b..d96ccc5 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -278,7 +278,7 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct inet6_dev *idev = rt->rt6i_idev;
+ 	struct inet_peer *peer = rt->rt6i_peer;
+
+-	if (!(rt->dst.flags & DST_HOST))
++	if (!(rt->dst.flags & DST_HOST) || (rt->dst.flags & DST_NOPEERMETRICS))
+ 		dst_destroy_metrics_generic(dst);
+
+ 	if (idev) {
+@@ -1088,6 +1088,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	struct rt6_info *rt;
+ 	struct inet6_dev *idev = in6_dev_get(dev);
+ 	struct net *net = dev_net(dev);
++	u32 *metrics;
+
+ 	if (unlikely(!idev))
+ 		return NULL;
+@@ -1110,13 +1111,21 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
  		}
- 
- 		msleep(1);
- 
- 		/* read from both event fields */
--		wl1271_read(wl, wl->mbox_ptr[0], &events_vector,
--			    sizeof(events_vector), false);
--		event = events_vector & mask;
--		wl1271_read(wl, wl->mbox_ptr[1], &events_vector,
--			    sizeof(events_vector), false);
--		event |= events_vector & mask;
-+		wl1271_read(wl, wl->mbox_ptr[0], events_vector,
-+			    sizeof(*events_vector), false);
-+		event = *events_vector & mask;
-+		wl1271_read(wl, wl->mbox_ptr[1], events_vector,
-+			    sizeof(*events_vector), false);
-+		event |= *events_vector & mask;
- 	} while (!event);
- 
--	return 0;
-+out:
-+	kfree(events_vector);
-+	return ret;
- }
- 
- static int wl1271_cmd_wait_for_event(struct wl1271 *wl, u32 mask)
-diff --git a/drivers/net/wireless/wl12xx/event.c b/drivers/net/wireless/wl12xx/event.c
-index d3280df68..10007f5 100644
---- a/drivers/net/wireless/wl12xx/event.c
-+++ b/drivers/net/wireless/wl12xx/event.c
-@@ -233,8 +233,9 @@ static void wl1271_event_mbox_dump(struct event_mailbox *mbox)
- 	wl1271_debug(DEBUG_EVENT, "\tmask: 0x%x", mbox->events_mask);
- }
- 
--static int wl1271_event_process(struct wl1271 *wl, struct event_mailbox *mbox)
-+static int wl1271_event_process(struct wl1271 *wl)
- {
-+	struct event_mailbox *mbox = wl->mbox;
- 	struct ieee80211_vif *vif;
- 	struct wl12xx_vif *wlvif;
- 	int ret;
-@@ -439,7 +440,6 @@ void wl1271_event_mbox_config(struct wl1271 *wl)
- 
- int wl1271_event_handle(struct wl1271 *wl, u8 mbox_num)
- {
--	struct event_mailbox mbox;
- 	int ret;
- 
- 	wl1271_debug(DEBUG_EVENT, "EVENT on mbox %d", mbox_num);
-@@ -448,11 +448,11 @@ int wl1271_event_handle(struct wl1271 *wl, u8 mbox_num)
- 		return -EINVAL;
- 
- 	/* first we read the mbox descriptor */
--	wl1271_read(wl, wl->mbox_ptr[mbox_num], &mbox,
--		    sizeof(struct event_mailbox), false);
-+	wl1271_read(wl, wl->mbox_ptr[mbox_num], wl->mbox,
-+		    sizeof(*wl->mbox), false);
- 
- 	/* process the descriptor */
--	ret = wl1271_event_process(wl, &mbox);
-+	ret = wl1271_event_process(wl);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/drivers/net/wireless/wl12xx/event.h b/drivers/net/wireless/wl12xx/event.h
-index 1d878ba..7a6b18b 100644
---- a/drivers/net/wireless/wl12xx/event.h
-+++ b/drivers/net/wireless/wl12xx/event.h
-@@ -127,6 +127,8 @@ struct event_mailbox {
- 	u8 reserved_7[12];
- } __packed;
- 
-+struct wl1271;
-+
- int wl1271_event_unmask(struct wl1271 *wl);
- void wl1271_event_mbox_config(struct wl1271 *wl);
- int wl1271_event_handle(struct wl1271 *wl, u8 mbox);
-diff --git a/drivers/net/wireless/wl12xx/main.c b/drivers/net/wireless/wl12xx/main.c
-index d5f55a1..f63fde4 100644
---- a/drivers/net/wireless/wl12xx/main.c
-+++ b/drivers/net/wireless/wl12xx/main.c
-@@ -5071,8 +5071,17 @@ static struct ieee80211_hw *wl1271_alloc_hw(void)
- 		goto err_dummy_packet;
  	}
- 
-+	wl->mbox = kmalloc(sizeof(*wl->mbox), GFP_DMA);
-+	if (!wl->mbox) {
-+		ret = -ENOMEM;
-+		goto err_fwlog;
+
+-	rt->dst.flags |= DST_HOST;
++	rt->dst.flags |= (DST_HOST | DST_NOPEERMETRICS);
+ 	rt->dst.output  = ip6_output;
+ 	dst_set_neighbour(&rt->dst, neigh);
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->rt6i_dst.addr = fl6->daddr;
+ 	rt->rt6i_dst.plen = 128;
+ 	rt->rt6i_idev     = idev;
++
++	metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_ATOMIC);
++	if (unlikely(!metrics)) {
++		in6_dev_put(idev);
++		dst_free(&rt->dst);
++		return ERR_CAST(-ENOMEM);
 +	}
-+
- 	return hw;
- 
-+err_fwlog:
-+	free_page((unsigned long)wl->fwlog);
-+
- err_dummy_packet:
- 	dev_kfree_skb(wl->dummy_packet);
- 
-diff --git a/drivers/net/wireless/wl12xx/wl12xx.h b/drivers/net/wireless/wl12xx/wl12xx.h
-index b2b09cd..0d02c7a 100644
---- a/drivers/net/wireless/wl12xx/wl12xx.h
-+++ b/drivers/net/wireless/wl12xx/wl12xx.h
-@@ -34,6 +34,7 @@
- 
- #include "conf.h"
- #include "ini.h"
-+#include "event.h"
- 
- #define WL127X_FW_NAME "ti-connectivity/wl127x-fw-3.bin"
- #define WL128X_FW_NAME "ti-connectivity/wl128x-fw-3.bin"
-@@ -394,6 +395,8 @@ struct wl1271 {
- 	/* Hardware recovery work */
- 	struct work_struct recovery_work;
- 
-+	struct event_mailbox *mbox;
-+
- 	/* The mbox event mask */
- 	u32 event_mask;
- 
++	dst_init_metrics(&rt->dst, metrics, false);
+ 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
+
+ 	spin_lock_bh(&icmp6_dst_lock);
 -- 
-1.7.9.1
+1.7.1
