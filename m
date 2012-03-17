@@ -1,87 +1,146 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] adjust __net_exit
-Date: Sun, 18 Mar 2012 00:03:18 +0100
-Message-ID: <20120317230318.GA19460@merkur.ravnborg.org>
-References: <4F588BEC020000780007710A@nat28.tlf.novell.com> <20120316.221813.236130733754848615.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: JBeulich@suse.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, xemul@openvz.org,
-	ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
+From: Anatolij Gustschin <agust@denx.de>
+Subject: [PATCH net-next] fs_enet: Add MPC5125 FEC support and PHY interface selection
+Date: Sun, 18 Mar 2012 00:10:50 +0100
+Message-ID: <1332025850-829-1-git-send-email-agust@denx.de>
+Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Vladimir Ermakov <vooon341@gmail.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.snhosting.dk ([87.238.248.203]:63980 "EHLO
-	smtp.domainteam.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799Ab2CQXDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 19:03:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20120316.221813.236130733754848615.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.9]:54181 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753418Ab2CQXKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 19:10:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 16, 2012 at 10:18:13PM -0700, David Miller wrote:
-> From: "Jan Beulich" <JBeulich@suse.com>
-> Date: Thu, 08 Mar 2012 09:37:32 +0000
-> 
-> > __net_exit, judging by the majority of its uses, was intended to serve
-> > as an abstraction to allow calling such annotated functions from both
-> > __init and __exit functions. Using the (bogus and unused elsewhere)
-> > __exit_refok to implement this is inefficient - any non-modular code
-> > really can reside in __init (as non-modular __exit code is never used).
-> > 
-> > Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
-> > in modules, and __init in the core kernel.
-> > 
-> > A few other adjustments are necessary/possible with this done - those
-> > were likely just oversights when added originally.
-> > 
-> > Signed-off-by: Jan Beulich <jbeulich@suse.com>
-> 
-> [ I have been waiting for more than a week for a netns developer
->   to review this patch, I guess I'm too optimistic these days. :-( ]
-> 
-> The only reason you think __exit_refok is "bogus" is because it's
-> semantics got changed by Sam Ravnborg in commit
-> 312b1485fb509c9bc32eda28ad29537896658cb8 ("Introduce new section
-> reference annotations tags: __ref, __refdata, __refconst")
-> 
-> Beforehand the __exit_refok was a real .exit section, so it got
-> completely discarded AT LINK TIME.  Now it sits together with
-> __init_refok which is an unremovable kernel image section, which
-> neither gets removed at compile time nor boot time.
+From: Vladimir Ermakov <vooon341@gmail.com>
 
-Some misunderstanding is going on here.
+Add compatible string for MPC5125 FEC. The FEC on MPC5125 additionally
+supports RMII PHY interface. Configure controller/PHY interface type
+according to the optional phy-connection-type property in the ethernet
+node. This property should be either "rmii" or "mii".
 
-The *ref* annotation is used to teach modpost that this function (or data)
-may reference functions (or data) which is annotated __init*.
-And the *ref* annotation never caused the annotated code to be discarded.
+Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
+Signed-off-by: Anatolij Gustschin <agust@denx.de>
+---
+ drivers/net/ethernet/freescale/fs_enet/fec.h       |    6 ++++--
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |   20 ++++++++++++++++++--
+ drivers/net/ethernet/freescale/fs_enet/mac-fec.c   |    9 ++++++---
+ 3 files changed, 28 insertions(+), 7 deletions(-)
 
-This was true before the above mentioned patch - and it is still true.
-
-Before the path ("Introduce new section reference ....") the __exit_refok
-annotation moved functions to the section named ".exit.text.refok"
-which was explicit part of .text (TEXT_TEXT in vmlinux).
-
-So __exit_refok does exactly what it is intended to do:
-It puts the function in a section so modpost does not warn about
-references to __init or __exit sections.
-
-As Jan points out there is only a single user left - so
-this would be a good time to kill it. It is even documented
-in init.h that this is a backward compatibility define.
-
-The intention with Jan's patch is to move functions annotated
-__net_exit to a discardable section in the core kernel.
-Then at least __exit should be used - there is no logic
-using __init for exit code.
-
-I suggest to:
-1) fix the patch to use __exit
-2) fix up the bogus commit message
-
-Then it should be OK - iff the assumption hold that the functions
-can be discarded in the core kernel.
-I have grepped a little and saw no uses where this did not hold true.
-So based on this I assume the assumption is OK.
-
-	Sam
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fec.h b/drivers/net/ethernet/freescale/fs_enet/fec.h
+index e980527..b9fe5bd 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fec.h
++++ b/drivers/net/ethernet/freescale/fs_enet/fec.h
+@@ -23,6 +23,10 @@
+ #define FEC_ECNTRL_ETHER_EN	0x00000002
+ #define FEC_ECNTRL_RESET	0x00000001
+ 
++/* RMII mode enabled only when MII_MODE bit is set too. */
++#define FEC_RCNTRL_RMII_MODE	(0x00000100 | \
++				 FEC_RCNTRL_MII_MODE | FEC_RCNTRL_FCE)
++#define FEC_RCNTRL_FCE		0x00000020
+ #define FEC_RCNTRL_BC_REJ	0x00000010
+ #define FEC_RCNTRL_PROM		0x00000008
+ #define FEC_RCNTRL_MII_MODE	0x00000004
+@@ -33,8 +37,6 @@
+ #define FEC_TCNTRL_HBC		0x00000002
+ #define FEC_TCNTRL_GTS		0x00000001
+ 
+-
+-
+ /*
+  * Delay to wait for FEC reset command to complete (in us)
+  */
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index 910a8e1..3fc103f 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -790,16 +790,20 @@ static int fs_init_phy(struct net_device *dev)
+ {
+ 	struct fs_enet_private *fep = netdev_priv(dev);
+ 	struct phy_device *phydev;
++	phy_interface_t iface;
+ 
+ 	fep->oldlink = 0;
+ 	fep->oldspeed = 0;
+ 	fep->oldduplex = -1;
+ 
++	iface = fep->fpi->use_rmii ?
++		PHY_INTERFACE_MODE_RMII : PHY_INTERFACE_MODE_MII;
++
+ 	phydev = of_phy_connect(dev, fep->fpi->phy_node, &fs_adjust_link, 0,
+-				PHY_INTERFACE_MODE_MII);
++				iface);
+ 	if (!phydev) {
+ 		phydev = of_phy_connect_fixed_link(dev, &fs_adjust_link,
+-						   PHY_INTERFACE_MODE_MII);
++						   iface);
+ 	}
+ 	if (!phydev) {
+ 		dev_err(&dev->dev, "Could not attach to PHY\n");
+@@ -1007,6 +1011,7 @@ static int __devinit fs_enet_probe(struct platform_device *ofdev)
+ 	struct fs_platform_info *fpi;
+ 	const u32 *data;
+ 	const u8 *mac_addr;
++	const char *phy_connection_type;
+ 	int privsize, len, ret = -ENODEV;
+ 
+ 	match = of_match_device(fs_enet_match, &ofdev->dev);
+@@ -1035,6 +1040,13 @@ static int __devinit fs_enet_probe(struct platform_device *ofdev)
+ 						  NULL)))
+ 		goto out_free_fpi;
+ 
++	if (of_device_is_compatible(ofdev->dev.of_node, "fsl,mpc5125-fec")) {
++		phy_connection_type = of_get_property(ofdev->dev.of_node,
++						"phy-connection-type", NULL);
++		if (phy_connection_type && !strcmp("rmii", phy_connection_type))
++			fpi->use_rmii = 1;
++	}
++
+ 	privsize = sizeof(*fep) +
+ 	           sizeof(struct sk_buff **) *
+ 	           (fpi->rx_ring + fpi->tx_ring);
+@@ -1150,6 +1162,10 @@ static struct of_device_id fs_enet_match[] = {
+ 		.compatible = "fsl,mpc5121-fec",
+ 		.data = (void *)&fs_fec_ops,
+ 	},
++	{
++		.compatible = "fsl,mpc5125-fec",
++		.data = (void *)&fs_fec_ops,
++	},
+ #else
+ 	{
+ 		.compatible = "fsl,pq1-fec-enet",
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+index b9fbc83..9ae6cdb 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+@@ -322,10 +322,11 @@ static void restart(struct net_device *dev)
+ 	FW(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
+ #else
+ 	/*
+-	 * Only set MII mode - do not touch maximum frame length
++	 * Only set MII/RMII mode - do not touch maximum frame length
+ 	 * configured before.
+ 	 */
+-	FS(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);
++	FS(fecp, r_cntrl, fpi->use_rmii ?
++			FEC_RCNTRL_RMII_MODE : FEC_RCNTRL_MII_MODE);
+ #endif
+ 	/*
+ 	 * adjust to duplex mode
+@@ -381,7 +382,9 @@ static void stop(struct net_device *dev)
+ 
+ 	/* shut down FEC1? that's where the mii bus is */
+ 	if (fpi->has_phy) {
+-		FS(fecp, r_cntrl, FEC_RCNTRL_MII_MODE);	/* MII enable */
++		FS(fecp, r_cntrl, fpi->use_rmii ?
++				FEC_RCNTRL_RMII_MODE :
++				FEC_RCNTRL_MII_MODE);	/* MII/RMII enable */
+ 		FS(fecp, ecntrl, FEC_ECNTRL_PINMUX | FEC_ECNTRL_ETHER_EN);
+ 		FW(fecp, ievent, FEC_ENET_MII);
+ 		FW(fecp, mii_speed, feci->mii_speed);
+-- 
+1.7.7.6
