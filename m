@@ -1,37 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking
- attempts fails.
-Date: Sat, 17 Mar 2012 13:58:54 -0700 (PDT)
-Message-ID: <20120317.135854.570143927282385505.davem@davemloft.net>
-References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
-	<20120316.231856.1071253468993560433.davem@davemloft.net>
-	<CAOD=uF6JJiiGjQwybzwdU3Zw9pC8YbDPxm_Pg9E9WNAXbfTiUQ@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/2] rtlwifi: Use is_zero_ether_addr, remove line continuation
+Date: Sat, 17 Mar 2012 16:14:53 -0500
+Message-ID: <4F64FECD.9000802@lwfinger.net>
+References: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: santoshprasadnayak@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44504 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756039Ab2CQU7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 16:59:22 -0400
-In-Reply-To: <CAOD=uF6JJiiGjQwybzwdU3Zw9pC8YbDPxm_Pg9E9WNAXbfTiUQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Date: Sat, 17 Mar 2012 21:26:14 +0530
+On 03/17/2012 02:13 PM, Joe Perches wrote:
+> Use the normal kernel facilities and use %pM
+> to print the all zero mac address.
+>
+> Remove unnecessary line continuation.
+>
+> Signed-off-by: Joe Perches<joe@perches.com>
+> ---
+>   drivers/net/wireless/rtlwifi/cam.c |    5 ++---
+>   1 files changed, 2 insertions(+), 3 deletions(-)
 
-> Caller is interpreting 0 in opposite way of normal sequence.
-> Thats why I misunderstood it.
+ACKed-by: Larry.Finger@lwfinger.net
 
-The simple fact is that you didn't even look at the code at the call
-sites when you wrote this patch, and that's the first thing anyone is
-going to do when reviewing it.
+Is there a PATCH 2/2? I did not receive it.
 
-Therefore your laziness results in more useless work for other people.
-I just wanted to point out how selfish and anti-social this kind of
-behavior is.
+Larry
+
+>
+> diff --git a/drivers/net/wireless/rtlwifi/cam.c b/drivers/net/wireless/rtlwifi/cam.c
+> index 5c7d579..3d8cc4a 100644
+> --- a/drivers/net/wireless/rtlwifi/cam.c
+> +++ b/drivers/net/wireless/rtlwifi/cam.c
+> @@ -328,10 +328,9 @@ void rtl_cam_del_entry(struct ieee80211_hw *hw, u8 *sta_addr)
+>   		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG, "sta_addr is NULL\n");
+>   	}
+>
+> -	if ((sta_addr[0]|sta_addr[1]|sta_addr[2]|sta_addr[3]|\
+> -				sta_addr[4]|sta_addr[5]) == 0) {
+> +	if (is_zero_ether_addr(sta_addr)) {
+>   		RT_TRACE(rtlpriv, COMP_SEC, DBG_EMERG,
+> -			 "sta_addr is 00:00:00:00:00:00\n");
+> +			 "sta_addr is %pM\n", sta_addr);
+>   		return;
+>   	}
+>   	/* Does STA already exist? */
