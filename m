@@ -1,191 +1,113 @@
 From: Karsten Keil <isdn@linux-pingi.de>
-Subject: [PATCH 18/28] mISDN: Cleanup channel also if it already was deactivated
-Date: Sun, 18 Mar 2012 14:50:02 +0100
-Message-ID: <20120423170550.A30F39FB80@pingi6.linux-pingi.de>
+Subject: [PATCH 13/28] mISDN: Make layer1 timer 3 value configurable
+Date: Sat, 17 Mar 2012 16:04:52 +0100
+Message-ID: <20120423170550.8D0149FB78@pingi6.linux-pingi.de>
 Cc: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:52902 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.10]:55537 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754415Ab2DWRIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:08:25 -0400
+	with ESMTP id S1754310Ab2DWRIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a channel was closed after it was deactivated it
-could happen that something was not proper resetted.
+For certification test it is useful to change the layer1
+timer3 value on runtime.
 
 Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- drivers/isdn/hardware/mISDN/avmfritz.c  |   12 ++++--------
- drivers/isdn/hardware/mISDN/hfcmulti.c  |    3 +--
- drivers/isdn/hardware/mISDN/hfcpci.c    |    3 +--
- drivers/isdn/hardware/mISDN/hfcsusb.c   |    3 +--
- drivers/isdn/hardware/mISDN/mISDNipac.c |   13 ++++---------
- drivers/isdn/hardware/mISDN/mISDNisar.c |   13 ++++---------
- drivers/isdn/hardware/mISDN/netjet.c    |   12 ++++--------
- drivers/isdn/hardware/mISDN/w6692.c     |   13 ++++---------
- 8 files changed, 23 insertions(+), 49 deletions(-)
+ drivers/isdn/mISDN/layer1.c |   16 ++++++++++++++--
+ include/linux/mISDNhw.h     |    3 +++
+ include/linux/mISDNif.h     |    3 ++-
+ 3 files changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
-index c0b8c96..e76e1ba 100644
---- a/drivers/isdn/hardware/mISDN/avmfritz.c
-+++ b/drivers/isdn/hardware/mISDN/avmfritz.c
-@@ -839,14 +839,10 @@ avm_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
--			spin_lock_irqsave(&fc->lock, flags);
--			mISDN_freebchannel(bch);
--			test_and_clear_bit(FLG_TX_BUSY, &bch->Flags);
--			test_and_clear_bit(FLG_ACTIVE, &bch->Flags);
--			modehdlc(bch, ISDN_P_NONE);
--			spin_unlock_irqrestore(&fc->lock, flags);
--		}
-+		spin_lock_irqsave(&fc->lock, flags);
-+		mISDN_freebchannel(bch);
-+		modehdlc(bch, ISDN_P_NONE);
-+		spin_unlock_irqrestore(&fc->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 4ae6f8e..e91f82a 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -3859,8 +3859,7 @@ hfcm_bctrl(struct mISDNchannel *ch, u_int cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags))
--			deactivate_bchannel(bch); /* locked there */
-+		deactivate_bchannel(bch); /* locked there */
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
-diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
-index e2c83a2..9262136 100644
---- a/drivers/isdn/hardware/mISDN/hfcpci.c
-+++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -1581,8 +1581,7 @@ hfc_bctrl(struct mISDNchannel *ch, u_int cmd, void *arg)
- 		break;
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags))
--			deactivate_bchannel(bch);
-+		deactivate_bchannel(bch);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 8cde2a0..add28ac 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -1836,8 +1836,7 @@ hfc_bctrl(struct mISDNchannel *ch, u_int cmd, void *arg)
+diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
+index 0fc49b3..65912bd 100644
+--- a/drivers/isdn/mISDN/layer1.c
++++ b/drivers/isdn/mISDN/layer1.c
+@@ -30,11 +30,12 @@ struct layer1 {
+ 	struct FsmInst l1m;
+ 	struct FsmTimer timer;
+ 	int delay;
++	int			t3_value;
+ 	struct dchannel *dch;
+ 	dchannel_l1callback *dcb;
+ };
  
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags))
--			deactivate_bchannel(bch);
-+		deactivate_bchannel(bch);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
-diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
-index 884369f..4c1937b 100644
---- a/drivers/isdn/hardware/mISDN/mISDNipac.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
-@@ -1416,15 +1416,10 @@ hscx_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
--			spin_lock_irqsave(hx->ip->hwlock, flags);
--			mISDN_freebchannel(bch);
--			hscx_mode(hx, ISDN_P_NONE);
--			spin_unlock_irqrestore(hx->ip->hwlock, flags);
--		} else {
--			skb_queue_purge(&bch->rqueue);
--			bch->rcount = 0;
--		}
-+		spin_lock_irqsave(hx->ip->hwlock, flags);
-+		mISDN_freebchannel(bch);
-+		hscx_mode(hx, ISDN_P_NONE);
-+		spin_unlock_irqrestore(hx->ip->hwlock, flags);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(hx->ip->owner);
-diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
-index 9a6da6e..af9a966 100644
---- a/drivers/isdn/hardware/mISDN/mISDNisar.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
-@@ -1603,15 +1603,10 @@ isar_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
--			spin_lock_irqsave(ich->is->hwlock, flags);
--			mISDN_freebchannel(bch);
--			modeisar(ich, ISDN_P_NONE);
--			spin_unlock_irqrestore(ich->is->hwlock, flags);
--		} else {
--			skb_queue_purge(&bch->rqueue);
--			bch->rcount = 0;
--		}
-+		spin_lock_irqsave(ich->is->hwlock, flags);
-+		mISDN_freebchannel(bch);
-+		modeisar(ich, ISDN_P_NONE);
-+		spin_unlock_irqrestore(ich->is->hwlock, flags);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(ich->is->owner);
-diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
-index c726e09..0dccda8 100644
---- a/drivers/isdn/hardware/mISDN/netjet.c
-+++ b/drivers/isdn/hardware/mISDN/netjet.c
-@@ -808,14 +808,10 @@ nj_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
--			spin_lock_irqsave(&card->lock, flags);
--			mISDN_freebchannel(bch);
--			test_and_clear_bit(FLG_TX_BUSY, &bch->Flags);
--			test_and_clear_bit(FLG_ACTIVE, &bch->Flags);
--			mode_tiger(bc, ISDN_P_NONE);
--			spin_unlock_irqrestore(&card->lock, flags);
--		}
-+		spin_lock_irqsave(&card->lock, flags);
-+		mISDN_freebchannel(bch);
-+		mode_tiger(bc, ISDN_P_NONE);
-+		spin_unlock_irqrestore(&card->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
-diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
-index 2183357..dec013e1 100644
---- a/drivers/isdn/hardware/mISDN/w6692.c
-+++ b/drivers/isdn/hardware/mISDN/w6692.c
-@@ -1058,15 +1058,10 @@ w6692_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
- 	switch (cmd) {
- 	case CLOSE_CHANNEL:
- 		test_and_clear_bit(FLG_OPEN, &bch->Flags);
--		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
--			spin_lock_irqsave(&card->lock, flags);
--			mISDN_freebchannel(bch);
--			w6692_mode(bc, ISDN_P_NONE);
--			spin_unlock_irqrestore(&card->lock, flags);
--		} else {
--			skb_queue_purge(&bch->rqueue);
--			bch->rcount = 0;
--		}
-+		spin_lock_irqsave(&card->lock, flags);
-+		mISDN_freebchannel(bch);
-+		w6692_mode(bc, ISDN_P_NONE);
-+		spin_unlock_irqrestore(&card->lock, flags);
- 		ch->protocol = ISDN_P_NONE;
- 		ch->peer = NULL;
- 		module_put(THIS_MODULE);
+-#define TIMER3_VALUE 7000
++#define TIMER3_DEFAULT_VALUE	7000
+ 
+ static
+ struct Fsm l1fsm_s = {NULL, 0, 0, NULL, NULL};
+@@ -233,7 +234,7 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
+ {
+ 	struct layer1 *l1 = fi->userdata;
+ 
+-	mISDN_FsmRestartTimer(&l1->timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
++	mISDN_FsmRestartTimer(&l1->timer, l1->t3_value, EV_TIMER3, NULL, 2);
+ 	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
+ 	l1->dcb(l1->dch, HW_RESET_REQ);
+ }
+@@ -356,6 +357,16 @@ l1_event(struct layer1 *l1, u_int event)
+ 		release_l1(l1);
+ 		break;
+ 	default:
++		if ((event & ~HW_TIMER3_VMASK) == HW_TIMER3_VALUE) {
++			int val = event & HW_TIMER3_VMASK;
++
++			if (val < 5)
++				val = 5;
++			if (val > 30)
++				val = 30;
++			l1->t3_value = val;
++			break;
++		}
+ 		if (*debug & DEBUG_L1)
+ 			printk(KERN_DEBUG "%s %x unhandled\n",
+ 			       __func__, event);
+@@ -377,6 +388,7 @@ create_l1(struct dchannel *dch, dchannel_l1callback *dcb) {
+ 	nl1->l1m.fsm = &l1fsm_s;
+ 	nl1->l1m.state = ST_L1_F3;
+ 	nl1->Flags = 0;
++	nl1->t3_value = TIMER3_DEFAULT_VALUE;
+ 	nl1->l1m.debug = *debug & DEBUG_L1_FSM;
+ 	nl1->l1m.userdata = nl1;
+ 	nl1->l1m.userint = 0;
+diff --git a/include/linux/mISDNhw.h b/include/linux/mISDNhw.h
+index 74d5734..7075753 100644
+--- a/include/linux/mISDNhw.h
++++ b/include/linux/mISDNhw.h
+@@ -136,6 +136,9 @@ extern int	create_l1(struct dchannel *, dchannel_l1callback *);
+ #define HW_TESTRX_RAW	0x9602
+ #define HW_TESTRX_HDLC	0x9702
+ #define HW_TESTRX_OFF	0x9802
++#define HW_TIMER3_IND	0x9902
++#define HW_TIMER3_VALUE	0x9a00
++#define HW_TIMER3_VMASK	0x00FF
+ 
+ struct layer1;
+ extern int	l1_event(struct layer1 *, u_int);
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index b7457e8..322d316 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -37,7 +37,7 @@
+  */
+ #define	MISDN_MAJOR_VERSION	1
+ #define	MISDN_MINOR_VERSION	1
+-#define MISDN_RELEASE		26
++#define MISDN_RELEASE		27
+ 
+ /* primitives for information exchange
+  * generell format
+@@ -374,6 +374,7 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_RX_OFF		0x0100
+ #define MISDN_CTRL_FILL_EMPTY		0x0200
+ #define MISDN_CTRL_GETPEER		0x0400
++#define MISDN_CTRL_L1_TIMER3		0x0800
+ #define MISDN_CTRL_HW_FEATURES_OP	0x2000
+ #define MISDN_CTRL_HW_FEATURES		0x2001
+ #define MISDN_CTRL_HFC_OP		0x4000
 -- 
 1.7.3.4
