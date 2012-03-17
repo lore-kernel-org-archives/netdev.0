@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] phc: Update author's email address.
-Date: Sat, 17 Mar 2012 01:41:54 -0700 (PDT)
-Message-ID: <20120317.014154.803209653417591485.davem@davemloft.net>
-References: <cover.1331973209.git.richardcochran@gmail.com>
-	<cover.1331973209.git.richardcochran@gmail.com>
-	<f71e832a13040f4110719e759ca0441c77255e5c.1331973209.git.richardcochran@gmail.com>
+Subject: Re: [PATCH] netfilter: ctnetlink: fix race between delete and
+ timeout expiration
+Date: Sat, 17 Mar 2012 01:47:39 -0700 (PDT)
+Message-ID: <20120317.014739.1582874215726456340.davem@davemloft.net>
+References: <1331899234-3123-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40620 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206Ab2CQIl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 04:41:58 -0400
-In-Reply-To: <f71e832a13040f4110719e759ca0441c77255e5c.1331973209.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1331899234-3123-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sat, 17 Mar 2012 09:39:29 +0100
+From: pablo@netfilter.org
+Date: Fri, 16 Mar 2012 13:00:34 +0100
 
-> This commit brings the author email address macros up to date for four
-> modules in the PTP Hardware Clock subsystem.
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
 > 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> Kerin Millar reported hardlockups while running `conntrackd -c'
+> in a busy firewall. That system (with several processors) was
+> acting as backup in a primary-backup setup.
+> 
+> After several tries, I found a race condition between the deletion
+> operation of ctnetlink and timeout expiration. This patch fixes
+> this problem.
+> 
+> Tested-by: Kerin Millar <kerframil@gmail.com>
+> Reported-by: Kerin Millar <kerframil@gmail.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
 Applied, thanks.
