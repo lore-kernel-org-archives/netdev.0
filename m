@@ -1,79 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] rtlwifi: Simplify rtl_get/set inline functions
-Date: Sat, 17 Mar 2012 13:36:30 -0700
-Message-ID: <b3abde4a48c61f2064953d020fd985c37d6594ac.1332016501.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] isdn: Return -EINTR in gigaset_start() if locking
+ attempts fails.
+Date: Sat, 17 Mar 2012 13:58:54 -0700 (PDT)
+Message-ID: <20120317.135854.570143927282385505.davem@davemloft.net>
+References: <1331903413-11426-1-git-send-email-santoshprasadnayak@gmail.com>
+	<20120316.231856.1071253468993560433.davem@davemloft.net>
+	<CAOD=uF6JJiiGjQwybzwdU3Zw9pC8YbDPxm_Pg9E9WNAXbfTiUQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-media@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santoshprasadnayak@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:42439 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756437Ab2CQUgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Mar 2012 16:36:35 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:44504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756039Ab2CQU7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 16:59:22 -0400
+In-Reply-To: <CAOD=uF6JJiiGjQwybzwdU3Zw9pC8YbDPxm_Pg9E9WNAXbfTiUQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use a temporary to make the code a bit neater.
+From: santosh prasad nayak <santoshprasadnayak@gmail.com>
+Date: Sat, 17 Mar 2012 21:26:14 +0530
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/rtlwifi/wifi.h |   24 +++++++++++-------------
- 1 files changed, 11 insertions(+), 13 deletions(-)
+> Caller is interpreting 0 in opposite way of normal sequence.
+> Thats why I misunderstood it.
 
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index b591614..0f1d211 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -1954,37 +1954,35 @@ static inline void rtl_write_dword(struct rtl_priv *rtlpriv,
- static inline u32 rtl_get_bbreg(struct ieee80211_hw *hw,
- 				u32 regaddr, u32 bitmask)
- {
--	return ((struct rtl_priv *)(hw)->priv)->cfg->ops->get_bbreg(hw,
--								    regaddr,
--								    bitmask);
-+	struct rtl_priv *rtlpriv = hw->priv;
-+
-+	return rtlpriv->cfg->ops->get_bbreg(hw, regaddr, bitmask);
- }
- 
- static inline void rtl_set_bbreg(struct ieee80211_hw *hw, u32 regaddr,
- 				 u32 bitmask, u32 data)
- {
--	((struct rtl_priv *)(hw)->priv)->cfg->ops->set_bbreg(hw,
--							     regaddr, bitmask,
--							     data);
-+	struct rtl_priv *rtlpriv = hw->priv;
- 
-+	rtlpriv->cfg->ops->set_bbreg(hw, regaddr, bitmask, data);
- }
- 
- static inline u32 rtl_get_rfreg(struct ieee80211_hw *hw,
- 				enum radio_path rfpath, u32 regaddr,
- 				u32 bitmask)
- {
--	return ((struct rtl_priv *)(hw)->priv)->cfg->ops->get_rfreg(hw,
--								    rfpath,
--								    regaddr,
--								    bitmask);
-+	struct rtl_priv *rtlpriv = hw->priv;
-+
-+	return rtlpriv->cfg->ops->get_rfreg(hw, rfpath, regaddr, bitmask);
- }
- 
- static inline void rtl_set_rfreg(struct ieee80211_hw *hw,
- 				 enum radio_path rfpath, u32 regaddr,
- 				 u32 bitmask, u32 data)
- {
--	((struct rtl_priv *)(hw)->priv)->cfg->ops->set_rfreg(hw,
--							     rfpath, regaddr,
--							     bitmask, data);
-+	struct rtl_priv *rtlpriv = hw->priv;
-+
-+	rtlpriv->cfg->ops->set_rfreg(hw, rfpath, regaddr, bitmask, data);
- }
- 
- static inline bool is_hal_stop(struct rtl_hal *rtlhal)
--- 
-1.7.8.111.gad25c.dirty
+The simple fact is that you didn't even look at the code at the call
+sites when you wrote this patch, and that's the first thing anyone is
+going to do when reviewing it.
+
+Therefore your laziness results in more useless work for other people.
+I just wanted to point out how selfish and anti-social this kind of
+behavior is.
