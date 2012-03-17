@@ -1,54 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] adjust __net_exit
-Date: Fri, 16 Mar 2012 22:18:13 -0700 (PDT)
-Message-ID: <20120316.221813.236130733754848615.davem@davemloft.net>
-References: <4F588BEC020000780007710A@nat28.tlf.novell.com>
+Subject: Re: [PATCH 3/3 v3] netxen: qlogic ethernet : Fix endian bug.
+Date: Fri, 16 Mar 2012 22:23:52 -0700 (PDT)
+Message-ID: <20120316.222352.1067507516750800594.davem@davemloft.net>
+References: <1331629104-3283-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	sam@ravnborg.org, xemul@openvz.org, ebiederm@xmission.com
-To: JBeulich@suse.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4F588BEC020000780007710A@nat28.tlf.novell.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: santoshprasadnayak@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39531 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030188Ab2CQFX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 01:23:58 -0400
+In-Reply-To: <1331629104-3283-1-git-send-email-santoshprasadnayak@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jan Beulich" <JBeulich@suse.com>
-Date: Thu, 08 Mar 2012 09:37:32 +0000
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Date: Tue, 13 Mar 2012 14:28:24 +0530
 
-> __net_exit, judging by the majority of its uses, was intended to serve
-> as an abstraction to allow calling such annotated functions from both
-> __init and __exit functions. Using the (bogus and unused elsewhere)
-> __exit_refok to implement this is inefficient - any non-modular code
-> really can reside in __init (as non-modular __exit code is never used).
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
 > 
-> Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
-> in modules, and __init in the core kernel.
+> Change the datatype of "ip_addr" to __be32 as 'ip' should be in
+> big endian format.
 > 
-> A few other adjustments are necessary/possible with this done - those
-> were likely just oversights when added originally.
+> Adapter needs "ip address" in big endian format stored at lower 32bit
+> of req.word[1]. netxen_config_ipaddr() now receives 'ip' in big endian
+> format. To satisfy adapter's need, use memcpy() to copy byte by byte
+> of 'ip' into lower 32bit of req.word[1].
 > 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> Mac address and serial number of adapter need to be in little endian format.
+> Change the data type of the related  variables to __le32 / __le64 or cast it
+> explicitly to __le32 / __le64 depending upon the requirement.
+> 
+> Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-[ I have been waiting for more than a week for a netns developer
-  to review this patch, I guess I'm too optimistic these days. :-( ]
-
-The only reason you think __exit_refok is "bogus" is because it's
-semantics got changed by Sam Ravnborg in commit
-312b1485fb509c9bc32eda28ad29537896658cb8 ("Introduce new section
-reference annotations tags: __ref, __refdata, __refconst")
-
-Beforehand the __exit_refok was a real .exit section, so it got
-completely discarded AT LINK TIME.  Now it sits together with
-__init_refok which is an unremovable kernel image section, which
-neither gets removed at compile time nor boot time.
-
-So __exit_refok did exactly what you say it should do before Sam's
-change.
-
-It's just completely stupid to change the netns section defines,
-and instead we should revert __exit_refok to mean what it always
-meant previously.
-
-I'm not applying this patch.
+Applied.
