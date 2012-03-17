@@ -1,47 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: linux-3.0.18+r8169+ipv4/tcp forwarding = tso/gso weirdness and performance degration
-Date: Sat, 17 Mar 2012 23:20:04 +0100
-Message-ID: <20120317222004.GA25455@electric-eye.fr.zoreil.com>
-References: <20120314215142.655ae607@vostro> <1331755965.6022.55.camel@edumazet-glaptop> <20120314223343.23dc9df3@vostro> <20120314205319.GA28394@electric-eye.fr.zoreil.com> <20120315080635.1f76512b@vostro> <20120315171148.0050714d@vostro> <20120315191118.GA19809@electric-eye.fr.zoreil.com> <20120316221557.235f5ffd@vostro> <20120317115625.3fc04de4@vostro> <20120317113501.GC20532@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] drivers: net: Remove unnecessary line continuations
+Date: Sat, 17 Mar 2012 15:41:06 -0700 (PDT)
+Message-ID: <20120317.154106.2065585022630172500.davem@davemloft.net>
+References: <1d738d4a4dd61978f969ed4a43f2dd3717f51a19.1332011552.git.joe@perches.com>
+	<67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57320 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932487Ab2CQWVz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Mar 2012 18:21:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20120317113501.GC20532@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: geoff@infradead.org, kou.ishizaki@toshiba.co.jp, jens@de.ibm.com,
+	samuel@sortiz.org, wg@grandegger.com, mkl@pengutronix.de,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
+To: joe@perches.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <67ad900b6f6451b5b28b004def471c9a41b1ee24.1332011552.git.joe@perches.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> > Or as easy alternative, enabling the VPD bit in Config1 should allow me
-> > to read the EEPROM contents using the PCI /sys/.../vpd interface, right?
+From: Joe Perches <joe@perches.com>
+Date: Sat, 17 Mar 2012 12:14:03 -0700
+
+> Line continuations are error prone so just remove them.
 > 
-> In theory, yes. I have not tested it. Imho both access methods will be
-> useful.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-I tried vpd and got the eeprom content, duplicated 256 times.
-
-The eeprom content is fairly boring:
-
-# ethtool -e 8169sc-1                                                                      
-Offset          Values
-------          ------
-0x0000          29 81 ec 10 67 81 ec 10 67 81 20 40 01 a1 00 e0 
-0x0010          4c 67 00 01 15 cd c2 f7 ff 80 ff ff ff ff ff 13 
-0x0020          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0030          ff ff fa d6 ff ff ff ff ff ff ff ff ff ff ff 20 
-0x0040          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0050          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0060          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0070          ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-
--- 
-Ueimor
+Applied.
