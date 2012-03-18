@@ -1,67 +1,108 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: reduce out_of_order memory use
-Date: Sun, 18 Mar 2012 12:55:30 -0400
-Message-ID: <CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
-References: <1332077854.3722.52.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 0/3] Gianfar byte queue limits
+Date: Sun, 18 Mar 2012 12:56:24 -0400
+Message-ID: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com, therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:41269 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755513Ab2CRQzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:55:31 -0400
-Received: by qaeb19 with SMTP id b19so438261qae.19
-        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 09:55:30 -0700 (PDT)
-In-Reply-To: <1332077854.3722.52.camel@edumazet-laptop>
+Received: from mail.windriver.com ([147.11.1.11]:43531 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755350Ab2CRQ4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:56:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 18, 2012 at 9:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> With increasing receive window sizes, but speed of light not improved
-> that much, out of order queue can contain a huge number of skbs, waiting
-> to be moved to receive_queue when missing packets can fill the holes.
->
-> Some devices happen to use fat skbs (truesize of 4096 + sizeof(struct
-> sk_buff)) to store regular (MTU <= 1500) frames. This makes highly
-> probable sk_rmem_alloc hits sk_rcvbuf limit, which can be 4Mbytes in
-> many cases.
->
-> When limit is hit, tcp stack calls tcp_collapse_ofo_queue(), a true
-> latency killer and cpu cache blower.
->
-> Doing the coalescing attempt each time we add a frame in ofo queue
-> permits to keep memory use tight and in many cases avoid the
-> tcp_collapse() thing later.
->
-> Tested on various wireless setups (b43, ath9k, ...) known to use big skb
-> truesize, this patch removed the "packets collapsed in receive queue due
-> to low socket buffer" I had before.
->
-> This also reduced average memory used by tcp sockets.
+The BQL support here is unchanged from what I posted earlier as an
+RFC[1] -- with the exception of the fact that I'm now happier with
+the runtime testing vs. the simple "hey it boots" that I'd done
+for the RFC.  Plus I added a couple trivial cleanup patches.
 
+For testing, I made a couple spiders homeless by reviving an ancient
+10baseT hub.  I connected an sbc8349 into that, and connected the
+yellowing hub into a GigE 16port, which was also connected to the
+recipient x86 box.
 
-At this point in tcp_data_queue() we have already called
-skb_set_owner_r() to charge the full truesize to the socket.  So
-probably we need to adjust rmem accounting variables to account for
-the fact that the memory corresponding to the overhead of the freed
-skb is now gone?
+Gianfar saw the interface as follows:
 
-The patch as written seems to only coalesce if the incoming skb fits
-immediately after the first skb in the ofo queue. If we're going to
-add logic to coalesce then it would be nice to also coalesce in the
-case where the skb falls immediately after any later skb in the ofo queue,
-i.e. at some point after the "Find place to insert this segment" loop,
-probably right before or after the "Do skb overlap to previous one?"
-check. Perhaps the coalescing logic could be factored out into its own
-little function, and called in either of the two places?
+fsl-gianfar e0024000.ethernet: eth0: mac: 00:a0:1e:a0:26:5a
+fsl-gianfar e0024000.ethernet: eth0: Running with NAPI enabled
+fsl-gianfar e0024000.ethernet: eth0: RX BD ring size for Q[0]: 256
+fsl-gianfar e0024000.ethernet: eth0: TX BD ring size for Q[0]: 256
+PHY: mdio@e0024520:19 - Link is Up - 10/Half
 
-(BTW, a few lines are longer than 80 characters.)
+With the sbc8349 being diskless, I simply used an scp of /proc/kcore
+to the connected x86 box as a rudimentary Tx heavy workload.
 
-neal
+BQL data was collected by changing into the dir:
+
+  /sys/devices/e0000000.soc8349/e0024000.ethernet/net/eth0/queues/tx-0/byte_queue_limits
+
+and running the following:
+
+  for i in * ; do echo -n $i": " ; cat $i ; done
+
+Running with the defaults, data like below was typical:
+
+hold_time: 1000
+inflight: 4542
+limit: 3456
+limit_max: 1879048192
+limit_min: 0
+
+hold_time: 1000
+inflight: 4542
+limit: 3378
+limit_max: 1879048192
+limit_min: 0
+
+i.e. 2 or 3 MTU sized packets in flight and the limit value lying
+somewhere between those two values.
+
+The interesting thing is that the interactive speed reported by scp
+seemed somewhat erratic, ranging from ~450 to ~700kB/s. (This was
+the only traffic on the old junk - perhaps expected oscillations such
+as those seen in isolated ARED tests?)  Average speed for 100M was:
+
+104857600 bytes (105 MB) copied, 172.616 s, 607 kB/s
+
+Anyway, back to BQL testing; setting the values as follows:
+
+hold_time: 1000
+inflight: 1514
+limit: 1400
+limit_max: 1400
+limit_min: 1000
+
+had the effect of serializing the interface to a single packet, and
+the crusty old hub seemed much happier with this arrangement, keeping
+a constant speed and achieving the following on a 100MB Tx block:
+
+104857600 bytes (105 MB) copied, 112.52 s, 932 kB/s
+
+It might be interesting to know more about why the defaults suffer
+the slowdown, but the hub could possibly be ancient spec violating
+trash.  Definitely something that nobody would ever use for anything
+today. (aside from contrived tests like this)
+
+But it did give me an example of where I could see the effects of
+changing the BQL settings, and I'm reasonably confident they are
+working as expected.
+
+Paul.
+---
+
+[1] http://lists.openwall.net/netdev/2012/01/06/64
+
+Paul Gortmaker (3):
+  gianfar: Add support for byte queue limits.
+  gianfar: constify giant block of status descriptor strings
+  gianfar: delete orphaned version strings and dead macros
+
+ drivers/net/ethernet/freescale/gianfar.c         |   22 ++++++++++++++++------
+ drivers/net/ethernet/freescale/gianfar.h         |    3 ---
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |    2 +-
+ 3 files changed, 17 insertions(+), 10 deletions(-)
+
+-- 
+1.7.9.1
