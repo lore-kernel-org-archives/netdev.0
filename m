@@ -1,109 +1,83 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 1/3] gianfar: Add support for byte queue limits.
-Date: Sun, 18 Mar 2012 12:56:25 -0400
-Message-ID: <1332089787-24086-2-git-send-email-paul.gortmaker@windriver.com>
-References: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: davem@davemloft.net, eric.dumazet@gmail.com, therbert@google.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: reduce out_of_order memory use
+Date: Sun, 18 Mar 2012 12:40:46 -0700
+Message-ID: <1332099646.9397.24.camel@edumazet-glaptop>
+References: <1332077854.3722.52.camel@edumazet-laptop>
+	 <CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43538 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755350Ab2CRQ4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:56:52 -0400
-In-Reply-To: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:63419 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754501Ab2CRTks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 15:40:48 -0400
+Received: by dajr28 with SMTP id r28so8834870daj.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 12:40:48 -0700 (PDT)
+In-Reply-To: <CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for byte queue limits (BQL), based on the similar
-modifications made to intel/igb/igb_main.c from Eric Dumazet
-in commit bdbc063129e811264cd6c311d8c2d9b95de01231
-	"igb: Add support for byte queue limits."
+On Sun, 2012-03-18 at 12:55 -0400, Neal Cardwell wrote:
 
-A local variable for tx_queue->qindex was introduced in
-gfar_clean_tx_ring, since it is now used often enough to warrant it,
-and it cleans up the readability somewhat as well.
+> 
+> At this point in tcp_data_queue() we have already called
+> skb_set_owner_r() to charge the full truesize to the socket.  So
+> probably we need to adjust rmem accounting variables to account for
+> the fact that the memory corresponding to the overhead of the freed
+> skb is now gone?
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/freescale/gianfar.c |   19 ++++++++++++++++---
- 1 files changed, 16 insertions(+), 3 deletions(-)
+This is automatically done in the __kfree_skb(skb) call.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index adb0ae4..a4c934b 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1755,9 +1755,12 @@ static void free_skb_resources(struct gfar_private *priv)
- 
- 	/* Go through all the buffer descriptors and free their data buffers */
- 	for (i = 0; i < priv->num_tx_queues; i++) {
-+		struct netdev_queue *txq;
- 		tx_queue = priv->tx_queue[i];
-+		txq = netdev_get_tx_queue(tx_queue->dev, tx_queue->qindex);
- 		if(tx_queue->tx_skbuff)
- 			free_skb_tx_queue(tx_queue);
-+		netdev_tx_reset_queue(txq);
- 	}
- 
- 	for (i = 0; i < priv->num_rx_queues; i++) {
-@@ -2217,6 +2220,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
- 	}
- 
-+	netdev_tx_sent_queue(txq, skb->len);
-+
- 	/*
- 	 * We can work in parallel with gfar_clean_tx_ring(), except
- 	 * when modifying num_txbdfree. Note that we didn't grab the lock
-@@ -2460,6 +2465,7 @@ static void gfar_align_skb(struct sk_buff *skb)
- static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- {
- 	struct net_device *dev = tx_queue->dev;
-+	struct netdev_queue *txq;
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar_priv_rx_q *rx_queue = NULL;
- 	struct txbd8 *bdp, *next = NULL;
-@@ -2471,10 +2477,13 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	int frags = 0, nr_txbds = 0;
- 	int i;
- 	int howmany = 0;
-+	int tqi = tx_queue->qindex;
-+	unsigned int bytes_sent = 0;
- 	u32 lstatus;
- 	size_t buflen;
- 
--	rx_queue = priv->rx_queue[tx_queue->qindex];
-+	rx_queue = priv->rx_queue[tqi];
-+	txq = netdev_get_tx_queue(dev, tqi);
- 	bdp = tx_queue->dirty_tx;
- 	skb_dirtytx = tx_queue->skb_dirtytx;
- 
-@@ -2533,6 +2542,8 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 			bdp = next_txbd(bdp, base, tx_ring_size);
- 		}
- 
-+		bytes_sent += skb->len;
-+
- 		/*
- 		 * If there's room in the queue (limit it to rx_buffer_size)
- 		 * we add this skb back into the pool, if it's the right size
-@@ -2557,13 +2568,15 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	}
- 
- 	/* If we freed a buffer, we can restart transmission, if necessary */
--	if (__netif_subqueue_stopped(dev, tx_queue->qindex) && tx_queue->num_txbdfree)
--		netif_wake_subqueue(dev, tx_queue->qindex);
-+	if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_txbdfree)
-+		netif_wake_subqueue(dev, tqi);
- 
- 	/* Update dirty indicators */
- 	tx_queue->skb_dirtytx = skb_dirtytx;
- 	tx_queue->dirty_tx = bdp;
- 
-+	netdev_tx_completed_queue(txq, howmany, bytes_sent);
-+
- 	return howmany;
- }
- 
--- 
-1.7.9.1
+I thought of avoiding the skb_set_owner_r() but it was simpler to let
+the code as is.
+
+Thinking again, we might just defer it at the end of function if skb is
+not NULL, but it adds a new conditional and a "returb;" must be changed
+to "goto end;"
+
+> 
+> The patch as written seems to only coalesce if the incoming skb fits
+> immediately after the first skb in the ofo queue. If we're going to
+> add logic to coalesce then it would be nice to also coalesce in the
+> case where the skb falls immediately after any later skb in the ofo queue,
+
+I tried this but it was almost never used code in my experiments.
+
+Most of the times packets come in natural order (no OOO).
+
+> i.e. at some point after the "Find place to insert this segment" loop,
+> probably right before or after the "Do skb overlap to previous one?"
+> check. Perhaps the coalescing logic could be factored out into its own
+> little function, and called in either of the two places?
+> 
+
+Absolutely, I was already working on splitting tcp_data_queue() in two
+functions to reduce indentation level by one tabulation make it more
+readable.
+
+Yes, we probably can expand the coalescing logic to be able to cope with
+OOO, so that not only we coalesce this skb with prior one in queue, but
+also with next one if there is one.
+
+> (BTW, a few lines are longer than 80 characters.)
+
+This wont be the case once tcp_data_queue_ofo() is introduced.
+
+I'll send a V2 with two patches.
+
+1/2 tcp: introduce tcp_data_queue_ofo()
+    (No change, only code movement to make smaller code units)
+
+2/2 tcp: reduce out_of_order memory use
+    (with the attempt to avoid the skb_set_owner_r()/__kfree_skb() as
+you suggested)
+
+Thanks !
