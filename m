@@ -1,284 +1,187 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [net-next PATCH 1/4] be2net: enable WOL by default if h/w supports it
-Date: Sun, 18 Mar 2012 11:23:11 -0500
-Message-ID: <20120318162311.GA7646@akhaparde-VBox>
+Subject: [net-next PATCH 2/4] be2net: Program secondary UC MAC address into
+ MAC filter
+Date: Sun, 18 Mar 2012 11:23:21 -0500
+Message-ID: <20120318162321.GA7665@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:59897 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:59901 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754903Ab2CRQXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:23:53 -0400
+	with ESMTP id S1755731Ab2CRQYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:24:10 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h         |   26 +++++++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   55 ++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   28 ++++++++++++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   27 +++++-------
- drivers/net/ethernet/emulex/benet/be_main.c    |   17 +++++++
- 5 files changed, 136 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    6 +++-
+ drivers/net/ethernet/emulex/benet/be_main.c |   53 ++++++++++++++++++++++++---
+ 2 files changed, 53 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index ab24e46..cabe1b8 100644
+index cabe1b8..03fc3db 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -52,6 +52,10 @@
- #define OC_DEVICE_ID3		0xe220	/* Device id for Lancer cards */
- #define OC_DEVICE_ID4           0xe228   /* Device id for VF in Lancer */
- #define OC_DEVICE_ID5		0x720	/* Device Id for Skyhawk cards */
-+#define OC_SUBSYS_DEVICE_ID1	0xE602
-+#define OC_SUBSYS_DEVICE_ID2	0xE642
-+#define OC_SUBSYS_DEVICE_ID3	0xE612
-+#define OC_SUBSYS_DEVICE_ID4	0xE652
+@@ -309,6 +309,8 @@ struct be_vf_cfg {
  
- static inline char *nic_name(struct pci_dev *pdev)
- {
-@@ -365,7 +369,6 @@ struct be_adapter {
- 	bool fw_timeout;
- 	u32 port_num;
- 	bool promiscuous;
--	bool wol;
- 	u32 function_mode;
- 	u32 function_caps;
- 	u32 rx_fc;		/* Rx flow control */
-@@ -386,6 +389,8 @@ struct be_adapter {
- 	u32 sli_family;
- 	u8 hba_port_num;
+ #define BE_FLAGS_LINK_STATUS_INIT		1
+ #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
++#define BE_UC_PMAC_COUNT		30
++#define BE_VF_UC_PMAC_COUNT		2
+ 
+ struct be_adapter {
+ 	struct pci_dev *pdev;
+@@ -361,7 +363,7 @@ struct be_adapter {
+ 	/* Ethtool knobs and info */
+ 	char fw_ver[FW_VER_LEN];
+ 	int if_handle;		/* Used to configure filtering */
+-	u32 pmac_id;		/* MAC addr handle used by BE card */
++	u32 *pmac_id;		/* MAC addr handle used by BE card */
+ 	u32 beacon_state;	/* for set_phys_id */
+ 
+ 	bool eeh_err;
+@@ -391,6 +393,8 @@ struct be_adapter {
  	u16 pvid;
-+	u8 wol_cap;
-+	bool wol;
+ 	u8 wol_cap;
+ 	bool wol;
++	u32 max_pmac_cnt;	/* Max secondary UC MACs programmable */
++	u32 uc_macs;		/* Count of secondary UC MAC programmed */
  };
  
  #define be_physfn(adapter) (!adapter->is_virtfn)
-@@ -549,9 +554,28 @@ static inline bool be_error(struct be_adapter *adapter)
- 	return adapter->eeh_err || adapter->ue_detected || adapter->fw_timeout;
- }
- 
-+static inline bool be_is_wol_excluded(struct be_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	if (!be_physfn(adapter))
-+		return true;
-+
-+	switch (pdev->subsystem_device) {
-+	case OC_SUBSYS_DEVICE_ID1:
-+	case OC_SUBSYS_DEVICE_ID2:
-+	case OC_SUBSYS_DEVICE_ID3:
-+	case OC_SUBSYS_DEVICE_ID4:
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
-+
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, u8 link_status);
- extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
-+extern bool be_is_wol_supported(struct be_adapter *adapter);
- #endif				/* BE_H */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 398fb5c..d72c2b4 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2418,3 +2418,58 @@ err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
-+
-+int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_acpi_wol_magic_config_v1 *req;
-+	int status;
-+	int payload_len = sizeof(*req);
-+	struct be_dma_mem cmd;
-+
-+	memset(&cmd, 0, sizeof(struct be_dma_mem));
-+	cmd.size = sizeof(struct be_cmd_resp_acpi_wol_magic_config_v1);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
-+					       &cmd.dma);
-+	if (!cmd.va) {
-+		dev_err(&adapter->pdev->dev,
-+				"Memory allocation failure\n");
-+		return -ENOMEM;
-+	}
-+
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
-+
-+	wrb = wrb_from_mbox(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = cmd.va;
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
-+			       OPCODE_ETH_ACPI_WOL_MAGIC_CONFIG,
-+			       payload_len, wrb, &cmd);
-+
-+	req->hdr.version = 1;
-+	req->query_options = BE_GET_WOL_CAP;
-+
-+	status = be_mbox_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_acpi_wol_magic_config_v1 *resp;
-+		resp = (struct be_cmd_resp_acpi_wol_magic_config_v1 *) cmd.va;
-+
-+		/* the command could succeed misleadingly on old f/w
-+		 * which is not aware of the V1 version. fake an error. */
-+		if (resp->hdr.response_length < payload_len) {
-+			status = -1;
-+			goto err;
-+		}
-+		adapter->wol_cap = resp->wol_settings;
-+	}
-+err:
-+	mutex_unlock(&adapter->mbox_lock);
-+	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
-+	return status;
-+}
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 687c420..345d49e 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1206,6 +1206,33 @@ struct be_cmd_req_acpi_wol_magic_config{
- 	u8 rsvd2[2];
- } __packed;
- 
-+struct be_cmd_req_acpi_wol_magic_config_v1 {
-+	struct be_cmd_req_hdr hdr;
-+	u8 rsvd0[2];
-+	u8 query_options;
-+	u8 rsvd1[5];
-+	u32 rsvd2[288];
-+	u8 magic_mac[6];
-+	u8 rsvd3[22];
-+} __packed;
-+
-+struct be_cmd_resp_acpi_wol_magic_config_v1 {
-+	struct be_cmd_resp_hdr hdr;
-+	u8 rsvd0[2];
-+	u8 wol_settings;
-+	u8 rsvd1[5];
-+	u32 rsvd2[295];
-+} __packed;
-+
-+#define BE_GET_WOL_CAP			2
-+
-+#define BE_WOL_CAP			0x1
-+#define BE_PME_D0_CAP			0x8
-+#define BE_PME_D1_CAP			0x10
-+#define BE_PME_D2_CAP			0x20
-+#define BE_PME_D3HOT_CAP		0x40
-+#define BE_PME_D3COLD_CAP		0x80
-+
- /********************** LoopBack test *********************/
- struct be_cmd_req_loopback_test {
- 	struct be_cmd_req_hdr hdr;
-@@ -1590,4 +1617,5 @@ extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
- 				bool *pmac_id_active, u32 *pmac_id, u8 *mac);
- extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
- 						u8 mac_count, u32 domain);
-+extern int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 30ce178..c1ff73c 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -600,26 +600,16 @@ be_set_phys_id(struct net_device *netdev,
- 	return 0;
- }
- 
--static bool
--be_is_wol_supported(struct be_adapter *adapter)
--{
--	if (!be_physfn(adapter))
--		return false;
--	else
--		return true;
--}
- 
- static void
- be_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
--	if (be_is_wol_supported(adapter))
--		wol->supported = WAKE_MAGIC;
--
--	if (adapter->wol)
--		wol->wolopts = WAKE_MAGIC;
--	else
-+	if (be_is_wol_supported(adapter)) {
-+		wol->supported |= WAKE_MAGIC;
-+		wol->wolopts |= WAKE_MAGIC;
-+	} else
- 		wol->wolopts = 0;
- 	memset(&wol->sopass, 0, sizeof(wol->sopass));
- }
-@@ -630,9 +620,14 @@ be_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
- 	if (wol->wolopts & ~WAKE_MAGIC)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
-+
-+	if (!be_is_wol_supported(adapter)) {
-+		dev_warn(&adapter->pdev->dev, "WOL not supported\n");
-+		return -EOPNOTSUPP;
-+	}
- 
--	if ((wol->wolopts & WAKE_MAGIC) && be_is_wol_supported(adapter))
-+	if (wol->wolopts & WAKE_MAGIC)
- 		adapter->wol = true;
- 	else
- 		adapter->wol = false;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index e382278..050e3eb 100644
+index 050e3eb..b4348b8 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3244,6 +3244,12 @@ static void __devexit be_remove(struct pci_dev *pdev)
- 	free_netdev(adapter->netdev);
- }
+@@ -235,7 +235,7 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 	struct sockaddr *addr = p;
+ 	int status = 0;
+ 	u8 current_mac[ETH_ALEN];
+-	u32 pmac_id = adapter->pmac_id;
++	u32 pmac_id = adapter->pmac_id[0];
  
-+bool be_is_wol_supported(struct be_adapter *adapter)
-+{
-+	return ((adapter->wol_cap & BE_WOL_CAP) &&
-+		!be_is_wol_excluded(adapter)) ? true : false;
-+}
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+@@ -248,7 +248,7 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 
+ 	if (memcmp(addr->sa_data, current_mac, ETH_ALEN)) {
+ 		status = be_cmd_pmac_add(adapter, (u8 *)addr->sa_data,
+-				adapter->if_handle, &adapter->pmac_id, 0);
++				adapter->if_handle, &adapter->pmac_id[0], 0);
+ 		if (status)
+ 			goto err;
+ 
+@@ -885,6 +885,29 @@ static void be_set_rx_mode(struct net_device *netdev)
+ 		goto done;
+ 	}
+ 
++	if (netdev_uc_count(netdev) != adapter->uc_macs) {
++		struct netdev_hw_addr *ha;
++		int i = 1; /* First slot is claimed by the Primary MAC */
 +
- static int be_get_config(struct be_adapter *adapter)
- {
- 	int status;
-@@ -3262,6 +3268,17 @@ static int be_get_config(struct be_adapter *adapter)
- 	if (status)
- 		return status;
- 
-+	status = be_cmd_get_acpi_wol_cap(adapter);
-+	if (status) {
-+		/* in case of a failure to get wol capabillities
-+		 * check the exclusion list to determine WOL capability */
-+		if (!be_is_wol_excluded(adapter))
-+			adapter->wol_cap |= BE_WOL_CAP;
++		for (; adapter->uc_macs > 0; adapter->uc_macs--, i++) {
++			be_cmd_pmac_del(adapter, adapter->if_handle,
++					adapter->pmac_id[i], 0);
++		}
++
++		if (netdev_uc_count(netdev) > adapter->max_pmac_cnt) {
++			be_cmd_rx_filter(adapter, IFF_PROMISC, ON);
++			adapter->promiscuous = true;
++			goto done;
++		}
++
++		netdev_for_each_uc_addr(ha, adapter->netdev) {
++			adapter->uc_macs++; /* First slot is for Primary MAC */
++			be_cmd_pmac_add(adapter, (u8 *)ha->addr,
++					adapter->if_handle,
++					&adapter->pmac_id[adapter->uc_macs], 0);
++		}
 +	}
 +
-+	if (be_is_wol_supported(adapter))
-+		adapter->wol = true;
+ 	be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
+ done:
+ 	return;
+@@ -2458,6 +2481,8 @@ static void be_vf_clear(struct be_adapter *adapter)
+ 
+ static int be_clear(struct be_adapter *adapter)
+ {
++	int i = 1;
 +
+ 	if (adapter->flags & BE_FLAGS_WORKER_SCHEDULED) {
+ 		cancel_delayed_work_sync(&adapter->work);
+ 		adapter->flags &= ~BE_FLAGS_WORKER_SCHEDULED;
+@@ -2466,6 +2491,10 @@ static int be_clear(struct be_adapter *adapter)
+ 	if (sriov_enabled(adapter))
+ 		be_vf_clear(adapter);
+ 
++	for (; adapter->uc_macs > 0; adapter->uc_macs--, i++)
++		be_cmd_pmac_del(adapter, adapter->if_handle,
++			adapter->pmac_id[i], 0);
++
+ 	be_cmd_if_destroy(adapter, adapter->if_handle,  0);
+ 
+ 	be_mcc_queues_destroy(adapter);
+@@ -2477,6 +2506,7 @@ static int be_clear(struct be_adapter *adapter)
+ 	be_cmd_fw_clean(adapter);
+ 
+ 	be_msix_disable(adapter);
++	kfree(adapter->pmac_id);
  	return 0;
  }
  
+@@ -2552,10 +2582,10 @@ static int be_add_mac_from_list(struct be_adapter *adapter, u8 *mac)
+ 				false, adapter->if_handle, pmac_id);
+ 
+ 		if (!status)
+-			adapter->pmac_id = pmac_id;
++			adapter->pmac_id[0] = pmac_id;
+ 	} else {
+ 		status = be_cmd_pmac_add(adapter, mac,
+-				adapter->if_handle, &adapter->pmac_id, 0);
++				adapter->if_handle, &adapter->pmac_id[0], 0);
+ 	}
+ do_none:
+ 	return status;
+@@ -2610,7 +2640,7 @@ static int be_setup(struct be_adapter *adapter)
+ 	}
+ 	status = be_cmd_if_create(adapter, cap_flags, en_flags,
+ 			netdev->dev_addr, &adapter->if_handle,
+-			&adapter->pmac_id, 0);
++			&adapter->pmac_id[0], 0);
+ 	if (status != 0)
+ 		goto err;
+ 
+@@ -3059,6 +3089,8 @@ static void be_netdev_init(struct net_device *netdev)
+ 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 
++	netdev->priv_flags |= IFF_UNICAST_FLT;
++
+ 	netdev->flags |= IFF_MULTICAST;
+ 
+ 	netif_set_gso_max_size(netdev, 65535);
+@@ -3264,6 +3296,17 @@ static int be_get_config(struct be_adapter *adapter)
+ 	else
+ 		adapter->max_vlans = BE_NUM_VLANS_SUPPORTED;
+ 
++	if (be_physfn(adapter))
++		adapter->max_pmac_cnt = BE_UC_PMAC_COUNT;
++	else
++		adapter->max_pmac_cnt = BE_VF_UC_PMAC_COUNT;
++
++	/* primary mac needs 1 pmac entry */
++	adapter->pmac_id = kcalloc(adapter->max_pmac_cnt + 1,
++				  sizeof(u32), GFP_KERNEL);
++	if (!adapter->pmac_id)
++		return -ENOMEM;
++
+ 	status = be_cmd_get_cntl_attributes(adapter);
+ 	if (status)
+ 		return status;
 -- 
 1.7.5.4
