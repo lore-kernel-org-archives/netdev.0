@@ -1,38 +1,60 @@
-From: Reinhard Karcher <reinhard.karcher@gmx.net>
-Subject: Re: Bug#664064: linux-image-3.3.0-rc6-amd64: 4 messages every minute
- in syslog from netlink
-Date: Sun, 18 Mar 2012 11:59:05 +0100
-Message-ID: <4F65BFF9.2050002@gmx.net>
-References: <20120315120008.14655.64028.reportbug@apollon>  <1331831653.3022.228.camel@deadeye> <4F622E92.9010007@gmx.net> <1332040554.31699.22.camel@deadeye>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH net] mlx4_core: fix race on comm channel
+Date: Sun, 18 Mar 2012 14:18:07 +0200
+Message-ID: <4F65D27F.7010102@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: 664064@bugs.debian.org, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
+	<eugenia@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:57758 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753397Ab2CRK7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 06:59:08 -0400
-In-Reply-To: <1332040554.31699.22.camel@deadeye>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:36016 "HELO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751087Ab2CRMSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 08:18:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 18.03.2012 04:15, schrieb Ben Hutchings:
-> OK, so it's something running in your KDE session.  And the results
-> you got from lsof suggest that it's some kind of network monitor
-> that's hosted by kded4, using the ntrack library
-> <https://launchpad.net/ntrack>.  I've never heard of this before.
->
-> ntrack appearently has the option to use either libnl or its own
-> built-in netlink protocol code, and is using the latter on your
-> system. If you install ntrack-module-libnl-0 and remove
-> ntrack-module-rtnetlink-0, does this fix the problem?
->
+From: Eugenia Emantayev <eugenia@mellanox.co.il>
 
-Yes, that fixes the problem. Thanks for your help.
-Should the bug be filed against an other package?
-kde-runtime -> libntrack-qt4-1 -> libntrack0 -> ntrack-module-rtnetlink-0
-Which one from the packages above?
+Prevent race condition between commands on comm channel.
+Happened while unloading the driver when switching from
+event to polling mode. VF got completion on the last command
+before switching to polling mode, but toggle was not changed.
+After the fix - VF will not write the next command before
+toggle is updated.
 
-Reinhard
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/cmd.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index eaf09d4..2f1f4a1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -239,6 +239,7 @@ static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
+ {
+ 	struct mlx4_cmd *cmd = &mlx4_priv(dev)->cmd;
+ 	struct mlx4_cmd_context *context;
++	unsigned long end;
+ 	int err = 0;
+ 
+ 	down(&cmd->event_sem);
+@@ -268,6 +269,13 @@ static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
+ 	}
+ 
+ out:
++	/* wait for comm channel ready
++	   this is necessary for prevention the race
++	   when switching between event to polling mode */
++	end = msecs_to_jiffies(timeout) + jiffies;
++	while (comm_pending(dev) && time_before(jiffies, end))
++		cond_resched();
++
+ 	spin_lock(&cmd->context_lock);
+ 	context->next = cmd->free_head;
+ 	cmd->free_head = context - cmd->context;
+-- 
+1.7.7
