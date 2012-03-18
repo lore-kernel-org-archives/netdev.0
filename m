@@ -1,166 +1,77 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH v2 net-next] phy: add am79c874 PHY support
-Date: Sun, 18 Mar 2012 22:03:05 +0100
-Message-ID: <1332104585-23033-1-git-send-email-agust@denx.de>
-Cc: Heiko Schocher <hs@denx.de>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 1/3] gianfar: Add support for byte queue limits.
+Date: Sun, 18 Mar 2012 17:04:04 -0400
+Message-ID: <CAP=VYLpNhJGZ0MS6Y6gWvbzn3vg-jHP0_kSBd6_Xxq_6hRyo8g@mail.gmail.com>
+References: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
+	<1332089787-24086-2-git-send-email-paul.gortmaker@windriver.com>
+	<1332102032.3722.53.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, therbert@google.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:41529 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752471Ab2CRVDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 17:03:09 -0400
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:49806 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753717Ab2CRVEG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 17:04:06 -0400
+Received: by lbbgm6 with SMTP id gm6so2909712lbb.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 14:04:05 -0700 (PDT)
+In-Reply-To: <1332102032.3722.53.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiko Schocher <hs@denx.de>
+On Sun, Mar 18, 2012 at 4:20 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le dimanche 18 mars 2012 =E0 12:56 -0400, Paul Gortmaker a =E9crit :
+>
+> ...
+>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* we add this skb back into the pool,=
+ if it's the right size
+>> @@ -2557,13 +2568,15 @@ static int gfar_clean_tx_ring(struct gfar_pr=
+iv_tx_q *tx_queue)
+>> =A0 =A0 =A0 }
+>>
+>> =A0 =A0 =A0 /* If we freed a buffer, we can restart transmission, if=
+ necessary */
+>> - =A0 =A0 if (__netif_subqueue_stopped(dev, tx_queue->qindex) && tx_=
+queue->num_txbdfree)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 netif_wake_subqueue(dev, tx_queue->qindex)=
+;
+>> + =A0 =A0 if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_tx=
+bdfree)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 netif_wake_subqueue(dev, tqi);
+>>
+>
+> You can use netif_tx_queue_stopped(txq) here instead of
+> __netif_subqueue_stopped(dev, tqi)
 
-Signed-off-by: Heiko Schocher <hs@denx.de>
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
+Yes, and it looks better too.  I will do it as a patch #4 since I think
+there is some small value in leaving the above patch chunk alone,
+since it makes it clear that it was just the introduction of a local
+variable and the code was otherwise unchanged here.
+
+Will resend shortly....
+
+Thanks,
+Paul.
 ---
-Changes since initial patch version (was only on linuxppc-dev list):
- - slightly rework function names and rename driver file to amd.c
- - remove not needed includes
- - fix interrupt initialization
- - add module device ID table
 
- drivers/net/phy/Kconfig  |    5 ++
- drivers/net/phy/Makefile |    1 +
- drivers/net/phy/amd.c    |  102 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 108 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/phy/amd.c
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index fbdcdf8..0e01f4e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -15,6 +15,11 @@ if PHYLIB
- 
- comment "MII PHY device drivers"
- 
-+config AMD_PHY
-+	tristate "Drivers for the AMD PHYs"
-+	---help---
-+	  Currently supports the am79c874
-+
- config MARVELL_PHY
- 	tristate "Drivers for Marvell PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index e15c83f..b7438b1 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -24,3 +24,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
- obj-$(CONFIG_MICREL_PHY)	+= micrel.o
- obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
- obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
-+obj-$(CONFIG_AMD_PHY)		+= amd.o
-diff --git a/drivers/net/phy/amd.c b/drivers/net/phy/amd.c
-new file mode 100644
-index 0000000..cfabd5f
---- /dev/null
-+++ b/drivers/net/phy/amd.c
-@@ -0,0 +1,102 @@
-+/*
-+ * Driver for AMD am79c PHYs
-+ *
-+ * Author: Heiko Schocher <hs@denx.de>
-+ *
-+ * Copyright (c) 2011 DENX Software Engineering GmbH
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/phy.h>
-+
-+#define PHY_ID_AM79C874		0x0022561b
-+
-+#define MII_AM79C_IR		17	/* Interrupt Status/Control Register */
-+#define MII_AM79C_IR_EN_LINK	0x0400	/* IR enable Linkstate */
-+#define MII_AM79C_IR_EN_ANEG	0x0100	/* IR enable Aneg Complete */
-+#define MII_AM79C_IR_IMASK_INIT	(MII_AM79C_IR_EN_LINK | MII_AM79C_IR_EN_ANEG)
-+
-+MODULE_DESCRIPTION("AMD PHY driver");
-+MODULE_AUTHOR("Heiko Schocher <hs@denx.de>");
-+MODULE_LICENSE("GPL");
-+
-+static int am79c_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_read(phydev, MII_BMSR);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_read(phydev, MII_AM79C_IR);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int am79c_config_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static int am79c_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_AM79C_IR, MII_AM79C_IR_IMASK_INIT);
-+	else
-+		err = phy_write(phydev, MII_AM79C_IR, 0);
-+
-+	return err;
-+}
-+
-+static struct phy_driver am79c_driver = {
-+	.phy_id		= PHY_ID_AM79C874,
-+	.name		= "AM79C874",
-+	.phy_id_mask	= 0xfffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= am79c_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= am79c_ack_interrupt,
-+	.config_intr	= am79c_config_intr,
-+	.driver		= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init am79c_init(void)
-+{
-+	int ret;
-+
-+	ret = phy_driver_register(&am79c_driver);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static void __exit am79c_exit(void)
-+{
-+	phy_driver_unregister(&am79c_driver);
-+}
-+
-+module_init(am79c_init);
-+module_exit(am79c_exit);
-+
-+static struct mdio_device_id __maybe_unused amd_tbl[] = {
-+	{ PHY_ID_AM79C874, 0xfffffff0 },
-+	{ }
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, amd_tbl);
--- 
-1.7.7.6
+>
+>> =A0 =A0 =A0 /* Update dirty indicators */
+>> =A0 =A0 =A0 tx_queue->skb_dirtytx =3D skb_dirtytx;
+>> =A0 =A0 =A0 tx_queue->dirty_tx =3D bdp;
+>>
+>> + =A0 =A0 netdev_tx_completed_queue(txq, howmany, bytes_sent);
+>> +
+>> =A0 =A0 =A0 return howmany;
+>> =A0}
+>>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
