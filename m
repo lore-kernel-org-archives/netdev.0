@@ -1,265 +1,67 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [net-next PATCH 4/4] be2net: fix programming of VLAN tags for VF
-Date: Sun, 18 Mar 2012 11:23:41 -0500
-Message-ID: <20120318162341.GA7697@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: reduce out_of_order memory use
+Date: Sun, 18 Mar 2012 12:55:30 -0400
+Message-ID: <CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
+References: <1332077854.3722.52.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:59904 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754247Ab2CRQYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:24:35 -0400
-Content-Disposition: inline
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:41269 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755513Ab2CRQzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 12:55:31 -0400
+Received: by qaeb19 with SMTP id b19so438261qae.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 09:55:30 -0700 (PDT)
+In-Reply-To: <1332077854.3722.52.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |   83 +++++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |   55 ++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_main.c |   23 ++++++--
- 4 files changed, 157 insertions(+), 5 deletions(-)
+On Sun, Mar 18, 2012 at 9:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> With increasing receive window sizes, but speed of light not improved
+> that much, out of order queue can contain a huge number of skbs, waiting
+> to be moved to receive_queue when missing packets can fill the holes.
+>
+> Some devices happen to use fat skbs (truesize of 4096 + sizeof(struct
+> sk_buff)) to store regular (MTU <= 1500) frames. This makes highly
+> probable sk_rmem_alloc hits sk_rcvbuf limit, which can be 4Mbytes in
+> many cases.
+>
+> When limit is hit, tcp stack calls tcp_collapse_ofo_queue(), a true
+> latency killer and cpu cache blower.
+>
+> Doing the coalescing attempt each time we add a frame in ofo queue
+> permits to keep memory use tight and in many cases avoid the
+> tcp_collapse() thing later.
+>
+> Tested on various wireless setups (b43, ath9k, ...) known to use big skb
+> truesize, this patch removed the "packets collapsed in receive queue due
+> to low socket buffer" I had before.
+>
+> This also reduced average memory used by tcp sockets.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 03fc3db..9576ac0 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -303,6 +303,7 @@ struct be_vf_cfg {
- 	unsigned char mac_addr[ETH_ALEN];
- 	int if_handle;
- 	int pmac_id;
-+	u16 def_vid;
- 	u16 vlan_tag;
- 	u32 tx_rate;
- };
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index d72c2b4..67b030d 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2419,6 +2419,89 @@ err:
- 	return status;
- }
- 
-+int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
-+			u32 domain, u16 intf_id)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_set_hsw_config *req;
-+	void *ctxt;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+	ctxt = &req->context;
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			OPCODE_COMMON_SET_HSW_CONFIG, sizeof(*req), wrb, NULL);
-+
-+	req->hdr.domain = domain;
-+	AMAP_SET_BITS(struct amap_set_hsw_context, interface_id, ctxt, intf_id);
-+	if (pvid) {
-+		AMAP_SET_BITS(struct amap_set_hsw_context, pvid_valid, ctxt, 1);
-+		AMAP_SET_BITS(struct amap_set_hsw_context, pvid, ctxt, pvid);
-+	}
-+
-+	be_dws_cpu_to_le(req->context, sizeof(req->context));
-+	status = be_mcc_notify_wait(adapter);
-+
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
-+/* Get Hyper switch config */
-+int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
-+			u32 domain, u16 intf_id)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_hsw_config *req;
-+	void *ctxt;
-+	int status;
-+	u16 vid;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+	ctxt = &req->context;
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			OPCODE_COMMON_GET_HSW_CONFIG, sizeof(*req), wrb, NULL);
-+
-+	req->hdr.domain = domain;
-+	AMAP_SET_BITS(struct amap_get_hsw_req_context, interface_id, ctxt,
-+								intf_id);
-+	AMAP_SET_BITS(struct amap_get_hsw_req_context, pvid_valid, ctxt, 1);
-+	be_dws_cpu_to_le(req->context, sizeof(req->context));
-+
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_get_hsw_config *resp =
-+						embedded_payload(wrb);
-+		be_dws_le_to_cpu(&resp->context,
-+						sizeof(resp->context));
-+		vid = AMAP_GET_BITS(struct amap_get_hsw_resp_context,
-+							pvid, &resp->context);
-+		*pvid = le16_to_cpu(vid);
-+	}
-+
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
- {
- 	struct be_mcc_wrb *wrb;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 345d49e..d5b680c 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -191,6 +191,8 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
- #define OPCODE_COMMON_GET_MAC_LIST			147
- #define OPCODE_COMMON_SET_MAC_LIST			148
-+#define OPCODE_COMMON_GET_HSW_CONFIG			152
-+#define OPCODE_COMMON_SET_HSW_CONFIG			153
- #define OPCODE_COMMON_READ_OBJECT			171
- #define OPCODE_COMMON_WRITE_OBJECT			172
- 
-@@ -1413,6 +1415,55 @@ struct be_cmd_req_set_mac_list {
- 	struct macaddr mac[BE_MAX_MAC];
- } __packed;
- 
-+/*********************** HSW Config ***********************/
-+struct amap_set_hsw_context {
-+	u8 interface_id[16];
-+	u8 rsvd0[14];
-+	u8 pvid_valid;
-+	u8 rsvd1;
-+	u8 rsvd2[16];
-+	u8 pvid[16];
-+	u8 rsvd3[32];
-+	u8 rsvd4[32];
-+	u8 rsvd5[32];
-+} __packed;
-+
-+struct be_cmd_req_set_hsw_config {
-+	struct be_cmd_req_hdr hdr;
-+	u8 context[sizeof(struct amap_set_hsw_context) / 8];
-+} __packed;
-+
-+struct be_cmd_resp_set_hsw_config {
-+	struct be_cmd_resp_hdr hdr;
-+	u32 rsvd;
-+};
-+
-+struct amap_get_hsw_req_context {
-+	u8 interface_id[16];
-+	u8 rsvd0[14];
-+	u8 pvid_valid;
-+	u8 pport;
-+} __packed;
-+
-+struct amap_get_hsw_resp_context {
-+	u8 rsvd1[16];
-+	u8 pvid[16];
-+	u8 rsvd2[32];
-+	u8 rsvd3[32];
-+	u8 rsvd4[32];
-+} __packed;
-+
-+struct be_cmd_req_get_hsw_config {
-+	struct be_cmd_req_hdr hdr;
-+	u8 context[sizeof(struct amap_get_hsw_req_context) / 8];
-+} __packed;
-+
-+struct be_cmd_resp_get_hsw_config {
-+	struct be_cmd_resp_hdr hdr;
-+	u8 context[sizeof(struct amap_get_hsw_resp_context) / 8];
-+	u32 rsvd;
-+};
-+
- /*************** HW Stats Get v1 **********************************/
- #define BE_TXP_SW_SZ			48
- struct be_port_rxf_stats_v1 {
-@@ -1617,5 +1668,9 @@ extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
- 				bool *pmac_id_active, u32 *pmac_id, u8 *mac);
- extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
- 						u8 mac_count, u32 domain);
-+extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
-+			u32 domain, u16 intf_id);
-+extern int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
-+			u32 domain, u16 intf_id);
- extern int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 1c84bc8..528a886 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -978,14 +978,21 @@ static int be_set_vf_vlan(struct net_device *netdev,
- 		return -EINVAL;
- 
- 	if (vlan) {
--		adapter->vf_cfg[vf].vlan_tag = vlan;
--		adapter->vlans_added++;
-+		if (adapter->vf_cfg[vf].vlan_tag != vlan) {
-+			/* If this is new value, program it. Else skip. */
-+			adapter->vf_cfg[vf].vlan_tag = vlan;
-+
-+			status = be_cmd_set_hsw_config(adapter, vlan,
-+				vf + 1, adapter->vf_cfg[vf].if_handle);
-+		}
- 	} else {
-+		/* Reset Transparent Vlan Tagging. */
- 		adapter->vf_cfg[vf].vlan_tag = 0;
--		adapter->vlans_added--;
-+		vlan = adapter->vf_cfg[vf].def_vid;
-+		status = be_cmd_set_hsw_config(adapter, vlan, vf + 1,
-+			adapter->vf_cfg[vf].if_handle);
- 	}
- 
--	status = be_vid_config(adapter, true, vf);
- 
- 	if (status)
- 		dev_info(&adapter->pdev->dev,
-@@ -2525,7 +2532,7 @@ static int be_vf_setup(struct be_adapter *adapter)
- {
- 	struct be_vf_cfg *vf_cfg;
- 	u32 cap_flags, en_flags, vf;
--	u16 lnk_speed;
-+	u16 def_vlan, lnk_speed;
- 	int status;
- 
- 	be_vf_setup_init(adapter);
-@@ -2549,6 +2556,12 @@ static int be_vf_setup(struct be_adapter *adapter)
- 		if (status)
- 			goto err;
- 		vf_cfg->tx_rate = lnk_speed * 10;
-+
-+		status = be_cmd_get_hsw_config(adapter, &def_vlan,
-+				vf + 1, vf_cfg->if_handle);
-+		if (status)
-+			goto err;
-+		vf_cfg->def_vid = def_vlan;
- 	}
- 	return 0;
- err:
--- 
-1.7.5.4
+
+At this point in tcp_data_queue() we have already called
+skb_set_owner_r() to charge the full truesize to the socket.  So
+probably we need to adjust rmem accounting variables to account for
+the fact that the memory corresponding to the overhead of the freed
+skb is now gone?
+
+The patch as written seems to only coalesce if the incoming skb fits
+immediately after the first skb in the ofo queue. If we're going to
+add logic to coalesce then it would be nice to also coalesce in the
+case where the skb falls immediately after any later skb in the ofo queue,
+i.e. at some point after the "Find place to insert this segment" loop,
+probably right before or after the "Do skb overlap to previous one?"
+check. Perhaps the coalescing logic could be factored out into its own
+little function, and called in either of the two places?
+
+(BTW, a few lines are longer than 80 characters.)
+
+neal
