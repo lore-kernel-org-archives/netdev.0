@@ -1,86 +1,84 @@
-From: John Lavenia <laveniaent@gmail.com>
-Subject: Exploding businesses?
-Date: Sun, 18 Mar 2012 14:42:33 -0400
-Message-ID: <8DholYSFSMg6GhfmLhuGhjJv5B0Ls0MjaxxGxu2sXauJ@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 4/4] gianfar: use netif_tx_queue_stopped instead
+ of __netif_subqueue_stopped
+Date: Sun, 18 Mar 2012 19:24:44 -0400
+Message-ID: <CAP=VYLpzpbLVAJ6=L1jdoZWcyAWPPKGMFTKBVU=7=HR+qTxwwA@mail.gmail.com>
+References: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
+	<1332106761-18293-1-git-send-email-paul.gortmaker@windriver.com>
+	<1332106761-18293-5-git-send-email-paul.gortmaker@windriver.com>
+	<1332107741.9397.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, therbert@google.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from savana.websitewelcome.com ([74.53.227.146]:44353 "EHLO
-	savana.websitewelcome.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755441Ab2CRWXM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 18:23:12 -0400
-Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:38066 helo=[10.0.1.9])
-	by savana.websitewelcome.com with esmtpa (Exim 4.69)
-	(envelope-from <laveniaent@gmail.com>)
-	id 1S9L3o-0003Qs-Ey
-	for netdev@vger.kernel.org; Sun, 18 Mar 2012 13:42:33 -0500
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:45179 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753640Ab2CRXYp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Mar 2012 19:24:45 -0400
+Received: by lahj13 with SMTP id j13so4321628lah.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 16:24:44 -0700 (PDT)
+In-Reply-To: <1332107741.9397.27.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Hi {!firstname_fix},
+On Sun, Mar 18, 2012 at 5:55 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> On Sun, 2012-03-18 at 17:39 -0400, Paul Gortmaker wrote:
+>> The __netif_subqueue_stopped() just does the following:
+>>
+>> =A0 =A0 =A0 =A0 struct netdev_queue *txq =3D netdev_get_tx_queue(dev=
+, queue_index);
+>> =A0 =A0 =A0 =A0 return netif_tx_queue_stopped(txq);
+>>
+>> and since we already have the txq in scope, we can just call that
+>> directly in this case.
+>>
+>> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+>> ---
+>> =A0drivers/net/ethernet/freescale/gianfar.c | =A0 =A02 +-
+>> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/=
+ethernet/freescale/gianfar.c
+>> index 6e66cc3..d9428f0 100644
+>> --- a/drivers/net/ethernet/freescale/gianfar.c
+>> +++ b/drivers/net/ethernet/freescale/gianfar.c
+>> @@ -2565,7 +2565,7 @@ static int gfar_clean_tx_ring(struct gfar_priv=
+_tx_q *tx_queue)
+>> =A0 =A0 =A0 }
+>>
+>> =A0 =A0 =A0 /* If we freed a buffer, we can restart transmission, if=
+ necessary */
+>> - =A0 =A0 if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_tx=
+bdfree)
+>> + =A0 =A0 if (netif_tx_queue_stopped(txq) && tx_queue->num_txbdfree)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_wake_subqueue(dev, tqi);
+>>
+>> =A0 =A0 =A0 /* Update dirty indicators */
+>
+> Please change netif_wake_subqueue() as well ;)
 
-In the F.R.E.E video series I sent
-out yesterday, I've laid out for you
-a plan for you to personally benefit
-(HUGELY) using online video.
+I looked at this earlier when I added patch #4 but I was concerned abou=
+t
+the different semantics.
 
-http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
+The netif_wake_subqueue() just returns on a netpoll_trap but the other
+netif_tx_wake_queue() actually calls netif_tx_start_queue() for the sam=
+e
+netpoll_trap instance.  Maybe that is OK, but I didn't want to be chang=
+ing
+the behaviour of subtleties in stuff where I am clearly still learning.
 
-I've literally revealed the step-by-step
-plan people are using to dominate the
-web and attract floods of paying customers.
+Thanks,
+Paul.
 
-If you are currently a business owner,
-you can use these strategies and tools to
-literally swipe customers away from the
-competition and create a huge increase
-in your customer base and pro.fits.
-
-I'm watching realtors, brokers,
-finance professionals (it's tax season -
-just in time!), network marketers and
-more follow the plan I've laid out for
-you to attract more of the customers
-they want and their businesses are
-exploding.
-
-Making more with what you do simply
-boils down to getting your message across
-and getting in front of people.
-
-See exactly how to do it
-
-http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
-
-But, if you're someone who isn't a
-business owner, you can pro.fit from
-these same strategies starting immediately.
-
-
-The bottom line is that you can make a difference
-(a HUGE difference) in your own bottom line this year
-as well as that of others...
-
-Just Watch:
-
-http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
-
-To your success,
-John Lavenia
-
-PS: I've included $1,000 in f.r.e.e gifts for you
-including our team making your first video for
-you...I apologize in advance but I'm going to
-have to shut the f.r.e.e. bonusus down sooner
-than expected, maybe in the next day or two because
-of how much response we've gotten.
-
-There's only so many f.r.e.e. videos my team is
-able to make.
-
-Don't miss out.
-
-http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
