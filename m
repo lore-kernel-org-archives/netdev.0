@@ -1,55 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/4] gianfar: use netif_tx_queue_stopped
- instead of __netif_subqueue_stopped
-Date: Sun, 18 Mar 2012 14:55:41 -0700
-Message-ID: <1332107741.9397.27.camel@edumazet-glaptop>
-References: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1332106761-18293-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1332106761-18293-5-git-send-email-paul.gortmaker@windriver.com>
+From: John Lavenia <laveniaent@gmail.com>
+Subject: Exploding businesses?
+Date: Sun, 18 Mar 2012 14:42:33 -0400
+Message-ID: <8DholYSFSMg6GhfmLhuGhjJv5B0Ls0MjaxxGxu2sXauJ@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, therbert@google.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:64456 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752582Ab2CRVzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 17:55:43 -0400
-Received: by dajr28 with SMTP id r28so8930147daj.19
-        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 14:55:43 -0700 (PDT)
-In-Reply-To: <1332106761-18293-5-git-send-email-paul.gortmaker@windriver.com>
+Received: from savana.websitewelcome.com ([74.53.227.146]:44353 "EHLO
+	savana.websitewelcome.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755441Ab2CRWXM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 18:23:12 -0400
+Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:38066 helo=[10.0.1.9])
+	by savana.websitewelcome.com with esmtpa (Exim 4.69)
+	(envelope-from <laveniaent@gmail.com>)
+	id 1S9L3o-0003Qs-Ey
+	for netdev@vger.kernel.org; Sun, 18 Mar 2012 13:42:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-03-18 at 17:39 -0400, Paul Gortmaker wrote:
-> The __netif_subqueue_stopped() just does the following:
-> 
->         struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
->         return netif_tx_queue_stopped(txq);
-> 
-> and since we already have the txq in scope, we can just call that
-> directly in this case.
-> 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  drivers/net/ethernet/freescale/gianfar.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index 6e66cc3..d9428f0 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -2565,7 +2565,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
->  	}
->  
->  	/* If we freed a buffer, we can restart transmission, if necessary */
-> -	if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_txbdfree)
-> +	if (netif_tx_queue_stopped(txq) && tx_queue->num_txbdfree)
->  		netif_wake_subqueue(dev, tqi);
->  
->  	/* Update dirty indicators */
+ Hi {!firstname_fix},
 
-Please change netif_wake_subqueue() as well ;)
+In the F.R.E.E video series I sent
+out yesterday, I've laid out for you
+a plan for you to personally benefit
+(HUGELY) using online video.
+
+http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
+
+I've literally revealed the step-by-step
+plan people are using to dominate the
+web and attract floods of paying customers.
+
+If you are currently a business owner,
+you can use these strategies and tools to
+literally swipe customers away from the
+competition and create a huge increase
+in your customer base and pro.fits.
+
+I'm watching realtors, brokers,
+finance professionals (it's tax season -
+just in time!), network marketers and
+more follow the plan I've laid out for
+you to attract more of the customers
+they want and their businesses are
+exploding.
+
+Making more with what you do simply
+boils down to getting your message across
+and getting in front of people.
+
+See exactly how to do it
+
+http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
+
+But, if you're someone who isn't a
+business owner, you can pro.fit from
+these same strategies starting immediately.
+
+
+The bottom line is that you can make a difference
+(a HUGE difference) in your own bottom line this year
+as well as that of others...
+
+Just Watch:
+
+http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
+
+To your success,
+John Lavenia
+
+PS: I've included $1,000 in f.r.e.e gifts for you
+including our team making your first video for
+you...I apologize in advance but I'm going to
+have to shut the f.r.e.e. bonusus down sooner
+than expected, maybe in the next day or two because
+of how much response we've gotten.
+
+There's only so many f.r.e.e. videos my team is
+able to make.
+
+Don't miss out.
+
+http://www.boldstatementmarketing.com/profitwithvideo/?setuser=1199
