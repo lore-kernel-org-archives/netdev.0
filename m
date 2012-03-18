@@ -1,38 +1,110 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/4] gianfar: constify giant block of status descriptor strings
-Date: Sun, 18 Mar 2012 17:39:19 -0400
-Message-ID: <1332106761-18293-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 1/4] gianfar: Add support for byte queue limits.
+Date: Sun, 18 Mar 2012 17:39:18 -0400
+Message-ID: <1332106761-18293-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1332089787-24086-1-git-send-email-paul.gortmaker@windriver.com>
  <1332106761-18293-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net, eric.dumazet@gmail.com, therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60883 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:60886 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850Ab2CRVjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 17:39:42 -0400
+	with ESMTP id S1752351Ab2CRVjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 17:39:43 -0400
 In-Reply-To: <1332106761-18293-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add support for byte queue limits (BQL), based on the similar
+modifications made to intel/igb/igb_main.c from Eric Dumazet
+in commit bdbc063129e811264cd6c311d8c2d9b95de01231
+	"igb: Add support for byte queue limits."
+
+A local variable for tx_queue->qindex was introduced in
+gfar_clean_tx_ring, since it is now used often enough to warrant it,
+and it cleans up the readability somewhat as well.
+
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/ethernet/freescale/gianfar_ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c |   19 ++++++++++++++++---
+ 1 files changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 5a78d55..8d74efd 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -58,7 +58,7 @@ static void gfar_gringparam(struct net_device *dev, struct ethtool_ringparam *rv
- static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rvals);
- static void gfar_gdrvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo);
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index adb0ae4..a4c934b 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1755,9 +1755,12 @@ static void free_skb_resources(struct gfar_private *priv)
  
--static char stat_gstrings[][ETH_GSTRING_LEN] = {
-+static const char stat_gstrings[][ETH_GSTRING_LEN] = {
- 	"rx-dropped-by-kernel",
- 	"rx-large-frame-errors",
- 	"rx-short-frame-errors",
+ 	/* Go through all the buffer descriptors and free their data buffers */
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
++		struct netdev_queue *txq;
+ 		tx_queue = priv->tx_queue[i];
++		txq = netdev_get_tx_queue(tx_queue->dev, tx_queue->qindex);
+ 		if(tx_queue->tx_skbuff)
+ 			free_skb_tx_queue(tx_queue);
++		netdev_tx_reset_queue(txq);
+ 	}
+ 
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+@@ -2217,6 +2220,8 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
+ 	}
+ 
++	netdev_tx_sent_queue(txq, skb->len);
++
+ 	/*
+ 	 * We can work in parallel with gfar_clean_tx_ring(), except
+ 	 * when modifying num_txbdfree. Note that we didn't grab the lock
+@@ -2460,6 +2465,7 @@ static void gfar_align_skb(struct sk_buff *skb)
+ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ {
+ 	struct net_device *dev = tx_queue->dev;
++	struct netdev_queue *txq;
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+ 	struct txbd8 *bdp, *next = NULL;
+@@ -2471,10 +2477,13 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	int frags = 0, nr_txbds = 0;
+ 	int i;
+ 	int howmany = 0;
++	int tqi = tx_queue->qindex;
++	unsigned int bytes_sent = 0;
+ 	u32 lstatus;
+ 	size_t buflen;
+ 
+-	rx_queue = priv->rx_queue[tx_queue->qindex];
++	rx_queue = priv->rx_queue[tqi];
++	txq = netdev_get_tx_queue(dev, tqi);
+ 	bdp = tx_queue->dirty_tx;
+ 	skb_dirtytx = tx_queue->skb_dirtytx;
+ 
+@@ -2533,6 +2542,8 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 			bdp = next_txbd(bdp, base, tx_ring_size);
+ 		}
+ 
++		bytes_sent += skb->len;
++
+ 		/*
+ 		 * If there's room in the queue (limit it to rx_buffer_size)
+ 		 * we add this skb back into the pool, if it's the right size
+@@ -2557,13 +2568,15 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	}
+ 
+ 	/* If we freed a buffer, we can restart transmission, if necessary */
+-	if (__netif_subqueue_stopped(dev, tx_queue->qindex) && tx_queue->num_txbdfree)
+-		netif_wake_subqueue(dev, tx_queue->qindex);
++	if (__netif_subqueue_stopped(dev, tqi) && tx_queue->num_txbdfree)
++		netif_wake_subqueue(dev, tqi);
+ 
+ 	/* Update dirty indicators */
+ 	tx_queue->skb_dirtytx = skb_dirtytx;
+ 	tx_queue->dirty_tx = bdp;
+ 
++	netdev_tx_completed_queue(txq, howmany, bytes_sent);
++
+ 	return howmany;
+ }
+ 
 -- 
 1.7.9.1
