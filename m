@@ -1,122 +1,98 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Bug#664064: linux-image-3.3.0-rc6-amd64: 4 messages every
- minute in syslog from netlink
-Date: Sun, 18 Mar 2012 03:15:54 +0000
-Message-ID: <1332040554.31699.22.camel@deadeye>
-References: <20120315120008.14655.64028.reportbug@apollon>
-	 <1331831653.3022.228.camel@deadeye> <4F622E92.9010007@gmx.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-kHX8V6gWSxPPnkEfW4WG"
-Cc: 664064@bugs.debian.org, netdev <netdev@vger.kernel.org>
-To: Reinhard Karcher <reinhard.karcher@gmx.net>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net V4] bonding: send igmp report for its master
+Date: Sun, 18 Mar 2012 11:23:27 +0800
+Message-ID: <07f6298b0c2dca06856e6dcdab7f684447b6f199.1332040061.git.panweiping3@gmail.com>
+References: <31016.1331869399@death.nxdomain>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
+	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57303 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751608Ab2CRDQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 23:16:06 -0400
-In-Reply-To: <4F622E92.9010007@gmx.net>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:50212 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608Ab2CRDSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Mar 2012 23:18:49 -0400
+In-Reply-To: <31016.1331869399@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Liang Zheng(lzheng@redhat.com) found that in the following topo,
+bonding does not send igmp report when we trigger a fail-over of bonding.
 
---=-kHX8V6gWSxPPnkEfW4WG
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+eth0--
+      |-- bond0 -- br0
+eth1--
 
-[Please reply to all, not just to me.]
+modprobe bonding mode=1 miimon=100 resend_igmp=10
+ifconfig bond0 up
+ifenslave bond0 eth0 eth1
 
-On Thu, 2012-03-15 at 19:01 +0100, Reinhard Karcher wrote:
-> Am 15.03.2012 18:14, schrieb Ben Hutchings:
-> > On Thu, 2012-03-15 at 13:00 +0100, Reinhard Karcher wrote:
-> >> Package: linux-2.6
-> >> Version: 3.3~rc6-1~experimental.1
-> >> Severity: normal
-> >>
-> >> The kernel log says all!
-> >> I have 2 laptops showing the messages, both amd64.
-> >> One of them runs a 32-bit system in a VM with the linux-image-3.3.0-rc=
-6-686-pae kernel,
-> >> that does not have this problem.
-> >> The amd64 kernel from unstable (3.2.0-2) does not show the messages.
-> >>
-> >> Reinhard
-> >>
-> >> -- Package-specific info:
-> >> ** Version:
-> >> Linux version 3.3.0-rc6-amd64 (Debian 3.3~rc6-1~experimental.1) (debia=
-n-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-1) ) #1 SMP Mon=
- Mar 5 20:53:11 UTC 2012
-> >>
-> >> ** Command line:
-> >> BOOT_IMAGE=3D/boot/vmlinuz-3.3.0-rc6-amd64 root=3DUUID=3D9bb56ba6-3117=
--47d6-b07c-2cca477643e9 ro quiet cgroup_enable=3Dmemory
-> >>
-> >> ** Not tainted
-> >>
-> >> ** Kernel log:
-> >> [46368.760279] netlink: 140 bytes leftover after parsing attributes.
-[...]
-> The same system, but using the kernel from unstable and not from=20
-> experimental does not show the messages, so they are related to the=20
-> experimetal kernel.
-> Does this tell anything?
-> root@apollon:/home/reinhard# lsof | grep netlink
-> dnsmasq   1862     dnsmasq  mem       REG                8,2     24712=
-=20
->    7391593 /usr/lib/libnfnetlink.so.0.2.0=20
->=20
-> kded4     2839    reinhard  mem       REG                8,2     12272=
-=20
->    9683029 /usr/lib/ntrack/modules/ntrack-rtnetlink.so=20
+brctl addbr br0
+ifconfig br0 192.168.100.2/24 up
+brctl addif br0 bond0
 
-Well, netlink is a protocol, not a file.  But most programs using
-netlink will probably use a library with 'netlink' or 'libnl' in its
-name, so this does provide some clues.
+Add 192.168.100.2(br0) into a multicast group, like 224.10.10.10,
+then trigger a fali-over in bonding.
+You can see that parameter "resend_igmp" does not work.
 
-[later:]
-> Some further investigation showed that the 1st occurrence of the message=
-=20
-> is related to the start of KDE. After stopping X (and KDE) there are no=
-=20
-> new messages logged.
+The reason is that when we add br0 into a multicast group,
+it does not propagate multicast knowledge down to its ports.
 
-OK, so it's something running in your KDE session.  And the results you
-got from lsof suggest that it's some kind of network monitor that's
-hosted by kded4, using the ntrack library
-<https://launchpad.net/ntrack>.  I've never heard of this before.
+If we choose to propagate multicast knowledge down to all ports for bridge,
+then we have to track every change that is done to bridge, and keep a backup
+for all ports. It is hard to track, I think.
 
-ntrack appearently has the option to use either libnl or its own
-built-in netlink protocol code, and is using the latter on your system.
-If you install ntrack-module-libnl-0 and remove
-ntrack-module-rtnetlink-0, does this fix the problem?
+Instead I choose to modify bonding to send igmp report for its master.
 
-Ben.
+Changelog:
+V2: correct comments
+V3: move this check into bond_resend_igmp_join_requests()
+V4: only send igmp reports if bond is enslaved to a bridge
 
---=20
-Ben Hutchings
-Larkinson's Law: All laws are basically false.
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |   18 +++++++++++++++---
+ 1 files changed, 15 insertions(+), 3 deletions(-)
 
---=-kHX8V6gWSxPPnkEfW4WG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAT2VTaue/yOyVhhEJAQqekRAAsRKHnf1BaqyVZ3EKEU39ykrPkaDDDkaj
-loZeb7alKCmaA98ynAJHBNt1xPspl7dxcUS5be6M8KRGcWzaKOVUhW0tYTf6Aoyx
-C9il9Ja7dzkxYujIeyFIWxn5NH7FhwmNdh1CTz4vjBOT/LavAN+7e0mH+0QC9AJm
-j/ykCzxStX4Y6hfdSqwHovZ5TeWhGBruc9Ch2h8hURonsCvVj6F5QVgsbzHIrE7K
-UmBiIXPAsOJVhpr/LQQDwbftpDTpL9zfKCE4+Hfo+wFDSB9ETIDWoh316unTu6xr
-Y922ItBmGZGj/i1rwXjqabjkmNhlOCB15o27qbVDFfqWEYEDfnB36JSHRObYX/lx
-ZCRisfsxsPcJhpQPyS7LIf73V04YeQuXnjd6XYaaJf9/eDmqAz5p/JLtDTTX8hp6
-/JLy6OaqJ+E4ymipJGtn6YKIgquFpHjC/1ZugINj1Yk3aD7lIGf8rBywUv8c2csz
-fDlsIPLGWmoXY7Jp0M715whsojA66jWRd7z7dyIQlyeJX6MrORJwfUJOkEnV7cex
-KzdEd3MVdDYrZ8rkvjDnieY537DmM1iHiWiZLMNnqIs0phWIJ7T8Dgvu4QV5/PfF
-kfGKoCCBpY9Ye2p+uR7vumudbRAszKAGBIMQN4XWZIdnZTpRppY2m5GcCXqiDX6h
-Q1bYsH4xF6A=
-=+PVu
------END PGP SIGNATURE-----
-
---=-kHX8V6gWSxPPnkEfW4WG--
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 435984a..4a70e01 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -766,18 +766,30 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
+  */
+ static void bond_resend_igmp_join_requests(struct bonding *bond)
+ {
+-	struct net_device *vlan_dev;
++	struct net_device *bond_dev, *vlan_dev, *master_dev;
+ 	struct vlan_entry *vlan;
+ 
+ 	read_lock(&bond->lock);
+ 
++	bond_dev = bond->dev;
++
+ 	/* rejoin all groups on bond device */
+-	__bond_resend_igmp_join_requests(bond->dev);
++	__bond_resend_igmp_join_requests(bond_dev);
++
++	/* 
++	 * if bond is enslaved to a bridge,
++	 * then rejoin all groups on its master
++	 */
++	master_dev = bond_dev->master;
++	if (master_dev)
++		if ((master_dev->priv_flags & IFF_EBRIDGE)
++			&& (bond_dev->priv_flags & IFF_BRIDGE_PORT))
++			__bond_resend_igmp_join_requests(master_dev);
+ 
+ 	/* rejoin all groups on vlan devices */
+ 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+ 		rcu_read_lock();
+-		vlan_dev = __vlan_find_dev_deep(bond->dev,
++		vlan_dev = __vlan_find_dev_deep(bond_dev,
+ 						vlan->vlan_id);
+ 		rcu_read_unlock();
+ 		if (vlan_dev)
+-- 
+1.7.4.4
