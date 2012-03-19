@@ -1,7 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v0 0/5] Series short description
-Date: Sun, 18 Mar 2012 23:51:45 -0700
-Message-ID: <20120319064719.10959.93361.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v0 2/5] net: addr_list: add exclusive dev_uc_add
+Date: Sun, 18 Mar 2012 23:51:57 -0700
+Message-ID: <20120319065157.10959.32215.stgit@jf-dev1-dcblab>
+References: <20120319064719.10959.93361.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,76 +13,68 @@ To: jhs@mojatatu.com, shemminger@vyatta.com, bhutchings@solarflare.com,
 	roprabhu@cisco.com, davem@davemloft.net,
 	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:11136 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:2554 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884Ab2CSHER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 03:04:17 -0400
+	id S1758051Ab2CSHE0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 03:04:26 -0400
+In-Reply-To: <20120319064719.10959.93361.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series is a follow up to this thread:
+This adds a dev_uc_add_excl() call similar to the original
+dev_uc_add() except it sets the global bit. With this
+change the reference count will not be bumped and -EEXIST
+will be returned if a duplicate address exists.
 
-http://www.spinics.net/lists/netdev/msg191360.html
+This is useful for drivers that support SR-IOV and want
+to manage the unicast lists.
 
-This adds two NTF_XXX bits to signal if the PF_BRIDGE
-netlink command should be parsed by the embedded bridge
-or the SW bridge. The insight here is the SW bridge is
-always the master device (NTF_MASTER) and the embedded
-bridge is the lower device (NTF_LOWERDEV). Without either
-flag set the command is parsed by the SW bridge to support
-existing tooling.
-
-To make this work correctly I added three new ndo ops
-
-	ndo_fdb_add
-	ndo_fdb_del
-	ndo_fdb_dump
-
-to add, delete, and dump FDB entries. These operations
-can be used by drivers to program embedded nics or by
-software bridges. We have at least three SW bridge now
-net/bridge, openvswitch, and macvlan. And three variants
-of embedded bridges SR-IOV devices, multi-function devices
-and Distributed Switch Architecture (DSA).
-
-I think at least in this case adding netdevice ops is
-the cleanest way to implement this. I thought about
-notifier hooks and other methods but this seems to be
-the simplest.
-
-I've tested these three scenarios, embedded bridge only,
-sw bridge only, and embedded bridge and SW bridge. These
-are working on the Intel 82599 devices with this patch
-series. I am also working on a patch for the macvlan
-drivers. I'll submit that as an RFC shortly so far I
-only have the passthru mode wired up.
-
-Thanks to Stephen, Ben, and Jamal for bearing with me
-and the feedback on the last round of patches.
-
-As always any comments/feedback appreciated!
-
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
-John Fastabend (5):
-      ixgbe: allow RAR table to be updated in promisc mode
-      ixgbe: enable FDB netdevice ops
-      net: add fdb generic dump routine
-      net: addr_list: add exclusive dev_uc_add
-      net: add generic PF_BRIDGE:RTM_XXX FDB hooks
+ include/linux/netdevice.h |    1 +
+ net/core/dev_addr_lists.c |   19 +++++++++++++++++++
+ 2 files changed, 20 insertions(+), 0 deletions(-)
 
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   80 +++++++++-
- include/linux/neighbour.h                     |    3 
- include/linux/netdevice.h                     |   27 +++
- include/linux/rtnetlink.h                     |    4 +
- net/bridge/br_device.c                        |    3 
- net/bridge/br_fdb.c                           |  128 ++++------------
- net/bridge/br_netlink.c                       |   12 --
- net/bridge/br_private.h                       |   15 ++
- net/core/dev_addr_lists.c                     |   19 ++
- net/core/rtnetlink.c                          |  194 +++++++++++++++++++++++++
- 10 files changed, 363 insertions(+), 122 deletions(-)
-
--- 
-Signature
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4208901..5e43cec 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2571,6 +2571,7 @@ extern int dev_addr_init(struct net_device *dev);
+ 
+ /* Functions used for unicast addresses handling */
+ extern int dev_uc_add(struct net_device *dev, unsigned char *addr);
++extern int dev_uc_add_excl(struct net_device *dev, unsigned char *addr);
+ extern int dev_uc_del(struct net_device *dev, unsigned char *addr);
+ extern int dev_uc_sync(struct net_device *to, struct net_device *from);
+ extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index 29c07fe..c7d27ad 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -377,6 +377,25 @@ EXPORT_SYMBOL(dev_addr_del_multiple);
+  */
+ 
+ /**
++ *	dev_uc_add_excl - Add a global secondary unicast address
++ *	@dev: device
++ *	@addr: address to add
++ */
++int dev_uc_add_excl(struct net_device *dev, unsigned char *addr)
++{
++	int err;
++
++	netif_addr_lock_bh(dev);
++	err = __hw_addr_add_ex(&dev->uc, addr, dev->addr_len,
++			       NETDEV_HW_ADDR_T_UNICAST, true);
++	if (!err)
++		__dev_set_rx_mode(dev);
++	netif_addr_unlock_bh(dev);
++	return err;
++}
++EXPORT_SYMBOL(dev_uc_add_excl);
++
++/**
+  *	dev_uc_add - Add a secondary unicast address
+  *	@dev: device
+  *	@addr: address to add
