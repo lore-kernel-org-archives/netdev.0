@@ -1,60 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 10:11:58 -0700
-Message-ID: <1332177118.9397.32.camel@edumazet-glaptop>
-References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
-	 <1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
+Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375
+ tcp_ack+0x1d62/0x2030()
+Date: Mon, 19 Mar 2012 10:13:40 -0700
+Message-ID: <1332177220.9397.33.camel@edumazet-glaptop>
+References: <4F66EA0B.1080705@profihost.ag>
+	 <20120319161534.GC24487@kroah.com>  <20120319161604.GA2972@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	stable@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:39650 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161009Ab2CSRNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 13:13:42 -0400
+In-Reply-To: <20120319161604.GA2972@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-19 at 10:02 -0700, Haiyang Zhang wrote:
-> Instead of dropping the packet, we keep the skb buffer, and return
-> NETDEV_TX_BUSY to let upper layer retry send. This will not cause
-> endless loop, because the host is taking data away from ring buffer.
+On Mon, 2012-03-19 at 09:16 -0700, Greg KH wrote:
+> On Mon, Mar 19, 2012 at 09:15:34AM -0700, Greg KH wrote:
+> > On Mon, Mar 19, 2012 at 09:10:51AM +0100, Stefan Priebe - Profihost AG wrote:
+> > > Hi list,
+> > > 
+> > > today i've seen the following error / backtrace several times on a
+> > > machine running vanilla stable 3.0.23.
+> > 
+> > Can you try 3.0.24?
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c |    5 +----
->  1 files changed, 1 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 2517d20..dd29478 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -223,13 +223,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
->  		net->stats.tx_bytes += skb->len;
->  		net->stats.tx_packets++;
->  	} else {
-> -		/* we are shutting down or bus overloaded, just drop packet */
-> -		net->stats.tx_dropped++;
->  		kfree(packet);
-> -		dev_kfree_skb_any(skb);
->  	}
->  
-> -	return NETDEV_TX_OK;
-> +	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
->  }
->  
->  /*
+> That would be 3.0.25, sorry about that.
 
-Thats simply not true at all.
+Yes, this includes the following fixes :
 
-A start_xmit() cannot do that.
-
-TX_BUSY should never be returned at all, its a deprecated code, for
-pretty good reasons. (assuming queue is not stopped)
-
-Try this on a machine with one CPU, I am pretty sure this can trigger
-complete freezes.
-
-Once softirq loops in your start_xmit(), how do you think one process
-can help you now ?
+Neal Cardwell (3):
+      tcp: fix false reordering signal in tcp_shifted_skb
+      tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
+      tcp: fix tcp_shift_skb_data() to not shift SACKed data below snd_una
