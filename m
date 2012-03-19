@@ -1,49 +1,43 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: e1000e interface hang on 82574L
-Date: Mon, 19 Mar 2012 14:59:41 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
-References: <4EFA4024.5000909@bootc.net>
- <FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
- <9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
- <4F048861.8070501@bootc.net> <4F12B42C.9030803@bootc.net>
- <9BBC4E0CF881AA4299206E2E1412B62621F0B1@ORSMSX102.amr.corp.intel.com>
- <4F144A76.3050703@bootc.net> <4F64B4E2.20208@bootc.net>
- <4F64CFCB.7060702@bootc.net>
+From: "Zou, Yi" <yi.zou@intel.com>
+Subject: RE: [net 2/3] net: do not do gso for CHECKSUM_UNNECESSARY in
+ netif_needs_gso
+Date: Mon, 19 Mar 2012 15:11:07 +0000
+Message-ID: <138EA028228D124A900F5E6746F3C2160F6BAF24@ORSMSX102.amr.corp.intel.com>
+References: <1331975292-19521-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1332009716.3022.243.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Chris Boot <bootc@bootc.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F64CFCB.7060702@bootc.net>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:11059 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752616Ab2CSPLK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 11:11:10 -0400
+In-Reply-To: <1332009716.3022.243.camel@deadeye>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IENocmlzIEJvb3QgW21haWx0
-bzpib290Y0Bib290Yy5uZXRdDQo+U2VudDogU2F0dXJkYXksIE1hcmNoIDE3LCAyMDEyIDEwOjU0
-IEFNDQo+VG86IFd5Ym9ybnksIENhcm9seW4NCj5DYzogbmV0ZGV2OyBsa21sOyBlMTAwMC1kZXZl
-bEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQNCj5TdWJqZWN0OiBSZTogZTEwMDBlIGludGVyZmFjZSBo
-YW5nIG9uIDgyNTc0TA0KWy4uLl0NCj4+IENhcm9seW4sDQo+Pg0KPj4gSSd2ZSBqdXN0IGhhZCB0
-aGUgb3Bwb3J0dW5pdHkgdG8gdXBncmFkZSB0byBhIDMuMi45IGtlcm5lbCBvbiB0aGVzZQ0KPj4g
-c3lzdGVtcyBhbmQgaGF2ZSBtYWRlIHN1cmUgZTEwMDBlIGlzIGxvYWRlZCB3aXRoIEludE1vZGU9
-MSwxLiBPbmUgb2YNCj50aGUNCj4+IHNlcnZlcnMgd2FzIG9ubHkgdXAgNS41IGhvdXJzIGJlZm9y
-ZSB0aGUgTklDIGhhcyBjcmFzaGVkL3N0b3BwZWQNCj53b3JraW5nDQo+PiBhZ2Fpbi4NCkhlbGxv
-IENocmlzLA0KDQpUaGUgQVNQTSBwcm9ibGVtIHdpdGggODI1NzRMIGlzIGhhcmR3YXJlIGJhc2Vk
-IGFuZCBpcyBub3Qgc29sdmFibGUgaW4gc29mdHdhcmUgb3RoZXIgdGhhbiB0byBkaXNhYmxlIGl0
-LiAgU2luY2UgdGhlIHBsYXRmb3JtcyB2YXJ5IGluIHRoZWlyIHJlbGlhYmlsaXR5IGluIGRpc2Fi
-bGluZyB0aGUgZmVhdHVyZSBmcm9tIHRoZSBkcml2ZXIsIHlvdXIgYmVzdCBvcHRpb24gaXMgdG8g
-YWx3YXlzIGJvb3Qgd2l0aCBwY2llX2FzcG09b2ZmIHdpdGggdGhhdCBwYXJ0IGluIHRoZSBzeXN0
-ZW0uICANCg0KWy4uLl0NCj5Nb3N0IG5vdGFibHkgaXQgYXBwZWFycyBhcyB0aG91Z2ggTVNJLVgg
-aXMgbm90IGVuYWJsZWQgb24gdGhlDQo+U3VwZXJtaWNybywgYW5kIEFTUE0gTDEgaXMuIFRoZXJl
-IGFwcGVhcnMgdG8gYmUgbm8gZGlmZmVyZW5jZSBvbiB0aGUNCj5TdXBlcm1pY3JvIGFzIHRvIHRo
-ZSBNU0ktWCBzdGF0dXMgd2hlbiBib290aW5nIHdpdGggSW50TW9kZT0xLDEgY29tcGFyZWQNCj50
-byB3aXRob3V0IGl0Lg0KPg0KPlRoYW5rcywNCj5DaHJpcw0KDQpTbywgYXQgbGVhc3Qgd2UgYXJl
-IGNsZWFyIGluIHlvdXIgc2l0dWF0aW9uLCB0aGUgQVNQTSBuZWVkcyB0byBiZSBkaXNhYmxlZC4g
-IFBsZWFzZSBsZXQgbWUga25vdyBpZiB0aGVyZSBhcmUgY29udGludWVkIHByb2JsZW1zIGFmdGVy
-IGJvb3Rpbmcgd2l0aCBwY2llX2FzcG09b2ZmLg0KDQpUaGFua3MsDQoNCkNhcm9seW4NCg0KQ2Fy
-b2x5biBXeWJvcm55DQpMaW51eCBEZXZlbG9wbWVudA0KTEFOIEFjY2VzcyBEaXZpc2lvbg0KSW50
-ZWwgQ29ycG9yYXRpb24NCg0KDQo=
+PiANCj4gT24gU2F0LCAyMDEyLTAzLTE3IGF0IDAyOjA4IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3Jv
+dGU6DQo+ID4gRnJvbTogWWkgWm91IDx5aS56b3VAaW50ZWwuY29tPg0KPiA+DQo+ID4gVGhpcyBp
+cyByZWxhdGVkIHRvIGZpeGluZyB0aGUgYnVnIG9mIGRyb3BwaW5nIEZDb0UgZnJhbWVzIHdoZW4N
+Cj4gZGlzYWJsaW5nIHR4IGlwDQo+ID4gY2hlY2tzdW0gYnkgJ2V0aHRvb2wgLUsgZXRoeCB0eCBv
+ZmYnLiBUaGUgRkNvRSBwcm90b2NvbCBzdGFjayBkcml2ZXINCj4gd291bGQNCj4gPiB1c2UgQ0hF
+Q0tTVU1fVU5ORUNFU1NBUlkgb24gdHggcGF0aCBpbnN0ZWFkIG9mIENIRUNLU1VNX1BBUlRJQUwg
+KGFzDQo+IGluZGljYXRlZCBpbg0KPiA+IHRoZSAyLzIgb2YgdGhpcyBzZXJpZXMpLiBUbyBkbyBz
+bywgbmV0aWZfbmVlZHNfZ3NvKCkgaGFzIHRvIGJlIGNoYW5nZWQNCj4gaGVyZSB0bw0KPiA+IG5v
+dCBkbyBnc28gZm9yIGJvdGggQ0hFQ0tTVU1fUEFSVElBTCBhbmQgQ0hFQ0tTVU1fVU5ORUNFU1NB
+UlkuDQo+IFsuLi5dDQo+IA0KPiBUaGlzIHNob3VsZCBhbHNvIGJlIGRvY3VtZW50ZWQgYXMgdmFs
+aWQgaW4gaW5jbHVkZS9saW51eC9za2J1ZmYuaCwNCj4gdGhvdWdoIEkgZG9uJ3QgdGhpbmsgdGhl
+IGZpeCBzaG91bGQgYmUgaGVsZCB1cCBmb3IgdGhhdC4NCj4gDQo+IEJlbi4NClN1cmUsIEkgd2ls
+bCBzZW5kIGEgc2VwYXJhdGUgcGF0Y2ggdG8gdXBkYXRlIHRoZSBza2J1ZmYuaCBzaG9ydGx5Lg0K
+DQpUaGFua3MsDQp5aQ0KDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVl
+ciwgU29sYXJmbGFyZQ0KPiBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhl
+IG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhh
+dCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
