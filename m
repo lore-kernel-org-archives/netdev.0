@@ -1,85 +1,105 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH wireless-next 2/3] ath5k: Introduce _ath5k_printk to reduce code/text
-Date: Sun, 18 Mar 2012 17:30:53 -0700
-Message-ID: <b157e2d1a746733d1814b9726f326d52d36da2fc.1332116921.git.joe@perches.com>
-References: <cover.1332116921.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	Bob Copeland <me@bobcopeland.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1332116921.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] adjust __net_exit
+Date: Sun, 18 Mar 2012 17:41:28 -0700
+Message-ID: <m1vcm1777r.fsf@fess.ebiederm.org>
+References: <4F588BEC020000780007710A@nat28.tlf.novell.com>
+	<20120316.221813.236130733754848615.davem@davemloft.net>
+	<20120317230318.GA19460@merkur.ravnborg.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, JBeulich@suse.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	xemul@openvz.org
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120317230318.GA19460@merkur.ravnborg.org> (Sam Ravnborg's
+	message of "Sun, 18 Mar 2012 00:03:18 +0100")
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Macros can be converted to functions to reduce overall object size.
+Sam Ravnborg <sam@ravnborg.org> writes:
 
-Convert the ATH5K_PRINTK macro to use _ath5k_printk.
+> On Fri, Mar 16, 2012 at 10:18:13PM -0700, David Miller wrote:
+>> From: "Jan Beulich" <JBeulich@suse.com>
+>> Date: Thu, 08 Mar 2012 09:37:32 +0000
+>> 
+>> > __net_exit, judging by the majority of its uses, was intended to serve
+>> > as an abstraction to allow calling such annotated functions from both
+>> > __init and __exit functions. Using the (bogus and unused elsewhere)
+>> > __exit_refok to implement this is inefficient - any non-modular code
+>> > really can reside in __init (as non-modular __exit code is never used).
+>> > 
+>> > Therefore, adjust __net_exit to resolve to nothing (i.e. normal .text)
+>> > in modules, and __init in the core kernel.
+>> > 
+>> > A few other adjustments are necessary/possible with this done - those
+>> > were likely just oversights when added originally.
+>> > 
+>> > Signed-off-by: Jan Beulich <jbeulich@suse.com>
+>> 
+>> [ I have been waiting for more than a week for a netns developer
+>>   to review this patch, I guess I'm too optimistic these days. :-( ]
+>> 
+>> The only reason you think __exit_refok is "bogus" is because it's
+>> semantics got changed by Sam Ravnborg in commit
+>> 312b1485fb509c9bc32eda28ad29537896658cb8 ("Introduce new section
+>> reference annotations tags: __ref, __refdata, __refconst")
+>> 
+>> Beforehand the __exit_refok was a real .exit section, so it got
+>> completely discarded AT LINK TIME.  Now it sits together with
+>> __init_refok which is an unremovable kernel image section, which
+>> neither gets removed at compile time nor boot time.
+>
+> Some misunderstanding is going on here.
+>
+> The *ref* annotation is used to teach modpost that this function (or data)
+> may reference functions (or data) which is annotated __init*.
+> And the *ref* annotation never caused the annotated code to be discarded.
+>
+> This was true before the above mentioned patch - and it is still true.
+>
+> Before the path ("Introduce new section reference ....") the __exit_refok
+> annotation moved functions to the section named ".exit.text.refok"
+> which was explicit part of .text (TEXT_TEXT in vmlinux).
+>
+> So __exit_refok does exactly what it is intended to do:
+> It puts the function in a section so modpost does not warn about
+> references to __init or __exit sections.
+>
+> As Jan points out there is only a single user left - so
+> this would be a good time to kill it. It is even documented
+> in init.h that this is a backward compatibility define.
 
-Allyesconfig size is reduced ~10%
+Strange.
 
-$ size drivers/net/wireless/ath/ath5k/built-in.o*
-   text	   data	    bss	    dec	    hex	filename
- 211557	   2032	  40672	 254261	  3e135	drivers/net/wireless/ath/ath5k/built-in.o.new
- 235412	   2032	  47296	 284740	  45844	drivers/net/wireless/ath/ath5k/built-in.o.old
+>
+> The intention with Jan's patch is to move functions annotated
+> __net_exit to a discardable section in the core kernel.
+> Then at least __exit should be used - there is no logic
+> using __init for exit code.
+>
+> I suggest to:
+> 1) fix the patch to use __exit
+> 2) fix up the bogus commit message
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/ath/ath5k/ath5k.h |    9 +++++----
- drivers/net/wireless/ath/ath5k/base.c  |   20 ++++++++++++++++++++
- 2 files changed, 25 insertions(+), 4 deletions(-)
+Those two sound reasonable to me.
 
-diff --git a/drivers/net/wireless/ath/ath5k/ath5k.h b/drivers/net/wireless/ath/ath5k/ath5k.h
-index 954c373..55ef93d 100644
---- a/drivers/net/wireless/ath/ath5k/ath5k.h
-+++ b/drivers/net/wireless/ath/ath5k/ath5k.h
-@@ -79,11 +79,12 @@
- #define ATH5K_PRINTF(fmt, ...)						\
- 	pr_warn("%s: " fmt, __func__, ##__VA_ARGS__)
- 
-+void __printf(3, 4)
-+_ath5k_printk(const struct ath5k_hw *ah, const char *level,
-+	      const char *fmt, ...);
-+
- #define ATH5K_PRINTK(_sc, _level, _fmt, ...)				\
--	printk(_level pr_fmt("%s%s" _fmt),				\
--	       ((_sc) && (_sc)->hw) ? wiphy_name((_sc)->hw->wiphy) : "", \
--	       ((_sc) && (_sc)->hw) ? ": " : "",			\
--	       ##__VA_ARGS__)
-+	_ath5k_printk(_sc, _level, _fmt, ##__VA_ARGS__)
- 
- #define ATH5K_PRINTK_LIMIT(_sc, _level, _fmt, ...)			\
- do {									\
-diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
-index a9c0503..3007bba 100644
---- a/drivers/net/wireless/ath/ath5k/base.c
-+++ b/drivers/net/wireless/ath/ath5k/base.c
-@@ -3040,3 +3040,23 @@ ath5k_set_beacon_filter(struct ieee80211_hw *hw, bool enable)
- 	ath5k_hw_set_rx_filter(ah, rfilt);
- 	ah->filter_flags = rfilt;
- }
-+
-+void _ath5k_printk(const struct ath5k_hw *ah, const char *level,
-+		   const char *fmt, ...)
-+{
-+	struct va_format vaf;
-+	va_list args;
-+
-+	va_start(args, fmt);
-+
-+	vaf.fmt = fmt;
-+	vaf.va = &args;
-+
-+	if (ah && ah->hw)
-+		printk("%s" pr_fmt("%s: %pV"),
-+		       level, wiphy_name(ah->hw->wiphy), &vaf);
-+	else
-+		printk("%s" pr_fmt("%pV"), level, &vaf);
-+
-+	va_end(args);
-+}
--- 
-1.7.8.111.gad25c.dirty
+The purpose of __net_exit is to mark code that can be __exit if we don't
+enable network namespace support.
+
+Looking at the original code it appears that __exit was wrong because
+we had __init sections referring to the __exit code and that was
+causing modpost to complain.
+
+Now that the definition of __exit_refok has changed half a dozen times
+since it was introduced I don't know what will happen.
+
+Since this really isn't about network namespaces but what to do when
+the network namespace code is disabled I'm going to bow out now.
+
+> Then it should be OK - iff the assumption hold that the functions
+> can be discarded in the core kernel.
+> I have grepped a little and saw no uses where this did not hold true.
+> So based on this I assume the assumption is OK.
+
+Eric
