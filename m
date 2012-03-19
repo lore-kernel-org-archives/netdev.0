@@ -1,40 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375
- tcp_ack+0x1d62/0x2030()
-Date: Mon, 19 Mar 2012 10:13:40 -0700
-Message-ID: <1332177220.9397.33.camel@edumazet-glaptop>
-References: <4F66EA0B.1080705@profihost.ag>
-	 <20120319161534.GC24487@kroah.com>  <20120319161604.GA2972@kroah.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [E1000-devel] e1000e interface hang on 82574L
+Date: Mon, 19 Mar 2012 17:31:14 +0000
+Message-ID: <87ehsov6ot.fsf@spindle.srvr.nix>
+References: <4EFA4024.5000909@bootc.net>
+	<FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
+	<4F048861.8070501@bootc.net> <4F12B42C.9030803@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B62621F0B1@ORSMSX102.amr.corp.intel.com>
+	<4F144A76.3050703@bootc.net> <4F64B4E2.20208@bootc.net>
+	<4F64CFCB.7060702@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
+	<87r4wova0b.fsf@spindle.srvr.nix>
+	<9BBC4E0CF881AA4299206E2E1412B6260E512FB9@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	stable@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:39650 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161009Ab2CSRNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 13:13:42 -0400
-In-Reply-To: <20120319161604.GA2972@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Chris Boot <bootc@bootc.net>,
+	"e1000-devel\@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+To: "Wyborny\, Carolyn" <carolyn.wyborny@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6260E512FB9@ORSMSX102.amr.corp.intel.com>
+	(Carolyn Wyborny's message of "Mon, 19 Mar 2012 16:29:03 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-03-19 at 09:16 -0700, Greg KH wrote:
-> On Mon, Mar 19, 2012 at 09:15:34AM -0700, Greg KH wrote:
-> > On Mon, Mar 19, 2012 at 09:10:51AM +0100, Stefan Priebe - Profihost AG wrote:
-> > > Hi list,
-> > > 
-> > > today i've seen the following error / backtrace several times on a
-> > > machine running vanilla stable 3.0.23.
-> > 
-> > Can you try 3.0.24?
-> 
-> That would be 3.0.25, sorry about that.
+On 19 Mar 2012, Carolyn Wyborny said:
 
-Yes, this includes the following fixes :
+>>you'll see that I tested that, and it doesn't work :( even if it did
+>>work, it shouldn't be needed: the driver attempts to turn off PCIe ASPM
+>>on affected NICs, and fails, apparently because *something* turns it
+>>back on again.
+>>
+> The driver attempts to disable L0s state, not the entire feature. It
 
-Neal Cardwell (3):
-      tcp: fix false reordering signal in tcp_shifted_skb
-      tcp: don't fragment SACKed skbs in tcp_mark_head_lost()
-      tcp: fix tcp_shift_skb_data() to not shift SACKed data below snd_una
+It tries to disable L1 state as well (or it did when I tested this last,
+although I suspect you're right and it may leave L1 turned on these
+days: judging by the contents of e1000_82574_info, anyway.)
+
+> is also required that the device upstream on the bus from the 82574L
+> have this disabled. Yes, I agree there appears to be something in the
+> os that either ren-enables or fails to disable the feature on the
+> upstream device, as desired. Platforms/systems also appear to vary in
+> this regard, so the solutions may vary a bit as well.
+>
+> Its worth trying your solution as well if what I suggested doesn't
+> work, but there is not one solution that fits all, unfortunately.
+
+I don't *have* a solution. :( 'setpci by hand some unknown amount of
+time after booting once the interface has stabilized' hardly counts as a
+solution of any sort. It's, at best, a workaround that lets me use my
+systems without hourly lockups until a real solution is found.
+
+(To clarify: manual setpci to force off the ASPM bits is the only thing
+that works for me. The driver's automatic disabling of L0s and L1
+doesn't work: nor does booting with pcie_aspm=off. In both cases, I end
+up with both L0s and L1 turned on, and a lockup some time later, unless
+I setpci the bits off by hand.)
+
+-- 
+NULL && (void)
