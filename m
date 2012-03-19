@@ -1,36 +1,57 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375
- tcp_ack+0x1d62/0x2030()
-Date: Mon, 19 Mar 2012 09:16:04 -0700
-Message-ID: <20120319161604.GA2972@kroah.com>
-References: <4F66EA0B.1080705@profihost.ag>
- <20120319161534.GC24487@kroah.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: e1000e interface hang on 82574L
+Date: Mon, 19 Mar 2012 16:19:32 +0000
+Message-ID: <87r4wova0b.fsf@spindle.srvr.nix>
+References: <4EFA4024.5000909@bootc.net>
+	<FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
+	<4F048861.8070501@bootc.net> <4F12B42C.9030803@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B62621F0B1@ORSMSX102.amr.corp.intel.com>
+	<4F144A76.3050703@bootc.net> <4F64B4E2.20208@bootc.net>
+	<4F64CFCB.7060702@bootc.net>
+	<9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41817 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161845Ab2CSQQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 12:16:06 -0400
-Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 21EEA21124
-	for <netdev@vger.kernel.org>; Mon, 19 Mar 2012 12:16:06 -0400 (EDT)
-Content-Disposition: inline
-In-Reply-To: <20120319161534.GC24487@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>, Chris Boot <bootc@bootc.net>,
+	lkml <linux-kernel@vger.kernel.org>
+To: "Wyborny\, Carolyn" <carolyn.wyborny@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
+	(Carolyn Wyborny's message of "Mon, 19 Mar 2012 14:59:41 +0000")
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 19, 2012 at 09:15:34AM -0700, Greg KH wrote:
-> On Mon, Mar 19, 2012 at 09:10:51AM +0100, Stefan Priebe - Profihost AG wrote:
-> > Hi list,
-> > 
-> > today i've seen the following error / backtrace several times on a
-> > machine running vanilla stable 3.0.23.
-> 
-> Can you try 3.0.24?
+On 19 Mar 2012, Carolyn Wyborny stated:
 
-That would be 3.0.25, sorry about that.
+> So, at least we are clear in your situation, the ASPM needs to be
+> disabled. Please let me know if there are continued problems after
+> booting with pcie_aspm=off.
 
-greg k-h
+If you look further down in
+<http://sourceforge.net/tracker/index.php?func=detail&aid=3170405&group_id=42302&atid=447449>
+you'll see that I tested that, and it doesn't work :( even if it did
+work, it shouldn't be needed: the driver attempts to turn off PCIe ASPM
+on affected NICs, and fails, apparently because *something* turns it
+back on again.
+
+-- 
+NULL && (void)
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
