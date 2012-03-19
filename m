@@ -1,98 +1,44 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 17:50:59 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA873@TK5EX14MBXC223.redmond.corp.microsoft.com>
-References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
-	<1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
-	<1332177118.9397.32.camel@edumazet-glaptop>
- <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: Stefan Priebe <s.priebe@profihost.ag>
+Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375 tcp_ack+0x1d62/0x2030()
+Date: Mon, 19 Mar 2012 19:20:39 +0100
+Message-ID: <AB9F1763-96B1-4AE4-8D94-73246EA08207@profihost.ag>
+References: <4F66EA0B.1080705@profihost.ag> <20120319161534.GC24487@kroah.com> <20120319161604.GA2972@kroah.com> <1332177220.9397.33.camel@edumazet-glaptop> <CADVnQynya96iG0cZjVGhtac2MP3AOBWODP7nUTMVhMd=6GWSOQ@mail.gmail.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Greg KH <greg@kroah.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.profihost.ag ([85.158.179.208]:60228 "EHLO
+	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1032372Ab2CSSUp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 14:20:45 -0400
+In-Reply-To: <CADVnQynya96iG0cZjVGhtac2MP3AOBWODP7nUTMVhMd=6GWSOQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Am 19.03.2012 um 18:39 schrieb Neal Cardwell <ncardwell@google.com>:
 
-
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Monday, March 19, 2012 1:49 PM
-> To: Eric Dumazet
-> Cc: Haiyang Zhang; KY Srinivasan; davem@davemloft.net;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
+> On Mon, Mar 19, 2012 at 09:10:51AM +0100, Stefan Priebe - Profihost AG wrote:
+>> WARNING: at net/ipv4/tcp_input.c:3375 tcp_ack+0x1d62/0x2030()
 > 
-> On Mon, 19 Mar 2012 10:11:58 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> I double-checked the warning, and indeed in the 3.0.23 tcp_input.c at
 > 
-> > On Mon, 2012-03-19 at 10:02 -0700, Haiyang Zhang wrote:
-> > > Instead of dropping the packet, we keep the skb buffer, and return
-> > > NETDEV_TX_BUSY to let upper layer retry send. This will not cause
-> > > endless loop, because the host is taking data away from ring buffer.
-> > >
-> > > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > ---
-> > >  drivers/net/hyperv/netvsc_drv.c |    5 +----
-> > >  1 files changed, 1 insertions(+), 4 deletions(-)
-> > >
-> > > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> > > b/drivers/net/hyperv/netvsc_drv.c index 2517d20..dd29478 100644
-> > > --- a/drivers/net/hyperv/netvsc_drv.c
-> > > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > > @@ -223,13 +223,10 @@ static int netvsc_start_xmit(struct sk_buff *skb,
-> struct net_device *net)
-> > >  		net->stats.tx_bytes += skb->len;
-> > >  		net->stats.tx_packets++;
-> > >  	} else {
-> > > -		/* we are shutting down or bus overloaded, just drop packet
-> */
-> > > -		net->stats.tx_dropped++;
-> > >  		kfree(packet);
-> > > -		dev_kfree_skb_any(skb);
-> > >  	}
-> > >
-> > > -	return NETDEV_TX_OK;
-> > > +	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
-> > >  }
-> > >
-> > >  /*
-> >
-> > Thats simply not true at all.
-> >
-> > A start_xmit() cannot do that.
-> >
-> > TX_BUSY should never be returned at all, its a deprecated code, for
-> > pretty good reasons. (assuming queue is not stopped)
-> >
-> > Try this on a machine with one CPU, I am pretty sure this can trigger
-> > complete freezes.
-> >
-> > Once softirq loops in your start_xmit(), how do you think one process
-> > can help you now ?
+> http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=blob;f=net/ipv4/tcp_input.c;h=ee08f11ff21a802faa8b32efc1eb312e479878d6;hb=bf6a68d2a214e07f7c0d6538e00e17b826714160#l3375
 > 
-> Eric is right, look how devices with real physical rings work.
-> They test for space left at end of start xmit and stop the transmit queue with
-> netif_stop_queue.  The transmit done code then re-enables when enough
-> space is netif_wake_queue. Think of it as classic high/low water mark on a
-> FIFO.
+> that line is:
+>  WARN_ON((int)tp->sacked_out < 0);
+> 
+> So this indeed looks like the known issue that is fixed by the commits
+> Eric mentions, which are in 3.0.25.
+> 
+> neal
 
-As in my previous reply to Eric --
-We actually stop queue when the ring buffer is busy, see the code in netvsc.c
+Perfect, thanks! 
 
-I have tested with one CPU. After NETDEV_TX_BUSY is returned, the Linux guest OS
-continues to respond without any problem.
+Greg any ETA?
 
-Thanks,
-- Haiyang
+Stefan
