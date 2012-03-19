@@ -1,53 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 4/4] rtlwifi: Remove unused ETH_ADDR_LEN defines
-Date: Sun, 18 Mar 2012 20:37:59 -0700
-Message-ID: <b1302b9179a9fb95c28201fdc8ca1208fba51644.1332128181.git.joe@perches.com>
-References: <cover.1332128181.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v2 net-next 1/2] tcp: introduce tcp_data_queue_ofo
+Date: Sun, 18 Mar 2012 23:49:06 -0400
+Message-ID: <CADVnQymyfN8Ezpj28rT2n1Lm2fy07byBt+bU8jEm8+ZULJdg6g@mail.gmail.com>
+References: <1332077854.3722.52.camel@edumazet-laptop>
+	<CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
+	<1332104804.3597.0.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:35797 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030205Ab2CSDir (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Mar 2012 23:38:47 -0400
-In-Reply-To: <cover.1332128181.git.joe@perches.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:62371 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174Ab2CSDtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 23:49:07 -0400
+Received: by qadc11 with SMTP id c11so592929qad.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 20:49:06 -0700 (PDT)
+In-Reply-To: <1332104804.3597.0.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just neatening.
+On Sun, Mar 18, 2012 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Split tcp_data_queue() in two parts for better readability.
+>
+> tcp_data_queue_ofo() is responsible for queueing incoming skb into out
+> of order queue.
+>
+> Change code layout so that the skb_set_owner_r() is performed only if
+> skb is not dropped.
+>
+> This is a preliminary patch before "reduce out_of_order memory use"
+> following patch.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/rtlwifi/rtl8192ce/reg.h |    1 -
- drivers/net/wireless/rtlwifi/rtl8192de/reg.h |    1 -
- 2 files changed, 0 insertions(+), 2 deletions(-)
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h b/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-index 43806d9..e4d738f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-@@ -1190,7 +1190,6 @@
- 
- #define USB_AGG_EN				BIT(3)
- 
--#define MAC_ADDR_LEN				6
- #define LAST_ENTRY_OF_TX_PKT_BUFFER		255
- 
- #define POLLING_LLT_THRESHOLD			20
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/reg.h b/drivers/net/wireless/rtlwifi/rtl8192de/reg.h
-index 9bc4623..ebb1d5f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/reg.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/reg.h
-@@ -998,7 +998,6 @@
- #define SCR_RXBCUSEDK				BIT(7)
- 
- /* General definitions */
--#define MAC_ADDR_LEN				6
- #define LAST_ENTRY_OF_TX_PKT_BUFFER		255
- #define LAST_ENTRY_OF_TX_PKT_BUFFER_DUAL_MAC	127
- 
--- 
-1.7.8.111.gad25c.dirty
+Nice clean-up. Thanks for doing this!
+
+neal
