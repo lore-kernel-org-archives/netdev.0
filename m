@@ -1,7 +1,7 @@
-From: Nix <nix@esperi.org.uk>
-Subject: Re: e1000e interface hang on 82574L
-Date: Mon, 19 Mar 2012 16:19:32 +0000
-Message-ID: <87r4wova0b.fsf@spindle.srvr.nix>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [E1000-devel] e1000e interface hang on 82574L
+Date: Mon, 19 Mar 2012 16:29:03 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6260E512FB9@ORSMSX102.amr.corp.intel.com>
 References: <4EFA4024.5000909@bootc.net>
 	<FCF3184D-CE4F-471C-B66C-0F671795FD3C@bootc.net>
 	<9BBC4E0CF881AA4299206E2E1412B626017762@ORSMSX102.amr.corp.intel.com>
@@ -10,48 +10,49 @@ References: <4EFA4024.5000909@bootc.net>
 	<4F144A76.3050703@bootc.net> <4F64B4E2.20208@bootc.net>
 	<4F64CFCB.7060702@bootc.net>
 	<9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
+ <87r4wova0b.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>, Chris Boot <bootc@bootc.net>,
+Content-Transfer-Encoding: 8BIT
+Cc: Chris Boot <bootc@bootc.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
 	lkml <linux-kernel@vger.kernel.org>
-To: "Wyborny\, Carolyn" <carolyn.wyborny@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
-	(Carolyn Wyborny's message of "Mon, 19 Mar 2012 14:59:41 +0000")
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+To: Nix <nix@esperi.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87r4wova0b.fsf@spindle.srvr.nix>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 19 Mar 2012, Carolyn Wyborny stated:
 
-> So, at least we are clear in your situation, the ASPM needs to be
-> disabled. Please let me know if there are continued problems after
-> booting with pcie_aspm=off.
+>-----Original Message-----
+>From: Nix [mailto:nix@esperi.org.uk]
+>Sent: Monday, March 19, 2012 9:20 AM
+>To: Wyborny, Carolyn
+>Cc: Chris Boot; e1000-devel@lists.sourceforge.net; netdev; lkml
+>Subject: Re: [E1000-devel] e1000e interface hang on 82574L
+>
+[...]
 
-If you look further down in
-<http://sourceforge.net/tracker/index.php?func=detail&aid=3170405&group_id=42302&atid=447449>
-you'll see that I tested that, and it doesn't work :( even if it did
-work, it shouldn't be needed: the driver attempts to turn off PCIe ASPM
-on affected NICs, and fails, apparently because *something* turns it
-back on again.
+>you'll see that I tested that, and it doesn't work :( even if it did
+>work, it shouldn't be needed: the driver attempts to turn off PCIe ASPM
+>on affected NICs, and fails, apparently because *something* turns it
+>back on again.
+>
+>--
+>NULL && (void)
 
--- 
-NULL && (void)
+The driver attempts to disable L0s state, not the entire feature.  It is also required that the device upstream on the bus from the 82574L have this disabled.  Yes, I agree there appears to be something in the os that either ren-enables or fails to disable the feature on the upstream device, as desired.  Platforms/systems also appear to vary in this regard, so the solutions may vary a bit as well.  
 
-------------------------------------------------------------------------------
-This SF email is sponsosred by:
-Try Windows Azure free for 90 days Click Here 
-http://p.sf.net/sfu/sfd2d-msazure
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Its worth trying your solution as well if what I suggested doesn't work, but there is not one solution that fits all, unfortunately.
+
+Thanks,
+
+Carolyn
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
