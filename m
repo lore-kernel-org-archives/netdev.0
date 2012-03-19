@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] phy: add am79c874 PHY support
-Date: Mon, 19 Mar 2012 18:06:45 -0400 (EDT)
-Message-ID: <20120319.180645.773046330549338141.davem@davemloft.net>
-References: <1332104585-23033-1-git-send-email-agust@denx.de>
+Subject: Re: [PATCH] net: qmi_wwan: fix build error due to cdc-wdm dependecy
+Date: Mon, 19 Mar 2012 18:17:29 -0400 (EDT)
+Message-ID: <20120319.181729.1955474261915960216.davem@davemloft.net>
+References: <20120319184830.fce597a16eaf7206195a7a45@canb.auug.org.au>
+	<1332179309-4163-1-git-send-email-bjorn@mork.no>
+	<4F679437.8030201@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hs@denx.de
-To: agust@denx.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39794 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756836Ab2CSWIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 18:08:51 -0400
-In-Reply-To: <1332104585-23033-1-git-send-email-agust@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bjorn@mork.no, sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, gregkh@linuxfoundation.org
+To: rdunlap@xenotime.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F679437.8030201@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anatolij Gustschin <agust@denx.de>
-Date: Sun, 18 Mar 2012 22:03:05 +0100
+=46rom: Randy Dunlap <rdunlap@xenotime.net>
+Date: Mon, 19 Mar 2012 13:16:55 -0700
 
-> From: Heiko Schocher <hs@denx.de>
-> 
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+> On 03/19/2012 10:48 AM, Bj=F8rn Mork wrote:
+>=20
+>> Fixes:
+>>=20
+>> drivers/built-in.o: In function `qmi_wwan_bind_shared':
+>> qmi_wwan.c:(.text+0x25b686): undefined reference to `usb_cdc_wdm_reg=
+ister'
+>> make[1]: *** [.tmp_vmlinux1] Error 1
+>>=20
+>> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+>> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+>=20
+>=20
+> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
 Applied.
