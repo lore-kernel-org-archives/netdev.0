@@ -1,66 +1,50 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net: qmi_wwan: fix build error due to cdc-wdm dependecy
-Date: Mon, 19 Mar 2012 13:16:55 -0700
-Message-ID: <4F679437.8030201@xenotime.net>
-References: <20120319184830.fce597a16eaf7206195a7a45@canb.auug.org.au> <1332179309-4163-1-git-send-email-bjorn@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
+Date: Mon, 19 Mar 2012 13:46:58 -0700
+Message-ID: <1332190018.9397.61.camel@edumazet-glaptop>
+References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
+	 <1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
+	 <1332177118.9397.32.camel@edumazet-glaptop>
+	 <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
+	 <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA873@TK5EX14MBXC223.redmond.corp.microsoft.com>
+	 <1332181858.9397.49.camel@edumazet-glaptop>
+	 <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA930@TK5EX14MBXC223.redmond.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Greg KH <gregkh@linuxfoundation.org>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332179309-4163-1-git-send-email-bjorn@mork.no>
+In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA930@TK5EX14MBXC223.redmond.corp.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/19/2012 10:48 AM, Bj=C3=B8rn Mork wrote:
+On Mon, 2012-03-19 at 19:17 +0000, Haiyang Zhang wrote:
 
-> Fixes:
->=20
-> drivers/built-in.o: In function `qmi_wwan_bind_shared':
-> qmi_wwan.c:(.text+0x25b686): undefined reference to `usb_cdc_wdm_regi=
-ster'
-> make[1]: *** [.tmp_vmlinux1] Error 1
->=20
-> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> Yes, we called the stop_queue before returning NETDEV_TX_BUSY.
+> 
+> The stop_queue was called in the function netvsc_send() in file
+> netvsc.c, then it returns to rndis_filter_send(), which returns to
+> netvsc_start_xmit() in file netvsc_drv.c. So the NETDEV_TX_BUSY is
+> indeed returned AFTER queue is stopped.
+> 
 
+Thats should be in your changelog, so that next time, reviewers dont
+have to spend their time to check you did it right, especially when
+start_xmit() code is not self contained or at least in a single file.
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+Each time we see a NETDEV_TX_BUSY in a patch, this is a sign of a
+possible problem.
 
-Thanks.
+Your initial changelog was :
 
+Instead of dropping the packet, we keep the skb buffer, and return
+NETDEV_TX_BUSY to let upper layer retry send. This will not cause
+endless loop, because the host is taking data away from ring buffer.
 
-> ---
-> Thanks for noticing.
->=20
-> This should have been in commit c3ecb08a
->  net: qmi_wwan: support devices having a shared QMI/wwan interface
->=20
->=20
-> Bj=C3=B8rn
->=20
->=20
->  drivers/net/usb/Kconfig |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> index 4bad899..833e32f 100644
-> --- a/drivers/net/usb/Kconfig
-> +++ b/drivers/net/usb/Kconfig
-> @@ -401,6 +401,7 @@ config USB_NET_KALMIA
->  config USB_NET_QMI_WWAN
->  	tristate "QMI WWAN driver for Qualcomm MSM based 3G and LTE modems"
->  	depends on USB_USBNET
-> +	select USB_WDM
->  	help
->  	  Support WWAN LTE/3G devices based on Qualcomm Mobile Data Modem
->  	  (MDM) chipsets.  Examples of such devices are
-
-
-
---=20
-~Randy
+And this is the typical message that doesnt explain why its safe.
