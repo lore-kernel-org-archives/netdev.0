@@ -1,45 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: netfilter: Hung task
-Date: Mon, 19 Mar 2012 01:28:11 +0100
-Message-ID: <20120319002811.GA30408@1984>
-References: <CA+1xoqfCTXxXsbfUjttuOVutyD_FzYS8PoOoAOOtB72P8SwdVg@mail.gmail.com>
- <20120318141943.GA28850@1984>
- <CA+1xoqcQYqCgQb=1M5PVkm=6SBhV2oJxJ2CtBp=gAvZM36Kc2Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, davem@davemloft.net,
-	Dave Jones <davej@redhat.com>, netfilter-devel@vger.kernel.org,
-	"linux-kernel@vger.kernel.org List" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Christoph Lameter <cl@linux.com>
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+1xoqcQYqCgQb=1M5PVkm=6SBhV2oJxJ2CtBp=gAvZM36Kc2Q@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH wireless-next 0/3] ath: printk cleanups and code reduction
+Date: Sun, 18 Mar 2012 17:30:51 -0700
+Message-ID: <cover.1332116921.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	ath9k-devel@lists.ath9k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 18, 2012 at 10:52:55PM +0200, Sasha Levin wrote:
-> On Sun, Mar 18, 2012 at 4:19 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > On Sun, Mar 18, 2012 at 12:55:13PM +0200, Sasha Levin wrote:
-> >> Hi all,
-> >>
-> >> I got the following spew after fuzzing using trinity on a KVM tools
-> >> guest, using the latest linux-next.
-> >>
-> >> It reminds me a lot of https://lkml.org/lkml/2012/3/14/375 and
-> >> https://lkml.org/lkml/2012/1/14/45
-> >
-> > You mention neither Linux kernel version nor the way you trigger this.
-> >
-> > With that little information it's really hard to really know.
-> 
-> Hum? I've mentioned it happened with "the latest linux-next" (which is
-> currently two days old), and using the trinity fuzzer - which means
-> that I don't have a specific method to reproduce the problem.
+Joe Perches (3):
+  ath: Add and use pr_fmt, convert printks to pr_<level>
+  ath5k: Introduce _ath5k_printk to reduce code/text
+  ath6kl: Add __printf verification to ath6kl_printk
 
-Sorry, I should not read my email diagonally, really.
+ drivers/net/wireless/ath/ath5k/ani.c          |   44 +++++++++++--------------
+ drivers/net/wireless/ath/ath5k/ath5k.h        |   29 +++++++++-------
+ drivers/net/wireless/ath/ath5k/attach.c       |    2 +
+ drivers/net/wireless/ath/ath5k/base.c         |   22 ++++++++++++
+ drivers/net/wireless/ath/ath5k/debug.c        |   17 ++++++----
+ drivers/net/wireless/ath/ath5k/desc.c         |    2 +
+ drivers/net/wireless/ath/ath5k/dma.c          |    2 +
+ drivers/net/wireless/ath/ath5k/eeprom.c       |    2 +
+ drivers/net/wireless/ath/ath5k/initvals.c     |    5 ++-
+ drivers/net/wireless/ath/ath5k/led.c          |    2 +
+ drivers/net/wireless/ath/ath5k/mac80211-ops.c |    2 +
+ drivers/net/wireless/ath/ath5k/pci.c          |    4 ++-
+ drivers/net/wireless/ath/ath5k/phy.c          |    2 +
+ drivers/net/wireless/ath/ath5k/qcu.c          |    2 +
+ drivers/net/wireless/ath/ath5k/reset.c        |    2 +
+ drivers/net/wireless/ath/ath5k/sysfs.c        |    2 +
+ drivers/net/wireless/ath/ath6kl/cfg80211.c    |    2 +
+ drivers/net/wireless/ath/ath6kl/common.h      |    3 +-
+ drivers/net/wireless/ath/ath6kl/init.c        |    2 +
+ drivers/net/wireless/ath/ath6kl/main.c        |    2 +
+ drivers/net/wireless/ath/ath6kl/txrx.c        |    2 +
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c |    8 ++--
+ drivers/net/wireless/ath/ath9k/htc_hst.c      |    7 ++--
+ drivers/net/wireless/ath/ath9k/init.c         |   13 +++----
+ drivers/net/wireless/ath/ath9k/pci.c          |    9 +++--
+ drivers/net/wireless/ath/main.c               |    4 ++-
+ drivers/net/wireless/ath/regd.c               |    4 ++-
+ 27 files changed, 128 insertions(+), 69 deletions(-)
 
-Looking at the trace, I'd point to some problem in the slub memory
-allocator. Please, correct me if I'm wrong.
-
-Christoph?
+-- 
+1.7.8.111.gad25c.dirty
