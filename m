@@ -1,75 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 10:48:47 -0700
-Message-ID: <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
-References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
-	<1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
-	<1332177118.9397.32.camel@edumazet-glaptop>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: qmi_wwan: fix build error due to cdc-wdm dependecy
+Date: Mon, 19 Mar 2012 18:48:29 +0100
+Message-ID: <1332179309-4163-1-git-send-email-bjorn@mork.no>
+References: <20120319184830.fce597a16eaf7206195a7a45@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Haiyang Zhang <haiyangz@microsoft.com>, kys@microsoft.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40112 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754394Ab2CSRsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 13:48:51 -0400
-In-Reply-To: <1332177118.9397.32.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Greg KH <gregkh@linuxfoundation.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120319184830.fce597a16eaf7206195a7a45@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Mar 2012 10:11:58 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+=46ixes:
 
-> On Mon, 2012-03-19 at 10:02 -0700, Haiyang Zhang wrote:
-> > Instead of dropping the packet, we keep the skb buffer, and return
-> > NETDEV_TX_BUSY to let upper layer retry send. This will not cause
-> > endless loop, because the host is taking data away from ring buffer.
-> > 
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc_drv.c |    5 +----
-> >  1 files changed, 1 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> > index 2517d20..dd29478 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -223,13 +223,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
-> >  		net->stats.tx_bytes += skb->len;
-> >  		net->stats.tx_packets++;
-> >  	} else {
-> > -		/* we are shutting down or bus overloaded, just drop packet */
-> > -		net->stats.tx_dropped++;
-> >  		kfree(packet);
-> > -		dev_kfree_skb_any(skb);
-> >  	}
-> >  
-> > -	return NETDEV_TX_OK;
-> > +	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
-> >  }
-> >  
-> >  /*
-> 
-> Thats simply not true at all.
-> 
-> A start_xmit() cannot do that.
-> 
-> TX_BUSY should never be returned at all, its a deprecated code, for
-> pretty good reasons. (assuming queue is not stopped)
-> 
-> Try this on a machine with one CPU, I am pretty sure this can trigger
-> complete freezes.
-> 
-> Once softirq loops in your start_xmit(), how do you think one process
-> can help you now ?
+drivers/built-in.o: In function `qmi_wwan_bind_shared':
+qmi_wwan.c:(.text+0x25b686): undefined reference to `usb_cdc_wdm_regist=
+er'
+make[1]: *** [.tmp_vmlinux1] Error 1
 
-Eric is right, look how devices with real physical rings work.
-They test for space left at end of start xmit and stop the transmit
-queue with netif_stop_queue.  The transmit done code then re-enables
-when enough space is netif_wake_queue. Think of it as classic
-high/low water mark on a FIFO.
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+Thanks for noticing.
+
+This should have been in commit c3ecb08a
+ net: qmi_wwan: support devices having a shared QMI/wwan interface
+
+
+Bj=C3=B8rn
+
+
+ drivers/net/usb/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 4bad899..833e32f 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -401,6 +401,7 @@ config USB_NET_KALMIA
+ config USB_NET_QMI_WWAN
+ 	tristate "QMI WWAN driver for Qualcomm MSM based 3G and LTE modems"
+ 	depends on USB_USBNET
++	select USB_WDM
+ 	help
+ 	  Support WWAN LTE/3G devices based on Qualcomm Mobile Data Modem
+ 	  (MDM) chipsets.  Examples of such devices are
+--=20
+1.7.9.1
