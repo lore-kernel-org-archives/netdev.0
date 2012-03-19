@@ -1,34 +1,39 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Remove printk from rds_sendmsg
-Date: Mon, 19 Mar 2012 19:01:07 -0400
-Message-ID: <20120319230107.GA23987@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Improve rds_sendmsg printk
+Date: Mon, 19 Mar 2012 16:08:25 -0700
+Message-ID: <1332198505.7847.5.camel@joe2Laptop>
 References: <20120319224008.GA23036@redhat.com>
- <20120319.184335.1229962428916453634.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: venkat.x.venkatsubra@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58926 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756578Ab2CSXBN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 19:01:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20120319.184335.1229962428916453634.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:38907 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758465Ab2CSXI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 19:08:27 -0400
+In-Reply-To: <20120319224008.GA23036@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-no socket layer outputs a message for this error and neither should rds.
+On Mon, 2012-03-19 at 18:40 -0400, Dave Jones wrote:
+> - Given this can be called by any user, prevent them from flooding
+>   the logs by using printk_ratelimited
+> - Also add a rds: prefix, so it's clear where the message is coming from.
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
+> 
+> --- linux/net/rds/send.c	2011-11-07 12:00:32.000000000 -0500
+> +++ linux/net/rds/send.c	2012-03-19 18:36:21.804991923 -0400
+> @@ -935,7 +935,7 @@ int rds_sendmsg(struct kiocb *iocb, stru
+>  	/* Mirror Linux UDP mirror of BSD error message compatibility */
+>  	/* XXX: Perhaps MSG_MORE someday */
+>  	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_CMSG_COMPAT)) {
+> -		printk(KERN_INFO "msg_flags 0x%08X\n", msg->msg_flags);
+> +		printk_ratelimited(KERN_INFO "rds: msg_flags 0x%08X\n", msg->msg_flags);
 
-Signed-off-by: Dave Jones <davej@redhat.com>
+It might be better to use net_ratelimit
+for all the rds printk_ratelimited calls.
 
---- linux/net/rds/send.c	2011-11-07 12:00:32.000000000 -0500
-+++ linux/net/rds/send.c	2012-03-19 18:59:55.905890597 -0400
-@@ -935,7 +935,6 @@ int rds_sendmsg(struct kiocb *iocb, stru
- 	/* Mirror Linux UDP mirror of BSD error message compatibility */
- 	/* XXX: Perhaps MSG_MORE someday */
- 	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_CMSG_COMPAT)) {
--		printk(KERN_INFO "msg_flags 0x%08X\n", msg->msg_flags);
- 		ret = -EOPNOTSUPP;
- 		goto out;
- 	}
+That's a bit more standardized across net/
