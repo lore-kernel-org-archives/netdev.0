@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/2] Adding new TI Common Platform ethernet SWitch
- driver
-Date: Mon, 19 Mar 2012 18:06:59 -0400 (EDT)
-Message-ID: <20120319.180659.2108026289616852615.davem@davemloft.net>
-References: <1332137874-3247-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] fs_enet: Add MPC5125 FEC support and PHY
+ interface selection
+Date: Mon, 19 Mar 2012 18:06:13 -0400 (EDT)
+Message-ID: <20120319.180613.172802662010982591.davem@davemloft.net>
+References: <1332025850-829-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+Cc: netdev@vger.kernel.org, pantelis.antoniou@gmail.com,
+	vbordug@ru.mvista.com, vooon341@gmail.com
+To: agust@denx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39772 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39788 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756869Ab2CSWHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 18:07:03 -0400
-In-Reply-To: <1332137874-3247-1-git-send-email-mugunthanvnm@ti.com>
+	with ESMTP id S1757010Ab2CSWIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 18:08:23 -0400
+In-Reply-To: <1332025850-829-1-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Mon, 19 Mar 2012 11:47:52 +0530
+From: Anatolij Gustschin <agust@denx.de>
+Date: Sun, 18 Mar 2012 00:10:50 +0100
 
-> The following series contains driver implementation for TI Common Platform
-> ethernet SWitch (CPSW) driver.
+> From: Vladimir Ermakov <vooon341@gmail.com>
 > 
-> CPSW is found in following SoC.
-> * AM335X - http://www.ti.com/litv/pdf/spruh73c
-> * DM814X - http://www.ti.com/litv/pdf/sprugz8
+> Add compatible string for MPC5125 FEC. The FEC on MPC5125 additionally
+> supports RMII PHY interface. Configure controller/PHY interface type
+> according to the optional phy-connection-type property in the ethernet
+> node. This property should be either "rmii" or "mii".
 > 
-> CPSW:
-> The three port switch gigabit ethernet subsystem provides ethernet packet
-> communication and can be configured as an ethernet switch.  It
-> supports 10/100/1000 Mbps. It provides the gigabit media independent
-> interface (G/MII), reduced gigabit media independent interface (RGMII),
-> reduced media independent interface (RMII), the management data input
-> output (MDIO) for physical layer device (PHY) management.
+> Signed-off-by: Vladimir Ermakov <vooon341@gmail.com>
+> Signed-off-by: Anatolij Gustschin <agust@denx.de>
 
-All applied.
+Applied.
