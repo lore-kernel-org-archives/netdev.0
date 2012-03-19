@@ -1,60 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH wireless-next 2/3] ath5k: Introduce _ath5k_printk to
- reduce code/text
-Date: Sun, 18 Mar 2012 22:18:56 -0700
-Message-ID: <1332134336.23125.60.camel@joe2Laptop>
-References: <cover.1332116921.git.joe@perches.com>
-	 <b157e2d1a746733d1814b9726f326d52d36da2fc.1332116921.git.joe@perches.com>
-	 <CAJ-Vmo=ceSV38vQGfs8cKJScWjYF4kbQdK3+JJvQLCmnURaEwA@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH v5 0/2] Adding new TI Common Platform ethernet SWitch driver
+Date: Mon, 19 Mar 2012 11:47:52 +0530
+Message-ID: <1332137874-3247-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Chadd <adrian@freebsd.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ-Vmo=ceSV38vQGfs8cKJScWjYF4kbQdK3+JJvQLCmnURaEwA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:55702 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932119Ab2CSGSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 02:18:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-03-18 at 21:36 -0700, Adrian Chadd wrote:
-> Hi,
+The following series contains driver implementation for TI Common Platform
+ethernet SWitch (CPSW) driver.
 
-Hi Adrian.
+CPSW is found in following SoC.
+* AM335X - http://www.ti.com/litv/pdf/spruh73c
+* DM814X - http://www.ti.com/litv/pdf/sprugz8
 
-> So the reason this is a macro in the FreeBSD HAL is so that the args
-> aren't evaluated unless the level (or debug bitmap in my case) fires
-> off.
-> 
-> Otherwise compiling in debugging will cause a _lot_ of spurious
-> register reads to occur that are then tossed. This was one of the big
-> reasons for instability and slow performance when AH_DEBUG was
-> enabled.
+CPSW:
+The three port switch gigabit ethernet subsystem provides ethernet packet
+communication and can be configured as an ethernet switch.  It
+supports 10/100/1000 Mbps. It provides the gigabit media independent
+interface (G/MII), reduced gigabit media independent interface (RGMII),
+reduced media independent interface (RMII), the management data input
+output (MDIO) for physical layer device (PHY) management.
 
-That doesn't make any sense in this case.
+Changes from v4:
 
-It's either a call to printk or _ath5_printk
-but it's still a call to a function.
+* Handled Kzalloc failure in cpsw_ale_create
 
-+void __printf(3, 4)
-+_ath5k_printk(const struct ath5k_hw *ah, const char *level,
-+             const char *fmt, ...);
-+
- #define ATH5K_PRINTK(_sc, _level, _fmt, ...)                           \
--       printk(_level pr_fmt("%s%s" _fmt),                              \
--              ((_sc) && (_sc)->hw) ? wiphy_name((_sc)->hw->wiphy) : "", \
--              ((_sc) && (_sc)->hw) ? ": " : "",                        \
--              ##__VA_ARGS__)
-+       _ath5k_printk(_sc, _level, _fmt, ##__VA_ARGS__)
+* Removed pr_fmt as it is not used in driver
 
-If there are level/mask tests to macros that
-are used to call ATH5K_PRINTK, that still
-works.  As far as I can tell, there aren't
-any uses of macros like that.
+* removed "cpsw" prefix as it is not required
 
-cheers, Joe
+Mugunthan V N (2):
+  netdev: driver: ethernet: add cpsw address lookup engine support
+  netdev: driver: ethernet: Add TI CPSW driver
+
+ drivers/net/ethernet/ti/Kconfig    |   11 +
+ drivers/net/ethernet/ti/Makefile   |    2 +
+ drivers/net/ethernet/ti/cpsw.c     | 1018 ++++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.c |  641 +++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.h |   93 ++++
+ include/linux/platform_data/cpsw.h |   55 ++
+ 6 files changed, 1820 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/ti/cpsw.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.c
+ create mode 100644 drivers/net/ethernet/ti/cpsw_ale.h
+ create mode 100644 include/linux/platform_data/cpsw.h
