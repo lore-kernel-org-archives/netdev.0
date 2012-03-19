@@ -1,10 +1,10 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next 1/2] tcp: introduce tcp_data_queue_ofo
-Date: Sun, 18 Mar 2012 23:49:06 -0400
-Message-ID: <CADVnQymyfN8Ezpj28rT2n1Lm2fy07byBt+bU8jEm8+ZULJdg6g@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next 2/2] tcp: reduce out_of_order memory use
+Date: Sun, 18 Mar 2012 23:53:08 -0400
+Message-ID: <CADVnQymJzY-cGg9z8rWXh3EGL8OfPwaCM5UXR7a05G8TERkCTw@mail.gmail.com>
 References: <1332077854.3722.52.camel@edumazet-laptop>
 	<CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
-	<1332104804.3597.0.camel@edumazet-laptop>
+	<1332104867.3597.1.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>,
@@ -15,32 +15,43 @@ Cc: David Miller <davem@davemloft.net>,
 	Yuchung Cheng <ycheng@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:62371 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174Ab2CSDtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 23:49:07 -0400
-Received: by qadc11 with SMTP id c11so592929qad.19
-        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 20:49:06 -0700 (PDT)
-In-Reply-To: <1332104804.3597.0.camel@edumazet-laptop>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:52731 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755527Ab2CSDxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Mar 2012 23:53:09 -0400
+Received: by qcqw6 with SMTP id w6so1058977qcq.19
+        for <netdev@vger.kernel.org>; Sun, 18 Mar 2012 20:53:09 -0700 (PDT)
+In-Reply-To: <1332104867.3597.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 18, 2012 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Split tcp_data_queue() in two parts for better readability.
+On Sun, Mar 18, 2012 at 5:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> With increasing receive window sizes, but speed of light not improved
+> that much, out of order queue can contain a huge number of skbs, waiting
+> to be moved to receive_queue when missing packets can fill the holes.
 >
-> tcp_data_queue_ofo() is responsible for queueing incoming skb into out
-> of order queue.
+> Some devices happen to use fat skbs (truesize of 4096 + sizeof(struct
+> sk_buff)) to store regular (MTU <= 1500) frames. This makes highly
+> probable sk_rmem_alloc hits sk_rcvbuf limit, which can be 4Mbytes in
+> many cases.
 >
-> Change code layout so that the skb_set_owner_r() is performed only if
-> skb is not dropped.
+> When limit is hit, tcp stack calls tcp_collapse_ofo_queue(), a true
+> latency killer and cpu cache blower.
 >
-> This is a preliminary patch before "reduce out_of_order memory use"
-> following patch.
+> Doing the coalescing attempt each time we add a frame in ofo queue
+> permits to keep memory use tight and in many cases avoid the
+> tcp_collapse() thing later.
+>
+> Tested on various wireless setups (b43, ath9k, ...) known to use big skb
+> truesize, this patch removed the "packets collapsed in receive queue due
+> to low socket buffer" I had before.
+>
+> This also reduced average memory used by tcp sockets.
+>
+> With help from Neal Cardwell.
 >
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Acked-by: Neal Cardwell <ncardwell@google.com>
-
-Nice clean-up. Thanks for doing this!
 
 neal
