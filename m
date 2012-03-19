@@ -1,30 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next RFC 0/4] be2net: patch series
-Date: Mon, 19 Mar 2012 16:57:31 -0400 (EDT)
-Message-ID: <20120319.165731.1580169408402723096.davem@davemloft.net>
-References: <20120318162259.GA7618@akhaparde-VBox>
+Subject: Re: [PATCH v2 net-next 1/2] tcp: introduce tcp_data_queue_ofo
+Date: Mon, 19 Mar 2012 16:57:45 -0400 (EDT)
+Message-ID: <20120319.165745.234764335458562219.davem@davemloft.net>
+References: <1332077854.3722.52.camel@edumazet-laptop>
+	<CADVnQy=_Adr9xTd=7aUFT6m38YQ8V-V7KQc9c6L4nej-dfvekQ@mail.gmail.com>
+	<1332104804.3597.0.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajit.khaparde@Emulex.Com
+Cc: ncardwell@google.com, netdev@vger.kernel.org, therbert@google.com,
+	ilpo.jarvinen@helsinki.fi, hkchu@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38863 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38873 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753468Ab2CSU5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 16:57:36 -0400
-In-Reply-To: <20120318162259.GA7618@akhaparde-VBox>
+	with ESMTP id S1753682Ab2CSU6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 16:58:01 -0400
+In-Reply-To: <1332104804.3597.0.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
-Date: Sun, 18 Mar 2012 11:22:59 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 18 Mar 2012 14:06:44 -0700
 
-> Please apply.
+> Split tcp_data_queue() in two parts for better readability.
 > 
-> [1/4] be2net: enable WOL by default if h/w supports it
-> [2/4] be2net: Program secondary UC MAC address into MAC filter
-> [3/4] be2net: Fix number of vlan slots in flex mode
-> [4/4] be2net: fix programming of transparent VLAN tags for VF
+> tcp_data_queue_ofo() is responsible for queueing incoming skb into out
+> of order queue.
+> 
+> Change code layout so that the skb_set_owner_r() is performed only if
+> skb is not dropped.
+> 
+> This is a preliminary patch before "reduce out_of_order memory use"
+> following patch.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-All applied to net-next, thanks.
+Applied.
