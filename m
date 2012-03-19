@@ -1,55 +1,53 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 20:50:42 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA9DE@TK5EX14MBXC223.redmond.corp.microsoft.com>
-References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
-	 <1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
-	 <1332177118.9397.32.camel@edumazet-glaptop>
-	 <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
-	 <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA873@TK5EX14MBXC223.redmond.corp.microsoft.com>
-	 <1332181858.9397.49.camel@edumazet-glaptop>
-	 <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA930@TK5EX14MBXC223.redmond.corp.microsoft.com>
- <1332190018.9397.61.camel@edumazet-glaptop>
+From: Yi Zou <yi.zou@intel.com>
+Subject: [PATCH] net: update the usage of CHECKSUM_UNNECESSARY
+Date: Mon, 19 Mar 2012 14:12:41 -0700
+Message-ID: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332190018.9397.61.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: devel@open-fcoe.org, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:16288 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751821Ab2CSUzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 16:55:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogTW9uZGF5LCBNYXJjaCAxOSwg
-MjAxMiA0OjQ3IFBNDQo+IFRvOiBIYWl5YW5nIFpoYW5nDQo+IENjOiBTdGVwaGVuIEhlbW1pbmdl
-cjsgS1kgU3Jpbml2YXNhbjsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2ZWxAbGludXhkcml2
-ZXJwcm9qZWN0Lm9yZw0KPiBTdWJqZWN0OiBSRTogW1BBVENIIDEvMV0gbmV0L2h5cGVydjogRml4
-IHRoZSBjb2RlIGhhbmRsaW5nIHR4IGJ1c3kNCj4gDQo+IE9uIE1vbiwgMjAxMi0wMy0xOSBhdCAx
-OToxNyArMDAwMCwgSGFpeWFuZyBaaGFuZyB3cm90ZToNCj4gDQo+ID4gWWVzLCB3ZSBjYWxsZWQg
-dGhlIHN0b3BfcXVldWUgYmVmb3JlIHJldHVybmluZyBORVRERVZfVFhfQlVTWS4NCj4gPg0KPiA+
-IFRoZSBzdG9wX3F1ZXVlIHdhcyBjYWxsZWQgaW4gdGhlIGZ1bmN0aW9uIG5ldHZzY19zZW5kKCkg
-aW4gZmlsZQ0KPiA+IG5ldHZzYy5jLCB0aGVuIGl0IHJldHVybnMgdG8gcm5kaXNfZmlsdGVyX3Nl
-bmQoKSwgd2hpY2ggcmV0dXJucyB0bw0KPiA+IG5ldHZzY19zdGFydF94bWl0KCkgaW4gZmlsZSBu
-ZXR2c2NfZHJ2LmMuIFNvIHRoZSBORVRERVZfVFhfQlVTWSBpcw0KPiA+IGluZGVlZCByZXR1cm5l
-ZCBBRlRFUiBxdWV1ZSBpcyBzdG9wcGVkLg0KPiA+DQo+IA0KPiBUaGF0cyBzaG91bGQgYmUgaW4g
-eW91ciBjaGFuZ2Vsb2csIHNvIHRoYXQgbmV4dCB0aW1lLCByZXZpZXdlcnMgZG9udCBoYXZlIHRv
-DQo+IHNwZW5kIHRoZWlyIHRpbWUgdG8gY2hlY2sgeW91IGRpZCBpdCByaWdodCwgZXNwZWNpYWxs
-eSB3aGVuDQo+IHN0YXJ0X3htaXQoKSBjb2RlIGlzIG5vdCBzZWxmIGNvbnRhaW5lZCBvciBhdCBs
-ZWFzdCBpbiBhIHNpbmdsZSBmaWxlLg0KPiANCj4gRWFjaCB0aW1lIHdlIHNlZSBhIE5FVERFVl9U
-WF9CVVNZIGluIGEgcGF0Y2gsIHRoaXMgaXMgYSBzaWduIG9mIGEgcG9zc2libGUNCj4gcHJvYmxl
-bS4NCj4gDQo+IFlvdXIgaW5pdGlhbCBjaGFuZ2Vsb2cgd2FzIDoNCj4gDQo+IEluc3RlYWQgb2Yg
-ZHJvcHBpbmcgdGhlIHBhY2tldCwgd2Uga2VlcCB0aGUgc2tiIGJ1ZmZlciwgYW5kIHJldHVybg0K
-PiBORVRERVZfVFhfQlVTWSB0byBsZXQgdXBwZXIgbGF5ZXIgcmV0cnkgc2VuZC4gVGhpcyB3aWxs
-IG5vdCBjYXVzZSBlbmRsZXNzDQo+IGxvb3AsIGJlY2F1c2UgdGhlIGhvc3QgaXMgdGFraW5nIGRh
-dGEgYXdheSBmcm9tIHJpbmcgYnVmZmVyLg0KPiANCj4gQW5kIHRoaXMgaXMgdGhlIHR5cGljYWwg
-bWVzc2FnZSB0aGF0IGRvZXNudCBleHBsYWluIHdoeSBpdHMgc2FmZS4NCg0KVGhhbmtzIGZvciB5
-b3VyIHRpbWUsIEkgd2lsbCByZS1zdWJtaXQgdGhlIHBhdGNoIHdpdGggdGhlIGV4cGxhbmF0aW9u
-IGluIHRoZSBjaGFuZ2UNCmxvZy4NCg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
+As suggested by Ben, this adds the clarification on the usage of
+CHECKSUM_UNNECESSARY on the outgoing patch. Also add the usage
+description of NETIF_F_FCOE_CRC and CHECKSUM_UNNECESSARY
+for the kernel FCoE protocol driver.
+
+This is a follow-up to the following:
+http://patchwork.ozlabs.org/patch/147315/
+
+Signed-off-by: Yi Zou <yi.zou@intel.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: www.Open-FCoE.org <devel@open-fcoe.org>
+---
+
+ include/linux/skbuff.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 8dc8257..a2b9953 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -94,6 +94,13 @@
+  *			  about CHECKSUM_UNNECESSARY. 8)
+  *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
+  *
++ *	UNNECESSARY: device will do per protocol specific csum. Protocol drivers
++ *	that do not want net to perform the checksum calculation should use
++ *	this flag in their outgoing skbs.
++ *	NETIF_F_FCOE_CRC  this indicates the device can do FCoE FC CRC
++ *			  offload. Correspondingly, the FCoE protocol driver
++ *			  stack should use CHECKSUM_UNNECESSARY.
++ *
+  *	Any questions? No questions, good. 		--ANK
+  */
+ 
