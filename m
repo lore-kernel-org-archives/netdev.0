@@ -1,27 +1,34 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: netfilter: Hung task
-Date: Mon, 19 Mar 2012 18:13:39 +0200
-Message-ID: <CA+1xoqdo5zvUe+=BYr42iEEq9mU=kd1zVxrGhQc0sNYqbpBkNQ@mail.gmail.com>
-References: <CA+1xoqfCTXxXsbfUjttuOVutyD_FzYS8PoOoAOOtB72P8SwdVg@mail.gmail.com>
- <20120318141943.GA28850@1984> <CA+1xoqcQYqCgQb=1M5PVkm=6SBhV2oJxJ2CtBp=gAvZM36Kc2Q@mail.gmail.com>
- <20120319002811.GA30408@1984> <alpine.DEB.2.00.1203190854560.16879@router.home>
+From: Greg KH <greg@kroah.com>
+Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375
+ tcp_ack+0x1d62/0x2030()
+Date: Mon, 19 Mar 2012 09:15:34 -0700
+Message-ID: <20120319161534.GC24487@kroah.com>
+References: <4F66EA0B.1080705@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
-	davem@davemloft.net, Dave Jones <davej@redhat.com>,
-	netfilter-devel@vger.kernel.org,
-	"linux-kernel@vger.kernel.org List" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1203190854560.16879@router.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45639 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161807Ab2CSQPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 12:15:37 -0400
+Received: from compute4.internal (compute4.nyi.mail.srv.osa [10.202.2.44])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 8E105214BC
+	for <netdev@vger.kernel.org>; Mon, 19 Mar 2012 12:15:36 -0400 (EDT)
+Content-Disposition: inline
+In-Reply-To: <4F66EA0B.1080705@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 19, 2012 at 3:56 PM, Christoph Lameter <cl@linux.com> wrote:
-> This is sually something causing memory corruption. Please enable
-> debugging to get backtrace that help to debutg this. CONFIG_SLUB_DEBUG_ON
-> will do the trick or passing "slub_debug" on the kernel command line.
+On Mon, Mar 19, 2012 at 09:10:51AM +0100, Stefan Priebe - Profihost AG wrote:
+> Hi list,
+> 
+> today i've seen the following error / backtrace several times on a
+> machine running vanilla stable 3.0.23.
 
-The kernel was compiled with SLUB_DEBUG_ON, there's nothing coming out
-of the slub before that hang message, nor after it.
+Can you try 3.0.24?
+
+thanks,
+
+greg k-h
