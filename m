@@ -1,121 +1,86 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/4] atlx: Use ETH_ALEN
-Date: Sun, 18 Mar 2012 20:37:57 -0700
-Message-ID: <1670f6450b7624f8aa92ef2c08c6aa0d0e5d5ef9.1332128181.git.joe@perches.com>
+Subject: [PATCH 3/4] igbvf: Use ETH_ALEN
+Date: Sun, 18 Mar 2012 20:37:58 -0700
+Message-ID: <49b440b7f5a9fa85ed5278e2663541283e32cad8.1332128181.git.joe@perches.com>
 References: <cover.1332128181.git.joe@perches.com>
-Cc: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <cover.1332128181.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-No need for yet another #define for this.
-
-Convert NODE_ADDRESS_SIZE use to ETH_ALEN and remove #define.
-Use memcpy instead of a loop to copy an address.
+Remove an unnecessary #define and use memcpy
+instead of a loop to copy an ethernet address.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/atheros/atlx/atl2.c |   13 +++++--------
- drivers/net/ethernet/atheros/atlx/atl2.h |    5 ++---
- drivers/net/ethernet/atheros/atlx/atlx.h |    1 -
- 3 files changed, 7 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/igbvf/defines.h |    4 ----
+ drivers/net/ethernet/intel/igbvf/vf.c      |    7 ++-----
+ 2 files changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-index 071f4c8..6762dc4 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.c
-@@ -2258,7 +2258,7 @@ static int get_permanent_address(struct atl2_hw *hw)
- 	u32 Addr[2];
- 	u32 i, Control;
- 	u16 Register;
--	u8  EthAddr[NODE_ADDRESS_SIZE];
-+	u8  EthAddr[ETH_ALEN];
- 	bool KeyValid;
+diff --git a/drivers/net/ethernet/intel/igbvf/defines.h b/drivers/net/ethernet/intel/igbvf/defines.h
+index 33f40d3..3e18045 100644
+--- a/drivers/net/ethernet/intel/igbvf/defines.h
++++ b/drivers/net/ethernet/intel/igbvf/defines.h
+@@ -97,10 +97,6 @@
+ #define E1000_ERR_MAC_INIT 5
+ #define E1000_ERR_MBX      15
  
- 	if (is_valid_ether_addr(hw->perm_mac_addr))
-@@ -2299,7 +2299,7 @@ static int get_permanent_address(struct atl2_hw *hw)
- 		*(u16 *) &EthAddr[0] = SHORTSWAP(*(u16 *) &Addr[1]);
- 
- 		if (is_valid_ether_addr(EthAddr)) {
--			memcpy(hw->perm_mac_addr, EthAddr, NODE_ADDRESS_SIZE);
-+			memcpy(hw->perm_mac_addr, EthAddr, ETH_ALEN);
- 			return 0;
- 		}
- 		return 1;
-@@ -2334,7 +2334,7 @@ static int get_permanent_address(struct atl2_hw *hw)
- 	*(u32 *) &EthAddr[2] = LONGSWAP(Addr[0]);
- 	*(u16 *) &EthAddr[0] = SHORTSWAP(*(u16 *)&Addr[1]);
- 	if (is_valid_ether_addr(EthAddr)) {
--		memcpy(hw->perm_mac_addr, EthAddr, NODE_ADDRESS_SIZE);
-+		memcpy(hw->perm_mac_addr, EthAddr, ETH_ALEN);
- 		return 0;
- 	}
- 	/* maybe MAC-address is from BIOS */
-@@ -2344,7 +2344,7 @@ static int get_permanent_address(struct atl2_hw *hw)
- 	*(u16 *) &EthAddr[0] = SHORTSWAP(*(u16 *) &Addr[1]);
- 
- 	if (is_valid_ether_addr(EthAddr)) {
--		memcpy(hw->perm_mac_addr, EthAddr, NODE_ADDRESS_SIZE);
-+		memcpy(hw->perm_mac_addr, EthAddr, ETH_ALEN);
- 		return 0;
- 	}
- 
-@@ -2358,8 +2358,6 @@ static int get_permanent_address(struct atl2_hw *hw)
-  */
- static s32 atl2_read_mac_addr(struct atl2_hw *hw)
- {
--	u16 i;
+-#ifndef ETH_ADDR_LEN
+-#define ETH_ADDR_LEN                 6
+-#endif
 -
- 	if (get_permanent_address(hw)) {
- 		/* for test */
- 		/* FIXME: shouldn't we use random_ether_addr() here? */
-@@ -2371,8 +2369,7 @@ static s32 atl2_read_mac_addr(struct atl2_hw *hw)
- 		hw->perm_mac_addr[5] = 0x38;
+ /* SRRCTL bit definitions */
+ #define E1000_SRRCTL_BSIZEPKT_SHIFT                     10 /* Shift _right_ */
+ #define E1000_SRRCTL_BSIZEHDRSIZE_MASK                  0x00000F00
+diff --git a/drivers/net/ethernet/intel/igbvf/vf.c b/drivers/net/ethernet/intel/igbvf/vf.c
+index 1955197..30a6cc4 100644
+--- a/drivers/net/ethernet/intel/igbvf/vf.c
++++ b/drivers/net/ethernet/intel/igbvf/vf.c
+@@ -246,7 +246,7 @@ static void e1000_update_mc_addr_list_vf(struct e1000_hw *hw,
+ 	for (i = 0; i < cnt; i++) {
+ 		hash_value = e1000_hash_mc_addr_vf(hw, mc_addr_list);
+ 		hash_list[i] = hash_value & 0x0FFFF;
+-		mc_addr_list += ETH_ADDR_LEN;
++		mc_addr_list += ETH_ALEN;
  	}
  
--	for (i = 0; i < NODE_ADDRESS_SIZE; i++)
--		hw->mac_addr[i] = hw->perm_mac_addr[i];
-+	memcpy(hw->mac_addr, hw->perm_mac_addr, ETH_ALEN);
+ 	mbx->ops.write_posted(hw, msgbuf, E1000_VFMAILBOX_SIZE);
+@@ -333,10 +333,7 @@ static void e1000_rar_set_vf(struct e1000_hw *hw, u8 * addr, u32 index)
+  **/
+ static s32 e1000_read_mac_addr_vf(struct e1000_hw *hw)
+ {
+-	int i;
+-
+-	for (i = 0; i < ETH_ADDR_LEN; i++)
+-		hw->mac.addr[i] = hw->mac.perm_addr[i];
++	memcpy(hw->mac.addr, hw->mac.perm_addr, ETH_ALEN);
  
- 	return 0;
+ 	return E1000_SUCCESS;
  }
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
-index bf9016e..3ebe19f 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.h
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.h
-@@ -47,7 +47,6 @@ extern int ethtool_ioctl(struct ifreq *ifr);
- 
- #define PCI_COMMAND_REGISTER	PCI_COMMAND
- #define CMD_MEM_WRT_INVALIDATE	PCI_COMMAND_INVALIDATE
--#define ETH_ADDR_LEN		ETH_ALEN
- 
- #define ATL2_WRITE_REG(a, reg, value) (iowrite32((value), \
- 	((a)->hw_addr + (reg))))
-@@ -429,8 +428,8 @@ struct atl2_hw {
- 	u8 flash_vendor;
- 
- 	u8 dma_fairness;
--	u8 mac_addr[NODE_ADDRESS_SIZE];
--	u8 perm_mac_addr[NODE_ADDRESS_SIZE];
-+	u8 mac_addr[ETH_ALEN];
-+	u8 perm_mac_addr[ETH_ALEN];
- 
- 	/* FIXME */
- 	/* bool phy_preamble_sup; */
-diff --git a/drivers/net/ethernet/atheros/atlx/atlx.h b/drivers/net/ethernet/atheros/atlx/atlx.h
-index 14054b7..448f5dc 100644
---- a/drivers/net/ethernet/atheros/atlx/atlx.h
-+++ b/drivers/net/ethernet/atheros/atlx/atlx.h
-@@ -484,7 +484,6 @@
- 
- /* For checksumming, the sum of all words in the EEPROM should equal 0xBABA */
- #define EEPROM_SUM			0xBABA
--#define NODE_ADDRESS_SIZE		6
- 
- struct atlx_spi_flash_dev {
- 	const char *manu_name;	/* manufacturer id */
 -- 
 1.7.8.111.gad25c.dirty
+
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
