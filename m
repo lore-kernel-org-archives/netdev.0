@@ -1,148 +1,361 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] ixgbe: Move poll routine in order to improve readability
-Date: Mon, 19 Mar 2012 14:22:32 -0700
-Message-ID: <1332192158-14771-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] ixgbe: Store Tx flags and protocol information to tx_buffer sooner
+Date: Mon, 19 Mar 2012 14:22:29 -0700
+Message-ID: <1332192158-14771-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1332192158-14771-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57948 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:5166 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755461Ab2CSVWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 17:22:43 -0400
+	id S1755177Ab2CSVWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 17:22:42 -0400
 In-Reply-To: <1332192158-14771-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change relocates the ixgbe_poll routine so it is right next to the
-interrupt routine that schedules and calls it.
+This change makes it so that we store the tx_flags and protocol information
+to the tx_buffer_info structure sooner. This allows us to avoid unnecessary
+read/write transactions since we are placing the data in the final location
+earlier.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   98 ++++++++++++------------
- 1 files changed, 49 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   13 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   86 ++++++++++++-------------
+ 3 files changed, 51 insertions(+), 51 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index e0d809d..468cb90 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -152,6 +152,7 @@ struct ixgbe_tx_buffer {
+ 	struct sk_buff *skb;
+ 	unsigned int bytecount;
+ 	unsigned short gso_segs;
++	__be16 protocol;
+ 	DEFINE_DMA_UNMAP_ADDR(dma);
+ 	DEFINE_DMA_UNMAP_LEN(len);
+ 	u32 tx_flags;
+@@ -632,7 +633,7 @@ extern void ixgbe_do_reset(struct net_device *netdev);
+ extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ 		     struct ixgbe_tx_buffer *first,
+-                     u32 tx_flags, u8 *hdr_len);
++		     u8 *hdr_len);
+ extern void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 			  union ixgbe_adv_rx_desc *rx_desc,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 5f943d3..77ea4b7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -448,16 +448,15 @@ ddp_out:
+  * ixgbe_fso - ixgbe FCoE Sequence Offload (FSO)
+  * @tx_ring: tx desc ring
+  * @first: first tx_buffer structure containing skb, tx_flags, and protocol
+- * @tx_flags: tx flags
+  * @hdr_len: hdr_len to be returned
+  *
+  * This sets up large send offload for FCoE
+  *
+- * Returns : 0 indicates no FSO, > 0 for FSO, < 0 for error
++ * Returns : 0 indicates success, < 0 for error
+  */
+ int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ 	      struct ixgbe_tx_buffer *first,
+-              u32 tx_flags, u8 *hdr_len)
++	      u8 *hdr_len)
+ {
+ 	struct sk_buff *skb = first->skb;
+ 	struct fc_frame_header *fh;
+@@ -539,8 +538,12 @@ int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ 		first->gso_segs = DIV_ROUND_UP(skb->len - *hdr_len,
+ 					       skb_shinfo(skb)->gso_size);
+ 		first->bytecount += (first->gso_segs - 1) * *hdr_len;
++		first->tx_flags |= IXGBE_TX_FLAGS_FSO;
+ 	}
+ 
++	/* set flag indicating FCOE to ixgbe_tx_map call */
++	first->tx_flags |= IXGBE_TX_FLAGS_FCOE;
++
+ 	/* mss_l4len_id: use 1 for FSO as TSO, no need for L4LEN */
+ 	mss_l4len_idx = skb_shinfo(skb)->gso_size << IXGBE_ADVTXD_MSS_SHIFT;
+ 	mss_l4len_idx |= 1 << IXGBE_ADVTXD_IDX_SHIFT;
+@@ -550,13 +553,13 @@ int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ 			  sizeof(struct fc_frame_header);
+ 	vlan_macip_lens |= (skb_transport_offset(skb) - 4)
+ 			   << IXGBE_ADVTXD_MACLEN_SHIFT;
+-	vlan_macip_lens |= tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
++	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+ 
+ 	/* write context desc */
+ 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, fcoe_sof_eof,
+ 			  IXGBE_ADVTXT_TUCMD_FCOE, mss_l4len_idx);
+ 
+-	return skb_is_gso(skb);
++	return 0;
+ }
+ 
+ static void ixgbe_fcoe_ddp_pools_free(struct ixgbe_fcoe *fcoe)
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 6453e3a5..73bba8b4 100644
+index 1d8f9f8..7817f04 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2308,6 +2308,55 @@ static irqreturn_t ixgbe_msix_clean_rings(int irq, void *data)
+@@ -6585,10 +6585,9 @@ void ixgbe_tx_ctxtdesc(struct ixgbe_ring *tx_ring, u32 vlan_macip_lens,
+ 
+ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 		     struct ixgbe_tx_buffer *first,
+-		     u32 tx_flags, __be16 protocol, u8 *hdr_len)
++		     u8 *hdr_len)
+ {
+ 	struct sk_buff *skb = first->skb;
+-	int err;
+ 	u32 vlan_macip_lens, type_tucmd;
+ 	u32 mss_l4len_idx, l4len;
+ 
+@@ -6596,7 +6595,7 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 		return 0;
+ 
+ 	if (skb_header_cloned(skb)) {
+-		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
++		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -6604,7 +6603,7 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+ 
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == __constant_htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -6613,12 +6612,17 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 							 IPPROTO_TCP,
+ 							 0);
+ 		type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
++		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
++				   IXGBE_TX_FLAGS_CSUM |
++				   IXGBE_TX_FLAGS_IPV4;
+ 	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check =
+ 		    ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 				     &ipv6_hdr(skb)->daddr,
+ 				     0, IPPROTO_TCP, 0);
++		first->tx_flags |= IXGBE_TX_FLAGS_TSO |
++				   IXGBE_TX_FLAGS_CSUM;
+ 	}
+ 
+ 	/* compute header lengths */
+@@ -6637,17 +6641,16 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	/* vlan_macip_lens: HEADLEN, MACLEN, VLAN tag */
+ 	vlan_macip_lens = skb_network_header_len(skb);
+ 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+-	vlan_macip_lens |= tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
++	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+ 
+ 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0, type_tucmd,
+-	                  mss_l4len_idx);
++			  mss_l4len_idx);
+ 
+ 	return 1;
  }
  
- /**
-+ * ixgbe_poll - NAPI Rx polling callback
-+ * @napi: structure for representing this polling device
-+ * @budget: how many packets driver is allowed to clean
-+ *
-+ * This function is used for legacy and MSI, NAPI mode
-+ **/
-+static int ixgbe_poll(struct napi_struct *napi, int budget)
-+{
-+	struct ixgbe_q_vector *q_vector =
-+				container_of(napi, struct ixgbe_q_vector, napi);
-+	struct ixgbe_adapter *adapter = q_vector->adapter;
-+	struct ixgbe_ring *ring;
-+	int per_ring_budget;
-+	bool clean_complete = true;
+-static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+-			  struct ixgbe_tx_buffer *first,
+-			  u32 tx_flags, __be16 protocol)
++static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
++			  struct ixgbe_tx_buffer *first)
+ {
+ 	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens = 0;
+@@ -6655,12 +6658,12 @@ static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 	u32 type_tucmd = 0;
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-	    if (!(tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
+-		!(tx_flags & IXGBE_TX_FLAGS_TXSW))
+-			return false;
++		if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
++		    !(first->tx_flags & IXGBE_TX_FLAGS_TXSW))
++			return;
+ 	} else {
+ 		u8 l4_hdr = 0;
+-		switch (protocol) {
++		switch (first->protocol) {
+ 		case __constant_htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+@@ -6674,7 +6677,7 @@ static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 			if (unlikely(net_ratelimit())) {
+ 				dev_warn(tx_ring->dev,
+ 				 "partial checksum but proto=%x!\n",
+-				 skb->protocol);
++				 first->protocol);
+ 			}
+ 			break;
+ 		}
+@@ -6698,19 +6701,21 @@ static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 			if (unlikely(net_ratelimit())) {
+ 				dev_warn(tx_ring->dev,
+ 				 "partial checksum but l4 proto=%x!\n",
+-				 skb->protocol);
++				 l4_hdr);
+ 			}
+ 			break;
+ 		}
 +
-+#ifdef CONFIG_IXGBE_DCA
-+	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
-+		ixgbe_update_dca(q_vector);
-+#endif
-+
-+	ixgbe_for_each_ring(ring, q_vector->tx)
-+		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
-+
-+	/* attempt to distribute budget to each queue fairly, but don't allow
-+	 * the budget to go below 1 because we'll exit polling */
-+	if (q_vector->rx.count > 1)
-+		per_ring_budget = max(budget/q_vector->rx.count, 1);
-+	else
-+		per_ring_budget = budget;
-+
-+	ixgbe_for_each_ring(ring, q_vector->rx)
-+		clean_complete &= ixgbe_clean_rx_irq(q_vector, ring,
-+						     per_ring_budget);
-+
-+	/* If all work not completed, return budget and keep polling */
-+	if (!clean_complete)
-+		return budget;
-+
-+	/* all work done, exit the polling mode */
-+	napi_complete(napi);
-+	if (adapter->rx_itr_setting & 1)
-+		ixgbe_set_itr(q_vector);
-+	if (!test_bit(__IXGBE_DOWN, &adapter->state))
-+		ixgbe_irq_enable_queues(adapter, ((u64)1 << q_vector->v_idx));
-+
-+	return 0;
-+}
-+
-+/**
-  * ixgbe_request_msix_irqs - Initialize MSI-X interrupts
-  * @adapter: board private structure
-  *
-@@ -4254,55 +4303,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
++		/* update TX checksum flag */
++		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
+ 	}
+ 
++	/* vlan_macip_lens: MACLEN, VLAN tag */
+ 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+-	vlan_macip_lens |= tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
++	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+ 
+ 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
+ 			  type_tucmd, mss_l4len_idx);
+-
+-	return (skb->ip_summed == CHECKSUM_PARTIAL);
  }
  
- /**
-- * ixgbe_poll - NAPI Rx polling callback
-- * @napi: structure for representing this polling device
-- * @budget: how many packets driver is allowed to clean
-- *
-- * This function is used for legacy and MSI, NAPI mode
-- **/
--static int ixgbe_poll(struct napi_struct *napi, int budget)
--{
--	struct ixgbe_q_vector *q_vector =
--				container_of(napi, struct ixgbe_q_vector, napi);
--	struct ixgbe_adapter *adapter = q_vector->adapter;
--	struct ixgbe_ring *ring;
--	int per_ring_budget;
--	bool clean_complete = true;
+ static __le32 ixgbe_tx_cmd_type(u32 tx_flags)
+@@ -6775,7 +6780,6 @@ static void ixgbe_tx_olinfo_status(union ixgbe_adv_tx_desc *tx_desc,
+ 
+ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 			 struct ixgbe_tx_buffer *first,
+-			 u32 tx_flags,
+ 			 const u8 hdr_len)
+ {
+ 	dma_addr_t dma;
+@@ -6786,6 +6790,7 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	unsigned int data_len = skb->data_len;
+ 	unsigned int size = skb_headlen(skb);
+ 	unsigned int paylen = skb->len - hdr_len;
++	u32 tx_flags = first->tx_flags;
+ 	__le32 cmd_type;
+ 	u16 i = tx_ring->next_to_use;
+ 
+@@ -6812,7 +6817,6 @@ static void ixgbe_tx_map(struct ixgbe_ring *tx_ring,
+ 	/* record length, and DMA address */
+ 	dma_unmap_len_set(first, len, size);
+ 	dma_unmap_addr_set(first, dma, dma);
+-	first->tx_flags = tx_flags;
+ 
+ 	tx_desc->read.buffer_addr = cpu_to_le64(dma);
+ 
+@@ -6921,8 +6925,7 @@ dma_error:
+ }
+ 
+ static void ixgbe_atr(struct ixgbe_ring *ring,
+-		      struct ixgbe_tx_buffer *first,
+-		      u32 tx_flags, __be16 protocol)
++		      struct ixgbe_tx_buffer *first)
+ {
+ 	struct ixgbe_q_vector *q_vector = ring->q_vector;
+ 	union ixgbe_atr_hash_dword input = { .dword = 0 };
+@@ -6949,9 +6952,9 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	hdr.network = skb_network_header(first->skb);
+ 
+ 	/* Currently only IPv4/IPv6 with TCP is supported */
+-	if ((protocol != __constant_htons(ETH_P_IPV6) ||
++	if ((first->protocol != __constant_htons(ETH_P_IPV6) ||
+ 	     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
+-	    (protocol != __constant_htons(ETH_P_IP) ||
++	    (first->protocol != __constant_htons(ETH_P_IP) ||
+ 	     hdr.ipv4->protocol != IPPROTO_TCP))
+ 		return;
+ 
+@@ -6968,7 +6971,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	/* reset sample count */
+ 	ring->atr_count = 0;
+ 
+-	vlan_id = htons(tx_flags >> IXGBE_TX_FLAGS_VLAN_SHIFT);
++	vlan_id = htons(first->tx_flags >> IXGBE_TX_FLAGS_VLAN_SHIFT);
+ 
+ 	/*
+ 	 * src and dst are inverted, think how the receiver sees them
+@@ -6983,13 +6986,13 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	 * since src port and flex bytes occupy the same word XOR them together
+ 	 * and write the value to source port portion of compressed dword
+ 	 */
+-	if (tx_flags & (IXGBE_TX_FLAGS_SW_VLAN | IXGBE_TX_FLAGS_HW_VLAN))
++	if (first->tx_flags & (IXGBE_TX_FLAGS_SW_VLAN | IXGBE_TX_FLAGS_HW_VLAN))
+ 		common.port.src ^= th->dest ^ __constant_htons(ETH_P_8021Q);
+ 	else
+-		common.port.src ^= th->dest ^ protocol;
++		common.port.src ^= th->dest ^ first->protocol;
+ 	common.port.dst ^= th->source;
+ 
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == __constant_htons(ETH_P_IP)) {
+ 		input.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
+ 		common.ip ^= hdr.ipv4->saddr ^ hdr.ipv4->daddr;
+ 	} else {
+@@ -7145,43 +7148,36 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	/* record initial flags and protocol */
++	first->tx_flags = tx_flags;
++	first->protocol = protocol;
++
+ #ifdef IXGBE_FCOE
+ 	/* setup tx offload for FCoE */
+ 	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
+ 	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
+-		tso = ixgbe_fso(tx_ring, first, tx_flags, &hdr_len);
++		tso = ixgbe_fso(tx_ring, first, &hdr_len);
+ 		if (tso < 0)
+ 			goto out_drop;
+-		else if (tso)
+-			tx_flags |= IXGBE_TX_FLAGS_FSO |
+-				    IXGBE_TX_FLAGS_FCOE;
+-		else
+-			tx_flags |= IXGBE_TX_FLAGS_FCOE;
+ 
+ 		goto xmit_fcoe;
+ 	}
+ 
+ #endif /* IXGBE_FCOE */
+-	/* setup IPv4/IPv6 offloads */
+-	if (protocol == __constant_htons(ETH_P_IP))
+-		tx_flags |= IXGBE_TX_FLAGS_IPV4;
 -
--#ifdef CONFIG_IXGBE_DCA
--	if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
--		ixgbe_update_dca(q_vector);
--#endif
--
--	ixgbe_for_each_ring(ring, q_vector->tx)
--		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
--
--	/* attempt to distribute budget to each queue fairly, but don't allow
--	 * the budget to go below 1 because we'll exit polling */
--	if (q_vector->rx.count > 1)
--		per_ring_budget = max(budget/q_vector->rx.count, 1);
--	else
--		per_ring_budget = budget;
--
--	ixgbe_for_each_ring(ring, q_vector->rx)
--		clean_complete &= ixgbe_clean_rx_irq(q_vector, ring,
--						     per_ring_budget);
--
--	/* If all work not completed, return budget and keep polling */
--	if (!clean_complete)
--		return budget;
--
--	/* all work done, exit the polling mode */
--	napi_complete(napi);
--	if (adapter->rx_itr_setting & 1)
--		ixgbe_set_itr(q_vector);
--	if (!test_bit(__IXGBE_DOWN, &adapter->state))
--		ixgbe_irq_enable_queues(adapter, ((u64)1 << q_vector->v_idx));
--
--	return 0;
--}
--
--/**
-  * ixgbe_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  **/
+-	tso = ixgbe_tso(tx_ring, first, tx_flags, protocol, &hdr_len);
++	tso = ixgbe_tso(tx_ring, first, &hdr_len);
+ 	if (tso < 0)
+ 		goto out_drop;
+-	else if (tso)
+-		tx_flags |= IXGBE_TX_FLAGS_TSO | IXGBE_TX_FLAGS_CSUM;
+-	else if (ixgbe_tx_csum(tx_ring, first, tx_flags, protocol))
+-		tx_flags |= IXGBE_TX_FLAGS_CSUM;
++	else if (!tso)
++		ixgbe_tx_csum(tx_ring, first);
+ 
+ 	/* add the ATR filter if ATR is on */
+ 	if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
+-		ixgbe_atr(tx_ring, first, tx_flags, protocol);
++		ixgbe_atr(tx_ring, first);
+ 
+ #ifdef IXGBE_FCOE
+ xmit_fcoe:
+ #endif /* IXGBE_FCOE */
+-	ixgbe_tx_map(tx_ring, first, tx_flags, hdr_len);
++	ixgbe_tx_map(tx_ring, first, hdr_len);
+ 
+ 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+ 
 -- 
 1.7.7.6
