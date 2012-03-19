@@ -1,70 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH v0 4/5] ixgbe: enable FDB netdevice ops
-Date: Mon, 19 Mar 2012 15:46:13 -0700
-Message-ID: <1332197173.2307.32.camel@jtkirshe-mobl>
-References: <20120319064719.10959.93361.stgit@jf-dev1-dcblab>
-	 <20120319065208.10959.83135.stgit@jf-dev1-dcblab>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2: iplink_ stuff cleanup
+Date: Mon, 19 Mar 2012 15:53:27 -0700
+Message-ID: <20120319155327.089d6495@nehalam.linuxnetplumber.net>
+References: <CAGm1_kuHYCRuoUEfBeV6GbjypUJgr1_058f-e4AhojHP1fTJWg@mail.gmail.com>
+	<20120315091857.2114cb48@nehalam.linuxnetplumber.net>
+	<CAGm1_kvbqOtArw4dUpnzTRB1JtfBCaAAeyFYCPrcaGYUF10NSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-NWoC6CfmFXeJZt1Nfeoo"
-Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"roprabhu@cisco.com" <roprabhu@cisco.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"sri@us.ibm.com" <sri@us.ibm.com>,
-	"chealy@imsco-us.com" <chealy@imsco-us.com>
-To: "Fastabend, John R" <john.r.fastabend@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120319065208.10959.83135.stgit@jf-dev1-dcblab>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Yegor Yefremov <yegorslists@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48608 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752655Ab2CSWxa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 18:53:30 -0400
+In-Reply-To: <CAGm1_kvbqOtArw4dUpnzTRB1JtfBCaAAeyFYCPrcaGYUF10NSg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, 19 Mar 2012 23:22:59 +0100
+Yegor Yefremov <yegorslists@googlemail.com> wrote:
 
---=-NWoC6CfmFXeJZt1Nfeoo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2012-03-18 at 23:52 -0700, Fastabend, John R wrote:
-> Enable FDB ops on ixgbe when in SR-IOV mode.
+> >> I'm still struggling to get ip/iplink_* routines to show up in
+> >> Android's ip binary
+> >> (https://groups.google.com/d/topic/android-building/yjV4iYnT1Zc/di=
+scussion).
+> >> I've looked at the algorithm that is used to access those function=
+s
+> >> (like can_parse_opt, vlan_parse_opt etc.)
+> >>
+> >> =A0snprintf(buf, sizeof(buf), LIBDIR "/ip/link_%s.so", id);
+> >> =A0 =A0 =A0 =A0 dlh =3D dlopen(buf, RTLD_LAZY);
+> >> =A0 =A0 =A0 =A0 if (dlh =3D=3D NULL) {
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* look in current binary, only op=
+en once */
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dlh =3D BODY;
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dlh =3D=3D NULL) {
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dlh =3D BODY =3D d=
+lopen(NULL, RTLD_LAZY);
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dlh =3D=3D NUL=
+L)
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 re=
+turn NULL;
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> >> =A0 =A0 =A0 =A0 }
+> >>
+> >> =A0 =A0 =A0 =A0 snprintf(buf, sizeof(buf), "%s_link_util", id);
+> >> =A0 =A0 =A0 =A0 l =3D dlsym(dlh, buf);
+> >> =A0 =A0 =A0 =A0 if (l =3D=3D NULL)
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+> >>
+> >> as far as I can see from the ip/Makefile there are no dynamic libs
+> >> like /ip/link_%s.so. Wouldn't it be simpler to let all iplink_*
+> >> objects to export their interfaces via header files and just make =
+a
+> >> table in ip/iplink.c to hold protocol ID and pointer at link_utils
+> >> struct.
+> >>
+> >> struct link_util can_link_util =3D {
+> >> =A0 =A0 =A0 =A0 .id =A0 =A0 =A0 =A0 =A0 =A0 =3D "can",
+> >> =A0 =A0 =A0 =A0 .maxattr =A0 =A0 =A0 =A0=3D IFLA_CAN_MAX,
+> >> =A0 =A0 =A0 =A0 .parse_opt =A0 =A0 =A0=3D can_parse_opt,
+> >> =A0 =A0 =A0 =A0 .print_opt =A0 =A0 =A0=3D can_print_opt,
+> >> =A0 =A0 =A0 =A0 .print_xstats =A0 =3D can_print_xstats,
+> >> };
+> >>
+> >> Am I missing something?
+> >>
+> >> Regards,
+> >> Yegor
+> >
+> > Ip utilities have dynamic extensibility, it is possible for someone
+> > to add shared libraries for new functionality. This is a cool featu=
+re
+> > but isn't used directly by the standard code. It does use it indire=
+ctly
+> > by using dlopen() to find functions locally.
+> >
+> > Think of it as introspection in C.
+> >
+> > I won't take it out of the standard version, but you may have to fi=
+nd
+> > another way to handle it on the Android universe.
 >=20
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
+> The solution turned out to be simple:
+> https://android-review.googlesource.com/#/c/34240/.
+> -Wl,--no-gc-sections did the job.
 >=20
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   59
-> +++++++++++++++++++++++++
->  1 files changed, 59 insertions(+), 0 deletions(-)=20
+> Can you suggest some more pro arguments for dynamic method of
+> exporting API routines?
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
---=-NWoC6CfmFXeJZt1Nfeoo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPZ7c1AAoJEOVv75VaS+3OmewP/jA2jNo7WzowvQjEBaBBqG3i
-MEciprJW+VmHQFY21te3HVy4F0/OxOgZWU70GxKip7xtW+IDwhEPRRmjR9vVF8zG
-sFabmWRBZzDsMr8pjNxFoI78m3SXWSvDlLOR5awpoDgsBdghkXSvrLXwQ8QZ8SK5
-LSGJc3GwDa+uHfWoB5v32FUKjnWjWTyDvgnjuqzzrubebe3YylG2icbpJj1V33w7
-RvHCfS7dN3i7/wATyMyxZkRgklTZ9ZKURPbtSqK3Cb4bsmtPj7LqQT1/0XSGiOfI
-gsF68AyLuE+/EVavnCfsk3lhQKTt0HwibCQxqqgWIE7zGp2/hNN+8ZSlLIr0cwxL
-nSse7q4VY5952CA4VliMO1H5f1M96cFEUnUjw2Zdtg6n/P1/SHfJp7uYlDU2sjVT
-hpg+TlYz8J3aKrmdk3xSZ/SCIvmOdEoEaBBr6qgDNo36NLNZj7cVnSm3GBVxVFPA
-V0TZB/qTLiI9h3NuHa8uVqe+O5iDe0L1KfFC/TbRuP9NVDQCwkSpS6gcmvBZZvkq
-2rGqsg/Pgr3u0UEyWpi4gUchrCzy2E9cQ68VYf/ZSQm06jNCi8vaTt0xBYy2Qu+L
-cKIGF1j0mOiCpm0Sy+XvqBbAoQfa+5oDbl138DfwT0/5+ySJsdyEZaIIAfqitQRm
-CcRtH4ChZqsHARrMP2LT
-=D48u
------END PGP SIGNATURE-----
-
---=-NWoC6CfmFXeJZt1Nfeoo--
-
+You could make it optional on your platform, but for mainline Linux
+it has been around long enough that someone surely depends on it.
