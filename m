@@ -1,49 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2,1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 17:27:17 -0400 (EDT)
-Message-ID: <20120319.172717.567266094785758733.davem@davemloft.net>
-References: <1332192233-32305-1-git-send-email-haiyangz@microsoft.com>
-	<1332192233-32305-2-git-send-email-haiyangz@microsoft.com>
-	<1332192191.9397.62.camel@edumazet-glaptop>
+Subject: Re: [net 1/3] ixgbe: Fix issues with SR-IOV loopback when flow
+ control is disabled
+Date: Mon, 19 Mar 2012 17:38:01 -0400 (EDT)
+Message-ID: <20120319.173801.655596594881567295.davem@davemloft.net>
+References: <1331975254-19443-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: eric.dumazet@gmail.com
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1332192191.9397.62.camel@edumazet-glaptop>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755816Ab2CSViH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 17:38:07 -0400
+In-Reply-To: <1331975254-19443-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Mar 2012 14:23:11 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 17 Mar 2012 02:07:34 -0700
 
-> On Mon, 2012-03-19 at 14:23 -0700, Haiyang Zhang wrote:
->> Instead of dropping the packet, we keep the skb buffer, and return
->> NETDEV_TX_BUSY to let upper layer retry send. This will not cause
->> endless loop, because the host is taking data away from ring buffer,
->> and we have called the stop_queue before returning NETDEV_TX_BUSY.
->> 
->> The stop_queue was called in the function netvsc_send() in file 
->> netvsc.c, then it returns to rndis_filter_send(), which returns to
->> netvsc_start_xmit() in file netvsc_drv.c. So the NETDEV_TX_BUSY is
->> indeed returned AFTER queue is stopped.
->> 
->> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
->> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
->> ---
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Thanks 
+> This patch allows us to avoid a Tx hang when SR-IOV is enabled.  This hang
+> can be triggered by sending small packets at a rate that was triggering Rx
+> missed errors from the adapter while the internal Tx switch and at least
+> one VF are enabled.
 > 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> This was all due to the fact that under heavy stress the Rx FIFO never
+> drained below the flow control high water mark.  This resulted in the Tx
+> FIFO being head of line blocked due to the fact that it relies on the flow
+> control high water mark to determine when it is acceptable for the Tx to
+> place a packet in the Rx FIFO.
+> 
+> The resolution for this is to set the FCRTH value to the RXPBSIZE - 32 so
+> that even if the ring is almost completely full we can still place Tx
+> packets on the Rx ring and drop incoming Rx traffic if we do not have
+> sufficient space available in the Rx FIFO.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Sibai Li <sibai.li@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
