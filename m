@@ -1,59 +1,75 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
-Date: Mon, 19 Mar 2012 17:46:00 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DCEA84D@TK5EX14MBXC223.redmond.corp.microsoft.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/1] net/hyperv: Fix the code handling tx busy
+Date: Mon, 19 Mar 2012 10:48:47 -0700
+Message-ID: <20120319104847.3a4c5fc0@nehalam.linuxnetplumber.net>
 References: <1332176549-30960-1-git-send-email-haiyangz@microsoft.com>
-	 <1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
- <1332177118.9397.32.camel@edumazet-glaptop>
+	<1332176549-30960-2-git-send-email-haiyangz@microsoft.com>
+	<1332177118.9397.32.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Haiyang Zhang <haiyangz@microsoft.com>, kys@microsoft.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:40112 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754394Ab2CSRsv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 13:48:51 -0400
 In-Reply-To: <1332177118.9397.32.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogTW9uZGF5LCBNYXJjaCAxOSwg
-MjAxMiAxOjEyIFBNDQo+IFRvOiBIYWl5YW5nIFpoYW5nDQo+IENjOiBLWSBTcmluaXZhc2FuOyBk
-YXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2Vy
-bmVsQHZnZXIua2VybmVsLm9yZzsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZw0KPiBTdWJq
-ZWN0OiBSZTogW1BBVENIIDEvMV0gbmV0L2h5cGVydjogRml4IHRoZSBjb2RlIGhhbmRsaW5nIHR4
-IGJ1c3kNCj4gDQo+IE9uIE1vbiwgMjAxMi0wMy0xOSBhdCAxMDowMiAtMDcwMCwgSGFpeWFuZyBa
-aGFuZyB3cm90ZToNCj4gPiBJbnN0ZWFkIG9mIGRyb3BwaW5nIHRoZSBwYWNrZXQsIHdlIGtlZXAg
-dGhlIHNrYiBidWZmZXIsIGFuZCByZXR1cm4NCj4gPiBORVRERVZfVFhfQlVTWSB0byBsZXQgdXBw
-ZXIgbGF5ZXIgcmV0cnkgc2VuZC4gVGhpcyB3aWxsIG5vdCBjYXVzZQ0KPiA+IGVuZGxlc3MgbG9v
-cCwgYmVjYXVzZSB0aGUgaG9zdCBpcyB0YWtpbmcgZGF0YSBhd2F5IGZyb20gcmluZyBidWZmZXIu
-DQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBIYWl5YW5nIFpoYW5nIDxoYWl5YW5nekBtaWNyb3Nv
-ZnQuY29tPg0KPiA+IFJldmlld2VkLWJ5OiBLLiBZLiBTcmluaXZhc2FuIDxreXNAbWljcm9zb2Z0
-LmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyB8ICAg
-IDUgKy0tLS0NCj4gPiAgMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDQgZGVsZXRp
-b25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19k
-cnYuYw0KPiA+IGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyBpbmRleCAyNTE3ZDIw
-Li5kZDI5NDc4IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2
-LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jDQo+ID4gQEAgLTIy
-MywxMyArMjIzLDEwIEBAIHN0YXRpYyBpbnQgbmV0dnNjX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1
-ZmYgKnNrYiwNCj4gc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCj4gPiAgCQluZXQtPnN0YXRzLnR4
-X2J5dGVzICs9IHNrYi0+bGVuOw0KPiA+ICAJCW5ldC0+c3RhdHMudHhfcGFja2V0cysrOw0KPiA+
-ICAJfSBlbHNlIHsNCj4gPiAtCQkvKiB3ZSBhcmUgc2h1dHRpbmcgZG93biBvciBidXMgb3Zlcmxv
-YWRlZCwganVzdCBkcm9wIHBhY2tldA0KPiAqLw0KPiA+IC0JCW5ldC0+c3RhdHMudHhfZHJvcHBl
-ZCsrOw0KPiA+ICAJCWtmcmVlKHBhY2tldCk7DQo+ID4gLQkJZGV2X2tmcmVlX3NrYl9hbnkoc2ti
-KTsNCj4gPiAgCX0NCj4gPg0KPiA+IC0JcmV0dXJuIE5FVERFVl9UWF9PSzsNCj4gPiArCXJldHVy
-biByZXQgPyBORVRERVZfVFhfQlVTWSA6IE5FVERFVl9UWF9PSzsNCj4gPiAgfQ0KPiA+DQo+ID4g
-IC8qDQo+IA0KPiBUaGF0cyBzaW1wbHkgbm90IHRydWUgYXQgYWxsLg0KPiANCj4gQSBzdGFydF94
-bWl0KCkgY2Fubm90IGRvIHRoYXQuDQo+IA0KPiBUWF9CVVNZIHNob3VsZCBuZXZlciBiZSByZXR1
-cm5lZCBhdCBhbGwsIGl0cyBhIGRlcHJlY2F0ZWQgY29kZSwgZm9yIHByZXR0eQ0KPiBnb29kIHJl
-YXNvbnMuIChhc3N1bWluZyBxdWV1ZSBpcyBub3Qgc3RvcHBlZCkNCg0KV2UgYWN0dWFsbHkgc3Rv
-cCBxdWV1ZSB3aGVuIHRoZSByaW5nIGJ1ZmZlciBpcyBidXN5LCBzZWUgdGhlIGNvZGUgaW4gbmV0
-dnNjLmMNCg0KPiBUcnkgdGhpcyBvbiBhIG1hY2hpbmUgd2l0aCBvbmUgQ1BVLCBJIGFtIHByZXR0
-eSBzdXJlIHRoaXMgY2FuIHRyaWdnZXINCj4gY29tcGxldGUgZnJlZXplcy4NCg0KSSBoYXZlIHRl
-c3RlZCB3aXRoIG9uZSBDUFUuIEFmdGVyIE5FVERFVl9UWF9CVVNZIGlzIHJldHVybmVkLCB0aGUg
-TGludXgNCmd1ZXN0IE9TIGNvbnRpbnVlcyB0byByZXNwb25kIHdpdGhvdXQgYW55IHByb2JsZW0u
-DQoNClRoYW5rcywNCi0gSGFpeWFuZw0KDQo=
+On Mon, 19 Mar 2012 10:11:58 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Mon, 2012-03-19 at 10:02 -0700, Haiyang Zhang wrote:
+> > Instead of dropping the packet, we keep the skb buffer, and return
+> > NETDEV_TX_BUSY to let upper layer retry send. This will not cause
+> > endless loop, because the host is taking data away from ring buffer.
+> > 
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> > ---
+> >  drivers/net/hyperv/netvsc_drv.c |    5 +----
+> >  1 files changed, 1 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> > index 2517d20..dd29478 100644
+> > --- a/drivers/net/hyperv/netvsc_drv.c
+> > +++ b/drivers/net/hyperv/netvsc_drv.c
+> > @@ -223,13 +223,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+> >  		net->stats.tx_bytes += skb->len;
+> >  		net->stats.tx_packets++;
+> >  	} else {
+> > -		/* we are shutting down or bus overloaded, just drop packet */
+> > -		net->stats.tx_dropped++;
+> >  		kfree(packet);
+> > -		dev_kfree_skb_any(skb);
+> >  	}
+> >  
+> > -	return NETDEV_TX_OK;
+> > +	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
+> >  }
+> >  
+> >  /*
+> 
+> Thats simply not true at all.
+> 
+> A start_xmit() cannot do that.
+> 
+> TX_BUSY should never be returned at all, its a deprecated code, for
+> pretty good reasons. (assuming queue is not stopped)
+> 
+> Try this on a machine with one CPU, I am pretty sure this can trigger
+> complete freezes.
+> 
+> Once softirq loops in your start_xmit(), how do you think one process
+> can help you now ?
+
+Eric is right, look how devices with real physical rings work.
+They test for space left at end of start xmit and stop the transmit
+queue with netif_stop_queue.  The transmit done code then re-enables
+when enough space is netif_wake_queue. Think of it as classic
+high/low water mark on a FIFO.
