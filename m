@@ -1,50 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/10][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 19 Mar 2012 14:22:28 -0700
-Message-ID: <1332192158-14771-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/10] ixgbe: Update layout of ixgbe_ring structure to improve cache performance
+Date: Mon, 19 Mar 2012 14:22:30 -0700
+Message-ID: <1332192158-14771-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1332192158-14771-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:5166 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:11090 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753028Ab2CSVWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 17:22:41 -0400
+	id S1755197Ab2CSVWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Mar 2012 17:22:42 -0400
+In-Reply-To: <1332192158-14771-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches contains fixes/cleanups for ixgbe.  This
-series completes the cleanup work from Alex for ixgbe.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The following are changes since commit 4da0bd736552e6377b407b3c3d3ae518ebbdd269:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+This change makes it so that only the 2nd cache line in the ring structure
+should see frequent updates.  The advantage to this is that it should
+reduce the amount of cross CPU cache bouncing since only the 2nd cache line
+will be changing between most network transactions.
 
-Alexander Duyck (9):
-  ixgbe: Store Tx flags and protocol information to tx_buffer sooner
-  ixgbe: Update layout of ixgbe_ring structure to improve cache
-    performance
-  ixgbe: cleanup logic for the service timer and VF hang detection
-  ixgbe: Move poll routine in order to improve readability
-  ixgbe: drop err_eeprom tag which is at same location as err_sw_init
-  ixgbe: Two minor fixes for RSS and FDIR set queues functions
-  ixgbe: Whitespace cleanups
-  ixgbe: Add support for enabling UDP RSS via the ethtool rx-flow-hash
-    command
-  ixgbe: Correct flag values set by ixgbe_fix_features
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-Jeff Kirsher (1):
-  ixgbe: fix namespace issues when FCoE/DCB is not enabled
-
- drivers/net/ethernet/intel/ixgbe/Makefile        |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   31 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  191 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c    |   13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |  929 ++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 1452 ++++------------------
- 6 files changed, 1399 insertions(+), 1219 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 468cb90..8620414 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -208,15 +208,18 @@ enum ixgbe_ring_state_t {
+ 	clear_bit(__IXGBE_RX_RSC_ENABLED, &(ring)->state)
+ struct ixgbe_ring {
+ 	struct ixgbe_ring *next;	/* pointer to next ring in q_vector */
++	struct ixgbe_q_vector *q_vector; /* backpointer to host q_vector */
++	struct net_device *netdev;	/* netdev ring belongs to */
++	struct device *dev;		/* device for DMA mapping */
+ 	void *desc;			/* descriptor ring memory */
+-	struct device *dev;             /* device for DMA mapping */
+-	struct net_device *netdev;      /* netdev ring belongs to */
+ 	union {
+ 		struct ixgbe_tx_buffer *tx_buffer_info;
+ 		struct ixgbe_rx_buffer *rx_buffer_info;
+ 	};
+ 	unsigned long state;
+ 	u8 __iomem *tail;
++	dma_addr_t dma;			/* phys. address of descriptor ring */
++	unsigned int size;		/* length in bytes */
+ 
+ 	u16 count;			/* amount of descriptors */
+ 
+@@ -226,17 +229,17 @@ struct ixgbe_ring {
+ 					 * associated with this ring, which is
+ 					 * different for DCB and RSS modes
+ 					 */
++	u16 next_to_use;
++	u16 next_to_clean;
++
+ 	union {
++		u16 next_to_alloc;
+ 		struct {
+ 			u8 atr_sample_rate;
+ 			u8 atr_count;
+ 		};
+-		u16 next_to_alloc;
+ 	};
+ 
+-	u16 next_to_use;
+-	u16 next_to_clean;
+-
+ 	u8 dcb_tc;
+ 	struct ixgbe_queue_stats stats;
+ 	struct u64_stats_sync syncp;
+@@ -244,9 +247,6 @@ struct ixgbe_ring {
+ 		struct ixgbe_tx_queue_stats tx_stats;
+ 		struct ixgbe_rx_queue_stats rx_stats;
+ 	};
+-	unsigned int size;		/* length in bytes */
+-	dma_addr_t dma;			/* phys. address of descriptor ring */
+-	struct ixgbe_q_vector *q_vector; /* back-pointer to host q_vector */
+ } ____cacheline_internodealigned_in_smp;
+ 
+ enum ixgbe_ring_f_enum {
 -- 
 1.7.7.6
