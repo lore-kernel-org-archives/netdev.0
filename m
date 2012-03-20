@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] net/mlx4_en: DCB QoS support
-Date: Tue, 20 Mar 2012 15:58:26 -0400 (EDT)
-Message-ID: <20120320.155826.2251812080980877732.davem@davemloft.net>
-References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
-	<4F686A07.4070401@mellanox.com>
+Subject: Re: Remove printk from rds_sendmsg
+Date: Tue, 20 Mar 2012 16:12:59 -0400 (EDT)
+Message-ID: <20120320.161259.1804504946572194386.davem@davemloft.net>
+References: <20120319224008.GA23036@redhat.com>
+	<20120319.184335.1229962428916453634.davem@davemloft.net>
+	<20120319230107.GA23987@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	roland@purestorage.com, oren@mellanox.com, yevgenyp@mellanox.com
-To: amirv@mellanox.com
+Cc: venkat.x.venkatsubra@oracle.com, netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52822 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53024 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755917Ab2CTT6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 15:58:39 -0400
-In-Reply-To: <4F686A07.4070401@mellanox.com>
+	with ESMTP id S1752576Ab2CTUNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 16:13:05 -0400
+In-Reply-To: <20120319230107.GA23987@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 20 Mar 2012 13:29:11 +0200
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 19 Mar 2012 19:01:07 -0400
 
-> Patches 7-8 who deal with the interaction between the kernel HW QoS
-> constructs to the queue selection logic are still under discussion
-> with John and some changes might be needed there.
-> At this point, we ask for patches 1-6 to be pulled in, and continue
-> the discussion from there.
+> no socket layer outputs a message for this error and neither should rds.
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-That's not how this works.
-
-I toss out an entire series when some of the patches need changes.
-
-You thus must resubmit freshly any subset you want applied.
+Applied and queued up for -stable, thanks.
