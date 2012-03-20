@@ -1,45 +1,47 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: fix incorrent ipv6 ipsec packet fragment
-Date: Tue, 20 Mar 2012 09:09:02 +0800
-Message-ID: <4F67D8AE.2070602@cn.fujitsu.com>
-References: <1331888235-10368-1-git-send-email-gaofeng@cn.fujitsu.com> <20120319080220.GA29891@secunet.com>
+From: "FINAL PAYMENT SETTLEMENT BOARD." <aregueira@lugo.uned.es>
+Subject: (unknown)
+Date: Tue, 20 Mar 2012 02:29:58 +0100
+Message-ID: <e590352503bccc6462512ebb8a15f158.squirrel__21315.1755546734$1332207043$gmane$org@correo.uned.es>
+Reply-To: debt.settlement1board@ozledim.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:41966 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755914Ab2CTBIg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 21:08:36 -0400
-In-Reply-To: <20120319080220.GA29891@secunet.com>
+Received: from smtp-out-seis.uned.es ([62.204.192.120]:14768 "EHLO
+	smtp-out-seis.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753586Ab2CTBaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Mar 2012 21:30:07 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B403=E6=9C=8819=E6=97=A5 16:02, Steffen Klassert =E5=
-=86=99=E9=81=93:
-> On Fri, Mar 16, 2012 at 04:57:15PM +0800, Gao feng wrote:
->> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem=
-)
->> In func ip6_append_data,after call skb_put(skb, fraglen + dst_exthdr=
-len)
->> the skb->len contains dst_exthdrlen,and we don't reduce dst_exthdrle=
-n at last
->> This will make fraggap>0 in next "while cycle",and cause the size of=
- skb incorrent
->=20
-> Good catch!
->=20
->>
->> Call skb_pull reduce skb->len before next "while cycle"
->=20
-> I think it would be better to just reserve headroom for
-> dst_exthdrlen instead of adding and removing data to/from
-> the skb.
->=20
 
-Hi steffen & David:
 
-Thanks for your comment.
-Agree with you,I will send v2 patch.
+
+FINAL PAYMENT SETTLEMENT BOARD.
+London United Kingdom
+24 Grosvenor Square London,
+
+I write to notify you about your outstanding compensation
+Payment from the United Nations Human Settlements Board.
+
+During our last annual calculation of all your banking and Internet
+activities, we realized that you are eligible to receive compensation
+Payment of $850,000 USD. This compensation is being made to all banks
+and internet users.
+
+You are required to contact him with the following details, as
+this will enable us to process and release your cash prize.
+NOTE THAT THESE DETAILS ARE VERY IMPORTANT FOR YOUR PAYMENT
+
+Provide the information below:
+1.Full Names:....    2.Address:.........
+3.Sex and Age:............    4.Country:.............
+5.Occupation:..........    6.Phone no:........
+7.Company Name:..........
+
+contact E-mail: debt.settlement1board@ozledim.net
+
+Regards
+Robin Steven
