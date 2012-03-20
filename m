@@ -1,258 +1,136 @@
-From: "allan" <allan@asix.com.tw>
-Subject: RE: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-Date: Tue, 20 Mar 2012 22:14:43 +0800
-Message-ID: <001501cd06a3$d08fe6e0$71afb4a0$@com.tw>
-References: <1331792312.2543.16.camel@edumazet-laptop> <CANEJEGtndncj1biMZSBC1rt36a66iWGp7wU_OxCxpA_PVBGZqA@mail.gmail.com>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x1f2/0x200()
+Date: Tue, 20 Mar 2012 07:16:17 -0700
+Message-ID: <4F689131.2030607@gmail.com>
+References: <20120205134050.7e135bb231b613806a2e0b70@gmail.com> <4F2F0065.9040909@lwfinger.net> <20120205222141.GA26223@electric-eye.fr.zoreil.com> <20120205145913.194746473361e324bda1eb4a@gmail.com> <CAKFRV=NghW3kokuD-VBAzVJf09r-9ePMG+L7qDYfqmuHwWo4mg@mail.gmail.com> <20120320093709.GA5058@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Greg Kroah-Hartman'" <gregkh@linuxfoundation.org>,
-	"'David Miller'" <davem@davemloft.net>,
-	<linux-usb@vger.kernel.org>, "'netdev'" <netdev@vger.kernel.org>,
-	"'Aurelien Jacobs'" <aurel@gnuage.org>,
-	"'Trond Wuellner'" <trond@chromium.org>,
-	"'Paul Stewart'" <pstew@chromium.org>
-To: "'Grant Grundler'" <grundler@chromium.org>,
-	"'Eric Dumazet'" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:54818 "EHLO asix.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752568Ab2CTOOq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 10:14:46 -0400
-In-Reply-To: 
-Content-Language: zh-tw
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:34556 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752568Ab2CTOQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 10:16:21 -0400
+Received: by ghrr11 with SMTP id r11so85243ghr.19
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2012 07:16:20 -0700 (PDT)
+In-Reply-To: <20120320093709.GA5058@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
-
-Resend this email due to illegal attachment in my previous email. Please let me know if you need to get the attachment. Thanks a lot.
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-FAX: 886-3-5799558
-E-mail: allan@asix.com.tw 
-http://www.asix.com.tw/ 
-
------Original Message-----
-From: ASIX Allan Email [office] [mailto:allan@asix.com.tw] 
-Sent: Tuesday, March 20, 2012 8:42 PM
-To: 'Grant Grundler'; 'Eric Dumazet'
-Cc: 'Greg Kroah-Hartman'; 'David Miller'; 'linux-usb@vger.kernel.org'; 'netdev'; 'Aurelien Jacobs'; 'Trond Wuellner'; 'Paul Stewart'
-Subject: RE: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-Importance: High
-
-Dear All,
-
-I did some basic network functionality of this driver patch on Linux kernel 3.3.0-rc3 x86 platform with below ASIX USB to LAN dongles and it seems this driver patch works fine in our site. You can refer to the driver log files in attached driver package for more details if necessary. Thanks a lot.
-
-====================
-AX88772B USB dongle
-AX88772A USB dongle
-AX88772 USB dongle
-AX88178 + RTL8251CN GigaPHY USB dongle
-AX88178 + RTL8211CL GigaPHY USB dongle
-AX88178 + M88E1111 GigaPHY USB dongle
-Belkin F5D5055 AX88178 USB dongle
-
-
----
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-FAX: 886-3-5799558
-E-mail: allan@asix.com.tw 
-http://www.asix.com.tw/ 
-
-
------Original Message-----
-From: ASIX Allan Email [office] [mailto:allan@asix.com.tw] 
-Sent: Thursday, March 15, 2012 7:35 PM
-To: 'Grant Grundler'; 'Eric Dumazet'
-Cc: 'Greg Kroah-Hartman'; 'David Miller'; 'linux-usb@vger.kernel.org'; 'netdev'; 'Aurelien Jacobs'; 'Trond Wuellner'; 'Paul Stewart'
-Subject: RE: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-
-Dear Grant and All,
-
-We are going to do some testing on the revised asix.c driver with ASIX's different USB to LAN solutions (AX88178/AX88772B/AX88772A/AX88772). Please advise where can I download the latest revised asix.c driver source with this driver patch for further testing? (Sorry I am newbie on Linux kernel driver patch threads. =_="") Thanks a lot.
-
----
-Best regards,
-Allan Chou
-
------Original Message-----
-From: grundler@google.com [mailto:grundler@google.com] On Behalf Of Grant Grundler
-Sent: Thursday, March 15, 2012 2:42 PM
-To: Eric Dumazet
-Cc: Greg Kroah-Hartman; David Miller; linux-usb@vger.kernel.org; netdev; Aurelien Jacobs; Trond Wuellner; Paul Stewart; Allan Chou
-Subject: Re: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb truesizes
-
-Adding ASIX (Allan Chou)
-
-On Wed, Mar 14, 2012 at 11:18 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> asix_rx_fixup() is complex, and does some unnecessary memory copies (at
-> least on x86 where NET_IP_ALIGN is 0)
+On 03/20/2012 02:37 AM, Francois Romieu wrote:
+> (Larry removed)
 >
-> Also, it tends to provide skbs with a big truesize (4096+256 with
-> MTU=1500) to upper stack, so incoming trafic consume a lot of memory and
-> I noticed early packet drops because we hit socket rcvbuf too fast.
+> Justin Mattock<justinmattock@gmail.com>  :
+> [...]
+>> seems I see this with the latest linux-next:
 >
-> Switch to a different strategy, using copybreak so that we provide nice
-> skbs to upper stack (including the NET_SKB_PAD to avoid future head
-> reallocations in some paths)
-
-Your rewrite is definitely cleaner/simpler. If it works, ship it! :)
-
-I'm traveling right now and don't have access to the HW to test it.
-I'm hoping that ASIX could run a few simple tests as well.
-
-> With this patch, I no longer see packets drops or tcp collapses on
-> various tcp workload with a AX88772 adapter.
+> Thanks for testing.
 >
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Aurelien Jacobs <aurel@gnuage.org>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Trond Wuellner <trond@chromium.org>
-> Cc: Grant Grundler <grundler@chromium.org>
+> [...]
+>> [21740.318685] r8169 0000:06:00.0: eth0: link up
+>> [21752.292679] r8169 0000:06:00.0: eth0: link up
+>> [21764.268569] r8169 0000:06:00.0: eth0: link up
+>> [21776.254393] r8169 0000:06:00.0: eth0: link up
+>> [21788.235797] r8169 0000:06:00.0: eth0: link up
+>> [21800.196524] r8169 0000:06:00.0: eth0: link up
+>> [21812.172497] r8169 0000:06:00.0: eth0: link up
+>
+> This is completely broken. I could understand a few up/down link changes
+> until things settles but the driver should not claim periodically that
+> the link is up when there is no cable, at least not with a supported chipset.
+>
+> Can you apply the debug helper below and report a complete dmesg from
+> boot with the same test (please remove l-k, netdev is good enough) ?
 
-Reviewed-by: Grant Grundler <grundler@chromium.org>
+I removed linux-kernel from the Cc's and applied your patch.. system 
+built fine, and suspend wakes up fine without the ethernet trying to 
+connect like it was doing. will run this patch for a few Thanks for this!
 
-thanks!
-grant
+dmesg is here: http://fpaste.org/jHSX/
+(I have another patch added in, but it should not affect anything).
 
-> Cc: Paul Stewart <pstew@chromium.org>
-> ---
->  drivers/net/usb/asix.c |   90 +++++++++------------------------------
->  1 file changed, 21 insertions(+), 69 deletions(-)
+
 >
-> diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-> index 8e84f5b..27d5440 100644
-> --- a/drivers/net/usb/asix.c
-> +++ b/drivers/net/usb/asix.c
-> @@ -305,88 +305,40 @@ asix_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 61e6ab4..880264a 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -61,7 +61,8 @@
+>   #endif /* RTL8169_DEBUG */
 >
->  static int asix_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->  {
-> -       u8  *head;
-> -       u32  header;
-> -       char *packet;
-> -       struct sk_buff *ax_skb;
-> -       u16 size;
-> +       int offset = 0;
+>   #define R8169_MSG_DEFAULT \
+> -	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN)
+> +	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN | \
+> +	 NETIF_MSG_LINK)
 >
-> -       head = (u8 *) skb->data;
-> -       memcpy(&header, head, sizeof(header));
-> -       le32_to_cpus(&header);
-> -       packet = head + sizeof(header);
-> -
-> -       skb_pull(skb, 4);
-> -
-> -       while (skb->len > 0) {
-> -               if ((header & 0x07ff) != ((~header >> 16) & 0x07ff))
-> -                       netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
-> +       while (offset + sizeof(u32) < skb->len) {
-> +               struct sk_buff *ax_skb;
-> +               u16 size;
-> +               u32 header = get_unaligned_le32(skb->data + offset);
+>   #define TX_BUFFS_AVAIL(tp) \
+>   	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx - 1)
+> @@ -731,7 +732,7 @@ struct rtl8169_private {
+>   	void (*phy_reset_enable)(struct rtl8169_private *tp);
+>   	void (*hw_start)(struct net_device *);
+>   	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
+> -	unsigned int (*link_ok)(void __iomem *);
+> +	unsigned int (*link_ok)(struct rtl8169_private *);
+>   	int (*do_ioctl)(struct rtl8169_private *tp, struct mii_ioctl_data *data, int cmd);
 >
-> +               offset += sizeof(u32);
+>   	struct {
+> @@ -1260,14 +1261,28 @@ static unsigned int rtl8169_xmii_reset_pending(struct rtl8169_private *tp)
+>   	return rtl_readphy(tp, MII_BMCR)&  BMCR_RESET;
+>   }
+>
+> -static unsigned int rtl8169_tbi_link_ok(void __iomem *ioaddr)
+> +static unsigned int rtl8169_tbi_link_ok(struct rtl8169_private *tp)
+>   {
+> +	void __iomem *ioaddr = tp->mmio_addr;
 > +
->                /* get the packet length */
-> -               size = (u16) (header & 0x000007ff);
-> -
-> -               if ((skb->len) - ((size + 1) & 0xfffe) == 0) {
-> -                       u8 alignment = (unsigned long)skb->data & 0x3;
-> -                       if (alignment != 0x2) {
-> -                               /*
-> -                                * not 16bit aligned so use the room provided by
-> -                                * the 32 bit header to align the data
-> -                                *
-> -                                * note we want 16bit alignment as MAC header is
-> -                                * 14bytes thus ip header will be aligned on
-> -                                * 32bit boundary so accessing ipheader elements
-> -                                * using a cast to struct ip header wont cause
-> -                                * an unaligned accesses.
-> -                                */
-> -                               u8 realignment = (alignment + 2) & 0x3;
-> -                               memmove(skb->data - realignment,
-> -                                       skb->data,
-> -                                       size);
-> -                               skb->data -= realignment;
-> -                               skb_set_tail_pointer(skb, size);
-> -                       }
-> -                       return 2;
-> +               size = (u16) (header & 0x7ff);
-> +               if (size != ((~header >> 16) & 0x07ff)) {
-> +                       netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
-> +                       return 0;
->                }
+>   	return RTL_R32(TBICSR)&  TBILinkOk;
+>   }
 >
-> -               if (size > dev->net->mtu + ETH_HLEN) {
-> +               if ((size > dev->net->mtu + ETH_HLEN) ||
-> +                   (size + offset > skb->len)) {
->                        netdev_err(dev->net, "asix_rx_fixup() Bad RX Length %d\n",
->                                   size);
->                        return 0;
->                }
-> -               ax_skb = skb_clone(skb, GFP_ATOMIC);
-> -               if (ax_skb) {
-> -                       u8 alignment = (unsigned long)packet & 0x3;
-> -                       ax_skb->len = size;
-> -
-> -                       if (alignment != 0x2) {
-> -                               /*
-> -                                * not 16bit aligned use the room provided by
-> -                                * the 32 bit header to align the data
-> -                                */
-> -                               u8 realignment = (alignment + 2) & 0x3;
-> -                               memmove(packet - realignment, packet, size);
-> -                               packet -= realignment;
-> -                       }
-> -                       ax_skb->data = packet;
-> -                       skb_set_tail_pointer(ax_skb, size);
-> -                       usbnet_skb_return(dev, ax_skb);
-> -               } else {
-> +               ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
-> +               if (!ax_skb)
->                        return 0;
-> -               }
-> -
-> -               skb_pull(skb, (size + 1) & 0xfffe);
+> -static unsigned int rtl8169_xmii_link_ok(void __iomem *ioaddr)
+> +static unsigned int rtl8169_xmii_link_ok(struct rtl8169_private *tp)
+>   {
+> -	return RTL_R8(PHYstatus)&  LinkStatus;
+> +	void __iomem *ioaddr = tp->mmio_addr;
+> +	struct net_device *dev = tp->dev;
+> +	u8 status;
+> +
+> +	status = RTL_R8(PHYstatus)&  LinkStatus;
+> +	netif_info(tp, link, dev,
+> +		   "bmcr: %04x bmsr: %04x gbcr: %04x gbsr: %04x\n",
+> +		   rtl_readphy(tp, MII_BMCR),
+> +		   rtl_readphy(tp, MII_BMSR),
+> +		   rtl_readphy(tp, MII_CTRL1000),
+> +		   rtl_readphy(tp, MII_STAT1000));
+> +
+> +	return status;
+>   }
 >
-> -               if (skb->len < sizeof(header))
-> -                       break;
-> +               skb_put(ax_skb, size);
-> +               memcpy(ax_skb->data, skb->data + offset, size);
-> +               usbnet_skb_return(dev, ax_skb);
+>   static void rtl8169_tbi_reset_enable(struct rtl8169_private *tp)
+> @@ -1335,7 +1350,7 @@ static void __rtl8169_check_link_status(struct net_device *dev,
+>   					struct rtl8169_private *tp,
+>   					void __iomem *ioaddr, bool pm)
+>   {
+> -	if (tp->link_ok(ioaddr)) {
+> +	if (tp->link_ok(tp)) {
+>   		rtl_link_chg_patch(tp);
+>   		/* This is to cancel a scheduled suspend if there's one. */
+>   		if (pm)
+> @@ -3309,7 +3324,6 @@ static void rtl_hw_phy_config(struct net_device *dev)
+>   static void rtl_phy_work(struct rtl8169_private *tp)
+>   {
+>   	struct timer_list *timer =&tp->timer;
+> -	void __iomem *ioaddr = tp->mmio_addr;
+>   	unsigned long timeout = RTL8169_PHY_TIMEOUT;
 >
-> -               head = (u8 *) skb->data;
-> -               memcpy(&header, head, sizeof(header));
-> -               le32_to_cpus(&header);
-> -               packet = head + sizeof(header);
-> -               skb_pull(skb, 4);
-> +               offset += (size + 1) & 0xfffe;
->        }
+>   	assert(tp->mac_version>  RTL_GIGA_MAC_VER_01);
+> @@ -3323,7 +3337,7 @@ static void rtl_phy_work(struct rtl8169_private *tp)
+>   		goto out_mod_timer;
+>   	}
 >
-> -       if (skb->len < 0) {
-> +       if (skb->len != offset) {
->                netdev_err(dev->net, "asix_rx_fixup() Bad SKB Length %d\n",
->                           skb->len);
->                return 0;
-> @@ -1541,7 +1493,7 @@ static const struct driver_info ax88772_info = {
->        .status = asix_status,
->        .link_reset = ax88772_link_reset,
->        .reset = ax88772_reset,
-> -       .flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR,
-> +       .flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR | FLAG_MULTI_PACKET,
->        .rx_fixup = asix_rx_fixup,
->        .tx_fixup = asix_tx_fixup,
->  };
+> -	if (tp->link_ok(ioaddr))
+> +	if (tp->link_ok(tp))
+>   		return;
 >
->
+>   	netif_warn(tp, link, tp->dev, "PHY reset until link up\n");
