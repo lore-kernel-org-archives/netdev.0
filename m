@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH net-next] asix: asix_rx_fixup surgery to reduce skb
- truesizes
-Date: Tue, 20 Mar 2012 07:28:46 -0700
-Message-ID: <1332253726.7893.5.camel@edumazet-glaptop>
-References: <1331792312.2543.16.camel@edumazet-laptop>
-	 <CANEJEGtndncj1biMZSBC1rt36a66iWGp7wU_OxCxpA_PVBGZqA@mail.gmail.com>
-	 <001501cd06a3$d08fe6e0$71afb4a0$@com.tw>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: netlink: 12 bytes leftover after parsing attributes - triggered
+ by iproute2 libnetlink's rtnl_dump_request()
+Date: Tue, 20 Mar 2012 07:41:40 -0700
+Message-ID: <20120320074140.39a1b3f0@nehalam.linuxnetplumber.net>
+References: <20120320134107.6acea83c@pluto.restena.lu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: 'Grant Grundler' <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	'Greg Kroah-Hartman' <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, 'netdev' <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	'Aurelien Jacobs' <aurel-U/apLSaFET4dnm+yROfE0A@public.gmane.org>,
-	'Trond Wuellner' <trond-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	'Paul Stewart' <pstew-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: allan <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <001501cd06a3$d08fe6e0$71afb4a0$@com.tw>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>
+To: Bruno =?ISO-8859-1?B?UHLpbW9udA==?= <bonbons@linux-vserver.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36759 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760259Ab2CTOlo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2012 10:41:44 -0400
+In-Reply-To: <20120320134107.6acea83c@pluto.restena.lu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-20 at 22:14 +0800, allan wrote:
-> Dear All,
+
+
 > 
-> Resend this email due to illegal attachment in my previous email. Please let me know if you need to get the attachment. Thanks a lot.
+> Should this get fixed at kernel level, iproute2 libnetlink level or
+> at end-user level (e.g. collectd)?
+> Three lines every 10 seconds is a damn lot!
+> 
+> Thanks,
+> Bruno
 
-Thanks a lot for testing Allan
+Netlink is supposed to be encoded as Type-Length-Value and correctly written
+programs ignore types they don't understand. So either the library is getting
+confused by the type or the attribute is not encoded correctly.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The issue could be in libnetlink library. What version of collectd and libnetlink
+are you using?
