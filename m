@@ -1,7 +1,7 @@
 From: Dong Aisheng <b29396@freescale.com>
 Subject: [PATCH 1/1] net: phylib: remove the length limitation of mii bus id
-Date: Tue, 20 Mar 2012 12:23:06 +0800
-Message-ID: <1332217386-3586-1-git-send-email-b29396@freescale.com>
+Date: Tue, 20 Mar 2012 12:27:59 +0800
+Message-ID: <1332217679-3703-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
@@ -46,7 +46,7 @@ Only tested the fec driver on i.MX28 EVK board.
  drivers/net/ethernet/adi/bfin_mac.c                |    3 +--
  drivers/net/ethernet/aeroflex/greth.c              |    2 +-
  drivers/net/ethernet/amd/au1000_eth.c              |    3 +--
- drivers/net/ethernet/broadcom/bcm63xx_enet.c       |   10 +++++-----
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       |    7 ++++---
  drivers/net/ethernet/broadcom/sb1250-mac.c         |    2 +-
  drivers/net/ethernet/broadcom/tg3.c                |    4 ++--
  drivers/net/ethernet/cadence/macb.c                |    2 +-
@@ -62,6 +62,7 @@ Only tested the fec driver on i.MX28 EVK board.
  drivers/net/ethernet/lantiq_etop.c                 |    2 +-
  drivers/net/ethernet/marvell/mv643xx_eth.c         |    2 +-
  drivers/net/ethernet/marvell/pxa168_eth.c          |    2 +-
+ drivers/net/ethernet/octeon/octeon_mgmt.c          |    6 +++---
  drivers/net/ethernet/rdc/r6040.c                   |    4 ++--
  drivers/net/ethernet/renesas/sh_eth.c              |    7 ++++---
  drivers/net/ethernet/s6gmac.c                      |    2 +-
@@ -74,7 +75,7 @@ Only tested the fec driver on i.MX28 EVK board.
  drivers/net/ethernet/toshiba/tc35815.c             |    2 +-
  drivers/net/ethernet/xilinx/ll_temac_mdio.c        |    2 +-
  drivers/net/ethernet/xilinx/xilinx_emaclite.c      |    2 +-
- drivers/net/ethernet/xscale/ixp4xx_eth.c           |    7 ++++---
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |    9 +++++----
  drivers/net/phy/fixed.c                            |    2 +-
  drivers/net/phy/mdio-gpio.c                        |    2 +-
  drivers/net/phy/mdio-octeon.c                      |    2 +-
@@ -83,7 +84,7 @@ Only tested the fec driver on i.MX28 EVK board.
  drivers/staging/et131x/et131x.c                    |    2 +-
  include/linux/phy.h                                |   10 ++--------
  net/dsa/slave.c                                    |    2 +-
- 43 files changed, 83 insertions(+), 86 deletions(-)
+ 44 files changed, 86 insertions(+), 88 deletions(-)
 
 diff --git a/arch/powerpc/platforms/82xx/ep8248e.c b/arch/powerpc/platforms/82xx/ep8248e.c
 index 10ff526..21658de 100644
@@ -168,7 +169,7 @@ index 8b95dd3..99e0ebb 100644
  	if (aup->mii_bus->irq == NULL)
  		goto err_out;
 diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 986019b..8118878 100644
+index c7ca7ec..5635be3 100644
 --- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
 +++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
 @@ -787,7 +787,7 @@ static int bcm_enet_open(struct net_device *dev)
@@ -180,23 +181,22 @@ index 986019b..8118878 100644
  	void *p;
  	u32 val;
  
-@@ -796,12 +796,12 @@ static int bcm_enet_open(struct net_device *dev)
+@@ -796,12 +796,13 @@ static int bcm_enet_open(struct net_device *dev)
  
  	if (priv->has_phy) {
  		/* connect to PHY */
 -		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
--			 priv->mac_id ? "1" : "0", priv->phy_id);
 +		phy_id = kasprintf(GFP_KERNEL, PHY_ID_FMT,
-+				priv->mac_id ? "1" : "0", priv->phy_id);
+ 			 priv->mii_bus->id, priv->phy_id);
  
  		phydev = phy_connect(dev, phy_id, bcm_enet_adjust_phy_link, 0,
  				     PHY_INTERFACE_MODE_MII);
--
+ 
 +		kfree(phy_id);
  		if (IS_ERR(phydev)) {
  			dev_err(kdev, "could not attach to PHY\n");
  			return PTR_ERR(phydev);
-@@ -1727,7 +1727,7 @@ static int __devinit bcm_enet_probe(struct platform_device *pdev)
+@@ -1727,7 +1728,7 @@ static int __devinit bcm_enet_probe(struct platform_device *pdev)
  		bus->priv = priv;
  		bus->read = bcm_enet_mdio_read_phylib;
  		bus->write = bcm_enet_mdio_write_phylib;
@@ -219,7 +219,7 @@ index 084904c..7fd5654 100644
  	sc->mii_bus->priv = sc;
  	sc->mii_bus->read = sbmac_mii_read;
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index d529af9..2750e49 100644
+index 35c2a20..df6c3a3 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
 @@ -1328,8 +1328,8 @@ static int tg3_mdio_init(struct tg3 *tp)
@@ -273,10 +273,10 @@ index 60f0e78..e9195a5 100644
  	priv->mdio->read = ethoc_mdio_read;
  	priv->mdio->write = ethoc_mdio_write;
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index fb5579a..af418cd 100644
+index 47f85c3..a2901db 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1255,7 +1255,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+@@ -1256,7 +1256,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
  	}
  
  	priv->mii_bus->name = "ftgmac100_mdio";
@@ -286,7 +286,7 @@ index fb5579a..af418cd 100644
  	priv->mii_bus->priv = netdev;
  	priv->mii_bus->read = ftgmac100_mdiobus_read;
 diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 7b25e9c..6e82c2d 100644
+index e92ef1b..2551181 100644
 --- a/drivers/net/ethernet/freescale/fec.c
 +++ b/drivers/net/ethernet/freescale/fec.c
 @@ -961,8 +961,8 @@ static int fec_enet_mii_probe(struct net_device *ndev)
@@ -313,12 +313,12 @@ index 7b25e9c..6e82c2d 100644
  		printk(KERN_INFO
  			"%s: no PHY, assuming direct connection to switch\n",
  			ndev->name);
--		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE);
-+		mdio_bus_id = kstrdup("0", GFP_KERNEL);
+-		strncpy(mdio_bus_id, "fixed-0", MII_BUS_ID_SIZE);
++		mdio_bus_id = kstrdup("fixed-0", GFP_KERNEL);
  		phy_id = 0;
  	}
  
--	snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
+-	snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_bus_id, phy_id);
 +	phy_name= kasprintf(GFP_KERNEL, PHY_ID_FMT, mdio_bus_id, phy_id);
  	phy_dev = phy_connect(ndev, phy_name, &fec_enet_adjust_link, 0,
  			      fep->phy_interface);
@@ -433,10 +433,10 @@ index 85e2c6c..742e7dd 100644
  	priv->mii_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
  	if (!priv->mii_bus->irq) {
 diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 9c049d2..e18707f 100644
+index 9edecfa..496b24c 100644
 --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
 +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2613,7 +2613,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+@@ -2627,7 +2627,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
  		msp->smi_bus->name = "mv643xx_eth smi";
  		msp->smi_bus->read = smi_bus_read;
  		msp->smi_bus->write = smi_bus_write,
@@ -458,6 +458,33 @@ index 953ba58..bf19af7 100644
  		pdev->name, pdev->id);
  	pep->smi_bus->parent = &pdev->dev;
  	pep->smi_bus->phy_mask = 0xffffffff;
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index cd827ff..54380df 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -670,7 +670,7 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ {
+ 	struct octeon_mgmt *p = netdev_priv(netdev);
+-	char phy_id[MII_BUS_ID_SIZE + 3];
++	const char *phy_id;
+ 
+ 	if (octeon_is_simulation()) {
+ 		/* No PHYs in the simulator. */
+@@ -678,11 +678,11 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ 		return 0;
+ 	}
+ 
+-	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "mdio-octeon-0", p->port);
++	phy_id = kasprintf(GFP_KERNEL, PHY_ID_FMT, "mdio-octeon-0", p->port);
+ 
+ 	p->phydev = phy_connect(netdev, phy_id, octeon_mgmt_adjust_link, 0,
+ 				PHY_INTERFACE_MODE_MII);
+-
++	kfree(phy_id);
+ 	if (IS_ERR(p->phydev)) {
+ 		p->phydev = NULL;
+ 		return -1;
 diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
 index cb0eca8..9d890b2 100644
 --- a/drivers/net/ethernet/rdc/r6040.c
@@ -474,10 +501,10 @@ index cb0eca8..9d890b2 100644
  	if (!lp->mii_bus->irq) {
  		dev_err(&pdev->dev, "mii_bus irq allocation failed\n");
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 813d41c..3210fd9 100644
+index 87b6501..a81a33b 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1213,10 +1213,10 @@ static void sh_eth_adjust_link(struct net_device *ndev)
+@@ -1215,10 +1215,10 @@ static void sh_eth_adjust_link(struct net_device *ndev)
  static int sh_eth_phy_init(struct net_device *ndev)
  {
  	struct sh_eth_private *mdp = netdev_priv(ndev);
@@ -490,7 +517,7 @@ index 813d41c..3210fd9 100644
  		mdp->mii_bus->id , mdp->phy_id);
  
  	mdp->link = PHY_DOWN;
-@@ -1226,6 +1226,7 @@ static int sh_eth_phy_init(struct net_device *ndev)
+@@ -1228,6 +1228,7 @@ static int sh_eth_phy_init(struct net_device *ndev)
  	/* Try connect to PHY */
  	phydev = phy_connect(ndev, phy_id, sh_eth_adjust_link,
  				0, mdp->phy_interface);
@@ -498,7 +525,7 @@ index 813d41c..3210fd9 100644
  	if (IS_ERR(phydev)) {
  		dev_err(&ndev->dev, "phy_connect failed\n");
  		return PTR_ERR(phydev);
-@@ -1702,7 +1703,7 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+@@ -1704,7 +1705,7 @@ static int sh_mdio_init(struct net_device *ndev, int id,
  	/* Hook up MII support for ethtool */
  	mdp->mii_bus->name = "sh_mii";
  	mdp->mii_bus->parent = &ndev->dev;
@@ -549,7 +576,7 @@ index a9efbdf..bffd175 100644
  	pd->mii_bus->priv = pd;
  	pd->mii_bus->read = smsc9420_mii_read;
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 96fa2da..c72a50e 100644
+index 6ee593a..150b130 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 @@ -300,19 +300,21 @@ static int stmmac_init_phy(struct net_device *dev)
@@ -579,7 +606,7 @@ index 96fa2da..c72a50e 100644
  	if (IS_ERR(phydev)) {
  		pr_err("%s: Could not attach to PHY\n", dev->name);
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index da4a104..6a72265 100644
+index 7319532..269ff54 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
 @@ -158,8 +158,8 @@ int stmmac_mdio_register(struct net_device *ndev)
@@ -594,7 +621,7 @@ index da4a104..6a72265 100644
  	new_bus->irq = irqlist;
  	new_bus->phy_mask = mdio_bus_data->phy_mask;
 diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
-index 4d9a28f..b448cca 100644
+index cbc8df7..64cde9f 100644
 --- a/drivers/net/ethernet/ti/cpmac.c
 +++ b/drivers/net/ethernet/ti/cpmac.c
 @@ -205,7 +205,7 @@ struct cpmac_priv {
@@ -619,8 +646,8 @@ index 4d9a28f..b448cca 100644
  	pdata = pdev->dev.platform_data;
  
  	if (external_switch || dumb_switch) {
--		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
-+		mdio_bus_id = kstrdup("0", GFP_KERNEL); /* fixed phys bus */
+-		strncpy(mdio_bus_id, "fixed-0", MII_BUS_ID_SIZE); /* fixed phys bus */
++		mdio_bus_id = kstrdup("fixed-0", GFP_KERNEL); /* fixed phys bus */
  		phy_id = pdev->id;
  	} else {
  		for (phy_id = 0; phy_id < PHY_MAX_ADDR; phy_id++) {
@@ -637,8 +664,8 @@ index 4d9a28f..b448cca 100644
  	if (phy_id == PHY_MAX_ADDR) {
  		dev_err(&pdev->dev, "no PHY present, falling back "
  					"to switch on MDIO bus 0\n");
--		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
-+		mdio_bus_id = kstrdup("0", GFP_KERNEL); /* fixed phys bus */
+-		strncpy(mdio_bus_id, "fixed-0", MII_BUS_ID_SIZE); /* fixed phys bus */
++		mdio_bus_id = kstrdup("fixed-0", GFP_KERNEL); /* fixed phys bus */
  		phy_id = pdev->id;
  	}
  
@@ -663,7 +690,7 @@ index 4d9a28f..b448cca 100644
  	res = mdiobus_register(cpmac_mii);
  	if (res)
 diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index ef7c9c1..67ddf87 100644
+index af8b8fc..2b99461 100644
 --- a/drivers/net/ethernet/ti/davinci_mdio.c
 +++ b/drivers/net/ethernet/ti/davinci_mdio.c
 @@ -313,8 +313,8 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
@@ -717,7 +744,7 @@ index 79013e5..c476861 100644
  	bus->priv = lp;
  	bus->name = "Xilinx Emaclite MDIO";
 diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-index 72a854f..3794959 100644
+index 41a8b5a..d44a3ae 100644
 --- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
 +++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
 @@ -529,7 +529,7 @@ static int ixp4xx_mdio_register(void)
@@ -738,12 +765,14 @@ index 72a854f..3794959 100644
  	int err;
  
  	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
-@@ -1416,9 +1416,10 @@ static int __devinit eth_init_one(struct platform_device *pdev)
+@@ -1416,10 +1416,11 @@ static int __devinit eth_init_one(struct platform_device *pdev)
  	__raw_writel(DEFAULT_CORE_CNTRL, &port->regs->core_control);
  	udelay(50);
  
--	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, "0", plat->phy);
-+	phy_id = kasprintf(GFP_KERNEL, PHY_ID_FMT, "0", plat->phy);
+-	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
+-		mdio_bus->id, plat->phy);
++	phy_id = kasprintf(GFP_KERNEL, PHY_ID_FMT,
++			mdio_bus->id, plat->phy);
  	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link, 0,
  				   PHY_INTERFACE_MODE_MII);
 +	kfree(phy_id);
@@ -803,7 +832,7 @@ index f320f46..6879e86 100644
  	fixup->phy_uid_mask = phy_uid_mask;
  	fixup->run = run;
 diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 980c079..4150655 100644
+index 483c0ad..b4d7d29 100644
 --- a/drivers/of/of_mdio.c
 +++ b/drivers/of/of_mdio.c
 @@ -166,7 +166,7 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
@@ -819,8 +848,8 @@ index 980c079..4150655 100644
  	if (!phy_id || sz < sizeof(*phy_id))
  		return NULL;
  
--	sprintf(bus_id, PHY_ID_FMT, "0", be32_to_cpu(phy_id[0]));
-+	bus_id = kasprintf(GFP_KERNEL, PHY_ID_FMT, "0", be32_to_cpu(phy_id[0]));
+-	sprintf(bus_id, PHY_ID_FMT, "fixed-0", be32_to_cpu(phy_id[0]));
++	bus_id = kasprintf(GFP_KERNEL, PHY_ID_FMT, "fixed-0", be32_to_cpu(phy_id[0]));
  
  	phy = phy_connect(dev, bus_id, hndlr, 0, iface);
 +	kfree(bus_id);
