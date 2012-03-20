@@ -1,58 +1,50 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH wireless-next 2/3] ath5k: Introduce
- _ath5k_printk to reduce code/text
-Date: Mon, 19 Mar 2012 20:48:01 -0700
-Message-ID: <1332215281.7847.54.camel@joe2Laptop>
-References: <cover.1332116921.git.joe@perches.com>
-	<b157e2d1a746733d1814b9726f326d52d36da2fc.1332116921.git.joe@perches.com>
-	<CAJ-Vmo=ceSV38vQGfs8cKJScWjYF4kbQdK3+JJvQLCmnURaEwA@mail.gmail.com>
-	<1332134336.23125.60.camel@joe2Laptop>
-	<CAJ-Vmom4n7Sk5P=HMb+Z-FNyfyk87Xbf5Q1kPA4i2eXwQ72kXQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5 0/2] Adding new TI Common Platform ethernet SWitch
+ driver
+Date: Mon, 19 Mar 2012 21:06:36 -0700
+Message-ID: <1332216396.22737.29.camel@edumazet-glaptop>
+References: <1332137874-3247-1-git-send-email-mugunthanvnm@ti.com>
+	 <20120319.180659.2108026289616852615.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-In-Reply-To: <CAJ-Vmom4n7Sk5P=HMb+Z-FNyfyk87Xbf5Q1kPA4i2eXwQ72kXQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:52829 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695Ab2CTEGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 00:06:40 -0400
+Received: by dajr28 with SMTP id r28so10841261daj.19
+        for <netdev@vger.kernel.org>; Mon, 19 Mar 2012 21:06:39 -0700 (PDT)
+In-Reply-To: <20120319.180659.2108026289616852615.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-19 at 20:39 -0700, Adrian Chadd wrote:
-> On 18 March 2012 22:18, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> >> Otherwise compiling in debugging will cause a _lot_ of spurious
-> >> register reads to occur that are then tossed. This was one of the big
-> >> reasons for instability and slow performance when AH_DEBUG was
-> >> enabled.
-> > That doesn't make any sense in this case.
-> >
-> > It's either a call to printk or _ath5_printk
-> > but it's still a call to a function.
+On Mon, 2012-03-19 at 18:06 -0400, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Mon, 19 Mar 2012 11:47:52 +0530
 > 
-> The FreeBSD HAL used to be like this. I changed it so it didn't
-> evaluate the arguments before it figured out whether or not to do the
-> (k)printf().
+> > The following series contains driver implementation for TI Common Platform
+> > ethernet SWitch (CPSW) driver.
+> > 
+> > CPSW is found in following SoC.
+> > * AM335X - http://www.ti.com/litv/pdf/spruh73c
+> > * DM814X - http://www.ti.com/litv/pdf/sprugz8
+> > 
+> > CPSW:
+> > The three port switch gigabit ethernet subsystem provides ethernet packet
+> > communication and can be configured as an ethernet switch.  It
+> > supports 10/100/1000 Mbps. It provides the gigabit media independent
+> > interface (G/MII), reduced gigabit media independent interface (RGMII),
+> > reduced media independent interface (RMII), the management data input
+> > output (MDIO) for physical layer device (PHY) management.
 > 
-> I'm just pointing it out as you're (currently) knee deep in the
-> debugging code and it may be useful for you to also think about
-> implementing.
+> All applied.
 
-I see, thanks for the heads-up.
+It appears this driver doesnt have a ndo_change_mtu method, so I suspect
+some bad things could happen.
 
-The no_printk function could/does eval args
-and can cause those sorts of issues.
+I wonder if we should WARN is netdev_ops->ndo_change_mtu is NULL
 
-So care does need to be used.
-
-cheers, Joe
+For an ethernet driver, using eth_change_mtu seems the right thing.
