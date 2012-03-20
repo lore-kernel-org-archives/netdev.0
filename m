@@ -1,52 +1,126 @@
-From: Andrei Emeltchenko <Andrei.Emeltchenko.news@gmail.com>
-Subject: [PATCH] e1000: Silence sparse warnings by correcting type
-Date: Tue, 20 Mar 2012 10:59:11 +0200
-Message-ID: <1332233951-31129-1-git-send-email-Andrei.Emeltchenko.news@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:12194 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965000Ab2CTI7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2012 04:59:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+ AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+Date: Tue, 20 Mar 2012 15:07:21 +0530
+Message-ID: <CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
+References: <4F576FD5.2050208@gmail.com>
+	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
+	<4F577D9B.7020402@gmail.com>
+	<4F579A88.6030503@openwrt.org>
+	<4F61F551.5010608@gmail.com>
+	<4F639851.5080500@gmail.com>
+	<4F674616.8080103@gmail.com>
+	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
+	<4F674FF5.2060406@gmail.com>
+	<4F6751B2.1030809@openwrt.org>
+	<4F681B78.9000207@gmail.com>
+	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
+	<4F68235C.5090701@gmail.com>
+	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
+	<4F682555.3020502@gmail.com>
+	<20328.16366.166909.255035@gargle.gargle.HOWL>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Justin P. Mattock" <justinmattock@gmail.com>,
+	Linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
+	Linux-netdev <netdev@vger.kernel.org>
+To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20328.16366.166909.255035@gargle.gargle.HOWL>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
+Hi Sujith/Justin,
 
-Silence sparse warnings shown below:
-...
-drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
-	cast to restricted __le64
-drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
-	cast to restricted __le64
-...
+On Tue, Mar 20, 2012 at 1:59 PM, Sujith Manoharan
+<c_manoha@qca.qualcomm.com> wrote:
+> Justin P. Mattock wrote:
+>> yeah this works:
+>>
+>> eading symbols from
+>> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...don=
+e.
+>> (gdb) l *(ath_tx_start+0x284)
+>> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:187=
+8).
+>> 1873 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ieee80211_is_data_qos(hdr->f=
+rame_control)) {
+>> 1874 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tidno =3D ieee80211_get_qos_=
+ctl(hdr)[0] &
+>> 1875 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0IEEE80211_QO=
+S_CTL_TID_MASK;
+>> 1876 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tid =3D ATH_AN_2_TID(txctl->=
+an, tidno);
+>> 1877
+>> 1878 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0WARN_ON(tid->ac->txq !=3D tx=
+ctl->txq);
+>> 1879 =A0 =A0 =A0 =A0 =A0}
+>> 1880
+>> 1881 =A0 =A0 =A0 =A0 =A0if ((tx_info->flags & IEEE80211_TX_CTL_AMPDU=
+) && tid) {
+>> 1882 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
+>> (gdb)
+>
+> Can you try this patch ?
 
-Signed-off-by: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+just found out that 'ht_supported' may not  be set, if assoc response
+does not has ht_cap IE (or) if we could not parse it (why), then the
+driver won't initialize those tid related structures ath_tx_node_init,
+while we later access them in ath_tx_start. so this should fix the
+issue.
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 6419a88..1bf73cf 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3377,7 +3377,7 @@ static void e1000_dump(struct e1000_adapter *adapter)
- 	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
- 		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
- 		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
--		struct my_u { u64 a; u64 b; };
-+		struct my_u { __le64 a; __le64 b; };
- 		struct my_u *u = (struct my_u *)tx_desc;
- 		const char *type;
- 
-@@ -3421,7 +3421,7 @@ rx_ring_summary:
- 	for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
- 		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rx_ring, i);
- 		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
--		struct my_u { u64 a; u64 b; };
-+		struct my_u { __le64 a; __le64 b; };
- 		struct my_u *u = (struct my_u *)rx_desc;
- 		const char *type;
- 
--- 
-1.7.9.1
+>
+> From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+> Date: Tue, 20 Mar 2012 13:51:26 +0530
+> Subject: [PATCH] ath9k: Use HW HT capabilites properly
+>
+> The commit "ath9k: Remove aggregation flags" changed how
+> nodes were being initialized. Use the HW HT cap bits
+> to initialize/de-initialize nodes, else we would be
+> accessing an uninitialized entry during a suspend/resume cycle,
+> resulting in a panic.
+>
+> Reported-by: Justin P. Mattock <justinmattock@gmail.com>
+> Signed-off-by: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+> ---
+> =A0drivers/net/wireless/ath/ath9k/main.c | =A0 =A04 ++--
+> =A01 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wire=
+less/ath/ath9k/main.c
+> index 3879485..215eb25 100644
+> --- a/drivers/net/wireless/ath/ath9k/main.c
+> +++ b/drivers/net/wireless/ath/ath9k/main.c
+> @@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc,=
+ struct ieee80211_sta *sta,
+> =A0 =A0 =A0 =A0an->sta =3D sta;
+> =A0 =A0 =A0 =A0an->vif =3D vif;
+>
+> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported) {
+> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_init(sc, an);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0an->maxampdu =3D 1 << (IEEE80211_HT_MA=
+X_AMPDU_FACTOR +
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ sta->ht_cap.ampdu_factor);
+> @@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc,=
+ struct ieee80211_sta *sta)
+> =A0 =A0 =A0 =A0an->sta =3D NULL;
+> =A0#endif
+>
+> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported)
+> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_cleanup(sc, an);
+> =A0}
+>
+> --
+> 1.7.9.4
+>
+
+
+
+--=20
+thanks,
+shafi
