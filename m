@@ -1,85 +1,144 @@
-From: Dong Aisheng <dongas86@gmail.com>
-Subject: Re: [PATCH 1/1] net: phylib: remove the length limitation of mii bus id
-Date: Tue, 20 Mar 2012 03:53:19 -0700
-Message-ID: <CAA+hA=Ttc9RDmK1fDPCtqLpf91DYDDFSf3E6zWQ6seyw7sNqTg@mail.gmail.com>
-References: <1332217386-3586-1-git-send-email-b29396@freescale.com>
-	<CAAQ0ZWQEoPORMXsf3xV-KPP+hOHk2euj460fORyUALnfPn3Q8g@mail.gmail.com>
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+ AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+Date: Tue, 20 Mar 2012 16:45:56 +0530
+Message-ID: <CAD2nsn10svpDFkpbkCtFMGFdqW9G0syWrhL3s-ApQH2bKt0P2g@mail.gmail.com>
+References: <4F576FD5.2050208@gmail.com>
+	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
+	<4F577D9B.7020402@gmail.com>
+	<4F579A88.6030503@openwrt.org>
+	<4F61F551.5010608@gmail.com>
+	<4F639851.5080500@gmail.com>
+	<4F674616.8080103@gmail.com>
+	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
+	<4F674FF5.2060406@gmail.com>
+	<4F6751B2.1030809@openwrt.org>
+	<4F681B78.9000207@gmail.com>
+	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
+	<4F68235C.5090701@gmail.com>
+	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
+	<4F682555.3020502@gmail.com>
+	<20328.16366.166909.255035@gargle.gargle.HOWL>
+	<CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dong Aisheng <b29396@freescale.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@linaro.org>
+Cc: "Justin P. Mattock" <justinmattock@gmail.com>,
+	Linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
+	Linux-netdev <netdev@vger.kernel.org>
+To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAQ0ZWQEoPORMXsf3xV-KPP+hOHk2euj460fORyUALnfPn3Q8g@mail.gmail.com>
+In-Reply-To: <CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2012 at 1:32 AM, Shawn Guo <shawn.guo@linaro.org> wrote=
-:
-> On 20 March 2012 12:23, Dong Aisheng <b29396@freescale.com> wrote:
->> From: Dong Aisheng <dong.aisheng@linaro.org>
->>
->> When convert to dt, the length of old mii bus id (17 bytes) is not
->> sufficent to use.
->> For example, the bus id could be 800f0000.ethernet-1:00 in DT.
->>
->> This patch removes the bus id length limitation by changing the
->> bus id to a const char pionter and user could dynamically set the
->> bus id via kasprintf function call.
->>
->> Since then no users use MII_BUS_ID_SIZE any more, just remove it.
->>
->> Signed-off-by: Dong Aisheng <dong.aisheng@linaro.org>
->> ---
->> The simplest way may just change MII_BUS_ID_SIZE to a more bigger si=
-ze,
->> but i'm not sure that's gonna be accepted.
+On Tue, Mar 20, 2012 at 3:07 PM, Mohammed Shafi
+<shafi.wireless@gmail.com> wrote:
+> Hi Sujith/Justin,
 >
-> The simplest fix has been applied on -next tree as below.
+> On Tue, Mar 20, 2012 at 1:59 PM, Sujith Manoharan
+> <c_manoha@qca.qualcomm.com> wrote:
+>> Justin P. Mattock wrote:
+>>> yeah this works:
+>>>
+>>> eading symbols from
+>>> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...do=
+ne.
+>>> (gdb) l *(ath_tx_start+0x284)
+>>> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:18=
+78).
+>>> 1873 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ieee80211_is_data_qos(hdr->=
+frame_control)) {
+>>> 1874 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tidno =3D ieee80211_get_qos=
+_ctl(hdr)[0] &
+>>> 1875 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0IEEE80211_Q=
+OS_CTL_TID_MASK;
+>>> 1876 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tid =3D ATH_AN_2_TID(txctl-=
+>an, tidno);
+>>> 1877
+>>> 1878 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0WARN_ON(tid->ac->txq !=3D t=
+xctl->txq);
+>>> 1879 =A0 =A0 =A0 =A0 =A0}
+>>> 1880
+>>> 1881 =A0 =A0 =A0 =A0 =A0if ((tx_info->flags & IEEE80211_TX_CTL_AMPD=
+U) && tid) {
+>>> 1882 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
+>>> (gdb)
+>>
+>> Can you try this patch ?
 >
-Oh, i missed it, seems my patch covers that change.
-But that patch only fixed wrong phy_name buffer length issue.
-My patch is totally remove the length limitation of bus id and phy_name
-or the bus id name will be truncated if it's longer than MII_BUS_ID_SIZ=
-E
-which is not a comfortable limitation.
+> just found out that 'ht_supported' may not =A0be set, if assoc respon=
+se
+> does not has ht_cap IE (or) if we could not parse it (why), then the
+> driver won't initialize those tid related structures ath_tx_node_init=
+,
+> while we later access them in ath_tx_start. so this should fix the
+> issue.
 
-> commit a7ed07d51c8abdb407be454c6cb6cfad613759d9
-> Author: Richard Zhao <richard.zhao@linaro.org>
-> Date: =A0 Sun Jan 29 22:08:12 2012 +0000
+now i was able to quite easily recreate this issue in wireless testing
+even without suspend resume and with the patch the issue seems to get
+fixed.
+i was using 2ghz channel 6 and TKIP (no HT!).
+
+
 >
-> =A0 =A0net: fec: correct phy_name buffer length when init phy_name
+>>
+>> From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+>> Date: Tue, 20 Mar 2012 13:51:26 +0530
+>> Subject: [PATCH] ath9k: Use HW HT capabilites properly
+>>
+>> The commit "ath9k: Remove aggregation flags" changed how
+>> nodes were being initialized. Use the HW HT cap bits
+>> to initialize/de-initialize nodes, else we would be
+>> accessing an uninitialized entry during a suspend/resume cycle,
+>> resulting in a panic.
+>>
+>> Reported-by: Justin P. Mattock <justinmattock@gmail.com>
+>> Signed-off-by: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+>> ---
+>> =A0drivers/net/wireless/ath/ath9k/main.c | =A0 =A04 ++--
+>> =A01 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wir=
+eless/ath/ath9k/main.c
+>> index 3879485..215eb25 100644
+>> --- a/drivers/net/wireless/ath/ath9k/main.c
+>> +++ b/drivers/net/wireless/ath/ath9k/main.c
+>> @@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc=
+, struct ieee80211_sta *sta,
+>> =A0 =A0 =A0 =A0an->sta =3D sta;
+>> =A0 =A0 =A0 =A0an->vif =3D vif;
+>>
+>> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported) {
+>> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_init(sc, an);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0an->maxampdu =3D 1 << (IEEE80211_HT_M=
+AX_AMPDU_FACTOR +
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 sta->ht_cap.ampdu_factor);
+>> @@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc=
+, struct ieee80211_sta *sta)
+>> =A0 =A0 =A0 =A0an->sta =3D NULL;
+>> =A0#endif
+>>
+>> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported)
+>> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_cleanup(sc, an);
+>> =A0}
+>>
+>> --
+>> 1.7.9.4
+>>
 >
-> =A0 =A0Fix the bug that we got wrong phy_name on imx6q sabrelite boar=
-d.
-> =A0 =A0snprintf used wrong length of phy_name.
-> =A0 =A0phy_name length is MII_BUS_ID_SIZE + 3 rather not MII_BUS_ID_S=
-IZE.
-> =A0 =A0I change it to sizeof(phy_name).
 >
-> =A0 =A0Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
-> =A0 =A0Acked-by: Shawn Guo <shawn.guo@linaro.org>
-> =A0 =A0Acked-by: Florian Fainelli <florian@openwrt.org>
-> =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
 >
-> diff --git a/drivers/net/ethernet/freescale/fec.c
-> b/drivers/net/ethernet/freescale/fec.c
-> index 7b25e9c..1c7aad8 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -990,7 +990,7 @@ static int fec_enet_mii_probe(struct net_device *=
-ndev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0phy_id =3D 0;
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bu=
-s_id, phy_id);
-> + =A0 =A0 =A0 snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_b=
-us_id, phy_id);
-> =A0 =A0 =A0 =A0phy_dev =3D phy_connect(ndev, phy_name, &fec_enet_adju=
-st_link, 0,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fep->phy_i=
-nterface);
-> =A0 =A0 =A0 =A0if (IS_ERR(phy_dev)) {
+> --
+> thanks,
+> shafi
+
+
+
+--=20
+thanks,
+shafi
