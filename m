@@ -1,66 +1,50 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: rds_iw_send_ack issue in Fedora14
-Date: Tue, 20 Mar 2012 20:49:13 +0530
-Message-ID: <4F689FF1.3030107@chelsio.com>
+From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+Date: Tue, 20 Mar 2012 20:52:43 +0530
+Message-ID: <20328.41155.468698.30887@gargle.gargle.HOWL>
+References: <4F576FD5.2050208@gmail.com>
+	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
+	<4F577D9B.7020402@gmail.com>
+	<4F579A88.6030503@openwrt.org>
+	<4F61F551.5010608@gmail.com>
+	<4F639851.5080500@gmail.com>
+	<4F674616.8080103@gmail.com>
+	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
+	<4F674FF5.2060406@gmail.com>
+	<4F6751B2.1030809@openwrt.org>
+	<4F681B78.9000207@gmail.com>
+	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
+	<4F68235C.5090701@gmail.com>
+	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
+	<4F682555.3020502@gmail.com>
+	<20328.16366.166909.255035@gargle.gargle.HOWL>
+	<4F6891F1.9010105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Mohammed Shafi <shafi.wireless@gmail.com>,
+	Linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>,
+	<linux-kernel@vger.kernel.org>,
+	Linux-netdev <netdev@vger.kernel.org>
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:15489 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760576Ab2CTPX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 11:23:29 -0400
+In-Reply-To: <4F6891F1.9010105@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Justin P. Mattock wrote:
+> both mohammed and sujith Thank you for the patches for this issue!
+> I really appreciate this..
+> 
+> I went and applied the debug printk and added ath_node_attach as well to 
+> my linux-next clone, will run for a few days to see if I get anything..
+> full dmesg is here..: http://fpaste.org/jHSX/
 
-Hi Venkat,
+Thanks for testing and please report if the issue is fixed.
 
-We are seeing an issue with rds_iw_send_ack function in Fedora14 OS.
-
-The issue is as follows:
-RDS protocol requires to send an acknowledgement back to the sender for
-the data it has received. RDS can send that acknowledgment by two ways:
-1. It can send a piggyback ack while sending data
-2. It can send only ACK packet without any data.
-
-The issue occurs in case 2 above. For sending an ACK only packet RDS
-takes another path and different variables and calls rds_iw_attempt_ack
-function. This function forms RDS header by putting ACK number in it. It
-puts rest of the fields in RDS header as zero. After that it calculates
-checksum of that header and puts that checksum also in the header. After
-this it calls ib_post_send.
-
-Now the problem is in calculating the checksum. What happens is checksum
-gets calculated perfectly fine for the "first time". For the second time
-it calculates the checksum as same as first time even though ACK number
-is different for the second time. Thus it results into checksum
-verification failure on the peer side and connection gets torn down and
-receiver request gets flushed. We see "WC Error:  status = 5 opcode = 0"
-errors in dmesg on the sender side. I suspect here that it is a dma
-mapping or flushing issue.
-
-To be sure that the issue is with rds_iw_send_ack i used the same
-sg_list for forming work request in rds_iw_send_ack what is being used
-by the rds_iw_xmit. After this issue is resolved. So, i think something
-is wrong with the dma mapping in rds_iw_send_ack function.
-
-I only changed the following line in rds_iw_recv_init_ack and it started
-working.
-
--       sge->addr = ic->i_ack_dma;
-+       sge->addr = ic->i_send_hdrs_dma;
-
-Interestingly, the issue occurs only on Fedora14(2.6.35.6-45) OS. The
-issue does not occur with both RHEL6.0(2.6.32-71.el6.x86_64) and
-RHEL6.1(2.6.32-131.el6.x86_64) OS. The RDS module code is similar for
-both the OSes.
-
-Can you please share your thoughts?
-
-Thanks,
-Vipul Pandya
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sujith
