@@ -1,144 +1,87 @@
-From: Mohammed Shafi <shafi.wireless@gmail.com>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
- AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
-Date: Tue, 20 Mar 2012 16:45:56 +0530
-Message-ID: <CAD2nsn10svpDFkpbkCtFMGFdqW9G0syWrhL3s-ApQH2bKt0P2g@mail.gmail.com>
-References: <4F576FD5.2050208@gmail.com>
-	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
-	<4F577D9B.7020402@gmail.com>
-	<4F579A88.6030503@openwrt.org>
-	<4F61F551.5010608@gmail.com>
-	<4F639851.5080500@gmail.com>
-	<4F674616.8080103@gmail.com>
-	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
-	<4F674FF5.2060406@gmail.com>
-	<4F6751B2.1030809@openwrt.org>
-	<4F681B78.9000207@gmail.com>
-	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
-	<4F68235C.5090701@gmail.com>
-	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
-	<4F682555.3020502@gmail.com>
-	<20328.16366.166909.255035@gargle.gargle.HOWL>
-	<CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH 0/8] net/mlx4_en: DCB QoS support
+Date: Tue, 20 Mar 2012 13:29:11 +0200
+Message-ID: <4F686A07.4070401@mellanox.com>
+References: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Justin P. Mattock" <justinmattock@gmail.com>,
-	Linux-wireless <linux-wireless@vger.kernel.org>,
-	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
-	Linux-netdev <netdev@vger.kernel.org>
-To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Roland Dreier <roland@purestorage.com>,
+	Oren Duer <oren@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:45029 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756205Ab2CTL3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 07:29:33 -0400
+In-Reply-To: <1331659323-12904-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 20, 2012 at 3:07 PM, Mohammed Shafi
-<shafi.wireless@gmail.com> wrote:
-> Hi Sujith/Justin,
+On 03/13/2012 07:21 PM, Amir Vadai wrote:
+> DCBX version 802.1qaz is supported.
+> User Priority (UP) is set in QP context instead of in WQE (QP Work Queue
+> Element), which means that all traffic from a queue will have the same UP.
+> UP is also set for untagged traffic to be able to classify such traffic too.
 >
-> On Tue, Mar 20, 2012 at 1:59 PM, Sujith Manoharan
-> <c_manoha@qca.qualcomm.com> wrote:
->> Justin P. Mattock wrote:
->>> yeah this works:
->>>
->>> eading symbols from
->>> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...do=
-ne.
->>> (gdb) l *(ath_tx_start+0x284)
->>> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:18=
-78).
->>> 1873 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ieee80211_is_data_qos(hdr->=
-frame_control)) {
->>> 1874 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tidno =3D ieee80211_get_qos=
-_ctl(hdr)[0] &
->>> 1875 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0IEEE80211_Q=
-OS_CTL_TID_MASK;
->>> 1876 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tid =3D ATH_AN_2_TID(txctl-=
->an, tidno);
->>> 1877
->>> 1878 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0WARN_ON(tid->ac->txq !=3D t=
-xctl->txq);
->>> 1879 =A0 =A0 =A0 =A0 =A0}
->>> 1880
->>> 1881 =A0 =A0 =A0 =A0 =A0if ((tx_info->flags & IEEE80211_TX_CTL_AMPD=
-U) && tid) {
->>> 1882 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
->>> (gdb)
->>
->> Can you try this patch ?
+> Mapping from sk_prio to User Priority is done by sch_mqprio mapping. Although
+> confusingly sch_mqprio maps sk_prio to something called TC, it is not related
+> to DCBX's TC, and is interpreted by mlx4_en driver as UP.
 >
-> just found out that 'ht_supported' may not =A0be set, if assoc respon=
-se
-> does not has ht_cap IE (or) if we could not parse it (why), then the
-> driver won't initialize those tid related structures ath_tx_node_init=
-,
-> while we later access them in ath_tx_start. so this should fix the
-> issue.
-
-now i was able to quite easily recreate this issue in wireless testing
-even without suspend resume and with the patch the issue seems to get
-fixed.
-i was using 2ghz channel 6 and TKIP (no HT!).
-
-
+> The Current HW based QoS mechanism which was introduced in commit 4f57c087de9
+> "net: implement mechanism for HW based QOS" is in orientation to ETS traffic
+> class. Patch 7/8 introduces an approach which allow to use this mechanism also
+> with hardware who has queues per user priority (UP). After the change,
+> __skb_tx_hash() will direct a flow to a tx ring from a range of tx rings. This
+> range is defined by the caller function by the specific HW. If TC based queues,
+> the range is by TC number and for UP based queues, the range is by UP.
 >
->>
->> From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
->> Date: Tue, 20 Mar 2012 13:51:26 +0530
->> Subject: [PATCH] ath9k: Use HW HT capabilites properly
->>
->> The commit "ath9k: Remove aggregation flags" changed how
->> nodes were being initialized. Use the HW HT cap bits
->> to initialize/de-initialize nodes, else we would be
->> accessing an uninitialized entry during a suspend/resume cycle,
->> resulting in a panic.
->>
->> Reported-by: Justin P. Mattock <justinmattock@gmail.com>
->> Signed-off-by: Sujith Manoharan <c_manoha@qca.qualcomm.com>
->> ---
->> =A0drivers/net/wireless/ath/ath9k/main.c | =A0 =A04 ++--
->> =A01 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wir=
-eless/ath/ath9k/main.c
->> index 3879485..215eb25 100644
->> --- a/drivers/net/wireless/ath/ath9k/main.c
->> +++ b/drivers/net/wireless/ath/ath9k/main.c
->> @@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc=
-, struct ieee80211_sta *sta,
->> =A0 =A0 =A0 =A0an->sta =3D sta;
->> =A0 =A0 =A0 =A0an->vif =3D vif;
->>
->> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported) {
->> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_init(sc, an);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0an->maxampdu =3D 1 << (IEEE80211_HT_M=
-AX_AMPDU_FACTOR +
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 sta->ht_cap.ampdu_factor);
->> @@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc=
-, struct ieee80211_sta *sta)
->> =A0 =A0 =A0 =A0an->sta =3D NULL;
->> =A0#endif
->>
->> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported)
->> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_cleanup(sc, an);
->> =A0}
->>
->> --
->> 1.7.9.4
->>
+> Amir Vadai (8):
+>    net/mlx4_en: Force user priority by QP attribute
+>    net/mlx4_core: set port QoS attributes
+>    net/mlx4_en: DCB QoS support
+>    net/mlx4_en: Set max rate-limit for a TC
+>    net/mlx4_en: sk_prio<=>  UP for untagged traffic
+>    IB/rdma_cm: TOS<=>  UP mapping for IBoE
+>    net: support tx_ring per UP in HW based QoS mechanism
+>    net/mlx4_en: num cores tx rings for every UP
 >
+>   drivers/infiniband/core/cma.c                     |   35 ++++-
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |   11 +-
+>   drivers/net/ethernet/mellanox/mlx4/Kconfig        |   12 ++
+>   drivers/net/ethernet/mellanox/mlx4/Makefile       |    1 +
+>   drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  215 +++++++++++++++++++++
+>   drivers/net/ethernet/mellanox/mlx4/en_main.c      |    6 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   64 ++++++-
+>   drivers/net/ethernet/mellanox/mlx4/en_port.h      |    2 +
+>   drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_sysfs.c     |  120 ++++++++++++
+>   drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   20 +-
+>   drivers/net/ethernet/mellanox/mlx4/mlx4.h         |   20 ++
+>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   38 +++-
+>   drivers/net/ethernet/mellanox/mlx4/port.c         |   62 ++++++
+>   include/linux/mlx4/cmd.h                          |    4 +
+>   include/linux/mlx4/device.h                       |    3 +
+>   include/linux/mlx4/qp.h                           |    3 +-
+>   include/linux/netdevice.h                         |   12 +-
+>   include/linux/skbuff.h                            |    3 +-
+>   net/core/dev.c                                    |   10 +-
+>   21 files changed, 615 insertions(+), 36 deletions(-)
+>   create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+>   create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
 >
->
-> --
-> thanks,
-> shafi
 
 
+Hi Dave,
 
---=20
-thanks,
-shafi
+Patches 7-8 who deal with the interaction between the kernel HW QoS 
+constructs to the queue selection logic are still under discussion with 
+John and some changes might be needed there.
+At this point, we ask for patches 1-6 to be pulled in, and continue the 
+discussion from there.
+
+Thanks,
+Amir
