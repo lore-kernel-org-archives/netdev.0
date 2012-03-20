@@ -1,86 +1,53 @@
-From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
- DMADBG_7=0x00008040
-Date: Mon, 19 Mar 2012 22:54:00 -0700
-Message-ID: <4F681B78.9000207@gmail.com>
-References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com> <4F579A88.6030503@openwrt.org> <4F61F551.5010608@gmail.com> <4F639851.5080500@gmail.com> <4F674616.8080103@gmail.com> <CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com> <4F674FF5.2060406@gmail.com> <4F6751B2.1030809@openwrt.org>
+From: Nick Jones <nick.jones@network-box.com>
+Subject: Re: [PATCH net-next v4] ipv6: Allocate unique metrics for icmp6
+ packets to prevent tainting dst metrics
+Date: Tue, 20 Mar 2012 13:48:01 +0800
+Message-ID: <1332222481.25418.540.camel@nbnickhq4>
+References: <4F64B203.40307@network-box.com>
+	 <1332002201.19406.25.camel@edumazet-glaptop>
+	 <4F64CD4B.4070203@network-box.com>
+	 <20120319.180415.1274216814977167410.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Mohammed Shafi <shafi.wireless-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F6751B2.1030809-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from erika.network-box.com ([202.52.42.180]:40792 "EHLO
+	nbmailscanhq1.network-box.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932135Ab2CTFyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 01:54:22 -0400
+In-Reply-To: <20120319.180415.1274216814977167410.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2012 08:33 AM, Felix Fietkau wrote:
-> On 2012-03-19 4:25 PM, Justin P. Mattock wrote:
->> On 03/19/2012 08:20 AM, Mohammed Shafi wrote:
->>> Hi Justin,
->>>
->>>> seems I got this when waking up from suspend, was trying to connect with NM
->>>> then all of a sudden Xorg shut off and this appeared on the screen(image
->>>> links below I could not save dmesg only pic)
->>>> http://flic.kr/p/bEhf2K
->>>> http://flic.kr/p/bEhf2x
->>>> http://flic.kr/p/bEhf2n
->>>> http://flic.kr/p/bEhf26
->>>>
->>>> I see ath9k in the image, but am unsure if its related.
->>>> kernel is: 3.3.0-rc7-next-20120316
->>>
->>> this looks like some new issue  in ath9k, lets try to recreate it here
->>>
->>>>
->>>> Justin P. Mattock
->>>>
->>>>
->>>>
->>>
->>>
->>>
->>
->> would be nice to recreate, then bisecting will be more accurate to do..
->> I am trying userspace tweaks here and there but no luck(hostapd etc..)
->> keep in mind this is for the RX DMA, the above just occured..
->> as for writing a small app I still need to try, but my C skills only go
->> so far(anything to trigger!).
-> Was your kernel compiled with debug info? If so, please run gdb on the
-> ath9k.ko module and enter this:
-> l *ath9k_tx+start+0x284
-> Then send me the output of that.
->
-> - Felix
->
+On Mon, 2012-03-19 at 18:04 -0400, David Miller wrote: 
+> From: Nick Jones <nick.jones@network-box.com>
+> Date: Sun, 18 Mar 2012 01:43:39 +0800
+> 
+> > +		return ERR_CAST(-ENOMEM);
+> 
+> Really, please, stop wasting my time.  There is no way your compiler
+> didn't emit a warning for that garbage.
+> 
 
-I changed the Cc''s so hopefully its correct..
-  anyway I tried the above but might have gotten it wrong..:
+This is really sloppy, I apologise.  I'll work on tightening up my
+workflow for build testing, runtime testing and patch submission before
+I bother you again.
 
-Reading symbols from 
-/home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...done.
-(gdb) list *ath9k_tx+0xa3
-0x4673 is in ath9k_tx (drivers/net/wireless/ath/ath9k/main.c:1136).
-1131		memset(&txctl, 0, sizeof(struct ath_tx_control));
-1132		txctl.txq = sc->tx.txq_map[skb_get_queue_mapping(skb)];
-1133	
-1134		ath_dbg(common, XMIT, "transmitting packet, skb: %p\n", skb);
-1135	
-1136		if (ath_tx_start(hw, skb, &txctl) != 0) {
-1137			ath_dbg(common, XMIT, "TX failed\n");
-1138			goto exit;
-1139		}
-1140	
-(gdb) list *ath9k_tx+start+0x284
-No symbol "start" in current context.
+> Furthermore, callers are only ready to handle NULL vs. non-NULL as
+> return values from this function.  So this return value you are adding
+> will result in crashes.
 
-before receiving the email to do the above code with gdb I had cleaned 
-the tree out with git clean -fx so rebuilding might have misalighned 
-things(but could be wrong)..
+This one I did check.  icmp6_dst_alloc returns error encoded pointers
+and all call sites test the return value with IS_ERR, I simply didn't
+understand the correct formatting macro, nor check the build properly.
+I think you got it mixed up with ip6_dst_alloc
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The 'return NULL' at the bottom of the second fragment was a bug, but
+this again exposes my newness to kernel patch submission workflow: that
+bug was fixed recently and this patch wouldn't have applied, further
+wasting your time... wonderful.
+
+I'll let the merge window close to let things settle down for you before
+bringing this fix up again.
