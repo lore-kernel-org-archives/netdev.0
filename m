@@ -1,48 +1,57 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] Fix pppol2tp getsockname()
-Date: Tue, 20 Mar 2012 14:49:02 +0000
-Message-ID: <4F6898DE.4020508@katalix.com>
-References: <20120320135754.GA30155@kvack.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost-net/virtio: fixes for 3.4
+Date: Tue, 20 Mar 2012 16:50:41 +0200
+Message-ID: <20120320145010.GA31570@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:47448 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760251Ab2CTOtH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2012 10:49:07 -0400
-In-Reply-To: <20120320135754.GA30155@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	levinsasha928@gmail.com, mst@redhat.com, nyh@il.ibm.com,
+	nyh@math.technion.ac.il
+To: David Miller <davem@davemloft.net>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20/03/12 13:57, Benjamin LaHaise wrote:
-> While testing L2TP functionality, I came across a bug in getsockname().  The
-> IP address returned within the pppol2tp_addr's addr memember was not being
-> set to the IP  address in use.  This bug is caused by using inet_sk() on the
-> wrong socket (the L2TP socket rather than the underlying UDP socket), and was
-> likely introduced during the addition of L2TPv3 support.
-> 
-> Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+The following changes since commit 5ffca28a4ac7abb8a254fafe6bd03b2f83667df7:
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/aia21/ntfs (2012-02-27 07:59:33 -0800)
 
-> ---
->  net/l2tp/l2tp_ppp.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-> index 96bc7a6..9b07191 100644
-> --- a/net/l2tp/l2tp_ppp.c
-> +++ b/net/l2tp/l2tp_ppp.c
-> @@ -915,7 +915,7 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
->  		goto end_put_sess;
->  	}
->  
-> -	inet = inet_sk(sk);
-> +	inet = inet_sk(tunnel->sock);
->  	if (tunnel->version == 2) {
->  		struct sockaddr_pppol2tp sp;
->  		len = sizeof(sp);
+are available in the git repository at:
+
+  ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+
+  (ssh url as git.kernel.org seems down at the moment, when it comes up
+   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+   should be the equivalent).
+
+for you to fetch changes up to ea5d404655ba3b356d0c06d6a3c4f24112124522:
+
+  vhost: fix release path lockdep checks (2012-02-28 09:13:22 +0200)
+
+----------------------------------------------------------------
+vhost/virtio: fixes for 3.4
+
+This includes a couple of vhost-net bugfixes,
+and fixes tools/virtio making it useful again.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (4):
+      tools/virtio: add linux/module.h stub
+      tools/virtio: add linux/hrtimer.h stub
+      tools/virtio: stub out strong barriers
+      vhost: fix release path lockdep checks
+
+Nadav Har'El (1):
+      vhost: don't forget to schedule()
+
+ drivers/vhost/net.c         |    2 +-
+ drivers/vhost/vhost.c       |   11 +++++++----
+ drivers/vhost/vhost.h       |    2 +-
+ tools/virtio/linux/virtio.h |    3 +++
+ 4 files changed, 12 insertions(+), 6 deletions(-)
+ create mode 100644 tools/virtio/linux/hrtimer.h
+ create mode 100644 tools/virtio/linux/module.h
