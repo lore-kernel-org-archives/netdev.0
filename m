@@ -1,52 +1,152 @@
-From: Mohammed Shafi <shafi.wireless@gmail.com>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
- AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
-Date: Tue, 20 Mar 2012 11:49:32 +0530
-Message-ID: <CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
-References: <4F576FD5.2050208@gmail.com>
-	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
-	<4F577D9B.7020402@gmail.com>
-	<4F579A88.6030503@openwrt.org>
-	<4F61F551.5010608@gmail.com>
-	<4F639851.5080500@gmail.com>
-	<4F674616.8080103@gmail.com>
-	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
-	<4F674FF5.2060406@gmail.com>
-	<4F6751B2.1030809@openwrt.org>
-	<4F681B78.9000207@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: VLAN regression caused by: e1000: do vlan cleanup
+	(799d531).
+Date: Tue, 20 Mar 2012 07:26:18 +0100
+Message-ID: <20120320062617.GA2136@minipsycho>
+References: <4F5E3DCF.6010307@candelatech.com>
+	<20120313095942.GC2239@minipsycho.brq.redhat.com>
+	<4F5F9582.60501@candelatech.com>
+	<20120319130836.GD2192@minipsycho.brq.redhat.com>
+	<4F67C014.1090500@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux-wireless <linux-wireless@vger.kernel.org>,
-	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
-	Linux-netdev <netdev@vger.kernel.org>
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:47148 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753997Ab2CTGTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 02:19:33 -0400
-In-Reply-To: <4F681B78.9000207@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel list <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <4F67C014.1090500@candelatech.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-> (gdb) list *ath9k_tx+start+0x284
-> No symbol "start" in current context.
+Tue, Mar 20, 2012 at 12:24:04AM CET, greearb@candelatech.com wrote:
+>On 03/19/2012 06:08 AM, Jiri Pirko wrote:
+>>Tue, Mar 13, 2012 at 07:44:18PM CET, greearb@candelatech.com wrote:
+>
+>>>>I have suspition that vlan filter must be on/offed along with vlan
+>>>>accel.
+>>>
+>>>Ok, if I disable rx-vlan-hw-parse on both NICs, traffic starts working.
+>>>
+>>>And, if I re-enable rx-vlan-hw-parse on both NICs, it continues to work.
+>>>
+>>>Maybe the initialization logic needs some fixing?
+>>
+>>Could you please try following patch?
+>
+>That patches fixes the problem for me.  Only lightly tested
+>at this point, but I have verified VLAN traffic works as desired.
 
-hey, pls try l *(ath9k_tx_start+0x284), yesterday i did the same in
-the latest wireless testing tree it pointed to line 1929 of xmit.c
+Thank you. I'm going to do proper post of this.
 
-sc->tx.seq_no +=0x10;
-
-also did few suspend/resume in my machine, nothing interesting happened
+Jirka
 
 >
-> before receiving the email to do the above code with gdb I had cleaned the
-> tree out with git clean -fx so rebuilding might have misalighned things(but
-> could be wrong)..
+>Thanks,
+>Ben
+>
+>>
+>>diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+>>index 6419a88..b06c31c 100644
+>>--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+>>+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+>>@@ -164,6 +164,8 @@ static int e1000_82547_fifo_workaround(struct e1000_adapter *adapter,
+>>  static bool e1000_vlan_used(struct e1000_adapter *adapter);
+>>  static void e1000_vlan_mode(struct net_device *netdev,
+>>  			    netdev_features_t features);
+>>+static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
+>>+				     bool filter_on);
+>>  static int e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid);
+>>  static int e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid);
+>>  static void e1000_restore_vlan(struct e1000_adapter *adapter);
+>>@@ -1214,7 +1216,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+>>  	if (err)
+>>  		goto err_register;
+>>
+>>-	e1000_vlan_mode(netdev, netdev->features);
+>>+	e1000_vlan_filter_on_off(adapter, false);
+>>
+>>  	/* print bus type/speed/width info */
+>>  	e_info(probe, "(PCI%s:%dMHz:%d-bit) %pM\n",
+>>@@ -4772,6 +4774,22 @@ static bool e1000_vlan_used(struct e1000_adapter *adapter)
+>>  	return false;
+>>  }
+>>
+>>+static void __e1000_vlan_mode(struct e1000_adapter *adapter,
+>>+			      netdev_features_t features)
+>>+{
+>>+	struct e1000_hw *hw =&adapter->hw;
+>>+	u32 ctrl;
+>>+
+>>+	ctrl = er32(CTRL);
+>>+	if (features&  NETIF_F_HW_VLAN_RX) {
+>>+		/* enable VLAN tag insert/strip */
+>>+		ctrl |= E1000_CTRL_VME;
+>>+	} else {
+>>+		/* disable VLAN tag insert/strip */
+>>+		ctrl&= ~E1000_CTRL_VME;
+>>+	}
+>>+	ew32(CTRL, ctrl);
+>>+}
+>>  static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
+>>  				     bool filter_on)
+>>  {
+>>@@ -4781,6 +4799,7 @@ static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
+>>  	if (!test_bit(__E1000_DOWN,&adapter->flags))
+>>  		e1000_irq_disable(adapter);
+>>
+>>+	__e1000_vlan_mode(adapter, adapter->netdev->features);
+>>  	if (filter_on) {
+>>  		/* enable VLAN receive filtering */
+>>  		rctl = er32(RCTL);
+>>@@ -4801,24 +4820,14 @@ static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
+>>  }
+>>
+>>  static void e1000_vlan_mode(struct net_device *netdev,
+>>-	netdev_features_t features)
+>>+			    netdev_features_t features)
+>>  {
+>>  	struct e1000_adapter *adapter = netdev_priv(netdev);
+>>-	struct e1000_hw *hw =&adapter->hw;
+>>-	u32 ctrl;
+>>
+>>  	if (!test_bit(__E1000_DOWN,&adapter->flags))
+>>  		e1000_irq_disable(adapter);
+>>
+>>-	ctrl = er32(CTRL);
+>>-	if (features&  NETIF_F_HW_VLAN_RX) {
+>>-		/* enable VLAN tag insert/strip */
+>>-		ctrl |= E1000_CTRL_VME;
+>>-	} else {
+>>-		/* disable VLAN tag insert/strip */
+>>-		ctrl&= ~E1000_CTRL_VME;
+>>-	}
+>>-	ew32(CTRL, ctrl);
+>>+	__e1000_vlan_mode(adapter, features);
+>>
+>>  	if (!test_bit(__E1000_DOWN,&adapter->flags))
+>>  		e1000_irq_enable(adapter);
+>
+>
+>-- 
+>Ben Greear <greearb@candelatech.com>
+>Candela Technologies Inc  http://www.candelatech.com
 >
 
-
-
--- 
-thanks,
-shafi
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
