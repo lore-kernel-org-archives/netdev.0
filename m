@@ -1,126 +1,122 @@
-From: Mohammed Shafi <shafi.wireless@gmail.com>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
- AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
-Date: Tue, 20 Mar 2012 15:07:21 +0530
-Message-ID: <CAD2nsn0JCKd4NnXOLfw4QXHTJdxrfepw9s6yYca=uSHwWXq3-A@mail.gmail.com>
-References: <4F576FD5.2050208@gmail.com>
-	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
-	<4F577D9B.7020402@gmail.com>
-	<4F579A88.6030503@openwrt.org>
-	<4F61F551.5010608@gmail.com>
-	<4F639851.5080500@gmail.com>
-	<4F674616.8080103@gmail.com>
-	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
-	<4F674FF5.2060406@gmail.com>
-	<4F6751B2.1030809@openwrt.org>
-	<4F681B78.9000207@gmail.com>
-	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
-	<4F68235C.5090701@gmail.com>
-	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
-	<4F682555.3020502@gmail.com>
-	<20328.16366.166909.255035@gargle.gargle.HOWL>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x1f2/0x200()
+Date: Tue, 20 Mar 2012 10:37:09 +0100
+Message-ID: <20120320093709.GA5058@electric-eye.fr.zoreil.com>
+References: <20120205134050.7e135bb231b613806a2e0b70@gmail.com> <4F2F0065.9040909@lwfinger.net> <20120205222141.GA26223@electric-eye.fr.zoreil.com> <20120205145913.194746473361e324bda1eb4a@gmail.com> <CAKFRV=NghW3kokuD-VBAzVJf09r-9ePMG+L7qDYfqmuHwWo4mg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Justin P. Mattock" <justinmattock@gmail.com>,
-	Linux-wireless <linux-wireless@vger.kernel.org>,
-	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
-	Linux-netdev <netdev@vger.kernel.org>
-To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Justin Mattock <justinmattock@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20328.16366.166909.255035@gargle.gargle.HOWL>
+Content-Disposition: inline
+In-Reply-To: <CAKFRV=NghW3kokuD-VBAzVJf09r-9ePMG+L7qDYfqmuHwWo4mg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sujith/Justin,
+(Larry removed)
 
-On Tue, Mar 20, 2012 at 1:59 PM, Sujith Manoharan
-<c_manoha@qca.qualcomm.com> wrote:
-> Justin P. Mattock wrote:
->> yeah this works:
->>
->> eading symbols from
->> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...don=
-e.
->> (gdb) l *(ath_tx_start+0x284)
->> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:187=
-8).
->> 1873 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ieee80211_is_data_qos(hdr->f=
-rame_control)) {
->> 1874 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tidno =3D ieee80211_get_qos_=
-ctl(hdr)[0] &
->> 1875 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0IEEE80211_QO=
-S_CTL_TID_MASK;
->> 1876 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tid =3D ATH_AN_2_TID(txctl->=
-an, tidno);
->> 1877
->> 1878 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0WARN_ON(tid->ac->txq !=3D tx=
-ctl->txq);
->> 1879 =A0 =A0 =A0 =A0 =A0}
->> 1880
->> 1881 =A0 =A0 =A0 =A0 =A0if ((tx_info->flags & IEEE80211_TX_CTL_AMPDU=
-) && tid) {
->> 1882 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/*
->> (gdb)
->
-> Can you try this patch ?
+Justin Mattock <justinmattock@gmail.com> :
+[...]
+> seems I see this with the latest linux-next:
 
-just found out that 'ht_supported' may not  be set, if assoc response
-does not has ht_cap IE (or) if we could not parse it (why), then the
-driver won't initialize those tid related structures ath_tx_node_init,
-while we later access them in ath_tx_start. so this should fix the
-issue.
+Thanks for testing.
 
->
-> From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-> Date: Tue, 20 Mar 2012 13:51:26 +0530
-> Subject: [PATCH] ath9k: Use HW HT capabilites properly
->
-> The commit "ath9k: Remove aggregation flags" changed how
-> nodes were being initialized. Use the HW HT cap bits
-> to initialize/de-initialize nodes, else we would be
-> accessing an uninitialized entry during a suspend/resume cycle,
-> resulting in a panic.
->
-> Reported-by: Justin P. Mattock <justinmattock@gmail.com>
-> Signed-off-by: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-> ---
-> =A0drivers/net/wireless/ath/ath9k/main.c | =A0 =A04 ++--
-> =A01 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wire=
-less/ath/ath9k/main.c
-> index 3879485..215eb25 100644
-> --- a/drivers/net/wireless/ath/ath9k/main.c
-> +++ b/drivers/net/wireless/ath/ath9k/main.c
-> @@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc,=
- struct ieee80211_sta *sta,
-> =A0 =A0 =A0 =A0an->sta =3D sta;
-> =A0 =A0 =A0 =A0an->vif =3D vif;
->
-> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported) {
-> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_init(sc, an);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0an->maxampdu =3D 1 << (IEEE80211_HT_MA=
-X_AMPDU_FACTOR +
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- sta->ht_cap.ampdu_factor);
-> @@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc,=
- struct ieee80211_sta *sta)
-> =A0 =A0 =A0 =A0an->sta =3D NULL;
-> =A0#endif
->
-> - =A0 =A0 =A0 if (sta->ht_cap.ht_supported)
-> + =A0 =A0 =A0 if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ath_tx_node_cleanup(sc, an);
-> =A0}
->
-> --
-> 1.7.9.4
->
+[...]
+> [21740.318685] r8169 0000:06:00.0: eth0: link up
+> [21752.292679] r8169 0000:06:00.0: eth0: link up
+> [21764.268569] r8169 0000:06:00.0: eth0: link up
+> [21776.254393] r8169 0000:06:00.0: eth0: link up
+> [21788.235797] r8169 0000:06:00.0: eth0: link up
+> [21800.196524] r8169 0000:06:00.0: eth0: link up
+> [21812.172497] r8169 0000:06:00.0: eth0: link up
 
+This is completely broken. I could understand a few up/down link changes
+until things settles but the driver should not claim periodically that
+the link is up when there is no cable, at least not with a supported chipset.
 
+Can you apply the debug helper below and report a complete dmesg from
+boot with the same test (please remove l-k, netdev is good enough) ?
 
---=20
-thanks,
-shafi
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 61e6ab4..880264a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -61,7 +61,8 @@
+ #endif /* RTL8169_DEBUG */
+ 
+ #define R8169_MSG_DEFAULT \
+-	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN)
++	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN | \
++	 NETIF_MSG_LINK)
+ 
+ #define TX_BUFFS_AVAIL(tp) \
+ 	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx - 1)
+@@ -731,7 +732,7 @@ struct rtl8169_private {
+ 	void (*phy_reset_enable)(struct rtl8169_private *tp);
+ 	void (*hw_start)(struct net_device *);
+ 	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
+-	unsigned int (*link_ok)(void __iomem *);
++	unsigned int (*link_ok)(struct rtl8169_private *);
+ 	int (*do_ioctl)(struct rtl8169_private *tp, struct mii_ioctl_data *data, int cmd);
+ 
+ 	struct {
+@@ -1260,14 +1261,28 @@ static unsigned int rtl8169_xmii_reset_pending(struct rtl8169_private *tp)
+ 	return rtl_readphy(tp, MII_BMCR) & BMCR_RESET;
+ }
+ 
+-static unsigned int rtl8169_tbi_link_ok(void __iomem *ioaddr)
++static unsigned int rtl8169_tbi_link_ok(struct rtl8169_private *tp)
+ {
++	void __iomem *ioaddr = tp->mmio_addr;
++
+ 	return RTL_R32(TBICSR) & TBILinkOk;
+ }
+ 
+-static unsigned int rtl8169_xmii_link_ok(void __iomem *ioaddr)
++static unsigned int rtl8169_xmii_link_ok(struct rtl8169_private *tp)
+ {
+-	return RTL_R8(PHYstatus) & LinkStatus;
++	void __iomem *ioaddr = tp->mmio_addr;
++	struct net_device *dev = tp->dev;
++	u8 status;
++
++	status = RTL_R8(PHYstatus) & LinkStatus;
++	netif_info(tp, link, dev,
++		   "bmcr: %04x bmsr: %04x gbcr: %04x gbsr: %04x\n",
++		   rtl_readphy(tp, MII_BMCR),
++		   rtl_readphy(tp, MII_BMSR),
++		   rtl_readphy(tp, MII_CTRL1000),
++		   rtl_readphy(tp, MII_STAT1000));
++
++	return status;
+ }
+ 
+ static void rtl8169_tbi_reset_enable(struct rtl8169_private *tp)
+@@ -1335,7 +1350,7 @@ static void __rtl8169_check_link_status(struct net_device *dev,
+ 					struct rtl8169_private *tp,
+ 					void __iomem *ioaddr, bool pm)
+ {
+-	if (tp->link_ok(ioaddr)) {
++	if (tp->link_ok(tp)) {
+ 		rtl_link_chg_patch(tp);
+ 		/* This is to cancel a scheduled suspend if there's one. */
+ 		if (pm)
+@@ -3309,7 +3324,6 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ static void rtl_phy_work(struct rtl8169_private *tp)
+ {
+ 	struct timer_list *timer = &tp->timer;
+-	void __iomem *ioaddr = tp->mmio_addr;
+ 	unsigned long timeout = RTL8169_PHY_TIMEOUT;
+ 
+ 	assert(tp->mac_version > RTL_GIGA_MAC_VER_01);
+@@ -3323,7 +3337,7 @@ static void rtl_phy_work(struct rtl8169_private *tp)
+ 		goto out_mod_timer;
+ 	}
+ 
+-	if (tp->link_ok(ioaddr))
++	if (tp->link_ok(tp))
+ 		return;
+ 
+ 	netif_warn(tp, link, tp->dev, "PHY reset until link up\n");
+-- 
+1.7.7.6
