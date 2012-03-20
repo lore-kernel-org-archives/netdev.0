@@ -1,57 +1,47 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: Per TCP session statistics
-Date: Tue, 20 Mar 2012 15:32:27 +0200
-Message-ID: <CAEnQRZBprHhWU442U5Jmq=SPGKaUDD4kPV_M43eKuTakQotctg@mail.gmail.com>
-References: <CAAMvbhFpCO0GCgYY=ckHWDBPLnj9Szs5jbGQuZcuDjNfJSWqvw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: bpf_jit: Simplify code by always using offset8 or
+ offset32.
+Date: Tue, 20 Mar 2012 06:56:17 -0700
+Message-ID: <1332251777.7893.4.camel@edumazet-glaptop>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
+	 <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+	 <1331658828.4449.16.camel@edumazet-glaptop>
+	 <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+	 <1331704535.2456.37.camel@edumazet-laptop>
+	 <3f56b0860272f4ca8925c0a249a30539.squirrel@webmail.greenhost.nl>
+	 <1331712357.2456.58.camel@edumazet-laptop>
+	 <7a1c4974e8fbc3b82ead0bfb18224d5b.squirrel@webmail.greenhost.nl>
+	 <1331992184.2466.45.camel@edumazet-laptop>
+	 <9a0230cb8db556cc9cf5d1f6b2439fb5.squirrel@webmail.greenhost.nl>
+	 <1332075121.3722.34.camel@edumazet-laptop>
+	 <371a1925e68e68f873e30381e0fa60ea.squirrel@webmail.greenhost.nl>
+	 <1332212386.22737.20.camel@edumazet-glaptop>
+	 <cfb04c3fe59e421093f035c035c88b51.squirrel@webmail.greenhost.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: James Courtier-Dutton <james.dutton@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:39626 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759921Ab2CTNc2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 09:32:28 -0400
-Received: by vcqp1 with SMTP id p1so30454vcq.19
-        for <netdev@vger.kernel.org>; Tue, 20 Mar 2012 06:32:27 -0700 (PDT)
-In-Reply-To: <CAAMvbhFpCO0GCgYY=ckHWDBPLnj9Szs5jbGQuZcuDjNfJSWqvw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Indan Zupancic <indan@nul.nu>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <cfb04c3fe59e421093f035c035c88b51.squirrel@webmail.greenhost.nl>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 20, 2012 at 3:26 PM, James Courtier-Dutton
-<james.dutton@gmail.com> wrote:
-> Hi,
->
-> Is there a way to gather stats for each TCP session?
-> The stats I am looking for are periodic sampling of the following met=
-rics:
->
-> Statistics =A0 =A0 =A0 =A0 Def nition
-> Cwin =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Current congestion window
-> Rwin =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Current receive window
-> BytesInFlight =A0 =A0 # of bytes sent but not ACKed
-> BytesInSndBuf =A0 # of bytes written but not ACKed
-> SmoothedRTT =A0 =A0Smoothed RTT computed by TCP
-> BytesWritten =A0 =A0Cumulative # of bytes written by app
-> BytesSent =A0 =A0 =A0 Cumulative # of bytes sent
-> PktsRetrans =A0 =A0 Cumulative # of pkts retransmitted
-> RwinLimitTime =A0 Cumulative time that a connection is limited by rec=
-eive window
-> CwinLimitTime =A0 Cumulative time that a connection is limited by
-> congestion window
->
-> So, for example,
-> 1) I could say that all TCP sessions being listened to by process ID
-> 2002 will get stats written to a file per tcp session per 60 seconds.
-> 2) Gather local statistics for all TCP sessions initiated by process =
-"firefox".
->
-> Does there already exit such a tool for Linux?
+On Tue, 2012-03-20 at 22:33 +1100, Indan Zupancic wrote:
 
-Have a look at ss ([1]).
+> And if the dev, len or data_len fields are really moved past the first
+> 127 bytes the JIT code can be changed too. The JIT code already depends
+> on some of struct sk_buff's field properties anyway.
 
-thanks,
-Daniel.
+Its seems you didnt understand, but I said NO to your patch.
 
-[1] http://linux.die.net/man/8/ss
+This time I am really tired.
