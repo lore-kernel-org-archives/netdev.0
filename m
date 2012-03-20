@@ -1,53 +1,52 @@
-From: Nick Jones <nick.jones@network-box.com>
-Subject: Re: [PATCH net-next v4] ipv6: Allocate unique metrics for icmp6
- packets to prevent tainting dst metrics
-Date: Tue, 20 Mar 2012 13:48:01 +0800
-Message-ID: <1332222481.25418.540.camel@nbnickhq4>
-References: <4F64B203.40307@network-box.com>
-	 <1332002201.19406.25.camel@edumazet-glaptop>
-	 <4F64CD4B.4070203@network-box.com>
-	 <20120319.180415.1274216814977167410.davem@davemloft.net>
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024
+ AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
+Date: Tue, 20 Mar 2012 11:49:32 +0530
+Message-ID: <CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
+References: <4F576FD5.2050208@gmail.com>
+	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
+	<4F577D9B.7020402@gmail.com>
+	<4F579A88.6030503@openwrt.org>
+	<4F61F551.5010608@gmail.com>
+	<4F639851.5080500@gmail.com>
+	<4F674616.8080103@gmail.com>
+	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
+	<4F674FF5.2060406@gmail.com>
+	<4F6751B2.1030809@openwrt.org>
+	<4F681B78.9000207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
+	Linux-netdev <netdev@vger.kernel.org>
+To: "Justin P. Mattock" <justinmattock@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from erika.network-box.com ([202.52.42.180]:40792 "EHLO
-	nbmailscanhq1.network-box.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932135Ab2CTFyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 01:54:22 -0400
-In-Reply-To: <20120319.180415.1274216814977167410.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:47148 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753997Ab2CTGTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 02:19:33 -0400
+In-Reply-To: <4F681B78.9000207@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-19 at 18:04 -0400, David Miller wrote: 
-> From: Nick Jones <nick.jones@network-box.com>
-> Date: Sun, 18 Mar 2012 01:43:39 +0800
-> 
-> > +		return ERR_CAST(-ENOMEM);
-> 
-> Really, please, stop wasting my time.  There is no way your compiler
-> didn't emit a warning for that garbage.
-> 
+> (gdb) list *ath9k_tx+start+0x284
+> No symbol "start" in current context.
 
-This is really sloppy, I apologise.  I'll work on tightening up my
-workflow for build testing, runtime testing and patch submission before
-I bother you again.
+hey, pls try l *(ath9k_tx_start+0x284), yesterday i did the same in
+the latest wireless testing tree it pointed to line 1929 of xmit.c
 
-> Furthermore, callers are only ready to handle NULL vs. non-NULL as
-> return values from this function.  So this return value you are adding
-> will result in crashes.
+sc->tx.seq_no +=0x10;
 
-This one I did check.  icmp6_dst_alloc returns error encoded pointers
-and all call sites test the return value with IS_ERR, I simply didn't
-understand the correct formatting macro, nor check the build properly.
-I think you got it mixed up with ip6_dst_alloc
+also did few suspend/resume in my machine, nothing interesting happened
 
-The 'return NULL' at the bottom of the second fragment was a bug, but
-this again exposes my newness to kernel patch submission workflow: that
-bug was fixed recently and this patch wouldn't have applied, further
-wasting your time... wonderful.
+>
+> before receiving the email to do the above code with gdb I had cleaned the
+> tree out with git clean -fx so rebuilding might have misalighned things(but
+> could be wrong)..
+>
 
-I'll let the merge window close to let things settle down for you before
-bringing this fix up again.
+
+
+-- 
+thanks,
+shafi
