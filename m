@@ -1,57 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost-net/virtio: fixes for 3.4
-Date: Tue, 20 Mar 2012 16:50:41 +0200
-Message-ID: <20120320145010.GA31570@redhat.com>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: Re: Improve rds_sendmsg printk
+Date: Tue, 20 Mar 2012 09:50:47 -0500
+Message-ID: <4F689947.30405@oracle.com>
+References: <20120319224008.GA23036@redhat.com> <20120319.184335.1229962428916453634.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	levinsasha928@gmail.com, mst@redhat.com, nyh@il.ibm.com,
-	nyh@math.technion.ac.il
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:31265 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760489Ab2CTOuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 10:50:55 -0400
+In-Reply-To: <20120319.184335.1229962428916453634.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 5ffca28a4ac7abb8a254fafe6bd03b2f83667df7:
+On 3/19/2012 5:43 PM, David Miller wrote:
+> From: Dave Jones<davej@redhat.com>
+> Date: Mon, 19 Mar 2012 18:40:09 -0400
+>
+>> - Given this can be called by any user, prevent them from flooding
+>>    the logs by using printk_ratelimited
+>> - Also add a rds: prefix, so it's clear where the message is coming from.
+>>
+>> Signed-off-by: Dave Jones<davej@redhat.com>
+> I think it should be removed entirely, no socket layer outputs
+> a message for this error and neither should rds.
+Agree, the message could be removed entirely.
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/aia21/ntfs (2012-02-27 07:59:33 -0800)
-
-are available in the git repository at:
-
-  ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
-
-  (ssh url as git.kernel.org seems down at the moment, when it comes up
-   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
-   should be the equivalent).
-
-for you to fetch changes up to ea5d404655ba3b356d0c06d6a3c4f24112124522:
-
-  vhost: fix release path lockdep checks (2012-02-28 09:13:22 +0200)
-
-----------------------------------------------------------------
-vhost/virtio: fixes for 3.4
-
-This includes a couple of vhost-net bugfixes,
-and fixes tools/virtio making it useful again.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Michael S. Tsirkin (4):
-      tools/virtio: add linux/module.h stub
-      tools/virtio: add linux/hrtimer.h stub
-      tools/virtio: stub out strong barriers
-      vhost: fix release path lockdep checks
-
-Nadav Har'El (1):
-      vhost: don't forget to schedule()
-
- drivers/vhost/net.c         |    2 +-
- drivers/vhost/vhost.c       |   11 +++++++----
- drivers/vhost/vhost.h       |    2 +-
- tools/virtio/linux/virtio.h |    3 +++
- 4 files changed, 12 insertions(+), 6 deletions(-)
- create mode 100644 tools/virtio/linux/hrtimer.h
- create mode 100644 tools/virtio/linux/module.h
+Venkat
