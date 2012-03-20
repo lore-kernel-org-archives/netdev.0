@@ -1,65 +1,60 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH 1/1] net: phylib: remove the length limitation of mii bus id
-Date: Tue, 20 Mar 2012 16:32:12 +0800
-Message-ID: <CAAQ0ZWQEoPORMXsf3xV-KPP+hOHk2euj460fORyUALnfPn3Q8g@mail.gmail.com>
-References: <1332217386-3586-1-git-send-email-b29396@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332217386-3586-1-git-send-email-b29396@freescale.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH v3] ipv6: fix incorrent ipv6 ipsec packet fragment
+Date: Tue, 20 Mar 2012 16:36:10 +0800
+Message-ID: <1332232570-17424-1-git-send-email-gaofeng@cn.fujitsu.com>
+References: <20120320075846.GF29891@secunet.com>
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:15850 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756835Ab2CTIfp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2012 04:35:45 -0400
+In-Reply-To: <20120320075846.GF29891@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20 March 2012 12:23, Dong Aisheng <b29396@freescale.com> wrote:
-> From: Dong Aisheng <dong.aisheng@linaro.org>
->
-> When convert to dt, the length of old mii bus id (17 bytes) is not
-> sufficent to use.
-> For example, the bus id could be 800f0000.ethernet-1:00 in DT.
->
-> This patch removes the bus id length limitation by changing the
-> bus id to a const char pionter and user could dynamically set the
-> bus id via kasprintf function call.
->
-> Since then no users use MII_BUS_ID_SIZE any more, just remove it.
->
-> Signed-off-by: Dong Aisheng <dong.aisheng@linaro.org>
-> ---
-> The simplest way may just change MII_BUS_ID_SIZE to a more bigger size,
-> but i'm not sure that's gonna be accepted.
+Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem)
+In func ip6_append_data,after call skb_put(skb, fraglen + dst_exthdrlen)
+the skb->len contains dst_exthdrlen,and we don't reduce dst_exthdrlen at last
+This will make fraggap>0 in next "while cycle",and cause the size of skb incorrent
 
-The simplest fix has been applied on -next tree as below.
+Fix this by reserve headroom for dst_exthdrlen.
 
-commit a7ed07d51c8abdb407be454c6cb6cfad613759d9
-Author: Richard Zhao <richard.zhao@linaro.org>
-Date:   Sun Jan 29 22:08:12 2012 +0000
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/ipv6/ip6_output.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-    net: fec: correct phy_name buffer length when init phy_name
-
-    Fix the bug that we got wrong phy_name on imx6q sabrelite board.
-    snprintf used wrong length of phy_name.
-    phy_name length is MII_BUS_ID_SIZE + 3 rather not MII_BUS_ID_SIZE.
-    I change it to sizeof(phy_name).
-
-    Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
-    Acked-by: Shawn Guo <shawn.guo@linaro.org>
-    Acked-by: Florian Fainelli <florian@openwrt.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/ethernet/freescale/fec.c
-b/drivers/net/ethernet/freescale/fec.c
-index 7b25e9c..1c7aad8 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -990,7 +990,7 @@ static int fec_enet_mii_probe(struct net_device *ndev)
-                phy_id = 0;
-        }
-
--       snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
-+       snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_bus_id, phy_id);
-        phy_dev = phy_connect(ndev, phy_name, &fec_enet_adjust_link, 0,
-                              fep->phy_interface);
-        if (IS_ERR(phy_dev)) {
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d97e071..ea58e27a 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1416,8 +1416,9 @@ alloc_new_skb:
+ 			 */
+ 			skb->ip_summed = csummode;
+ 			skb->csum = 0;
+-			/* reserve for fragmentation */
+-			skb_reserve(skb, hh_len+sizeof(struct frag_hdr));
++			/* reserve for fragmentation and ipsec header */
++			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
++				    dst_exthdrlen);
+ 
+ 			if (sk->sk_type == SOCK_DGRAM)
+ 				skb_shinfo(skb)->tx_flags = tx_flags;
+@@ -1425,9 +1426,9 @@ alloc_new_skb:
+ 			/*
+ 			 *	Find where to start putting bytes
+ 			 */
+-			data = skb_put(skb, fraglen + dst_exthdrlen);
+-			skb_set_network_header(skb, exthdrlen + dst_exthdrlen);
+-			data += fragheaderlen + dst_exthdrlen;
++			data = skb_put(skb, fraglen);
++			skb_set_network_header(skb, exthdrlen);
++			data += fragheaderlen;
+ 			skb->transport_header = (skb->network_header +
+ 						 fragheaderlen);
+ 			if (fraggap) {
+-- 
+1.7.7.6
