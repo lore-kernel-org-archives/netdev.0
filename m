@@ -1,64 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: netlink: 12 bytes leftover after parsing attributes - triggered
- by iproute2 libnetlink's rtnl_dump_request()
-Date: Tue, 20 Mar 2012 08:09:17 -0700
-Message-ID: <20120320080917.77765344@nehalam.linuxnetplumber.net>
-References: <20120320134107.6acea83c@pluto.restena.lu>
-	<20120320074140.39a1b3f0@nehalam.linuxnetplumber.net>
-	<20120320160023.621e948a@pluto.restena.lu>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: rds_iw_send_ack issue in Fedora14
+Date: Tue, 20 Mar 2012 20:49:13 +0530
+Message-ID: <4F689FF1.3030107@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>
-To: Bruno =?ISO-8859-1?B?UHLpbW9udA==?= <bonbons@linux-vserver.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38531 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756702Ab2CTPJX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 11:09:23 -0400
-In-Reply-To: <20120320160023.621e948a@pluto.restena.lu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Mar 2012 16:00:23 +0100
-Bruno Pr=E9mont <bonbons@linux-vserver.org> wrote:
 
-> On Tue, 20 Mar 2012 07:41:40 Stephen Hemminger wrote:
-> > > Should this get fixed at kernel level, iproute2 libnetlink level =
-or
-> > > at end-user level (e.g. collectd)?
-> > > Three lines every 10 seconds is a damn lot!
-> > >=20
-> > > Thanks,
-> > > Bruno
-> >=20
-> > Netlink is supposed to be encoded as Type-Length-Value and correctl=
-y written
-> > programs ignore types they don't understand. So either the library =
-is getting
-> > confused by the type or the attribute is not encoded correctly.
-> >=20
-> >=20
-> > The issue could be in libnetlink library. What version of collectd =
-and libnetlink
-> > are you using?
->=20
-> I've used collectd-5.0.x and collectd-4.10.3 with 3.3 kernels.
-> The stub code I listed is what collectd's netlink plugin does with
-> libnetlink (processing of netlink reply factored out for short-ness)
->=20
-> In all cases, linked against libnetlink from iproute2-2.6.38 (on
-> Gentoo)
->=20
->=20
-> From looking at git history of both collectd and iproute2, on both
-> sides there has not been any changes that would affect the result.
->=20
-> Collectd:
->   http://git.verplant.org/?p=3Dcollectd.git;a=3Dhistory;f=3Dsrc/netli=
-nk.c;hb=3DHEAD
+Hi Venkat,
 
-It is most likely in the libnetlink code, I'll look there.  Since libne=
-tlink
-is not really an exported API, I wish applications would use a real
-library like libmnl instead rather than copying it out of iproute2.
+We are seeing an issue with rds_iw_send_ack function in Fedora14 OS.
+
+The issue is as follows:
+RDS protocol requires to send an acknowledgement back to the sender for
+the data it has received. RDS can send that acknowledgment by two ways:
+1. It can send a piggyback ack while sending data
+2. It can send only ACK packet without any data.
+
+The issue occurs in case 2 above. For sending an ACK only packet RDS
+takes another path and different variables and calls rds_iw_attempt_ack
+function. This function forms RDS header by putting ACK number in it. It
+puts rest of the fields in RDS header as zero. After that it calculates
+checksum of that header and puts that checksum also in the header. After
+this it calls ib_post_send.
+
+Now the problem is in calculating the checksum. What happens is checksum
+gets calculated perfectly fine for the "first time". For the second time
+it calculates the checksum as same as first time even though ACK number
+is different for the second time. Thus it results into checksum
+verification failure on the peer side and connection gets torn down and
+receiver request gets flushed. We see "WC Error:  status = 5 opcode = 0"
+errors in dmesg on the sender side. I suspect here that it is a dma
+mapping or flushing issue.
+
+To be sure that the issue is with rds_iw_send_ack i used the same
+sg_list for forming work request in rds_iw_send_ack what is being used
+by the rds_iw_xmit. After this issue is resolved. So, i think something
+is wrong with the dma mapping in rds_iw_send_ack function.
+
+I only changed the following line in rds_iw_recv_init_ack and it started
+working.
+
+-       sge->addr = ic->i_ack_dma;
++       sge->addr = ic->i_send_hdrs_dma;
+
+Interestingly, the issue occurs only on Fedora14(2.6.35.6-45) OS. The
+issue does not occur with both RHEL6.0(2.6.32-71.el6.x86_64) and
+RHEL6.1(2.6.32-131.el6.x86_64) OS. The RDS module code is similar for
+both the OSes.
+
+Can you please share your thoughts?
+
+Thanks,
+Vipul Pandya
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
