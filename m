@@ -1,52 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/2] Adding new TI Common Platform ethernet SWitch
- driver
-Date: Tue, 20 Mar 2012 00:34:32 -0400 (EDT)
-Message-ID: <20120320.003432.1209101307544723187.davem@davemloft.net>
-References: <1332137874-3247-1-git-send-email-mugunthanvnm@ti.com>
-	<20120319.180659.2108026289616852615.davem@davemloft.net>
-	<1332216396.22737.29.camel@edumazet-glaptop>
+From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
+ DMADBG_7=0x00008040
+Date: Mon, 19 Mar 2012 22:54:00 -0700
+Message-ID: <4F681B78.9000207@gmail.com>
+References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com> <4F579A88.6030503@openwrt.org> <4F61F551.5010608@gmail.com> <4F639851.5080500@gmail.com> <4F674616.8080103@gmail.com> <CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com> <4F674FF5.2060406@gmail.com> <4F6751B2.1030809@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42911 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab2CTEei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 00:34:38 -0400
-In-Reply-To: <1332216396.22737.29.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Mohammed Shafi <shafi.wireless-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F6751B2.1030809-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Mar 2012 21:06:36 -0700
+On 03/19/2012 08:33 AM, Felix Fietkau wrote:
+> On 2012-03-19 4:25 PM, Justin P. Mattock wrote:
+>> On 03/19/2012 08:20 AM, Mohammed Shafi wrote:
+>>> Hi Justin,
+>>>
+>>>> seems I got this when waking up from suspend, was trying to connect with NM
+>>>> then all of a sudden Xorg shut off and this appeared on the screen(image
+>>>> links below I could not save dmesg only pic)
+>>>> http://flic.kr/p/bEhf2K
+>>>> http://flic.kr/p/bEhf2x
+>>>> http://flic.kr/p/bEhf2n
+>>>> http://flic.kr/p/bEhf26
+>>>>
+>>>> I see ath9k in the image, but am unsure if its related.
+>>>> kernel is: 3.3.0-rc7-next-20120316
+>>>
+>>> this looks like some new issue  in ath9k, lets try to recreate it here
+>>>
+>>>>
+>>>> Justin P. Mattock
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>>
+>>
+>> would be nice to recreate, then bisecting will be more accurate to do..
+>> I am trying userspace tweaks here and there but no luck(hostapd etc..)
+>> keep in mind this is for the RX DMA, the above just occured..
+>> as for writing a small app I still need to try, but my C skills only go
+>> so far(anything to trigger!).
+> Was your kernel compiled with debug info? If so, please run gdb on the
+> ath9k.ko module and enter this:
+> l *ath9k_tx+start+0x284
+> Then send me the output of that.
+>
+> - Felix
+>
 
-> For an ethernet driver, using eth_change_mtu seems the right thing.
+I changed the Cc''s so hopefully its correct..
+  anyway I tried the above but might have gotten it wrong..:
 
-I just tossed that into the tree, as follows:
+Reading symbols from 
+/home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...done.
+(gdb) list *ath9k_tx+0xa3
+0x4673 is in ath9k_tx (drivers/net/wireless/ath/ath9k/main.c:1136).
+1131		memset(&txctl, 0, sizeof(struct ath_tx_control));
+1132		txctl.txq = sc->tx.txq_map[skb_get_queue_mapping(skb)];
+1133	
+1134		ath_dbg(common, XMIT, "transmitting packet, skb: %p\n", skb);
+1135	
+1136		if (ath_tx_start(hw, skb, &txctl) != 0) {
+1137			ath_dbg(common, XMIT, "TX failed\n");
+1138			goto exit;
+1139		}
+1140	
+(gdb) list *ath9k_tx+start+0x284
+No symbol "start" in current context.
 
---------------------
-[PATCH] cpsw: Hook up default ndo_change_mtu.
+before receiving the email to do the above code with gdb I had cleaned 
+the tree out with git clean -fx so rebuilding might have misalighned 
+things(but could be wrong)..
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/ti/cpsw.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c68c9d9..6685bbb 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -665,6 +665,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
- 	.ndo_start_xmit		= cpsw_ndo_start_xmit,
- 	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
- 	.ndo_get_stats		= cpsw_ndo_get_stats,
- #ifdef CONFIG_NET_POLL_CONTROLLER
--- 
-1.7.7.6
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
