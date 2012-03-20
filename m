@@ -1,33 +1,52 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v3] ipv6: fix incorrent ipv6 ipsec packet fragment
-Date: Tue, 20 Mar 2012 09:54:05 +0100
-Message-ID: <20120320085405.GG29891@secunet.com>
-References: <20120320075846.GF29891@secunet.com>
- <1332232570-17424-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+From: Andrei Emeltchenko <Andrei.Emeltchenko.news@gmail.com>
+Subject: [PATCH] e1000: Silence sparse warnings by correcting type
+Date: Tue, 20 Mar 2012 10:59:11 +0200
+Message-ID: <1332233951-31129-1-git-send-email-Andrei.Emeltchenko.news@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:46663 "EHLO a.mx.secunet.com"
+Received: from mga14.intel.com ([143.182.124.37]:12194 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759537Ab2CTIyN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2012 04:54:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1332232570-17424-1-git-send-email-gaofeng@cn.fujitsu.com>
+	id S965000Ab2CTI7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2012 04:59:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 20, 2012 at 04:36:10PM +0800, Gao feng wrote:
-> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem)
-> In func ip6_append_data,after call skb_put(skb, fraglen + dst_exthdrlen)
-> the skb->len contains dst_exthdrlen,and we don't reduce dst_exthdrlen at last
-> This will make fraggap>0 in next "while cycle",and cause the size of skb incorrent
-> 
-> Fix this by reserve headroom for dst_exthdrlen.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+From: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+Silence sparse warnings shown below:
+...
+drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
+	cast to restricted __le64
+drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
+	cast to restricted __le64
+...
 
-Thanks a lot!
+Signed-off-by: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 6419a88..1bf73cf 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3377,7 +3377,7 @@ static void e1000_dump(struct e1000_adapter *adapter)
+ 	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
+ 		struct e1000_tx_desc *tx_desc = E1000_TX_DESC(*tx_ring, i);
+ 		struct e1000_buffer *buffer_info = &tx_ring->buffer_info[i];
+-		struct my_u { u64 a; u64 b; };
++		struct my_u { __le64 a; __le64 b; };
+ 		struct my_u *u = (struct my_u *)tx_desc;
+ 		const char *type;
+ 
+@@ -3421,7 +3421,7 @@ rx_ring_summary:
+ 	for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
+ 		struct e1000_rx_desc *rx_desc = E1000_RX_DESC(*rx_ring, i);
+ 		struct e1000_buffer *buffer_info = &rx_ring->buffer_info[i];
+-		struct my_u { u64 a; u64 b; };
++		struct my_u { __le64 a; __le64 b; };
+ 		struct my_u *u = (struct my_u *)rx_desc;
+ 		const char *type;
+ 
+-- 
+1.7.9.1
