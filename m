@@ -1,33 +1,53 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: Improve rds_sendmsg printk
-Date: Tue, 20 Mar 2012 09:50:47 -0500
-Message-ID: <4F689947.30405@oracle.com>
-References: <20120319224008.GA23036@redhat.com> <20120319.184335.1229962428916453634.davem@davemloft.net>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: netlink: 12 bytes leftover after parsing attributes - triggered
+ by iproute2 libnetlink's rtnl_dump_request()
+Date: Tue, 20 Mar 2012 16:00:23 +0100
+Message-ID: <20120320160023.621e948a@pluto.restena.lu>
+References: <20120320134107.6acea83c@pluto.restena.lu>
+	<20120320074140.39a1b3f0@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, Greg Rose <gregory.v.rose@intel.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:31265 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760489Ab2CTOuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 10:50:55 -0400
-In-Reply-To: <20120319.184335.1229962428916453634.davem@davemloft.net>
+Received: from smtprelay.restena.lu ([158.64.1.62]:56997 "EHLO
+	smtprelay.restena.lu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753526Ab2CTPAZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 11:00:25 -0400
+In-Reply-To: <20120320074140.39a1b3f0@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/19/2012 5:43 PM, David Miller wrote:
-> From: Dave Jones<davej@redhat.com>
-> Date: Mon, 19 Mar 2012 18:40:09 -0400
->
->> - Given this can be called by any user, prevent them from flooding
->>    the logs by using printk_ratelimited
->> - Also add a rds: prefix, so it's clear where the message is coming from.
->>
->> Signed-off-by: Dave Jones<davej@redhat.com>
-> I think it should be removed entirely, no socket layer outputs
-> a message for this error and neither should rds.
-Agree, the message could be removed entirely.
+On Tue, 20 Mar 2012 07:41:40 Stephen Hemminger wrote:
+> > Should this get fixed at kernel level, iproute2 libnetlink level or
+> > at end-user level (e.g. collectd)?
+> > Three lines every 10 seconds is a damn lot!
+> > 
+> > Thanks,
+> > Bruno
+> 
+> Netlink is supposed to be encoded as Type-Length-Value and correctly written
+> programs ignore types they don't understand. So either the library is getting
+> confused by the type or the attribute is not encoded correctly.
+> 
+> 
+> The issue could be in libnetlink library. What version of collectd and libnetlink
+> are you using?
 
-Venkat
+I've used collectd-5.0.x and collectd-4.10.3 with 3.3 kernels.
+The stub code I listed is what collectd's netlink plugin does with
+libnetlink (processing of netlink reply factored out for short-ness)
+
+In all cases, linked against libnetlink from iproute2-2.6.38 (on
+Gentoo)
+
+
+>From looking at git history of both collectd and iproute2, on both
+sides there has not been any changes that would affect the result.
+
+Collectd:
+  http://git.verplant.org/?p=collectd.git;a=history;f=src/netlink.c;hb=HEAD
+
+
+Bruno
