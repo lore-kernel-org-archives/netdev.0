@@ -1,108 +1,94 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] gre: propagate state of link back go to tunnel
-Date: Mon, 19 Mar 2012 16:58:43 -0700
-Message-ID: <20120319165843.7b18412a@nehalam.linuxnetplumber.net>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: [PATCH] net: bpf_jit: Document evilness of negative indirect loads
+Date: Tue, 20 Mar 2012 11:16:07 +1100
+Message-ID: <307ecac228a1c44930e18777578cbfcd.squirrel@webmail.greenhost.nl>
+References: <1331587715-26069-1-git-send-email-wad@chromium.org>
+    <0c55cb258e0b5bbd615923ee2a9f06b9.squirrel@webmail.greenhost.nl>
+    <1331658828.4449.16.camel@edumazet-glaptop>
+    <3e4fc1efb5d7dbe0dd966e3192e84645.squirrel@webmail.greenhost.nl>
+    <1331704535.2456.37.camel@edumazet-laptop>
+    <3f56b0860272f4ca8925c0a249a30539.squirrel@webmail.greenhost.nl>
+    <1331712357.2456.58.camel@edumazet-laptop>
+    <7a1c4974e8fbc3b82ead0bfb18224d5b.squirrel@webmail.greenhost.nl>
+    <1331992184.2466.45.camel@edumazet-laptop>
+    <9a0230cb8db556cc9cf5d1f6b2439fb5.squirrel@webmail.greenhost.nl>
+    <1332074448.3722.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57413 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755177Ab2CSX6s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Mar 2012 19:58:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Miller" <davem@davemloft.net>,
+	"Will Drewry" <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	"Matt Evans" <matt@ozlabs.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1332074448.3722.25.camel@edumazet-laptop>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-GRE tunnels like other layered devices should propagate
-carrier and RFC2863 state from lower device to tunnel.
-Based on similar code in vlan device driver.
-By using operstate it is possible for user mode to create tunnel
-and use stepped outlined in Documentation/networking/operstate.txt
-to control carrier.
+On Sun, March 18, 2012 23:40, Eric Dumazet wrote:
+> Le dimanche 18 mars 2012 =C3=A0 19:35 +1100, Indan Zupancic a =C3=A9c=
+rit :
+>
+>> And in the 00.00001% case that the filter uses a computed negative
+>> offset the BPF JIT fails at runtime. So to not be buggy you need at
+>> least a call to __load_pointer() for the negative case.
+>
+> Please show me how and why a real (I mean useful one...) filter could
+> generate a dynamic negative value, and I'll change the code.
+>
+>
+> Negative values are there to allow access to network/mac header
+> components. I cant see how a BPF code could have a valid use of dynam=
+ic
+> indexes in these headers.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+E.g. when poking in a variable length IP header with a filter
+attached to a TCP/UDP socket. Still a bit far fetched though.
+
+>
+> Right now we consider such code is evil and filter does "return 0"
+> saying so.
+
+I'm fine with that, but this should be documented somewhere I think.
+
+Greetings,
+
+Indan
+
+
+[PATCH] net: bpf_jit: Document evilness of negative indirect loads
+
+Negative offsets are used to access ancillary data. In the case of
+SKF_NET_OFF and SKF_LL_OFF users may expect negative indirect loads
+to work. If BPF JIT is used then such loads will fail. In any case,
+negative indirect loads are considered evil and are not supported.
 
 ---
-Not urgent, can wait if the release window is already over the
-queue limit
 
---- a/net/ipv4/ip_gre.c	2012-03-19 16:09:46.662376422 -0700
-+++ b/net/ipv4/ip_gre.c	2012-03-19 16:13:49.845108466 -0700
-@@ -961,6 +961,7 @@ static int ipgre_tunnel_bind_dev(struct
- 	if (tdev) {
- 		hlen = tdev->hard_header_len + tdev->needed_headroom;
- 		mtu = tdev->mtu;
-+		netif_stacked_transfer_operstate(tdev, dev);
- 	}
- 	dev->iflink = tunnel->parms.link;
- 
-@@ -1545,6 +1546,7 @@ static int ipgre_newlink(struct net *src
- 
- 	dev_hold(dev);
- 	ipgre_tunnel_link(ign, nt);
-+	linkwatch_fire_event(dev); /* _MUST_ call rfc2863_policy() */
- 
- out:
- 	return err;
-@@ -1701,6 +1703,34 @@ static struct rtnl_link_ops ipgre_tap_op
- 	.fill_info	= ipgre_fill_info,
- };
- 
-+/* If lower device changes state, reflect that to the tunnel. */
-+static int ipgre_notify(struct notifier_block *unused,
-+			unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = ptr;
-+	struct net *net = dev_net(dev);
-+	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
-+	unsigned int i, h;
-+	struct ip_tunnel *t;
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Indan Zupancic <indan@nul.nu>
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 8eeb205..2bd4bbb 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -114,6 +114,9 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTE=
+R. */
+    We use them to reference ancillary data.
+    Unlike introduction new instructions, it does not break
+    existing compilers/optimizers.
 +
-+	if (event == NETDEV_CHANGE)
-+		return NOTIFY_DONE;
-+
-+	for (i = 0; i < 4; i++)
-+		for (h = 0; h < HASH_SIZE; h++)
-+			for(t = ign->tunnels[i][h]; t; t = t->next) {
-+				if (dev->ifindex != t->dev->iflink)
-+					continue;
-+				netif_stacked_transfer_operstate(dev, t->dev);
-+			}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block ipgre_notifier = {
-+	.notifier_call = ipgre_notify,
-+};
-+
- /*
-  *	And now the modules code and kernel interface.
++   Do not expect negative indirect loads to work, they are
++   considered evil.
   */
-@@ -1729,9 +1759,15 @@ static int __init ipgre_init(void)
- 	if (err < 0)
- 		goto tap_ops_failed;
- 
-+	err = register_netdevice_notifier(&ipgre_notifier);
-+	if (err < 0)
-+		goto notify_failed;
-+
- out:
- 	return err;
- 
-+notify_failed:
-+	rtnl_link_unregister(&ipgre_tap_ops);
- tap_ops_failed:
- 	rtnl_link_unregister(&ipgre_link_ops);
- rtnl_link_failed:
-@@ -1743,6 +1779,7 @@ add_proto_failed:
- 
- static void __exit ipgre_fini(void)
- {
-+	unregister_netdevice_notifier(&ipgre_notifier);
- 	rtnl_link_unregister(&ipgre_tap_ops);
- 	rtnl_link_unregister(&ipgre_link_ops);
- 	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+ #define SKF_AD_OFF    (-0x1000)
+ #define SKF_AD_PROTOCOL 0
