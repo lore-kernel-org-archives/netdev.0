@@ -1,99 +1,65 @@
-From: Sujith Manoharan <c_manoha-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020 DMADBG_7=0x00008040
-Date: Tue, 20 Mar 2012 13:59:34 +0530
-Message-ID: <20328.16366.166909.255035@gargle.gargle.HOWL>
-References: <4F576FD5.2050208@gmail.com>
-	<CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com>
-	<4F577D9B.7020402@gmail.com>
-	<4F579A88.6030503@openwrt.org>
-	<4F61F551.5010608@gmail.com>
-	<4F639851.5080500@gmail.com>
-	<4F674616.8080103@gmail.com>
-	<CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com>
-	<4F674FF5.2060406@gmail.com>
-	<4F6751B2.1030809@openwrt.org>
-	<4F681B78.9000207@gmail.com>
-	<CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com>
-	<4F68235C.5090701@gmail.com>
-	<CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com>
-	<4F682555.3020502@gmail.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH 1/1] net: phylib: remove the length limitation of mii bus id
+Date: Tue, 20 Mar 2012 16:32:12 +0800
+Message-ID: <CAAQ0ZWQEoPORMXsf3xV-KPP+hOHk2euj460fORyUALnfPn3Q8g@mail.gmail.com>
+References: <1332217386-3586-1-git-send-email-b29396@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mohammed Shafi <shafi.wireless-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F682555.3020502-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Dong Aisheng <b29396@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1332217386-3586-1-git-send-email-b29396@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Justin P. Mattock wrote:
-> yeah this works:
-> 
-> eading symbols from 
-> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...done.
-> (gdb) l *(ath_tx_start+0x284)
-> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:1878).
-> 1873			ieee80211_is_data_qos(hdr->frame_control)) {
-> 1874			tidno = ieee80211_get_qos_ctl(hdr)[0] &
-> 1875				IEEE80211_QOS_CTL_TID_MASK;
-> 1876			tid = ATH_AN_2_TID(txctl->an, tidno);
-> 1877	
-> 1878			WARN_ON(tid->ac->txq != txctl->txq);
-> 1879		}
-> 1880	
-> 1881		if ((tx_info->flags & IEEE80211_TX_CTL_AMPDU) && tid) {
-> 1882			/*
-> (gdb)
+On 20 March 2012 12:23, Dong Aisheng <b29396@freescale.com> wrote:
+> From: Dong Aisheng <dong.aisheng@linaro.org>
+>
+> When convert to dt, the length of old mii bus id (17 bytes) is not
+> sufficent to use.
+> For example, the bus id could be 800f0000.ethernet-1:00 in DT.
+>
+> This patch removes the bus id length limitation by changing the
+> bus id to a const char pionter and user could dynamically set the
+> bus id via kasprintf function call.
+>
+> Since then no users use MII_BUS_ID_SIZE any more, just remove it.
+>
+> Signed-off-by: Dong Aisheng <dong.aisheng@linaro.org>
+> ---
+> The simplest way may just change MII_BUS_ID_SIZE to a more bigger size,
+> but i'm not sure that's gonna be accepted.
 
-Can you try this patch ?
+The simplest fix has been applied on -next tree as below.
 
-From: Sujith Manoharan <c_manoha-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Date: Tue, 20 Mar 2012 13:51:26 +0530
-Subject: [PATCH] ath9k: Use HW HT capabilites properly
+commit a7ed07d51c8abdb407be454c6cb6cfad613759d9
+Author: Richard Zhao <richard.zhao@linaro.org>
+Date:   Sun Jan 29 22:08:12 2012 +0000
 
-The commit "ath9k: Remove aggregation flags" changed how
-nodes were being initialized. Use the HW HT cap bits
-to initialize/de-initialize nodes, else we would be
-accessing an uninitialized entry during a suspend/resume cycle,
-resulting in a panic.
+    net: fec: correct phy_name buffer length when init phy_name
 
-Reported-by: Justin P. Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Sujith Manoharan <c_manoha-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
----
- drivers/net/wireless/ath/ath9k/main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+    Fix the bug that we got wrong phy_name on imx6q sabrelite board.
+    snprintf used wrong length of phy_name.
+    phy_name length is MII_BUS_ID_SIZE + 3 rather not MII_BUS_ID_SIZE.
+    I change it to sizeof(phy_name).
 
-diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
-index 3879485..215eb25 100644
---- a/drivers/net/wireless/ath/ath9k/main.c
-+++ b/drivers/net/wireless/ath/ath9k/main.c
-@@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc, struct ieee80211_sta *sta,
- 	an->sta = sta;
- 	an->vif = vif;
- 
--	if (sta->ht_cap.ht_supported) {
-+	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT) {
- 		ath_tx_node_init(sc, an);
- 		an->maxampdu = 1 << (IEEE80211_HT_MAX_AMPDU_FACTOR +
- 				     sta->ht_cap.ampdu_factor);
-@@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc, struct ieee80211_sta *sta)
- 	an->sta = NULL;
- #endif
- 
--	if (sta->ht_cap.ht_supported)
-+	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_HT)
- 		ath_tx_node_cleanup(sc, an);
- }
- 
--- 
-1.7.9.4
+    Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
+    Acked-by: Shawn Guo <shawn.guo@linaro.org>
+    Acked-by: Florian Fainelli <florian@openwrt.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/freescale/fec.c
+b/drivers/net/ethernet/freescale/fec.c
+index 7b25e9c..1c7aad8 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -990,7 +990,7 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+                phy_id = 0;
+        }
+
+-       snprintf(phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
++       snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_bus_id, phy_id);
+        phy_dev = phy_connect(ndev, phy_name, &fec_enet_adjust_link, 0,
+                              fep->phy_interface);
+        if (IS_ERR(phy_dev)) {
