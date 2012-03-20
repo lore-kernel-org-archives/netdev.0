@@ -1,36 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4] ipv6: Allocate unique metrics for icmp6
- packets to prevent tainting dst metrics
-Date: Tue, 20 Mar 2012 03:10:41 -0400 (EDT)
-Message-ID: <20120320.031041.1349041584421003180.davem@davemloft.net>
-References: <4F64CD4B.4070203@network-box.com>
-	<20120319.180415.1274216814977167410.davem@davemloft.net>
-	<1332222481.25418.540.camel@nbnickhq4>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: 3.0.23 WARNING: at net/ipv4/tcp_input.c:3375 tcp_ack+0x1d62/0x2030()
+Date: Tue, 20 Mar 2012 08:30:36 +0100
+Message-ID: <4F68321C.1000503@profihost.ag>
+References: <1332177220.9397.33.camel@edumazet-glaptop>	<CADVnQynya96iG0cZjVGhtac2MP3AOBWODP7nUTMVhMd=6GWSOQ@mail.gmail.com>	<AB9F1763-96B1-4AE4-8D94-73246EA08207@profihost.ag> <20120319.142412.1284054436734248444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: nick.jones@network-box.com
+Cc: ncardwell@google.com, eric.dumazet@gmail.com, greg@kroah.com,
+	stable@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753232Ab2CTHKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 03:10:49 -0400
-In-Reply-To: <1332222481.25418.540.camel@nbnickhq4>
+Received: from mail.profihost.ag ([85.158.179.208]:60562 "EHLO
+	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756457Ab2CTHaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 03:30:39 -0400
+In-Reply-To: <20120319.142412.1284054436734248444.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nick Jones <nick.jones@network-box.com>
-Date: Tue, 20 Mar 2012 13:48:01 +0800
+Am 19.03.2012 19:24, schrieb David Miller:
 
-> On Mon, 2012-03-19 at 18:04 -0400, David Miller wrote: 
->> Furthermore, callers are only ready to handle NULL vs. non-NULL as
->> return values from this function.  So this return value you are adding
->> will result in crashes.
+>> Perfect, thanks! 
+>>
+>> Greg any ETA?
 > 
-> This one I did check.  icmp6_dst_alloc returns error encoded pointers
-> and all call sites test the return value with IS_ERR, I simply didn't
-> understand the correct formatting macro, nor check the build properly.
-> I think you got it mixed up with ip6_dst_alloc
+> He released it the very second he told you to use it.
 
-Indeed you're right on this one.  We changed this recently, in fact.
+Thanks - Greg is just too fast for me ;-)
+
+Stefan
