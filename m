@@ -1,63 +1,69 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH V1 4/6] net/mlx4_en: Set max rate-limit for a TC
-Date: Wed, 21 Mar 2012 15:43:11 +0200
-Message-ID: <4F69DAEF.5010407@mellanox.com>
-References: <1332321903-11704-1-git-send-email-amirv@mellanox.com>  <1332321903-11704-5-git-send-email-amirv@mellanox.com> <1332324776.25742.14.camel@edumazet-laptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH V1 5/6] net/mlx4_en: sk_prio <=> UP for untagged traffic
+Date: Wed, 21 Mar 2012 07:20:29 -0700
+Message-ID: <4F69E3AD.2000501@intel.com>
+References: <1332321903-11704-1-git-send-email-amirv@mellanox.com> <1332321903-11704-6-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Roland Dreier <roland@purestorage.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@mellanox.co.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:40069 "HELO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755498Ab2CUNpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 09:45:12 -0400
-In-Reply-To: <1332324776.25742.14.camel@edumazet-laptop>
+Received: from mga11.intel.com ([192.55.52.93]:25929 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757629Ab2CUOUa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 10:20:30 -0400
+In-Reply-To: <1332321903-11704-6-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/21/2012 12:12 PM, Eric Dumazet wrote:
-> Le mercredi 21 mars 2012 =C3=A0 11:25 +0200, Amir Vadai a =C3=A9crit =
-:
->> From: Amir Vadai<amirv@mellanox.co.il>
->>
->> Set max rate-limit using sysfs file /sys/class/net/<interface>/qos/r=
-atelimit
->>
->> To set, enter a space separated list of values in units of 100Mbps. =
- For
->> example to set ratelimit of 5G to TC0 and 10G for the reset on eth2 =
-issue:
->> echo 50 100 100 100 100 100 100 100 100>  /sys/class/net/eth2/qos/ra=
-telimit
->>
->
-> Oh thats not very user friendly.
->
-> I suggest one value per file (Its probably a generic /sys rule anyway=
-)
-> and not using 100Mps for the unit, even if it is the base granularity=
- of
-> this hardware.
->
->
-> /sys/class/net/eth2/qos/0/ratelimit
-> ...
-> /sys/class/net/eth2/qos/7/ratelimit
->
->
+On 3/21/2012 2:25 AM, Amir Vadai wrote:
+> From: Amir Vadai <amirv@mellanox.co.il>
+> 
+> Since vlan egress map is only good for tagged traffic, need to have other
+> mapping to be used by untagged traffic.
+> For that, the driver uses sch_mqprio mapping. This mapping could be set by
+> using tc tool from iproute2 package.
+> Mapped UP will be used by the HW for QoS purposes, but won't go out on the
+> wire.
+> 
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
 
-Ok, will change the structure to be:
+[...]
 
-/sys/class/net/eth2/qos/tc0/ratelimit
-=2E..
-/sys/class/net/eth2/qos/tc7/ratelimit
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 445a771..f228728 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -570,15 +570,15 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+>  
+>  u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	u16 vlan_tag = 0;
+> +	int up = -1;
+>  
+> -	/* If we support per priority flow control and the packet contains
+> -	 * a vlan tag, send the packet to the TX ring assigned to that priority
+> -	 */
+> -	if (vlan_tx_tag_present(skb)) {
+> -		vlan_tag = vlan_tx_tag_get(skb);
+> -		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
+> -	}
+> +	if (vlan_tx_tag_present(skb))
+> +		up = (vlan_tx_tag_get(skb) >> 13);
+> +	else if (dev->num_tc)
+> +		up = netdev_get_prio_tc_map(dev, skb->priority);
+> +
+> +	if (up >= 0)
+> +		return MLX4_EN_NUM_TX_RINGS + up;
 
-And use units of 1Mbps
+I expected the else case covered by the netdev_set_tc_queue() setup above? Did
+I miss something.
 
-- Amir
+>  
+>  	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
+>  }
