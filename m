@@ -1,70 +1,42 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [PATCH] net: phy: smsc: energy saving does not work without interrupts
-Date: Wed, 21 Mar 2012 13:08:27 +0100
-Message-ID: <1332331707-2350-1-git-send-email-w.sang@pengutronix.de>
-Cc: David Miller <davem@davemloft.net>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+From: Ranjeeth <ranjeeth34@gmail.com>
+Subject: Re: [PATCH] Fix bug of update IPv4 PMTU when received ICMP Fragmentation Needed message
+Date: Wed, 21 Mar 2012 11:40:31 +0000 (UTC)
+Message-ID: <loom.20120321T123754-779@post.gmane.org>
+References: <E1HuRAd-0002Wl-00@gondolin.me.apana.org.au> <46635F39.2090009@cn.fujitsu.com> <20070604025528.GA27750@gondor.apana.org.au> <46638F2D.90608@cn.fujitsu.com> <20070604041406.GA28263@gondor.apana.org.au> <466395F1.7060003@cn.fujitsu.com> <20070604045506.GA28580@gondor.apana.org.au> <4663A561.7070300@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51313 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752835Ab2CUMIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 08:08:35 -0400
+Received: from plane.gmane.org ([80.91.229.3]:45740 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757089Ab2CUMfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 08:35:06 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1SAKkp-0007eO-Tv
+	for netdev@vger.kernel.org; Wed, 21 Mar 2012 13:35:04 +0100
+Received: from 203.91.193.7 ([203.91.193.7])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 13:35:03 +0100
+Received: from ranjeeth34 by 203.91.193.7 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 13:35:03 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We discovered link detection failures using this PHY with the Freescale FEC
-which does not have interrupt support yet. Disabling the energy saving mode
-makes all go well. It should be possible to make this mode work without
-interrupts by adding some code dealing with the ENERGYON flag. Since adding
-interrupt support to the FEC driver seems to be the better solution for us, I
-want to at least make sure the PHY works reliably always. So, disable energy
-saving if there is no interrupt support.
+Hello,
 
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
+I have a new query regarding the jumbo frames support in ICMP.
 
-Giuseppe: Did you test with interrupts? Do you agree?
+I am supporting jumbo frame support for self tx/rx.
 
-If Giuseppe is fine with the patch, this should probably be tagged for stable.
+So I need to handle the icmp reply and request for size of 9000.
 
- drivers/net/phy/smsc.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+i was able to ping upto max 3000 size. more than that icmp echo response is not
+generated????
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index fc3e7e9..6dcf57a 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -43,16 +43,18 @@ static int smsc_phy_ack_interrupt(struct phy_device *phydev)
- 
- static int smsc_phy_config_init(struct phy_device *phydev)
- {
--	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
--	if (rc < 0)
--		return rc;
--
--	/* Enable energy detect mode for this SMSC Transceivers */
--	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
--		       rc | MII_LAN83C185_EDPWRDOWN);
--	if (rc < 0)
--		return rc;
--
-+	/* TODO: add code to make EDPWRDOWN work without interrupts */
-+	if (PHY_INTERRUPT_ENABLED == phydev->interrupts) {
-+		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+		if (rc < 0)
-+			return rc;
-+
-+		/* Enable energy detect mode for this SMSC Transceivers */
-+		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+			       rc | MII_LAN83C185_EDPWRDOWN);
-+		if (rc < 0)
-+			return rc;
-+	}
- 	return smsc_phy_ack_interrupt (phydev);
- }
- 
--- 
-1.7.9.1
+why is this???
+
+any limitation?
