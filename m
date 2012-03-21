@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix napi_reuse_skb() skb reserve
-Date: Wed, 21 Mar 2012 16:56:24 -0400 (EDT)
-Message-ID: <20120321.165624.972276388107342047.davem@davemloft.net>
-References: <1332349083.5330.49.camel@edumazet-glaptop>
+Subject: Re: [PATCH] sky2: override for PCI legacy power management
+Date: Wed, 21 Mar 2012 16:56:36 -0400 (EDT)
+Message-ID: <20120321.165636.369272291402056641.davem@davemloft.net>
+References: <4F69BE2E.7070903@t-online.de>
+	<20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42497 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844Ab2CUU4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 16:56:40 -0400
-In-Reply-To: <1332349083.5330.49.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Knut_Petersen@t-online.de, torvalds@linux-foundation.org,
+	arekm@maven.pl, nitro@legroom.net, dilieto@lineone.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Mar 2012 09:58:03 -0700
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 21 Mar 2012 08:32:05 -0700
 
-> napi->skb is allocated in napi_get_frags() using
-> netdev_alloc_skb_ip_align(), with a reserve of NET_SKB_PAD +
-> NET_IP_ALIGN bytes.
+> Some BIOS's don't setup power management correctly (what else is
+> new) and don't allow use of PCI Express power control. Add a special
+> exception module parameter to allow working around this issue.
+> Based on slightly different patch by Knut Petersen.
 > 
-> However, when such skb is recycled in napi_reuse_skb(), it ends with a
-> reserve of NET_IP_ALIGN which is suboptimal.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Reported-by: Arkadiusz Miskiewicz <arekm@maven.pl>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
