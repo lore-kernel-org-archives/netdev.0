@@ -1,47 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix napi_reuse_skb() skb reserve
-Date: Wed, 21 Mar 2012 09:58:03 -0700
-Message-ID: <1332349083.5330.49.camel@edumazet-glaptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Wed, 21 Mar 2012 18:00:03 +0100
+Message-ID: <20120321170003.GA5533@netboy.at.omicron.at>
+References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
+ <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+ <20120316065537.GB2199@netboy.at.omicron.at>
+ <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
+	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:47338 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753315Ab2CUQ6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 12:58:06 -0400
-Received: by dajr28 with SMTP id r28so1828909daj.19
-        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 09:58:06 -0700 (PDT)
+Received: from mail-we0-f174.google.com ([74.125.82.174]:43985 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754262Ab2CURAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 13:00:21 -0400
+Received: by wejx9 with SMTP id x9so1123723wej.19
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 10:00:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-napi->skb is allocated in napi_get_frags() using
-netdev_alloc_skb_ip_align(), with a reserve of NET_SKB_PAD +
-NET_IP_ALIGN bytes.
+On Wed, Mar 21, 2012 at 11:00:59AM -0400, chetan loke wrote:
+> Once PHC->gettime goes live(aka exported to user space), we can't
+> really control how users will use it in their applications. There
+> could be 100+ apps all trying to get real-time from the network to do
+> some time-keeping stuff. They might pound the ioctls at high rate. The
+> last thing we would want is to self-induce a light weight DOS. What
+> Eric Dumazet mentioned in the very first patch set seems like a good
+> comment. seqlock or whatever it is we use for jiffies.
 
-However, when such skb is recycled in napi_reuse_skb(), it ends with a
-reserve of NET_IP_ALIGN which is suboptimal.
+Can you please explain how using a seqlock could help here?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- net/core/dev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0f3eb7d..452db70 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3560,7 +3560,8 @@ EXPORT_SYMBOL(napi_gro_receive);
- static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	__skb_pull(skb, skb_headlen(skb));
--	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
-+	/* restore the reserve we had after netdev_alloc_skb_ip_align() */
-+	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN - skb_headroom(skb));
- 	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->skb_iif = 0;
+Thanks,
+Richard
