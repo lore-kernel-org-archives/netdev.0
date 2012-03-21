@@ -1,49 +1,47 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: [PATCH 1/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
-Date: Wed, 21 Mar 2012 09:45:49 -0700
-Message-ID: <CAL1RGDVoJVLOLu3CkCh_1eKJw==9ixiE5a1h5hvnZahJUsKcYg@mail.gmail.com>
-References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com> <3f46a051-ee2e-4e18-becf-60f6c023c3c6@exht1.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix napi_reuse_skb() skb reserve
+Date: Wed, 21 Mar 2012 09:58:03 -0700
+Message-ID: <1332349083.5330.49.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <3f46a051-ee2e-4e18-becf-60f6c023c3c6-nbYkmrCdWxmgMrCBcu8zE0EOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:47338 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753315Ab2CUQ6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 12:58:06 -0400
+Received: by dajr28 with SMTP id r28so1828909daj.19
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 09:58:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 20, 2012 at 3:39 PM,  <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org> wrote:
-> +struct ocrdma_queue_info {
-> + =A0 =A0 =A0 void *va;
-> + =A0 =A0 =A0 dma_addr_t dma;
-> + =A0 =A0 =A0 u32 size;
-> + =A0 =A0 =A0 u16 len;
-> + =A0 =A0 =A0 u16 entry_size; =A0 =A0 =A0 =A0 /* Size of an element i=
-n the queue */
-> + =A0 =A0 =A0 u16 id; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qid, where t=
-o ring the doorbell. */
-> + =A0 =A0 =A0 u16 head, tail;
-> + =A0 =A0 =A0 bool created;
-> + =A0 =A0 =A0 atomic_t used; =A0 =A0 =A0 =A0 =A0/* Number of valid el=
-ements in the queue */
-> +};
+napi->skb is allocated in napi_get_frags() using
+netdev_alloc_skb_ip_align(), with a reserve of NET_SKB_PAD +
+NET_IP_ALIGN bytes.
 
-=46orgot to mention this before... the only place the used member is to=
-uched
-that I can find is
+However, when such skb is recycled in napi_reuse_skb(), it ends with a
+reserve of NET_IP_ALIGN which is suboptimal.
 
-> +static inline void ocrdma_mq_inc_head(struct ocrdma_dev *dev)
-> +{
-> +	dev->mq.sq.head =3D (dev->mq.sq.head + 1) & (OCRDMA_MQ_LEN - 1);
-> +	atomic_inc(&dev->mq.sq.used);
-> +}
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/core/dev.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-but I don't see anywhere that it gets read.  Can "used" be deleted?
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0f3eb7d..452db70 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3560,7 +3560,8 @@ EXPORT_SYMBOL(napi_gro_receive);
+ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	__skb_pull(skb, skb_headlen(skb));
+-	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
++	/* restore the reserve we had after netdev_alloc_skb_ip_align() */
++	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN - skb_headroom(skb));
+ 	skb->vlan_tci = 0;
+ 	skb->dev = napi->dev;
+ 	skb->skb_iif = 0;
