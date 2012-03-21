@@ -1,88 +1,64 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] sky2: override for PCI legacy power management
-Date: Wed, 21 Mar 2012 14:22:01 -0600
-Message-ID: <CAErSpo67PEaZ6JuMUntWLfR8SUpQgZERD_cKV6rWd=FF0tZ6DQ@mail.gmail.com>
-References: <4F69BE2E.7070903@t-online.de> <20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
+From: Jeff Haran <jharan@bytemobile.com>
+Subject: RE: locking in net_device_ops callbacks
+Date: Wed, 21 Mar 2012 20:38:02 +0000
+Message-ID: <471DE477E2B1F549A58F3A14A27180BE0147A6@HQ-EX01.bytemobile.com>
+References: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com>
+ <20120321122503.25838566@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Knut Petersen <Knut_Petersen@t-online.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>, arekm@maven.pl,
-	Jared <nitro@legroom.net>, dilieto@lineone.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:54379 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760115Ab2CUUWW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 16:22:22 -0400
-Received: by lahj13 with SMTP id j13so1167615lah.19
-        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 13:22:21 -0700 (PDT)
-In-Reply-To: <20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
+Received: from ironport.bytemobile.com ([12.153.136.13]:7976 "EHLO
+	ironport.bytemobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760502Ab2CUUiY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 16:38:24 -0400
+In-Reply-To: <20120321122503.25838566@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 21, 2012 at 9:32 AM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> Some BIOS's don't setup power management correctly (what else is
-> new) and don't allow use of PCI Express power control. Add a special
-> exception module parameter to allow working around this issue.
-> Based on slightly different patch by Knut Petersen.
->
-> Reported-by: Arkadiusz Miskiewicz <arekm@maven.pl>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Wednesday, March 21, 2012 12:25 PM
+> To: Jeff Haran
+> Cc: netdev@vger.kernel.org
+> Subject: Re: locking in net_device_ops callbacks
+> 
+> On Wed, 21 Mar 2012 18:59:30 +0000
+> Jeff Haran <jharan@bytemobile.com> wrote:
+> 
+> > Hi,
+> >
+> > I had posted the below to the kernelnewbies email list and never got a
+> response. I am hoping somebody on this list could provide some feedback.
+> >
+> > Just to be clear, it's not the issue of copying the MAC address that I am
+> asking about. That's just an example.
+> >
+> > What I am trying to understand is, what mechanisms generally are at play
+> to serialize access to struct net_device private data that is accessed in both
+> process and softirq contexts? Explicit locking "seems" to be mostly absent
+> from the driver sources I've inspected so I can't help but believe I am missing
+> something fundamental here.
+> 
+> Look at rtnl_lock() in net/core/rtnetlink.c; this is global mutex against
+> all changes to network device state.
 
-Is there a problem report URL you can include here?
+Steve,
 
-It looks like this requires a user to figure out that he might be
-suffering from this problem, then use this module parameter to work
-around it.  How would a user figure that out?  Can we do it
-automatically to save him the trouble?
+Thanks for the response.
 
-> ---
-> Patch against -net (ie. 3.3.0)
->
-> --- a/drivers/net/ethernet/marvell/sky2.c =A0 =A0 =A0 2012-01-10 10:5=
-6:56.855156017 -0800
-> +++ b/drivers/net/ethernet/marvell/sky2.c =A0 =A0 =A0 2012-03-21 08:2=
-5:52.400929532 -0700
-> @@ -95,6 +95,10 @@ static int disable_msi =3D 0;
-> =A0module_param(disable_msi, int, 0);
-> =A0MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt =
-(MSI)");
->
-> +static int legacy_pme =3D 0;
-> +module_param(legacy_pme, int, 0);
-> +MODULE_PARM_DESC(legacy_pme, "Legacy power management");
-> +
-> =A0static DEFINE_PCI_DEVICE_TABLE(sky2_id_table) =3D {
-> =A0 =A0 =A0 =A0{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) }, /* S=
-K-9Sxx */
-> =A0 =A0 =A0 =A0{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) }, /* S=
-K-9Exx */
-> @@ -867,6 +871,13 @@ static void sky2_wol_init(struct sky2_po
-> =A0 =A0 =A0 =A0/* Disable PiG firmware */
-> =A0 =A0 =A0 =A0sky2_write16(hw, B0_CTST, Y2_HW_WOL_OFF);
->
-> + =A0 =A0 =A0 /* Needed by some broken BIOSes, use PCI rather than PC=
-I-e for WOL */
-> + =A0 =A0 =A0 if (legacy_pme) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 u32 reg1 =3D sky2_pci_read32(hw, PCI_DE=
-V_REG1);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg1 |=3D PCI_Y2_PME_LEGACY;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sky2_pci_write32(hw, PCI_DEV_REG1, reg1=
-);
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0/* block receiver */
-> =A0 =A0 =A0 =A0sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_S=
-ET);
-> =A0 =A0 =A0 =A0sky2_read32(hw, B0_CTST);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+rtnl_lock() does this:
+
+void rtnl_lock(void)
+{
+        mutex_lock(&rtnl_mutex);
+}
+
+I can see where that would serialize process context access, but as I understand it much of the networking stack runs in soft IRQ context. Soft IRQs can't take mutexes, can they?
+
+It seems to me that some other serialization mechanism should be in place to serialize soft IRQ context access to instances of struct net_device.
+
+Jeff Haran
