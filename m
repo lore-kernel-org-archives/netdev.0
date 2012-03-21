@@ -1,23 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: locking in net_device_ops callbacks
-Date: Wed, 21 Mar 2012 16:00:13 -0700
-Message-ID: <20120321160013.065e2e3f@nehalam.linuxnetplumber.net>
-References: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com>
-	<1332359899.2553.17.camel@bwh-desktop.uk.solarflarecom.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Piggyback the final ACK of the three way TCP connection establishment
+ with the data
+Date: Wed, 21 Mar 2012 16:38:15 -0700
+Message-ID: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Haran <jharan@bytemobile.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35304 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757242Ab2CUXAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 19:00:16 -0400
-In-Reply-To: <1332359899.2553.17.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:51071 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779Ab2CUXiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 19:38:16 -0400
+Received: by wejx9 with SMTP id x9so1374116wej.19
+        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 16:38:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Another part of this is that it is not allowed to change many settings
-like name, mac address or master relationship if device is UP.
+Hi,
+
+I happen to see this link
+http://h20000.www2.hp.com/bc/docs/support/SupportManual/c02020743/c02020743.pdf
+and
+
+tcp_delay_final_twh_ack:
+            Piggyback the final ACK of the three way TCP connection
+            establishment with the data by delaying the final ack by
+           10ms.
+
+           0: Send the final ACK as soon as the SYN+ACK packet
+               arrives from the remote host.
+
+           1: Delay the sending of the final ACK by 10ms. If
+               there is data available to be sent with in the
+               next 10ms, piggyback the ACK for the SYN.
+[0-1] Default: 1
+
+It appears this feature is not available in kernel tcp implementation,
+is it trivial to make a custom patch to make this feature available?
+can someone give a hint on how to make a patch for this?
+
+We had a situation that we want to make linux kernel tcp stack behave
+this way so we can reproduce another issue at hand.
+
+Thanks
+
+Vincent
