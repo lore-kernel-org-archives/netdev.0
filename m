@@ -1,78 +1,63 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
- timecompare method
-Date: Wed, 21 Mar 2012 11:00:59 -0400
-Message-ID: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
-	<CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
-	<20120316065537.GB2199@netboy.at.omicron.at>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: use-after-free in usbnet
+Date: Wed, 21 Mar 2012 23:02:18 +0800
+Message-ID: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
+References: <CACVXFVPK9vj8oqjr1SFr2MgoQn-2XoDqyb95oW+7LCHT7020Ow@mail.gmail.com>
+	<Pine.LNX.4.44L0.1203211031490.1369-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
-	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:61791 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754392Ab2CUPBA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 11:01:00 -0400
-Received: by dajr28 with SMTP id r28so1707340daj.19
-        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 08:01:00 -0700 (PDT)
-In-Reply-To: <20120316065537.GB2199@netboy.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.1203211031490.1369-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 16, 2012 at 2:55 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Thu, Mar 15, 2012 at 01:18:26PM -0400, chetan loke wrote:
+On Wed, Mar 21, 2012 at 10:35 PM, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org=
+> wrote:
+> On Wed, 21 Mar 2012, Ming Lei wrote:
+>
+>> Looks it is a general issue about usb_hcd_unlink_urb.
 >>
->> 1) how can I use igb->PHC to set/discipline my system time?
->> =C2=A0a) clock_gettime(IGB_CLK_ID...);
->> =C2=A0b) clock_settime(REAL_TIME,...) ? Good/bad idea?
+>> Alan, how about increasing URB reference count before calling unlink=
+1
+>> inside usb_hcd_unlink_urb to fix this kind of problem?
 >
-> This is a very crude method, and it will cause frequent jumps in your
-> system clock.
+> No, that won't fix the problem. =A0The URB could complete and be
+> deallocated even before usb_hcd_unlink_urb() is called, so nothing th=
+at
+> function can do will prevent the error.
 
-Of course it's crude :). I wanted to make sure if my understanding was =
-correct.
+IMO, driver should not call usb_hcd_unlink_urb after urb is freed from
+the driver,
+but this problem is that URB may be freed during usb_hcd_unlink_urb.
 
+In fact, it is allowed that usb_free_urb is called inside .complete han=
+dler,
+at least as said in Documentation/URB.txt:
 
+         "You may free an urb that you've submitted,..."
 
->> 4) possible contention on tmreg_lock?
->> I will read previous emails/patches shortly but I was thinking - wha=
-t
->> if there are many readers who would like to use PHC as reference tim=
-e?
->> Then do we want them to block the driver who wants to time-stamp the
->> packet?
->> =C2=A0igb_gettime->spin_lock::tmreg_lock =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- <---contention---> =C2=A0driver
->> ->igb_systim_to_hwtstamp->spin_lock::tmreg_lock
+So looks reasonable to increase the URB reference count before calling
+unlink1(), just like that done inside usb_hcd_flush_endpoint().  And I
+think it is a general solution for avoiding this kind of problem.
+
 >
-> Under normal use cases, I would not expect much contention at all.
->
+> It is the caller's responsibility to make sure that the URB does not
+> get freed before usb_unlink_urb() or usb_kill_urb() returns. =A0We
+> probably should mention this in the kerneldoc...
 
-Once PHC->gettime goes live(aka exported to user space), we can't
-really control how users will use it in their applications. There
-could be 100+ apps all trying to get real-time from the network to do
-some time-keeping stuff. They might pound the ioctls at high rate. The
-last thing we would want is to self-induce a light weight DOS. What
-Eric Dumazet mentioned in the very first patch set seems like a good
-comment. seqlock or whatever it is we use for jiffies.
-We shouldn't let get_time block network traffic under cases when there
-is high load and large number of threads are pounding get-time.
-Reader's *must* wait.
+If so, looks it is a bit contrary with Documentation/URB.txt, also
+this may add extra constraint(maybe unnecessary) to the driver.
 
 
-reminder to myself: once this patch is applied, tpacket_v3 will
-break(not because of spinlock but in general) under specific
-conditions. Fix tpacket_v3.
-
-
-> HTH,
->
-> Richard
-
-Chetan
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
