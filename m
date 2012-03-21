@@ -1,61 +1,40 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: use-after-free in usbnet
-Date: Wed, 21 Mar 2012 13:30:10 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1203211328320.1369-100000@iolanthe.rowland.org>
-References: <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: e1000e: Avoid wrong check on TX hang
+Date: Wed, 21 Mar 2012 18:20:39 +0100
+Message-ID: <OF66508452.5C6F589E-ONC12579C8.005ECBB5-C12579C8.005F4640@transmode.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
-	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-88.131.87.204.addr.tdcsong.se ([88.131.87.204]:38162
+	"EHLO gw1.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758699Ab2CURbG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 13:31:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 22 Mar 2012, Ming Lei wrote:
 
-> So looks the correct fix should be below:
-> 
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 4b8b52c..e36a821 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -588,7 +588,7 @@ static int unlink_urbs (struct usbnet *dev, struct
-> sk_buff_head *q)
-> 
->  		entry = (struct skb_data *) skb->cb;
->  		urb = entry->urb;
-> -
-> +		usb_get_urb(urb);
->  		spin_unlock_irqrestore(&q->lock, flags);
->  		// during some PM-driven resume scenarios,
->  		// these (async) unlinks complete immediately
-> @@ -597,6 +597,7 @@ static int unlink_urbs (struct usbnet *dev, struct
-> sk_buff_head *q)
->  			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
->  		else
->  			count++;
-> +		usb_put_urb(urb);
->  		spin_lock_irqsave(&q->lock, flags);
->  	}
->  	spin_unlock_irqrestore (&q->lock, flags);
-> @@ -1028,7 +1029,6 @@ static void tx_complete (struct urb *urb)
->  	}
-> 
->  	usb_autopm_put_interface_async(dev->intf);
-> -	urb->dev = NULL;
->  	entry->state = tx_done;
->  	defer_bh(dev, skb, &dev->txq);
->  }
+I think commit 09357b00255c233705b1cf6d76a8d147340545b8(e1000e: Avoid wrong check on TX hang)
+needs to be applied in 3.2.x (and 3.0.x) too.
 
-Yes, that looks about right.  But I'm not familiar with the details of 
-usbnet.
+We have seen this on routers(we got 3):
+e1000e 0000:11:00.0: eth9: Detected Hardware Unit Hang:
+  TDH                  <a4>
+  TDT                  <a7>
+  next_to_use          <a7>
+  next_to_clean        <a4>
+buffer_info[next_to_clean]:
+  time_stamp           <1008e849f>
+  next_to_watch        <a4>
+  jiffies              <1008e85d8>
+  next_to_watch.status <0>
+MAC Status             <80387>
+PHY Status             <792d>
+PHY 1000BASE-T Status  <3800>
+PHY Extended Status    <3000>
+PCI Status             <10>
 
-Alan Stern
+Applying the above patch on 3.2.12 makes the error go away.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Jocke
