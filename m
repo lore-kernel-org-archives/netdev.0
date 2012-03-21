@@ -1,54 +1,33 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH 3/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
-Date: Wed, 21 Mar 2012 14:54:26 -0600
-Message-ID: <20120321205426.GA12492@obsidianresearch.com>
-References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-2-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-3-git-send-email-parav.pandit@emulex.com>
- <339d9e05-38fd-45b1-83ed-f06277bd1326@exht1.ad.emulex.com>
- <CAL1RGDWnc478=ToFQEC51Usn6LLZgLen=CymFZ0C0GnRp9BAsw@mail.gmail.com>
- <88B766C272F2C64B944B21AD078333151C964A63F1@EXMAIL.ad.emulex.com>
- <CAL1RGDWmz4Yr8mqWMywN9X+refDEJ4W=ieBvOtZZc32qMDA5_w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix napi_reuse_skb() skb reserve
+Date: Wed, 21 Mar 2012 16:56:24 -0400 (EDT)
+Message-ID: <20120321.165624.972276388107342047.davem@davemloft.net>
+References: <1332349083.5330.49.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAL1RGDWmz4Yr8mqWMywN9X+refDEJ4W=ieBvOtZZc32qMDA5_w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42497 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844Ab2CUU4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 16:56:40 -0400
+In-Reply-To: <1332349083.5330.49.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 21, 2012 at 12:33:00PM -0700, Roland Dreier wrote:
-> On Wed, Mar 21, 2012 at 12:04 PM,  <Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org> wrote:
-> >> > +/* mailbox cmd response */
-> >> > +struct ocrdma_mbx_rsp {
-> >> > + ? ? ? u32 subsys_op;
-> >> > + ? ? ? u32 status;
-> >> > + ? ? ? u32 rsp_len;
-> >> > + ? ? ? u32 add_rsp_len;
-> >> > +} __packed;
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Mar 2012 09:58:03 -0700
+
+> napi->skb is allocated in napi_get_frags() using
+> netdev_alloc_skb_ip_align(), with a reserve of NET_SKB_PAD +
+> NET_IP_ALIGN bytes.
 > 
-> >> ...similar comments about only using __packed where you really need it...
+> However, when such skb is recycled in napi_reuse_skb(), it ends with a
+> reserve of NET_IP_ALIGN which is suboptimal.
 > 
-> > This pack is required as it is shared with hardware and need to be
-> > of 16 bytes for 32 and 64 bit architecture. Do not wanted to take
-> > risk of different compiler versions. So keeping it packed.
-> 
-> I really think if you can't trust your compiler to lay this
-> structure out properly, you have a lot of bigger problems.  But
-> whatever, it's not a big deal.
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
 
-Doesn't packed penalize all access to the structure on some
-architectures, eg sparc?
-
-A static assert is a better choice than packed...
-
-BUILD_BUG_ON(sizeof(ocrdma_mbx_rsp) != 16);
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
