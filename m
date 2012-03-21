@@ -1,23 +1,43 @@
-From: Roland Dreier <roland@purestorage.com>
-Subject: Re: [PATCH 0/9] ocrdma: Driver for Emulex OneConnect RDMA
-Date: Wed, 21 Mar 2012 09:09:28 -0700
-Message-ID: <CAL1RGDXrG8p5exk2RojVmmhRxQwyQ6ppXjOhnzNdaTzgDyHmAQ@mail.gmail.com>
-References: <cdc8267d-7cc4-4364-ade7-0b10f02a7c49@exht1.ad.emulex.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 4/4] ath9k:  Support ethtool getstats api.
+Date: Wed, 21 Mar 2012 16:10:57 +0000
+Message-ID: <1332346257.3500.9.camel@deadeye>
+References: <1332183105-4447-1-git-send-email-greearb@candelatech.com>
+	 <1332183105-4447-4-git-send-email-greearb@candelatech.com>
+	 <4F684301.9040006@openwrt.org> <4F68B4AA.3070306@candelatech.com>
+	 <20329.32334.162938.169995@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: parav.pandit@emulex.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog114.obsmtp.com ([74.125.245.96]:38057 "HELO
-	na3sys010aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757095Ab2CUQJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 12:09:50 -0400
-Received: by obbuo19 with SMTP id uo19so1047837obb.37
-        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 09:09:48 -0700 (PDT)
-In-Reply-To: <cdc8267d-7cc4-4364-ade7-0b10f02a7c49@exht1.ad.emulex.com>
+Received: from mail.solarflare.com ([216.237.3.220]:52420 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753776Ab2CUQLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 12:11:08 -0400
+In-Reply-To: <20329.32334.162938.169995@gargle.gargle.HOWL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Overall looks pretty good... some comments on individual patches coming.
+On Wed, 2012-03-21 at 12:37 +0530, Sujith Manoharan wrote:
+> Ben Greear wrote:
+> > I'd like to gather at least most stats always, so ethtool can work regardless
+> > of debugfs.  But, that can be follow on patches in my opinion.  If it turns
+> > out that we need another config option for this, then that is fine too.
+> 
+> It would be good to have an option to compile this out. The information is
+> available via the debugfs interface, so this is basically duplicating things.
+> On APs using OpenWRT, debugfs is enabled by default, so we can just read
+> the debugfs files.
 
- - R.
+ethtool is the normal way to expose extended network stats, so the
+debugfs interface should be dropped in favour of this.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
