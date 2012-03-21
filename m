@@ -1,32 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x1f2/0x200()
-Date: Wed, 21 Mar 2012 00:27:00 +0100
-Message-ID: <20120320232700.GA21932@electric-eye.fr.zoreil.com>
-References: <20120205134050.7e135bb231b613806a2e0b70@gmail.com> <4F2F0065.9040909@lwfinger.net> <20120205222141.GA26223@electric-eye.fr.zoreil.com> <20120205145913.194746473361e324bda1eb4a@gmail.com> <CAKFRV=NghW3kokuD-VBAzVJf09r-9ePMG+L7qDYfqmuHwWo4mg@mail.gmail.com> <20120320093709.GA5058@electric-eye.fr.zoreil.com> <4F689131.2030607@gmail.com> <4F68F727.9030405@gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [PATCH] enable automatic module loading for l2tp_ppp
+Date: Tue, 20 Mar 2012 20:01:21 -0400
+Message-ID: <20120321000121.GA3133@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35667 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759517Ab2CTX3C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2012 19:29:02 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:34273 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752189Ab2CUABW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2012 20:01:22 -0400
 Content-Disposition: inline
-In-Reply-To: <4F68F727.9030405@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Justin P. Mattock <justinmattock@gmail.com> :
-[...]
-> well i dont know what happened.. I suspend throughout the day
-> without any issues, but then on one wakeup everything went to crap
-> ethernet started to try and connect without any wires in.. only
-> thing I can think of is I was dongling with my phone(but the phone
-> was disconnected before suspend),which uses a different module..
+When L2TP is configured as a module, requests for L2TP sockets do not result
+in the l2tp_ppp module being loaded.  Fix this by adding the appropriate
+MODULE_ALIAS to be recognized by pppox's request_module() call.
 
-The MII registers read as 0xff. I'll have to figure why the
-suspend / resume cycle failed, or why it seemed to work. :o/
+Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+---
+ net/l2tp/l2tp_ppp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 9b07191..1addd9f 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -1845,3 +1845,4 @@ MODULE_AUTHOR("James Chapman <jchapman@katalix.com>");
+ MODULE_DESCRIPTION("PPP over L2TP over UDP");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(PPPOL2TP_DRV_VERSION);
++MODULE_ALIAS("pppox-proto-" __stringify(PX_PROTO_OL2TP));
 -- 
-Ueimor
+1.7.4.1
