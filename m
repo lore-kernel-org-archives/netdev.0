@@ -1,69 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [REGRESSION][PATCH] Fix an old sky2 WOL regression
-Date: Wed, 21 Mar 2012 08:08:01 -0700
-Message-ID: <20120321080801.55e4731b@nehalam.linuxnetplumber.net>
-References: <4F69BE2E.7070903@t-online.de>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: [PATCH v3 4/4] ath9k:  Support ethtool getstats api.
+Date: Wed, 21 Mar 2012 08:12:02 -0700
+Message-ID: <4F69EFC2.8030204@candelatech.com>
+References: <1332183105-4447-1-git-send-email-greearb@candelatech.com> <1332183105-4447-4-git-send-email-greearb@candelatech.com> <4F684301.9040006@openwrt.org> <4F68B4AA.3070306@candelatech.com> <20329.32334.162938.169995@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, arekm@maven.pl,
-	Jared <nitro@legroom.net>, dilieto@lineone.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Knut Petersen <Knut_Petersen@t-online.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F69BE2E.7070903@t-online.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sujith Manoharan <c_manoha-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20329.32334.162938.169995-4mDQ13Tdud8Jw5R7aSpS0dP8p4LwMBBS@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Mar 2012 12:40:30 +0100
-Knut Petersen <Knut_Petersen@t-online.de> wrote:
+On 03/21/2012 12:07 AM, Sujith Manoharan wrote:
+> Ben Greear wrote:
+>> I'd like to gather at least most stats always, so ethtool can work regardless
+>> of debugfs.  But, that can be follow on patches in my opinion.  If it turns
+>> out that we need another config option for this, then that is fine too.
+>
+> It would be good to have an option to compile this out. The information is
+> available via the debugfs interface, so this is basically duplicating things.
+> On APs using OpenWRT, debugfs is enabled by default, so we can just read
+> the debugfs files.
 
-> Sky2 Wake on LAN is broken since February 2010 on a number of systems=
-=2E
-> Yes. More than two years.
->=20
-> We know about the problem and the cause since October 2010
-> (Bugzilla bug #19492). It=B4s commit 87b09f1f25cd1e01d7c50bf423c7fe33=
-027d7511.
->=20
-> Stephen, David: You signed off that commit.
->=20
-> Andrew: You called it a regression in October 2010.
->=20
-> It has been proposed to revert the commit that caused the problem.
-> Nothing happened.
->=20
-> I proposed to re-establish the old code for dmi_match()ed systems.
-> Without success.
->=20
-> Now it is proposed to re-establish the old code as a configuration op=
-tion.
-> If nothing happens again I will propose a module parameter ;-)
->=20
-> Stephen, I don=B4t want to be a pain in the neck, and it is not my in=
-tention
-> to offend you by my "attitude". But I simply cannot understand why th=
-is
-> know regression is not fixed. The bit we talk about is documented,
-> and in fact it was set for a number of kernel versions unconditionall=
-y.
-> Nobody complained about ruined hardware or minor problems.
->=20
-> The systems affected are old enough that no manufacturer cares about
-> them, but they are still quite usable for a lot of jobs (kernel 3.3 c=
-ompile
-> time here is below 15 minutes).
->=20
-> If there is a problem in the kernel and if we do know an easy solutio=
-n,
-> that solution should be commited to the kernel, no matter what is wri=
-tten
-> in some random documentation, no matter if we could blame some
-> BIOS authors. That=B4s the way Linux works - at least I thought so.
->=20
-> cu,
-> Knut
+Ok.  Hopefully at least the first 3 patches will go in, and when they do
+I'll post some more patches for consideration.
 
-Config options don't work for distro's.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
