@@ -1,32 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: locking in net_device_ops callbacks
-Date: Wed, 21 Mar 2012 12:25:03 -0700
-Message-ID: <20120321122503.25838566@nehalam.linuxnetplumber.net>
-References: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: [PATCH 4/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Wed, 21 Mar 2012 12:31:36 -0700
+Message-ID: <CAL1RGDWrwP3mY2=W42_c5wpefzqx_BnXhnwfy2fPrP=12hrBOw@mail.gmail.com>
+References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-2-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-3-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-4-git-send-email-parav.pandit@emulex.com>
+ <a5e59a7c-d6ff-4c78-89a7-fad7492260b0@exht1.ad.emulex.com>
+ <CAL1RGDWRm7GVCBgAdSvAt72WQAP4a-1xa18Hk-rFjEfKDEHZNg@mail.gmail.com> <88B766C272F2C64B944B21AD078333151C964A63FB@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Haran <jharan@bytemobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33372 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752106Ab2CUTZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 15:25:08 -0400
-In-Reply-To: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <88B766C272F2C64B944B21AD078333151C964A63FB-/SwythR3zqxVRK6PHKByhFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Mar 2012 18:59:30 +0000
-Jeff Haran <jharan@bytemobile.com> wrote:
+On Wed, Mar 21, 2012 at 12:09 PM,  <Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org> wrote:
+> Yes. Driver needs to put QP to flush state. So that appropriate CQEs can be returned during poll_cq() phase.
+> So state machine is implemented above.
 
-> Hi,
-> 
-> I had posted the below to the kernelnewbies email list and never got a response. I am hoping somebody on this list could provide some feedback.
-> 
-> Just to be clear, it's not the issue of copying the MAC address that I am asking about. That's just an example.
-> 
-> What I am trying to understand is, what mechanisms generally are at play to serialize access to struct net_device private data that is accessed in both process and softirq contexts? Explicit locking "seems" to be mostly absent from the driver sources I've inspected so I can't help but believe I am missing something fundamental here.
+Couldn't you just write
 
-Look at rtnl_lock() in net/core/rtnetlink.c; this is global mutex against
-all changes to network device state.
+    if (ib_modify_qp_is_ok(...)) {
+        if (new_state == OCRDMA_QPS_ERR)
+            ocrdma_flush_qp(qp);
+    } else {
+        status = -EINVAL;
+    }
+
+and save about 100 lines of code?
+
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
