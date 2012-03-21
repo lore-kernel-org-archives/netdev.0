@@ -1,265 +1,181 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V1 4/6] net/mlx4_en: Set max rate-limit for a TC
-Date: Wed, 21 Mar 2012 11:25:01 +0200
-Message-ID: <1332321903-11704-5-git-send-email-amirv@mellanox.com>
+Subject: [PATCH V1 2/6] net/mlx4_core: set port QoS attributes
+Date: Wed, 21 Mar 2012 11:24:59 +0200
+Message-ID: <1332321903-11704-3-git-send-email-amirv@mellanox.com>
 References: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:56119 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756849Ab2CUJZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 05:25:37 -0400
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:35894 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756146Ab2CUJZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 05:25:36 -0400
 In-Reply-To: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amirv@mellanox.co.il>
 
-Set max rate-limit using sysfs file /sys/class/net/<interface>/qos/ratelimit
-
-To set, enter a space separated list of values in units of 100Mbps.  For
-example to set ratelimit of 5G to TC0 and 10G for the reset on eth2 issue:
-echo 50 100 100 100 100 100 100 100 100 > /sys/class/net/eth2/qos/ratelimit
+Adding QoS firmware commands:
+- mlx4_en_SET_PORT_PRIO2TC - set UP <=> TC
+- mlx4_en_SET_PORT_SCHEDULER - set promised BW, max BW and PG number
 
 Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
 ---
+ drivers/net/ethernet/mellanox/mlx4/en_port.h |    2 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h    |   20 ++++++++
+ drivers/net/ethernet/mellanox/mlx4/port.c    |   62 ++++++++++++++++++++++++++
+ include/linux/mlx4/cmd.h                     |    4 ++
+ include/linux/mlx4/device.h                  |    3 +
+ 5 files changed, 91 insertions(+), 0 deletions(-)
 
-We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
-open to other suggestions to add generic support for max bw, e.g add call to
-the DCBX NL API.
-
- drivers/net/ethernet/mellanox/mlx4/Makefile    |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   14 +++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   13 +++
- drivers/net/ethernet/mellanox/mlx4/en_sysfs.c  |  120 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    5 +
- 5 files changed, 152 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Makefile b/drivers/net/ethernet/mellanox/mlx4/Makefile
-index 293127d..8e5bd88 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx4/Makefile
-@@ -7,4 +7,4 @@ obj-$(CONFIG_MLX4_EN)               += mlx4_en.o
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+index 6934fd7..745090b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+@@ -39,6 +39,8 @@
+ #define SET_PORT_PROMISC_SHIFT	31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
  
- mlx4_en-y := 	en_main.o en_tx.o en_rx.o en_ethtool.o en_port.o en_cq.o \
- 		en_resources.o en_netdev.o en_selftest.o
--mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o
-+mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o en_sysfs.o
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index 24ca87c..eb0964f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -126,7 +126,7 @@ mlx4_en_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
- 		return err;
- 
- 	err = mlx4_SET_PORT_SCHEDULER(mdev->dev, priv->port, tc_tx_bw, pg,
--			NULL);
-+			priv->ratelimit);
- 	if (err)
- 		return err;
- 
-@@ -192,6 +192,18 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 	return 0;
- }
- 
-+int mlx4_en_dcbnl_set_ratelimit(struct mlx4_en_priv *priv, u16 *ratelimit)
-+{
-+	memcpy(priv->ratelimit, ratelimit, sizeof(priv->ratelimit));
++#define MLX4_EN_NUM_TC		8
 +
-+	if (mlx4_en_dcbnl_ieee_setets(priv->dev, NULL)) {
-+		en_err(priv, "Error setting ets in HW\n");
-+		return -EINVAL;
+ #define VLAN_FLTR_SIZE	128
+ struct mlx4_set_vlan_fltr_mbox {
+ 	__be32 entry[VLAN_FLTR_SIZE];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 5da51b9..33bf39d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -53,6 +53,26 @@
+ #define DRV_VERSION	"1.1"
+ #define DRV_RELDATE	"Dec, 2011"
+ 
++#define MLX4_NUM_UP		8
++#define MLX4_NUM_TC		8
++#define MLX4_RATELIMIT_UNITS 3 /* 100 Mbps */
++#define MLX4_RATELIMIT_DEFAULT 0xffff
++
++struct mlx4_set_port_prio2tc_context {
++	u8 prio2tc[4];
++};
++
++struct mlx4_port_scheduler_tc_cfg_be {
++	__be16 pg;
++	__be16 bw_precentage;
++	__be16 max_bw_units; /* 3-100Mbps, 4-1Gbps, other values - reserved */
++	__be16 max_bw_value;
++};
++
++struct mlx4_set_port_scheduler_context {
++	struct mlx4_port_scheduler_tc_cfg_be tc[MLX4_NUM_TC];
++};
++
+ enum {
+ 	MLX4_HCR_BASE		= 0x80680,
+ 	MLX4_HCR_SIZE		= 0x0001c,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 98e7762..762bbda 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -858,6 +858,68 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ }
+ EXPORT_SYMBOL(mlx4_SET_PORT_qpn_calc);
+ 
++int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_prio2tc_context *context;
++	int err;
++	u32 in_mod;
++	int i;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
++
++	for (i = 0; i < MLX4_NUM_UP; i += 2)
++		context->prio2tc[i >> 1] = prio2tc[i] << 4 | prio2tc[i + 1];
++
++	in_mod = MLX4_SET_PORT_PRIO2TC << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_SET_PORT_PRIO2TC);
++
++int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
++		u8 *pg, u16 *ratelimit)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_scheduler_context *context;
++	int err;
++	u32 in_mod;
++	int i;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
++
++	for (i = 0; i < MLX4_NUM_TC; i++) {
++		struct mlx4_port_scheduler_tc_cfg_be *tc = &context->tc[i];
++		u16 r = ratelimit && ratelimit[i] ? ratelimit[i] :
++			MLX4_RATELIMIT_DEFAULT;
++
++		tc->pg = htons(pg[i]);
++		tc->bw_precentage = htons(tc_tx_bw[i]);
++
++		tc->max_bw_units = htons(MLX4_RATELIMIT_UNITS);
++		tc->max_bw_value = htons(r);
 +	}
 +
-+	return 0;
++	in_mod = MLX4_SET_PORT_SCHEDULER << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
 +}
++EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
 +
- const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
- 	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
- 	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 9b456ae..f45d544 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -810,6 +810,18 @@ static void mlx4_en_restart(struct work_struct *work)
- 	mutex_unlock(&mdev->state_lock);
- }
- 
-+static int mlx4_en_init(struct net_device *dev)
-+{
-+#ifdef CONFIG_MLX4_EN_DCB
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
+ int mlx4_SET_MCAST_FLTR_wrapper(struct mlx4_dev *dev, int slave,
+ 				struct mlx4_vhcr *vhcr,
+ 				struct mlx4_cmd_mailbox *inbox,
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 9958ff2..1f3860a 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -150,6 +150,10 @@ enum {
+ 	/* statistics commands */
+ 	MLX4_CMD_QUERY_IF_STAT	 = 0X54,
+ 	MLX4_CMD_SET_IF_STAT	 = 0X55,
 +
-+	if (!mlx4_is_slave(priv->mdev->dev))
-+		mlx4_en_prepare_sysfs_group(priv);
-+#endif
-+
-+	return 0;
-+}
-+
- static void mlx4_en_clear_stats(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1026,6 +1038,7 @@ static int mlx4_en_set_features(struct net_device *netdev,
- }
- 
- static const struct net_device_ops mlx4_netdev_ops = {
-+	.ndo_init		= mlx4_en_init,
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
- 	.ndo_start_xmit		= mlx4_en_xmit,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c b/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
-new file mode 100644
-index 0000000..fdada20
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
-@@ -0,0 +1,120 @@
-+/*
-+ * Copyright (c) 2011 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <linux/device.h>
-+#include <linux/netdevice.h>
-+
-+#include "mlx4_en.h"
-+
-+#define to_en_priv(cd)	((struct mlx4_en_priv *)(netdev_priv(to_net_dev(cd))))
-+
-+static ssize_t mlx4_en_show_ratelimit(struct device *d,
-+					 struct device_attribute *attr,
-+					 char *buf)
-+{
-+	struct mlx4_en_priv *priv = to_en_priv(d);
-+	int i;
-+	int len = 0;
-+
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+		len += sprintf(buf + len,  "%d ", priv->ratelimit[i]);
-+	len += sprintf(buf + len, "\n");
-+
-+	return len;
-+}
-+
-+static ssize_t mlx4_en_store_ratelimit(struct device *d,
-+					  struct device_attribute *attr,
-+					  const char *buf, size_t count)
-+{
-+	int ret = count;
-+	struct mlx4_en_priv *priv = to_en_priv(d);
-+	char save;
-+	int i = 0;
-+	u16 ratelimit[IEEE_8021QAZ_MAX_TCS] = { 0 };
-+
-+	do {
-+		int len;
-+		int new_value;
-+
-+		if (i >= IEEE_8021QAZ_MAX_TCS)
-+			goto bad_elem_count;
-+
-+		len = strcspn(buf, " ");
-+
-+		/* nul-terminate and parse */
-+		save = buf[len];
-+		((char *)buf)[len] = '\0';
-+
-+		if (sscanf(buf, "%d", &new_value) != 1 ||
-+				new_value > 100 || new_value < 0) {
-+			en_err(priv, "bad ratelimit value: '%s'\n", buf);
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+		ratelimit[i] = new_value;
-+
-+		buf += len+1;
-+		i++;
-+	} while (save == ' ');
-+
-+	if (i != IEEE_8021QAZ_MAX_TCS)
-+		goto bad_elem_count;
-+
-+	mlx4_en_dcbnl_set_ratelimit(priv, &ratelimit[0]);
-+
-+out:
-+	return ret;
-+
-+bad_elem_count:
-+	en_err(priv, "bad number of elemets in ratelimit array\n");
-+	return -EINVAL;
-+}
-+
-+static DEVICE_ATTR(ratelimit, S_IRUGO | S_IWUSR,
-+		   mlx4_en_show_ratelimit, mlx4_en_store_ratelimit);
-+
-+static struct attribute *mlx4_en_qos_attrs[] = {
-+	&dev_attr_ratelimit.attr,
-+	NULL,
-+};
-+
-+static struct attribute_group qos_group = {
-+	.name = "qos",
-+	.attrs = mlx4_en_qos_attrs,
-+};
-+
-+void mlx4_en_prepare_sysfs_group(struct mlx4_en_priv *priv)
-+{
-+	priv->dev->sysfs_groups[0] = &qos_group;
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index fa09792..32b447d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -499,6 +499,7 @@ struct mlx4_en_priv {
- 
- #ifdef CONFIG_MLX4_EN_DCB
- 	struct ieee_ets *mlx4_en_ieee_ets;
-+	u16 ratelimit[IEEE_8021QAZ_MAX_TCS];
- #endif
++	/* set port opcode modifiers */
++	MLX4_SET_PORT_PRIO2TC = 0x8,
++	MLX4_SET_PORT_SCHEDULER  = 0x9,
  };
  
-@@ -576,6 +577,10 @@ int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
- 
- #ifdef CONFIG_MLX4_EN_DCB
- extern const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops;
-+
-+void mlx4_en_prepare_sysfs_group(struct mlx4_en_priv *priv);
-+
-+int mlx4_en_dcbnl_set_ratelimit(struct mlx4_en_priv *priv, u16 *ratelimit);
- #endif
- 
- #define MLX4_EN_NUM_SELF_TEST	5
+ enum {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 44d8144..20c706f 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -626,6 +626,9 @@ int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
+ 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
+ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ 			   u8 promisc);
++int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
++int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
++		u8 *pg, u16 *ratelimit);
+ int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+ void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
 -- 
 1.7.8.2
