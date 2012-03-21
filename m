@@ -1,69 +1,118 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH V1 5/6] net/mlx4_en: sk_prio <=> UP for untagged traffic
-Date: Wed, 21 Mar 2012 07:20:29 -0700
-Message-ID: <4F69E3AD.2000501@intel.com>
-References: <1332321903-11704-1-git-send-email-amirv@mellanox.com> <1332321903-11704-6-git-send-email-amirv@mellanox.com>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] net: phy: smsc: energy saving does not work without
+ interrupts
+Date: Wed, 21 Mar 2012 15:28:34 +0100
+Message-ID: <20120321142834.GE3244@pengutronix.de>
+References: <1332331707-2350-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.co.il>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zjcmjzIkjQU2rmur"
+Cc: David Miller <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25929 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757629Ab2CUOUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 10:20:30 -0400
-In-Reply-To: <1332321903-11704-6-git-send-email-amirv@mellanox.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:39546 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030924Ab2CUO2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 10:28:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1332331707-2350-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/21/2012 2:25 AM, Amir Vadai wrote:
-> From: Amir Vadai <amirv@mellanox.co.il>
-> 
-> Since vlan egress map is only good for tagged traffic, need to have other
-> mapping to be used by untagged traffic.
-> For that, the driver uses sch_mqprio mapping. This mapping could be set by
-> using tc tool from iproute2 package.
-> Mapped UP will be used by the HW for QoS purposes, but won't go out on the
-> wire.
-> 
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+
+--zjcmjzIkjQU2rmur
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Mar 21, 2012 at 01:08:27PM +0100, Wolfram Sang wrote:
+> We discovered link detection failures using this PHY with the Freescale F=
+EC
+> which does not have interrupt support yet. Disabling the energy saving mo=
+de
+> makes all go well. It should be possible to make this mode work without
+> interrupts by adding some code dealing with the ENERGYON flag. Since addi=
+ng
+> interrupt support to the FEC driver seems to be the better solution for u=
+s, I
+> want to at least make sure the PHY works reliably always. So, disable ene=
+rgy
+> saving if there is no interrupt support.
+>=20
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 > ---
-
-[...]
-
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 445a771..f228728 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -570,15 +570,15 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
->  
->  u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+>=20
+> Giuseppe: Did you test with interrupts? Do you agree?
+>=20
+> If Giuseppe is fine with the patch, this should probably be tagged for st=
+able.
+>=20
+>  drivers/net/phy/smsc.c |   22 ++++++++++++----------
+>  1 files changed, 12 insertions(+), 10 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> index fc3e7e9..6dcf57a 100644
+> --- a/drivers/net/phy/smsc.c
+> +++ b/drivers/net/phy/smsc.c
+> @@ -43,16 +43,18 @@ static int smsc_phy_ack_interrupt(struct phy_device *=
+phydev)
+> =20
+>  static int smsc_phy_config_init(struct phy_device *phydev)
 >  {
-> -	u16 vlan_tag = 0;
-> +	int up = -1;
->  
-> -	/* If we support per priority flow control and the packet contains
-> -	 * a vlan tag, send the packet to the TX ring assigned to that priority
-> -	 */
-> -	if (vlan_tx_tag_present(skb)) {
-> -		vlan_tag = vlan_tx_tag_get(skb);
-> -		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
-> -	}
-> +	if (vlan_tx_tag_present(skb))
-> +		up = (vlan_tx_tag_get(skb) >> 13);
-> +	else if (dev->num_tc)
-> +		up = netdev_get_prio_tc_map(dev, skb->priority);
+> -	int rc =3D phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+> -	if (rc < 0)
+> -		return rc;
+> -
+> -	/* Enable energy detect mode for this SMSC Transceivers */
+> -	rc =3D phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+> -		       rc | MII_LAN83C185_EDPWRDOWN);
+> -	if (rc < 0)
+> -		return rc;
+> -
+> +	/* TODO: add code to make EDPWRDOWN work without interrupts */
+> +	if (PHY_INTERRUPT_ENABLED =3D=3D phydev->interrupts) {
+
+Gnarg, that should probably be:
+
++	if (phydev->irq !=3D PHY_POLL) ...
+
+since interrupts maybe not enabled at this point? Will resend, but will
+wait some more for comments.
+
+> +		int rc =3D phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
+> +		if (rc < 0)
+> +			return rc;
 > +
-> +	if (up >= 0)
-> +		return MLX4_EN_NUM_TX_RINGS + up;
-
-I expected the else case covered by the netdev_set_tc_queue() setup above? Did
-I miss something.
-
->  
->  	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
+> +		/* Enable energy detect mode for this SMSC Transceivers */
+> +		rc =3D phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
+> +			       rc | MII_LAN83C185_EDPWRDOWN);
+> +		if (rc < 0)
+> +			return rc;
+> +	}
+>  	return smsc_phy_ack_interrupt (phydev);
 >  }
+> =20
+> --=20
+> 1.7.9.1
+>=20
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--zjcmjzIkjQU2rmur
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAk9p5ZIACgkQD27XaX1/VRvzeACfct6m45uCIzq6JEXaGz0rcizF
+CjQAnA4oUfJHGQCAzXaBpZZIBw11DBOU
+=U/cq
+-----END PGP SIGNATURE-----
+
+--zjcmjzIkjQU2rmur--
