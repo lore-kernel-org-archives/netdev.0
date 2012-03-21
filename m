@@ -1,78 +1,73 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: use-after-free in usbnet
-Date: Wed, 21 Mar 2012 09:34:41 +0800
-Message-ID: <CACVXFVPK9vj8oqjr1SFr2MgoQn-2XoDqyb95oW+7LCHT7020Ow@mail.gmail.com>
-References: <20120319151224.GA16031@redhat.com>
-	<CACVXFVN5O2S0hsnzHoi=LX+KAnccHc_F0SXq9-hMOXnaoUOdkg@mail.gmail.com>
-	<CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>,
-	Dave Jones <davej@redhat.com>
-To: Alan Stern <stern@rowland.harvard.edu>
+From: greearb@candelatech.com
+Subject: [RFC] net:  Report dev->promiscuity in netlink reports.
+Date: Tue, 20 Mar 2012 20:37:26 -0700
+Message-ID: <1332301046-18748-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:59793 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756277Ab2CUBem convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 21:34:42 -0400
-In-Reply-To: <CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:51847 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755428Ab2CUDhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 23:37:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 21, 2012 at 9:04 AM, Ming Lei <tom.leiming@gmail.com> wrote=
-:
-> On Tue, Mar 20, 2012 at 5:40 PM, Ming Lei <tom.leiming@gmail.com> wro=
-te:
->> Hi,
->>
->> On Mon, Mar 19, 2012 at 11:12 PM, Dave Jones <davej@redhat.com> wrot=
-e:
->>> We've had two reports of this use after free in Fedora now recently=
-=2E.
->>
->> Could you provide output of 'dmesg' and 'lsusb -v' from the reported=
- machine?
->
-> Looks I have figured out why your problem is triggered.
->
-> If the URB being unlinked is freed before usb_put_dev
-> inside usb_hcd_unlink_urb, the use-after-free will be triggered.
-> And the below patch[1] should fix the problem.
->
-> Also there is another bug in tx_complete() of usbnet, the line below
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0urb->dev =3D NULL;
->
-> should be removed to avoid possible oops or memory leak in unlink pat=
-h.
->
-> Please test the patch if you can reproduce the problem.
->
-> [1],
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 59681f0..4f4e028 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -592,7 +592,9 @@ static int unlink_urbs (struct usbnet *dev, struc=
-t
-> sk_buff_head *q)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0spin_unlock_irqrestore(&q->lock, flags=
-);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// during some PM-driven resume scenar=
-ios,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// these (async) unlinks complete imme=
-diately
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 local_bh_disable();
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0retval =3D usb_unlink_urb (urb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 local_bh_enable();
+From: Ben Greear <greearb@candelatech.com>
 
-Looks it is a general issue about usb_hcd_unlink_urb.
+The standard ways of probing a device's promiscuity
+(ifi_flags, for instance) does not report the actual
+state of the device.  This patch adds dev->promiscuity
+to the netlink netdevice report so that users can know
+for certain if the device is acting PROMISC or not.
 
-Alan, how about increasing URB reference count before calling unlink1
-inside usb_hcd_unlink_urb to fix this kind of problem?
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 4b24ff4... 2f4fa93... M	include/linux/if_link.h
+:100644 100644 f965dce... 6f4983f... M	net/core/rtnetlink.c
+ include/linux/if_link.h |    2 ++
+ net/core/rtnetlink.c    |    3 +++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-Thanks,
---=20
-Ming Lei
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 4b24ff4..2f4fa93 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -138,6 +138,8 @@ enum {
+ 	IFLA_GROUP,		/* Group the device belongs to */
+ 	IFLA_NET_NS_FD,
+ 	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
++	IFLA_PROMISCUITY,	/* Promiscuity count: > 0 means acts PROMISC */
++#define IFLA_PROMISCUITY IFLA_PROMISCUITY
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index f965dce..6f4983f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -783,6 +783,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
++	       + nla_total_size(4) /* IFLA_PROMISCUITY */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + nla_total_size(ext_filter_mask
+@@ -899,6 +900,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	NLA_PUT_U8(skb, IFLA_LINKMODE, dev->link_mode);
+ 	NLA_PUT_U32(skb, IFLA_MTU, dev->mtu);
+ 	NLA_PUT_U32(skb, IFLA_GROUP, dev->group);
++	NLA_PUT_U32(skb, IFLA_PROMISCUITY, dev->promiscuity);
+ 
+ 	if (dev->ifindex != dev->iflink)
+ 		NLA_PUT_U32(skb, IFLA_LINK, dev->iflink);
+@@ -1114,6 +1116,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
+ 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
+ 	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
++	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+-- 
+1.7.3.4
