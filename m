@@ -1,83 +1,92 @@
-From: <s-paulraj-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH] net: add device tree support for DaVinci MDIO
-Date: Wed, 21 Mar 2012 11:05:03 -0400
-Message-ID: <1332342303-23656-1-git-send-email-s-paulraj@ti.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: use-after-free in usbnet
+Date: Wed, 21 Mar 2012 23:07:57 +0800
+Message-ID: <CACVXFVPfnFLaRFbAgTzQCrPJeaMZ_kEu4q1g-wHesEb2pbdz9w@mail.gmail.com>
+References: <20120319151224.GA16031@redhat.com>
+	<CACVXFVN5O2S0hsnzHoi=LX+KAnccHc_F0SXq9-hMOXnaoUOdkg@mail.gmail.com>
+	<CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
+	<20120321144441.GB14043@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:53893 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468Ab2CUPH5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 11:07:57 -0400
+In-Reply-To: <20120321144441.GB14043@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sandeep Paulraj <s-paulraj-l0cyMroinI0@public.gmane.org>
+On Wed, Mar 21, 2012 at 10:44 PM, Greg KH <greg@kroah.com> wrote:
+> On Wed, Mar 21, 2012 at 09:04:15AM +0800, Ming Lei wrote:
+>> On Tue, Mar 20, 2012 at 5:40 PM, Ming Lei <tom.leiming@gmail.com> wr=
+ote:
+>> > Hi,
+>> >
+>> > On Mon, Mar 19, 2012 at 11:12 PM, Dave Jones <davej@redhat.com> wr=
+ote:
+>> >> We've had two reports of this use after free in Fedora now recent=
+ly..
+>> >
+>> > Could you provide output of 'dmesg' and 'lsusb -v' from the report=
+ed machine?
+>>
+>> Looks I have figured out why your problem is triggered.
+>>
+>> If the URB being unlinked is freed before usb_put_dev
+>> inside usb_hcd_unlink_urb, the use-after-free will be triggered.
+>> And the below patch[1] should fix the problem.
+>
+> With the reference counting we have, how can the urb be freed at this
+> point in time? =A0Is the driver doing wierd things with the urb refer=
+ence
+> counts?
 
-This patch adds device tree support in the DaVinci MDIO driver.
+The problem is that the .complete may schedule a tasklet to
+free the completed URB. And the .complete may be run inside
+unlink path, so the use-after-free will be triggered if the
+tasklet is excuted before usb_put_dev inside usb_hcd_unlink_urb.
+
+>
+>> Also there is another bug in tx_complete() of usbnet, the line below
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 urb->dev =3D NULL;
+>>
+>> should be removed to avoid possible oops or memory leak in unlink pa=
+th.
+>>
+>> Please test the patch if you can reproduce the problem.
+>>
+>> [1],
+>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+>> index 59681f0..4f4e028 100644
+>> --- a/drivers/net/usb/usbnet.c
+>> +++ b/drivers/net/usb/usbnet.c
+>> @@ -592,7 +592,9 @@ static int unlink_urbs (struct usbnet *dev, stru=
+ct
+>> sk_buff_head *q)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore(&q->lock, flags);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 // during some PM-driven resume scenario=
+s,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 // these (async) unlinks complete immedi=
+ately
+>> + =A0 =A0 =A0 =A0 =A0 =A0 local_bh_disable();
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 retval =3D usb_unlink_urb (urb);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 local_bh_enable();
+>
+> That doesn't seem right, as you point out in your follow-up message.
+> This shouldn't be needed, unless you are doing some really wierd thin=
+gs
+> with the urb :(
+
+Looks the driver doesn't do any wierd things, as said above.
 
 
-Signed-off-by: Sandeep Paulraj <s-paulraj-l0cyMroinI0@public.gmane.org>
----
- .../devicetree/bindings/net/davinci_mdio.txt       |   12 ++++++++++++
- drivers/net/ethernet/ti/davinci_mdio.c             |    7 +++++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/davinci_mdio.txt
-
-diff --git a/Documentation/devicetree/bindings/net/davinci_mdio.txt b/Documentation/devicetree/bindings/net/davinci_mdio.txt
-new file mode 100644
-index 0000000..cbe499f
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/davinci_mdio.txt
-@@ -0,0 +1,12 @@
-+MDIO on DaVinci SOCs
-+
-+Currently defined compatibles:
-+- ti,davinci_mdio
-+
-+Example:
-+
-+mdio: mdio@2090300 {
-+			compatible	= "ti,davinci_mdio";
-+			reg		= <0x2090300 0x100>;
-+		};
-+
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 7615040..362644d 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -34,6 +34,7 @@
- #include <linux/clk.h>
- #include <linux/err.h>
- #include <linux/io.h>
-+#include <linux/of.h>
- #include <linux/davinci_emac.h>
- 
- /*
-@@ -449,11 +450,17 @@ static const struct dev_pm_ops davinci_mdio_pm_ops = {
- 	.resume		= davinci_mdio_resume,
- };
- 
-+static struct of_device_id __devinitdata of_match[] = {
-+	{ .compatible = "ti,davinci_mdio", },
-+	{},
-+};
-+
- static struct platform_driver davinci_mdio_driver = {
- 	.driver = {
- 		.name	 = "davinci_mdio",
- 		.owner	 = THIS_MODULE,
- 		.pm	 = &davinci_mdio_pm_ops,
-+		.of_match_table	= of_match,
- 	},
- 	.probe = davinci_mdio_probe,
- 	.remove = __devexit_p(davinci_mdio_remove),
--- 
-1.7.4.1
+Thanks,
+--=20
+Ming Lei
