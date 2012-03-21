@@ -1,100 +1,69 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V1 6/6] IB/rdma_cm: TOS <=> UP mapping for IBoE
-Date: Wed, 21 Mar 2012 11:25:03 +0200
-Message-ID: <1332321903-11704-7-git-send-email-amirv@mellanox.com>
-References: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH V1 0/6] net/mlx4_en: DCB QoS support
+Date: Wed, 21 Mar 2012 11:24:57 +0200
+Message-ID: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.co.il>,
-	Sean Hefty <sean.hefty@intel.com>
+	Oren Duer <oren@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:58266 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756860Ab2CUJZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 05:25:38 -0400
-In-Reply-To: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:42864 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755412Ab2CUJZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 05:25:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.co.il>
+DCBX version 802.1qaz is supported.
+User Priority (UP) is set in QP context instead of in WQE (QP Work Queue
+Element), which means that all traffic from a queue will have the same UP.
+UP is also set for untagged traffic to be able to classify such traffic too.
 
-Both tagged traffic and untagged traffic use tc tool mapping.
-Treat RDMA TOS same as IP TOS when mapping to SL
+Mapping from sk_prio to User Priority is done by sch_mqprio mapping. Although
+confusingly sch_mqprio maps sk_prio to something called TC, it is not related
+to DCBX's TC, and is interpreted by mlx4_en driver as UP.
 
-Since IP TOS to priority mapping is not exported, had to borrow the code from
-net/ipv4/route.c
-
-Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
-CC: Sean Hefty <sean.hefty@intel.com>
+The Current HW based QoS mechanism which was introduced in commit 4f57c087de9
+"net: implement mechanism for HW based QOS" is in orientation to ETS traffic
+class. Patch 7/8 introduces an approach which allow to use this mechanism also
+with hardware who has queues per user priority (UP). After the change,
+__skb_tx_hash() will direct a flow to a tx ring from a range of tx rings. This
+range is defined by the caller function by the specific HW. If TC based queues,
+the range is by TC number and for UP based queues, the range is by UP. 
 
 ---
+Changes from V0:
+- Removed patches 6 and 7 who deal with the interaction between the kernel HW
+  QoS constructs to the queue selection logic are still under discussion with
+  John and some changes might be needed there.
 
-We can export IP TOS to priority mapping if the networking maintainers will say
-where they want it.
----
- drivers/infiniband/core/cma.c |   35 ++++++++++++++++++++++++++++++++++-
- 1 files changed, 34 insertions(+), 1 deletions(-)
+Amir Vadai (6):
+  net/mlx4_en: Force user priority by QP attribute
+  net/mlx4_core: set port QoS attributes
+  net/mlx4_en: DCB QoS support
+  net/mlx4_en: Set max rate-limit for a TC
+  net/mlx4_en: sk_prio <=> UP for untagged traffic
+  IB/rdma_cm: TOS <=> UP mapping for IBoE
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index e3e470f..c0eeb2c 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -42,6 +42,7 @@
- #include <linux/inetdevice.h>
- #include <linux/slab.h>
- #include <linux/module.h>
-+#include <linux/pkt_sched.h>
- 
- #include <net/tcp.h>
- #include <net/ipv6.h>
-@@ -1781,6 +1782,32 @@ static int cma_resolve_iw_route(struct rdma_id_private *id_priv, int timeout_ms)
- 	return 0;
- }
- 
-+#define ECN_OR_COST(class)	TC_PRIO_##class
-+
-+static const __u8 tos2prio[16] = {
-+	TC_PRIO_BESTEFFORT,
-+	ECN_OR_COST(BESTEFFORT),
-+	TC_PRIO_BESTEFFORT,
-+	ECN_OR_COST(BESTEFFORT),
-+	TC_PRIO_BULK,
-+	ECN_OR_COST(BULK),
-+	TC_PRIO_BULK,
-+	ECN_OR_COST(BULK),
-+	TC_PRIO_INTERACTIVE,
-+	ECN_OR_COST(INTERACTIVE),
-+	TC_PRIO_INTERACTIVE,
-+	ECN_OR_COST(INTERACTIVE),
-+	TC_PRIO_INTERACTIVE_BULK,
-+	ECN_OR_COST(INTERACTIVE_BULK),
-+	TC_PRIO_INTERACTIVE_BULK,
-+	ECN_OR_COST(INTERACTIVE_BULK)
-+};
-+
-+static inline char cma_tos2priority(u8 tos)
-+{
-+	return tos2prio[IPTOS_TOS(tos)>>1];
-+}
-+
- static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- {
- 	struct rdma_route *route = &id_priv->id.route;
-@@ -1826,7 +1853,13 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- 	route->path_rec->reversible = 1;
- 	route->path_rec->pkey = cpu_to_be16(0xffff);
- 	route->path_rec->mtu_selector = IB_SA_EQ;
--	route->path_rec->sl = id_priv->tos >> 5;
-+	if (ndev->priv_flags & IFF_802_1Q_VLAN)
-+		route->path_rec->sl =
-+			netdev_get_prio_tc_map(vlan_dev_real_dev(ndev),
-+					cma_tos2priority(id_priv->tos));
-+	else
-+		route->path_rec->sl = netdev_get_prio_tc_map(ndev,
-+				cma_tos2priority(id_priv->tos));
- 
- 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
- 	route->path_rec->rate_selector = IB_SA_EQ;
+ drivers/infiniband/core/cma.c                     |   35 ++++-
+ drivers/net/ethernet/mellanox/mlx4/Kconfig        |   12 ++
+ drivers/net/ethernet/mellanox/mlx4/Makefile       |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  215 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   47 +++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h      |    2 +
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_sysfs.c     |  120 ++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   23 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |   20 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   32 +++-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   62 ++++++
+ include/linux/mlx4/cmd.h                          |    4 +
+ include/linux/mlx4/device.h                       |    3 +
+ include/linux/mlx4/qp.h                           |    3 +-
+ 17 files changed, 569 insertions(+), 22 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
+
 -- 
 1.7.8.2
