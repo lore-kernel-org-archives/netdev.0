@@ -1,120 +1,75 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH] macvlan: add FDB bridge ops
-Date: Tue, 20 Mar 2012 17:26:48 -0700
-Message-ID: <20120321002647.16118.87199.stgit@jf-dev1-dcblab>
+Subject: Re: [net-next PATCH v0 1/5] net: add generic PF_BRIDGE:RTM_ FDB hooks
+Date: Tue, 20 Mar 2012 17:53:17 -0700
+Message-ID: <4F69267D.4050500@intel.com>
+References: <CB8E57D1.494C3%roprabhu@cisco.com> <4F6921D6.9090306@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com
-To: roprabhu@cisco.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roopa Prabhu <roprabhu@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:3525 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:25164 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755306Ab2CUAkU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Mar 2012 20:40:20 -0400
+	id S1759193Ab2CUAyS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Mar 2012 20:54:18 -0400
+In-Reply-To: <4F6921D6.9090306@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to add/del and dump the forwarding database
-for macvlan passthru mode. The macvlan driver acts like
-a Two Port Mac Relay (TPMR 802.1Q-2011) in the passthru
-case so adding forwarding rules is just adding the addr
-to the uc or mc lists.
+On 3/20/2012 5:33 PM, John Fastabend wrote:
+> On 3/20/2012 3:50 PM, Roopa Prabhu wrote:
+>>
+>>> On 3/18/12 11:51 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
+>>>
+>>>> This adds two new flags NTF_MASTER and NTF_LOWERDEV that can
+>>>> now be used to specify where PF_BRIDGE netlink commands should
+>>>> be sent. NTF_MASTER sends the commands to the 'dev->master'
+>>>> device for parsing. Typically this will be the linux net/bridge,
+>>>> macvlan, or open-vswitch devices. Also without any flags set
+>>>> the command will be handled by the master device as well so
+>>>> that current user space tools continue to work as expected.
+>>
+> [...]
+> 
+>>  
+>> Sorry John for getting back on this very late.
+>> Am trying to see how this will work for macvlan.
+>>  
+>>  Am wondering if the below is how you think might work,
+>>  - macvlan implements ndo_fdb_add, del, dump
+>>  - macvlan_fdb_add {
+>>       if (macvlan passthrough mode) {
+>>          if (lowerdev->ndo_fdb_add) {
+>>              lowerdev->ndo_fdb_add(addr) with NTF_LOWERDEV
+>>          }
+>>          else {
+>>              /* This is because, we don't want all devices to have to
+>>                 implement ndo_fdb_add. Eg Devices without an embedded bridge
+>>                 */.
+>>              dev_uc_add_excl(lowerdev, addr)
+>>          }
+>>    }
+>>  
+>>  Let me see if I can write a sample patch.
+>>  
+> 
+> Yes this is what I expect. I'll post the sample patch I've been
+> working with here in just a second. The tricky part is dealing
+> with the promisc mode. In your previous series you just removed
+> doesn't seem correct to me because we already have a precedent
+> set i.e. macvlan passthru comes up in promisc mode and doesn't
+> require any filters.
+> 
+> .John
 
-By default the passthru mode puts the lowerdev into a
-promiscuous mode to receive all packets. This behavior
-is not changed by this patch. This is a bit problematic
-and needs to be solved without IMHO breaking existing
-mechanics. Maybe on the first add_fdb we can decrement
-the promisc mode? That seems to work reasonable well and
-keep existing functionality in place... but requires
-an initial add to set things up which is a bit annoying
-so maybe a flag is better. I haven't thought too hard
-about it yet so any ideas welcome
+ah dang that msg won't hit netdev because I stupidly named the
+patch with three Xs.
 
-This patch is a result of Roopa Prabhu's work. Follow up
-patches are needed for VEPA and VEB macvlan modes.
+but to follow up yes NTF_SELF seems like a better name. I'll
+change it when I submit again after net-next opens up and
+I also posted my RFC for macvlan feel free to use that as a
+starting point if it works for you.
 
-Only lightly touch tested at this point.
-
-CC: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
-
- drivers/net/macvlan.c |   42 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 42 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index f975afd..86af56b 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -349,6 +349,7 @@ static int macvlan_stop(struct net_device *dev)
- 		goto hash_del;
- 	}
- 
-+	dev_uc_unsync(lowerdev, dev);
- 	dev_mc_unsync(lowerdev, dev);
- 	if (dev->flags & IFF_ALLMULTI)
- 		dev_set_allmulti(lowerdev, -1);
-@@ -403,6 +404,7 @@ static void macvlan_set_multicast_list(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
-+	dev_uc_sync(vlan->lowerdev, dev);
- 	dev_mc_sync(vlan->lowerdev, dev);
- }
- 
-@@ -542,6 +544,43 @@ static int macvlan_vlan_rx_kill_vid(struct net_device *dev,
- 	return 0;
- }
- 
-+static int macvlan_fdb_add(struct ndmsg *ndm,
-+			   struct net_device *dev,
-+			   unsigned char *addr,
-+			   u16 flags)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+
-+	if (!vlan->port->passthru)
-+		return -EOPNOTSUPP;
-+
-+	if (is_unicast_ether_addr(addr))
-+		err = dev_uc_add(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add(dev, addr);
-+
-+	return err;
-+}
-+
-+static int macvlan_fdb_del(struct ndmsg *ndm,
-+			   struct net_device *dev,
-+			   unsigned char *addr)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+
-+	if (!vlan->port->passthru)
-+		return -EOPNOTSUPP;
-+
-+	if (is_unicast_ether_addr(addr))
-+		err = dev_uc_del(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_del(dev, addr);
-+
-+	return err;
-+}
-+
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -577,6 +616,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_vlan_rx_add_vid	= macvlan_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= macvlan_vlan_rx_kill_vid,
-+	.ndo_fdb_add		= macvlan_fdb_add,
-+	.ndo_fdb_del		= macvlan_fdb_del,
-+	.ndo_fdb_dump		= ndo_dflt_fdb_dump,
- };
- 
- void macvlan_common_setup(struct net_device *dev)
+Thanks,
+.John
