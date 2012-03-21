@@ -1,73 +1,44 @@
-From: greearb@candelatech.com
-Subject: [RFC] net:  Report dev->promiscuity in netlink reports.
-Date: Tue, 20 Mar 2012 20:37:26 -0700
-Message-ID: <1332301046-18748-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x1f2/0x200()
+Date: Tue, 20 Mar 2012 22:15:58 -0700
+Message-ID: <4F69640E.3000505@gmail.com>
+References: <20120205134050.7e135bb231b613806a2e0b70@gmail.com> <4F2F0065.9040909@lwfinger.net> <20120205222141.GA26223@electric-eye.fr.zoreil.com> <20120205145913.194746473361e324bda1eb4a@gmail.com> <CAKFRV=NghW3kokuD-VBAzVJf09r-9ePMG+L7qDYfqmuHwWo4mg@mail.gmail.com> <20120320093709.GA5058@electric-eye.fr.zoreil.com> <4F689131.2030607@gmail.com> <4F68F727.9030405@gmail.com> <20120320232700.GA21932@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51847 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755428Ab2CUDhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Mar 2012 23:37:32 -0400
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:60188 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035Ab2CUFQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 01:16:02 -0400
+Received: by obbeh20 with SMTP id eh20so464283obb.19
+        for <netdev@vger.kernel.org>; Tue, 20 Mar 2012 22:16:02 -0700 (PDT)
+In-Reply-To: <20120320232700.GA21932@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+On 03/20/2012 04:27 PM, Francois Romieu wrote:
+> Justin P. Mattock<justinmattock@gmail.com>  :
+> [...]
+>> well i dont know what happened.. I suspend throughout the day
+>> without any issues, but then on one wakeup everything went to crap
+>> ethernet started to try and connect without any wires in.. only
+>> thing I can think of is I was dongling with my phone(but the phone
+>> was disconnected before suspend),which uses a different module..
+>
+> The MII registers read as 0xff. I'll have to figure why the
+> suspend / resume cycle failed, or why it seemed to work. :o/
+>
 
-The standard ways of probing a device's promiscuity
-(ifi_flags, for instance) does not report the actual
-state of the device.  This patch adds dev->promiscuity
-to the netlink netdevice report so that users can know
-for certain if the device is acting PROMISC or not.
+not sure why this did this, I rebooted and have suspended numerous times 
+without an issue with ethernet, even retraced my steps to try and 
+re-created but nothing. seems solid to me beside that hickup.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 4b24ff4... 2f4fa93... M	include/linux/if_link.h
-:100644 100644 f965dce... 6f4983f... M	net/core/rtnetlink.c
- include/linux/if_link.h |    2 ++
- net/core/rtnetlink.c    |    3 +++
- 2 files changed, 5 insertions(+), 0 deletions(-)
+I am trying to gather any info for you, if you have any ideas on what I 
+can try let me know!
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 4b24ff4..2f4fa93 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -138,6 +138,8 @@ enum {
- 	IFLA_GROUP,		/* Group the device belongs to */
- 	IFLA_NET_NS_FD,
- 	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
-+	IFLA_PROMISCUITY,	/* Promiscuity count: > 0 means acts PROMISC */
-+#define IFLA_PROMISCUITY IFLA_PROMISCUITY
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f965dce..6f4983f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -783,6 +783,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(4) /* IFLA_MTU */
- 	       + nla_total_size(4) /* IFLA_LINK */
- 	       + nla_total_size(4) /* IFLA_MASTER */
-+	       + nla_total_size(4) /* IFLA_PROMISCUITY */
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(ext_filter_mask
-@@ -899,6 +900,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	NLA_PUT_U8(skb, IFLA_LINKMODE, dev->link_mode);
- 	NLA_PUT_U32(skb, IFLA_MTU, dev->mtu);
- 	NLA_PUT_U32(skb, IFLA_GROUP, dev->group);
-+	NLA_PUT_U32(skb, IFLA_PROMISCUITY, dev->promiscuity);
- 
- 	if (dev->ifindex != dev->iflink)
- 		NLA_PUT_U32(skb, IFLA_LINK, dev->iflink);
-@@ -1114,6 +1116,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
- 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
- 	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
-+	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
--- 
-1.7.3.4
+Thanks for the patch and info with this.
+
+Justin P. Mattock
