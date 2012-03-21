@@ -1,47 +1,42 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Piggyback the final ACK of the three way TCP connection establishment
- with the data
-Date: Wed, 21 Mar 2012 16:38:15 -0700
-Message-ID: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: locking in net_device_ops callbacks
+Date: Thu, 22 Mar 2012 00:37:20 +0100
+Message-ID: <20120321233720.GA14134@electric-eye.fr.zoreil.com>
+References: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com> <20120321122503.25838566@nehalam.linuxnetplumber.net> <471DE477E2B1F549A58F3A14A27180BE0147A6@HQ-EX01.bytemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeff Haran <jharan@bytemobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:51071 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab2CUXiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 19:38:16 -0400
-Received: by wejx9 with SMTP id x9so1374116wej.19
-        for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 16:38:15 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38691 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751679Ab2CUXj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 19:39:27 -0400
+Content-Disposition: inline
+In-Reply-To: <471DE477E2B1F549A58F3A14A27180BE0147A6@HQ-EX01.bytemobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Jeff Haran <jharan@bytemobile.com> :
+[...]
+> It seems to me that some other serialization mechanism should be in place
+> to serialize soft IRQ context access to instances of struct net_device.
 
-I happen to see this link
-http://h20000.www2.hp.com/bc/docs/support/SupportManual/c02020743/c02020743.pdf
-and
+The driver must implement adequate locking -mostly bh or irq spinlock- if
+you want to change the MTU at any time. It is possible to temporarily stop
+some bh as well too, see napi_disable for instance.
 
-tcp_delay_final_twh_ack:
-            Piggyback the final ACK of the three way TCP connection
-            establishment with the data by delaying the final ack by
-           10ms.
+net_device stats locking is a different beast.
 
-           0: Send the final ACK as soon as the SYN+ACK packet
-               arrives from the remote host.
+Other than that, some serializing is already done with rules such as
+"xmit happens in locally bh disabled context" or through special purpose
+lock (think Tx locking).
 
-           1: Delay the sending of the final ACK by 10ms. If
-               there is data available to be sent with in the
-               next 10ms, piggyback the ACK for the SYN.
-[0-1] Default: 1
+So, yes, there are some mechanisms. However most drivers only care about
+the net_device itself when it goes up or down. As soon as the net_device
+is up, it won't change much behind the driver's back (nor should the driver
+try to modify it much btw).
 
-It appears this feature is not available in kernel tcp implementation,
-is it trivial to make a custom patch to make this feature available?
-can someone give a hint on how to make a patch for this?
-
-We had a situation that we want to make linux kernel tcp stack behave
-this way so we can reproduce another issue at hand.
-
-Thanks
-
-Vincent
+-- 
+Ueimor
