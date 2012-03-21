@@ -1,49 +1,56 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH v3 4/4] ath9k:  Support ethtool getstats api.
-Date: Wed, 21 Mar 2012 09:20:14 -0700
-Message-ID: <4F69FFBE.9000607@candelatech.com>
-References: <1332183105-4447-1-git-send-email-greearb@candelatech.com>  <1332183105-4447-4-git-send-email-greearb@candelatech.com>  <4F684301.9040006@openwrt.org> <4F68B4AA.3070306@candelatech.com>  <20329.32334.162938.169995@gargle.gargle.HOWL> <1332346257.3500.9.camel@deadeye>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Wed, 21 Mar 2012 09:20:00 -0700
+Message-ID: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-2-git-send-email-parav.pandit@emulex.com> <24c5b654-d6a5-418d-8187-fba4ad47a3ce@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sujith Manoharan <c_manoha@qca.qualcomm.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:56836 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755999Ab2CUQUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 12:20:19 -0400
-In-Reply-To: <1332346257.3500.9.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <24c5b654-d6a5-418d-8187-fba4ad47a3ce-nbYkmrCdWxmgMrCBcu8zE0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/21/2012 09:10 AM, Ben Hutchings wrote:
-> On Wed, 2012-03-21 at 12:37 +0530, Sujith Manoharan wrote:
->> Ben Greear wrote:
->>> I'd like to gather at least most stats always, so ethtool can work regardless
->>> of debugfs.  But, that can be follow on patches in my opinion.  If it turns
->>> out that we need another config option for this, then that is fine too.
->>
->> It would be good to have an option to compile this out. The information is
->> available via the debugfs interface, so this is basically duplicating things.
->> On APs using OpenWRT, debugfs is enabled by default, so we can just read
->> the debugfs files.
+On Tue, Mar 20, 2012 at 3:39 PM,  <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org> wrote:
+> From: Parav Pandit <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>
 >
-> ethtool is the normal way to expose extended network stats, so the
-> debugfs interface should be dropped in favour of this.
+> - Header file for userspace library and kernel driver interface.
 
-No...ath9k debugfs offers a lot of additional info that is not easily
-packaged into ethtool stats, and is better formatted for reading
-by humans.
+> +struct ocrdma_alloc_ucontext_resp {
+> + =A0 =A0 =A0 u32 dev_id;
+> + =A0 =A0 =A0 u32 wqe_size;
+> + =A0 =A0 =A0 u32 max_inline_data;
+> + =A0 =A0 =A0 u32 dpp_wqe_size;
+> + =A0 =A0 =A0 u64 ah_tbl_page;
+> + =A0 =A0 =A0 u32 ah_tbl_len;
+> + =A0 =A0 =A0 u32 rsvd;
+> + =A0 =A0 =A0 u8 fw_ver[32];
+> + =A0 =A0 =A0 u32 rqe_size;
+> + =A0 =A0 =A0 u64 rsvd1;
+> +} __packed;
 
-So, both should be kept..though we can optionally compile
-out both/either/none.
+If I'm reading this correctly, you have the 8-byte rsvd1 member at an
+offset only aligned to 4 bytes, because of the __packed directive.  It
+would be much better to have these structures laid out so they are
+naturally the same on both 32-bit and 64-bit ABIs, and get rid of the
+__packed directive, which wrecks gcc code generation in some cases.
 
-Thanks,
-Ben
+In this particular case, it seems you could just move rqe_size into the
+slot where rsvd is, and get rid of rsvd1?
 
+> +/* user kernel communication data structures. */
+> +struct ocrdma_alloc_pd_ureq {
+> + =A0 =A0 =A0 u64 rsvd1;
+> +} __packed;
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Similar comment -- __packed is silly for a structure with one reserved
+member (and which you don't seem to use anywhere)... why not just
+delete this struct?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
