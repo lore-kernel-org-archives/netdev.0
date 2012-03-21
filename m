@@ -1,96 +1,76 @@
-From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH 6/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
-Date: Wed, 21 Mar 2012 12:10:20 -0700
-Message-ID: <88B766C272F2C64B944B21AD078333151C964A63FF@EXMAIL.ad.emulex.com>
-References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-2-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-3-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-4-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-5-git-send-email-parav.pandit@emulex.com>
- <1332283154-16369-6-git-send-email-parav.pandit@emulex.com>
- <5abe3043-81f8-448a-9e55-b29e23f4eb9a@exht1.ad.emulex.com>
- <CAL1RGDVv6y-EOiNv-Vmd+jN1dnSPvA0YK_kamYZwmgUzRmUx=g@mail.gmail.com>
+From: Andy Gospodarek <gospo@redhat.com>
+Subject: Re: [PATCH net-next] bonding: remove entries for master_ip and
+ vlan_ip and query devices instead
+Date: Wed, 21 Mar 2012 12:25:53 -0400
+Message-ID: <20120321162553.GA11165@quad.redhat.com>
+References: <1331742069-16602-1-git-send-email-andy@greyhouse.net>
+ <29983.1331859800@death.nxdomain>
+ <CAHashqDhq20rqeOEdB0onOkV9yGF-dDKh22Ea4ra1KG21Uc9xQ@mail.gmail.com>
+ <20120316.225533.1194931730650486577.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDVv6y-EOiNv-Vmd+jN1dnSPvA0YK_kamYZwmgUzRmUx=g@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: andy@greyhouse.net, fubar@us.ibm.com, netdev@vger.kernel.org,
+	ralf.zeidler@nsn.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43145 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755585Ab2CUTLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 15:11:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20120316.225533.1194931730650486577.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Mar 16, 2012 at 10:55:33PM -0700, David Miller wrote:
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Fri, 16 Mar 2012 09:48:23 -0400
+>=20
+> > On Thu, Mar 15, 2012 at 9:03 PM, Jay Vosburgh <fubar@us.ibm.com> wr=
+ote:
+> >>>@@ -2618,7 +2624,9 @@ static void bond_arp_send_all(struct bonding=
+ *bond, struct slave *slave)
+> >>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!bond_vlan_used(bond)) {
+> >>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_debug("basa: empty=
+ vlan: arp_send\n");
+> >>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond_arp_send(slave->=
+dev, ARPOP_REQUEST, targets[i],
+> >>>- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0bond->master_ip, 0);
+> >>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0bond_confirm_addr(bond->dev,
+> >>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0targets[i],
+> >>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00), 0);
+> >>
+> >> =A0 =A0 =A0 =A0Same comment here and for the later calls to bond_c=
+onfirm_addr,
+> >> here putting "targets[i]" and perhaps the 0 on the previous line,
+> >> although I'm less sure that it won't look funky.
+> >>
+> >> =A0 =A0 =A0 =A0-J
+> >>
+> >=20
+> > These we a bit tough to get looking great.  What I did really seeme=
+d
+> > like the best I could do and keep it to a reasonable length.  If yo=
+u
+> > want me to just keep the length of these lines <100 characters wide=
+, I
+> > could combine them into the same line.  Either way is fine with me,
+> > but I really just didn't want the code to get too wide and hard to
+> > read when using a standard size terminal.
+>=20
+> It seems to me that the easiest thing to do is:
+>=20
+> 	__be32 addr =3D bond_confirm_addr(bond->dev, targets[i], 0);
+> 	bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], addr, 0);
+>=20
+> And actually this sequence is used in three places, so even better
+> to put it into a helper function.
 
-
-> -----Original Message-----
-> From: Roland Dreier [mailto:roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org]
-> Sent: Wednesday, March 21, 2012 10:13 PM
-> To: Pandit, Parav
-> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Subject: Re: [PATCH 6/9] ocrdma: Driver for Emulex OneConnect RDMA
-> adapter
->=20
-> > +struct ib_pd *ocrdma_alloc_pd(struct ib_device *ibdev,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ib=
-_ucontext *context,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ib=
-_udata *udata) {
-> > + =A0 =A0 =A0 struct ocrdma_dev *dev =3D get_ocrdma_dev(ibdev);
-> > + =A0 =A0 =A0 struct ocrdma_pd *pd;
-> > + =A0 =A0 =A0 int status;
-> > +
-> > + =A0 =A0 =A0 pd =3D kzalloc(sizeof(*pd), GFP_KERNEL);
-> > + =A0 =A0 =A0 if (!pd)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return ERR_PTR(-ENOMEM);
-> > + =A0 =A0 =A0 pd->dev =3D dev;
-> > + =A0 =A0 =A0 if (udata && context) {
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pd->dpp_enabled =3D (dev->nic_info.de=
-v_family =3D=3D
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 OCRDMA_GEN2_FAMILY) ? true :
-> > + false;
->=20
-> Writing
->=20
->     (<bool expr>) ? true : false
->=20
-> is pretty silly, since it's just an obfuscated way of writing
->=20
->     <bool expr>
->=20
-> IOW, you can just write
->=20
->      pd->dpp_enabled =3D (dev->nic_info.dev_family =3D=3D
-> OCRDMA_GEN2_FAMILY);
->=20
->=20
-> > +int ocrdma_dealloc_pd(struct ib_pd *ibpd) {
-> > + =A0 =A0 =A0 struct ocrdma_pd *pd =3D get_ocrdma_pd(ibpd);
-> > + =A0 =A0 =A0 struct ocrdma_dev *dev =3D pd->dev;
-> > + =A0 =A0 =A0 int status;
-> > + =A0 =A0 =A0 u64 usr_db;
-> > +
-> > + =A0 =A0 =A0 if (atomic_read(&pd->use_cnt)) {
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ocrdma_err("%s(%d) pd=3D0x%x is in us=
-e.\n",
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__func__, dev-=
->id, pd->id);
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EFAULT;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto dealloc_err;
-> > + =A0 =A0 =A0 }
->=20
-> all of the use_cnt tracking in this driver seems to duplicate what th=
-e rdma
-> midlayer already does... is there any reason we need that in the low-=
-level
-> hardware driver too, or can we just get rid of the various use_cnt me=
-mbers?
-
-This use_cnt can be removed from low-level hardware driver. I'll remove=
- it.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46or readability it makes sense to pop this function out like you have
+suggested.  I'm not sure I want to make a helper function for both
+calls, but I'll take a look at post an update patch.
