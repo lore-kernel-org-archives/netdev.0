@@ -1,92 +1,69 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: use-after-free in usbnet
-Date: Wed, 21 Mar 2012 23:07:57 +0800
-Message-ID: <CACVXFVPfnFLaRFbAgTzQCrPJeaMZ_kEu4q1g-wHesEb2pbdz9w@mail.gmail.com>
-References: <20120319151224.GA16031@redhat.com>
-	<CACVXFVN5O2S0hsnzHoi=LX+KAnccHc_F0SXq9-hMOXnaoUOdkg@mail.gmail.com>
-	<CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
-	<20120321144441.GB14043@kroah.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [REGRESSION][PATCH] Fix an old sky2 WOL regression
+Date: Wed, 21 Mar 2012 08:08:01 -0700
+Message-ID: <20120321080801.55e4731b@nehalam.linuxnetplumber.net>
+References: <4F69BE2E.7070903@t-online.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:53893 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751468Ab2CUPH5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 11:07:57 -0400
-In-Reply-To: <20120321144441.GB14043@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, arekm@maven.pl,
+	Jared <nitro@legroom.net>, dilieto@lineone.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Knut Petersen <Knut_Petersen@t-online.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F69BE2E.7070903@t-online.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 21, 2012 at 10:44 PM, Greg KH <greg@kroah.com> wrote:
-> On Wed, Mar 21, 2012 at 09:04:15AM +0800, Ming Lei wrote:
->> On Tue, Mar 20, 2012 at 5:40 PM, Ming Lei <tom.leiming@gmail.com> wr=
-ote:
->> > Hi,
->> >
->> > On Mon, Mar 19, 2012 at 11:12 PM, Dave Jones <davej@redhat.com> wr=
-ote:
->> >> We've had two reports of this use after free in Fedora now recent=
-ly..
->> >
->> > Could you provide output of 'dmesg' and 'lsusb -v' from the report=
-ed machine?
->>
->> Looks I have figured out why your problem is triggered.
->>
->> If the URB being unlinked is freed before usb_put_dev
->> inside usb_hcd_unlink_urb, the use-after-free will be triggered.
->> And the below patch[1] should fix the problem.
->
-> With the reference counting we have, how can the urb be freed at this
-> point in time? =A0Is the driver doing wierd things with the urb refer=
-ence
-> counts?
+On Wed, 21 Mar 2012 12:40:30 +0100
+Knut Petersen <Knut_Petersen@t-online.de> wrote:
 
-The problem is that the .complete may schedule a tasklet to
-free the completed URB. And the .complete may be run inside
-unlink path, so the use-after-free will be triggered if the
-tasklet is excuted before usb_put_dev inside usb_hcd_unlink_urb.
+> Sky2 Wake on LAN is broken since February 2010 on a number of systems=
+=2E
+> Yes. More than two years.
+>=20
+> We know about the problem and the cause since October 2010
+> (Bugzilla bug #19492). It=B4s commit 87b09f1f25cd1e01d7c50bf423c7fe33=
+027d7511.
+>=20
+> Stephen, David: You signed off that commit.
+>=20
+> Andrew: You called it a regression in October 2010.
+>=20
+> It has been proposed to revert the commit that caused the problem.
+> Nothing happened.
+>=20
+> I proposed to re-establish the old code for dmi_match()ed systems.
+> Without success.
+>=20
+> Now it is proposed to re-establish the old code as a configuration op=
+tion.
+> If nothing happens again I will propose a module parameter ;-)
+>=20
+> Stephen, I don=B4t want to be a pain in the neck, and it is not my in=
+tention
+> to offend you by my "attitude". But I simply cannot understand why th=
+is
+> know regression is not fixed. The bit we talk about is documented,
+> and in fact it was set for a number of kernel versions unconditionall=
+y.
+> Nobody complained about ruined hardware or minor problems.
+>=20
+> The systems affected are old enough that no manufacturer cares about
+> them, but they are still quite usable for a lot of jobs (kernel 3.3 c=
+ompile
+> time here is below 15 minutes).
+>=20
+> If there is a problem in the kernel and if we do know an easy solutio=
+n,
+> that solution should be commited to the kernel, no matter what is wri=
+tten
+> in some random documentation, no matter if we could blame some
+> BIOS authors. That=B4s the way Linux works - at least I thought so.
+>=20
+> cu,
+> Knut
 
->
->> Also there is another bug in tx_complete() of usbnet, the line below
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 urb->dev =3D NULL;
->>
->> should be removed to avoid possible oops or memory leak in unlink pa=
-th.
->>
->> Please test the patch if you can reproduce the problem.
->>
->> [1],
->> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->> index 59681f0..4f4e028 100644
->> --- a/drivers/net/usb/usbnet.c
->> +++ b/drivers/net/usb/usbnet.c
->> @@ -592,7 +592,9 @@ static int unlink_urbs (struct usbnet *dev, stru=
-ct
->> sk_buff_head *q)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore(&q->lock, flags);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 // during some PM-driven resume scenario=
-s,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 // these (async) unlinks complete immedi=
-ately
->> + =A0 =A0 =A0 =A0 =A0 =A0 local_bh_disable();
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 retval =3D usb_unlink_urb (urb);
->> + =A0 =A0 =A0 =A0 =A0 =A0 local_bh_enable();
->
-> That doesn't seem right, as you point out in your follow-up message.
-> This shouldn't be needed, unless you are doing some really wierd thin=
-gs
-> with the urb :(
-
-Looks the driver doesn't do any wierd things, as said above.
-
-
-Thanks,
---=20
-Ming Lei
+Config options don't work for distro's.
