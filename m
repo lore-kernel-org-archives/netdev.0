@@ -1,55 +1,54 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] sky2: override for PCI legacy power management
-Date: Wed, 21 Mar 2012 14:54:05 -0600
-Message-ID: <CAErSpo7J+9ZgXcqw4_+WjpNAW9oKNfRosDm7CusUjpnukO1m4Q@mail.gmail.com>
-References: <4F69BE2E.7070903@t-online.de> <20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
- <CAErSpo67PEaZ6JuMUntWLfR8SUpQgZERD_cKV6rWd=FF0tZ6DQ@mail.gmail.com> <20120321134725.222e9c07@nehalam.linuxnetplumber.net>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH 3/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Wed, 21 Mar 2012 14:54:26 -0600
+Message-ID: <20120321205426.GA12492@obsidianresearch.com>
+References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-2-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-3-git-send-email-parav.pandit@emulex.com>
+ <339d9e05-38fd-45b1-83ed-f06277bd1326@exht1.ad.emulex.com>
+ <CAL1RGDWnc478=ToFQEC51Usn6LLZgLen=CymFZ0C0GnRp9BAsw@mail.gmail.com>
+ <88B766C272F2C64B944B21AD078333151C964A63F1@EXMAIL.ad.emulex.com>
+ <CAL1RGDWmz4Yr8mqWMywN9X+refDEJ4W=ieBvOtZZc32qMDA5_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Knut Petersen <Knut_Petersen@t-online.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>, arekm@maven.pl,
-	Jared <nitro@legroom.net>, dilieto@lineone.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120321134725.222e9c07@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAL1RGDWmz4Yr8mqWMywN9X+refDEJ4W=ieBvOtZZc32qMDA5_w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 21, 2012 at 2:47 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Wed, 21 Mar 2012 14:22:01 -0600
-> Bjorn Helgaas <bhelgaas@google.com> wrote:
->
->> On Wed, Mar 21, 2012 at 9:32 AM, Stephen Hemminger
->> <shemminger@vyatta.com> wrote:
->> > Some BIOS's don't setup power management correctly (what else is
->> > new) and don't allow use of PCI Express power control. Add a speci=
-al
->> > exception module parameter to allow working around this issue.
->> > Based on slightly different patch by Knut Petersen.
->> >
->> > Reported-by: Arkadiusz Miskiewicz <arekm@maven.pl>
->> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> Is there a problem report URL you can include here?
->>
->> It looks like this requires a user to figure out that he might be
->> suffering from this problem, then use this module parameter to work
->> around it. =A0How would a user figure that out? =A0Can we do it
->> automatically to save him the trouble?
->
-> I am not a power management expert. Looks like a BIOS issue where the
-> BIOS has configured the device to disable power management but the
-> user wants to override that value. There is no method to determine
-> when the BIOS is broken versus when the BIOS setting is correct and
-> we should follow what it says.
+On Wed, Mar 21, 2012 at 12:33:00PM -0700, Roland Dreier wrote:
+> On Wed, Mar 21, 2012 at 12:04 PM,  <Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org> wrote:
+> >> > +/* mailbox cmd response */
+> >> > +struct ocrdma_mbx_rsp {
+> >> > + ? ? ? u32 subsys_op;
+> >> > + ? ? ? u32 status;
+> >> > + ? ? ? u32 rsp_len;
+> >> > + ? ? ? u32 add_rsp_len;
+> >> > +} __packed;
+> 
+> >> ...similar comments about only using __packed where you really need it...
+> 
+> > This pack is required as it is shared with hardware and need to be
+> > of 16 bytes for 32 and 64 bit architecture. Do not wanted to take
+> > risk of different compiler versions. So keeping it packed.
+> 
+> I really think if you can't trust your compiler to lay this
+> structure out properly, you have a lot of bigger problems.  But
+> whatever, it's not a big deal.
 
-I'm not a power management expert either.  I was just wondering
-whether the known broken BIOSes could be encoded in a blacklist or
-something, because it looks like a case where a user might have to
-request help or debug the problem again before discovering this flag.
+Doesn't packed penalize all access to the structure on some
+architectures, eg sparc?
 
-Bjorn
+A static assert is a better choice than packed...
+
+BUILD_BUG_ON(sizeof(ocrdma_mbx_rsp) != 16);
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
