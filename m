@@ -1,72 +1,895 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: use-after-free in usbnet
-Date: Wed, 21 Mar 2012 07:44:41 -0700
-Message-ID: <20120321144441.GB14043@kroah.com>
-References: <20120319151224.GA16031@redhat.com>
- <CACVXFVN5O2S0hsnzHoi=LX+KAnccHc_F0SXq9-hMOXnaoUOdkg@mail.gmail.com>
- <CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH v2] ethernet driver for the WIZnet W5300 chip
+Date: Wed, 21 Mar 2012 15:49:34 +0100
+Message-ID: <4F69EA7E.4030606@openwrt.org>
+References: <1332149037-12025-1-git-send-email-msink@permonline.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:53634 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755084Ab2CUOon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 10:44:43 -0400
-Received: from compute6.internal (compute6.nyi.mail.srv.osa [10.202.2.46])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id E8CDD21949
-	for <netdev@vger.kernel.org>; Wed, 21 Mar 2012 10:44:42 -0400 (EDT)
-Content-Disposition: inline
-In-Reply-To: <CACVXFVP9-Ao_UyBoxkxzq5dg8TfkZ9CECqEUFW5bD_JRzfQybw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mike Sinkovsky <msink@permonline.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1332149037-12025-1-git-send-email-msink@permonline.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 21, 2012 at 09:04:15AM +0800, Ming Lei wrote:
-> On Tue, Mar 20, 2012 at 5:40 PM, Ming Lei <tom.leiming@gmail.com> wrote:
-> > Hi,
-> >
-> > On Mon, Mar 19, 2012 at 11:12 PM, Dave Jones <davej@redhat.com> wrote:
-> >> We've had two reports of this use after free in Fedora now recently..
-> >
-> > Could you provide output of 'dmesg' and 'lsusb -v' from the reported machine?
-> 
-> Looks I have figured out why your problem is triggered.
-> 
-> If the URB being unlinked is freed before usb_put_dev
-> inside usb_hcd_unlink_urb, the use-after-free will be triggered.
-> And the below patch[1] should fix the problem.
+Hi,
 
-With the reference counting we have, how can the urb be freed at this
-point in time?  Is the driver doing wierd things with the urb reference
-counts?
+Le 03/19/12 10:23, Mike Sinkovsky a =C3=A9crit :
+> Based on original driver from chip manufacturer, but with many cleanu=
+ps.
+> Hope now it is near to mainline kernel quality.
+>
+> Tested and used in production with Blackfin BF531 embedded processor.
+>
+> Signed-off-by: Mike Sinkovsky<msink@permonline.ru>
+> ---
+>   v2:
+>   - corrected handling of NET_ADDR_RANDOM flag
+>   - support for WIZNET_BUS_ANY mode
+>   - link detection using gpio
+>   - registers read using ethtool
+>   - more cleanups
+>
+>   drivers/net/ethernet/Kconfig         |    1 +
+>   drivers/net/ethernet/Makefile        |    1 +
+>   drivers/net/ethernet/wiznet/Kconfig  |   61 +++
+>   drivers/net/ethernet/wiznet/Makefile |    1 +
+>   drivers/net/ethernet/wiznet/w5300.c  |  699 +++++++++++++++++++++++=
++++++++++++
+>   5 files changed, 763 insertions(+), 0 deletions(-)
+>   create mode 100644 drivers/net/ethernet/wiznet/Kconfig
+>   create mode 100644 drivers/net/ethernet/wiznet/Makefile
+>   create mode 100644 drivers/net/ethernet/wiznet/w5300.c
+>
+> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kcon=
+fig
+> index 3474a61..e87313f 100644
+> --- a/drivers/net/ethernet/Kconfig
+> +++ b/drivers/net/ethernet/Kconfig
+> @@ -173,6 +173,7 @@ source "drivers/net/ethernet/tile/Kconfig"
+>   source "drivers/net/ethernet/toshiba/Kconfig"
+>   source "drivers/net/ethernet/tundra/Kconfig"
+>   source "drivers/net/ethernet/via/Kconfig"
+> +source "drivers/net/ethernet/wiznet/Kconfig"
+>   source "drivers/net/ethernet/xilinx/Kconfig"
+>   source "drivers/net/ethernet/xircom/Kconfig"
+>
+> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Mak=
+efile
+> index 08d5f03..d24db66 100644
+> --- a/drivers/net/ethernet/Makefile
+> +++ b/drivers/net/ethernet/Makefile
+> @@ -72,5 +72,6 @@ obj-$(CONFIG_TILE_NET) +=3D tile/
+>   obj-$(CONFIG_NET_VENDOR_TOSHIBA) +=3D toshiba/
+>   obj-$(CONFIG_NET_VENDOR_TUNDRA) +=3D tundra/
+>   obj-$(CONFIG_NET_VENDOR_VIA) +=3D via/
+> +obj-$(CONFIG_NET_VENDOR_WIZNET) +=3D wiznet/
+>   obj-$(CONFIG_NET_VENDOR_XILINX) +=3D xilinx/
+>   obj-$(CONFIG_NET_VENDOR_XIRCOM) +=3D xircom/
+> diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethern=
+et/wiznet/Kconfig
+> new file mode 100644
+> index 0000000..748fa3b
+> --- /dev/null
+> +++ b/drivers/net/ethernet/wiznet/Kconfig
+> @@ -0,0 +1,61 @@
+> +#
+> +# WIZnet device configuration
+> +#
+> +
+> +config NET_VENDOR_WIZNET
+> +	bool "WIZnet devices"
+> +	default y
+> +	---help---
+> +	  If you have a network (Ethernet) card belonging to this class, sa=
+y Y
+> +	  and read the Ethernet-HOWTO, available from
+> +	<http://www.tldp.org/docs.html#howto>.
+> +
+> +	  Note that the answer to this question doesn't directly affect the
+> +	  kernel: saying N will just cause the configurator to skip all
+> +	  the questions about WIZnet devices. If you say Y, you will be ask=
+ed
+> +	  for your specific card in the following questions.
+> +
+> +if NET_VENDOR_WIZNET
+> +
+> +config WIZNET_W5300
+> +	tristate "WIZnet W5300 Ethernet support"
+> +	depends on ARM || BLACKFIN
+> +	---help---
+> +	  Support for WIZnet W5300 chips.
+> +
+> +	  W5300 is a single chip with integrated 10/100 Ethernet MAC,
+> +	  PHY and hardware TCP/IP stack, but this driver is limited to
+> +	  the MAC and PHY functions only, onchip TCP/IP is unused.
+> +
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called w5300.
+> +
+> +choice
+> +	prompt "WIZnet interface mode"
+> +	depends on NET_VENDOR_WIZNET
+> +	default WIZNET_BUS_ANY
+> +
+> +config WIZNET_BUS_DIRECT
+> +	bool "Direct address bus mode"
+> +	---help---
+> +	  In direct address mode host system can directly access W5300 regi=
+sters
+> +	  after mapping to Memory-mapped I/O Space.
+> +	  0x400 bytes are required for memory space.
+> +
+> +config WIZNET_BUS_INDIRECT
+> +	bool "Indirect address bus mode"
+> +	---help---
+> +	  In indirect address mode host system indirectly accesses register=
+s by
+> +	  using Indirect Mode Address Register (IDM_AR) and Indirect Mode D=
+ata
+> +	  Register (IDM_DR), which are directly mapped to Memory-mapped I/O=
+ Space.
+> +	  Only 0x06 bytes are required for memory space.
+> +
+> +config WIZNET_BUS_ANY
+> +	bool "Select interface mode in runtime"
+> +	---help---
+> +	  If interface mode is unknown in compile time, you can selectied i=
+t
+> +	  in runtime.
+> +	  Performance may decrease compared to explicitly selected bus mode=
+=2E
+> +endchoice
+> +
+> +endif # NET_VENDOR_WIZNET
+> diff --git a/drivers/net/ethernet/wiznet/Makefile b/drivers/net/ether=
+net/wiznet/Makefile
+> new file mode 100644
+> index 0000000..88e0a3e
+> --- /dev/null
+> +++ b/drivers/net/ethernet/wiznet/Makefile
+> @@ -0,0 +1 @@
+> +obj-$(CONFIG_WIZNET_W5300) +=3D w5300.o
+> diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethern=
+et/wiznet/w5300.c
+> new file mode 100644
+> index 0000000..8f7adfa
+> --- /dev/null
+> +++ b/drivers/net/ethernet/wiznet/w5300.c
+> @@ -0,0 +1,699 @@
+> +/*
+> + * Ethernet driver for the WIZnet W5300 chip.
+> + *
+> + * Copyright (C) 2008-2009 WIZnet Co.,Ltd.
+> + * Copyright (C) 2011 Taehun Kim<kth3321<at>  gmail.com>
+> + * Copyright (C) 2012 Mike Sinkovsky<msink@permonline.ru>
+> + *
+> + * Licensed under the GPL-2 or later.
+> + */
+> +
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+> +#include<linux/module.h>
+> +#include<linux/kernel.h>
+> +#include<linux/platform_device.h>
+> +#include<linux/netdevice.h>
+> +#include<linux/etherdevice.h>
+> +#include<linux/ethtool.h>
+> +#include<linux/skbuff.h>
+> +
+> +#include<linux/slab.h>
+> +#include<linux/types.h>
+> +#include<linux/errno.h>
+> +#include<linux/delay.h>
+> +#include<linux/spinlock.h>
+> +
+> +#include<linux/io.h>
+> +#include<linux/ioport.h>
+> +#include<linux/interrupt.h>
+> +#include<linux/gpio.h>
+> +
+> +#define DRV_NAME	"WIZnet W5300"
+> +#define DRV_VERSION	"2012-03-19"
+> +
+> +MODULE_DESCRIPTION(DRV_NAME "Ethernet driver v" DRV_VERSION);
+> +MODULE_AUTHOR("Mike Sinkovsky<msink@permonline.ru>");
+> +MODULE_ALIAS("platform:" KBUILD_MODNAME);
+> +MODULE_LICENSE("GPL");
+> +
+> +/*
+> + * Frame size is hardwired to 1514 bytes,
+> + * and MTU for 802.1Q frames must me set to 1496
+> + */
+> +#define W5300_FRAME_SIZE	1514
+> +
+> +/*
+> + * Device driver private data structure
+> + */
+> +struct w5300_private {
+> +	void __iomem *base;
+> +	int irq;
+> +	int link;
+> +
+> +	spinlock_t reg_lock;
+> +	bool promisc_mode;
+> +	u16  (*read_u16) (struct w5300_private *priv, u16 addr);
+> +	void (*write_u16)(struct w5300_private *priv, u16 addr, u16 data);
+> +
+> +	struct napi_struct napi;
+> +	struct net_device *ndev;
+> +};
+> +
+> +/*******************************************************************=
+*****
+> + *
+> + *  Lowlevel I/O functions
+> + *
+> + *******************************************************************=
+****/
+> +
+> +/*
+> + * In direct address mode host system can directly access W5300 regi=
+sters
+> + * after mapping to Memory-mapped I/O Space.
+> + *
+> + * 0x400 bytes are required for memory space.
+> + */
+> +static inline u16
+> +read_u16_direct(struct w5300_private *priv, u16 addr)
+> +{
+> +	return ioread16(priv->base + addr);
+> +}
+> +
+> +static inline void
+> +write_u16_direct(struct w5300_private *priv, u16 addr, u16 data)
+> +{
+> +	iowrite16(data, priv->base + addr);
+> +	mmiowb();
+> +}
+> +
+> +/*
+> + * In indirect address mode host system indirectly accesses register=
+s by
+> + * using Indirect Mode Address Register (IDM_AR) and Indirect Mode D=
+ata
+> + * Register (IDM_DR), which are directly mapped to Memory-mapped I/O=
+ Space.
+> + * Mode Register (MR) is directly accessible.
+> + *
+> + * Only 0x06 bytes are required for memory space.
+> + */
+> +#define W5300_MR	0x00	/* Mode Register offset */
+> +#define W5300_IDM_AR	0x02	/* Indirect Mode Address Register offset *=
+/
+> +#define W5300_IDM_DR	0x04	/* Indirect Mode Data Register offset */
+> +
+> +static inline u16
+> +read_u16_indirect(struct w5300_private *priv, u16 addr)
+> +{
+> +	unsigned long flags;
+> +	u16 data;
+> +
+> +	spin_lock_irqsave(&priv->reg_lock, flags);
+> +	write_u16_direct(priv, W5300_IDM_AR, addr);
+> +	data =3D read_u16_direct(priv, W5300_IDM_DR);
+> +	spin_unlock_irqrestore(&priv->reg_lock, flags);
+> +
+> +	return data;
+> +}
+> +
+> +static inline void
+> +write_u16_indirect(struct w5300_private *priv, u16 addr, u16 data)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->reg_lock, flags);
+> +	write_u16_direct(priv, W5300_IDM_AR, addr);
+> +	write_u16_direct(priv, W5300_IDM_DR, data);
+> +	spin_unlock_irqrestore(&priv->reg_lock, flags);
+> +}
+> +
+> +#if defined(CONFIG_WIZNET_BUS_DIRECT)
+> +#define detect_bus_mode(priv, mem_size) do {} while(0)
+> +#define read_reg_u16	read_u16_direct
+> +#define write_reg_u16	write_u16_direct
+> +
+> +#elif defined(CONFIG_WIZNET_BUS_INDIRECT)
+> +#define detect_bus_mode(priv, mem_size) do {} while(0)
+> +#define read_reg_u16	read_u16_indirect
+> +#define write_reg_u16	write_u16_indirect
 
-> Also there is another bug in tx_complete() of usbnet, the line below
-> 
->                 urb->dev = NULL;
-> 
-> should be removed to avoid possible oops or memory leak in unlink path.
-> 
-> Please test the patch if you can reproduce the problem.
-> 
-> [1],
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 59681f0..4f4e028 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -592,7 +592,9 @@ static int unlink_urbs (struct usbnet *dev, struct
-> sk_buff_head *q)
->  		spin_unlock_irqrestore(&q->lock, flags);
->  		// during some PM-driven resume scenarios,
->  		// these (async) unlinks complete immediately
-> +		local_bh_disable();
->  		retval = usb_unlink_urb (urb);
-> +		local_bh_enable();
+Looks like you don't have to make such decisions at compile-time. Since=
+=20
+it is a platform driver, better supply this through platform_data inste=
+ad.
 
-That doesn't seem right, as you point out in your follow-up message.
-This shouldn't be needed, unless you are doing some really wierd things
-with the urb :(
+> +
+> +#else /* CONFIG_WIZNET_BUS_ANY */
+> +static inline void
+> +detect_bus_mode(struct w5300_private *priv, u16 mem_size)
+> +{
+> +	if (mem_size<  0x400) {
+> +		netdev_info(priv->ndev, "bus mode: indirect\n");
+> +		priv->read_u16	=3D read_u16_indirect;
+> +		priv->write_u16 =3D write_u16_indirect;
+> +	} else {
+> +		netdev_info(priv->ndev, "bus mode: direct\n");
+> +		priv->read_u16	=3D read_u16_direct;
+> +		priv->write_u16 =3D write_u16_direct;
+> +	}
+> +}
+> +
+> +static inline u16
+> +read_reg_u16(struct w5300_private *priv, u16 addr)
+> +{
+> +	return priv->read_u16(priv, addr);
+> +}
+> +
+> +static inline void
+> +write_reg_u16(struct w5300_private *priv, u16 addr, u16 data)
+> +{
+> +	priv->write_u16(priv, addr, data);
+> +}
+> +#endif
+> +
+> +static inline u32
+> +read_reg_u32(struct w5300_private *priv, u16 addr)
+> +{
+> +	u32 data;
+> +	data  =3D read_reg_u16(priv, addr)<<  16;
+> +	data |=3D read_reg_u16(priv, addr + 2);
+> +	return data;
+> +}
+> +
+> +static inline void
+> +write_reg_u32(struct w5300_private *priv, u16 addr, u32 data)
+> +{
+> +	write_reg_u16(priv, addr, data>>  16);
+> +	write_reg_u16(priv, addr + 2, data);
+> +}
+> +
+> +static inline void write_MR(struct w5300_private *priv, u16 data)
+> +{
+> +	write_u16_direct(priv, W5300_MR, data);
+> +}
+> +
+> +#define DEFINE_REG_RD(ADDR, TYPE, NAME) \
+> +static inline TYPE read_##NAME(struct w5300_private *priv) \
+> +{ \
+> +	return read_reg_##TYPE(priv, ADDR); \
+> +}
+> +#define DEFINE_REG_WR(ADDR, TYPE, NAME) \
+> +static inline void write_##NAME(struct w5300_private *priv, TYPE dat=
+a)			\
+> +{ \
+> +	write_reg_##TYPE(priv, ADDR, data); \
+> +}
+> +#define DEFINE_REG_RW(ADDR, TYPE, NAME) \
+> +	DEFINE_REG_RD(ADDR, TYPE, NAME) \
+> +	DEFINE_REG_WR(ADDR, TYPE, NAME)
+> +
+> +DEFINE_REG_RW(0x002, u16, IR)		/* Interrupt Register */
+> +DEFINE_REG_WR(0x004, u16, IMR)		/* Interrupt Mask Register */
+> +DEFINE_REG_WR(0x008, u32, SHARL)	/* Source MAC address (0123) */
+> +DEFINE_REG_WR(0x00c, u16, SHARH)	/* Source MAC address (45) */
+> +DEFINE_REG_WR(0x020, u32, TMSRL)	/* Transmit Memory Size (0123) */
+> +DEFINE_REG_WR(0x024, u32, TMSRH)	/* Transmit Memory Size (4567) */
+> +DEFINE_REG_WR(0x028, u32, RMSRL)	/* Receive Memory Size (0123) */
+> +DEFINE_REG_WR(0x02c, u32, RMSRH)	/* Receive Memory Size (4567) */
+> +DEFINE_REG_WR(0x030, u16, MTYPE)	/* Memory Type */
+> +DEFINE_REG_RD(0x0fe, u16, IDR)		/* Chip ID register (=3D0x5300) */
+> +DEFINE_REG_WR(0x200, u16, S0_MR)	/* S0 Mode Register */
+> +DEFINE_REG_RW(0x202, u16, S0_CR)	/* S0 Command Register */
+> +DEFINE_REG_WR(0x204, u16, S0_IMR)	/* S0 Interrupt Mask Register */
+> +DEFINE_REG_RW(0x206, u16, S0_IR)	/* S0 Interrupt Register */
+> +DEFINE_REG_RD(0x208, u16, S0_SSR)	/* S0 Socket Status Register */
+> +DEFINE_REG_WR(0x220, u32, S0_TX_WRSR)	/* S0 TX Write Size Register *=
+/
+> +DEFINE_REG_RD(0x224, u32, S0_TX_FSR)	/* S0 TX Free Size Register */
+> +DEFINE_REG_RD(0x228, u32, S0_RX_RSR)	/* S0 Received data Size */
+> +DEFINE_REG_WR(0x22e, u16, S0_TX_FIFO)	/* S0 Transmit FIFO */
+> +DEFINE_REG_RD(0x230, u16, S0_RX_FIFO)	/* S0 Receive FIFO */
+> +
+> +/* Mode Register values */
+> +#define MR_DBW		(1<<  15)	/* Data bus width */
+> +#define MR_MPF		(1<<  14)	/* Mac layer pause frame */
+> +#define MR_WDF(n)	(n<<  11)	/* Write data fetch time */
+> +#define MR_RDH		(1<<  10)	/* Read data hold time */
+> +#define MR_FS		(1<<  8)	/* FIFO swap */
+> +#define MR_RST		(1<<  7)	/* S/W reset */
+> +#define MR_PB		(1<<  4)	/* Ping block */
+> +#define MR_DBS		(1<<  2)	/* Data bus swap */
+> +#define MR_IND		(1<<  0)	/* Indirect mode */
+> +
+> +#ifdef CONFIG_WIZNET_BUS_INDIRECT
+> +#define MR_VALUE	(MR_WDF(7) | MR_PB | MR_IND)
+> +#else
+> +#define MR_VALUE	(MR_WDF(7) | MR_PB)
+> +#endif
+> +
+> +/* IR/IMR register values */
+> +#define IR_S0		0x01		/* S0 interrupt */
+> +
+> +/* S0_MR register values */
+> +#define S0_MR_CLOSE	0x00		/* Close mode */
+> +#define S0_MR_MACRAW	0x04		/* MAC RAW mode (promiscous) */
+> +#define S0_MR_MACRAW_MF 0x44		/* MAC RAW mode (filtered) */
+> +
+> +/* S0_CR register values */
+> +#define S0_CR_OPEN	0x01		/* OPEN command */
+> +#define S0_CR_CLOSE	0x10		/* CLOSE command */
+> +#define S0_CR_SEND	0x20		/* SEND command */
+> +#define S0_CR_RECV	0x40		/* RECV command */
+> +
+> +/* S0_IR/S0_IMR register values */
+> +#define S0_IR_RECV	0x04		/* Receive interrupt */
+> +
+> +static void read_fifo(struct w5300_private *priv, u8 *data, int len)
+> +{
+> +	for (; len>  0; len -=3D 2) {
+> +		u16 fifo =3D read_S0_RX_FIFO(priv);
+> +		*data++ =3D fifo>>  8;
+> +		*data++ =3D fifo;
+> +	}
+> +}
+> +
+> +static void write_fifo(struct w5300_private *priv, u8 *data, int len=
+)
+> +{
+> +	for (; len>  0; len -=3D 2) {
+> +		u16 fifo =3D *data++<<  8;
+> +		fifo |=3D *data++;
+> +		write_S0_TX_FIFO(priv, fifo);
+> +	}
+> +}
+> +
+> +static inline int send_command(struct w5300_private *priv, u16 cmd)
+> +{
+> +	unsigned long timeout =3D jiffies + msecs_to_jiffies(100);
+> +
+> +	write_S0_CR(priv, cmd);
+> +
+> +	while (read_S0_CR(priv) !=3D 0) {
+> +		if (time_after(jiffies, timeout))
+> +			return -EIO;
+> +		cpu_relax();
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static void write_macaddr(struct w5300_private *priv)
+> +{
+> +	struct net_device *ndev =3D priv->ndev;
+> +	write_SHARL(priv, ndev->dev_addr[0]<<  24 |
+> +			  ndev->dev_addr[1]<<  16 |
+> +			  ndev->dev_addr[2]<<  8 |
+> +			  ndev->dev_addr[3]);
+> +	write_SHARH(priv, ndev->dev_addr[4]<<  8 |
+> +			  ndev->dev_addr[5]);
+> +}
+> +
+> +static void reset_chip(struct w5300_private *priv)
+> +{
+> +	write_MR(priv, MR_RST);
+> +	mdelay(5);
+> +	write_MR(priv, MR_VALUE);
+> +
+> +	write_IMR(priv, 0);
+> +
+> +	/*
+> +	 * Configure 128K of internal memory
+> +	 * as 64K RX fifo and 64K TX fifo
+> +	 */
+> +	write_RMSRL(priv, 64<<  24);
+> +	write_RMSRH(priv, 0);
+> +	write_TMSRL(priv, 64<<  24);
+> +	write_TMSRH(priv, 0);
+> +	write_MTYPE(priv, 0x00ff);
+> +
+> +	write_macaddr(priv);
+> +}
+> +
+> +/*******************************************************************=
+****
+> + *
+> + *   Device driver functions / callbacks
+> + *
+> + *******************************************************************=
+****/
+> +
+> +static void w5300_get_drvinfo(struct net_device *ndev,
+> +			      struct ethtool_drvinfo *info)
+> +{
+> +	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+> +	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+> +	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+> +	strlcpy(info->bus_info, dev_name(ndev->dev.parent),
+> +		sizeof(info->bus_info));
+> +}
+> +
+> +#define W5300_REGS_LEN	0x400
+> +
+> +static int w5300_get_regs_len(struct net_device *ndev)
+> +{
+> +	return W5300_REGS_LEN;
+> +}
+> +
+> +static void w5300_get_regs(struct net_device *ndev,
+> +			   struct ethtool_regs *regs, void *_buf)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	u8 *buf =3D _buf;
+> +	u16 addr;
+> +	u16 data;
+> +
+> +	regs->version =3D 1;
+> +	for (addr =3D 0; addr<  W5300_REGS_LEN; addr +=3D 2) {
+> +		switch (addr&  0x23f) {
+> +		case 0x22e: /* don't read TX_FIFO register! */
+> +		case 0x230: /* don't read RX_FIFO register! */
+> +			data =3D 0xffff;
+> +			break;
+> +		default:
+> +			data =3D read_reg_u16(priv, addr);
+> +			break;
+> +		}
+> +		*buf++ =3D data>>  8;
+> +		*buf++ =3D data;
+> +	}
+> +}
+> +
+> +static void w5300_tx_timeout(struct net_device *ndev)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	netdev_err(ndev, "Transmit timeout!\n");
+> +
+> +	ndev->stats.tx_errors++;
+> +	reset_chip(priv);
+> +	netif_wake_queue(ndev);
+> +}
+> +
+> +static int w5300_start_tx(struct sk_buff *skb, struct net_device *nd=
+ev)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	if (unlikely(read_S0_TX_FSR(priv)<  skb->len)) {
+> +		ndev->stats.tx_dropped++;
+> +		return NETDEV_TX_BUSY;
+> +	}
+> +
+> +	write_fifo(priv, skb->data, skb->len);
+> +	write_S0_TX_WRSR(priv, skb->len);
+> +	send_command(priv, S0_CR_SEND);
+> +
+> +	ndev->stats.tx_packets++;
+> +	ndev->stats.tx_bytes +=3D skb->len;
+> +	dev_kfree_skb(skb);
+> +
+> +	return NETDEV_TX_OK;
+> +}
+> +
+> +static int w5300_napi_poll(struct napi_struct *napi, int budget)
+> +{
+> +	struct w5300_private *priv =3D
+> +		container_of(napi, struct w5300_private, napi);
+> +	struct net_device *ndev =3D priv->ndev;
+> +	struct sk_buff *skb;
+> +	u16 rx_frame_size;
+> +	int rx_count;
+> +
+> +	for (rx_count =3D 0; rx_count<  budget; rx_count++) {
+> +		u32 rx_fifo_size =3D read_S0_RX_RSR(priv);
+> +		if (rx_fifo_size =3D=3D 0)
+> +			break;
+> +
+> +		rx_frame_size =3D read_S0_RX_FIFO(priv);
+> +
+> +		skb =3D netdev_alloc_skb(ndev, NET_IP_ALIGN +
+> +					     roundup(rx_frame_size, 2));
+> +		if (unlikely(!skb)) {
+> +			int len =3D rx_frame_size + 4;
+> +			for (; len>  0; len -=3D 2)
+> +				read_S0_RX_FIFO(priv);
+> +			ndev->stats.rx_dropped++;
+> +			return -ENOMEM;
+> +		}
+> +
+> +		skb_reserve(skb, NET_IP_ALIGN);
+> +		skb_put(skb, rx_frame_size);
+> +		read_fifo(priv, skb->data, rx_frame_size);
+> +		read_S0_RX_FIFO(priv);
+> +		read_S0_RX_FIFO(priv);
+> +
+> +		skb->protocol =3D eth_type_trans(skb, ndev);
+> +		netif_receive_skb(skb);
+> +		ndev->stats.rx_packets++;
+> +		ndev->stats.rx_bytes +=3D rx_frame_size;
+> +	}
+> +
+> +	if (rx_count<  budget) {
+> +		write_IMR(priv, IR_S0);
+> +		napi_complete(napi);
+> +	}
+> +
+> +	return rx_count;
+> +}
+> +
+> +static irqreturn_t w5300_start_rx(int irq, void *ndev_instance)
+> +{
+> +	struct net_device *ndev =3D ndev_instance;
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	write_S0_IR(priv, S0_IR_RECV);
+> +
+> +	if (napi_schedule_prep(&priv->napi)) {
+> +		write_IMR(priv, 0);
+> +		__napi_schedule(&priv->napi);
+> +	}
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static irqreturn_t w5300_detect_link(int irq, void *ndev_instance)
+> +{
+> +	struct net_device *ndev =3D ndev_instance;
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	if (netif_running(ndev)) {
+> +		if (gpio_get_value(priv->link) =3D=3D 0)
+> +			netif_carrier_off(ndev);
+> +		else
+> +			netif_carrier_on(ndev);
+> +	}
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static void w5300_set_rx_mode(struct net_device *ndev)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	bool set_promisc =3D (ndev->flags&  IFF_PROMISC) !=3D 0;
+> +	int mode =3D set_promisc ? S0_MR_MACRAW : S0_MR_MACRAW_MF;
+> +
+> +	if (priv->promisc_mode !=3D set_promisc) {
+> +		priv->promisc_mode =3D set_promisc;
+> +		write_S0_MR(priv, mode);
+> +		send_command(priv, S0_CR_OPEN);
+> +	}
+> +}
+> +
+> +static int w5300_set_macaddr(struct net_device *ndev, void *addr)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	struct sockaddr *sock_addr =3D addr;
+> +
+> +	if (!is_valid_ether_addr(sock_addr->sa_data))
+> +		return -EADDRNOTAVAIL;
+> +	memcpy(ndev->dev_addr, sock_addr->sa_data, ETH_ALEN);
+> +	ndev->addr_assign_type&=3D ~NET_ADDR_RANDOM;
+> +	write_macaddr(priv);
+> +	return 0;
+> +}
+> +
+> +static int w5300_open(struct net_device *ndev)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	int mode =3D priv->promisc_mode ? S0_MR_MACRAW : S0_MR_MACRAW_MF;
+> +
+> +	if (!is_valid_ether_addr(ndev->dev_addr))
+> +		return -EINVAL;
+> +
+> +	write_S0_IMR(priv, S0_IR_RECV);
+> +	write_S0_MR(priv, mode);
+> +	send_command(priv, S0_CR_OPEN);
+> +	write_IMR(priv, IR_S0);
+> +
+> +	napi_enable(&priv->napi);
+> +	netif_start_queue(ndev);
+> +	if (priv->link<  0 || gpio_get_value(priv->link))
+> +		netif_carrier_on(ndev);
+> +	return 0;
+> +}
+> +
+> +static int w5300_stop(struct net_device *ndev)
+> +{
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	write_IMR(priv, 0);
+> +	write_S0_CR(priv, S0_CR_CLOSE);
+> +
+> +	netif_carrier_off(ndev);
+> +	netif_stop_queue(ndev);
+> +	napi_disable(&priv->napi);
+> +	return 0;
+> +}
+> +
+> +static const struct ethtool_ops w5300_ethtool_ops =3D {
+> +	.get_drvinfo		=3D w5300_get_drvinfo,
+> +	.get_regs_len		=3D w5300_get_regs_len,
+> +	.get_regs		=3D w5300_get_regs,
+> +};
+> +
+> +static const struct net_device_ops w5300_netdev_ops =3D {
+> +	.ndo_open		=3D w5300_open,
+> +	.ndo_stop		=3D w5300_stop,
+> +	.ndo_start_xmit		=3D w5300_start_tx,
+> +	.ndo_tx_timeout		=3D w5300_tx_timeout,
+> +	.ndo_set_rx_mode	=3D w5300_set_rx_mode,
+> +	.ndo_set_mac_address	=3D w5300_set_macaddr,
+> +	.ndo_validate_addr	=3D eth_validate_addr,
+> +	.ndo_change_mtu		=3D eth_change_mtu,
+> +};
+> +
+> +static int __devinit w5300_hw_probe(struct platform_device *pdev)
+> +{
+> +	struct device *dev =3D&pdev->dev;
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	const char *name =3D netdev_name(ndev);
+> +	struct resource *link;
+> +	struct resource *mem;
+> +	int mem_size;
+> +	int irq;
+> +	int ret;
+> +
+> +	mem =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	if (!mem)
+> +		return -ENXIO;
+> +	mem_size =3D resource_size(mem);
+> +	if (!devm_request_mem_region(dev, mem->start, mem_size, name))
+> +		return -EBUSY;
+> +	priv->base =3D devm_ioremap(dev, mem->start, mem_size);
+> +	if (!priv->base)
+> +		return -EBUSY;
+> +
+> +	spin_lock_init(&priv->reg_lock);
+> +	detect_bus_mode(priv, mem_size);
+> +	reset_chip(priv);
+> +	if (read_IDR(priv) !=3D 0x5300)
+> +		return -ENODEV;
+> +
+> +	irq =3D platform_get_irq(pdev, 0);
+> +	if (irq<  0)
+> +		return irq;
+> +	ret =3D devm_request_irq(dev, irq, w5300_start_rx,
+> +			       IRQ_TYPE_LEVEL_LOW, name, ndev);
+> +	if (ret<  0)
+> +		return ret;
+> +	priv->irq =3D irq;
+> +
+> +	link =3D platform_get_resource(pdev, IORESOURCE_IO, 0);
+> +	if (!link) {
+> +		priv->link =3D -1;
+> +	} else {
+> +		char *link_name =3D devm_kzalloc(dev, 16, GFP_KERNEL);
+> +		snprintf(link_name, 16, "%s-link", name);
+> +		priv->link =3D link->start;
+> +		if (request_irq(gpio_to_irq(priv->link), w5300_detect_link,
+> +				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+> +				link_name, priv->ndev)<  0)
+> +			priv->link =3D -1;
+> +	}
 
-greg k-h
+Please implement phylib to properly report the link state to the=20
+networking stack and ethtool.
+
+> +
+> +	netdev_info(ndev, "at 0x%llx irq %d\n", (u64)mem->start, irq);
+> +	return 0;
+> +}
+> +
+> +static int __devinit w5300_probe(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev;
+> +	struct w5300_private *priv;
+> +	int ret;
+> +
+> +	ndev =3D alloc_etherdev(sizeof(*priv));
+> +	if (!ndev)
+> +		return -ENOMEM;
+> +	SET_NETDEV_DEV(ndev,&pdev->dev);
+> +	platform_set_drvdata(pdev, ndev);
+> +	priv =3D netdev_priv(ndev);
+> +	priv->ndev =3D ndev;
+> +
+> +	ether_setup(ndev);
+> +	ndev->netdev_ops =3D&w5300_netdev_ops;
+> +	ndev->ethtool_ops =3D&w5300_ethtool_ops;
+> +	ndev->watchdog_timeo =3D 2 * HZ;
+> +	netif_napi_add(ndev,&priv->napi, w5300_napi_poll, 16);
+> +	ret =3D register_netdev(ndev);
+> +	if (ret<  0)
+> +		goto fail;
+> +
+> +	random_ether_addr(ndev->dev_addr);
+> +	ndev->addr_assign_type |=3D NET_ADDR_RANDOM;
+
+Allow platform_data to pass a valid MAC address to this driver instead=20
+of defaulting to random unconditionnaly.
+
+> +	ret =3D w5300_hw_probe(pdev);
+> +	if (ret<  0)
+> +		goto fail;
+> +
+> +	return 0;
+> +
+> +fail:	netdev_info(ndev, "probe failed (%d)\n", ret);
+> +	unregister_netdev(ndev);
+> +	free_netdev(ndev);
+> +	platform_set_drvdata(pdev, NULL);
+> +	return ret;
+> +}
+> +
+> +static int __devexit w5300_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +
+> +	unregister_netdev(ndev);
+> +	free_netdev(ndev);
+> +	platform_set_drvdata(pdev, NULL);
+> +	return 0;
+> +}
+> +
+> +#ifdef CONFIG_PM
+> +static int w5300_suspend(struct platform_device *pdev, pm_message_t =
+mesg)
+> +{
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +
+> +	if (netif_running(ndev)) {
+> +		netif_carrier_off(ndev);
+> +		netif_device_detach(ndev);
+> +
+> +		write_IMR(priv, 0);
+> +		send_command(priv, S0_CR_CLOSE);
+> +	}
+> +	return 0;
+> +}
+> +
+> +static int w5300_resume(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> +	struct w5300_private *priv =3D netdev_priv(ndev);
+> +	int mode =3D priv->promisc_mode ? S0_MR_MACRAW : S0_MR_MACRAW_MF;
+> +
+> +	if (netif_running(ndev)) {
+> +		reset_chip(priv);
+> +		write_S0_MR(priv, mode);
+> +		send_command(priv, S0_CR_OPEN);
+> +		write_IMR(priv, IR_S0);
+> +
+> +		netif_device_attach(ndev);
+> +		if (priv->link<  0 || gpio_get_value(priv->link))
+> +			netif_carrier_on(ndev);
+> +	}
+> +	return 0;
+> +}
+> +#endif /* CONFIG_PM */
+> +
+> +static struct platform_driver wiznet_w5300_driver =3D {
+> +	.driver		=3D {
+> +		.name	=3D KBUILD_MODNAME,
+> +		.owner	=3D THIS_MODULE,
+> +	},
+> +	.probe		=3D w5300_probe,
+> +	.remove		=3D __devexit_p(w5300_remove),
+> +#ifdef CONFIG_PM
+> +	.suspend	=3D w5300_suspend,
+> +	.resume		=3D w5300_resume,
+> +#endif
+> +};
+> +
+> +module_platform_driver(wiznet_w5300_driver);
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
