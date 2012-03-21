@@ -1,150 +1,100 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 4/9] ipvs: always update some of the flags bits in backup
-Date: Wed, 21 Mar 2012 17:56:19 +0900
-Message-ID: <1332320185-27157-5-git-send-email-horms@verge.net.au>
-References: <1332320185-27157-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1332320185-27157-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH V1 6/6] IB/rdma_cm: TOS <=> UP mapping for IBoE
+Date: Wed, 21 Mar 2012 11:25:03 +0200
+Message-ID: <1332321903-11704-7-git-send-email-amirv@mellanox.com>
+References: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@mellanox.co.il>,
+	Sean Hefty <sean.hefty@intel.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:58266 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756860Ab2CUJZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 05:25:38 -0400
+In-Reply-To: <1332321903-11704-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Amir Vadai <amirv@mellanox.co.il>
 
-	As the goal is to mirror the inactconns/activeconns
-counters in the backup server, make sure the cp->flags are
-updated even if cp is still not bound to dest. If cp->flags
-are not updated ip_vs_bind_dest will rely only on the initial
-flags when updating the counters. To avoid mistakes and
-complicated checks for protocol state rely only on the
-IP_VS_CONN_F_INACTIVE bit when updating the counters.
+Both tagged traffic and untagged traffic use tc tool mapping.
+Treat RDMA TOS same as IP TOS when mapping to SL
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Since IP TOS to priority mapping is not exported, had to borrow the code from
+net/ipv4/route.c
+
+Signed-off-by: Amir Vadai <amirv@mellanox.co.il>
+CC: Sean Hefty <sean.hefty@intel.com>
+
 ---
- include/linux/ip_vs.h           |    5 +++
- net/netfilter/ipvs/ip_vs_sync.c |   65 ++++++++++++++-------------------------
- 2 files changed, 28 insertions(+), 42 deletions(-)
 
-diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index 4deb383..ac31ef2 100644
---- a/include/linux/ip_vs.h
-+++ b/include/linux/ip_vs.h
-@@ -89,6 +89,7 @@
- #define IP_VS_CONN_F_TEMPLATE	0x1000		/* template, not connection */
- #define IP_VS_CONN_F_ONE_PACKET	0x2000		/* forward only one packet */
+We can export IP TOS to priority mapping if the networking maintainers will say
+where they want it.
+---
+ drivers/infiniband/core/cma.c |   35 ++++++++++++++++++++++++++++++++++-
+ 1 files changed, 34 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index e3e470f..c0eeb2c 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -42,6 +42,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/pkt_sched.h>
  
-+/* Initial bits allowed in backup server */
- #define IP_VS_CONN_F_BACKUP_MASK (IP_VS_CONN_F_FWD_MASK | \
- 				  IP_VS_CONN_F_NOOUTPUT | \
- 				  IP_VS_CONN_F_INACTIVE | \
-@@ -97,6 +98,10 @@
- 				  IP_VS_CONN_F_TEMPLATE \
- 				 )
+ #include <net/tcp.h>
+ #include <net/ipv6.h>
+@@ -1781,6 +1782,32 @@ static int cma_resolve_iw_route(struct rdma_id_private *id_priv, int timeout_ms)
+ 	return 0;
+ }
  
-+/* Bits allowed to update in backup server */
-+#define IP_VS_CONN_F_BACKUP_UPD_MASK (IP_VS_CONN_F_INACTIVE | \
-+				      IP_VS_CONN_F_SEQ_MASK)
++#define ECN_OR_COST(class)	TC_PRIO_##class
 +
- /* Flags that are not sent to backup server start from bit 16 */
- #define IP_VS_CONN_F_NFCT	(1 << 16)	/* use netfilter conntrack */
- 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 8a0d6d6..0e36679 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -731,9 +731,30 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 	else
- 		cp = ip_vs_ct_in_get(param);
- 
--	if (cp && param->pe_data) 	/* Free pe_data */
-+	if (cp) {
-+		/* Free pe_data */
- 		kfree(param->pe_data);
--	if (!cp) {
++static const __u8 tos2prio[16] = {
++	TC_PRIO_BESTEFFORT,
++	ECN_OR_COST(BESTEFFORT),
++	TC_PRIO_BESTEFFORT,
++	ECN_OR_COST(BESTEFFORT),
++	TC_PRIO_BULK,
++	ECN_OR_COST(BULK),
++	TC_PRIO_BULK,
++	ECN_OR_COST(BULK),
++	TC_PRIO_INTERACTIVE,
++	ECN_OR_COST(INTERACTIVE),
++	TC_PRIO_INTERACTIVE,
++	ECN_OR_COST(INTERACTIVE),
++	TC_PRIO_INTERACTIVE_BULK,
++	ECN_OR_COST(INTERACTIVE_BULK),
++	TC_PRIO_INTERACTIVE_BULK,
++	ECN_OR_COST(INTERACTIVE_BULK)
++};
 +
-+		dest = cp->dest;
-+		if ((cp->flags ^ flags) & IP_VS_CONN_F_INACTIVE &&
-+		    !(flags & IP_VS_CONN_F_TEMPLATE) && dest) {
-+			if (flags & IP_VS_CONN_F_INACTIVE) {
-+				atomic_dec(&dest->activeconns);
-+				atomic_inc(&dest->inactconns);
-+			} else {
-+				atomic_inc(&dest->activeconns);
-+				atomic_dec(&dest->inactconns);
-+			}
-+		}
-+		flags &= IP_VS_CONN_F_BACKUP_UPD_MASK;
-+		flags |= cp->flags & ~IP_VS_CONN_F_BACKUP_UPD_MASK;
-+		cp->flags = flags;
-+		if (!dest) {
-+			dest = ip_vs_try_bind_dest(cp);
-+			if (dest)
-+				atomic_dec(&dest->refcnt);
-+		}
-+	} else {
- 		/*
- 		 * Find the appropriate destination for the connection.
- 		 * If it is not found the connection will remain unbound
-@@ -742,18 +763,6 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 		dest = ip_vs_find_dest(net, type, daddr, dport, param->vaddr,
- 				       param->vport, protocol, fwmark, flags);
++static inline char cma_tos2priority(u8 tos)
++{
++	return tos2prio[IPTOS_TOS(tos)>>1];
++}
++
+ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ {
+ 	struct rdma_route *route = &id_priv->id.route;
+@@ -1826,7 +1853,13 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ 	route->path_rec->reversible = 1;
+ 	route->path_rec->pkey = cpu_to_be16(0xffff);
+ 	route->path_rec->mtu_selector = IB_SA_EQ;
+-	route->path_rec->sl = id_priv->tos >> 5;
++	if (ndev->priv_flags & IFF_802_1Q_VLAN)
++		route->path_rec->sl =
++			netdev_get_prio_tc_map(vlan_dev_real_dev(ndev),
++					cma_tos2priority(id_priv->tos));
++	else
++		route->path_rec->sl = netdev_get_prio_tc_map(ndev,
++				cma_tos2priority(id_priv->tos));
  
--		/*  Set the approprite ativity flag */
--		if (protocol == IPPROTO_TCP) {
--			if (state != IP_VS_TCP_S_ESTABLISHED)
--				flags |= IP_VS_CONN_F_INACTIVE;
--			else
--				flags &= ~IP_VS_CONN_F_INACTIVE;
--		} else if (protocol == IPPROTO_SCTP) {
--			if (state != IP_VS_SCTP_S_ESTABLISHED)
--				flags |= IP_VS_CONN_F_INACTIVE;
--			else
--				flags &= ~IP_VS_CONN_F_INACTIVE;
--		}
- 		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
- 		if (dest)
- 			atomic_dec(&dest->refcnt);
-@@ -763,34 +772,6 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 			IP_VS_DBG(2, "BACKUP, add new conn. failed\n");
- 			return;
- 		}
--	} else if (!cp->dest) {
--		dest = ip_vs_try_bind_dest(cp);
--		if (dest)
--			atomic_dec(&dest->refcnt);
--	} else if ((cp->dest) && (cp->protocol == IPPROTO_TCP) &&
--		(cp->state != state)) {
--		/* update active/inactive flag for the connection */
--		dest = cp->dest;
--		if (!(cp->flags & IP_VS_CONN_F_INACTIVE) &&
--			(state != IP_VS_TCP_S_ESTABLISHED)) {
--			atomic_dec(&dest->activeconns);
--			atomic_inc(&dest->inactconns);
--			cp->flags |= IP_VS_CONN_F_INACTIVE;
--		} else if ((cp->flags & IP_VS_CONN_F_INACTIVE) &&
--			(state == IP_VS_TCP_S_ESTABLISHED)) {
--			atomic_inc(&dest->activeconns);
--			atomic_dec(&dest->inactconns);
--			cp->flags &= ~IP_VS_CONN_F_INACTIVE;
--		}
--	} else if ((cp->dest) && (cp->protocol == IPPROTO_SCTP) &&
--		(cp->state != state)) {
--		dest = cp->dest;
--		if (!(cp->flags & IP_VS_CONN_F_INACTIVE) &&
--		(state != IP_VS_SCTP_S_ESTABLISHED)) {
--			atomic_dec(&dest->activeconns);
--			atomic_inc(&dest->inactconns);
--			cp->flags &= ~IP_VS_CONN_F_INACTIVE;
--		}
- 	}
- 
- 	if (opt)
+ 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
+ 	route->path_rec->rate_selector = IB_SA_EQ;
 -- 
-1.7.6.3
-
+1.7.8.2
