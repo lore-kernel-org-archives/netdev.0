@@ -1,106 +1,162 @@
-From: Jeff Haran <jharan@bytemobile.com>
-Subject: locking in net_device_ops callbacks
-Date: Wed, 21 Mar 2012 18:59:30 +0000
-Message-ID: <471DE477E2B1F549A58F3A14A27180BE014357@HQ-EX01.bytemobile.com>
+From: <Parav.Pandit@Emulex.Com>
+Subject: RE: [PATCH 4/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Wed, 21 Mar 2012 12:09:09 -0700
+Message-ID: <88B766C272F2C64B944B21AD078333151C964A63FB@EXMAIL.ad.emulex.com>
+References: <1332283154-16369-1-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-2-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-3-git-send-email-parav.pandit@emulex.com>
+ <1332283154-16369-4-git-send-email-parav.pandit@emulex.com>
+ <a5e59a7c-d6ff-4c78-89a7-fad7492260b0@exht1.ad.emulex.com>
+ <CAL1RGDWRm7GVCBgAdSvAt72WQAP4a-1xa18Hk-rFjEfKDEHZNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-rdma@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <roland@purestorage.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport.bytemobile.com ([12.153.136.13]:39779 "EHLO
-	ironport.bytemobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab2CUTJ2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 15:09:28 -0400
+Received: from exht1.emulex.com ([138.239.113.183]:34779 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755045Ab2CUTJc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 15:09:32 -0400
+In-Reply-To: <CAL1RGDWRm7GVCBgAdSvAt72WQAP4a-1xa18Hk-rFjEfKDEHZNg@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I had posted the below to the kernelnewbies email list and never got a response. I am hoping somebody on this list could provide some feedback.
 
-Just to be clear, it's not the issue of copying the MAC address that I am asking about. That's just an example.
-
-What I am trying to understand is, what mechanisms generally are at play to serialize access to struct net_device private data that is accessed in both process and softirq contexts? Explicit locking "seems" to be mostly absent from the driver sources I've inspected so I can't help but believe I am missing something fundamental here.
-
-Thanks in advance,
-
-Jeff Haran
-
-I was hoping somebody could enlighten me on how serialization of access
-to data in struct net_device and associated netdev_priv() data works in
-the callback functions registered in net_device_ops. For example, I am
-looking at drivers/net/e1000/e1000_main.c in my 2.6.32 based kernel
-tree. My understanding is this is a reference driver of sorts, so it
-should be doing the "right thing".
-
-This driver registers a callback for the ndo_set_mac_address callback
-like this (much of what I think is not significant to the question code
-replaced with "..." below for brevity):
-
-static const struct net_device_ops e1000_netdev_ops = {
-        ...
-        .ndo_set_mac_address    = e1000_set_mac,
-        ...
-};
-
-static int __devinit e1000_probe(struct pci_dev *pdev,
-                                 const struct pci_device_id *ent)
-{
-        struct net_device *netdev;
-       ....
-
-        netdev = alloc_etherdev(sizeof(struct e1000_adapter));
-        ....
-        netdev->netdev_ops = &e1000_netdev_ops;
-        ...
-        err = register_netdev(netdev);
-        ...
-}
-
-Most network drivers seem to follow more or less the same initialization
-sequence.
-
-When I look at the implementation of e1000_set_mac(), I see this:
-
-static int e1000_set_mac(struct net_device *netdev, void *p)
-{
-        struct e1000_adapter *adapter = netdev_priv(netdev);
-        struct e1000_hw *hw = &adapter->hw;
-        struct sockaddr *addr = p;
-
-        ...
-        memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
-        memcpy(hw->mac_addr, addr->sa_data, netdev->addr_len);
-        ...
-
-        return 0;
-}
-
-I can't help but notice there is no locking going on around the
-memcpy()s of the passed in MAC address to the net_device dev_addr and
-private data mac_addr fields.
-
-I assume that e1000_set_mac() is typically called in process context in
-response to some user space application like ifconfig or ip changing the
-interface MAC address. I am also assuming that these dev_addr and
-mac_addr fields are also referenced in other contexts. An Ethernet MAC
-address is 6 bytes, so the memcpy()'s can't be atomic operations at
-least on a 32 bit machine.
-
-Shouldn't there have been some sort of lock taken before the memcpy()s
-are executed so that other execution contexts won't see a partially
-copied MAC address?
-
-Is there some sort of lock taken higher up the call stack by the code
-that calls these callback functions so that the callbacks themselves
-don't have to do it explicitly?
-
-I am writing a network device driver (modifying an existing one
-actually) and am therefore trying to understand what kinds of explicit
-locking my net_device_ops callbacks need to take in order to ensure
-proper operation on an SMP system.
-
-Thanks,
-
-Jeff Haran
+> -----Original Message-----
+> From: Roland Dreier [mailto:roland@purestorage.com]
+> Sent: Wednesday, March 21, 2012 10:04 PM
+> To: Pandit, Parav
+> Cc: linux-rdma@vger.kernel.org; netdev@vger.kernel.org
+> Subject: Re: [PATCH 4/9] ocrdma: Driver for Emulex OneConnect RDMA
+> adapter
+>=20
+> > +int ocrdma_qp_state_machine(struct ocrdma_qp *qp, enum ib_qp_state
+> > +new_ib_state,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 enum ib_qp_st=
+ate *old_ib_state) {
+> > + =A0 =A0 =A0 unsigned long flags;
+> > + =A0 =A0 =A0 int status =3D 0;
+> > + =A0 =A0 =A0 enum ocrdma_qp_state new_state;
+> > + =A0 =A0 =A0 new_state =3D get_ocrdma_qp_state(new_ib_state);
+> > +
+> > + =A0 =A0 =A0 /* sync with wqe and rqe posting */
+> > + =A0 =A0 =A0 spin_lock_irqsave(&qp->q_lock, flags);
+> > +
+> > + =A0 =A0 =A0 if (old_ib_state)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *old_ib_state =3D get_ibqp_state(qp->=
+state);
+> > + =A0 =A0 =A0 if (new_state =3D=3D qp->state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore(&qp->q_lock, f=
+lags);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 1;
+> > + =A0 =A0 =A0 }
+> > +
+> > + =A0 =A0 =A0 switch (qp->state) {
+> > + =A0 =A0 =A0 case OCRDMA_QPS_RST:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RST:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_INIT:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_INIT:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qps: INIT->XXX */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_INIT:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RTR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ocrdma_flush_qp(qp);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_RTR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qps: RTS->XXX */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RTS:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ocrdma_flush_qp(qp);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_RTS:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qps: RTS->XXX */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_SQD:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_SQE:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ocrdma_flush_qp(qp);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_SQD:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qps: SQD->XXX */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RTS:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_SQE:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_SQE:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RTS:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 case OCRDMA_QPS_ERR:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* qps: ERR->XXX */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 switch (new_state) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 case OCRDMA_QPS_RST:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 default:
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 };
+> > + =A0 =A0 =A0 if (!status)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 qp->state =3D new_state;
+> > +
+> > + =A0 =A0 =A0 spin_unlock_irqrestore(&qp->q_lock, flags);
+> > + =A0 =A0 =A0 return status;
+> > +}
+>=20
+> The switch statement here seems to largely reimpliment
+> ib_modify_qp_is_ok() (which is exported from the rdma midlayer).  Is =
+there
+> some reason that doesn't work for your driver?  I'd rather fix / gene=
+ralize the
+> core helper function instead of having something mostly duplicate in =
+a
+> hardware driver.
+Yes. Driver needs to put QP to flush state. So that appropriate CQEs ca=
+n be returned during poll_cq() phase.
+So state machine is implemented above.
