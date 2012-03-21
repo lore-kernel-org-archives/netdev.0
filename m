@@ -1,50 +1,61 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Wed, 21 Mar 2012 17:09:06 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
- <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
- <20120316065537.GB2199@netboy.at.omicron.at>
- <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
- <20120321170003.GA5533@netboy.at.omicron.at>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: use-after-free in usbnet
+Date: Wed, 21 Mar 2012 13:30:10 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1203211328320.1369-100000@iolanthe.rowland.org>
+References: <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>,
-	chetan loke <loke.chetan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2170 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757815Ab2CURJH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 13:09:07 -0400
-In-Reply-To: <20120321170003.GA5533@netboy.at.omicron.at>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Wednesday, March 21, 2012 10:00 AM
-> To: chetan loke
-> Cc: netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net; Keller, Jacob
-> E; Kirsher, Jeffrey T; Ronciak, John; john.stultz@linaro.org;
-> tglx@linutronix.de
-> Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
-> timecompare method
+On Thu, 22 Mar 2012, Ming Lei wrote:
+
+> So looks the correct fix should be below:
 > 
-> Can you please explain how using a seqlock could help here?
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 4b8b52c..e36a821 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -588,7 +588,7 @@ static int unlink_urbs (struct usbnet *dev, struct
+> sk_buff_head *q)
 > 
-> Thanks,
-> Richard
+>  		entry = (struct skb_data *) skb->cb;
+>  		urb = entry->urb;
+> -
+> +		usb_get_urb(urb);
+>  		spin_unlock_irqrestore(&q->lock, flags);
+>  		// during some PM-driven resume scenarios,
+>  		// these (async) unlinks complete immediately
+> @@ -597,6 +597,7 @@ static int unlink_urbs (struct usbnet *dev, struct
+> sk_buff_head *q)
+>  			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
+>  		else
+>  			count++;
+> +		usb_put_urb(urb);
+>  		spin_lock_irqsave(&q->lock, flags);
+>  	}
+>  	spin_unlock_irqrestore (&q->lock, flags);
+> @@ -1028,7 +1029,6 @@ static void tx_complete (struct urb *urb)
+>  	}
+> 
+>  	usb_autopm_put_interface_async(dev->intf);
+> -	urb->dev = NULL;
+>  	entry->state = tx_done;
+>  	defer_bh(dev, skb, &dev->txq);
+>  }
 
-My understanding of the seqlock, is that it prevents starvation of the hwtstamp calls in the rx and tx routines if/when a user hammers the gettime ioctl due to bad software design where 100+ apps are wanting direct access to the PHC.
+Yes, that looks about right.  But I'm not familiar with the details of 
+usbnet.
 
-- Jake
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
