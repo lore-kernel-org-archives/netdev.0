@@ -1,58 +1,43 @@
-From: boris@cloudluca.com
-Subject: Server Rental Service in Hong Kong
-Date: Thu, 22 Mar 2012 18:11:55 +0800 (HKT)
-Message-ID: <twYtxqA0Y@pchome.com.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-65.sunnyvision.com ([124.248.200.65]:36570 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757351Ab2CVKk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 06:40:56 -0400
-Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id B617DE1DE8
-	for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 18:11:56 +0800 (HKT)
-Received: from sample (unknown [124.248.200.17])
-	by smtp1.edmhongkong.com (Postfix) with SMTP id 143334FB2D
-	for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 18:11:55 +0800 (HKT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: linux-next: Tree for Mar 21 (netfilter: xt_LOG.c)
+Date: Thu, 22 Mar 2012 12:18:12 +0100
+Message-ID: <20120322111812.GA16632@1984>
+References: <20120321183906.b901645a8e4b68fdf1ad8754@canb.auug.org.au>
+ <4F6A7824.50606@xenotime.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4F6A7824.50606@xenotime.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear All,
+Hi Randy,
 
-We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
+On Wed, Mar 21, 2012 at 05:53:56PM -0700, Randy Dunlap wrote:
+> On 03/21/2012 12:39 AM, Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Reminder: please do not add stuff destined for v3.5 to linux-next
+> > included trees/branches until after v3.4-rc1 has been released.
+> > 
+> > Changes since 20120320:
+> 
+> on x86_64:
+> 
+> xt_LOG.c:(.text+0x6962e): undefined reference to `ip6t_ext_hdr'
+> 
+> Full randconfig file is attached.
 
-Dell=3F PowerEdge=3F EnterpriseRack Mount Server
--Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
--8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
--500GB, 3.5", 6Gbps SAS x 2
--Raid 1 Mirroring Protection
--Remote KVM (iDRAC6 Enterprise)
+I'll push this to mainstream asap.
 
-Dell(TM) PowerEdge(TM) R410 Rack Mount Server
--Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
--4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
--500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
--iDRAC6 Enterprise or Express (Remote KVM Management)
+https://lkml.org/lkml/2012/3/10/68
 
-Every Dedicated Server Hosting Solution Also Includes: 
- 
-Software Specification 
-- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
-- Full root-level access 
-- Data Center Facilities 
-- Shared Local & International Bandwidth 
-- 2 IP Addresses Allocation 
-- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
-- FM200=A1=A7based fire suppression system 
-- 24x7 CRAC Air Conditioning and Humidity Control 
-- 24x7 Security Control 
-- 24x7 Remote Hand Service 
+Sorry, I forgot to make it.
 
-Pls send us email for further information.Thanks,
-
-Boris 
-boris@cloudluca.com
-
-If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
+Thanks.
