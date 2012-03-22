@@ -1,113 +1,187 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net] tg3: Fix RSS ring refill race condition
-Date: Wed, 21 Mar 2012 17:38:33 -0800
-Message-ID: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net] cnic: Fix parity error code conflict
+Date: Wed, 21 Mar 2012 17:38:34 -0800
+Message-ID: <1332380314-14198-2-git-send-email-mchan@broadcom.com>
+References: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4155 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2319 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754967Ab2CVBaV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 21:30:21 -0400
+	id S1756355Ab2CVBa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 21:30:28 -0400
+In-Reply-To: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RSS feature in tg3 hardware has only one rx producer ring for all
-RSS rings.  NAPI vector 1 is special and handles the refilling of the
-rx producer ring on behalf of all RSS rings.  There is a race condition
-between these RSS NAPIs and the NAPI[1].  If NAPI[1] finishes checking
-for refill and then another RSS ring empties the rx producer ring
-before NAPI[1] exits NAPI, the chip will be completely out of SKBs in
-the rx producer ring.
-
-We fix this by adding a flag tp->rx_refill and rely on napi_schedule()/
-napi_complete() to help synchronize it to close the race condition.
-
-Update driver version to 3.123.
+The recently added parity error handling used an error code that was
+already defined for a different error.  This could lead to bnx2x
+firmware assert.  We need to fix this with new error codes that are
+defined for parity error only.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Eddie Wai <eddie.wai@broadcom.com>
+Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   25 ++++++++++++++++++++++---
- drivers/net/ethernet/broadcom/tg3.h |    1 +
- 2 files changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c      |   12 +++++++-----
+ drivers/net/ethernet/broadcom/cnic_defs.h |   28 +---------------------------
+ drivers/net/ethernet/broadcom/cnic_if.h   |    4 ++--
+ drivers/scsi/bnx2fc/bnx2fc_constants.h    |    1 +
+ drivers/scsi/bnx2i/57xx_iscsi_constants.h |    1 +
+ 5 files changed, 12 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index b065746..7b71387 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -89,10 +89,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 7b65716..c95e7b5 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -47,6 +47,7 @@
+ #include "bnx2x/bnx2x_hsi.h"
+ #include "../../../scsi/bnx2i/57xx_iscsi_constants.h"
+ #include "../../../scsi/bnx2i/57xx_iscsi_hsi.h"
++#include "../../../scsi/bnx2fc/bnx2fc_constants.h"
+ #include "cnic.h"
+ #include "cnic_defs.h"
  
- #define DRV_MODULE_NAME		"tg3"
- #define TG3_MAJ_NUM			3
--#define TG3_MIN_NUM			122
-+#define TG3_MIN_NUM			123
- #define DRV_MODULE_VERSION	\
- 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
--#define DRV_MODULE_RELDATE	"December 7, 2011"
-+#define DRV_MODULE_RELDATE	"March 21, 2012"
- 
- #define RESET_KIND_SHUTDOWN	0
- #define RESET_KIND_INIT		1
-@@ -5953,8 +5953,10 @@ next_pkt_nopost:
- 		tpr->rx_std_prod_idx = std_prod_idx & tp->rx_std_ring_mask;
- 		tpr->rx_jmb_prod_idx = jmb_prod_idx & tp->rx_jmb_ring_mask;
- 
--		if (tnapi != &tp->napi[1])
-+		if (tnapi != &tp->napi[1]) {
-+			tp->rx_refill = true;
- 			napi_schedule(&tp->napi[1].napi);
-+		}
- 	}
- 
- 	return received;
-@@ -6134,6 +6136,7 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
- 		u32 std_prod_idx = dpr->rx_std_prod_idx;
- 		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
- 
-+		tp->rx_refill = false;
- 		for (i = 1; i < tp->irq_cnt; i++)
- 			err |= tg3_rx_prodring_xfer(tp, dpr,
- 						    &tp->napi[i].prodring);
-@@ -6197,9 +6200,25 @@ static int tg3_poll_msix(struct napi_struct *napi, int budget)
- 		/* check for RX/TX work to do */
- 		if (likely(sblk->idx[0].tx_consumer == tnapi->tx_cons &&
- 			   *(tnapi->rx_rcb_prod_idx) == tnapi->rx_rcb_ptr)) {
-+
-+			/* This test here is not race free, but will reduce
-+			 * the number of interrupts by looping again.
-+			 */
-+			if (tnapi == &tp->napi[1] && tp->rx_refill)
-+				continue;
-+
- 			napi_complete(napi);
- 			/* Reenable interrupts. */
- 			tw32_mailbox(tnapi->int_mbox, tnapi->last_tag << 24);
-+
-+			/* This test here is synchronized by napi_schedule()
-+			 * and napi_complete() to close the race condition.
-+			 */
-+			if (unlikely(tnapi == &tp->napi[1] && tp->rx_refill)) {
-+				tw32(HOSTCC_MODE, tp->coalesce_mode |
-+						  HOSTCC_MODE_ENABLE |
-+						  tnapi->coal_now);
-+			}
- 			mmiowb();
- 			break;
+@@ -2547,7 +2548,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
  		}
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 66bcfca..93865f8 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3007,6 +3007,7 @@ struct tg3 {
- 	u32				rx_std_max_post;
- 	u32				rx_offset;
- 	u32				rx_pkt_map_sz;
-+	bool				rx_refill;
+ 		kcqe.kcqe_op_flag = kcqe_op << KCQE_FLAGS_OPCODE_SHIFT;
+ 		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_FCOE;
+-		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR;
++		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_PARITY_ERROR;
+ 		kcqe.kcqe_info2 = cid;
+ 		kcqe.kcqe_info0 = l5_cid;
  
+@@ -2558,7 +2559,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
  
- 	/* begin "everything else" cacheline(s) section */
+ 		kcqe.kcqe_op_flag = (opcode + 0x10) << KCQE_FLAGS_OPCODE_SHIFT;
+ 		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_ISCSI;
+-		kcqe.kcqe_info1 = ISCSI_KCQE_COMPLETION_STATUS_NIC_ERROR;
++		kcqe.kcqe_info1 = ISCSI_KCQE_COMPLETION_STATUS_PARITY_ERR;
+ 		kcqe.kcqe_info2 = cid;
+ 		cnic_get_l5_cid(cp, BNX2X_SW_CID(cid), &kcqe.kcqe_info0);
+ 
+@@ -2577,7 +2578,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
+ 
+ 		kcqe.kcqe_op_flag = (kcqe_op << KCQE_FLAGS_OPCODE_SHIFT) |
+ 				    KCQE_FLAGS_LAYER_MASK_L4;
+-		l4kcqe->status = L4_KCQE_COMPLETION_STATUS_NIC_ERROR;
++		l4kcqe->status = L4_KCQE_COMPLETION_STATUS_PARITY_ERROR;
+ 		l4kcqe->cid = cid;
+ 		cnic_get_l5_cid(cp, BNX2X_SW_CID(cid), &l4kcqe->conn_id);
+ 	} else {
+@@ -3933,7 +3934,8 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
+ 	case L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE:
+ 		if (l4kcqe->status == 0)
+ 			set_bit(SK_F_OFFLD_COMPLETE, &csk->flags);
+-		else if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_NIC_ERROR)
++		else if (l4kcqe->status ==
++			 L4_KCQE_COMPLETION_STATUS_PARITY_ERROR)
+ 			set_bit(SK_F_HW_ERR, &csk->flags);
+ 
+ 		smp_mb__before_clear_bit();
+@@ -3946,7 +3948,7 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
+ 	case L4_KCQE_OPCODE_VALUE_RESET_COMP:
+ 	case L5CM_RAMROD_CMD_ID_SEARCHER_DELETE:
+ 	case L5CM_RAMROD_CMD_ID_TERMINATE_OFFLOAD:
+-		if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_NIC_ERROR)
++		if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_PARITY_ERROR)
+ 			set_bit(SK_F_HW_ERR, &csk->flags);
+ 
+ 		cp->close_conn(csk, opcode);
+diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
+index 06ca002..382c98b 100644
+--- a/drivers/net/ethernet/broadcom/cnic_defs.h
++++ b/drivers/net/ethernet/broadcom/cnic_defs.h
+@@ -35,16 +35,6 @@
+ #define L5CM_RAMROD_CMD_ID_SEARCHER_DELETE	(L5CM_RAMROD_CMD_ID_BASE + 14)
+ #define L5CM_RAMROD_CMD_ID_TERMINATE_OFFLOAD	(L5CM_RAMROD_CMD_ID_BASE + 15)
+ 
+-#define FCOE_KCQE_OPCODE_INIT_FUNC			(0x10)
+-#define FCOE_KCQE_OPCODE_DESTROY_FUNC			(0x11)
+-#define FCOE_KCQE_OPCODE_STAT_FUNC			(0x12)
+-#define FCOE_KCQE_OPCODE_OFFLOAD_CONN			(0x15)
+-#define FCOE_KCQE_OPCODE_ENABLE_CONN			(0x16)
+-#define FCOE_KCQE_OPCODE_DISABLE_CONN			(0x17)
+-#define FCOE_KCQE_OPCODE_DESTROY_CONN			(0x18)
+-#define FCOE_KCQE_OPCODE_CQ_EVENT_NOTIFICATION  (0x20)
+-#define FCOE_KCQE_OPCODE_FCOE_ERROR				(0x21)
+-
+ #define FCOE_RAMROD_CMD_ID_INIT_FUNC		(FCOE_KCQE_OPCODE_INIT_FUNC)
+ #define FCOE_RAMROD_CMD_ID_DESTROY_FUNC		(FCOE_KCQE_OPCODE_DESTROY_FUNC)
+ #define FCOE_RAMROD_CMD_ID_STAT_FUNC		(FCOE_KCQE_OPCODE_STAT_FUNC)
+@@ -54,23 +44,6 @@
+ #define FCOE_RAMROD_CMD_ID_DESTROY_CONN		(FCOE_KCQE_OPCODE_DESTROY_CONN)
+ #define FCOE_RAMROD_CMD_ID_TERMINATE_CONN	(0x81)
+ 
+-#define FCOE_KWQE_OPCODE_INIT1                  (0)
+-#define FCOE_KWQE_OPCODE_INIT2                  (1)
+-#define FCOE_KWQE_OPCODE_INIT3                  (2)
+-#define FCOE_KWQE_OPCODE_OFFLOAD_CONN1  (3)
+-#define FCOE_KWQE_OPCODE_OFFLOAD_CONN2  (4)
+-#define FCOE_KWQE_OPCODE_OFFLOAD_CONN3  (5)
+-#define FCOE_KWQE_OPCODE_OFFLOAD_CONN4  (6)
+-#define FCOE_KWQE_OPCODE_ENABLE_CONN	(7)
+-#define FCOE_KWQE_OPCODE_DISABLE_CONN	(8)
+-#define FCOE_KWQE_OPCODE_DESTROY_CONN	(9)
+-#define FCOE_KWQE_OPCODE_DESTROY		(10)
+-#define FCOE_KWQE_OPCODE_STAT			(11)
+-
+-#define FCOE_KCQE_COMPLETION_STATUS_ERROR	(0x1)
+-#define FCOE_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAILURE	(0x3)
+-#define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR	(0x5)
+-
+ /* KCQ (kernel completion queue) response op codes */
+ #define L4_KCQE_OPCODE_VALUE_CLOSE_COMP             (53)
+ #define L4_KCQE_OPCODE_VALUE_RESET_COMP             (54)
+@@ -87,6 +60,7 @@
+ /* KCQ (kernel completion queue) completion status */
+ #define L4_KCQE_COMPLETION_STATUS_SUCCESS           (0)
+ #define L4_KCQE_COMPLETION_STATUS_NIC_ERROR         (4)
++#define L4_KCQE_COMPLETION_STATUS_PARITY_ERROR	    (0x81)
+ #define L4_KCQE_COMPLETION_STATUS_TIMEOUT           (0x93)
+ 
+ #define L4_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAIL    (0x83)
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index 60deb84..289274e 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -12,8 +12,8 @@
+ #ifndef CNIC_IF_H
+ #define CNIC_IF_H
+ 
+-#define CNIC_MODULE_VERSION	"2.5.9"
+-#define CNIC_MODULE_RELDATE	"Feb 8, 2012"
++#define CNIC_MODULE_VERSION	"2.5.10"
++#define CNIC_MODULE_RELDATE	"March 21, 2012"
+ 
+ #define CNIC_ULP_RDMA		0
+ #define CNIC_ULP_ISCSI		1
+diff --git a/drivers/scsi/bnx2fc/bnx2fc_constants.h b/drivers/scsi/bnx2fc/bnx2fc_constants.h
+index c12702b..dad9924 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc_constants.h
++++ b/drivers/scsi/bnx2fc/bnx2fc_constants.h
+@@ -47,6 +47,7 @@
+ #define FCOE_KCQE_COMPLETION_STATUS_CTX_FREE_FAILURE	(0x4)
+ #define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR			(0x5)
+ #define FCOE_KCQE_COMPLETION_STATUS_WRONG_HSI_VERSION   (0x6)
++#define FCOE_KCQE_COMPLETION_STATUS_PARITY_ERROR	(0x81)
+ 
+ /* CQE type */
+ #define FCOE_PENDING_CQE_TYPE			0
+diff --git a/drivers/scsi/bnx2i/57xx_iscsi_constants.h b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
+index 57515f1..495a841 100644
+--- a/drivers/scsi/bnx2i/57xx_iscsi_constants.h
++++ b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
+@@ -122,6 +122,7 @@
+ #define ISCSI_KCQE_COMPLETION_STATUS_LOM_ISCSI_NOT_ENABLED              (0x51)
+ 
+ #define ISCSI_KCQE_COMPLETION_STATUS_CID_BUSY				(0x80)
++#define ISCSI_KCQE_COMPLETION_STATUS_PARITY_ERR                         (0x81)
+ 
+ /* SQ/RQ/CQ DB structure sizes */
+ #define ISCSI_SQ_DB_SIZE    (16)
 -- 
 1.7.1
