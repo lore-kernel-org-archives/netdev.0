@@ -1,37 +1,28 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/2] usbnet: don't clear urb->dev in tx_complete
-Date: Thu, 22 Mar 2012 07:36:07 -0700
-Message-ID: <20120322143607.GD19835@kroah.com>
-References: <1332422558-6633-1-git-send-email-tom.leiming@gmail.com>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: Re: [patch] RDS: use gfp flags from caller in conn_alloc()
+Date: Thu, 22 Mar 2012 10:19:50 -0500
+Message-ID: <4F6B4316.5050508@oracle.com>
+References: <20120322064409.GE7369@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, stable@kernel.org,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oliver@neukum.org>
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:33416 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030637Ab2CVOgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 10:36:11 -0400
-Received: by mail-gx0-f174.google.com with SMTP id e5so1789679ggh.19
-        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 07:36:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1332422558-6633-1-git-send-email-tom.leiming@gmail.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:22232 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754135Ab2CVPTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 11:19:55 -0400
+In-Reply-To: <20120322064409.GE7369@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 22, 2012 at 09:22:38PM +0800, Ming Lei wrote:
-> URB unlinking is always racing with its completion and tx_complete
-> may be called before or during running usb_unlink_urb, so tx_complete
-> must not clear urb->dev since it will be used in unlink path,
-> otherwise invalid memory accesses or usb device leak may be caused
-> inside usb_unlink_urb.
-> 
-> Cc: stable@kernel.org
-> Cc: Alan Stern <stern@rowland.harvard.edu>
-> Cc: Oliver Neukum <oliver@neukum.org>
-> Signed-off-by: Ming Lei <tom.leiming@gmail.com>
-
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+On 3/22/2012 1:44 AM, Dan Carpenter wrote:
+> We should be using the gfp flags the caller specified here, instead of
+> GFP_KERNEL.  I think this might be a bugfix, depending on the value of
+> "sock->sk->sk_allocation" when we call rds_conn_create_outgoing() in
+> rds_sendmsg().  Otherwise, it's just a cleanup.
+>
+> Signed-off-by: Dan Carpenter<dan.carpenter@oracle.com>
+Acked-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
