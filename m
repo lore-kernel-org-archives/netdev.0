@@ -1,64 +1,69 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] RDS: use gfp flags from caller in conn_alloc()
-Date: Thu, 22 Mar 2012 09:44:09 +0300
-Message-ID: <20120322064409.GE7369@elgon.mountain>
+From: Mike Sinkovsky <msink@permonline.ru>
+Subject: Re: [PATCH v2] ethernet driver for the WIZnet W5300 chip
+Date: Thu, 22 Mar 2012 12:58:10 +0600
+Message-ID: <4F6ACD82.2030505@permonline.ru>
+References: <1332149037-12025-1-git-send-email-msink@permonline.ru> <4F69EA7E.4030606@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:30841 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752091Ab2CVGoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 02:44:18 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	msink@permonline.ru
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F69EA7E.4030606@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should be using the gfp flags the caller specified here, instead of
-GFP_KERNEL.  I think this might be a bugfix, depending on the value of
-"sock->sk->sk_allocation" when we call rds_conn_create_outgoing() in
-rds_sendmsg().  Otherwise, it's just a cleanup.
+21.03.2012 20:49, Florian Fainelli wrote:
+>> +#if defined(CONFIG_WIZNET_BUS_DIRECT)
+>> +#define detect_bus_mode(priv, mem_size) do {} while(0)
+>> +#define read_reg_u16    read_u16_direct
+>> +#define write_reg_u16    write_u16_direct
+>> +
+>> +#elif defined(CONFIG_WIZNET_BUS_INDIRECT)
+>> +#define detect_bus_mode(priv, mem_size) do {} while(0)
+>> +#define read_reg_u16    read_u16_indirect
+>> +#define write_reg_u16    write_u16_indirect
+> Looks like you don't have to make such decisions at compile-time. 
+> Since it is a platform driver, better supply this through 
+> platform_data instead.
+Interface bus mode can be selected in .config (make menuconfig etc.)
+If don't selected explicitly in .config, platform_device.resource[] is 
+used in runtime to setup callbacks.
+This hack was done for performance reasons, but may be not necessary, 
+I'm not sure.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/rds/loop.c b/net/rds/loop.c
-index 87ff2a8..6b12b68 100644
---- a/net/rds/loop.c
-+++ b/net/rds/loop.c
-@@ -121,7 +121,7 @@ static int rds_loop_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 	struct rds_loop_connection *lc;
- 	unsigned long flags;
- 
--	lc = kzalloc(sizeof(struct rds_loop_connection), GFP_KERNEL);
-+	lc = kzalloc(sizeof(struct rds_loop_connection), gfp);
- 	if (!lc)
- 		return -ENOMEM;
- 
-diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
-index 9556d28..a91e1db 100644
---- a/net/rds/iw_cm.c
-+++ b/net/rds/iw_cm.c
-@@ -694,7 +694,7 @@ int rds_iw_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 	unsigned long flags;
- 
- 	/* XXX too lazy? */
--	ic = kzalloc(sizeof(struct rds_iw_connection), GFP_KERNEL);
-+	ic = kzalloc(sizeof(struct rds_iw_connection), gfp);
- 	if (!ic)
- 		return -ENOMEM;
- 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 51c8689..a1e1162 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -749,7 +749,7 @@ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
- 	int ret;
- 
- 	/* XXX too lazy? */
--	ic = kzalloc(sizeof(struct rds_ib_connection), GFP_KERNEL);
-+	ic = kzalloc(sizeof(struct rds_ib_connection), gfp);
- 	if (!ic)
- 		return -ENOMEM;
- 
+> Please implement phylib to properly report the link state to the 
+> networking stack and ethtool.
+This chip don't allow any access to phy interface, it completely hidden 
+for host processor.
+The only way I found - to wire pin LINK from W5300 to some GPIO, then 
+ise RIGING/FALLING interrupt for tthat GPIO:
+> +static irqreturn_t w5300_detect_link(int irq, void *ndev_instance)
+> +{
+> +        struct net_device *ndev = ndev_instance;
+> +        struct w5300_private *priv = netdev_priv(ndev);
+> +
+> +        if (netif_running(ndev)) {
+> +                if (gpio_get_value(priv->link) == 0)
+> +                        netif_carrier_off(ndev);
+> +                else
+> +                        netif_carrier_on(ndev);
+> +        }
+> +
+> +        return IRQ_HANDLED;
+> +}
+Isn't it enough for networking stack?
+
+
+> Allow platform_data to pass a valid MAC address to this driver instead 
+> of defaulting to random unconditionnaly.
+>
+Do you mean - create .h file in /include/linux/platform_data/ ?
+Ok, will do in next version.
+
+Thanks.
+
+---
+Mike
