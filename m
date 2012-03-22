@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Access the replay notify functions via the
- registered callbacks
-Date: Thu, 22 Mar 2012 19:30:43 -0400 (EDT)
-Message-ID: <20120322.193043.2042143836874002556.davem@davemloft.net>
-References: <20120322093613.GU29891@secunet.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] usbnet: don't clear urb->dev in tx_complete
+Date: Thu, 22 Mar 2012 19:33:41 -0400 (EDT)
+Message-ID: <20120322.193341.331032344338370166.davem@davemloft.net>
+References: <1332422558-6633-1-git-send-email-tom.leiming@gmail.com>
+	<20120322143607.GD19835@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58637 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755180Ab2CVXbA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 19:31:00 -0400
-In-Reply-To: <20120322093613.GU29891@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120322143607.GD19835-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 22 Mar 2012 10:36:13 +0100
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Date: Thu, 22 Mar 2012 07:36:07 -0700
 
-> We call the wrong replay notify function when we use ESN replay
-> handling. This leads to the fact that we don't send notifications
-> if we use ESN. Fix this by calling the registered callbacks instead
-> of xfrm_replay_notify().
+> On Thu, Mar 22, 2012 at 09:22:38PM +0800, Ming Lei wrote:
+>> URB unlinking is always racing with its completion and tx_complete
+>> may be called before or during running usb_unlink_urb, so tx_complete
+>> must not clear urb->dev since it will be used in unlink path,
+>> otherwise invalid memory accesses or usb device leak may be caused
+>> inside usb_unlink_urb.
+>> 
+>> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+>> Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+>> Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+>> Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
