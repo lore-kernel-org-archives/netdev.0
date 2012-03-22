@@ -1,69 +1,84 @@
-From: Mike Sinkovsky <msink@permonline.ru>
-Subject: Re: [PATCH v2] ethernet driver for the WIZnet W5300 chip
-Date: Thu, 22 Mar 2012 12:58:10 +0600
-Message-ID: <4F6ACD82.2030505@permonline.ru>
-References: <1332149037-12025-1-git-send-email-msink@permonline.ru> <4F69EA7E.4030606@openwrt.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Thu, 22 Mar 2012 08:00:26 +0100
+Message-ID: <20120322070026.GC2182@netboy.at.omicron.at>
+References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
+ <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+ <20120316065537.GB2199@netboy.at.omicron.at>
+ <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+ <20120321160817.GB1941@netboy.at.omicron.at>
+ <CAAsGZS4xU6Uqu59r6donnVmvi-NdxhQRi-7FEEHwg0mFcmKhxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	msink@permonline.ru
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F69EA7E.4030606@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
+	john.ronciak@intel.com, john.stultz@linaro.org, tglx@linutronix.de
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:61394 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112Ab2CVHAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 03:00:40 -0400
+Received: by wejx9 with SMTP id x9so1545527wej.19
+        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 00:00:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS4xU6Uqu59r6donnVmvi-NdxhQRi-7FEEHwg0mFcmKhxA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-21.03.2012 20:49, Florian Fainelli wrote:
->> +#if defined(CONFIG_WIZNET_BUS_DIRECT)
->> +#define detect_bus_mode(priv, mem_size) do {} while(0)
->> +#define read_reg_u16    read_u16_direct
->> +#define write_reg_u16    write_u16_direct
->> +
->> +#elif defined(CONFIG_WIZNET_BUS_INDIRECT)
->> +#define detect_bus_mode(priv, mem_size) do {} while(0)
->> +#define read_reg_u16    read_u16_indirect
->> +#define write_reg_u16    write_u16_indirect
-> Looks like you don't have to make such decisions at compile-time. 
-> Since it is a platform driver, better supply this through 
-> platform_data instead.
-Interface bus mode can be selected in .config (make menuconfig etc.)
-If don't selected explicitly in .config, platform_device.resource[] is 
-used in runtime to setup callbacks.
-This hack was done for performance reasons, but may be not necessary, 
-I'm not sure.
+On Wed, Mar 21, 2012 at 01:02:38PM -0400, chetan loke wrote:
+> > Well, if people want to write programs that make no sense at all,
+> > then I can cannot stop them. There really isn't any point in general
+> > applications using the PHC directly. You can easily synchronize the
+> 
+> I thought the core patches enables using PHC as a reference time, no?
+> So that seems to be contradicting the PHC API. If there's no point
+> then why are we exporting PHC->get_time as a generic interface? May be
+> just limit get_time interface to something like ethtool?
 
+There was a long discussion on this list and the lkml about the API,
+and I think what we came up is a good solution. There is nothing to
+prevent you from rewriting all of user space to use a dynamic clock ID
+instead of CLOCK_REALTIME, but I seriously doubt anyone is going to do
+this.
 
-> Please implement phylib to properly report the link state to the 
-> networking stack and ethtool.
-This chip don't allow any access to phy interface, it completely hidden 
-for host processor.
-The only way I found - to wire pin LINK from W5300 to some GPIO, then 
-ise RIGING/FALLING interrupt for tthat GPIO:
-> +static irqreturn_t w5300_detect_link(int irq, void *ndev_instance)
-> +{
-> +        struct net_device *ndev = ndev_instance;
-> +        struct w5300_private *priv = netdev_priv(ndev);
-> +
-> +        if (netif_running(ndev)) {
-> +                if (gpio_get_value(priv->link) == 0)
-> +                        netif_carrier_off(ndev);
-> +                else
-> +                        netif_carrier_on(ndev);
-> +        }
-> +
-> +        return IRQ_HANDLED;
-> +}
-Isn't it enough for networking stack?
+It does make sense for the time synchronization services to use
+the clock_gettime calls to do their work.
 
+Calls to read the system clock are highly optimized (at least on x86),
+and thus applications wanting quick time stamps are wise to use that
+clock. Calling clock_gettime on another clock, a PHY based clock for
+example, might block for a long, long time. There is no way to
+optimize around that, since it is a MDIO bus transaction.
 
-> Allow platform_data to pass a valid MAC address to this driver instead 
-> of defaulting to random unconditionnaly.
->
-Do you mean - create .h file in /include/linux/platform_data/ ?
-Ok, will do in next version.
+> Once, the clocks are in-sync, it's not an error - but  *somewhat
+> fixed* latency. There are users who don't want to spend extra money
+> for expensive GPS time-sync stuff but yet have enough CPUs such that
+> they can dedicate 1 CPU for book-keeping. For such users, this
+> *somewhat fixed* latency should be constant over a period of time even
+> when other CPUs are processing traffic at line rate.
 
-Thanks.
+Consider the following program:
 
----
-Mike
+	if (interesting_event()) {
+		/* what happens in this empty space? preemption? interrupt? */
+		clock_gettime();
+	}
+
+Run cyclictest on your system, and let's then talk about your 'fixed'
+latency numbers.
+
+> Sounds good on the tools part. But if applications should stick to
+> reading sys-time then either we shouldn't export the API or export it
+> selectively.If there's an API then user-space guys will use it. For
+> this discussion, lets focus on PCI cards because that is what this
+> patch talks about. Also the majority of the deployment will be LOM or
+> PCI cards.
+
+Like I said, I personally don't see much utility in optimizing igb. I
+only have so much time to spend, but I am not against you or Jacob or
+anyone else doing that work.
+
+Thanks,
+Richard
