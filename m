@@ -1,51 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: re: module_param: make bool parameters really bool (net & drivers/net)
-Date: Fri, 23 Mar 2012 08:37:09 +1030
-Message-ID: <8762dw9to2.fsf@rustcorp.com.au>
-References: <20120322182623.GA29859@elgon.mountain>
+From: Josh Hunt <joshhunt00@gmail.com>
+Subject: Re: long-lived tcp connection question
+Date: Thu, 22 Mar 2012 17:27:40 -0500
+Message-ID: <CAKA=qzZ7K6gGJ88NR83nm1vNnRWiuwN-MbEVzeSRpuok7j2vTQ@mail.gmail.com>
+References: <CAKA=qzaPwx53ExK7VhNC_sbv3tVZrnWXv-5Fh8akcZ6DEaqd9Q@mail.gmail.com>
+	<20120322215150.GB3093@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120322182623.GA29859@elgon.mountain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:61601 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508Ab2CVW1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 18:27:40 -0400
+Received: by mail-yw0-f46.google.com with SMTP id m54so2263887yhm.19
+        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 15:27:40 -0700 (PDT)
+In-Reply-To: <20120322215150.GB3093@nuttenaction>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 22 Mar 2012 21:26:23 +0300, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> Hi Rusty,
-> 
-> The patch eb93992207da: "module_param: make bool parameters really
-> bool (net & drivers/net)" from Dec 19, 2011, leads to the following
-> warning:
-> net/ipv4/netfilter/iptable_filter.c:90 iptable_filter_init()
-> 	warn: 5 is more than 1 (max 'forward' can be) so this is
-> 	always the same.
-> 
-> It's declared like this:
-> 
->     54  /* Default to forward because I got too much mail already. */
->     55  static bool forward = NF_ACCEPT;
->     56  module_param(forward, bool, 0000);
-> 
-> 
-> It's used like this:
->     66          ((struct ipt_standard *)repl->entries)[1].target.verdict = -forward - 1;
-> 
-> Smatch complains when check that it's larger than 5.
-> 
->     90          if (forward < 0 || forward > NF_MAX_VERDICT) {
->     91                  pr_err("iptables forward must be 0 or 1\n");
->     92                  return -EINVAL;
->     93          }
+On Thu, Mar 22, 2012 at 4:51 PM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+> * Josh Hunt | 2012-03-22 11:56:19 [-0500]:
+>
+>>Given things like web sockets with presumably long-lived persistent
+>>tcp connections and a sparse amount of data, I was wondering if there
+>>are currently any mechanisms in the kernel or out of tree projects
+>>which work on reducing the overhead these connections require?
+>>Possibly storing their state after a certain period of inactivity and
+>>then reviving them when work needs to be done? I'm thinking something
+>>along the lines of the state info stored for time-wait sockets and
+>>then the ability to resurrect it on an incoming packet. Keeping
+>>resources around for such connections seems inefficient although
+>>possibly unavoidable.
+>
+> Do you referring to something like this:
+>
+> https://datatracker.ietf.org/doc/draft-ietf-tcpm-fastopen/
+>
+> The Linux code is not released yet, but I know that the required storage
+> overhead is small. Search the IETF email archive for more background
+> information about the topic.
+>
+> Hagen
+>
 
-Thanks Dan!
+No, this deals more with the overhead of establishing a connection.
+I'm asking more about the overhead associated with holding on to
+long-lived connections which may not be doing much.
 
-        This was obviously initially an arbitrary value, but someone
-made it a bool module parameter (me?).  It works for accept and drop, so
-let's make it official.  Patch coming.
-
-Thanks,
-Rusty.
 -- 
-  How could I marry someone with more hair than me?  http://baldalex.org
+Josh
