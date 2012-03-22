@@ -1,69 +1,113 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-Date: Wed, 21 Mar 2012 18:28:07 -0700
-Message-ID: <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
-References: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
- <20120228.212857.797446903975232476.davem@davemloft.net> <157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com>
- <20120228.223258.2261979237568571219.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net] tg3: Fix RSS ring refill race condition
+Date: Wed, 21 Mar 2012 17:38:33 -0800
+Message-ID: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiong@qca.qualcomm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com, kgiori@qca.qualcomm.com,
-	chris.snook@gmail.com, mathieu@qca.qualcomm.com,
-	bryanh@quicinc.com, Jesper Andersen <jespera@diku.dk>,
-	Julia Lawall <julia@diku.dk>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120228.223258.2261979237568571219.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4155 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754967Ab2CVBaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Mar 2012 21:30:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 28, 2012 at 7:32 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-> Date: Wed, 29 Feb 2012 03:11:14 +0000
->
->> We understand your concern. =C2=A0To support the new chipset, do you
->> think it's reasonable to upstream it as a new driver, not a
->> replacement ?
->
-> It depends upon how similar the chips are.
+The RSS feature in tg3 hardware has only one rx producer ring for all
+RSS rings.  NAPI vector 1 is special and handles the refilling of the
+rx producer ring on behalf of all RSS rings.  There is a race condition
+between these RSS NAPIs and the NAPI[1].  If NAPI[1] finishes checking
+for refill and then another RSS ring empties the rx producer ring
+before NAPI[1] exits NAPI, the chip will be completely out of SKBs in
+the rx producer ring.
 
-OK.
+We fix this by adding a flag tp->rx_refill and rely on napi_schedule()/
+napi_complete() to help synchronize it to close the race condition.
 
-> To be honest tg3, as one example, supports quite a large array of
-> different pieces of hardware that use the same logical core.
+Update driver version to 3.123.
 
-At certain point it becomes a pain in the ass to support older
-chipsets, and simply easier to leave the older driver to rot.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   25 ++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/tg3.h |    1 +
+ 2 files changed, 23 insertions(+), 3 deletions(-)
 
-> So that would be my litmus test about how different a chip needs
-> to be to deserve an entirely new driver.
-
-Understood.
-
-> I strongly suggest you try to get atl1c working properly.
-
-This is what I have recommended since the alx driver was rejected, and
-our team has been working on the atl1c driver now but we need to get
-the legal approval to get contributions out to atl1c (I know this is
-silly, but hey just letting you know).
-
-Anyway, in the meantime another topic has creeped up, and that is to
-share with BSD and also help kill proprietary drivers [0]. Me and
-Adrian intend on sharing our thoughts on how we intend on doing this
-at LF collab but was in hopes we can use alx as a test case. We've
-gone back to the drawing board for another simple driver to test our
-work against but... we come back to alx.
-
-Would it be worthwhile to consider alx upstream only for the newer
-chipsets (regardless of the litmus test, which I do agree with on
-technical grounds) in consideration for helping pave the way on
-killing proprietary drivers?
-
-[0] https://events.linuxfoundation.org/events/collaboration-summit/rodr=
-iguez-chadd
-
- Luis
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index b065746..7b71387 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -89,10 +89,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ 
+ #define DRV_MODULE_NAME		"tg3"
+ #define TG3_MAJ_NUM			3
+-#define TG3_MIN_NUM			122
++#define TG3_MIN_NUM			123
+ #define DRV_MODULE_VERSION	\
+ 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
+-#define DRV_MODULE_RELDATE	"December 7, 2011"
++#define DRV_MODULE_RELDATE	"March 21, 2012"
+ 
+ #define RESET_KIND_SHUTDOWN	0
+ #define RESET_KIND_INIT		1
+@@ -5953,8 +5953,10 @@ next_pkt_nopost:
+ 		tpr->rx_std_prod_idx = std_prod_idx & tp->rx_std_ring_mask;
+ 		tpr->rx_jmb_prod_idx = jmb_prod_idx & tp->rx_jmb_ring_mask;
+ 
+-		if (tnapi != &tp->napi[1])
++		if (tnapi != &tp->napi[1]) {
++			tp->rx_refill = true;
+ 			napi_schedule(&tp->napi[1].napi);
++		}
+ 	}
+ 
+ 	return received;
+@@ -6134,6 +6136,7 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 		u32 std_prod_idx = dpr->rx_std_prod_idx;
+ 		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
+ 
++		tp->rx_refill = false;
+ 		for (i = 1; i < tp->irq_cnt; i++)
+ 			err |= tg3_rx_prodring_xfer(tp, dpr,
+ 						    &tp->napi[i].prodring);
+@@ -6197,9 +6200,25 @@ static int tg3_poll_msix(struct napi_struct *napi, int budget)
+ 		/* check for RX/TX work to do */
+ 		if (likely(sblk->idx[0].tx_consumer == tnapi->tx_cons &&
+ 			   *(tnapi->rx_rcb_prod_idx) == tnapi->rx_rcb_ptr)) {
++
++			/* This test here is not race free, but will reduce
++			 * the number of interrupts by looping again.
++			 */
++			if (tnapi == &tp->napi[1] && tp->rx_refill)
++				continue;
++
+ 			napi_complete(napi);
+ 			/* Reenable interrupts. */
+ 			tw32_mailbox(tnapi->int_mbox, tnapi->last_tag << 24);
++
++			/* This test here is synchronized by napi_schedule()
++			 * and napi_complete() to close the race condition.
++			 */
++			if (unlikely(tnapi == &tp->napi[1] && tp->rx_refill)) {
++				tw32(HOSTCC_MODE, tp->coalesce_mode |
++						  HOSTCC_MODE_ENABLE |
++						  tnapi->coal_now);
++			}
+ 			mmiowb();
+ 			break;
+ 		}
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index 66bcfca..93865f8 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -3007,6 +3007,7 @@ struct tg3 {
+ 	u32				rx_std_max_post;
+ 	u32				rx_offset;
+ 	u32				rx_pkt_map_sz;
++	bool				rx_refill;
+ 
+ 
+ 	/* begin "everything else" cacheline(s) section */
+-- 
+1.7.1
