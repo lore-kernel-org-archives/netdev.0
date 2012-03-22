@@ -1,56 +1,46 @@
-From: Luigi Rizzo <rizzo@iet.unipi.it>
-Subject: new version of netmap for linux (20120322)
-Date: Thu, 22 Mar 2012 19:37:59 +0100
-Message-ID: <20120322183759.GA54931@onelab2.iet.unipi.it>
-References: <20120312230809.GA45615@onelab2.iet.unipi.it>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: module_param: make bool parameters really bool (net &
+ drivers/net)
+Date: Thu, 22 Mar 2012 21:26:23 +0300
+Message-ID: <20120322182623.GA29859@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from onelab2.iet.unipi.it ([131.114.59.238]:61987 "EHLO
-	onelab2.iet.unipi.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754438Ab2CVSTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 14:19:15 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:47968 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757099Ab2CVS0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 14:26:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20120312230809.GA45615@onelab2.iet.unipi.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have updated the linux version of the netmap code,
-specifically fixing the 'igb' driver which was not working earlier.
+Hi Rusty,
 
-The code and tinycore images for today's version 20120322
-are available in the same location
+The patch eb93992207da: "module_param: make bool parameters really
+bool (net & drivers/net)" from Dec 19, 2011, leads to the following
+warning:
+net/ipv4/netfilter/iptable_filter.c:90 iptable_filter_init()
+	warn: 5 is more than 1 (max 'forward' can be) so this is
+	always the same.
 
-	http://info.iet.unipi.it/~luigi/netmap/
+It's declared like this:
 
-cheers
-luigi
+    54  /* Default to forward because I got too much mail already. */
+    55  static bool forward = NF_ACCEPT;
+    56  module_param(forward, bool, 0000);
 
-On Tue, Mar 13, 2012 at 12:08:09AM +0100, Luigi Rizzo wrote:
-> just in case you might be interested...
-> 
-> i have recently completed a linux port of the netmap framework.
-> Code, documentation and PicoBSD/Tinycore bootable images are at
-> 
-> 	http://info.iet.unipi.it/~luigi/netmap/
-> 
-> Netmap is a device-independent framework for packet generation and
-> capture from user space; it can do line rate at 10Gbit/s (14.88Mpps)
-> with just one core at about 1GHz.
-> 
-> Netmap relies on a kernel module (netmap_lin.ko) and slightly
-> modified device drivers (about 4-500 lines per driver).  It requires
-> no kernel patches apart from device drivers (and abusing the ax25
-> field in struct netdevice).
-> Userspace programs can use the native API (documented in netmap.4)
-> or a libpcap emulation library. It has been integrated in FreeBSD
-> last fall, and the linux version uses mostly the same code plus a bit
-> of glue to adapt the BSD<->linux kernel ABI.
-> 
-> The current version supporting the ixgbe and e1000/e1000e driver.
-> Patches for other devices (igb, r8169, forcedeth) are avaiable but
-> untested.
-> 
-> 	cheers
-> 	luigi
+
+It's used like this:
+    66          ((struct ipt_standard *)repl->entries)[1].target.verdict = -forward - 1;
+
+Smatch complains when check that it's larger than 5.
+
+    90          if (forward < 0 || forward > NF_MAX_VERDICT) {
+    91                  pr_err("iptables forward must be 0 or 1\n");
+    92                  return -EINVAL;
+    93          }
+
+regards,
+dan carpenter
