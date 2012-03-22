@@ -1,108 +1,80 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
- timecompare method
-Date: Thu, 22 Mar 2012 19:13:42 -0400
-Message-ID: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
-	<CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
-	<20120316065537.GB2199@netboy.at.omicron.at>
-	<CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
-	<20120321170003.GA5533@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
-	<20120322064107.GB2182@netboy.at.omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Piggyback the final ACK of the three way TCP connection
+ establishment with the data
+Date: Thu, 22 Mar 2012 16:13:57 -0700
+Message-ID: <1332458037.6521.12.camel@edumazet-glaptop>
+References: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com>
+	 <1332374452.9433.15.camel@edumazet-glaptop>
+	 <CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vincent Li <vincent.mc.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:40813 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031376Ab2CVXNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 19:13:43 -0400
-Received: by mail-yw0-f46.google.com with SMTP id m54so2291199yhm.19
-        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 16:13:42 -0700 (PDT)
-In-Reply-To: <20120322064107.GB2182@netboy.at.omicron.at>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:39318 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031412Ab2CVXN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 19:13:59 -0400
+Received: by iagz16 with SMTP id z16so3756077iag.19
+        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 16:13:58 -0700 (PDT)
+In-Reply-To: <CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 22, 2012 at 2:41 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Wed, Mar 21, 2012 at 05:50:34PM -0400, chetan loke wrote:
->>
->> Richard - Intent is to make the readers(get_time) wait (or return last
->> read value if the seq_counter tripped because you know that this value
->> was recent) and let the tx/rx path continue. I haven't looked in more
->> details but as Jake mentioned you will also need to change the way you
->> read the values(by not using timecounter_read in get_time).
->
-> I don't get what you guys are saying. How can you avoid the spin lock
-> around the two time register reads? How about a patch or some pseudo
-> code?
->
+On Thu, 2012-03-22 at 16:02 -0700, Vincent Li wrote:
+> >
+> > No kernel patch is needed, you already can do this on linux.
+> >
+> > Check file net/ipv4/tcp_input.c lines around 5722
+> >
+> >
+> 
+> is this code snippet in tcp_rcv_synsent_state_process that you refer to?
+> 
+> 5676                 if (sk->sk_write_pending ||
+> 5677                     icsk->icsk_accept_queue.rskq_defer_accept ||
+> 5678                     icsk->icsk_ack.pingpong) {
+> 5679                         /* Save one ACK. Data will be ready after
+> 5680                          * several ticks, if write_pending is set.
+> 5681                          *
+> 5682                          * It may be deleted, but with this
+> feature tcpdumps
+> 5683                          * look so _wonderfully_ clever, that I
+> was not able
+> 5684                          * to stand against the temptation 8)     --ANK
+> 5685                          */
+> 5686                         inet_csk_schedule_ack(sk);
+> 5687                         icsk->icsk_ack.lrcvtime = tcp_time_stamp;
+> 5688                         icsk->icsk_ack.ato       = TCP_ATO_MIN;
+> 5689                         tcp_incr_quickack(sk);
+> 5690                         tcp_enter_quickack_mode(sk);
+> 5691                         inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+> 5692                                                   TCP_DELACK_MAX,
+> TCP_RTO_MAX);
+> 5693
+> 5694 discard:
+> 5695                         __kfree_skb(skb);
+> 5696                         return 0;
+> 5697                 } else {
+> 5698                         tcp_send_ack(sk);
+> 5699                 }
+> 
+> if I understand it correct on linux, the application code need to set
+> socket option with TCP_DEFER_ACCEPT or TCP_QUICKACK in order to
+> trigger it, correct?
+> 
+> We have user running wu-ftpd on HP Unix with tcp tunable
+> tcp_delay_final_twh_ack on. so in active FTP situation, when wu-ftpd
+> open up data connection to client, it sends SYN, client SYN/ACK, then
+> ACK/PUSH with data. so on HU UNIX, it appears just turn on tcp tunable
+> tcp_delay_final_twh_ack would make it happen.
+> 
+> but on Linux, do I need to change wu-ftpd code and modify the socket
+> option with TCP_DEFER_ACCEPT or TCP_QUICKACK in order to trigger the
+> code snippet in tcp_rcv_synsent_state_process?
 
-tmreg_lock now becomes seqlock_t instead of spinlock_t.
+Yes.
 
-/* users can keep re-trying - dont really care */
-igb_gettime_locking (...) {
-     unsigned int seq;
-     u64 ns;
-     do {
-     seq = read_seqbegin( &pigb->tmreg_seq_lock);
-     ns = timecounter_read(&pigb->tc);
-     } while (read_seqretry(&pigb->tmreg_seq_lock, seq));
-     // process ns
-}
-
-
-copyright 2012 - Chetan Loke <lokechetan@gmail.com>
-
-// trip cnt will ensure/enforce - evil adjtime user-space code can
-still not block us.
-// called from igb_tx[rx]_hwtstamp
-driver_rx_tx_path_locking( ... ) {
-     unsigned int seq, trip_cnt = 0;
-     u64 ns;
-     do {
-     seq = read_seqbegin( &pigb->tmreg_seq_lock);
-     trip_cnt++;
-     ns = timecounter_read(&pigb->tc);
-     } while (read_seqretry(&pigb->tmreg_seq_lock, seq) && trip_cnt < 2));
-     // process ns
-}
-
-
-igb_adjtime () {
-    /* just let first user of adjtime or settime succeed? */
-    if (write_try_seqlock(&pigb->tmreg_seq_lock)) {
-         // update NIC counter - here ...
-         write_sequnlock(&pigb->tmreg_seq_lock);
-    }
-}
-
-igb_settime () {
-    // let all of them do their thing ... or you can use trylock here
-too if you like...
-    write_seqlock(&pigb->tmreg_seq_lock);
-         // update NIC counter - here ...
-    write_sequnlock(&pigb->tmreg_seq_lock);
- }
-
-write_seq_xxx will spinlock as usual but read_seq reads the atomically
-incremented counter. Also notice the use of trip_cnt to further ensure
-the driver never keeps re-trying.
-
-The regular __irqsave flavors are also available for use for the
-write_seq calls.
-
-> Thanks,
-> Richard
-
-Chetan
+A third possibility (reading the code) if you use non blocking IO, is to
+send() a message right after connect()
