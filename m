@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] vhost-net/virtio: fixes for 3.4
-Date: Thu, 22 Mar 2012 04:57:50 -0400 (EDT)
-Message-ID: <20120322.045750.1390870979350936140.davem@davemloft.net>
-References: <20120320145010.GA31570@redhat.com>
-	<20120322082718.GA11258@redhat.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: use-after-free in usbnet
+Date: Thu, 22 Mar 2012 10:08:46 +0100
+Message-ID: <201203221008.46882.oneukum@suse.de>
+References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com> <Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org> <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	levinsasha928@gmail.com, nyh@il.ibm.com, nyh@math.technion.ac.il
-To: mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120322082718.GA11258@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 22 Mar 2012 10:27:19 +0200
+Am Mittwoch, 21. M=E4rz 2012, 17:22:59 schrieb Ming Lei:
 
-> Dave, just checking - not sure I made it clear that this pull request
-> is intended to go in through your tree.
-> If you see any issues pls let me know so I can fix them.
+> -
+> +               usb_get_urb(urb);
+>                 spin_unlock_irqrestore(&q->lock, flags);
+>                 // during some PM-driven resume scenarios,
+>                 // these (async) unlinks complete immediately
+> @@ -597,6 +597,7 @@ static int unlink_urbs (struct usbnet *dev, struc=
+t
+> sk_buff_head *q)
+>                         netdev_dbg(dev->net, "unlink urb err, %d\n", =
+retval);
+>                 else
+>                         count++;
+> +               usb_put_urb(urb);
 
-I missed it, sorry.
 
-For some reason patchwork didn't pick it up, because if it did
-then it wouldn't have mattered that I lost it in my huge inbox.
-Oh well :-/
+Hi,
 
-But I've got it now, thanks.  I'll work on it tomorrow.
+this looks good, but could you add a comment explaining the reason for
+taking a reference?
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
