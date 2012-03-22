@@ -1,124 +1,113 @@
-From: "hana muammar gaddafi." <info@gmail.com>
-Subject: =?utf-8?B?ICDYp9mE2LPZhNin2YUg2LnZhNmK2YPZhQ==?=
-Date: Thu, 22 Mar 2012 18:06:33 -0400 (EDT)
-Message-ID: <56009.197.122.155.163.1332453993.squirrel@pop.bois-francs.com>
-Reply-To: hanamuammargaddafy01@gmail.com
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Thu, 22 Mar 2012 16:44:29 -0600
+Message-ID: <20120322224429.GA12980@obsidianresearch.com>
+References: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6EB4@saturn3.aculab.com>
+ <88B766C272F2C64B944B21AD078333151C964A66EF@EXMAIL.ad.emulex.com>
+ <20120322205824.GC9614@obsidianresearch.com>
+ <88B766C272F2C64B944B21AD078333151C964A670B@EXMAIL.ad.emulex.com>
+ <3ae9829d-f8dd-4268-918a-94616eff0915@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pop.bois-francs.com ([207.164.32.214]:33113 "EHLO
-	pop.bois-francs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756960Ab2CVWkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 18:40:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <3ae9829d-f8dd-4268-918a-94616eff0915-nbYkmrCdWxmgMrCBcu8zE0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 22, 2012 at 02:20:28PM -0700, Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org wrote:
+> I got a question here lately.
+> 
+> aligned directive will ensure that it will fall on boundary.  Say
+> aligned(4) ensures that structure is aligned to 4 byte boundary.
+> Compiler can (at least theoretically) still have 4 byte structure
+> aligned to 8 byte boundary on 64-bit platform (which is 4 byte
+> aligned too).
 
+There are very specific rules defined in the platform's ABI for how C
+structures are layed out in memory, each ABI (ie CPU) has its own
+specific quirks, but broadly in Linux land you can boil it down to:
 
+1) The alignment of a structure is the greatest alignment of all the
+   members
+2) Each member is aligned to its alignment.
 
-=D8=A7=D9=84=D8=B3=D9=84=D8=A7=D9=85 =D8=B9=D9=84=D9=8A=D9=83=D9=85 =D9=
-=88=D8=B1=D8=AD=D9=85=D8=A9 =D8=A7=D9=84=D9=84=D9=87  , =D8=A7=D8=B3=D9=
-=85=D9=89 =D9=87=D8=A7=D9=86=D8=A7 =D9=85=D8=B9=D9=85=D8=B1 =D8=A7=D9=84=
-=D9=82=D8=B0=D8=A7=D9=81=D9=89
-=D9=85=D9=86 =D8=AA=D8=B1=D9=8A=D8=A8=D9=88=D9=84=D9=89 ,=D9=84=D9=8A=D8=
-=A8=D9=8A=D8=A7 =D8=B1=D9=82=D9=85 19 =D8=A8=D8=A7=D8=A8 =D8=A7=D9=84=D8=
-=B9=D8=B2=D8=A7=D9=8A=D8=B2=D8=A9, =D8=A8=D9=85=D9=86=D8=B7=D9=82=D8=A9=
- =D9=85=D8=A7=D8=B1=D9=89 =D9=81=D9=8A=D8=AA=D8=B2=D8=AC=D9=8A=D8=B1=D8=
-=A7=D9=84=D8=AF , =D8=AA=D8=B1=D9=8A=D8=A8=D9=88=D9=84=D9=89 ,
-=D9=84=D9=8A=D8=A8=D9=8A=D8=A7 .
-=D8=AE=D8=AF=D9=85=D8=AA =D9=83=D8=AF=D9=83=D8=AA=D9=88=D8=B1=D8=A9 =D8=
-=A8=D9=88=D8=B2=D8=A7=D8=B1=D8=A9 =D8=A7=D9=84=D8=B5=D8=AD=D8=A9 =D8=A7=
-=D9=84=D9=84=D9=8A=D8=A8=D9=8A=D8=A9.
-=D9=88=D9=82=D8=AA =D8=A7=D9=84=D9=88=D9=84=D8=A7=D9=8A=D8=A7=D8=AA =D8=
-=A7=D9=84=D9=85=D8=AA=D8=AD=D8=AF=D8=A9 =D8=B6=D8=B1=D8=A8=D8=AA =D9=85=
-=D9=86=D8=B7=D9=82=D8=A9 =D8=B3=D9=83=D9=86=D8=A7 =D8=A7=D9=84=D8=AE=D8=
-=A7=D8=B5 =D8=A8=D8=A7=D8=B3=D9=85 =D8=A7=D9=84=D9=82=D8=B0=D8=A7=D9=81=
-=D9=89 =D8=A8=D8=A8=D8=A7=D8=A8 =D8=A7=D9=84=D8=B9=D8=B2=D8=A7=D9=8A=D8=
-=B2=D8=A9 =D9=81=D9=89
-14 =D8=A7=D8=A8=D8=B1=D9=8A=D9=84 1986 =D8=A7=D9=86=D8=AA=D9=82=D8=A7=D9=
-=85=D8=A7 =D9=84=D9=85=D8=A7 =D8=AD=D8=AF=D8=AB =D8=A8=D8=AA=D9=81=D8=AC=
-=D9=8A=D8=B1 =D8=A7=D9=84=D9=85=D9=84=D9=87=D9=89 =D8=A7=D9=84=D9=84=D9=
-=8A=D9=84=D9=89 =D9=84=D8=A7=D8=A8=D9=8A=D9=84=D8=A7 =D8=A8=D9=85=D8=AF=
-=D9=8A=D9=86=D8=A9 =D8=A8=D8=B1=D9=84=D9=8A=D9=86 =D8=B9=D9=86
-=D9=8A=D8=AF =D9=84=D9=8A=D8=A8=D9=8A=D9=8A=D9=86 =D9=85=D8=AA=D9=84 =D9=
-=85=D8=A7=D9=82=D8=A7=D9=84=D9=88=D8=A7 . =D9=88=D8=A7=D9=86=D8=AC=D8=B1=
-=D8=AD=D8=AA =D8=A7=D9=86=D8=A7 =D8=A8=D9=87=D8=AF=D8=A7 =D8=A7=D9=84=D8=
-=AD=D8=A7=D8=AF=D8=AB =D9=88=D9=85=D8=B4=D8=A7=D9=86 =D9=87=D8=A7=D9=83=
- =D8=A7=D8=A8=D9=88=D9=8A=D8=A7 =D8=AD=D9=81=D8=B8 =D9=87=D9=88=D9=8A=D8=
-=AA=D9=89
-=D8=B3=D8=B1=D9=8A=D8=A7 , =D9=88=D9=82=D8=A8=D9=84 =D9=88=D9=81=D8=A7=D8=
-=A9 =D9=88=D8=A7=D9=84=D8=AF=D9=89 =D9=88=D9=82=D8=A8=D9=84 =D8=A7=D9=86=
- =D8=AA=D8=AA=D8=AC=D9=85=D8=AF =D8=AD=D8=B3=D8=A7=D8=A8=D8=A7=D8=AA=D9=
-=87 =D8=A8=D8=A7=D9=84=D8=A8=D9=86=D9=88=D9=83 =D9=82=D8=A8=D9=84 =D8=A8=
-=D8=AF=D8=A7=D9=8A=D8=A9 =D8=A7=D9=84=D8=AB=D9=88=D8=B1=D8=A9
-=D8=A7=D9=84=D9=84=D9=8A=D8=A8=D9=8A=D8=A9 =D9=82=D8=AF =D8=AD=D9=88=D9=
-=84 32.4 =D9=85=D9=84=D9=8A=D9=88=D9=86 =D9=8A=D9=88=D8=B1=D9=88 =D9=85=
-=D9=86 =D8=A8=D9=86=D9=83 =D8=A8=D8=B3=D9=88=D9=8A=D8=B3=D8=B1=D8=A7 =D9=
-=85=D9=86 =D8=AE=D9=84=D8=A7=D9=84 =D8=B4=D8=B1=D9=83=D8=A9 =D8=AA=D8=A7=
-=D9=85=D9=8A=D9=86 =D8=AE=D8=A7=D8=B6=D8=B9=D8=A9
-=D9=84=D9=85=D9=83=D8=AA=D8=A8 =D8=A7=D9=84=D8=A7=D9=85=D9=85 =D8=A7=D9=
-=84=D9=85=D8=AA=D8=AD=D8=AF=D8=A9 =D8=A8=D9=84=D9=8A=D8=A8=D9=8A=D8=A7 =
-=D9=84=D8=B9=D9=82=D8=AF =D9=84=D9=85=D8=B4=D8=A7=D8=B1=D9=8A=D8=B9 =D8=
-=A7=D9=86=D8=A7=D8=A8=D9=8A=D8=A8 =D8=A7=D9=84=D8=BA=D8=A7=D8=B2 =D9=88=
-=D8=A7=D9=84=D8=B2=D9=8A=D8=AA ...
-=D8=A7=D9=84=D9=88=D8=B6=D8=B9 =D8=A8=D9=84=D9=8A=D8=A8=D9=8A=D8=A7 =D9=
-=83=D8=A7=D9=86 =D9=85=D9=87=D9=8A=D9=86 =D9=88=D9=83=D8=A7=D9=86 =D9=85=
-=D9=87=D8=B2=D9=84=D8=A9 =D9=83=D8=A8=D9=8A=D8=B1=D8=A9 =D9=88=D9=82=D8=
-=AA =D8=AD=D8=AF=D8=AB =D9=83=D9=84 =D9=85=D8=A7=D8=AD=D8=B5=D9=84, =D9=
-=88=D9=83=D8=A7=D9=86 =D9=88=D8=B6=D8=B9=D9=86=D8=A7 =D8=AE=D8=B7=D9=8A=
-=D8=B1
-=D8=AC=D8=AF=D8=A7 =D9=88=D9=85=D8=B9=D8=B1=D8=B6=D9=8A=D9=86 =D9=84=D9=
-=84=D8=A7=D8=B0=D9=89 =D8=A8=D8=A7=D9=89 =D9=88=D9=82=D8=AA =D9=88=D8=AE=
-=D8=A7=D8=B5=D8=A9 =D9=88=D9=82=D8=AA =D8=AA=D8=AD=D9=88=D9=84 =D8=A7=D9=
-=84=D9=88=D8=B6=D8=B9 =D8=A7=D9=84=D9=89 =D8=AD=D8=B1=D8=A8 =D8=A7=D9=87=
-=D9=84=D9=8A=D8=A9 =D8=A8=D9=8A=D9=86 =D8=A7=D9=84=D9=85=D8=AF=D9=86
-=D8=A8=D9=84=D9=8A=D8=A8=D9=8A=D8=A7 , =D9=88=D8=BA=D8=B1=D8=B6=D9=89 =D9=
-=85=D9=86 =D8=AA=D9=88=D8=A7=D8=B5=D9=84=D9=89 =D9=85=D8=B9=D9=83 =D9=88=
-=D8=A7=D8=B1=D8=B3=D8=A7=D9=84 =D9=87=D8=AF=D9=89 =D8=A7=D9=84=D8=B1=D8=
-=B3=D8=A7=D9=84=D8=A9 =D9=84=D9=83 =D9=88=D8=B4=D8=B1=D8=AD =D8=A7=D9=84=
-=D9=88=D8=B6=D8=B9 =D9=83=D9=84=D9=87 =D9=87=D9=88 =D8=A7=D9=86=D9=89
-=D8=A7=D8=B1=D9=8A=D8=AF =D9=85=D8=B3=D8=A7=D8=B9=D8=AF=D8=AA=D9=83 =D8=
-=A8=D9=88=D8=B6=D8=B9=D9=89 , =D8=A7=D8=B1=D9=8A=D8=AF =D9=85=D8=B3=D8=A7=
-=D8=B9=D8=AF=D8=AA=D9=83 =D9=81=D9=89 =D8=A7=D8=B3=D8=AA=D8=AB=D9=85=D8=
-=A7=D8=B1 =D9=87=D8=AF=D9=87 =D8=A7=D9=84=D8=A7=D9=85=D9=88=D8=A7=D9=84=
- =D9=88=D8=AA=D9=83=D9=88=D9=86 =D8=B4=D8=B1=D9=8A=D9=83=D9=89 =D8=A8=D9=
-=83=D9=84
-=D8=B4=D9=89=D8=A1 =D9=88=D8=AA=D9=83=D9=88=D9=86 =D8=A7=D9=8A=D8=B6=D8=
-=A7 =D9=85=D8=AF=D9=8A=D8=B1 =D9=84=D8=A7=D8=B3=D8=AA=D8=AB=D9=85=D8=A7=
-=D8=B1=D8=A7=D8=AA=D9=89 =D9=88=D9=83=D9=84 =D8=B4=D9=89=D8=A1 , =D9=88=
-=D8=AA=D8=B3=D8=A7=D8=B9=D8=AF=D9=86=D9=89 =D8=A8=D8=B4=D8=B1=D8=A7=D8=A1=
- =D8=A8=D9=8A=D8=AA =D9=81=D9=89 =D8=A8=D9=84=D8=AF=D9=83
-=D9=88=D8=AA=D8=AD=D8=B1=D9=8A=D8=B1=D9=89 =D9=85=D9=85=D8=A7 =D8=A7=D8=
-=B9=D8=A7=D9=86=D9=8A=D9=87 =D9=87=D9=86=D8=A7 , =D9=85=D8=AD=D8=AA=D8=A7=
-=D8=AC=D8=A9 =D8=A7=D9=84=D8=AE=D8=B1=D9=88=D8=AC =D9=85=D9=86 =D9=87=D9=
-=86=D8=A7 =D8=A8=D8=A7=D9=82=D8=B1=D8=A8 =D9=81=D8=B1=D8=B5=D8=A9 ,=D8=A7=
-=D9=86=D8=A7 =D9=85=D9=88=D8=AC=D9=88=D8=AF=D8=A9 =D8=AA=D9=88=D9=89
-=D8=A8=D8=A7=D9=84=D9=83=D8=A7=D9=85=D8=A8 =D8=A7=D9=84=D9=83=D8=A7=D8=B1=
-=D9=8A=D8=A8=D9=89 =D9=81=D9=89 =D9=85=D9=8A=D8=A7=D9=85=D9=89 =D8=A8=D8=
-=A7=D9=85=D8=B1=D9=8A=D9=83=D8=A7 , =D9=88=D9=85=D8=A7=D8=A8=D9=88=D8=AF=
-=D9=89 =D8=A7=D9=84=D8=B9=D9=8A=D8=B4=D8=A9 =D9=87=D9=86=D8=A7 , =D8=B3=
-=D8=A7=D8=B9=D8=AF=D9=86=D9=89 =D8=A8=D8=A7=D9=84=D8=AE=D8=B1=D9=88=D8=AC=
- =D9=85=D9=86
-=D9=87=D9=86=D8=A7 =D9=88=D8=A7=D9=84=D8=B9=D9=8A=D8=B4=D8=A9 =D8=A8=D8=
-=A7=D9=85=D8=A7=D9=86 =D9=88=D8=B3=D9=84=D8=A7=D9=85 .. =D8=A7=D9=86=D8=
-=A7 =D9=85=D8=AD=D8=AA=D8=A7=D8=AC=D8=A9 =D9=81=D9=82=D8=B7 =D8=B1=D8=AC=
-=D9=84 =D8=A7=D8=B9=D9=85=D8=A7=D9=84 =D8=B9=D8=B1=D8=A8=D9=89 =D9=8A=D8=
-=B3=D8=A7=D8=B9=D8=AF=D9=86=D9=89 =D8=A8=D9=87=D8=AF=D8=A7
-=D8=A7=D9=84=D9=85=D9=88=D8=B6=D9=88=D8=B9 , =D9=81=D8=A7=D8=B1=D8=AC=D9=
-=88=D9=83 =D8=A7=D8=B0=D8=A7 =D8=A8=D8=AA=D9=82=D8=AF=D8=B1 =D8=AA=D8=B3=
-=D8=A7=D8=B9=D8=AF=D9=86=D9=89 =D8=A7=D8=B1=D8=AC=D9=88=D9=83 =D8=B1=D8=
-=AF =D8=B9=D9=84=D9=89 =D8=B1=D8=B3=D8=A7=D9=84=D8=AA=D9=89 =D9=88=D8=A7=
-=D8=B1=D8=B3=D9=84=D9=89 =D8=A7=D8=B3=D9=85=D9=83 =D9=83=D8=A7=D9=85=D9=
-=84=D8=A7
-=D9=88=D8=B1=D9=82=D9=85 =D8=AC=D9=88=D8=A7=D9=84=D9=83 =D9=88=D8=A7=D9=
-=86 =D8=B4=D8=A7=D8=A1 =D8=A7=D9=84=D9=84=D9=87 =D8=A7=D9=86=D8=A7 =D8=A8=
-=D8=AA=D9=88=D8=A7=D8=B5=D9=84 =D9=85=D8=B9=D9=83 =D8=A8=D8=A7=D9=84=D8=
-=A7=D9=8A=D9=85=D9=8A=D9=84 =D9=88=D8=A8=D8=AA=D8=B5=D9=84 =D8=A8=D9=83=
- =D8=A7=D9=8A=D8=B6=D8=A7 =D9=88=D8=A8=D8=B4=D8=B1=D8=AD=D9=84=D9=83 =D9=
-=83=D9=84
-=D8=B4=D9=89=D8=A1 =D8=A8=D8=AF=D9=83 =D8=AA=D8=B9=D8=B1=D9=81=D9=87 =D8=
-=A8=D8=A7=D8=B0=D9=86 =D8=A7=D9=84=D9=84=D9=87 ...
-=D8=A8=D8=B1=D8=B9=D8=A7=D9=8A=D8=A9 =D8=A7=D9=84=D9=84=D9=87 =D9=88=D8=
-=A8=D8=A7=D9=86=D8=AA=D8=B8=D8=A7=D8=B1 =D8=B1=D8=AF=D9=83
+The alignment of the structure drives the total size of the structure,
+and specifically the padding added at the end to reach that alignment.
+
+So, no, a compiler that increased the alignment of a struct with one
+u32 to 8 would violate the various ABIs and not be usuable for
+Linux. It is important to bear in mind that Linux targets a particular
+set of ABI conventions, and it is not 'anything goes'.
+
+> struct {
+> 	u32 field;
+> };
+
+So in this case: the u32 is aligned to 4, the structure is aligned to
+4 and the total size of the structure is 4 on everything linux
+supports.
+
+> struct {
+>       u64 fielda
+> 	u32 field;
+> };
+
+In this case: On 64 bit: the u64 is aligned to 8 and the u32 is aligned to 4. So
+the structure is aligned to 8. A pad is inserted at the end of the
+struct to bring it out. On 32 bit, the u64 is aligned to 4, so the
+struct is aligned to 4, so no pad is added.
+ 
+> struct {
+>       __float128 fielda
+> 	u32 field;
+> };
+
+In this case the float128 is aligned to 16 and thus the structure is
+aligned to 16 and 12 pad bytes are added.
+
+> However requirement is to have this structure only 4 byte size(
+> because adapter excepts it to be 4B sise) and therefor packed is
+> used.  I don't know the way to ensure size of 4 byte and alignment
+> too.  Or I am misunderstanding?
+
+Yes, you are mis-understanding the rules for padding.. Structures are
+only padded out to their alignment, which depends on their constituent
+types. This is so arrays of structures have each array element
+starting on its natural alignment.
+
+The aligned attribute overrides the automatic determination of the
+alignment based on the contents and just forces it.
+
+So, as an example, if you have this hardware layout:
+
+struct {
+  u32 fielda;
+  u64 fieldb;
+} attribute ((aligned(4));
+
+David is saying you will get a 12 byte struct and fieldb will be
+unaligned. Since 12 is aligned to 4 no padding is added.
+
+For hardware facing structures I'd combine this with a static assert
+to verify structure size at compile time.
+
+So..
+
+1) Avoid using attributes unless the structure has unaligned members.
+2) Avoid creating structures with unaligned members (eg for userspace
+   communication)
+3) Frown at hardware/firmware developers who make communication
+   structures with unaligned members :)
+4) Be explicit about padding in your layout for 64/32
+   compatibility.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
