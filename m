@@ -1,61 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] xfrm: Access the replay notify functions via the
- registered callbacks
-Date: Thu, 22 Mar 2012 10:36:13 +0100
-Message-ID: <20120322093613.GU29891@secunet.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: vhost question
+Date: Thu, 22 Mar 2012 09:52:24 +0000
+Message-ID: <CAJSP0QXKahPja7S68MC0vLZR7HNxG4hLPRYEFH536QbP1fSu7w@mail.gmail.com>
+References: <4F6A84EF.9060105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47653 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753956Ab2CVJgX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Mar 2012 05:36:23 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Steve Glass <stevie.glass@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4F6A84EF.9060105@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-We call the wrong replay notify function when we use ESN replay
-handling. This leads to the fact that we don't send notifications
-if we use ESN. Fix this by calling the registered callbacks instead
-of xfrm_replay_notify().
+On Thu, Mar 22, 2012 at 1:48 AM, Steve Glass <stevie.glass@gmail.com> wrote:
+>
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+>
+> Just some further information concerning my earlier question
+> concerning vhost and virtio.
+>
+> I'm using virtio to implement an emulated mac80211 device in the
+> guest. A simple network simulation will be used to control delivery of
+> frames between guests and for this I am using the vhost approach.
+>
+> A simple first-cut attempt at the tx and rx kick handlers are given
+> below. When the guest transmits frames the vhost's TX kick handler is
+> executed and copies the buffers onto a queue for the intended
+> recipient(s). When the vhost's RX kick handler is run it copies the
+> buffer from the queue and notifies the client that the buffers have
+> been used.
+>
+> The problem is that if there are no frames in the queue when the guest
+> rx kick handler runs then it has to exit and I have to arrange that it
+> runs again. That's done in the current prototype by having the guests
+> poll using a timer - which is ugly and inefficient. Can I get the
+> vhost tx kick handler to wake the appropriate vhost rx kick handler?
+> How can I achieve this?
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_replay.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Can you queue a tx->rx kick on the vhost work queue with vhost_work_queue()?
 
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index 39e02c5..2f6d11d 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -167,7 +167,7 @@ static void xfrm_replay_advance(struct xfrm_state *x, __be32 net_seq)
- 	}
- 
- 	if (xfrm_aevent_is_on(xs_net(x)))
--		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
-+		x->repl->notify(x, XFRM_REPLAY_UPDATE);
- }
- 
- static int xfrm_replay_overflow_bmp(struct xfrm_state *x, struct sk_buff *skb)
-@@ -279,7 +279,7 @@ static void xfrm_replay_advance_bmp(struct xfrm_state *x, __be32 net_seq)
- 	replay_esn->bmp[nr] |= (1U << bitnr);
- 
- 	if (xfrm_aevent_is_on(xs_net(x)))
--		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
-+		x->repl->notify(x, XFRM_REPLAY_UPDATE);
- }
- 
- static void xfrm_replay_notify_bmp(struct xfrm_state *x, int event)
-@@ -473,7 +473,7 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
- 	replay_esn->bmp[nr] |= (1U << bitnr);
- 
- 	if (xfrm_aevent_is_on(xs_net(x)))
--		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
-+		x->repl->notify(x, XFRM_REPLAY_UPDATE);
- }
- 
- static struct xfrm_replay xfrm_replay_legacy = {
--- 
-1.7.0.4
+Stefan
