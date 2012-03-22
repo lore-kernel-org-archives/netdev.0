@@ -1,30 +1,43 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Piggyback the final ACK of the three way TCP connection establishment
- with the data
-Date: Thu, 22 Mar 2012 16:44:31 -0700
-Message-ID: <4F6BB95F.3030200@hp.com>
-References: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com> <1332374452.9433.15.camel@edumazet-glaptop> <CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Thu, 22 Mar 2012 16:45:43 -0700
+Message-ID: <CAL1RGDU13hB5sYoEnsG5VcY2uH53WzWpGwAfkbi_moBfqb84HA@mail.gmail.com>
+References: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6EB4@saturn3.aculab.com>
+ <88B766C272F2C64B944B21AD078333151C964A66EF@EXMAIL.ad.emulex.com>
+ <20120322205824.GC9614@obsidianresearch.com> <88B766C272F2C64B944B21AD078333151C964A670B@EXMAIL.ad.emulex.com>
+ <3ae9829d-f8dd-4268-918a-94616eff0915@exht1.ad.emulex.com> <20120322224429.GA12980@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Vincent Li <vincent.mc.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:18762 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755001Ab2CVXod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 19:44:33 -0400
-In-Reply-To: <CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120322224429.GA12980-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I like piggybacking as much as the next guy, and pushed for a bunch of 
-it in the past, but are the files being transferred really that small 
-relative to the RTT that the savings of the standalone ACK of the 
-SYN|ACK really buys that much?
+On Thu, Mar 22, 2012 at 3:44 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> For hardware facing structures I'd combine this with a static assert
+> to verify structure size at compile time.
+>
+> So..
+>
+> 1) Avoid using attributes unless the structure has unaligned members.
+> 2) Avoid creating structures with unaligned members (eg for userspace
+> =A0 communication)
+> 3) Frown at hardware/firmware developers who make communication
+> =A0 structures with unaligned members :)
+> 4) Be explicit about padding in your layout for 64/32
+> =A0 compatibility.
 
-I'm sure it does nice things for a default netperf TCP_CRR test, shaving 
-one segment out of 8 or so, and maybe even more on a TCP_CC test, but 
-how many sub-MSS files are transferred these days?
+Excellent summary, thanks Jason.
 
-rick jones
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
