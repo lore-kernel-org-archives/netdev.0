@@ -1,28 +1,30 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: [patch] RDS: use gfp flags from caller in conn_alloc()
-Date: Thu, 22 Mar 2012 10:19:50 -0500
-Message-ID: <4F6B4316.5050508@oracle.com>
-References: <20120322064409.GE7369@elgon.mountain>
+From: Josh Hunt <joshhunt00@gmail.com>
+Subject: long-lived tcp connection question
+Date: Thu, 22 Mar 2012 11:56:19 -0500
+Message-ID: <CAKA=qzaPwx53ExK7VhNC_sbv3tVZrnWXv-5Fh8akcZ6DEaqd9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:22232 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754135Ab2CVPTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 11:19:55 -0400
-In-Reply-To: <20120322064409.GE7369@elgon.mountain>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:44250 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372Ab2CVQ4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 12:56:20 -0400
+Received: by yenl12 with SMTP id l12so1934819yen.19
+        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 09:56:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/22/2012 1:44 AM, Dan Carpenter wrote:
-> We should be using the gfp flags the caller specified here, instead of
-> GFP_KERNEL.  I think this might be a bugfix, depending on the value of
-> "sock->sk->sk_allocation" when we call rds_conn_create_outgoing() in
-> rds_sendmsg().  Otherwise, it's just a cleanup.
->
-> Signed-off-by: Dan Carpenter<dan.carpenter@oracle.com>
-Acked-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Given things like web sockets with presumably long-lived persistent
+tcp connections and a sparse amount of data, I was wondering if there
+are currently any mechanisms in the kernel or out of tree projects
+which work on reducing the overhead these connections require?
+Possibly storing their state after a certain period of inactivity and
+then reviving them when work needs to be done? I'm thinking something
+along the lines of the state info stored for time-wait sockets and
+then the ability to resurrect it on an incoming packet. Keeping
+resources around for such connections seems inefficient although
+possibly unavoidable.
+
+Thanks
+Josh
