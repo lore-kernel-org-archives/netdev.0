@@ -1,50 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] vhost-net/virtio: fixes for 3.4
-Date: Thu, 22 Mar 2012 16:56:49 -0400 (EDT)
-Message-ID: <20120322.165649.32205268396882350.davem@davemloft.net>
-References: <20120320145010.GA31570@redhat.com>
-	<20120322082718.GA11258@redhat.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Thu, 22 Mar 2012 14:58:24 -0600
+Message-ID: <20120322205824.GC9614@obsidianresearch.com>
+References: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6EB4@saturn3.aculab.com>
+ <88B766C272F2C64B944B21AD078333151C964A66EF@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	levinsasha928@gmail.com, nyh@il.ibm.com, nyh@math.technion.ac.il
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56960 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756892Ab2CVU5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 16:57:11 -0400
-In-Reply-To: <20120322082718.GA11258@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <88B766C272F2C64B944B21AD078333151C964A66EF-/SwythR3zqxVRK6PHKByhFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 22 Mar 2012 10:27:19 +0200
+On Thu, Mar 22, 2012 at 01:52:30PM -0700, Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org wrote:
 
-> On Tue, Mar 20, 2012 at 04:50:41PM +0200, Michael S. Tsirkin wrote:
->> The following changes since commit 5ffca28a4ac7abb8a254fafe6bd03b2f83667df7:
->> 
->>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/aia21/ntfs (2012-02-27 07:59:33 -0800)
->> 
->> are available in the git repository at:
->> 
->>   ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
->> 
->>   (ssh url as git.kernel.org seems down at the moment, when it comes up
->>    git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
->>    should be the equivalent).
+> > This can be used to force 32bit alignment in amd64 code in order to match
+> > definitions in 32bit userspace.
+> > For new things it would make sense to force 64bit alignment of 64bit fields
+> > for 32bit code.
+> 
+> o.k. so I'll use aligned attribute to align user-kernel interface
+> data structure to 8 byte boundary.  That should work for 32-bit and
+> 64-bit user and kernel space and does't hurt performance either?
 
-Neither of these URL's work for me:
+If the structure is only for user/kernel interfacing then it is much
+better to add explicit padding fields to naturally place 64 bit
+quantities on an 8 byte alignment than to mess with gcc specific
+attributes (user space has a much wide choice of compilers).
 
-[davem@drr net]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
-fatal: Couldn't find remote ref for_davem
-[davem@drr net]$ git pull ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
-Enter passphrase for key '/home/davem/.ssh/davem': 
-Permission denied (publickey).
-fatal: The remote end hung up unexpectedly
-[davem@drr net]$ 
+This was David's second suggestion. Better to do this now before the
+driver is accepted :)
 
-If you're sending me signed pull requests that thus require a newer
-version of GIT, please don't.
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
