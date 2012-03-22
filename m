@@ -1,40 +1,26 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] usbnet: don't clear urb->dev in tx_complete
-Date: Thu, 22 Mar 2012 19:33:41 -0400 (EDT)
-Message-ID: <20120322.193341.331032344338370166.davem@davemloft.net>
-References: <1332422558-6633-1-git-send-email-tom.leiming@gmail.com>
-	<20120322143607.GD19835@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PULL] vhost-net/virtio: fixes for 3.4
+Date: Thu, 22 Mar 2012 19:34:06 -0400 (EDT)
+Message-ID: <20120322.193406.703367892281370263.davem@davemloft.net>
+References: <20120322082718.GA11258@redhat.com>
+	<20120322.165649.32205268396882350.davem@davemloft.net>
+	<20120322221227.GA17849@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120322143607.GD19835-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	levinsasha928@gmail.com, nyh@il.ibm.com, nyh@math.technion.ac.il
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120322221227.GA17849@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Date: Thu, 22 Mar 2012 07:36:07 -0700
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Fri, 23 Mar 2012 00:12:28 +0200
 
-> On Thu, Mar 22, 2012 at 09:22:38PM +0800, Ming Lei wrote:
->> URB unlinking is always racing with its completion and tx_complete
->> may be called before or during running usb_unlink_urb, so tx_complete
->> must not clear urb->dev since it will be used in unlink path,
->> otherwise invalid memory accesses or usb device leak may be caused
->> inside usb_unlink_urb.
->> 
->> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
->> Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
->> Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
->> Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+> OK, sorry about that. Can't fix right now as I'm not at
+> the box that has the key but this works for me with an old git:
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please fix it up so I can pull properly.
