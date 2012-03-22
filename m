@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/11] net/ariadne: Improve debug prints
-Date: Wed, 21 Mar 2012 22:16:10 -0400 (EDT)
-Message-ID: <20120321.221610.1111479562922750614.davem@davemloft.net>
-References: <1332323515-7314-1-git-send-email-geert@linux-m68k.org>
-	<1332323515-7314-9-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH] gre: propagate state of link back go to tunnel
+Date: Wed, 21 Mar 2012 22:18:39 -0400 (EDT)
+Message-ID: <20120321.221839.274547591318904841.davem@davemloft.net>
+References: <20120319165843.7b18412a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: geert@linux-m68k.org
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48764 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48777 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753916Ab2CVCRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 22:17:18 -0400
-In-Reply-To: <1332323515-7314-9-git-send-email-geert@linux-m68k.org>
+	with ESMTP id S1753725Ab2CVCSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 22:18:44 -0400
+In-Reply-To: <20120319165843.7b18412a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 21 Mar 2012 10:51:53 +0100
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 19 Mar 2012 16:58:43 -0700
 
-> Remove casts and use proper printf()-style format specifiers instead.
+> GRE tunnels like other layered devices should propagate
+> carrier and RFC2863 state from lower device to tunnel.
+> Based on similar code in vlan device driver.
+> By using operstate it is possible for user mode to create tunnel
+> and use stepped outlined in Documentation/networking/operstate.txt
+> to control carrier.
 > 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+> Not urgent, can wait if the release window is already over the
+> queue limit
 
-You can merge these in via the m68k tree if you want.
+Yeah, please resubmit this once net-next opens back up.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+And meanwhile you can duplicate this fix to ipip, sit, ip6_tunnel etc.
