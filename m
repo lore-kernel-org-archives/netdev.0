@@ -1,187 +1,148 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net] cnic: Fix parity error code conflict
-Date: Wed, 21 Mar 2012 17:38:34 -0800
-Message-ID: <1332380314-14198-2-git-send-email-mchan@broadcom.com>
-References: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
+From: Steve Glass <stevie.glass@gmail.com>
+Subject: Re: vhost question
+Date: Thu, 22 Mar 2012 11:48:31 +1000
+Message-ID: <4F6A84EF.9060105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2319 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756355Ab2CVBa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Mar 2012 21:30:28 -0400
-In-Reply-To: <1332380314-14198-1-git-send-email-mchan@broadcom.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:37824 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665Ab2CVBsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Mar 2012 21:48:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recently added parity error handling used an error code that was
-already defined for a different error.  This could lead to bnx2x
-firmware assert.  We need to fix this with new error codes that are
-defined for parity error only.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Reviewed-by: Eddie Wai <eddie.wai@broadcom.com>
-Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
----
- drivers/net/ethernet/broadcom/cnic.c      |   12 +++++++-----
- drivers/net/ethernet/broadcom/cnic_defs.h |   28 +---------------------------
- drivers/net/ethernet/broadcom/cnic_if.h   |    4 ++--
- drivers/scsi/bnx2fc/bnx2fc_constants.h    |    1 +
- drivers/scsi/bnx2i/57xx_iscsi_constants.h |    1 +
- 5 files changed, 12 insertions(+), 34 deletions(-)
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 7b65716..c95e7b5 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -47,6 +47,7 @@
- #include "bnx2x/bnx2x_hsi.h"
- #include "../../../scsi/bnx2i/57xx_iscsi_constants.h"
- #include "../../../scsi/bnx2i/57xx_iscsi_hsi.h"
-+#include "../../../scsi/bnx2fc/bnx2fc_constants.h"
- #include "cnic.h"
- #include "cnic_defs.h"
- 
-@@ -2547,7 +2548,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 		}
- 		kcqe.kcqe_op_flag = kcqe_op << KCQE_FLAGS_OPCODE_SHIFT;
- 		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_FCOE;
--		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR;
-+		kcqe.kcqe_info1 = FCOE_KCQE_COMPLETION_STATUS_PARITY_ERROR;
- 		kcqe.kcqe_info2 = cid;
- 		kcqe.kcqe_info0 = l5_cid;
- 
-@@ -2558,7 +2559,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 
- 		kcqe.kcqe_op_flag = (opcode + 0x10) << KCQE_FLAGS_OPCODE_SHIFT;
- 		kcqe.kcqe_op_flag |= KCQE_FLAGS_LAYER_MASK_L5_ISCSI;
--		kcqe.kcqe_info1 = ISCSI_KCQE_COMPLETION_STATUS_NIC_ERROR;
-+		kcqe.kcqe_info1 = ISCSI_KCQE_COMPLETION_STATUS_PARITY_ERR;
- 		kcqe.kcqe_info2 = cid;
- 		cnic_get_l5_cid(cp, BNX2X_SW_CID(cid), &kcqe.kcqe_info0);
- 
-@@ -2577,7 +2578,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 
- 		kcqe.kcqe_op_flag = (kcqe_op << KCQE_FLAGS_OPCODE_SHIFT) |
- 				    KCQE_FLAGS_LAYER_MASK_L4;
--		l4kcqe->status = L4_KCQE_COMPLETION_STATUS_NIC_ERROR;
-+		l4kcqe->status = L4_KCQE_COMPLETION_STATUS_PARITY_ERROR;
- 		l4kcqe->cid = cid;
- 		cnic_get_l5_cid(cp, BNX2X_SW_CID(cid), &l4kcqe->conn_id);
- 	} else {
-@@ -3933,7 +3934,8 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
- 	case L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE:
- 		if (l4kcqe->status == 0)
- 			set_bit(SK_F_OFFLD_COMPLETE, &csk->flags);
--		else if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_NIC_ERROR)
-+		else if (l4kcqe->status ==
-+			 L4_KCQE_COMPLETION_STATUS_PARITY_ERROR)
- 			set_bit(SK_F_HW_ERR, &csk->flags);
- 
- 		smp_mb__before_clear_bit();
-@@ -3946,7 +3948,7 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
- 	case L4_KCQE_OPCODE_VALUE_RESET_COMP:
- 	case L5CM_RAMROD_CMD_ID_SEARCHER_DELETE:
- 	case L5CM_RAMROD_CMD_ID_TERMINATE_OFFLOAD:
--		if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_NIC_ERROR)
-+		if (l4kcqe->status == L4_KCQE_COMPLETION_STATUS_PARITY_ERROR)
- 			set_bit(SK_F_HW_ERR, &csk->flags);
- 
- 		cp->close_conn(csk, opcode);
-diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
-index 06ca002..382c98b 100644
---- a/drivers/net/ethernet/broadcom/cnic_defs.h
-+++ b/drivers/net/ethernet/broadcom/cnic_defs.h
-@@ -35,16 +35,6 @@
- #define L5CM_RAMROD_CMD_ID_SEARCHER_DELETE	(L5CM_RAMROD_CMD_ID_BASE + 14)
- #define L5CM_RAMROD_CMD_ID_TERMINATE_OFFLOAD	(L5CM_RAMROD_CMD_ID_BASE + 15)
- 
--#define FCOE_KCQE_OPCODE_INIT_FUNC			(0x10)
--#define FCOE_KCQE_OPCODE_DESTROY_FUNC			(0x11)
--#define FCOE_KCQE_OPCODE_STAT_FUNC			(0x12)
--#define FCOE_KCQE_OPCODE_OFFLOAD_CONN			(0x15)
--#define FCOE_KCQE_OPCODE_ENABLE_CONN			(0x16)
--#define FCOE_KCQE_OPCODE_DISABLE_CONN			(0x17)
--#define FCOE_KCQE_OPCODE_DESTROY_CONN			(0x18)
--#define FCOE_KCQE_OPCODE_CQ_EVENT_NOTIFICATION  (0x20)
--#define FCOE_KCQE_OPCODE_FCOE_ERROR				(0x21)
--
- #define FCOE_RAMROD_CMD_ID_INIT_FUNC		(FCOE_KCQE_OPCODE_INIT_FUNC)
- #define FCOE_RAMROD_CMD_ID_DESTROY_FUNC		(FCOE_KCQE_OPCODE_DESTROY_FUNC)
- #define FCOE_RAMROD_CMD_ID_STAT_FUNC		(FCOE_KCQE_OPCODE_STAT_FUNC)
-@@ -54,23 +44,6 @@
- #define FCOE_RAMROD_CMD_ID_DESTROY_CONN		(FCOE_KCQE_OPCODE_DESTROY_CONN)
- #define FCOE_RAMROD_CMD_ID_TERMINATE_CONN	(0x81)
- 
--#define FCOE_KWQE_OPCODE_INIT1                  (0)
--#define FCOE_KWQE_OPCODE_INIT2                  (1)
--#define FCOE_KWQE_OPCODE_INIT3                  (2)
--#define FCOE_KWQE_OPCODE_OFFLOAD_CONN1  (3)
--#define FCOE_KWQE_OPCODE_OFFLOAD_CONN2  (4)
--#define FCOE_KWQE_OPCODE_OFFLOAD_CONN3  (5)
--#define FCOE_KWQE_OPCODE_OFFLOAD_CONN4  (6)
--#define FCOE_KWQE_OPCODE_ENABLE_CONN	(7)
--#define FCOE_KWQE_OPCODE_DISABLE_CONN	(8)
--#define FCOE_KWQE_OPCODE_DESTROY_CONN	(9)
--#define FCOE_KWQE_OPCODE_DESTROY		(10)
--#define FCOE_KWQE_OPCODE_STAT			(11)
--
--#define FCOE_KCQE_COMPLETION_STATUS_ERROR	(0x1)
--#define FCOE_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAILURE	(0x3)
--#define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR	(0x5)
--
- /* KCQ (kernel completion queue) response op codes */
- #define L4_KCQE_OPCODE_VALUE_CLOSE_COMP             (53)
- #define L4_KCQE_OPCODE_VALUE_RESET_COMP             (54)
-@@ -87,6 +60,7 @@
- /* KCQ (kernel completion queue) completion status */
- #define L4_KCQE_COMPLETION_STATUS_SUCCESS           (0)
- #define L4_KCQE_COMPLETION_STATUS_NIC_ERROR         (4)
-+#define L4_KCQE_COMPLETION_STATUS_PARITY_ERROR	    (0x81)
- #define L4_KCQE_COMPLETION_STATUS_TIMEOUT           (0x93)
- 
- #define L4_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAIL    (0x83)
-diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index 60deb84..289274e 100644
---- a/drivers/net/ethernet/broadcom/cnic_if.h
-+++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -12,8 +12,8 @@
- #ifndef CNIC_IF_H
- #define CNIC_IF_H
- 
--#define CNIC_MODULE_VERSION	"2.5.9"
--#define CNIC_MODULE_RELDATE	"Feb 8, 2012"
-+#define CNIC_MODULE_VERSION	"2.5.10"
-+#define CNIC_MODULE_RELDATE	"March 21, 2012"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
-diff --git a/drivers/scsi/bnx2fc/bnx2fc_constants.h b/drivers/scsi/bnx2fc/bnx2fc_constants.h
-index c12702b..dad9924 100644
---- a/drivers/scsi/bnx2fc/bnx2fc_constants.h
-+++ b/drivers/scsi/bnx2fc/bnx2fc_constants.h
-@@ -47,6 +47,7 @@
- #define FCOE_KCQE_COMPLETION_STATUS_CTX_FREE_FAILURE	(0x4)
- #define FCOE_KCQE_COMPLETION_STATUS_NIC_ERROR			(0x5)
- #define FCOE_KCQE_COMPLETION_STATUS_WRONG_HSI_VERSION   (0x6)
-+#define FCOE_KCQE_COMPLETION_STATUS_PARITY_ERROR	(0x81)
- 
- /* CQE type */
- #define FCOE_PENDING_CQE_TYPE			0
-diff --git a/drivers/scsi/bnx2i/57xx_iscsi_constants.h b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
-index 57515f1..495a841 100644
---- a/drivers/scsi/bnx2i/57xx_iscsi_constants.h
-+++ b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
-@@ -122,6 +122,7 @@
- #define ISCSI_KCQE_COMPLETION_STATUS_LOM_ISCSI_NOT_ENABLED              (0x51)
- 
- #define ISCSI_KCQE_COMPLETION_STATUS_CID_BUSY				(0x80)
-+#define ISCSI_KCQE_COMPLETION_STATUS_PARITY_ERR                         (0x81)
- 
- /* SQ/RQ/CQ DB structure sizes */
- #define ISCSI_SQ_DB_SIZE    (16)
--- 
-1.7.1
+
+Just some further information concerning my earlier question
+concerning vhost and virtio.
+
+I'm using virtio to implement an emulated mac80211 device in the
+guest. A simple network simulation will be used to control delivery of
+frames between guests and for this I am using the vhost approach.
+
+A simple first-cut attempt at the tx and rx kick handlers are given
+below. When the guest transmits frames the vhost's TX kick handler is
+executed and copies the buffers onto a queue for the intended
+recipient(s). When the vhost's RX kick handler is run it copies the
+buffer from the queue and notifies the client that the buffers have
+been used.
+
+The problem is that if there are no frames in the queue when the guest
+rx kick handler runs then it has to exit and I have to arrange that it
+runs again. That's done in the current prototype by having the guests
+poll using a timer - which is ugly and inefficient. Can I get the
+vhost tx kick handler to wake the appropriate vhost rx kick handler?
+How can I achieve this?
+
+Many thanks,
+
+Steve
+
+static void
+handle_rx(struct vhost_work *work)
+{
+        int n;
+        unsigned out, in, frames;
+        struct transmission *t;
+        struct vhost_poll *p = container_of(work, struct vhost_poll,
+work);
+        struct vhost_virtqueue *vq =
+                container_of(p, struct vhost_virtqueue, poll);
+        struct vhost_node *node =
+                container_of(vq, struct vhost_node, vqs[WLAN_VQ_RX]);
+        struct vhost_dev *dev = &node->vdev;
+
+        mutex_lock(&vq->mutex);
+        vhost_disable_notify(dev, vq);
+        while (!queue_empty(&node->rxq)) {
+                n = vhost_get_vq_desc(dev,
+                                      vq,
+                                      vq->iov,
+                                      ARRAY_SIZE(vq->iov),
+                                      &out,
+                                      &in,
+                                      NULL,
+                                      NULL);
+                if (0 < n || n == vq->num)
+                        break;
+                t = queue_pop(&node->rxq);
+                BUG_ON(copy_to_user(vq->iov[0].iov_base, t->buf,
+t->buf_sz));
+                vq->iov[0].iov_len = t->buf_sz;
+                vhost_add_used(vq, n, out);
+                transmission_free(t);
+                ++frames;
+        }
+        if (frames)
+                vhost_signal(dev, vq);
+        vhost_enable_notify(dev, vq);
+        mutex_unlock(&vq->mutex);
+}
+
+static void
+handle_tx(struct vhost_work *work)
+{
+        int n;
+        unsigned out, in;
+        struct transmission *t;
+        struct vhost_node *receiver;
+
+        struct vhost_poll *p =
+                container_of(work, struct vhost_poll, work);
+        struct vhost_virtqueue *vq =
+                container_of(p, struct vhost_virtqueue, poll);
+        struct vhost_node *w =
+                container_of(vq, struct vhost_node, vqs[WLAN_VQ_TX]);
+        struct vhost_dev *dev = &w->vdev;
+
+        mutex_lock(&vq->mutex);
+        do {
+                vhost_disable_notify(dev, vq);
+                n = vhost_get_vq_desc(dev,
+                                      vq,
+                                      vq->iov,
+                                      ARRAY_SIZE(vq->iov),
+                                      &out,
+                                      &in,
+                                      NULL,
+                                      NULL);
+                while (n >= 0 && n != vq->num) {
+                        receiver = net_get_receiver(w);
+                        if ((receiver) && (t = transmission_alloc())) {
+                                BUG_ON(copy_from_user(t->buf,
+                                                      vq->iov[1].iov_base,
+                                                     
+vq->iov[1].iov_len));
+                                t->buf_sz = vq->iov[1].iov_len;
+                                queue_push(&receiver->rxq, t);
+                                // ToDo: kick receiver's handle_rx
+                        }
+                        vhost_add_used(vq, n, out);
+                        n = vhost_get_vq_desc(dev,
+                                              vq,
+                                              vq->iov,
+                                              ARRAY_SIZE(vq->iov),
+                                              &out,
+                                              &in,
+                                              NULL,
+                                              NULL);
+                }
+                vhost_signal(dev, vq);
+        } while (vhost_enable_notify(dev, vq));
+        mutex_unlock(&vq->mutex);
+}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk9qhO4ACgkQW7aAm65EWy7w4wCgrzGB2Zit4rWUzMjwpJEJnIfj
+xDsAoLBDMj+4MVrjPS5upgDSIGOi4IzL
+=Ms/+
+-----END PGP SIGNATURE-----
