@@ -1,194 +1,168 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH v2] sh: sh_eth: Add support SH7734
-Date: Fri, 23 Mar 2012 13:55:33 +0900
-Message-ID: <1332478533-17382-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
+From: Peter Rusko <rusko.peter@prolan.hu>
+Subject: FEC MAC with ethernet switch chip
+Date: Thu, 22 Mar 2012 17:46:33 +0100
+Message-ID: <4F6B5769.2090301@prolan.hu>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="------------070200090801010708050003"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48436 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753547Ab2CWEwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 00:52:47 -0400
-Received: by pbcun15 with SMTP id un15so2199160pbc.19
-        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 21:52:47 -0700 (PDT)
+Received: from fw2.prolan.hu ([193.68.50.107]:41730 "EHLO fw2.prolan.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752474Ab2CWFl4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Mar 2012 01:41:56 -0400
+Received: from imss.prolan.hu (unknown [10.254.254.252])
+	by fw2.prolan.hu (Postfix) with ESMTP id 76BF9E2C9
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:32:20 +0100 (CET)
+Received: from imss.prolan.hu (localhost.localdomain [127.0.0.1])
+	by localhost (Postfix) with ESMTP id 808CFCF9FD
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:33:35 +0100 (CET)
+Received: from fw2.prolan.hu (unknown [10.254.254.253])
+	by imss.prolan.hu (Postfix) with ESMTP id 683CBCF9EC
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:33:35 +0100 (CET)
+Received: from saturn2.intranet.prolan.hu (saturn2.intranet.prolan.hu [193.91.83.237])
+	by fw2.prolan.hu (Postfix) with ESMTP id B0D0BE468
+	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:31:59 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add define of SH7734 register and sh_eth_reset_hw_crc function.
+--------------070200090801010708050003
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 8bit
 
-V2: Do not split line of #if defined.
+Hi all,
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/ethernet/renesas/Kconfig  |    9 +++++----
- drivers/net/ethernet/renesas/sh_eth.c |   22 +++++++++++++++++++---
- drivers/net/ethernet/renesas/sh_eth.h |   10 ++++++++--
- 3 files changed, 32 insertions(+), 9 deletions(-)
+I'm trying to get a Marvell ethernet switch (88E6065) working with the
+FEC driver (on an i.mx28 cpu). The original driver doesn't support it
+because of the multiple ports/phys. It probes the bus and assigns the hw
+with the first address to fec0 and the second to fec1. This results the
+loss of fec1 when I disconnect the cable from the first port (the phy
+driver brings the connection down).
 
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-index 9755b49..077528b 100644
---- a/drivers/net/ethernet/renesas/Kconfig
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -5,9 +5,10 @@
- config SH_ETH
- 	tristate "Renesas SuperH Ethernet support"
- 	depends on SUPERH && \
--		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
--		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
--		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7757)
-+		(CPU_SUBTYPE_SH7619 || \
-+		 CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
-+		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
-+		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7757)
- 	select CRC32
- 	select NET_CORE
- 	select MII
-@@ -16,4 +17,4 @@ config SH_ETH
- 	---help---
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
--		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
-+		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763 and SH7757.
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 87b6501..63fc224 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1,8 +1,8 @@
- /*
-  *  SuperH Ethernet device driver
-  *
-- *  Copyright (C) 2006-2008 Nobuhiro Iwamatsu
-- *  Copyright (C) 2008-2009 Renesas Solutions Corp.
-+ *  Copyright (C) 2006-2011 Nobuhiro Iwamatsu
-+ *  Copyright (C) 2008-2011 Renesas Solutions Corp.
-  *
-  *  This program is free software; you can redistribute it and/or modify it
-  *  under the terms and conditions of the GNU General Public License,
-@@ -40,6 +40,7 @@
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
- #include <linux/sh_eth.h>
-+#include <linux/clk.h>
- 
- #include "sh_eth.h"
- 
-@@ -97,6 +98,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.tpauser	= 1,
- 	.hw_swap	= 1,
- 	.rpadir		= 1,
-+	.hw_crc		= 0,
- 	.rpadir_value	= 0x00020000, /* NET_IP_ALIGN assumed to be 2 */
- };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7757)
-@@ -147,6 +149,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.hw_swap	= 1,
- 	.no_ade		= 1,
- 	.rpadir		= 1,
-+	.hw_crc		= 0,
- 	.rpadir_value   = 2 << 16,
- };
- 
-@@ -269,6 +272,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
- 	.rpadir_value   = 2 << 16,
- 	.no_trimd	= 1,
- 	.no_ade		= 1,
-+	.hw_crc		= 0,
- };
- 
- static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
-@@ -279,8 +283,9 @@ static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
- 		return &sh_eth_my_cpu_data;
- }
- 
--#elif defined(CONFIG_CPU_SUBTYPE_SH7763)
-+#elif defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
- #define SH_ETH_HAS_TSU	1
-+static void sh_eth_reset_hw_crc(struct net_device *ndev);
- static void sh_eth_chip_reset(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -314,6 +319,9 @@ static void sh_eth_reset(struct net_device *ndev)
- 	sh_eth_write(ndev, 0x0, RDFAR);
- 	sh_eth_write(ndev, 0x0, RDFXR);
- 	sh_eth_write(ndev, 0x0, RDFFR);
-+
-+	/* Reset HW CRC register */
-+	sh_eth_reset_hw_crc(ndev);
- }
- 
- static void sh_eth_set_duplex(struct net_device *ndev)
-@@ -370,8 +378,15 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.no_trimd	= 1,
- 	.no_ade		= 1,
- 	.tsu		= 1,
-+	.hw_crc		= 1,
- };
- 
-+static void sh_eth_reset_hw_crc(struct net_device *ndev)
-+{
-+	if (sh_eth_my_cpu_data.hw_crc)
-+		sh_eth_write(ndev, 0x0, CSMR);
-+}
-+
- #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
- #define SH_ETH_RESET_DEFAULT	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-@@ -381,6 +396,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.mpr		= 1,
- 	.tpauser	= 1,
- 	.hw_swap	= 1,
-+	.hw_crc		= 0,
- };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7710) || defined(CONFIG_CPU_SUBTYPE_SH7712)
- #define SH_ETH_RESET_DEFAULT	1
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index cdbd844..da384d2 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -1,7 +1,7 @@
- /*
-  *  SuperH Ethernet device driver
-  *
-- *  Copyright (C) 2006-2008 Nobuhiro Iwamatsu
-+ *  Copyright (C) 2006-2008, 2011 Nobuhiro Iwamatsu
-  *  Copyright (C) 2008-2011 Renesas Solutions Corp.
-  *
-  *  This program is free software; you can redistribute it and/or modify it
-@@ -59,6 +59,8 @@ enum {
- 	TRIMD,
- 	RBWAR,
- 	TBRAR,
-+	CSMR,
-+	RMII_MII,
- 
- 	/* Ether registers */
- 	ECMR,
-@@ -170,6 +172,8 @@ static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
- 	[RMCR]	= 0x0458,
- 	[RPADIR]	= 0x0460,
- 	[FCFTR]	= 0x0468,
-+	[CSMR] = 0x04E4,
-+	[RMII_MII] =  0x0790,
- 
- 	[ECMR]	= 0x0500,
- 	[ECSR]	= 0x0510,
-@@ -375,7 +379,8 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
- /*
-  * Register's bits
-  */
--#ifdef CONFIG_CPU_SUBTYPE_SH7763
-+#if defined(CONFIG_CPU_SUBTYPE_SH7734) ||\
-+	defined(CONFIG_CPU_SUBTYPE_SH7763)
- /* EDSR */
- enum EDSR_BIT {
- 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
-@@ -745,6 +750,7 @@ struct sh_eth_cpu_data {
- 	unsigned rpadir:1;		/* E-DMAC have RPADIR */
- 	unsigned no_trimd:1;		/* E-DMAC DO NOT have TRIMD */
- 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
-+	unsigned hw_crc:1;		/* E-DMAC have CSMR */
- };
- 
- struct sh_eth_private {
+I have two solutions, but don't really know which one is better.
+
+1. There is a DSA (Distributed Switch Architecture) interface used in
+the kernel for these chips. These drivers don't need PHY's so I simply
+disabled the PHY driver (and made it configurable through
+platform_data). An attached patch shows this simple solution. It works
+perfectly, but I still have to configure the chip. (btw, I had serious
+problems adding the platform_dev because it needs a reference to a
+struct ndev. Is there a good solution for this?)
+
+2. A PHY driver would solve the problem, though it's not a PHY.
+
+Which one should I use? Or is there a better one?
+
+Regards,
 -- 
-1.7.9.1
+Ruskó Péter
+Fejlesztőmérnök
+
+Prolan Zrt. / Prolan Co.
+Hungary 2011 Budakalász, Szentendrei út 1-3.
+Tel./Phone: +36 20 954 3118
+Fax: +36 26 540 420
+E-mail: rusko.peter@prolan.hu
+Web: www.prolan.hu
+Timezone:CET
+
+--------------070200090801010708050003
+Content-Type: text/x-patch; name="fecphy.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="fecphy.patch"
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index a13eb30..293432f 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -239,6 +239,7 @@ struct fec_enet_private {
+ 	int	mii_timeout;
+ 	uint	phy_speed;
+ 	phy_interface_t	phy_interface;
++	unsigned phy_type;
+ 	int	link;
+ 	int	full_duplex;
+ 	struct	completion mdio_done;
+@@ -978,6 +979,17 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 
+ 	fep->phy_dev = NULL;
+ 
++	if (fep->phy_type == FEC_PHY_SWITCH) {
++		fep->link = 1;
++		netif_carrier_on(ndev); // always up
++
++		fep->full_duplex = 1; // full duplex
++
++		fec_restart(ndev, fep->full_duplex);
++
++		return 0;
++	}
++
+ 	/* check for attached phy */
+ 	for (phy_id = 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
+ 		if ((fep->mii_bus->phy_mask & (1 << phy_id)))
+@@ -1170,8 +1182,20 @@ static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 	if (!netif_running(ndev))
+ 		return -EINVAL;
+ 
+-	if (!phydev)
+-		return -ENODEV;
++	if (!phydev) {
++		// On i.mx28, this is not necessarily needed
++		// TODO: remove?
++		struct mii_ioctl_data *mii_data = if_mii(rq);
++
++		if (cmd == SIOCGMIIREG)
++			mdiobus_write(fep->mii_bus, mii_data->phy_id,
++					mii_data->reg_num, mii_data->val_in);
++		else if (cmd == SIOCSMIIREG)
++			mii_data->val_out = mdiobus_read(fep->mii_bus,
++					mii_data->phy_id, mii_data->reg_num);
++		else return -ENODEV;
++		return 0;
++	}
+ 
+ 	return phy_mii_ioctl(phydev, rq, cmd);
+ }
+@@ -1274,7 +1298,8 @@ fec_enet_open(struct net_device *ndev)
+ 		fec_enet_free_buffers(ndev);
+ 		return ret;
+ 	}
+-	phy_start(fep->phy_dev);
++	if (fep->phy_type == FEC_PHY_NORMAL)
++		phy_start(fep->phy_dev);
+ 	netif_start_queue(ndev);
+ 	fep->opened = 1;
+ 	return 0;
+@@ -1598,6 +1623,9 @@ fec_probe(struct platform_device *pdev)
+ 		fep->phy_interface = ret;
+ 	}
+ 
++	if (pdata)
++		fep->phy_type = pdata->phy_type;
++
+ 	fec_reset_phy(pdev);
+ 
+ 	for (i = 0; i < FEC_IRQ_NUM; i++) {
+diff --git a/include/linux/fec.h b/include/linux/fec.h
+index bcff455..701fb2a 100644
+--- a/include/linux/fec.h
++++ b/include/linux/fec.h
+@@ -14,10 +14,15 @@
+ #ifndef __LINUX_FEC_H__
+ #define __LINUX_FEC_H__
+ 
++#define FEC_PHY_NORMAL 0
++#define FEC_PHY_SWITCH 1
++#define FEC_PHY_NONE 2
++
+ #include <linux/phy.h>
+ 
+ struct fec_platform_data {
+ 	phy_interface_t phy;
++	unsigned phy_type;
+ 	unsigned char mac[ETH_ALEN];
+ };
+ 
+
+--------------070200090801010708050003--
