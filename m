@@ -1,41 +1,64 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] netlabel: use GFP flags from caller instead of GFP_ATOMIC
-Date: Thu, 22 Mar 2012 09:41:01 +0300
-Message-ID: <20120322064101.GD7369@elgon.mountain>
+Subject: [patch] RDS: use gfp flags from caller in conn_alloc()
+Date: Thu, 22 Mar 2012 09:44:09 +0300
+Message-ID: <20120322064409.GE7369@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
+Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:29712 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:30841 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753756Ab2CVGlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 02:41:10 -0400
+	with ESMTP id S1752091Ab2CVGoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 02:44:18 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function takes a GFP flags as a parameter, but they are never used.
-We don't take a lock in this function so there is no reason to prefer
-GFP_ATOMIC over the caller's GFP flags.
-
-There is only one caller, cipso_v4_map_cat_rng_ntoh(), and it passes
-GFP_ATOMIC as the GFP flags so this doesn't change how the code works.
-It's just a cleanup.
+We should be using the gfp flags the caller specified here, instead of
+GFP_KERNEL.  I think this might be a bugfix, depending on the value of
+"sock->sk->sk_allocation" when we call rds_conn_create_outgoing() in
+rds_sendmsg().  Otherwise, it's just a cleanup.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 2560e7b..7c94aed 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -597,7 +597,7 @@ int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
- 			iter = iter->next;
- 			iter_max_spot = iter->startbit + NETLBL_CATMAP_SIZE;
- 		}
--		ret_val = netlbl_secattr_catmap_setbit(iter, spot, GFP_ATOMIC);
-+		ret_val = netlbl_secattr_catmap_setbit(iter, spot, flags);
- 	}
+diff --git a/net/rds/loop.c b/net/rds/loop.c
+index 87ff2a8..6b12b68 100644
+--- a/net/rds/loop.c
++++ b/net/rds/loop.c
+@@ -121,7 +121,7 @@ static int rds_loop_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+ 	struct rds_loop_connection *lc;
+ 	unsigned long flags;
  
- 	return ret_val;
+-	lc = kzalloc(sizeof(struct rds_loop_connection), GFP_KERNEL);
++	lc = kzalloc(sizeof(struct rds_loop_connection), gfp);
+ 	if (!lc)
+ 		return -ENOMEM;
+ 
+diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+index 9556d28..a91e1db 100644
+--- a/net/rds/iw_cm.c
++++ b/net/rds/iw_cm.c
+@@ -694,7 +694,7 @@ int rds_iw_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+ 	unsigned long flags;
+ 
+ 	/* XXX too lazy? */
+-	ic = kzalloc(sizeof(struct rds_iw_connection), GFP_KERNEL);
++	ic = kzalloc(sizeof(struct rds_iw_connection), gfp);
+ 	if (!ic)
+ 		return -ENOMEM;
+ 
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 51c8689..a1e1162 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -749,7 +749,7 @@ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
+ 	int ret;
+ 
+ 	/* XXX too lazy? */
+-	ic = kzalloc(sizeof(struct rds_ib_connection), GFP_KERNEL);
++	ic = kzalloc(sizeof(struct rds_ib_connection), gfp);
+ 	if (!ic)
+ 		return -ENOMEM;
+ 
