@@ -1,65 +1,60 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: use-after-free in usbnet
-Date: Thu, 22 Mar 2012 17:30:36 +0800
-Message-ID: <CACVXFVODFvtF1DRyWJmnYCByw7sr9QDv_+Taxo5maVaUauDNtg@mail.gmail.com>
-References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
-	<Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org>
-	<CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
-	<201203221008.46882.oneukum@suse.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: add QCA alx Ethernet driver
+Date: Thu, 22 Mar 2012 10:27:27 +0100
+Message-ID: <20120322092727.GA21284@electric-eye.fr.zoreil.com>
+References: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com> <20120228.212857.797446903975232476.davem@davemloft.net> <157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com> <20120228.223258.2261979237568571219.davem@davemloft.net> <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
-	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201203221008.46882.oneukum-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, xiong@qca.qualcomm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com,
+	kgiori@qca.qualcomm.com, chris.snook@gmail.com,
+	mathieu@qca.qualcomm.com, bryanh@quicinc.com,
+	Jesper Andersen <jespera@diku.dk>, Julia Lawall <julia@diku.dk>
+To: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39410 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756598Ab2CVJaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2012 05:30:55 -0400
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 22, 2012 at 5:08 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
->
-> this looks good, but could you add a comment explaining the reason for
-> taking a reference?
+Luis R. Rodriguez <rodrigue@qca.qualcomm.com> :
+> On Tue, Feb 28, 2012 at 7:32 PM, David Miller <davem@davemloft.net> wrote:
+[...]
+> > To be honest tg3, as one example, supports quite a large array of
+> > different pieces of hardware that use the same logical core.
+> 
+> At certain point it becomes a pain in the ass to support older
+> chipsets, and simply easier to leave the older driver to rot.
 
-OK, I will post a formal one if you have no objection on the below.
+I would avoid saying such things while trying to sell a plan for a bright
+future of drivers maintained and supported by $BIGCORP. :o)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 4b8b52c..febfdce 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -589,6 +589,14 @@ static int unlink_urbs (struct usbnet *dev,
-struct sk_buff_head *q)
- 		entry = (struct skb_data *) skb->cb;
- 		urb = entry->urb;
+[...]
+> Would it be worthwhile to consider alx upstream only for the newer
+> chipsets (regardless of the litmus test, which I do agree with on
+> technical grounds) in consideration for helping pave the way on
+> killing proprietary drivers?
 
-+		/*
-+		 * Get a reference count of the URB to avoid it to be
-+		 * freed during usb_unlink_urb, which may trigger
-+		 * use-after-free problem inside usb_unlink_urb since
-+		 * usb_unlink_urb is always racing with .complete
-+		 * handler(include defer_bh).
-+		 */
-+		usb_get_urb(urb);
- 		spin_unlock_irqrestore(&q->lock, flags);
- 		// during some PM-driven resume scenarios,
- 		// these (async) unlinks complete immediately
-@@ -597,6 +605,7 @@ static int unlink_urbs (struct usbnet *dev, struct
-sk_buff_head *q)
- 			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
- 		else
- 			count++;
-+		usb_put_urb(urb);
- 		spin_lock_irqsave(&q->lock, flags);
- 	}
- 	spin_unlock_irqrestore (&q->lock, flags);
+What is the situation regarding the availability for public use of
+programming manuals and errata on older chipsets ?
 
+I am fine with Qualcomm being completely uninterested in maintaining
+code for old chipsets and dedicating manpower or $$$ on it, be it now,
+tomorrow or after a new arrival of management execs. However it sends
+a bad message if code for new chipsets comes in while users have to
+maintain their pile of poo in the dark.
 
-Thanks,
+The hardware stays for years. It's one of the engineering problems of
+the day. Killing proprietary drivers is an interesting goal but it is
+far, far away.
+
+Qualcomm should imvho meet davem's remarks with more short termed
+deliverables.
+
 -- 
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ueimor
