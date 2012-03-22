@@ -1,41 +1,58 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: long-lived tcp connection question
-Date: Thu, 22 Mar 2012 22:51:50 +0100
-Message-ID: <20120322215150.GB3093@nuttenaction>
-References: <CAKA=qzaPwx53ExK7VhNC_sbv3tVZrnWXv-5Fh8akcZ6DEaqd9Q@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost-net/virtio: fixes for 3.4
+Date: Fri, 23 Mar 2012 00:12:28 +0200
+Message-ID: <20120322221227.GA17849@redhat.com>
+References: <20120320145010.GA31570@redhat.com>
+ <20120322082718.GA11258@redhat.com>
+ <20120322.165649.32205268396882350.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Josh Hunt <joshhunt00@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:52206 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965162Ab2CVWCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 18:02:18 -0400
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	levinsasha928@gmail.com, nyh@il.ibm.com, nyh@math.technion.ac.il
+To: David Miller <davem@davemloft.net>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAKA=qzaPwx53ExK7VhNC_sbv3tVZrnWXv-5Fh8akcZ6DEaqd9Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20120322.165649.32205268396882350.davem@davemloft.net>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Josh Hunt | 2012-03-22 11:56:19 [-0500]:
+On Thu, Mar 22, 2012 at 04:56:49PM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Thu, 22 Mar 2012 10:27:19 +0200
+> 
+> > On Tue, Mar 20, 2012 at 04:50:41PM +0200, Michael S. Tsirkin wrote:
+> >> The following changes since commit 5ffca28a4ac7abb8a254fafe6bd03b2f83667df7:
+> >> 
+> >>   Merge git://git.kernel.org/pub/scm/linux/kernel/git/aia21/ntfs (2012-02-27 07:59:33 -0800)
+> >> 
+> >> are available in the git repository at:
+> >> 
+> >>   ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+> >> 
+> >>   (ssh url as git.kernel.org seems down at the moment, when it comes up
+> >>    git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+> >>    should be the equivalent).
+> 
+> Neither of these URL's work for me:
+> 
+> [davem@drr net]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+> fatal: Couldn't find remote ref for_davem
+> [davem@drr net]$ git pull ra.kernel.org:/pub/scm/linux/kernel/git/mst/vhost.git for_davem
+> Enter passphrase for key '/home/davem/.ssh/davem': 
+> Permission denied (publickey).
+> fatal: The remote end hung up unexpectedly
+> [davem@drr net]$ 
+> 
+> If you're sending me signed pull requests that thus require a newer
+> version of GIT, please don't.
 
->Given things like web sockets with presumably long-lived persistent
->tcp connections and a sparse amount of data, I was wondering if there
->are currently any mechanisms in the kernel or out of tree projects
->which work on reducing the overhead these connections require?
->Possibly storing their state after a certain period of inactivity and
->then reviving them when work needs to be done? I'm thinking something
->along the lines of the state info stored for time-wait sockets and
->then the ability to resurrect it on an incoming packet. Keeping
->resources around for such connections seems inefficient although
->possibly unavoidable.
+OK, sorry about that. Can't fix right now as I'm not at
+the box that has the key but this works for me with an old git:
 
-Do you referring to something like this:
+/usr/bin/git fetch git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git refs/tags/for_davem
 
-https://datatracker.ietf.org/doc/draft-ietf-tcpm-fastopen/
+You just don't get the signature checked.
 
-The Linux code is not released yet, but I know that the required storage
-overhead is small. Search the IETF email archive for more background
-information about the topic.
-
-Hagen
+-- 
+MST
