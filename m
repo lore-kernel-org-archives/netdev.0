@@ -1,134 +1,80 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: tun oops dereferencing garbage nsproxy-> address.
-Date: Wed, 21 Mar 2012 20:58:58 -0700
-Message-ID: <m1obrp2sn1.fsf@fess.ebiederm.org>
-References: <20120313034201.GA13156@redhat.com>
-	<201203182102.15877.maciej.rutecki@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: e1000e: Avoid wrong check on TX hang
+Date: Wed, 21 Mar 2012 22:11:09 -0700
+Message-ID: <1332393069.2906.135.camel@jtkirshe-mobl>
+References: <OF66508452.5C6F589E-ONC12579C8.005ECBB5-C12579C8.005F4640@transmode.se>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>, serue@us.ibm.com
-To: maciej.rutecki@gmail.com
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-kbPSDAkz8uL32GsfkEtw"
+Cc: netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out07.mta.xmission.com ([166.70.13.237]:53552 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751098Ab2CVEpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 00:45:10 -0400
-In-Reply-To: <201203182102.15877.maciej.rutecki@gmail.com> (Maciej Rutecki's
-	message of "Sun, 18 Mar 2012 21:02:15 +0100")
+Received: from mga03.intel.com ([143.182.124.21]:34510 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753626Ab2CVFLL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Mar 2012 01:11:11 -0400
+In-Reply-To: <OF66508452.5C6F589E-ONC12579C8.005ECBB5-C12579C8.005F4640@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maciej Rutecki <maciej.rutecki@gmail.com> writes:
 
-> On wtorek, 13 marca 2012 o 04:42:02 Dave Jones wrote:
->> BUG: unable to handle kernel paging request at 0000000100000029
->> IP: [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
->> PGD 5ae4f067 PUD 0
->> Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
->> CPU 1
->> Modules linked in: tun binfmt_misc can_bcm cmtp kernelcapi nfnetlink bnep
->> can_raw af_802154 phonet bluetooth can pppoe pppox ppp_generic slhc irda
->> crc_ccitt rds af_key rose ax25 appletalk atm ipx p8022 psnap llc p8023
->> tcp_lp iwlwifi mac80211 cfg80211 nfs fscache auth_rpcgss nfs_acl fuse
->> lockd ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter
->> ip6_tables nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack xts
->> gf128mul dm_crypt dm_mirror dm_region_hash dm_log arc4 snd_hda_codec_hdmi
->> uvcvideo snd_hda_codec_idt videobuf2_core snd_usb_audio snd_hda_intel
->> videodev snd_hda_codec dell_wmi sparse_keymap media snd_usbmidi_lib
->> snd_hwdep v4l2_compat_ioctl32 snd_rawmidi cdc_ether videobuf2_vmalloc
->> videobuf2_memops snd_seq usbnet cdc_wdm mii cdc_acm snd_seq_device snd_pcm
->> dell_laptop dcdbas joydev microcode snd_timer tg3 snd pcspkr i2c_i801
->> iTCO_wdt iTCO_vendor_support soundcore snd_page_alloc rfkill wmi sunrpc
->> i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded:
->> cfg80211]
->> 
->> Pid: 15413, comm: trinity Not tainted 3.3.0-rc7+ #54 Dell Inc. Adamo 13  
->> /0N70T0 RIP: 0010:[<ffffffffa06ec54f>]  [<ffffffffa06ec54f>]
->> tun_chr_open+0x4f/0x80 [tun] RSP: 0018:ffff8800a5e29bc8  EFLAGS: 00010286
->> RAX: ffff88012036fd88 RBX: ffff8801084c4dc0 RCX: 0000000000000006
->> RDX: 0000000100000001 RSI: ffff88000fd9abc8 RDI: 0000000000000292
->> RBP: ffff8800a5e29bd8 R08: 0000000000000000 R09: 0000000000000001
->> R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801084c4dc0
->> R13: ffff88012eb10d20 R14: ffffffffa06f0000 R15: ffffffff81856ae0
->> FS:  00007f3ebcb1a700(0000) GS:ffff88013b400000(0000)
->> knlGS:0000000000000000 CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 0000000100000029 CR3: 00000000032bb000 CR4: 00000000000406e0
->> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->> Process trinity (pid: 15413, threadinfo ffff8800a5e28000, task
->> ffff88000fd9a4a0) Stack:
->>  00000000000000c8 0000000000000000 ffff8800a5e29c38 ffffffff813fcf38
->>  ffffffff81c54838 0000000000000001 ffff8800a5e29c18 ffffffff816a1afd
->>  ffff8801084c4dc0 ffff8801396bbab8 ffff88012eb10d20 0000000000000000
->> Call Trace:
->>  [<ffffffff813fcf38>] misc_open+0x1d8/0x670
->>  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
->>  [<ffffffff811c2978>] chrdev_open+0x258/0x350
->>  [<ffffffff811baa04>] __dentry_open+0x384/0x550
->>  [<ffffffff816a1afd>] ? sub_preempt_count+0x9d/0xd0
->>  [<ffffffff811c2720>] ? cdev_put+0x30/0x30
->>  [<ffffffff811bc224>] nameidata_to_filp+0x74/0x80
->>  [<ffffffff811ce59c>] do_last+0x26c/0x930
->>  [<ffffffff811ced76>] path_openat+0xd6/0x3e0
->>  [<ffffffff810a6298>] ? sched_clock_cpu+0xb8/0x130
->>  [<ffffffff811cf1a2>] do_filp_open+0x42/0xa0
->>  [<ffffffff8169d845>] ? _raw_spin_unlock+0x35/0x60
->>  [<ffffffff811dd7cd>] ? alloc_fd+0x18d/0x210
->>  [<ffffffff811bc328>] do_sys_open+0xf8/0x1d0
->>  [<ffffffff810faadc>] ? __audit_syscall_entry+0xcc/0x310
->>  [<ffffffff811bc421>] sys_open+0x21/0x30
->>  [<ffffffff816a5a69>] system_call_fastpath+0x16/0x1b
->> Code: 00 00 00 e8 64 8d ab e0 48 85 c0 74 46 c7 00 00 00 00 00 48 c7 40 08
->> 00 00 00 00 65 48 8b 14 25 00 c9 00 00 48 8b 92 50 05 00 00 <48> 8b 52 28
->> f0 ff 42 04 48 89 50 10 48 89 83 28 01 00 00 31 c0 RIP 
->> [<ffffffffa06ec54f>] tun_chr_open+0x4f/0x80 [tun]
->>  RSP <ffff8800a5e29bc8>
->> CR2: 0000000100000029
->> Disabling lock debugging due to kernel taint
->> ---[ end trace 9e00e91b0629ad80 ]---
->> 
->> 
->> oops happened here..
->> 
->>         tfile->net = get_net(current->nsproxy->net_ns);
->>      548:       48 8b 92 50 05 00 00    mov    0x550(%rdx),%rdx
->>      54f:       48 8b 52 28             mov    0x28(%rdx),%rdx
->> 
->> My guess is the fuzzer called some syscall that set current->nsproxy
->> to garbage (0x0000000100000001), which later got dereferenced when it
->> subsequently randomly did an open() on tun.
->> 
->> Any thoughts ?
->> 
->> 	Dave
->> 
->
-> I created a Bugzilla entry at 
-> https://bugzilla.kernel.org/show_bug.cgi?id=42960
-> for your bug/regression report, please add your address to the CC list in 
-> there, thanks!
+--=-kbPSDAkz8uL32GsfkEtw
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-There is not enough information here to track this as any kind of bug to
-be fixed.   This problem can be neither reproduced nor is it a
-direct consequence of anything obvious in the code.  The bug should
-simply be closed with "can not reproduce".  There is no evidence
-that this is any kind of regression.
+On Wed, 2012-03-21 at 18:20 +0100, Joakim Tjernlund wrote:
+> I think commit 09357b00255c233705b1cf6d76a8d147340545b8(e1000e: Avoid wro=
+ng check on TX hang)
+> needs to be applied in 3.2.x (and 3.0.x) too.
+>=20
+> We have seen this on routers(we got 3):
+> e1000e 0000:11:00.0: eth9: Detected Hardware Unit Hang:
+>   TDH                  <a4>
+>   TDT                  <a7>
+>   next_to_use          <a7>
+>   next_to_clean        <a4>
+> buffer_info[next_to_clean]:
+>   time_stamp           <1008e849f>
+>   next_to_watch        <a4>
+>   jiffies              <1008e85d8>
+>   next_to_watch.status <0>
+> MAC Status             <80387>
+> PHY Status             <792d>
+> PHY 1000BASE-T Status  <3800>
+> PHY Extended Status    <3000>
+> PCI Status             <10>
+>=20
+> Applying the above patch on 3.2.12 makes the error go away.
+>=20
+>    Jocke
+>=20
 
-If there is a system to track weird failures and note strange
-occurrences and to start looking for patterns this might be interesting,
-but I don't believe that system is the kernel bugzilla system.
+Thanks Joakim, I am aware of the issue/fix.  I will submit the fix to
+all stable tree's back to 2.6.32.  Look for me posting the patch this
+weekend.
 
-This was all covered in the discussion of this issue before you put it
-in the kernel bugzilla so I don't understand why you bothered.  There is
-simply too little information to do anything interesting with this
-failure.  Most likely this is the result of a kernel memory stomp
-triggered by an unprivileged process.
+--=-kbPSDAkz8uL32GsfkEtw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I think such memory stomps suck but there is not enough information in
-this thread to really even start looking and there is a lot of kernel
-code to look through.  You don't seem to be interested in digging into
-this yourself so adding this to bugzilla simply appears to be a waste
-of time.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Eric
+iQIcBAABCgAGBQJParRtAAoJEOVv75VaS+3OI+4P/3num0i/FukLDeqXw+1Jyios
++JthSlE+SBhERFLFjzRuO+6bSeok7WjifPAVajAwvUi8y4Bh0ePS6dVhPOqQkt5c
+/w/QjSvwiwk4HR/OUlfftKVFqITRht8lFNT64a/lF6AGEygTjPYDk0XoHN8r8rNV
+GjeRqdNQsVGX1UCtBJMlNrivSZIlTI//xjaTRJK6CKYYFmdy/ArTjaz7Z6gLFNg/
+b3yhUirWbEgGBOZ34Hi0E7AK1P26P5OxTF1GyDcdjcThEvuLlW7ZtrBRBfmUDysK
+DqCvD+yu9+lTrhCCECv+IMzJuIfKh3ZXdk48DwwoDR5+Pys7AAGs9FUy99qyXO8O
+nsua0a0wno3trD38kpZFr7NI+TMXkUNk9Ar9eOG7cvuLMHi2swkYeHbk36UBu16x
+L8ZfIYPR+J5+Q4S5xniwSpy42hWoQZGxE3v7BxLZHdiFShBzfUyDm1Xzix+uT3JJ
+Hp7iMmjNPAfr8MV7wXFIE87KeQwM37EP/DrqLjE1ducPxXFP/KyE2aS/Sf2Vel3Y
+Dd+2IdNd747JBSDT1WBhF3OjZ8AChowjlVoM+A1J4yah7r3km8PJaX1TfizQ30dW
+pV0yAu/ySaTXfgg2HIVnl3RYh6GlwAK4/Ioog9qHRk6S0i5AZp42xl/ZCPKFw06d
+/0Bk0UVcgPwLhCC/5uKf
+=pwKz
+-----END PGP SIGNATURE-----
+
+--=-kbPSDAkz8uL32GsfkEtw--
