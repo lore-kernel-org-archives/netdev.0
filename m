@@ -1,39 +1,62 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 10/10] stmmac: update the driver version March 2012
-Date: Fri, 23 Mar 2012 10:08:41 +0100
-Message-ID: <1332493721-28309-11-git-send-email-peppe.cavallaro@st.com>
-References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
-Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
-	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
-	viresh.kumar@st.com, bhutchings@solarflare.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:34585 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757835Ab2CWJJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:52 -0400
-In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/5] netfilter updates for net (3.4) tree
+Date: Fri, 23 Mar 2012 10:34:12 +0100
+Message-ID: <1332495257-3149-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index ddd0769..9f2435c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -21,7 +21,7 @@
- *******************************************************************************/
- 
- #define STMMAC_RESOURCE_NAME   "stmmaceth"
--#define DRV_MODULE_VERSION	"Feb_2012"
-+#define DRV_MODULE_VERSION	"March_2012"
- 
- #include <linux/clk.h>
- #include <linux/stmmac.h>
+Hi David,
+
+The following are five fixes for xt_LOG and the cttimeout
+infrastructure that got into your tree in the previous development
+cycle. This contains:
+
+* One fix for missing symbol in xt_LOG reported by Randy Dunlap.
+
+* Fix module dependency between cttimeout and nf_conntrack_proto_*
+  friends from me. Now, we make sure that protocol trackers modules
+  cannot be unloaded if there's any cttimeout object refering to
+  them.
+
+* Fix missing rcu_read_lock section in xt_CT while dereferencing
+  a RCU pointer.
+
+* Fix the assignation of a custom timeout policy for the generic
+  protocol tracker.
+
+* Fix possible inconsistencies in the application of the cttimeout
+  policy by permanently attaching it to the conntrack entry. Before
+  this patch, the timeout policy was attached per packet which may
+  result in applying the timeout policy only in one traffic
+  direction.
+
+You can pull this changes from:
+
+git://1984.lsi.us.es/net master
+
+Thanks!
+
+Pablo Neira Ayuso (5):
+  netfilter: xt_LOG: use CONFIG_IP6_NF_IPTABLES instead of CONFIG_IPV6
+  netfilter: cttimeout: fix dependency with l4protocol conntrack module
+  netfilter: xt_CT: missing rcu_read_lock section in timeout assignment
+  netfilter: xt_CT: fix assignation of the generic protocol tracker
+  netfilter: nf_conntrack: permanently attach timeout policy to conntrack
+
+ include/net/netfilter/nf_conntrack_l4proto.h |    4 ++
+ include/net/netfilter/nf_conntrack_timeout.h |    2 +-
+ net/netfilter/nf_conntrack_core.c            |   39 ++++++++++++----------
+ net/netfilter/nf_conntrack_proto.c           |   21 ++++++++++++
+ net/netfilter/nfnetlink_cttimeout.c          |   45 +++++++++++++------------
+ net/netfilter/xt_CT.c                        |   31 +++++++++++++----
+ net/netfilter/xt_LOG.c                       |   12 +++---
+ 7 files changed, 100 insertions(+), 54 deletions(-)
+
 -- 
-1.7.4.4
+1.7.2.5
+
