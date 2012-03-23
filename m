@@ -1,96 +1,164 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 04/10] stmmac: Define MDC clock selection macros
-Date: Fri, 23 Mar 2012 10:08:35 +0100
-Message-ID: <1332493721-28309-5-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 09/10] stmmac: MDC clock dynamically based on the csr clock input
+Date: Fri, 23 Mar 2012 10:08:40 +0100
+Message-ID: <1332493721-28309-10-git-send-email-peppe.cavallaro@st.com>
 References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
 	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
-	viresh.kumar@st.com, bhutchings@solarflare.com
+	viresh.kumar@st.com, bhutchings@solarflare.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:35651 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757835Ab2CWJJ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:28 -0400
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:52579 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757969Ab2CWJJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:49 -0400
 In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Deepak SIKRI <deepak.sikri@st.com>
-
-The patch adds the macros to be used for MDC clock selection. The MDC clock
-frequency is based on scaled system clock, and has to be confined to a range
-of 1-2.5 MHz. Based on the input CSR clock, the scaling factor has to be
-selected.
-The platform specific code will provide the default value of this scaling
-factor, based on the input CSR clock.
-There is an option to set MDC clock higher than the IEEE 802.3 specified
-frequency limit of 2.5 MHz. This applies for the interfacing chips that
-support higher MDC clocks. The resultant higher clock of 12.5 MHz requires
-additional Macros to be defined for the clock divider corresponding to the
-to the following selection.
------------------------------------------
-	Selection	MDC Clock
------------------------------------------
-	1000 		clk_csr_i/4
-	1001 		clk_csr_i/6
-	1010 		clk_csr_i/8
-	1011 		clk_csr_i/10
-	1100 		clk_csr_i/12
-	1101	 	clk_csr_i/14
-	1110 		clk_csr_i/16
-	1111 		clk_csr_i/18
-
-This support has to be added both in the include file, as well as driver. The
-driver need to program the registers based on the interfacing chips. This would
-be more board specific information and needs to be passed through the platform
-code to the driver. This work would be carried out in the future patch set
-release.
+If a specific clk_csr value is passed from the platform
+this means that the CSR Clock Range selection cannot be
+changed at run-time and it is fixed (as reported in the driver
+documentation). Viceversa the driver will try to set the MDC
+clock dynamically according to the actual clock input.
 
 Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Reviewed-by: Francesco Virlinzi <francesco.virlinzi@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- include/linux/stmmac.h |   28 ++++++++++++++++++++++++++++
- 1 files changed, 28 insertions(+), 0 deletions(-)
+ Documentation/networking/stmmac.txt               |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h      |   10 +++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   40 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
+ 5 files changed, 54 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index a9b4d6c..e529282 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -32,6 +32,34 @@
- #define STMMAC_RX_COE_TYPE1	1
- #define STMMAC_RX_COE_TYPE2	2
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index eacb640..ab1e8d7 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -137,7 +137,7 @@ Where:
+  o pbl: the Programmable Burst Length is maximum number of beats to
+        be transferred in one DMA transaction.
+        GMAC also enables the 4xPBL by default.
+- o clk_csr: CSR Clock range selection.
++ o clk_csr: fixed CSR Clock range selection.
+  o has_gmac: uses the GMAC core.
+  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
+  o tx_coe: core is able to perform the tx csum in HW.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index f4df1eb..312e3f1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -97,6 +97,16 @@ struct stmmac_extra_stats {
+ 	unsigned long normal_irq_n;
+ };
  
-+/* Define the macros for CSR clock range parameters to be passed by
-+ * platform code.
-+ * This could also be configured at run time using CPU freq framework. */
++/* CSR Frequency Access Defines*/
++#define CSR_F_35M	35000000
++#define CSR_F_60M	60000000
++#define CSR_F_100M	100000000
++#define CSR_F_150M	150000000
++#define CSR_F_250M	50000000
++#define CSR_F_300M	300000000
 +
-+/* MDC Clock Selection define*/
-+#define	STMMAC_CSR_60_100M	0	/* MDC = clk_scr_i/42 */
-+#define	STMMAC_CSR_100_150M	1	/* MDC = clk_scr_i/62 */
-+#define	STMMAC_CSR_20_35M	2	/* MDC = clk_scr_i/16 */
-+#define	STMMAC_CSR_35_60M	3	/* MDC = clk_scr_i/26 */
-+#define	STMMAC_CSR_150_250M	4	/* MDC = clk_scr_i/102 */
-+#define	STMMAC_CSR_250_300M	5	/* MDC = clk_scr_i/122 */
++#define	MAC_CSR_H_FRQ_MASK	0x20
 +
-+/* FIXME: The MDC clock could be set higher than the IEEE 802.3
-+ * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-+ * of value different than the above defined values. The resultant MDIO
-+ * clock frequency of 12.5 MHz is applicable for the interfacing chips
-+ * supporting higher MDC clocks.
-+ * The MDC clock selection macros need to be defined for MDC clock rate
-+ * of 12.5 MHz, corresponding to the following selection.
-+ * 1000 clk_csr_i/4
-+ * 1001 clk_csr_i/6
-+ * 1010 clk_csr_i/8
-+ * 1011 clk_csr_i/10
-+ * 1100 clk_csr_i/12
-+ * 1101 clk_csr_i/14
-+ * 1110 clk_csr_i/16
-+ * 1111 clk_csr_i/18 */
-+
- /* Platfrom data for platform device structure's platform_data field */
+ #define HASH_TABLE_SIZE 64
+ #define PAUSE_TIME 0x200
  
- struct stmmac_mdio_bus_data {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 7182f15..ddd0769 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -84,6 +84,7 @@ struct stmmac_priv {
+ #ifdef CONFIG_HAVE_CLK
+ 	struct clk *stmmac_clk;
+ #endif
++	int clk_csr;
+ };
+ 
+ extern int phyaddr;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 08b4d05..c0d83ad 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -163,6 +163,35 @@ static void stmmac_verify_args(void)
+ 		pause = PAUSE_TIME;
+ }
+ 
++static void stmmac_clk_csr_set(struct stmmac_priv *priv)
++{
++#ifdef CONFIG_HAVE_CLK
++	u32 clk_rate;
++
++	clk_rate = clk_get_rate(priv->stmmac_clk);
++
++	/* Platform provided default clk_csr would be assumed valid
++	 * for all other cases except for the below mentioned ones. */
++	if (!(priv->clk_csr & MAC_CSR_H_FRQ_MASK)) {
++		if (clk_rate < CSR_F_35M)
++			priv->clk_csr = STMMAC_CSR_20_35M;
++		else if ((clk_rate >= CSR_F_35M) && (clk_rate < CSR_F_60M))
++			priv->clk_csr = STMMAC_CSR_35_60M;
++		else if ((clk_rate >= CSR_F_60M) && (clk_rate < CSR_F_100M))
++			priv->clk_csr = STMMAC_CSR_60_100M;
++		else if ((clk_rate >= CSR_F_100M) && (clk_rate < CSR_F_150M))
++			priv->clk_csr = STMMAC_CSR_100_150M;
++		else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
++			priv->clk_csr = STMMAC_CSR_150_250M;
++		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
++			priv->clk_csr = STMMAC_CSR_250_300M;
++	} /* For values higher than the IEEE 802.3 specified frequency
++	   * we can not estimate the proper divider as it is not known
++	   * the frequency of clk_csr_i. So we do not change the default
++	   * divider. */
++#endif
++}
++
+ #if defined(STMMAC_XMIT_DEBUG) || defined(STMMAC_RX_DEBUG)
+ static void print_pkt(unsigned char *buf, int len)
+ {
+@@ -1882,6 +1911,17 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 	if (stmmac_clk_get(priv))
+ 		goto error;
+ 
++	/* If a specific clk_csr value is passed from the platform
++	 * this means that the CSR Clock Range selection cannot be
++	 * changed at run-time and it is fixed. Viceversa the driver'll try to
++	 * set the MDC clock dynamically according to the csr actual
++	 * clock input.
++	 */
++	if (!priv->plat->clk_csr)
++		stmmac_clk_csr_set(priv);
++	else
++		priv->clk_csr = priv->plat->clk_csr;
++
+ 	return priv;
+ 
+ error:
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 1a42014..ade1082 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -70,7 +70,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 	int data;
+ 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
+ 			((phyreg << 6) & (0x000007C0)));
+-	regValue |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
++	regValue |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
+ 
+ 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+ 		return -EBUSY;
+@@ -106,7 +106,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
+ 	    | MII_WRITE;
+ 
+-	value |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
++	value |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
+ 
+ 	/* Wait until any existing MII operation is complete */
+ 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 -- 
 1.7.4.4
