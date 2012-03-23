@@ -1,37 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC PATCH 1/1] NUMA aware scheduling per cpu vhost thread
-Date: Fri, 23 Mar 2012 14:21:04 -0700
-Message-ID: <4F6CE940.6010209@hp.com>
-References: <1332460136.7730.19.camel@oc3660625478.ibm.com> <1510318.F8gXLSD366@tomlt1.ibmoffice.com> <4F6CC866.1090602@hp.com> <2657507.ZkkGW14H3c@tomlt1.ibmoffice.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] gianfar: Fix possible overrun and simplify interrupt name
+ field creation
+Date: Fri, 23 Mar 2012 19:37:56 -0400
+Message-ID: <CAP=VYLrPbYv2C7hYaQ-aUJLFCfYh5zkJzFXJt8GFV2OTZ7h=og@mail.gmail.com>
+References: <17d93e9eb16cbad75b20cdbcaf38f268260d6fd5.1332010469.git.joe@perches.com>
+	<20120321.223457.641438956547942596.davem@davemloft.net>
+	<20120322.233426.51094636300419378.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Thomas Lendacky <tahm@linux.vnet.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <2657507.ZkkGW14H3c@tomlt1.ibmoffice.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sandeep.kumar@freescale.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120322.233426.51094636300419378.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
+On Thu, Mar 22, 2012 at 11:34 PM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 21 Mar 2012 22:34:57 -0400 (EDT)
 >
-> Yeah, it becomes a question of time.  I run each test 3 times and
-> average the results, so to run the full suite takes a long time.
+>> From: Joe Perches <joe@perches.com>
+>> Date: Sat, 17 Mar 2012 12:05:38 -0700
+>>
+>>> Space allocated for int_name_<foo> is unsufficient for
+>>> maximal device name, expand it.
+>>>
+>>> Code to create int_name_<foo> is obscure, simplify it
+>>> by using sprintf.
+>>>
+>>> Found by looking for unnecessary \ line continuations.
+>>> Uncompiled, untested.
+>>>
+>>> Signed-off-by: Joe Perches <joe@perches.com>
+>>
+>> Can a gianfar expert please review and test this patch?
+>
+> If you gianfar guys don't show a sign of life in the next 24 hours I'=
+m
+> just going to apply Joe's patch as-is. =A0I refuse to just let it rot=
+ in
+> patchwork like this.
+>
+> And then you don't get to complain if his change breaks your driver
+> because I asked multiple times for testing and/or review.
 
-I've found the "walk up the instance count with the interim results 
-emitted" allows me quicker overall run time than launching all the 
-netperfs at once with a long run time to kludge around skew.  Well 
-modulo the time it takes to get them all launched.  But for the smallish 
-stuff it is rather faster than the 15 minutes a data point I'd get with 
-the (ab)use of the confidence intervals mechanism in runemomniagg2.sh . 
-  It also avoids the "run one wait for it to finish, run two, wait for 
-them to finish, run four, wait for them to finish" bit.  Walking-up the 
-instance count leaving the previous instances going does mean that the 
-"end of test" information is full of skew, but a great deal of that 
-end-of-test information is invariant anyway.
+I don't claim to be a giant fart expert, but the sbc8641D has 4 of
+the gianfar ports, and so I can use that hardware to look into
+testing this on a real board and check that a cat /proc/interrupts
+doesn't do something evil this weekend.  The patch looks sane in
+that it culls lines of open coded junk...  FWIW.
 
-happy benchmarking,
-
-rick jones
+Paul.
