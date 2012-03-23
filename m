@@ -1,91 +1,162 @@
-From: Alexandre Bounine <alexandre.bounine@idt.com>
-Subject: [PATCH linux-next] dmaengine: add context parameter fixups
-Date: Fri, 23 Mar 2012 10:00:42 -0400
-Message-ID: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
-Cc: Alexandre Bounine <alexandre.bounine@idt.com>, samuel@sortiz.org,
-	lrg@ti.com, broonie@opensource.wolfsonmicro.com, perex@perex.cz,
-	tiwai@suse.de, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com, alsa-devel@alsa-project.org
-To: paul.gortmaker@windriver.com, vinod.koul@intel.com,
-	dan.j.williams@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Fri, 23 Mar 2012 07:03:37 -0700
+Message-ID: <88B766C272F2C64B944B21AD078333151C964A67E0@EXMAIL.ad.emulex.com>
+References: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6EB4@saturn3.aculab.com>
+ <88B766C272F2C64B944B21AD078333151C964A66EF@EXMAIL.ad.emulex.com>
+ <20120322205824.GC9614@obsidianresearch.com>
+ <88B766C272F2C64B944B21AD078333151C964A670B@EXMAIL.ad.emulex.com>
+ <3ae9829d-f8dd-4268-918a-94616eff0915@exht1.ad.emulex.com>
+ <20120322224429.GA12980@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120322224429.GA12980-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes drivers that use device_prep_slave_sg() and
-device_prep_dma_cyclic() interfaces and have been missed during the initial
-release of interface changing patches.
 
-This patch is based on linux-next-20120322 code tree.
-See https://lkml.org/lkml/2012/3/22/339 for build failure report.
 
-Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
-Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/dma/sa11x0-dma.c      |    2 +-
- drivers/net/irda/sa1100_ir.c  |    2 +-
- sound/soc/sh/fsi.c            |    7 +++----
- sound/soc/soc-dmaengine-pcm.c |    2 +-
- 4 files changed, 6 insertions(+), 7 deletions(-)
+> -----Original Message-----
+> From: Jason Gunthorpe [mailto:jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org]
+> Sent: Friday, March 23, 2012 4:14 AM
+> To: Pandit, Parav
+> Cc: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org; roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org; linux-
+> rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA
+> adapter
+> 
+> On Thu, Mar 22, 2012 at 02:20:28PM -0700, Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org
+> wrote:
+> > I got a question here lately.
+> >
+> > aligned directive will ensure that it will fall on boundary.  Say
+> > aligned(4) ensures that structure is aligned to 4 byte boundary.
+> > Compiler can (at least theoretically) still have 4 byte structure
+> > aligned to 8 byte boundary on 64-bit platform (which is 4 byte aligned
+> > too).
+> 
+> There are very specific rules defined in the platform's ABI for how C
+> structures are layed out in memory, each ABI (ie CPU) has its own specific
+> quirks, but broadly in Linux land you can boil it down to:
+> 
+> 1) The alignment of a structure is the greatest alignment of all the
+>    members
+> 2) Each member is aligned to its alignment.
+> 
+> The alignment of the structure drives the total size of the structure, and
+> specifically the padding added at the end to reach that alignment.
+> 
+> So, no, a compiler that increased the alignment of a struct with one
+> u32 to 8 would violate the various ABIs and not be usuable for Linux. It is
+> important to bear in mind that Linux targets a particular set of ABI
+> conventions, and it is not 'anything goes'.
+> 
+> > struct {
+> > 	u32 field;
+> > };
+> 
+> So in this case: the u32 is aligned to 4, the structure is aligned to
+> 4 and the total size of the structure is 4 on everything linux supports.
+> 
+> > struct {
+> >       u64 fielda
+> > 	u32 field;
+> > };
+> 
+> In this case: On 64 bit: the u64 is aligned to 8 and the u32 is aligned to 4. So
+> the structure is aligned to 8. A pad is inserted at the end of the struct to bring
+> it out. On 32 bit, the u64 is aligned to 4, so the struct is aligned to 4, so no pad
+> is added.
+> 
+> > struct {
+> >       __float128 fielda
+> > 	u32 field;
+> > };
+> 
+> In this case the float128 is aligned to 16 and thus the structure is aligned to 16
+> and 12 pad bytes are added.
+> 
+> > However requirement is to have this structure only 4 byte size(
+> > because adapter excepts it to be 4B sise) and therefor packed is used.
+> > I don't know the way to ensure size of 4 byte and alignment too.  Or I
+> > am misunderstanding?
+> 
+> Yes, you are mis-understanding the rules for padding.. Structures are only
+> padded out to their alignment, which depends on their constituent types.
+> This is so arrays of structures have each array element starting on its natural
+> alignment.
+> 
+> The aligned attribute overrides the automatic determination of the
+> alignment based on the contents and just forces it.
+> 
+> So, as an example, if you have this hardware layout:
+> 
+> struct {
+>   u32 fielda;
+>   u64 fieldb;
+> } attribute ((aligned(4));
+> 
+> David is saying you will get a 12 byte struct and fieldb will be unaligned. Since
+> 12 is aligned to 4 no padding is added.
 
-diff --git a/drivers/dma/sa11x0-dma.c b/drivers/dma/sa11x0-dma.c
-index 16a6b48..ec78cce 100644
---- a/drivers/dma/sa11x0-dma.c
-+++ b/drivers/dma/sa11x0-dma.c
-@@ -585,7 +585,7 @@ static dma_cookie_t sa11x0_dma_tx_submit(struct dma_async_tx_descriptor *tx)
- 
- static struct dma_async_tx_descriptor *sa11x0_dma_prep_slave_sg(
- 	struct dma_chan *chan, struct scatterlist *sg, unsigned int sglen,
--	enum dma_transfer_direction dir, unsigned long flags)
-+	enum dma_transfer_direction dir, unsigned long flags, void *context)
- {
- 	struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
- 	struct sa11x0_dma_desc *txd;
-diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
-index a0d1913..e250675 100644
---- a/drivers/net/irda/sa1100_ir.c
-+++ b/drivers/net/irda/sa1100_ir.c
-@@ -147,7 +147,7 @@ static void sa1100_irda_dma_start(struct sa1100_buf *buf,
- 	struct dma_async_tx_descriptor *desc;
- 	struct dma_chan *chan = buf->chan;
- 
--	desc = chan->device->device_prep_slave_sg(chan, &buf->sg, 1, dir,
-+	desc = dmaengine_prep_slave_sg(chan, &buf->sg, 1, dir,
- 			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
- 	if (desc) {
- 		desc->callback = cb;
-diff --git a/sound/soc/sh/fsi.c b/sound/soc/sh/fsi.c
-index 378cc5b..9e730ad 100644
---- a/sound/soc/sh/fsi.c
-+++ b/sound/soc/sh/fsi.c
-@@ -1001,11 +1001,10 @@ static void fsi_dma_do_tasklet(unsigned long data)
- 	sg_dma_address(&sg) = buf;
- 	sg_dma_len(&sg) = len;
- 
--	desc = chan->device->device_prep_slave_sg(chan, &sg, 1, dir,
--						  DMA_PREP_INTERRUPT |
--						  DMA_CTRL_ACK);
-+	desc = dmaengine_prep_slave_sg(chan, &sg, 1, dir,
-+					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
- 	if (!desc) {
--		dev_err(dai->dev, "device_prep_slave_sg() fail\n");
-+		dev_err(dai->dev, "dmaengine_prep_slave_sg() fail\n");
- 		return;
- 	}
- 
-diff --git a/sound/soc/soc-dmaengine-pcm.c b/sound/soc/soc-dmaengine-pcm.c
-index 4420b70..4756952 100644
---- a/sound/soc/soc-dmaengine-pcm.c
-+++ b/sound/soc/soc-dmaengine-pcm.c
-@@ -143,7 +143,7 @@ static int dmaengine_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
- 	direction = snd_pcm_substream_to_dma_direction(substream);
- 
- 	prtd->pos = 0;
--	desc = chan->device->device_prep_dma_cyclic(chan,
-+	desc = dmaengine_prep_dma_cyclic(chan,
- 		substream->runtime->dma_addr,
- 		snd_pcm_lib_buffer_bytes(substream),
- 		snd_pcm_lib_period_bytes(substream), direction);
--- 
-1.7.8.4
+So I decided to experiment above example before implementing in driver. However I find structure of 16 bytes (instead of 12) with padding after fielda in below example.
+Am I missing some compiler option or syntax error in attribute? Sorry to ask this silly question.
+I tried __attribute__((__aligned__(4))); too based on usage in other kernel code.
+
+#include <linux/module.h>
+
+struct foo {
+        u32 a;
+        u64 b;
+} __attribute__((aligned(4)));
+
+static int __init main_init(void)
+{
+        printk("<1> sizeof foo=%ld\n", sizeof(struct foo));
+        printk("<1> offset of a=%ld\n", offsetof(struct foo, a));
+        printk("<1> offset of b=%ld\n", offsetof(struct foo, b));
+        return 0;
+}
+static void __exit main_exit(void)
+{
+}
+module_init(main_init);
+module_exit(main_exit);
+Output:
+Mar 24 05:44:10 parav-sles11-sp1-64 kernel: [2006356.094931]  sizeof foo=16
+Mar 24 05:44:10 parav-sles11-sp1-64 kernel: [2006356.094934]  offset of a=0
+Mar 24 05:44:10 parav-sles11-sp1-64 kernel: [2006356.094936]  offset of b=8
+
+Gcc version is below.
+
+Using built-in specs.
+Target: x86_64-suse-linux
+Configured with: ../configure --prefix=/usr --infodir=/usr/share/info --mandir=/usr/share/man --libdir=/usr/lib64 --libexecdir=/usr/lib64 --enable-languages=c,c++,objc,fortran,obj-c++,java,ada --enable-checking=release --with-gxx-include-dir=/usr/include/c++/4.3 --enable-ssp --disable-libssp --with-bugurl=http://bugs.opensuse.org/ --with-pkgversion='SUSE Linux' --disable-libgcj --disable-libmudflap --with-slibdir=/lib64 --with-system-zlib --enable-__cxa_atexit --enable-libstdcxx-allocator=new --disable-libstdcxx-pch --enable-version-specific-runtime-libs --program-suffix=-4.3 --enable-linux-futex --without-system-libunwind --with-cpu=generic --build=x86_64-suse-linux
+Thread model: posix
+gcc version 4.3.4 [gcc-4_3-branch revision 152973] (SUSE Linux)
+
+> For hardware facing structures I'd combine this with a static assert to verify
+> structure size at compile time.
+> 
+> So..
+> 
+> 1) Avoid using attributes unless the structure has unaligned members.
+> 2) Avoid creating structures with unaligned members (eg for userspace
+>    communication)
+> 3) Frown at hardware/firmware developers who make communication
+>    structures with unaligned members :)
+> 4) Be explicit about padding in your layout for 64/32
+>    compatibility.
+> 
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
