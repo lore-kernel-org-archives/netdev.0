@@ -1,30 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] usbnet: consider device busy at each recieved packet
-Date: Thu, 22 Mar 2012 23:05:04 -0400 (EDT)
-Message-ID: <20120322.230504.715671042990225735.davem@davemloft.net>
-References: <201203222135.07331.oliver@neukum.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: Regression due to: net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Fri, 23 Mar 2012 11:28:20 +0800
+Message-ID: <CACVXFVMPqXr+AuoBj9R5Fk=_UOPaozm2ok9zd9N-_JUOe8cu4g@mail.gmail.com>
+References: <4F6BAE34.7010805@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tony.hill-3WKxDLwmzFNWk0Htik3J/w@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201203222135.07331.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Oliver Neukum <oliver@neukum.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Willy Tarreau <willy@meta-x.org>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F6BAE34.7010805@wwwdotorg.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date: Thu, 22 Mar 2012 21:35:07 +0100
+On Fri, Mar 23, 2012 at 6:56 AM, Stephen Warren <swarren@wwwdotorg.org> wrote:
+> It looks like commit 4231d47e6fe69f061f96c98c30eaf9fb4c14b96d
+> "net/usbnet: avoid recursive locking in usbnet_stop()" causes a problem
+> for me.
+>
+> When I reboot or shutdown, I see the error spew below at least 50% of
+> the time. Reverting the above patch fixes this, at least for 10 reboot
+> attempts.
 
-> usbnet should centrally handle busy reporting in the rx path
-> so subdrivers need not worry. This hurts use cases which do
-> rx only or predominantly.
-> 
-> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+The two patches[1][2] should fix your problem, please try them.
+Both have been applied into David's tree.
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+[1], http://marc.info/?l=linux-usb&m=133242262312402&w=2
+[2], http://marc.info/?l=linux-usb&m=133242264412410&w=2
+
+Thanks,
+-- 
+Ming Lei
