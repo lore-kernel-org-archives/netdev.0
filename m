@@ -1,53 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Piggyback the final ACK of the three way TCP connection
- establishment with the data
-Date: Fri, 23 Mar 2012 12:11:12 -0700
-Message-ID: <1332529872.2516.5.camel@edumazet-glaptop>
-References: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com>
-	 <1332374452.9433.15.camel@edumazet-glaptop>
-	 <CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
-	 <1332458037.6521.12.camel@edumazet-glaptop>
-	 <1332458223.6521.14.camel@edumazet-glaptop>
-	 <CAK3+h2yFeww84QStvugyaYGfWsL2cw3TnG3CoeLk-q2pQ70_+w@mail.gmail.com>
-	 <CAK6E8=dnYBLQm4eDh4HOeN_O8uRy8Gvf=PeuT69+6rycjRwRfg@mail.gmail.com>
+From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA adapter
+Date: Fri, 23 Mar 2012 12:16:52 -0700
+Message-ID: <88B766C272F2C64B944B21AD078333151C964A68E3@EXMAIL.ad.emulex.com>
+References: <CAL1RGDVxCE--P78bk0Me5o+ekSzgBYG0UJT6y3O7cK3mUGBjuQ@mail.gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6EB4@saturn3.aculab.com>
+ <88B766C272F2C64B944B21AD078333151C964A66EF@EXMAIL.ad.emulex.com>
+ <20120322205824.GC9614@obsidianresearch.com>
+ <88B766C272F2C64B944B21AD078333151C964A670B@EXMAIL.ad.emulex.com>
+ <3ae9829d-f8dd-4268-918a-94616eff0915@exht1.ad.emulex.com>
+ <20120322224429.GA12980@obsidianresearch.com>
+ <88B766C272F2C64B944B21AD078333151C964A67E0@EXMAIL.ad.emulex.com>
+ <20120323165414.GA15260@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vincent Li <vincent.mc.li@gmail.com>, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:45447 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758223Ab2CWTLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 15:11:15 -0400
-Received: by yenl12 with SMTP id l12so3032519yen.19
-        for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 12:11:14 -0700 (PDT)
-In-Reply-To: <CAK6E8=dnYBLQm4eDh4HOeN_O8uRy8Gvf=PeuT69+6rycjRwRfg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120323165414.GA15260-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-03-23 at 12:03 -0700, Yuchung Cheng wrote:
+Got it. You did mention about typedef in email chain, but I understood as different way to achieve same.
 
-> AFAICT the feature that Eric refers to is TCP Fast Open that I am
-> still testing and have not yet submit to netdev.
-> 
+I reviewed my code and found that most of the fields between driver-adapter doesn't need attribute.
+So far (a) removing packed and (b) BUILD_BUG_ON looks sufficient for current set of structures. Initial test suffice the need.
 
-Nope, I was referring to actual linux code ;)
+Thanks.
+Parav
 
-TFO will permit to send the DATA in the SYN packet, while Vincent only
-asked to send it in the second packet the client sends to server.
-
-> But one way to achieve that currently is doing a non-blocking connect
-> then a blocking write.
+> -----Original Message-----
+> From: Jason Gunthorpe [mailto:jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org]
+> Sent: Friday, March 23, 2012 10:24 PM
+> To: Pandit, Parav
+> Cc: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org; roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org; linux-
+> rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: Re: [PATCH 2/9] ocrdma: Driver for Emulex OneConnect RDMA
+> adapter
 > 
-> I just tried this on 2.6 machine to a remote server
+> On Fri, Mar 23, 2012 at 07:03:37AM -0700, Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org wrote:
 > 
-> fcntl(sd, F_SETFL, fcntl(sd, F_GETFL, 0) | O_NONBLOCK);
-> connect(sd, ...);
-> fcntl(sd, F_SETFL, fcntl(sd, F_GETFL, 0) & ~O_NONBLOCK);
-> sendto(sd, buf, buf, 0, ...);
+> > > David is saying you will get a 12 byte struct and fieldb will be
+> > > unaligned. Since
+> > > 12 is aligned to 4 no padding is added.
+> >
+> > So I decided to experiment above example before implementing in
+> > driver. However I find structure of 16 bytes (instead of 12) with
+> > padding after fielda in below example.  Am I missing some compiler
+> > option or syntax error in attribute? Sorry to ask this silly question.
+> > I tried __attribute__((__aligned__(4))); too based on usage in other
+> > kernel code.
 > 
-> The key is that the socket has to be in progress of connecting
-> when application calls write/sendto(2). If you are testing on loopback,
-> the connect might finish before sendto so this won't work.
+> I got the syntax wrong for that specific case (it is a little unintuitive.. IMHO,
+> capping the alignment of a container should cap the alignment of all
+> members, otherwise it is nonsense!):
 > 
+> typedef uint64_t u64_unaligned_8 __attribute__((__aligned__(4)));
+> 
+> struct foo {
+>         uint32_t fielda;
+>         u64_unaligned_8 fieldb;
+> };
+> 
+> struct foo2 {
+>         uint32_t fielda;
+>         uint64_t fieldb;
+> };
+> 
+> int main(int argc,const char *argv[])
+> {
+> 	printf("sizeof(foo) = %zu, fieldb = %zu\n",sizeof(struct foo),
+> 	       offsetof(struct foo,fieldb));
+> 	printf("sizeof(foo2) = %zu, fieldb = %zu\n",sizeof(struct foo2),
+> 	       offsetof(struct foo2,fieldb));
+> 	return 0;
+> }
+> 
+> sizeof(foo) = 12, fieldb = 4
+> sizeof(foo2) = 16, fieldb = 8
+> 
+> gcc version 4.6.1 (Ubuntu/Linaro 4.6.1-9ubuntu3)
+> 
+> Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
