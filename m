@@ -1,168 +1,84 @@
-From: Peter Rusko <rusko.peter@prolan.hu>
-Subject: FEC MAC with ethernet switch chip
-Date: Thu, 22 Mar 2012 17:46:33 +0100
-Message-ID: <4F6B5769.2090301@prolan.hu>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Fri, 23 Mar 2012 06:59:29 +0100
+Message-ID: <20120323055927.GA2311@netboy.at.omicron.at>
+References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
+ <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+ <20120316065537.GB2199@netboy.at.omicron.at>
+ <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+ <20120321170003.GA5533@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+ <20120322064107.GB2182@netboy.at.omicron.at>
+ <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------070200090801010708050003"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw2.prolan.hu ([193.68.50.107]:41730 "EHLO fw2.prolan.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752474Ab2CWFl4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2012 01:41:56 -0400
-Received: from imss.prolan.hu (unknown [10.254.254.252])
-	by fw2.prolan.hu (Postfix) with ESMTP id 76BF9E2C9
-	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:32:20 +0100 (CET)
-Received: from imss.prolan.hu (localhost.localdomain [127.0.0.1])
-	by localhost (Postfix) with ESMTP id 808CFCF9FD
-	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:33:35 +0100 (CET)
-Received: from fw2.prolan.hu (unknown [10.254.254.253])
-	by imss.prolan.hu (Postfix) with ESMTP id 683CBCF9EC
-	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:33:35 +0100 (CET)
-Received: from saturn2.intranet.prolan.hu (saturn2.intranet.prolan.hu [193.91.83.237])
-	by fw2.prolan.hu (Postfix) with ESMTP id B0D0BE468
-	for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:31:59 +0100 (CET)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:50248 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321Ab2CWF7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 01:59:42 -0400
+Received: by wibhq7 with SMTP id hq7so1622501wib.1
+        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 22:59:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------070200090801010708050003
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 8bit
+On Thu, Mar 22, 2012 at 07:13:42PM -0400, chetan loke wrote:
 
-Hi all,
+> /* users can keep re-trying - dont really care */
 
-I'm trying to get a Marvell ethernet switch (88E6065) working with the
-FEC driver (on an i.mx28 cpu). The original driver doesn't support it
-because of the multiple ports/phys. It probes the bus and assigns the hw
-with the first address to fec0 and the second to fec1. This results the
-loss of fec1 when I disconnect the cable from the first port (the phy
-driver brings the connection down).
+[Sigh] No, they do in fact care...
 
-I have two solutions, but don't really know which one is better.
+> igb_gettime_locking (...) {
+>      unsigned int seq;
+>      u64 ns;
+>      do {
+>      seq = read_seqbegin( &pigb->tmreg_seq_lock);
+>      ns = timecounter_read(&pigb->tc);
 
-1. There is a DSA (Distributed Switch Architecture) interface used in
-the kernel for these chips. These drivers don't need PHY's so I simply
-disabled the PHY driver (and made it configurable through
-platform_data). An attached patch shows this simple solution. It works
-perfectly, but I still have to configure the chip. (btw, I had serious
-problems adding the platform_dev because it needs a reference to a
-struct ndev. Is there a good solution for this?)
+And what happens here?
 
-2. A PHY driver would solve the problem, though it's not a PHY.
+timecounter_read()
+ timecounter_read_delta()
+  tc->cc->read() == igb_825xx_systim_read()
 
-Which one should I use? Or is there a better one?
+   lo = rd32(E1000_SYSTIML); /* this read latches the time value */
+   hi = rd32(E1000_SYSTIMH); /* and here is your race */
 
-Regards,
--- 
-Ruskó Péter
-Fejlesztőmérnök
+If two readers enter this code at nearly the same time, then they can
+corrupt each other's hi/lo values.
 
-Prolan Zrt. / Prolan Co.
-Hungary 2011 Budakalász, Szentendrei út 1-3.
-Tel./Phone: +36 20 954 3118
-Fax: +36 26 540 420
-E-mail: rusko.peter@prolan.hu
-Web: www.prolan.hu
-Timezone:CET
+>      } while (read_seqretry(&pigb->tmreg_seq_lock, seq));
+>      // process ns
+> }
+> 
+> 
+> copyright 2012 - Chetan Loke <lokechetan@gmail.com>
+> 
+> // trip cnt will ensure/enforce - evil adjtime user-space code can
+> still not block us.
+> // called from igb_tx[rx]_hwtstamp
+> driver_rx_tx_path_locking( ... ) {
+>      unsigned int seq, trip_cnt = 0;
+>      u64 ns;
+>      do {
+>      seq = read_seqbegin( &pigb->tmreg_seq_lock);
+>      trip_cnt++;
+>      ns = timecounter_read(&pigb->tc);
 
---------------070200090801010708050003
-Content-Type: text/x-patch; name="fecphy.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="fecphy.patch"
+Same here.
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a13eb30..293432f 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -239,6 +239,7 @@ struct fec_enet_private {
- 	int	mii_timeout;
- 	uint	phy_speed;
- 	phy_interface_t	phy_interface;
-+	unsigned phy_type;
- 	int	link;
- 	int	full_duplex;
- 	struct	completion mdio_done;
-@@ -978,6 +979,17 @@ static int fec_enet_mii_probe(struct net_device *ndev)
- 
- 	fep->phy_dev = NULL;
- 
-+	if (fep->phy_type == FEC_PHY_SWITCH) {
-+		fep->link = 1;
-+		netif_carrier_on(ndev); // always up
-+
-+		fep->full_duplex = 1; // full duplex
-+
-+		fec_restart(ndev, fep->full_duplex);
-+
-+		return 0;
-+	}
-+
- 	/* check for attached phy */
- 	for (phy_id = 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
- 		if ((fep->mii_bus->phy_mask & (1 << phy_id)))
-@@ -1170,8 +1182,20 @@ static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
- 	if (!netif_running(ndev))
- 		return -EINVAL;
- 
--	if (!phydev)
--		return -ENODEV;
-+	if (!phydev) {
-+		// On i.mx28, this is not necessarily needed
-+		// TODO: remove?
-+		struct mii_ioctl_data *mii_data = if_mii(rq);
-+
-+		if (cmd == SIOCGMIIREG)
-+			mdiobus_write(fep->mii_bus, mii_data->phy_id,
-+					mii_data->reg_num, mii_data->val_in);
-+		else if (cmd == SIOCSMIIREG)
-+			mii_data->val_out = mdiobus_read(fep->mii_bus,
-+					mii_data->phy_id, mii_data->reg_num);
-+		else return -ENODEV;
-+		return 0;
-+	}
- 
- 	return phy_mii_ioctl(phydev, rq, cmd);
- }
-@@ -1274,7 +1298,8 @@ fec_enet_open(struct net_device *ndev)
- 		fec_enet_free_buffers(ndev);
- 		return ret;
- 	}
--	phy_start(fep->phy_dev);
-+	if (fep->phy_type == FEC_PHY_NORMAL)
-+		phy_start(fep->phy_dev);
- 	netif_start_queue(ndev);
- 	fep->opened = 1;
- 	return 0;
-@@ -1598,6 +1623,9 @@ fec_probe(struct platform_device *pdev)
- 		fep->phy_interface = ret;
- 	}
- 
-+	if (pdata)
-+		fep->phy_type = pdata->phy_type;
-+
- 	fec_reset_phy(pdev);
- 
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
-diff --git a/include/linux/fec.h b/include/linux/fec.h
-index bcff455..701fb2a 100644
---- a/include/linux/fec.h
-+++ b/include/linux/fec.h
-@@ -14,10 +14,15 @@
- #ifndef __LINUX_FEC_H__
- #define __LINUX_FEC_H__
- 
-+#define FEC_PHY_NORMAL 0
-+#define FEC_PHY_SWITCH 1
-+#define FEC_PHY_NONE 2
-+
- #include <linux/phy.h>
- 
- struct fec_platform_data {
- 	phy_interface_t phy;
-+	unsigned phy_type;
- 	unsigned char mac[ETH_ALEN];
- };
- 
-
---------------070200090801010708050003--
+Thanks,
+Richard
