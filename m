@@ -1,26 +1,55 @@
-From: "jin mong" <amula@cartagena.uned.es>
-Subject: (unknown)
-Date: Fri, 23 Mar 2012 16:28:07 +0100
-Message-ID: <c248ad8d31c4a5abf7e45f36194c14b6.squirrel__41962.3862872415$1332517135$gmane$org@correo.uned.es>
-Reply-To: jinmong22@yahoo.com.hk
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL net] vhost-net/virtio: fixes for 3.4
+Date: Fri, 23 Mar 2012 17:28:07 +0200
+Message-ID: <20120323152807.GA6037@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-cinco.uned.es ([62.204.192.119]:22923 "EHLO
-	smtp-out-cinco.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab2CWPi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 11:38:28 -0400
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	levinsasha928@gmail.com, mst@redhat.com, nyh@il.ibm.com,
+	nyh@math.technion.ac.il
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greetings Partner,
+Hi David,
 
-This is my second time of sending you this notice. I have finally found
-you as an approved heir to the inheritance of the deposited funds with
-same surname of the deceased depositor.
+The following changes since commit 5ffca28a4ac7abb8a254fafe6bd03b2f83667df7:
 
-Jin Mong
-Email: jinmong22@yahoo.com.hk
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/aia21/ntfs (2012-02-27 07:59:33 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+
+for you to fetch changes up to ea5d404655ba3b356d0c06d6a3c4f24112124522:
+
+  vhost: fix release path lockdep checks (2012-02-28 09:13:22 +0200)
+
+----------------------------------------------------------------
+vhost/virtio: fixes for 3.4
+
+This includes a couple of vhost-net bugfixes,
+and fixes tools/virtio making it useful again.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (4):
+      tools/virtio: add linux/module.h stub
+      tools/virtio: add linux/hrtimer.h stub
+      tools/virtio: stub out strong barriers
+      vhost: fix release path lockdep checks
+
+Nadav Har'El (1):
+      vhost: don't forget to schedule()
+
+ drivers/vhost/net.c         |    2 +-
+ drivers/vhost/vhost.c       |   11 +++++++----
+ drivers/vhost/vhost.h       |    2 +-
+ tools/virtio/linux/virtio.h |    3 +++
+ 4 files changed, 12 insertions(+), 6 deletions(-)
+ create mode 100644 tools/virtio/linux/hrtimer.h
+ create mode 100644 tools/virtio/linux/module.h
