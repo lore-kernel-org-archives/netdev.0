@@ -1,79 +1,91 @@
-From: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
-Subject: Re: [PATCH] e1000: Silence sparse warnings by correcting type
-Date: Fri, 23 Mar 2012 16:01:15 +0200
-Message-ID: <CAMXE1-phb7_4h2Z-EdJ_QK0EYYcQkFwaMZevFaTNmet6OHF7Dw@mail.gmail.com>
-References: <1332233951-31129-1-git-send-email-Andrei.Emeltchenko.news@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:36848 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752775Ab2CWOBR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2012 10:01:17 -0400
-Received: by lahj13 with SMTP id j13so2512663lah.19
-        for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 07:01:16 -0700 (PDT)
-In-Reply-To: <1332233951-31129-1-git-send-email-Andrei.Emeltchenko.news@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandre Bounine <alexandre.bounine@idt.com>
+Subject: [PATCH linux-next] dmaengine: add context parameter fixups
+Date: Fri, 23 Mar 2012 10:00:42 -0400
+Message-ID: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+Cc: Alexandre Bounine <alexandre.bounine@idt.com>, samuel@sortiz.org,
+	lrg@ti.com, broonie@opensource.wolfsonmicro.com, perex@perex.cz,
+	tiwai@suse.de, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, netdev@vger.kernel.org,
+	fabio.estevam@freescale.com, alsa-devel@alsa-project.org
+To: paul.gortmaker@windriver.com, vinod.koul@intel.com,
+	dan.j.williams@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ping
+This patch fixes drivers that use device_prep_slave_sg() and
+device_prep_dma_cyclic() interfaces and have been missed during the initial
+release of interface changing patches.
 
-On Tue, Mar 20, 2012 at 10:59 AM, Andrei Emeltchenko
-<Andrei.Emeltchenko.news@gmail.com> wrote:
-> From: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
->
-> Silence sparse warnings shown below:
-> ...
-> drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
-> =A0 =A0 =A0 =A0cast to restricted __le64
-> drivers/net/ethernet/intel/e1000/e1000_main.c:3435:17: warning:
-> =A0 =A0 =A0 =A0cast to restricted __le64
-> ...
->
-> Signed-off-by: Andrei Emeltchenko <andrei.emeltchenko@intel.com>
-> ---
-> =A0drivers/net/ethernet/intel/e1000/e1000_main.c | =A0 =A04 ++--
-> =A01 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/=
-net/ethernet/intel/e1000/e1000_main.c
-> index 6419a88..1bf73cf 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -3377,7 +3377,7 @@ static void e1000_dump(struct e1000_adapter *ad=
-apter)
-> =A0 =A0 =A0 =A0for (i =3D 0; tx_ring->desc && (i < tx_ring->count); i=
-++) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct e1000_tx_desc *tx_desc =3D E100=
-0_TX_DESC(*tx_ring, i);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct e1000_buffer *buffer_info =3D &=
-tx_ring->buffer_info[i];
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct my_u { u64 a; u64 b; };
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct my_u { __le64 a; __le64 b; };
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct my_u *u =3D (struct my_u *)tx_d=
-esc;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const char *type;
->
-> @@ -3421,7 +3421,7 @@ rx_ring_summary:
-> =A0 =A0 =A0 =A0for (i =3D 0; rx_ring->desc && (i < rx_ring->count); i=
-++) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct e1000_rx_desc *rx_desc =3D E100=
-0_RX_DESC(*rx_ring, i);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct e1000_buffer *buffer_info =3D &=
-rx_ring->buffer_info[i];
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct my_u { u64 a; u64 b; };
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct my_u { __le64 a; __le64 b; };
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct my_u *u =3D (struct my_u *)rx_d=
-esc;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const char *type;
->
-> --
-> 1.7.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+This patch is based on linux-next-20120322 code tree.
+See https://lkml.org/lkml/2012/3/22/339 for build failure report.
+
+Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
+Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/dma/sa11x0-dma.c      |    2 +-
+ drivers/net/irda/sa1100_ir.c  |    2 +-
+ sound/soc/sh/fsi.c            |    7 +++----
+ sound/soc/soc-dmaengine-pcm.c |    2 +-
+ 4 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/dma/sa11x0-dma.c b/drivers/dma/sa11x0-dma.c
+index 16a6b48..ec78cce 100644
+--- a/drivers/dma/sa11x0-dma.c
++++ b/drivers/dma/sa11x0-dma.c
+@@ -585,7 +585,7 @@ static dma_cookie_t sa11x0_dma_tx_submit(struct dma_async_tx_descriptor *tx)
+ 
+ static struct dma_async_tx_descriptor *sa11x0_dma_prep_slave_sg(
+ 	struct dma_chan *chan, struct scatterlist *sg, unsigned int sglen,
+-	enum dma_transfer_direction dir, unsigned long flags)
++	enum dma_transfer_direction dir, unsigned long flags, void *context)
+ {
+ 	struct sa11x0_dma_chan *c = to_sa11x0_dma_chan(chan);
+ 	struct sa11x0_dma_desc *txd;
+diff --git a/drivers/net/irda/sa1100_ir.c b/drivers/net/irda/sa1100_ir.c
+index a0d1913..e250675 100644
+--- a/drivers/net/irda/sa1100_ir.c
++++ b/drivers/net/irda/sa1100_ir.c
+@@ -147,7 +147,7 @@ static void sa1100_irda_dma_start(struct sa1100_buf *buf,
+ 	struct dma_async_tx_descriptor *desc;
+ 	struct dma_chan *chan = buf->chan;
+ 
+-	desc = chan->device->device_prep_slave_sg(chan, &buf->sg, 1, dir,
++	desc = dmaengine_prep_slave_sg(chan, &buf->sg, 1, dir,
+ 			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+ 	if (desc) {
+ 		desc->callback = cb;
+diff --git a/sound/soc/sh/fsi.c b/sound/soc/sh/fsi.c
+index 378cc5b..9e730ad 100644
+--- a/sound/soc/sh/fsi.c
++++ b/sound/soc/sh/fsi.c
+@@ -1001,11 +1001,10 @@ static void fsi_dma_do_tasklet(unsigned long data)
+ 	sg_dma_address(&sg) = buf;
+ 	sg_dma_len(&sg) = len;
+ 
+-	desc = chan->device->device_prep_slave_sg(chan, &sg, 1, dir,
+-						  DMA_PREP_INTERRUPT |
+-						  DMA_CTRL_ACK);
++	desc = dmaengine_prep_slave_sg(chan, &sg, 1, dir,
++					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+ 	if (!desc) {
+-		dev_err(dai->dev, "device_prep_slave_sg() fail\n");
++		dev_err(dai->dev, "dmaengine_prep_slave_sg() fail\n");
+ 		return;
+ 	}
+ 
+diff --git a/sound/soc/soc-dmaengine-pcm.c b/sound/soc/soc-dmaengine-pcm.c
+index 4420b70..4756952 100644
+--- a/sound/soc/soc-dmaengine-pcm.c
++++ b/sound/soc/soc-dmaengine-pcm.c
+@@ -143,7 +143,7 @@ static int dmaengine_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
+ 	direction = snd_pcm_substream_to_dma_direction(substream);
+ 
+ 	prtd->pos = 0;
+-	desc = chan->device->device_prep_dma_cyclic(chan,
++	desc = dmaengine_prep_dma_cyclic(chan,
+ 		substream->runtime->dma_addr,
+ 		snd_pcm_lib_buffer_bytes(substream),
+ 		snd_pcm_lib_period_bytes(substream), direction);
+-- 
+1.7.8.4
