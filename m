@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ptp/ptp_pch: Modified according to the mainter's
- comments
-Date: Thu, 22 Mar 2012 22:35:01 -0400 (EDT)
-Message-ID: <20120322.223501.1670921652591691525.davem@davemloft.net>
-References: <1332468760-2525-1-git-send-email-tshimizu818@gmail.com>
+Subject: Re: [PATCH] netfilter: remove forward module param confusion.
+Date: Thu, 22 Mar 2012 22:36:41 -0400 (EDT)
+Message-ID: <20120322.223641.2119502285314364845.davem@davemloft.net>
+References: <20120322182623.GA29859@elgon.mountain>
+	<8762dw9to2.fsf@rustcorp.com.au>
+	<8739909sqt.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, lucas.demarchi@profusion.mobi,
-	mirq-linux@rere.qmqm.pl, paul.gortmaker@windriver.com,
-	jdmason@kudzu.us, john.stultz@linaro.org, richardcochran@gmail.com,
-	arnd@arndb.de, khc@pm.waw.pl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qi.wang@intel.com,
-	yong.y.wang@intel.com, joel.clark@intel.com, kok.howg.ewe@intel.com
-To: tshimizu818@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59840 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751684Ab2CWCf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 22:35:29 -0400
-In-Reply-To: <1332468760-2525-1-git-send-email-tshimizu818@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: rusty@rustcorp.com.au
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <8739909sqt.fsf@rustcorp.com.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Fri, 23 Mar 2012 08:57:06 +1030
 
-You've sent three sets of patches.
+> It used to be an int, and it got changed to a bool parameter at least
+> 7 years ago.  It happens that NF_ACCEPT and NF_DROP are 0 and 1, so
+> this works, but it's unclear, and the check that it's in range is not
+> required.
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-And you've numbered them individually within each set.
-
-And this is totally confusing.
-
-Does one set need to be applied before another set?  And if so,
-in what order.
-
-I'm tossing all of your patches, submit your changes properly,
-orderred together as one single set of numberred patches.
+Applied.
