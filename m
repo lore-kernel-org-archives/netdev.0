@@ -1,94 +1,56 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] netfilter: remove forward module param confusion.
-Date: Fri, 23 Mar 2012 08:57:06 +1030
-Message-ID: <8739909sqt.fsf@rustcorp.com.au>
-References: <20120322182623.GA29859@elgon.mountain> <8762dw9to2.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <8762dw9to2.fsf@rustcorp.com.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Takahiro Shimizu <tshimizu818@gmail.com>
+Subject: [PATCH 1/2] ptp/ptp_pch: Modified according to the mainter's comments
+Date: Fri, 23 Mar 2012 11:12:39 +0900
+Message-ID: <1332468760-2525-1-git-send-email-tshimizu818@gmail.com>
+Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, Takahiro Shimizu <tshimizu818@gmail.com>
+To: jeffrey.t.kirsher@intel.com, davem@davemloft.net,
+	lucas.demarchi@profusion.mobi, mirq-linux@rere.qmqm.pl,
+	paul.gortmaker@windriver.com, jdmason@kudzu.us,
+	john.stultz@linaro.org, richardcochran@gmail.com, arnd@arndb.de,
+	khc@pm.waw.pl, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:62522 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751250Ab2CWCMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 22:12:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It used to be an int, and it got changed to a bool parameter at least
-7 years ago.  It happens that NF_ACCEPT and NF_DROP are 0 and 1, so
-this works, but it's unclear, and the check that it's in range is not
-required.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
 ---
- net/ipv4/netfilter/iptable_filter.c  |    9 ++-------
- net/ipv6/netfilter/ip6table_filter.c |    9 ++-------
- 2 files changed, 4 insertions(+), 14 deletions(-)
+ drivers/ptp/ptp_pch.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
---- a/net/ipv4/netfilter/iptable_filter.c
-+++ b/net/ipv4/netfilter/iptable_filter.c
-@@ -52,7 +52,7 @@ iptable_filter_hook(unsigned int hook, s
- static struct nf_hook_ops *filter_ops __read_mostly;
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 375eb04..212381e 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -261,6 +261,7 @@ u64 pch_rx_snap_read(struct pci_dev *pdev)
  
- /* Default to forward because I got too much mail already. */
--static bool forward = NF_ACCEPT;
-+static bool forward = true;
- module_param(forward, bool, 0000);
+ 	ns = ((u64) hi) << 32;
+ 	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
  
- static int __net_init iptable_filter_net_init(struct net *net)
-@@ -64,7 +64,7 @@ static int __net_init iptable_filter_net
- 		return -ENOMEM;
- 	/* Entry 1 is the FORWARD hook */
- 	((struct ipt_standard *)repl->entries)[1].target.verdict =
--		-forward - 1;
-+		forward ? -NF_ACCEPT - 1 : -NF_DROP - 1;
+ 	return ns;
+ }
+@@ -277,6 +278,7 @@ u64 pch_tx_snap_read(struct pci_dev *pdev)
  
- 	net->ipv4.iptable_filter =
- 		ipt_register_table(net, &packet_filter, repl);
-@@ -88,11 +88,6 @@ static int __init iptable_filter_init(vo
- {
- 	int ret;
+ 	ns = ((u64) hi) << 32;
+ 	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
  
--	if (forward < 0 || forward > NF_MAX_VERDICT) {
--		pr_err("iptables forward must be 0 or 1\n");
--		return -EINVAL;
--	}
--
- 	ret = register_pernet_subsys(&iptable_filter_net_ops);
- 	if (ret < 0)
- 		return ret;
-diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
---- a/net/ipv6/netfilter/ip6table_filter.c
-+++ b/net/ipv6/netfilter/ip6table_filter.c
-@@ -44,7 +44,7 @@ ip6table_filter_hook(unsigned int hook, 
- static struct nf_hook_ops *filter_ops __read_mostly;
+ 	return ns;
+ }
+@@ -649,8 +651,6 @@ pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	iowrite32(1, &chip->regs->trgt_lo);
+ 	iowrite32(0, &chip->regs->trgt_hi);
+ 	iowrite32(PCH_TSE_TTIPEND, &chip->regs->event);
+-	/* Version: IEEE1588 v1 and IEEE1588-2008,  Mode: All Evwnt, Locked  */
+-	iowrite32(0x80020000, &chip->regs->ch_control);
  
- /* Default to forward because I got too much mail already. */
--static bool forward = NF_ACCEPT;
-+static bool forward = true;
- module_param(forward, bool, 0000);
+ 	pch_eth_enable_set(chip);
  
- static int __net_init ip6table_filter_net_init(struct net *net)
-@@ -56,7 +56,7 @@ static int __net_init ip6table_filter_ne
- 		return -ENOMEM;
- 	/* Entry 1 is the FORWARD hook */
- 	((struct ip6t_standard *)repl->entries)[1].target.verdict =
--		-forward - 1;
-+		forward ? -NF_ACCEPT - 1 : -NF_DROP - 1;
- 
- 	net->ipv6.ip6table_filter =
- 		ip6t_register_table(net, &packet_filter, repl);
-@@ -80,11 +80,6 @@ static int __init ip6table_filter_init(v
- {
- 	int ret;
- 
--	if (forward < 0 || forward > NF_MAX_VERDICT) {
--		pr_err("iptables forward must be 0 or 1\n");
--		return -EINVAL;
--	}
--
- 	ret = register_pernet_subsys(&ip6table_filter_net_ops);
- 	if (ret < 0)
- 		return ret;
 -- 
-  How could I marry someone with more hair than me?  http://baldalex.org
+1.7.4.4
