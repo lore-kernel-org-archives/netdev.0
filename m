@@ -1,62 +1,76 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH RFC] net: hardware limited MTU for 802.1Q frames
-Date: Fri, 23 Mar 2012 15:41:26 +0100
-Message-ID: <20120323144126.GE3085863@jupiter.n2.diac24.net>
-References: <1332499886-1126-1-git-send-email-msink@permonline.ru>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: Piggyback the final ACK of the three way TCP connection
+ establishment with the data
+Date: Fri, 23 Mar 2012 08:38:08 -0700
+Message-ID: <CAK3+h2yFeww84QStvugyaYGfWsL2cw3TnG3CoeLk-q2pQ70_+w@mail.gmail.com>
+References: <CAK3+h2zYLsWw44cAqJN_7vE1bqbEEsDK5oqKLpej0RLuKhk3qQ@mail.gmail.com>
+	<1332374452.9433.15.camel@edumazet-glaptop>
+	<CAK3+h2ydKQ15U1_2dqWsHAL_LKYm-1xbJvUbeaMJShoOCU_TsA@mail.gmail.com>
+	<1332458037.6521.12.camel@edumazet-glaptop>
+	<1332458223.6521.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org
-To: Mike Sinkovsky <msink@permonline.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:50245 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756472Ab2CWOld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2012 10:41:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1332499886-1126-1-git-send-email-msink@permonline.ru>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:59205 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754872Ab2CWPiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 11:38:09 -0400
+Received: by wibhq7 with SMTP id hq7so2169246wib.1
+        for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 08:38:08 -0700 (PDT)
+In-Reply-To: <1332458223.6521.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 23, 2012 at 03:51:26PM +0500, Mike Sinkovsky wrote:
-> This patch add callback in net_device_ops, called from 8021q
-> code to check for this hardware limitation.
-[...]
-> + * int (*ndo_get_hard_mtu)(struct net_device *dev)
-> + *	If defined, returns hardware limit for MTU.
-> + *	Called when a slave device needs to set MTU, to make sure that
-> + *	this limit is not exceed.
-> + *	If not defined, dev->mtu is used in hope the underlying device can
-> + *	handle it.
-> + *
+On Thu, Mar 22, 2012 at 4:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2012-03-22 at 16:13 -0700, Eric Dumazet wrote:
+>
+>> A third possibility (reading the code) if you use non blocking IO, is to
+>> send() a message right after connect()
+>>
+>>
+>
+> Or use the auto connect on sendto() more probably...
+>
+> That combines the connect() and send()
+>
 
-This is, in my opinion, not thought through enough. In particular, there
-are two interacting factors that your patch does not consider:
+thanks,
 
- - there are devices that support 802.1Q outside of the actual hard MTU
-   limitation. (example: i think AT91SAM on-chip ethernet). In these
-   cases, the device has a hard MTU of (random example) 1536 bytes, but
-   supports sending the extra 4 bytes of 802.1Q "outside" of that.
+I got the TCP_QUICKACK working, but not the non blocking IO,
+basically, what I did is
 
-   (in a case with MTU 1536, the driver can well choose to ignore that.
-   But if the device supports only 1500, plus an .1Q extra tag, that
-   needs to be reflected or we lose proper VLAN support.)
+  if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+    perror("Can't create TCP socket");
+    return 0;
+  }
 
- - there are other protocols that also need ethernet headroom. Here's a
-   short list:
-    - MPLS
-    - 802.1ad
-    - 802.1ah
-   and very importantly:
-    - 802.1Q stacked in 802.1Q
-    - or any other stacking essentially
-
-If anything, the semantics of your new callback need to be defined much
-better; in reality I think we should pass down the protocol stacking to
-the driver and ask for the resulting MTU.
-
-Obviously these concerns are of the future-proofing nature, though I
-wouldn't think adding this is wise when there are foreseeable
-inadequacies.
+  val = Fcntl(sock, F_GETFL, 0);
+  Fcntl(sock, F_SETFL, val | O_NONBLOCK);
 
 
--David
+  ip = get_ip(host);
+  fprintf(stderr, "IP is %s\n", ip);
+  remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in *));
+  remote->sin_family = AF_INET;
+  tmpres = inet_pton(AF_INET, ip, (void *)(&(remote->sin_addr.s_addr)));
+  if( tmpres < 0)
+  {
+    perror("Can't set remote->sin_addr.s_addr");
+    return 0;
+  }else if(tmpres == 0)
+  {
+    fprintf(stderr, "%s is not a valid IP address\n", ip);
+    return 0;
+  }
+  remote->sin_port = htons(PORT);
+
+char *query = "GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n";
+
+tmpres = sendto(sock, query, strlen(query), 0, (struct sockaddr
+*)remote, sizeof(struct sockaddr));
+
+ maybe I mis-interpret you.
+
+Vincent
