@@ -1,164 +1,261 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 09/10] stmmac: MDC clock dynamically based on the csr clock input
-Date: Fri, 23 Mar 2012 10:08:40 +0100
-Message-ID: <1332493721-28309-10-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 03/10] stmmac: sanitize the rx coe and add the type-1 csum
+Date: Fri, 23 Mar 2012 10:08:34 +0100
+Message-ID: <1332493721-28309-4-git-send-email-peppe.cavallaro@st.com>
 References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
 	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
-	viresh.kumar@st.com, bhutchings@solarflare.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	viresh.kumar@st.com, bhutchings@solarflare.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:52579 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757969Ab2CWJJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:49 -0400
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:50693 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757889Ab2CWJJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:28 -0400
 In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a specific clk_csr value is passed from the platform
-this means that the CSR Clock Range selection cannot be
-changed at run-time and it is fixed (as reported in the driver
-documentation). Viceversa the driver will try to set the MDC
-clock dynamically according to the actual clock input.
+From: Deepak SIKRI <deepak.sikri@st.com>
+
+This patch sanities the RX coe and adds the Type-1 Rx checksum offload engine (COE).
+
+So the RX COE can be passed through the platform but can be fixed
+at run-time in case of the core has the HW capability register.
+
+Also to support the Type-1 Rx COE the driver must append the
+HW checksum at the end of payload in case the Rx checksum
+engine was used to  offload the HW checksum.
 
 Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
-Reviewed-by: Francesco Virlinzi <francesco.virlinzi@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- Documentation/networking/stmmac.txt               |    2 +-
- drivers/net/ethernet/stmicro/stmmac/common.h      |   10 +++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   40 +++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
- 5 files changed, 54 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    4 +--
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   13 ----------
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    6 -----
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   13 +++++++++-
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   13 +++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    2 -
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   24 ++++++++++++++-----
+ 7 files changed, 40 insertions(+), 35 deletions(-)
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index eacb640..ab1e8d7 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -137,7 +137,7 @@ Where:
-  o pbl: the Programmable Burst Length is maximum number of beats to
-        be transferred in one DMA transaction.
-        GMAC also enables the 4xPBL by default.
-- o clk_csr: CSR Clock range selection.
-+ o clk_csr: fixed CSR Clock range selection.
-  o has_gmac: uses the GMAC core.
-  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
-  o tx_coe: core is able to perform the tx csum in HW.
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index f4df1eb..312e3f1 100644
+index 0319d64..386b100 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -97,6 +97,16 @@ struct stmmac_extra_stats {
- 	unsigned long normal_irq_n;
- };
- 
-+/* CSR Frequency Access Defines*/
-+#define CSR_F_35M	35000000
-+#define CSR_F_60M	60000000
-+#define CSR_F_100M	100000000
-+#define CSR_F_150M	150000000
-+#define CSR_F_250M	50000000
-+#define CSR_F_300M	300000000
-+
-+#define	MAC_CSR_H_FRQ_MASK	0x20
-+
- #define HASH_TABLE_SIZE 64
- #define PAUSE_TIME 0x200
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 7182f15..ddd0769 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -84,6 +84,7 @@ struct stmmac_priv {
- #ifdef CONFIG_HAVE_CLK
- 	struct clk *stmmac_clk;
+@@ -228,7 +228,7 @@ struct stmmac_desc_ops {
+ 	int (*get_rx_owner) (struct dma_desc *p);
+ 	void (*set_rx_owner) (struct dma_desc *p);
+ 	/* Get the receive frame size */
+-	int (*get_rx_frame_len) (struct dma_desc *p);
++	int (*get_rx_frame_len) (struct dma_desc *p, int rx_coe_type);
+ 	/* Return the reception status looking at the RDES1 */
+ 	int (*rx_status) (void *data, struct stmmac_extra_stats *x,
+ 			  struct dma_desc *p);
+@@ -261,8 +261,6 @@ struct stmmac_dma_ops {
+ struct stmmac_ops {
+ 	/* MAC core initialization */
+ 	void (*core_init) (void __iomem *ioaddr) ____cacheline_aligned;
+-	/* Support checksum offload engine */
+-	int  (*rx_coe) (void __iomem *ioaddr);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs) (void __iomem *ioaddr);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index b1c48b9..342fe8d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -46,18 +46,6 @@ static void dwmac1000_core_init(void __iomem *ioaddr)
  #endif
-+	int clk_csr;
- };
- 
- extern int phyaddr;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 08b4d05..c0d83ad 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -163,6 +163,35 @@ static void stmmac_verify_args(void)
- 		pause = PAUSE_TIME;
  }
  
-+static void stmmac_clk_csr_set(struct stmmac_priv *priv)
-+{
-+#ifdef CONFIG_HAVE_CLK
-+	u32 clk_rate;
-+
-+	clk_rate = clk_get_rate(priv->stmmac_clk);
-+
-+	/* Platform provided default clk_csr would be assumed valid
-+	 * for all other cases except for the below mentioned ones. */
-+	if (!(priv->clk_csr & MAC_CSR_H_FRQ_MASK)) {
-+		if (clk_rate < CSR_F_35M)
-+			priv->clk_csr = STMMAC_CSR_20_35M;
-+		else if ((clk_rate >= CSR_F_35M) && (clk_rate < CSR_F_60M))
-+			priv->clk_csr = STMMAC_CSR_35_60M;
-+		else if ((clk_rate >= CSR_F_60M) && (clk_rate < CSR_F_100M))
-+			priv->clk_csr = STMMAC_CSR_60_100M;
-+		else if ((clk_rate >= CSR_F_100M) && (clk_rate < CSR_F_150M))
-+			priv->clk_csr = STMMAC_CSR_100_150M;
-+		else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
-+			priv->clk_csr = STMMAC_CSR_150_250M;
-+		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
-+			priv->clk_csr = STMMAC_CSR_250_300M;
-+	} /* For values higher than the IEEE 802.3 specified frequency
-+	   * we can not estimate the proper divider as it is not known
-+	   * the frequency of clk_csr_i. So we do not change the default
-+	   * divider. */
-+#endif
-+}
-+
- #if defined(STMMAC_XMIT_DEBUG) || defined(STMMAC_RX_DEBUG)
- static void print_pkt(unsigned char *buf, int len)
+-static int dwmac1000_rx_coe_supported(void __iomem *ioaddr)
+-{
+-	u32 value = readl(ioaddr + GMAC_CONTROL);
+-
+-	value |= GMAC_CONTROL_IPC;
+-	writel(value, ioaddr + GMAC_CONTROL);
+-
+-	value = readl(ioaddr + GMAC_CONTROL);
+-
+-	return !!(value & GMAC_CONTROL_IPC);
+-}
+-
+ static void dwmac1000_dump_regs(void __iomem *ioaddr)
  {
-@@ -1882,6 +1911,17 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if (stmmac_clk_get(priv))
- 		goto error;
+ 	int i;
+@@ -211,7 +199,6 @@ static void dwmac1000_irq_status(void __iomem *ioaddr)
  
-+	/* If a specific clk_csr value is passed from the platform
-+	 * this means that the CSR Clock Range selection cannot be
-+	 * changed at run-time and it is fixed. Viceversa the driver'll try to
-+	 * set the MDC clock dynamically according to the csr actual
-+	 * clock input.
-+	 */
-+	if (!priv->plat->clk_csr)
-+		stmmac_clk_csr_set(priv);
+ static const struct stmmac_ops dwmac1000_ops = {
+ 	.core_init = dwmac1000_core_init,
+-	.rx_coe = dwmac1000_rx_coe_supported,
+ 	.dump_regs = dwmac1000_dump_regs,
+ 	.host_irq_status = dwmac1000_irq_status,
+ 	.set_filter = dwmac1000_set_filter,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index 138fb8d..9faf010 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -43,11 +43,6 @@ static void dwmac100_core_init(void __iomem *ioaddr)
+ #endif
+ }
+ 
+-static int dwmac100_rx_coe_supported(void __iomem *ioaddr)
+-{
+-	return 0;
+-}
+-
+ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
+ {
+ 	pr_info("\t----------------------------------------------\n"
+@@ -160,7 +155,6 @@ static void dwmac100_pmt(void __iomem *ioaddr, unsigned long mode)
+ 
+ static const struct stmmac_ops dwmac100_ops = {
+ 	.core_init = dwmac100_core_init,
+-	.rx_coe = dwmac100_rx_coe_supported,
+ 	.dump_regs = dwmac100_dump_mac_regs,
+ 	.host_irq_status = dwmac100_irq_status,
+ 	.set_filter = dwmac100_set_filter,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index ad1b627..2fc8ef9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -22,6 +22,7 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#include <linux/stmmac.h>
+ #include "common.h"
+ #include "descs_com.h"
+ 
+@@ -309,9 +310,17 @@ static void enh_desc_close_tx_desc(struct dma_desc *p)
+ 	p->des01.etx.interrupt = 1;
+ }
+ 
+-static int enh_desc_get_rx_frame_len(struct dma_desc *p)
++static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+ {
+-	return p->des01.erx.frame_length;
++	/* The type-1 checksum offload engines append the checksum at
++	 * the end of frame and the two bytes of checksum are added in
++	 * the length.
++	 * Adjust for that in the framelen for type-1 checksum offload
++	 * engines. */
++	if (rx_coe_type == STMMAC_RX_COE_TYPE1)
++		return p->des01.erx.frame_length - 2;
 +	else
-+		priv->clk_csr = priv->plat->clk_csr;
++		return p->des01.erx.frame_length;
+ }
+ 
+ const struct stmmac_desc_ops enh_desc_ops = {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index 25953bb..68962c5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -22,6 +22,7 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
++#include <linux/stmmac.h>
+ #include "common.h"
+ #include "descs_com.h"
+ 
+@@ -201,9 +202,17 @@ static void ndesc_close_tx_desc(struct dma_desc *p)
+ 	p->des01.tx.interrupt = 1;
+ }
+ 
+-static int ndesc_get_rx_frame_len(struct dma_desc *p)
++static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+ {
+-	return p->des01.rx.frame_length;
++	/* The type-1 checksum offload engines append the checksum at
++	 * the end of frame and the two bytes of checksum are added in
++	 * the length.
++	 * Adjust for that in the framelen for type-1 checksum offload
++	 * engines. */
++	if (rx_coe_type == STMMAC_RX_COE_TYPE1)
++		return p->des01.rx.frame_length - 2;
++	else
++		return p->des01.rx.frame_length;
+ }
+ 
+ const struct stmmac_desc_ops ndesc_ops = {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index b4b095f..b65d787 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -56,8 +56,6 @@ struct stmmac_priv {
+ 
+ 	struct stmmac_extra_stats xstats;
+ 	struct napi_struct napi;
+-
+-	int rx_coe;
+ 	int no_csum_insertion;
+ 
+ 	struct phy_device *phydev;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 860519c..a5a150d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1282,7 +1282,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 			struct sk_buff *skb;
+ 			int frame_len;
+ 
+-			frame_len = priv->hw->desc->get_rx_frame_len(p);
++			frame_len = priv->hw->desc->get_rx_frame_len(p,
++					priv->plat->rx_coe);
+ 			/* ACS is set; GMAC core strips PAD/FCS for IEEE 802.3
+ 			 * Type frames (LLC/LLC-SNAP) */
+ 			if (unlikely(status != llc_snap))
+@@ -1318,7 +1319,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ #endif
+ 			skb->protocol = eth_type_trans(skb, priv->dev);
+ 
+-			if (unlikely(!priv->rx_coe)) {
++			if (unlikely(!priv->plat->rx_coe)) {
+ 				/* No RX COE for old mac10/100 devices */
+ 				skb_checksum_none_assert(skb);
+ 				netif_receive_skb(skb);
+@@ -1465,8 +1466,10 @@ static netdev_features_t stmmac_fix_features(struct net_device *dev,
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 
+-	if (!priv->rx_coe)
++	if (priv->plat->rx_coe == STMMAC_RX_COE_NONE)
+ 		features &= ~NETIF_F_RXCSUM;
++	else if (priv->plat->rx_coe == STMMAC_RX_COE_TYPE1)
++		features &= ~NETIF_F_IPV6_CSUM;
+ 	if (!priv->plat->tx_coe)
+ 		features &= ~NETIF_F_ALL_CSUM;
+ 
+@@ -1769,17 +1772,24 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 		 * register (if supported).
+ 		 */
+ 		priv->plat->enh_desc = priv->dma_cap.enh_desc;
+-		priv->plat->tx_coe = priv->dma_cap.tx_coe;
+ 		priv->plat->pmt = priv->dma_cap.pmt_remote_wake_up;
 +
- 	return priv;
++		priv->plat->tx_coe = priv->dma_cap.tx_coe;
++
++		if (priv->dma_cap.rx_coe_type2)
++			priv->plat->rx_coe = STMMAC_RX_COE_TYPE2;
++		else if (priv->dma_cap.rx_coe_type1)
++			priv->plat->rx_coe = STMMAC_RX_COE_TYPE1;
++
+ 	} else
+ 		pr_info(" No HW DMA feature register supported");
  
- error:
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 1a42014..ade1082 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -70,7 +70,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 	int data;
- 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
- 			((phyreg << 6) & (0x000007C0)));
--	regValue |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
-+	regValue |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
+ 	/* Select the enhnaced/normal descriptor structures */
+ 	stmmac_selec_desc_mode(priv);
  
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
- 		return -EBUSY;
-@@ -106,7 +106,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
- 	    | MII_WRITE;
+-	priv->rx_coe = priv->hw->mac->rx_coe(priv->ioaddr);
+-	if (priv->rx_coe)
+-		pr_info(" RX Checksum Offload Engine supported\n");
++	if (priv->plat->rx_coe)
++		pr_info(" RX Checksum Offload Engine supported (type %d)\n",
++			priv->plat->rx_coe);
+ 	if (priv->plat->tx_coe)
+ 		pr_info(" TX Checksum insertion supported\n");
  
--	value |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
-+	value |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
- 
- 	/* Wait until any existing MII operation is complete */
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 -- 
 1.7.4.4
