@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sh: sh_eth: Add support SH7734
-Date: Fri, 23 Mar 2012 14:52:43 -0400 (EDT)
-Message-ID: <20120323.145243.112333113762306752.davem@davemloft.net>
-References: <1332478533-17382-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCH net] qlcnic: Bug fix for LRO
+Date: Fri, 23 Mar 2012 14:52:52 -0400 (EDT)
+Message-ID: <20120323.145252.220010012654046251.davem@davemloft.net>
+References: <1332520354-22519-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nobuhiro.iwamatsu.yj@renesas.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: anirban.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37905 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37911 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753822Ab2CWSws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 14:52:48 -0400
-In-Reply-To: <1332478533-17382-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+	with ESMTP id S1753822Ab2CWSw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 14:52:58 -0400
+In-Reply-To: <1332520354-22519-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Date: Fri, 23 Mar 2012 13:55:33 +0900
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Fri, 23 Mar 2012 09:32:34 -0700
 
-> Add define of SH7734 register and sh_eth_reset_hw_crc function.
+>  - After FW reset, IP addresses need to be reprogrammed to FW for LRO to work. This
+>    was not happening in context reset path. Fixed it here.
+>  - Updated driver version to 5.0.27
 > 
-> V2: Do not split line of #if defined.
-> 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
-This patch does not apply to the current tree.
+Applied.
