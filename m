@@ -1,109 +1,302 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 08/10] stmmac: extend CSR Clock Range programming
-Date: Fri, 23 Mar 2012 10:08:39 +0100
-Message-ID: <1332493721-28309-9-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 05/10] stmmac: re-work the internal GMAC DMA platf parameters
+Date: Fri, 23 Mar 2012 10:08:36 +0100
+Message-ID: <1332493721-28309-6-git-send-email-peppe.cavallaro@st.com>
 References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
 	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
 	viresh.kumar@st.com, bhutchings@solarflare.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	Vikas Manocha <vikas.manocha@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:49536 "EHLO
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:58463 "EHLO
 	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757880Ab2CWJJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:39 -0400
+	by vger.kernel.org with ESMTP id S1757880Ab2CWJJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:27 -0400
 In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CSR Clock Range has been reworked and new macros has
-been added in the platform header to allow the CSR Clock
-Range selection in the GMII Address Register.
-The previous work didn't add the other fields
-that can be used to achieve MDC clock of frequency
-higher than the IEEE 802.3 specified frequency limit
-of 2.5 MHz and program a clock divider of lower value.
-On such platforms, these are used indeed so this patch
-adds them.
+From: Deepak SIKRI <deepak.sikri@st.com>
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+This patch re-works the internal GMAC DMA parameters
+passed from the platform.
+In the past, we only passed the pbl but, with new core,
+other parameters can be passed and are mandatory on some
+platforms.
+
+New parameters are documented in stmmac.txt because this
+patch has an impact for many platforms.
+
+Signed-off-by: Shiraz Hashim <shiraz.hashim@st.com>
+Signed-off-by: Vikas Manocha <vikas.manocha@st.com>
+Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
+Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
- include/linux/stmmac.h                            |   31 +++++++++++----------
- 2 files changed, 18 insertions(+), 17 deletions(-)
+ Documentation/networking/stmmac.txt                |   24 ++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   42 +++++++++++++++++--
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    6 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    3 +-
+ include/linux/stmmac.h                             |   20 +++++++++-
+ 9 files changed, 89 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 83292f4..1a42014 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -70,7 +70,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 	int data;
- 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
- 			((phyreg << 6) & (0x000007C0)));
--	regValue |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
-+	regValue |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 61f40a3..eacb640 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -111,7 +111,7 @@ and detailed below as well:
+ 	int phy_addr;
+ 	int interface;
+ 	struct stmmac_mdio_bus_data *mdio_bus_data;
+-	int pbl;
++	struct stmmac_dma_cfg *dma_cfg;
+ 	int clk_csr;
+ 	int has_gmac;
+ 	int enh_desc;
+@@ -163,7 +163,7 @@ Where:
+  o custom_cfg: this is a custom configuration that can be passed while
+ 	      initialising the resources.
  
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+-The we have:
++For MDIO bus The we have:
+ 
+  struct stmmac_mdio_bus_data {
+ 	int bus_id;
+@@ -180,10 +180,28 @@ Where:
+  o irqs: list of IRQs, one per PHY.
+  o probed_phy_irq: if irqs is NULL, use this for probed PHY.
+ 
++
++For DMA engine we have the following internal fields that should be
++tuned according to the HW capabilities.
++
++struct stmmac_dma_cfg {
++	int pbl;
++	int fixed_burst;
++	int burst_len_supported;
++};
++
++Where:
++ o pbl: Programmable Burst Length
++ o fixed_burst: program the DMA to use the fixed burst mode
++ o burst_len: this is the value we put in the register
++	      supported values are provided as macros in
++	      linux/stmmac.h header file.
++
++---
++
+ Below an example how the structures above are using on ST platforms.
+ 
+  static struct plat_stmmacenet_data stxYYY_ethernet_platform_data = {
+-	.pbl = 32,
+ 	.has_gmac = 0,
+ 	.enh_desc = 0,
+ 	.fix_mac_speed = stxYYY_ethernet_fix_mac_speed,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 386b100..f4df1eb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -236,7 +236,8 @@ struct stmmac_desc_ops {
+ 
+ struct stmmac_dma_ops {
+ 	/* DMA core initialization */
+-	int (*init) (void __iomem *ioaddr, int pbl, u32 dma_tx, u32 dma_rx);
++	int (*init) (void __iomem *ioaddr, int pbl, int fb, int burst_len,
++			u32 dma_tx, u32 dma_rx);
+ 	/* Dump DMA registers */
+ 	void (*dump_regs) (void __iomem *ioaddr);
+ 	/* Set tx/rx threshold in the csr6 register
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index cfcef0e..54339a7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -142,7 +142,7 @@ enum rx_tx_priority_ratio {
+ #define DMA_BUS_MODE_RPBL_MASK	0x003e0000	/* Rx-Programmable Burst Len */
+ #define DMA_BUS_MODE_RPBL_SHIFT	17
+ #define DMA_BUS_MODE_USP	0x00800000
+-#define DMA_BUS_MODE_4PBL	0x01000000
++#define DMA_BUS_MODE_PBL	0x01000000
+ #define DMA_BUS_MODE_AAL	0x02000000
+ 
+ /* DMA CRS Control and Status Register Mapping */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index 4d5402a..3675c57 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -30,8 +30,8 @@
+ #include "dwmac1000.h"
+ #include "dwmac_dma.h"
+ 
+-static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+-			      u32 dma_rx)
++static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb,
++			      int burst_len, u32 dma_tx, u32 dma_rx)
+ {
+ 	u32 value = readl(ioaddr + DMA_BUS_MODE);
+ 	int limit;
+@@ -48,15 +48,47 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+ 	if (limit < 0)
  		return -EBUSY;
-@@ -106,7 +106,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
- 	    | MII_WRITE;
  
--	value |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
-+	value |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
+-	value = /* DMA_BUS_MODE_FB | */ DMA_BUS_MODE_4PBL |
+-	    ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
+-	     (pbl << DMA_BUS_MODE_RPBL_SHIFT));
++	/*
++	 * Set the DMA PBL (Programmable Burst Length) mode
++	 * Before stmmac core 3.50 this mode bit was 4xPBL, and
++	 * post 3.5 mode bit acts as 8*PBL.
++	 * For core rev < 3.5, when the core is set for 4xPBL mode, the
++	 * DMA transfers the data in 4, 8, 16, 32, 64 & 128 beats
++	 * depending on pbl value.
++	 * For core rev > 3.5, when the core is set for 8xPBL mode, the
++	 * DMA transfers the data in 8, 16, 32, 64, 128 & 256 beats
++	 * depending on pbl value.
++	 */
++	value = DMA_BUS_MODE_PBL | ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
++		(pbl << DMA_BUS_MODE_RPBL_SHIFT));
++
++	/* Set the Fixed burst mode */
++	if (fb)
++		value |= DMA_BUS_MODE_FB;
  
- 	/* Wait until any existing MII operation is complete */
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+ #ifdef CONFIG_STMMAC_DA
+ 	value |= DMA_BUS_MODE_DA;	/* Rx has priority over tx */
+ #endif
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+ 
++	/* In case of GMAC AXI configuration, program the DMA_AXI_BUS_MODE
++	 * for supported bursts.
++	 *
++	 * Note: This is applicable only for revision GMACv3.61a. For
++	 * older version this register is reserved and shall have no
++	 * effect.
++	 *
++	 * Note:
++	 *  For Fixed Burst Mode: if we directly write 0xFF to this
++	 *  register using the configurations pass from platform code,
++	 *  this would ensure that all bursts supported by core are set
++	 *  and those which are not supported would remain ineffective.
++	 *
++	 *  For Non Fixed Burst Mode: provide the maximum value of the
++	 *  burst length. Any burst equal or below the provided burst
++	 *  length would be allowed to perform. */
++	writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
++
+ 	/* Mask interrupts by writing to CSR7 */
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+index bc17fd0..92ed2e0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+@@ -32,8 +32,8 @@
+ #include "dwmac100.h"
+ #include "dwmac_dma.h"
+ 
+-static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+-			     u32 dma_rx)
++static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb,
++			     int burst_len, u32 dma_tx, u32 dma_rx)
+ {
+ 	u32 value = readl(ioaddr + DMA_BUS_MODE);
+ 	int limit;
+@@ -52,7 +52,7 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
+ 
+ 	/* Enable Application Access by writing to DMA CSR0 */
+ 	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
+-	       ioaddr + DMA_BUS_MODE);
++			ioaddr + DMA_BUS_MODE);
+ 
+ 	/* Mask interrupts by writing to CSR7 */
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index 437edac..6e0360f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -32,6 +32,7 @@
+ #define DMA_CONTROL		0x00001018	/* Ctrl (Operational Mode) */
+ #define DMA_INTR_ENA		0x0000101c	/* Interrupt Enable */
+ #define DMA_MISSED_FRAME_CTR	0x00001020	/* Missed Frame Counter */
++#define DMA_AXI_BUS_MODE       0x00001028      /* AXI Bus Mode */
+ #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
+ #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
+ #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a5a150d..7ac13d5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -944,7 +944,9 @@ static int stmmac_open(struct net_device *dev)
+ 	init_dma_desc_rings(dev);
+ 
+ 	/* DMA initialization and SW reset */
+-	ret = priv->hw->dma->init(priv->ioaddr, priv->plat->pbl,
++	ret = priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg->pbl,
++				  priv->plat->dma_cfg->fixed_burst,
++				  priv->plat->dma_cfg->burst_len,
+ 				  priv->dma_tx_phy, priv->dma_rx_phy);
+ 	if (ret < 0) {
+ 		pr_err("%s: DMA initialization failed\n", __func__);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index da66ed7..65e0f98 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -35,7 +35,8 @@ static void stmmac_default_data(void)
+ 	plat_dat.bus_id = 1;
+ 	plat_dat.phy_addr = 0;
+ 	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
+-	plat_dat.pbl = 32;
++	plat_dat.dma_cfg->pbl = 32;
++	plat_dat.dma_cfg->burst_len = DMA_AXI_BLEN_256;
+ 	plat_dat.clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
+ 	plat_dat.has_gmac = 1;
+ 	plat_dat.force_sf_dma_mode = 1;
 diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 4aef9ba..cf64031 100644
+index e529282..4aef9ba 100644
 --- a/include/linux/stmmac.h
 +++ b/include/linux/stmmac.h
-@@ -37,28 +37,29 @@
-  * This could also be configured at run time using CPU freq framework. */
+@@ -60,6 +60,18 @@
+  * 1110 clk_csr_i/16
+  * 1111 clk_csr_i/18 */
  
- /* MDC Clock Selection define*/
--#define	STMMAC_CSR_60_100M	0	/* MDC = clk_scr_i/42 */
--#define	STMMAC_CSR_100_150M	1	/* MDC = clk_scr_i/62 */
--#define	STMMAC_CSR_20_35M	2	/* MDC = clk_scr_i/16 */
--#define	STMMAC_CSR_35_60M	3	/* MDC = clk_scr_i/26 */
--#define	STMMAC_CSR_150_250M	4	/* MDC = clk_scr_i/102 */
--#define	STMMAC_CSR_250_300M	5	/* MDC = clk_scr_i/122 */
--
--/* FIXME: The MDC clock could be set higher than the IEEE 802.3
-+#define	STMMAC_CSR_60_100M	0x0	/* MDC = clk_scr_i/42 */
-+#define	STMMAC_CSR_100_150M	0x1	/* MDC = clk_scr_i/62 */
-+#define	STMMAC_CSR_20_35M	0x2	/* MDC = clk_scr_i/16 */
-+#define	STMMAC_CSR_35_60M	0x3	/* MDC = clk_scr_i/26 */
-+#define	STMMAC_CSR_150_250M	0x4	/* MDC = clk_scr_i/102 */
-+#define	STMMAC_CSR_250_300M	0x5	/* MDC = clk_scr_i/122 */
++/* AXI DMA Burst length suported */
++#define DMA_AXI_BLEN_4		(1 << 1)
++#define DMA_AXI_BLEN_8		(1 << 2)
++#define DMA_AXI_BLEN_16		(1 << 3)
++#define DMA_AXI_BLEN_32		(1 << 4)
++#define DMA_AXI_BLEN_64		(1 << 5)
++#define DMA_AXI_BLEN_128	(1 << 6)
++#define DMA_AXI_BLEN_256	(1 << 7)
++#define DMA_AXI_BLEN_ALL (DMA_AXI_BLEN_4 | DMA_AXI_BLEN_8 | DMA_AXI_BLEN_16 \
++			| DMA_AXI_BLEN_32 | DMA_AXI_BLEN_64 \
++			| DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
 +
-+/* The MDC clock could be set higher than the IEEE 802.3
-  * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-  * of value different than the above defined values. The resultant MDIO
-  * clock frequency of 12.5 MHz is applicable for the interfacing chips
-  * supporting higher MDC clocks.
-  * The MDC clock selection macros need to be defined for MDC clock rate
-  * of 12.5 MHz, corresponding to the following selection.
-- * 1000 clk_csr_i/4
-- * 1001 clk_csr_i/6
-- * 1010 clk_csr_i/8
-- * 1011 clk_csr_i/10
-- * 1100 clk_csr_i/12
-- * 1101 clk_csr_i/14
-- * 1110 clk_csr_i/16
-- * 1111 clk_csr_i/18 */
-+ */
-+#define STMMAC_CSR_I_4		0x8	/* clk_csr_i/4 */
-+#define STMMAC_CSR_I_6		0x9	/* clk_csr_i/6 */
-+#define STMMAC_CSR_I_8		0xA	/* clk_csr_i/8 */
-+#define STMMAC_CSR_I_10		0xB	/* clk_csr_i/10 */
-+#define STMMAC_CSR_I_12		0xC	/* clk_csr_i/12 */
-+#define STMMAC_CSR_I_14		0xD	/* clk_csr_i/14 */
-+#define STMMAC_CSR_I_16		0xE	/* clk_csr_i/16 */
-+#define STMMAC_CSR_I_18		0xF	/* clk_csr_i/18 */
+ /* Platfrom data for platform device structure's platform_data field */
  
- /* AXI DMA Burst length suported */
- #define DMA_AXI_BLEN_4		(1 << 1)
+ struct stmmac_mdio_bus_data {
+@@ -70,13 +82,19 @@ struct stmmac_mdio_bus_data {
+ 	int probed_phy_irq;
+ };
+ 
++struct stmmac_dma_cfg {
++	int pbl;
++	int fixed_burst;
++	int burst_len;
++};
++
+ struct plat_stmmacenet_data {
+ 	char *phy_bus_name;
+ 	int bus_id;
+ 	int phy_addr;
+ 	int interface;
+ 	struct stmmac_mdio_bus_data *mdio_bus_data;
+-	int pbl;
++	struct stmmac_dma_cfg *dma_cfg;
+ 	int clk_csr;
+ 	int has_gmac;
+ 	int enh_desc;
 -- 
 1.7.4.4
