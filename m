@@ -1,71 +1,68 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 01/10] stmmac: Allow stmmac to work with other PHY buses(v3).
-Date: Fri, 23 Mar 2012 10:08:32 +0100
-Message-ID: <1332493721-28309-2-git-send-email-peppe.cavallaro@st.com>
-References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 00/10] stmmac update: March 2012
+Date: Fri, 23 Mar 2012 10:08:31 +0100
+Message-ID: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
 	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
 	viresh.kumar@st.com, bhutchings@solarflare.com,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:57043 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757575Ab2CWJJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:25 -0400
-In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:36110 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757838Ab2CWJJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+This patches  update the stmmac and add all the work made
+by Deepak, Srinivas and myself.
 
-As stmmac mdio bus name prefix is hardcoded in the driver, this allows
-only phys on stmmac mdio buses to connect, however stmmac should allow
-phys on other mdio buses too.
+I've collected all the patches already reviewed in the mailing list
+verified that all the comments provided were applied and tested them.
 
-This patch adds new variable phy_bus_name to plat_stmmacenet_data
-struct to let the BSP decide which phy bus to be used by stmmac driver.
-A typical use-case is to have generic MDIO buses like mdio-gpio on top
-of stmmac.
+These patches can be applied against the net.git and net-next.git.
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Acked-by: Florian Fainelli <florian@openwrt.org>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+On-Top of these patches (for net-next) I'll resend the EEE support
+reviewed by Ben.
+
+Many thanks for all your effort and patience.
+
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 +++++++-
- include/linux/stmmac.h                            |    1 +
- 2 files changed, 8 insertions(+), 1 deletions(-)
+peppe
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index e85ffbd..860519c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -307,7 +307,13 @@ static int stmmac_init_phy(struct net_device *dev)
- 	priv->speed = 0;
- 	priv->oldduplex = -1;
- 
--	snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x", priv->plat->bus_id);
-+	if (priv->plat->phy_bus_name)
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
-+				priv->plat->phy_bus_name, priv->plat->bus_id);
-+	else
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-+				priv->plat->bus_id);
-+
- 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 		 priv->plat->phy_addr);
- 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 0dddc9e..172b5e1 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -39,6 +39,7 @@ struct stmmac_mdio_bus_data {
- };
- 
- struct plat_stmmacenet_data {
-+	char *phy_bus_name;
- 	int bus_id;
- 	int phy_addr;
- 	int interface;
+Deepak SIKRI (5):
+  stmmac: Define CSUM offload engine Types
+  stmmac: sanitize the rx coe and add the type-1 csum
+  stmmac: Define MDC clock selection macros
+  stmmac: re-work the internal GMAC DMA platf parameters
+  stmmac: Replace infinite loops by timeouts in mdio r/w
+
+Giuseppe Cavallaro (4):
+  stmmac: add clk management support
+  stmmac: extend CSR Clock Range programming
+  stmmac: MDC clock dynamically based on the csr clock input
+  stmmac: update the driver version March 2012
+
+Srinivas Kandagatla (1):
+  stmmac: Allow stmmac to work with other PHY buses(v3).
+
+ Documentation/networking/stmmac.txt                |   29 +++++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   17 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   13 ---
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   42 +++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    6 -
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    6 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   13 ++-
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   13 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   48 +++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  101 +++++++++++++++++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   36 +++++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    3 +-
+ include/linux/stmmac.h                             |   55 +++++++++++-
+ 15 files changed, 317 insertions(+), 68 deletions(-)
+
 -- 
 1.7.4.4
