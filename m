@@ -1,57 +1,42 @@
-From: WeipingPan <panweiping3@gmail.com>
-Subject: Re: [PATCH][RFC] bonding: delete migrated IP addresses from the rlb
- hash table
-Date: Fri, 23 Mar 2012 15:10:15 +0800
-Message-ID: <4F6C21D7.2000609@gmail.com>
-References: <20120227173400.GB816@midget.suse.cz>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: Regression due to: net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Fri, 23 Mar 2012 08:21:51 +0100
+Message-ID: <201203230821.51870.oliver@neukum.org>
+References: <4F6BAE34.7010805@wwwdotorg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	Willy Tarreau <willy@meta-x.org>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: Stephen Warren <swarren@wwwdotorg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:34453 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751864Ab2CWHJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 03:09:59 -0400
-Received: by iagz16 with SMTP id z16so4261761iag.19
-        for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 00:09:59 -0700 (PDT)
-In-Reply-To: <20120227173400.GB816@midget.suse.cz>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:35129 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864Ab2CWHVl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 03:21:41 -0400
+In-Reply-To: <4F6BAE34.7010805@wwwdotorg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2012 01:34 AM, Jiri Bohac wrote:
-> Bonding in balance-alb mode records information from ARP packets
-> passing through the bond in a hash table (rx_hashtbl).
->
-> At certain situations (e.g. link change of a slave),
-> rlb_update_rx_clients() will send out ARP packets to update ARP
-> caches of other hosts on the network to achieve RX load balancing.
->
-> The problem is that once an IP address is recorded in the hash
-> table, it stays there indefinitely [1]. If this IP address is
-> migrated to a different host in the network, bonding still sends
-> out ARP packets that poison other systems' ARP caches with
-> invalid information.
->
-> This patch solves this by looking at all incoming ARP packets,
-> and checking if the source IP address is one of the source
-> addresses stored in the rx_hashtbl. If it is, the corresponding
-> hash table entries are removed. Thus, when an IP address is
-> migrated, the first ARP broadcast by its new owner will purge the
-> offending entries of rx_hashtbl.
->
->    (a simpler approach, where bonding would monitor IP address
->     changes on the local system does not work for setups like:
->     HostA --- NetworkA --- eth0-bond0-br0 --- NetworkB --- hostB
->     and an IP address migrating from HostB to HostA)
-Hi, Jiri,
-Do "NetworkA" and "NetworkB" mean different subnet ?
-How to configure bonding and bridge to make HostA communicate with hostB ?
-What is the problem for this setup ?
+Am Donnerstag, 22. M=E4rz 2012, 23:56:52 schrieb Stephen Warren:
+> It looks like commit 4231d47e6fe69f061f96c98c30eaf9fb4c14b96d
+> "net/usbnet: avoid recursive locking in usbnet_stop()" causes a probl=
+em
+> for me.
+>=20
+> When I reboot or shutdown, I see the error spew below at least 50% of
+> the time. Reverting the above patch fixes this, at least for 10 reboo=
+t
+> attempts.
 
-I will appreciate it if you can elaborate the problem.
+The patch "usbnet: increase URB reference count before usb_unlink_urb" =
+has just been
+applied. Could you test whether it fixes your proble?
 
-thanks
-Weiping Pan
+	Regards
+		Oliver
