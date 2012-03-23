@@ -1,78 +1,42 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Fri, 23 Mar 2012 18:27:06 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
-	<CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
-	<20120316065537.GB2199@netboy.at.omicron.at>
-	<CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
-	<20120321170003.GA5533@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
-	<20120322064107.GB2182@netboy.at.omicron.at>
- <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] netfilter updates for net (3.4) tree
+Date: Fri, 23 Mar 2012 14:26:18 -0400 (EDT)
+Message-ID: <20120323.142618.324554140075237118.davem@davemloft.net>
+References: <1332495257-3149-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:1625 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756566Ab2CWS1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Mar 2012 14:27:09 -0400
-In-Reply-To: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1332495257-3149-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
-Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIE1hcmNoIDIyLCAyMDEy
-IDQ6MTQgUE0NCj4gVG86IFJpY2hhcmQgQ29jaHJhbg0KPiBDYzogS2VsbGVyLCBKYWNvYiBFOyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBlMTAwMC0NCj4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQ7IFJvbmNpYWssIEpvaG47DQo+IGpvaG4uc3R1bHR6QGxp
-bmFyby5vcmc7IHRnbHhAbGludXRyb25peC5kZQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCBW
-NCAyLzJdIGlnYjogb2ZmZXIgYSBQVFAgSGFyZHdhcmUgQ2xvY2sgaW5zdGVhZCBvZiB0aGUNCj4g
-dGltZWNvbXBhcmUgbWV0aG9kDQo+IA0KPiAvLyB0cmlwIGNudCB3aWxsIGVuc3VyZS9lbmZvcmNl
-IC0gZXZpbCBhZGp0aW1lIHVzZXItc3BhY2UgY29kZSBjYW4gc3RpbGwgbm90DQo+IGJsb2NrIHVz
-Lg0KPiAvLyBjYWxsZWQgZnJvbSBpZ2JfdHhbcnhdX2h3dHN0YW1wDQo+IGRyaXZlcl9yeF90eF9w
-YXRoX2xvY2tpbmcoIC4uLiApIHsNCj4gICAgICB1bnNpZ25lZCBpbnQgc2VxLCB0cmlwX2NudCA9
-IDA7DQo+ICAgICAgdTY0IG5zOw0KPiAgICAgIGRvIHsNCj4gICAgICBzZXEgPSByZWFkX3NlcWJl
-Z2luKCAmcGlnYi0+dG1yZWdfc2VxX2xvY2spOw0KPiAgICAgIHRyaXBfY250Kys7DQo+ICAgICAg
-bnMgPSB0aW1lY291bnRlcl9yZWFkKCZwaWdiLT50Yyk7DQpUaGVzZSBmdW5jdGlvbnMgd291bGQg
-dXNlIHRpbWVjb3VudGVyX2N5YzJ0aW1lLCBpbnN0ZWFkLCBhbmQgY29udmVydCB0aGUgUlhUU1RB
-TVBML0ggcmVnaXN0ZXJzLiBUaGF0IHByZXZlbnRzIHRoZSBpc3N1ZSB0aGF0IFJpY2hhcmQgbWVu
-dGlvbnMgKGhlcmUpLCBiZWNhdXNlIHR3byBwYWNrZXRzIGNhbid0IGJlIHRpbWVzdGFtcGVkIGF0
-IHRoZSBzYW1lIHRpbWUgYW55d2F5cy4gKGFuZCBvbiB0aGUgZGV2aWNlcyB3aGVyZSB0aGV5IGNh
-biwgdGhlIHRpbWVzdGFtcCBpc24ndCByZXR1cm5lZCB2aWEgcmVnaXN0ZXJzDQoNCkhvd2V2ZXIg
-dGhlIHRyeV9jbnQgd291bGQgbm90IHdvcmssIGJlY2F1c2Ugb2YgYSBjYXNlIHdoZXJlIHRoZSB0
-aW1lY291bnRlciBpcyBqdXN0IGFib3V0IHRvIHJvbGwgb3Zlci4gKFNvIGxhc3QgY2hlY2sgd2Fz
-IDI1IHNlY29uZHMgYWdvLikgVGhlbiB0aGUgY3ljMnRpbWUgZnVuY3Rpb24gaXMgY2FsbGVkLCBk
-ZXRlcm1pbmVzIHRoYXQgc29tZSBSWCB0aW1lc3RhbXAgaXMgaW4gdGhlICdmdXR1cmUnLiBBdCB0
-aGlzIHBvaW50IG9uIGFub3RoZXIgQ1BVIHRoZSB0aW1lY291bnRlcl9yZWFkIGlzIHJ1biwgYW5k
-IHVwZGF0ZXMgdGhlIG5zZWMgdmFsdWUgaW4gdGhlIHRpbWVjb3VudGVyIGJ5IDI1IHNlY29uZHMs
-IGFuZCBzdG9yZXMgdGhlIGxhc3QgcmVhZCB0aW1lc3RhbXAgdmFsdWUuIE5vdyB0aGUgY3ljMnRp
-bWUgZnVuY3Rpb24gdXNlcyB0aGUgJ25ldycgdmFsdWVzLCBidXQgZG9lc24ndCBrbm93IHRvIGNv
-cnJlY3QgZm9yIGl0IGJ5IHVzaW5nIHRoZSAiaW4gdGhlIHBhc3QiIHN1YnRyYWN0aW9uLiBUaHVz
-LCB0aGUgcmVzdWx0aW5nIG5zIHJldHVybmVkIGJ5IGN5YzJ0aW1lIHdvdWxkIGJlIDI1IHNlY29u
-ZHMgaW4gdGhlIGZ1dHVyZS4gVGhpcyBpc24ndCBqdXN0IG5vdCBhY2N1cmF0ZSwgaXQgaXMgdmVy
-eSB3cm9uZyBhbmQgY291bGQgdGhyb3cgb2YgUFRQIGNhbGN1bGF0aW9ucy4NCg0KVGhlIHNvbHV0
-aW9uIGhlcmUgaXMgd2hlbiB0aGUgdHJ5X2NudCBydW5zIG91dCwgZHJvcCB0aGUgdGltZXN0YW1w
-IG9yIHJldHVybiAwIGFzIHRoZSB2YWx1ZS4gKFNvIHRoYXQgdGhlIFBUUCBhcHAga25vd3MgdGhl
-IHRpbWVzdGFtcCB3YXMgYmFkLikgSG93ZXZlciB0aGlzIGlzIGludHJvZHVjaW5nIG1vcmUgcG90
-ZW50aWFsbHkgZHJvcHBlZCB0aW1lc3RhbXBzLCAgd2hpY2ggY291bGQgYmUgYW4gaXNzdWUuDQoN
-CkkgdGhpbmsgYSBiZXR0ZXIgd2F5IHRvIHNvbHZlIHRoaXMgcHJvYmxlbSBpcyB0aHJvdHRsZSB0
-aGUgaW9jdGxzLiBXb3VsZCBpdCBiZSBwb3NzaWJsZSB0byBkZXRlY3QgdXNlcnMgc3BhbW1pbmcg
-dGhlIGlvY3RscyBhbmQgcmV0dXJuIHNvbWUgc29ydCBvZiAnRUJVU1knIGVycm9yPyBNYXliZSBi
-eSB1c2luZyBzcGluX3RyeWxvY2s/IFRoYXQgd291bGQgcHJldmVudCB0aGUgc3RhcnZhdGlvbiBp
-c3N1ZXMgbWVudGlvbmVkIGlmIGEgdXNlciB3ZXJlIHRvIHNwYW0gc2V0L2dldC9hZGogaW4gc29t
-ZSB3ZWlyZCBsb29wLCB3aXRob3V0IGEgcG90ZW50aWFsbHkgZGFuZ2Vyb3VzIGxvY2tpbmcgc2No
-ZW1lLg0KDQoNCg==
+From: pablo@netfilter.org
+Date: Fri, 23 Mar 2012 10:34:12 +0100
+
+> * One fix for missing symbol in xt_LOG reported by Randy Dunlap.
+> 
+> * Fix module dependency between cttimeout and nf_conntrack_proto_*
+>   friends from me. Now, we make sure that protocol trackers modules
+>   cannot be unloaded if there's any cttimeout object refering to
+>   them.
+> 
+> * Fix missing rcu_read_lock section in xt_CT while dereferencing
+>   a RCU pointer.
+> 
+> * Fix the assignation of a custom timeout policy for the generic
+>   protocol tracker.
+> 
+> * Fix possible inconsistencies in the application of the cttimeout
+>   policy by permanently attaching it to the conntrack entry. Before
+>   this patch, the timeout policy was attached per packet which may
+>   result in applying the timeout policy only in one traffic
+>   direction.
+> 
+> You can pull this changes from:
+> 
+> git://1984.lsi.us.es/net master
+
+Pulled, thanks Pablo.
