@@ -1,39 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [STRAW MAN PATCH] sch_teql doesn't load-balance ppp(oatm)
- slaves
-Date: Thu, 22 Mar 2012 23:03:31 -0400 (EDT)
-Message-ID: <20120322.230331.1623101647193498167.davem@davemloft.net>
-References: <1332450218.32446.79.camel@shinybook.infradead.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usbnet: consider device busy at each recieved packet
+Date: Thu, 22 Mar 2012 23:05:04 -0400 (EDT)
+Message-ID: <20120322.230504.715671042990225735.davem@davemloft.net>
+References: <201203222135.07331.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59973 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753725Ab2CWDEn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 23:04:43 -0400
-In-Reply-To: <1332450218.32446.79.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tony.hill-3WKxDLwmzFNWk0Htik3J/w@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201203222135.07331.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 22 Mar 2012 21:03:38 +0000
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Date: Thu, 22 Mar 2012 21:35:07 +0100
 
-> teql_dequeue() will *always* give up a skb when it's called, if there is
-> one. If there's *not*, and the tx queue becomes empty, then the device
-> for which teql_dequeue() was called is 'promoted' to the front of the
-> line (master->slaves). That device will receive the next packet that
-> comes in, even if there are other devices which are *also* idle and
-> waiting for packets. Whenever a new packet comes in, the *last* device
-> to call teql_dequeue() gets it.
+> usbnet should centrally handle busy reporting in the rx path
+> so subdrivers need not worry. This hurts use cases which do
+> rx only or predominantly.
+> 
+> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 
-The teql master ->ndo_start_xmit() method is where the slave iteration
-occurs, and it occurs on every successful transmit of a single packet.
-
-But this cannot, and is documented not to, work when device stacking
-is involved.
-
-If you're dealing with (what amounts to) virtual devices, you cannot
-use TEQL and must use something like drivers/net/eql.c
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
