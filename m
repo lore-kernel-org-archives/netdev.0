@@ -1,23 +1,20 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [RFC PATCH 1/1] NUMA aware scheduling per cpu vhost thread
-Date: Thu, 22 Mar 2012 16:48:56 -0700
-Message-ID: <1332460136.7730.19.camel@oc3660625478.ibm.com>
+Subject: Re: [RFC PATCH 1/1] NUMA aware scheduling per cpu vhost thread
+Date: Thu, 22 Mar 2012 17:16:30 -0700
+Message-ID: <1332461790.7730.21.camel@oc3660625478.ibm.com>
+References: <1332460136.7730.19.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	tahm@linux.vnet.ibm.com, kvm@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:52852 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756242Ab2CVXtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Mar 2012 19:49:33 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
-	Thu, 22 Mar 2012 17:49:32 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tahm@linux.vnet.ibm.com,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1332460136.7730.19.camel@oc3660625478.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Resubmit it with the right format.
 
 Signed-off-by: Shirley Ma <xma@us.ibm.com>
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
@@ -606,3 +603,5 @@ index a801e28..c6ecfb0 100644
  
  #define vq_err(vq, fmt, ...) do {                                  \
  		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+
+
