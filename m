@@ -1,50 +1,400 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Fri, 23 Mar 2012 07:05:56 +0100
-Message-ID: <20120323060555.GB2311@netboy.at.omicron.at>
-References: <D3F292ADF945FB49B35E96C94C2061B916484EC4@nsmail.netscout.com>
- <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
- <20120316065537.GB2199@netboy.at.omicron.at>
- <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
- <20120321160817.GB1941@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB580DA6CC@ORSMSX105.amr.corp.intel.com>
- <20120322070900.GD2182@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB580DB022@ORSMSX105.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chetan loke <loke.chetan@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net V2 2/2] bonding:delete rlb entry at regular intervals
+Date: Thu, 22 Mar 2012 23:08:06 -0700
+Message-ID: <13214.1332482886@death.nxdomain>
+References: <cover.1332405098.git.panweiping3@gmail.com> <cover.1332405098.git.panweiping3@gmail.com> <200ebddbbe5037adde0a440f06f0c08181f085b6.1332405098.git.panweiping3@gmail.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:61946 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454Ab2CWGGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 02:06:07 -0400
-Received: by wibhj6 with SMTP id hj6so1604790wib.1
-        for <netdev@vger.kernel.org>; Thu, 22 Mar 2012 23:06:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB580DB022@ORSMSX105.amr.corp.intel.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:34940 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754106Ab2CWGIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 02:08:35 -0400
+Received: from /spool/local
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 23 Mar 2012 00:08:33 -0600
+In-reply-to: <200ebddbbe5037adde0a440f06f0c08181f085b6.1332405098.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 22, 2012 at 09:59:01PM +0000, Keller, Jacob E wrote:
-> 
-> This means that readers don't block at all, and as long as the
-> readers don't conflict with each other, there is no contention or
-> writer starvation. It is possible for readers to 'live' lock, due to
-> a large number of write operations. However, the lock is designed
-> for few-writers, many readers. Which is what we have.
+Weiping Pan <panweiping3@gmail.com> wrote:
 
-The readers do conflict with each other simply by reading the
-registers E1000_SYSTIML and E1000_SYSTIMH. The locking is needed in
-order to make these two reads "atomic."
+>Jiri Bohac(jbohac@suse.cz) found that once an IP address is recorded in the
+>rlb hash table, it stays there indefinitely. If this IP address is migrated
+>to a different host in the network, bonding still sends out ARP packets
+>that poison other systems' ARP caches with invalid information.
+>
+>Assume the rlb entry is like <source ip, dest ip, dest mac>.
+>
+>There are some kinds of migration.
+>
+>1 delete ip address from bond device
+>If one ip address is deleted from bond device, the rlb table still contains
+>the old mapping.
+>
+>2 swap ip address between bond0 and HostB
+>before the change:
+>                            ---- HostC(ipC)--
+>HostA(ipA) ----- switch ---|-- eth0 - bond0  |
+>HostB(ipB) -----/       \--|-- eth1 -/       |
+>                            -----------------
+>
+>Like this topo, HostC and HostB can swap their ip addresses.
+>after the change:
+>                            ---- HostC(ipB)--
+>HostA(ipA) ----- switch ---|-- eth0 - bond0  |
+>HostB(ipC) -----/       \--|-- eth1 -/       |
+>                            -----------------
+>Then bonding will still send arp replies to HostA with the source ip  is ipC,
+>and it will poison arp cache of HostA, so HostA can not ping HostB now.
 
-Thanks,
-Richard
+	If I understand correctly, the first patch of this series
+"bonding:delete rlb entry if bond's ip is deleted," would resolve this
+case, because the table entries for source "ipC" will be purged.  Is
+that correct?
+
+	It might also be worthwhile having that patch purge entries
+associated with a given IP address when it is added to the bond, not
+just when it is removed, for the case that the new IP is moving in from
+another host on the subnet.
+
+>3 clients change their ip address, even swap them
+>before the change:
+>                           ----- HostC(ipC)--
+>HostA(ipA) ----- switch ---|-- eth0 - bond0  |
+>HostB(ipB) -----/       \--|-- eth1 -/       |
+>                            -----------------
+>
+>after the change:
+>                            ---- HostC(ipC)--
+>HostA(ipB) ----- switch ---|-- eth0 - bond0  |
+>HostB(ipA) -----/       \--|-- eth1 -/       |
+>                            -----------------
+>
+>Then rlb table still contains old mapping, that is <ipC, ipA, macA> and
+><ipC, ipB, macB>, and continues to send arp replies to them.
+
+	This one may be difficult to handle every possible case; the rlb
+code already watches for incoming ARP replies; perhaps rlb_arp_recv
+should also watch for incoming broadcast ARP requests that match entries
+in the table.  E.g., when ipA moves to hostB, it will at some point
+likely issue an ARP "who-has" request as a broadcast that the rlb code
+could see and check the table for an rlb_client_info->mac_dst or ip_dst
+that matches and update or purge as appropriate.
+
+	I haven't tried this; I'm just thinking out loud, but why would
+this not work?  It probably has some coverage gaps for things like, oh,
+static ARP entries, but for the common case I wonder if it would work.
+
+>4 bond can be enslave to a bridge
+>before the change:
+>                                 br0
+>                                  |
+>                                bond0
+>                               ___|___
+>                              |       |
+>HostA(ipA) --- NetworkA --- eth0     eth1 --- NetworkB --- hostB(ipB)
+>
+>after the change:
+>                                 br0
+>                                  |
+>                                bond0
+>                               ___|___
+>                              |       |
+>HostA(ipB) --- NetworkA --- eth0     eth1 --- NetworkB --- hostB(ipA)
+>
+>Then rlb table still contains old mapping, that is <ipA, ipB, macB>,
+>and continues to send arp replies to HostB, it will poison arp cache of HostB.
+
+	I'm not sure I understand this diagram correctly; are "NetworkA"
+and "NetworkB" actual separate networks (i.e., eth0 and eth1 are not in
+the same ethernet broadcast domain)?  For balance-alb mode to function
+properly, every slave must be able to reach all possible destinations.
+
+	I'm not sure how this is different than the case 3, above,
+unless NetworkA and NetworkB actually are different networks, in which
+case I don't believe it's a valid topology for balance-alb.  I'm also
+not clear on what the significance of the bridge is, since the bond will
+be only one port of the bridge.
+
+	Can you elaborate on this case?
+
+>There are some attempts to fix this problem, 
+>http://marc.info/?l=linux-netdev&m=133036407906892&w=4
+>http://marc.info/?l=linux-netdev&m=133057427414043&w=4
+>
+>But they did not fix the root cause of the problem, that rlb table does not
+>have a aging mechanism, the entry is valid for ever unless it is replaced.
+>
+>In this patchset I want to add aging mechanism to rlb table.
+>
+>Assume RLB_MONITOR_DELAY is 2 seconds and RLB_WORK_COUNTER_TIMES is 3.
+>Every 6 seconds bonding will make all entries invalid.
+>Every 2 seconds, bonding will send arp requests to its all
+>clients, then if it receives corresponding arp reply, bonding will deem that
+>this entry is valid.
+>And we give a entry 3 opportunities to survive in 6 seconds.
+
+	This feels at first reading to be overkill; how common an
+occurance is moving IP addresses around that it warrants sending an ARP
+probe and response for each table entry every two seconds?  Presuming a
+table filled with 100 active entries, that will be two hundred ARPs, 100
+each request and reply, every two seconds.
+
+	Now, that said, I think the rlb table entries do need a system
+to expire inactive entries.  There is already an rlb_rebalance()
+mechanism that takes place when a slave changes link state or is added
+or removed.  Perhaps, as the tlb side already does, the rlb side should
+periodically rebalance all of the clients.  Right now, that never occurs
+in normal practice, so it's possible for the balance of traffic to
+become uneven if traffic rates to particular clients vary.  The downside
+to that is that rlb rebalancing involves active notification to each
+peer, so it's not something to be done lightly, and, ideally, not the
+entire table all at once.  Perhaps individual rlb_choose_channel
+assignments should have a particular lifetime (one minute?), after which
+a new channel must be chosen if the channel is still in use.
+
+	-J
+
+>TODO:
+>The ntt (need to transmit) mechanism of rlb has duplicate functions with this
+>patch, if this patch is accepted, ntt mechanism can be deleted.
+>
+>Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+>---
+> drivers/net/bonding/bond_alb.c  |   95 ++++++++++++++++++++++++++++++++++----
+> drivers/net/bonding/bond_alb.h  |    7 +++
+> drivers/net/bonding/bond_main.c |   10 +++-
+> 3 files changed, 100 insertions(+), 12 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index bca1039..4be5bf1 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -333,12 +333,15 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+>
+> 	if ((client_info->assigned) &&
+> 	    (client_info->ip_src == arp->ip_dst) &&
+>-	    (client_info->ip_dst == arp->ip_src) &&
+>-	    (compare_ether_addr_64bits(client_info->mac_dst, arp->mac_src))) {
+>-		/* update the clients MAC address */
+>-		memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
+>-		client_info->ntt = 1;
+>-		bond_info->rx_ntt = 1;
+>+	    (client_info->ip_dst == arp->ip_src)) {
+>+		if (compare_ether_addr_64bits(client_info->mac_dst,
+>+						arp->mac_src)) {
+>+			/* update the clients MAC address */
+>+			memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
+>+			client_info->ntt = 1;
+>+			bond_info->rx_ntt = 1;
+>+		} else
+>+			client_info->used = 1;
+> 	}
+>
+> 	_unlock_rx_hashtbl_bh(bond);
+>@@ -485,14 +488,20 @@ static void rlb_update_client(struct rlb_client_info *client_info)
+> {
+> 	int i;
+>
+>+	if (client_info->used)
+>+		return;
+>+
+> 	if (!client_info->slave) {
+> 		return;
+> 	}
+>
+>+	if (is_zero_ether_addr(client_info->mac_dst))
+>+		return;
+>+
+> 	for (i = 0; i < RLB_ARP_BURST_SIZE; i++) {
+> 		struct sk_buff *skb;
+>
+>-		skb = arp_create(ARPOP_REPLY, ETH_P_ARP,
+>+		skb = arp_create(ARPOP_REQUEST, ETH_P_ARP,
+> 				 client_info->ip_dst,
+> 				 client_info->slave->dev,
+> 				 client_info->ip_src,
+>@@ -521,7 +530,7 @@ static void rlb_update_client(struct rlb_client_info *client_info)
+> }
+>
+> /* sends ARP REPLIES that update the clients that need updating */
+>-static void rlb_update_rx_clients(struct bonding *bond)
+>+static void rlb_update_rx_clients(struct bonding *bond, bool force)
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> 	struct rlb_client_info *client_info;
+>@@ -532,7 +541,7 @@ static void rlb_update_rx_clients(struct bonding *bond)
+> 	hash_index = bond_info->rx_hashtbl_head;
+> 	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
+> 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+>-		if (client_info->ntt) {
+>+		if (client_info->ntt || force) {
+> 			rlb_update_client(client_info);
+> 			if (bond_info->rlb_update_retry_counter == 0) {
+> 				client_info->ntt = 0;
+>@@ -776,6 +785,67 @@ static void rlb_init_table_entry(struct rlb_client_info *entry)
+> 	entry->prev = RLB_NULL_INDEX;
+> }
+>
+>+/*
+>+ * bond_rlb_monitor
+>+ *
+>+ * Every RLB_MONITOR_DELAY seconds, send arp requests for all clients.
+>+ * And if bond receives corresponding arp reply from client,
+>+ * rlb_client_info->used will be set to 1.
+>+ * If rlb_client_info->used is not set to 1 during
+>+ * RLB_WORK_COUNTER_TIMES * RLB_MONITOR_DELAY seconds,
+>+ * then delete the rlb entry.
+>+ */
+>+void bond_rlb_monitor(struct work_struct *work)
+>+{
+>+	struct alb_bond_info *bond_info = container_of(work, struct alb_bond_info,
+>+					    rlb_work.work);
+>+
+>+	struct bonding *bond = container_of(bond_info, struct bonding,
+>+					    alb_info);
+>+	struct rlb_client_info *client_info;
+>+	u32 curr_index;
+>+
+>+	_lock_rx_hashtbl_bh(bond);
+>+	if (bond_info->rlb_work_counter++ < RLB_WORK_COUNTER_TIMES) {
+>+		_lock_rx_hashtbl_bh(bond);
+>+		rlb_update_rx_clients(bond, true);
+>+		queue_delayed_work(bond->wq, &bond_info->rlb_work, RLB_MONITOR_DELAY);
+>+		return;
+>+	}
+>+
+>+	bond_info->rlb_work_counter = 0;
+>+
+>+	curr_index = bond_info->rx_hashtbl_head;
+>+	for (; curr_index != RLB_NULL_INDEX;) {
+>+		u32 next_index;
+>+		u32 prev_index;
+>+		client_info = &(bond_info->rx_hashtbl[curr_index]);
+>+		next_index = client_info->next;
+>+		prev_index = client_info->prev;
+>+		if (client_info->used != 1) {
+>+			/* delete this rlb entry */
+>+			if (curr_index == bond_info->rx_hashtbl_head) {
+>+				bond_info->rx_hashtbl_head = next_index;
+>+			}
+>+			if (prev_index != RLB_NULL_INDEX) {
+>+				bond_info->rx_hashtbl[prev_index].next = next_index;
+>+			}
+>+			if (next_index != RLB_NULL_INDEX) {
+>+				bond_info->rx_hashtbl[next_index].prev = prev_index;
+>+			}
+>+
+>+			rlb_init_table_entry(client_info);
+>+		} else
+>+			client_info->used = 0;
+>+
+>+		curr_index = next_index;
+>+	}
+>+
+>+	_unlock_rx_hashtbl_bh(bond);
+>+
+>+	queue_delayed_work(bond->wq, &bond_info->rlb_work, RLB_MONITOR_DELAY);
+>+}
+>+
+> static int rlb_initialize(struct bonding *bond)
+> {
+> 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>@@ -804,6 +874,9 @@ static int rlb_initialize(struct bonding *bond)
+> 	/* register to receive ARPs */
+> 	bond->recv_probe = rlb_arp_recv;
+>
+>+	INIT_DELAYED_WORK(&bond_info->rlb_work, bond_rlb_monitor);
+>+	queue_delayed_work(bond->wq, &bond_info->rlb_work, 0);
+>+
+> 	return 0;
+> }
+>
+>@@ -818,6 +891,8 @@ static void rlb_deinitialize(struct bonding *bond)
+> 	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
+>
+> 	_unlock_rx_hashtbl_bh(bond);
+>+
+>+	cancel_delayed_work_sync(&bond_info->rlb_work);
+> }
+>
+> static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+>@@ -1497,7 +1572,7 @@ void bond_alb_monitor(struct work_struct *work)
+> 			if (bond_info->rlb_update_delay_counter) {
+> 				--bond_info->rlb_update_delay_counter;
+> 			} else {
+>-				rlb_update_rx_clients(bond);
+>+				rlb_update_rx_clients(bond, false);
+> 				if (bond_info->rlb_update_retry_counter) {
+> 					--bond_info->rlb_update_retry_counter;
+> 				} else {
+>diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+>index 38863fc..5b7c433 100644
+>--- a/drivers/net/bonding/bond_alb.h
+>+++ b/drivers/net/bonding/bond_alb.h
+>@@ -68,6 +68,9 @@ struct slave;
+>  */
+> #define RLB_PROMISC_TIMEOUT	(10*ALB_TIMER_TICKS_PER_SEC)
+>
+>+#define RLB_MONITOR_DELAY 2 * HZ
+>+#define RLB_WORK_COUNTER_TIMES 3
+>+
+>
+> struct tlb_client_info {
+> 	struct slave *tx_slave;	/* A pointer to slave used for transmiting
+>@@ -104,6 +107,8 @@ struct rlb_client_info {
+> 	u32 next;		/* The next Hash table entry index */
+> 	u32 prev;		/* The previous Hash table entry index */
+> 	u8  assigned;		/* checking whether this entry is assigned */
+>+	u8  used;		/* checking whether this entry is used during
+>+				   RLB_MONITOR_DELAY seconds*/
+> 	u8  ntt;		/* flag - need to transmit client info */
+> 	struct slave *slave;	/* the slave assigned to this client */
+> 	u8 tag;			/* flag - need to tag skb */
+>@@ -135,6 +140,8 @@ struct alb_bond_info {
+> 	u8			rx_ntt;	/* flag - need to transmit
+> 					 * to all rx clients
+> 					 */
+>+	struct delayed_work 	rlb_work;
+>+	int 			rlb_work_counter;
+> 	struct slave		*next_rx_slave;/* next slave to be assigned
+> 						* to a new rx client for
+> 						*/
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index ec071b9..b2bd96f 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -4351,16 +4351,22 @@ static void bond_setup(struct net_device *bond_dev)
+>
+> static void bond_work_cancel_all(struct bonding *bond)
+> {
+>+	struct alb_bond_info *bond_info = &BOND_ALB_INFO(bond);
+>+
+> 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
+> 		cancel_delayed_work_sync(&bond->mii_work);
+>
+> 	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
+> 		cancel_delayed_work_sync(&bond->arp_work);
+>
+>-	if (bond->params.mode == BOND_MODE_ALB &&
+>-	    delayed_work_pending(&bond->alb_work))
+>+	if (bond->params.mode == BOND_MODE_ALB) {
+>+	    if (delayed_work_pending(&bond->alb_work))
+> 		cancel_delayed_work_sync(&bond->alb_work);
+>
+>+	    if (delayed_work_pending(&bond_info->rlb_work))
+>+		cancel_delayed_work_sync(&bond_info->rlb_work);
+>+	}
+>+
+> 	if (bond->params.mode == BOND_MODE_8023AD &&
+> 	    delayed_work_pending(&bond->ad_work))
+> 		cancel_delayed_work_sync(&bond->ad_work);
+>-- 
+>1.7.4
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
