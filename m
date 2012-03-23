@@ -1,71 +1,132 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH] e1000e: clear REQ and GNT in EECD (82571 && 82572)
-Date: Fri, 23 Mar 2012 13:55:20 +0100
-Message-ID: <1332507320-19902-1-git-send-email-richard.alpe@ericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: add a truesize parameter to skb_add_rx_frag()
+Date: Fri, 23 Mar 2012 06:17:06 -0700
+Message-ID: <1332508626.4858.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-	Richard Alpe <richard.alpe@ericsson.com>
-To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<bruce.w.allan@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	<peter.p.waskiewicz.jr@intel.com>, <alexander.h.duyck@intel.com>,
-	<john.ronciak@intel.com>, <e1000-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:56306 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704Ab2CWMzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 08:55:33 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:59070 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101Ab2CWNRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 09:17:10 -0400
+Received: by pbcun15 with SMTP id un15so2546728pbc.19
+        for <netdev@vger.kernel.org>; Fri, 23 Mar 2012 06:17:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clear the REQ and GNT bit in the eeprom control register (EECD).
-This is required if the eeprom is to be accessed with auto read
-EERD register.
+skb_add_rx_frag() API is misleading.
 
-After a cold reset this doesn't matter but if PBIST MAC test was
-executed before booting, the register was left in a dirty state
-(the 2 bits where set), which caused the read operation to time out
-and returning 0.
+Network skbs built with this helper can use uncharged kernel memory and
+eventually stress/crash machine in OOM.
 
-Reference (page 312):
-http://download.intel.com/design/network/manuals/316080.pdf
+Add a 'truesize' parameter and then fix drivers in followup patches.
 
-Reported-by: Aleksandar Igic <aleksandar.igic@dektech.com.au>
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/usb/cdc-phonet.c              |    6 ++++--
+ drivers/net/wireless/iwlegacy/3945.c      |    3 ++-
+ drivers/net/wireless/iwlegacy/4965-mac.c  |    3 ++-
+ drivers/net/wireless/iwlwifi/iwl-agn-rx.c |    2 +-
+ include/linux/skbuff.h                    |    2 +-
+ net/core/skbuff.c                         |    4 ++--
+ 6 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index b3fdc69..51f7d2e 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1001,6 +1001,7 @@ static s32 e1000_set_d0_lplu_state_82571(struct e1000_hw *hw, bool active)
- static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- {
- 	u32 ctrl, ctrl_ext;
-+	u32 ctrl, ctrl_ext, eecd;
- 	s32 ret_val;
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
+index 790cbde..3886b30 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -164,12 +164,14 @@ static void rx_complete(struct urb *req)
+ 				/* Can't use pskb_pull() on page in IRQ */
+ 				memcpy(skb_put(skb, 1), page_address(page), 1);
+ 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
+-						page, 1, req->actual_length);
++						page, 1, req->actual_length,
++						req->actual_length);
+ 				page = NULL;
+ 			}
+ 		} else {
+ 			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
+-					page, 0, req->actual_length);
++					page, 0, req->actual_length,
++					req->actual_length);
+ 			page = NULL;
+ 		}
+ 		if (req->actual_length < PAGE_SIZE)
+diff --git a/drivers/net/wireless/iwlegacy/3945.c b/drivers/net/wireless/iwlegacy/3945.c
+index c5b1d19..b25c01b 100644
+--- a/drivers/net/wireless/iwlegacy/3945.c
++++ b/drivers/net/wireless/iwlegacy/3945.c
+@@ -499,7 +499,8 @@ il3945_pass_packet_to_mac80211(struct il_priv *il, struct il_rx_buf *rxb,
+ 				      le32_to_cpu(rx_end->status), stats);
  
- 	/*
-@@ -1099,6 +1100,16 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	if (hw->phy.media_type == e1000_media_type_internal_serdes)
- 		hw->mac.serdes_link_state = e1000_serdes_link_down;
+ 	skb_add_rx_frag(skb, 0, rxb->page,
+-			(void *)rx_hdr->payload - (void *)pkt, len);
++			(void *)rx_hdr->payload - (void *)pkt, len,
++			len);
  
-+	/*
-+	 * 82571 and 82572 need EEC.EE_REQ and EEC.EE_GNT cleared
-+	 * when using EERD to access the EEPROM
-+	 */
-+	if ((hw->mac.type == e1000_82571) || (hw->mac.type == e1000_82572)) {
-+		eecd = er32(EECD);
-+		eecd &= ~(E1000_EECD_REQ | E1000_EECD_GNT);
-+		ew32(EECD, eecd);
-+	}
-+
- 	return 0;
+ 	il_update_stats(il, false, fc, len);
+ 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
+diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
+index 7b54dbb..17f1c68 100644
+--- a/drivers/net/wireless/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/iwlegacy/4965-mac.c
+@@ -596,7 +596,8 @@ il4965_pass_packet_to_mac80211(struct il_priv *il, struct ieee80211_hdr *hdr,
+ 		return;
+ 	}
+ 
+-	skb_add_rx_frag(skb, 0, rxb->page, (void *)hdr - rxb_addr(rxb), len);
++	skb_add_rx_frag(skb, 0, rxb->page, (void *)hdr - rxb_addr(rxb), len,
++			len);
+ 
+ 	il_update_stats(il, false, fc, len);
+ 	memcpy(IEEE80211_SKB_RXCB(skb), stats, sizeof(*stats));
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-rx.c b/drivers/net/wireless/iwlwifi/iwl-agn-rx.c
+index 44c6f71..f4b84d1 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn-rx.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn-rx.c
+@@ -796,7 +796,7 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
+ 
+ 	offset = (void *)hdr - rxb_addr(rxb);
+ 	p = rxb_steal_page(rxb);
+-	skb_add_rx_frag(skb, 0, p, offset, len);
++	skb_add_rx_frag(skb, 0, p, offset, len, len);
+ 
+ 	iwl_update_stats(priv, false, fc, len);
+ 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a2b9953..681a187 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1244,7 +1244,7 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
  }
  
--- 
-1.7.2.5
+ extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
+-			    int off, int size);
++			    int off, int size, unsigned int truesize);
+ 
+ #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+ #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 6eb656a..a690cae 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -321,12 +321,12 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ EXPORT_SYMBOL(__netdev_alloc_skb);
+ 
+ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+-		int size)
++		     int size, unsigned int truesize)
+ {
+ 	skb_fill_page_desc(skb, i, page, off, size);
+ 	skb->len += size;
+ 	skb->data_len += size;
+-	skb->truesize += size;
++	skb->truesize += truesize;
+ }
+ EXPORT_SYMBOL(skb_add_rx_frag);
+ 
