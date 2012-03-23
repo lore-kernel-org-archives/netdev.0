@@ -1,65 +1,42 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net] qlcnic: Bug fix for LRO
-Date: Fri, 23 Mar 2012 09:32:34 -0700
-Message-ID: <1332520354-22519-1-git-send-email-anirban.chakraborty@qlogic.com>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: Regression due to: net/usbnet: avoid recursive locking in usbnet_stop()
+Date: Fri, 23 Mar 2012 10:53:02 -0600
+Message-ID: <4F6CAA6E.4070401@wwwdotorg.org>
+References: <4F6BAE34.7010805@wwwdotorg.org> <CACVXFVMPqXr+AuoBj9R5Fk=_UOPaozm2ok9zd9N-_JUOe8cu4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:18470
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752294Ab2CWQq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 12:46:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Oliver Neukum <oliver@neukum.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Willy Tarreau <willy@meta-x.org>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVMPqXr+AuoBj9R5Fk=_UOPaozm2ok9zd9N-_JUOe8cu4g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please apply.
-Thanks,
-Anirban
+On 03/22/2012 09:28 PM, Ming Lei wrote:
+> On Fri, Mar 23, 2012 at 6:56 AM, Stephen Warren <swarren@wwwdotorg.org> wrote:
+>> It looks like commit 4231d47e6fe69f061f96c98c30eaf9fb4c14b96d
+>> "net/usbnet: avoid recursive locking in usbnet_stop()" causes a problem
+>> for me.
+>>
+>> When I reboot or shutdown, I see the error spew below at least 50% of
+>> the time. Reverting the above patch fixes this, at least for 10 reboot
+>> attempts.
+> 
+> The two patches[1][2] should fix your problem, please try them.
+> Both have been applied into David's tree.
+> 
+> [1], http://marc.info/?l=linux-usb&m=133242262312402&w=2
+> [2], http://marc.info/?l=linux-usb&m=133242264412410&w=2
 
- - After FW reset, IP addresses need to be reprogrammed to FW for LRO to work. This
-   was not happening in context reset path. Fixed it here.
- - Updated driver version to 5.0.27
+Those two patches do solve the problem I was seeing, thanks.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 +++-
- 2 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 2b5af22..385a4d5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 25
--#define QLCNIC_LINUX_VERSIONID  "5.0.26"
-+#define _QLCNIC_LINUX_SUBVERSION 27
-+#define QLCNIC_LINUX_VERSIONID  "5.0.27"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 81bb1a6..75c32e8 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1458,8 +1458,10 @@ qlcnic_reset_context(struct qlcnic_adapter *adapter)
- 
- 		if (netif_running(netdev)) {
- 			err = qlcnic_attach(adapter);
--			if (!err)
-+			if (!err) {
- 				__qlcnic_up(adapter, netdev);
-+				qlcnic_restore_indev_addr(netdev, NETDEV_UP);
-+			}
- 		}
- 
- 		netif_device_attach(netdev);
--- 
-1.7.1
+FWIW, too late, but:
+Tested-by: Stephen Warren <swarren@wwwdotorg.org>
