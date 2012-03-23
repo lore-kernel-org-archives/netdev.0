@@ -1,26 +1,26 @@
-From: "jin mong" <amula@cartagena.uned.es>
+From: "Mr.Vincent Cheng Hoi." <amula@cartagena.uned.es>
 Subject: (unknown)
-Date: Fri, 23 Mar 2012 19:10:58 +0100
-Message-ID: <052f9821647ff482709593cc2de29cf3.squirrel__6321.20881132341$1332526285$gmane$org@correo.uned.es>
-Reply-To: jinmong22@yahoo.com.hk
+Date: Fri, 23 Mar 2012 19:18:10 +0100
+Message-ID: <faff7e31de254610e7e3386c7259b761.squirrel__35651.8534631052$1332526726$gmane$org@correo.uned.es>
+Reply-To: choi_chu112@yahoo.co.jp
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-seis.uned.es ([62.204.192.120]:39560 "EHLO
-	smtp-out-seis.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755607Ab2CWSLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 14:11:16 -0400
+Received: from smtp-out-cinco.uned.es ([62.204.192.119]:41161 "EHLO
+	smtp-out-cinco.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759089Ab2CWSSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 14:18:13 -0400
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings Partner,
+Good Day,
 
-This is my second time of sending you this notice. I have finally found
-you as an approved heir to the inheritance of the deposited funds with
-same surname of the deceased depositor.
+I have a business proposal of USD $22,500,000.00 only for you to transact
+with me from my bank to your country.Reply to address:
+choi_chu112@yahoo.co.jp and I will let you know what is required of you.
 
-Jin Mong
-Email: jinmong22@yahoo.com.hk
+Best Regards,
+Mr.Vincent Cheng Hoi.
