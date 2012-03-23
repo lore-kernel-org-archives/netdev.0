@@ -1,68 +1,98 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 00/10] stmmac update: March 2012
-Date: Fri, 23 Mar 2012 10:08:31 +0100
-Message-ID: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 06/10] stmmac: Replace infinite loops by timeouts in mdio r/w
+Date: Fri, 23 Mar 2012 10:08:37 +0100
+Message-ID: <1332493721-28309-7-git-send-email-peppe.cavallaro@st.com>
+References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, srinivas.kandagatla@st.com,
 	deepak.sikri@st.com, spear-devel@list.st.com, shiraz.hashim@st.com,
-	viresh.kumar@st.com, bhutchings@solarflare.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	viresh.kumar@st.com, bhutchings@solarflare.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:36110 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757838Ab2CWJJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:26 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:45496 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757575Ab2CWJJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Mar 2012 05:09:34 -0400
+In-Reply-To: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches  update the stmmac and add all the work made
-by Deepak, Srinivas and myself.
+From: Deepak SIKRI <deepak.sikri@st.com>
 
-I've collected all the patches already reviewed in the mailing list
-verified that all the comments provided were applied and tested them.
+This patch removes the infinite waits from the mdio read and
+write interfaces. These infinite waits have been replaced by
+the timeout handling. In case if a time out occurs, an error is
+returned.
 
-These patches can be applied against the net.git and net-next.git.
-
-On-Top of these patches (for net-next) I'll resend the EEE support
-reviewed by Ben.
-
-Many thanks for all your effort and patience.
-
+Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
-peppe
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |   32 ++++++++++++++++----
+ 1 files changed, 25 insertions(+), 7 deletions(-)
 
-Deepak SIKRI (5):
-  stmmac: Define CSUM offload engine Types
-  stmmac: sanitize the rx coe and add the type-1 csum
-  stmmac: Define MDC clock selection macros
-  stmmac: re-work the internal GMAC DMA platf parameters
-  stmmac: Replace infinite loops by timeouts in mdio r/w
-
-Giuseppe Cavallaro (4):
-  stmmac: add clk management support
-  stmmac: extend CSR Clock Range programming
-  stmmac: MDC clock dynamically based on the csr clock input
-  stmmac: update the driver version March 2012
-
-Srinivas Kandagatla (1):
-  stmmac: Allow stmmac to work with other PHY buses(v3).
-
- Documentation/networking/stmmac.txt                |   29 +++++-
- drivers/net/ethernet/stmicro/stmmac/common.h       |   17 +++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   13 ---
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   42 +++++++-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    6 -
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    6 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   13 ++-
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   13 ++-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   48 +++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  101 +++++++++++++++++---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   36 +++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    3 +-
- include/linux/stmmac.h                             |   55 +++++++++++-
- 15 files changed, 317 insertions(+), 68 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 7319532..83292f4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -34,6 +34,22 @@
+ #define MII_BUSY 0x00000001
+ #define MII_WRITE 0x00000002
+ 
++static int stmmac_mdio_busy_wait(void __iomem *ioaddr, unsigned int mii_addr)
++{
++	unsigned long curr;
++	unsigned long finish = jiffies + 3 * HZ;
++
++	do {
++		curr = jiffies;
++		if (readl(ioaddr + mii_addr) & MII_BUSY)
++			cpu_relax();
++		else
++			return 0;
++	} while (!time_after_eq(curr, finish));
++
++	return -EBUSY;
++}
++
+ /**
+  * stmmac_mdio_read
+  * @bus: points to the mii_bus structure
+@@ -56,9 +72,13 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 			((phyreg << 6) & (0x000007C0)));
+ 	regValue |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
+ 
+-	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
++	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
++		return -EBUSY;
++
+ 	writel(regValue, priv->ioaddr + mii_address);
+-	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
++
++	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
++		return -EBUSY;
+ 
+ 	/* Read the data from the MII data register */
+ 	data = (int)readl(priv->ioaddr + mii_data);
+@@ -88,18 +108,16 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 
+ 	value |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
+ 
+-
+ 	/* Wait until any existing MII operation is complete */
+-	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
++	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
++		return -EBUSY;
+ 
+ 	/* Set the MII address register to write */
+ 	writel(phydata, priv->ioaddr + mii_data);
+ 	writel(value, priv->ioaddr + mii_address);
+ 
+ 	/* Wait until any existing MII operation is complete */
+-	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
+-
+-	return 0;
++	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
+ }
+ 
+ /**
 -- 
 1.7.4.4
