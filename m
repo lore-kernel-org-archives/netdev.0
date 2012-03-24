@@ -1,111 +1,47 @@
-From: Scott <ph3lpz@gmail.com>
-Subject: iproute2 does not enumerate vf's properly (ixgbe)
-Date: Sat, 24 Mar 2012 09:44:02 -0400
-Message-ID: <89EBE686-6625-428C-8CCB-6A8E8B8162A8@gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:35706 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab2CXNoG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Mar 2012 09:44:06 -0400
-Received: by qaeb19 with SMTP id b19so1433271qae.19
-        for <netdev@vger.kernel.org>; Sat, 24 Mar 2012 06:44:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH linux-next] dmaengine: add context
+	parameter fixups
+Date: Sat, 24 Mar 2012 12:23:03 -0300
+Message-ID: <CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
+References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: fabio.estevam@freescale.com, alsa-devel@alsa-project.org, samuel@sortiz.org,
+	vinod.koul@intel.com, netdev@vger.kernel.org,
+	broonie@opensource.wolfsonmicro.com,
+	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	linux-next@vger.kernel.org, tiwai@suse.de,
+	dan.j.williams@intel.com, lrg@ti.com
+To: Alexandre Bounine <alexandre.bounine@idt.com>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-When loading the module ixgbe with sr-iov enabled (max_vfs), enumeration of the interfaces' VFs is inconsistent using the iproute2 utility.
- 
-Server Information:HP Product Name: ProLiant DL165 G7
-Ethernet Card Information: Intel 82599EB 10-Gigabit SFI/SFP+
-uname: Linux 3.0.0-16-server x86_64 GNU/Linux
-OS Release: Ubuntu 11.10
- 
-
-Using a freshly compiled git pull:
-# ./ip -V
-ip utility, iproute2-ss120319
-
-Steps to reproduce:
-
-1. Determine the ethernet interface IDs:
-# dmesg |grep ixgbe\ 0000:05:00.[0-9].*detected|head -n 2
-[    8.448031] ixgbe 0000:05:00.0: eth4: detected SFP+: 5
-[    8.816035] ixgbe 0000:05:00.1: eth5: detected SFP+: 6
-
-2. Load the module w/40 VFs:
-# modprobe ixgbe max_vfs=40
-
-3. Sanity checks:
-# lsmod |grep ixgbe
-ixgbe                 206156  0 
-dca                    15179  2 ixgbe,igb
-
-# modinfo ixgbe|grep version
-version:        3.6.7-NAPI
-srcversion:     119ADBD2B16B0E40668FB9A
-vermagic:       3.0.0-16-server SMP mod_unload modversions 
-(this is the latest too)
-
-# lspci |grep 05:1[0-9]|perl -lane 'delete @F[1,2,3,4,10,11];print "@F"'
-05:10.0     82599 Ethernet Controller Virtual Function
-05:10.2     82599 Ethernet Controller Virtual Function
-05:10.4     82599 Ethernet Controller Virtual Function
-05:10.6     82599 Ethernet Controller Virtual Function
-05:11.0     82599 Ethernet Controller Virtual Function
-(suppressing output of all 40 VFs)
-
-# lspci |grep 05:1[0-9]|wc -l
-40
-(showing that there are actually 40)
-
-# ls -l /sys/class/net/eth4/device/|grep virt|awk '{print $10" "$8}'|sort|head -5
-../0000:05:10.0 virtfn0
-../0000:05:10.2 virtfn1
-../0000:05:10.4 virtfn2
-../0000:05:10.6 virtfn3
-../0000:05:11.0 virtfn4
-(suppressing output of all 40 VFs)
-
-5. Run ip link show:
-# ./ip link show|grep -e eth[45] -e vf
-(null output!)
-
-6. Load the module with fewer VFs
-# rmmod ixgbe
-# modprobe ixgbe max_vfs=5
-# lspci |grep 05:1[0-9]|perl -lane 'delete @F[1,2,3,4,10,11];print "@F"'
-05:10.0     82599 Ethernet Controller Virtual Function
-05:10.2     82599 Ethernet Controller Virtual Function
-05:10.4     82599 Ethernet Controller Virtual Function
-05:10.6     82599 Ethernet Controller Virtual Function
-05:11.0     82599 Ethernet Controller Virtual Function
-
-# ls -l /sys/class/net/eth4/device/|grep virt|awk '{print $10" "$8}'|sort
-../0000:05:10.0 virtfn0
-../0000:05:10.2 virtfn1
-../0000:05:10.4 virtfn2
-../0000:05:10.6 virtfn3
-../0000:05:11.0 virtfn4
-
-7. Run ip link show
-# ./ip link show|grep -e eth[45] -e vf
-57: eth4: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT qlen 1000
-    vf 0 MAC 52:a0:59:03:20:a8
-    vf 1 MAC 82:5f:55:a5:1f:be
-    vf 2 MAC 0a:ab:86:0c:02:b3
-    vf 3 MAC 22:a7:28:ce:9c:23
-    vf 4 MAC 26:ea:6c:1b:ca:57
-58: eth5: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT qlen 1000
-(no vfs displayed for eth5!)
-
-Patrick Kutch over at Intel suggested that there may be a patch to fix this problem, but I was not able to locate it.
-http://communities.intel.com/thread/28411?tstart=0
-
-There is also Launchpad bug #960497 for this issue.
-
-Thanks in advance for any suggestions.
-
--SP
+T24gRnJpLCBNYXIgMjMsIDIwMTIgYXQgMTE6MDAgQU0sIEFsZXhhbmRyZSBCb3VuaW5lCjxhbGV4
+YW5kcmUuYm91bmluZUBpZHQuY29tPiB3cm90ZToKPiBUaGlzIHBhdGNoIGZpeGVzIGRyaXZlcnMg
+dGhhdCB1c2UgZGV2aWNlX3ByZXBfc2xhdmVfc2coKSBhbmQKPiBkZXZpY2VfcHJlcF9kbWFfY3lj
+bGljKCkgaW50ZXJmYWNlcyBhbmQgaGF2ZSBiZWVuIG1pc3NlZCBkdXJpbmcgdGhlIGluaXRpYWwK
+PiByZWxlYXNlIG9mIGludGVyZmFjZSBjaGFuZ2luZyBwYXRjaGVzLgo+Cj4gVGhpcyBwYXRjaCBp
+cyBiYXNlZCBvbiBsaW51eC1uZXh0LTIwMTIwMzIyIGNvZGUgdHJlZS4KPiBTZWUgaHR0cHM6Ly9s
+a21sLm9yZy9sa21sLzIwMTIvMy8yMi8zMzkgZm9yIGJ1aWxkIGZhaWx1cmUgcmVwb3J0Lgo+Cj4g
+U2lnbmVkLW9mZi1ieTogQWxleGFuZHJlIEJvdW5pbmUgPGFsZXhhbmRyZS5ib3VuaW5lQGlkdC5j
+b20+Cj4gUmVwb3J0ZWQtYnk6IFBhdWwgR29ydG1ha2VyIDxwYXVsLmdvcnRtYWtlckB3aW5kcml2
+ZXIuY29tPgo+IC0tLQo+IMKgZHJpdmVycy9kbWEvc2ExMXgwLWRtYS5jIMKgIMKgIMKgfCDCoCDC
+oDIgKy0KPiDCoGRyaXZlcnMvbmV0L2lyZGEvc2ExMTAwX2lyLmMgwqB8IMKgIMKgMiArLQo+IMKg
+c291bmQvc29jL3NoL2ZzaS5jIMKgIMKgIMKgIMKgIMKgIMKgfCDCoCDCoDcgKysrLS0tLQo+IMKg
+c291bmQvc29jL3NvYy1kbWFlbmdpbmUtcGNtLmMgfCDCoCDCoDIgKy0KCkkgaGF2ZSBhbHJlYWR5
+IHRha2VuIGNhcmUgb2Ygc291bmQvc29jL3NvYy1kbWFlbmdpbmUtcGNtLmM6Cmh0dHA6Ly9wZXJt
+YWxpbmsuZ21hbmUub3JnL2dtYW5lLmxpbnV4LmFsc2EuZGV2ZWwvOTYyMTUKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQWxzYS1kZXZlbCBtYWlsaW5nIGxp
+c3QKQWxzYS1kZXZlbEBhbHNhLXByb2plY3Qub3JnCmh0dHA6Ly9tYWlsbWFuLmFsc2EtcHJvamVj
+dC5vcmcvbWFpbG1hbi9saXN0aW5mby9hbHNhLWRldmVsCg==
