@@ -1,47 +1,59 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH linux-next] dmaengine: add context
-	parameter fixups
-Date: Sat, 24 Mar 2012 12:23:03 -0300
-Message-ID: <CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
-References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Subject: Re: [PATCH v2] iwlwifi: fix skb truesize underestimation
+Date: Sat, 24 Mar 2012 08:35:28 -0700
+Message-ID: <1332603328.27767.11.camel@wwguy-huron>
+References: <1332507112.4858.12.camel@edumazet-laptop>
+	 <20120323.143826.1042705555491529895.davem@davemloft.net>
+	 <1332528919.2516.2.camel@edumazet-glaptop>
+	 <1332547547.2516.132.camel@edumazet-glaptop>
+	 <1332548545.2516.134.camel@edumazet-glaptop>
+	 <1332548986.2516.139.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: fabio.estevam@freescale.com, alsa-devel@alsa-project.org, samuel@sortiz.org,
-	vinod.koul@intel.com, netdev@vger.kernel.org,
-	broonie@opensource.wolfsonmicro.com,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	linux-next@vger.kernel.org, tiwai@suse.de,
-	dan.j.williams@intel.com, lrg@ti.com
-To: Alexandre Bounine <alexandre.bounine@idt.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Sender: alsa-devel-bounces@alsa-project.org
-Errors-To: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:56363 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754204Ab2CXPga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Mar 2012 11:36:30 -0400
+In-Reply-To: <1332548986.2516.139.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBNYXIgMjMsIDIwMTIgYXQgMTE6MDAgQU0sIEFsZXhhbmRyZSBCb3VuaW5lCjxhbGV4
-YW5kcmUuYm91bmluZUBpZHQuY29tPiB3cm90ZToKPiBUaGlzIHBhdGNoIGZpeGVzIGRyaXZlcnMg
-dGhhdCB1c2UgZGV2aWNlX3ByZXBfc2xhdmVfc2coKSBhbmQKPiBkZXZpY2VfcHJlcF9kbWFfY3lj
-bGljKCkgaW50ZXJmYWNlcyBhbmQgaGF2ZSBiZWVuIG1pc3NlZCBkdXJpbmcgdGhlIGluaXRpYWwK
-PiByZWxlYXNlIG9mIGludGVyZmFjZSBjaGFuZ2luZyBwYXRjaGVzLgo+Cj4gVGhpcyBwYXRjaCBp
-cyBiYXNlZCBvbiBsaW51eC1uZXh0LTIwMTIwMzIyIGNvZGUgdHJlZS4KPiBTZWUgaHR0cHM6Ly9s
-a21sLm9yZy9sa21sLzIwMTIvMy8yMi8zMzkgZm9yIGJ1aWxkIGZhaWx1cmUgcmVwb3J0Lgo+Cj4g
-U2lnbmVkLW9mZi1ieTogQWxleGFuZHJlIEJvdW5pbmUgPGFsZXhhbmRyZS5ib3VuaW5lQGlkdC5j
-b20+Cj4gUmVwb3J0ZWQtYnk6IFBhdWwgR29ydG1ha2VyIDxwYXVsLmdvcnRtYWtlckB3aW5kcml2
-ZXIuY29tPgo+IC0tLQo+IMKgZHJpdmVycy9kbWEvc2ExMXgwLWRtYS5jIMKgIMKgIMKgfCDCoCDC
-oDIgKy0KPiDCoGRyaXZlcnMvbmV0L2lyZGEvc2ExMTAwX2lyLmMgwqB8IMKgIMKgMiArLQo+IMKg
-c291bmQvc29jL3NoL2ZzaS5jIMKgIMKgIMKgIMKgIMKgIMKgfCDCoCDCoDcgKysrLS0tLQo+IMKg
-c291bmQvc29jL3NvYy1kbWFlbmdpbmUtcGNtLmMgfCDCoCDCoDIgKy0KCkkgaGF2ZSBhbHJlYWR5
-IHRha2VuIGNhcmUgb2Ygc291bmQvc29jL3NvYy1kbWFlbmdpbmUtcGNtLmM6Cmh0dHA6Ly9wZXJt
-YWxpbmsuZ21hbmUub3JnL2dtYW5lLmxpbnV4LmFsc2EuZGV2ZWwvOTYyMTUKX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQWxzYS1kZXZlbCBtYWlsaW5nIGxp
-c3QKQWxzYS1kZXZlbEBhbHNhLXByb2plY3Qub3JnCmh0dHA6Ly9tYWlsbWFuLmFsc2EtcHJvamVj
-dC5vcmcvbWFpbG1hbi9saXN0aW5mby9hbHNhLWRldmVsCg==
+Hi Eric,
+
+On Fri, 2012-03-23 at 17:29 -0700, Eric Dumazet wrote:
+> By default, iwlwifi uses order-1 pages (8 KB) to store incoming frames,
+> but doesnt say so in skb->truesize.
+> 
+> This makes very possible to exhaust kernel memory since these skb evade
+> normal socket memory accounting.
+> 
+> As struct ieee80211_hdr is going to be pulled before calling IP stack,
+> there is no need to use dev_alloc_skb() to reserve NET_SKB_PAD bytes.
+> alloc_skb() is ok in this driver, allowing more tailroom.
+> 
+> Pull beginning of frame in skb header, in the hope we can reuse order-1
+> pages in the driver immediately for small frames and reduce their
+> truesize to the minimum (linear skbs)
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+
+Is it ok I pull your patch into our internal tree first for regression
+testing, once the test is done, I will push your patch along with all
+our other patches together to wireless-next(John Linville).
+
+By doing so, first, we know the patch is not breaking any functionality
+for all the devices(legacy/new), second, it is easier for us to sync-up
+with all the other changes we are making now.
+
+Thanks
+Wey
