@@ -1,78 +1,73 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [PATCH linux-next] dmaengine: add context
-	parameter fixups
-Date: Sat, 24 Mar 2012 00:53:20 +0000
-Message-ID: <20120324005320.GB3190@opensource.wolfsonmicro.com>
-References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware
+ Clock instead of the timecompare method
+Date: Sat, 24 Mar 2012 07:51:49 +0100
+Message-ID: <20120324065147.GB2201@netboy.at.omicron.at>
+References: <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+	<20120316065537.GB2199@netboy.at.omicron.at>
+	<CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+	<20120321170003.GA5533@netboy.at.omicron.at>
+	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+	<20120322064107.GB2182@netboy.at.omicron.at>
+	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4441734946561899614=="
-Cc: fabio.estevam@freescale.com, alsa-devel@alsa-project.org, samuel@sortiz.org,
-	vinod.koul@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	linux-next@vger.kernel.org, tiwai@suse.de,
-	dan.j.williams@intel.com, lrg@ti.com
-To: Alexandre Bounine <alexandre.bounine@idt.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Sender: alsa-devel-bounces@alsa-project.org
-Errors-To: alsa-devel-bounces@alsa-project.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>, "Keller,
+	Jacob E" <jacob.e.keller@intel.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On Fri, Mar 23, 2012 at 03:39:08PM -0400, chetan loke wrote:
+> 
+> So, how is it working today? Because we could have tx and rx
+> completions on different CPUs. Is it not possible to have the
+> following race today - between timecompare_update->timecompare_offset
+> -> timecounter_readdelta of say Rx and timecounter_cyc2time from Tx?
 
---===============4441734946561899614==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gKMricLos+KVdGMg"
-Content-Disposition: inline
+I works (in the igb) because of the spinlock. You know, that thing
+that you are so against using.
 
+> So yes, rate limiting ioctls seems like a good idea.
 
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+No, that is a terrible idea.
+ 
+> How about rate limiting at the PHC class driver level? And then it
+> will work across the board for all the adapters at the device level.
 
-On Fri, Mar 23, 2012 at 10:00:42AM -0400, Alexandre Bounine wrote:
-> This patch fixes drivers that use device_prep_slave_sg() and
-> device_prep_dma_cyclic() interfaces and have been missed during the initial
-> release of interface changing patches.
+No, don't go there. Enough bikeshedding already. If you have a serious
+performance issue, please post a test case, and we will look for a
+solution.
 
-Can you please send a separate patch for the ASoC (sound/soc) bits of
-this?
-
---gKMricLos+KVdGMg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPbRr2AAoJEBus8iNuMP3d4BcP/RpL0AxKVsJNqh9SMqEmiC+1
-TL67nLDRzfaSIVHHB5Yop94htNAw04YcjtEbkH6e5CbA05nCl1tCsOiQSbjtaqXY
-9qiKYCz3CA7YP7uv4KanMYI+2hSGlmgsRBJbr0Q7BGXb8mO2hX/qbh5lYf+RQInr
-/RFQsH5f/eV7HXdDJeKyZtYaaU8XB6oCQ/CgOj6rGcb9Qm2f4Di6eH8ugD7/aPxV
-dYqMuBwxGbDJHd+B1CoNQOzwEChemHzcP1Bwfj/dTdbiyqmhLUtTsjFV8ukb03uH
-czahRelRMBEn+MSua78dOpR+KlVCO8kQiiPSYcXyu/jvEIk7JvmoYCJM99HxwYqq
-kKhoLvitK7buq6saku/GfRIZP++GFlvvXhl/i5bHIjy/xmHRXLE+87IIqt1FtiVm
-sq1OPT+p0qKvYFGRzEBwHPfE0Sr90TLk79unzx1ec3pLGGMZHwVX8OzbhkJ0wQ4J
-c0UHS2Z0QcMcASmQ5yjJmfV7ZmT7d8KfyfZkB1AxGynZs4YO7Gf6ek9+g/CQV+wf
-AiiDsPzo8WQbc0yphfC5lQLRIb9XqO9xwTQStOAcJcelahOrP+JgI/c89/HlXjSw
-mru6IHCa6rsqOF8UHGXs3ty876dfYwG/IjqB5Xui5Hg4eITIeQmgPYHpH37VVwPp
-27z2KTXSictKNvlinuLY
-=4ghL
------END PGP SIGNATURE-----
-
---gKMricLos+KVdGMg--
-
---===============4441734946561899614==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Thanks,
+Richard
 
 
---===============4441734946561899614==--
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
