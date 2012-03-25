@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Enable some ZTE modems to use the new QMI WWAN driver
-Date: Sun, 25 Mar 2012 13:28:57 -0400 (EDT)
-Message-ID: <20120325.132857.2007093851540454401.davem@davemloft.net>
-References: <1332670229-2045-1-git-send-email-ajb@spheresystems.co.uk>
+Subject: Re: [PATCH v2] net: add a truesize parameter to skb_add_rx_frag()
+Date: Sun, 25 Mar 2012 13:30:17 -0400 (EDT)
+Message-ID: <20120325.133017.755244992502310658.davem@davemloft.net>
+References: <1332508626.4858.20.camel@edumazet-laptop>
+	<1332583173.3487.3.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, smurf@smurf.noris.de,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ajb@spheresystems.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332670229-2045-1-git-send-email-ajb@spheresystems.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, wey-yi.w.guy@intel.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50642 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755978Ab2CYRaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2012 13:30:21 -0400
+In-Reply-To: <1332583173.3487.3.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Bird <ajb@spheresystems.co.uk>
-Date: Sun, 25 Mar 2012 11:10:26 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 24 Mar 2012 02:59:33 -0700
 
-> These patches enable the network devices on some Vodafone branded ZTE
-> devices to be bound by the new QMI / WWAN driver. I suspect that the
-> K3765-Z would also work, but at the moment I can't get the network
-> interface to be recognised during probe.
+> skb_add_rx_frag() API is misleading.
 > 
-> (Reposted as previously I didn't cc netdev)
+> Network skbs built with this helper can use uncharged kernel memory and
+> eventually stress/crash machine in OOM.
+> 
+> Add a 'truesize' parameter and then fix drivers in followup patches.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-All applied, thanks.
+Applied.
