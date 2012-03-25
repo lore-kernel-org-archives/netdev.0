@@ -1,45 +1,102 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [STRAW MAN PATCH] sch_teql doesn't load-balance ppp(oatm)
- slaves
-Date: Sun, 25 Mar 2012 17:36:35 -0400 (EDT)
-Message-ID: <20120325.173635.1909319488008466320.davem@davemloft.net>
-References: <1332450218.32446.79.camel@shinybook.infradead.org>
-	<20120322.230331.1623101647193498167.davem@davemloft.net>
-	<1332672230.32446.160.camel@shinybook.infradead.org>
+Subject: [GIT] Networking
+Date: Sun, 25 Mar 2012 17:51:51 -0400 (EDT)
+Message-ID: <20120325.175151.853542033329072696.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51828 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932134Ab2CYVhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2012 17:37:43 -0400
-In-Reply-To: <1332672230.32446.160.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 25 Mar 2012 11:43:50 +0100
 
-> It's a bad idea to have huge hidden queues (a whole wmem_default worth
-> of packets are in a hidden queue between ppp_generic and the ATM device,
-> ffs!) anyway, so perhaps if we just fix *that* within PPP, it should
-> work a bit better with TEQL?
+1) Name string overrun fix in gianfar driver from Joe Perches.
 
-Yes, the ATM devices deep transmit queue is quite undesirable.
+2) VHOST bug fixes from Michael S. Tsirkin and Nadav Har'El
 
-But I actually don't see how the problem arises yet, I need more
-details.
+3) Fix dependencies on xt_LOG netfilter module, from Pablo Neira
+   Ayuso.
 
-PPP itself will always stop the queue, and return NETDEV_TX_OK on a
-transmit attempt.  It may wake the queue back up before returning if
-the downstream device (such as pppoatm) accepted the packet.
+4) Fix RCU locking in xt_CT, also from Pablo Neira Ayuso.
 
-But in either case NETDEV_TX_OK is returned and this is what the teql
-master transmit sees, and this takes the code path which advances the
-slave pointer to the next device.
+4) Add a parameter to skb_add_rx_frag() so we can fix the truesize
+   adjustments in the drivers that use it.  The individual drivers
+   aren't fixed by this commit, but will be dealt with using follow-on
+   commits.  From Eric Dumazet.
 
-Therefore the next teql master transmit should try the next device in
-the slave list, not the PPP device used in the previous call.
+5) Add some device IDs to qmi_wwan driver, from Andrew Bird.
+
+Please pull, thanks a lot!
+
+The following changes since commit e22057c8599373e5caef0bc42bdb95d2a361ab0d:
+
+  Merge tag 'stable/for-linus-3.4-tag-two' of git://git.kernel.org/pub/scm/linux/kernel/git/konrad/xen (2012-03-24 12:20:25 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+Andrew Bird (Sphere Systems) (3):
+      USB: qmi_wwan: Add ZTE (Vodafone) K3565-Z and K4505-Z net interfaces
+      USB: option: Ignore ZTE (Vodafone) K3570/71 net interfaces
+      USB: qmi_wwan: Add ZTE (Vodafone) K3570-Z and K3571-Z net interfaces
+
+Anirban Chakraborty (1):
+      qlcnic: Bug fix for LRO
+
+David S. Miller (2):
+      Merge branch 'master' of git://1984.lsi.us.es/net
+      Merge branch 'vhost-net' of git://git.kernel.org/.../mst/vhost
+
+Eric Dumazet (1):
+      net: add a truesize parameter to skb_add_rx_frag()
+
+Joe Perches (1):
+      gianfar: Fix possible overrun and simplify interrupt name field creation
+
+Michael S. Tsirkin (4):
+      tools/virtio: add linux/module.h stub
+      tools/virtio: add linux/hrtimer.h stub
+      tools/virtio: stub out strong barriers
+      vhost: fix release path lockdep checks
+
+Nadav Har'El (1):
+      vhost: don't forget to schedule()
+
+Pablo Neira Ayuso (5):
+      netfilter: xt_LOG: use CONFIG_IP6_NF_IPTABLES instead of CONFIG_IPV6
+      netfilter: cttimeout: fix dependency with l4protocol conntrack module
+      netfilter: xt_CT: missing rcu_read_lock section in timeout assignment
+      netfilter: xt_CT: fix assignation of the generic protocol tracker
+      netfilter: nf_conntrack: permanently attach timeout policy to conntrack
+
+ drivers/net/ethernet/freescale/gianfar.c         |   39 +++---------------
+ drivers/net/ethernet/freescale/gianfar.h         |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 +-
+ drivers/net/usb/cdc-phonet.c                     |    6 ++-
+ drivers/net/usb/qmi_wwan.c                       |   36 +++++++++++++++++
+ drivers/net/wireless/iwlegacy/3945.c             |    3 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c         |    3 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rx.c        |    2 +-
+ drivers/usb/gadget/f_phonet.c                    |    2 +-
+ drivers/usb/serial/option.c                      |    6 ++-
+ drivers/vhost/net.c                              |    2 +-
+ drivers/vhost/vhost.c                            |   11 +++--
+ drivers/vhost/vhost.h                            |    2 +-
+ include/linux/skbuff.h                           |    2 +-
+ include/net/netfilter/nf_conntrack_l4proto.h     |    4 ++
+ include/net/netfilter/nf_conntrack_timeout.h     |    2 +-
+ net/core/skbuff.c                                |    4 +-
+ net/netfilter/nf_conntrack_core.c                |   39 +++++++++++--------
+ net/netfilter/nf_conntrack_proto.c               |   21 ++++++++++
+ net/netfilter/nfnetlink_cttimeout.c              |   45 +++++++++++-----------
+ net/netfilter/xt_CT.c                            |   31 +++++++++++----
+ net/netfilter/xt_LOG.c                           |   12 +++---
+ tools/virtio/linux/virtio.h                      |    3 +
+ 24 files changed, 178 insertions(+), 107 deletions(-)
+ create mode 100644 tools/virtio/linux/hrtimer.h
+ create mode 100644 tools/virtio/linux/module.h
