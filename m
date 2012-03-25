@@ -1,43 +1,88 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] net/vlan: withdraw VLAN ID attribute from GVRP on VLAN device stop
-Date: Sun, 25 Mar 2012 18:43:57 -0400
-Message-ID: <1332715437-16278-2-git-send-email-david.ward@ll.mit.edu>
-References: <1332715437-16278-1-git-send-email-david.ward@ll.mit.edu>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
+ DMADBG_7=0x00008040
+Date: Sun, 25 Mar 2012 16:00:24 -0700
+Message-ID: <4F6FA388.9080408@gmail.com>
+References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com> <4F579A88.6030503@openwrt.org> <4F61F551.5010608@gmail.com> <4F639851.5080500@gmail.com> <4F674616.8080103@gmail.com> <CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com> <4F674FF5.2060406@gmail.com> <4F6751B2.1030809@openwrt.org> <4F681B78.9000207@gmail.com> <CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com> <4F68235C.5090701@gmail.com> <CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com> <4F682555.3020502@gmail.com> <20328.16366.166909.255035@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:46149 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757133Ab2CYW75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Mar 2012 18:59:57 -0400
-Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id q2PMi52f006663 for <netdev@vger.kernel.org>; Sun, 25 Mar 2012 18:44:05 -0400
-In-Reply-To: <1332715437-16278-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mohammed Shafi <shafi.wireless@gmail.com>,
+	Linux-wireless <linux-wireless@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>, linux-kernel@vger.kernel.org,
+	Linux-netdev <netdev@vger.kernel.org>
+To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20328.16366.166909.255035@gargle.gargle.HOWL>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a VLAN device is stopped which has VLAN_FLAG_GVRP set, the VLAN
-ID attribute that was previously declared by GVRP must be withdrawn.
+On 03/20/2012 01:29 AM, Sujith Manoharan wrote:
+> Justin P. Mattock wrote:
+>> yeah this works:
+>>
+>> eading symbols from
+>> /home/kernel/linux-next/drivers/net/wireless/ath/ath9k/ath9k.o...done.
+>> (gdb) l *(ath_tx_start+0x284)
+>> 0xcad4 is in ath_tx_start (drivers/net/wireless/ath/ath9k/xmit.c:1878).
+>> 1873			ieee80211_is_data_qos(hdr->frame_control)) {
+>> 1874			tidno = ieee80211_get_qos_ctl(hdr)[0]&
+>> 1875				IEEE80211_QOS_CTL_TID_MASK;
+>> 1876			tid = ATH_AN_2_TID(txctl->an, tidno);
+>> 1877	
+>> 1878			WARN_ON(tid->ac->txq != txctl->txq);
+>> 1879		}
+>> 1880	
+>> 1881		if ((tx_info->flags&  IEEE80211_TX_CTL_AMPDU)&&  tid) {
+>> 1882			/*
+>> (gdb)
+>
+> Can you try this patch ?
+>
+> From: Sujith Manoharan<c_manoha@qca.qualcomm.com>
+> Date: Tue, 20 Mar 2012 13:51:26 +0530
+> Subject: [PATCH] ath9k: Use HW HT capabilites properly
+>
+> The commit "ath9k: Remove aggregation flags" changed how
+> nodes were being initialized. Use the HW HT cap bits
+> to initialize/de-initialize nodes, else we would be
+> accessing an uninitialized entry during a suspend/resume cycle,
+> resulting in a panic.
+>
+> Reported-by: Justin P. Mattock<justinmattock@gmail.com>
+> Signed-off-by: Sujith Manoharan<c_manoha@qca.qualcomm.com>
+> ---
+>   drivers/net/wireless/ath/ath9k/main.c |    4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
+> index 3879485..215eb25 100644
+> --- a/drivers/net/wireless/ath/ath9k/main.c
+> +++ b/drivers/net/wireless/ath/ath9k/main.c
+> @@ -640,7 +640,7 @@ static void ath_node_attach(struct ath_softc *sc, struct ieee80211_sta *sta,
+>   	an->sta = sta;
+>   	an->vif = vif;
+>
+> -	if (sta->ht_cap.ht_supported) {
+> +	if (sc->sc_ah->caps.hw_caps&  ATH9K_HW_CAP_HT) {
+>   		ath_tx_node_init(sc, an);
+>   		an->maxampdu = 1<<  (IEEE80211_HT_MAX_AMPDU_FACTOR +
+>   				     sta->ht_cap.ampdu_factor);
+> @@ -659,7 +659,7 @@ static void ath_node_detach(struct ath_softc *sc, struct ieee80211_sta *sta)
+>   	an->sta = NULL;
+>   #endif
+>
+> -	if (sta->ht_cap.ht_supported)
+> +	if (sc->sc_ah->caps.hw_caps&  ATH9K_HW_CAP_HT)
+>   		ath_tx_node_cleanup(sc, an);
+>   }
+>
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- net/8021q/vlan_dev.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+I would have to say this patch above does get rid of this crash I was 
+seeing. as a quick test I simply connect to a WPA network, then connect 
+to an open network going back and forth triggers this freeze for me 
+after applying this I am able to toggle back and forth without a freeze.
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 9988d4a..df86dd0 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -319,6 +319,9 @@ static int vlan_dev_stop(struct net_device *dev)
- 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
- 	struct net_device *real_dev = vlan->real_dev;
- 
-+	if (vlan->flags & VLAN_FLAG_GVRP)
-+		vlan_gvrp_request_leave(dev);
-+
- 	dev_mc_unsync(real_dev, dev);
- 	dev_uc_unsync(real_dev, dev);
- 	if (dev->flags & IFF_ALLMULTI)
--- 
-1.7.1
+Thanks!
+
+Justin P. Mattock
