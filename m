@@ -1,840 +1,105 @@
-From: Vladimir Murzin <murzin.v@gmail.com>
-Subject: Re: [PATCH v15 06/13] seccomp: add system call filtering using BPF
-Date: Sun, 25 Mar 2012 11:31:38 +0400
-Message-ID: <20120325073131.GA4269@pinguin>
-References: <1331781125-15658-1-git-send-email-wad@chromium.org>
- <1331781125-15658-7-git-send-email-wad@chromium.org>
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Linux 3.2 and 3.3 not doing IPv6 ND when it should
+Date: Sun, 25 Mar 2012 09:39:31 +0200
+Message-ID: <20120325073931.GA12998@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
-	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
-	markus@chromium.org, coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:59238 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641Ab2CYHjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2012 03:39:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1331781125-15658-7-git-send-email-wad@chromium.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 14, 2012 at 10:11:58PM -0500, Will Drewry wrote:
-> [This patch depends on luto@mit.edu's no_new_privs patch:
->    https://lkml.org/lkml/2012/1/30/264
->  The whole series including Andrew's patches can be found here:
->    https://github.com/redpig/linux/tree/seccomp
->  Complete diff here:
->    https://github.com/redpig/linux/compare/1dc65fed...seccomp
->  A GPG signed tag 'seccomp/v14/posted' will be pushed shortly.
-> ]
-> 
-> This patch adds support for seccomp mode 2.  Mode 2 introduces the
-> ability for unprivileged processes to install system call filtering
-> policy expressed in terms of a Berkeley Packet Filter (BPF) program.
-> This program will be evaluated in the kernel for each system call
-> the task makes and computes a result based on data in the format
-> of struct seccomp_data.
-> 
-> A filter program may be installed by calling:
->   struct sock_fprog fprog = { ... };
->   ...
->   prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &fprog);
-> 
-> The return value of the filter program determines if the system call is
-> allowed to proceed or denied.  If the first filter program installed
-> allows prctl(2) calls, then the above call may be made repeatedly
-> by a task to further reduce its access to the kernel.  All attached
-> programs must be evaluated before a system call will be allowed to
-> proceed.
-> 
-> Filter programs will be inherited across fork/clone and execve.
-> However, if the task attaching the filter is unprivileged
-> (!CAP_SYS_ADMIN) the no_new_privs bit will be set on the task.  This
-> ensures that unprivileged tasks cannot attach filters that affect
-> privileged tasks (e.g., setuid binary).
-> 
-> There are a number of benefits to this approach. A few of which are
-> as follows:
-> - BPF has been exposed to userland for a long time
-> - BPF optimization (and JIT'ing) are well understood
-> - Userland already knows its ABI: system call numbers and desired
->   arguments
-> - No time-of-check-time-of-use vulnerable data accesses are possible.
-> - system call arguments are loaded on access only to minimize copying
->   required for system call policy decisions.
-> 
-> Mode 2 support is restricted to architectures that enable
-> HAVE_ARCH_SECCOMP_FILTER.  In this patch, the primary dependency is on
-> syscall_get_arguments().  The full desired scope of this feature will
-> add a few minor additional requirements expressed later in this series.
-> Based on discussion, SECCOMP_RET_ERRNO and SECCOMP_RET_TRACE seem to be
-> the desired additional functionality.
-> 
-> No architectures are enabled in this patch.
-> 
-> v15: - add a 4 instr penalty when counting a path to account for seccomp_filter
->        size (indan@nul.nu)
->      - drop the max insns to 256KB (indan@nul.nu)
->      - return ENOMEM if the max insns limit has been hit (indan@nul.nu)
->      - move IP checks after args (indan@nul.nu)
->      - drop !user_filter check (indan@nul.nu)
->      - only allow explicit bpf codes (indan@nul.nu)
->      - exit_code -> exit_sig
-> v14: - put/get_seccomp_filter takes struct task_struct
->        (indan@nul.nu,keescook@chromium.org)
->      - adds seccomp_chk_filter and drops general bpf_run/chk_filter user
->      - add seccomp_bpf_load for use by net/core/filter.c
->      - lower max per-process/per-hierarchy: 1MB
->      - moved nnp/capability check prior to allocation
->        (all of the above: indan@nul.nu)
-> v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-> v12: - added a maximum instruction count per path (indan@nul.nu,oleg@redhat.com)
->      - removed copy_seccomp (keescook@chromium.org,indan@nul.nu)
->      - reworded the prctl_set_seccomp comment (indan@nul.nu)
-> v11: - reorder struct seccomp_data to allow future args expansion (hpa@zytor.com)
->      - style clean up, @compat dropped, compat_sock_fprog32 (indan@nul.nu)
->      - do_exit(SIGSYS) (keescook@chromium.org, luto@mit.edu)
->      - pare down Kconfig doc reference.
->      - extra comment clean up
-> v10: - seccomp_data has changed again to be more aesthetically pleasing
->        (hpa@zytor.com)
->      - calling convention is noted in a new u32 field using syscall_get_arch.
->        This allows for cross-calling convention tasks to use seccomp filters.
->        (hpa@zytor.com)
->      - lots of clean up (thanks, Indan!)
->  v9: - n/a
->  v8: - use bpf_chk_filter, bpf_run_filter. update load_fns
->      - Lots of fixes courtesy of indan@nul.nu:
->      -- fix up load behavior, compat fixups, and merge alloc code,
->      -- renamed pc and dropped __packed, use bool compat.
->      -- Added a hidden CONFIG_SECCOMP_FILTER to synthesize non-arch
->         dependencies
->  v7:  (massive overhaul thanks to Indan, others)
->      - added CONFIG_HAVE_ARCH_SECCOMP_FILTER
->      - merged into seccomp.c
->      - minimal seccomp_filter.h
->      - no config option (part of seccomp)
->      - no new prctl
->      - doesn't break seccomp on systems without asm/syscall.h
->        (works but arg access always fails)
->      - dropped seccomp_init_task, extra free functions, ...
->      - dropped the no-asm/syscall.h code paths
->      - merges with network sk_run_filter and sk_chk_filter
->  v6: - fix memory leak on attach compat check failure
->      - require no_new_privs || CAP_SYS_ADMIN prior to filter
->        installation. (luto@mit.edu)
->      - s/seccomp_struct_/seccomp_/ for macros/functions (amwang@redhat.com)
->      - cleaned up Kconfig (amwang@redhat.com)
->      - on block, note if the call was compat (so the # means something)
->  v5: - uses syscall_get_arguments
->        (indan@nul.nu,oleg@redhat.com, mcgrathr@chromium.org)
->       - uses union-based arg storage with hi/lo struct to
->         handle endianness.  Compromises between the two alternate
->         proposals to minimize extra arg shuffling and account for
->         endianness assuming userspace uses offsetof().
->         (mcgrathr@chromium.org, indan@nul.nu)
->       - update Kconfig description
->       - add include/seccomp_filter.h and add its installation
->       - (naive) on-demand syscall argument loading
->       - drop seccomp_t (eparis@redhat.com)
->  v4:  - adjusted prctl to make room for PR_[SG]ET_NO_NEW_PRIVS
->       - now uses current->no_new_privs
->         (luto@mit.edu,torvalds@linux-foundation.com)
->       - assign names to seccomp modes (rdunlap@xenotime.net)
->       - fix style issues (rdunlap@xenotime.net)
->       - reworded Kconfig entry (rdunlap@xenotime.net)
->  v3:  - macros to inline (oleg@redhat.com)
->       - init_task behavior fixed (oleg@redhat.com)
->       - drop creator entry and extra NULL check (oleg@redhat.com)
->       - alloc returns -EINVAL on bad sizing (serge.hallyn@canonical.com)
->       - adds tentative use of "always_unprivileged" as per
->         torvalds@linux-foundation.org and luto@mit.edu
->  v2:  - (patch 2 only)
-> 
-> Reviewed-by: Indan Zupancic <indan@nul.nu>
-> Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-> 
-> Signed-off-by: Will Drewry <wad@chromium.org>
-> ---
->  arch/Kconfig            |   17 ++
->  include/linux/Kbuild    |    1 +
->  include/linux/seccomp.h |   76 +++++++++-
->  kernel/fork.c           |    3 +
->  kernel/seccomp.c        |  391 ++++++++++++++++++++++++++++++++++++++++++++---
->  kernel/sys.c            |    2 +-
->  6 files changed, 467 insertions(+), 23 deletions(-)
-> 
-> diff --git a/arch/Kconfig b/arch/Kconfig
-> index 4f55c73..7c6bd48 100644
-> --- a/arch/Kconfig
-> +++ b/arch/Kconfig
-> @@ -199,4 +199,21 @@ config HAVE_CMPXCHG_LOCAL
->  config HAVE_CMPXCHG_DOUBLE
->  	bool
->  
-> +config HAVE_ARCH_SECCOMP_FILTER
-> +	bool
-> +	help
-> +	  This symbol should be selected by an architecure if it provides
-> +	  asm/syscall.h, specifically syscall_get_arguments() and
-> +	  syscall_get_arch().
-> +
-> +config SECCOMP_FILTER
-> +	def_bool y
-> +	depends on HAVE_ARCH_SECCOMP_FILTER && SECCOMP && NET
-> +	help
-> +	  Enable tasks to build secure computing environments defined
-> +	  in terms of Berkeley Packet Filter programs which implement
-> +	  task-defined system call filtering polices.
-> +
-> +	  See Documentation/prctl/seccomp_filter.txt for details.
-> +
->  source "kernel/gcov/Kconfig"
-> diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-> index c94e717..d41ba12 100644
-> --- a/include/linux/Kbuild
-> +++ b/include/linux/Kbuild
-> @@ -330,6 +330,7 @@ header-y += scc.h
->  header-y += sched.h
->  header-y += screen_info.h
->  header-y += sdla.h
-> +header-y += seccomp.h
->  header-y += securebits.h
->  header-y += selinux_netlink.h
->  header-y += sem.h
-> diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-> index d61f27f..ce980a8 100644
-> --- a/include/linux/seccomp.h
-> +++ b/include/linux/seccomp.h
-> @@ -1,14 +1,67 @@
->  #ifndef _LINUX_SECCOMP_H
->  #define _LINUX_SECCOMP_H
->  
-> +#include <linux/compiler.h>
-> +#include <linux/types.h>
-> +
-> +
-> +/* Valid values for seccomp.mode and prctl(PR_SET_SECCOMP, <mode>) */
-> +#define SECCOMP_MODE_DISABLED	0 /* seccomp is not in use. */
-> +#define SECCOMP_MODE_STRICT	1 /* uses hard-coded filter. */
-> +#define SECCOMP_MODE_FILTER	2 /* uses user-supplied filter. */
-> +
-> +/*
-> + * All BPF programs must return a 32-bit value.
-> + * The bottom 16-bits are reserved for future use.
-> + * The upper 16-bits are ordered from least permissive values to most.
-> + *
-> + * The ordering ensures that a min_t() over composed return values always
-> + * selects the least permissive choice.
-> + */
-> +#define SECCOMP_RET_KILL	0x00000000U /* kill the task immediately */
-> +#define SECCOMP_RET_ALLOW	0x7fff0000U /* allow */
-> +
-> +/* Masks for the return value sections. */
-> +#define SECCOMP_RET_ACTION	0xffff0000U
-> +#define SECCOMP_RET_DATA	0x0000ffffU
-> +
-> +/**
-> + * struct seccomp_data - the format the BPF program executes over.
-> + * @nr: the system call number
-> + * @arch: indicates system call convention as an AUDIT_ARCH_* value
-> + *        as defined in <linux/audit.h>.
-> + * @instruction_pointer: at the time of the system call.
-> + * @args: up to 6 system call arguments always stored as 64-bit values
-> + *        regardless of the architecture.
-> + */
-> +struct seccomp_data {
-> +	int nr;
-> +	__u32 arch;
-> +	__u64 instruction_pointer;
-> +	__u64 args[6];
-> +};
->  
-> +#ifdef __KERNEL__
->  #ifdef CONFIG_SECCOMP
->  
->  #include <linux/thread_info.h>
->  #include <asm/seccomp.h>
->  
-> +struct seccomp_filter;
-> +/**
-> + * struct seccomp - the state of a seccomp'ed process
-> + *
-> + * @mode:  indicates one of the valid values above for controlled
-> + *         system calls available to a process.
-> + * @filter: The metadata and ruleset for determining what system calls
-> + *          are allowed for a task.
-> + *
-> + *          @filter must only be accessed from the context of current as there
-> + *          is no locking.
-> + */
->  struct seccomp {
->  	int mode;
-> +	struct seccomp_filter *filter;
->  };
->  
->  extern void __secure_computing(int);
-> @@ -19,7 +72,7 @@ static inline void secure_computing(int this_syscall)
->  }
->  
->  extern long prctl_get_seccomp(void);
-> -extern long prctl_set_seccomp(unsigned long);
-> +extern long prctl_set_seccomp(unsigned long, char __user *);
->  
->  static inline int seccomp_mode(struct seccomp *s)
->  {
-> @@ -31,15 +84,16 @@ static inline int seccomp_mode(struct seccomp *s)
->  #include <linux/errno.h>
->  
->  struct seccomp { };
-> +struct seccomp_filter { };
->  
-> -#define secure_computing(x) do { } while (0)
-> +#define secure_computing(x) 0
->  
->  static inline long prctl_get_seccomp(void)
->  {
->  	return -EINVAL;
->  }
->  
-> -static inline long prctl_set_seccomp(unsigned long arg2)
-> +static inline long prctl_set_seccomp(unsigned long arg2, char __user *arg3)
->  {
->  	return -EINVAL;
->  }
-> @@ -48,7 +102,21 @@ static inline int seccomp_mode(struct seccomp *s)
->  {
->  	return 0;
->  }
-> -
->  #endif /* CONFIG_SECCOMP */
->  
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +extern void put_seccomp_filter(struct task_struct *tsk);
-> +extern void get_seccomp_filter(struct task_struct *tsk);
-> +extern u32 seccomp_bpf_load(int off);
-> +#else  /* CONFIG_SECCOMP_FILTER */
-> +static inline void put_seccomp_filter(struct task_struct *tsk)
-> +{
-> +	return;
-> +}
-> +static inline void get_seccomp_filter(struct task_struct *tsk)
-> +{
-> +	return;
-> +}
-> +#endif /* CONFIG_SECCOMP_FILTER */
-> +#endif /* __KERNEL__ */
->  #endif /* _LINUX_SECCOMP_H */
-> diff --git a/kernel/fork.c b/kernel/fork.c
-> index 26a7a67..4f7a186 100644
-> --- a/kernel/fork.c
-> +++ b/kernel/fork.c
-> @@ -34,6 +34,7 @@
->  #include <linux/cgroup.h>
->  #include <linux/security.h>
->  #include <linux/hugetlb.h>
-> +#include <linux/seccomp.h>
->  #include <linux/swap.h>
->  #include <linux/syscalls.h>
->  #include <linux/jiffies.h>
-> @@ -170,6 +171,7 @@ void free_task(struct task_struct *tsk)
->  	free_thread_info(tsk->stack);
->  	rt_mutex_debug_task_free(tsk);
->  	ftrace_graph_exit_task(tsk);
-> +	put_seccomp_filter(tsk);
->  	free_task_struct(tsk);
->  }
->  EXPORT_SYMBOL(free_task);
-> @@ -1143,6 +1145,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
->  		goto fork_out;
->  
->  	ftrace_graph_init_task(p);
-> +	get_seccomp_filter(p);
->  
->  	rt_mutex_init_task(p);
->  
-> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-> index e8d76c5..9e50174 100644
-> --- a/kernel/seccomp.c
-> +++ b/kernel/seccomp.c
-> @@ -3,16 +3,338 @@
->   *
->   * Copyright 2004-2005  Andrea Arcangeli <andrea@cpushare.com>
->   *
-> - * This defines a simple but solid secure-computing mode.
-> + * Copyright (C) 2012 Google, Inc.
-> + * Will Drewry <wad@chromium.org>
-> + *
-> + * This defines a simple but solid secure-computing facility.
-> + *
-> + * Mode 1 uses a fixed list of allowed system calls.
-> + * Mode 2 allows user-defined system call filters in the form
-> + *        of Berkeley Packet Filters/Linux Socket Filters.
->   */
->  
-> +#include <linux/atomic.h>
->  #include <linux/audit.h>
-> -#include <linux/seccomp.h>
-> -#include <linux/sched.h>
->  #include <linux/compat.h>
-> +#include <linux/filter.h>
-> +#include <linux/sched.h>
-> +#include <linux/seccomp.h>
-> +#include <linux/security.h>
-> +#include <linux/slab.h>
-> +#include <linux/uaccess.h>
-> +
-> +#include <linux/tracehook.h>
-> +#include <asm/syscall.h>
->  
->  /* #define SECCOMP_DEBUG 1 */
-> -#define NR_SECCOMP_MODES 1
-> +
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +/**
-> + * struct seccomp_filter - container for seccomp BPF programs
-> + *
-> + * @usage: reference count to manage the object liftime.
-> + *         get/put helpers should be used when accessing an instance
-> + *         outside of a lifetime-guarded section.  In general, this
-> + *         is only needed for handling filters shared across tasks.
-> + * @prev: points to a previously installed, or inherited, filter
-> + * @len: the number of instructions in the program
-> + * @insns: the BPF program instructions to evaluate
-> + *
-> + * seccomp_filter objects are organized in a tree linked via the @prev
-> + * pointer.  For any task, it appears to be a singly-linked list starting
-> + * with current->seccomp.filter, the most recently attached or inherited filter.
-> + * However, multiple filters may share a @prev node, by way of fork(), which
-> + * results in a unidirectional tree existing in memory.  This is similar to
-> + * how namespaces work.
-> + *
-> + * seccomp_filter objects should never be modified after being attached
-> + * to a task_struct (other than @usage).
-> + */
-> +struct seccomp_filter {
-> +	atomic_t usage;
-> +	struct seccomp_filter *prev;
-> +	unsigned short len;  /* Instruction count */
-> +	struct sock_filter insns[];
-> +};
-> +
-> +/* Limit any path through the tree to 256KB worth of instructions. */
-> +#define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
-> +
-> +static void seccomp_filter_log_failure(int syscall)
-> +{
-> +	int compat = 0;
-> +#ifdef CONFIG_COMPAT
-> +	compat = is_compat_task();
-> +#endif
-> +	pr_info("%s[%d]: %ssystem call %d blocked at 0x%lx\n",
-> +		current->comm, task_pid_nr(current),
-> +		(compat ? "compat " : ""),
-> +		syscall, KSTK_EIP(current));
-> +}
-> +
+Hi,
 
-Do we really need to surround is_compat_task() with CNFIG_COMPAT?
-It seems that this case has already handled in include/linux/compat.h [1]
+it's me again. I have nailed down my issue a little more. First, I now
+see the issue happening with Linux 3.2.9 as well. Unfortunately, it is
+still only a single box; the two other Linux hosts that have a
+similiar setup (with native IPv6 on an Ethernet interface) are working
+flawlessly.
 
-> +/**
-> + * get_u32 - returns a u32 offset into data
-> + * @data: a unsigned 64 bit value
-> + * @index: 0 or 1 to return the first or second 32-bits
-> + *
-> + * This inline exists to hide the length of unsigned long.
-> + * If a 32-bit unsigned long is passed in, it will be extended
-> + * and the top 32-bits will be 0. If it is a 64-bit unsigned
-> + * long, then whatever data is resident will be properly returned.
-> + */
-> +static inline u32 get_u32(u64 data, int index)
-> +{
-> +	return ((u32 *)&data)[index];
-> +}
-> +
-> +/* Helper for bpf_load below. */
-> +#define BPF_DATA(_name) offsetof(struct seccomp_data, _name)
-> +/**
-> + * bpf_load: checks and returns a pointer to the requested offset
-> + * @off: offset into struct seccomp_data to load from
-> + *
-> + * Returns the requested 32-bits of data.
-> + * seccomp_chk_filter() should assure that @off is 32-bit aligned
-> + * and not out of bounds.  Failure to do so is a BUG.
-> + */
-> +u32 seccomp_bpf_load(int off)
-> +{
-> +	struct pt_regs *regs = task_pt_regs(current);
-> +	if (off == BPF_DATA(nr))
-> +		return syscall_get_nr(current, regs);
-> +	if (off == BPF_DATA(arch))
-> +		return syscall_get_arch(current, regs);
-> +	if (off >= BPF_DATA(args[0]) && off < BPF_DATA(args[6])) {
-> +		unsigned long value;
-> +		int arg = (off - BPF_DATA(args[0])) / sizeof(u64);
-> +		int index = !!(off % sizeof(u64));
-> +		syscall_get_arguments(current, regs, arg, 1, &value);
-> +		return get_u32(value, index);
-> +	}
-> +	if (off == BPF_DATA(instruction_pointer))
-> +		return get_u32(KSTK_EIP(current), 0);
-> +	if (off == BPF_DATA(instruction_pointer) + sizeof(u32))
-> +		return get_u32(KSTK_EIP(current), 1);
-> +	/* seccomp_chk_filter should make this impossible. */
-> +	BUG();
-> +}
-> +
-> +/**
-> + *	seccomp_chk_filter - verify seccomp filter code
-> + *	@filter: filter to verify
-> + *	@flen: length of filter
-> + *
-> + * Takes a previously checked filter (by sk_chk_filter) and
-> + * redirects all filter code that loads struct sk_buff data
-> + * and related data through seccomp_bpf_load.  It also
-> + * enforces length and alignment checking of those loads.
-> + *
-> + * Returns 0 if the rule set is legal or -EINVAL if not.
-> + */
-> +static int seccomp_chk_filter(struct sock_filter *filter, unsigned int flen)
-> +{
-> +	int pc;
-> +	for (pc = 0; pc < flen; pc++) {
-> +		struct sock_filter *ftest = &filter[pc];
-> +		u16 code = ftest->code;
-> +		u32 k = ftest->k;
-> +		switch (code) {
-> +		case BPF_S_LD_W_ABS:
-> +			ftest->code = BPF_S_ANC_SECCOMP_LD_W;
-> +			/* 32-bit aligned and not out of bounds. */
-> +			if (k >= sizeof(struct seccomp_data) || k & 3)
-> +				return -EINVAL;
-> +			continue;
-> +		case BPF_S_LD_W_LEN:
-> +			ftest->code = BPF_S_LD_IMM;
-> +			ftest->k = sizeof(struct seccomp_data);
-> +			continue;
-> +		case BPF_S_LDX_W_LEN:
-> +			ftest->code = BPF_S_LDX_IMM;
-> +			ftest->k = sizeof(struct seccomp_data);
-> +			continue;
-> +		/* Explicitly include allowed calls. */
-> +		case BPF_S_RET_K:
-> +		case BPF_S_RET_A:
-> +		case BPF_S_ALU_ADD_K:
-> +		case BPF_S_ALU_ADD_X:
-> +		case BPF_S_ALU_SUB_K:
-> +		case BPF_S_ALU_SUB_X:
-> +		case BPF_S_ALU_MUL_K:
-> +		case BPF_S_ALU_MUL_X:
-> +		case BPF_S_ALU_DIV_X:
-> +		case BPF_S_ALU_AND_K:
-> +		case BPF_S_ALU_AND_X:
-> +		case BPF_S_ALU_OR_K:
-> +		case BPF_S_ALU_OR_X:
-> +		case BPF_S_ALU_LSH_K:
-> +		case BPF_S_ALU_LSH_X:
-> +		case BPF_S_ALU_RSH_K:
-> +		case BPF_S_ALU_RSH_X:
-> +		case BPF_S_ALU_NEG:
-> +		case BPF_S_LD_IMM:
-> +		case BPF_S_LDX_IMM:
-> +		case BPF_S_MISC_TAX:
-> +		case BPF_S_MISC_TXA:
-> +		case BPF_S_ALU_DIV_K:
-> +		case BPF_S_LD_MEM:
-> +		case BPF_S_LDX_MEM:
-> +		case BPF_S_ST:
-> +		case BPF_S_STX:
-> +		case BPF_S_JMP_JA:
-> +		case BPF_S_JMP_JEQ_K:
-> +		case BPF_S_JMP_JEQ_X:
-> +		case BPF_S_JMP_JGE_K:
-> +		case BPF_S_JMP_JGE_X:
-> +		case BPF_S_JMP_JGT_K:
-> +		case BPF_S_JMP_JGT_X:
-> +		case BPF_S_JMP_JSET_K:
-> +		case BPF_S_JMP_JSET_X:
-> +			continue;
-> +		default:
-> +			return -EINVAL;
-> +		}
-> +	}
-> +	return 0;
-> +}
-> +
-> +/**
-> + * seccomp_run_filters - evaluates all seccomp filters against @syscall
-> + * @syscall: number of the current system call
-> + *
-> + * Returns valid seccomp BPF response codes.
-> + */
-> +static u32 seccomp_run_filters(int syscall)
-> +{
-> +	struct seccomp_filter *f;
-> +	u32 ret = SECCOMP_RET_KILL;
-> +	/*
-> +	 * All filters are evaluated in order of youngest to oldest. The lowest
-> +	 * BPF return value always takes priority.
-> +	 */
-> +	for (f = current->seccomp.filter; f; f = f->prev) {
-> +		ret = sk_run_filter(NULL, f->insns);
-> +		if (ret != SECCOMP_RET_ALLOW)
-> +			break;
-> +	}
-> +	return ret;
-> +}
-> +
-> +/**
-> + * seccomp_attach_filter: Attaches a seccomp filter to current.
-> + * @fprog: BPF program to install
-> + *
-> + * Returns 0 on success or an errno on failure.
-> + */
-> +static long seccomp_attach_filter(struct sock_fprog *fprog)
-> +{
-> +	struct seccomp_filter *filter;
-> +	unsigned long fp_size = fprog->len * sizeof(struct sock_filter);
-> +	unsigned long total_insns = fprog->len;
-> +	long ret;
-> +
-> +	if (fprog->len == 0 || fprog->len > BPF_MAXINSNS)
-> +		return -EINVAL;
-> +
-> +	for (filter = current->seccomp.filter; filter; filter = filter->prev)
-> +		total_insns += filter->len + 4;  /* include a 4 instr penalty */
-> +	if (total_insns > MAX_INSNS_PER_PATH)
-> +		return -ENOMEM;
-> +
-> +	/*
-> +	 * Installing a seccomp filter requires that the task have
-> +	 * CAP_SYS_ADMIN in its namespace or be running with no_new_privs.
-> +	 * This avoids scenarios where unprivileged tasks can affect the
-> +	 * behavior of privileged children.
-> +	 */
-> +	if (!current->no_new_privs &&
-> +	    security_capable_noaudit(current_cred(), current_user_ns(),
-> +				     CAP_SYS_ADMIN) != 0)
-> +		return -EACCES;
-> +
-> +	/* Allocate a new seccomp_filter */
-> +	filter = kzalloc(sizeof(struct seccomp_filter) + fp_size, GFP_KERNEL);
-> +	if (!filter)
-> +		return -ENOMEM;
-> +	atomic_set(&filter->usage, 1);
-> +	filter->len = fprog->len;
-> +
-> +	/* Copy the instructions from fprog. */
-> +	ret = -EFAULT;
-> +	if (copy_from_user(filter->insns, fprog->filter, fp_size))
-> +		goto fail;
-> +
-> +	/* Check and rewrite the fprog via the skb checker */
-> +	ret = sk_chk_filter(filter->insns, filter->len);
-> +	if (ret)
-> +		goto fail;
-> +
-> +	/* Check and rewrite the fprog for seccomp use */
-> +	ret = seccomp_chk_filter(filter->insns, filter->len);
-> +	if (ret)
-> +		goto fail;
-> +
-> +	/*
-> +	 * If there is an existing filter, make it the prev and don't drop its
-> +	 * task reference.
-> +	 */
-> +	filter->prev = current->seccomp.filter;
-> +	current->seccomp.filter = filter;
-> +	return 0;
-> +fail:
-> +	kfree(filter);
-> +	return ret;
-> +}
-> +
-> +/**
-> + * seccomp_attach_user_filter - attaches a user-supplied sock_fprog
-> + * @user_filter: pointer to the user data containing a sock_fprog.
-> + *
-> + * Returns 0 on success and non-zero otherwise.
-> + */
-> +long seccomp_attach_user_filter(char __user *user_filter)
-> +{
-> +	struct sock_fprog fprog;
-> +	long ret = -EFAULT;
-> +
-> +#ifdef CONFIG_COMPAT
-> +	if (is_compat_task()) {
-> +		struct compat_sock_fprog fprog32;
-> +		if (copy_from_user(&fprog32, user_filter, sizeof(fprog32)))
-> +			goto out;
-> +		fprog.len = fprog32.len;
-> +		fprog.filter = compat_ptr(fprog32.filter);
-> +	} else /* falls through to the if below. */
-> +#endif
-> +	if (copy_from_user(&fprog, user_filter, sizeof(fprog)))
-> +		goto out;
-> +	ret = seccomp_attach_filter(&fprog);
-> +out:
-> +	return ret;
-> +}
+To me, this looks like the ND entry for the default gateway expires
+from the neighbour table and Linux doesn't bother to do a new Neighbor
+Discovery, but allows the STALE neighbour entry to remain in the
+table. Eventually, it feels like doing ND again and everything is fine.
 
-The same note about CONFIG_COMPAT as above.
+In a packet dump (sorry for the long lines), this looks like 
 
-> +
-> +/* get_seccomp_filter - increments the reference count of the filter on @tsk */
-> +void get_seccomp_filter(struct task_struct *tsk)
-> +{
-> +	struct seccomp_filter *orig = tsk->seccomp.filter;
-> +	if (!orig)
-> +		return;
-> +	/* Reference count is bounded by the number of total processes. */
-> +	atomic_inc(&orig->usage);
-> +}
-> +
-> +/* put_seccomp_filter - decrements the ref count of tsk->seccomp.filter */
-> +void put_seccomp_filter(struct task_struct *tsk)
-> +{
-> +	struct seccomp_filter *orig = tsk->seccomp.filter;
-> +	/* Clean up single-reference branches iteratively. */
-> +	while (orig && atomic_dec_and_test(&orig->usage)) {
-> +		struct seccomp_filter *freeme = orig;
-> +		orig = orig->prev;
-> +		kfree(freeme);
-> +	}
-> +}
-> +#endif	/* CONFIG_SECCOMP_FILTER */
->  
->  /*
->   * Secure computing mode 1 allows only read/write/exit/sigreturn.
-> @@ -34,10 +356,11 @@ static int mode1_syscalls_32[] = {
->  void __secure_computing(int this_syscall)
->  {
->  	int mode = current->seccomp.mode;
-> -	int * syscall;
-> +	int exit_sig = 0;
-> +	int *syscall;
->  
->  	switch (mode) {
-> -	case 1:
-> +	case SECCOMP_MODE_STRICT:
->  		syscall = mode1_syscalls;
->  #ifdef CONFIG_COMPAT
->  		if (is_compat_task())
-> @@ -47,7 +370,16 @@ void __secure_computing(int this_syscall)
->  			if (*syscall == this_syscall)
->  				return;
->  		} while (*++syscall);
-> +		exit_sig = SIGKILL;
-> +		break;
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +	case SECCOMP_MODE_FILTER:
-> +		if (seccomp_run_filters(this_syscall) == SECCOMP_RET_ALLOW)
-> +			return;
-> +		seccomp_filter_log_failure(this_syscall);
-> +		exit_sig = SIGSYS;
->  		break;
-> +#endif
->  	default:
->  		BUG();
->  	}
-> @@ -56,7 +388,7 @@ void __secure_computing(int this_syscall)
->  	dump_stack();
->  #endif
->  	audit_seccomp(this_syscall);
-> -	do_exit(SIGKILL);
-> +	do_exit(exit_sig);
->  }
->  
->  long prctl_get_seccomp(void)
-> @@ -64,25 +396,48 @@ long prctl_get_seccomp(void)
->  	return current->seccomp.mode;
->  }
->  
-> -long prctl_set_seccomp(unsigned long seccomp_mode)
-> +/**
-> + * prctl_set_seccomp: configures current->seccomp.mode
-> + * @seccomp_mode: requested mode to use
-> + * @filter: optional struct sock_fprog for use with SECCOMP_MODE_FILTER
-> + *
-> + * This function may be called repeatedly with a @seccomp_mode of
-> + * SECCOMP_MODE_FILTER to install additional filters.  Every filter
-> + * successfully installed will be evaluated (in reverse order) for each system
-> + * call the task makes.
-> + *
-> + * Once current->seccomp.mode is non-zero, it may not be changed.
-> + *
-> + * Returns 0 on success or -EINVAL on failure.
-> + */
-> +long prctl_set_seccomp(unsigned long seccomp_mode, char __user *filter)
->  {
-> -	long ret;
-> +	long ret = -EINVAL;
->  
-> -	/* can set it only once to be even more secure */
-> -	ret = -EPERM;
-> -	if (unlikely(current->seccomp.mode))
-> +	if (current->seccomp.mode &&
-> +	    current->seccomp.mode != seccomp_mode)
->  		goto out;
->  
-> -	ret = -EINVAL;
-> -	if (seccomp_mode && seccomp_mode <= NR_SECCOMP_MODES) {
-> -		current->seccomp.mode = seccomp_mode;
-> -		set_thread_flag(TIF_SECCOMP);
-> +	switch (seccomp_mode) {
-> +	case SECCOMP_MODE_STRICT:
-> +		ret = 0;
->  #ifdef TIF_NOTSC
->  		disable_TSC();
->  #endif
-> -		ret = 0;
-> +		break;
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +	case SECCOMP_MODE_FILTER:
-> +		ret = seccomp_attach_user_filter(filter);
-> +		if (ret)
-> +			goto out;
-> +		break;
-> +#endif
-> +	default:
-> +		goto out;
->  	}
->  
-> - out:
-> +	current->seccomp.mode = seccomp_mode;
-> +	set_thread_flag(TIF_SECCOMP);
-> +out:
->  	return ret;
->  }
-> diff --git a/kernel/sys.c b/kernel/sys.c
-> index 12e862a..038e6b7 100644
-> --- a/kernel/sys.c
-> +++ b/kernel/sys.c
-> @@ -1899,7 +1899,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
->  			error = prctl_get_seccomp();
->  			break;
->  		case PR_SET_SECCOMP:
-> -			error = prctl_set_seccomp(arg2);
-> +			error = prctl_set_seccomp(arg2, (char __user *)arg3);
->  			break;
->  		case PR_GET_TSC:
->  			error = GET_TSC_CTL(arg2);
-> -- 
-> 1.7.5.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-arch" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No.     Time            Source                			Destination 			    Packet length Protocol Info
+		    
+   2937 15:48:39.725721 2001:db8:1320:0:718f:6a5a:5b60:5632 	2001:db8:40b7:9102::200:100 	    118           ICMPv6   Echo (ping) request id=0x2887, seq=263
+   2938 15:48:39.725870 2001:db8:40b7:9102::200:100 		2001:db8:1320:0:718f:6a5a:5b60:5632 118           ICMPv6   Echo (ping) reply id=0x2887, seq=263
+   2975 15:48:40.641202 2001:db8:1320:0:718f:6a5a:5b60:5632 	2001:db8:40b7:9101::1 		    118           ICMPv6   Echo (ping) request id=0x2887, seq=271
+   2976 15:48:40.641302 2001:db8:40b7:9101::1 			2001:db8:1320:0:718f:6a5a:5b60:5632 118           ICMPv6   Echo (ping) reply id=0x2887, seq=271
+   2982 15:48:40.703167 2001:db8:1320:0:718f:6a5a:5b60:5632 	2001:db8:40b7:9100::100:100 	    118           ICMPv6   Echo (ping) request id=0x2887, seq=275
+   2983 15:48:40.703184 2001:db8:40b7:9100::100:100 		2001:db8:1320:0:718f:6a5a:5b60:5632 118           ICMPv6   Echo (ping) reply id=0x2887, seq=275
+   2984 15:48:40.727155 2001:db8:1320:0:718f:6a5a:5b60:5632 	2001:db8:40b7:9102::200:100 	    118           ICMPv6   Echo (ping) request id=0x2887, seq=277
+   2985 15:48:40.727284 2001:db8:40b7:9102::200:100 		2001:db8:1320:0:718f:6a5a:5b60:5632 118           ICMPv6   Echo (ping) reply id=0x2887, seq=277
+   3006 15:48:40.944032 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x1932, seq=0
+   3007 15:48:40.944114 2001:db8:40b7:9102::200:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1932, seq=0
+   3008 15:48:40.974015 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x1932, seq=1
+   3009 15:48:40.974091 2001:db8:40b7:9101::1  			2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1932, seq=1
+   3010 15:48:41.000000 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x1932, seq=2
+   3011 15:48:41.000009 2001:db8:40b7:9100::100:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1932, seq=2
+   3035 15:48:43.085816 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x1936, seq=0
+   3036 15:48:43.085890 2001:db8:40b7:9102::200:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1936, seq=0
+   3037 15:48:43.115797 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x1936, seq=1
+   3038 15:48:43.115901 2001:db8:40b7:9101::1 			2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1936, seq=1
+   3039 15:48:43.148781 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x1936, seq=2
+   3040 15:48:43.148792 2001:db8:40b7:9100::100:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x1936, seq=2
+   3062 15:48:45.232600 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x193a, seq=0
+   3063 15:48:45.269577 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x193a, seq=1
+   3064 15:48:45.297561 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x193a, seq=2
+   3080 15:48:47.378381 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x193e, seq=0
+   3081 15:48:47.409363 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x193e, seq=1
+   3082 15:48:47.439346 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x193e, seq=2
+   3098 15:48:49.528161 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x1942, seq=0
+   3099 15:48:49.559143 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x1942, seq=1
+   3100 15:48:49.589126 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x1942, seq=2
+   3118 15:48:51.678941 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x1946, seq=0
+   3119 15:48:51.709923 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x1946, seq=1
+   3120 15:48:51.739905 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x1946, seq=2
+<snip table part without packets originating at 2001:db8:40b7:9102::200:100>
+   3647 15:49:43.319631 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x19bb, seq=2
+   3693 15:49:45.469414 2001:db8:4071:3202::1f 			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x19bf, seq=0
+   3694 15:49:45.469438 2001:db8:4071:3202::1f 			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x19bf, seq=1
+   3695 15:49:45.469446 2001:db8:4071:3202::1f 			2001:db8:40b7:9100::100:100 	    130           ICMPv6   Echo (ping) request id=0x19bf, seq=2
+   3696 15:49:45.469477 2001:db8:40b7:9100::100:100 		ff02::1:ff00:1        	    	     86           ICMPv6   Neighbor Solicitation
+   3697 15:49:45.546365 fe80::1               			2001:db8:40b7:9100::100:100 	     86           ICMPv6   Neighbor Advertisement
+   3698 15:49:45.546372 2001:db8:40b7:9100::100:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x19bf, seq=2
+   3699 15:49:45.546373 2001:db8:40b7:9102::200:100 		2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x19bf, seq=0
+   3700 15:49:45.546375 2001:db8:40b7:9101::1 			2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x19bf, seq=1
+   3708 15:49:47.620190 2001:db8:4071:3202::1f			2001:db8:40b7:9102::200:100 	    130           ICMPv6   Echo (ping) request id=0x19c3, seq=0
+   3709 15:49:47.620200 2001:db8:4071:3202::1f			2001:db8:40b7:9101::1 	    	    130           ICMPv6   Echo (ping) request id=0x19c3, seq=1
+   3710 15:49:47.620280 2001:db8:40b7:9102::200:100	        2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x19c3, seq=0
+   3711 15:49:47.620304 2001:db8:40b7:9101::1 			2001:db8:4071:3202::1f 	    	    130           ICMPv6   Echo (ping) reply id=0x19c3, seq=1
 
-[1] http://lxr.linux.no/#linux+v3.3/include/linux/compat.h#L566
+2001:db8:40b7:9102::200:100/64 is a local IPv6 address of my host (bound to br1)
+2001:db8:40b7:9102::/64 has a number of KVM VMs running on the host (connected via br1)
+2001:db8:40b7:9101::/64 has a number of KVM VMs running on the host (connected via br0)
+2001:db8:3202::1f is my notebook which was running a ping for a number of IP addresses
+2001:db8:1320:0:718f:6a5a:5b60:5632 is a smokeping host checking reachability
 
-Best wishes
-Vladimir Murzin
+To confirm that this is indeed an ND issue, setting a static neighbor
+entry for fe80::1 to the link level address of the current gateway
+immediately fixed the issue. This is, unfortunately, not a permanent
+solution since I don't want to rely on the hoster to keep their link
+level addresses static.
+
+If you need more information, please say so.
+
+I'm going to post a similiar ND issue to a new thread soon. This may
+be the same issue.
+
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 31958061
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 621 31958062
