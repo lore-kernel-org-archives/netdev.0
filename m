@@ -1,33 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: add a truesize parameter to skb_add_rx_frag()
-Date: Sun, 25 Mar 2012 13:30:17 -0400 (EDT)
-Message-ID: <20120325.133017.755244992502310658.davem@davemloft.net>
-References: <1332508626.4858.20.camel@edumazet-laptop>
-	<1332583173.3487.3.camel@edumazet-laptop>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [GIT PATCH] TTY/serial patches for 3.4-rc1
+Date: Sun, 25 Mar 2012 19:12:37 +0200
+Message-ID: <20120325171837.67310140074@xenon.ts.pxnet.com>
+References: <20120319195649.GD9883@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wey-yi.w.guy@intel.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978Ab2CYRaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2012 13:30:21 -0400
-In-Reply-To: <1332583173.3487.3.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-serial@vger.kernel.org,
+	netdev@vger.kernel.org, hjlipp@web.de
+To: Greg KH <gregkh@linuxfoundation.org>, Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-serial-owner@vger.kernel.org>
+In-Reply-To: <20120319195649.GD9883@kroah.com>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 24 Mar 2012 02:59:33 -0700
+Jiri, Greg,
 
-> skb_add_rx_frag() API is misleading.
-> 
-> Network skbs built with this helper can use uncharged kernel memory and
-> eventually stress/crash machine in OOM.
-> 
-> Add a 'truesize' parameter and then fix drivers in followup patches.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On 19.03.2012 20:56, Greg KH wrote:
+> tty and serial merge for 3.4-rc1
+[...]
+> Jiri Slaby (77):
+[...]
+>       TTY: isdn/gigaset, do not set tty->driver_data to NULL
 
-Applied.
+It seems that the amendment we discussed on 05.03.2012 did not
+make it into this patch. It would be nice if the following patch
+could still be added on top of it.
+
+Thanks,
+Tilman
+
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Sun, 25 Mar 2012 12:21:57 +0200
+Subject: [PATCH] isdn/gigaset: use gig_dbg() for debugging output
+
+The "TTY buffer in tty_port" patchset introduced an opencoded
+debug message in the Gigaset tty device if_close() function.
+Change it to use the gig_dbg() macro like everywhere else in
+the driver.
+
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/interface.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index b3d6ac1..a6d9fd2 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -176,7 +176,7 @@ static void if_close(struct tty_struct *tty, struct file *filp)
+ 	struct cardstate *cs = tty->driver_data;
+ 
+ 	if (!cs) { /* happens if we didn't find cs in open */
+-		printk(KERN_DEBUG "%s: no cardstate\n", __func__);
++		gig_dbg(DEBUG_IF, "%s: no cardstate", __func__);
+ 		return;
+ 	}
+ 
+-- 
+1.7.3.4
+
