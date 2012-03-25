@@ -1,62 +1,54 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [GIT PATCH] TTY/serial patches for 3.4-rc1
-Date: Sun, 25 Mar 2012 19:12:37 +0200
-Message-ID: <20120325171837.67310140074@xenon.ts.pxnet.com>
-References: <20120319195649.GD9883@kroah.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH v15 04/13] arch/x86: add syscall_get_arch to syscall.h
+Date: Sun, 25 Mar 2012 12:34:58 -0700
+Message-ID: <4F6F7362.6030402@zytor.com>
+References: <1331781125-15658-1-git-send-email-wad@chromium.org> <1331781125-15658-5-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-serial@vger.kernel.org,
-	netdev@vger.kernel.org, hjlipp@web.de
-To: Greg KH <gregkh@linuxfoundation.org>, Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <20120319195649.GD9883@kroah.com>
-Sender: linux-serial-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
+        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+        coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-1166-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1331781125-15658-5-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-Jiri, Greg,
+On 03/14/2012 08:11 PM, Will Drewry wrote:
+>  
+> +static inline int syscall_get_arch(struct task_struct *task,
+> +				   struct pt_regs *regs)
+> +{
+> +#ifdef CONFIG_IA32_EMULATION
+> +	/*
+> +	 * TS_COMPAT is set for 32-bit syscall entries and then
+> +	 * remains set until we return to user mode.
+> +	 *
+> +	 * TIF_IA32 tasks should always have TS_COMPAT set at
+> +	 * system call time.
+> +	 */
+> +	if (task_thread_info(task)->status & TS_COMPAT)
+> +		return AUDIT_ARCH_I386;
+> +#endif
+> +	return AUDIT_ARCH_X86_64;
+> +}
+>  #endif	/* CONFIG_X86_32 */
+>  
+>  #endif	/* _ASM_X86_SYSCALL_H */
 
-On 19.03.2012 20:56, Greg KH wrote:
-> tty and serial merge for 3.4-rc1
-[...]
-> Jiri Slaby (77):
-[...]
->       TTY: isdn/gigaset, do not set tty->driver_data to NULL
+Just one FYI on this: after the x32 changes are upstream this can be
+implemented in terms of is_ia32_task().
 
-It seems that the amendment we discussed on 05.03.2012 did not
-make it into this patch. It would be nice if the following patch
-could still be added on top of it.
-
-Thanks,
-Tilman
-
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sun, 25 Mar 2012 12:21:57 +0200
-Subject: [PATCH] isdn/gigaset: use gig_dbg() for debugging output
-
-The "TTY buffer in tty_port" patchset introduced an opencoded
-debug message in the Gigaset tty device if_close() function.
-Change it to use the gig_dbg() macro like everywhere else in
-the driver.
-
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/isdn/gigaset/interface.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
-index b3d6ac1..a6d9fd2 100644
---- a/drivers/isdn/gigaset/interface.c
-+++ b/drivers/isdn/gigaset/interface.c
-@@ -176,7 +176,7 @@ static void if_close(struct tty_struct *tty, struct file *filp)
- 	struct cardstate *cs = tty->driver_data;
- 
- 	if (!cs) { /* happens if we didn't find cs in open */
--		printk(KERN_DEBUG "%s: no cardstate\n", __func__);
-+		gig_dbg(DEBUG_IF, "%s: no cardstate", __func__);
- 		return;
- 	}
- 
--- 
-1.7.3.4
-
+	-hpa
