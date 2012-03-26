@@ -1,46 +1,59 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH v2] sh: sh_eth: Add support SH7734
-Date: Mon, 26 Mar 2012 14:00:59 +0900
-Message-ID: <4F6FF80B.5080409@renesas.com>
-References: <1332478533-17382-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <20120323.145243.112333113762306752.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: fix sparse warning for cgw_list
+Date: Mon, 26 Mar 2012 06:04:40 +0200
+Message-ID: <4F6FEAD8.3090203@hartkopp.net>
+References: <1332716750-3455-1-git-send-email-dbaluta@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:40881 "EHLO
-	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751694Ab2CZEzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 00:55:06 -0400
-Received: from relmlir2.idc.renesas.com ([10.200.68.152])
- by relmlor2.idc.renesas.com ( SJSMS)
- with ESMTP id <0M1H00EWL6ZS2T30@relmlor2.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 26 Mar 2012 13:55:04 +0900 (JST)
-Received: from relmlac3.idc.renesas.com ([10.200.69.23])
- by relmlir2.idc.renesas.com ( SJSMS)
- with ESMTP id <0M1H00M726ZSXEG0@relmlir2.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 26 Mar 2012 13:55:04 +0900 (JST)
-In-reply-to: <20120323.145243.112333113762306752.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Baluta <daniel.baluta@gmail.com>
+To: dbaluta@ixiacom.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1332716750-3455-1-git-send-email-dbaluta@ixiacom.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller =E3=81=95=E3=82=93=E3=81=AF=E6=9B=B8=E3=81=8D=E3=81=BE=E3=81=
-=97=E3=81=9F:
-> From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> Date: Fri, 23 Mar 2012 13:55:33 +0900
->=20
->> Add define of SH7734 register and sh_eth_reset_hw_crc function.
->>
->> V2: Do not split line of #if defined.
->>
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->=20
-> This patch does not apply to the current tree.
->=20
+On 26.03.2012 01:05, dbaluta@ixiacom.com wrote:
 
-Sorry, I rebased and re-send.
+> From: Daniel Baluta <daniel.baluta@gmail.com>
+> 
+> Make cgw_list static to remove the following sparse warning:
+> net/can/gw.c:69:1: warning: symbol 'cgw_list' was not declared.
+> Should it be static?
+> 
+> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
 
-Nobuhiro
+
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+
+
+Hello Daniel,
+
+cgw_list is indeed only a local structure. Don't know why i didn't declare it
+to be static. If it silences a sparse warning the better :-)
+
+Thanks,
+Oliver
+
+
+> ---
+>  net/can/gw.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/can/gw.c b/net/can/gw.c
+> index 3d79b12..b41acf2 100644
+> --- a/net/can/gw.c
+> +++ b/net/can/gw.c
+> @@ -66,7 +66,7 @@ MODULE_LICENSE("Dual BSD/GPL");
+>  MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+>  MODULE_ALIAS("can-gw");
+>  
+> -HLIST_HEAD(cgw_list);
+> +static HLIST_HEAD(cgw_list);
+>  static struct notifier_block notifier;
+>  
+>  static struct kmem_cache *cgw_cache __read_mostly;
+
+
