@@ -1,73 +1,43 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] netdev: fix compile issues for !CONFIG_PCI in 3c59x
-Date: Mon, 26 Mar 2012 11:38:32 -0400
-Message-ID: <4F708D78.2040102@windriver.com>
-References: <1332724306-8799-1-git-send-email-paul.gortmaker@windriver.com> <CAP=VYLpOJOueFfzxFGCu5cKQ9--F8CqC5JWjBxej7u=8z3K0xQ@mail.gmail.com> <4F70834E.3000308@mvista.com>
+From: Cedric Jehasse <cedric.jehasse@softathome.com>
+Subject: socket option IP_MSFILTER questions and observations
+Date: Mon, 26 Mar 2012 17:40:56 +0200
+Message-ID: <4F708E08.7040500@softathome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
-	<klassert@mathematik.tu-chemnitz.de>, <netdev@vger.kernel.org>,
-	<linux-mips@linux-mips.org>
-To: Sergei Shtylyov <sshtylyov@mvista.com>,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Randy Dunlap <rdunlap@xenotime.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49865 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932614Ab2CZPi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 11:38:58 -0400
-In-Reply-To: <4F70834E.3000308@mvista.com>
+Received: from mtantr2.softathome.com ([82.138.70.70]:47902 "EHLO
+	mtantr2.softathome.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932489Ab2CZPsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 11:48:51 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mtantr2.softathome.com (Postfix) with ESMTP id 198C116323
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 17:41:31 +0200 (CEST)
+Received: from mtantr2.softathome.com ([127.0.0.1])
+	by localhost (mtantr2.softathome.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Ac1pIHy3Pf5b for <netdev@vger.kernel.org>;
+	Mon, 26 Mar 2012 17:41:28 +0200 (CEST)
+Received: from storentr1.softathome.com (storentr1.softathome.com [192.168.64.166])
+	by mtantr2.softathome.com (Postfix) with ESMTP id BBE4616322
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 17:41:28 +0200 (CEST)
+Received: from [192.168.18.124] (unknown [192.168.18.124])
+	by storentr1.softathome.com (Postfix) with ESMTPSA id 4168B2C520E8
+	for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 17:41:28 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-03-26 10:55 AM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 03/26/2012 05:38 PM, Paul Gortmaker wrote:
-> 
->>> I hate to add in more #ifdef CONFIG_PCI but there are already
->>> quite a few in this driver, and it seems like it hasn't been
->>> built with CONFIG_PCI set to off in quite some time.
-> 
->> Actually, please scrap this patch.  The uglyness of more ifdefs
->> made me look at it again.  It should be do-able in a cleaner way
->> with stubs, and it appears this may even be similar to an old fail
->> from the past:
-> 
->> http://lkml.indiana.edu/hypermail/linux/kernel/1107.3/00109.html
-> 
->     Also, see this patch:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=0da0ead90122578ef6e4afba9ba4bcd3455fd8e8
-> 
->     The driver patch this was done for is still in the -mm tree after all these 
-> years.:-)
-> 
->> I'll dig into it some more and follow up.
-> 
->     I thought I addressed all issues with compilation of this driver with 
-> CONFIG_PCI=n. Apparently not, and some seem to have accumulated over time...
+Hi,
 
-I got sidetracked working on other things, but I did manage to
-learn this so far - It turns out that Randy fixed it and then
-James un-fixed it in this commit:
+I'm trying to use source specific multicast by setting the IP_MSFILTER 
+socket option. I noticed i need to join the group with IP_ADD_MEMBERSHIP 
+before setting the source filter. This is not the behavior i expected 
+after reading RFC3678.
+A potential issue i'm thinking of with this approach: an IGMP report 
+could be sent after joining a group but before the filter is set.
+Is there a way to prevent this?
 
-commit 97a29d59fc222b36bac3ee3a8ae994f65bf7ffdf
-Author: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date:   Mon Jan 30 10:40:47 2012 -0600
+Thanks,
+Cedric
 
-    [PARISC] fix compile break caused by iomap: make IOPORT/PCI mapping functions conditional
-
-Reverting the above and mips builds 3c59x just fine.  Note that MIPS
-allmodconfig does not have either CONFIG_GENERIC_IOMAP or the other
-CONFIG_GENERIC_PCI_IOMAP options.
-
-Paul.
---
-
-> 
->> Thanks,
->> Paul.
-> 
-> WBR, Sergei
+This message and any attachments herein are confidential, intended solely for the addressees and are SoftAtHome's ownership. Any unauthorized use or dissemination is prohibited. If you are not the intended addressee of this message, please cancel it immediately and inform the sender.
