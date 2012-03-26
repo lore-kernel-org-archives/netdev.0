@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V2 3/7] net/mlx4_en: DCB QoS support
-Date: Mon, 26 Mar 2012 11:07:50 +0200
-Message-ID: <1332752874-8086-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH V2 4/7] net/mlx4_en: Set max rate-limit for a TC
+Date: Mon, 26 Mar 2012 11:07:51 +0200
+Message-ID: <1332752874-8086-5-git-send-email-amirv@mellanox.com>
 References: <1332752874-8086-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,64 +10,81 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:49878 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753666Ab2CZJIU (ORCPT
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:43714 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753829Ab2CZJIU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 05:08:20 -0400
 In-Reply-To: <1332752874-8086-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set TSA, promised BW and PFC using IEEE 802.1qaz netlink commands.
+Set max rate-limit using sysfs file /sys/class/net/<interface>/ratelimit/tc<n>
+Values in Mbps units.
+
+For example, to set ratelimit of 5G to TC3 issue:
+echo 5000 > /sys/class/net/eth2/ratelimit/tc3
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/Kconfig     |   12 ++
- drivers/net/ethernet/mellanox/mlx4/Makefile    |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |  212 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   16 ++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   23 +++
- 5 files changed, 264 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index 1bb9353..5f027f9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -11,6 +11,18 @@ config MLX4_EN
- 	  This driver supports Mellanox Technologies ConnectX Ethernet
- 	  devices.
- 
-+config MLX4_EN_DCB
-+	bool "Data Center Bridging (DCB) Support"
-+	default y
-+	depends on MLX4_EN && DCB
-+	---help---
-+	  Say Y here if you want to use Data Center Bridging (DCB) in the
-+	  driver.
-+	  If set to N, will not be able to configure QoS and ratelimit attributes.
-+	  This flag is depended on the kernel's DCB support.
-+
-+	  If unsure, set to Y
-+
- config MLX4_CORE
- 	tristate
- 	depends on PCI
+We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
+open to other suggestions to add generic support for max bw, e.g add call to
+the DCBX NL API.
+
+ drivers/net/ethernet/mellanox/mlx4/Makefile    |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   13 +++
+ drivers/net/ethernet/mellanox/mlx4/en_sysfs.c  |   99 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   11 +++
+ 4 files changed, 124 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
+
 diff --git a/drivers/net/ethernet/mellanox/mlx4/Makefile b/drivers/net/ethernet/mellanox/mlx4/Makefile
-index 4a40ab9..293127d 100644
+index 293127d..8e5bd88 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/Makefile
 +++ b/drivers/net/ethernet/mellanox/mlx4/Makefile
-@@ -7,3 +7,4 @@ obj-$(CONFIG_MLX4_EN)               += mlx4_en.o
+@@ -7,4 +7,4 @@ obj-$(CONFIG_MLX4_EN)               += mlx4_en.o
  
  mlx4_en-y := 	en_main.o en_tx.o en_rx.o en_ethtool.o en_port.o en_cq.o \
  		en_resources.o en_netdev.o en_selftest.o
-+mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+-mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o
++mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o en_sysfs.o
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9b456ae..f45d544 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -810,6 +810,18 @@ static void mlx4_en_restart(struct work_struct *work)
+ 	mutex_unlock(&mdev->state_lock);
+ }
+ 
++static int mlx4_en_init(struct net_device *dev)
++{
++#ifdef CONFIG_MLX4_EN_DCB
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++
++	if (!mlx4_is_slave(priv->mdev->dev))
++		mlx4_en_prepare_sysfs_group(priv);
++#endif
++
++	return 0;
++}
++
+ static void mlx4_en_clear_stats(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -1026,6 +1038,7 @@ static int mlx4_en_set_features(struct net_device *netdev,
+ }
+ 
+ static const struct net_device_ops mlx4_netdev_ops = {
++	.ndo_init		= mlx4_en_init,
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+ 	.ndo_start_xmit		= mlx4_en_xmit,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c b/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
 new file mode 100644
-index 0000000..abd4181
+index 0000000..f633f61
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -0,0 +1,212 @@
++++ b/drivers/net/ethernet/mellanox/mlx4/en_sysfs.c
+@@ -0,0 +1,99 @@
 +/*
 + * Copyright (c) 2011 Mellanox Technologies. All rights reserved.
 + *
@@ -101,280 +118,107 @@ index 0000000..abd4181
 + *
 + */
 +
-+#include <linux/dcbnl.h>
++#include <linux/device.h>
++#include <linux/netdevice.h>
 +
 +#include "mlx4_en.h"
 +
-+static int mlx4_en_dcbnl_ieee_getets(struct net_device *dev,
-+				   struct ieee_ets *ets)
++#define to_en_ratelimit_attr(x) container_of(x, struct en_ratelimit_attr, attr)
++static ssize_t mlx4_en_show_ratelimit(struct device *dev,
++			  struct device_attribute *attr,
++			  char *buf)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct ieee_ets *my_ets = priv->mlx4_en_ieee_ets;
++	struct en_ratelimit_attr *a = to_en_ratelimit_attr(attr);
++	struct mlx4_en_priv *priv = a->priv;
++	int tc = a->tc;
 +
-+	/* No IEEE PFC settings available */
-+	if (!my_ets)
-+		return -EINVAL;
-+
-+	ets->ets_cap = IEEE_8021QAZ_MAX_TCS;
-+	ets->cbs = my_ets->cbs;
-+	memcpy(ets->tc_tx_bw, my_ets->tc_tx_bw, sizeof(ets->tc_tx_bw));
-+	memcpy(ets->tc_tsa, my_ets->tc_tsa, sizeof(ets->tc_tsa));
-+	memcpy(ets->prio_tc, my_ets->prio_tc, sizeof(ets->prio_tc));
-+
-+	return 0;
++	return snprintf(buf, PAGE_SIZE, "%d\n", priv->ratelimit[tc]);
 +}
 +
-+static int mlx4_en_ets_validate(struct mlx4_en_priv *priv, struct ieee_ets *ets)
++static ssize_t mlx4_en_store_ratelimit(struct device *d,
++					  struct device_attribute *attr,
++					  const char *buf, size_t size)
 +{
-+	int i;
-+	int total_ets_bw = 0;
-+	int has_ets_tc = 0;
++	struct en_ratelimit_attr *a = to_en_ratelimit_attr(attr);
++	struct mlx4_en_priv *priv = a->priv;
++	int tc = a->tc;
++	u16 ratelimit[IEEE_8021QAZ_MAX_TCS];
++	int ret;
 +
++	memcpy(ratelimit, priv->ratelimit, sizeof(ratelimit));
++
++	ret = kstrtou16(buf, 0, &ratelimit[tc]);
++	if (ret)
++		return ret;
++
++	ret = mlx4_en_config_port_scheduler(priv, NULL, ratelimit);
++	if (ret)
++		return ret;
++
++	priv->ratelimit[tc] = ratelimit[tc];
++
++	return size;
++}
++
++void mlx4_en_prepare_sysfs_group(struct mlx4_en_priv *priv)
++{
++	static char *dev_attr_tcs_name[] = { "tc0", "tc1", "tc2", "tc3", "tc4",
++		"tc5", "tc6", "tc7"};
++	int i;
++
++	priv->ratelimit_group.name = "ratelimit",
++	priv->ratelimit_group.attrs =
++		(struct attribute **)priv->ratelimit_attrs_p;
 +	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		if (ets->prio_tc[i] > MLX4_EN_NUM_UP) {
-+			en_err(priv, "Bad priority in UP <=> TC mapping. "
-+					"TC: %d, UP: %d\n", i, ets->prio_tc[i]);
-+			return -EINVAL;
-+		}
++		struct en_ratelimit_attr *dev_attr = &priv->ratelimit_attrs[i];
 +
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			has_ets_tc = 1;
-+			total_ets_bw += ets->tc_tx_bw[i];
-+			break;
-+		default:
-+			en_err(priv, "TC[%d]: Not supported TSA: %d\n",
-+					i, ets->tc_tsa[i]);
-+			return -ENOTSUPP;
-+		}
++		dev_attr->attr.attr.name = dev_attr_tcs_name[i];
++		dev_attr->attr.attr.mode = S_IRUGO | S_IWUSR;
++		dev_attr->attr.show = mlx4_en_show_ratelimit;
++		dev_attr->attr.store = mlx4_en_store_ratelimit;
++		dev_attr->priv = priv;
++		dev_attr->tc = i;
++
++		priv->ratelimit_attrs_p[i] = dev_attr;
 +	}
 +
-+	if (has_ets_tc && total_ets_bw != MLX4_EN_BW_MAX) {
-+		en_err(priv, "Bad ETS BW sum: %d. Should be exactly 100%%\n",
-+				total_ets_bw);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
++	priv->dev->sysfs_groups[0] = &priv->ratelimit_group;
 +}
-+
-+int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
-+		struct ieee_ets *ets, u16 *ratelimit)
-+{
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int num_strict = 0;
-+	int i;
-+	__u8 tc_tx_bw[IEEE_8021QAZ_MAX_TCS] = { 0 };
-+	__u8 pg[IEEE_8021QAZ_MAX_TCS] = { 0 };
-+
-+	ets = ets ?: priv->mlx4_en_ieee_ets;
-+	ratelimit = ratelimit ?: priv->ratelimit;
-+
-+	/* higher TC means higher priority => lower pg */
-+	for (i = IEEE_8021QAZ_MAX_TCS - 1; i >= 0; i--) {
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			pg[i] = num_strict++;
-+			tc_tx_bw[i] = MLX4_EN_BW_MAX;
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			pg[i] = MLX4_EN_TC_ETS;
-+			tc_tx_bw[i] = ets->tc_tx_bw[i] ?: MLX4_EN_BW_MIN;
-+			break;
-+		}
-+	}
-+
-+	return mlx4_SET_PORT_SCHEDULER(mdev->dev, priv->port, tc_tx_bw, pg,
-+			ratelimit);
-+}
-+
-+static int
-+mlx4_en_dcbnl_ieee_setets(struct net_device *dev, struct ieee_ets *ets)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	err = mlx4_en_ets_validate(priv, ets);
-+	if (err)
-+		return err;
-+
-+	err = mlx4_SET_PORT_PRIO2TC(mdev->dev, priv->port, ets->prio_tc);
-+	if (err)
-+		return err;
-+
-+	err = mlx4_en_config_port_scheduler(priv, ets, NULL);
-+	if (err)
-+		return err;
-+
-+	if (ets != priv->mlx4_en_ieee_ets)
-+		memcpy(priv->mlx4_en_ieee_ets, ets,
-+				sizeof(*priv->mlx4_en_ieee_ets));
-+
-+	return 0;
-+}
-+
-+static int mlx4_en_dcbnl_ieee_getpfc(struct net_device *dev,
-+		struct ieee_pfc *pfc)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	pfc->pfc_cap = IEEE_8021QAZ_MAX_TCS;
-+	pfc->pfc_en = priv->prof->tx_ppp;
-+
-+	return 0;
-+}
-+
-+static int mlx4_en_dcbnl_ieee_setpfc(struct net_device *dev,
-+		struct ieee_pfc *pfc)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	en_dbg(DRV, priv, "cap: 0x%x en: 0x%x mbc: 0x%x delay: %d\n",
-+			pfc->pfc_cap,
-+			pfc->pfc_en,
-+			pfc->mbc,
-+			pfc->delay);
-+
-+	priv->prof->rx_pause = priv->prof->tx_pause = !!pfc->pfc_en;
-+	priv->prof->rx_ppp = priv->prof->tx_ppp = pfc->pfc_en;
-+
-+	err = mlx4_SET_PORT_general(mdev->dev, priv->port,
-+				    priv->rx_skb_size + ETH_FCS_LEN,
-+				    priv->prof->tx_pause,
-+				    priv->prof->tx_ppp,
-+				    priv->prof->rx_pause,
-+				    priv->prof->rx_ppp);
-+	if (err)
-+		en_err(priv, "Failed setting pause params\n");
-+
-+	return err;
-+}
-+
-+static u8 mlx4_en_dcbnl_getdcbx(struct net_device *dev)
-+{
-+	return DCB_CAP_DCBX_VER_IEEE;
-+}
-+
-+static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
-+{
-+	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
-+	    (mode & DCB_CAP_DCBX_VER_CEE) ||
-+	    !(mode & DCB_CAP_DCBX_VER_IEEE) ||
-+	    !(mode & DCB_CAP_DCBX_HOST))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
-+	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
-+	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
-+	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
-+	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
-+
-+	.getdcbx	= mlx4_en_dcbnl_getdcbx,
-+	.setdcbx	= mlx4_en_dcbnl_setdcbx,
-+};
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 2322622..9b456ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -967,6 +967,11 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- 	mutex_unlock(&mdev->state_lock);
- 
- 	mlx4_en_free_resources(priv);
-+
-+#ifdef CONFIG_MLX4_EN_DCB
-+	vfree(priv->mlx4_en_ieee_ets);
-+#endif
-+
- 	free_netdev(dev);
- }
- 
-@@ -1080,6 +1085,17 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	INIT_WORK(&priv->watchdog_task, mlx4_en_restart);
- 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
- 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
-+#ifdef CONFIG_MLX4_EN_DCB
-+	if (!mlx4_is_slave(priv->mdev->dev)) {
-+		dev->dcbnl_ops = &mlx4_en_dcbnl_ops;
-+
-+		priv->mlx4_en_ieee_ets = vzalloc(sizeof(struct ieee_ets));
-+		if (!priv->mlx4_en_ieee_ets) {
-+			err = -ENOMEM;
-+			goto out;
-+		}
-+	}
-+#endif
- 
- 	/* Query for default mac and max mtu */
- 	priv->max_mtu = mdev->dev->caps.eth_mtu_cap[priv->port];
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 5bd7c2a..cc30677 100644
+index cc30677..7c32973 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -40,6 +40,9 @@
- #include <linux/mutex.h>
- #include <linux/netdevice.h>
- #include <linux/if_vlan.h>
-+#ifdef CONFIG_MLX4_EN_DCB
-+#include <linux/dcbnl.h>
-+#endif
+@@ -421,6 +421,12 @@ struct mlx4_en_frag_info {
  
- #include <linux/mlx4/device.h>
- #include <linux/mlx4/qp.h>
-@@ -110,6 +113,7 @@ enum {
- #define MLX4_EN_NUM_TX_RINGS		8
- #define MLX4_EN_NUM_PPP_RINGS		8
- #define MAX_TX_RINGS			(MLX4_EN_NUM_TX_RINGS + MLX4_EN_NUM_PPP_RINGS)
-+#define MLX4_EN_NUM_UP			8
- #define MLX4_EN_DEF_TX_RING_SIZE	512
- #define MLX4_EN_DEF_RX_RING_SIZE  	1024
+ #define MLX4_EN_TC_ETS 7
  
-@@ -410,6 +414,15 @@ struct mlx4_en_frag_info {
- 
- };
- 
-+#ifdef CONFIG_MLX4_EN_DCB
-+/* Minimal TC BW - setting to 0 will block traffic */
-+#define MLX4_EN_BW_MIN 1
-+#define MLX4_EN_BW_MAX 100 /* Utilize 100% of the line */
++struct en_ratelimit_attr {
++	struct device_attribute attr;
++	struct mlx4_en_priv *priv;
++	int tc;
++};
 +
-+#define MLX4_EN_TC_ETS 7
-+
-+#endif
-+
+ #endif
+ 
  struct mlx4_en_priv {
- 	struct mlx4_en_dev *mdev;
- 	struct mlx4_en_port_profile *prof;
-@@ -483,6 +496,10 @@ struct mlx4_en_priv {
- 	int vids[128];
- 	bool wol;
- 	struct device *ddev;
-+
-+#ifdef CONFIG_MLX4_EN_DCB
-+	struct ieee_ets *mlx4_en_ieee_ets;
-+#endif
+@@ -499,6 +505,10 @@ struct mlx4_en_priv {
+ 
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	struct ieee_ets *mlx4_en_ieee_ets;
++	u16 ratelimit[IEEE_8021QAZ_MAX_TCS];
++	struct attribute_group ratelimit_group;
++	struct en_ratelimit_attr ratelimit_attrs[IEEE_8021QAZ_MAX_TCS];
++	struct en_ratelimit_attr *ratelimit_attrs_p[IEEE_8021QAZ_MAX_TCS + 1];
+ #endif
  };
  
- enum mlx4_en_wol {
-@@ -557,6 +574,12 @@ int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
- int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset);
- int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
+@@ -578,6 +588,7 @@ int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
+ extern const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops;
+ int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
+ 		struct ieee_ets *ets, u16 *ratelimit);
++void mlx4_en_prepare_sysfs_group(struct mlx4_en_priv *priv);
+ #endif
  
-+#ifdef CONFIG_MLX4_EN_DCB
-+extern const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops;
-+int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
-+		struct ieee_ets *ets, u16 *ratelimit);
-+#endif
-+
  #define MLX4_EN_NUM_SELF_TEST	5
- void mlx4_en_ex_selftest(struct net_device *dev, u32 *flags, u64 *buf);
- u64 mlx4_en_mac_to_u64(u8 *addr);
 -- 
 1.7.8.2
