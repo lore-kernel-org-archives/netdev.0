@@ -1,33 +1,31 @@
-From: Roland Dreier <roland@purestorage.com>
-Subject: Re: [PATCH V2 4/7] net/mlx4_en: Set max rate-limit for a TC
-Date: Mon, 26 Mar 2012 12:49:42 -0700
-Message-ID: <CAL1RGDV2JUhq-pzeTXMwSM8ZO4oH-WMb5kmdytDLVtaw8=6jFA@mail.gmail.com>
-References: <1332752874-8086-1-git-send-email-amirv@mellanox.com> <1332752874-8086-5-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: socket option IP_MSFILTER questions and observations
+Date: Mon, 26 Mar 2012 16:14:57 -0400 (EDT)
+Message-ID: <20120326.161457.1798045867160220286.davem@davemloft.net>
+References: <4F708E08.7040500@softathome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: cedric.jehasse@softathome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog114.obsmtp.com ([74.125.245.96]:52306 "HELO
-	na3sys010aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751136Ab2CZTuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 15:50:05 -0400
-Received: by mail-gx0-f174.google.com with SMTP id e5so5532113ggh.33
-        for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 12:50:02 -0700 (PDT)
-In-Reply-To: <1332752874-8086-5-git-send-email-amirv@mellanox.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34178 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755447Ab2CZUPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 16:15:02 -0400
+In-Reply-To: <4F708E08.7040500@softathome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 26, 2012 at 2:07 AM, Amir Vadai <amirv@mellanox.com> wrote:
-> Values in Mbps units.
+From: Cedric Jehasse <cedric.jehasse@softathome.com>
+Date: Mon, 26 Mar 2012 17:40:56 +0200
 
-Hopefully not nitpicking too much, but Mbps still seems to coarse to me.
-Eg in wireless world I can imagine wanting to limit a tos to a small # of kbps.
+> This message and any attachments herein are confidential, intended
+> solely for the addressees and are SoftAtHome's ownership. Any
+> unauthorized use or dissemination is prohibited. If you are not the
+> intended addressee of this message, please cancel it immediately and
+> inform the sender.
 
-If this is done through netlink, the ABI can use a small unit and then tc
-can accept abbreviations for kbps / Mbps / Gbps?
-
- - R.
+Do not send posting to this mailing list with such disclaimers, they
+make absolutely no sense on a publicly distributed mailing list that
+anyone in the world can legitimately read.
