@@ -1,49 +1,45 @@
-From: Vinod Koul <vinod.koul@linux.intel.com>
-Subject: Re: [PATCH linux-next] dmaengine: add context parameter fixups
-Date: Mon, 26 Mar 2012 11:04:42 +0530
-Message-ID: <1332740082.19804.15.camel@vkoul-udesk3>
-References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
-	 <CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] eql: Fix byte stats
+Date: Mon, 26 Mar 2012 08:29:35 +0100
+Message-ID: <1332746975.2379.5.camel@shinybook.infradead.org>
+References: <1332669700.32446.142.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Bounine <alexandre.bounine@idt.com>,
-	paul.gortmaker@windriver.com, dan.j.williams@intel.com,
-	samuel@sortiz.org, lrg@ti.com, perex@perex.cz, tiwai@suse.de,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com,
-	alsa-devel@alsa-project.org
-To: Fabio Estevam <festevam@gmail.com>,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:55635 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751477Ab2CZH3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 03:29:37 -0400
+Received: from dyn-247.woodhou.se ([90.155.92.247])
+	by casper.infradead.org with esmtpsa (Exim 4.76 #1 (Red Hat Linux))
+	id 1SC4Mx-0007nU-R8
+	for netdev@vger.kernel.org; Mon, 26 Mar 2012 07:29:35 +0000
+In-Reply-To: <1332669700.32446.142.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-03-24 at 12:23 -0300, Fabio Estevam wrote:
-> On Fri, Mar 23, 2012 at 11:00 AM, Alexandre Bounine
-> <alexandre.bounine@idt.com> wrote:
-> > This patch fixes drivers that use device_prep_slave_sg() and
-> > device_prep_dma_cyclic() interfaces and have been missed during the initial
-> > release of interface changing patches.
-> >
-> > This patch is based on linux-next-20120322 code tree.
-> > See https://lkml.org/lkml/2012/3/22/339 for build failure report.
-> >
-> > Signed-off-by: Alexandre Bounine <alexandre.bounine@idt.com>
-> > Reported-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> > ---
-> >  drivers/dma/sa11x0-dma.c      |    2 +-
-> >  drivers/net/irda/sa1100_ir.c  |    2 +-
-> >  sound/soc/sh/fsi.c            |    7 +++----
-> >  sound/soc/soc-dmaengine-pcm.c |    2 +-
-> 
-> I have already taken care of sound/soc/soc-dmaengine-pcm.c:
-> http://permalink.gmane.org/gmane.linux.alsa.devel/96215
-And this seems to be linux-next.
+---
+Sorry, forgot to tell Evolution not to word-wrap last time. It's a
+manual process =E2=80=94 insert the patch from a text file, and set it =
+to
+'Preformatted'. I've also disabled the signature on this version; I'm
+not entirely sure if the git-am bug with QP got fixed yet.
 
-Mark, Is this part of the sound updates that went to Linus?
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index a59cf96..f2d3741 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -345,6 +345,7 @@ static netdev_tx_t eql_slave_xmit(struct sk_buff *s=
+kb, struct net_device *dev)
+ 		slave->bytes_queued +=3D skb->len;
+ 		dev_queue_xmit(skb);
+ 		dev->stats.tx_packets++;
++		dev->stats.tx_bytes +=3D skb->len;
+ 	} else {
+ 		dev->stats.tx_dropped++;
+ 		dev_kfree_skb(skb);
 
-
--- 
-~Vinod
+--=20
+dwmw2
