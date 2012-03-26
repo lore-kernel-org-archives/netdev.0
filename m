@@ -1,67 +1,89 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH V2 4/7] net/mlx4_en: Set max rate-limit for a TC
-Date: Mon, 26 Mar 2012 11:55:20 -0700
-Message-ID: <4F70BB98.4090806@intel.com>
-References: <1332752874-8086-1-git-send-email-amirv@mellanox.com> <1332752874-8086-5-git-send-email-amirv@mellanox.com> <1332773163.3500.81.camel@deadeye> <CAJZOPZKGJ_nJt92THc+eRGnEXPZG+hX_d2=f56m7gB_Fv8K4Cg@mail.gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Mon, 26 Mar 2012 18:56:44 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
+References: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+	<20120321170003.GA5533@netboy.at.omicron.at>
+	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+	<20120322064107.GB2182@netboy.at.omicron.at>
+	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+	<20120324065147.GB2201@netboy.at.omicron.at>
+	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
+	<20120326152730.GA10212@localhost.localdomain>
+ <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: chetan loke <loke.chetan@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17799 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3894 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932961Ab2CZSzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2012 14:55:21 -0400
-In-Reply-To: <CAJZOPZKGJ_nJt92THc+eRGnEXPZG+hX_d2=f56m7gB_Fv8K4Cg@mail.gmail.com>
+	id S933059Ab2CZS4q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2012 14:56:46 -0400
+In-Reply-To: <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/26/2012 10:00 AM, Or Gerlitz wrote:
-> On Mon, Mar 26, 2012 at 4:46 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
->>> We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
->>> open to other suggestions to add generic support for max bw, e.g add call to
->>> the DCBX NL API.
-> 
->> netlink interfaces are generally easily extensible and it doesn't make
->> sense to me to augment such an interface through sysfs.  Perhaps you're
->> concerned that netlink extensions won't be supported in older kernel
->> versions running your OOT driver?  That's unfortunate, but let's not
->> standardise an ugly interface based on a temporary problem like that.
-> 
-> As written above, that was done since ratelimit isn't part of ETS, we can
-> that through netlink extensions that you mentioned, if this is the preffered
-> way to go, David? Eric? Ben - could you provide pointer to these extensions?
-> 
-> Or.
-> --
-
-I think I original suggested it didn't belong in DCBNL because it
-wasn't part of ETS (802.1Qaz). But it _is_ a traffic selection
-algorithm and could fall into the vendor specific part of 802.1Q.
-
-I would suggest either adding it as an option to mqprio to take
-a max bandwidth. The advantage here is it would be tied in with
-the usual QOS tooling 'tc'.
-
-# tc qdisc add dev eth3 root mqprio help
-Usage: ... mqprio [num_tc NUMBER] [map P0 P1 ...]
-                  [queues count1@offset1 count2@offset2 ...] [hw 1|0]
-		  [max_rate rate@tc ...]
-
-
-Or extending DCBNL being careful not to break backwards
-compatibility. I tend to think extending mqprio is cleaner but
-a DCBNL extension could likely work as well. Would need a
-'DCBNL_IEEE_SET_MAXRATE' and 'DCBNL_IEEE_GET_MAXRATE' for this
-I expect.
-
-.John
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
+Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogTW9uZGF5LCBNYXJjaCAyNiwgMjAxMiAx
+MDoxMiBBTQ0KPiBUbzogUmljaGFyZCBDb2NocmFuDQo+IENjOiBLZWxsZXIsIEphY29iIEU7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLQ0KPiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
+ZXQ7IEtpcnNoZXIsIEplZmZyZXkgVDsgUm9uY2lhaywgSm9objsNCj4gam9obi5zdHVsdHpAbGlu
+YXJvLm9yZzsgdGdseEBsaW51dHJvbml4LmRlDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IFY0
+IDIvMl0gaWdiOiBvZmZlciBhIFBUUCBIYXJkd2FyZSBDbG9jayBpbnN0ZWFkIG9mIHRoZQ0KPiB0
+aW1lY29tcGFyZSBtZXRob2QNCj4gDQo+IFlvdSBhcmUgY29uZnVzaW5nICdibG9ja2luZyB0aGUg
+ZHJpdmVyJ3MgZmFzdCBwYXRoJyB3aXRoDQo+IHBlcmZvcm1hbmNlL29wdGltaXphdGlvbiBldGMu
+IFdlIGNhbm5vdCBsZXQgdXNlci1zcGFjZSBjb2RlIGphbSB0aGUgc3lzdGVtLg0KPiBLZXJuZWwg
+Y29kZSBzaG91bGQgYmUgZGVzaWduZWQgc3VjaCB0aGF0DQo+IGJ1Z3MoaW50ZW50aW9uYWwvdW5p
+bnRlbnRpb25hbCkgaW4gdXNlci1zcGFjZSBjb2RlIGNhbm5vdCBjYXVzZSBzeXN0ZW0gd2lkZQ0K
+PiBhZHZlcnNlIGFmZmVjdHMuIFBlcmlvZC4NCj4NCkkgYWdyZWUuIEJ1dCBJIGFsc28gdGhpbmsg
+YSB0ZXN0IGNhc2Ugc2hvdWxkIGJlIGluIG9yZGVyIGhlcmUuIFdoYXQgYWN0dWFsbHkNCmhhcHBl
+bnMgd2l0aCBhIGJhZGx5IGRlc2lnbmVkIHVzZXIgYXBwIGNyYW1taW5nIGlvY3Rscy4gKE5vdGUg
+dGhhdCB1bmRlciBtb3N0DQpzeXN0ZW0gZGVzaWducyB0aGUgaW9jdGxzIHJlcXVpcmUgcm9vdCBh
+Y2Nlc3MgdW5sZXNzIHlvdSBjaGFuZ2UgdGhlIGRlZmF1bHQNCnBlcm1pc3Npb25zLikNCg0KPiBE
+b2VzIHlvdXIgZXhpc3RpbmcgZGVzaWduIGxpbWl0IChhYil1c2VycyBmcm9tIHBvdW5kaW5nIHRo
+ZSBpb2N0bHM/DQo+IA0KPiBBcyBJIG1lbnRpb25lZCBlYXJsaWVyLCBpdCBjb3VsZCBiZSBwb3Nz
+aWJsZSB0byB0YWtlIGNhcmUgb2YgZ2V0dGltZSBhbmQgdGhlDQo+IGRyaXZlcidzIFJ4L1R4IHBh
+dGggYnkgdXNpbmcgYSBtaXh0dXJlIG9mIGxvY2tzL2tlcm5lbC10aHJlYWQuDQo+IEJ1dCBzZXR0
+aW1lL2FkanRpbWUgc3RpbGwgbmVlZHMgdG8gYmUgY3VyYmVkLg0KPiANCkkgYW0gY3VyaW91cyBo
+b3cgeW91IHNlZSBhIGtlcm5lbCB0aHJlYWQgcmVzb2x2aW5nIHRoZSBUeC9SeCBpc3N1ZT8gb3Ig
+aXMgdGhlDQprZXJuZWwgdGhyZWFkIGJlaW5nIHVzZWQgYnkgZ2V0dGltZT8gSSBkb24ndCBiZWxp
+ZXZlIHdlIGNhbiB3YWl0IGZvciB0aGUgVHgvUngNCnBhdGgsIGJlY2F1c2UgaWYgd2UgdGFrZSB0
+b28gbG9uZyB0aGUgc29mdHdhcmUgc2VlcyBpdCBhcyBhIGRyb3BwZWQgdGltZXN0YW1wLg0KQWxz
+byB3ZSBoYXZlIGEgcG9pbnRlciB0byB0aGUgc2tiIHdoaWNoIGlzIGZyZWUnZCByaWdodCBhZnRl
+ciB0aGUgY2FsbCBmb3INCihyeC90eClod3RzdGFtcCBzbyB3ZSBjYW4ndCBqdXN0IGNvcHkgdGhh
+dCBwb2ludGVyLg0KDQo+IFdoeSBpc24ndCBpb2N0bC1yYXRlIGxpbWl0aW5nIGFjY2VwdGFibGU/
+IExldCdzIHNheSBhbiBhcHAgdGhhdCBpcyB0cnlpbmcgdG8NCj4gc2V0L2FkaiBOSUMgY291bnRl
+ciBpcyBydW5uaW5nIG9uIGhvc3Qgc2lkZSB0aGVuIGhvdyBvZnRlbiB3b3VsZCBpdCBuZWVkIHRv
+DQo+IHJlYWQgYW5kIGNvcnJlY3Qvc2V0L2Fkaj8gb25jZSBldmVyeSBtc2VjKHNvIDEwMDAgdGlt
+ZXMgYSBzZWNvbmQpLCBvbmNlIGV2ZXJ5DQo+IDEwIG1zZWMoMTAwIHRpbWVzIGEgc2Vjb25kKSBl
+dGM/DQo+IA0KPiBTbywgd2lsbCBwb3VuZGluZyB0aGUgaW9jdGwgMTAwMCB0aW1lcywgd2hpbGUg
+cHJvY2Vzc2luZyB+ODIwSw0KPiBmcmFtZXMoMTUwMCBieXRlIHBheWxvYWQgb24gMTBHIGxpbmsp
+IHN0aWxsIGNhdXNlIGEgcHJvYmxlbSBmb3IgdGhlIGRyaXZlciBpcw0KPiB3aGF0IHdlIHdvdWxk
+IG5lZWQgdG8gc2VlLiByYXRlIGNhbiBhbHNvIGJlIGEgZmFjdG9yIG9mIGxpbmstc3BlZWQoPyku
+DQo+IA0KPiBBbmQgd2UgZG9uJ3QgbmVlZCAxMDAgc3VjaCBhcHBzLiBPbmx5IDEgYXBwIHNob3Vs
+ZCBiZSB3b3JraW5nIGluIHRhbmRlbSB3aXRoDQo+IHRoZSBOSUMuIElmIG90aGVyIGFwcHMgZmFp
+bCB0aGVuIGF0bGVhc3QgdGhlIHN5c2FkbWluIG9yIHVzZXJzIHdvdWxkIGtub3cNCj4gc29tZW9u
+ZSBlbHNlIGlzIChhYil1c2luZyBpdC4NCg0KSG93IHdvdWxkIHdlIG9ubHkgYWxsb3cgb25lIGFw
+cD8gQW55IGFwcCB3aXRoIHBlcm1pc3Npb25zIGNvdWxkIGNhbGwgdGhlIGlvY3Rscy4NCkkgZG8g
+YWdyZWUgdGhhdCBoYXZpbmcgdG9vIG1hbnkgaW9jdGxzIGlzIGEgcHJvYmxlbS4gRXZlbiBpbiBj
+YXNlcyB3aGVyZSBQVFAgaXMNCm9ubHkgZW5hYmxlZCBvbiBhICJ0cnVzdGVkIiBzeXN0ZW0uIEFs
+bG93aW5nIHRoZSBrZXJuZWwgdG8gYXNzdW1lIHRoZSBzeXN0ZW0NCmlzIHRydXN0ZWQgbWVhbnMg
+d2UgaW50cm9kdWNlIHNlY3VyaXR5IGhvbGVzLiBJIGFtIG5vdCBzdXJlIG9mIHRoZSByaWdodCBz
+b2x1dGlvbg0Kb3Igd2hldGhlciB3ZSBuZWVkIGEgZGlmZmVyZW50IG9uZSwgdGhvdWdoLiBJIGFt
+IGdvaW5nIHRvIHRyeSBhbmQgcHJvdmlkZSBhIHRlc3QgY2FzZQ0Kd2hlcmUgc29tZW9uZSBoYW1t
+ZXJzIHRoZSBpb2N0bHMgaW4gYSBsb29wLCBhbmQgc2VlIHdoYXQgaGFwcGVucy4NCg0KPiANCj4g
+DQo+ID4gVGhhbmtzLA0KPiA+IFJpY2hhcmQNCj4gDQo+IENoZXRhbg0K
