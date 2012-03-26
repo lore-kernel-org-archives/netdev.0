@@ -1,121 +1,235 @@
 From: Jing Huang <huangj@brocade.com>
-Subject: [PATCH 1/7] bna: Serialize smem access during adapter initialization
-Date: Mon, 26 Mar 2012 12:38:11 -0700
-Message-ID: <1332790691-9625-1-git-send-email-huangj@brocade.com>
+Subject: [PATCH 2/7] bna: Flash controller ioc pll init fixes
+Date: Mon, 26 Mar 2012 12:38:35 -0700
+Message-ID: <1332790715-9727-1-git-send-email-huangj@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <adapter_linux_open_src_team@brocade.com>,
 	Jing Huang <huangj@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58057 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58076 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754274Ab2CZTiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 15:38:13 -0400
+	by vger.kernel.org with ESMTP id S1754182Ab2CZTih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 15:38:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use init semaphore to serialize execution of the "unlock IOC semaphore"
-code. Added bfa_ioc_fwver_clear() function to clear the firmware header if
-last firmwar boot is not from driver.
+Added NFC pause/resume logic. We only do NFC pause/resume if NFC version
+is greater than 0x143 and it was halted before, otherwise we revert to
+old NFC halt mechanism.
+
+Made changes to avoid clearing off the interrupts during the initial
+pll initialization.
 
 Signed-off-by: Jing Huang <huangj@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_ioc.c |   50 +++++++++++++++++++++++----
- 1 files changed, 42 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c |  142 +++++++++++++++++--------
+ drivers/net/ethernet/brocade/bna/bfi_reg.h    |    6 +
+ 2 files changed, 102 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-index 77977d7..7a3e79c 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-@@ -1207,27 +1207,62 @@ bfa_nw_ioc_sem_release(void __iomem *sem_reg)
- 	writel(1, sem_reg);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index 348479b..b6b036a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -199,9 +199,9 @@ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
+  * Host to LPU mailbox message addresses
+  */
+ static const struct {
+-	u32 	hfn_mbox;
+-	u32 	lpu_mbox;
+-	u32 	hfn_pgn;
++	u32	hfn_mbox;
++	u32	lpu_mbox;
++	u32	hfn_pgn;
+ } ct_fnreg[] = {
+ 	{ HOSTFN0_LPU_MBOX0_0, LPU_HOSTFN0_MBOX0_0, HOST_PAGE_NUM_FN0 },
+ 	{ HOSTFN1_LPU_MBOX0_8, LPU_HOSTFN1_MBOX0_8, HOST_PAGE_NUM_FN1 },
+@@ -803,17 +803,72 @@ bfa_ioc_ct2_mac_reset(void __iomem *rb)
  }
  
-+/* Clear fwver hdr */
-+static void
-+bfa_ioc_fwver_clear(struct bfa_ioc *ioc)
+ #define CT2_NFC_MAX_DELAY       1000
++#define CT2_NFC_VER_VALID       0x143
++#define BFA_IOC_PLL_POLL        1000000
++
++static bool
++bfa_ioc_ct2_nfc_halted(void __iomem *rb)
 +{
-+	u32 pgnum, pgoff, loff = 0;
-+	int i;
++	volatile u32 r32;
 +
-+	pgnum = PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, loff);
-+	pgoff = PSS_SMEM_PGOFF(loff);
-+	writel(pgnum, ioc->ioc_regs.host_page_num_fn);
++	r32 = readl(rb + CT2_NFC_CSR_SET_REG);
++	if (r32 & __NFC_CONTROLLER_HALTED)
++		return true;
 +
-+	for (i = 0; i < (sizeof(struct bfi_ioc_image_hdr) / sizeof(u32)); i++) {
-+		writel(0, ioc->ioc_regs.smem_page_start + loff);
-+		loff += sizeof(u32);
-+	}
++	return false;
 +}
 +
++static void
++bfa_ioc_ct2_nfc_resume(void __iomem *rb)
++{
++	volatile u32 r32;
++	int i;
 +
- static void
- bfa_ioc_hw_sem_init(struct bfa_ioc *ioc)
++	writel(__HALT_NFC_CONTROLLER, rb + CT2_NFC_CSR_CLR_REG);
++	for (i = 0; i < CT2_NFC_MAX_DELAY; i++) {
++		r32 = readl(rb + CT2_NFC_CSR_SET_REG);
++		if (!(r32 & __NFC_CONTROLLER_HALTED))
++			return;
++		udelay(1000);
++	}
++	BUG_ON(1);
++}
++
+ static enum bfa_status
+ bfa_ioc_ct2_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
  {
- 	struct bfi_ioc_image_hdr fwhdr;
--	u32 fwstate = readl(ioc->ioc_regs.ioc_fwstate);
-+	u32 fwstate, r32;
+ 	volatile u32 wgn, r32;
+-	int i;
++	u32 nfc_ver, i;
  
--	if (fwstate == BFI_IOC_UNINIT)
-+	/* Spin on init semaphore to serialize. */
-+	r32 = readl(ioc->ioc_regs.ioc_init_sem_reg);
-+	while (r32 & 0x1) {
-+		udelay(20);
-+		r32 = readl(ioc->ioc_regs.ioc_init_sem_reg);
-+	}
-+
-+	fwstate = readl(ioc->ioc_regs.ioc_fwstate);
-+	if (fwstate == BFI_IOC_UNINIT) {
-+		writel(1, ioc->ioc_regs.ioc_init_sem_reg);
- 		return;
-+	}
- 
- 	bfa_nw_ioc_fwver_get(ioc, &fwhdr);
- 
--	if (swab32(fwhdr.exec) == BFI_FWBOOT_TYPE_NORMAL)
-+	if (swab32(fwhdr.exec) == BFI_FWBOOT_TYPE_NORMAL) {
-+		writel(1, ioc->ioc_regs.ioc_init_sem_reg);
- 		return;
-+	}
- 
-+	bfa_ioc_fwver_clear(ioc);
- 	writel(BFI_IOC_UNINIT, ioc->ioc_regs.ioc_fwstate);
-+	writel(BFI_IOC_UNINIT, ioc->ioc_regs.alt_ioc_fwstate);
- 
- 	/*
- 	 * Try to lock and then unlock the semaphore.
- 	 */
- 	readl(ioc->ioc_regs.ioc_sem_reg);
- 	writel(1, ioc->ioc_regs.ioc_sem_reg);
-+
-+	/* Unlock init semaphore */
-+	writel(1, ioc->ioc_regs.ioc_init_sem_reg);
- }
- 
- static void
-@@ -1585,11 +1620,6 @@ bfa_ioc_download_fw(struct bfa_ioc *ioc, u32 boot_type,
- 	u32 i;
- 	u32 asicmode;
- 
--	/**
--	 * Initialize LMEM first before code download
+-	/*
+-	 * Initialize PLL if not already done by NFC
 -	 */
--	bfa_ioc_lmem_init(ioc);
--
- 	fwimg = bfa_cb_image_get_chunk(bfa_ioc_asic_gen(ioc), chunkno);
- 
- 	pgnum = bfa_ioc_smem_pgnum(ioc, loff);
-@@ -1914,6 +1944,10 @@ bfa_ioc_pll_init(struct bfa_ioc *ioc)
- 	bfa_ioc_pll_init_asic(ioc);
- 
- 	ioc->pllinit = true;
+ 	wgn = readl(rb + CT2_WGN_STATUS);
+-	if (!(wgn & __GLBL_PF_VF_CFG_RDY)) {
 +
-+	/* Initialize LMEM */
-+	bfa_ioc_lmem_init(ioc);
++	nfc_ver = readl(rb + CT2_RSC_GPR15_REG);
 +
++	if ((wgn == (__A2T_AHB_LOAD | __WGN_READY)) &&
++		(nfc_ver >= CT2_NFC_VER_VALID)) {
++		if (bfa_ioc_ct2_nfc_halted(rb))
++			bfa_ioc_ct2_nfc_resume(rb);
++		writel(__RESET_AND_START_SCLK_LCLK_PLLS,
++				rb + CT2_CSI_FW_CTL_SET_REG);
++
++		for (i = 0; i < BFA_IOC_PLL_POLL; i++) {
++			r32 = readl(rb + CT2_APP_PLL_LCLK_CTL_REG);
++			if (r32 & __RESET_AND_START_SCLK_LCLK_PLLS)
++				break;
++		}
++		BUG_ON(!(r32 & __RESET_AND_START_SCLK_LCLK_PLLS));
++
++		for (i = 0; i < BFA_IOC_PLL_POLL; i++) {
++			r32 = readl(rb + CT2_APP_PLL_LCLK_CTL_REG);
++			if (!(r32 & __RESET_AND_START_SCLK_LCLK_PLLS))
++				break;
++		}
++		BUG_ON(r32 & __RESET_AND_START_SCLK_LCLK_PLLS);
++		udelay(1000);
++
++		r32 = readl(rb + CT2_CSI_FW_CTL_REG);
++		BUG_ON(r32 & __RESET_AND_START_SCLK_LCLK_PLLS);
++	} else {
+ 		writel(__HALT_NFC_CONTROLLER, (rb + CT2_NFC_CSR_SET_REG));
+ 		for (i = 0; i < CT2_NFC_MAX_DELAY; i++) {
+ 			r32 = readl(rb + CT2_NFC_CSR_SET_REG);
+@@ -821,53 +876,48 @@ bfa_ioc_ct2_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
+ 				break;
+ 			udelay(1000);
+ 		}
++
++		bfa_ioc_ct2_mac_reset(rb);
++		bfa_ioc_ct2_sclk_init(rb);
++		bfa_ioc_ct2_lclk_init(rb);
++
++		/* release soft reset on s_clk & l_clk */
++		r32 = readl((rb + CT2_APP_PLL_SCLK_CTL_REG));
++		writel(r32 & ~__APP_PLL_SCLK_LOGIC_SOFT_RESET,
++				rb + CT2_APP_PLL_SCLK_CTL_REG);
++		r32 = readl((rb + CT2_APP_PLL_LCLK_CTL_REG));
++		writel(r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET,
++				rb + CT2_APP_PLL_LCLK_CTL_REG);
++	}
++
++	/* Announce flash device presence, if flash was corrupted. */
++	if (wgn == (__WGN_READY | __GLBL_PF_VF_CFG_RDY)) {
++		r32 = readl((rb + PSS_GPIO_OUT_REG));
++		writel(r32 & ~1, rb + PSS_GPIO_OUT_REG);
++		r32 = readl((rb + PSS_GPIO_OE_REG));
++		writel(r32 | 1, rb + PSS_GPIO_OE_REG);
+ 	}
+ 
  	/*
- 	 *  release semaphore.
+ 	 * Mask the interrupts and clear any
+ 	 * pending interrupts left by BIOS/EFI
  	 */
+-
+ 	writel(1, (rb + CT2_LPU0_HOSTFN_MBOX0_MSK));
+ 	writel(1, (rb + CT2_LPU1_HOSTFN_MBOX0_MSK));
+ 
+-	r32 = readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
+-	if (r32 == 1) {
+-		writel(1, (rb + CT2_LPU0_HOSTFN_CMD_STAT));
+-		readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
+-	}
+-	r32 = readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
+-	if (r32 == 1) {
+-		writel(1, (rb + CT2_LPU1_HOSTFN_CMD_STAT));
+-		readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
+-	}
+-
+-	bfa_ioc_ct2_mac_reset(rb);
+-	bfa_ioc_ct2_sclk_init(rb);
+-	bfa_ioc_ct2_lclk_init(rb);
+-
+-	/*
+-	 * release soft reset on s_clk & l_clk
+-	 */
+-	r32 = readl((rb + CT2_APP_PLL_SCLK_CTL_REG));
+-	writel((r32 & ~__APP_PLL_SCLK_LOGIC_SOFT_RESET),
+-			(rb + CT2_APP_PLL_SCLK_CTL_REG));
+-
+-	/*
+-	 * release soft reset on s_clk & l_clk
+-	 */
+-	r32 = readl((rb + CT2_APP_PLL_LCLK_CTL_REG));
+-	writel(r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET,
+-		      (rb + CT2_APP_PLL_LCLK_CTL_REG));
+-
+-	/*
+-	 * Announce flash device presence, if flash was corrupted.
+-	 */
+-	if (wgn == (__WGN_READY | __GLBL_PF_VF_CFG_RDY)) {
+-		r32 = readl((rb + PSS_GPIO_OUT_REG));
+-		writel((r32 & ~1), (rb + PSS_GPIO_OUT_REG));
+-		r32 = readl((rb + PSS_GPIO_OE_REG));
+-		writel((r32 | 1), (rb + PSS_GPIO_OE_REG));
++	/* For first time initialization, no need to clear interrupts */
++	r32 = readl(rb + HOST_SEM5_REG);
++	if (r32 & 0x1) {
++		r32 = readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
++		if (r32 == 1) {
++			writel(1, (rb + CT2_LPU0_HOSTFN_CMD_STAT));
++			readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
++		}
++		r32 = readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
++		if (r32 == 1) {
++			writel(1, (rb + CT2_LPU1_HOSTFN_CMD_STAT));
++			readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
++		}
+ 	}
+ 
+ 	bfa_ioc_ct2_mem_init(rb);
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_reg.h b/drivers/net/ethernet/brocade/bna/bfi_reg.h
+index efacff3..0e094fe 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_reg.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_reg.h
+@@ -339,10 +339,16 @@ enum {
+ #define __A2T_AHB_LOAD			0x00000800
+ #define __WGN_READY			0x00000400
+ #define __GLBL_PF_VF_CFG_RDY		0x00000200
++#define CT2_NFC_CSR_CLR_REG             0x00027420
+ #define CT2_NFC_CSR_SET_REG		0x00027424
+ #define __HALT_NFC_CONTROLLER		0x00000002
+ #define __NFC_CONTROLLER_HALTED		0x00001000
+ 
++#define CT2_RSC_GPR15_REG		0x0002765c
++#define CT2_CSI_FW_CTL_REG              0x00027080
++#define __RESET_AND_START_SCLK_LCLK_PLLS 0x00010000
++#define CT2_CSI_FW_CTL_SET_REG          0x00027088
++
+ #define CT2_CSI_MAC0_CONTROL_REG	0x000270d0
+ #define __CSI_MAC_RESET			0x00000010
+ #define __CSI_MAC_AHB_RESET		0x00000008
 -- 
 1.6.5.2
