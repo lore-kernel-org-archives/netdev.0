@@ -1,89 +1,64 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Mon, 26 Mar 2012 18:56:44 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
-References: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
-	<20120321170003.GA5533@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
-	<20120322064107.GB2182@netboy.at.omicron.at>
-	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
-	<20120324065147.GB2201@netboy.at.omicron.at>
-	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
-	<20120326152730.GA10212@localhost.localdomain>
- <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>
+From: Phil Sutter <phil.sutter@viprinet.com>
+Subject: [PATCHv2 2/2] wimax: i2400m-usb - use a private struct ethtool_ops
+Date: Mon, 26 Mar 2012 21:01:31 +0200
+Message-ID: <1332788491-21530-2-git-send-email-phil.sutter@viprinet.com>
+References: <1332773830.3500.88.camel@deadeye>
+ <1332788491-21530-1-git-send-email-phil.sutter@viprinet.com>
+Cc: netdev@vger.kernel.org, inaky.perez-gonzalez@intel.com,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3894 "EHLO mga01.intel.com"
+Received: from zimbra.vipri.net ([89.207.250.15]:42367 "EHLO zimbra.vipri.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933059Ab2CZS4q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2012 14:56:46 -0400
-In-Reply-To: <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-Content-Language: en-US
+	id S933360Ab2CZTBm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2012 15:01:42 -0400
+In-Reply-To: <1332788491-21530-1-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
-Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogTW9uZGF5LCBNYXJjaCAyNiwgMjAxMiAx
-MDoxMiBBTQ0KPiBUbzogUmljaGFyZCBDb2NocmFuDQo+IENjOiBLZWxsZXIsIEphY29iIEU7IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLQ0KPiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
-ZXQ7IEtpcnNoZXIsIEplZmZyZXkgVDsgUm9uY2lhaywgSm9objsNCj4gam9obi5zdHVsdHpAbGlu
-YXJvLm9yZzsgdGdseEBsaW51dHJvbml4LmRlDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IFY0
-IDIvMl0gaWdiOiBvZmZlciBhIFBUUCBIYXJkd2FyZSBDbG9jayBpbnN0ZWFkIG9mIHRoZQ0KPiB0
-aW1lY29tcGFyZSBtZXRob2QNCj4gDQo+IFlvdSBhcmUgY29uZnVzaW5nICdibG9ja2luZyB0aGUg
-ZHJpdmVyJ3MgZmFzdCBwYXRoJyB3aXRoDQo+IHBlcmZvcm1hbmNlL29wdGltaXphdGlvbiBldGMu
-IFdlIGNhbm5vdCBsZXQgdXNlci1zcGFjZSBjb2RlIGphbSB0aGUgc3lzdGVtLg0KPiBLZXJuZWwg
-Y29kZSBzaG91bGQgYmUgZGVzaWduZWQgc3VjaCB0aGF0DQo+IGJ1Z3MoaW50ZW50aW9uYWwvdW5p
-bnRlbnRpb25hbCkgaW4gdXNlci1zcGFjZSBjb2RlIGNhbm5vdCBjYXVzZSBzeXN0ZW0gd2lkZQ0K
-PiBhZHZlcnNlIGFmZmVjdHMuIFBlcmlvZC4NCj4NCkkgYWdyZWUuIEJ1dCBJIGFsc28gdGhpbmsg
-YSB0ZXN0IGNhc2Ugc2hvdWxkIGJlIGluIG9yZGVyIGhlcmUuIFdoYXQgYWN0dWFsbHkNCmhhcHBl
-bnMgd2l0aCBhIGJhZGx5IGRlc2lnbmVkIHVzZXIgYXBwIGNyYW1taW5nIGlvY3Rscy4gKE5vdGUg
-dGhhdCB1bmRlciBtb3N0DQpzeXN0ZW0gZGVzaWducyB0aGUgaW9jdGxzIHJlcXVpcmUgcm9vdCBh
-Y2Nlc3MgdW5sZXNzIHlvdSBjaGFuZ2UgdGhlIGRlZmF1bHQNCnBlcm1pc3Npb25zLikNCg0KPiBE
-b2VzIHlvdXIgZXhpc3RpbmcgZGVzaWduIGxpbWl0IChhYil1c2VycyBmcm9tIHBvdW5kaW5nIHRo
-ZSBpb2N0bHM/DQo+IA0KPiBBcyBJIG1lbnRpb25lZCBlYXJsaWVyLCBpdCBjb3VsZCBiZSBwb3Nz
-aWJsZSB0byB0YWtlIGNhcmUgb2YgZ2V0dGltZSBhbmQgdGhlDQo+IGRyaXZlcidzIFJ4L1R4IHBh
-dGggYnkgdXNpbmcgYSBtaXh0dXJlIG9mIGxvY2tzL2tlcm5lbC10aHJlYWQuDQo+IEJ1dCBzZXR0
-aW1lL2FkanRpbWUgc3RpbGwgbmVlZHMgdG8gYmUgY3VyYmVkLg0KPiANCkkgYW0gY3VyaW91cyBo
-b3cgeW91IHNlZSBhIGtlcm5lbCB0aHJlYWQgcmVzb2x2aW5nIHRoZSBUeC9SeCBpc3N1ZT8gb3Ig
-aXMgdGhlDQprZXJuZWwgdGhyZWFkIGJlaW5nIHVzZWQgYnkgZ2V0dGltZT8gSSBkb24ndCBiZWxp
-ZXZlIHdlIGNhbiB3YWl0IGZvciB0aGUgVHgvUngNCnBhdGgsIGJlY2F1c2UgaWYgd2UgdGFrZSB0
-b28gbG9uZyB0aGUgc29mdHdhcmUgc2VlcyBpdCBhcyBhIGRyb3BwZWQgdGltZXN0YW1wLg0KQWxz
-byB3ZSBoYXZlIGEgcG9pbnRlciB0byB0aGUgc2tiIHdoaWNoIGlzIGZyZWUnZCByaWdodCBhZnRl
-ciB0aGUgY2FsbCBmb3INCihyeC90eClod3RzdGFtcCBzbyB3ZSBjYW4ndCBqdXN0IGNvcHkgdGhh
-dCBwb2ludGVyLg0KDQo+IFdoeSBpc24ndCBpb2N0bC1yYXRlIGxpbWl0aW5nIGFjY2VwdGFibGU/
-IExldCdzIHNheSBhbiBhcHAgdGhhdCBpcyB0cnlpbmcgdG8NCj4gc2V0L2FkaiBOSUMgY291bnRl
-ciBpcyBydW5uaW5nIG9uIGhvc3Qgc2lkZSB0aGVuIGhvdyBvZnRlbiB3b3VsZCBpdCBuZWVkIHRv
-DQo+IHJlYWQgYW5kIGNvcnJlY3Qvc2V0L2Fkaj8gb25jZSBldmVyeSBtc2VjKHNvIDEwMDAgdGlt
-ZXMgYSBzZWNvbmQpLCBvbmNlIGV2ZXJ5DQo+IDEwIG1zZWMoMTAwIHRpbWVzIGEgc2Vjb25kKSBl
-dGM/DQo+IA0KPiBTbywgd2lsbCBwb3VuZGluZyB0aGUgaW9jdGwgMTAwMCB0aW1lcywgd2hpbGUg
-cHJvY2Vzc2luZyB+ODIwSw0KPiBmcmFtZXMoMTUwMCBieXRlIHBheWxvYWQgb24gMTBHIGxpbmsp
-IHN0aWxsIGNhdXNlIGEgcHJvYmxlbSBmb3IgdGhlIGRyaXZlciBpcw0KPiB3aGF0IHdlIHdvdWxk
-IG5lZWQgdG8gc2VlLiByYXRlIGNhbiBhbHNvIGJlIGEgZmFjdG9yIG9mIGxpbmstc3BlZWQoPyku
-DQo+IA0KPiBBbmQgd2UgZG9uJ3QgbmVlZCAxMDAgc3VjaCBhcHBzLiBPbmx5IDEgYXBwIHNob3Vs
-ZCBiZSB3b3JraW5nIGluIHRhbmRlbSB3aXRoDQo+IHRoZSBOSUMuIElmIG90aGVyIGFwcHMgZmFp
-bCB0aGVuIGF0bGVhc3QgdGhlIHN5c2FkbWluIG9yIHVzZXJzIHdvdWxkIGtub3cNCj4gc29tZW9u
-ZSBlbHNlIGlzIChhYil1c2luZyBpdC4NCg0KSG93IHdvdWxkIHdlIG9ubHkgYWxsb3cgb25lIGFw
-cD8gQW55IGFwcCB3aXRoIHBlcm1pc3Npb25zIGNvdWxkIGNhbGwgdGhlIGlvY3Rscy4NCkkgZG8g
-YWdyZWUgdGhhdCBoYXZpbmcgdG9vIG1hbnkgaW9jdGxzIGlzIGEgcHJvYmxlbS4gRXZlbiBpbiBj
-YXNlcyB3aGVyZSBQVFAgaXMNCm9ubHkgZW5hYmxlZCBvbiBhICJ0cnVzdGVkIiBzeXN0ZW0uIEFs
-bG93aW5nIHRoZSBrZXJuZWwgdG8gYXNzdW1lIHRoZSBzeXN0ZW0NCmlzIHRydXN0ZWQgbWVhbnMg
-d2UgaW50cm9kdWNlIHNlY3VyaXR5IGhvbGVzLiBJIGFtIG5vdCBzdXJlIG9mIHRoZSByaWdodCBz
-b2x1dGlvbg0Kb3Igd2hldGhlciB3ZSBuZWVkIGEgZGlmZmVyZW50IG9uZSwgdGhvdWdoLiBJIGFt
-IGdvaW5nIHRvIHRyeSBhbmQgcHJvdmlkZSBhIHRlc3QgY2FzZQ0Kd2hlcmUgc29tZW9uZSBoYW1t
-ZXJzIHRoZSBpb2N0bHMgaW4gYSBsb29wLCBhbmQgc2VlIHdoYXQgaGFwcGVucy4NCg0KPiANCj4g
-DQo+ID4gVGhhbmtzLA0KPiA+IFJpY2hhcmQNCj4gDQo+IENoZXRhbg0K
+This way the USB variant of the driver uses usb_make_path in order to
+provide bus-info compatible to other USB drivers (like e.g. asix.c).
+
+Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
+---
+ drivers/net/wimax/i2400m/usb.c |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index 2c1b8b6..29b1e03 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -339,6 +339,23 @@ int i2400mu_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
+ 	return result;
+ }
+ 
++static void i2400mu_get_drvinfo(struct net_device *net_dev,
++                                struct ethtool_drvinfo *info)
++{
++	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
++	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
++	struct usb_device *udev = i2400mu->usb_dev;
++
++	strncpy(info->driver, KBUILD_MODNAME, sizeof(info->driver) - 1);
++	strncpy(info->fw_version,
++	        i2400m->fw_name ? : "", sizeof(info->fw_version) - 1);
++	usb_make_path(udev, info->bus_info, sizeof(info->bus_info));
++}
++
++static const struct ethtool_ops i2400mu_ethtool_ops = {
++	.get_drvinfo = i2400mu_get_drvinfo,
++	.get_link = ethtool_op_get_link,
++};
+ 
+ static
+ void i2400mu_netdev_setup(struct net_device *net_dev)
+@@ -347,6 +364,7 @@ void i2400mu_netdev_setup(struct net_device *net_dev)
+ 	struct i2400mu *i2400mu = container_of(i2400m, struct i2400mu, i2400m);
+ 	i2400mu_init(i2400mu);
+ 	i2400m_netdev_setup(net_dev);
++	net_dev->ethtool_ops = &i2400mu_ethtool_ops;
+ }
+ 
+ 
+-- 
+1.7.3.4
