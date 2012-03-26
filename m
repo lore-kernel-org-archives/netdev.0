@@ -1,72 +1,38 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v0 3/5] net: add fdb generic dump routine
-Date: Mon, 26 Mar 2012 14:41:27 -0700
-Message-ID: <4F70E287.80402@intel.com>
-References: <CB94671B.49E3F%roprabhu@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/vlan: withdraw VLAN ID attribute from GVRP on VLAN
+ device stop
+Date: Mon, 26 Mar 2012 17:42:16 -0400 (EDT)
+Message-ID: <20120326.174216.151181141269420661.davem@davemloft.net>
+References: <4F707163.2000209@ll.mit.edu>
+	<4F7087CA.5010804@dti2.net>
+	<4F709038.20107@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, shemminger@vyatta.com, bhutchings@solarflare.com,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, mst@redhat.com, chrisw@redhat.com,
-	gregory.v.rose@intel.com, kvm@vger.kernel.org, sri@us.ibm.com,
-	chealy@imsco-us.com
-To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CB94671B.49E3F%roprabhu@cisco.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jorge@dti2.net, netdev@vger.kernel.org
+To: david.ward@ll.mit.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34954 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756894Ab2CZVmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 17:42:25 -0400
+In-Reply-To: <4F709038.20107@ll.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/25/2012 6:09 AM, Roopa Prabhu wrote:
-> 
-> 
-> 
-> On 3/18/12 11:52 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
-> 
->> This adds a generic dump routine drivers can call. It
->> should be sufficient to handle any bridging model that
->> uses the unicast address list. This should be most SR-IOV
->> enabled NICs.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Date: Mon, 26 Mar 2012 11:50:16 -0400
 
-[...]
+> If I create an interface that is initially down, then bring it up, and
+> finally bring it back down, I think it should return to the state it
+> was in initially.  So in my opinion, either the GVRP attribute should
+> exist while the interface is down, or it shouldn't.
 
->> +/**
->> + * ndo_dflt_fdb_dump: default netdevice operation to dump an FDB table.
->> + * @nlh: netlink message header
->> + * @dev: netdevice
->> + *
->> + * Default netdevice operation to dump the existing unicast address list.
->> + * Returns zero on success.
->> + */
->> +int ndo_dflt_fdb_dump(struct sk_buff *skb,
->> +        struct netlink_callback *cb,
->> +        struct net_device *dev,
->> +        int idx)
->> +{
->> + struct netdev_hw_addr *ha;
->> + struct nlmsghdr *nlh;
->> + struct ndmsg *ndm;
->> + u32 pid, seq;
->> +
->> + pid = NETLINK_CB(cb->skb).pid;
->> + seq = cb->nlh->nlmsg_seq;
->> +
->> + netif_addr_lock_bh(dev);
->> + list_for_each_entry(ha, &dev->uc.list, list) {
->> +  if (idx < cb->args[0])
->> +   goto skip;
-> 
-> Any reason why its only uc ?. What about mc ?
+You're whole argument breaks down because we definitely don't do this
+for IPv4 addresses, we'll keep receiving traffic for IPv4 addresses
+configured on that interface when received on other interfaces which
+are still up, even when you bring that interface down.
 
-Sure this might be useful to know for embedded devices
-and likely more useful for the macvlan driver. I'll add
-it in the next version.
+Really, if you want to leave GVRP, unconfigure it.
 
-Thanks,
-John
-
-
+I'm not applying this patch.
