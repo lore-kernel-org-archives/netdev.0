@@ -1,52 +1,67 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Locking bug in 3.0.25, IPv6.
-Date: Mon, 26 Mar 2012 09:51:54 -0700
-Message-ID: <4F709EAA.6040700@candelatech.com>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v15 00/13] seccomp_filter: syscall filtering using BPF
+Date: Mon, 26 Mar 2012 11:53:06 -0500
+Message-ID: <CABqD9hZe9t9WeMRcuhvevSb9svp5UH9ZHH4TZg753zzcrX-tnQ@mail.gmail.com>
+References: <1331781125-15658-1-git-send-email-wad@chromium.org>
+	<4F6F73B9.2000207@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:33320 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932969Ab2CZQvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 12:51:54 -0400
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id q2QGpsjt014699
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 09:51:54 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
+	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>, akpm@linux-foundation.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4F6F73B9.2000207@zytor.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Has anyone seen this in 3.0.25?  My kernel has some other patches
-applied, but we did not see this before 3.0.24.
+On Sun, Mar 25, 2012 at 2:36 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+> On 03/14/2012 08:11 PM, Will Drewry wrote:
+>> Please see prior revisions of this patch series for a high
+>> level blurb.
+>>
+>> This revision makes a number of refinements and tweaks. The biggest
+>> change is a slight renumbering of the return codes which will break
+>> existing code using this patch series.
+>>
+>> I believe this patch is in good shape, and I don't see the need for
+>> any more API changes at this point. =A0I plan to start using this re=
+vision
+>> more extensively, and I'd certainly appreciate any testing.
+>>
+>> Thanks!
+>> will
+>>
+>
+> x86 portions:
+>
+> Reviewed-by: H. Peter Anvin <hpa@zytor.com>
 
-BUG: sleeping function called from invalid context at /home/greearb/git/linux-3.0.dev.y/mm/memory.c:3904
+Thanks!
 
-================================================
-[ BUG: lock held when returning to user space! ]
-------------------------------------------------
-ip/6696 is leaving the kernel with locks still held!
-1 lock held by ip/6696:
-  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffffa03051c4>] rcu_read_lock+0x0/0x35 [ipv6]
-in_atomic(): 0, irqs_disabled(): 0, pid: 6694, name: ip
-INFO: lockdep is turned off.
-Pid: 6694, comm: ip Tainted: G         C  3.0.25+ #1
-Call Trace:
-  [<ffffffff8103e479>] __might_sleep+0x111/0x115
-  [<ffffffff810c98bf>] might_fault+0x2f/0x9e
-  [<ffffffff8138698e>] ? copy_from_user+0x2a/0x2c
-  [<ffffffff810c98de>] ? might_fault+0x4e/0x9e
-  [<ffffffff8137cc90>] move_addr_to_user+0x21/0x8e
-  [<ffffffff8137ce7c>] __sys_recvmsg+0x17f/0x21e
-  [<ffffffff810634a8>] ? up_read+0x1e/0x36
-  [<ffffffff810fc06e>] ? fcheck_files+0xb7/0xee
-  [<ffffffff810fc191>] ? fget_light+0x35/0xac
-  [<ffffffff810d0023>] ? remove_vma+0x7a/0x82
-  [<ffffffff8137d620>] sys_recvmsg+0x3d/0x5b
-  [<ffffffff8144f092>] system_call_fastpath+0x16/0x1b
+> What is the preferred way to push this upstream? =A0(Presumably for 3=
+=2E5 at
+> this point, but we should get it into -next as soon as possible after
+> the merge window.)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+A repost when rc1 has been cut is what's been suggested to me.
+
+Additionally, two tweaks have been pointed out off list (documentation
+cruft and lack if #ifdef for asm/syscall.h), which I have fixed in my
+local and github tree but haven't yet reposted here.  I was planning
+on just posting v17 when rc1 is cut (unless I've blithely missed it
+already) and then trying to pester everyone and anyone who can merge.
+:)
+
+Maybe someone more authoritative than me will answer though.
+
+thanks!
+will
