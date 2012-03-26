@@ -1,122 +1,169 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH] netdev: fix compile issues for !CONFIG_PCI in 3c59x
-Date: Sun, 25 Mar 2012 21:11:46 -0400
-Message-ID: <1332724306-8799-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: klassert@mathematik.tu-chemnitz.de
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH v3] net: sh_eth: Add support SH7734
+Date: Mon, 26 Mar 2012 13:59:51 +0900
+Message-ID: <1332737991-7862-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:64920 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753695Ab2CZBMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Mar 2012 21:12:10 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:54624 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523Ab2CZEy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 00:54:27 -0400
+Received: by pbcun15 with SMTP id un15so5512667pbc.19
+        for <netdev@vger.kernel.org>; Sun, 25 Mar 2012 21:54:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I hate to add in more #ifdef CONFIG_PCI but there are already
-quite a few in this driver, and it seems like it hasn't been
-built with CONFIG_PCI set to off in quite some time.  The
-MIPS allmodconfig (ISA/EISA based) doesn't set CONFIG_PCI
-and that is why we are here looking at this, even though any
-modern platform has had PCI since 1995 or so.
+Add define of SH7734 register and sh_eth_reset_hw_crc function.
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+V3: Rebase net/HEAD.
+V2: Do not split line of #if defined.
 
-diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-index e463d10..36ad150 100644
---- a/drivers/net/ethernet/3com/3c59x.c
-+++ b/drivers/net/ethernet/3com/3c59x.c
-@@ -999,6 +999,7 @@ static int __init vortex_eisa_init(void)
- 	return vortex_cards_found - orig_cards_found + eisa_found;
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+---
+ drivers/net/ethernet/renesas/Kconfig  |    5 +++--
+ drivers/net/ethernet/renesas/sh_eth.c |   20 +++++++++++++++++---
+ drivers/net/ethernet/renesas/sh_eth.h |   11 ++++++++---
+ 3 files changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 9755b49..3fb2355 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -7,7 +7,8 @@ config SH_ETH
+ 	depends on SUPERH && \
+ 		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
+ 		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+-		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7757)
++		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
++		 CPU_SUBTYPE_SH7757)
+ 	select CRC32
+ 	select NET_CORE
+ 	select MII
+@@ -16,4 +17,4 @@ config SH_ETH
+ 	---help---
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+-		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
++		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763 and SH7757.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 8615961..8bdf070 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1,8 +1,8 @@
+ /*
+  *  SuperH Ethernet device driver
+  *
+- *  Copyright (C) 2006-2008 Nobuhiro Iwamatsu
+- *  Copyright (C) 2008-2009 Renesas Solutions Corp.
++ *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
++ *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+  *  under the terms and conditions of the GNU General Public License,
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_vlan.h>
++#include <linux/clk.h>
+ #include <linux/sh_eth.h>
+ 
+ #include "sh_eth.h"
+@@ -279,8 +280,9 @@ static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
+ 		return &sh_eth_my_cpu_data;
  }
  
-+#ifdef CONFIG_PCI
- /* returns count (>= 0), or negative on error */
- static int __devinit vortex_init_one(struct pci_dev *pdev,
- 				      const struct pci_device_id *ent)
-@@ -1045,6 +1046,7 @@ static int __devinit vortex_init_one(struct pci_dev *pdev,
- out:
- 	return rc;
- }
-+#endif
- 
- static const struct net_device_ops boomrang_netdev_ops = {
- 	.ndo_open		= vortex_open,
-@@ -1177,6 +1179,7 @@ static int __devinit vortex_probe1(struct device *gendev,
- 		compaq_net_device = dev;
- 	}
- 
-+#ifdef CONFIG_PCI
- 	/* PCI-only startup logic */
- 	if (pdev) {
- 		/* EISA resources already marked, so only PCI needs to do this here */
-@@ -1204,6 +1207,7 @@ static int __devinit vortex_probe1(struct device *gendev,
- 			}
- 		}
- 	}
-+#endif
- 
- 	spin_lock_init(&vp->lock);
- 	spin_lock_init(&vp->mii_lock);
-@@ -1321,7 +1325,7 @@ static int __devinit vortex_probe1(struct device *gendev,
- 			step, (eeprom[4]>>5) & 15, eeprom[4] & 31, eeprom[4]>>9);
- 	}
- 
--
-+#ifdef CONFIG_PCI
- 	if (pdev && vci->drv_flags & HAS_CB_FNS) {
- 		unsigned short n;
- 
-@@ -1348,6 +1352,7 @@ static int __devinit vortex_probe1(struct device *gendev,
- 			window_write16(vp, 0x0800, 0, 0);
- 		}
- 	}
-+#endif
- 
- 	/* Extract our information from the EEPROM data. */
- 	vp->info1 = eeprom[13];
-@@ -3222,6 +3227,7 @@ static void acpi_set_WOL(struct net_device *dev)
- }
- 
- 
-+#ifdef CONFIG_PCI
- static void __devexit vortex_remove_one(struct pci_dev *pdev)
+-#elif defined(CONFIG_CPU_SUBTYPE_SH7763)
++#elif defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
+ #define SH_ETH_HAS_TSU	1
++static void sh_eth_reset_hw_crc(struct net_device *ndev);
+ static void sh_eth_chip_reset(struct net_device *ndev)
  {
- 	struct net_device *dev = pci_get_drvdata(pdev);
-@@ -3269,6 +3275,7 @@ static struct pci_driver vortex_driver = {
- 	.id_table	= vortex_pci_tbl,
- 	.driver.pm	= VORTEX_PM_OPS,
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+@@ -314,6 +316,9 @@ static void sh_eth_reset(struct net_device *ndev)
+ 	sh_eth_write(ndev, 0x0, RDFAR);
+ 	sh_eth_write(ndev, 0x0, RDFXR);
+ 	sh_eth_write(ndev, 0x0, RDFFR);
++
++	/* Reset HW CRC register */
++	sh_eth_reset_hw_crc(ndev);
+ }
+ 
+ static void sh_eth_set_duplex(struct net_device *ndev)
+@@ -370,8 +375,17 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+ 	.no_trimd	= 1,
+ 	.no_ade		= 1,
+ 	.tsu		= 1,
++#if defined(CONFIG_CPU_SUBTYPE_SH7734)
++	.hw_crc     = 1,
++#endif
  };
-+#endif
  
++static void sh_eth_reset_hw_crc(struct net_device *ndev)
++{
++	if (sh_eth_my_cpu_data.hw_crc)
++		sh_eth_write(ndev, 0x0, CSMR);
++}
++
+ #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
+ #define SH_ETH_RESET_DEFAULT	1
+ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 57dc262..e66de18 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -1,8 +1,8 @@
+ /*
+  *  SuperH Ethernet device driver
+  *
+- *  Copyright (C) 2006-2008 Nobuhiro Iwamatsu
+- *  Copyright (C) 2008-2011 Renesas Solutions Corp.
++ *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
++ *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+  *  under the terms and conditions of the GNU General Public License,
+@@ -98,6 +98,8 @@ enum {
+ 	CEECR,
+ 	MAFCR,
+ 	RTRATE,
++	CSMR,
++	RMII_MII,
  
- static int vortex_have_pci;
-@@ -3277,9 +3284,13 @@ static int vortex_have_eisa;
+ 	/* TSU Absolute address */
+ 	ARSTR,
+@@ -172,6 +174,7 @@ static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[RMCR]	= 0x0458,
+ 	[RPADIR]	= 0x0460,
+ 	[FCFTR]	= 0x0468,
++	[CSMR] = 0x04E4,
  
- static int __init vortex_init(void)
- {
--	int pci_rc, eisa_rc;
-+	int eisa_rc;
-+#ifdef CONFIG_PCI
-+	int pci_rc = pci_register_driver(&vortex_driver);
-+#else
-+	int pci_rc = -ENODEV;
-+#endif
+ 	[ECMR]	= 0x0500,
+ 	[ECSR]	= 0x0510,
+@@ -200,6 +203,7 @@ static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[CERCR]	= 0x0768,
+ 	[CEECR]	= 0x0770,
+ 	[MAFCR]	= 0x0778,
++	[RMII_MII] =  0x0790,
  
--	pci_rc = pci_register_driver(&vortex_driver);
- 	eisa_rc = vortex_eisa_init();
+ 	[ARSTR]	= 0x0000,
+ 	[TSU_CTRST]	= 0x0004,
+@@ -377,7 +381,7 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+ /*
+  * Register's bits
+  */
+-#ifdef CONFIG_CPU_SUBTYPE_SH7763
++#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
+ /* EDSR */
+ enum EDSR_BIT {
+ 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
+@@ -751,6 +755,7 @@ struct sh_eth_cpu_data {
+ 	unsigned rpadir:1;		/* E-DMAC have RPADIR */
+ 	unsigned no_trimd:1;		/* E-DMAC DO NOT have TRIMD */
+ 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
++	unsigned hw_crc:1;	/* E-DMAC have CSMR */
+ };
  
- 	if (pci_rc == 0)
-@@ -3318,8 +3329,10 @@ static void __exit vortex_eisa_cleanup(void)
- 
- static void __exit vortex_cleanup(void)
- {
-+#ifdef CONFIG_PCI
- 	if (vortex_have_pci)
- 		pci_unregister_driver(&vortex_driver);
-+#endif
- 	if (vortex_have_eisa)
- 		vortex_eisa_cleanup();
- }
+ struct sh_eth_private {
 -- 
-1.7.9.4
+1.7.9.1
