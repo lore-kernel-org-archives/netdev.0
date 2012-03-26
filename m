@@ -1,56 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] wimax: i2400m - prevent a possible kernel bug due
- to missing fw_name string
-Date: Mon, 26 Mar 2012 15:57:10 +0100
-Message-ID: <1332773830.3500.88.camel@deadeye>
-References: <1332761036-8913-1-git-send-email-phil.sutter@viprinet.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
+ timecompare method
+Date: Mon, 26 Mar 2012 11:07:40 -0400
+Message-ID: <CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
+References: <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+	<20120316065537.GB2199@netboy.at.omicron.at>
+	<CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+	<20120321170003.GA5533@netboy.at.omicron.at>
+	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+	<20120322064107.GB2182@netboy.at.omicron.at>
+	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+	<20120324065147.GB2201@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<inaky.perez-gonzalez@intel.com>
-To: Phil Sutter <phil.sutter@viprinet.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:31759 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932444Ab2CZO5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 10:57:15 -0400
-In-Reply-To: <1332761036-8913-1-git-send-email-phil.sutter@viprinet.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:59966 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932519Ab2CZPHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 11:07:40 -0400
+Received: by pbcun15 with SMTP id un15so6087392pbc.19
+        for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 08:07:40 -0700 (PDT)
+In-Reply-To: <20120324065147.GB2201@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-03-26 at 13:23 +0200, Phil Sutter wrote:
-> This happened on a machine with a custom hotplug script calling nameif,
-> probably due to slow firmware loading. At the time nameif uses ethtool
-> to gather interface information, i2400m->fw_name is zero and so a null
-> pointer dereference occurs from within i2400m_get_drvinfo().
-> 
-> Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
-> ---
->  drivers/net/wimax/i2400m/netdev.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-> index 64a1106..020bd8d 100644
-> --- a/drivers/net/wimax/i2400m/netdev.c
-> +++ b/drivers/net/wimax/i2400m/netdev.c
-> @@ -607,7 +607,8 @@ static void i2400m_get_drvinfo(struct net_device *net_dev,
->  	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
->  
->  	strncpy(info->driver, KBUILD_MODNAME, sizeof(info->driver) - 1);
-> -	strncpy(info->fw_version, i2400m->fw_name, sizeof(info->fw_version) - 1);
-> +	strncpy(info->fw_version,
-> +	        i2400m->fw_name ? : "N/A", sizeof(info->fw_version) - 1);
+On Sat, Mar 24, 2012 at 2:51 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Fri, Mar 23, 2012 at 03:39:08PM -0400, chetan loke wrote:
+>>
+>> So, how is it working today? Because we could have tx and rx
+>> completions on different CPUs. Is it not possible to have the
+>> following race today - between timecompare_update->timecompare_offset
+>> -> timecounter_readdelta of say Rx and timecounter_cyc2time from Tx?
+>
+> I works (in the igb) because of the spinlock. You know, that thing
+> that you are so against using.
+>
 
-Use an empty string, not "N/A".
+I meant, was there a lock before the PHC functionality in igb?
 
-Ben.
+>
+>> How about rate limiting at the PHC class driver level? And then it
+>> will work across the board for all the adapters at the device level.
+>
+> No, don't go there. Enough bikeshedding already. If you have a serious
 
->  	if (net_dev->dev.parent)
->  		strncpy(info->bus_info, dev_name(net_dev->dev.parent),
->  			sizeof(info->bus_info) - 1);
+can a user without root privileges use get/adj/set time ioctls for the
+PHC functionality?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+> Thanks,
+> Richard
+
+Chetan
