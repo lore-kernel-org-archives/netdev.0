@@ -1,34 +1,54 @@
-From: Guan Xin <guanx.bac@gmail.com>
-Subject: [PATCH] USB: Add Motorola Rokr E6 Id to the USBNet driver "zaurus"
-Date: Mon, 26 Mar 2012 16:11:46 +0200
-Message-ID: <CANeMGR5PECuVb=p7orzwHgcsa9GSW=-gMyqWo7RYm_NpmLm4Ug@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V2 4/7] net/mlx4_en: Set max rate-limit for a TC
+Date: Mon, 26 Mar 2012 15:46:03 +0100
+Message-ID: <1332773163.3500.81.camel@deadeye>
+References: <1332752874-8086-1-git-send-email-amirv@mellanox.com>
+	 <1332752874-8086-5-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
-	Guan Xin <guanx.bac@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Roland Dreier <roland@purestorage.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@dev.mellanox.co.il>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:31499 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932691Ab2CZOqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 10:46:09 -0400
+In-Reply-To: <1332752874-8086-5-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guan Xin <guanx.bac@gmail.com>
+On Mon, 2012-03-26 at 11:07 +0200, Amir Vadai wrote:
+> Set max rate-limit using sysfs file /sys/class/net/<interface>/ratelimit/tc<n>
+> Values in Mbps units.
+> 
+> For example, to set ratelimit of 5G to TC3 issue:
+> echo 5000 > /sys/class/net/eth2/ratelimit/tc3
 
-Added Vendor/Device Id of Motorola Rokr E6 (22b8:6027) so it can be
-recognized by the "zaurus" USBNet driver.
-Applies to Linux 3.2.13 and 2.6.39.4.
-Signed-off-by: Guan Xin <guanx.bac@gmail.com>
----
---- a/drivers/net/usb/zaurus.c	2012-03-26 15:28:43.964244583 +0200
-+++ b/drivers/net/usb/zaurus.c	2012-03-26 15:02:16.860801959 +0200
-@@ -332,6 +332,11 @@ static const struct usb_device_id	produc
- 	.driver_info = ZAURUS_PXA_INFO,
- },
- {
-+	/* Motorola Rokr E6 */
-+	USB_DEVICE_AND_INTERFACE_INFO(0x22b8, 0x6027, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long) &bogus_mdlm_info,
-+}, {
- 	/* Motorola MOTOMAGX phones */
- 	USB_DEVICE_AND_INTERFACE_INFO(0x22b8, 0x6425, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
+This looks the wrong way round; wouldn't a tc be an object with a
+ratelimit as attribute?
+
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+> 
+> We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
+> open to other suggestions to add generic support for max bw, e.g add call to
+> the DCBX NL API.
+[...]
+
+netlink interfaces are generally easily extensible and it doesn't make
+sense to me to augment such an interface through sysfs.  Perhaps you're
+concerned that netlink extensions won't be supported in older kernel
+versions running your OOT driver?  That's unfortunate, but let's not
+standardise an ugly interface based on a temporary problem like that.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
