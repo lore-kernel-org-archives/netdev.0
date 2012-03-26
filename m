@@ -1,52 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] iwlwifi: Add pr_fmt
-Date: Mon, 26 Mar 2012 08:27:40 -0700
-Message-ID: <619fca024aa5c063bfff18d8ce5f59b9a028906a.1332775606.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] netdev: fix compile issues for !CONFIG_PCI in 3c59x
+Date: Mon, 26 Mar 2012 11:38:32 -0400
+Message-ID: <4F708D78.2040102@windriver.com>
+References: <1332724306-8799-1-git-send-email-paul.gortmaker@windriver.com> <CAP=VYLpOJOueFfzxFGCu5cKQ9--F8CqC5JWjBxej7u=8z3K0xQ@mail.gmail.com> <4F70834E.3000308@mvista.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@gmail.com>,
+	<klassert@mathematik.tu-chemnitz.de>, <netdev@vger.kernel.org>,
+	<linux-mips@linux-mips.org>
+To: Sergei Shtylyov <sshtylyov@mvista.com>,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:49865 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932614Ab2CZPi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 11:38:58 -0400
+In-Reply-To: <4F70834E.3000308@mvista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prefix dmesg output with "iwlwifi: " by
-adding #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+On 12-03-26 10:55 AM, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 03/26/2012 05:38 PM, Paul Gortmaker wrote:
+> 
+>>> I hate to add in more #ifdef CONFIG_PCI but there are already
+>>> quite a few in this driver, and it seems like it hasn't been
+>>> built with CONFIG_PCI set to off in quite some time.
+> 
+>> Actually, please scrap this patch.  The uglyness of more ifdefs
+>> made me look at it again.  It should be do-able in a cleaner way
+>> with stubs, and it appears this may even be similar to an old fail
+>> from the past:
+> 
+>> http://lkml.indiana.edu/hypermail/linux/kernel/1107.3/00109.html
+> 
+>     Also, see this patch:
+> 
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=0da0ead90122578ef6e4afba9ba4bcd3455fd8e8
+> 
+>     The driver patch this was done for is still in the -mm tree after all these 
+> years.:-)
+> 
+>> I'll dig into it some more and follow up.
+> 
+>     I thought I addressed all issues with compilation of this driver with 
+> CONFIG_PCI=n. Apparently not, and some seem to have accumulated over time...
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/iwlwifi/iwl-agn.c |    3 +++
- drivers/net/wireless/iwlwifi/iwl-pci.c |    3 +++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+I got sidetracked working on other things, but I did manage to
+learn this so far - It turns out that Randy fixed it and then
+James un-fixed it in this commit:
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index f1226db..e09ffe0 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -26,6 +26,9 @@
-  * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-  *
-  *****************************************************************************/
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/init.h>
-diff --git a/drivers/net/wireless/iwlwifi/iwl-pci.c b/drivers/net/wireless/iwlwifi/iwl-pci.c
-index c5e339e..f3e56b0 100644
---- a/drivers/net/wireless/iwlwifi/iwl-pci.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-pci.c
-@@ -60,6 +60,9 @@
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  *****************************************************************************/
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/pci-aspm.h>
--- 
-1.7.8.111.gad25c.dirty
+commit 97a29d59fc222b36bac3ee3a8ae994f65bf7ffdf
+Author: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date:   Mon Jan 30 10:40:47 2012 -0600
+
+    [PARISC] fix compile break caused by iomap: make IOPORT/PCI mapping functions conditional
+
+Reverting the above and mips builds 3c59x just fine.  Note that MIPS
+allmodconfig does not have either CONFIG_GENERIC_IOMAP or the other
+CONFIG_GENERIC_PCI_IOMAP options.
+
+Paul.
+--
+
+> 
+>> Thanks,
+>> Paul.
+> 
+> WBR, Sergei
