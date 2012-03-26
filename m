@@ -1,91 +1,33 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V2 5/7] net/mlx4_en: sk_prio <=> UP for untagged traffic
-Date: Mon, 26 Mar 2012 11:07:52 +0200
-Message-ID: <1332752874-8086-6-git-send-email-amirv@mellanox.com>
-References: <1332752874-8086-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: [Question] Kernel preemption of BH handler
+Date: Mon, 26 Mar 2012 11:20:43 +0200
+Message-ID: <4F7034EB.8010707@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-15"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:36668 "HELO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753839Ab2CZJIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 05:08:20 -0400
-In-Reply-To: <1332752874-8086-1-git-send-email-amirv@mellanox.com>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:43526 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754788Ab2CZJVC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 05:21:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since vlan egress map is only good for tagged traffic, need to have other
-mapping to be used by untagged traffic.
-For that, the driver uses sch_mqprio mapping. This mapping could be set by
-using tc tool from iproute2 package.
-Mapped UP will be used by the HW for QoS purposes, but won't go out on the
-wire.
+I have a BH handler that processes packets received from a netdevice.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   18 ++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 +-
- 2 files changed, 19 insertions(+), 1 deletions(-)
+my_bh_handler() {
+   spin_lock_bh(my_lock);
+   /*do stuff*/
+   spin_unlock_bh(my_lock);
+   /*do more stuff*/
+}
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index f45d544..680f4dc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -45,6 +45,14 @@
- #include "mlx4_en.h"
- #include "en_port.h"
- 
-+static int mlx4_en_setup_tc(struct net_device *dev, u8 up)
-+{
-+	if (up != MLX4_EN_NUM_UP)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static int mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1055,6 +1063,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_poll_controller	= mlx4_en_netpoll,
- #endif
- 	.ndo_set_features	= mlx4_en_set_features,
-+	.ndo_setup_tc		= mlx4_en_setup_tc,
- };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-@@ -1143,6 +1152,15 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
-+	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
-+
-+	/* First 9 rings are for UP 0 */
-+	netdev_set_tc_queue(dev, 0, MLX4_EN_NUM_TX_RINGS + 1, 0);
-+
-+	/* Partition Tx queues evenly amongst UP's 1-7 */
-+	for (i = 1; i < MLX4_EN_NUM_UP; i++)
-+		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
-+
- 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
- 
- 	/* Set defualt MAC */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 94a605a..d9bab53 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -577,7 +577,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
- 	}
- 
--	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
-+	return skb_tx_hash(dev, skb);
- }
- 
- static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
--- 
-1.7.8.2
+First packet is received, and my_bh_handler() is currently processing it.
+Now a new packet is received by the NIC and my_bh_handler() is preempted 
+after my_lock have been released.
+
+Is it possible that the second invocation of the BH routine is allowed 
+to finish before the first?
+
+//E
