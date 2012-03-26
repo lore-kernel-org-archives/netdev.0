@@ -1,131 +1,270 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: iproute2 does not enumerate vf's properly (ixgbe)
-Date: Mon, 26 Mar 2012 15:56:41 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0702FD6FDC@ORSMSX106.amr.corp.intel.com>
-References: <89EBE686-6625-428C-8CCB-6A8E8B8162A8@gmail.com>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Subject: Re: [PATCH] net/garp: avoid infinite loop if attribute already
+ exists
+Date: Mon, 26 Mar 2012 12:07:07 -0400
+Message-ID: <4F70942B.5000102@ll.mit.edu>
+References: <1332715437-16278-1-git-send-email-david.ward@ll.mit.edu>
+ <4F7051B6.1030205@dti2.net> <4F707917.4020003@ll.mit.edu>
+ <4F708A9A.8040705@dti2.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Scott <ph3lpz@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms070003020107040104080000"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "jorge@dti2.net" <jorge@dti2.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:38465 "EHLO mga01.intel.com"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:40326 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932568Ab2CZP4s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 11:56:48 -0400
-In-Reply-To: <89EBE686-6625-428C-8CCB-6A8E8B8162A8@gmail.com>
+	id S932540Ab2CZQHM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Mar 2012 12:07:12 -0400
+In-Reply-To: <4F708A9A.8040705@dti2.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Scott
-> Sent: Saturday, March 24, 2012 6:44 AM
-> To: netdev@vger.kernel.org
-> Subject: iproute2 does not enumerate vf's properly (ixgbe)
-> 
-> When loading the module ixgbe with sr-iov enabled (max_vfs), enumeration
-> of the interfaces' VFs is inconsistent using the iproute2 utility.
-> 
-> Server Information:HP Product Name: ProLiant DL165 G7 Ethernet Card
-> Information: Intel 82599EB 10-Gigabit SFI/SFP+
-> uname: Linux 3.0.0-16-server x86_64 GNU/Linux OS Release: Ubuntu 11.10
+--------------ms070003020107040104080000
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-This was a longstanding bug that has since been fixed.  About 40 VFs was the approximate cut off due to buffer allocation issues in the netlink interface.  You'll probably need to upgrade your kernel or else backport the patches into your current kernel.
+On 26/03/12 11:26, Jorge Boncompte [DTI2] wrote:
+> El 26/03/2012 16:11, Ward, David - 0663 - MITLL escribi=F3:
+>> On 26/03/12 07:23, Jorge Boncompte [DTI2] wrote:
+>>> El 26/03/2012 0:43, David Ward escribi=F3:
+>>>> An infinite loop occurred if garp_attr_create was called with the
+>>>> values of an existing attribute. Return -EEXIST instead.
+>>>      I should have sent this some months ago but others things keep m=
+e from
+>>> doing it.
+>>>      Anyway, I think that the right thing to do it's reuse the attrib=
+ute to not
+>>> disturb the switch/network. Also, returning an error it's pointless b=
+ecause
+>>> nobody checks vlan_gvrp_request_join() return and you'll end up in a =
+state where
+>>> the VLAN device has the GVRP flag but it's not announcing the attribu=
+te.
+>> I think what you are saying is that if we try to create an attribute t=
+hat
+>> already exists, we should leave the old attribute alone.  I agree with=
+ that, and
+>> the patch I sent does that.  I also think the fact that the attribute =
+existed
+>> would likely indicate a bug in the GARP application, in which we are n=
+ot
+>> withdrawing an existing attribute when we should.  Your patch warns on=
+ this
+>> condition.
+> 	The attribute it's still on the tree because the leave path it's calle=
+d
+> asynchronously from a timer. As far as I could see there's no other cod=
+e path
+> that can put an attribute on the tree twice and that's why I put the WA=
+RN_ON().
 
-- Greg
+Oh right...  so in that case, garp_attr_create should change the state=20
+of the attribute from LA back to VA.  I think it should only trigger a=20
+warning if the current state of the attribute was not LA?
 
-> 
-> 
-> Using a freshly compiled git pull:
-> # ./ip -V
-> ip utility, iproute2-ss120319
-> 
-> Steps to reproduce:
-> 
-> 1. Determine the ethernet interface IDs:
-> # dmesg |grep ixgbe\ 0000:05:00.[0-9].*detected|head -n 2
-> [    8.448031] ixgbe 0000:05:00.0: eth4: detected SFP+: 5
-> [    8.816035] ixgbe 0000:05:00.1: eth5: detected SFP+: 6
-> 
-> 2. Load the module w/40 VFs:
-> # modprobe ixgbe max_vfs=40
-> 
-> 3. Sanity checks:
-> # lsmod |grep ixgbe
-> ixgbe                 206156  0
-> dca                    15179  2 ixgbe,igb
-> 
-> # modinfo ixgbe|grep version
-> version:        3.6.7-NAPI
-> srcversion:     119ADBD2B16B0E40668FB9A
-> vermagic:       3.0.0-16-server SMP mod_unload modversions
-> (this is the latest too)
-> 
-> # lspci |grep 05:1[0-9]|perl -lane 'delete @F[1,2,3,4,10,11];print "@F"'
-> 05:10.0     82599 Ethernet Controller Virtual Function
-> 05:10.2     82599 Ethernet Controller Virtual Function
-> 05:10.4     82599 Ethernet Controller Virtual Function
-> 05:10.6     82599 Ethernet Controller Virtual Function
-> 05:11.0     82599 Ethernet Controller Virtual Function
-> (suppressing output of all 40 VFs)
-> 
-> # lspci |grep 05:1[0-9]|wc -l
-> 40
-> (showing that there are actually 40)
-> 
-> # ls -l /sys/class/net/eth4/device/|grep virt|awk '{print $10"
-> "$8}'|sort|head -5
-> ../0000:05:10.0 virtfn0
-> ../0000:05:10.2 virtfn1
-> ../0000:05:10.4 virtfn2
-> ../0000:05:10.6 virtfn3
-> ../0000:05:11.0 virtfn4
-> (suppressing output of all 40 VFs)
-> 
-> 5. Run ip link show:
-> # ./ip link show|grep -e eth[45] -e vf
-> (null output!)
-> 
-> 6. Load the module with fewer VFs
-> # rmmod ixgbe
-> # modprobe ixgbe max_vfs=5
-> # lspci |grep 05:1[0-9]|perl -lane 'delete @F[1,2,3,4,10,11];print "@F"'
-> 05:10.0     82599 Ethernet Controller Virtual Function
-> 05:10.2     82599 Ethernet Controller Virtual Function
-> 05:10.4     82599 Ethernet Controller Virtual Function
-> 05:10.6     82599 Ethernet Controller Virtual Function
-> 05:11.0     82599 Ethernet Controller Virtual Function
-> 
-> # ls -l /sys/class/net/eth4/device/|grep virt|awk '{print $10" "$8}'|sort
-> ../0000:05:10.0 virtfn0
-> ../0000:05:10.2 virtfn1
-> ../0000:05:10.4 virtfn2
-> ../0000:05:10.6 virtfn3
-> ../0000:05:11.0 virtfn4
-> 
-> 7. Run ip link show
-> # ./ip link show|grep -e eth[45] -e vf
-> 57: eth4: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-> DEFAULT qlen 1000
->     vf 0 MAC 52:a0:59:03:20:a8
->     vf 1 MAC 82:5f:55:a5:1f:be
->     vf 2 MAC 0a:ab:86:0c:02:b3
->     vf 3 MAC 22:a7:28:ce:9c:23
->     vf 4 MAC 26:ea:6c:1b:ca:57
-> 58: eth5: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-> DEFAULT qlen 1000 (no vfs displayed for eth5!)
-> 
-> Patrick Kutch over at Intel suggested that there may be a patch to fix
-> this problem, but I was not able to locate it.
-> http://communities.intel.com/thread/28411?tstart=0
-> 
-> There is also Launchpad bug #960497 for this issue.
-> 
-> Thanks in advance for any suggestions.
-> 
-> -SP--
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-> body of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+I'll update my patch and resend.
+
+>
+>> Our patches are mostly the same.  One thing I notice with your patch i=
+s that for
+>> new attributes, it now traverses the RB tree twice.  And it doesn't fr=
+ee the
+>> memory for a new attribute if it wasn't inserted into the RB tree.  So=
+, what if
+>> instead I modified my patch to add "WARN_ON(err)" to either garp_reque=
+st_join or
+>> vlan_gvrp_request_join?  This would also warn us on -ENOMEM.
+>>
+>> David
+>>
+>>>        Please take a look at the conversation I had with Patrick in t=
+he patch
+>>> commit log.
+>>>
+>>>      If you agree, I'm fine with you redoing your patch or David usin=
+g mine if he
+>>> thinks it's ok.
+>>>
+>>>      Regards,
+>>>          Jorge
+>>>
+>>>> Signed-off-by: David Ward<david.ward@ll.mit.edu>
+>>>> ---
+>>>>    net/802/garp.c |   18 +++++++++++++-----
+>>>>    1 files changed, 13 insertions(+), 5 deletions(-)
+>>>>
+>>>> diff --git a/net/802/garp.c b/net/802/garp.c
+>>>> index 8e21b6d..bb5015e 100644
+>>>> --- a/net/802/garp.c
+>>>> +++ b/net/802/garp.c
+>>>> @@ -167,7 +167,7 @@ static struct garp_attr *garp_attr_lookup(const =
+struct
+>>>> garp_applicant *app,
+>>>>        return NULL;
+>>>>    }
+>>>>
+>>>> -static void garp_attr_insert(struct garp_applicant *app, struct gar=
+p_attr *new)
+>>>> +static int garp_attr_insert(struct garp_applicant *app, struct garp=
+_attr *new)
+>>>>    {
+>>>>        struct rb_node *parent =3D NULL, **p =3D&app->gid.rb_node;
+>>>>        struct garp_attr *attr;
+>>>> @@ -181,24 +181,32 @@ static void garp_attr_insert(struct garp_appli=
+cant
+>>>> *app, struct garp_attr *new)
+>>>>                p =3D&parent->rb_left;
+>>>>            else if (d>   0)
+>>>>                p =3D&parent->rb_right;
+>>>> +        else
+>>>> +            return -EEXIST;
+>>>>        }
+>>>>        rb_link_node(&new->node, parent, p);
+>>>>        rb_insert_color(&new->node,&app->gid);
+>>>> +    return 0;
+>>>>    }
+>>>>
+>>>>    static struct garp_attr *garp_attr_create(struct garp_applicant *=
+app,
+>>>>                          const void *data, u8 len, u8 type)
+>>>>    {
+>>>>        struct garp_attr *attr;
+>>>> +    int err;
+>>>>
+>>>>        attr =3D kmalloc(sizeof(*attr) + len, GFP_ATOMIC);
+>>>>        if (!attr)
+>>>> -        return attr;
+>>>> +        return PTR_ERR(-ENOMEM);
+>>>>        attr->state =3D GARP_APPLICANT_VO;
+>>>>        attr->type  =3D type;
+>>>>        attr->dlen  =3D len;
+>>>>        memcpy(attr->data, data, len);
+>>>> -    garp_attr_insert(app, attr);
+>>>> +    err =3D garp_attr_insert(app, attr);
+>>>> +    if (err<   0) {
+>>>> +        kfree(attr);
+>>>> +        return PTR_ERR(err);
+>>>> +    }
+>>>>        return attr;
+>>>>    }
+>>>>
+>>>> @@ -353,9 +361,9 @@ int garp_request_join(const struct net_device *d=
+ev,
+>>>>
+>>>>        spin_lock_bh(&app->lock);
+>>>>        attr =3D garp_attr_create(app, data, len, type);
+>>>> -    if (!attr) {
+>>>> +    if (IS_ERR(attr)) {
+>>>>            spin_unlock_bh(&app->lock);
+>>>> -        return -ENOMEM;
+>>>> +        return ERR_PTR(attr);
+>>>>        }
+>>>>        garp_attr_event(app, attr, GARP_EVENT_REQ_JOIN);
+>>>>        spin_unlock_bh(&app->lock);
+>
+
+
+--=20
+David Ward, Associate Staff
+Wideband Tactical Networking Group
+MIT Lincoln Laboratory
+Office: 781-981-4266
+Mobile: 781-999-1925
+Fax: 781-981-4583
+
+
+
+--------------ms070003020107040104080000
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+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
+h4HfOoHsBGFUMYQGMnL48b9p9mXwrJXo/WKFGe8l9+dLoOWMdZ+dvKQva9kEAAOnbIZ2xXSi
+7EAz0AD/QPSwUnf8MYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlU
+IExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0y
+Agodmr+JAAAAACaLMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEw
+HAYJKoZIhvcNAQkFMQ8XDTEyMDMyNjE2MDcwN1owIwYJKoZIhvcNAQkEMRYEFM3hriP52Fu0
+QqllCdFj61ZeojLtMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAECMAoGCCqGSIb3DQMH
+MA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzANBggqhkiG9w0DAgIB
+KDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQKExZNSVQgTGluY29s
+biBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExMIENBLTICCh2aFRcA
+AAAAJoowcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQKExZNSVQg
+TGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExMIENBLTIC
+Ch2aFRcAAAAAJoowDQYJKoZIhvcNAQEBBQAEggEAYrLlRX2raJ4ObKD6Vrm24DO62QGKvUNp
+6vPT4tWI+KEAC/hDZBmpH/WuG65hKQ/uOPk1vtZFMfxCf3jd1sPtSglOBChHmvTuvY7h2/cy
+0cEkWH1zB2fRoDqhV0nDPdKkxKZUN5y0ABCCDpAqK3ENBKJBNNxsZI8610Q3Kd8uZs7o+bNU
+tugfybSTV7oHxLsAy9yzJSPPy88G/ZaO3u7Sk0dRfQfzdDFf91kDal5reiuCO78YpCRySyN9
+PRAkQ8OBQ+touR6CJu2byBhXv++ecWWqFgU3f9MEST3BX+j5djGipoJQxwLT4L7Tv7++Mu/H
+jezgJXrDJ0n8oUqU4NxU/gAAAAAAAA==
+--------------ms070003020107040104080000--
