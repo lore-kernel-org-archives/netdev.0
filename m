@@ -1,149 +1,67 @@
 From: "Keller, Jacob E" <jacob.e.keller@intel.com>
 Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
  the timecompare method
-Date: Mon, 26 Mar 2012 20:46:13 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
-References: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
-	<20120321170003.GA5533@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
-	<20120322064107.GB2182@netboy.at.omicron.at>
-	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
-	<20120324065147.GB2201@netboy.at.omicron.at>
-	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
-	<20120326152730.GA10212@localhost.localdomain>
-	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
+Date: Mon, 26 Mar 2012 20:51:28 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580DC1C2@ORSMSX105.amr.corp.intel.com>
+References: <CAAsGZS4_owYK3NpdutP_6Lgfu453qmpQ8GO6i8FbG6V8wXafBg@mail.gmail.com>
+ <20120316065537.GB2199@netboy.at.omicron.at>
+ <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
+ <20120321170003.GA5533@netboy.at.omicron.at>
+ <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+ <20120322064107.GB2182@netboy.at.omicron.at>
+ <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+ <02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+ <20120324065147.GB2201@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"e1000-devel@lists.sourceforge.net"
 	<e1000-devel@lists.sourceforge.net>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"Ronciak, John" <john.ronciak@intel.com>,
 	"john.stultz@linaro.org" <john.stultz@linaro.org>,
 	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17526 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26997 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255Ab2CZUqS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Mar 2012 16:46:18 -0400
-In-Reply-To: <CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
+	id S1756894Ab2CZUv3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 16:51:29 -0400
+In-Reply-To: <20120324065147.GB2201@netboy.at.omicron.at>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IGNoZXRhbiBsb2tlIFttYWls
-dG86bG9rZS5jaGV0YW5AZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIE1hcmNoIDI2LCAyMDEy
-IDEyOjMyIFBNDQo+IFRvOiBLZWxsZXIsIEphY29iIEUNCj4gQ2M6IFJpY2hhcmQgQ29jaHJhbjsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZTEwMDAtDQo+IGRldmVsQGxpc3RzLnNvdXJjZWZvcmdl
-Lm5ldDsgS2lyc2hlciwgSmVmZnJleSBUOyBSb25jaWFrLCBKb2huOw0KPiBqb2huLnN0dWx0ekBs
-aW5hcm8ub3JnOyB0Z2x4QGxpbnV0cm9uaXguZGUNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQg
-VjQgMi8yXSBpZ2I6IG9mZmVyIGEgUFRQIEhhcmR3YXJlIENsb2NrIGluc3RlYWQgb2YgdGhlDQo+
-IHRpbWVjb21wYXJlIG1ldGhvZA0KPiANCj4gT24gTW9uLCBNYXIgMjYsIDIwMTIgYXQgMjo1NiBQ
-TSwgS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+IHdyb3RlOg0K
-PiANCj4gPiBJIGFtIGN1cmlvdXMgaG93IHlvdSBzZWUgYSBrZXJuZWwgdGhyZWFkIHJlc29sdmlu
-ZyB0aGUgVHgvUnggaXNzdWU/IG9yDQo+ID4gaXMgdGhlIGtlcm5lbCB0aHJlYWQgYmVpbmcgdXNl
-ZCBieSBnZXR0aW1lPyBJIGRvbid0IGJlbGlldmUgd2UgY2FuDQo+ID4gd2FpdCBmb3IgdGhlIFR4
-L1J4DQo+IA0KPiB0eCwgcnggcGF0aCBhbmQga2VybmVsIHRocmVhZCB3aWxsIHVzZSBzZXFfbG9j
-a19pc2F2ZSh0bXJlZ19sb2NrKS4NCj4gDQo+IEEgbmV3ICd1NjQgY2FjaGVkX25zJyB3aWxsIGJl
-IGludHJvZHVjZWQuDQo+IA0KPiB0eCBhbmQgcnggcGF0aCBjYW4gdXBkYXRlICdjYWNoZWRfbnMn
-IHdoZW4gdGhleSByZWFkIHRoZSBOSUMgY291bnRlci4NCj4NClR4IGFuZCByeCBwYXRocyBkb24n
-dCByZWFkIHRoZSBTWVNUSU0gcmVnaXN0ZXJzLiBXaGVuIGhhcmR3YXJlIChvdGhlcg0KdGhhbiB0
-aGUgODI1ODAgd2hpY2ggY291bGQgdXNlIGEgZGlmZmVyZW50IHNvZnR3YXJlIGltcGxlbWVudGF0
-aW9uKQ0KcmVjZWl2ZXMgYSBQVFAgcGFja2V0LCBpdCBpcyB0aW1lIHN0YW1wZWQgKmJ5IHRoZSBo
-YXJkd2FyZSogYW5kIHRoZQ0KcmVzdWx0IGlzIHN0b3JlZCBpbiB0aGUgUlhTVEFNUCByZWdpc3Rl
-cnMgKGFuYWxvZyBmb3IgcngvdHgpLiBUaGUNCmhhcmR3YXJlIHdpbGwgbm90IHRpbWVzdGFtcCBh
-Z2FpbiB1bnRpbCBhZnRlciB0aGUgcmVnaXN0ZXIgaXMgcmVhZC4NCihpZ25vcmUgODI1ODAsIGl0
-IGlzIGRpZmZlcmVudCkuIFRoZW4gdGhlIGRyaXZlciB3aWxsIHJlYWQgdGhpcyByZWdpc3Rlci4N
-Cg0KVGhlIGNsaW5jaGVyIGZvciB3aHkgd2UgaGF2ZSBzbyBtdWNoIGlzc3VlcyBoZXJlOiB0aGUg
-U1lTVElNIHJlZ2lzdGVycw0KYXJlICpub3QqIDY0Yml0IG5hbm9zZWNvbmQgdmFsdWVzLiBUaGV5
-IGFyZSA2NCBiaXRzIHdpZGUgKDgyNTgwIGlzIDQwDQpiaXRzICsgMzIgYml0cyBvZiBzdWIgcHJl
-Y2lzaW9uIG9yIDcyIGJpdHMgd2lkZSkgYnV0IHdpdGggYSBmaXhlZCBwb2ludA0Kc3lzdGVtLiBU
-aGlzIHN5c3RlbSBhbGxvd3MgZm9yIGRlZmluaW5nIGhvdyBtdWNoIHJvb20gZm9yIGFkanVzdG1l
-bnQNCnlvdSB3YW50IGJ1dCBzYWNyaWZpY2VzIHRoZSB0b3RhbCBhbW91bnQgdGhhdCBjYW4gYmUg
-c3RvcmVkIGFzIG5hbm9zZWNvbmRzLg0KDQpUaGUgdGltZWNvdW50ZXIgc3RydWN0dXJlIGtlZXBz
-IHRyYWNrIG9mIGEgNjRiaXQgZmllbGQgb2YgbmFub3NlY29uZHMsDQphbmQgaXMgYmFzZWQgb24g
-dGhlIGN5Y2xlY291bnRlci4gKEJ5IGtub3dpbmcgaG93IGZhc3QgdGhlIGN5Y2xlY291bnRlcg0K
-c2hvdWxkIGJlIHJ1bm5pbmcgYXQgMTAwJSBvcHRpbXVtIGNpcmN1bXN0YW5jZXMuKQ0KDQpJbiB0
-aGUgdHgvcnggcm91dGluZSwgd2UgY29udmVydCB0aGUgY3ljbGUgdGltZXN0YW1wcyB3aGljaCBo
-YXMgYW4NCm92ZXJmbG93IHJhdGUgYW55d2hlcmUgZnJvbSBvbmNlIGEgbWludXRlIHRvIGEgZmV3
-IGhvdXJzLiBUaGlzDQpjb252ZXJzaW9uIHVzZXMgbGFzdCB1cGRhdGVkIHZhbHVlIG9mIHRoZSB0
-aW1lY291bnRlciwgYnV0IGRvZXMgbm90DQptb2RpZnkvdXBkYXRlIHRoZSBjb3VudGVyLiBIb3dl
-dmVyLCBpdCBoYXMgdG8gbG9jayB0aGUgc3RydWN0dXJlIGluDQpjYXNlIGFuIHVwZGF0ZSBvY2N1
-cnMgZHVyaW5nIHRoZSBjeWMydGltZSBmdW5jdGlvbiBjYWxsLCBvdGhlcndpc2UgeW91DQpjYW4g
-Y29ycnVwdCB0aGUgdmFsdWVzLiBUaGVyZSBpcyBubyBwcm9ibGVtIHVzaW5nIHNlcWxvY2sgaGVy
-ZS4gKGFzDQpsb25nIGFzIHdlIHJldHJ5KS4gSSB3b3VsZCB0YWtlIHRoZSB3cml0ZSBsb2NrIGhl
-cmUsIHNvIHRoYXQgaXQgZG9lc24ndA0KaGF2ZSB0byByZXRyeSwgYWx0aG91Z2ggeW91IGNvdWxk
-IHRha2UgdGhlIHJlYWQgdmVyc2lvbi4gUmV0cnlpbmcgaXMNCm5lY2Vzc2FyeSBiZWNhdXNlIG90
-aGVyd2lzZSB0aGVyZSBpcyBhIHdpbmRvdyB3aGVyZSB3aWxkbHkgaW5hY2N1cmF0ZQ0KbmFub3Nl
-Y29uZCB2YWx1ZXMgY291bGQgYmUgb2J0YWluZWQuDQoNClRoZSBpc3N1ZSB3aXRoIGdldHRpbWUg
-aXMgaW4gdGhlIFNZU1RJTSByZWdpc3RlcnMuIEdldHRpbWUgY291bGQgYWxzbw0KdXNlIGN5YzJ0
-aW1lLCBhbmQgYWxsb3cgdGhlIGJhY2tncm91bmQgd29ya3Rhc2sgdG8gYmUgdGhlIG9ubHkgb25l
-IHVwZGF0aW5nDQp0aGUgdGltZWNvdW50ZXIncyBsYXN0IHJlYWQgdmFsdWUuICh0aGlzIG9ubHkg
-aGFzIHRvIGhhcHBlbiBhdCBsZWFzdCB0d2ljZQ0KZXZlcnkgd3JhcGFyb3VuZCB2YWx1ZSwgc28g
-Zm9yIHRoZSAxMGdpZyA4MjU5OSBhYm91dCBvbmNlIGV2ZXJ5IDMwIHNlY29uZHMpLg0KQnV0IHRo
-ZSBsb2NrIGlzIGFsc28gcHJvdGVjdGluZyBhZ2FpbnN0IGNvcnJ1cHRpb24gb2YgdGhlIFNZU1RJ
-TSByZWdpc3Rlcg0KcmVhZHMuIChUaGUgbG9jayBkb2VzIDIgZGlmZmVyZW50IHRoaW5ncy4gV2Ug
-Y291bGQgYWRkIGEgc2VwYXJhdGUgbG9jaywNCmJ1dCBJIGFtIG5vdCBjb252aW5jZWQgaXQgaXMg
-d29ydGggaXQpLg0KDQpXZSBjYW4ndCB1c2UgdGltZWNvdW50ZXJfcmVhZCBpbnNpZGUgYSByZWFk
-IHBvcnRpb24gb2YgdGhlIHNlcWxvY2sgYmVjYXVzZQ0KaXQgaGFzIHNpZGUgZWZmZWN0cy4gUmVh
-ZGluZyBTWVNUSU0gcmVnaXN0ZXJzIGhhcyBzaWRlIGVmZmVjdHMgYWxzbw0KYmVjYXVzZSB3ZSBo
-YXZlIHRvIHJlYWQgdGhlbSBzZXF1ZW50aWFsbHkgKGxvLCB0aGVuIGhpLCBjYW5ub3QgaW50ZXJz
-cGVyc2UNCnR3byBzZXRzIG9mIGxvIGFuZCBoaSByZWFkcykuDQoNCkkgd3JvdGUgYSBwYXRjaCB3
-aGljaCBzaG93cyBob3cgeW91IGNvdWxkIHVzZSBqdXN0IHNlcWxvY2tzLCBidXQgaXQgaGFzDQp0
-aGUgaXNzdWUgbWVudGlvbmVkIGFib3ZlIHdpdGggdGhlIFNZU1RJTSByZWdpc3RlcnMuIFRoZXNl
-IG9ubHkgZ2V0IHVzZWQNCmluIHRoZSBnZXR0aW1lIGNvZGUgYW5kIHRoZSB3YXRjaGRvZyB0YXNr
-IHRoYXQgdXBkYXRlcyB0aGUgdGltZWNvdW50ZXIuDQpXZSBjb3VsZCBpbXBsZW1lbnQgYSBiYXNp
-YyBzcGlubG9jayBhcm91bmQgdGhhdCBhbHNvLCBhbmQgdGhhdCB3b3VsZCBtZWFuDQp0aGUgc2Vx
-bG9jayB3b3VsZCBvbmx5IGJlIGFyb3VuZCB0aGUgdGltZWNvdW50ZXIgc3RydWN0dXJlLiBUaGlz
-IGRvZXMgYWRkDQp0aGUgY29tcGxpY2F0aW9uIG9mIHR3byBsb2Nrcy4gOigNCg0KSSBmZWVsIGxp
-a2UgdGhpcyBhcHByb2FjaCBpcyBiZXN0LCBjb25zaWRlcmluZyB0aGF0IGVhY2ggbG9jayBkb2Vz
-IHByZWNpc2VseQ0Kb25lIHRoaW5nLCBhbmQgcmFyZWx5IG5lZWQgdG8gYmUgYWNxdWlyZWQgYXQg
-dGhlIHNhbWUgdGltZS4gKHRoZSBvbmx5IHBsYWNlDQpiZWluZyBpbnNpZGUgdGltZWNvdW50ZXJf
-cmVhZCwgYW5kIHBvc3NpYmx5IGluIGN5Y2xlY291bnRlcl91cGRhdGUgZm9yIHRoZSBpeGdiZSkN
-Cg0KPiBBIGtlcm5lbC10aHJlYWQgc2hvdWxkIGJlIHNjaGVkdWxlZCBwZXJpb2RpY2FsbHksIHdp
-bGwgcmVhZCB0aGUgTklDIGNvdW50ZXINCj4gYW5kIHVwZGF0ZSBjYWNoZWRfbnMuIEl0IHdpbGwg
-dXNlIGEgX3RyeWxvY2sgdmFyaWFudC4gSWYgdGhlIGxvY2sgZmFpbHMgdGhlbg0KPiBpdHMgYSBo
-aW50IHRoYXQgJ2NhY2hlZF9ucycgaXMgZ2V0dGluZyB1cGRhdGVkIHNvbWV3aGVyZSwgc28ganVz
-dCByZWZyZXNoIHRoZQ0KPiB0aW1lci4gUGVyaW9kaWMgdXBkYXRlIGlzIG5lZWRlZCB0byBoYW5k
-bGUgaWRsZS9idXJzdHkgbGluayBjb25kaXRpb25zIGJlY2F1c2UNCj4gdGhlIFJ4L3R4IHBhdGgg
-bWF5IG5vdCBydW4gdGhhdCBvZnRlbi4NCj4gDQo+IGdldHRpbWUgdXNlcyByZWFkX3NlcV9sb2Nr
-IGFuZCByZWFkcyAnY2FjaGVkX25zJy4gSSBtZWFuIHdlIGNvdWxkIGFsc28gZG8gYQ0KPiBhdG9t
-aWNfcmVhZCg/KQ0KDQpBcyBhYm92ZSBjYWNoZWRfbnMgd291bGQgbm90IHdvcmsuIFRpbWVjb3Vu
-dGVyIHN0cnVjdHVyZSBpc24ndCB0aWNraW5nIG9uIGl0cw0Kb3duLiBJdCBjb252ZXJ0cyB0aGUg
-U1lTVElNIHZhbHVlcyB0byBuYW5vc2Vjb25kcyBhbmQga2VlcHMgdHJhY2sgb2Ygb3ZlcmZsb3dz
-Lg0KKHRoZXJlYnkgYWxsb3dpbmcgaXQgdG8gY3JlYXRlIG5hbm9zZWNvbmRzIHNpbmNlIHRoZSBl
-cG9jaCBhcyBhIDY0Yml0IHZhbHVlLA0Kd2hpY2ggaXMgd2hhdCB0aGUgdXNlciBzb2Z0d2FyZSBl
-eHBlY3RzKS4gQXRvbWljIHJlYWRzIGRvbid0IHdvcmsgYmVjYXVzZSB0aGUNCmF0b21pYyB2YWx1
-ZXMgb25seSBoYXZlIGFyb3VuZCAyNGJpdHMgb2YgYWN0dWFsIGRhdGEuICh3ZSB3b3VsZCBuZWVk
-IGF0IGxlYXN0IDY0Yml0cykNCg0KPg0KPiANCj4gPiBwYXRoLCBiZWNhdXNlIGlmIHdlIHRha2Ug
-dG9vIGxvbmcgdGhlIHNvZnR3YXJlIHNlZXMgaXQgYXMgYSBkcm9wcGVkDQo+IHRpbWVzdGFtcC4N
-Cj4gDQo+IFdoYXQgY29kZS1wYXRoIGlzIHRoaXM/DQo+DQpGb3IgdHJhbnNtaXQgb25seSwgaW5z
-aWRlIHRoZSB1c2VyIHNvZnR3YXJlLCBpdCBzZW5kcyBhIHBhY2tldCB0aGVuIHdhaXRzDQpmb3Ig
-YSBjb3B5IG9mIHRoYXQgcGFja2V0IG9uIHRoZSByZWNlaXZlIGVycnF1ZXVlIHdoaWNoIGlzIGNv
-cGllZCBieSB0aGUga2VybmVsDQphbmQgcHV0IHRoZXJlIHdpdGggdGhlIFRYIHRpbWVzdGFtcC4g
-SWYgdGhlIGRyaXZlciB0YWtlcyB0b28gbG9uZyB0byByZXBvcnQgdGhlDQp0aW1lc3RhbXAgdGhl
-biB0aGUgdXNlciBzb2Z0d2FyZSB0aW1lcyBvdXQgYW5kIHJlcG9ydHMgYSB0aW1lIHN0YW1wIGFz
-IG1pc3NpbmcNCmV2ZW4gdGhvdWdoIGl0IHdvdWxkIGxhdGVyIGJlIHJldHVybmVkIGJ5IHRoZSBk
-cml2ZXIuIEl0IGlzIG5vdCBhbiBpc3N1ZSB3aXRoDQp0aGUgUlggdGltZXN0YW1wcy4NCg0KPiAN
-Cj4gPiBIb3cgd291bGQgd2Ugb25seSBhbGxvdyBvbmUgYXBwPyBBbnkgYXBwIHdpdGggcGVybWlz
-c2lvbnMgY291bGQgY2FsbCB0aGUNCj4gaW9jdGxzLg0KPiA+IEkgZG8gYWdyZWUgdGhhdCBoYXZp
-bmcgdG9vIG1hbnkgaW9jdGxzIGlzIGEgcHJvYmxlbS4gRXZlbiBpbiBjYXNlcw0KPiA+IHdoZXJl
-IFBUUCBpcw0KPiANCj4gV2UgZG9uJ3QuIFNvIHRoaXMgaXMgd2hhdCBJJ20gdGhpbmtpbmcuIElk
-ZWFsbHkgc3BlYWtpbmcgb25seSAxIGFwcCBzaG91bGQgYmUNCj4gYWRqdXN0aW5nIHRoZSBob3N0
-LWNsb2NrIGFuZCAxIGFwcCBwZXIgTklDIGlmIHlvdSBhZGp1c3QgTklDJ3MgY2xvY2suIElnbm9y
-ZQ0KPiB0aGUgaG9zdC1jbG9jayBhcHAuIE9uY2UgeW91IGVuZm9yY2UgdGhlIHJhdGUtbGltaXQs
-IGRyaXZlciB3aWxsIHJldHVybiAtRUJVU1kNCj4gaWYgeW91IGV4Y2VlZCBpdC4gVG9vIG1hbnkg
-RUJVU1lzIHdpbGwgcHJvdmlkZSBhIGhpbnQgb24gdXNlci1zaWRlLg0KPg0KDQpUaGlzIG1pZ2h0
-IGJlIHBvc3NpYmxlLCBidXQgaG93IHdvdWxkIHlvdSBjb2RlIHRoZSBzb2x1dGlvbj8gU29mdHdh
-cmUgd291bGRuJ3QNCmhhdmUgYW55IGlkZWEgaG93IG9mdGVuIHRoaW5ncyBhcmUgYmVpbmcgcnVu
-LiBNYXliZSBoYXZlIGEgdGltZW91dCB2YWx1ZSB0aGF0IHlvdQ0KY2hlY2sgZm9yIGRldGVybWlu
-aW5nIHdoZXRoZXIgdGhlIGxhc3QgY2FsbCBjYW1lIHRvbyBzb29uPw0KDQo+IA0KPiBDaGV0YW4N
-Cg==
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Friday, March 23, 2012 11:52 PM
+> To: chetan loke
+> Cc: Keller, Jacob E; netdev@vger.kernel.org; e1000-
+> devel@lists.sourceforge.net; Kirsher, Jeffrey T; Ronciak, John;
+> john.stultz@linaro.org; tglx@linutronix.de
+> Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
+> timecompare method
+> 
+> > How about rate limiting at the PHC class driver level? And then it
+> > will work across the board for all the adapters at the device level.
+> 
+> No, don't go there. Enough bikeshedding already. If you have a serious
+> performance issue, please post a test case, and we will look for a solution.
+> 
+
+This is about a case where the user does something stupid. (runs the ioctls too
+fast). It appears that your answer is something like "The user did something
+stupid, we shouldn't care". My answer is, "we should do what we can to prevent
+this." I don't think modifying the ptp framework is necessary or even a good
+idea. (Because it is a particular issue with intel parts design, not with general
+PTP design.) I do think if possible we should modify igb/ixgbe patches properly
+to prevent the breaking. I am currently working on a test case where the user
+*does* hammer the ioctls and seeing whether that actually crashes the driver.
+
+> Thanks,
+> Richard
+> 
