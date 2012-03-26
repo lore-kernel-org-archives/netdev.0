@@ -1,33 +1,65 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: [Question] Kernel preemption of BH handler
-Date: Mon, 26 Mar 2012 11:20:43 +0200
-Message-ID: <4F7034EB.8010707@ericsson.com>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH linux-next] dmaengine: add context parameter fixups
+Date: Mon, 26 Mar 2012 10:42:01 +0100
+Message-ID: <20120326094200.GA3098@opensource.wolfsonmicro.com>
+References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
+ <CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
+ <1332740082.19804.15.camel@vkoul-udesk3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:43526 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788Ab2CZJVC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 05:21:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="d6Gm4EdcadzBjdND"
+Cc: Fabio Estevam <festevam@gmail.com>,
+	Alexandre Bounine <alexandre.bounine@idt.com>,
+	paul.gortmaker@windriver.com, dan.j.williams@intel.com,
+	samuel@sortiz.org, lrg@ti.com, perex@perex.cz, tiwai@suse.de,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, fabio.estevam@freescale.com,
+	alsa-devel@alsa-project.org
+To: Vinod Koul <vinod.koul@linux.intel.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1332740082.19804.15.camel@vkoul-udesk3>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a BH handler that processes packets received from a netdevice.
 
-my_bh_handler() {
-   spin_lock_bh(my_lock);
-   /*do stuff*/
-   spin_unlock_bh(my_lock);
-   /*do more stuff*/
-}
+--d6Gm4EdcadzBjdND
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-First packet is received, and my_bh_handler() is currently processing it.
-Now a new packet is received by the NIC and my_bh_handler() is preempted 
-after my_lock have been released.
+On Mon, Mar 26, 2012 at 11:04:42AM +0530, Vinod Koul wrote:
+> On Sat, 2012-03-24 at 12:23 -0300, Fabio Estevam wrote:
 
-Is it possible that the second invocation of the BH routine is allowed 
-to finish before the first?
+> > http://permalink.gmane.org/gmane.linux.alsa.devel/96215
 
-//E
+> And this seems to be linux-next.
+
+> Mark, Is this part of the sound updates that went to Linus?
+
+No, not yet - it was only sent after the merge window.  Quite why nobody
+managed to notice it before then I don't know.  It'll go to him soon, or
+at least to Takashi, but don't know if it'll make -rc1 or not.
+
+--d6Gm4EdcadzBjdND
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPcDnfAAoJEBus8iNuMP3dXY4QAJrg3zNc+uF7lg//SBvDus1G
+OjRrNx7rVxe1Ot0KYNvDY9q7iH7/lVJi28pBjHftfKN0RoTpEiCGkWmmOD2SnnGT
+bWSm6qt7Iv2JO5lWViBvwQLPoNRuAyRYJkHbxPMkCKca9mZzuBVXHX1anuvRkvzh
+A3lHlBvDS6YUZsxEJ1J/L/twyxOA9Jub9lE5djcceLQflBRc5vwyIbkySj4terhk
+nkA1UTCqp7kKVxq4XJXIwWeJfIgbKl4heetWh8EWib+KZcPCh/7SKK48rUrcrU9u
+DxUGK+hLiUU+icVvs4YaT/IJe0ipsOOp5SXpv3BJE78McJePDp+doLnMBHosdwMx
+ITBtZMb98ijtdtj7DwcBUOsLaFK3+GzaGAk7oF1SeOmyWEM5VQQnj/TAapmmadRn
+yfoL4mkZaUl0q5PPBwmtjG0KLUiD6XlxsnZwRiZgfMq3WFHn8WtyPaI9zUWQ0OLu
+BRFocGVLqZnorB/TwGyTCnWZNBpR9/FnW/kO87IT8a5zL1XJZBQAwiARXy2vO6YU
+uHhTGQ1VOnylOO3rZK8xYuVFALebvxyCDuVsuRGGgAXoW65rC3/f0d5F5ko4GD3v
+P7cqhWoXE1su5VXpuAS+ItVEvavepf4m5RE/dQZYUsweWoDoeN5RvMVYU8zBn1qR
+pc9+KSCCMi55EluTGRN7
+=/Am0
+-----END PGP SIGNATURE-----
+
+--d6Gm4EdcadzBjdND--
