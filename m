@@ -1,56 +1,94 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V3 6/6] IB/rdma_cm: TOS <=> UP mapping for IBoE
-Date: Tue, 27 Mar 2012 17:09:11 +0200
-Message-ID: <1332860951-23042-7-git-send-email-amirv@mellanox.com>
-References: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH V3 0/6] net/mlx4_en: DCB QoS support
+Date: Tue, 27 Mar 2012 17:09:05 +0200
+Message-ID: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@dev.mellanox.co.il>,
 	Amir Vadai <amirv@mellanox.com>,
-	Sean Hefty <sean.hefty@intel.com>
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:56929 "HELO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754667Ab2C0PJ3 (ORCPT
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:49996 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754813Ab2C0PJ3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 11:09:29 -0400
-In-Reply-To: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both tagged traffic and untagged traffic use tc tool mapping.
-Treat RDMA TOS same as IP TOS when mapping to SL
+DCBX version 802.1qaz is supported.
+User Priority (UP) is set in QP context instead of in WQE (QP Work Queue
+Element), which means that all traffic from a queue will have the same UP.
+UP is also set for untagged traffic to be able to classify such traffic too.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
-CC: Sean Hefty <sean.hefty@intel.com>
+Mapping from sk_prio to User Priority is done by sch_mqprio mapping. Although
+confusingly sch_mqprio maps sk_prio to something called TC, it is not related
+to DCBX's TC, and is interpreted by mlx4_en driver as UP.
+
+CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+
 ---
- drivers/infiniband/core/cma.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+Changes from V2:
+- Removed patch 4 who deal with setting ratelimit through sysfs - Still under discussion
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Kbps instead of Mbps units.
+Changes from V1:
+- Patch 1/7 - Force user priority by QP attribute
+  - removed unneeded comment
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Mbps instead of 100Mbps units.
+- Patch 3/7 - DCB QoS support
+  - Split mlx4_en_config_port_scheduler from mlx4_en_dcbnl_ieee_setets - enable
+    setting ratelimit only, without setting up to tc mapping
+- Patch 4/7 - Set max rate-limit for a TC
+  - Rewritten patch according to comment from Eric D.
+  - setting ratelimit is through sysfs files:
+    /sys/class/net/<intf>/ratelimit/tc0
+    /sys/class/net/<intf>/ratelimit/tc1
+    ...
+    /sys/class/net/<intf>/ratelimit/tc7
+- Patch 5/7 - sk_prio <=> UP for untagged traffic  
+  - Using skb_tx_hash for queue selection of untagged traffic
+- Added Patch 6/7 - export symbol ip_tos2prio
+  - Fixed patch according to comment from Eric D.
+- Patch 7/7 - TOS <=> UP mapping for IBoE
+  - No need to clone code from route.c anymore - removed it
+    
+Changes from V0:
+- Removed patches 6 and 7 who deal with the interaction between the kernel HW
+  QoS constructs to the queue selection logic are still under discussion with
+  John and some changes might be needed there.
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index e3e470f..59fbd70 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -42,6 +42,7 @@
- #include <linux/inetdevice.h>
- #include <linux/slab.h>
- #include <linux/module.h>
-+#include <net/route.h>
- 
- #include <net/tcp.h>
- #include <net/ipv6.h>
-@@ -1826,7 +1827,10 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- 	route->path_rec->reversible = 1;
- 	route->path_rec->pkey = cpu_to_be16(0xffff);
- 	route->path_rec->mtu_selector = IB_SA_EQ;
--	route->path_rec->sl = id_priv->tos >> 5;
-+	route->path_rec->sl = netdev_get_prio_tc_map(
-+			ndev->priv_flags & IFF_802_1Q_VLAN ?
-+				vlan_dev_real_dev(ndev) : ndev,
-+			rt_tos2priority(id_priv->tos));
- 
- 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
- 	route->path_rec->rate_selector = IB_SA_EQ;
+Amir Vadai (6):
+  net/mlx4_en: Force user priority by QP attribute
+  net/mlx4_core: set port QoS attributes
+  net/mlx4_en: DCB QoS support
+  net/mlx4_en: sk_prio <=> UP for untagged traffic
+  net/route: export symbol ip_tos2prio
+  IB/rdma_cm: TOS <=> UP mapping for IBoE
+
+ drivers/infiniband/core/cma.c                     |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/Kconfig        |   12 ++
+ drivers/net/ethernet/mellanox/mlx4/Makefile       |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  211 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   37 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h      |    2 +
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   10 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |   21 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   27 +++-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   67 +++++++
+ include/linux/mlx4/cmd.h                          |    4 +
+ include/linux/mlx4/device.h                       |    3 +
+ include/linux/mlx4/qp.h                           |    3 +-
+ net/ipv4/route.c                                  |    2 +-
+ 17 files changed, 400 insertions(+), 18 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+
 -- 
 1.7.8.2
