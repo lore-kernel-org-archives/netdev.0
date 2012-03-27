@@ -1,51 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix a potential rcu_read_lock() imbalance in
- rt6_fill_node()
-Date: Tue, 27 Mar 2012 18:22:08 -0400 (EDT)
-Message-ID: <20120327.182208.806353341087563847.davem@davemloft.net>
-References: <4F71EF2A.8020507@candelatech.com>
-	<1332877149.3547.24.camel@edumazet-glaptop>
-	<1332878032.3547.39.camel@edumazet-glaptop>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH 1/1] net/hyperv: Add flow control based on hi/low
+ watermark
+Date: Tue, 27 Mar 2012 22:25:00 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD17B5A@TK5EX14MBXC222.redmond.corp.microsoft.com>
+References: <1332886987-11613-1-git-send-email-haiyangz@microsoft.com>
+ <1332886987-11613-2-git-send-email-haiyangz@microsoft.com>
+ <20120327222045.GA469@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, paulmck@linux.vnet.ibm.com,
-	davej@redhat.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46273 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753040Ab2C0WWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 18:22:18 -0400
-In-Reply-To: <1332878032.3547.39.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120327222045.GA469@kroah.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Mar 2012 21:53:52 +0200
 
-> Commit f2c31e32b378 (net: fix NULL dereferences in check_peer_redir() )
-> added a regression in rt6_fill_node(), leading to rcu_read_lock()
-> imbalance.
+
+> -----Original Message-----
+> From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> Sent: Tuesday, March 27, 2012 6:21 PM
+> To: Haiyang Zhang
+> Cc: davem@davemloft.net; netdev@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH 1/1] net/hyperv: Add flow control based on hi/low
+> watermark
 > 
-> Thats because NLA_PUT() can make a jump to nla_put_failure label.
+> On Tue, Mar 27, 2012 at 03:23:07PM -0700, Haiyang Zhang wrote:
+> > --- a/include/linux/hyperv.h
+> > +++ b/include/linux/hyperv.h
+> > @@ -274,6 +274,35 @@ struct hv_ring_buffer_debug_info {
+> >  	u32 bytes_avail_towrite;
+> >  };
+> >
+> > +/* Amount of space to write to */
+> > +#define BYTES_AVAIL_TO_WRITE(r, w, z) \
+> > +	(((w) >= (r)) ? ((z) - ((w) - (r))) : ((r) - (w)))
+> > +
 > 
-> Fix this by using nla_put()
+> That's a very bad #define to use in a .h file, please do not do that.
 > 
-> Many thanks to Ben Greear for his help
+> > +
+> > +/*
+> > + *
+> > + * hv_get_ringbuffer_availbytes()
+> > + *
+> > + * Get number of bytes available to read and to write to
+> > + * for the specified ring buffer
+> > + */
+> > +extern inline void
+> > +hv_get_ringbuffer_availbytes(struct hv_ring_buffer_info *rbi,
+> > +			  u32 *read, u32 *write)
 > 
-> Reported-by: Ben Greear <greearb@candelatech.com>
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> What does "extern inline" mean?
+> 
+> Please fix.
 
-Great work everyone.
+Will do.
 
-I'll apply this and queue it up for stable soon.
-
-In other news, I think the days of hidden gotos from the NLA macros
-should be over.  I'll work in net-next to redo this so that the
-gotos must be explicitly coded and therefore be visible when people
-audit these routines.
-
-Thanks!
+Thanks,
+- Haiyang
