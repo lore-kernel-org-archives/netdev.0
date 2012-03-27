@@ -1,182 +1,56 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 4/5] r8169: adjust some functions of 8111f
-Date: Tue, 27 Mar 2012 15:53:53 +0800
-Message-ID: <1332834834-5185-4-git-send-email-hayeswang@realtek.com>
-References: <1332834834-5185-1-git-send-email-hayeswang@realtek.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] eql: Fix byte stats
+Date: Tue, 27 Mar 2012 01:12:45 -0700
+Message-ID: <1332835965.3248.2.camel@edumazet-laptop>
+References: <1332669700.32446.142.camel@shinybook.infradead.org>
+	 <1332746975.2379.5.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:59460 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504Ab2C0H5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 03:57:53 -0400
-In-Reply-To: <1332834834-5185-1-git-send-email-hayeswang@realtek.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:57915 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049Ab2C0IMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 04:12:51 -0400
+Received: by wejx9 with SMTP id x9so4737907wej.19
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 01:12:49 -0700 (PDT)
+In-Reply-To: <1332746975.2379.5.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Put some settings of 8111f into one function which may be reused.
+Le lundi 26 mars 2012 =C3=A0 08:29 +0100, David Woodhouse a =C3=A9crit =
+:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c |   99 ++++++++++++++++------------------
- 1 files changed, 47 insertions(+), 52 deletions(-)
+Missing changelog and "Signed-off-by: ..."
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index ecf8042..6c2835f 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3005,6 +3005,28 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
- 
-+static void rtl8168f_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	/* For 4-corner performance improve */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b80);
-+	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0007);
-+	rtl_writephy(tp, 0x1e, 0x002d);
-+	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	/* Improve 10M EEE waveform */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b86);
-+	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+}
-+
- static void rtl8168f_1_hw_phy_config(struct rtl8169_private *tp)
- {
- 	static const struct phy_reg phy_reg_init[] = {
-@@ -3046,24 +3068,7 @@ static void rtl8168f_1_hw_phy_config(struct rtl8169_private *tp)
- 
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
- 
--	/* For 4-corner performance improve */
--	rtl_writephy(tp, 0x1f, 0x0005);
--	rtl_writephy(tp, 0x05, 0x8b80);
--	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
--
--	/* PHY auto speed down */
--	rtl_writephy(tp, 0x1f, 0x0007);
--	rtl_writephy(tp, 0x1e, 0x002d);
--	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
--
--	/* Improve 10M EEE waveform */
--	rtl_writephy(tp, 0x1f, 0x0005);
--	rtl_writephy(tp, 0x05, 0x8b86);
--	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl8168f_hw_phy_config(tp);
- 
- 	/* Improve 2-pair detection performance */
- 	rtl_writephy(tp, 0x1f, 0x0005);
-@@ -3076,24 +3081,7 @@ static void rtl8168f_2_hw_phy_config(struct rtl8169_private *tp)
- {
- 	rtl_apply_firmware(tp);
- 
--	/* For 4-corner performance improve */
--	rtl_writephy(tp, 0x1f, 0x0005);
--	rtl_writephy(tp, 0x05, 0x8b80);
--	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
--
--	/* PHY auto speed down */
--	rtl_writephy(tp, 0x1f, 0x0007);
--	rtl_writephy(tp, 0x1e, 0x002d);
--	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
--
--	/* Improve 10M EEE waveform */
--	rtl_writephy(tp, 0x1f, 0x0005);
--	rtl_writephy(tp, 0x05, 0x8b86);
--	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
--	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl8168f_hw_phy_config(tp);
- }
- 
- static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
-@@ -4665,20 +4653,12 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
- 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
- 
--static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
-+static void rtl_hw_start_8168f(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	struct pci_dev *pdev = tp->pci_dev;
--	static const struct ephy_info e_info_8168f_1[] = {
--		{ 0x06, 0x00c0,	0x0020 },
--		{ 0x08, 0x0001,	0x0002 },
--		{ 0x09, 0x0000,	0x0080 },
--		{ 0x19, 0x0000,	0x0224 }
--	};
--
--	rtl_csi_access_enable_1(tp);
- 
--	rtl_ephy_init(ioaddr, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
-+	rtl_csi_access_enable_2(tp);
- 
- 	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
-@@ -4692,8 +4672,6 @@ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
- 	rtl_w1w0_eri(ioaddr, 0x1d0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
- 	rtl_eri_write(ioaddr, 0xcc, ERIAR_MASK_1111, 0x00000050, ERIAR_EXGMAC);
- 	rtl_eri_write(ioaddr, 0xd0, ERIAR_MASK_1111, 0x00000060, ERIAR_EXGMAC);
--	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
--		     ERIAR_EXGMAC);
- 
- 	RTL_W8(MaxTxPacketSize, EarlySize);
- 
-@@ -4701,15 +4679,32 @@ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
- 
- 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
- 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
--
--	/* Adjust EEE LED frequency */
--	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
--
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
- 	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
- 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
- 
-+static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	static const struct ephy_info e_info_8168f_1[] = {
-+		{ 0x06, 0x00c0,	0x0020 },
-+		{ 0x08, 0x0001,	0x0002 },
-+		{ 0x09, 0x0000,	0x0080 },
-+		{ 0x19, 0x0000,	0x0224 }
-+	};
-+
-+	rtl_hw_start_8168f(tp);
-+
-+	rtl_ephy_init(ioaddr, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
-+
-+	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
-+		     ERIAR_EXGMAC);
-+
-+	/* Adjust EEE LED frequency */
-+	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
-+}
-+
- static void rtl_hw_start_8168(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--- 
-1.7.7.6
+> ---
+> Sorry, forgot to tell Evolution not to word-wrap last time. It's a
+> manual process =E2=80=94 insert the patch from a text file, and set i=
+t to
+> 'Preformatted'. I've also disabled the signature on this version; I'm
+> not entirely sure if the git-am bug with QP got fixed yet.
+>=20
+
+I use Evolution too, its not that bad :)
+
+> diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+> index a59cf96..f2d3741 100644
+> --- a/drivers/net/eql.c
+> +++ b/drivers/net/eql.c
+> @@ -345,6 +345,7 @@ static netdev_tx_t eql_slave_xmit(struct sk_buff =
+*skb, struct net_device *dev)
+>  		slave->bytes_queued +=3D skb->len;
+>  		dev_queue_xmit(skb);
+>  		dev->stats.tx_packets++;
+> +		dev->stats.tx_bytes +=3D skb->len;
+>  	} else {
+>  		dev->stats.tx_dropped++;
+>  		dev_kfree_skb(skb);
+>=20
+
+That adds a bug unfortunately.
+
+After dev_queue_xmit(skb) call, you cant safely dereference skb anymore=
+=2E
