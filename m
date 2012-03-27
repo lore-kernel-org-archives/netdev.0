@@ -1,81 +1,146 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH V2 4/7] net/mlx4_en: Set max rate-limit for a TC
-Date: Tue, 27 Mar 2012 14:03:57 +0200
-Message-ID: <4F71ACAD.7010803@mellanox.com>
-References: <1332752874-8086-1-git-send-email-amirv@mellanox.com> <1332752874-8086-5-git-send-email-amirv@mellanox.com> <1332773163.3500.81.camel@deadeye> <CAJZOPZKGJ_nJt92THc+eRGnEXPZG+hX_d2=f56m7gB_Fv8K4Cg@mail.gmail.com> <4F70BB98.4090806@intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] Netfilter releases: iptables 1.4.13, nfacct 1.0.0 and
+ libnetfilter_acct 1.0.0
+Date: Tue, 27 Mar 2012 14:17:36 +0200
+Message-ID: <20120327121736.GA17708@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	<netdev@vger.kernel.org>, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>,
-	Liran Liss <liranl@mellanox.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:55369 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752897Ab2C0MGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 08:06:19 -0400
-In-Reply-To: <4F70BB98.4090806@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="2oS5YaxWCcQjTEyO"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On 03/26/2012 08:55 PM, John Fastabend wrote:
-> On 3/26/2012 10:00 AM, Or Gerlitz wrote:
->> On Mon, Mar 26, 2012 at 4:46 PM, Ben Hutchings
->> <bhutchings@solarflare.com>  wrote:
->>>> We used sysfs since max bw isn't part of the ETS / DCBX NL support, and we're
->>>> open to other suggestions to add generic support for max bw, e.g add call to
->>>> the DCBX NL API.
->>
->>> netlink interfaces are generally easily extensible and it doesn't make
->>> sense to me to augment such an interface through sysfs.  Perhaps you're
->>> concerned that netlink extensions won't be supported in older kernel
->>> versions running your OOT driver?  That's unfortunate, but let's not
->>> standardise an ugly interface based on a temporary problem like that.
->>
->> As written above, that was done since ratelimit isn't part of ETS, we can
->> that through netlink extensions that you mentioned, if this is the preffered
->> way to go, David? Eric? Ben - could you provide pointer to these extensions?
->>
->> Or.
->> --
->
-> I think I original suggested it didn't belong in DCBNL because it
-> wasn't part of ETS (802.1Qaz). But it _is_ a traffic selection
-> algorithm and could fall into the vendor specific part of 802.1Q.
->
-> I would suggest either adding it as an option to mqprio to take
-> a max bandwidth. The advantage here is it would be tied in with
-> the usual QOS tooling 'tc'.
->
-> # tc qdisc add dev eth3 root mqprio help
-> Usage: ... mqprio [num_tc NUMBER] [map P0 P1 ...]
->                    [queues count1@offset1 count2@offset2 ...] [hw 1|0]
-> 		  [max_rate rate@tc ...]
->
-This could be elegant, but since tc here is a logical traffic class and
-ratelimit in our context is an attribute of ETS TC, it could be
-problematic.
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
->
-> Or extending DCBNL being careful not to break backwards
-> compatibility. I tend to think extending mqprio is cleaner but
-> a DCBNL extension could likely work as well. Would need a
-> 'DCBNL_IEEE_SET_MAXRATE' and 'DCBNL_IEEE_GET_MAXRATE' for this
-> I expect.
-I do prefer this option. I'm checking now if it is possible to add
-infrastructure for a vendor specific netlink command. It could be
-connected by lldpad to the vendor TLV in DCBX.
+Hi!
 
->
-> .John
+The Netfilter project proudly presents:
 
-I will send a V3 of this patchset without the ratelimit patch, to make 
-sure the patchset will get into net-next on time.
+        iptables 1.4.13
+	nfacct 1.0.0
+	libnetfilter_acct 1.0.0
 
-Thanks,
-Amir
+Changes in iptables include:
+
+* rpfilter support from Florian Westphal.
+
+* IPv6 ECN capable version from Patrick McHardy.
+
+* a couple of fixes for internal libiptc library.
+
+* fix leaking file descriptor to avoid annoying log messsages in SELinux from
+  Maciej enczykowski.
+
+* nfacct match support by myself.
+
+For nfacct and libnetfilter_acct, this is the initial release. These require
+Linux kernel 3.3 or any later.
+
+You can download all these from:
+
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+
+http://www.netfilter.org/projects/nfacct/downloads.html
+ftp://ftp.netfilter.org/pub/nfacct/
+
+http://www.netfilter.org/projects/libnetfilter_acct/downloads.html
+ftp://ftp.netfilter.org/pub/libnetfilter_acct/
+
+You can also find the changelog to this email for more information.
+
+Have fun!
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="changes-iptables-1.4.13.txt"
+Content-Transfer-Encoding: 8bit
+
+Florian Westphal (1):
+      extensions: add rpfilter module
+
+Franz Flasch (2):
+      iptables: missing free() in function cache_add_entry()
+      iptables: missing free() in function delete_entry()
+
+Jonh Wendell (1):
+      libiptc: Returns the position the entry was inserted
+
+Maciej Żenczykowski (1):
+      src: mark newly opened fds as FD_CLOEXEC (close on exec)
+
+Pablo Neira Ayuso (7):
+      Revert "libiptc: Returns the position the entry was inserted"
+      extensions: add nfacct match
+      Bump version to 1.4.13
+
+Patrick McHardy (1):
+      extensions: add IPv6 capable ECN match extension
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-nfacct-1.0.0.txt"
+
+Pablo Neira Ayuso (11):
+      initial import
+      nfacct: use return instead of exit(EXIT_FAILURE)
+      build: remove bogus dependencies
+      nfacct: check for too many arguments
+      nfacct: check for wrong arguments
+      nfacct: replace one leftover perror by nfacct_perror
+      doc: minor fixes for nfacct.8
+      nfacct: fix licensing terms, this is GPLv2 software
+      nfacct: add XML output support
+      nfacct: update manpage to include xml and reset options
+      build: nfacct release 1.0.0
+
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-libnetfilter_acct-1.0.0.txt"
+
+Jan Engelhardt (5):
+      build: enable automake warnings
+      build: remove unnecessary AC_EXEEXT
+      Update .gitignore
+      Add examples/.gitignore
+      build: add missing LIBMNL_CFLAGS to compilation process
+
+Pablo Neira Ayuso (27):
+      intial import of libnetfilter_acct
+      fix crash if no data pointer is passed to nfacct_list_cb
+      src: improve nfacct-add example
+      add missing .gitignore
+      add missing Makefile.am files
+      update headers to use new nfnetlink subsys
+      examples: nfacct-get: display pkt and byte counters
+      fix endianness in 64-bits packet and bytes counters
+      examples: nfacct-add: initialize counters, otherwise we add garbage
+      add README file
+      add NFNL_MSG_ACCT_GET_CTRZERO
+      examples: add nfacct-del to delete accounting objects
+      extend nfacct_list to allow to zero counters
+      examples: nfacct-get allows to zero counters with `-z' option
+      update nfnetlink_acct.h
+      src: major API redesign
+      src: add library documentation in doxygen
+      add COPYING file and other licensing stuff
+      update README file
+      build: update configure.ac and gcc4_visibility.m4
+      update .gitignore file
+      nfacct: modify nfacct_snprint output
+      nfacct: use NFACCT_ATTR_* flags in nfacct_nlmsg_build_payload
+      nfacct: check if attribute is set in nfacct_attr_get*
+      extend README
+      nfacct: change prototype of nfacct_snprintf() to support output in XML
+      examples: fix nfacct-get example
+
+
+--2oS5YaxWCcQjTEyO--
