@@ -1,66 +1,77 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix a potential rcu_read_lock() imbalance in
- rt6_fill_node()
-Date: Tue, 27 Mar 2012 21:53:52 +0200
-Message-ID: <1332878032.3547.39.camel@edumazet-glaptop>
-References: <4F70E308.7070908@candelatech.com>
-	 <20120326.174945.1186427809261872546.davem@davemloft.net>
-	 <4F70E560.3020102@candelatech.com>  <4F70F688.6050108@candelatech.com>
-	 <1332805148.3547.14.camel@edumazet-glaptop>
-	 <4F71EF2A.8020507@candelatech.com>
-	 <1332877149.3547.24.camel@edumazet-glaptop>
+Subject: Re: [STRAW MAN PATCH] sch_teql doesn't load-balance ppp(oatm)
+ slaves
+Date: Tue, 27 Mar 2012 21:55:38 +0200
+Message-ID: <1332878138.3547.41.camel@edumazet-glaptop>
+References: <1332450218.32446.79.camel@shinybook.infradead.org>
+	 <20120322.230331.1623101647193498167.davem@davemloft.net>
+	 <1332672230.32446.160.camel@shinybook.infradead.org>
+	 <20120325.173635.1909319488008466320.davem@davemloft.net>
+	 <1332875447.2058.48.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dave Jones <davej@redhat.com>
-To: Ben Greear <greearb@candelatech.com>
+Cc: David Miller <davem@davemloft.net>, paulus@samba.org,
+	netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:33241 "EHLO
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57243 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755803Ab2C0Tx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 15:53:56 -0400
-Received: by eekc41 with SMTP id c41so86770eek.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 12:53:54 -0700 (PDT)
-In-Reply-To: <1332877149.3547.24.camel@edumazet-glaptop>
+	with ESMTP id S1755511Ab2C0Tzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 15:55:42 -0400
+Received: by eekc41 with SMTP id c41so87130eek.19
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 12:55:41 -0700 (PDT)
+In-Reply-To: <1332875447.2058.48.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f2c31e32b378 (net: fix NULL dereferences in check_peer_redir() )
-added a regression in rt6_fill_node(), leading to rcu_read_lock()
-imbalance.
+On Tue, 2012-03-27 at 20:10 +0100, David Woodhouse wrote:
+> On Sun, 2012-03-25 at 17:36 -0400, David Miller wrote:
+> > Yes, the ATM devices deep transmit queue is quite undesirable.
+> 
+> This should fix that, and while I'm at it should fix the gratuitous
+> running of ppp_output_wakeup() from a tasklet on *every* packet, when
+> it's almost never necessary. Some careful eyes over the locking issues
+> on that would be much appreciated. I've documented how I *think* it
+> works...
+> 
+> I'm tempted to rip out the atm_may_send() bit; there's not a lot of
+> point in checking against sk_sndbuf when we're limiting to two packets
+> anyway, is there? There's always been a problem here if sk_sndbuf was
+> set lower than the MTU of the interface; it would block for ever.
+> 
+> I'm running this now on my ADSL router. I can watch it working, keeping
+> precisely two packets in the queue at a time (one really in-flight and
+> one ready for the ATM driver). My leftover debugging in sch_teql is
+> triggering when the xmit returns NETDEV_TX_BUSY, and all seems to be
+> well.
+> 
+> --- net/atm/pppoatm.c~	2012-03-27 19:59:54.379565896 +0100
+> +++ net/atm/pppoatm.c	2012-03-27 20:03:02.676561017 +0100
+> @@ -62,10 +62,13 @@ struct pppoatm_vcc {
+>  	void (*old_pop)(struct atm_vcc *, struct sk_buff *);
+>  					/* keep old push/pop for detaching */
+>  	enum pppoatm_encaps encaps;
+> +	atomic_t inflight;
+> +	unsigned long blocked;
+>  	int flags;			/* SC_COMP_PROT - compress protocol */
+>  	struct ppp_channel chan;	/* interface to generic ppp layer */
+>  	struct tasklet_struct wakeup_tasklet;
+>  };
+> +#define BLOCKED 0
+>  
+>  /*
+>   * Header used for LLC Encapsulated PPP (4 bytes) followed by the LCP protocol
+> @@ -102,16 +105,31 @@ static void pppoatm_wakeup_sender(unsign
+>  static void pppoatm_pop(struct atm_vcc *atmvcc, struct sk_buff *skb)
+>  {
+>  	struct pppoatm_vcc *pvcc = atmvcc_to_pvcc(atmvcc);
+> +
+>  	pvcc->old_pop(atmvcc, skb);
+> +	smp_mb__before_atomic_dec();
 
-Thats because NLA_PUT() can make a jump to nla_put_failure label.
+I have no idea why you added all these barriers...
 
-Fix this by using nla_put()
-
-Many thanks to Ben Greear for his help
-
-Reported-by: Ben Greear <greearb@candelatech.com>
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/route.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 24c456e..496b627 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2474,8 +2474,12 @@ static int rt6_fill_node(struct net *net,
- 
- 	rcu_read_lock();
- 	n = dst_get_neighbour_noref(&rt->dst);
--	if (n)
--		NLA_PUT(skb, RTA_GATEWAY, 16, &n->primary_key);
-+	if (n) {
-+		if (nla_put(skb, RTA_GATEWAY, 16, &n->primary_key) < 0) {
-+			rcu_read_unlock();
-+			goto nla_put_failure;
-+		}
-+	}
- 	rcu_read_unlock();
- 
- 	if (rt->dst.dev)
+> +	atomic_dec(&pvcc->inflight);
+> +
+>  	/*
