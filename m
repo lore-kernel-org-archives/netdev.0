@@ -1,38 +1,43 @@
-From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] cdc-phonet: fix skb truesize underestimation
-Date: Tue, 27 Mar 2012 16:22:41 +0300
-Message-ID: <2144840.57ctts9mel@hector>
-References: <1332853442.3248.15.camel@edumazet-laptop> <1332854246.3248.18.camel@edumazet-laptop>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: [PATCH] rose_dev: fix memcpy-bug in rose_set_mac_address
+Date: Tue, 27 Mar 2012 15:27:56 +0200
+Message-ID: <4F71C05C.4040300@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Felipe Balbi <balbi@ti.com>
-To: ext Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.26]:22461 "EHLO mgw-da02.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751431Ab2C0NWv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 09:22:51 -0400
-In-Reply-To: <1332854246.3248.18.camel@edumazet-laptop>
+Received: from www62.your-server.de ([213.133.104.62]:50240 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754300Ab2C0NrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 09:47:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 mars 2012 06:17:26 ext Eric Dumazet a =E9crit :
-> Now skb_add_rx_frag() has a truesize parameter, we can fix cdc-phonet=
- to
-> properly account truesize of each fragment : a full page.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Felipe Balbi <balbi@ti.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+This patch fixes a small bug in rose_set_mac_address. If the current and new
+MAC addresses match, then nothing needs to be done. However memcpy was used
+instead of memcmp for comparison.
 
-Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+The patch is against the latest net-tree.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+---
+ net/rose/rose_dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
+index 178ff4f..3c5ce5e 100644
+--- a/net/rose/rose_dev.c
++++ b/net/rose/rose_dev.c
+@@ -96,7 +96,7 @@ static int rose_set_mac_address(struct net_device *dev, void *addr)
+ 	struct sockaddr *sa = addr;
+ 	int err;
+ 
+-	if (!memcpy(dev->dev_addr, sa->sa_data, dev->addr_len))
++	if (!memcmp(dev->dev_addr, sa->sa_data, dev->addr_len))
+ 		return 0;
+ 
+ 	if (dev->flags & IFF_UP) {
