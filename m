@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-03-27
-Date: Tue, 27 Mar 2012 18:28:41 -0400 (EDT)
-Message-ID: <20120327.182841.1664052401394959748.davem@davemloft.net>
-References: <20120327183242.GB20938@tuxdriver.com>
+Subject: Re: [GIT] Networking
+Date: Tue, 27 Mar 2012 18:51:29 -0400 (EDT)
+Message-ID: <20120327.185129.633367112180291954.davem@davemloft.net>
+References: <20120325.175151.853542033329072696.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120327183242.GB20938@tuxdriver.com>
+In-Reply-To: <20120325.175151.853542033329072696.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 27 Mar 2012 14:32:42 -0400
+From: David Miller <davem@davemloft.net>
+Date: Sun, 25 Mar 2012 17:51:51 -0400 (EDT)
 
-> First, we have a MAINTAINERS update -- not truly a "fix", but it might
-> help to keep unwanted traffic out of Bob's inbox.  We also have a
-> removal of an outdated comment that was overlooked when the related
-> code was removed.
+> 1) Name string overrun fix in gianfar driver from Joe Perches.
+ ...
+> 
+> Please pull, thanks a lot!
 
-MAINTAINERS updates can always go in, so no problems with this.
+I don't know if you've pulled this or not, but I just wanted to let
+you know that I just added the following critical fix to my tree
+which I'd like to propagate to -stable ASAP.
 
-> Beyond those, we have a fix for a memory leak in ath9k, a cfg80211
-> fix to prevent passing bad info over nl80211 to userspace, a tuning
-> fix for some rtlwifi family drivers, a couple of minor ath9k tuning
-> fixes, a mac80211 use-after-free fix, a couple of rt2x00 thinko fixes,
-> an iwlegacy fix to properly set BSSID after an association, and an
-> iwlegacy fix to avoid an oops by properly reinitializing a variable
-> after reset.
+So if you have pulled, if you would repull to get this guy, I'd
+really appreciate it.
 
-Ok.
+Thanks a lot!
 
-I'll pull this in as soon as Linus processes my most recent networking
-pull request.
+The following changes since commit 50269e19ad990e79eeda101fc6df80cffd5d4831:
 
-Thanks!
+  net: add a truesize parameter to skb_add_rx_frag() (2012-03-25 13:29:58 -0400)
+
+are available in the git repository at:
+  gitolite@ra.kernel.org:/pub/scm/linux/kernel/git/davem/net.git master
+
+Eric Dumazet (1):
+      net: fix a potential rcu_read_lock() imbalance in rt6_fill_node()
+
+ net/ipv6/route.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
