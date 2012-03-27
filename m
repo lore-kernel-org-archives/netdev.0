@@ -1,56 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] cdc-phonet: fix skb truesize underestimation
-Date: Tue, 27 Mar 2012 06:17:26 -0700
-Message-ID: <1332854246.3248.18.camel@edumazet-laptop>
-References: <1332853442.3248.15.camel@edumazet-laptop>
+From: Davide Ciminaghi <ciminaghi@gnudd.com>
+Subject: [PATCH] net/ethernet: ks8851_mll fix rx frame buffer overflow
+Date: Tue, 27 Mar 2012 15:01:44 +0200
+Message-ID: <20120327130144.GA555@recalcati>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Felipe Balbi <balbi@ti.com>,
-	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: raffaele.recalcati@bticino.it
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Thomas Meyer <thomas@m3y3r.de>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:52367 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753238Ab2C0NRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 09:17:31 -0400
-In-Reply-To: <1332853442.3248.15.camel@edumazet-laptop>
+Received: from mx2.bticino.it ([91.208.195.91]:59474 "EHLO bticino.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751524Ab2C0NUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 09:20:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now skb_add_rx_frag() has a truesize parameter, we can fix cdc-phonet t=
-o
-properly account truesize of each fragment : a full page.
+If interrupts are disabled long enough to allow for more than
+32 frames to accumulate in the MAC's internal buffers, a buffer
+overflow occurs. This patch fixes the problem by making the
+driver's frame_head_info buffer bigger enough.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Felipe Balbi <balbi@ti.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Signed-off-by: Davide Ciminaghi <ciminaghi@gnudd.com>
+Signed-off-by: Raffaele Recalcati <raffaele.recalcati@bticino.it>
 ---
- drivers/net/usb/cdc-phonet.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/micrel/ks8851_mll.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
-c
-index 3886b30..3e41b00 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -165,13 +165,13 @@ static void rx_complete(struct urb *req)
- 				memcpy(skb_put(skb, 1), page_address(page), 1);
- 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
- 						page, 1, req->actual_length,
--						req->actual_length);
-+						PAGE_SIZE);
- 				page =3D NULL;
- 			}
- 		} else {
- 			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
- 					page, 0, req->actual_length,
--					req->actual_length);
-+					PAGE_SIZE);
- 			page =3D NULL;
- 		}
- 		if (req->actual_length < PAGE_SIZE)
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index 2784bc7..a158e89 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -40,7 +40,7 @@
+ #define	DRV_NAME	"ks8851_mll"
+ 
+ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0x00, 0x10, 0xA1, 0x86, 0x95, 0x11 };
+-#define MAX_RECV_FRAMES			32
++#define MAX_RECV_FRAMES			256
+ #define MAX_BUF_SIZE			2048
+ #define TX_BUF_SIZE			2000
+ #define RX_BUF_SIZE			2000
+-- 
+1.7.0.4
