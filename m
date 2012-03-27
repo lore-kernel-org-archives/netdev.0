@@ -1,220 +1,28 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH v3, 1/1] net/hyperv: Add flow control based on hi/low watermark
-Date: Tue, 27 Mar 2012 16:20:45 -0700
-Message-ID: <1332890445-12562-2-git-send-email-haiyangz@microsoft.com>
-References: <1332890445-12562-1-git-send-email-haiyangz@microsoft.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 27 Mar 2012 16:51:51 -0700
+Message-ID: <CA+55aFweD12=thjzowfLc14HVtF3q1LdPajxeD2gVKrPo=K9aw@mail.gmail.com>
+References: <20120325.175151.853542033329072696.davem@davemloft.net> <20120327.185129.633367112180291954.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com, olaf@aepfle.de,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1332890445-12562-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120327.185129.633367112180291954.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the existing code, we only stop queue when the ringbuffer is full,
-so the current packet has to be dropped or retried from upper layer.
+On Tue, Mar 27, 2012 at 3:51 PM, David Miller <davem@davemloft.net> wrote:
+>
+> I don't know if you've pulled this or not, but I just wanted to let
+> you know that I just added the following critical fix to my tree
+> which I'd like to propagate to -stable ASAP.
+>
+> So if you have pulled, if you would repull to get this guy, I'd
+> really appreciate it.
 
-This patch stops the tx queue when available ringbuffer is below
-the low watermark. So the ringbuffer still has small amount of space
-available for the current packet. This will reduce the overhead of
-retries on sending.
+I hadn't gotten around to it yet, I was doing arm merges now that I'm
+back from the coast. Will pull probably next. Thanks,
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/hv/ring_buffer.c        |   31 -----------------------------
- drivers/net/hyperv/netvsc.c     |   41 +++++++++++++++++++++++++++++++++++---
- drivers/net/hyperv/netvsc_drv.c |    6 ++++-
- include/linux/hyperv.h          |   27 +++++++++++++++++++++++++
- 4 files changed, 69 insertions(+), 36 deletions(-)
-
-diff --git a/drivers/hv/ring_buffer.c b/drivers/hv/ring_buffer.c
-index 8af25a0..7233c88 100644
---- a/drivers/hv/ring_buffer.c
-+++ b/drivers/hv/ring_buffer.c
-@@ -30,37 +30,6 @@
- #include "hyperv_vmbus.h"
- 
- 
--/* #defines */
--
--
--/* Amount of space to write to */
--#define BYTES_AVAIL_TO_WRITE(r, w, z) \
--	((w) >= (r)) ? ((z) - ((w) - (r))) : ((r) - (w))
--
--
--/*
-- *
-- * hv_get_ringbuffer_availbytes()
-- *
-- * Get number of bytes available to read and to write to
-- * for the specified ring buffer
-- */
--static inline void
--hv_get_ringbuffer_availbytes(struct hv_ring_buffer_info *rbi,
--			  u32 *read, u32 *write)
--{
--	u32 read_loc, write_loc;
--
--	smp_read_barrier_depends();
--
--	/* Capture the read/write indices before they changed */
--	read_loc = rbi->ring_buffer->read_index;
--	write_loc = rbi->ring_buffer->write_index;
--
--	*write = BYTES_AVAIL_TO_WRITE(read_loc, write_loc, rbi->ring_datasize);
--	*read = rbi->ring_datasize - *write;
--}
--
- /*
-  * hv_get_next_write_location()
-  *
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index d025c83..8b91947 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -428,6 +428,24 @@ int netvsc_device_remove(struct hv_device *device)
- 	return 0;
- }
- 
-+
-+#define RING_AVAIL_PERCENT_HIWATER 20
-+#define RING_AVAIL_PERCENT_LOWATER 10
-+
-+/*
-+ * Get the percentage of available bytes to write in the ring.
-+ * The return value is in range from 0 to 100.
-+ */
-+static inline u32 hv_ringbuf_avail_percent(
-+		struct hv_ring_buffer_info *ring_info)
-+{
-+	u32 avail_read, avail_write;
-+
-+	hv_get_ringbuffer_availbytes(ring_info, &avail_read, &avail_write);
-+
-+	return avail_write * 100 / ring_info->ring_datasize;
-+}
-+
- static void netvsc_send_completion(struct hv_device *device,
- 				   struct vmpacket_descriptor *packet)
- {
-@@ -455,6 +473,8 @@ static void netvsc_send_completion(struct hv_device *device,
- 		complete(&net_device->channel_init_wait);
- 	} else if (nvsp_packet->hdr.msg_type ==
- 		   NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE) {
-+		int num_outstanding_sends;
-+
- 		/* Get the send context */
- 		nvsc_packet = (struct hv_netvsc_packet *)(unsigned long)
- 			packet->trans_id;
-@@ -463,10 +483,14 @@ static void netvsc_send_completion(struct hv_device *device,
- 		nvsc_packet->completion.send.send_completion(
- 			nvsc_packet->completion.send.send_completion_ctx);
- 
--		atomic_dec(&net_device->num_outstanding_sends);
-+		num_outstanding_sends =
-+			atomic_dec_return(&net_device->num_outstanding_sends);
- 
--		if (netif_queue_stopped(ndev) && !net_device->start_remove)
--			netif_wake_queue(ndev);
-+		if (netif_queue_stopped(ndev) && !net_device->start_remove &&
-+			(hv_ringbuf_avail_percent(&device->channel->outbound)
-+			> RING_AVAIL_PERCENT_HIWATER ||
-+			num_outstanding_sends < 1))
-+				netif_wake_queue(ndev);
- 	} else {
- 		netdev_err(ndev, "Unknown send completion packet type- "
- 			   "%d received!!\n", nvsp_packet->hdr.msg_type);
-@@ -519,10 +543,19 @@ int netvsc_send(struct hv_device *device,
- 
- 	if (ret == 0) {
- 		atomic_inc(&net_device->num_outstanding_sends);
-+		if (hv_ringbuf_avail_percent(&device->channel->outbound) <
-+			RING_AVAIL_PERCENT_LOWATER) {
-+			netif_stop_queue(ndev);
-+			if (atomic_read(&net_device->
-+				num_outstanding_sends) < 1)
-+				netif_wake_queue(ndev);
-+		}
- 	} else if (ret == -EAGAIN) {
- 		netif_stop_queue(ndev);
--		if (atomic_read(&net_device->num_outstanding_sends) < 1)
-+		if (atomic_read(&net_device->num_outstanding_sends) < 1) {
- 			netif_wake_queue(ndev);
-+			ret = -ENOSPC;
-+		}
- 	} else {
- 		netdev_err(ndev, "Unable to send packet %p ret %d\n",
- 			   packet, ret);
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index dd29478..a0cc127 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -224,9 +224,13 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 		net->stats.tx_packets++;
- 	} else {
- 		kfree(packet);
-+		if (ret != -EAGAIN) {
-+			dev_kfree_skb_any(skb);
-+			net->stats.tx_dropped++;
-+		}
- 	}
- 
--	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
-+	return (ret == -EAGAIN) ? NETDEV_TX_BUSY : NETDEV_TX_OK;
- }
- 
- /*
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 5852545..6af8738 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -274,6 +274,33 @@ struct hv_ring_buffer_debug_info {
- 	u32 bytes_avail_towrite;
- };
- 
-+
-+/*
-+ *
-+ * hv_get_ringbuffer_availbytes()
-+ *
-+ * Get number of bytes available to read and to write to
-+ * for the specified ring buffer
-+ */
-+static inline void
-+hv_get_ringbuffer_availbytes(struct hv_ring_buffer_info *rbi,
-+			  u32 *read, u32 *write)
-+{
-+	u32 read_loc, write_loc, dsize;
-+
-+	smp_read_barrier_depends();
-+
-+	/* Capture the read/write indices before they changed */
-+	read_loc = rbi->ring_buffer->read_index;
-+	write_loc = rbi->ring_buffer->write_index;
-+	dsize = rbi->ring_datasize;
-+
-+	*write = write_loc >= read_loc ? dsize - (write_loc - read_loc) :
-+		read_loc - write_loc;
-+	*read = dsize - *write;
-+}
-+
-+
- /*
-  * We use the same version numbering for all Hyper-V modules.
-  *
--- 
-1.7.4.1
+                  Linus
