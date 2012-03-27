@@ -1,133 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RCU lock bug in 3.0.21 (bisected to: 682cb56a, fix NULL
- dereferences in check_peer_redir)
-Date: Tue, 27 Mar 2012 20:06:46 +0200
-Message-ID: <1332871606.3547.22.camel@edumazet-glaptop>
-References: <4F70E308.7070908@candelatech.com>
-	 <20120326.174945.1186427809261872546.davem@davemloft.net>
-	 <4F70E560.3020102@candelatech.com>  <4F70F688.6050108@candelatech.com>
-	 <1332805148.3547.14.camel@edumazet-glaptop>
-	 <4F71EF2A.8020507@candelatech.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Tue, 27 Mar 2012 18:29:58 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580DC68D@ORSMSX105.amr.corp.intel.com>
+References: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+ <02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+ <20120324065147.GB2201@netboy.at.omicron.at>
+ <CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
+ <20120326152730.GA10212@localhost.localdomain>
+ <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
+ <02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
+ <02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
+ <20120327180501.GA3878@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: chetan loke <loke.chetan@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:43588 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755509Ab2C0SGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 14:06:50 -0400
-Received: by eekc41 with SMTP id c41so60961eek.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 11:06:49 -0700 (PDT)
-In-Reply-To: <4F71EF2A.8020507@candelatech.com>
+Received: from mga09.intel.com ([134.134.136.24]:30701 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754802Ab2C0SaA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 14:30:00 -0400
+In-Reply-To: <20120327180501.GA3878@netboy.at.omicron.at>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-27 at 09:47 -0700, Ben Greear wrote:
-> On 03/26/2012 04:39 PM, Eric Dumazet wrote:
-> > On Mon, 2012-03-26 at 16:06 -0700, Ben Greear wrote:
-> >> On 03/26/2012 02:53 PM, Ben Greear wrote:
-> >>> On 03/26/2012 02:49 PM, David Miller wrote:
-> >>>>
-> >>>> Looks like all of those strange undiagnosable reported Dave Jones
-> >>>> has been feeding us. Something in one part of the kernel leaves
-> >>>> a lock held, and this shows up as a warning elsewhere.
-> >>>
-> >>> Every (initial) bug printout fingers ipv6 and the 'ip' tool on my system.
-> >>
-> >> I added a patch to convert rcu_read_lock/unlock to macros so
-> >> that I could automatically grab the call site (_THIS_IP_)
-> >> and pass it into the lockdep framework instead of the (useless)
-> >> _THIS_IP_ in the old rcu_read_lock method which at best seems to
-> >> only indicate which module the issue relates to...
-> >
-> > Hi Ben
-> >
-> > Is this problem also appears with current tree ?
-> > (This could be a problem with the backport, as it was full of
-> > dependencies)
-> >
-> > Also, if you use a patch to better track rcu_read_lock()/unlock(), you
-> > could add new macros as well to track that a particular unlock() matches
-> > one given lock(). (maybe returning the rcu_preempt_depth at
-> > rcu_read_lock() time , but maybe a more absolute ref would be better)
-> >
-> > So we could have a warning if an unlock() doesnt match the lock()
-> >
-> > inet6_dump_fib () was already a suspect but we could not find why.
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Tuesday, March 27, 2012 11:05 AM
+> To: Keller, Jacob E
+> Cc: chetan loke; netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net;
+> Kirsher, Jeffrey T; Ronciak, John; john.stultz@linaro.org; tglx@linutronix.de
+> Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of the
+> timecompare method
 > 
+> I really doubt you will see any performance gain from such a change. It
+> increases code complexity and size for some dubious, theoretical performance
+> gain, for some really whacked use case.
 > 
-> Ok, I tried the patch below, and got the result farther down.  Is this
-> what you were thinking of?  (The lockdep warning about rcu lock still
-> held happened immediately after this..so it appears the depth mis-match
-> does represent this problem...
-> 
-> 
-> [greearb@fs3 linux-3.0.dev.y]$ git diff
-> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> index 0f9b37a..ae3c7c9 100644
-> --- a/net/ipv6/ip6_fib.c
-> +++ b/net/ipv6/ip6_fib.c
-> @@ -366,6 +366,7 @@ static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
->          struct hlist_node *node;
->          struct hlist_head *head;
->          int res = 0;
-> +       int depth = current->lockdep_depth;
-> 
->          s_h = cb->args[0];
->          s_e = cb->args[1];
-> @@ -410,6 +411,8 @@ next:
->          }
->   out:
->          rcu_read_unlock();
-> +       WARN(depth != current->lockdep_depth, "depth: %i  lockdep-depth: %i\n",
-> +            depth, current->lockdep_depth);
->          cb->args[1] = e;
->          cb->args[0] = h;
-> 
-> 
-> 
-> ------------[ cut here ]------------
-> WARNING: at /home/greearb/git/linux-3.0.dev.y/net/ipv6/ip6_fib.c:415 inet6_dump_fib+0x25c/0x292 [ipv6]()
-> Hardware name: To be filled by O.E.M.
-> depth: 1  lockdep-depth: 2
-> Modules linked in: 8021q garp stp llc fuse macvlan pktgen coretemp hwmon sunrpc ipv6 uinput arc4 ath9k snd_hda_codec_realtek mac80211 snd_hda_intel 
-> snd_hda_codec snd_hwdep snd_seq ath9k_common ath9k_hw snd_seq_device snd_pcm ath snd_timer e1000e cfg80211 snd mei(C) ppdev microcode i2c_i801 iTCO_wdt 
-> soundcore serio_raw pcspkr snd_page_alloc iTCO_vendor_support parport_pc parport i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded: scsi_wait_scan]
-> Pid: 6563, comm: ip Tainted: G         C  3.0.25+ #16
-> Call Trace:
->   [<ffffffff81046866>] warn_slowpath_common+0x80/0x98
->   [<ffffffff81046912>] warn_slowpath_fmt+0x41/0x43
->   [<ffffffffa0251a3a>] inet6_dump_fib+0x25c/0x292 [ipv6]
->   [<ffffffff813af450>] netlink_dump+0x5b/0x19b
->   [<ffffffff81385da2>] ? consume_skb+0x28/0x2a
->   [<ffffffff813af7bf>] netlink_recvmsg+0x1c7/0x2f8
->   [<ffffffff8137c6cf>] __sock_recvmsg_nosec+0x65/0x6e
->   [<ffffffff8137dde0>] __sock_recvmsg+0x49/0x54
->   [<ffffffff8137e349>] sock_recvmsg+0xa6/0xbf
->   [<ffffffff81072bf8>] ? lock_release_non_nested+0x9d/0x227
->   [<ffffffff810ca002>] ? might_fault+0x4e/0x9e
->   [<ffffffff810ca04b>] ? might_fault+0x97/0x9e
->   [<ffffffff81387cae>] ? copy_from_user+0x2a/0x2c
->   [<ffffffff810ca002>] ? might_fault+0x4e/0x9e
->   [<ffffffff81388080>] ? verify_iovec+0x4f/0xa3
->   [<ffffffff8137e0c4>] __sys_recvmsg+0x147/0x21e
->   [<ffffffff81063868>] ? up_read+0x1e/0x36
->   [<ffffffff810fc9fb>] ? fcheck_files+0xb7/0xee
->   [<ffffffff810fcb30>] ? fget_light+0x3b/0xbc
->   [<ffffffff8137e8a0>] sys_recvmsg+0x3d/0x5b
->   [<ffffffff81450e92>] system_call_fastpath+0x16/0x1b
-> ---[ end trace 5232c09c4fb31d15 ]---
-> 
+> Richard
 > 
 > 
 
-
-Now you could trace all rcu_read_lock()/rcu_read_unlock() done in this
-context.
-
-adding a current->rcu_trace_enabled flag, that you set/unset only in
-inet6_dump_fib()
+It isn't so much about performance gains as it is about preventing poorly written user apps from stalling the clean descriptor routines. I am working on a test case that should prove whether this is even an issue (at least with ixgbe). Once I have data on that it can be determined if the extra lock would alleviate it. The conceptual issue is that spamming get-time could cause the clean tx/rx irq routines to stall inside the interrupt for too long. (thereby not freeing up descriptors on the ring to allow more packets). While performance is an issue, I don't feel that it can be brushed off as "performance loss due to feature" unless I can show that it isn't very easy to trip, or doesn't cause a major issue. Once I know the data, it can be determined what the right approach is.
