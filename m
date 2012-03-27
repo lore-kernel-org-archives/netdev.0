@@ -1,59 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 5/5] r8169: support RTL8411
-Date: Wed, 28 Mar 2012 00:54:53 +0200
-Message-ID: <20120327225453.GD22177@electric-eye.fr.zoreil.com>
-References: <1332834834-5185-1-git-send-email-hayeswang@realtek.com> <1332834834-5185-5-git-send-email-hayeswang@realtek.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH v3, 0/1] net/hyperv: Add flow control based on hi/low watermark
+Date: Tue, 27 Mar 2012 16:20:44 -0700
+Message-ID: <1332890445-12562-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1332834834-5185-5-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com, olaf@aepfle.de,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> :
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 6c2835f..99daad7 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-[...]
-> @@ -250,6 +252,9 @@ static const struct {
->  							JUMBO_9K, false),
->  	[RTL_GIGA_MAC_VER_37] =
->  		_R("RTL8402",		RTL_TD_1, FIRMWARE_8402_1,
-> +							JUMBO_1K, true),
-> +	[RTL_GIGA_MAC_VER_38] =
-> +		_R("RTL8411",		RTL_TD_1, FIRMWARE_8411_1,
->  							JUMBO_1K, true)
+This patch is targeting 'net-next' tree (when re-opened).
 
-Realtek's product page documents this chipset as a gigabit one. It seems
-strange to configure it as a jumbo packet unable one.
 
-The patch seems otherwise fine.
+Haiyang Zhang (1):
+  net/hyperv: Add flow control based on hi/low watermark
 
-On a tangent topic:
-
-"The RTL8411 supports Receive Side Scaling (RSS) to hash incoming TCP
-connections and load-balance received data processing across multiple CPUs.
-RSS improves the number of transactions per second and number of connections
-per second, for increased network throughput. Header Data Split (HDS) support
-enables faster processing of TCP/IP networking protocols for improved network
-performance.
-
-Virtual Machine Queue (VMQ) is a hardware virtualization technology for the
-efficient transfer of network traffic to a virtualized host OS. VMQ uses
-hardware packets filtering to deliver packet data from an external virtual
-machine network directly to virtual machines, which reduces the overhead of
-routing packets and copying them from the management operating system to the
-virtual machine.
-
-Note: RTL8411 Virtual Machine Queue (VMQ) is only functional in computers
-running Windows Server 2008 R2 with the Hyper-V server role installed."
-
-Will Realtek consider helping make those being available on Linux ?
+ drivers/hv/ring_buffer.c        |   31 -----------------------------
+ drivers/net/hyperv/netvsc.c     |   41 +++++++++++++++++++++++++++++++++++---
+ drivers/net/hyperv/netvsc_drv.c |    6 ++++-
+ include/linux/hyperv.h          |   27 +++++++++++++++++++++++++
+ 4 files changed, 69 insertions(+), 36 deletions(-)
 
 -- 
-Ueimor
+1.7.4.1
