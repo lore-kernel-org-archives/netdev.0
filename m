@@ -1,40 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RCU lock bug in 3.0.21 (bisected to: 682cb56a, fix NULL
- dereferences in check_peer_redir)
-Date: Tue, 27 Mar 2012 02:07:14 +0200
-Message-ID: <1332806834.3547.16.camel@edumazet-glaptop>
-References: <4F70E308.7070908@candelatech.com>
-	 <20120326.174945.1186427809261872546.davem@davemloft.net>
-	 <4F70E560.3020102@candelatech.com>  <4F70F688.6050108@candelatech.com>
-	 <1332805148.3547.14.camel@edumazet-glaptop>
-	 <4F70FFE0.7070204@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:33487 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752450Ab2C0AHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 20:07:18 -0400
-Received: by eekc41 with SMTP id c41so1702425eek.19
-        for <netdev@vger.kernel.org>; Mon, 26 Mar 2012 17:07:17 -0700 (PDT)
-In-Reply-To: <4F70FFE0.7070204@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH 0/5] MIPS: OCTEON: Convert some device to use Device Tree.
+Date: Mon, 26 Mar 2012 17:27:50 -0700
+Message-ID: <1332808075-8333-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>,
+	netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	" David S. Miller" <davem@davemloft.net>,
+	"Jean Delvare (PC drivers, core)" <khali@linux-fr.org>,
+	"Ben Dooks (embedded platforms)" <ben-linux@fluff.org>,
+	"Wolfram Sang (embedded platforms)" <w.sang@pengutronix.de>,
+	linux-i2c@vger.kernel.org
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-03-26 at 16:46 -0700, Ben Greear wrote:
+From: David Daney <david.daney@cavium.com>
 
-> The 3.0.21 kernel doesn't appear to have a rcu_read_lock_return(),
-> so I can't use your patch below.
+This patch set depends on the previous set to add Device Tree to
+OCTEON.  That set can be found here:
 
-This patch was only to show the point (I also CCed Paul, he might have
-some time to think about it, after he clears the inline stuff with
-Linus)
+http://www.linux-mips.org/archives/linux-mips/2012-03/msg00170.html
 
-As I said, I was referreing to you adding stuff in rcu. ;)
+The patches are for drivers scattered throughout the tree, but there
+is an order dependency as well as the dependency mentioned above, so
+it may be preferable to merge them all via Ralf's linux-mips.org tree
+rather that separately via the various device sub-system maintainers.
 
-Unfortunately I wont have time in the near future to do so myself.
+The mdio-octeon.c and octeon_mgmt patches were already Acked-by davem.
+
+The i2c has been seen before, but to my knowledge was never acked.
+
+The octeon_ethernet patch is in staging and has also been seen before.
+
+The serial patch is new.
+
+David Daney (5):
+  i2c: Convert i2c-octeon.c to use device tree.
+  netdev: mdio-octeon.c: Convert to use device tree.
+  netdev: octeon_mgmt: Convert to use device tree.
+  staging: octeon_ethernet: Convert to use device tree.
+  MIPS: Octeon: Use device tree to register serial ports.
+
+ arch/mips/cavium-octeon/octeon-irq.c      |    8 -
+ arch/mips/cavium-octeon/octeon-platform.c |  176 ----------------
+ arch/mips/cavium-octeon/serial.c          |  134 +++++--------
+ arch/mips/include/asm/octeon/octeon.h     |    5 -
+ drivers/i2c/busses/i2c-octeon.c           |   94 +++++----
+ drivers/net/ethernet/octeon/octeon_mgmt.c |  312 +++++++++++++++++++----------
+ drivers/net/phy/mdio-octeon.c             |   92 ++++++---
+ drivers/staging/octeon/ethernet-mdio.c    |   28 ++--
+ drivers/staging/octeon/ethernet.c         |  153 +++++++++-----
+ drivers/staging/octeon/octeon-ethernet.h  |    3 +
+ 10 files changed, 487 insertions(+), 518 deletions(-)
+
+Cc: netdev@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc:  David S. Miller <davem@davemloft.net>
+Cc: "Jean Delvare (PC drivers, core)" <khali@linux-fr.org>
+Cc: "Ben Dooks (embedded platforms)" <ben-linux@fluff.org>
+Cc: "Wolfram Sang (embedded platforms)" <w.sang@pengutronix.de>
+Cc: linux-i2c@vger.kernel.org
+-- 
+1.7.2.3
