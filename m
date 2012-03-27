@@ -1,268 +1,194 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 0/1] NUMA aware scheduling per vhost thread patch
-Date: Tue, 27 Mar 2012 10:43:03 -0700
-Message-ID: <1332870183.6496.31.camel@oc3660625478.ibm.com>
-References: <1332460109.7730.18.camel@oc3660625478.ibm.com>
-	 <4F7191ED.80402@redhat.com>
+From: Stuart Hodgson <smhodgson@solarflare.com>
+Subject: [RFC PATCH 1/2] net: ethtool: Add capability to retrieve plug-in
+ module EEPROM
+Date: Tue, 27 Mar 2012 18:51:06 +0100
+Message-ID: <4F71FE0A.3060203@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, tahm@linux.vnet.ibm.com
-To: Jason Wang <jasowang@redhat.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	<bruce.w.allan@intel.com>, <mirq-linux@rere.qmqm.pl>,
+	<decot@google.com>, <amit.salecha@qlogic.com>,
+	<alexander.h.duyck@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	<davem@davemloft.net>, <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:40250 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750796Ab2C0RnS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2012 13:43:18 -0400
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
-	Tue, 27 Mar 2012 13:43:17 -0400
-In-Reply-To: <4F7191ED.80402@redhat.com>
+Received: from mail.solarflare.com ([216.237.3.220]:12693 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754587Ab2C0RvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 13:51:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-27 at 18:09 +0800, Jason Wang wrote:
-> Hi:
-> 
-> Thanks for the work and it looks very reasonable, some questions
-> below.
-> 
-> On 03/23/2012 07:48 AM, Shirley Ma wrote:
-> > Sorry for being late to submit this patch. I have spent lots of time
-> > trying to find the best approach. This effort is still going on...
-> >
-> > This patch is built against net-next tree.
-> >
-> > This is an experimental RFC patch. The purpose of this patch is to
-> > address KVM networking scalability and NUMA scheduling issue.
-> 
-> Need also test for non-NUMA machine, I see that you just choose the
-> cpu 
-> that initiates the work for non-numa machine which seems sub optimal.
+Added extensions to the ethtool API to obtain plugin module eeprom data
+This is useful for end users to be able to determine what the capabilities
+of the in use module are.
 
-Good suggestions. I don't have any non-numa systems. But KK run some
-tests on non-numa system. He could see around 20% performance gain for
-single VMs local host to guest. I hope we can run a full test on
-non-numa system.
+The first provides a new struct ethtool_modinfo that will return the
+type and size of plug-in module eeprom (such as SFP+) for parsing
+by userland program.
 
-On non-numa system, the same per vhost-cpu thread will be always picked
-up consistently for a particular vq since all cores are on same cpu
-socket. So there will be two per-cpu vhost threads handle TX/RX
-simultaneously.
+The second provides the API to get the raw eeprom information
+using the existing ethtool_eeprom structture to return the data
 
-> > The existing implementation of vhost creats a vhost thread
-> per-device
-> > (virtio_net) based. RX and TX work of a VMs per-device is handled by
-> > same vhost thread.
-> >
-> > One of the limitation of this implementation is with increasing the
-> > number VMs or the number of virtio-net interfces, more vhost threads
-> are
-> > created, it will consume more kernel resources, and induce more
-> threads
-> > context switches/scheduling overhead. We noticed that the KVM
-> network
-> > performance doesn't scale with increasing number of VMs.
-> >
-> > The other limitation is to have single vhost thread to process both
-> RX
-> > and TX, the work will be blocked. So we create this per cpu vhost
-> thread
-> > implementation. The number of vhost cpu threads is limited to the
-> number
-> > of cpus on the host.
-> >
-> > To address these limitations, we are propsing a per-cpu vhost thread
-> > model where the number of vhost threads are limited and equal to the
-> > number of online cpus on the host.
-> 
-> The number of vhost thread needs more consideration. Consider that we 
-> have a 1024 cores host with a card have 16 tx/rx queues, do we really 
-> need 1024 vhost threads?
+Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
+---
+  include/linux/ethtool.h |   20 ++++++++++++
+  net/core/ethtool.c      |   79 
++++++++++++++++++++++++++++++++++++++++++++++++
+  2 files changed, 99 insertions(+), 0 deletions(-)
 
-In this case, we could add a module parameter to limit the number of
-cores/sockets to be used.
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index da5b2de..50eaf35 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -117,6 +117,14 @@ struct ethtool_eeprom {
+      __u8    data[0];
+  };
 
-> >
-> > Based on our testing experience, the vcpus can be scheduled across
-> cpu
-> > sockets even when the number of vcpus is smaller than the number of
-> > cores per cpu socket and there is no other  activities besides KVM
-> > networking workload. We found that if vhost thread is scheduled on
-> the
-> > same socket as the work is received, the performance will be better.
-> >
-> > So in this per cpu vhost thread implementation, a vhost thread is
-> > selected dynamically based on where the TX/RX work is initiated. A
-> vhost
-> > thread on the same cpu socket is selected but not on the same cpu as
-> the
-> > vcpu/interrupt thread that initizated the TX/RX work.
-> >
-> > When we test this RFC patch, the other interesting thing we found is
-> the
-> > performance results also seem related to NIC flow steering. We are
-> > spending time on evaluate different NICs flow director
-> implementation
-> > now. We will enhance this patch based on our findings later.
-> >
-> > We have tried different scheduling: per-device based, per vq based
-> and
-> > per work type (tx_kick, rx_kick, tx_net, rx_net) based vhost
-> scheduling,
-> > we found that so far the per vq based scheduling is good enough for
-> now.
-> 
-> Could you please explain more about those scheduling strategies? Does 
-> per-device based means let a dedicated vhost thread to handle all
-> work 
-> from that vhost device? As you mentioned, maybe an improvement of the 
-> scheduling to take flow steering info (queue mapping, rxhash etc.) of 
-> skb in host into account.
++/* for passing plug-in module information */
++struct ethtool_modinfo {
++    __u32   cmd;
++    __u32   type;
++    __u32   eeprom_len;
++    __u32   reserved[8];
++};
++
+  /**
+   * struct ethtool_coalesce - coalescing parameters for IRQs and stats 
+updates
+   * @cmd: ETHTOOL_{G,S}COALESCE
+@@ -936,6 +944,10 @@ struct ethtool_ops {
+      int    (*get_dump_data)(struct net_device *,
+                   struct ethtool_dump *, void *);
+      int    (*set_dump)(struct net_device *, struct ethtool_dump *);
++    int    (*get_module_info)(struct net_device *,
++                   struct ethtool_modinfo *);
++    int    (*get_module_eeprom)(struct net_device *,
++                     struct ethtool_eeprom *, u8 *);
 
-Yes, per-device scheduling means one per-cpu vhost theads handle all
-works from one particular vhost-device.
+  };
+  #endif /* __KERNEL__ */
+@@ -1010,6 +1022,8 @@ struct ethtool_ops {
+  #define ETHTOOL_SET_DUMP    0x0000003e /* Set dump settings */
+  #define ETHTOOL_GET_DUMP_FLAG    0x0000003f /* Get dump settings */
+  #define ETHTOOL_GET_DUMP_DATA    0x00000040 /* Get dump data */
++#define ETHTOOL_GMODULEINFO    0x00000041 /* Get plug-in module 
+information */
++#define ETHTOOL_GMODULEEEPROM    0x00000042 /* Get plug-in module eeprom */
 
-Yes, we think scheduling to take flow steering info would help
-performance. I am studying this now.
+  /* compatibility with older code */
+  #define SPARC_ETH_GSET        ETHTOOL_GSET
+@@ -1159,6 +1173,12 @@ struct ethtool_ops {
+  #define RX_CLS_LOC_FIRST    0xfffffffe
+  #define RX_CLS_LOC_LAST        0xfffffffd
 
-> >
-> > We also tried different algorithm to select which cpu vhost thread
-> will
-> > running on a specific cpu socket: avg_load balance, and randomly...
-> 
-> May worth to account the out-of-oder packet during the test as for a 
-> single stream as different cpu/vhost/physical queue may be chose to
-> do 
-> the packet transmission/reception?
++/* EEPROM Standards for plug in modules */
++#define SFF_8079        0x1
++#define SFF_8079_LEN        256
++#define SFF_8472        0x2
++#define SFF_8472_LEN        512
++
+  /* Reset flags */
+  /* The reset() operation must clear the flags for the components which
+   * were actually reset.  On successful return, the flags indicate the
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 3f79db1..1e86bd9 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1276,6 +1276,79 @@ out:
+      return ret;
+  }
 
-Good point. I haven't gone through all data yet. netstat output might
-tell us something.
++static int ethtool_get_module_info(struct net_device *dev,
++        void __user *useraddr)
++{
++    int ret;
++    struct ethtool_modinfo modinfo;
++    const struct ethtool_ops *ops = dev->ethtool_ops;
++
++    if (!ops->get_module_info)
++        return -EOPNOTSUPP;
++
++    if (copy_from_user(&modinfo, useraddr, sizeof(modinfo)))
++        return -EFAULT;
++
++    ret = ops->get_module_info(dev, &modinfo);
++    if (ret)
++        return ret;
++
++    if (copy_to_user(useraddr, &modinfo, sizeof(modinfo)))
++        return -EFAULT;
++
++    return 0;
++}
++
++static int ethtool_get_module_eeprom(struct net_device *dev,
++        void __user *useraddr)
++{
++    int ret;
++    struct ethtool_eeprom eeprom;
++    struct ethtool_modinfo modinfo;
++    const struct ethtool_ops *ops = dev->ethtool_ops;
++    void __user *userbuf = useraddr + sizeof(eeprom);
++    u8 *data;
++
++    if (!ops->get_module_info || !ops->get_module_eeprom)
++        return -EOPNOTSUPP;
++
++    if (copy_from_user(&eeprom, useraddr, sizeof(eeprom)))
++        return -EFAULT;
++
++    /* Check for wrap and zero */
++    if (eeprom.offset + eeprom.len <= eeprom.offset)
++        return -EINVAL;
++
++    /* Get the modinfo to get the length */
++    ret = ops->get_module_info(dev, &modinfo);
++    if (ret)
++        return ret;
++
++    if (eeprom.offset + eeprom.len > modinfo.eeprom_len)
++        return -EINVAL;
++
++    data = kmalloc(PAGE_SIZE, GFP_USER);
++    if (!data)
++        return -ENOMEM;
++
++    ret = ops->get_module_eeprom(dev, &eeprom, data);
++    if (ret)
++        goto out;
++
++
++    if (copy_to_user(userbuf, data, eeprom.len)) {
++        ret = -EFAULT;
++        goto out;
++    }
++
++    if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
++        ret = -EFAULT;
++
++out:
++    kfree(data);
++    return ret;
++}
++
+  /* The main entry point in this file.  Called from net/core/dev.c */
 
-We used Intel 10G NIC to run all test. For a single steam test, Intel
-NIC receiving irq steers with same irq/queue which TX packets have been
-sent. So when we mask vcpus from same VM on one socket, we shouldn't hit
-packet out-of-order case. We might hit packet out of order when vcpus
-run across sockets.
-
-> >
-> > > From our test results, we found that the scalability has been
-> > significantly improved. And this patch is also helpful for small
-> packets
-> > performance.
-> >
-> > Hoever, we are seeing some regressions in a local guest to guest
-> > scenario on a 8 cpu NUMA system.
-> >
-> > In one case, 24 VMs 256 bytes tcp_stream test shows it has improved
-> from
-> > 810Mb/s to 9.1Gb/s. :)
-> > (We created two local VMs, and each VM has 2 vcpus. W/o this patch,
-> the
-> > number of threads is 4 vcpus + 2 vhosts = 6, w/i this patch is 4
-> vcpus +
-> > 8 vhosts = 12. It causes more context switches. When I change the
-> > scheduling to use 2-4 vhost threads, the regressions are gone. I am
-> > continue investigation on how to make small number of VMs, local
-> guest
-> > to gues performance better. Once I find the clue, I will share
-> here.)
-> >
-> > The cpu hotplug support hasn't in place yet. I will post it later.
-> 
-> Another question is why not just using workqueue? It has full support 
-> for cpu hotplug and allow more polices.
-
-Yes, it's good to use workqueue. I just did everything on top of current
-implementation so it's easy to compare/analyze the performance data.
-
-I remembered the vhost implementation changed from workqueue to thread
-for some reason. I couldn't recall the reason.
-
-> >
-> > Since we have per cpu vhost thread, each vhost thread will handle
-> > multiple vqs, so we will be able to reduce/remove vq notification
-> when
-> > the work is heavy loaded in future.
-> 
-> Does this issue still exist if event index is used? If vhost does not 
-> publish new used index, guest would not kick again.
-
-Since the vhost model has been changed to handle multiple VMs' vqs work,
-then it's not necessary to enable these VMs' vqs notification (published
-new used idex) where these vqs' future work will be processed on the
-same per-cpu vhost thread, as long as the per-cpu vhost thread is still
-running.
-
-> >
-> > Here is my test results for remote host to guest test: tcp_rrs,
-> udp_rrs,
-> > tcp_stream with guest has 2 vpus, host has two cpu socket, each
-> socket
-> > has 4 cores.
-> >
-> > TCP_STREAM    256     512     1K      2K      4K      8K      16K
-> > --------------------------------------------------------------------
-> > Original
-> >
-> H->Guest      2501    4238    4744    5256    7203    6975    5799            Patch
-> >
-> H->Guest      1676    2290    3149    8026    8439    8283    8216    
-> >                                                               
-> > Original
-> >
-> Guest->H      744     1773    5675    1397    8207    7296    8117    
-> > Patch
-> > Guest->Host   1041    1386    5407    7057    8298    8127    8241
-> 
-> Looks like there's some noise in the result, the throughput of
-> "original 
-> guest -> Host 2K" looks too low. And some strange is that I see 
-> regressions of packet transmission of guest when testing this patch.
-> ( 
-> Guest to Local Host TCP_STREAM in a NUMA machine).
-
-Yes, since I didn't mask the vcpus on the same socket, it might come
-from packets out of order. I will rerun the test w/i masking vcpus on
-the same socket to see any difference.
-
-You can reference Tom's results. His test is more formal than mine.
-
-> >
-> > 60 instances TCP_RRs: Patch 150K trans/s vs. 91K trans/sec
-> > 65%  improved with taskset vcpus on the same socket
-> > 60 instances UDP_RRs: Patch 172K trans/s vs. 103K trans/s
-> > 67%  improved with taskset vcpus on the same socket
-> >
-> > Tom has run 1VM to 24 VMs test for different work. He will post it
-> here
-> > soon.
-> >
-> > If the host scheduler ensures that the VM's vcpus are not scheduled
-> to
-> > another socket (i.e. cpu mask the vcpus on same socket) then the
-> > performance will be better.
-> >
-> > Signed-off-by: Shirley Ma<xma@us.ibm.com>
-> > Signed-off-by: Krishna Kumar<krkumar2@in.ibm.com>
-> > Tested-by: Tom Lendacky<toml@us.ibm.com>
-> > ---
-> >
-> >   drivers/vhost/net.c                  |   26 ++-
-> >   drivers/vhost/vhost.c                |  289
-> > +++++++++++++++++++++++----------
-> >   drivers/vhost/vhost.h                |   16 ++-
-> >   3 files changed, 232 insertions(+), 103 deletions(-)
-> >
-> > Thanks
-> > Shirley
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> 
+  int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1494,6 +1567,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+      case ETHTOOL_GET_DUMP_DATA:
+          rc = ethtool_get_dump_data(dev, useraddr);
+          break;
++    case ETHTOOL_GMODULEINFO:
++        rc = ethtool_get_module_info(dev, useraddr);
++        break;
++    case ETHTOOL_GMODULEEEPROM:
++        rc = ethtool_get_module_eeprom(dev, useraddr);
++        break;
+      default:
+          rc = -EOPNOTSUPP;
+      }
+-- 
+1.7.7.6
