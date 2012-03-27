@@ -1,79 +1,92 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware
- Clock instead of the timecompare method
-Date: Tue, 27 Mar 2012 14:51:51 -0400
-Message-ID: <CAAsGZS6=wCPKC_1HnXQNn=U=6h-akbWvLZ_9ztBjfva=DFmugQ@mail.gmail.com>
-References: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
-	<20120324065147.GB2201@netboy.at.omicron.at>
-	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
-	<20120326152730.GA10212@localhost.localdomain>
-	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
-	<20120327180501.GA3878@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DC68D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS7+L5Y7Mo8pipJf=T6x9vTUAcTS93t=BGsmCUvA3T31Zw@mail.gmail.com>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH v2] net/garp: avoid infinite loop if attribute already exists
+Date: Tue, 27 Mar 2012 15:01:52 -0400
+Message-ID: <1332874912-1979-1-git-send-email-david.ward@ll.mit.edu>
+References: <4F70942B.5000102@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAAsGZS7+L5Y7Mo8pipJf=T6x9vTUAcTS93t=BGsmCUvA3T31Zw@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <jorge@dti2.net>, <kaber@trash.net>,
+	David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:49543 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751003Ab2C0TF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 15:05:57 -0400
+In-Reply-To: <4F70942B.5000102@ll.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 27, 2012 at 2:43 PM, chetan loke <loke.chetan@gmail.com> wrote:
-> On Tue, Mar 27, 2012 at 2:29 PM, Keller, Jacob E
-> <jacob.e.keller@intel.com> wrote:
->
->>>
->>
->> It isn't so much about performance gains as it is about preventing poorly written user apps from stalling the clean descriptor routines. I am working on a test case that should prove whether this is even an issue (at least with ixgbe). Once I have data on that it can be determined if the extra lock would alleviate it. The conceptual issue is that spamming get-time could cause the clean tx/rx irq routines to stall inside the interrupt for too long. (thereby not freeing up descriptors on the ring to
->
-> What would be interesting to see is something like:
->
-> 1) App1(getter/setter calls), executed '1000' ioctls per sec on eth0.
-> Other 'M' apps(execute just get calls), where M = 1 .. 10(?). And one
-> buggy app executed - 10K getter calls per sec.
->
-> 2) eth0 receives PTP traffic and also around 80-90%(link rate)
-> regular/mixed traffic.
->
-> And BTW, eth0 is the management IP.
->
-> While the test is running, if we are still able to reach the host and
-> manage it via SSH then we can stop being paranoid.
->
->
+An infinite loop occurred if garp_attr_create was called with the values
+of an existing attribute. This might happen if a previous leave request
+for the attribute has not yet been followed by a PDU transmission (or,
+if the application previously issued a join request for the attribute
+and is now issuing another one, without having issued a leave request).
 
-Guys please correct me if I'm wrong but if RPS/RFS is enabled then at
-a minimum we would need "N * 2" apps (where N == num_cpus). That way
-there will be contention w/ the completions and we will be able to see
-the real effect?
+If garp_attr_create finds an existing attribute having the same values,
+return the address to it. Its state will then get updated (i.e., if it
+was in a leaving state, it will move into a non-leaving state and not
+get deleted during the next PDU transmission).
 
-Chetan
+To accomplish this fix, collapse garp_attr_insert into garp_attr_create
+(which is its only caller).
 
-------------------------------------------------------------------------------
-This SF email is sponsosred by:
-Try Windows Azure free for 90 days Click Here 
-http://p.sf.net/sfu/sfd2d-msazure
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+---
+ net/802/garp.c |   22 ++++++++++------------
+ 1 files changed, 10 insertions(+), 12 deletions(-)
+
+diff --git a/net/802/garp.c b/net/802/garp.c
+index 8e21b6d..a5c2248 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -167,7 +167,8 @@ static struct garp_attr *garp_attr_lookup(const struct garp_applicant *app,
+ 	return NULL;
+ }
+ 
+-static void garp_attr_insert(struct garp_applicant *app, struct garp_attr *new)
++static struct garp_attr *garp_attr_create(struct garp_applicant *app,
++					  const void *data, u8 len, u8 type)
+ {
+ 	struct rb_node *parent = NULL, **p = &app->gid.rb_node;
+ 	struct garp_attr *attr;
+@@ -176,21 +177,16 @@ static void garp_attr_insert(struct garp_applicant *app, struct garp_attr *new)
+ 	while (*p) {
+ 		parent = *p;
+ 		attr = rb_entry(parent, struct garp_attr, node);
+-		d = garp_attr_cmp(attr, new->data, new->dlen, new->type);
++		d = garp_attr_cmp(attr, data, len, type);
+ 		if (d < 0)
+ 			p = &parent->rb_left;
+ 		else if (d > 0)
+ 			p = &parent->rb_right;
++		else {
++			/* The attribute already exists; re-use it. */
++			return attr;
++		}
+ 	}
+-	rb_link_node(&new->node, parent, p);
+-	rb_insert_color(&new->node, &app->gid);
+-}
+-
+-static struct garp_attr *garp_attr_create(struct garp_applicant *app,
+-					  const void *data, u8 len, u8 type)
+-{
+-	struct garp_attr *attr;
+-
+ 	attr = kmalloc(sizeof(*attr) + len, GFP_ATOMIC);
+ 	if (!attr)
+ 		return attr;
+@@ -198,7 +194,9 @@ static struct garp_attr *garp_attr_create(struct garp_applicant *app,
+ 	attr->type  = type;
+ 	attr->dlen  = len;
+ 	memcpy(attr->data, data, len);
+-	garp_attr_insert(app, attr);
++
++	rb_link_node(&attr->node, parent, p);
++	rb_insert_color(&attr->node, &app->gid);
+ 	return attr;
+ }
+ 
+-- 
+1.7.4.1
