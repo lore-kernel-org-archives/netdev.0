@@ -1,44 +1,42 @@
 From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH ipv4 multicast] Fix IPv4 multicast over network namespaces
-Date: Tue, 27 Mar 2012 12:12:28 -0400
-Message-ID: <20120327161228.GA2367@kvack.org>
+Subject: [PATCH net/core] dev_forward_skb() should clear skb_iif
+Date: Tue, 27 Mar 2012 12:29:20 -0400
+Message-ID: <20120327162920.GB2367@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:54792 "EHLO kanga.kvack.org"
+Received: from kanga.kvack.org ([205.233.56.17]:55075 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753887Ab2C0QM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2012 12:12:29 -0400
+	id S1751827Ab2C0Q3U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 12:29:20 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using multicast over a local bridge feeding a number of LXC guests
-using veth, the LXC guests are unable to get a response from other guests
-when pinging 224.0.0.1.  Multicast packets did not appear to be getting
-delivered to the network namespaces of the guest hosts, and further
-inspection showed that the incoming route was pointing to the loopback
-device of the host, not the guest.  This lead to the wrong network namespace
-being picked up by sockets (like ICMP).  Fix this by using the correct
-network namespace when creating the inbound route entry.
+While investigating another bug, I found that the code on the incoming path
+in __netif_receive_skb will only set skb->skb_iif if it is already 0.  When
+dev_forward_skb() is used in the case of interfaces like veth, skb_iif may
+already have been set.  Making dev_forward_skb() cause the packet to look
+more like a newly received packet would seem to the the correct behaviour
+here, as otherwise the wrong incoming interface can be reported for such a
+packet.
 ---
- net/ipv4/route.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/core/dev.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 12ccf88..3b110a4 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2042,7 +2042,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		if (err < 0)
- 			goto e_err;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0090809..8751f6a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1597,6 +1597,7 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
  	}
--	rth = rt_dst_alloc(init_net.loopback_dev,
-+	rth = rt_dst_alloc(dev_net(dev)->loopback_dev,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false);
- 	if (!rth)
- 		goto e_nobufs;
++	skb->skb_iif = 0;
+ 	skb_set_dev(skb, dev);
+ 	skb->tstamp.tv64 = 0;
+ 	skb->pkt_type = PACKET_HOST;
 -- 
 1.7.4.1
