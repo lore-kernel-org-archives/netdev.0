@@ -1,52 +1,71 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Tue, 27 Mar 2012 20:33:50 +0200
-Message-ID: <20120327183349.GB3878@netboy.at.omicron.at>
-References: <CAAsGZS6=UsyiGK=ZOwRuY0CNR7aOFLrwpn-2hXEtQJbWEULciA@mail.gmail.com>
- <20120321170003.GA5533@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
- <20120322064107.GB2182@netboy.at.omicron.at>
- <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
- <02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
- <20120324065147.GB2201@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB580DC1C2@ORSMSX105.amr.corp.intel.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware
+ Clock instead of the timecompare method
+Date: Tue, 27 Mar 2012 14:39:29 -0400
+Message-ID: <CAAsGZS7rUBMW6JK5q2U=7oJy7s2jL0QHAL2z-+9Rm+yM1a5_Kg@mail.gmail.com>
+References: <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
+	<20120322064107.GB2182@netboy.at.omicron.at>
+	<CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+	<20120324065147.GB2201@netboy.at.omicron.at>
+	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
+	<20120326152730.GA10212@localhost.localdomain>
+	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
+	<20120327153345.GA13948@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chetan loke <loke.chetan@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>, "Keller,
+	Jacob E" <jacob.e.keller@intel.com>,
 	"tglx@linutronix.de" <tglx@linutronix.de>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:60965 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755527Ab2C0SeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 14:34:08 -0400
-Received: by wgbdr13 with SMTP id dr13so200737wgb.1
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 11:34:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB580DC1C2@ORSMSX105.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20120327153345.GA13948@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 26, 2012 at 08:51:28PM +0000, Keller, Jacob E wrote:
-> 
-> This is about a case where the user does something stupid. (runs the ioctls too
-> fast). It appears that your answer is something like "The user did something
-> stupid, we shouldn't care". My answer is, "we should do what we can to prevent
-> this."
+On Tue, Mar 27, 2012 at 11:33 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Mon, Mar 26, 2012 at 01:11:32PM -0400, chetan loke wrote:
+>>
+>> Why isn't ioctl-rate limiting acceptable?
+>
+> Let me turn the question around.
+>
+> What other kernel subsystem rate limits ioctls?
+>
 
-No matter how much you optimize your driver (or library or whatever),
-there is always some user load that will kill your performance.
+netdev needs to worry about reaching the host via ethernet. If you
+lose SCSI LUNs because you are pounding those mailbox cmds to get that
+temperature status from the HBA then who the heck cares? I mean we do
+but we can reach the host via it's mgmt-IP and look at it. From what I
+can see in SCSI for example, control commands are normally issued in
+separate paths by the driver and don't choke the fast path. Those
+completions are asynchronous like everything else and do NOT contend
+with the Rx/Tx path.
 
-The locking is need for data integrity. The code path in the lock is
-short. I doubt there is any serious performance issue here.
+May be I'm paranoid but let's wait for Intel(Jake) to run the ioctl test.
 
-Richard
+Chetan
+
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
