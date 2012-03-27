@@ -1,103 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] eql: dont rely on HZ=100
-Date: Tue, 27 Mar 2012 01:52:00 -0700
-Message-ID: <1332838320.3248.6.camel@edumazet-laptop>
-References: <1332669700.32446.142.camel@shinybook.infradead.org>
-	 <1332746975.2379.5.camel@shinybook.infradead.org>
-	 <1332835965.3248.2.camel@edumazet-laptop>
-	 <1332836241.2058.35.camel@shinybook.infradead.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Wrong use of MAX_JIFFY_OFFSET?
+Date: Tue, 27 Mar 2012 09:54:55 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EBA@saturn3.aculab.com>
+References: <000901cd0bb8$77fdc460$67f94d20$@com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Liu Yu" <liuyums@bwstor.com.cn>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56541 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757269Ab2C0IwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 04:52:06 -0400
-Received: by wgbdr13 with SMTP id dr13so4647460wgb.1
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 01:52:04 -0700 (PDT)
-In-Reply-To: <1332836241.2058.35.camel@shinybook.infradead.org>
+Received: from mx0.aculab.com ([213.249.233.131]:35075 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757733Ab2C0I4L convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 04:56:11 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22323-03 for <netdev@vger.kernel.org>;
+ Tue, 27 Mar 2012 09:56:07 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <000901cd0bb8$77fdc460$67f94d20$@com.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 mars 2012 =C3=A0 09:17 +0100, David Woodhouse a =C3=A9crit =
-:
+ 
 
-> Thanks. I blame the baby for that one too. Once she's been taken
-> swimming and dropped off at nursery and I've had at least two more cu=
-ps
-> of tea, I'll have another go :)
->=20
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org 
+> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Liu Yu
+> Sent: 27 March 2012 02:25
+> To: netdev@vger.kernel.org
+> Subject: Wrong use of MAX_JIFFY_OFFSET?
+> 
+> Hi guys,
+> 
+> I saw a couple of places in current kernel have this kind of code:
+> 
+> > static inline unsigned int elapsed_jiffies_msecs(unsigned 
+> long start)
+> > {
+> >         unsigned long end = jiffies;
+> >
+> >         if (end >= start)
+> >                return jiffies_to_msecs(end - start);
+> >
+> >         return jiffies_to_msecs(end + (MAX_JIFFY_OFFSET - 
+> start) + 1);
+> > }
+> 
+> As you know, jiffies has a type of unsigned long, so if we 
+> know which is the end and
+> which is the start, then (end - start) can simply figure out how much
+> jiffies flies, without worry about the overflow.
+> 
+> Look at the code above, assume that there is just an overflow 
+> happening on
+> jiffies: end=0 and start=~0UL.
+> Since end < start, then the return value of the function is
+> jiffies_to_msecs(MAX_JIFFY_OFFSET+2).
+> But shouldn't the correct value be jiffies_to_msecs(1)?
+> 
+> could someone tell me that am I missing anything?
 
-Looking at this driver, it seems it depends on HZ=3D100 ?
+That code has confused me...
+MAX_JIFFIES_OFFSET appears to have something to do with
+timespec_to_jiffies() rather than being anything to so with
+the way 'jiffies' itself wraps.
 
-[PATCH] eql: dont rely on HZ=3D100
+Since arithmetic wrap is well defined for unsigned values
+the correct code should just be:
+	return jiffies_to_ms(jiffies - start);
+The code above is completly fubar when jiffies wraps.
 
-HZ is more likely to be 1000 these days.
-
-timer handlers are run from softirq, no need to disable bh
-
-skb priority 1 is TC_PRIO_FILLER
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/eql.c      |    7 ++++---
- include/linux/if_eql.h |    2 +-
- 2 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index a59cf96..f219d38 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -125,6 +125,7 @@
- #include <linux/if.h>
- #include <linux/if_arp.h>
- #include <linux/if_eql.h>
-+#include <linux/pkt_sched.h>
-=20
- #include <asm/uaccess.h>
-=20
-@@ -143,7 +144,7 @@ static void eql_timer(unsigned long param)
- 	equalizer_t *eql =3D (equalizer_t *) param;
- 	struct list_head *this, *tmp, *head;
-=20
--	spin_lock_bh(&eql->queue.lock);
-+	spin_lock(&eql->queue.lock);
- 	head =3D &eql->queue.all_slaves;
- 	list_for_each_safe(this, tmp, head) {
- 		slave_t *slave =3D list_entry(this, slave_t, list);
-@@ -157,7 +158,7 @@ static void eql_timer(unsigned long param)
- 		}
-=20
- 	}
--	spin_unlock_bh(&eql->queue.lock);
-+	spin_unlock(&eql->queue.lock);
-=20
- 	eql->timer.expires =3D jiffies + EQL_DEFAULT_RESCHED_IVAL;
- 	add_timer(&eql->timer);
-@@ -341,7 +342,7 @@ static netdev_tx_t eql_slave_xmit(struct sk_buff *s=
-kb, struct net_device *dev)
- 		struct net_device *slave_dev =3D slave->dev;
-=20
- 		skb->dev =3D slave_dev;
--		skb->priority =3D 1;
-+		skb->priority =3D TC_PRIO_FILLER;
- 		slave->bytes_queued +=3D skb->len;
- 		dev_queue_xmit(skb);
- 		dev->stats.tx_packets++;
-diff --git a/include/linux/if_eql.h b/include/linux/if_eql.h
-index 79c4f26..18a5d02 100644
---- a/include/linux/if_eql.h
-+++ b/include/linux/if_eql.h
-@@ -22,7 +22,7 @@
- #define EQL_DEFAULT_SLAVE_PRIORITY 28800
- #define EQL_DEFAULT_MAX_SLAVES     4
- #define EQL_DEFAULT_MTU            576
--#define EQL_DEFAULT_RESCHED_IVAL   100
-+#define EQL_DEFAULT_RESCHED_IVAL   HZ
-=20
- #define EQL_ENSLAVE     (SIOCDEVPRIVATE)
- #define EQL_EMANCIPATE  (SIOCDEVPRIVATE + 1)
+	David
