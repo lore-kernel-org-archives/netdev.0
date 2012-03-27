@@ -1,86 +1,145 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Tue, 27 Mar 2012 20:58:21 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DC769@ORSMSX105.amr.corp.intel.com>
-References: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
-	<20120324065147.GB2201@netboy.at.omicron.at>
-	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
-	<20120326152730.GA10212@localhost.localdomain>
-	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
-	<20120327180501.GA3878@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DC68D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS7+L5Y7Mo8pipJf=T6x9vTUAcTS93t=BGsmCUvA3T31Zw@mail.gmail.com>
- <CAAsGZS6=wCPKC_1HnXQNn=U=6h-akbWvLZ_9ztBjfva=DFmugQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51106 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755621Ab2C0U6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2012 16:58:23 -0400
-In-Reply-To: <CAAsGZS6=wCPKC_1HnXQNn=U=6h-akbWvLZ_9ztBjfva=DFmugQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandru Copot <alex.mihai.c@gmail.com>
+Subject: [PATCH] tcp: bind() use stronger condition for bind_conflict
+Date: Wed, 28 Mar 2012 00:11:52 +0300
+Message-ID: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexandru Copot <alex.mihai.c@gmail.com>,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
-Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMjcsIDIwMTIg
-MTE6NTIgQU0NCj4gVG86IEtlbGxlciwgSmFjb2IgRQ0KPiBDYzogUmljaGFyZCBDb2NocmFuOyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBlMTAwMC0NCj4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQ7IFJvbmNpYWssIEpvaG47DQo+IGpvaG4uc3R1bHR6QGxp
-bmFyby5vcmc7IHRnbHhAbGludXRyb25peC5kZQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCBW
-NCAyLzJdIGlnYjogb2ZmZXIgYSBQVFAgSGFyZHdhcmUgQ2xvY2sgaW5zdGVhZCBvZiB0aGUNCj4g
-dGltZWNvbXBhcmUgbWV0aG9kDQo+IA0KPiBPbiBUdWUsIE1hciAyNywgMjAxMiBhdCAyOjQzIFBN
-LCBjaGV0YW4gbG9rZSA8bG9rZS5jaGV0YW5AZ21haWwuY29tPiB3cm90ZToNCj4gPiBPbiBUdWUs
-IE1hciAyNywgMjAxMiBhdCAyOjI5IFBNLCBLZWxsZXIsIEphY29iIEUNCj4gPiA8amFjb2IuZS5r
-ZWxsZXJAaW50ZWwuY29tPiB3cm90ZToNCj4gPg0KPiA+Pj4NCj4gPj4NCj4gPj4gSXQgaXNuJ3Qg
-c28gbXVjaCBhYm91dCBwZXJmb3JtYW5jZSBnYWlucyBhcyBpdCBpcyBhYm91dCBwcmV2ZW50aW5n
-DQo+ID4+IHBvb3JseSB3cml0dGVuIHVzZXIgYXBwcyBmcm9tIHN0YWxsaW5nIHRoZSBjbGVhbiBk
-ZXNjcmlwdG9yIHJvdXRpbmVzLg0KPiA+PiBJIGFtIHdvcmtpbmcgb24gYSB0ZXN0IGNhc2UgdGhh
-dCBzaG91bGQgcHJvdmUgd2hldGhlciB0aGlzIGlzIGV2ZW4gYW4NCj4gPj4gaXNzdWUgKGF0IGxl
-YXN0IHdpdGggaXhnYmUpLiBPbmNlIEkgaGF2ZSBkYXRhIG9uIHRoYXQgaXQgY2FuIGJlDQo+ID4+
-IGRldGVybWluZWQgaWYgdGhlIGV4dHJhIGxvY2sgd291bGQgYWxsZXZpYXRlIGl0LiBUaGUgY29u
-Y2VwdHVhbCBpc3N1ZQ0KPiA+PiBpcyB0aGF0IHNwYW1taW5nIGdldC10aW1lIGNvdWxkIGNhdXNl
-IHRoZSBjbGVhbiB0eC9yeCBpcnEgcm91dGluZXMgdG8NCj4gPj4gc3RhbGwgaW5zaWRlIHRoZSBp
-bnRlcnJ1cHQgZm9yIHRvbyBsb25nLiAodGhlcmVieSBub3QgZnJlZWluZyB1cA0KPiA+PiBkZXNj
-cmlwdG9ycyBvbiB0aGUgcmluZyB0bw0KPiA+DQo+ID4gV2hhdCB3b3VsZCBiZSBpbnRlcmVzdGlu
-ZyB0byBzZWUgaXMgc29tZXRoaW5nIGxpa2U6DQo+ID4NCj4gPiAxKSBBcHAxKGdldHRlci9zZXR0
-ZXIgY2FsbHMpLCBleGVjdXRlZCAnMTAwMCcgaW9jdGxzIHBlciBzZWMgb24gZXRoMC4NCj4gPiBP
-dGhlciAnTScgYXBwcyhleGVjdXRlIGp1c3QgZ2V0IGNhbGxzKSwgd2hlcmUgTSA9IDEgLi4gMTAo
-PykuIEFuZCBvbmUNCj4gPiBidWdneSBhcHAgZXhlY3V0ZWQgLSAxMEsgZ2V0dGVyIGNhbGxzIHBl
-ciBzZWMuDQo+ID4NCj4gPiAyKSBldGgwIHJlY2VpdmVzIFBUUCB0cmFmZmljIGFuZCBhbHNvIGFy
-b3VuZCA4MC05MCUobGluayByYXRlKQ0KPiA+IHJlZ3VsYXIvbWl4ZWQgdHJhZmZpYy4NCj4gPg0K
-PiA+IEFuZCBCVFcsIGV0aDAgaXMgdGhlIG1hbmFnZW1lbnQgSVAuDQo+ID4NCj4gPiBXaGlsZSB0
-aGUgdGVzdCBpcyBydW5uaW5nLCBpZiB3ZSBhcmUgc3RpbGwgYWJsZSB0byByZWFjaCB0aGUgaG9z
-dCBhbmQNCj4gPiBtYW5hZ2UgaXQgdmlhIFNTSCB0aGVuIHdlIGNhbiBzdG9wIGJlaW5nIHBhcmFu
-b2lkLg0KPiA+DQo+ID4NCj4gDQo+IEd1eXMgcGxlYXNlIGNvcnJlY3QgbWUgaWYgSSdtIHdyb25n
-IGJ1dCBpZiBSUFMvUkZTIGlzIGVuYWJsZWQgdGhlbiBhdCBhDQo+IG1pbmltdW0gd2Ugd291bGQg
-bmVlZCAiTiAqIDIiIGFwcHMgKHdoZXJlIE4gPT0gbnVtX2NwdXMpLiBUaGF0IHdheSB0aGVyZSB3
-aWxsDQo+IGJlIGNvbnRlbnRpb24gdy8gdGhlIGNvbXBsZXRpb25zIGFuZCB3ZSB3aWxsIGJlIGFi
-bGUgdG8gc2VlIHRoZSByZWFsIGVmZmVjdD8NCj4gDQo+IENoZXRhbg0KDQpJIHRoaW5rIHdlIGNv
-dWxkIHNlZSBjb250ZW50aW9uIHJlZ2FyZGxlc3MgYmVjYXVzZSB0aGUgc3BpbmxvY2sgZG9lc24n
-dCBndWFyYW50ZWUgdGhlIG9yZGVyaW5nIG9mIHdobyBnZXRzIGl0IG5leHQuDQoNCkkgYW0gbm90
-IHN1cmUuIEJ1dCBJIHdpbGwgdHJ5IGFuZCBzZXQgc29tZXRoaW5nIGxpa2UgdGhpcyB1cC4gSG93
-ZXZlciwgSSBkbyB0aGluayB0aGF0IG1hbnkgZ2V0LXNldCBjYWxscyBpcyBwcmV0dHkgaGlnaCBm
-b3IgZXZlbiBhICdoaWdobHknIGxvYWRlZCBzeXN0ZW0uIFRob3VnaCB0aGUgYnVnZ3kgYXBwIGZv
-ciBzdXJlIGlzIHBvc3NpYmxlLg0KDQpIZXJlIGlzIHdoYXQgSSBhbSB0aGlua2luZyBhcyBhIHRl
-c3QgY2FzZS4gTGludXhwdHAgcnVubmluZyBub3JtYWxseSB3aXRoIGEgaGlnaGVyIHN5bmMgcmF0
-ZSB0aGFuIG9uY2UgcGVyIHNlY29uZCwgcGx1cyBhICdidWdneScgYXBwIHdoaWNoIHdpbGwgdHJ5
-IHRvIGluZmluaXRlbHkgdGhyZWFkIHRoZSBnZXR0aW1lIGNhbGxzLiBJIGhvcGUgdG8gaGF2ZSBz
-b21ldGhpbmcgbGlrZSB0aGlzIHdvcmtpbmcgc29vbi4NCg0KLSBKYWtlDQo=
+We must try harder to get unique (addr, port) pairs when
+doing port autoselection for sockets with SO_REUSEADDR
+option set.
+
+We achieve this by adding a relaxation parameter to
+inet_csk_bind_conflict. When 'relax' parameter is off
+we return a conflict whenever the current searched
+pair (addr, port) is not unique.
+
+This tries to address the problems reported in patch:
+	8d238b25b1ec22a73b1c2206f111df2faaff8285
+	Revert "tcp: bind() fix when many ports are bound"
+
+Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
+Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
+---
+ include/net/inet6_connection_sock.h |    2 +-
+ include/net/inet_connection_sock.h  |    4 ++--
+ net/ipv4/inet_connection_sock.c     |   17 +++++++++++++----
+ net/ipv6/inet6_connection_sock.c    |    3 ++-
+ 4 files changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
+index 3207e58..9d29ae2 100644
+--- a/include/net/inet6_connection_sock.h
++++ b/include/net/inet6_connection_sock.h
+@@ -23,7 +23,7 @@ struct sock;
+ struct sockaddr;
+ 
+ extern int inet6_csk_bind_conflict(const struct sock *sk,
+-				   const struct inet_bind_bucket *tb);
++				   const struct inet_bind_bucket *tb, int relax);
+ 
+ extern struct dst_entry* inet6_csk_route_req(struct sock *sk,
+ 					     const struct request_sock *req);
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index dbf9aab..f05a032 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -60,7 +60,7 @@ struct inet_connection_sock_af_ops {
+ #endif
+ 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
+ 	int	    (*bind_conflict)(const struct sock *sk,
+-				     const struct inet_bind_bucket *tb);
++				     const struct inet_bind_bucket *tb, int relax);
+ };
+ 
+ /** inet_connection_sock - INET connection oriented sock
+@@ -245,7 +245,7 @@ extern struct request_sock *inet_csk_search_req(const struct sock *sk,
+ 						const __be32 raddr,
+ 						const __be32 laddr);
+ extern int inet_csk_bind_conflict(const struct sock *sk,
+-				  const struct inet_bind_bucket *tb);
++				  const struct inet_bind_bucket *tb, int relax);
+ extern int inet_csk_get_port(struct sock *sk, unsigned short snum);
+ 
+ extern struct dst_entry* inet_csk_route_req(struct sock *sk,
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 19d66ce..bf50e77 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -53,7 +53,7 @@ void inet_get_local_port_range(int *low, int *high)
+ EXPORT_SYMBOL(inet_get_local_port_range);
+ 
+ int inet_csk_bind_conflict(const struct sock *sk,
+-			   const struct inet_bind_bucket *tb)
++			   const struct inet_bind_bucket *tb, int relax)
+ {
+ 	struct sock *sk2;
+ 	struct hlist_node *node;
+@@ -79,6 +79,13 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 				    sk2_rcv_saddr == sk_rcv_saddr(sk))
+ 					break;
+ 			}
++			if (!relax && reuse && sk2->sk_reuse &&
++					sk2->sk_state != TCP_LISTEN) {
++				const __be32 sk2_rcv_saddr = sk_rcv_saddr(sk2);
++				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
++						sk2_rcv_saddr == sk_rcv_saddr(sk))
++					break;
++			}
+ 		}
+ 	}
+ 	return node != NULL;
+@@ -122,12 +129,13 @@ again:
+ 					    (tb->num_owners < smallest_size || smallest_size == -1)) {
+ 						smallest_size = tb->num_owners;
+ 						smallest_rover = rover;
+-						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
++						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1 &&
++							!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 0)) {
+ 							snum = smallest_rover;
+ 							goto tb_found;
+ 						}
+ 					}
+-					if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
++					if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 0)) {
+ 						snum = rover;
+ 						goto tb_found;
+ 					}
+@@ -178,12 +186,13 @@ tb_found:
+ 			goto success;
+ 		} else {
+ 			ret = 1;
+-			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
++			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 1)) {
+ 				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
+ 				    smallest_size != -1 && --attempts >= 0) {
+ 					spin_unlock(&head->lock);
+ 					goto again;
+ 				}
++
+ 				goto fail_unlock;
+ 			}
+ 		}
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 02dd203..dfc8bc3 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -28,7 +28,8 @@
+ #include <net/inet6_connection_sock.h>
+ 
+ int inet6_csk_bind_conflict(const struct sock *sk,
+-			    const struct inet_bind_bucket *tb)
++			    const struct inet_bind_bucket *tb,
++				int relax)
+ {
+ 	const struct sock *sk2;
+ 	const struct hlist_node *node;
+-- 
+1.7.9.4
