@@ -1,50 +1,92 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v8 RESEND] ARM: net: JIT compiler for packet filters
-Date: Tue, 27 Mar 2012 08:56:00 +0100
-Message-ID: <20120327075600.GL5611@n2100.arm.linux.org.uk>
-References: <1331933316-10197-1-git-send-email-mgherzan@gmail.com> <20120319.172005.1889334604020296555.davem@davemloft.net> <4F6EEAB5.7070009@gmail.com> <20120325095711.GC5611@n2100.arm.linux.org.uk> <4F6F19C2.60602@gmail.com> <20120325133506.GG5611@n2100.arm.linux.org.uk>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 1/5] r8169: modify pll power function
+Date: Tue, 27 Mar 2012 15:53:50 +0800
+Message-ID: <1332834834-5185-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Mircea Gherzan <mgherzan@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:39904 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751351Ab2C0H4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 03:56:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20120325133506.GG5611@n2100.arm.linux.org.uk>
+Received: from rtits2.realtek.com ([60.250.210.242]:59460 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649Ab2C0H5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 03:57:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mircea, could you please supply an ack for the below fix to silence a
-warning.  Thanks.
+Adjust r810x_pll_power_down, r810x_pll_power_up, and r8168_pll_power_up.
+Always power up device during rtl_open. For r810x, turn off more power
+when the WOL is disabled.
 
-8<=====
-ARM: fix Kconfig warning for HAVE_BPF_JIT
-
-Last night's randconfig and the allnoconfig builds spat out the
-following warning while building:
-
-warning: (ARM) selects HAVE_BPF_JIT which has unmet direct dependencies (NET)
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- arch/arm/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |   37 +++++++++++++++++++++++++++------
+ 1 files changed, 30 insertions(+), 7 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 9e21b6e..6a54606 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -33,7 +33,7 @@ config ARM
- 	select GENERIC_IRQ_SHOW
- 	select CPU_PM if (SUSPEND || CPU_IDLE)
- 	select GENERIC_PCI_IOMAP
--	select HAVE_BPF_JIT
-+	select HAVE_BPF_JIT if NET
- 	help
- 	  The ARM series is a line of low-power-consumption RISC chip designs
- 	  licensed by ARM Ltd and targeted at embedded applications and
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 27c358c..3edb996 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3508,15 +3508,45 @@ static void r810x_phy_power_up(struct rtl8169_private *tp)
+ 
+ static void r810x_pll_power_down(struct rtl8169_private *tp)
+ {
++	void __iomem *ioaddr = tp->mmio_addr;
++
+ 	if (rtl_wol_pll_power_down(tp))
+ 		return;
+ 
+ 	r810x_phy_power_down(tp);
++
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_07:
++	case RTL_GIGA_MAC_VER_08:
++	case RTL_GIGA_MAC_VER_09:
++	case RTL_GIGA_MAC_VER_10:
++	case RTL_GIGA_MAC_VER_13:
++	case RTL_GIGA_MAC_VER_16:
++		break;
++	default:
++		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
++		break;
++	}
+ }
+ 
+ static void r810x_pll_power_up(struct rtl8169_private *tp)
+ {
++	void __iomem *ioaddr = tp->mmio_addr;
++
+ 	r810x_phy_power_up(tp);
++
++	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_07:
++	case RTL_GIGA_MAC_VER_08:
++	case RTL_GIGA_MAC_VER_09:
++	case RTL_GIGA_MAC_VER_10:
++	case RTL_GIGA_MAC_VER_13:
++	case RTL_GIGA_MAC_VER_16:
++		break;
++	default:
++		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
++		break;
++	}
+ }
+ 
+ static void r8168_phy_power_up(struct rtl8169_private *tp)
+@@ -3620,13 +3650,6 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 
+-	if ((tp->mac_version == RTL_GIGA_MAC_VER_27 ||
+-	     tp->mac_version == RTL_GIGA_MAC_VER_28 ||
+-	     tp->mac_version == RTL_GIGA_MAC_VER_31) &&
+-	    r8168dp_check_dash(tp)) {
+-		return;
+-	}
+-
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_25:
+ 	case RTL_GIGA_MAC_VER_26:
+-- 
+1.7.7.6
