@@ -1,47 +1,44 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Tue, 27 Mar 2012 17:33:45 +0200
-Message-ID: <20120327153345.GA13948@localhost.localdomain>
-References: <02874ECE860811409154E81DA85FBB580DA6E3@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS6QuMJoXz8mmqZsgfTF2ykRz6KG_nCoPBBkTA4z3idoGA@mail.gmail.com>
- <20120322064107.GB2182@netboy.at.omicron.at>
- <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
- <02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
- <20120324065147.GB2201@netboy.at.omicron.at>
- <CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
- <20120326152730.GA10212@localhost.localdomain>
- <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [PATCH ipv4 multicast] Fix IPv4 multicast over network namespaces
+Date: Tue, 27 Mar 2012 12:12:28 -0400
+Message-ID: <20120327161228.GA2367@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:56330 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753425Ab2C0PeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 11:34:00 -0400
-Received: by wejx9 with SMTP id x9so17147wej.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 08:33:59 -0700 (PDT)
+Received: from kanga.kvack.org ([205.233.56.17]:54792 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753887Ab2C0QM3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 12:12:29 -0400
 Content-Disposition: inline
-In-Reply-To: <CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 26, 2012 at 01:11:32PM -0400, chetan loke wrote:
-> 
-> Why isn't ioctl-rate limiting acceptable?
+When using multicast over a local bridge feeding a number of LXC guests
+using veth, the LXC guests are unable to get a response from other guests
+when pinging 224.0.0.1.  Multicast packets did not appear to be getting
+delivered to the network namespaces of the guest hosts, and further
+inspection showed that the incoming route was pointing to the loopback
+device of the host, not the guest.  This lead to the wrong network namespace
+being picked up by sockets (like ICMP).  Fix this by using the correct
+network namespace when creating the inbound route entry.
+---
+ net/ipv4/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Let me turn the question around.
-
-What other kernel subsystem rate limits ioctls?
-
-Richard
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 12ccf88..3b110a4 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2042,7 +2042,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		if (err < 0)
+ 			goto e_err;
+ 	}
+-	rth = rt_dst_alloc(init_net.loopback_dev,
++	rth = rt_dst_alloc(dev_net(dev)->loopback_dev,
+ 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false);
+ 	if (!rth)
+ 		goto e_nobufs;
+-- 
+1.7.4.1
