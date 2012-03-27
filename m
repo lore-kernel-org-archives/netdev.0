@@ -1,44 +1,116 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net] bnx2x: fix vector traveling while looking for an
- empty entry
-Date: Tue, 27 Mar 2012 09:08:55 +0200
-Message-ID: <1332832135-22054-1-git-send-email-dmitry@broadcom.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] mISDN: array underflow in open_bchannel()
+Date: Tue, 27 Mar 2012 10:20:48 +0300
+Message-ID: <20120327072048.GC19008@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
-	zenczykowski@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2111 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752115Ab2C0HJS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 03:09:18 -0400
+Received: from acsinet15.oracle.com ([141.146.126.227]:21368 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756947Ab2C0HVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 03:21:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ixes the bug that may prevent from mac to be configured,
-while there is an empty slot for it.
+There are two channels here.  User space starts counting channels at one
+but in the kernel we start at zero.  If the user passes in a zero
+channel that's invalid and could lead to memory corruption.
 
-Reported-by: Maciej =C5=BBenczykowski <zenczykowski@gmail.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/n=
-et/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 3f52fad..5135733 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -3847,7 +3847,7 @@ static bool bnx2x_credit_pool_get_entry(
- 			continue;
-=20
- 		/* If we've got here we are going to find a free entry */
--		for (idx =3D vec * BNX2X_POOL_VEC_SIZE, i =3D 0;
-+		for (idx =3D vec * BIT_VEC64_ELEM_SZ, i =3D 0;
- 		      i < BIT_VEC64_ELEM_SZ; idx++, i++)
-=20
- 			if (BIT_VEC64_TEST_BIT(o->pool_mirror, idx)) {
---=20
-1.7.7.2
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index d055ae7..e2c83a2 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -1962,7 +1962,7 @@ open_bchannel(struct hfc_pci *hc, struct channel_req *rq)
+ {
+ 	struct bchannel		*bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
+index 7f1e7ba..2183357 100644
+--- a/drivers/isdn/hardware/mISDN/w6692.c
++++ b/drivers/isdn/hardware/mISDN/w6692.c
+@@ -1015,7 +1015,7 @@ open_bchannel(struct w6692_hw *card, struct channel_req *rq)
+ {
+ 	struct bchannel *bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
+index 10446ab..9a6da6e 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNisar.c
++++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
+@@ -1670,7 +1670,7 @@ isar_open(struct isar_hw *isar, struct channel_req *rq)
+ {
+ 	struct bchannel		*bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
+index dd6de9f..c726e09 100644
+--- a/drivers/isdn/hardware/mISDN/netjet.c
++++ b/drivers/isdn/hardware/mISDN/netjet.c
+@@ -860,7 +860,7 @@ open_bchannel(struct tiger_hw *card, struct channel_req *rq)
+ {
+ 	struct bchannel *bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
+index 05ed4d0c..c0b8c96 100644
+--- a/drivers/isdn/hardware/mISDN/avmfritz.c
++++ b/drivers/isdn/hardware/mISDN/avmfritz.c
+@@ -891,7 +891,7 @@ open_bchannel(struct fritzcard *fc, struct channel_req *rq)
+ {
+ 	struct bchannel		*bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index 6023387..8cde2a0 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -486,7 +486,7 @@ open_bchannel(struct hfcsusb *hw, struct channel_req *rq)
+ {
+ 	struct bchannel		*bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
+diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
+index b47e9be..884369f 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNipac.c
++++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
+@@ -1506,7 +1506,7 @@ open_bchannel(struct ipac_hw *ipac, struct channel_req *rq)
+ {
+ 	struct bchannel		*bch;
+ 
+-	if (rq->adr.channel > 2)
++	if (rq->adr.channel == 0 || rq->adr.channel > 2)
+ 		return -EINVAL;
+ 	if (rq->protocol == ISDN_P_NONE)
+ 		return -EINVAL;
