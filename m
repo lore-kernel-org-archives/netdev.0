@@ -1,194 +1,232 @@
 From: Stuart Hodgson <smhodgson@solarflare.com>
-Subject: [RFC PATCH 1/2] net: ethtool: Add capability to retrieve plug-in
+Subject: [RFC PATCH 2/2] net: ethtool: Add capability to retrieve plug-in
  module EEPROM
-Date: Tue, 27 Mar 2012 18:51:06 +0100
-Message-ID: <4F71FE0A.3060203@solarflare.com>
+Date: Tue, 27 Mar 2012 18:51:17 +0100
+Message-ID: <4F71FE15.7060708@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	<bruce.w.allan@intel.com>, <mirq-linux@rere.qmqm.pl>,
-	<decot@google.com>, <amit.salecha@qlogic.com>,
-	<alexander.h.duyck@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	<davem@davemloft.net>, <linux-kernel@vger.kernel.org>
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12693 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754587Ab2C0RvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 13:51:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added extensions to the ethtool API to obtain plugin module eeprom data
-This is useful for end users to be able to determine what the capabilities
-of the in use module are.
+Implementation in sfc driver to return the plugin module eeprom
 
-The first provides a new struct ethtool_modinfo that will return the
-type and size of plug-in module eeprom (such as SFP+) for parsing
-by userland program.
-
-The second provides the API to get the raw eeprom information
-using the existing ethtool_eeprom structture to return the data
+Currently allows for SFP+ eeprom to be returned using the ethtool API.
+This can be extended in future to handle different eeprom formats
+and sizes.
 
 Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
 ---
-  include/linux/ethtool.h |   20 ++++++++++++
-  net/core/ethtool.c      |   79 
-+++++++++++++++++++++++++++++++++++++++++++++++
-  2 files changed, 99 insertions(+), 0 deletions(-)
+  drivers/net/ethernet/sfc/ethtool.c    |   36 +++++++++++
+  drivers/net/ethernet/sfc/mcdi_phy.c   |  105 
++++++++++++++++++++++++++++++++++
+  drivers/net/ethernet/sfc/net_driver.h |    5 ++
+  3 files changed, 146 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index da5b2de..50eaf35 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -117,6 +117,14 @@ struct ethtool_eeprom {
-      __u8    data[0];
-  };
-
-+/* for passing plug-in module information */
-+struct ethtool_modinfo {
-+    __u32   cmd;
-+    __u32   type;
-+    __u32   eeprom_len;
-+    __u32   reserved[8];
-+};
-+
-  /**
-   * struct ethtool_coalesce - coalescing parameters for IRQs and stats 
-updates
-   * @cmd: ETHTOOL_{G,S}COALESCE
-@@ -936,6 +944,10 @@ struct ethtool_ops {
-      int    (*get_dump_data)(struct net_device *,
-                   struct ethtool_dump *, void *);
-      int    (*set_dump)(struct net_device *, struct ethtool_dump *);
-+    int    (*get_module_info)(struct net_device *,
-+                   struct ethtool_modinfo *);
-+    int    (*get_module_eeprom)(struct net_device *,
-+                     struct ethtool_eeprom *, u8 *);
-
-  };
-  #endif /* __KERNEL__ */
-@@ -1010,6 +1022,8 @@ struct ethtool_ops {
-  #define ETHTOOL_SET_DUMP    0x0000003e /* Set dump settings */
-  #define ETHTOOL_GET_DUMP_FLAG    0x0000003f /* Get dump settings */
-  #define ETHTOOL_GET_DUMP_DATA    0x00000040 /* Get dump data */
-+#define ETHTOOL_GMODULEINFO    0x00000041 /* Get plug-in module 
-information */
-+#define ETHTOOL_GMODULEEEPROM    0x00000042 /* Get plug-in module eeprom */
-
-  /* compatibility with older code */
-  #define SPARC_ETH_GSET        ETHTOOL_GSET
-@@ -1159,6 +1173,12 @@ struct ethtool_ops {
-  #define RX_CLS_LOC_FIRST    0xfffffffe
-  #define RX_CLS_LOC_LAST        0xfffffffd
-
-+/* EEPROM Standards for plug in modules */
-+#define SFF_8079        0x1
-+#define SFF_8079_LEN        256
-+#define SFF_8472        0x2
-+#define SFF_8472_LEN        512
-+
-  /* Reset flags */
-  /* The reset() operation must clear the flags for the components which
-   * were actually reset.  On successful return, the flags indicate the
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 3f79db1..1e86bd9 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1276,6 +1276,79 @@ out:
-      return ret;
+diff --git a/drivers/net/ethernet/sfc/ethtool.c 
+b/drivers/net/ethernet/sfc/ethtool.c
+index f22f45f..e77895f 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -1108,6 +1108,40 @@ static int efx_ethtool_set_rxfh_indir(struct 
+net_device *net_dev,
+      return 0;
   }
 
-+static int ethtool_get_module_info(struct net_device *dev,
-+        void __user *useraddr)
++static int efx_ethtool_get_module_eeprom(struct net_device *net_dev,
++                     struct ethtool_eeprom *ee,
++                     u8 *data)
 +{
++    struct efx_nic *efx = netdev_priv(net_dev);
 +    int ret;
-+    struct ethtool_modinfo modinfo;
-+    const struct ethtool_ops *ops = dev->ethtool_ops;
 +
-+    if (!ops->get_module_info)
++    if (!efx->phy_op ||
++        !efx->phy_op->get_module_eeprom)
 +        return -EOPNOTSUPP;
 +
-+    if (copy_from_user(&modinfo, useraddr, sizeof(modinfo)))
-+        return -EFAULT;
++    mutex_lock(&efx->mac_lock);
++    ret = efx->phy_op->get_module_eeprom(efx, ee, data);
++    mutex_unlock(&efx->mac_lock);
 +
-+    ret = ops->get_module_info(dev, &modinfo);
-+    if (ret)
-+        return ret;
++    return ret;
++}
 +
-+    if (copy_to_user(useraddr, &modinfo, sizeof(modinfo)))
-+        return -EFAULT;
++static int efx_ethtool_get_module_info(struct net_device *net_dev,
++                       struct ethtool_modinfo *modinfo)
++{
++    struct efx_nic *efx = netdev_priv(net_dev);
++    int ret;
++
++    if (!efx->phy_op || !efx->phy_op->get_module_info)
++        return 0;
++
++    mutex_lock(&efx->mac_lock);
++    ret = efx->phy_op->get_module_info(efx, modinfo);
++    mutex_unlock(&efx->mac_lock);
++
++    return ret;
++}
++
+  const struct ethtool_ops efx_ethtool_ops = {
+      .get_settings        = efx_ethtool_get_settings,
+      .set_settings        = efx_ethtool_set_settings,
+@@ -1137,4 +1171,6 @@ const struct ethtool_ops efx_ethtool_ops = {
+      .get_rxfh_indir_size    = efx_ethtool_get_rxfh_indir_size,
+      .get_rxfh_indir        = efx_ethtool_get_rxfh_indir,
+      .set_rxfh_indir        = efx_ethtool_set_rxfh_indir,
++    .get_module_info    = efx_ethtool_get_module_info,
++    .get_module_eeprom    = efx_ethtool_get_module_eeprom,
+  };
+diff --git a/drivers/net/ethernet/sfc/mcdi_phy.c 
+b/drivers/net/ethernet/sfc/mcdi_phy.c
+index 7bcad89..be8e372 100644
+--- a/drivers/net/ethernet/sfc/mcdi_phy.c
++++ b/drivers/net/ethernet/sfc/mcdi_phy.c
+@@ -304,6 +304,17 @@ static u32 mcdi_to_ethtool_media(u32 media)
+      }
+  }
+
++static u32 mcdi_to_module_eeprom_len(u32 media)
++{
++    switch (media) {
++    case MC_CMD_MEDIA_SFP_PLUS:
++        return SFF_8079_LEN;
++    case MC_CMD_MEDIA_XFP:
++    default:
++        return 0;
++    }
++}
++
+  static int efx_mcdi_phy_probe(struct efx_nic *efx)
+  {
+      struct efx_mcdi_phy_data *phy_data;
+@@ -739,6 +750,98 @@ static const char *efx_mcdi_phy_test_name(struct 
+efx_nic *efx,
+      return NULL;
+  }
+
++#define SFP_PAGE_SIZE    128
++#define NUM_PAGES    2
++#define OFF_TO_BUFF(x)    (x + MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST)
++static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
++                      struct ethtool_eeprom *ee, u8 *data)
++{
++    u8 outbuf[MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX];
++    u8 inbuf[MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN];
++    size_t outlen;
++    int rc;
++    int payload_len;
++    int copied = 0;
++    int space_remaining = ee->len;
++    int page;
++    int page_off;
++    int to_copy;
++    u8 *user_data = data;
++
++    if (!data || !ee)
++        return -EINVAL;
++
++    if (ee->offset > (SFP_PAGE_SIZE * NUM_PAGES)) {
++        rc = -EINVAL;
++        goto fail;
++    }
++
++    page_off = (ee->offset % SFP_PAGE_SIZE);
++    page = (ee->offset > SFP_PAGE_SIZE) ? 1 : 0;
++
++    while (space_remaining && (page < NUM_PAGES)) {
++
++        MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
++
++        rc = efx_mcdi_rpc(efx, MC_CMD_GET_PHY_MEDIA_INFO,
++                  inbuf, sizeof(inbuf),
++                  outbuf, sizeof(outbuf),
++ &outlen);
++
++        if (rc)
++            goto fail;
++
++        /* Copy as much as we can into data */
++        if (outlen < MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMIN ||
++            outlen > MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX) {
++            rc = -EIO;
++            goto fail;
++        }
++
++        payload_len = MCDI_DWORD(outbuf,
++                     GET_PHY_MEDIA_INFO_OUT_DATALEN);
++
++        to_copy = (space_remaining < payload_len) ?
++                space_remaining : payload_len;
++
++        to_copy -= page_off;
++
++        memcpy(user_data,
++               (outbuf + OFF_TO_BUFF(page_off)),
++               to_copy);
++
++        space_remaining -= to_copy;
++        user_data += to_copy;
++        copied += to_copy;
++        page_off = 0;
++        page++;
++    }
++
++    ee->len = copied;
++
++    return 0;
++fail:
++    return rc;
++}
++
++static int efx_mcdi_phy_get_module_info(struct efx_nic *efx,
++                    struct ethtool_modinfo *modinfo)
++{
++    /* This will return a length of the eeprom
++     * type of the module that was detected during the probe,
++     * if not modules inserted then phy_data will be NULL */
++    struct efx_mcdi_phy_data *phy_cfg;
++
++    if (!efx || !efx->phy_data)
++        return -EOPNOTSUPP;
++
++    phy_cfg = efx->phy_data;
++    modinfo->eeprom_len = mcdi_to_module_eeprom_len(phy_cfg->media);
++    modinfo->type = SFF_8079;
 +
 +    return 0;
 +}
 +
-+static int ethtool_get_module_eeprom(struct net_device *dev,
-+        void __user *useraddr)
-+{
-+    int ret;
-+    struct ethtool_eeprom eeprom;
-+    struct ethtool_modinfo modinfo;
-+    const struct ethtool_ops *ops = dev->ethtool_ops;
-+    void __user *userbuf = useraddr + sizeof(eeprom);
-+    u8 *data;
-+
-+    if (!ops->get_module_info || !ops->get_module_eeprom)
-+        return -EOPNOTSUPP;
-+
-+    if (copy_from_user(&eeprom, useraddr, sizeof(eeprom)))
-+        return -EFAULT;
-+
-+    /* Check for wrap and zero */
-+    if (eeprom.offset + eeprom.len <= eeprom.offset)
-+        return -EINVAL;
-+
-+    /* Get the modinfo to get the length */
-+    ret = ops->get_module_info(dev, &modinfo);
-+    if (ret)
-+        return ret;
-+
-+    if (eeprom.offset + eeprom.len > modinfo.eeprom_len)
-+        return -EINVAL;
-+
-+    data = kmalloc(PAGE_SIZE, GFP_USER);
-+    if (!data)
-+        return -ENOMEM;
-+
-+    ret = ops->get_module_eeprom(dev, &eeprom, data);
-+    if (ret)
-+        goto out;
-+
-+
-+    if (copy_to_user(userbuf, data, eeprom.len)) {
-+        ret = -EFAULT;
-+        goto out;
-+    }
-+
-+    if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
-+        ret = -EFAULT;
-+
-+out:
-+    kfree(data);
-+    return ret;
-+}
-+
-  /* The main entry point in this file.  Called from net/core/dev.c */
+  const struct efx_phy_operations efx_mcdi_phy_ops = {
+      .probe        = efx_mcdi_phy_probe,
+      .init        = efx_port_dummy_op_int,
+@@ -751,4 +854,6 @@ const struct efx_phy_operations efx_mcdi_phy_ops = {
+      .test_alive    = efx_mcdi_phy_test_alive,
+      .run_tests    = efx_mcdi_phy_run_tests,
+      .test_name    = efx_mcdi_phy_test_name,
++    .get_module_eeprom    = efx_mcdi_phy_get_module_eeprom,
++    .get_module_info    = efx_mcdi_phy_get_module_info,
+  };
+diff --git a/drivers/net/ethernet/sfc/net_driver.h 
+b/drivers/net/ethernet/sfc/net_driver.h
+index 0b95505..245fc42 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -524,6 +524,11 @@ struct efx_phy_operations {
+      int (*test_alive) (struct efx_nic *efx);
+      const char *(*test_name) (struct efx_nic *efx, unsigned int index);
+      int (*run_tests) (struct efx_nic *efx, int *results, unsigned flags);
++    int (*get_module_eeprom) (struct efx_nic *efx,
++                   struct ethtool_eeprom *ee,
++                   u8 *data);
++    int (*get_module_info) (struct efx_nic *efx,
++                struct ethtool_modinfo *modinfo);
+  };
 
-  int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1494,6 +1567,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
-      case ETHTOOL_GET_DUMP_DATA:
-          rc = ethtool_get_dump_data(dev, useraddr);
-          break;
-+    case ETHTOOL_GMODULEINFO:
-+        rc = ethtool_get_module_info(dev, useraddr);
-+        break;
-+    case ETHTOOL_GMODULEEEPROM:
-+        rc = ethtool_get_module_eeprom(dev, useraddr);
-+        break;
-      default:
-          rc = -EOPNOTSUPP;
-      }
+  /**
 -- 
 1.7.7.6
