@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: socket option IP_MSFILTER questions and observations
-Date: Mon, 26 Mar 2012 16:14:57 -0400 (EDT)
-Message-ID: <20120326.161457.1798045867160220286.davem@davemloft.net>
-References: <4F708E08.7040500@softathome.com>
+From: Parav Pandit <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 0/2] be2net: Added functionality to support RoCE driver
+Date: Tue, 27 Mar 2012 05:57:11 +0530
+Message-ID: <820977c9-ce23-4d7c-8d04-41bb37158ecf@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cedric.jehasse@softathome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34178 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755447Ab2CZUPC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Mar 2012 16:15:02 -0400
-In-Reply-To: <4F708E08.7040500@softathome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Parav Pandit <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Cedric Jehasse <cedric.jehasse@softathome.com>
-Date: Mon, 26 Mar 2012 17:40:56 +0200
+From: Parav Pandit <parav.pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>
 
-> This message and any attachments herein are confidential, intended
-> solely for the addressees and are SoftAtHome's ownership. Any
-> unauthorized use or dissemination is prohibited. If you are not the
-> intended addressee of this message, please cancel it immediately and
-> inform the sender.
+This patch is for netdev net-next tree. It is based on previous RFC.
+Those review comments are addressed.
+This patch adds functionality to support RoCE (RDMA over Ethernet) driver.
+- Detecting RoCE supported adapters and creating linked list of them.
+- Enabling 5 more MSIX vectors for RoCE functionality.
+- Calling registered callback functions of the RoCE driver
+  whenever new RoCE capable device is added/removed.
+- Notifying events to RoCE driver when interface is up or down.
+- Provides device specific details to RoCE driver for each roce device.
+- Provides low level mailbox command to be issued by RoCE driver
+  before it can have it own MQ.
 
-Do not send posting to this mailing list with such disclaimers, they
-make absolutely no sense on a publicly distributed mailing list that
-anyone in the world can legitimately read.
+Parav Pandit (2):
+  be2net: Added function to issue mailbox cmd on MQ.
+  be2net: Added functionality to support RoCE driver
+
+ drivers/net/ethernet/emulex/benet/Makefile  |    2 +-
+ drivers/net/ethernet/emulex/benet/be.h      |   38 ++++++-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   39 ++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    4 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   88 +++++++++++--
+ drivers/net/ethernet/emulex/benet/be_roce.c |  182 +++++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_roce.h |   75 +++++++++++
+ 8 files changed, 414 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.c
+ create mode 100644 drivers/net/ethernet/emulex/benet/be_roce.h
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
