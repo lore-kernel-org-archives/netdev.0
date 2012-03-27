@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ipv4 multicast] Fix IPv4 multicast over network
- namespaces
-Date: Tue, 27 Mar 2012 17:35:41 -0400 (EDT)
-Message-ID: <20120327.173541.1721499825104013533.davem@davemloft.net>
-References: <20120327161228.GA2367@kvack.org>
+Subject: Re: [PATCH net/core] dev_forward_skb() should clear skb_iif
+Date: Tue, 27 Mar 2012 17:37:07 -0400 (EDT)
+Message-ID: <20120327.173707.226441470555050908.davem@davemloft.net>
+References: <20120327162920.GB2367@kvack.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: bcrl@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45959 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46009 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754402Ab2C0Vfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 17:35:45 -0400
-In-Reply-To: <20120327161228.GA2367@kvack.org>
+	with ESMTP id S1753472Ab2C0Vm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 17:42:29 -0400
+In-Reply-To: <20120327162920.GB2367@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Tue, 27 Mar 2012 12:12:28 -0400
+Date: Tue, 27 Mar 2012 12:29:20 -0400
 
-> When using multicast over a local bridge feeding a number of LXC guests
-> using veth, the LXC guests are unable to get a response from other guests
-> when pinging 224.0.0.1.  Multicast packets did not appear to be getting
-> delivered to the network namespaces of the guest hosts, and further
-> inspection showed that the incoming route was pointing to the loopback
-> device of the host, not the guest.  This lead to the wrong network namespace
-> being picked up by sockets (like ICMP).  Fix this by using the correct
-> network namespace when creating the inbound route entry.
+> While investigating another bug, I found that the code on the incoming path
+> in __netif_receive_skb will only set skb->skb_iif if it is already 0.  When
+> dev_forward_skb() is used in the case of interfaces like veth, skb_iif may
+> already have been set.  Making dev_forward_skb() cause the packet to look
+> more like a newly received packet would seem to the the correct behaviour
+> here, as otherwise the wrong incoming interface can be reported for such a
+> packet.
 
-No signoff.
+Same problems as your ipv4 multicast patch, I'm not applying this.
 
-No proper subsystem prefix in Subject line (should be "ipv4: " here)
-
-And third you've been warned about this repeatedly in your previous
-patch postings.
-
-Therefore I'm not applying this.
+You must learn how to properly submit your changes, otherwise I
+guarentee all of your work will hit the bit bucket.
