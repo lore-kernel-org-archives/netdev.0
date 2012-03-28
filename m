@@ -1,85 +1,168 @@
-From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH] f_phonet: fix skb truesize underestimation
-Date: Wed, 28 Mar 2012 15:43:14 +0300
-Message-ID: <20120328124314.GG28319@arwen.pp.htv.fi>
-References: <1332853442.3248.15.camel@edumazet-laptop>
- <20120327.225109.752822925052179338.davem@davemloft.net>
- <20120328085535.GF18156@arwen.pp.htv.fi>
- <20120328.053310.219141897175161116.davem@davemloft.net>
-Reply-To: balbi-l0cyMroinI0@public.gmane.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] tcp: bind() use stronger condition for bind_conflict
+Date: Wed, 28 Mar 2012 10:52:12 -0300
+Message-ID: <20120328105212.1cb8dfe5@asterix.rh>
+References: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="bygAmIonOAIqBxQB"
-Cc: balbi-l0cyMroinI0@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120328.053310.219141897175161116.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Baluta <dbaluta@ixiacom.com>
+To: Alexandru Copot <alex.mihai.c@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 28 Mar 2012 00:11:52 +0300
+Alexandru Copot <alex.mihai.c@gmail.com> wrote:
 
---bygAmIonOAIqBxQB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> We must try harder to get unique (addr, port) pairs when
+> doing port autoselection for sockets with SO_REUSEADDR
+> option set.
+> 
+> We achieve this by adding a relaxation parameter to
+> inet_csk_bind_conflict. When 'relax' parameter is off
+> we return a conflict whenever the current searched
+> pair (addr, port) is not unique.
+> 
+> This tries to address the problems reported in patch:
+> 	8d238b25b1ec22a73b1c2206f111df2faaff8285
+> 	Revert "tcp: bind() fix when many ports are bound"
+> 
+> Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
+> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
+> ---
+>  include/net/inet6_connection_sock.h |    2 +-
+>  include/net/inet_connection_sock.h  |    4 ++--
+>  net/ipv4/inet_connection_sock.c     |   17 +++++++++++++----
+>  net/ipv6/inet6_connection_sock.c    |    3 ++-
+>  4 files changed, 18 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
+> index 3207e58..9d29ae2 100644
+> --- a/include/net/inet6_connection_sock.h
+> +++ b/include/net/inet6_connection_sock.h
+> @@ -23,7 +23,7 @@ struct sock;
+>  struct sockaddr;
+>  
+>  extern int inet6_csk_bind_conflict(const struct sock *sk,
+> -				   const struct inet_bind_bucket *tb);
+> +				   const struct inet_bind_bucket *tb, int relax);
+>  
+>  extern struct dst_entry* inet6_csk_route_req(struct sock *sk,
+>  					     const struct request_sock *req);
+> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+> index dbf9aab..f05a032 100644
+> --- a/include/net/inet_connection_sock.h
+> +++ b/include/net/inet_connection_sock.h
+> @@ -60,7 +60,7 @@ struct inet_connection_sock_af_ops {
+>  #endif
+>  	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
+>  	int	    (*bind_conflict)(const struct sock *sk,
+> -				     const struct inet_bind_bucket *tb);
+> +				     const struct inet_bind_bucket *tb, int relax);
+>  };
+>  
+>  /** inet_connection_sock - INET connection oriented sock
+> @@ -245,7 +245,7 @@ extern struct request_sock *inet_csk_search_req(const struct sock *sk,
+>  						const __be32 raddr,
+>  						const __be32 laddr);
+>  extern int inet_csk_bind_conflict(const struct sock *sk,
+> -				  const struct inet_bind_bucket *tb);
+> +				  const struct inet_bind_bucket *tb, int relax);
+>  extern int inet_csk_get_port(struct sock *sk, unsigned short snum);
+>  
+>  extern struct dst_entry* inet_csk_route_req(struct sock *sk,
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index 19d66ce..bf50e77 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -53,7 +53,7 @@ void inet_get_local_port_range(int *low, int *high)
+>  EXPORT_SYMBOL(inet_get_local_port_range);
+>  
+>  int inet_csk_bind_conflict(const struct sock *sk,
+> -			   const struct inet_bind_bucket *tb)
+> +			   const struct inet_bind_bucket *tb, int relax)
+>  {
+>  	struct sock *sk2;
+>  	struct hlist_node *node;
+> @@ -79,6 +79,13 @@ int inet_csk_bind_conflict(const struct sock *sk,
+>  				    sk2_rcv_saddr == sk_rcv_saddr(sk))
+>  					break;
+>  			}
+> +			if (!relax && reuse && sk2->sk_reuse &&
+> +					sk2->sk_state != TCP_LISTEN) {
+> +				const __be32 sk2_rcv_saddr = sk_rcv_saddr(sk2);
+> +				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
+> +						sk2_rcv_saddr == sk_rcv_saddr(sk))
 
-On Wed, Mar 28, 2012 at 05:33:10AM -0400, David Miller wrote:
-> From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-> Date: Wed, 28 Mar 2012 11:55:36 +0300
->=20
-> > On Tue, Mar 27, 2012 at 10:51:09PM -0400, David Miller wrote:
-> >> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> Date: Tue, 27 Mar 2012 06:04:02 -0700
-> >>=20
-> >> > Now skb_add_rx_frag() has a truesize parameter, we can fix f_phonet =
-to
-> >> > properly account truesize of each fragment : a full page.
-> >> >=20
-> >> > Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >>=20
-> >> Applied.
-> >=20
-> > did you apply both patches ?
->=20
-> You never need to ask me these kinds of questions, you can
-> either check my GIT tree or look at:
->=20
-> http://patchwork.ozlabs.org/project/netdev/list/?state=3D3
+I am still checking the patch, but the above is out of coding style.
+perhaps:
++				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
++				    sk2_rcv_saddr == sk_rcv_saddr(sk))
 
-I'm asking because drivers/usb/gadget/ should either go through me or
-you should wait for my Acked-by. Now it's too late for that, but next
-time for my Ack.
 
---=20
-balbi
+> +					break;
+> +			}
+>  		}
+>  	}
+>  	return node != NULL;
+> @@ -122,12 +129,13 @@ again:
+>  					    (tb->num_owners < smallest_size || smallest_size == -1)) {
+>  						smallest_size = tb->num_owners;
+>  						smallest_rover = rover;
+> -						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
+> +						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1 &&
+> +							!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 0)) {
 
---bygAmIonOAIqBxQB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Same above.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+>  							snum = smallest_rover;
+>  							goto tb_found;
+>  						}
+>  					}
+> -					if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+> +					if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 0)) {
+>  						snum = rover;
+>  						goto tb_found;
+>  					}
+> @@ -178,12 +186,13 @@ tb_found:
+>  			goto success;
+>  		} else {
+>  			ret = 1;
+> -			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+> +			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, 1)) {
+>  				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
+>  				    smallest_size != -1 && --attempts >= 0) {
+>  					spin_unlock(&head->lock);
+>  					goto again;
+>  				}
+> +
+>  				goto fail_unlock;
+>  			}
+>  		}
+> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+> index 02dd203..dfc8bc3 100644
+> --- a/net/ipv6/inet6_connection_sock.c
+> +++ b/net/ipv6/inet6_connection_sock.c
+> @@ -28,7 +28,8 @@
+>  #include <net/inet6_connection_sock.h>
+>  
+>  int inet6_csk_bind_conflict(const struct sock *sk,
+> -			    const struct inet_bind_bucket *tb)
+> +			    const struct inet_bind_bucket *tb,
+> +				int relax)
 
-iQIcBAEBAgAGBQJPcwdhAAoJEIaOsuA1yqREW+YP/1ID/2IoPIOgThGBnDJiLBt+
-HVmpmp7EZE/0Gegb48OCDt7xnCI+MITeI+bh22nhP6BYf95TY+trV+Ncjp+Zu4E6
-YKOvBHoiDlwVWR2o3nGH7QuRyLAtyUa3u/oCVevUDKRTgZT2t+elInOS2PgEXiot
-RamOcAII74OnVh8/w+nFTDzKZwPMGAAgH9NC6SwQPMXo+y2AF0O2NNh+hB5eEbGs
-0oGnxCD4brEnruNJ+2E5OVSMPFDbbHnGIdbyZcchsUVtkUfH1DAswDanSlvYz5o0
-fWEYIbVmfTBg53VrInvuFbFV5guoJbYnMxa6Rbwh69NMBVFyjYJsOoI5gkoHQfTC
-gSRAcIcz599lcs3OkGt58PogcypFQ0TLw6zmFt7+64RvGbDWXKakJ3XU2KRDQ7Zc
-spyusWCTiz0gIGAdzqt3dcHYmD2c/TnF9OLtSNHERWNw1BkJVRrXJirAe9vO0Y27
-vCw/CJDPr35/nJ9diPfoNQxDmmnxQZDmL1AAMxE692wrs2HePs3VnYY1C4/e5wiX
-Hv0X9kdgbB/Ox+hqYFpiL1/crfWTjYlQGlRdDNQThkWL8vD/SlRb44CrXGQdR/TY
-09eqrvlyfmzmBqNEECPWyu6VZFZXQ1qseoKhMFkG3IZdxibGmUcG4/Pyp7ArAJ6I
-CLyLs7EwoZ538ws6wpcD
-=Cgzu
------END PGP SIGNATURE-----
+Same here
+Maybe you can wait for more feedbacks before spin another patch 
+version just to fix that.
 
---bygAmIonOAIqBxQB--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+fbl
+
+>  {
+>  	const struct sock *sk2;
+>  	const struct hlist_node *node;
