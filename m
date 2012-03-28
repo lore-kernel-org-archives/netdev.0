@@ -1,58 +1,46 @@
-From: Chao Pei <peichao85@gmail.com>
-Subject: Question about timewait timer
-Date: Wed, 28 Mar 2012 22:21:59 +0800
-Message-ID: <CAJkE24+8NJfkgLRTvUiMyCC=qZ9bnKWTr7pBXtaC8YPMOyMfew@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: bind() use stronger condition for bind_conflict
+Date: Wed, 28 Mar 2012 16:48:33 +0200
+Message-ID: <1332946113.2325.9.camel@edumazet-glaptop>
+References: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
+	 <20120328105212.1cb8dfe5@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:50747 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758141Ab2C1OWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 10:22:00 -0400
-Received: by eekc41 with SMTP id c41so306896eek.19
-        for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 07:21:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexandru Copot <alex.mihai.c@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>
+To: Flavio Leitner <fbl@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120328105212.1cb8dfe5@asterix.rh>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-    I have a qestion about timewait timer in tcp_keepalive_timer. In
-the following code:
+On Wed, 2012-03-28 at 10:52 -0300, Flavio Leitner wrote:
+> On Wed, 28 Mar 2012 00:11:52 +0300
+> Alexandru Copot <alex.mihai.c@gmail.com> wrote:
+> 
 
-int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
-			  const struct tcphdr *th, unsigned int len)
-{
-    .....
-    case FIN_WAIT_1:
-    ......
-            tmo = tcp_fin_time(sk);
-            if (tmo > TCP_TIMEWAIT_LEN) {
-                inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
-            } else if (.....)
-    ......
-}
+> > diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+> > index 02dd203..dfc8bc3 100644
+> > --- a/net/ipv6/inet6_connection_sock.c
+> > +++ b/net/ipv6/inet6_connection_sock.c
+> > @@ -28,7 +28,8 @@
+> >  #include <net/inet6_connection_sock.h>
+> >  
+> >  int inet6_csk_bind_conflict(const struct sock *sk,
+> > -			    const struct inet_bind_bucket *tb)
+> > +			    const struct inet_bind_bucket *tb,
+> > +				int relax)
+> 
+> Same here
+> Maybe you can wait for more feedbacks before spin another patch 
+> version just to fix that.
+> 
 
-    If tmo is larger than TCP_TIMEWAIT_LEN and the FIN flag is not
-set, schedule keepalive timer. But in tcp_keepalive_timer, the timer
-is set to tcp_fin_time(sk) -TCP_TIMEWAIT_LEN again. See the source
-code below:
-	if (sk->sk_state == TCP_FIN_WAIT2 && sock_flag(sk, SOCK_DEAD)) {
-		if (tp->linger2 >= 0) {
-			const int tmo = tcp_fin_time(sk) - TCP_TIMEWAIT_LEN;
 
-			if (tmo > 0) {
-				tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
-				goto out;
-			}
-		}
-		.....
-	}
 
-    I think the first piece of code set keepalive timer to
-tmo-TCP_TIMEWAIT_LEN is because TCP_TIMEWAIT_LEN is the longest timer
-that tcp_death_row can handle. So the extra time should be taken care
-of by the keepalive timer first. If this is correct, then the timer
-should be set to TCP_TIMEWAIT_LEN in tcp_keepalive_timer, instead of
-tcp_fin_time(sk) - TCP_TIMEWAIT_LEN.
+Also 'int relax' should be 'bool relax'... 1/0 -> true/false
 
-Thanks.
+Anyway net-next is not open yet...
