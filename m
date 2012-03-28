@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] f_phonet: fix skb truesize underestimation
-Date: Wed, 28 Mar 2012 05:33:10 -0400 (EDT)
-Message-ID: <20120328.053310.219141897175161116.davem@davemloft.net>
-References: <1332853442.3248.15.camel@edumazet-laptop>
-	<20120327.225109.752822925052179338.davem@davemloft.net>
-	<20120328085535.GF18156@arwen.pp.htv.fi>
+From: Davide Ciminaghi <ciminaghi@gnudd.com>
+Subject: Re: [PATCH] net/ethernet: ks8851_mll fix rx frame buffer overflow
+Date: Wed, 28 Mar 2012 12:51:20 +0200
+Message-ID: <20120328105120.GE22721@mail.gnudd.com>
+References: <20120327130144.GA555@recalcati> <1332859171.10620.0.camel@edumazet-laptop> <20120328070540.GA4892@recalcati> <1332920391.3547.46.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, gregkh@linuxfoundation.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	remi.denis-courmont@nokia.com
-To: balbi@ti.com
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Raffaele Recalcati <raffaele.recalcati@bticino.it>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Thomas Meyer <thomas@m3y3r.de>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50711 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932238Ab2C1Jd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 05:33:26 -0400
-In-Reply-To: <20120328085535.GF18156@arwen.pp.htv.fi>
+Received: from mail2.gnudd.com ([213.203.150.91]:63812 "EHLO mail.gnudd.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753949Ab2C1Kvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2012 06:51:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1332920391.3547.46.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Wed, 28 Mar 2012 11:55:36 +0300
+On Wed, Mar 28, 2012 at 09:39:51AM +0200, Eric Dumazet wrote:
+> On Wed, 2012-03-28 at 09:05 +0200, Raffaele Recalcati wrote:
+> > Hi Eric,
+> > 
+> > On 07:39 Tue 27 Mar     , Eric Dumazet wrote:
+> > > Le mardi 27 mars 2012 ?? 15:01 +0200, Davide Ciminaghi a ??crit :
 
-> On Tue, Mar 27, 2012 at 10:51:09PM -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 27 Mar 2012 06:04:02 -0700
->> 
->> > Now skb_add_rx_frag() has a truesize parameter, we can fix f_phonet to
->> > properly account truesize of each fragment : a full page.
->> > 
->> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> 
->> Applied.
+...
+
 > 
-> did you apply both patches ?
+> So the limit should be 255, not 256.
+> (0xFFFF >> 8 -> 0xFF)
+> 
+> ks->frame_cnt = ks_rdreg16(ks, KS_RXFCTR) >> 8;
+> 
+> I cant see how 256 can be stored in a 8bit field ?
+>
+you're right, we'll resend the patch with 255.
+Well actually, since the chip appears to have 12K of internal rx buffers
+and the shortest ethernet frame should be 64 bytes long, maybe the limit could
+be set to 12*1024/64 = 192 frames, but I think 255 is safer.
+ 
 
-You never need to ask me these kinds of questions, you can
-either check my GIT tree or look at:
-
-http://patchwork.ozlabs.org/project/netdev/list/?state=3
+Thanks and regards
+Davide
