@@ -1,75 +1,93 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH net] bonding: emit event when bonding changes MAC
-Date: Wed, 28 Mar 2012 13:18:24 +0800
-Message-ID: <5e96194e81e0540ebd35cf0bb1b407aa15a20613.1332910907.git.wpan@redhat.com>
-Cc: fubar@us.ibm.com, andy@greyhouse.net, lwang@redhat.com,
-	linux-kernel@vger.kernel.org, Weiping Pan <wpan@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chao Pei <peichao85@gmail.com>
+Subject: Re: a F-RTO question
+Date: Wed, 28 Mar 2012 13:27:00 +0800
+Message-ID: <CAJkE24JXgOtbybWozeq8XKvQy9qUbJDKjcYEtaSWr3pP+ESciQ@mail.gmail.com>
+References: <4F7281ED.1060603@gmail.com>
+	<CAJkE24+qgK4_cGtiEi6hWDFS2EVYPajHY3pigwh_RqguwsedNg@mail.gmail.com>
+	<4F728EC9.1050302@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Li Yu <raise.sail@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:54552 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750746Ab2C1F1C convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2012 01:27:02 -0400
+Received: by lahj13 with SMTP id j13so746882lah.19
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 22:27:00 -0700 (PDT)
+In-Reply-To: <4F728EC9.1050302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a bonding device is configured with fail_over_mac=active,
-we expect to see the MAC address of the new active slave as the source MAC
-address after failover. But we see that the source MAC address is the MAC
-address of previous active slave.
+>
+>>> Hi,
+>>>
+>>> =A0 =A0 =A0 =A0I have a question about tcp_process_frto(), the belo=
+w source
+>>> code :
+>>>
+>>> static int tcp_process_frto(struct sock *sk, int flag)
+>>> {
+>>> =A0 =A0 =A0 =A0.....
+>>>
+>>> =A0 =A0 =A0 =A0if (!before(tp->snd_una, tp->frto_highmark)) {
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tcp_enter_frto_loss(sk, ...);
+>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 1;
+>>> =A0 =A0 =A0 =A0}
+>>>
+>>> =A0 =A0 =A0 =A0.....
+>>>
+>>> }
+>>>
+>>> =A0 =A0 =A0 =A0As my understanding, the tp->frto_highmark likes tp-=
+>high_seq,
+>>> it saves the seqno SND_NXT when a TCP connection enters F-RTO phase=
+,
+>>> is it the variable "recovery" in NewReno? So I think that if snd_un=
+a is
+>>> equal with or after frto_highmark, which means peer ack new data, s=
+o
+>>> why we enter Loss state here?
+>>>
+>>> =A0 =A0 =A0 =A0Thanks!
+>>>
+>>> Yu
+>>>
+>>>
+>>
+>> If snd_una advances to frto_highmark, it is likely that the hole was
+>> filled by the retransimitted packet, which means the original packet
+>> was likely to have been lost.
+>> So, we should enter loss state.
+>>
+>
+> I do not agree with it, if snd_una advanced to frto_highmark, which m=
+eans
+> peer acks whole window of data instead of just one segment, and
+> we can not make sure that reason of peer sends ack is whether it rece=
+ived
+> original segment or retransmitted segment.
+>
+> Even, the reason is latter, it also means the netowrk already is
+> recovered from temporarily congestion or disordered state, so we also=
+ should
+> not enter loss state.
+>
+> Thanks
+>
+> Yu
+>
 
-Emit NETDEV_CHANGEADDR event when bonding changes its MAC address, in order
-to let arp_netdev_event flush neighbour cache and route cache.
+If it is for the first reason, then the receiver should not ack the
+whole rtt of packets with just one ack. Instead, it should send ack
+once every second packet. So, we can almost be sure that the original
+packet was lost.
 
-How to reproduce this bug ?
+As for the second question. I think since the loss is proven and was
+actually detected because of the RTO timer, we should enter loss
+state.
 
-                       -----------hostB----------------
-hostA ----- switch ---|-- eth0--bond0(192.168.100.2/24)|
-(192.168.100.1/24  \--|-- eth1-/                       |
-                       --------------------------------
-
-1 on hostB,
-modprobe bonding mode=1 miimon=500 fail_over_mac=active downdelay=1000
-num_grat_arp=1
-ifconfig bond0 192.168.100.2/24 up
-ifenslave bond0 eth0
-ifenslave bond0 eth1
-
-then eth0 is the active slave, and MAC of bond0 is MAC of eth0.
-
-2 on hostA, ping 192.168.100.2
-
-3 on hostB,
-tcpdump -i bond0 -p icmp -XXX
-you will see bond0 uses MAC of eth0 as source MAC in icmp reply.
-
-4 on hostB,
-ifconfig eth0 down
-tcpdump -i bond0 -p icmp -XXX (just keep it running in step 3)
-you will see first bond0 uses MAC of eth1 as source MAC in icmp
-reply, then it will use MAC of eth0 as source MAC.
-
-Signed-off-by: Weiping Pan <wpan@redhat.com>
----
- drivers/net/bonding/bond_main.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b920d82..a20b585 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -892,9 +892,15 @@ static void bond_do_fail_over_mac(struct bonding *bond,
- 
- 	switch (bond->params.fail_over_mac) {
- 	case BOND_FOM_ACTIVE:
--		if (new_active)
-+		if (new_active) {
- 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
- 			       new_active->dev->addr_len);
-+			write_unlock_bh(&bond->curr_slave_lock);
-+			read_unlock(&bond->lock);
-+			call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-+			read_lock(&bond->lock);
-+			write_lock_bh(&bond->curr_slave_lock);
-+		}
- 		break;
- 	case BOND_FOM_FOLLOW:
- 		/*
--- 
-1.7.4
+Thanks.
