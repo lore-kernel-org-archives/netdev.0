@@ -1,74 +1,56 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: a F-RTO question
-Date: Wed, 28 Mar 2012 12:08:41 +0800
-Message-ID: <4F728EC9.1050302@gmail.com>
-References: <4F7281ED.1060603@gmail.com> <CAJkE24+qgK4_cGtiEi6hWDFS2EVYPajHY3pigwh_RqguwsedNg@mail.gmail.com>
+From: Li Yu <bingtian.ly@taobao.com>
+Subject: [PATCH] tcp: remove useless update for flag parameter in tcp_enter_frto_loss()
+Date: Wed, 28 Mar 2012 12:00:35 +0800
+Message-ID: <4F728CE3.9010402@taobao.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chao Pei <peichao85@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:40237 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750696Ab2C1EI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 00:08:56 -0400
-Received: by iagz16 with SMTP id z16so891254iag.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 21:08:56 -0700 (PDT)
-In-Reply-To: <CAJkE24+qgK4_cGtiEi6hWDFS2EVYPajHY3pigwh_RqguwsedNg@mail.gmail.com>
+Received: from gateway.alibaba-inc.com ([121.0.29.128]:26267 "EHLO
+	CNHZ-ExGW-01.ali.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1749667Ab2C1EPk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 00:15:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B403=E6=9C=8828=E6=97=A5 11:49, Chao Pei =E5=86=99=
-=E9=81=93:
->> Hi,
->>
->>         I have a question about tcp_process_frto(), the below source
->> code :
->>
->> static int tcp_process_frto(struct sock *sk, int flag)
->> {
->>         .....
->>
->>         if (!before(tp->snd_una, tp->frto_highmark)) {
->>                 tcp_enter_frto_loss(sk, ...);
->>                 return 1;
->>         }
->>
->>         .....
->>
->> }
->>
->>         As my understanding, the tp->frto_highmark likes tp->high_se=
-q,
->> it saves the seqno SND_NXT when a TCP connection enters F-RTO phase,
->> is it the variable "recovery" in NewReno? So I think that if snd_una=
- is
->> equal with or after frto_highmark, which means peer ack new data, so
->> why we enter Loss state here?
->>
->>         Thanks!
->>
->> Yu
->>
->>
->
-> If snd_una advances to frto_highmark, it is likely that the hole was
-> filled by the retransimitted packet, which means the original packet
-> was likely to have been lost.
-> So, we should enter loss state.
->
 
-I do not agree with it, if snd_una advanced to frto_highmark, which=20
-means peer acks whole window of data instead of just one segment, and
-we can not make sure that reason of peer sends ack is whether it=20
-received original segment or retransmitted segment.
+It seem that we forget remove below two lines after copying code :)
 
-Even, the reason is latter, it also means the netowrk already is
-recovered from temporarily congestion or disordered state, so we also=20
-should not enter loss state.
+This update never impacts others.
 
-Thanks
+Signed-off-by Li Yu <bingtian.ly@taobao.com>
 
-Yu
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e886e2f..b2f8ada 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2169,8 +2169,6 @@ static void tcp_enter_frto_loss(struct sock *sk,
+int allowed_segments, int flag)
+                        /* For some reason this R-bit might get cleared=
+? */
+                        if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETR=
+ANS)
+                                tp->retrans_out +=3D tcp_skb_pcount(skb=
+);
+-                       /* ...enter this if branch just for the first s=
+egment */
+-                       flag |=3D FLAG_DATA_ACKED;
+                } else {
+                        if (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS)
+                                tp->undo_marker =3D 0;
+
+________________________________
+
+This email (including any attachments) is confidential and may be legal=
+ly privileged. If you received this email in error, please delete it im=
+mediately and do not copy it or use it for any purpose or disclose its =
+contents to any other person. Thank you.
+
+=B1=BE=B5=E7=D3=CA(=B0=FC=C0=A8=C8=CE=BA=CE=B8=BD=BC=FE)=BF=C9=C4=DC=BA=
+=AC=D3=D0=BB=FA=C3=DC=D7=CA=C1=CF=B2=A2=CA=DC=B7=A8=C2=C9=B1=A3=BB=A4=A1=
+=A3=C8=E7=C4=FA=B2=BB=CA=C7=D5=FD=C8=B7=B5=C4=CA=D5=BC=FE=C8=CB=A3=AC=C7=
+=EB=C4=FA=C1=A2=BC=B4=C9=BE=B3=FD=B1=BE=D3=CA=BC=FE=A1=A3=C7=EB=B2=BB=D2=
+=AA=BD=AB=B1=BE=B5=E7=D3=CA=BD=F8=D0=D0=B8=B4=D6=C6=B2=A2=D3=C3=D7=F7=C8=
+=CE=BA=CE=C6=E4=CB=FB=D3=C3=CD=BE=A1=A2=BB=F2=CD=B8=C2=B6=B1=BE=D3=CA=BC=
+=FE=D6=AE=C4=DA=C8=DD=A1=A3=D0=BB=D0=BB=A1=A3
