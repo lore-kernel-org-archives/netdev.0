@@ -1,65 +1,71 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: [PATCH] rose_dev: fix memcpy-bug in rose_set_mac_address
-Date: Wed, 28 Mar 2012 10:47:43 +0200
-Message-ID: <4F72D02F.6090907@iogearbox.net>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH] f_phonet: fix skb truesize underestimation
+Date: Wed, 28 Mar 2012 11:55:36 +0300
+Message-ID: <20120328085535.GF18156@arwen.pp.htv.fi>
+References: <1332853442.3248.15.camel@edumazet-laptop>
+ <20120327.225109.752822925052179338.davem@davemloft.net>
+Reply-To: balbi@ti.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="CXFpZVxO6m2Ol4tQ"
+Cc: eric.dumazet@gmail.com, gregkh@linuxfoundation.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org, balbi@ti.com,
+	remi.denis-courmont@nokia.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54241 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392Ab2C1Irw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 04:47:52 -0400
+Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:58572 "EHLO
+	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757369Ab2C1I4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 04:56:07 -0400
+Received: by mail-bk0-f54.google.com with SMTP id jc3so1230547bkc.27
+        for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 01:56:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120327.225109.752822925052179338.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
 
->> This patch fixes a small bug in rose_set_mac_address. If the current and new
->> MAC addresses match, then nothing needs to be done. However memcpy was used
->> instead of memcmp for comparison.
->>
->> The patch is against the latest net-tree.
->>
->> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
->
-> You're breaking this code, not fixing it.
->
-> If you don't keep the memcpy, then the calls right below which setup
-> the loopback node will use the previous device address not the new
-> one being configured.
+--CXFpZVxO6m2Ol4tQ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-David, thanks for your feedback! So here's a small rework of the patch:
+On Tue, Mar 27, 2012 at 10:51:09PM -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 27 Mar 2012 06:04:02 -0700
+>=20
+> > Now skb_add_rx_frag() has a truesize parameter, we can fix f_phonet to
+> > properly account truesize of each fragment : a full page.
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied.
 
-If both addresses equal, nothing needs to be done. If the device is down,
-then we simply copy the new address to dev->dev_addr. If the device is up,
-then we add another loopback device with the new address, and if that does
-not fail, we remove the loopback device with the old address. And only
-then, we update the dev->dev_addr.
+did you apply both patches ?
 
-Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
----
- net/rose/rose_dev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+--=20
+balbi
 
-diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
-index 178ff4f..2679507 100644
---- a/net/rose/rose_dev.c
-+++ b/net/rose/rose_dev.c
-@@ -96,11 +96,11 @@ static int rose_set_mac_address(struct net_device *dev, void *addr)
- 	struct sockaddr *sa = addr;
- 	int err;
- 
--	if (!memcpy(dev->dev_addr, sa->sa_data, dev->addr_len))
-+	if (!memcmp(dev->dev_addr, sa->sa_data, dev->addr_len))
- 		return 0;
- 
- 	if (dev->flags & IFF_UP) {
--		err = rose_add_loopback_node((rose_address *)dev->dev_addr);
-+		err = rose_add_loopback_node((rose_address *)sa->sa_data);
- 		if (err)
- 			return err;
- 
+--CXFpZVxO6m2Ol4tQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJPctIHAAoJEIaOsuA1yqREu/MP/i1M97FpQAeQypYpvIai/On0
+oVHM3y9hd69xehI9oogCerGL/Er5AU5i72am+PAr0JGGB+KO4vS3UVQbUwCYPJPy
+wC0TxjUjQevdvM5mscNUHm4ECkAXXkAN3A8kXrsiKepm3YkXb6lric7kMXcIzGSX
++74DUy0d3yIY6PcWW/kl5nOcm15MjU1KnJgwsj5T1/5wYM3+38seqGi46TfykRyv
+WhzQ282MLIP89uUgXtVm0fRYJggXDjHsZ9IXOevo/HzfG3L/muifPq0XY/QZRKYK
+Oc1m0OZ6qbcYQwDQWfu9UHxFKwFzbKBbepQ0MO7TNnmjwwlhXA9xvMHvE3b8aWX+
+NyvIS4LL6TIb4E0R3lE76Dd5HyDy0Re3ZuV5pt8t86gp9BzqVZoP2+pjPqmNUuFB
+PQdB0bjN2qBcj3l9pwofVVMTE9BFtl5AtSNg7rxDwtHN3Uo4OqzoapwjInSCSGlp
+lja8tNgYKPiWw35QAq/k8mQdCKeY/5roFqE3WpdvL23/oYbA/HS+HFdpGQYvntmO
+AGywUejEBKtmF9vOZpstTLYtxc/nGJAiEWmuC6PdBJ8ffIAh+SN7wenHCmr0UWZA
+eQfC98ggY5mIjAVSRO6yeSXa6Fox4Ow1z1/97WIIkNV1IhSiQo0R8lKM6zJ9SeQ2
+E2YxKJT1Rh+I9RMPO6jZ
+=RJYm
+-----END PGP SIGNATURE-----
+
+--CXFpZVxO6m2Ol4tQ--
