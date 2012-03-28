@@ -1,47 +1,43 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH 2/2] dev_forward_skb() should clear skb_iif
-Date: Tue, 27 Mar 2012 20:44:29 -0400
-Message-ID: <20120328004429.GA9913@kvack.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 08/13] irda: remove spin_is_locked
+Date: Tue, 27 Mar 2012 17:47:12 -0700
+Message-ID: <1332895637-32572-9-git-send-email-andi@firstfloor.org>
+References: <1332895637-32572-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, Andi Kleen <ak@linux.intel.com>,
+	netdev@vger.kernel.org, samuel@sortiz.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1332895637-32572-1-git-send-email-andi@firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+From: Andi Kleen <ak@linux.intel.com>
+
+It's hard to imagine how this spin_is_locked debugging check is not
+totally racy.  Remove it.
+
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:56672 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757483Ab2C1Aoa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2012 20:44:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-While investigating another bug, I found that the code on the incoming path
-in __netif_receive_skb will only set skb->skb_iif if it is already 0.  When
-dev_forward_skb() is used in the case of interfaces like veth, skb_iif may
-already have been set.  Making dev_forward_skb() cause the packet to look
-like a newly received packet would seem to the the correct behaviour here,
-as otherwise the wrong incoming interface can be reported for such a packet.
-
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+Cc: samuel@sortiz.org
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- net/core/dev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/irda/sir_dev.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0f3eb7d..021bb25 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1597,6 +1597,7 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
-+	skb->skb_iif = 0;
- 	skb_set_dev(skb, dev);
- 	skb->tstamp.tv64 = 0;
- 	skb->pkt_type = PACKET_HOST;
+diff --git a/drivers/net/irda/sir_dev.c b/drivers/net/irda/sir_dev.c
+index 5039f08..90a1b3e 100644
+--- a/drivers/net/irda/sir_dev.c
++++ b/drivers/net/irda/sir_dev.c
+@@ -632,11 +632,6 @@ static netdev_tx_t sirdev_hard_xmit(struct sk_buff *skb,
+ 	/* Init tx buffer*/
+ 	dev->tx_buff.data = dev->tx_buff.head;
+ 
+-	/* Check problems */
+-	if(spin_is_locked(&dev->tx_lock)) {
+-		IRDA_DEBUG(3, "%s(), write not completed\n", __func__);
+-	}
+-
+ 	/* serialize with write completion */
+ 	spin_lock_irqsave(&dev->tx_lock, flags);
+ 
 -- 
-1.7.4.1
-
-
--- 
-"Thought is the essence of where you are now."
+1.7.7.6
