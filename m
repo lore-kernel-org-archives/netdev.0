@@ -1,30 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] cdc-phonet: fix skb truesize underestimation
-Date: Tue, 27 Mar 2012 22:51:15 -0400 (EDT)
-Message-ID: <20120327.225115.1548273111476508081.davem@davemloft.net>
-References: <1332853442.3248.15.camel@edumazet-laptop>
-	<1332854246.3248.18.camel@edumazet-laptop>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 1/5] r8169: modify pll power function
+Date: Wed, 28 Mar 2012 10:52:24 +0800
+Message-ID: <B353B7C4530143B29686566C4F883487@realtek.com.tw>
+References: <1332834834-5185-1-git-send-email-hayeswang@realtek.com> <20120327225407.GB22177@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1332854246.3248.18.camel@edumazet-laptop>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120327225407.GB22177@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 27 Mar 2012 06:17:26 -0700
-
-> Now skb_add_rx_frag() has a truesize parameter, we can fix cdc-phonet to
-> properly account truesize of each fragment : a full page.
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Wednesday, March 28, 2012 6:54 AM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next 1/5] r8169: modify pll power function
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Hayes Wang <hayeswang@realtek.com> :
+> > Adjust r810x_pll_power_down, r810x_pll_power_up, and 
+> r8168_pll_power_up.
+> > Always power up device during rtl_open.
+> > For r810x, turn off more power when the WOL is disabled.
+> 
+> Would the "Always power up" part qualify as a "fix something" change ?
+> 
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't see any issue about this yet. It seems to be reasonable to make suer the
+device would work when the open is called no matter the power is turned off
+before or not. 
+
+Best Regards,
+Hayes
