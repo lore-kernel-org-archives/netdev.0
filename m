@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] mISDN: array underflow in open_bchannel()
-Date: Tue, 27 Mar 2012 22:42:43 -0400 (EDT)
-Message-ID: <20120327.224243.1717299402560241334.davem@davemloft.net>
-References: <20120327072048.GC19008@elgon.mountain>
+Subject: Re: [PATCH] eql: dont rely on HZ=100
+Date: Tue, 27 Mar 2012 22:47:27 -0400 (EDT)
+Message-ID: <20120327.224727.30292313009301823.davem@davemloft.net>
+References: <1332835965.3248.2.camel@edumazet-laptop>
+	<1332836241.2058.35.camel@shinybook.infradead.org>
+	<1332838320.3248.6.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, adobriyan@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47964 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48037 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756645Ab2C1Cmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:42:52 -0400
-In-Reply-To: <20120327072048.GC19008@elgon.mountain>
+	with ESMTP id S932116Ab2C1Csi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:48:38 -0400
+In-Reply-To: <1332838320.3248.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 27 Mar 2012 10:20:48 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 27 Mar 2012 01:52:00 -0700
 
-> There are two channels here.  User space starts counting channels at one
-> but in the kernel we start at zero.  If the user passes in a zero
-> channel that's invalid and could lead to memory corruption.
+> [PATCH] eql: dont rely on HZ=100
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> HZ is more likely to be 1000 these days.
+> 
+> timer handlers are run from softirq, no need to disable bh
+> 
+> skb priority 1 is TC_PRIO_FILLER
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks Dan.
+Applied.
+
+Strange we export this EQL_DEFAULT_RESCHED_IVAL to userspace, where
+HZ will take on a different value I think, something akin to USER_HZ.
+
+Anyways, that's a different unrelated problem to the bug you're
+fixing.
