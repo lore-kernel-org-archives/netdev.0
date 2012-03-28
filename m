@@ -1,42 +1,75 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: [PATCH] tcp: remove useless update for flag parameter in tcp_enter_frto_loss()
-Date: Wed, 28 Mar 2012 12:23:17 +0800
-Message-ID: <4F729235.8040706@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH net] bonding: emit event when bonding changes MAC
+Date: Wed, 28 Mar 2012 13:18:24 +0800
+Message-ID: <5e96194e81e0540ebd35cf0bb1b407aa15a20613.1332910907.git.wpan@redhat.com>
+Cc: fubar@us.ibm.com, andy@greyhouse.net, lwang@redhat.com,
+	linux-kernel@vger.kernel.org, Weiping Pan <wpan@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48905 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804Ab2C1EXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 00:23:21 -0400
-Received: by pbcun15 with SMTP id un15so1182299pbc.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 21:23:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+When a bonding device is configured with fail_over_mac=active,
+we expect to see the MAC address of the new active slave as the source MAC
+address after failover. But we see that the source MAC address is the MAC
+address of previous active slave.
 
-It seem that we forget remove below two lines after copying code :)
+Emit NETDEV_CHANGEADDR event when bonding changes its MAC address, in order
+to let arp_netdev_event flush neighbour cache and route cache.
 
-This update never impacts others.
+How to reproduce this bug ?
 
-Sorry for last mail with legal notices improperly, I used wrong
-mail.
+                       -----------hostB----------------
+hostA ----- switch ---|-- eth0--bond0(192.168.100.2/24)|
+(192.168.100.1/24  \--|-- eth1-/                       |
+                       --------------------------------
 
-Signed-off-by Li Yu <bingtian.ly@taobao.com>
+1 on hostB,
+modprobe bonding mode=1 miimon=500 fail_over_mac=active downdelay=1000
+num_grat_arp=1
+ifconfig bond0 192.168.100.2/24 up
+ifenslave bond0 eth0
+ifenslave bond0 eth1
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e886e2f..b2f8ada 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2169,8 +2169,6 @@ static void tcp_enter_frto_loss(struct sock *sk,
-int allowed_segments, int flag)
- 			/* For some reason this R-bit might get cleared? */
- 			if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
- 				tp->retrans_out += tcp_skb_pcount(skb);
--			/* ...enter this if branch just for the first segment */
--			flag |= FLAG_DATA_ACKED;
- 		} else {
- 			if (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS)
- 				tp->undo_marker = 0;
+then eth0 is the active slave, and MAC of bond0 is MAC of eth0.
+
+2 on hostA, ping 192.168.100.2
+
+3 on hostB,
+tcpdump -i bond0 -p icmp -XXX
+you will see bond0 uses MAC of eth0 as source MAC in icmp reply.
+
+4 on hostB,
+ifconfig eth0 down
+tcpdump -i bond0 -p icmp -XXX (just keep it running in step 3)
+you will see first bond0 uses MAC of eth1 as source MAC in icmp
+reply, then it will use MAC of eth0 as source MAC.
+
+Signed-off-by: Weiping Pan <wpan@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b920d82..a20b585 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -892,9 +892,15 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 
+ 	switch (bond->params.fail_over_mac) {
+ 	case BOND_FOM_ACTIVE:
+-		if (new_active)
++		if (new_active) {
+ 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
+ 			       new_active->dev->addr_len);
++			write_unlock_bh(&bond->curr_slave_lock);
++			read_unlock(&bond->lock);
++			call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
++			read_lock(&bond->lock);
++			write_lock_bh(&bond->curr_slave_lock);
++		}
+ 		break;
+ 	case BOND_FOM_FOLLOW:
+ 		/*
+-- 
+1.7.4
