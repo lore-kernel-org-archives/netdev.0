@@ -1,46 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/4] ixgbe: fix typo in enumeration name
-Date: Tue, 27 Mar 2012 23:52:27 -0700
-Message-ID: <1332917548-13102-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1332917548-13102-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Xiaojun Zhang <zhangxiaojun@sourceforge.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 27 Mar 2012 23:52:24 -0700
+Message-ID: <1332917548-13102-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:1117 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751050Ab2C1Gwd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2012 02:52:33 -0400
-In-Reply-To: <1332917548-13102-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751082Ab2C1Gwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2012 02:52:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+This series of patches contains fixes for e1000, igb, igbvf, ixgb,
+ixgbe and ixgbevf.
 
-This was pointed out to me by Xiaojun Zhang on Source Forge.
+The following are changes since commit cc3425cdc04206f3c8b9efb2c693e89aa3cd9ec7:
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-CC: Xiaojun Zhang <zhangxiaojun@sourceforge.net>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Don Skidmore (2):
+  ixgbe: fix typo in enumeration name
+  ixgbe: update version number
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 80e26ff..74e1921 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -544,7 +544,7 @@ struct ixgbe_fdir_filter {
- 	u16 action;
- };
- 
--enum ixbge_state_t {
-+enum ixgbe_state_t {
- 	__IXGBE_TESTING,
- 	__IXGBE_RESETTING,
- 	__IXGBE_DOWN,
+Jiri Pirko (1):
+  e1000: fix vlan processing regression
+
+stephen hemminger (1):
+  intel: make wired ethernet driver message level consistent (rev2)
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c     |   40 +++++++++++++--------
+ drivers/net/ethernet/intel/e1000e/netdev.c        |    7 +++-
+ drivers/net/ethernet/intel/igb/igb_main.c         |    7 +++-
+ drivers/net/ethernet/intel/igbvf/netdev.c         |    7 +++-
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       |    6 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   13 ++++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    7 +++-
+ 8 files changed, 60 insertions(+), 29 deletions(-)
+
 -- 
 1.7.7.6
