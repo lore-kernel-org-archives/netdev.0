@@ -1,36 +1,39 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 10/13] smsc911x: Use lockdep_assert_held instead of home grown buggy construct
-Date: Tue, 27 Mar 2012 17:47:14 -0700
-Message-ID: <1332895637-32572-11-git-send-email-andi@firstfloor.org>
-References: <1332895637-32572-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, Andi Kleen <ak@linux.intel.com>,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332895637-32572-1-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-From: Andi Kleen <ak@linux.intel.com>
-
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH ipv4 multicast] Fix IPv4 multicast over network namespaces
+Date: Tue, 27 Mar 2012 20:49:54 -0400
+Message-ID: <20120328004954.GC2367@kvack.org>
+References: <20120327161228.GA2367@kvack.org> <20120327.173541.1721499825104013533.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
----
- drivers/net/ethernet/smsc/smsc911x.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:56813 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757516Ab2C1Atz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 20:49:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20120327.173541.1721499825104013533.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
-index 9ad5e5d..4fbb697 100644
---- a/drivers/net/ethernet/smsc/smsc911x.h
-+++ b/drivers/net/ethernet/smsc/smsc911x.h
-@@ -52,7 +52,7 @@
- 
- #ifdef CONFIG_DEBUG_SPINLOCK
- #define SMSC_ASSERT_MAC_LOCK(pdata) \
--		WARN_ON(!spin_is_locked(&pdata->mac_lock))
-+		lockdep_assert_held(&(pdata)->mac_lock)
- #else
- #define SMSC_ASSERT_MAC_LOCK(pdata) do {} while (0)
- #endif				/* CONFIG_DEBUG_SPINLOCK */
+On Tue, Mar 27, 2012 at 05:35:41PM -0400, David Miller wrote:
+> No signoff.
+
+My apologies.  Doing this manually clearly isn't working, so I've switched 
+to a script to try to catch this.
+
+> No proper subsystem prefix in Subject line (should be "ipv4: " here)
+
+I'm trying to get this right, and it looks like I botched this again, for 
+that I am truely sorry.
+
+		-ben
+
+> And third you've been warned about this repeatedly in your previous
+> patch postings.
+> 
+> Therefore I'm not applying this.
+
 -- 
-1.7.7.6
+"Thought is the essence of where you are now."
