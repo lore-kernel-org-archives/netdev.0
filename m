@@ -1,36 +1,53 @@
-From: Thomas Voegtle <tv@lio96.de>
-Subject: bridge + vlan + igmp snooping
-Date: Wed, 28 Mar 2012 17:16:38 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1203281711160.18105@er-systems.de>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH net-next 0/3] TCP connection repair (v3)
+Date: Wed, 28 Mar 2012 19:36:01 +0400
+Message-ID: <4F732FE1.9040906@parallels.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from er-systems.de ([46.4.18.139]:32837 "EHLO er-systems.de"
+Received: from mailhub.sw.ru ([195.214.232.25]:47244 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758039Ab2C1P1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2012 11:27:15 -0400
-Received: from localhost.localdomain (localhost [127.0.0.1])
-	by er-systems.de (Postfix) with ESMTP id 725EF2CF9A9
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 17:16:39 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by er-systems.de (Postfix) with ESMTPS id 44AA92CF91E
-	for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 17:16:39 +0200 (CEST)
+	id S1756518Ab2C1PgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Mar 2012 11:36:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-Hello,
+Attempt #3 with transparent TCP connection hijacking
+(previous one is here http://lists.openwall.net/netdev/2012/03/06/65).
 
-I tried multicast in vlan on a bridge with BRIDGE_IGMP_SNOOPING 
-swtiched on and it didn't work.
 
-Switching off snooping helps (echo 0 > /sys..) or switching off vlan.
-Tested on latest 3.0 and 3.2.
+Changes since v2:
 
-Is there a known issue?
+* The CAP_NET_ADMIN is required to turn repair on, not CAP_SYS_ADMIN
+
+* Changed read queue seq sockoption to work on the rcv_nxt, not the
+  copied_seq to address the issue with syn flag in the fake header
+  (see below).
+
+* Resolved issues with syn and fin flags in fake headers.
+
+  Fin can and should be dropped. The repair mode is currently allowed
+  only for closed and established sockets and thus we cannot meet an 
+  skb with this flag in the original socket (queuing fin to receive
+  queue switches the established state to the close-wait one).
+
+  Syn can also be dropped. This flag in the recv queue's skb means the
+  respective skb's seq is off-by-one relative to the actual amount of 
+  data on it. Thus, removing the flag from fake skb and fixing the seq 
+  respectively solves the issue.
+
+  However, in order to do so it's not enough to know the copied_seq and
+  recv queue length only (rcv_nxt should be copied_seq plus data length
+  plus "syn-is-there"). Thus, the rcv queue seq get/set sockoption is
+  changed to work on the rcv_nxt itself. IOW I emulate the situation
+  when the packet with data and syn is splitted into two -- a packet with
+  syn and a packet with data and the former one is already "eaten".
+
 
 Thanks,
-  Thomas
+Pavel
