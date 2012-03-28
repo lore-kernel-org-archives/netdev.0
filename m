@@ -1,47 +1,30 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH v3 2/2] net/core: dev_forward_skb() should clear skb_iif
-Date: Tue, 27 Mar 2012 21:55:44 -0400
-Message-ID: <20120328015544.GA11104@kvack.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] wimax: i2400m-usb - use a private struct
+ ethtool_ops
+Date: Tue, 27 Mar 2012 22:30:35 -0400 (EDT)
+Message-ID: <20120327.223035.737966483387610866.davem@davemloft.net>
+References: <1332761036-8913-1-git-send-email-phil.sutter@viprinet.com>
+	<1332761036-8913-2-git-send-email-phil.sutter@viprinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, inaky.perez-gonzalez@intel.com
+To: phil.sutter@viprinet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:56835 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755483Ab2C1Bzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Mar 2012 21:55:44 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:47802 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757250Ab2C1Cai (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:30:38 -0400
+In-Reply-To: <1332761036-8913-2-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While investigating another bug, I found that the code on the incoming path
-in __netif_receive_skb will only set skb->skb_iif if it is already 0.  When
-dev_forward_skb() is used in the case of interfaces like veth, skb_iif may
-already have been set.  Making dev_forward_skb() cause the packet to look
-like a newly received packet would seem to the the correct behaviour here,
-as otherwise the wrong incoming interface can be reported for such a packet.
+From: Phil Sutter <phil.sutter@viprinet.com>
+Date: Mon, 26 Mar 2012 13:23:56 +0200
 
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
----
- net/core/dev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> This way the USB variant of the driver uses usb_make_path in order to
+> provide bus-info compatible to other USB drivers (like e.g. asix.c).
+> 
+> Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 452db70..723a406 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1597,6 +1597,7 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
-+	skb->skb_iif = 0;
- 	skb_set_dev(skb, dev);
- 	skb->tstamp.tv64 = 0;
- 	skb->pkt_type = PACKET_HOST;
--- 
-1.7.4.1
-
-
--- 
-"Thought is the essence of where you are now."
+Applied.
