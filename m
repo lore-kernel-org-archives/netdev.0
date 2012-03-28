@@ -1,29 +1,32 @@
-From: =?gb2312?Q?=CF=C8=C9=FA_KI_SANG_JUNG?= <jkis13335@yahoo.com.hk>
-Subject: Foreign Partnership Quest!
-Date: Wed, 28 Mar 2012 04:15:22 -0300 (BRT)
-Message-ID: <1550.110.159.134.248.1332918922.squirrel@webmail01.centralserver.com.br>
-Reply-To: jkis13355@yahoo.com.hk
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: remove useless update for flag parameter in
+ tcp_enter_frto_loss()
+Date: Wed, 28 Mar 2012 09:34:40 +0200
+Message-ID: <1332920080.3547.42.camel@edumazet-glaptop>
+References: <4F729235.8040706@gmail.com>
+	 <CADVnQymQaCSKx0aRda6OiP=t2OToxHmvjXjYvTdxsq7oFE3DTg@mail.gmail.com>
+	 <4F72B589.5060903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=gb2312
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell@google.com>, netdev@vger.kernel.org
+To: Li Yu <raise.sail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.centralserver.com.br ([186.233.144.117]:45235 "EHLO
-	smtp03.centralserver.com.br" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752647Ab2C1HYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 03:24:20 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:46583 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754584Ab2C1Her (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 03:34:47 -0400
+Received: by eekc41 with SMTP id c41so167150eek.19
+        for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 00:34:45 -0700 (PDT)
+In-Reply-To: <4F72B589.5060903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2012-03-28 at 14:54 +0800, Li Yu wrote:
 
+> Sorry for spent time on this, it it account for F-RTO retransmitted
+> segment here.
 
+I dont believe its waste of time having several eyes on this code.
 
-Good day Friend,
-I find it pleasurable to solicit your assistance and honesty to move an
-investment profit funds worth USD$98.6M from my Bank to your bank. I wish
-to seek your consent before sending more details, this a genuine and I
-hope it this will be appeal to you.
-Email me : jkis13355@yahoo.com.hk
-
-Thanks!
-Ki Sang J.
+Thanks
