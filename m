@@ -1,30 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/13] irda: remove spin_is_locked
-Date: Tue, 27 Mar 2012 21:32:37 -0400 (EDT)
-Message-ID: <20120327.213237.1580978953589022069.davem@davemloft.net>
-References: <1332895637-32572-1-git-send-email-andi@firstfloor.org>
-	<1332895637-32572-9-git-send-email-andi@firstfloor.org>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [PATCH v3 1/2] net/ipv4: fix IPv4 multicast over network namespaces
+Date: Tue, 27 Mar 2012 21:55:32 -0400
+Message-ID: <20120328015532.GA10832@kvack.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	ak@linux.intel.com, netdev@vger.kernel.org, samuel@sortiz.org
-To: andi@firstfloor.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1332895637-32572-9-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:56833 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755483Ab2C1Bze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Mar 2012 21:55:34 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 27 Mar 2012 17:47:12 -0700
+When using multicast over a local bridge feeding a number of LXC guests
+using veth, the LXC guests are unable to get a response from other guests
+when pinging 224.0.0.1.  Multicast packets did not appear to be getting
+delivered to the network namespaces of the guest hosts, and further
+inspection showed that the incoming route was pointing to the loopback
+device of the host, not the guest.  This lead to the wrong network namespace
+being picked up by sockets (like ICMP).  Fix this by using the correct
+network namespace when creating the inbound route entry.
 
-> From: Andi Kleen <ak@linux.intel.com>
-> 
-> It's hard to imagine how this spin_is_locked debugging check is not
-> totally racy.  Remove it.
-> 
-> Cc: netdev@vger.kernel.org
-> Cc: samuel@sortiz.org
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+---
+ net/ipv4/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Acked-by: David S. Miller <davem@davemloft.net>
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 12ccf88..3b110a4 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2042,7 +2042,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 		if (err < 0)
+ 			goto e_err;
+ 	}
+-	rth = rt_dst_alloc(init_net.loopback_dev,
++	rth = rt_dst_alloc(dev_net(dev)->loopback_dev,
+ 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false);
+ 	if (!rth)
+ 		goto e_nobufs;
+-- 
+1.7.4.1
+
+
+-- 
+"Thought is the essence of where you are now."
