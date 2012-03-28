@@ -1,56 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V5 PATCH] virtio-net: send gratuitous packets when needed
-Date: Wed, 28 Mar 2012 10:35:53 +0800
-Message-ID: <4F727909.5050609@redhat.com>
-References: <20120316090100.5223.50783.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120327.223112.2032989102915830685.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] Ethernet driver for the WIZnet W5300 chip
+Date: Tue, 27 Mar 2012 22:35:45 -0400 (EDT)
+Message-ID: <20120327.223545.1996930432677091672.davem@davemloft.net>
+References: <1332149037-12025-1-git-send-email-msink@permonline.ru>
+	<1332752876-1650-1-git-send-email-msink@permonline.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120327.223112.2032989102915830685.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, eric.dumazet@gmail.com
+To: msink@permonline.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47867 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757454Ab2C1CgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:36:04 -0400
+In-Reply-To: <1332752876-1650-1-git-send-email-msink@permonline.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/28/2012 10:31 AM, David Miller wrote:
-> From: Jason Wang<jasowang@redhat.com>
-> Date: Fri, 16 Mar 2012 17:01:01 +0800
->
->> >  As hypervior does not have the knowledge of guest network configuration, it's
->> >  better to ask guest to send gratuitous packets when needed.
->> >  
->> >  Guest tests VIRTIO_NET_S_ANNOUNCE bit during config change interrupt and when it
->> >  is set, a workqueue is scheduled to send gratuitous packet through
->> >  NETDEV_NOTIFY_PEERS. This feature is negotiated through bit
->> >  VIRTIO_NET_F_GUEST_ANNOUNCE.
->> >  
->> >  Changes from v4:
->> >  - typos
->> >  - handle workqueue unconditionally
->> >  - move VIRTIO_NET_S_ANNOUNCE to bit 8 to separate rw bits from ro bits
->> >  
->> >  Changes from v3:
->> >  - cancel the workqueue during freeze
->> >  
->> >  Changes from v2:
->> >  - fix the race between unregister_dev() and workqueue
->> >  
->> >  Signed-off-by: Jason Wang<jasowang@redhat.com>
-> What's happening with this patch?
-Hi David:
+From: Mike Sinkovsky <msink@permonline.ru>
+Date: Mon, 26 Mar 2012 15:07:56 +0600
 
-I'm working on a new version of this patch as there's some changes in 
-virtio-spec, I would post it soon.
+> +/*
+> + * Frame size is hardwired to 1514 bytes (including header),
+> + *  => MTU for 802.1Q frames must be set to 1500-4 = 1496
+> + */
+> +#define W5300_HARD_MTU		1500
 
-Thanks
+I've told you that you must set the VLAN challenged feature flag
+(NETIF_F_VLAN_CHALLENGED) for devices which have this restriction.
+
+Just set that, and remove this comment, since the feature bit setting
+documents this restriction fully and perfectly.
