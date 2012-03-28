@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] eql: dont rely on HZ=100
-Date: Tue, 27 Mar 2012 22:47:27 -0400 (EDT)
-Message-ID: <20120327.224727.30292313009301823.davem@davemloft.net>
-References: <1332835965.3248.2.camel@edumazet-laptop>
-	<1332836241.2058.35.camel@shinybook.infradead.org>
-	<1332838320.3248.6.camel@edumazet-laptop>
+Subject: Re: [PATCH] rose_dev: fix memcpy-bug in rose_set_mac_address
+Date: Tue, 27 Mar 2012 22:49:34 -0400 (EDT)
+Message-ID: <20120327.224934.2217174765482571048.davem@davemloft.net>
+References: <4F71C05C.4040300@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org
+To: danborkmann@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48037 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48053 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932116Ab2C1Csi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:48:38 -0400
-In-Reply-To: <1332838320.3248.6.camel@edumazet-laptop>
+	with ESMTP id S932131Ab2C1CuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:50:00 -0400
+In-Reply-To: <4F71C05C.4040300@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Mar 2012 01:52:00 -0700
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Date: Tue, 27 Mar 2012 15:27:56 +0200
 
-> [PATCH] eql: dont rely on HZ=100
+> This patch fixes a small bug in rose_set_mac_address. If the current and new
+> MAC addresses match, then nothing needs to be done. However memcpy was used
+> instead of memcmp for comparison.
 > 
-> HZ is more likely to be 1000 these days.
+> The patch is against the latest net-tree.
 > 
-> timer handlers are run from softirq, no need to disable bh
-> 
-> skb priority 1 is TC_PRIO_FILLER
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 
-Applied.
+You're breaking this code, not fixing it.
 
-Strange we export this EQL_DEFAULT_RESCHED_IVAL to userspace, where
-HZ will take on a different value I think, something akin to USER_HZ.
-
-Anyways, that's a different unrelated problem to the bug you're
-fixing.
+If you don't keep the memcpy, then the calls right below which setup
+the loopback node will use the previous device address not the new
+one being configured.
