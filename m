@@ -1,229 +1,262 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 3/3] tcp: Repair socket queues
-Date: Wed, 28 Mar 2012 19:38:10 +0400
-Message-ID: <4F733062.9020800@parallels.com>
-References: <4F732FE1.9040906@parallels.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [RFC PATCH] macvlan: add FDB bridge ops
+Date: Wed, 28 Mar 2012 08:43:56 -0700
+Message-ID: <CB987FCC.4A654%roprabhu@cisco.com>
+References: <20120321002647.16118.87199.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, <mst@redhat.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:12383 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754734Ab2C1PiS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2012 11:38:18 -0400
-In-Reply-To: <4F732FE1.9040906@parallels.com>
+Received: from mtv-iport-2.cisco.com ([173.36.130.13]:45375 "EHLO
+	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754734Ab2C1Pn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 11:43:59 -0400
+In-Reply-To: <20120321002647.16118.87199.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reading queues under repair mode is done with recvmsg call.
-The queue-under-repair set by TCP_REPAIR_QUEUE option is used
-to determine which queue should be read. Thus both send and
-receive queue can be read with this.
+On 3/20/12 5:26 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
 
-Caller must pass the MSG_PEEK flag.
+> Add support to add/del and dump the forwarding database
+> for macvlan passthru mode. The macvlan driver acts like
+> a Two Port Mac Relay (TPMR 802.1Q-2011) in the passthru
+> case so adding forwarding rules is just adding the addr
+> to the uc or mc lists.
+> 
+> By default the passthru mode puts the lowerdev into a
+> promiscuous mode to receive all packets. This behavior
+> is not changed by this patch. This is a bit problematic
+> and needs to be solved without IMHO breaking existing
+> mechanics. Maybe on the first add_fdb we can decrement
+> the promisc mode? That seems to work reasonable well and
+> keep existing functionality in place... but requires
+> an initial add to set things up which is a bit annoying
+> so maybe a flag is better. I haven't thought too hard
+> about it yet so any ideas welcome
+> 
+> This patch is a result of Roopa Prabhu's work. Follow up
+> patches are needed for VEPA and VEB macvlan modes.
+> 
+> Only lightly touch tested at this point.
+> 
+> CC: Roopa Prabhu <roprabhu@cisco.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+>  drivers/net/macvlan.c |   42 ++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 42 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index f975afd..86af56b 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -349,6 +349,7 @@ static int macvlan_stop(struct net_device *dev)
+> goto hash_del;
+> }
+>  
+> + dev_uc_unsync(lowerdev, dev);
+> dev_mc_unsync(lowerdev, dev);
+> if (dev->flags & IFF_ALLMULTI)
+> dev_set_allmulti(lowerdev, -1);
+> @@ -403,6 +404,7 @@ static void macvlan_set_multicast_list(struct net_device
+> *dev)
+>  {
+> struct macvlan_dev *vlan = netdev_priv(dev);
+>  
+> + dev_uc_sync(vlan->lowerdev, dev);
+> dev_mc_sync(vlan->lowerdev, dev);
+>  }
+>  
+> @@ -542,6 +544,43 @@ static int macvlan_vlan_rx_kill_vid(struct net_device
+> *dev,
+> return 0;
+>  }
+>  
+> +static int macvlan_fdb_add(struct ndmsg *ndm,
+> +      struct net_device *dev,
+> +      unsigned char *addr,
+> +      u16 flags)
+> +{
+> + struct macvlan_dev *vlan = netdev_priv(dev);
+> + int err = -EINVAL;
+> +
+> + if (!vlan->port->passthru)
+> +  return -EOPNOTSUPP;
+> +
+> + if (is_unicast_ether_addr(addr))
+> +  err = dev_uc_add(dev, addr);
+> + else if (is_multicast_ether_addr(addr))
+> +  err = dev_mc_add(dev, addr);
+> +
+> + return err;
+> +}
+> +
+> +static int macvlan_fdb_del(struct ndmsg *ndm,
+> +      struct net_device *dev,
+> +      unsigned char *addr)
+> +{
+> + struct macvlan_dev *vlan = netdev_priv(dev);
+> + int err = -EINVAL;
+> +
+> + if (!vlan->port->passthru)
+> +  return -EOPNOTSUPP;
+> +
+> + if (is_unicast_ether_addr(addr))
+> +  err = dev_uc_del(dev, addr);
+> + else if (is_multicast_ether_addr(addr))
+> +  err = dev_mc_del(dev, addr);
+> +
+> + return err;
+> +}
+> +
+>  static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+> struct ethtool_drvinfo *drvinfo)
+>  {
+> @@ -577,6 +616,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
+> .ndo_validate_addr = eth_validate_addr,
+> .ndo_vlan_rx_add_vid = macvlan_vlan_rx_add_vid,
+> .ndo_vlan_rx_kill_vid = macvlan_vlan_rx_kill_vid,
+> + .ndo_fdb_add  = macvlan_fdb_add,
+> + .ndo_fdb_del  = macvlan_fdb_del,
+> + .ndo_fdb_dump  = ndo_dflt_fdb_dump,
+>  };
+>  
+>  void macvlan_common_setup(struct net_device *dev)
+> 
 
-Writing to queues is done with sendmsg call and yet again --
-the repair-queue option can be used to push data into the
-receive queue.
+Thanks John. Looks good.
+I added a few things to your patch below. Yes, I think the promisc check is
+required. Made an attempt to add a flag below (I did not get a chance to
+think about other approaches there too). Briefly tested it with the br
+command.
 
-When putting an skb into receive queue a zero tcp header is
-appented to its head to address the tcp_hdr(skb)->syn and
-the ->fin checks by the (after repair) tcp_recvmsg. These
-flags flags are both set to zero and that's why.
 
-The fin cannot be met in the queue while reading the source
-socket, since the repair only works for closed/established
-sockets and queueing fin packet always changes its state.
-
-The syn in the queue denotes that the respective skb's seq
-is "off-by-one" as compared to the actual payload lenght. Thus,
-at the rcv queue refill we can just drop this flag and set the
-skb's sequences to precice values. IOW -- emulate the situation
-when the packet with data and syn is splitted into two -- a 
-packet with syn and a packet with data and the former one is 
-already "eaten".
-
-When the repair mode is turned off, the write queue seqs are
-updated so that the whole queue is considered to be 'already sent,
-waiting for ACKs' (write_seq = snd_nxt <= snd_una). From the
-protocol POV the send queue looks like it was sent, but the data
-between the write_seq and snd_nxt is lost in the network.
-
-This helps to avoid another sockoption for setting the snd_nxt
-sequence. Leaving the whole queue in a 'not yet sent' state (as
-it will be after sendmsg-s) will not allow to receive any acks
-from the peer since the ack_seq will be after the snd_nxt. Thus
-even the ack for the window probe will be dropped and the
-connection will be 'locked' with the zero peer window.
-
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
----
- net/ipv4/tcp.c        |   89 +++++++++++++++++++++++++++++++++++++++++++++++--
- net/ipv4/tcp_output.c |    1 +
- 2 files changed, 87 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 65ae921..2ab3a31 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -911,6 +911,39 @@ static inline int select_size(const struct sock *sk, bool sg)
- 	return tmp;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index f975afd..9bc70ad 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -34,6 +34,9 @@
+ 
+ #define MACVLAN_HASH_SIZE    (1 << BITS_PER_BYTE)
+ 
++/* macvlan port flags */
++#define MACVLAN_FLAG_PROMISC    0x1
++
+ struct macvlan_port {
+     struct net_device    *dev;
+     struct hlist_head    vlan_hash[MACVLAN_HASH_SIZE];
+@@ -41,6 +44,7 @@ struct macvlan_port {
+     struct rcu_head        rcu;
+     bool             passthru;
+     int            count;
++    unsigned int        flags;
+ };
+ 
+ static void macvlan_port_destroy(struct net_device *dev);
+@@ -313,6 +317,7 @@ static int macvlan_open(struct net_device *dev)
+ 
+     if (vlan->port->passthru) {
+         dev_set_promiscuity(lowerdev, 1);
++        vlan->port->flags |= MACVLAN_FLAG_PROMISC;
+         goto hash_add;
+     }
+ 
+@@ -345,10 +350,14 @@ static int macvlan_stop(struct net_device *dev)
+     struct net_device *lowerdev = vlan->lowerdev;
+ 
+     if (vlan->port->passthru) {
+-        dev_set_promiscuity(lowerdev, -1);
++        if (vlan->port->flags & MACVLAN_FLAG_PROMISC) {
++            dev_set_promiscuity(lowerdev, -1);
++            vlan->port->flags &= ~MACVLAN_FLAG_PROMISC;
++        }
+         goto hash_del;
+     }
+ 
++    dev_uc_unsync(lowerdev, dev);
+     dev_mc_unsync(lowerdev, dev);
+     if (dev->flags & IFF_ALLMULTI)
+         dev_set_allmulti(lowerdev, -1);
+@@ -403,6 +412,7 @@ static void macvlan_set_multicast_list(struct net_device
+*dev)
+ {
+     struct macvlan_dev *vlan = netdev_priv(dev);
+ 
++    dev_uc_sync(vlan->lowerdev, dev);
+     dev_mc_sync(vlan->lowerdev, dev);
  }
  
-+static int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
+@@ -542,6 +552,58 @@ static int macvlan_vlan_rx_kill_vid(struct net_device
+*dev,
+     return 0;
+ }
+ 
++static int macvlan_fdb_add(struct ndmsg *ndm,
++               struct net_device *dev,
++               unsigned char *addr,
++               u16 flags)
 +{
-+	struct sk_buff *skb;
-+	struct tcp_skb_cb *cb;
-+	struct tcphdr *th;
++    struct macvlan_dev *vlan = netdev_priv(dev);
++    struct net_device *lowerdev = vlan->lowerdev;
++    const struct net_device_ops *ops = lowerdev->netdev_ops;
++    int err = -EINVAL;
 +
-+	skb = alloc_skb(size + sizeof(*th), sk->sk_allocation);
-+	if (!skb)
-+		goto err;
++    if (!vlan->port->passthru)
++        return -EOPNOTSUPP;
 +
-+	th = (struct tcphdr *)skb_put(skb, sizeof(*th));
-+	skb_reset_transport_header(skb);
-+	memset(th, 0, sizeof(*th));
++    if (vlan->port->flags & MACVLAN_FLAG_PROMISC) {
++        dev_set_promiscuity (lowerdev, -1);
++        vlan->port->flags &= ~MACVLAN_FLAG_PROMISC;
++    }
 +
-+	if (memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size))
-+		goto err_free;
++    if (ops->ndo_fdb_add)
++        return ops->ndo_fdb_add(ndm, lowerdev, addr, flags);
 +
-+	cb = TCP_SKB_CB(skb);
++    if (is_unicast_ether_addr(addr))
++        err = dev_uc_add_excl(lowerdev, addr);
++    else if (is_multicast_ether_addr(addr))
++        err = dev_mc_add(lowerdev, addr);
 +
-+	TCP_SKB_CB(skb)->seq = tcp_sk(sk)->rcv_nxt;
-+	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(skb)->seq + size;
-+	TCP_SKB_CB(skb)->ack_seq = tcp_sk(sk)->snd_una - 1;
-+
-+	tcp_queue_rcv(sk, skb, sizeof(*th));
-+
-+	return size;
-+
-+err_free:
-+	kfree_skb(skb);
-+err:
-+	return -ENOMEM;
++    return err;
 +}
 +
- int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		size_t size)
- {
-@@ -932,6 +965,19 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if ((err = sk_stream_wait_connect(sk, &timeo)) != 0)
- 			goto out_err;
- 
-+	if (unlikely(tp->repair)) {
-+		if (tp->repair_queue == TCP_RECV_QUEUE) {
-+			copied = tcp_send_rcvq(sk, msg, size);
-+			goto out;
-+		}
-+
-+		err = -EINVAL;
-+		if (tp->repair_queue == TCP_NO_QUEUE)
-+			goto out_err;
-+
-+		/* 'common' sending to sendq */
-+	}
-+
- 	/* This should be in poll */
- 	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
- 
-@@ -1089,7 +1135,7 @@ new_segment:
- 			if ((seglen -= copy) == 0 && iovlen == 0)
- 				goto out;
- 
--			if (skb->len < max || (flags & MSG_OOB))
-+			if (skb->len < max || (flags & MSG_OOB) || tp->repair)
- 				continue;
- 
- 			if (forced_push(tp)) {
-@@ -1102,7 +1148,7 @@ new_segment:
- wait_for_sndbuf:
- 			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- wait_for_memory:
--			if (copied)
-+			if (copied && !tp->repair)
- 				tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
- 
- 			if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
-@@ -1113,7 +1159,7 @@ wait_for_memory:
- 	}
- 
- out:
--	if (copied)
-+	if (copied && !tp->repair)
- 		tcp_push(sk, flags, mss_now, tp->nonagle);
- 	release_sock(sk);
- 	return copied;
-@@ -1187,6 +1233,24 @@ static int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
- 	return -EAGAIN;
- }
- 
-+static int tcp_peek_sndq(struct sock *sk, struct msghdr *msg, int len)
++static int macvlan_fdb_del(struct ndmsg *ndm,
++               struct net_device *dev,
++               unsigned char *addr)
 +{
-+	struct sk_buff *skb;
-+	int copied = 0, err = 0;
++    struct macvlan_dev *vlan = netdev_priv(dev);
++    struct net_device *lowerdev = vlan->lowerdev;
++    const struct net_device_ops *ops = lowerdev->netdev_ops;
++    int err = -EINVAL;
 +
-+	/* XXX -- need to support SO_PEEK_OFF */
++    if (!vlan->port->passthru)
++        return -EOPNOTSUPP;
 +
-+	skb_queue_walk(&sk->sk_write_queue, skb) {
-+		err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, skb->len);
-+		if (err)
-+			break;
++    if (ops->ndo_fdb_del)
++        return ops->ndo_fdb_del(ndm, lowerdev, addr);
 +
-+		copied += skb->len;
-+	}
++    if (is_unicast_ether_addr(addr))
++        err = dev_uc_del(lowerdev, addr);
++    else if (is_multicast_ether_addr(addr))
++        err = dev_mc_del(lowerdev, addr);
 +
-+	return err ?: copied;
++    return err;
 +}
 +
- /* Clean up the receive buffer for full frames taken by the user,
-  * then send an ACK if necessary.  COPIED is the number of bytes
-  * tcp_recvmsg has given to the user so far, it speeds up the
-@@ -1432,6 +1496,21 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	if (flags & MSG_OOB)
- 		goto recv_urg;
- 
-+	if (unlikely(tp->repair)) {
-+		err = -EPERM;
-+		if (!(flags & MSG_PEEK))
-+			goto out;
-+
-+		if (tp->repair_queue == TCP_SEND_QUEUE)
-+			goto recv_sndq;
-+
-+		err = -EINVAL;
-+		if (tp->repair_queue == TCP_NO_QUEUE)
-+			goto out;
-+
-+		/* 'common' recv queue MSG_PEEK-ing */
-+	}
-+
- 	seq = &tp->copied_seq;
- 	if (flags & MSG_PEEK) {
- 		peek_seq = tp->copied_seq;
-@@ -1783,6 +1862,10 @@ out:
- recv_urg:
- 	err = tcp_recv_urg(sk, msg, len, flags);
- 	goto out;
-+
-+recv_sndq:
-+	err = tcp_peek_sndq(sk, msg, len);
-+	goto out;
- }
- EXPORT_SYMBOL(tcp_recvmsg);
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4e2ce39..b29d612 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2796,6 +2796,7 @@ void tcp_send_window_probe(struct sock *sk)
+ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+                     struct ethtool_drvinfo *drvinfo)
  {
- 	if (sk->sk_state == TCP_ESTABLISHED) {
- 		tcp_sk(sk)->snd_wl1 = tcp_sk(sk)->rcv_nxt - 1;
-+		tcp_sk(sk)->snd_nxt = tcp_sk(sk)->write_seq;
- 		tcp_xmit_probe_skb(sk, 0);
- 	}
- }
--- 
-1.5.5.6
+@@ -577,6 +639,9 @@ static const struct net_device_ops macvlan_netdev_ops =
+{
+     .ndo_validate_addr    = eth_validate_addr,
+     .ndo_vlan_rx_add_vid    = macvlan_vlan_rx_add_vid,
+     .ndo_vlan_rx_kill_vid    = macvlan_vlan_rx_kill_vid,
++    .ndo_fdb_add        = macvlan_fdb_add,
++    .ndo_fdb_del        = macvlan_fdb_del,
++    .ndo_fdb_dump        = ndo_dflt_fdb_dump,
+ };
+ 
+ void macvlan_common_setup(struct net_device *dev)
