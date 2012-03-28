@@ -1,58 +1,45 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 2/5] r8169: add csi_opt
-Date: Wed, 28 Mar 2012 10:52:24 +0800
-Message-ID: <C4853E741FE64400AFA06E6FB7B634D9@realtek.com.tw>
-References: <1332834834-5185-1-git-send-email-hayeswang@realtek.com> <1332834834-5185-2-git-send-email-hayeswang@realtek.com> <20120327225437.GC22177@electric-eye.fr.zoreil.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: a F-RTO question
+Date: Wed, 28 Mar 2012 11:13:49 +0800
+Message-ID: <4F7281ED.1060603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:53511 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932116Ab2C1Cwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:52:32 -0400
-In-Reply-To: <20120327225437.GC22177@electric-eye.fr.zoreil.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:53403 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754619Ab2C1DOA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 23:14:00 -0400
+Received: by iagz16 with SMTP id z16so831806iag.19
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 20:13:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
- [...]
-> > -static void rtl_csi_access_enable_2(void __iomem *ioaddr)
-> > +static void __devinit rtl_init_csi_ops(struct rtl8169_private *tp)
-> >  {
-> > -	rtl_csi_access_enable(ioaddr, 0x27000000);
-> > +	struct csi_ops *ops = &tp->csi_ops;
-> > +
-> > +	switch (tp->mac_version) {
-> > +	default:
-> > +		ops->write	= r8169_csi_write;
-> > +		ops->read	= r8169_csi_read;
-> > +		break;
-> > +	}
-> >  }
-> >  
-> >  struct ephy_info {
-> [...]
-> > @@ -6199,6 +6267,7 @@ rtl_init_one(struct pci_dev *pdev, 
-> const struct pci_device_id *ent)
-> >  	rtl_init_mdio_ops(tp);
-> >  	rtl_init_pll_power_ops(tp);
-> >  	rtl_init_jumbo_ops(tp);
-> > +	rtl_init_csi_ops(tp);
-> >  
-> >  	rtl8169_print_mac_version(tp);
-> 
-> It will enable the CSI read/write functions where they 
-> previously weren't.
-> 
-> Is it really supposed to behave this way ?
-> 
-> Thanks.
-> 
+Hi,
 
-It seems to be fine, but I would modify them. Thanks.
- 
-Best Regards,
-Hayes
+	I have a question about tcp_process_frto(), the below source
+code :
+
+static int tcp_process_frto(struct sock *sk, int flag)
+{
+	.....
+
+        if (!before(tp->snd_una, tp->frto_highmark)) {
+                tcp_enter_frto_loss(sk, ...);
+                return 1;
+        }
+
+	.....
+
+}
+
+	As my understanding, the tp->frto_highmark likes tp->high_seq,
+it saves the seqno SND_NXT when a TCP connection enters F-RTO phase,
+is it the variable "recovery" in NewReno? So I think that if snd_una is
+equal with or after frto_highmark, which means peer ack new data, so
+why we enter Loss state here?
+
+	Thanks!
+
+Yu
