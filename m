@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: sh_eth: Add support SH7734
-Date: Tue, 27 Mar 2012 22:38:40 -0400 (EDT)
-Message-ID: <20120327.223840.45215837089909734.davem@davemloft.net>
-References: <1332737991-7862-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCH] USB: Add Motorola Rokr E6 Id to the USBNet driver
+ "zaurus"
+Date: Tue, 27 Mar 2012 22:40:02 -0400 (EDT)
+Message-ID: <20120327.224002.461546309646610144.davem@davemloft.net>
+References: <CANeMGR5PECuVb=p7orzwHgcsa9GSW=-gMyqWo7RYm_NpmLm4Ug@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nobuhiro.iwamatsu.yj@renesas.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47895 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757456Ab2C1Cip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Mar 2012 22:38:45 -0400
-In-Reply-To: <1332737991-7862-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davej@redhat.com
+To: guanx.bac@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANeMGR5PECuVb=p7orzwHgcsa9GSW=-gMyqWo7RYm_NpmLm4Ug@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Date: Mon, 26 Mar 2012 13:59:51 +0900
+From: Guan Xin <guanx.bac@gmail.com>
+Date: Mon, 26 Mar 2012 16:11:46 +0200
 
-> Add define of SH7734 register and sh_eth_reset_hw_crc function.
+> From: Guan Xin <guanx.bac@gmail.com>
 > 
-> V3: Rebase net/HEAD.
-> V2: Do not split line of #if defined.
-> 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> Added Vendor/Device Id of Motorola Rokr E6 (22b8:6027) so it can be
+> recognized by the "zaurus" USBNet driver.
+> Applies to Linux 3.2.13 and 2.6.39.4.
+> Signed-off-by: Guan Xin <guanx.bac@gmail.com>
 
-Applied.
+Applied, thanks.
