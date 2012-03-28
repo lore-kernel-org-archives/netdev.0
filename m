@@ -1,29 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: suspicious RCU usage warnings in 3.3.0
-Date: Wed, 28 Mar 2012 17:45:59 -0400 (EDT)
-Message-ID: <20120328.174559.650861844028495880.davem@davemloft.net>
-References: <alpine.SOC.1.00.1203281134090.13691@math.ut.ee>
+From: akpm@linux-foundation.org
+Subject: [patch 1/1] net/netfilter/nfnetlink_acct.c: use linux/atomic.h
+Date: Wed, 28 Mar 2012 15:10:57 -0700
+Message-ID: <20120328221057.9A6DAA001B@akpm.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mroos@linux.ee
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.SOC.1.00.1203281134090.13691@math.ut.ee>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ASCII
+Content-Transfer-Encoding: 8bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, kaber@trash.net, pablo@netfilter.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Wed, 28 Mar 2012 11:45:48 +0300 (EEST)
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: net/netfilter/nfnetlink_acct.c: use linux/atomic.h
 
-> Is this the same RCU problem that was fixed after 3.3 (fix a potential 
-> rcu_read_lock() imbalance in rt6_fill_node())? My problem does not seem 
-> to be ipv6-only, most traces are from IPv6 but some for ip.
+There's no known problem here, but this is one of only two non-arch files
+in the kernel which use asm/atomic.h instead of linux/atomic.h.
 
-It's hard to say because the ipv6 RCU problem causes the warning to
-trigger somewhere away from the ipv6 code that had the RCU locking
-bug.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-We essentially return back into userspace with the RCU lock held, so
-the next time we go into the kernel for that thread and do RCU locking
-is when we'll notice the problem.
+ net/netfilter/nfnetlink_acct.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN net/netfilter/nfnetlink_acct.c~net-netfilter-nfnetlink_acctc-use-linux-atomich net/netfilter/nfnetlink_acct.c
+--- a/net/netfilter/nfnetlink_acct.c~net-netfilter-nfnetlink_acctc-use-linux-atomich
++++ a/net/netfilter/nfnetlink_acct.c
+@@ -10,6 +10,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
++#include <linux/atomic.h>
+ #include <linux/netlink.h>
+ #include <linux/rculist.h>
+ #include <linux/slab.h>
+@@ -17,7 +18,6 @@
+ #include <linux/errno.h>
+ #include <net/netlink.h>
+ #include <net/sock.h>
+-#include <asm/atomic.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter/nfnetlink.h>
+_
