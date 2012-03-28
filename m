@@ -1,46 +1,82 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: remove useless update for flag parameter in tcp_enter_frto_loss()
-Date: Wed, 28 Mar 2012 01:29:02 -0400
-Message-ID: <CADVnQymQaCSKx0aRda6OiP=t2OToxHmvjXjYvTdxsq7oFE3DTg@mail.gmail.com>
-References: <4F729235.8040706@gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: a F-RTO question
+Date: Tue, 27 Mar 2012 22:35:34 -0700
+Message-ID: <CAK6E8=cgHxQMXA9QVu6=v6OqRAd6v7-wsEpM9ENFhqDpn88GvQ@mail.gmail.com>
+References: <4F7281ED.1060603@gmail.com> <CAJkE24+qgK4_cGtiEi6hWDFS2EVYPajHY3pigwh_RqguwsedNg@mail.gmail.com>
+ <4F728EC9.1050302@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chao Pei <peichao85@gmail.com>, netdev@vger.kernel.org
 To: Li Yu <raise.sail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:33261 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941Ab2C1FfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 01:35:19 -0400
-Received: by qcqw6 with SMTP id w6so464049qcq.19
-        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 22:35:18 -0700 (PDT)
-In-Reply-To: <4F729235.8040706@gmail.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:52141 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941Ab2C1Ffz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 01:35:55 -0400
+Received: by obbeh20 with SMTP id eh20so869721obb.19
+        for <netdev@vger.kernel.org>; Tue, 27 Mar 2012 22:35:54 -0700 (PDT)
+In-Reply-To: <4F728EC9.1050302@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 28, 2012 at 12:23 AM, Li Yu <raise.sail@gmail.com> wrote:
+On Tue, Mar 27, 2012 at 9:08 PM, Li Yu <raise.sail@gmail.com> wrote:
+> =D3=DA 2012=C4=EA03=D4=C228=C8=D5 11:49, Chao Pei =D0=B4=B5=C0:
 >
-> It seem that we forget remove below two lines after copying code :)
+>>> Hi,
+>>>
+>>>        I have a question about tcp_process_frto(), the below source
+>>> code :
+>>>
+>>> static int tcp_process_frto(struct sock *sk, int flag)
+>>> {
+>>>        .....
+>>>
+>>>        if (!before(tp->snd_una, tp->frto_highmark)) {
+>>>                tcp_enter_frto_loss(sk, ...);
+>>>                return 1;
+>>>        }
+>>>
+>>>        .....
+>>>
+>>> }
+>>>
+>>>        As my understanding, the tp->frto_highmark likes tp->high_se=
+q,
+>>> it saves the seqno SND_NXT when a TCP connection enters F-RTO phase=
+,
+>>> is it the variable "recovery" in NewReno? So I think that if snd_un=
+a is
+>>> equal with or after frto_highmark, which means peer ack new data, s=
+o
+>>> why we enter Loss state here?
+>>>
+>>>        Thanks!
+>>>
+>>> Yu
+>>>
+>>>
+>>
+>> If snd_una advances to frto_highmark, it is likely that the hole was
+>> filled by the retransimitted packet, which means the original packet
+>> was likely to have been lost.
+>> So, we should enter loss state.
+>>
 >
-> This update never impacts others.
-
-The 'flag' variable will be used in later iterations of the
-tcp_for_write_queue() loop. The comment seems to quite sensibly
-indicate that the FLAG_DATA_ACKED bit is being set to avoid entering
-that branch of the if statement in later segments in the loop:
-
-2168                 if ((tp->frto_counter == 1) && !(flag & FLAG_DATA_ACKED)) {
-2169                         /* For some reason this R-bit might get cleared? */
-2170                         if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
-2171                                 tp->retrans_out += tcp_skb_pcount(skb);
-2172                         /* ...enter this if branch just for the
-first segment */
-2173                         flag |= FLAG_DATA_ACKED;
-2174                 } else {
-
-The structure of the logic seems intact from the original commit that
-added this:
-
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=d1a54c6a0a3f9c2c4ef71982d89b8571bd9eaa51
-
-neal
+> I do not agree with it, if snd_una advanced to frto_highmark, which m=
+eans
+> peer acks whole window of data instead of just one segment, and
+> we can not make sure that reason of peer sends ack is whether it rece=
+ived
+> original segment or retransmitted segment.
+>
+> Even, the reason is latter, it also means the netowrk already is
+> recovered from temporarily congestion or disordered state, so we also=
+ should
+> not enter loss state.
+Like you said there is some ambiguity and F-RTO takes the conservative =
+approach.
+You can find answers to your question in RFC 5682  (Section 2.2). Unles=
+s the RTO
+is proven to be spurious, TCP should reduce window and performs
+slow-start regardlessly.
