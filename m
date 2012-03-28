@@ -1,59 +1,62 @@
-From: Mike Sinkovsky <msink@permonline.ru>
-Subject: Re: [PATCH v4] Ethernet driver for the WIZnet W5300 chip
-Date: Wed, 28 Mar 2012 11:52:43 +0600
-Message-ID: <4F72A72B.5020609@permonline.ru>
-References: <1332149037-12025-1-git-send-email-msink@permonline.ru><1332752876-1650-1-git-send-email-msink@permonline.ru> <20120327.223545.1996930432677091672.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next] virtio_net: do not rate limit counter increments
+Date: Wed, 28 Mar 2012 16:33:22 +1030
+Message-ID: <87r4wd9s9h.fsf@rustcorp.com.au>
+References: <20120327172809.C52572900384@tardy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.ccl.ru ([195.222.140.73]:50657 "EHLO mail4.ccl.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751195Ab2C1Fw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2012 01:52:56 -0400
-In-Reply-To: <20120327.223545.1996930432677091672.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: virtualization@lists.linux-foundation.org, mst@redhat.com
+To: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120327172809.C52572900384@tardy>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-28.03.2012 8:35, David Miller wrote:
+On Tue, 27 Mar 2012 10:28:09 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> 
+> While it is desirable to rate limit certain messages, it is not
+> desirable to rate limit the incrementing of counters associated
+> with those messages.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
->> +/*
->> + * Frame size is hardwired to 1514 bytes (including header),
->> + *  =>  MTU for 802.1Q frames must be set to 1500-4 = 1496
->> + */
->> +#define W5300_HARD_MTU		1500
->
-> I've told you that you must set the VLAN challenged feature flag
-> (NETIF_F_VLAN_CHALLENGED) for devices which have this restriction.
->
-> Just set that, and remove this comment, since the feature bit setting
-> documents this restriction fully and perfectly.
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
- From Documentation/netdev-features.txt:
+Thanks!
+Rusty.
 
- >NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope 
-with VLAN
- >headers. Some drivers set this because the cards can't handle the 
-bigger MTU.
- >[FIXME: Those cases could be fixed in VLAN code by allowing only 
-reduced-MTU
- >VLANs. This may be not useful, though.]
-
-My case is exactly what is here in FIXME comment - yes, this chip cannot 
-handle full size MTU for VLANs, and TCP/IP traffic don't work well over 
-this VLAN. But we actually use it for traffic where frame size is known 
-to be less than 1500 - TDMoE to Asterisk in our case - and it works 
-perfectly.
-So as ideal we'll like to disable TCP/IP over this sort of VLANs, but 
-still enable TDMoE traffic. If it is possible.
-
-But if you want - ok, I'll disable VLAN support entirely for this chip 
-in mainline version.
-
-(Now working on similar driver for W5100 chip, hopefully will post both 
-soon.)
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 019da01..4de2760 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -625,12 +625,13 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	/* This can happen with OOM and indirect buffers. */
+>  	if (unlikely(capacity < 0)) {
+> -		if (net_ratelimit()) {
+> -			if (likely(capacity == -ENOMEM)) {
+> +		if (likely(capacity == -ENOMEM)) {
+> +			if (net_ratelimit()) {
+>  				dev_warn(&dev->dev,
+>  					 "TX queue failure: out of memory\n");
+>  			} else {
+> -				dev->stats.tx_fifo_errors++;
+> +			dev->stats.tx_fifo_errors++;
+> +			if (net_ratelimit())
+>  				dev_warn(&dev->dev,
+>  					 "Unexpected TX queue failure: %d\n",
+>  					 capacity);
+> 
 
 -- 
-Mike
+  How could I marry someone with more hair than me?  http://baldalex.org
