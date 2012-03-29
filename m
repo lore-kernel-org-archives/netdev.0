@@ -1,41 +1,138 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] net: remove unused icmp_ioctl() definition.
-Date: Thu, 29 Mar 2012 20:49:01 +0200
-Message-ID: <CAHLOa7RZFQHLtsYE2VeS7Fmhcr+O9guEFYYVoGTPJQos48Eo1w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b10cac164168b04bc662d28
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:34881 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932349Ab2C2StB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 14:49:01 -0400
-Received: by pbcun15 with SMTP id un15so480233pbc.19
-        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 11:49:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Will Drewry <wad@chromium.org>
+Subject: [PATCH v17 00/15] seccomp_filter: BPF-based syscall filtering
+Date: Thu, 29 Mar 2012 15:01:45 -0500
+Message-ID: <1333051320-30872-1-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: linux-security-module@vger.kernel.org,
+	linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org,
+	x86@kernel.org,
+	arnd@arndb.de,
+	davem@davemloft.net,
+	hpa@zytor.com,
+	mingo@redhat.com,
+	oleg@redhat.com,
+	peterz@infradead.org,
+	rdunlap@xenotime.net,
+	mcgrathr@chromium.org,
+	tglx@linutronix.de,
+	luto@mit.edu,
+	eparis@redhat.com,
+	serge.hallyn@canonical.com,
+	djm@mindrot.org,
+	scarybeasts@gmail.com,
+	indan@nul.nu,
+	pmoore@redhat.com,
+	akpm@linux-foundation.org,
+	corbet@lwn.net,
+	eric.dumazet@gmail.com,
+	markus@chromium.org,
+	coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org,
+	jmorris@namei.org,
+	Will Drewry <wad@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <kernel-hardening-return-1173-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+List-Id: netdev.vger.kernel.org
 
---047d7b10cac164168b04bc662d28
-Content-Type: text/plain; charset=ISO-8859-1
+Please see prior revisions for a detailed discussion of this patch
+series.
 
-Hi,
+This series is a rebase on to:
+  b5174fa3a7f4f8f150bfa3b917c92608953dfa0f
+with very minor changes due to rebasing and tweaks noticed by a few
+initial users.  (I will rebase again for v3.4-rc1 when that time comes.)
 
- The patch removes unused icmp_ioctl() method definition in include/net/icmp.h.
+I realize now is a noisy time, but I wanted to get the most current
+revision on the list.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+As per prior posts, I am now including luto@'s PR_SET_NO_NEW_PRIVS
+changes in the series for clarity and ease of testing.  This latest
+rebased required required bumping the prctl() numbers for the
+NO_NEW_PRIVS work due to the new reaper options.
 
---047d7b10cac164168b04bc662d28
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h0e5p5ra0
+For those inclined, the whole series can be found here too:
+   https://github.com/redpig/linux/tree/seccomp
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ljbXAuaCBiL2luY2x1ZGUvbmV0L2ljbXAuaAppbmRl
-eCA3NWQ2MTU2Li5jZTcwYTU4IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9pY21wLmgKKysrIGIv
-aW5jbHVkZS9uZXQvaWNtcC5oCkBAIC00MSw3ICs0MSw2IEBAIHN0cnVjdCBuZXQ7CiAKIGV4dGVy
-biB2b2lkCWljbXBfc2VuZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiX2luLCAgaW50IHR5cGUsIGludCBj
-b2RlLCBfX2JlMzIgaW5mbyk7CiBleHRlcm4gaW50CWljbXBfcmN2KHN0cnVjdCBza19idWZmICpz
-a2IpOwotZXh0ZXJuIGludAlpY21wX2lvY3RsKHN0cnVjdCBzb2NrICpzaywgaW50IGNtZCwgdW5z
-aWduZWQgbG9uZyBhcmcpOwogZXh0ZXJuIGludAlpY21wX2luaXQodm9pZCk7CiBleHRlcm4gdm9p
-ZAlpY21wX291dF9jb3VudChzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIGNoYXIgdHlwZSk7CiAK
---047d7b10cac164168b04bc662d28--
+At this point, I'm not aware of any outstanding concerns, complaints,
+etc. If there are any, I'd love to know.
+
+Thanks!
+will
+
+
+Andy Lutomirski (1):
+  Add PR_{GET,SET}_NO_NEW_PRIVS to prevent execve from granting privs
+
+John Johansen (1):
+  Fix apparmor for PR_{GET,SET}_NO_NEW_PRIVS
+
+Kees Cook (1):
+  seccomp: remove duplicated failure logging
+
+Will Drewry (12):
+  sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+  net/compat.c,linux/filter.h: share compat_sock_fprog
+  seccomp: kill the seccomp_t typedef
+  arch/x86: add syscall_get_arch to syscall.h
+  asm/syscall.h: add syscall_get_arch
+  seccomp: add system call filtering using BPF
+  seccomp: add SECCOMP_RET_ERRNO
+  signal, x86: add SIGSYS info and make it synchronous.
+  seccomp: Add SECCOMP_RET_TRAP
+  ptrace,seccomp: Add PTRACE_SECCOMP support
+  x86: Enable HAVE_ARCH_SECCOMP_FILTER
+  Documentation: prctl/seccomp_filter
+
+ Documentation/prctl/seccomp_filter.txt |  163 ++++++++++++
+ arch/Kconfig                           |   24 ++
+ arch/x86/Kconfig                       |    1 +
+ arch/x86/ia32/ia32_signal.c            |    4 +
+ arch/x86/include/asm/ia32.h            |    6 +
+ arch/x86/include/asm/syscall.h         |   23 ++
+ arch/x86/kernel/ptrace.c               |    7 +-
+ fs/exec.c                              |   10 +-
+ include/asm-generic/siginfo.h          |   22 ++
+ include/asm-generic/syscall.h          |   14 +
+ include/linux/Kbuild                   |    1 +
+ include/linux/audit.h                  |    8 +-
+ include/linux/filter.h                 |   12 +
+ include/linux/prctl.h                  |   15 +
+ include/linux/ptrace.h                 |    5 +-
+ include/linux/sched.h                  |    4 +-
+ include/linux/seccomp.h                |  105 +++++++-
+ include/linux/security.h               |    1 +
+ kernel/auditsc.c                       |   10 +-
+ kernel/fork.c                          |    3 +
+ kernel/seccomp.c                       |  447 ++++++++++++++++++++++++++++++--
+ kernel/signal.c                        |    9 +-
+ kernel/sys.c                           |   12 +-
+ net/compat.c                           |    8 -
+ net/core/filter.c                      |    6 +
+ samples/Makefile                       |    2 +-
+ samples/seccomp/Makefile               |   38 +++
+ samples/seccomp/bpf-direct.c           |  176 +++++++++++++
+ samples/seccomp/bpf-fancy.c            |  102 ++++++++
+ samples/seccomp/bpf-helper.c           |   89 +++++++
+ samples/seccomp/bpf-helper.h           |  238 +++++++++++++++++
+ samples/seccomp/dropper.c              |   68 +++++
+ security/apparmor/domain.c             |   35 +++
+ security/commoncap.c                   |    7 +-
+ security/selinux/hooks.c               |   10 +-
+ 35 files changed, 1628 insertions(+), 57 deletions(-)
+ create mode 100644 Documentation/prctl/seccomp_filter.txt
+ create mode 100644 samples/seccomp/Makefile
+ create mode 100644 samples/seccomp/bpf-direct.c
+ create mode 100644 samples/seccomp/bpf-fancy.c
+ create mode 100644 samples/seccomp/bpf-helper.c
+ create mode 100644 samples/seccomp/bpf-helper.h
+ create mode 100644 samples/seccomp/dropper.c
+
+-- 
+1.7.5.4
