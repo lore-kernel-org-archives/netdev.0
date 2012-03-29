@@ -1,55 +1,69 @@
-From: Vinod Koul <vinod.koul@linux.intel.com>
-Subject: Re: [PATCH linux-next] dmaengine: add context
-	parameter fixups
-Date: Thu, 29 Mar 2012 16:29:45 +0530
-Message-ID: <1333018785.1820.48.camel@vkoul-udesk3>
-References: <1332511242-30241-1-git-send-email-alexandre.bounine@idt.com>
-	<CAOMZO5B-Zutv-xwqLCAgNMO8A3Kyg4uWqS41koo-yoS4mGB1TQ@mail.gmail.com>
-	<1332740082.19804.15.camel@vkoul-udesk3>
-	<20120326094200.GA3098@opensource.wolfsonmicro.com>
-	<s5hwr64wx0p.wl%tiwai@suse.de>
-	<20120328155106.GY3232@opensource.wolfsonmicro.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [BUGFIX][PATCH 2/3] memcg/tcp: remove static_branch_slow_dec()
+ at changing limit
+Date: Thu, 29 Mar 2012 12:58:00 +0200
+Message-ID: <4F744038.1000900@parallels.com>
+References: <4F7408B7.9090706@jp.fujitsu.com> <4F740A41.6040002@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: fabio.estevam@freescale.com, alsa-devel@alsa-project.org, samuel@sortiz.org,
-	paul.gortmaker@windriver.com, Takashi Iwai <tiwai@suse.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexandre Bounine <alexandre.bounine@idt.com>,
-	linux-next@vger.kernel.org, dan.j.williams@intel.com,
-	Fabio Estevam <festevam@gmail.com>, lrg@ti.com
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20120328155106.GY3232@opensource.wolfsonmicro.com>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Sender: alsa-devel-bounces@alsa-project.org
-Errors-To: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.parallels.com ([64.131.90.16]:35931 "EHLO mx2.parallels.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757058Ab2C2K6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 06:58:14 -0400
+In-Reply-To: <4F740A41.6040002@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-03-28 at 16:51 +0100, Mark Brown wrote:
-> On Wed, Mar 28, 2012 at 05:44:22PM +0200, Takashi Iwai wrote:
-> > Mark Brown wrote:
+On 03/29/2012 09:07 AM, KAMEZAWA Hiroyuki wrote:
+> tcp memcontrol uses static_branch to optimize limit=RESOURCE_MAX case.
+> If all cgroup's limit=RESOUCE_MAX, resource usage is not accounted.
+> But it's buggy now.
 > 
-> > > No, not yet - it was only sent after the merge window.  Quite why nobody
-> > > managed to notice it before then I don't know.  It'll go to him soon, or
-> > > at least to Takashi, but don't know if it'll make -rc1 or not.
+> For example, do following
+>   # while sleep 1;do
+>     echo 9223372036854775807>  /cgroup/memory/A/memory.kmem.tcp.limit_in_bytes;
+>     echo 300M>  /cgroup/memory/A/memory.kmem.tcp.limit_in_bytes;
+>     done
 > 
-> > How is the situation now?
+> and run network application under A. tcp's usage is sometimes accounted
+> and sometimes not accounted because of frequent changes of static_branch.
+> Then, finally, you can see broken tcp.usage_in_bytes.
+> WARN_ON() is printed because res_counter->usage goes below 0.
+> ==
+> kernel: ------------[ cut here ]----------
+> kernel: WARNING: at kernel/res_counter.c:96 res_counter_uncharge_locked+0x37/0x40()
+>   <snip>
+> kernel: Pid: 17753, comm: bash Tainted: G  W    3.3.0+ #99
+> kernel: Call Trace:
+> kernel:<IRQ>   [<ffffffff8104cc9f>] warn_slowpath_common+0x7f/0xc0
+> kernel: [<ffffffff810d7e88>] ? rb_reserve__next_event+0x68/0x470
+> kernel: [<ffffffff8104ccfa>] warn_slowpath_null+0x1a/0x20
+> kernel: [<ffffffff810b4e37>] res_counter_uncharge_locked+0x37/0x40
+> ...
+> ==
 > 
-> > FYI, I'm going to send a pull request to Linus tomorrow or on Friday.
-> > If anything needed to be merged in rc1, it must be there in time.
+> This patch removes static_branch_slow_dec() at changing res_counter's
+> limit to RESOUCE_MAX. By this, once accounting started, the accountting
+> will continue until the tcp cgroup is destroyed.
 > 
-> It's in my tree, I didn't see an enormous rush to get it in TBH.
-I should be sending the pull request for slave-dma to Linus this
-evening.
-Can you please include the fix I did in your tree in your pull request.
+> I think this will not be problem in real use.
+> 
 
+So...
 
--- 
-~Vinod
+Are the warnings still there if you have your other patch in this series?
+Maybe what we should do is, flush the resource counters so they go back
+to 0 besides decrementing the static branch. This way we get a more
+consistent behavior.
+
+Another thing to keep in mind, is that the static branch will only be
+inactive if we turn off *all* controllers. You see this happening
+because you are only testing with one.
+So even if we go to the route you're proposing, we could probably try
+doing something on the
+global level, instead of a per-memcg boolean flat.
