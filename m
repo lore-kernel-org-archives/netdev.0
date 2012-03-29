@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v17 01/15] Add PR_{GET,SET}_NO_NEW_PRIVS to prevent execve from granting privs
-Date: Thu, 29 Mar 2012 15:01:46 -0500
-Message-ID: <1333051320-30872-2-git-send-email-wad@chromium.org>
+Subject: [PATCH v17 05/15] seccomp: kill the seccomp_t typedef
+Date: Thu, 29 Mar 2012 15:01:50 -0500
+Message-ID: <1333051320-30872-6-git-send-email-wad@chromium.org>
 References: <1333051320-30872-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-security-module@vger.kernel.org,
@@ -33,9 +33,9 @@ Cc: linux-security-module@vger.kernel.org,
 	coreyb@linux.vnet.ibm.com,
 	keescook@chromium.org,
 	jmorris@namei.org,
-	Andy Lutomirski <luto@amacapital.net>
+	Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1175-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1174-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -43,193 +43,78 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1333051320-30872-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-From: Andy Lutomirski <luto@amacapital.net>
+Replaces the seccomp_t typedef with struct seccomp to match modern
+kernel style.
 
-With this set, a lot of dangerous operations (chroot, unshare, etc)
-become a lot less dangerous because there is no possibility of
-subverting privileged binaries.
+v14..v17: rebase/nochanges
+v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
+v12: rebase on to linux-next
+v8-v11: no changes
+v7: struct seccomp_struct -> struct seccomp
+v6: original inclusion in this series.
 
-This patch completely breaks apparmor.  Someone who understands (and
-uses) apparmor should fix it or at least give me a hint.
-
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
-
-(rebased onto -linus, bumping prctl # -wad@chromium.org)
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Reviewed-by: James Morris <jmorris@namei.org>
+Signed-off-by: Will Drewry <wad@chromium.org>
 ---
- fs/exec.c                  |   10 +++++++++-
- include/linux/prctl.h      |   15 +++++++++++++++
- include/linux/sched.h      |    2 ++
- include/linux/security.h   |    1 +
- kernel/sys.c               |   10 ++++++++++
- security/apparmor/domain.c |    4 ++++
- security/commoncap.c       |    7 +++++--
- security/selinux/hooks.c   |   10 +++++++++-
- 8 files changed, 55 insertions(+), 4 deletions(-)
+ include/linux/sched.h   |    2 +-
+ include/linux/seccomp.h |   10 ++++++----
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/fs/exec.c b/fs/exec.c
-index c8b63d1..a8451ec 100644
---- a/fs/exec.c
-+++ b/fs/exec.c
-@@ -1245,6 +1245,13 @@ static int check_unsafe_exec(struct linux_binprm *bprm)
- 			bprm->unsafe |= LSM_UNSAFE_PTRACE;
- 	}
- 
-+	/*
-+	 * This isn't strictly necessary, but it makes it harder for LSMs to
-+	 * mess up.
-+	 */
-+	if (current->no_new_privs)
-+		bprm->unsafe |= LSM_UNSAFE_NO_NEW_PRIVS;
-+
- 	n_fs = 1;
- 	spin_lock(&p->fs->lock);
- 	rcu_read_lock();
-@@ -1288,7 +1295,8 @@ int prepare_binprm(struct linux_binprm *bprm)
- 	bprm->cred->euid = current_euid();
- 	bprm->cred->egid = current_egid();
- 
--	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)) {
-+	if (!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID) &&
-+	    !current->no_new_privs) {
- 		/* Set-uid? */
- 		if (mode & S_ISUID) {
- 			bprm->per_clear |= PER_CLEAR_ON_SETID;
-diff --git a/include/linux/prctl.h b/include/linux/prctl.h
-index e0cfec2..78b76e2 100644
---- a/include/linux/prctl.h
-+++ b/include/linux/prctl.h
-@@ -124,4 +124,19 @@
- #define PR_SET_CHILD_SUBREAPER 36
- #define PR_GET_CHILD_SUBREAPER 37
- 
-+/*
-+ * If no_new_privs is set, then operations that grant new privileges (i.e.
-+ * execve) will either fail or not grant them.  This affects suid/sgid,
-+ * file capabilities, and LSMs.
-+ *
-+ * Operations that merely manipulate or drop existing privileges (setresuid,
-+ * capset, etc.) will still work.  Drop those privileges if you want them gone.
-+ *
-+ * Changing LSM security domain is considered a new privilege.  So, for example,
-+ * asking selinux for a specific new context (e.g. with runcon) will result
-+ * in execve returning -EPERM.
-+ */
-+#define PR_SET_NO_NEW_PRIVS 38
-+#define PR_GET_NO_NEW_PRIVS 39
-+
- #endif /* _LINUX_PRCTL_H */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 81a173c..ba60897 100644
+index ba60897..cad1502 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -1341,6 +1341,8 @@ struct task_struct {
- 				 * execve */
- 	unsigned in_iowait:1;
+@@ -1452,7 +1452,7 @@ struct task_struct {
+ 	uid_t loginuid;
+ 	unsigned int sessionid;
+ #endif
+-	seccomp_t seccomp;
++	struct seccomp seccomp;
  
-+	/* task may not gain privileges */
-+	unsigned no_new_privs:1;
+ /* Thread group tracking */
+    	u32 parent_exec_id;
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index cc7a4e9..d61f27f 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -7,7 +7,9 @@
+ #include <linux/thread_info.h>
+ #include <asm/seccomp.h>
  
- 	/* Revert to default priority/policy when forking */
- 	unsigned sched_reset_on_fork:1;
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 673afbb..6e1dea9 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -144,6 +144,7 @@ struct request_sock;
- #define LSM_UNSAFE_SHARE	1
- #define LSM_UNSAFE_PTRACE	2
- #define LSM_UNSAFE_PTRACE_CAP	4
-+#define LSM_UNSAFE_NO_NEW_PRIVS	8
+-typedef struct { int mode; } seccomp_t;
++struct seccomp {
++	int mode;
++};
  
- #ifdef CONFIG_MMU
- extern int mmap_min_addr_handler(struct ctl_table *table, int write,
-diff --git a/kernel/sys.c b/kernel/sys.c
-index e7006eb..b82568b 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -1979,6 +1979,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
- 			error = put_user(me->signal->is_child_subreaper,
- 					 (int __user *) arg2);
- 			break;
-+		case PR_SET_NO_NEW_PRIVS:
-+			if (arg2 != 1 || arg3 || arg4 || arg5)
-+				return -EINVAL;
-+
-+			current->no_new_privs = 1;
-+			break;
-+		case PR_GET_NO_NEW_PRIVS:
-+			if (arg2 || arg3 || arg4 || arg5)
-+				return -EINVAL;
-+			return current->no_new_privs ? 1 : 0;
- 		default:
- 			error = -EINVAL;
- 			break;
-diff --git a/security/apparmor/domain.c b/security/apparmor/domain.c
-index 6327685..18c88d0 100644
---- a/security/apparmor/domain.c
-+++ b/security/apparmor/domain.c
-@@ -360,6 +360,10 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
- 	if (bprm->cred_prepared)
- 		return 0;
+ extern void __secure_computing(int);
+ static inline void secure_computing(int this_syscall)
+@@ -19,7 +21,7 @@ static inline void secure_computing(int this_syscall)
+ extern long prctl_get_seccomp(void);
+ extern long prctl_set_seccomp(unsigned long);
  
-+	/* XXX: no_new_privs is not usable with AppArmor yet */
-+	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)
-+		return -EPERM;
-+
- 	cxt = bprm->cred->security;
- 	BUG_ON(!cxt);
+-static inline int seccomp_mode(seccomp_t *s)
++static inline int seccomp_mode(struct seccomp *s)
+ {
+ 	return s->mode;
+ }
+@@ -28,7 +30,7 @@ static inline int seccomp_mode(seccomp_t *s)
  
-diff --git a/security/commoncap.c b/security/commoncap.c
-index 0cf4b53..edd3918 100644
---- a/security/commoncap.c
-+++ b/security/commoncap.c
-@@ -506,14 +506,17 @@ int cap_bprm_set_creds(struct linux_binprm *bprm)
- skip:
+ #include <linux/errno.h>
  
- 	/* Don't let someone trace a set[ug]id/setpcap binary with the revised
--	 * credentials unless they have the appropriate permit
-+	 * credentials unless they have the appropriate permit.
-+	 *
-+	 * In addition, if NO_NEW_PRIVS, then ensure we get no new privs.
- 	 */
- 	if ((new->euid != old->uid ||
- 	     new->egid != old->gid ||
- 	     !cap_issubset(new->cap_permitted, old->cap_permitted)) &&
- 	    bprm->unsafe & ~LSM_UNSAFE_PTRACE_CAP) {
- 		/* downgrade; they get no more than they had, and maybe less */
--		if (!capable(CAP_SETUID)) {
-+		if (!capable(CAP_SETUID) ||
-+		    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)) {
- 			new->euid = new->uid;
- 			new->egid = new->gid;
- 		}
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 3049299..be99c84 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -2000,6 +2000,13 @@ static int selinux_bprm_set_creds(struct linux_binprm *bprm)
- 		new_tsec->sid = old_tsec->exec_sid;
- 		/* Reset exec SID on execve. */
- 		new_tsec->exec_sid = 0;
-+
-+		/*
-+		 * Minimize confusion: if no_new_privs and a transition is
-+		 * explicitly requested, then fail the exec.
-+		 */
-+		if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)
-+			return -EPERM;
- 	} else {
- 		/* Check for a default transition on this program. */
- 		rc = security_transition_sid(old_tsec->sid, isec->sid,
-@@ -2012,7 +2019,8 @@ static int selinux_bprm_set_creds(struct linux_binprm *bprm)
- 	COMMON_AUDIT_DATA_INIT(&ad, PATH);
- 	ad.u.path = bprm->file->f_path;
+-typedef struct { } seccomp_t;
++struct seccomp { };
  
--	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
-+	if ((bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID) ||
-+	    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS))
- 		new_tsec->sid = old_tsec->sid;
+ #define secure_computing(x) do { } while (0)
  
- 	if (new_tsec->sid == old_tsec->sid) {
+@@ -42,7 +44,7 @@ static inline long prctl_set_seccomp(unsigned long arg2)
+ 	return -EINVAL;
+ }
+ 
+-static inline int seccomp_mode(seccomp_t *s)
++static inline int seccomp_mode(struct seccomp *s)
+ {
+ 	return 0;
+ }
 -- 
 1.7.5.4
