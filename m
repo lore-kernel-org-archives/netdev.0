@@ -1,203 +1,81 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: Re: [RFC PATCH] macvlan: add FDB bridge ops
-Date: Thu, 29 Mar 2012 14:26:15 -0700
-Message-ID: <CB9A2187.4A989%roprabhu@cisco.com>
-References: <4F733539.9040106@intel.com>
+From: Avleen Vig <avleen@gmail.com>
+Subject: Re: Crash in __netif_receive_skb
+Date: Thu, 29 Mar 2012 16:42:29 -0500
+Message-ID: <CAMjP1KmkS9aBXJm1GEavhcNx75ib7G4m+xYBe3_PcGSo6t5FsQ@mail.gmail.com>
+References: <CAMjP1Kka6MmT2zLc95ZQ=vigS6w9diS9-tawzdUdhbzzfzMh3w@mail.gmail.com>
+	<CAMjP1KmDxhOKOGtgKt=OWbcXoJgrbA_rAxdkV4j7Y8XC8yjnuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-1.cisco.com ([173.36.130.12]:36313 "EHLO
-	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760106Ab2C2V0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 17:26:22 -0400
-In-Reply-To: <4F733539.9040106@intel.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:35573 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933141Ab2C2Vmb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 17:42:31 -0400
+In-Reply-To: <CAMjP1KmDxhOKOGtgKt=OWbcXoJgrbA_rAxdkV4j7Y8XC8yjnuA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Mar 28, 2012 at 10:01 PM, Avleen Vig <avleen@gmail.com> wrote:
+> On Wed, Mar 28, 2012 at 8:31 PM, Avleen Vig <avleen@gmail.com> wrote:
+>> Hi folks, someone in #kernel recommended I email these two lists. Ho=
+pe
+>> they're the right place.
+>>
+>> We're running 2.6.32-220.4.1.el6.x86_64 on Centos 6.2, and getting a
+>> repeated crash:
+>> =A0 =A0https://gist.github.com/2231998
+>>
+>> We can make this happen pretty easily just by passing some network
+>> traffic and waiting a while.
+>> I couldn't find any references to this particular issue.
+>> I have vmcore files and am happy to dig into it if it would help (as
+>> long as someone can tell me what to do :))
+>
+> I hope this debugging is legit, I'm really new to this level of insig=
+ht.
+>
+> I think the problem is in include/linux/netpoll.h, at the "if"
+> statement at line 86:
+> =A0 =A0static inline int netpoll_receive_skb(struct sk_buff *skb)
+> =A0 =A0{
+> =A0 =A0 =A0 =A0if (!list_empty(&skb->dev->napi_list))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return netpoll_rx(skb);
+> =A0 =A0 =A0 =A0return 0;
+> =A0 =A0}
+>
+>
+> This is based on poking around in the crash dump:
+> =A0 =A0BUG: unable to handle kernel NULL pointer dereference at 00000=
+00000000060
+> =A0 =A0IP: [<ffffffff8142bb40>] __netif_receive_skb+0x60/0x6e0
+> =A0 =A0crash> dis -rl ffffffff8142bb40
+> =A0 =A0....
+> =A0 =A0/usr/src/debug/kernel-2.6.32-220.7.1.el6/linux-2.6.32-220.7.1.=
+el6.x86_64/include/linux/netpoll.h:
+> 86
+> =A0 =A00xffffffff8142bb33 <__netif_receive_skb+83>: =A0 =A0mov =A0 =A0=
+0x20(%rbx),%r12
+> =A0 =A00xffffffff8142bb37 <__netif_receive_skb+87>: =A0 =A0mov =A0 =A0=
+%r12,-0x38(%rbp)
+> =A0 =A00xffffffff8142bb3b <__netif_receive_skb+91>: =A0 =A0lea =A0 =A0=
+0x60(%r12),%rax
+> =A0 =A00xffffffff8142bb40 <__netif_receive_skb+96>: =A0 =A0cmp =A0 =A0=
+%rax,0x60(%r12)
+>
+>
+>
+> I *think* this means that "&skb->dev->napi_list" is null when we're
+> trying to compare it, rather than being a list.
+>
+> If it matters, this is inside LXC containers.
 
+We've traced this to a problem with machines that have multiple hard
+drives AND have NAPI enabled for the NIC driver.
 
+We recompiled the e1000e driver with NAPI disabled, with:
+    make CFLAGS_EXTRA=3D-DE1000E_NO_NAPI
 
-On 3/28/12 8:58 AM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
-
-> On 3/28/2012 8:52 AM, Michael S. Tsirkin wrote:
->> On Wed, Mar 28, 2012 at 08:43:56AM -0700, Roopa Prabhu wrote:
->>> On 3/20/12 5:26 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
->>> 
->>>> Add support to add/del and dump the forwarding database
->>>> for macvlan passthru mode. The macvlan driver acts like
->>>> a Two Port Mac Relay (TPMR 802.1Q-2011) in the passthru
->>>> case so adding forwarding rules is just adding the addr
->>>> to the uc or mc lists.
->>>> 
->>>> By default the passthru mode puts the lowerdev into a
->>>> promiscuous mode to receive all packets. This behavior
->>>> is not changed by this patch. This is a bit problematic
->>>> and needs to be solved without IMHO breaking existing
->>>> mechanics. Maybe on the first add_fdb we can decrement
->>>> the promisc mode? That seems to work reasonable well and
->>>> keep existing functionality in place... but requires
->>>> an initial add to set things up which is a bit annoying
->>>> so maybe a flag is better. I haven't thought too hard
->>>> about it yet so any ideas welcome
->> 
->> 
->> ...
->> 
->>> Thanks John. Looks good.
->>> I added a few things to your patch below. Yes, I think the promisc check is
->>> required. Made an attempt to add a flag below (I did not get a chance to
->>> think about other approaches there too). Briefly tested it with the br
->>> command.
->>> 
->>> 
->>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->>> index f975afd..9bc70ad 100644
->>> --- a/drivers/net/macvlan.c
->>> +++ b/drivers/net/macvlan.c
->>> @@ -34,6 +34,9 @@
->>>  
->>>  #define MACVLAN_HASH_SIZE    (1 << BITS_PER_BYTE)
->>>  
->>> +/* macvlan port flags */
->>> +#define MACVLAN_FLAG_PROMISC    0x1
->>> +
->>>  struct macvlan_port {
->>>      struct net_device    *dev;
->>>      struct hlist_head    vlan_hash[MACVLAN_HASH_SIZE];
->>> @@ -41,6 +44,7 @@ struct macvlan_port {
->>>      struct rcu_head        rcu;
->>>      bool             passthru;
->>>      int            count;
->>> +    unsigned int        flags;
->>>  };
->>>  
->>>  static void macvlan_port_destroy(struct net_device *dev);
->>> @@ -313,6 +317,7 @@ static int macvlan_open(struct net_device *dev)
->>>  
->>>      if (vlan->port->passthru) {
->>>          dev_set_promiscuity(lowerdev, 1);
->>> +        vlan->port->flags |= MACVLAN_FLAG_PROMISC;
->>>          goto hash_add;
->>>      }
->>>  
->>> @@ -345,10 +350,14 @@ static int macvlan_stop(struct net_device *dev)
->>>      struct net_device *lowerdev = vlan->lowerdev;
->>>  
->>>      if (vlan->port->passthru) {
->>> -        dev_set_promiscuity(lowerdev, -1);
->>> +        if (vlan->port->flags & MACVLAN_FLAG_PROMISC) {
->>> +            dev_set_promiscuity(lowerdev, -1);
->>> +            vlan->port->flags &= ~MACVLAN_FLAG_PROMISC;
->>> +        }
->>>          goto hash_del;
->>>      }
->>>  
->>> +    dev_uc_unsync(lowerdev, dev);
->>>      dev_mc_unsync(lowerdev, dev);
->>>      if (dev->flags & IFF_ALLMULTI)
->>>          dev_set_allmulti(lowerdev, -1);
->>> @@ -403,6 +412,7 @@ static void macvlan_set_multicast_list(struct net_device
->>> *dev)
->>>  {
->>>      struct macvlan_dev *vlan = netdev_priv(dev);
->>>  
->>> +    dev_uc_sync(vlan->lowerdev, dev);
->>>      dev_mc_sync(vlan->lowerdev, dev);
->>>  }
->>>  
->>> @@ -542,6 +552,58 @@ static int macvlan_vlan_rx_kill_vid(struct net_device
->>> *dev,
->>>      return 0;
->>>  }
->>>  
->>> +static int macvlan_fdb_add(struct ndmsg *ndm,
->>> +               struct net_device *dev,
->>> +               unsigned char *addr,
->>> +               u16 flags)
->>> +{
->>> +    struct macvlan_dev *vlan = netdev_priv(dev);
->>> +    struct net_device *lowerdev = vlan->lowerdev;
->>> +    const struct net_device_ops *ops = lowerdev->netdev_ops;
->>> +    int err = -EINVAL;
->>> +
->>> +    if (!vlan->port->passthru)
->>> +        return -EOPNOTSUPP;
->>> +
->>> +    if (vlan->port->flags & MACVLAN_FLAG_PROMISC) {
->>> +        dev_set_promiscuity (lowerdev, -1);
->>> +        vlan->port->flags &= ~MACVLAN_FLAG_PROMISC;
->>> +    }
->>> +
->>> +    if (ops->ndo_fdb_add)
->>> +        return ops->ndo_fdb_add(ndm, lowerdev, addr, flags);
->>> +
->>> +    if (is_unicast_ether_addr(addr))
->>> +        err = dev_uc_add_excl(lowerdev, addr);
->>> +    else if (is_multicast_ether_addr(addr))
->>> +        err = dev_mc_add(lowerdev, addr);
->>> +
->>> +    return err;
->>> +}
->>> +
->>> +static int macvlan_fdb_del(struct ndmsg *ndm,
->>> +               struct net_device *dev,
->>> +               unsigned char *addr)
->>> +{
->>> +    struct macvlan_dev *vlan = netdev_priv(dev);
->>> +    struct net_device *lowerdev = vlan->lowerdev;
->>> +    const struct net_device_ops *ops = lowerdev->netdev_ops;
->>> +    int err = -EINVAL;
->>> +
->>> +    if (!vlan->port->passthru)
->>> +        return -EOPNOTSUPP;
->>> +
->>> +    if (ops->ndo_fdb_del)
->>> +        return ops->ndo_fdb_del(ndm, lowerdev, addr);
->>> +
->>> +    if (is_unicast_ether_addr(addr))
->>> +        err = dev_uc_del(lowerdev, addr);
->>> +    else if (is_multicast_ether_addr(addr))
->>> +        err = dev_mc_del(lowerdev, addr);
->>> +
->>> +    return err;
->>> +}
->>> +
->>>  static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
->>>                      struct ethtool_drvinfo *drvinfo)
->>>  {
->>> @@ -577,6 +639,9 @@ static const struct net_device_ops macvlan_netdev_ops =
->>> {
->>>      .ndo_validate_addr    = eth_validate_addr,
->>>      .ndo_vlan_rx_add_vid    = macvlan_vlan_rx_add_vid,
->>>      .ndo_vlan_rx_kill_vid    = macvlan_vlan_rx_kill_vid,
->>> +    .ndo_fdb_add        = macvlan_fdb_add,
->>> +    .ndo_fdb_del        = macvlan_fdb_del,
->>> +    .ndo_fdb_dump        = ndo_dflt_fdb_dump,
->>>  };
->>>  
->>>  void macvlan_common_setup(struct net_device *dev)
->>> 
->> 
->> 
->> So this clears the promisc on the first add which
->> is a bit annoying. How about a simple flag, set when
->> we create the macvlan?
->> 
-> 
-> Agreed. This probably needs a new attrib maybe IFLA_MACVLAN_FLAGS unless
-> there already exists a per "kind" (rtnl_link_ops) flags field we can use.
-> I scanned the code briefly and didn't see any such thing so likely we need
-> the new attribute.
-
-O ok. That makes sense. Unfortunately I am not sure if I will be able to get
-back to this anytime in the near future. If anyone wants to rework this
-patch please do.
-
-Thanks.
-Roopa
- 
+and everything works great now.
