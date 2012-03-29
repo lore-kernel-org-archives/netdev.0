@@ -1,7 +1,7 @@
 From: Li Yu <raise.sail@gmail.com>
 Subject: Re: [PATCH 3/3] tcp: Repair socket queues
-Date: Thu, 29 Mar 2012 18:41:26 +0800
-Message-ID: <4F743C56.7090502@gmail.com>
+Date: Thu, 29 Mar 2012 18:41:38 +0800
+Message-ID: <4F743C62.2020703@gmail.com>
 References: <4F732FE1.9040906@parallels.com> <4F733062.9020800@parallels.com> <4F7439AE.6050006@gmail.com> <4F743B32.4050107@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
@@ -13,10 +13,10 @@ To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-iy0-f174.google.com ([209.85.210.174]:61255 "EHLO
 	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751116Ab2C2Kle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 06:41:34 -0400
-Received: by iagz16 with SMTP id z16so2855882iag.19
-        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 03:41:34 -0700 (PDT)
+	with ESMTP id S1751116Ab2C2Klm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 06:41:42 -0400
+Received: by mail-iy0-f174.google.com with SMTP id z16so2855882iag.19
+        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 03:41:42 -0700 (PDT)
 In-Reply-To: <4F743B32.4050107@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -84,7 +84,7 @@ ter
 
 After the connection are repaired, it directly enter ESTABLISHED state,
 so this TCP connection has no chance to negotiate such optional
-features, such negotiation only can occurs at 3WHS.
+features, such negotiation only can occur at 3WHS.
 
 Thanks.
 
