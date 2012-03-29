@@ -1,54 +1,31 @@
-From: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big network copies (page allocation failure)
-Date: Thu, 29 Mar 2012 14:19:31 -0700
-Message-ID: <20120329211931.GH29342@merlins.org>
-References: <20120329163800.GH24933@merlins.org> <1333044575.2656.1.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V4 8/8] net/mlx4_en: Set max rate-limit for a TC
+Date: Thu, 29 Mar 2012 17:25:44 -0400 (EDT)
+Message-ID: <20120329.172544.1685598375831468260.davem@davemloft.net>
+References: <1333033418-1669-9-git-send-email-amirv@mellanox.com>
+	<1333034470.2325.751.camel@edumazet-glaptop>
+	<4F74A988.1020103@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1333044575.2656.1.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	roland@purestorage.com, yevgenyp@mellanox.com, oren@mellanox.com,
+	amirv@dev.mellanox.co.il
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44190 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759465Ab2C2VZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 17:25:55 -0400
+In-Reply-To: <4F74A988.1020103@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 29, 2012 at 07:09:35PM +0100, Ben Hutchings wrote:
-> On Thu, 2012-03-29 at 09:38 -0700, Marc MERLIN wrote:
-> [...]
-> > Below are some sysreq dumps I took (syslog to local disk was still
-> > working fine). I know I have Tainted 'G', and I have no idea where that
-> > came from, sorry :-/
-> [...]
-> 
-> 'G' isn't a taint flag, but the following 'O' is; it means you have one
-> or more out-of-tree modules loaded.  Care to tell us what they are?
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 29 Mar 2012 20:27:20 +0200
 
-All I can think of is virtualbox, but I'm almost certain I did not have
-virtualbox loaded (i.e. modules disabled so they wouldn't load) for my first
-test with wired ethernet (yes, I know that virtualbox modules are known 
-for causing problems).
+> I was in a rush to send it on time and missed it (of course I tested
+> only tc 0 so didn't see it in my tests too).
 
-Ah, yes, I had another out of tree module:
-http://www.thinkwiki.org/wiki/Tp_smapi
-(on thinkpad W500)
-
-Module                  Size  Used by
-hdaps                  13616  1 
-tp_smapi               23531  0 
-thinkpad_ec            12857  2 hdaps,tp_smapi
-
-So, I suppose the next step is to reproduce without those modules loaded,
-which I'll do next.
-
-Thanks,
-Marc
--- 
-"A mouse is a device used to point at the xterm you want to type in" - A.S.R.
-Microsoft is to operating systems ....
-                                      .... what McDonalds is to gourmet cooking
-Home page: http://marc.merlins.org/  
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Being in a rush when you expect others to spend time reviewing your
+code is an extremely selfish act.
