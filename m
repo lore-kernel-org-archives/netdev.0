@@ -1,7 +1,7 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v17 05/15] seccomp: kill the seccomp_t typedef
-Date: Thu, 29 Mar 2012 15:01:50 -0500
-Message-ID: <1333051320-30872-6-git-send-email-wad@chromium.org>
+Subject: [PATCH v17 02/15] Fix apparmor for PR_{GET,SET}_NO_NEW_PRIVS
+Date: Thu, 29 Mar 2012 15:01:47 -0500
+Message-ID: <1333051320-30872-3-git-send-email-wad@chromium.org>
 References: <1333051320-30872-1-git-send-email-wad@chromium.org>
 Reply-To: kernel-hardening@lists.openwall.com
 Cc: linux-security-module@vger.kernel.org,
@@ -33,9 +33,10 @@ Cc: linux-security-module@vger.kernel.org,
 	coreyb@linux.vnet.ibm.com,
 	keescook@chromium.org,
 	jmorris@namei.org,
-	Will Drewry <wad@chromium.org>
+	John Johansen <john.johansen@canonical.com>,
+	Andy Lutomirski <luto@amacapital.net>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1174-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-1176-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -43,78 +44,91 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <1333051320-30872-1-git-send-email-wad@chromium.org>
 List-Id: netdev.vger.kernel.org
 
-Replaces the seccomp_t typedef with struct seccomp to match modern
-kernel style.
+From: John Johansen <john.johansen@canonical.com>
 
-v14..v17: rebase/nochanges
-v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-v12: rebase on to linux-next
-v8-v11: no changes
-v7: struct seccomp_struct -> struct seccomp
-v6: original inclusion in this series.
-
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-Reviewed-by: James Morris <jmorris@namei.org>
-Signed-off-by: Will Drewry <wad@chromium.org>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
 ---
- include/linux/sched.h   |    2 +-
- include/linux/seccomp.h |   10 ++++++----
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ security/apparmor/domain.c |   39 +++++++++++++++++++++++++++++++++++----
+ 1 files changed, 35 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index ba60897..cad1502 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1452,7 +1452,7 @@ struct task_struct {
- 	uid_t loginuid;
- 	unsigned int sessionid;
- #endif
--	seccomp_t seccomp;
-+	struct seccomp seccomp;
+diff --git a/security/apparmor/domain.c b/security/apparmor/domain.c
+index 18c88d0..b81ea10 100644
+--- a/security/apparmor/domain.c
++++ b/security/apparmor/domain.c
+@@ -360,10 +360,6 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
+ 	if (bprm->cred_prepared)
+ 		return 0;
  
- /* Thread group tracking */
-    	u32 parent_exec_id;
-diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
-index cc7a4e9..d61f27f 100644
---- a/include/linux/seccomp.h
-+++ b/include/linux/seccomp.h
-@@ -7,7 +7,9 @@
- #include <linux/thread_info.h>
- #include <asm/seccomp.h>
+-	/* XXX: no_new_privs is not usable with AppArmor yet */
+-	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)
+-		return -EPERM;
+-
+ 	cxt = bprm->cred->security;
+ 	BUG_ON(!cxt);
  
--typedef struct { int mode; } seccomp_t;
-+struct seccomp {
-+	int mode;
-+};
+@@ -398,6 +394,11 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
+ 			new_profile = find_attach(ns, &ns->base.profiles, name);
+ 		if (!new_profile)
+ 			goto cleanup;
++		/*
++		 * NOTE: Domain transitions from unconfined are allowed
++		 * even when no_new_privs is set because this aways results
++		 * in a further reduction of permissions.
++		 */
+ 		goto apply;
+ 	}
  
- extern void __secure_computing(int);
- static inline void secure_computing(int this_syscall)
-@@ -19,7 +21,7 @@ static inline void secure_computing(int this_syscall)
- extern long prctl_get_seccomp(void);
- extern long prctl_set_seccomp(unsigned long);
+@@ -459,6 +460,16 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
+ 		/* fail exec */
+ 		error = -EACCES;
  
--static inline int seccomp_mode(seccomp_t *s)
-+static inline int seccomp_mode(struct seccomp *s)
- {
- 	return s->mode;
- }
-@@ -28,7 +30,7 @@ static inline int seccomp_mode(seccomp_t *s)
++	/*
++	 * Policy has specified a domain transition, if no_new_privs then
++	 * fail the exec.
++	 */
++	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS) {
++		aa_put_profile(new_profile);
++		error = -EPERM;
++		goto cleanup;
++	}
++
+ 	if (!new_profile)
+ 		goto audit;
  
- #include <linux/errno.h>
+@@ -613,6 +624,14 @@ int aa_change_hat(const char *hats[], int count, u64 token, bool permtest)
+ 	const char *target = NULL, *info = NULL;
+ 	int error = 0;
  
--typedef struct { } seccomp_t;
-+struct seccomp { };
++	/*
++	 * Fail explicitly requested domain transitions if no_new_privs.
++	 * There is no exception for unconfined as change_hat is not
++	 * available.
++	 */
++	if (current->no_new_privs)
++		return -EPERM;
++
+ 	/* released below */
+ 	cred = get_current_cred();
+ 	cxt = cred->security;
+@@ -754,6 +773,18 @@ int aa_change_profile(const char *ns_name, const char *hname, bool onexec,
+ 	cxt = cred->security;
+ 	profile = aa_cred_profile(cred);
  
- #define secure_computing(x) do { } while (0)
- 
-@@ -42,7 +44,7 @@ static inline long prctl_set_seccomp(unsigned long arg2)
- 	return -EINVAL;
- }
- 
--static inline int seccomp_mode(seccomp_t *s)
-+static inline int seccomp_mode(struct seccomp *s)
- {
- 	return 0;
- }
++	/*
++	 * Fail explicitly requested domain transitions if no_new_privs
++	 * and not unconfined.
++	 * Domain transitions from unconfined are allowed even when
++	 * no_new_privs is set because this aways results in a reduction
++	 * of permissions.
++	 */
++	if (current->no_new_privs && !unconfined(profile)) {
++		put_cred(cred);
++		return -EPERM;
++	}
++
+ 	if (ns_name) {
+ 		/* released below */
+ 		ns = aa_find_namespace(profile->ns, ns_name);
 -- 
 1.7.5.4
