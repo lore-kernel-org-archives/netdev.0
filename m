@@ -1,73 +1,107 @@
-From: greearb@candelatech.com
-Subject: [PATCH] net:  Report dev->promiscuity in netlink reports.
-Date: Thu, 29 Mar 2012 15:51:30 -0700
-Message-ID: <1333061490-4484-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
+ the timecompare method
+Date: Thu, 29 Mar 2012 23:08:59 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB580DD9C8@ORSMSX105.amr.corp.intel.com>
+References: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
+	<20120324065147.GB2201@netboy.at.omicron.at>
+	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
+	<20120326152730.GA10212@localhost.localdomain>
+	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
+	<20120327180501.GA3878@netboy.at.omicron.at>
+	<02874ECE860811409154E81DA85FBB580DC68D@ORSMSX105.amr.corp.intel.com>
+	<CAAsGZS7+L5Y7Mo8pipJf=T6x9vTUAcTS93t=BGsmCUvA3T31Zw@mail.gmail.com>
+	<CAAsGZS6=wCPKC_1HnXQNn=U=6h-akbWvLZ_9ztBjfva=DFmugQ@mail.gmail.com>
+	<02874ECE860811409154E81DA85FBB580DC769@ORSMSX105.amr.corp.intel.com>
+ <CAAsGZS75TStwzTsRnpMGMqPy=h1AoV5uKyguXa92LvAsG4BXOQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:36742 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760168Ab2C2Wvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 18:51:42 -0400
+Received: from mga03.intel.com ([143.182.124.21]:40020 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760173Ab2C2XJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 19:09:03 -0400
+In-Reply-To: <CAAsGZS75TStwzTsRnpMGMqPy=h1AoV5uKyguXa92LvAsG4BXOQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-
-The standard ways of probing a device's promiscuity
-(ifi_flags, for instance) does not report the actual
-state of the device.  This patch adds dev->promiscuity
-to the netlink netdevice report so that users can know
-for certain if the device is acting PROMISC or not.
-
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 4b24ff4... 2f4fa93... M	include/linux/if_link.h
-:100644 100644 f965dce... 6f4983f... M	net/core/rtnetlink.c
- include/linux/if_link.h |    2 ++
- net/core/rtnetlink.c    |    3 +++
- 2 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 4b24ff4..2f4fa93 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -138,6 +138,8 @@ enum {
- 	IFLA_GROUP,		/* Group the device belongs to */
- 	IFLA_NET_NS_FD,
- 	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
-+	IFLA_PROMISCUITY,	/* Promiscuity count: > 0 means acts PROMISC */
-+#define IFLA_PROMISCUITY IFLA_PROMISCUITY
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f965dce..6f4983f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -783,6 +783,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(4) /* IFLA_MTU */
- 	       + nla_total_size(4) /* IFLA_LINK */
- 	       + nla_total_size(4) /* IFLA_MASTER */
-+	       + nla_total_size(4) /* IFLA_PROMISCUITY */
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(ext_filter_mask
-@@ -899,6 +900,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	NLA_PUT_U8(skb, IFLA_LINKMODE, dev->link_mode);
- 	NLA_PUT_U32(skb, IFLA_MTU, dev->mtu);
- 	NLA_PUT_U32(skb, IFLA_GROUP, dev->group);
-+	NLA_PUT_U32(skb, IFLA_PROMISCUITY, dev->promiscuity);
- 
- 	if (dev->ifindex != dev->iflink)
- 		NLA_PUT_U32(skb, IFLA_LINK, dev->iflink);
-@@ -1114,6 +1116,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
- 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
- 	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
-+	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
--- 
-1.7.3.4
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
+Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMjcsIDIwMTIg
+Mjo1NSBQTQ0KPiBUbzogS2VsbGVyLCBKYWNvYiBFDQo+IENjOiBSaWNoYXJkIENvY2hyYW47IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLQ0KPiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
+ZXQ7IEtpcnNoZXIsIEplZmZyZXkgVDsgUm9uY2lhaywgSm9objsNCj4gam9obi5zdHVsdHpAbGlu
+YXJvLm9yZzsgdGdseEBsaW51dHJvbml4LmRlDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IFY0
+IDIvMl0gaWdiOiBvZmZlciBhIFBUUCBIYXJkd2FyZSBDbG9jayBpbnN0ZWFkIG9mIHRoZQ0KPiB0
+aW1lY29tcGFyZSBtZXRob2QNCj4gDQo+IE9uIFR1ZSwgTWFyIDI3LCAyMDEyIGF0IDQ6NTggUE0s
+IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiB3cm90ZToNCj4g
+DQo+ID4NCj4gPiBJIHRoaW5rIHdlIGNvdWxkIHNlZSBjb250ZW50aW9uIHJlZ2FyZGxlc3MgYmVj
+YXVzZSB0aGUgc3BpbmxvY2sgZG9lc24ndA0KPiBndWFyYW50ZWUgdGhlIG9yZGVyaW5nIG9mIHdo
+byBnZXRzIGl0IG5leHQuDQo+ID4NCj4gPiBJIGFtIG5vdCBzdXJlLiBCdXQgSSB3aWxsIHRyeSBh
+bmQgc2V0IHNvbWV0aGluZyBsaWtlIHRoaXMgdXAuIEhvd2V2ZXIsIEkgZG8NCj4gdGhpbmsgdGhh
+dCBtYW55IGdldC1zZXQgY2FsbHMgaXMgcHJldHR5IGhpZ2ggZm9yIGV2ZW4gYSAnaGlnaGx5JyBs
+b2FkZWQNCj4gc3lzdGVtLiBUaG91Z2ggdGhlIGJ1Z2d5IGFwcCBmb3Igc3VyZSBpcyBwb3NzaWJs
+ZS4NCj4gPg0KPiA+IEhlcmUgaXMgd2hhdCBJIGFtIHRoaW5raW5nIGFzIGEgdGVzdCBjYXNlLiBM
+aW51eHB0cCBydW5uaW5nIG5vcm1hbGx5IHdpdGggYQ0KPiBoaWdoZXIgc3luYyByYXRlIHRoYW4g
+b25jZSBwZXIgc2Vjb25kLCBwbHVzIGEgJ2J1Z2d5JyBhcHAgd2hpY2ggd2lsbCB0cnkgdG8NCj4g
+aW5maW5pdGVseSB0aHJlYWQgdGhlIGdldHRpbWUgY2FsbHMuIEkgaG9wZSB0byBoYXZlIHNvbWV0
+aGluZyBsaWtlIHRoaXMNCj4gd29ya2luZyBzb29uLg0KPiA+DQo+IA0KPiBBZ3JlZWQsIHdlIGRv
+bid0IGtub3cgd2hvIHdvdWxkIGdyYWIgdGhlIGxvY2sgbmV4dC4gQnV0IHdpdGgganVzdCBvbmUN
+Cj4gYXBwL3Byb2Nlc3Mgd2UgbWF5IG5vdCBiZSBhYmxlIHRvIGluZHVjZSB0aGUgY29udGVudGlv
+biBiZWNhdXNlIHByb2Nlc3MNCj4gc2NoZWR1bGluZyB3b3VsZCBjb21lIGludG8gcGxheS4gQSBz
+aW5nbGUgcHJvY2VzcyB3b3VsZCBvbmx5IGdldCB0aGF0IG11Y2gNCj4gdGltZSBzbGljZS4gV2l0
+aCBtdWx0aXBsZSBwcm9jZXNzZXMsIHlvdSB3aWxsIGJlIGFibGUgdG8gc2NoZWR1bGUgdGhlbSBv
+bg0KPiBtdWx0aXBsZSBDUFVzIGFuZCBoZW5jZSBjb250ZW5kIHdpdGggdGhlIGRyaXZlcidzIGNv
+bXBsZXRpb24gcGF0aCBiZWNhdXNlIHRoYXQNCj4gaXMgd2hhdCBhIHJlYWwtZXhwbG9pdCB3b3Vs
+ZCBkby4NCj4gDQo+IG1ha2Ugc3VyZSBudW1hY3RsIGlzIGluc3RhbGxlZCBvbiB5b3VyIHN5c3Rl
+bS4gV2l0aGluIGEgc2hlbGwgc2NyaXB0LCBsYXVuY2gNCj4gbXVsdGlwbGUgaW5zdGFuY2VzIG9m
+IHRoZSBwcm9jZXNzIGFzIGZvbGxvd3M6DQo+IA0KPiAjIS9iaW4vYmFzaA0KPiANCj4gbnVtX2Nw
+dXM9YGNhdCAvcHJvYy9jcHVpbmZvIHxncmVwIC1pIHByb2Nlc3NvciB8d2MgLWxgDQo+IA0KPiBm
+b3IgKChpPTA7IGk8JG51bV9jcHVzOyBpKyspKQ0KPiBkbw0KPiAgIGVjaG8gIkxhdW5jaGluZyBp
+bnN0YW5jZTokKCgkaSsxKSkiDQo+ICAgbnVtYV9jbWQ9Im51bWFjdGwgLS1waHlzY3B1YmluZD0k
+aSAvcGF0aC90by9idWdneS1hcHAgJiINCj4gICBlY2hvICJleGVjdXRpbmcgbnVtYS1jbWQ6JG51
+bWFfY21kIg0KPiAgIGV2YWwgJG51bWFfY21kDQo+IGRvbmUNCj4gDQo+IA0KPiA+IC0gSmFrZQ0K
+PiANCj4gQ2hldGFuDQoNCkkgcGVyZm9ybWVkIHRoaXMgdGVzdCBvbiBteSBtYWNoaW5lLiBFdmVu
+IHdpdGggYSBidWdneSBhcHAgdGhhdCBjYWxscyBjbG9ja19nZXR0aW1lDQppbnNpZGUgYSB3aGls
+ZSBsb29wLCB0aGlzIGRvZXMgbm90IHByb2R1Y2UgYW55IGNvbnRlbnRpb24gd2hhdHNvZXZlciB3
+aXRoDQp0aW1lIHN0YW1waW5nLiBJIGNoZWNrZWQgdGhlIHRpbWVzdGFtcHMgcmV0dXJuZWQgYWxz
+bywgYW5kIGl0IGFwcGVhcnMgdG8gYmUgcnVubmluZw0KbW9yZSB0aGFuIDIwayB0aW1lcyBhIHNl
+Y29uZC4NCg0KQmFzZWQgb24gdGhlIGZvbGxvd2luZyBmYWN0b3JzIEkgZG8gbm90IGJlbGlldmUg
+dGhpcyBpcyBhbiBpc3N1ZToNCg0KMSkgQSB1c2VyIHJlcXVpcmVzIHJvb3QgdG8gdXNlIHRoZSBp
+b2N0bC4gKE9yIHJvb3QgdXNlciBoYXMgdG8gZ3JhbnQgdGhlIHVzZXIgYWNjZXNzLCB3aGljaCBp
+c24ndCBuZWNlc3NhcnkgZm9yIG5vcm1hbCBwdHAgZnVuY3Rpb25hbGl0eSkuDQoNCjIpIEEgcm9v
+dCB1c2VyIGNhbiBhbHJlYWR5IHRyYXNoIHRoZSBzeXN0ZW0sIHRoZXJlZm9yZSB3ZSBjYW5ub3Qg
+Y29uc2lkZXIgdGhpcyBhbg0KICAgZXhwbG9pdCBhcyBpdCBpc24ndCBhIG1ldGhvZCB0byBnYWlu
+IHJvb3QgYWNjZXNzIG9yIGhhbHQgYSBzeXN0ZW0gdW5kZXIgYSBub3JtYWwNCiAgIHVzZXIuDQoN
+CjMpIEEgcHJvZ3JhbSBvcGVyYXRpbmcgYXQgc3VjaCBhIGhpZ2ggaW9jdGwgcmF0ZSBpcyBmbGF3
+ZWQgZGVzaWduIHdoaWNoIGlzIG5vdA0KICAgZXhwZWN0ZWQuIFBUUCB1c2VycyBzaG91bGQgYWxy
+ZWFkeSB1bmRlcnN0YW5kIHRoZSBpb2N0bCBoYXMgbW9yZSBsYXRlbmN5IHRoYW4gYQ0KICAgUFBT
+IHNldHVwLg0KDQo0KSBFdmVuIHJ1bm5pbmcgNDggcHJvY2Vzc2VzICgyIHBlciBDUFUpIHdpdGgg
+YSB3aGlsZSBsb29wIHJlcGVhdGVkbHkgY2FsbGluZw0KICAgY2xvY2tfZ2V0dGltZSwgemVybyBj
+b250ZW50aW9uIHdhcyBvYnNlcnZlZC4gVGhlIHRpbWVzIHJldHVybmVkIGhhdmUgYWJvdXQgYQ0K
+ICAgNTB1cyBkZWxheSBiZXR3ZWVuIHRoZW0uIFRoaXMgdHJhbnNsYXRlcyB0byBzb21ld2hlcmUg
+aW4gdGhlIGJhbGxwYXJrIG9mIDIwaw0KICAgY2FsbHMgcGVyIHNlY29uZC4gVGhpcyBoYXMgbm8g
+ZWZmZWN0IG9uIG5ldHdvcmsgdHJhZmZpYyAoSSBjYW4gc3RpbGwgc3NoL3BpbmcNCiAgIG92ZXIg
+dGhhdCBpbnRlcmZhY2UpIGFuZCBoYXMgbm8gaW1wYWN0IG9uIGRyb3BwaW5nIHRpbWVzdGFtcHMg
+b2YgcGFja2V0cy4gVXNpbmcNCiAgIGxhcmdlIGFtb3VudHMgb2YgdHJhZmZpYyBpcyBub3QgdmFs
+aWQgYmVjYXVzZSB0aGF0IGlzIGFscmVhZHkgYSBrbm93biBjb25zdHJhaW50DQogICBvbiBwdHAu
+IChUb28gbXVjaCB0cmFmZmljLCBlc3BlY2lhbGx5IHB0cCB0cmFmZmljKSByZXN1bHRzIGluIGRy
+b3BwZWQgdGltZXN0YW1wcw0KICAgYmVjYXVzZSBvZiB0aGUgd2F5IHRoZSBoYXJkd2FyZSBzdG9y
+ZXMgdGltZXN0YW1wcyBmb3IgcGFja2V0cyBpbiB0aGUgcmVnaXN0ZXJzKQ0KDQpJZiB5b3UgYXJl
+IG5vdCBzYXRpc2ZpZWQgd2l0aCB0aGlzLCBwbGVhc2UgcHJvdmlkZSBldmlkZW5jZSBvZiBhIGZh
+aWxlZCB0ZXN0IGNhc2UuDQo=
