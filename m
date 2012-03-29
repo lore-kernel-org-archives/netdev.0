@@ -1,36 +1,153 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big
- network copies (page allocation failure)
-Date: Thu, 29 Mar 2012 19:09:35 +0100
-Message-ID: <1333044575.2656.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120329163800.GH24933@merlins.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH V4 8/8] net/mlx4_en: Set max rate-limit for a TC
+Date: Thu, 29 Mar 2012 20:27:20 +0200
+Message-ID: <4F74A988.1020103@mellanox.com>
+References: <1333033418-1669-1-git-send-email-amirv@mellanox.com>  <1333033418-1669-9-git-send-email-amirv@mellanox.com> <1333034470.2325.751.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Marc MERLIN <marc@merlins.org>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Roland Dreier <roland@purestorage.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:53693 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758417Ab2C2SJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 14:09:42 -0400
-In-Reply-To: <20120329163800.GH24933@merlins.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:53006 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1759221Ab2C2S2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 14:28:02 -0400
+In-Reply-To: <1333034470.2325.751.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-03-29 at 09:38 -0700, Marc MERLIN wrote:
-[...]
-> Below are some sysreq dumps I took (syslog to local disk was still
-> working fine). I know I have Tainted 'G', and I have no idea where that
-> came from, sorry :-/
-[...]
 
-'G' isn't a taint flag, but the following 'O' is; it means you have one
-or more out-of-tree modules loaded.  Care to tell us what they are?
 
-Ben.
+On 03/29/2012 05:21 PM, Eric Dumazet wrote:
+> On Thu, 2012-03-29 at 17:03 +0200, Amir Vadai wrote:
+>> This patch is using the DCB netlink to set rate limit per ETS TC
+>>
+>> Signed-off-by: Amir Vadai<amirv@mellanox.com>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   31 ++++++++++++++++++++++++
+>>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    7 +++++
+>>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 +-
+>>   3 files changed, 39 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+>> index 5bf0106..0f92b2e 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+>> @@ -100,6 +100,7 @@ static int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
+>>   	__u8 pg[IEEE_8021QAZ_MAX_TCS] = { 0 };
+>>
+>>   	ets = ets ?: priv->mlx4_en_ieee_ets;
+>> +	ratelimit = ratelimit ?: priv->maxrate->tc_maxrate;
+>>
+>>   	/* higher TC means higher priority =>  lower pg */
+>>   	for (i = IEEE_8021QAZ_MAX_TCS - 1; i>= 0; i--) {
+>> @@ -200,9 +201,39 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
+>>   	return 0;
+>>   }
+>>
+>> +static int mlx4_en_dcbnl_ieee_getmaxrate(struct net_device *dev,
+>> +				   struct ieee_maxrate *maxrate)
+>> +{
+>> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+>> +
+>> +	if (!priv->maxrate)
+>> +		return -EINVAL;
+>> +
+>> +	memcpy(maxrate, priv->maxrate, sizeof(maxrate));
+>
+> sizeof(*maxrate) is probably what you wanted ?
+>
+>> +
+>> +	return 0;
+>> +}
+>> +
+>> +static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
+>> +		struct ieee_maxrate *maxrate)
+>> +{
+>> +	int err;
+>> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+>> +
+>> +	err = mlx4_en_config_port_scheduler(priv, NULL, maxrate->tc_maxrate);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	memcpy(priv->maxrate, maxrate, sizeof(priv->maxrate));
+>
+> Really ?
+>
+> sizeof(priv->maxrate) seems to be 8/4 (sizeof a pointer)
+>
+>
+>
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>   const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
+>>   	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
+>>   	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
+>> +	.ieee_getmaxrate = mlx4_en_dcbnl_ieee_getmaxrate,
+>> +	.ieee_setmaxrate = mlx4_en_dcbnl_ieee_setmaxrate,
+>>   	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
+>>   	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index 44dbe1f..be7ffbf 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -978,6 +978,7 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+>>
+>>   #ifdef CONFIG_MLX4_EN_DCB
+>>   	vfree(priv->mlx4_en_ieee_ets);
+>> +	vfree(priv->maxrate);
+>>   #endif
+>>
+>>   	free_netdev(dev);
+>> @@ -1103,6 +1104,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+>>   			err = -ENOMEM;
+>>   			goto out;
+>>   		}
+>> +
+>> +		priv->maxrate = vzalloc(sizeof(struct ieee_maxrate));
+>
+> vzalloc() ? What is the size of struct ieee_maxrate ?
+>
+>> +		if (!priv->maxrate) {
+>> +			err = -ENOMEM;
+>> +			goto out;
+>> +		}
+>>   	}
+>>   #endif
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+>> index fa09792..d1f5ac2 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+>> @@ -420,7 +420,6 @@ struct mlx4_en_frag_info {
+>>   #define MLX4_EN_BW_MAX 100 /* Utilize 100% of the line */
+>>
+>>   #define MLX4_EN_TC_ETS 7
+>> -
+>>   #endif
+>>
+>>   struct mlx4_en_priv {
+>> @@ -499,6 +498,7 @@ struct mlx4_en_priv {
+>>
+>>   #ifdef CONFIG_MLX4_EN_DCB
+>>   	struct ieee_ets *mlx4_en_ieee_ets;
+>> +	struct ieee_maxrate *maxrate;
+>>   #endif
+>>   };
+>>
+>
+>
+I was in a rush to send it on time and missed it (of course I tested 
+only tc 0 so didn't see it in my tests too).
+Anyway, will fix it.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+- Amir
