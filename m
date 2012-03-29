@@ -1,37 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 0/6] net/mlx4_en: DCB QoS support
-Date: Wed, 28 Mar 2012 19:23:13 -0400 (EDT)
-Message-ID: <20120328.192313.1006023795337428474.davem@davemloft.net>
-References: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
-	<CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: bpf_slow_path: sibling call to `skb_copy_bits' not allowed multiple
+ TOCs (ppc)
+Date: Wed, 28 Mar 2012 20:54:56 -0400
+Message-ID: <CAP=VYLqwbjNDQ-TTbs_6cH4X2MMzy=MAFy4=R116zGL8a6qUag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@purestorage.com,
-	yevgenyp@mellanox.com, oren@mellanox.com, amirv@dev.mellanox.co.il,
-	john.r.fastabend@intel.com, eric.dumazet@gmail.com,
-	amirv@mellanox.com
-To: or.gerlitz@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linuxppc-dev@ozlabs.org, linux-next@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758081Ab2C1XX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 19:23:28 -0400
-In-Reply-To: <CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:43630 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933074Ab2C2Ay6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 20:54:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Thu, 29 Mar 2012 00:21:57 +0200
+Hi all,
 
-> For the ratelimit Eric D. provided feedback and it was implemented
-> along his suggestion,
-> and now John and Ben have other suggestions, so need clear feedback
-> here not to implement this in 2-3 different ways, and this is the
-> easier piece. As for the HW QoS, the discussion continues.
+Wondering if anyone has researched this, before I waste more time on it.
 
-I think the ratelimit stuff needs to be an optional attribute to
-the existing dcbnl stuff, and I think that's in line with the
-most recent suggestions you've received.
+The linux-next build of powerpc-allyesconfig has for quite some time shown this:
 
-Definitely not module parameters or sysctl knobs, anything but that.
+  LD      .tmp_vmlinux1
+powerpc-linux-ld: arch/powerpc/net/built-in.o: In function `bpf_slow_path_word':
+(.text+0x90): sibling call optimization to `skb_copy_bits' does not
+allow automatic
+multiple TOCs; recompile with -mminimal-toc or -fno-optimize-sibling-calls, or
+make `skb_copy_bits' extern
+
+We get the same error for s/word/half/ and s/word/byte/ and s/word/msh/
+
+Visually "bisecting" the linux-next builds shows the following:
+
+good: Dec 7th, 2011:  http://kisskb.ellerman.id.au/kisskb/buildresult/5059024/
+bad:   Dec 8th, 2011:  http://kisskb.ellerman.id.au/kisskb/buildresult/5062069/
+
+I wouldn't be surprised if this was some kind of size thing that doesn't matter
+in the real world, as the powerpc-allyesconfig is really only of value for build
+coverage.   Even in the absence of the skb error, it still fails to link with:
+
+    "powerpc-linux-ld: TOC section size exceeds 64k"
+
+i.e. it never links into anything a person could actually try and boot anyway.
+
+So, just knowing "yes that is bogus because you've got a giant kernel
+with multiple TOC" would be useful information here.
+
+Thanks,
+Paul.
