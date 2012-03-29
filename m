@@ -1,107 +1,44 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net V4 2/2] igb: offer a PTP Hardware Clock instead of
- the timecompare method
-Date: Thu, 29 Mar 2012 23:08:59 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB580DD9C8@ORSMSX105.amr.corp.intel.com>
-References: <CAAsGZS6A3Cz9eb9v94MKTeonW0YitHh5h7owpkRofKzgzUKF_Q@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DB92C@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS460uazL5n=oc3DwWKqeuTtNdQROGXQrPbs=Qh92TpnDg@mail.gmail.com>
-	<20120324065147.GB2201@netboy.at.omicron.at>
-	<CAAsGZS556o4iXtsWBzpiXxmv4isoZzw_h+RNv5eBMTGOsK905w@mail.gmail.com>
-	<20120326152730.GA10212@localhost.localdomain>
-	<CAAsGZS5Kn0nnwE0=0Eoo9a9e4+9w2fQ4nWjbCNsNrL-yfE3BtQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC04D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS4Jqe5ZcZyGZjurmjBCgzj=+a0cgHAEwB+esXNoQ3P7NQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC1A0@ORSMSX105.amr.corp.intel.com>
-	<20120327180501.GA3878@netboy.at.omicron.at>
-	<02874ECE860811409154E81DA85FBB580DC68D@ORSMSX105.amr.corp.intel.com>
-	<CAAsGZS7+L5Y7Mo8pipJf=T6x9vTUAcTS93t=BGsmCUvA3T31Zw@mail.gmail.com>
-	<CAAsGZS6=wCPKC_1HnXQNn=U=6h-akbWvLZ_9ztBjfva=DFmugQ@mail.gmail.com>
-	<02874ECE860811409154E81DA85FBB580DC769@ORSMSX105.amr.corp.intel.com>
- <CAAsGZS75TStwzTsRnpMGMqPy=h1AoV5uKyguXa92LvAsG4BXOQ@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH v17 00/15] seccomp_filter: BPF-based syscall filtering
+Date: Fri, 30 Mar 2012 10:11:32 +1100 (EST)
+Message-ID: <alpine.LRH.2.02.1203301010310.11201@tundra.namei.org>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40020 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760173Ab2C2XJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2012 19:09:03 -0400
-In-Reply-To: <CAAsGZS75TStwzTsRnpMGMqPy=h1AoV5uKyguXa92LvAsG4BXOQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org,
+        linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+        kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+        x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+        mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+        rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+        luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+        djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+        pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+        eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com,
+        keescook@chromium.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <kernel-hardening-return-1189-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1333051320-30872-1-git-send-email-wad@chromium.org>
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBjaGV0YW4gbG9rZSBbbWFpbHRv
-Omxva2UuY2hldGFuQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMjcsIDIwMTIg
-Mjo1NSBQTQ0KPiBUbzogS2VsbGVyLCBKYWNvYiBFDQo+IENjOiBSaWNoYXJkIENvY2hyYW47IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLQ0KPiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
-ZXQ7IEtpcnNoZXIsIEplZmZyZXkgVDsgUm9uY2lhaywgSm9objsNCj4gam9obi5zdHVsdHpAbGlu
-YXJvLm9yZzsgdGdseEBsaW51dHJvbml4LmRlDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IFY0
-IDIvMl0gaWdiOiBvZmZlciBhIFBUUCBIYXJkd2FyZSBDbG9jayBpbnN0ZWFkIG9mIHRoZQ0KPiB0
-aW1lY29tcGFyZSBtZXRob2QNCj4gDQo+IE9uIFR1ZSwgTWFyIDI3LCAyMDEyIGF0IDQ6NTggUE0s
-IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiB3cm90ZToNCj4g
-DQo+ID4NCj4gPiBJIHRoaW5rIHdlIGNvdWxkIHNlZSBjb250ZW50aW9uIHJlZ2FyZGxlc3MgYmVj
-YXVzZSB0aGUgc3BpbmxvY2sgZG9lc24ndA0KPiBndWFyYW50ZWUgdGhlIG9yZGVyaW5nIG9mIHdo
-byBnZXRzIGl0IG5leHQuDQo+ID4NCj4gPiBJIGFtIG5vdCBzdXJlLiBCdXQgSSB3aWxsIHRyeSBh
-bmQgc2V0IHNvbWV0aGluZyBsaWtlIHRoaXMgdXAuIEhvd2V2ZXIsIEkgZG8NCj4gdGhpbmsgdGhh
-dCBtYW55IGdldC1zZXQgY2FsbHMgaXMgcHJldHR5IGhpZ2ggZm9yIGV2ZW4gYSAnaGlnaGx5JyBs
-b2FkZWQNCj4gc3lzdGVtLiBUaG91Z2ggdGhlIGJ1Z2d5IGFwcCBmb3Igc3VyZSBpcyBwb3NzaWJs
-ZS4NCj4gPg0KPiA+IEhlcmUgaXMgd2hhdCBJIGFtIHRoaW5raW5nIGFzIGEgdGVzdCBjYXNlLiBM
-aW51eHB0cCBydW5uaW5nIG5vcm1hbGx5IHdpdGggYQ0KPiBoaWdoZXIgc3luYyByYXRlIHRoYW4g
-b25jZSBwZXIgc2Vjb25kLCBwbHVzIGEgJ2J1Z2d5JyBhcHAgd2hpY2ggd2lsbCB0cnkgdG8NCj4g
-aW5maW5pdGVseSB0aHJlYWQgdGhlIGdldHRpbWUgY2FsbHMuIEkgaG9wZSB0byBoYXZlIHNvbWV0
-aGluZyBsaWtlIHRoaXMNCj4gd29ya2luZyBzb29uLg0KPiA+DQo+IA0KPiBBZ3JlZWQsIHdlIGRv
-bid0IGtub3cgd2hvIHdvdWxkIGdyYWIgdGhlIGxvY2sgbmV4dC4gQnV0IHdpdGgganVzdCBvbmUN
-Cj4gYXBwL3Byb2Nlc3Mgd2UgbWF5IG5vdCBiZSBhYmxlIHRvIGluZHVjZSB0aGUgY29udGVudGlv
-biBiZWNhdXNlIHByb2Nlc3MNCj4gc2NoZWR1bGluZyB3b3VsZCBjb21lIGludG8gcGxheS4gQSBz
-aW5nbGUgcHJvY2VzcyB3b3VsZCBvbmx5IGdldCB0aGF0IG11Y2gNCj4gdGltZSBzbGljZS4gV2l0
-aCBtdWx0aXBsZSBwcm9jZXNzZXMsIHlvdSB3aWxsIGJlIGFibGUgdG8gc2NoZWR1bGUgdGhlbSBv
-bg0KPiBtdWx0aXBsZSBDUFVzIGFuZCBoZW5jZSBjb250ZW5kIHdpdGggdGhlIGRyaXZlcidzIGNv
-bXBsZXRpb24gcGF0aCBiZWNhdXNlIHRoYXQNCj4gaXMgd2hhdCBhIHJlYWwtZXhwbG9pdCB3b3Vs
-ZCBkby4NCj4gDQo+IG1ha2Ugc3VyZSBudW1hY3RsIGlzIGluc3RhbGxlZCBvbiB5b3VyIHN5c3Rl
-bS4gV2l0aGluIGEgc2hlbGwgc2NyaXB0LCBsYXVuY2gNCj4gbXVsdGlwbGUgaW5zdGFuY2VzIG9m
-IHRoZSBwcm9jZXNzIGFzIGZvbGxvd3M6DQo+IA0KPiAjIS9iaW4vYmFzaA0KPiANCj4gbnVtX2Nw
-dXM9YGNhdCAvcHJvYy9jcHVpbmZvIHxncmVwIC1pIHByb2Nlc3NvciB8d2MgLWxgDQo+IA0KPiBm
-b3IgKChpPTA7IGk8JG51bV9jcHVzOyBpKyspKQ0KPiBkbw0KPiAgIGVjaG8gIkxhdW5jaGluZyBp
-bnN0YW5jZTokKCgkaSsxKSkiDQo+ICAgbnVtYV9jbWQ9Im51bWFjdGwgLS1waHlzY3B1YmluZD0k
-aSAvcGF0aC90by9idWdneS1hcHAgJiINCj4gICBlY2hvICJleGVjdXRpbmcgbnVtYS1jbWQ6JG51
-bWFfY21kIg0KPiAgIGV2YWwgJG51bWFfY21kDQo+IGRvbmUNCj4gDQo+IA0KPiA+IC0gSmFrZQ0K
-PiANCj4gQ2hldGFuDQoNCkkgcGVyZm9ybWVkIHRoaXMgdGVzdCBvbiBteSBtYWNoaW5lLiBFdmVu
-IHdpdGggYSBidWdneSBhcHAgdGhhdCBjYWxscyBjbG9ja19nZXR0aW1lDQppbnNpZGUgYSB3aGls
-ZSBsb29wLCB0aGlzIGRvZXMgbm90IHByb2R1Y2UgYW55IGNvbnRlbnRpb24gd2hhdHNvZXZlciB3
-aXRoDQp0aW1lIHN0YW1waW5nLiBJIGNoZWNrZWQgdGhlIHRpbWVzdGFtcHMgcmV0dXJuZWQgYWxz
-bywgYW5kIGl0IGFwcGVhcnMgdG8gYmUgcnVubmluZw0KbW9yZSB0aGFuIDIwayB0aW1lcyBhIHNl
-Y29uZC4NCg0KQmFzZWQgb24gdGhlIGZvbGxvd2luZyBmYWN0b3JzIEkgZG8gbm90IGJlbGlldmUg
-dGhpcyBpcyBhbiBpc3N1ZToNCg0KMSkgQSB1c2VyIHJlcXVpcmVzIHJvb3QgdG8gdXNlIHRoZSBp
-b2N0bC4gKE9yIHJvb3QgdXNlciBoYXMgdG8gZ3JhbnQgdGhlIHVzZXIgYWNjZXNzLCB3aGljaCBp
-c24ndCBuZWNlc3NhcnkgZm9yIG5vcm1hbCBwdHAgZnVuY3Rpb25hbGl0eSkuDQoNCjIpIEEgcm9v
-dCB1c2VyIGNhbiBhbHJlYWR5IHRyYXNoIHRoZSBzeXN0ZW0sIHRoZXJlZm9yZSB3ZSBjYW5ub3Qg
-Y29uc2lkZXIgdGhpcyBhbg0KICAgZXhwbG9pdCBhcyBpdCBpc24ndCBhIG1ldGhvZCB0byBnYWlu
-IHJvb3QgYWNjZXNzIG9yIGhhbHQgYSBzeXN0ZW0gdW5kZXIgYSBub3JtYWwNCiAgIHVzZXIuDQoN
-CjMpIEEgcHJvZ3JhbSBvcGVyYXRpbmcgYXQgc3VjaCBhIGhpZ2ggaW9jdGwgcmF0ZSBpcyBmbGF3
-ZWQgZGVzaWduIHdoaWNoIGlzIG5vdA0KICAgZXhwZWN0ZWQuIFBUUCB1c2VycyBzaG91bGQgYWxy
-ZWFkeSB1bmRlcnN0YW5kIHRoZSBpb2N0bCBoYXMgbW9yZSBsYXRlbmN5IHRoYW4gYQ0KICAgUFBT
-IHNldHVwLg0KDQo0KSBFdmVuIHJ1bm5pbmcgNDggcHJvY2Vzc2VzICgyIHBlciBDUFUpIHdpdGgg
-YSB3aGlsZSBsb29wIHJlcGVhdGVkbHkgY2FsbGluZw0KICAgY2xvY2tfZ2V0dGltZSwgemVybyBj
-b250ZW50aW9uIHdhcyBvYnNlcnZlZC4gVGhlIHRpbWVzIHJldHVybmVkIGhhdmUgYWJvdXQgYQ0K
-ICAgNTB1cyBkZWxheSBiZXR3ZWVuIHRoZW0uIFRoaXMgdHJhbnNsYXRlcyB0byBzb21ld2hlcmUg
-aW4gdGhlIGJhbGxwYXJrIG9mIDIwaw0KICAgY2FsbHMgcGVyIHNlY29uZC4gVGhpcyBoYXMgbm8g
-ZWZmZWN0IG9uIG5ldHdvcmsgdHJhZmZpYyAoSSBjYW4gc3RpbGwgc3NoL3BpbmcNCiAgIG92ZXIg
-dGhhdCBpbnRlcmZhY2UpIGFuZCBoYXMgbm8gaW1wYWN0IG9uIGRyb3BwaW5nIHRpbWVzdGFtcHMg
-b2YgcGFja2V0cy4gVXNpbmcNCiAgIGxhcmdlIGFtb3VudHMgb2YgdHJhZmZpYyBpcyBub3QgdmFs
-aWQgYmVjYXVzZSB0aGF0IGlzIGFscmVhZHkgYSBrbm93biBjb25zdHJhaW50DQogICBvbiBwdHAu
-IChUb28gbXVjaCB0cmFmZmljLCBlc3BlY2lhbGx5IHB0cCB0cmFmZmljKSByZXN1bHRzIGluIGRy
-b3BwZWQgdGltZXN0YW1wcw0KICAgYmVjYXVzZSBvZiB0aGUgd2F5IHRoZSBoYXJkd2FyZSBzdG9y
-ZXMgdGltZXN0YW1wcyBmb3IgcGFja2V0cyBpbiB0aGUgcmVnaXN0ZXJzKQ0KDQpJZiB5b3UgYXJl
-IG5vdCBzYXRpc2ZpZWQgd2l0aCB0aGlzLCBwbGVhc2UgcHJvdmlkZSBldmlkZW5jZSBvZiBhIGZh
-aWxlZCB0ZXN0IGNhc2UuDQo=
+On Thu, 29 Mar 2012, Will Drewry wrote:
+
+> Please see prior revisions for a detailed discussion of this patch
+> series.
+> 
+> This series is a rebase on to:
+>   b5174fa3a7f4f8f150bfa3b917c92608953dfa0f
+> with very minor changes due to rebasing and tweaks noticed by a few
+> initial users.  (I will rebase again for v3.4-rc1 when that time comes.)
+
+I've offered to take this via my tree -- if anyone else wants to merge it 
+via theirs instead, holler.
+
+-- 
+James Morris
+<jmorris@namei.org>
