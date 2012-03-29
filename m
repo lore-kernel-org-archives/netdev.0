@@ -1,63 +1,54 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 00/17] mark const init data with __initconst instead of
- __initdata
-Date: Thu, 29 Mar 2012 23:11:31 +0200
-Message-ID: <20120329211131.GA31250@pengutronix.de>
+From: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
+Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big network copies (page allocation failure)
+Date: Thu, 29 Mar 2012 14:19:31 -0700
+Message-ID: <20120329211931.GH29342@merlins.org>
+References: <20120329163800.GH24933@merlins.org> <1333044575.2656.1.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Lunn <andrew@lunn.ch>, Christoph Lameter <cl@linux-foundation.org>,
- linux-mips@linux-mips.org, Tony Lindgren <tony@atomide.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Linus Walleij <linus.walleij@linaro.org>,
- Matt Porter <mporter@kernel.crashing.org>,
- Nicolas Ferre <nicolas.ferre@atmel.com>, Matthew Garrett <mjg59@srcf.ucam.org>,
- platform-driver-x86@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
- ibm-acpi-devel@lists.sourceforge.net, Randy Dunlap <rdunlap@xenotime.net>,
- linux-mtd@lists.infradead.org, Sekhar Nori <nsekhar@ti.com>,
- Daniel Walker <dwalker@fifo99.com>, lm-sensors@lm-sensors.org,
- Klaus Kudielka <klaus.kudielka@ieee.org>,
- Guenter Roeck <guenter.roeck@ericsson.com>, Kevin Hilman <khilman@ti.com>,
- linux-ia64@vger.kernel.org, Kukjin Kim <kgene.kim@samsung.com>,
- Russell King <linux@arm.linux.org.uk>, Samuel Ortiz <sameo@linux.intel.c
-To: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
-List-Post: <mailto:linux-mtd@lists.infradead.org>
-List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
-Sender: linux-mtd-bounces@lists.infradead.org
-Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
+In-Reply-To: <1333044575.2656.1.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, Mar 29, 2012 at 07:09:35PM +0100, Ben Hutchings wrote:
+> On Thu, 2012-03-29 at 09:38 -0700, Marc MERLIN wrote:
+> [...]
+> > Below are some sysreq dumps I took (syslog to local disk was still
+> > working fine). I know I have Tainted 'G', and I have no idea where that
+> > came from, sorry :-/
+> [...]
+> 
+> 'G' isn't a taint flag, but the following 'O' is; it means you have one
+> or more out-of-tree modules loaded.  Care to tell us what they are?
 
-this series fixes a common error to use __initdata to mark const
-variables. Most of the time this works well enough to go unnoticed
-(though I wonder why the linker doesn't warn about that).
-Just try adding something like
+All I can think of is virtualbox, but I'm almost certain I did not have
+virtualbox loaded (i.e. modules disabled so they wouldn't load) for my first
+test with wired ethernet (yes, I know that virtualbox modules are known 
+for causing problems).
 
-	int something __initdata;
+Ah, yes, I had another out of tree module:
+http://www.thinkwiki.org/wiki/Tp_smapi
+(on thinkpad W500)
 
-to one of the patched files and compile to see the error.
+Module                  Size  Used by
+hdaps                  13616  1 
+tp_smapi               23531  0 
+thinkpad_ec            12857  2 hdaps,tp_smapi
 
-While touching these annotations I also corrected the position where it
-was wrong to go between the variable name and the =3D.
+So, I suppose the next step is to reproduce without those modules loaded,
+which I'll do next.
 
-Note this series is not compile tested.
-
-Best regards
-Uwe
-
--- =
-
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig            |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
-______________________________________________________
-Linux MTD discussion mailing list
-http://lists.infradead.org/mailman/listinfo/linux-mtd/
+Thanks,
+Marc
+-- 
+"A mouse is a device used to point at the xterm you want to type in" - A.S.R.
+Microsoft is to operating systems ....
+                                      .... what McDonalds is to gourmet cooking
+Home page: http://marc.merlins.org/  
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
