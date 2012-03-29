@@ -1,71 +1,54 @@
-From: Avleen Vig <avleen@gmail.com>
-Subject: Re: Crash in __netif_receive_skb
-Date: Wed, 28 Mar 2012 22:01:49 -0500
-Message-ID: <CAMjP1KmDxhOKOGtgKt=OWbcXoJgrbA_rAxdkV4j7Y8XC8yjnuA@mail.gmail.com>
-References: <CAMjP1Kka6MmT2zLc95ZQ=vigS6w9diS9-tawzdUdhbzzfzMh3w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V3 0/6] net/mlx4_en: DCB QoS support
+Date: Thu, 29 Mar 2012 05:14:06 +0200
+Message-ID: <1332990846.3402.5.camel@edumazet-laptop>
+References: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
+	 <CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@dev.mellanox.co.il>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:45969 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754583Ab2C2DBv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Mar 2012 23:01:51 -0400
-In-Reply-To: <CAMjP1Kka6MmT2zLc95ZQ=vigS6w9diS9-tawzdUdhbzzfzMh3w@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:59629 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758049Ab2C2DOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 23:14:12 -0400
+Received: by eaaq12 with SMTP id q12so547213eaa.19
+        for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 20:14:10 -0700 (PDT)
+In-Reply-To: <CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 28, 2012 at 8:31 PM, Avleen Vig <avleen@gmail.com> wrote:
-> Hi folks, someone in #kernel recommended I email these two lists. Hop=
-e
-> they're the right place.
->
-> We're running 2.6.32-220.4.1.el6.x86_64 on Centos 6.2, and getting a
-> repeated crash:
-> =A0 =A0https://gist.github.com/2231998
->
-> We can make this happen pretty easily just by passing some network
-> traffic and waiting a while.
-> I couldn't find any references to this particular issue.
-> I have vmcore files and am happy to dig into it if it would help (as
-> long as someone can tell me what to do :))
+Le jeudi 29 mars 2012 =C3=A0 00:21 +0200, Or Gerlitz a =C3=A9crit :
 
-I hope this debugging is legit, I'm really new to this level of insight=
-=2E
-
-I think the problem is in include/linux/netpoll.h, at the "if"
-statement at line 86:
-    static inline int netpoll_receive_skb(struct sk_buff *skb)
-    {
-        if (!list_empty(&skb->dev->napi_list))
-                return netpoll_rx(skb);
-        return 0;
-    }
+> For the ratelimit Eric D. provided feedback and it was implemented
+> along his suggestion,
 
 
-This is based on poking around in the crash dump:
-    BUG: unable to handle kernel NULL pointer dereference at 0000000000=
-000060
-    IP: [<ffffffff8142bb40>] __netif_receive_skb+0x60/0x6e0
-    crash> dis -rl ffffffff8142bb40
-    ....
-    /usr/src/debug/kernel-2.6.32-220.7.1.el6/linux-2.6.32-220.7.1.el6.x=
-86_64/include/linux/netpoll.h:
-86
-    0xffffffff8142bb33 <__netif_receive_skb+83>:    mov    0x20(%rbx),%=
-r12
-    0xffffffff8142bb37 <__netif_receive_skb+87>:    mov    %r12,-0x38(%=
-rbp)
-    0xffffffff8142bb3b <__netif_receive_skb+91>:    lea    0x60(%r12),%=
-rax
-    0xffffffff8142bb40 <__netif_receive_skb+96>:    cmp    %rax,0x60(%r=
-12)
+My suggestion was exactly the following :
+
+/sys/class/net/eth2/qos/0/ratelimit
+=2E..
+/sys/class/net/eth2/qos/7/ratelimit
+
+> and now John and Ben have other suggestions,
+
+I dont think so.
+
+Amir provided in V2 something that was not what I suggested.
+
+/sys/class/net/eth2/ratelimit/tc0
+=2E..
+/sys/class/net/eth2/ratelimit/tc7
 
 
+And this is where John, Ben were complaining.
 
-I *think* this means that "&skb->dev->napi_list" is null when we're
-trying to compare it, rather than being a list.
-
-If it matters, this is inside LXC containers.
+[ Obviously I totally agree with them ]
