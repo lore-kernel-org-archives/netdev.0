@@ -1,54 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V3 0/6] net/mlx4_en: DCB QoS support
-Date: Thu, 29 Mar 2012 05:14:06 +0200
-Message-ID: <1332990846.3402.5.camel@edumazet-laptop>
-References: <1332860951-23042-1-git-send-email-amirv@mellanox.com>
-	 <CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: bpf_slow_path: sibling call to `skb_copy_bits' not allowed
+ multiple TOCs (ppc)
+Date: Thu, 29 Mar 2012 14:30:40 +1100
+Message-ID: <20120329143040.6568ff46a45e6bd10d428473@canb.auug.org.au>
+References: <CAP=VYLqwbjNDQ-TTbs_6cH4X2MMzy=MAFy4=R116zGL8a6qUag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59629 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758049Ab2C2DOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 23:14:12 -0400
-Received: by eaaq12 with SMTP id q12so547213eaa.19
-        for <netdev@vger.kernel.org>; Wed, 28 Mar 2012 20:14:10 -0700 (PDT)
-In-Reply-To: <CAJZOPZLLJdQX4i_WhV8Bo5UHaxndFDwf873n8ZTCPqXq7JrMiw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__29_Mar_2012_14_30_40_+1100_f5hVC7kYy1MacNUS"
+Cc: netdev <netdev@vger.kernel.org>, linuxppc-dev@ozlabs.org,
+	linux-next@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLqwbjNDQ-TTbs_6cH4X2MMzy=MAFy4=R116zGL8a6qUag@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 29 mars 2012 =C3=A0 00:21 +0200, Or Gerlitz a =C3=A9crit :
+--Signature=_Thu__29_Mar_2012_14_30_40_+1100_f5hVC7kYy1MacNUS
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> For the ratelimit Eric D. provided feedback and it was implemented
-> along his suggestion,
+Hi Paul,
 
+On Wed, 28 Mar 2012 20:54:56 -0400 Paul Gortmaker <paul.gortmaker@windriver=
+.com> wrote:
+>
+> coverage.   Even in the absence of the skb error, it still fails to link =
+with:
+>=20
+>     "powerpc-linux-ld: TOC section size exceeds 64k"
+>=20
+> i.e. it never links into anything a person could actually try and boot an=
+yway.
+>=20
+> So, just knowing "yes that is bogus because you've got a giant kernel
+> with multiple TOC" would be useful information here.
 
-My suggestion was exactly the following :
+This last message has been known for a long time and would require us to
+change the way we link the kernel to fix.  I had a go at it a year or so
+ago, but ran into binutils bugs :-(
 
-/sys/class/net/eth2/qos/0/ratelimit
-=2E..
-/sys/class/net/eth2/qos/7/ratelimit
+The other message may be a result of the TOC section size problem, but I
+am not sure.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> and now John and Ben have other suggestions,
+--Signature=_Thu__29_Mar_2012_14_30_40_+1100_f5hVC7kYy1MacNUS
+Content-Type: application/pgp-signature
 
-I dont think so.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Amir provided in V2 something that was not what I suggested.
+iQIcBAEBCAAGBQJPc9dgAAoJEECxmPOUX5FEERYQAJzFfKRzt8dpA3LYf3NH3OX7
+0ZP7iugBed2JQvJB6HRFzLnzmqcVZYRV1RQan6X0K6Z0P+HNyhdeHITirtNE7Xuj
+yWOdLxz8+0XUBHrxAgsEMaTAYLHow13wcTxV4pCYWMCNyn11/ZkkHPf4K3apc+N8
+C6GE9nH2PBjJvXnu6YlQmeeb2NGBih6FN9D4f9YCL1m+uYzahnJhLb4LjBvrW4WI
+qJiL/UzGT+qq83Sf25HrhQa3hXUc+Gzo3LAZ1U38yotZCaRHhIpnjzzJVZakrZ3P
+E7t78/goPI+LsUKr/BBfRHC9PR4Wj/IzOV+42O6hpQg15iZtqlK2gHk6ko+TWEiT
+vA/pKBIzOoysrI1ijRH49CqGJEaHd+1hwVTDdtug8xYSFRu4aGQM7cLg4LebXMyU
+qpV3WWzCvUnDDIElE4Vb9MPsyPV7nBckTGRT7BS6wJCmlXE/8qukA5neaaITnJty
+UlBOmQQIXww1l0yRnR9K9zovIDo5IPv7iTih7rlzSW9Qf8gIXb4VHdywvc+EE9Bg
+OiTqGTmGJo1PkqWujNwUc9K+aTilh2KtJRwggbGcBJ+oId2UTbw66LW+pp/RJd25
+cebkJPNMNkmxVYEvhDoyELNxbnV6zFnYbdCJLDNSGxH8kxIiRyVJd9m6WeqWAy7H
+ymp2+d/nt8HBJF/mkuSb
+=R7bv
+-----END PGP SIGNATURE-----
 
-/sys/class/net/eth2/ratelimit/tc0
-=2E..
-/sys/class/net/eth2/ratelimit/tc7
-
-
-And this is where John, Ben were complaining.
-
-[ Obviously I totally agree with them ]
+--Signature=_Thu__29_Mar_2012_14_30_40_+1100_f5hVC7kYy1MacNUS--
