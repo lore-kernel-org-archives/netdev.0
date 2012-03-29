@@ -1,42 +1,44 @@
-From: "zhuangfeiran@ict.ac.cn" <zhuangfeiran@ict.ac.cn>
-Subject: [PATCH] fix a bug in emitting the 16-bit immediate operand of AND
-Date: Thu, 29 Mar 2012 17:27:00 +0800
-Message-ID: <4F742AE4.6050006@ict.ac.cn>
+From: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>
+Subject: =?utf-8?Q?=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=5BPATCH=5D_set_fake=5Fr?=
+	=?utf-8?Q?table's_dst_to_NULL_to_avoid_ker?=	=?utf-8?Q?nel_Oops.?=
+Date: Thu, 29 Mar 2012 17:38:59 +0800
+Message-ID: <004501cd0d8f$c4e133b0$4ea39b10$%huangpeng@huawei.com>
+References: <002501cd0d74$317fd100$947f7300$%huangpeng@huawei.com>
+ <1333002975.2325.82.camel@edumazet-glaptop>
+ <002601cd0d76$c4987440$4dc95cc0$%huangpeng@huawei.com>
+ <1333011120.2325.354.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.cstnet.cn ([159.226.251.21]:39050 "EHLO cstnet.cn"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753322Ab2C2JdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2012 05:33:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, harry.majun@huawei.com,
+	zhoukang7@huawei.com, 'netdev' <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1333011120.2325.354.camel@edumazet-glaptop>
+Content-language: zh-cn
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When K >= 0xFFFF0000, AND needs the two least significant bytes of K as
-its operand, but EMIT2() gives it the least significant byte of K and
-0x2. EMIT() should be used here to replace EMIT2().
+Thks for your mail.
 
-Signed-off-by: Feiran Zhuang  <zhuangfeiran@ict.ac.cn>
----
- arch/x86/net/bpf_jit_comp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+>Check net/bridge/br_netfilter.c and commits e688a6048076 (net: introduce
+>DST_NOPEER dst flag )  4adf0af6818f3ea5 (bridge: send correct MTU value
+>in PMTU (revised))
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 5671752..5a5b6e4 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -289,7 +289,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- 					EMIT2(0x24, K & 0xFF); /* and imm8,%al */
- 				} else if (K >= 0xFFFF0000) {
- 					EMIT2(0x66, 0x25);	/* and imm16,%ax */
--					EMIT2(K, 2);
-+					EMIT(K, 2);
- 				} else {
- 					EMIT1_off32(0x25, K);	/* and imm32,%eax */
- 				}
--- 
-1.7.5.4
+This patch already included in kernel-3.3, but for our case, virtual tap device's delayed
+Deletion will also cause kernel oops even in kernel3.3.
+
+>Apparently bug is because struct net_bridge is freed while its embedded
+>fake_rtable is still used by some packets.
+
+>I am not sure we are allowed to NULLify skb->dst, it might break
+>netfilter.
+
+Are you familiar with fake_rtable? I search the source, but only find one op that operate on the MTU.
+
+>Maybe real fix would be to use a non embedded dst.
+
+I agreed with you to, so at least until now this problem still exsits in the latest kernel, I will also look into it,
+And try to modify it from the root.
+
+Thanks again.
