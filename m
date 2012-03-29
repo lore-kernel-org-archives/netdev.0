@@ -1,113 +1,37 @@
-From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v17 14/15] x86: Enable HAVE_ARCH_SECCOMP_FILTER
-Date: Thu, 29 Mar 2012 15:01:59 -0500
-Message-ID: <1333051320-30872-15-git-send-email-wad@chromium.org>
-References: <1333051320-30872-1-git-send-email-wad@chromium.org>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: linux-security-module@vger.kernel.org,
-	linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org,
-	x86@kernel.org,
-	arnd@arndb.de,
-	davem@davemloft.net,
-	hpa@zytor.com,
-	mingo@redhat.com,
-	oleg@redhat.com,
-	peterz@infradead.org,
-	rdunlap@xenotime.net,
-	mcgrathr@chromium.org,
-	tglx@linutronix.de,
-	luto@mit.edu,
-	eparis@redhat.com,
-	serge.hallyn@canonical.com,
-	djm@mindrot.org,
-	scarybeasts@gmail.com,
-	indan@nul.nu,
-	pmoore@redhat.com,
-	akpm@linux-foundation.org,
-	corbet@lwn.net,
-	eric.dumazet@gmail.com,
-	markus@chromium.org,
-	coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org,
-	jmorris@namei.org,
-	Will Drewry <wad@chromium.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1188-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1333051320-30872-1-git-send-email-wad@chromium.org>
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V4 8/8] net/mlx4_en: Set max rate-limit for a TC
+Date: Thu, 29 Mar 2012 23:04:08 +0200
+Message-ID: <1333055048.3432.1.camel@edumazet-laptop>
+References: <1333033418-1669-1-git-send-email-amirv@mellanox.com>
+	  <1333033418-1669-9-git-send-email-amirv@mellanox.com>
+	 <1333034470.2325.751.camel@edumazet-glaptop>
+	 <4F74A988.1020103@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Roland Dreier <roland@purestorage.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@dev.mellanox.co.il>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:51484 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933223Ab2C2VEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 17:04:49 -0400
+Received: by wejx9 with SMTP id x9so1276426wej.19
+        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 14:04:48 -0700 (PDT)
+In-Reply-To: <4F74A988.1020103@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable support for seccomp filter on x86:
-- asm/tracehook.h exists
-- syscall_get_arguments() works
-- syscall_rollback() works
-- ptrace_report_syscall() works
-- secure_computing() return value is honored (see below)
+Le jeudi 29 mars 2012 =C3=A0 20:27 +0200, Amir Vadai a =C3=A9crit :
 
-This also adds support for honoring the return
-value from secure_computing().
+> I was in a rush to send it on time and missed it (of course I tested=20
+> only tc 0 so didn't see it in my tests too).
+> Anyway, will fix it.
 
-SECCOMP_RET_TRACE and SECCOMP_RET_TRAP may result in seccomp needing to
-skip a system call without killing the process.  This is done by
-returning a non-zero (-1) value from secure_computing.  This change
-makes x86 respect that return value.
+Not sure what you mean by "on time".
 
-To ensure that minimal kernel code is exposed, a non-zero return value
-results in an immediate return to user space (with an invalid syscall
-number).
-
-v17: added reviewed by and rebased
-v..: all rebases since original introduction.
-
-Reviewed-by: H. Peter Anvin <hpa@zytor.com>
-Signed-off-by: Will Drewry <wad@chromium.org>
----
- arch/x86/Kconfig         |    1 +
- arch/x86/kernel/ptrace.c |    7 ++++++-
- 2 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 3ad653d..1f23136 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -83,6 +83,7 @@ config X86
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
- 	select DCACHE_WORD_ACCESS if !DEBUG_PAGEALLOC
-+	select HAVE_ARCH_SECCOMP_FILTER
- 
- config INSTRUCTION_DECODER
- 	def_bool (KPROBES || PERF_EVENTS)
-diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
-index 8a634c8..a8d3cf9 100644
---- a/arch/x86/kernel/ptrace.c
-+++ b/arch/x86/kernel/ptrace.c
-@@ -1380,7 +1380,11 @@ long syscall_trace_enter(struct pt_regs *regs)
- 		regs->flags |= X86_EFLAGS_TF;
- 
- 	/* do the secure computing check first */
--	secure_computing(regs->orig_ax);
-+	if (secure_computing(regs->orig_ax)) {
-+		/* seccomp failures shouldn't expose any additional code. */
-+		ret = -1L;
-+		goto out;
-+	}
- 
- 	if (unlikely(test_thread_flag(TIF_SYSCALL_EMU)))
- 		ret = -1L;
-@@ -1405,6 +1409,7 @@ long syscall_trace_enter(struct pt_regs *regs)
- 				    regs->dx, regs->r10);
- #endif
- 
-+out:
- 	return ret ?: regs->orig_ax;
- }
- 
--- 
-1.7.5.4
+Take your time, linux wont freeze today nor next week.
