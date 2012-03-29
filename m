@@ -1,52 +1,251 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 2/3] tcp: Initial repair mode
-Date: Thu, 29 Mar 2012 13:53:25 +0400
-Message-ID: <4F743115.4000600@parallels.com>
-References: <4F732FE1.9040906@parallels.com>  <4F73302C.9030209@parallels.com> <1332967158.2624.42.camel@bwh-desktop.uk.solarflarecom.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [PATCH 3/3] tcp: Repair socket queues
+Date: Thu, 29 Mar 2012 18:30:06 +0800
+Message-ID: <4F7439AE.6050006@gmail.com>
+References: <4F732FE1.9040906@parallels.com> <4F733062.9020800@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:24575 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932559Ab2C2Jxg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2012 05:53:36 -0400
-In-Reply-To: <1332967158.2624.42.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:40063 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757282Ab2C2KaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 06:30:14 -0400
+Received: by iagz16 with SMTP id z16so2845016iag.19
+        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 03:30:14 -0700 (PDT)
+In-Reply-To: <4F733062.9020800@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/29/2012 12:39 AM, Ben Hutchings wrote:
-> On Wed, 2012-03-28 at 19:37 +0400, Pavel Emelyanov wrote:
-> [...]
->> * Ability to forcibly bind a socket to a port
->>
->> The sk->sk_reuse is set to 2 denoting, that the socket is question
->> should be bound as if all the others in the system are configured
->> with the SO_REUSEADDR option.
-> 
-> Shouldn't this constant be named?
+=E4=BA=8E 2012=E5=B9=B403=E6=9C=8828=E6=97=A5 23:38, Pavel Emelyanov =E5=
+=86=99=E9=81=93:
+> Reading queues under repair mode is done with recvmsg call.
+> The queue-under-repair set by TCP_REPAIR_QUEUE option is used
+> to determine which queue should be read. Thus both send and
+> receive queue can be read with this.
+>
+> Caller must pass the MSG_PEEK flag.
+>
+> Writing to queues is done with sendmsg call and yet again --
+> the repair-queue option can be used to push data into the
+> receive queue.
+>
+> When putting an skb into receive queue a zero tcp header is
+> appented to its head to address the tcp_hdr(skb)->syn and
+> the ->fin checks by the (after repair) tcp_recvmsg. These
+> flags flags are both set to zero and that's why.
+>
+> The fin cannot be met in the queue while reading the source
+> socket, since the repair only works for closed/established
+> sockets and queueing fin packet always changes its state.
+>
+> The syn in the queue denotes that the respective skb's seq
+> is "off-by-one" as compared to the actual payload lenght. Thus,
+> at the rcv queue refill we can just drop this flag and set the
+> skb's sequences to precice values. IOW -- emulate the situation
+> when the packet with data and syn is splitted into two -- a
+> packet with syn and a packet with data and the former one is
+> already "eaten".
+>
+> When the repair mode is turned off, the write queue seqs are
+> updated so that the whole queue is considered to be 'already sent,
+> waiting for ACKs' (write_seq =3D snd_nxt<=3D snd_una). From the
+> protocol POV the send queue looks like it was sent, but the data
+> between the write_seq and snd_nxt is lost in the network.
+>
+> This helps to avoid another sockoption for setting the snd_nxt
+> sequence. Leaving the whole queue in a 'not yet sent' state (as
+> it will be after sendmsg-s) will not allow to receive any acks
+> from the peer since the ack_seq will be after the snd_nxt. Thus
+> even the ack for the window probe will be dropped and the
+> connection will be 'locked' with the zero peer window.
+>
 
-Agree, I will fix this up.
+Do we need to restore various TCP options switch bits. e.g. window
+scale factor, sack_ok and so on.
 
-> [...]
->> --- a/net/ipv4/tcp.c
->> +++ b/net/ipv4/tcp.c
-> [...]
->> +	case TCP_REPAIR_QUEUE:
->> +		if (!tp->repair)
->> +			err = -EPERM;
->> +		else if (val <= TCP_QUEUES_NR)
-> 
-> Off-by-one.
+En, I think the recorded mss_cache may be need to restored too.
 
-Oops :( Thanks for noticing!
+Thanks.
 
->> +			tp->repair_queue = val;
->> +		else
->> +			err = -EINVAL;
->> +		break;
-> [...]
-> 
+Yu
+
+> Signed-off-by: Pavel Emelyanov<xemul@parallels.com>
+> ---
+>   net/ipv4/tcp.c        |   89 ++++++++++++++++++++++++++++++++++++++=
++++++++++--
+>   net/ipv4/tcp_output.c |    1 +
+>   2 files changed, 87 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 65ae921..2ab3a31 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -911,6 +911,39 @@ static inline int select_size(const struct sock =
+*sk, bool sg)
+>   	return tmp;
+>   }
+>
+> +static int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t=
+ size)
+> +{
+> +	struct sk_buff *skb;
+> +	struct tcp_skb_cb *cb;
+> +	struct tcphdr *th;
+> +
+> +	skb =3D alloc_skb(size + sizeof(*th), sk->sk_allocation);
+> +	if (!skb)
+> +		goto err;
+> +
+> +	th =3D (struct tcphdr *)skb_put(skb, sizeof(*th));
+> +	skb_reset_transport_header(skb);
+> +	memset(th, 0, sizeof(*th));
+> +
+> +	if (memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size))
+> +		goto err_free;
+> +
+> +	cb =3D TCP_SKB_CB(skb);
+> +
+> +	TCP_SKB_CB(skb)->seq =3D tcp_sk(sk)->rcv_nxt;
+> +	TCP_SKB_CB(skb)->end_seq =3D TCP_SKB_CB(skb)->seq + size;
+> +	TCP_SKB_CB(skb)->ack_seq =3D tcp_sk(sk)->snd_una - 1;
+> +
+> +	tcp_queue_rcv(sk, skb, sizeof(*th));
+> +
+> +	return size;
+> +
+> +err_free:
+> +	kfree_skb(skb);
+> +err:
+> +	return -ENOMEM;
+> +}
+> +
+>   int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr =
+*msg,
+>   		size_t size)
+>   {
+> @@ -932,6 +965,19 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock =
+*sk, struct msghdr *msg,
+>   		if ((err =3D sk_stream_wait_connect(sk,&timeo)) !=3D 0)
+>   			goto out_err;
+>
+> +	if (unlikely(tp->repair)) {
+> +		if (tp->repair_queue =3D=3D TCP_RECV_QUEUE) {
+> +			copied =3D tcp_send_rcvq(sk, msg, size);
+> +			goto out;
+> +		}
+> +
+> +		err =3D -EINVAL;
+> +		if (tp->repair_queue =3D=3D TCP_NO_QUEUE)
+> +			goto out_err;
+> +
+> +		/* 'common' sending to sendq */
+> +	}
+> +
+>   	/* This should be in poll */
+>   	clear_bit(SOCK_ASYNC_NOSPACE,&sk->sk_socket->flags);
+>
+> @@ -1089,7 +1135,7 @@ new_segment:
+>   			if ((seglen -=3D copy) =3D=3D 0&&  iovlen =3D=3D 0)
+>   				goto out;
+>
+> -			if (skb->len<  max || (flags&  MSG_OOB))
+> +			if (skb->len<  max || (flags&  MSG_OOB) || tp->repair)
+>   				continue;
+>
+>   			if (forced_push(tp)) {
+> @@ -1102,7 +1148,7 @@ new_segment:
+>   wait_for_sndbuf:
+>   			set_bit(SOCK_NOSPACE,&sk->sk_socket->flags);
+>   wait_for_memory:
+> -			if (copied)
+> +			if (copied&&  !tp->repair)
+>   				tcp_push(sk, flags&  ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
+>
+>   			if ((err =3D sk_stream_wait_memory(sk,&timeo)) !=3D 0)
+> @@ -1113,7 +1159,7 @@ wait_for_memory:
+>   	}
+>
+>   out:
+> -	if (copied)
+> +	if (copied&&  !tp->repair)
+>   		tcp_push(sk, flags, mss_now, tp->nonagle);
+>   	release_sock(sk);
+>   	return copied;
+> @@ -1187,6 +1233,24 @@ static int tcp_recv_urg(struct sock *sk, struc=
+t msghdr *msg, int len, int flags)
+>   	return -EAGAIN;
+>   }
+>
+> +static int tcp_peek_sndq(struct sock *sk, struct msghdr *msg, int le=
+n)
+> +{
+> +	struct sk_buff *skb;
+> +	int copied =3D 0, err =3D 0;
+> +
+> +	/* XXX -- need to support SO_PEEK_OFF */
+> +
+> +	skb_queue_walk(&sk->sk_write_queue, skb) {
+> +		err =3D skb_copy_datagram_iovec(skb, 0, msg->msg_iov, skb->len);
+> +		if (err)
+> +			break;
+> +
+> +		copied +=3D skb->len;
+> +	}
+> +
+> +	return err ?: copied;
+> +}
+> +
+>   /* Clean up the receive buffer for full frames taken by the user,
+>    * then send an ACK if necessary.  COPIED is the number of bytes
+>    * tcp_recvmsg has given to the user so far, it speeds up the
+> @@ -1432,6 +1496,21 @@ int tcp_recvmsg(struct kiocb *iocb, struct soc=
+k *sk, struct msghdr *msg,
+>   	if (flags&  MSG_OOB)
+>   		goto recv_urg;
+>
+> +	if (unlikely(tp->repair)) {
+> +		err =3D -EPERM;
+> +		if (!(flags&  MSG_PEEK))
+> +			goto out;
+> +
+> +		if (tp->repair_queue =3D=3D TCP_SEND_QUEUE)
+> +			goto recv_sndq;
+> +
+> +		err =3D -EINVAL;
+> +		if (tp->repair_queue =3D=3D TCP_NO_QUEUE)
+> +			goto out;
+> +
+> +		/* 'common' recv queue MSG_PEEK-ing */
+> +	}
+> +
+>   	seq =3D&tp->copied_seq;
+>   	if (flags&  MSG_PEEK) {
+>   		peek_seq =3D tp->copied_seq;
+> @@ -1783,6 +1862,10 @@ out:
+>   recv_urg:
+>   	err =3D tcp_recv_urg(sk, msg, len, flags);
+>   	goto out;
+> +
+> +recv_sndq:
+> +	err =3D tcp_peek_sndq(sk, msg, len);
+> +	goto out;
+>   }
+>   EXPORT_SYMBOL(tcp_recvmsg);
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 4e2ce39..b29d612 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2796,6 +2796,7 @@ void tcp_send_window_probe(struct sock *sk)
+>   {
+>   	if (sk->sk_state =3D=3D TCP_ESTABLISHED) {
+>   		tcp_sk(sk)->snd_wl1 =3D tcp_sk(sk)->rcv_nxt - 1;
+> +		tcp_sk(sk)->snd_nxt =3D tcp_sk(sk)->write_seq;
+>   		tcp_xmit_probe_skb(sk, 0);
+>   	}
+>   }
