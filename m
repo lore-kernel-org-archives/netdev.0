@@ -1,51 +1,80 @@
-From: Richard Farina <sidhayn@gmail.com>
-Subject: Re: compat-wireless releases based on v3.3
-Date: Wed, 28 Mar 2012 21:45:04 -0400
-Message-ID: <4F73BEA0.1030305@gmail.com>
-References: <CAB=NE6WgTMdDtU4_ZgYVr2XzSuiicT5o=q2RvV24jeQj0rZfFw@mail.gmail.com> <4F72BB7F.8080704@gmail.com> <CAB=NE6WFM-BPQ41kPaod-7qkHnT5MXCUc2hdKXDVzrdPq2brjA@mail.gmail.com>
+From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] f_phonet: fix skb truesize underestimation
+Date: Wed, 28 Mar 2012 22:15:01 -0400
+Message-ID: <CAP=VYLpMZn9WrCExDiY9iis7nvao6kxiLe0EXgeHk0onnNUd+w@mail.gmail.com>
+References: <1332853442.3248.15.camel@edumazet-laptop>
+	<20120327.225109.752822925052179338.davem@davemloft.net>
+	<20120328085535.GF18156@arwen.pp.htv.fi>
+	<20120328.053310.219141897175161116.davem@davemloft.net>
+	<20120328124314.GG28319@arwen.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	lf_driver_backport@lists.linux-foundation.org
-To: "Luis R. Rodriguez" <mcgrof@frijolero.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55835 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756083Ab2C2BoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Mar 2012 21:44:03 -0400
-In-Reply-To: <CAB=NE6WFM-BPQ41kPaod-7qkHnT5MXCUc2hdKXDVzrdPq2brjA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
+To: balbi-l0cyMroinI0@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120328124314.GG28319-S8G//mZuvNWo5Im9Ml3/Zg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/28/12 03:43, Luis R. Rodriguez wrote:
-> On Wed, Mar 28, 2012 at 12:19 AM, Richard Farina <sidhayn@gmail.com> wrote:
->> /var/tmp/portage/net-wireless/compat-wireless-3.3/work/compat-wireless-3.3-1-n/drivers/net/wireless/ath/carl9170/tx.c:
->> In function 'carl9170_tx_ps_drop':
->> /var/tmp/portage/net-wireless/compat-wireless-3.3/work/compat-wireless-3.3-1-n/drivers/net/wireless/ath/carl9170/tx.c:1248:26:
->> error: 'IEEE80211_TX_CTL_POLL_RESPONSE' undeclared (first use in this
->> function)
-> linux-next-cherry-picks/0007-mac80211-handle-non-bufferable-MMPDUs-correctly.patch
+On Wed, Mar 28, 2012 at 8:43 AM, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org> wrote:
+> On Wed, Mar 28, 2012 at 05:33:10AM -0400, David Miller wrote:
+>> From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+>> Date: Wed, 28 Mar 2012 11:55:36 +0300
+>>
+>> > On Tue, Mar 27, 2012 at 10:51:09PM -0400, David Miller wrote:
+>> >> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> >> Date: Tue, 27 Mar 2012 06:04:02 -0700
+>> >>
+>> >> > Now skb_add_rx_frag() has a truesize parameter, we can fix f_phonet to
+>> >> > properly account truesize of each fragment : a full page.
+>> >> >
+>> >> > Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> >>
+>> >> Applied.
+>> >
+>> > did you apply both patches ?
+>>
+>> You never need to ask me these kinds of questions, you can
+>> either check my GIT tree or look at:
+>>
+>> http://patchwork.ozlabs.org/project/netdev/list/?state=3
 >
-> is to be blamed for. This is fixed, new tarball:
->
-> http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.3/compat-wireless-3.3-2-n.tar.bz2
-> sha1sum: dd18cfabbe705a75440fd7fbe50a09d5fe34bb70
-Confirmed, I am able to build 3.3-2-n with no issues.
+> I'm asking because drivers/usb/gadget/ should either go through me or
+> you should wait for my Acked-by. Now it's too late for that, but next
+> time for my Ack.
 
-Thanks!
+Hi Felipe,
 
--Rick
-> Thanks for reporting this. Just FYI -- I am working to use ckmake on
-> compat-wireless.git to build test against all supported kernels prior
-> to release just as I am doing now for compat.git, but the current
-> development cycle still a few items which require a bit of work to
-> backport to fix compilation against older kernels. That is the goal
-> though, so that future releases area always guaranteed to compile
-> against all supported stable kernel releases listed on kernel.org.
+Being in the MAINTAINERS file is best interpreted as "I care about
+this driver/code/subsystem, and I'll do my best to fix/integrate for it,
+and I want to know about changes to it".
+
+It has never meant that all patches to that MAINTAINER's code must
+be OK'd by that one particular maintainer before being committed.
+
+In the last twenty years, I can't ever recall any one driver/subsystem
+where one individual had the ultimate veto (excluding Linus).  And
+that is a good thing.
+
+If a commit has dependencies to low level skb accounting, then it
+makes perfect sense for it to be in the tree where those accounting
+changes are made.  Even more sense for it to be done by the
+people who know those internals better than anyone else.
+
+Speaking for myself, if I had networking code that Eric and Dave
+made changes to, I'd be pretty damn happy that smarter people
+than myself did the changes for me, and that they were nice enough
+to have CC'd me on the changes as a courtesy.
+
+Just my $0.02.
+Paul.
+
 >
->   Luis
->
+> --
+> balbi
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
