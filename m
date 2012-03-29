@@ -1,57 +1,42 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [Q/RFC] BPF use in broader scope
-Date: Thu, 29 Mar 2012 11:31:58 +0200
-Message-ID: <20120329093158.GA2275@minipsycho.brq.redhat.com>
-References: <20120329074443.GB2098@minipsycho>
- <20120329.034957.655153582806618222.davem@davemloft.net>
- <20120329075410.GC2098@minipsycho>
- <1333008145.2325.275.camel@edumazet-glaptop>
- <20120329083149.GD2098@minipsycho>
- <1333010732.2325.339.camel@edumazet-glaptop>
+From: "zhuangfeiran@ict.ac.cn" <zhuangfeiran@ict.ac.cn>
+Subject: [PATCH] fix a bug in emitting the 16-bit immediate operand of AND
+Date: Thu, 29 Mar 2012 17:27:00 +0800
+Message-ID: <4F742AE4.6050006@ict.ac.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, shemminger@vyatta.com, matt@ozlabs.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64757 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753409Ab2C2JcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2012 05:32:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1333010732.2325.339.camel@edumazet-glaptop>
+Received: from smtp21.cstnet.cn ([159.226.251.21]:39050 "EHLO cstnet.cn"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753322Ab2C2JdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 05:33:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 29, 2012 at 10:45:32AM CEST, eric.dumazet@gmail.com wrote:
->On Thu, 2012-03-29 at 10:31 +0200, Jiri Pirko wrote:
->> Thu, Mar 29, 2012 at 10:02:25AM CEST, eric.dumazet@gmail.com wrote:
->> >On Thu, 2012-03-29 at 09:54 +0200, Jiri Pirko wrote:
->> >
->> >> Yep, I'm aware. I must admit that the JIT code scares me a litte :(
->> >> 
->> >
->> >If you add a new XOR instruction in interpreter only, JIT compiler will
->> >automatically aborts, so no risk.
->> >
->> >Each arch maintainer will add the support for the new instructions as
->> >separate patches.
->> >
->> >So you can focus on net/core/filter.c file only.
->> >
->> 
->> Ok - I can do this for 2). But for 3) JITs need to be modified. So I
->> would like to kindly ask you and Matt if you can do this modification so
->> bpf_func takes pointer to mem (scratch store) as second parameter. I'm
->> sure it's very easy for you to do.
->
->I am not sure why you want this.
->
->This adds register pressure (at least for x86) ...
+When K >= 0xFFFF0000, AND needs the two least significant bytes of K as
+its operand, but EMIT2() gives it the least significant byte of K and
+0x2. EMIT() should be used here to replace EMIT2().
 
-Well I think that there would become handy to be able to pass some data
-to bpf_func (other than skb). But it's just an idea.
+Signed-off-by: Feiran Zhuang  <zhuangfeiran@ict.ac.cn>
+---
+ arch/x86/net/bpf_jit_comp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->
->
->
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 5671752..5a5b6e4 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -289,7 +289,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 					EMIT2(0x24, K & 0xFF); /* and imm8,%al */
+ 				} else if (K >= 0xFFFF0000) {
+ 					EMIT2(0x66, 0x25);	/* and imm16,%ax */
+-					EMIT2(K, 2);
++					EMIT(K, 2);
+ 				} else {
+ 					EMIT1_off32(0x25, K);	/* and imm32,%eax */
+ 				}
+-- 
+1.7.5.4
