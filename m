@@ -1,36 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Q/RFC] BPF use in broader scope
-Date: Thu, 29 Mar 2012 10:02:25 +0200
-Message-ID: <1333008145.2325.275.camel@edumazet-glaptop>
-References: <20120329074443.GB2098@minipsycho>
-	 <20120329.034957.655153582806618222.davem@davemloft.net>
-	 <20120329075410.GC2098@minipsycho>
+From: Alexandru Copot <alex.mihai.c@gmail.com>
+Subject: Re: [PATCH] tcp: bind() use stronger condition for bind_conflict
+Date: Thu, 29 Mar 2012 11:22:21 +0300
+Message-ID: <CAHG7+CDeve6WoQB4+q4LwaJVy_gLHbfsDpAt+8rqhw0VUeBA8w@mail.gmail.com>
+References: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
+	<20120328105212.1cb8dfe5@asterix.rh>
+	<1332946113.2325.9.camel@edumazet-glaptop>
+	<CAEnQRZD+0AQFfFCzWZCR5JR0BUxxNEsincD+_O9F0ne2Zryp_w@mail.gmail.com>
+	<1332965525.2325.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, shemminger@vyatta.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Baluta <dbaluta@ixiacom.com>,
+	Flavio Leitner <fbl@redhat.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:61920 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066Ab2C2ICd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 04:02:33 -0400
-Received: by eekc41 with SMTP id c41so748673eek.19
-        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 01:02:32 -0700 (PDT)
-In-Reply-To: <20120329075410.GC2098@minipsycho>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:42205 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750783Ab2C2IWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 04:22:21 -0400
+In-Reply-To: <1332965525.2325.13.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-03-29 at 09:54 +0200, Jiri Pirko wrote:
+On Wed, Mar 28, 2012 at 11:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Yep, I'm aware. I must admit that the JIT code scares me a litte :(
-> 
+> Some performance data would be welcomed, in the case many sockets are
+> already bound...
 
-If you add a new XOR instruction in interpreter only, JIT compiler will
-automatically aborts, so no risk.
 
-Each arch maintainer will add the support for the new instructions as
-separate patches.
+I've done some tests running a program that creates and binds(0) 90000 sockets.
+The total running time, on average, is:
+*  without this patch: 0.352 s
+*  with the patch:       0.355 s
 
-So you can focus on net/core/filter.c file only.
+Also, recording this program with perf shows a small increase of 0.6%
+for inet_csk_get_port
+relative to inet_bind, after applying the patch.
+
+So the performance is almost the same, even for such a large number of sockets.
+
+Alex Copot
