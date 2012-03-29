@@ -1,64 +1,57 @@
-From: Jim Cromie <jim.cromie@gmail.com>
-Subject: Re: maranello for linux-current [b43 driver]
-Date: Thu, 29 Mar 2012 03:29:10 -0600
-Message-ID: <CAJfuBxwcRc=Fu0ZYPKGAW7buOL6muSxTYr695c3Kh32kW_Okqg@mail.gmail.com>
-References: <CAJfuBxz9kVAkkSjFk2PAYLxOsgmrCx-HV0OM7EwV9J5mSzB8dA@mail.gmail.com>
- <4F74265F.8060508@openwrt.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Q/RFC] BPF use in broader scope
+Date: Thu, 29 Mar 2012 11:31:58 +0200
+Message-ID: <20120329093158.GA2275@minipsycho.brq.redhat.com>
+References: <20120329074443.GB2098@minipsycho>
+ <20120329.034957.655153582806618222.davem@davemloft.net>
+ <20120329075410.GC2098@minipsycho>
+ <1333008145.2325.275.camel@edumazet-glaptop>
+ <20120329083149.GD2098@minipsycho>
+ <1333010732.2325.339.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bo Han <bohan@cs.umd.edu>, netdev@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, shemminger@vyatta.com, matt@ozlabs.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:40844 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996Ab2C2J3l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 05:29:41 -0400
-In-Reply-To: <4F74265F.8060508@openwrt.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64757 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753409Ab2C2JcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 05:32:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1333010732.2325.339.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 29, 2012 at 3:07 AM, Florian Fainelli <florian@openwrt.org>=
- wrote:
-> (Adding linux-wireless in CC)
+Thu, Mar 29, 2012 at 10:45:32AM CEST, eric.dumazet@gmail.com wrote:
+>On Thu, 2012-03-29 at 10:31 +0200, Jiri Pirko wrote:
+>> Thu, Mar 29, 2012 at 10:02:25AM CEST, eric.dumazet@gmail.com wrote:
+>> >On Thu, 2012-03-29 at 09:54 +0200, Jiri Pirko wrote:
+>> >
+>> >> Yep, I'm aware. I must admit that the JIT code scares me a litte :(
+>> >> 
+>> >
+>> >If you add a new XOR instruction in interpreter only, JIT compiler will
+>> >automatically aborts, so no risk.
+>> >
+>> >Each arch maintainer will add the support for the new instructions as
+>> >separate patches.
+>> >
+>> >So you can focus on net/core/filter.c file only.
+>> >
+>> 
+>> Ok - I can do this for 2). But for 3) JITs need to be modified. So I
+>> would like to kindly ask you and Matt if you can do this modification so
+>> bpf_func takes pointer to mem (scratch store) as second parameter. I'm
+>> sure it's very easy for you to do.
 >
-> Le 03/29/12 00:24, Jim Cromie a =E9crit :
->>
->> you may have heard of maranello, a project to add
->> partial packet recovery to 80211, by adding block checksums
->> on transmit, validating them or re-requesting retransmit
->> of corrupted blocks.
->>
->> http://www.cs.umd.edu/projects/maranello/
->>
->> the code at the page is for 2.6.29-rc2
->>
->> Ive taken it, did some refactoring to ease merging,
->> and merged in each linux release, up to 3.3
->>
+>I am not sure why you want this.
+>
+>This adds register pressure (at least for x86) ...
 
-I redid it, this time no refactoring, just conflict resolution
-and compile fixes.
+Well I think that there would become handy to be able to pass some data
+to bpf_func (other than skb). But it's just an idea.
 
-Now pushed to:
-https://github.com/jimc/linux-2.6/tree/maranello/merges
-
->> So I guess Im seeking advice:
->>
->> - what did I break
->> - what happens when the driver is tested
-
-Theres a lot to fix still.
-- // comments
-- long lines
-- unused vars
-- various FIXMEs
-- refactorings for better reuse in other drivers
-  (this is large question, probably with lots of answers)
-
-What drivers have FW whose source is available,
-and thus hackable for maranello support ?
-
-thanks.
-Jim Cromie
+>
+>
+>
