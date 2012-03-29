@@ -1,169 +1,91 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2] Lockd: pass network namespace to creation and destruction
- routines
-Date: Thu, 29 Mar 2012 18:54:33 +0400
-Message-ID: <20120329145421.31911.65512.stgit@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH V4 4/8] net/mlx4_en: sk_prio <=> UP for untagged traffic
+Date: Thu, 29 Mar 2012 17:03:34 +0200
+Message-ID: <1333033418-1669-5-git-send-email-amirv@mellanox.com>
+References: <1333033418-1669-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Oren Duer <oren@mellanox.com>,
+	Amir Vadai <amirv@dev.mellanox.co.il>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:57044 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1759437Ab2C2PEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 11:04:02 -0400
+In-Reply-To: <1333033418-1669-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v2: dereference of most probably already released nlm_host removed in
-nlmclnt_done() and reclaimer().
+Since vlan egress map is only good for tagged traffic, need to have other
+mapping to be used by untagged traffic.
+For that, the driver uses sch_mqprio mapping. This mapping could be set by
+using tc tool from iproute2 package.
+Mapped UP will be used by the HW for QoS purposes, but won't go out on the
+wire.
 
-These routines are called from locks reclaimer() kernel thread. This thread
-works in "init_net" network context and currently relays on persence on lockd
-thread and it's per-net resources. Thus lockd_up() and lockd_down() can't relay
-on current network context. So let's pass corrent one into them.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- fs/lockd/clntlock.c        |   13 ++++++++-----
- fs/lockd/svc.c             |    7 +++----
- fs/nfsd/nfssvc.c           |    6 +++---
- include/linux/lockd/bind.h |    4 ++--
- 4 files changed, 16 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   18 ++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 +-
+ 2 files changed, 19 insertions(+), 1 deletions(-)
 
-diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
-index ba1dc2e..ca0a080 100644
---- a/fs/lockd/clntlock.c
-+++ b/fs/lockd/clntlock.c
-@@ -56,7 +56,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
- 	u32 nlm_version = (nlm_init->nfs_version == 2) ? 1 : 4;
- 	int status;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9b456ae..44dbe1f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -45,6 +45,14 @@
+ #include "mlx4_en.h"
+ #include "en_port.h"
  
--	status = lockd_up();
-+	status = lockd_up(nlm_init->net);
- 	if (status < 0)
- 		return ERR_PTR(status);
++static int mlx4_en_setup_tc(struct net_device *dev, u8 up)
++{
++	if (up != MLX4_EN_NUM_UP)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -1042,6 +1050,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_poll_controller	= mlx4_en_netpoll,
+ #endif
+ 	.ndo_set_features	= mlx4_en_set_features,
++	.ndo_setup_tc		= mlx4_en_setup_tc,
+ };
  
-@@ -65,7 +65,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
- 				   nlm_init->hostname, nlm_init->noresvport,
- 				   nlm_init->net);
- 	if (host == NULL) {
--		lockd_down();
-+		lockd_down(nlm_init->net);
- 		return ERR_PTR(-ENOLCK);
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+@@ -1130,6 +1139,15 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
+ 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
+ 
++	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
++
++	/* First 9 rings are for UP 0 */
++	netdev_set_tc_queue(dev, 0, MLX4_EN_NUM_TX_RINGS + 1, 0);
++
++	/* Partition Tx queues evenly amongst UP's 1-7 */
++	for (i = 1; i < MLX4_EN_NUM_UP; i++)
++		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
++
+ 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+ 
+ 	/* Set defualt MAC */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 94a605a..d9bab53 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -577,7 +577,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
  	}
  
-@@ -80,8 +80,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
-  */
- void nlmclnt_done(struct nlm_host *host)
- {
-+	struct net *net = host->net;
-+
- 	nlmclnt_release_host(host);
--	lockd_down();
-+	lockd_down(net);
+-	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
++	return skb_tx_hash(dev, skb);
  }
- EXPORT_SYMBOL_GPL(nlmclnt_done);
  
-@@ -220,11 +222,12 @@ reclaimer(void *ptr)
- 	struct nlm_wait	  *block;
- 	struct file_lock *fl, *next;
- 	u32 nsmstate;
-+	struct net *net = host->net;
- 
- 	allow_signal(SIGKILL);
- 
- 	down_write(&host->h_rwsem);
--	lockd_up();	/* note: this cannot fail as lockd is already running */
-+	lockd_up(net);	/* note: this cannot fail as lockd is already running */
- 
- 	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
- 
-@@ -275,6 +278,6 @@ restart:
- 
- 	/* Release host handle after use */
- 	nlmclnt_release_host(host);
--	lockd_down();
-+	lockd_down(net);
- 	return 0;
- }
-diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index b34100e..ce4c80e 100644
---- a/fs/lockd/svc.c
-+++ b/fs/lockd/svc.c
-@@ -295,11 +295,10 @@ static void lockd_down_net(struct net *net)
- /*
-  * Bring up the lockd process if it's not already up.
-  */
--int lockd_up(void)
-+int lockd_up(struct net *net)
- {
- 	struct svc_serv *serv;
- 	int		error = 0;
--	struct net *net = current->nsproxy->net_ns;
- 
- 	mutex_lock(&nlmsvc_mutex);
- 	/*
-@@ -377,12 +376,12 @@ EXPORT_SYMBOL_GPL(lockd_up);
-  * Decrement the user count and bring down lockd if we're the last.
-  */
- void
--lockd_down(void)
-+lockd_down(struct net *net)
- {
- 	mutex_lock(&nlmsvc_mutex);
- 	if (nlmsvc_users) {
- 		if (--nlmsvc_users) {
--			lockd_down_net(current->nsproxy->net_ns);
-+			lockd_down_net(net);
- 			goto out;
- 		}
- 	} else {
-diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-index fce472f..0f3e35b 100644
---- a/fs/nfsd/nfssvc.c
-+++ b/fs/nfsd/nfssvc.c
-@@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
- 	ret = nfsd_init_socks(port);
- 	if (ret)
- 		goto out_racache;
--	ret = lockd_up();
-+	ret = lockd_up(&init_net);
- 	if (ret)
- 		goto out_racache;
- 	ret = nfs4_state_start();
-@@ -229,7 +229,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
- 	nfsd_up = true;
- 	return 0;
- out_lockd:
--	lockd_down();
-+	lockd_down(&init_net);
- out_racache:
- 	nfsd_racache_shutdown();
- 	return ret;
-@@ -246,7 +246,7 @@ static void nfsd_shutdown(void)
- 	if (!nfsd_up)
- 		return;
- 	nfs4_state_shutdown();
--	lockd_down();
-+	lockd_down(&init_net);
- 	nfsd_racache_shutdown();
- 	nfsd_up = false;
- }
-diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.h
-index 11a966e..4d24d64 100644
---- a/include/linux/lockd/bind.h
-+++ b/include/linux/lockd/bind.h
-@@ -54,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
- 
- extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
- 					struct file_lock *fl);
--extern int	lockd_up(void);
--extern void	lockd_down(void);
-+extern int	lockd_up(struct net *net);
-+extern void	lockd_down(struct net *net);
- 
- #endif /* LINUX_LOCKD_BIND_H */
+ static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
+-- 
+1.7.8.2
