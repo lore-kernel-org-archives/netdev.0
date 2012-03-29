@@ -1,153 +1,41 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH V4 8/8] net/mlx4_en: Set max rate-limit for a TC
-Date: Thu, 29 Mar 2012 20:27:20 +0200
-Message-ID: <4F74A988.1020103@mellanox.com>
-References: <1333033418-1669-1-git-send-email-amirv@mellanox.com>  <1333033418-1669-9-git-send-email-amirv@mellanox.com> <1333034470.2325.751.camel@edumazet-glaptop>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] net: remove unused icmp_ioctl() definition.
+Date: Thu, 29 Mar 2012 20:49:01 +0200
+Message-ID: <CAHLOa7RZFQHLtsYE2VeS7Fmhcr+O9guEFYYVoGTPJQos48Eo1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Roland Dreier <roland@purestorage.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary=047d7b10cac164168b04bc662d28
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:53006 "HELO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1759221Ab2C2S2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 14:28:02 -0400
-In-Reply-To: <1333034470.2325.751.camel@edumazet-glaptop>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34881 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932349Ab2C2StB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 14:49:01 -0400
+Received: by pbcun15 with SMTP id un15so480233pbc.19
+        for <netdev@vger.kernel.org>; Thu, 29 Mar 2012 11:49:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--047d7b10cac164168b04bc662d28
+Content-Type: text/plain; charset=ISO-8859-1
 
+Hi,
 
-On 03/29/2012 05:21 PM, Eric Dumazet wrote:
-> On Thu, 2012-03-29 at 17:03 +0200, Amir Vadai wrote:
->> This patch is using the DCB netlink to set rate limit per ETS TC
->>
->> Signed-off-by: Amir Vadai<amirv@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   31 ++++++++++++++++++++++++
->>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    7 +++++
->>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 +-
->>   3 files changed, 39 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
->> index 5bf0106..0f92b2e 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
->> @@ -100,6 +100,7 @@ static int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
->>   	__u8 pg[IEEE_8021QAZ_MAX_TCS] = { 0 };
->>
->>   	ets = ets ?: priv->mlx4_en_ieee_ets;
->> +	ratelimit = ratelimit ?: priv->maxrate->tc_maxrate;
->>
->>   	/* higher TC means higher priority =>  lower pg */
->>   	for (i = IEEE_8021QAZ_MAX_TCS - 1; i>= 0; i--) {
->> @@ -200,9 +201,39 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
->>   	return 0;
->>   }
->>
->> +static int mlx4_en_dcbnl_ieee_getmaxrate(struct net_device *dev,
->> +				   struct ieee_maxrate *maxrate)
->> +{
->> +	struct mlx4_en_priv *priv = netdev_priv(dev);
->> +
->> +	if (!priv->maxrate)
->> +		return -EINVAL;
->> +
->> +	memcpy(maxrate, priv->maxrate, sizeof(maxrate));
->
-> sizeof(*maxrate) is probably what you wanted ?
->
->> +
->> +	return 0;
->> +}
->> +
->> +static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
->> +		struct ieee_maxrate *maxrate)
->> +{
->> +	int err;
->> +	struct mlx4_en_priv *priv = netdev_priv(dev);
->> +
->> +	err = mlx4_en_config_port_scheduler(priv, NULL, maxrate->tc_maxrate);
->> +	if (err)
->> +		return err;
->> +
->> +	memcpy(priv->maxrate, maxrate, sizeof(priv->maxrate));
->
-> Really ?
->
-> sizeof(priv->maxrate) seems to be 8/4 (sizeof a pointer)
->
->
->
->> +
->> +	return 0;
->> +}
->> +
->>   const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
->>   	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
->>   	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
->> +	.ieee_getmaxrate = mlx4_en_dcbnl_ieee_getmaxrate,
->> +	.ieee_setmaxrate = mlx4_en_dcbnl_ieee_setmaxrate,
->>   	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
->>   	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index 44dbe1f..be7ffbf 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -978,6 +978,7 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
->>
->>   #ifdef CONFIG_MLX4_EN_DCB
->>   	vfree(priv->mlx4_en_ieee_ets);
->> +	vfree(priv->maxrate);
->>   #endif
->>
->>   	free_netdev(dev);
->> @@ -1103,6 +1104,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
->>   			err = -ENOMEM;
->>   			goto out;
->>   		}
->> +
->> +		priv->maxrate = vzalloc(sizeof(struct ieee_maxrate));
->
-> vzalloc() ? What is the size of struct ieee_maxrate ?
->
->> +		if (!priv->maxrate) {
->> +			err = -ENOMEM;
->> +			goto out;
->> +		}
->>   	}
->>   #endif
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> index fa09792..d1f5ac2 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> @@ -420,7 +420,6 @@ struct mlx4_en_frag_info {
->>   #define MLX4_EN_BW_MAX 100 /* Utilize 100% of the line */
->>
->>   #define MLX4_EN_TC_ETS 7
->> -
->>   #endif
->>
->>   struct mlx4_en_priv {
->> @@ -499,6 +498,7 @@ struct mlx4_en_priv {
->>
->>   #ifdef CONFIG_MLX4_EN_DCB
->>   	struct ieee_ets *mlx4_en_ieee_ets;
->> +	struct ieee_maxrate *maxrate;
->>   #endif
->>   };
->>
->
->
-I was in a rush to send it on time and missed it (of course I tested 
-only tc 0 so didn't see it in my tests too).
-Anyway, will fix it.
+ The patch removes unused icmp_ioctl() method definition in include/net/icmp.h.
 
-- Amir
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--047d7b10cac164168b04bc662d28
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h0e5p5ra0
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ljbXAuaCBiL2luY2x1ZGUvbmV0L2ljbXAuaAppbmRl
+eCA3NWQ2MTU2Li5jZTcwYTU4IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9pY21wLmgKKysrIGIv
+aW5jbHVkZS9uZXQvaWNtcC5oCkBAIC00MSw3ICs0MSw2IEBAIHN0cnVjdCBuZXQ7CiAKIGV4dGVy
+biB2b2lkCWljbXBfc2VuZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiX2luLCAgaW50IHR5cGUsIGludCBj
+b2RlLCBfX2JlMzIgaW5mbyk7CiBleHRlcm4gaW50CWljbXBfcmN2KHN0cnVjdCBza19idWZmICpz
+a2IpOwotZXh0ZXJuIGludAlpY21wX2lvY3RsKHN0cnVjdCBzb2NrICpzaywgaW50IGNtZCwgdW5z
+aWduZWQgbG9uZyBhcmcpOwogZXh0ZXJuIGludAlpY21wX2luaXQodm9pZCk7CiBleHRlcm4gdm9p
+ZAlpY21wX291dF9jb3VudChzdHJ1Y3QgbmV0ICpuZXQsIHVuc2lnbmVkIGNoYXIgdHlwZSk7CiAK
+--047d7b10cac164168b04bc662d28--
