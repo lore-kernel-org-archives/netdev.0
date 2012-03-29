@@ -1,69 +1,50 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH 1/3] [BUGFIX] memcg/tcp : fix to see use_hierarchy in
- tcp memcontrol cgroup
-Date: Thu, 29 Mar 2012 11:14:12 +0200
-Message-ID: <4F7427E4.2020307@parallels.com>
-References: <4F7408B7.9090706@jp.fujitsu.com> <4F74095B.70105@jp.fujitsu.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v2 5/5] r8169: support RTL8411
+Date: Thu, 29 Mar 2012 11:12:29 +0200
+Message-ID: <20120329091229.GA22410@electric-eye.fr.zoreil.com>
+References: <1332923214-5071-1-git-send-email-hayeswang@realtek.com> <1332923214-5071-5-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.parallels.com ([64.131.90.16]:42117 "EHLO mx2.parallels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750932Ab2C2JOS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Mar 2012 05:14:18 -0400
-In-Reply-To: <4F74095B.70105@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1332923214-5071-5-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/29/2012 09:03 AM, KAMEZAWA Hiroyuki wrote:
+Hayes Wang <hayeswang@realtek.com> :
+> Support the new chip RTL8411.
 > 
-> Now, tcp memory control cgroup ignores memcg's use_hierarchy value
-> and act as use_hierarchy=1 always. After this patch, tcp memcontrol will
-> work as memcg is designed.
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c |  142 +++++++++++++++++++++++++++++++++-
+>  1 files changed, 139 insertions(+), 3 deletions(-)
 > 
-> Note:
->     I know there is a discussion to remove use_hierarchy but this is BUG, now.
-> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index cde5cea..d00f4e9 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+[...]
+> @@ -250,7 +252,10 @@ static const struct {
+>  							JUMBO_9K, false),
+>  	[RTL_GIGA_MAC_VER_37] =
+>  		_R("RTL8402",		RTL_TD_1, FIRMWARE_8402_1,
+> -							JUMBO_1K, true)
+> +							JUMBO_1K, true),
+> +	[RTL_GIGA_MAC_VER_38] =
+> +		_R("RTL8411",		RTL_TD_1, FIRMWARE_8411_1,
+> +							JUMBO_9K, false)
 
-Kame,
+rtl_init_jumbo_ops probably needs to be updated as well.
 
-Are you sure about that?
+Nit: please keep a colon in 'JUMBO_9K, false),'.
+                                             ^
+There was one after the (not so) last record before patch 03/05 and I would
+prefer it to stay because new devices are regularly added. The '-' line is
+only noise.
 
-I just tried it myself, and it seems to work:
+Thanks.
 
-root@inf5072-11:~/glommer-temporary/a/b# cat memory.kmem.tcp.usage_in_bytes
-724992
-root@inf5072-11:~/glommer-temporary/a/b# cat
-../memory.kmem.tcp.usage_in_bytes
-0
-
-
-Did you got this conclusion through testing or code inspection?
-
-As a matter of fact, that's why I believe the current behavior is indeed
-correct:
-
-the res_counter is initialized as:
-
-        parent_cg = tcp_prot.proto_cgroup(parent);
-        if (parent_cg)
-                res_parent = parent_cg->memory_allocated;
-
-        res_counter_init(&tcp->tcp_memory_allocated, res_parent);
-
-now, parent is drawn from parent_mem_cgroup(), that reads as follows:
-
-struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg)
-{
-        if (!memcg->res.parent)
-                return NULL;
-        return mem_cgroup_from_res_counter(memcg->res.parent, res);
-}
-
-
-so if we have use_hierarchy = 0, res.parent should be NULL (because that
-is the way we initialize it)
+-- 
+Ueimor
