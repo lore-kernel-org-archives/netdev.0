@@ -1,44 +1,49 @@
-From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: Re: [PATCH] tcp: bind() use stronger condition for bind_conflict
-Date: Thu, 29 Mar 2012 11:22:21 +0300
-Message-ID: <CAHG7+CDeve6WoQB4+q4LwaJVy_gLHbfsDpAt+8rqhw0VUeBA8w@mail.gmail.com>
-References: <1332882712-10756-1-git-send-email-alex.mihai.c@gmail.com>
-	<20120328105212.1cb8dfe5@asterix.rh>
-	<1332946113.2325.9.camel@edumazet-glaptop>
-	<CAEnQRZD+0AQFfFCzWZCR5JR0BUxxNEsincD+_O9F0ne2Zryp_w@mail.gmail.com>
-	<1332965525.2325.13.camel@edumazet-glaptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Q/RFC] BPF use in broader scope
+Date: Thu, 29 Mar 2012 10:31:49 +0200
+Message-ID: <20120329083149.GD2098@minipsycho>
+References: <20120329074443.GB2098@minipsycho>
+ <20120329.034957.655153582806618222.davem@davemloft.net>
+ <20120329075410.GC2098@minipsycho>
+ <1333008145.2325.275.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Daniel Baluta <dbaluta@ixiacom.com>,
-	Flavio Leitner <fbl@redhat.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, shemminger@vyatta.com, matt@ozlabs.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:42205 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783Ab2C2IWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 04:22:21 -0400
-In-Reply-To: <1332965525.2325.13.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:32565 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751643Ab2C2Ibz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 04:31:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1333008145.2325.275.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 28, 2012 at 11:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Thu, Mar 29, 2012 at 10:02:25AM CEST, eric.dumazet@gmail.com wrote:
+>On Thu, 2012-03-29 at 09:54 +0200, Jiri Pirko wrote:
+>
+>> Yep, I'm aware. I must admit that the JIT code scares me a litte :(
+>> 
+>
+>If you add a new XOR instruction in interpreter only, JIT compiler will
+>automatically aborts, so no risk.
+>
+>Each arch maintainer will add the support for the new instructions as
+>separate patches.
+>
+>So you can focus on net/core/filter.c file only.
+>
 
-> Some performance data would be welcomed, in the case many sockets are
-> already bound...
+Ok - I can do this for 2). But for 3) JITs need to be modified. So I
+would like to kindly ask you and Matt if you can do this modification so
+bpf_func takes pointer to mem (scratch store) as second parameter. I'm
+sure it's very easy for you to do.
 
+Ccing Matt.
 
-I've done some tests running a program that creates and binds(0) 90000 sockets.
-The total running time, on average, is:
-*  without this patch: 0.352 s
-*  with the patch:       0.355 s
+Thanks.
 
-Also, recording this program with perf shows a small increase of 0.6%
-for inet_csk_get_port
-relative to inet_bind, after applying the patch.
-
-So the performance is almost the same, even for such a large number of sockets.
-
-Alex Copot
+>
+>
