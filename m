@@ -1,39 +1,35 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: TCP_MAXSEG option with TSO enabled
-Date: Fri, 30 Mar 2012 14:33:37 +0300
-Message-ID: <CAEnQRZC1sLW8BUOx2ov-S-UUSyfAi7Wem2mAzUHBHn2o9q-eRg@mail.gmail.com>
+From: Ulrich Drepper <drepper@gmail.com>
+Subject: sendmmsg: put_user vs __put_user
+Date: Fri, 30 Mar 2012 09:36:11 -0400
+Message-ID: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:57358 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933785Ab2C3Ldh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 07:33:37 -0400
-Received: by ghrr11 with SMTP id r11so209616ghr.19
-        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 04:33:37 -0700 (PDT)
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:53683 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932511Ab2C3Ngf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 09:36:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Shouldn't the compat code in the sendmmsg implementation use the same
+code as the normal code?  In which case you probably want something
+like this:
 
-I am using TCP_MAXSEG option on an interface which has TSO enabled.
-
-strace output for connection looks as follows:
-
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 26
-setsockopt(26, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-setsockopt(26, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-setsockopt(26, SOL_TCP, TCP_MAXSEG, [300], 4) = 0
-connect(26, {sa_family=AF_INET, sin_port=htons(1935),
-sin_addr=inet_addr("10.10.0.1")}, 16) = -1 EINPROGRESS (Operation now
-in progress)
-
-I can see that MSS (300) is advertised in SYN packet, anyhow capturing
-the traffic
-I notice that are some TCP segments with length greater than MSS.
-
-Is this normal taking in consideration that TSO is enabled?
-
-thanks,
-Daniel.
+diff --git a/net/socket.c b/net/socket.c
+index 484cc69..ff40409 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2064,7 +2064,7 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user
+*mmsg, unsigned int vlen,
+                                            &msg_sys, flags, &used_address);
+                        if (err < 0)
+                                break;
+-                       err = __put_user(err, &compat_entry->msg_len);
++                       err = put_user(err, &compat_entry->msg_len);
+                        ++compat_entry;
+                } else {
+                        err = __sys_sendmsg(sock, (struct msghdr __user *)entry,
