@@ -1,50 +1,52 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH] sky2: dont overwrite settings for PHY Quick link
-Date: Fri, 30 Mar 2012 19:28:59 +0200
-Message-ID: <20120330172859.GB2703@Neptun>
+Subject: [PATCH] sky2: fix missing register reset on error path in
+ sky2_test_msi()
+Date: Fri, 30 Mar 2012 19:36:16 +0200
+Message-ID: <20120330173616.GC2703@Neptun>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:42219 "HELO
+Received: from mailout-de.gmx.net ([213.165.64.22]:58948 "HELO
 	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1758413Ab2C3R25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:28:57 -0400
+	with SMTP id S1752904Ab2C3RgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:36:13 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch corrects a bug in function sky2_open() of the Marvell Yukon 2 driver
-in which the settings for PHY quick link are overwritten.
+In sky2_test_msi() the temporarily set SW IRQ in B0 register is not reset in case
+that request_irq() fails.
+With this patch we only set the interrupt mask if request_irq() was successful.
 
 Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
  This applies against 3.3
 
- drivers/net/ethernet/marvell/sky2.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/sky2.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 760c2b1..d0132d8 100644
+index 760c2b1..0e23ce4 100644
 --- a/drivers/net/ethernet/marvell/sky2.c
 +++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -1756,13 +1756,14 @@ static int sky2_open(struct net_device *dev)
+@@ -4795,14 +4795,14 @@ static int __devinit sky2_test_msi(struct sky2_hw *hw)
  
- 	sky2_hw_up(sky2);
+ 	init_waitqueue_head(&hw->msi_wait);
  
-+	/* Enable interrupts from phy/mac for port */
-+	imask = sky2_read32(hw, B0_IMSK);
+-	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
+-
+ 	err = request_irq(pdev->irq, sky2_test_intr, 0, DRV_NAME, hw);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
+ 		return err;
+ 	}
+ 
++	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
 +
- 	if (hw->chip_id == CHIP_ID_YUKON_OPT ||
- 	    hw->chip_id == CHIP_ID_YUKON_PRM ||
- 	    hw->chip_id == CHIP_ID_YUKON_OP_2)
- 		imask |= Y2_IS_PHY_QLNK;	/* enable PHY Quick Link */
+ 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
+ 	sky2_read8(hw, B0_CTST);
  
--	/* Enable interrupts from phy/mac for port */
--	imask = sky2_read32(hw, B0_IMSK);
- 	imask |= portirq_msk[port];
- 	sky2_write32(hw, B0_IMSK, imask);
- 	sky2_read32(hw, B0_IMSK);
 -- 
 1.5.6.5
