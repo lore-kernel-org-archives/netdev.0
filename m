@@ -1,65 +1,67 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: [PATCH] usb/rtl8150 : Remove duplicated definitions
-Date: Fri, 30 Mar 2012 18:11:05 +0800
-Message-ID: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: petkan@users.sourceforge.net, netdev <netdev@vger.kernel.org>,
-	Huajun Li <huajun.li.lee@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH] rionet: fix page allocation order of rionet_active
+Date: Fri, 30 Mar 2012 20:01:46 +0900
+Message-ID: <1333105306-2601-1-git-send-email-akinobu.mita@gmail.com>
+Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	Matt Porter <mporter@kernel.crashing.org>,
+	Alexandre Bounine <alexandre.bounine@idt.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:55354 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759430Ab2C3KLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 06:11:06 -0400
-Received: by wibhj6 with SMTP id hj6so451083wib.1
-        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 03:11:05 -0700 (PDT)
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:37561 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759426Ab2C3LBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 07:01:09 -0400
+Received: by pbcun15 with SMTP id un15so1603185pbc.19
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 04:01:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There exist duplicated macro definitions in rtl8150.c, remove them.
+rionet_active is allocated from the page allocator and the allocation
+order is calculated on the assumption that the page size is 4KB, so it
+wastes memory on more than 4K page systems.
 
-Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Matt Porter <mporter@kernel.crashing.org>
+Cc: Alexandre Bounine <alexandre.bounine@idt.com>
+Cc: netdev@vger.kernel.org
 ---
- drivers/net/usb/rtl8150.c |   26 --------------------------
- 1 files changed, 0 insertions(+), 26 deletions(-)
+ drivers/net/rionet.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index 6dda2fe..d363b31 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -85,32 +85,6 @@
- #define INT_CRERR_CNT		0x06
- #define INT_COL_CNT		0x07
-
--/* Transmit status register errors */
--#define TSR_ECOL		(1<<5)
--#define TSR_LCOL		(1<<4)
--#define TSR_LOSS_CRS		(1<<3)
--#define TSR_JBR			(1<<2)
--#define TSR_ERRORS		(TSR_ECOL | TSR_LCOL | TSR_LOSS_CRS | TSR_JBR)
--/* Receive status register errors */
--#define RSR_CRC			(1<<2)
--#define RSR_FAE			(1<<1)
--#define RSR_ERRORS		(RSR_CRC | RSR_FAE)
--
--/* Media status register definitions */
--#define MSR_DUPLEX		(1<<4)
--#define MSR_SPEED		(1<<3)
--#define MSR_LINK		(1<<2)
--
--/* Interrupt pipe data */
--#define INT_TSR			0x00
--#define INT_RSR			0x01
--#define INT_MSR			0x02
--#define INT_WAKSR		0x03
--#define INT_TXOK_CNT		0x04
--#define INT_RXLOST_CNT		0x05
--#define INT_CRERR_CNT		0x06
--#define INT_COL_CNT		0x07
--
-
- #define	RTL8150_MTU		1540
- #define	RTL8150_TX_TIMEOUT	(HZ)
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index a57f057..91d2588 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -375,8 +375,8 @@ static void rionet_remove(struct rio_dev *rdev)
+ 	struct net_device *ndev = rio_get_drvdata(rdev);
+ 	struct rionet_peer *peer, *tmp;
+ 
+-	free_pages((unsigned long)rionet_active, rdev->net->hport->sys_size ?
+-					__fls(sizeof(void *)) + 4 : 0);
++	free_pages((unsigned long)rionet_active, get_order(sizeof(void *) *
++			RIO_MAX_ROUTE_ENTRIES(rdev->net->hport->sys_size)));
+ 	unregister_netdev(ndev);
+ 	free_netdev(ndev);
+ 
+@@ -432,15 +432,16 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ 	int rc = 0;
+ 	struct rionet_private *rnet;
+ 	u16 device_id;
++	const size_t rionet_active_bytes = sizeof(void *) *
++				RIO_MAX_ROUTE_ENTRIES(mport->sys_size);
+ 
+ 	rionet_active = (struct rio_dev **)__get_free_pages(GFP_KERNEL,
+-			mport->sys_size ? __fls(sizeof(void *)) + 4 : 0);
++			get_order(rionet_active_bytes));
+ 	if (!rionet_active) {
+ 		rc = -ENOMEM;
+ 		goto out;
+ 	}
+-	memset((void *)rionet_active, 0, sizeof(void *) *
+-				RIO_MAX_ROUTE_ENTRIES(mport->sys_size));
++	memset((void *)rionet_active, 0, rionet_active_bytes);
+ 
+ 	/* Set up private area */
+ 	rnet = netdev_priv(ndev);
 -- 
-1.7.4.1
+1.7.4.4
