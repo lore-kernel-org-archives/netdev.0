@@ -1,64 +1,48 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: TCP_MAXSEG option with TSO enabled
-Date: Fri, 30 Mar 2012 21:07:57 +0300
-Message-ID: <CAEnQRZB4sGP=6-Z_8G3P-BVo+wE_tbCdFUnTEgADd11XXBa6xw@mail.gmail.com>
-References: <CAEnQRZC1sLW8BUOx2ov-S-UUSyfAi7Wem2mAzUHBHn2o9q-eRg@mail.gmail.com>
-	<4F75EF78.4060402@hp.com>
+From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Subject: Re: [PATCH] net: add QCA alx Ethernet driver
+Date: Fri, 30 Mar 2012 11:31:54 -0700
+Message-ID: <CAB=NE6U+-jj9yiz3_xb7jPUWJH5KQhxgJ5=m9Whny-DTr46WNg@mail.gmail.com>
+References: <1330480210-30470-1-git-send-email-rodrigue@qca.qualcomm.com> <CAA93jw4NwHaLazxK2Eo6a6TuvF3svqdZjTpHUwOyEHv-Q=busQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:45784 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141Ab2C3SH6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 14:07:58 -0400
-Received: by vbbff1 with SMTP id ff1so555288vbb.19
-        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 11:07:57 -0700 (PDT)
-In-Reply-To: <4F75EF78.4060402@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com, kgiori@qca.qualcomm.com,
+	chris.snook@gmail.com, mathieu@qca.qualcomm.com, bryanh@quicinc.com
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAA93jw4NwHaLazxK2Eo6a6TuvF3svqdZjTpHUwOyEHv-Q=busQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 30, 2012 at 8:38 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> On 03/30/2012 04:33 AM, Daniel Baluta wrote:
->>
->> Hello,
->>
->> I am using TCP_MAXSEG option on an interface which has TSO enabled.
->>
->> strace output for connection looks as follows:
->>
->> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 26
->> setsockopt(26, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
->> setsockopt(26, SOL_TCP, TCP_NODELAY, [1], 4) =3D 0
->> setsockopt(26, SOL_TCP, TCP_MAXSEG, [300], 4) =3D 0
->> connect(26, {sa_family=3DAF_INET, sin_port=3Dhtons(1935),
->> sin_addr=3Dinet_addr("10.10.0.1")}, 16) =3D -1 EINPROGRESS (Operatio=
-n now
->> in progress)
->>
->> I can see that MSS (300) is advertised in SYN packet, anyhow capturi=
-ng
->> the traffic
->> I notice that are some TCP segments with length greater than MSS.
->>
->> Is this normal taking in consideration that TSO is enabled?
+On Fri, Mar 30, 2012 at 11:16 AM, Dave Taht <dave.taht@gmail.com> wrote:
 >
 >
-> I would think so. =A0What do the netstat stats suggest for segments a=
-nd bytes
-> per segment when you are running your test? =A0You could always look =
-for an
-> on-the-wire packet trace.
+> On Wed, Feb 29, 2012 at 1:50 AM, Luis R. Rodriguez
+> <rodrigue@qca.qualcomm.com> wrote:
+>>
+>> From: Luis R. Rodriguez <mcgrof@frijolero.org>
+>>
+>> The next patch adds the new QCA alx Ethernet driver that
+>> supercedes the atl1c Ethernet driver. For details please
+>> read the commit log of the patch. Given the size you can
+>> download the patch from:
 >
-> Not sure that a trace on a receiver would give you that though - the =
-inbound
-> promiscuous tap may be above GRO (and almost certainly will be above =
-LRO)
+>
+>
+>>
+>>
+>>
+>> http://bombadil.infradead.org/~mcgrof/2012/02/28/add-alx-next-20120228.patch
+>> sha1sum: 8a8f7b6f1cbe737e70ec3b3eda483a6925fd9bd6
+>>
+>
+> The shiny graph was rather impressive vs a vs the old driver.
+>
+> https://www.linuxfoundation.org/sites/main/files/alx-iperf.jpg
+>
+> A quick grep showed no BQL support. :(
 
-Thanks Rick. Indeed on-the-wire capture looks fine. I have TSO enabled
-at sender and LRO at receiver, everything makes sense now.
+Good point, we'll add that to our TODO list.
 
-thanks,
-Daniel.
+  Luis
