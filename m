@@ -1,39 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REGRESSION][PATCH V4 2/3] bpf jit: Let the x86 jit handle
- negative offsets
-Date: Fri, 30 Mar 2012 20:58:00 +0200
-Message-ID: <1333133880.2325.2430.camel@edumazet-glaptop>
-References: <4F75CA89.4010709@googlemail.com>
-	 <4F75D015.30609@googlemail.com>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: question about frag_can_reassemble()
+Date: Fri, 30 Mar 2012 23:02:37 +0300
+Message-ID: <20120330200236.GH3289@mwanda>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: kaffeemonster@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F75D015.30609@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-03-30 at 17:24 +0200, Jan Seiffert wrote:
-> Now the helper function from filter.c for negative offsets is exported,
-> it can be used it in the jit to handle negative offsets.
-> 
-> First modify the asm load helper functions to handle:
-> - know positive offsets
-> - know negative offsets
-> - any offset
-> 
-> then the compiler can be modified to explicitly use these helper
-> when appropriate.
-> 
-> This fixes the case of a negative X register and allows to lift
-> the restriction that bpf programs with negative offsets can't
-> be jited.
-> 
-> Signed-of-by: Jan Seiffert <kaffeemonster@googlemail.com>
+Hi Sven,
 
-Nice work Jan, thanks a lot.
+I had a question about the code in frag_can_reassemble().
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+net/batman-adv/unicast.h
+    51  
+    52          merged_size = (skb->len - sizeof(*unicast_packet)) * 2;
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    53          merged_size += sizeof(struct unicast_packet) + uneven_correction;
+    54  
+    55          return merged_size <= mtu;
+    56  }
+
+Can the skb->len be less than sizeof(*unicast_packet) (ie 20 bytes)?
+If "len" is less than 10 then we would return false but if it's
+over 10 then we would return true.  Roughly.
+
+regards,
+dan carpenter
