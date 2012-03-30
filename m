@@ -1,98 +1,57 @@
 From: Jan Seiffert <kaffeemonster@googlemail.com>
-Subject: [REGRESSION][PATCH V4 0/3] bpf jit drops the ball on negative memory
- references
-Date: Fri, 30 Mar 2012 17:00:25 +0200
-Message-ID: <4F75CA89.4010709@googlemail.com>
+Subject: Re: [REGRESSION][PATCH] bpf_jit drops the ball on indirect negative
+ mem references
+Date: Fri, 30 Mar 2012 17:51:01 +0200
+Message-ID: <4F75D665.6050405@googlemail.com>
+References: <CAPwCz79wO=5zTZmCG+ePfRuEu-p_Vosi18bYZ-MVNZGOdbE3aQ@mail.gmail.com> <1332965129.2325.12.camel@edumazet-glaptop> <CAPwCz7_tnjq32duJSDj21LpRe5TFvGGszH4joQr1DGTjNd7GcA@mail.gmail.com> <1332967172.2325.22.camel@edumazet-glaptop> <4F744D58.3070009@googlemail.com> <1333098711.19659.9.camel@edumazet-laptop> <4F75B828.3090705@googlemail.com> <5D02999E-C16F-4D2B-9007-173AE054E614@ozlabs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	"Matt Evans" <matt@ozlabs.org>,
+Cc: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+	"<linux-kernel@vger.kernel.org>" <linux-kernel@vger.kernel.org>
+To: Matt Evans <matt@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uhura.skim.hs-owl.de ([193.174.118.81]:58066 "EHLO
+Received: from uhura.skim.hs-owl.de ([193.174.118.81]:58250 "EHLO
 	uhura.skim.hs-owl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757251Ab2C3QyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 12:54:16 -0400
+	with ESMTP id S1761144Ab2C3QyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 12:54:25 -0400
+In-Reply-To: <5D02999E-C16F-4D2B-9007-173AE054E614@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consider the following test program:
+Matt Evans schrieb:
+> Hi Jan,
+> 
+> On 30 Mar 2012, at 14:42, Jan Seiffert <kaffeemonster@googlemail.com> wrote:
+> 
+[snip]
+>> Do you know where i can ping the powerpc guys a little bit harder?
+> 
+> No need (unless you mean a different guy), I have enough guilt as it
+> is! :) (Sorry for no response, am moving house and am netless.)
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <pcap-bpf.h>
+Oh, ok, didn't know.
 
-#define die(x) do {perror(x); return 1;} while (0)
-struct bpf_insn udp_filter[] = {
-	/*   0 */ BPF_STMT(BPF_LDX|BPF_W|BPF_IMM, -1048576+(0)), /* leax	net[0] */
-	/*   1 */ BPF_STMT(BPF_LD|BPF_B|BPF_IND, 0),             /* ldb	[x+0] */
-	/*   2 */ BPF_STMT(BPF_RET|BPF_A, 0),                    /* ret	a */
-};
+> I skimmed your patches on my phone but hope to be in a state to 
+> review/test over the weekend or early next week. :)>> 
 
-int main(int argc, char *argv[])
-{
-	char buf[512];
-	struct sockaddr_in addr;
-	struct bpf_program prg;
-	socklen_t addr_s;
-	ssize_t res;
-	int fd;
+It would be great if you could review it.
+With pinging harder i meant to get anyone fluent in powerpc asm to look
+at the changes i made in the asm. I think the stack setup I've done is wrong.
 
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(5000);
-	addr.sin_addr.s_addr = 0;
-	addr_s = sizeof(addr);
-	prg.bf_len = sizeof(udp_filter)/sizeof(udp_filter[0]);
-	prg.bf_insns = udp_filter;
-	if(-1 == (fd = socket(AF_INET, SOCK_DGRAM, 0)))
-		die("socket");
-	if(-1 == bind(fd, (struct sockaddr *)&addr, sizeof(addr)))
-		die("bind");
-	if(-1 == setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &prg, sizeof(prg)))
-		die("setsockopt");
-	res = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *)&addr, &addr_s);
-	if(res != -1)
-		printf("packet received: %zi bytes\n", res);
-	else
-		die("recvfrom");
-	return 0;
-}
+> Cheers,
+> 
+> Matt
+> 
 
-when used with the bpf jit disabled works:
-console 1 $ ./bpf
-console 2 $ echo "hello" | nc -u localhost 5000
-console 1: packet received: 6 bytes
+Greetings
+	Jan
 
-When the bpf jit gets enabled (echo 100 >
-/proc/sys/net/core/bpf_jit_enable) the same program stops working:
-console 1 $ ./bpf
-console 2 $ echo "hello" | nc -u localhost 5000
-console 1:
+> 
+[snip]
 
-The reason is that both jits (x86 and powerpc) do not handle negative
-memory references like SKF_NET_OFF or SKF_LL_OFF, only the simple
-ancillary data references are supported (by mapping to special
-instructions).
-In the case of an absolute reference, the jit aborts the translation
-if a negative reference is seen, also a negative k on the indirect
-load aborts the translation, but if X is negative to begin with, only
-the error handler is reached at runtime which drops the whole packet.
-
-Such a setup is useful to say filter bogus source addresses on an UDP
-socket.
-
-I propose the following patch series to fix this situation.
-Patch 1 exports the helper function the interpreter uses.
-Patch 2 incorporates the helper into the x86 jit (so it depends on patch 1).
-Patch 3 incorporates the helper into the powerpc jit (so it depends on patch 1).
-
-Lightly tested on x86, but the powerpc asm part is prop. wrong, could
-need assistance.
-
-
-Signed-of-by: Jan Seiffert <kaffeemonster@googlemail.com>
+-- 
+Real programmer are surprised when their
+odometer does not flip over from 000009
+to 00000A.
