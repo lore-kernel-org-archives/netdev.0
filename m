@@ -1,51 +1,188 @@
-From: Adishesh M <adisheshsm@gmail.com>
-Subject: adding ipv6 address manually in Linux
-Date: Sat, 31 Mar 2012 02:27:09 +0530
-Message-ID: <CA+f1OFr4_FiKxvSFWWGV1yQ-KPyRfFEnRcYxTZQhWiB0OdqBJQ@mail.gmail.com>
-References: <CA+f1OFri1pvyn2n=L82bip+KEY4QnXEwPxNvy=23UOR4vDTzJQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:49846 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760006Ab2C3U5L convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Mar 2012 16:57:11 -0400
-Received: by lahj13 with SMTP id j13so1135103lah.19
-        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 13:57:10 -0700 (PDT)
-In-Reply-To: <CA+f1OFri1pvyn2n=L82bip+KEY4QnXEwPxNvy=23UOR4vDTzJQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] tilepro ethernet driver: fix a few minor issues
+Date: Fri, 30 Mar 2012 19:23:35 -0400
+Message-ID: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com>
+To: Chris Metcalf <cmetcalf@tilera.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This commit fixes a number of issues seen with the driver:
 
-there some problem in linux if we send 'unsolicited Neighbor
-Advertisement' =A0message for an ipv6 address as explained below.
+- Improve handling of return credits to the hardware shim
+- Use skb_frag_size() appropriately
+- Add netpoll support to run console over UDP
 
-Manually add a new ipv6 address in to a Linux machine and send
-immediately 'unsolicited Neighbor Advertisement' then newly added
-address is considered as duplicate ipv6 address.
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+ drivers/net/ethernet/tile/tilepro.c |   75 +++++++++++++++++++++++------------
+ 1 files changed, 50 insertions(+), 25 deletions(-)
 
-usually if a new ipv6 address is added then Linux is sending '
-Neighbor solicitation message in order to detect duplicate address. By =
-some
-how if i send unsolicited Neighbor advertisement message before linux
-sends 'neighbor solicitation' message then linux is marking this
-address as duplicate.
-
-'ip -6 addr show' command output is
-=A0inet6 2001:3333:5678:ddd1::55/64 scope global tentative dadfailed
-
-
-why Linux is considering ipv6 address as duplicate if we send
-unsolicited message?
-
-if unsolicited message is sent after Linux completes duplicate address
-detection procedure by using neighbor solicitation message then this
-address is not considered as duplicate.
-
-
-Regards,
-Adishesh
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index d9951af..eb4ea08 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -342,6 +342,21 @@ inline int __netio_fastio1(u32 fastio_index, u32 arg0)
+ }
+ 
+ 
++static void tile_net_return_credit(struct tile_net_cpu *info)
++{
++	struct tile_netio_queue *queue = &info->queue;
++	netio_queue_user_impl_t *qup = &queue->__user_part;
++
++	/* Return four credits after every fourth packet. */
++	if (--qup->__receive_credit_remaining == 0) {
++		u32 interval = qup->__receive_credit_interval;
++		qup->__receive_credit_remaining = interval;
++		__netio_fastio_return_credits(qup->__fastio_index, interval);
++	}
++}
++
++
++
+ /*
+  * Provide a linux buffer to LIPP.
+  */
+@@ -864,19 +879,11 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
+ 
+ 		stats->rx_packets++;
+ 		stats->rx_bytes += len;
+-
+-		if (small)
+-			info->num_needed_small_buffers++;
+-		else
+-			info->num_needed_large_buffers++;
+ 	}
+ 
+-	/* Return four credits after every fourth packet. */
+-	if (--qup->__receive_credit_remaining == 0) {
+-		u32 interval = qup->__receive_credit_interval;
+-		qup->__receive_credit_remaining = interval;
+-		__netio_fastio_return_credits(qup->__fastio_index, interval);
+-	}
++	/* ISSUE: It would be nice to defer this until the packet has */
++	/* actually been processed. */
++	tile_net_return_credit(info);
+ 
+ 	/* Consume this packet. */
+ 	qup->__packet_receive_read = index2;
+@@ -1543,7 +1550,7 @@ static int tile_net_drain_lipp_buffers(struct tile_net_priv *priv)
+ 
+ 	/* Drain all the LIPP buffers. */
+ 	while (true) {
+-		int buffer;
++		unsigned int buffer;
+ 
+ 		/* NOTE: This should never fail. */
+ 		if (hv_dev_pread(priv->hv_devhdl, 0, (HV_VirtAddr)&buffer,
+@@ -1707,7 +1714,7 @@ static unsigned int tile_net_tx_frags(lepp_frag_t *frags,
+ 		if (!hash_default) {
+ 			void *va = pfn_to_kaddr(pfn) + f->page_offset;
+ 			BUG_ON(PageHighMem(skb_frag_page(f)));
+-			finv_buffer_remote(va, f->size, 0);
++			finv_buffer_remote(va, skb_frag_size(f), 0);
+ 		}
+ 
+ 		cpa = ((phys_addr_t)pfn << PAGE_SHIFT) + f->page_offset;
+@@ -1735,8 +1742,8 @@ static unsigned int tile_net_tx_frags(lepp_frag_t *frags,
+  * Sometimes, if "sendfile()" requires copying, we will be called with
+  * "data" containing the header and payload, with "frags" being empty.
+  *
+- * In theory, "sh->nr_frags" could be 3, but in practice, it seems
+- * that this will never actually happen.
++ * Sometimes, for example when using NFS over TCP, a single segment can
++ * span 3 fragments, which must be handled carefully in LEPP.
+  *
+  * See "emulate_large_send_offload()" for some reference code, which
+  * does not handle checksumming.
+@@ -1844,10 +1851,8 @@ static int tile_net_tx_tso(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&priv->eq_lock, irqflags);
+ 
+-	/*
+-	 * Handle completions if needed to make room.
+-	 * HACK: Spin until there is sufficient room.
+-	 */
++	/* Handle completions if needed to make room. */
++	/* NOTE: Return NETDEV_TX_BUSY if there is still no room. */
+ 	if (lepp_num_free_comp_slots(eq) == 0) {
+ 		nolds = tile_net_lepp_grab_comps(eq, olds, wanted, 0);
+ 		if (nolds == 0) {
+@@ -1861,6 +1866,7 @@ busy:
+ 	cmd_tail = eq->cmd_tail;
+ 
+ 	/* Prepare to advance, detecting full queue. */
++	/* NOTE: Return NETDEV_TX_BUSY if the queue is full. */
+ 	cmd_next = cmd_tail + cmd_size;
+ 	if (cmd_tail < cmd_head && cmd_next >= cmd_head)
+ 		goto busy;
+@@ -2023,10 +2029,8 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&priv->eq_lock, irqflags);
+ 
+-	/*
+-	 * Handle completions if needed to make room.
+-	 * HACK: Spin until there is sufficient room.
+-	 */
++	/* Handle completions if needed to make room. */
++	/* NOTE: Return NETDEV_TX_BUSY if there is still no room. */
+ 	if (lepp_num_free_comp_slots(eq) == 0) {
+ 		nolds = tile_net_lepp_grab_comps(eq, olds, wanted, 0);
+ 		if (nolds == 0) {
+@@ -2040,6 +2044,7 @@ busy:
+ 	cmd_tail = eq->cmd_tail;
+ 
+ 	/* Copy the commands, or fail. */
++	/* NOTE: Return NETDEV_TX_BUSY if the queue is full. */
+ 	for (i = 0; i < num_frags; i++) {
+ 
+ 		/* Prepare to advance, detecting full queue. */
+@@ -2260,6 +2265,23 @@ static int tile_net_get_mac(struct net_device *dev)
+ 	return 0;
+ }
+ 
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void tile_net_netpoll(struct net_device *dev)
++{
++	struct tile_net_priv *priv = netdev_priv(dev);
++	disable_percpu_irq(priv->intr_id);
++	tile_net_handle_ingress_interrupt(priv->intr_id, dev);
++	enable_percpu_irq(priv->intr_id, 0);
++}
++#endif
++
++
+ static const struct net_device_ops tile_net_ops = {
+ 	.ndo_open = tile_net_open,
+ 	.ndo_stop = tile_net_stop,
+@@ -2268,7 +2290,10 @@ static const struct net_device_ops tile_net_ops = {
+ 	.ndo_get_stats = tile_net_get_stats,
+ 	.ndo_change_mtu = tile_net_change_mtu,
+ 	.ndo_tx_timeout = tile_net_tx_timeout,
+-	.ndo_set_mac_address = tile_net_set_mac_address
++	.ndo_set_mac_address = tile_net_set_mac_address,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller = tile_net_netpoll,
++#endif
+ };
+ 
+ 
+@@ -2408,7 +2433,7 @@ static void tile_net_cleanup(void)
+  */
+ static int tile_net_init_module(void)
+ {
+-	pr_info("Tilera IPP Net Driver\n");
++	pr_info("Tilera Network Driver\n");
+ 
+ 	tile_net_devs[0] = tile_net_dev_init("xgbe0");
+ 	tile_net_devs[1] = tile_net_dev_init("xgbe1");
+-- 
+1.6.5.2
