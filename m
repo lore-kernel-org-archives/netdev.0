@@ -1,116 +1,72 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [BUGFIX][PATCH 2/3] memcg/tcp: remove static_branch_slow_dec()
- at changing limit
-Date: Fri, 30 Mar 2012 08:51:24 +0900
-Message-ID: <4F74F57C.4030001@jp.fujitsu.com>
-References: <4F7408B7.9090706@jp.fujitsu.com> <4F740A41.6040002@jp.fujitsu.com> <4F744038.1000900@parallels.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v4] e1000: Support RX-ALL flag.
+Date: Thu, 29 Mar 2012 17:56:00 -0700
+Message-ID: <1333068960.2622.72.camel@jtkirshe-mobl>
+References: <1333061270-4379-1-git-send-email-greearb@candelatech.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Glauber Costa <glommer@parallels.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-pPaxJKFhflyAVfCbkC3j"
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:59696 "EHLO
-	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865Ab2C2XxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Mar 2012 19:53:15 -0400
-Received: from m1.gw.fujitsu.co.jp (unknown [10.0.50.71])
-	by fgwmail6.fujitsu.co.jp (Postfix) with ESMTP id 1C4983EE0B6
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 08:53:14 +0900 (JST)
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id F14AB45DE59
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 08:53:13 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id CFAA645DE56
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 08:53:13 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id C24F21DB8052
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 08:53:13 +0900 (JST)
-Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.240.81.146])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 78CA31DB804B
-	for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 08:53:13 +0900 (JST)
-In-Reply-To: <4F744038.1000900@parallels.com>
+Received: from mga14.intel.com ([143.182.124.37]:25768 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758448Ab2C3A4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Mar 2012 20:56:02 -0400
+In-Reply-To: <1333061270-4379-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2012/03/29 19:58), Glauber Costa wrote:
 
-> On 03/29/2012 09:07 AM, KAMEZAWA Hiroyuki wrote:
->> tcp memcontrol uses static_branch to optimize limit=RESOURCE_MAX case.
->> If all cgroup's limit=RESOUCE_MAX, resource usage is not accounted.
->> But it's buggy now.
->>
->> For example, do following
->>   # while sleep 1;do
->>     echo 9223372036854775807>  /cgroup/memory/A/memory.kmem.tcp.limit_in_bytes;
->>     echo 300M>  /cgroup/memory/A/memory.kmem.tcp.limit_in_bytes;
->>     done
->>
->> and run network application under A. tcp's usage is sometimes accounted
->> and sometimes not accounted because of frequent changes of static_branch.
->> Then, finally, you can see broken tcp.usage_in_bytes.
->> WARN_ON() is printed because res_counter->usage goes below 0.
->> ==
->> kernel: ------------[ cut here ]----------
->> kernel: WARNING: at kernel/res_counter.c:96 res_counter_uncharge_locked+0x37/0x40()
->>   <snip>
->> kernel: Pid: 17753, comm: bash Tainted: G  W    3.3.0+ #99
->> kernel: Call Trace:
->> kernel:<IRQ>   [<ffffffff8104cc9f>] warn_slowpath_common+0x7f/0xc0
->> kernel: [<ffffffff810d7e88>] ? rb_reserve__next_event+0x68/0x470
->> kernel: [<ffffffff8104ccfa>] warn_slowpath_null+0x1a/0x20
->> kernel: [<ffffffff810b4e37>] res_counter_uncharge_locked+0x37/0x40
->> ...
->> ==
->>
->> This patch removes static_branch_slow_dec() at changing res_counter's
->> limit to RESOUCE_MAX. By this, once accounting started, the accountting
->> will continue until the tcp cgroup is destroyed.
->>
->> I think this will not be problem in real use.
->>
-> 
-> So...
-> 
-> Are the warnings still there if you have your other patch in this series?
+--=-pPaxJKFhflyAVfCbkC3j
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Thu, 2012-03-29 at 15:47 -0700, greearb@candelatech.com wrote:
+>=20
+> From: Ben Greear <greearb@candelatech.com>
+>=20
+> This allows the NIC to receive errored frames (bad FCS, etc)
+> and pass them up the stack.  This can be useful when using
+> sniffers.
+>=20
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> ---
+> :100644 100644 a680ee6... ab2f748...
+> M  drivers/net/ethernet/intel/e1000/e1000_main.c
+>  drivers/net/ethernet/intel/e1000/e1000_main.c |   22
+> ++++++++++++++++++++--
+>  1 files changed, 20 insertions(+), 2 deletions(-)=20
 
-I wrote patch 3/3 after 2/3 because I found all case cannot be fixed by this.
+FYI- I was just about to push this upstream :)  Thanks Ben!
 
-So, comparing patch 3/3 this fixes is leaking.
-Considering following sequence
+This is the same patch Aaron has tested in-house.
 
-	enable accounting
-	tcp allocate buffer
-	disable accounting
-	tcp free buffer
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-The accounted usage nerver disappear. This is the probelem which cannot be
-covered by patch 3/3. Maybe it's better to change order of patches 3/3 -> 2/3
-and describe this explicitly.
+--=-pPaxJKFhflyAVfCbkC3j
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-> Maybe what we should do is, flush the resource counters so they go back
-> to 0 besides decrementing the static branch. This way we get a more
-> consistent behavior.
-> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-set all memcg's usage to be 0 at enable/disable accounting ?
-But, there is a problem which static_branch() update is slow. So,
-IIUC, we can't catch all cases because of races.
+iQIcBAABCgAGBQJPdQSgAAoJEOVv75VaS+3OMsYP/1rWrNclsyZy9IUwLqYlqwwC
+irLIB5zjFPKIdaJcWzKA4X8wGgvXOpmGKFHYopgnSzibx63ZH+zhB3MVepGWB06Z
+QY2zRmRrrto0aNY22iGzzI9JKeScNBrMt8qJNIMgxxH5imW6nWp853yfJ4XdKbWc
+vZ9eOxeo1frzsbi/89WB2lmxU6tW4n0uK/djWui6f1CekvcQn8cyYv2/hUN8FnXH
+2WvaXuncBEk8OW84nDLQZRTWEgFUJIjkUd60ucNz0EF92NCFC75MjZrFe/tbM8MX
+EFNSqEx2hAXy0NX2BEBEF0U+0ppj5G8oK+i71W0VIwGCj4ooo2fOheNniCd2+a0H
+Rpptli3NI9ypjDkXxqkH4pl2qEs9ecB0ZtDmYQV0HjjD2hNY6S+yFzdJDJyUKYQM
+OQrZk0WVRxs6uO2z6AtABpsge3IJBNu1ngfE9w1AJZ2uA3QtjUTBZiytiCpTxVBE
+B1tv0TI9hhG+nzLLVNCDFKihyGHYWFgSihecBkHJTQGwPuVAUqW6AEiRLc4UwiRi
+oK9gkBeSETQWEAwOFuR12p5RRBGmXgaBW0mrO5XufNnOFF/P1zpZ0JAYxepw+LE0
+S04ffR2wJrJEUrp9JOhX7lH11BmCuU1ERKZk1Wpf9WhOsr+tlvwOicKpkwQBNS3l
+owJCjAsiy5Z3KIA2jPF9
+=ZNTM
+-----END PGP SIGNATURE-----
 
-
-> Another thing to keep in mind, is that the static branch will only be
-> inactive if we turn off *all* controllers. You see this happening
-> because you are only testing with one.
-
-yes. So, the behavior change by this patch will not affect usual cases.
-
-> So even if we go to the route you're proposing, we could probably try
-> doing something on the
-> global level, instead of a per-memcg boolean flat.
-
-In global level, static_key's counter handles it.
-
-Thanks,
--Kame
+--=-pPaxJKFhflyAVfCbkC3j--
