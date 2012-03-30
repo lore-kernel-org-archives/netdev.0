@@ -1,52 +1,57 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH] sky2: fix missing register reset on error path in
- sky2_test_msi()
-Date: Fri, 30 Mar 2012 19:36:16 +0200
-Message-ID: <20120330173616.GC2703@Neptun>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP_MAXSEG option with TSO enabled
+Date: Fri, 30 Mar 2012 10:38:00 -0700
+Message-ID: <4F75EF78.4060402@hp.com>
+References: <CAEnQRZC1sLW8BUOx2ov-S-UUSyfAi7Wem2mAzUHBHn2o9q-eRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Daniel Baluta <daniel.baluta@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:58948 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752904Ab2C3RgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:36:13 -0400
-Content-Disposition: inline
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:6714 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741Ab2C3RiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:38:03 -0400
+In-Reply-To: <CAEnQRZC1sLW8BUOx2ov-S-UUSyfAi7Wem2mAzUHBHn2o9q-eRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sky2_test_msi() the temporarily set SW IRQ in B0 register is not reset in case
-that request_irq() fails.
-With this patch we only set the interrupt mask if request_irq() was successful.
+On 03/30/2012 04:33 AM, Daniel Baluta wrote:
+> Hello,
+>
+> I am using TCP_MAXSEG option on an interface which has TSO enabled.
+>
+> strace output for connection looks as follows:
+>
+> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 26
+> setsockopt(26, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> setsockopt(26, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+> setsockopt(26, SOL_TCP, TCP_MAXSEG, [300], 4) = 0
+> connect(26, {sa_family=AF_INET, sin_port=htons(1935),
+> sin_addr=inet_addr("10.10.0.1")}, 16) = -1 EINPROGRESS (Operation now
+> in progress)
+>
+> I can see that MSS (300) is advertised in SYN packet, anyhow capturing
+> the traffic
+> I notice that are some TCP segments with length greater than MSS.
+>
+> Is this normal taking in consideration that TSO is enabled?
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- This applies against 3.3
+I would think so.  What do the netstat stats suggest for segments and 
+bytes per segment when you are running your test?  You could always look 
+for an on-the-wire packet trace.
 
- drivers/net/ethernet/marvell/sky2.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Not sure that a trace on a receiver would give you that though - the 
+inbound promiscuous tap may be above GRO (and almost certainly will be 
+above LRO)
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 760c2b1..0e23ce4 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -4795,14 +4795,14 @@ static int __devinit sky2_test_msi(struct sky2_hw *hw)
- 
- 	init_waitqueue_head(&hw->msi_wait);
- 
--	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
--
- 	err = request_irq(pdev->irq, sky2_test_intr, 0, DRV_NAME, hw);
- 	if (err) {
- 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
- 		return err;
- 	}
- 
-+	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
-+
- 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
- 	sky2_read8(hw, B0_CTST);
- 
--- 
-1.5.6.5
+rick jones
+
+>
+> thanks,
+> Daniel.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
