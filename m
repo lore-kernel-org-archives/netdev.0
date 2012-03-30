@@ -1,300 +1,83 @@
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Subject: [REGRESSION][PATCH V4 2/3] bpf jit: Let the x86 jit handle negative
- offsets
-Date: Fri, 30 Mar 2012 17:24:05 +0200
-Message-ID: <4F75D015.30609@googlemail.com>
-References: <4F75CA89.4010709@googlemail.com>
-Reply-To: <kaffeemonster@googlemail.com>
+From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Subject: Re: [PATCH] net: add QCA alx Ethernet driver
+Date: Fri, 30 Mar 2012 10:10:55 -0700
+Message-ID: <CAB=NE6WPWmrTZ__JQViqhde-krBsbM5G+ZQgK0pNC+W909u_ew@mail.gmail.com>
+References: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
+ <20120228.212857.797446903975232476.davem@davemloft.net> <157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com>
+ <20120228.223258.2261979237568571219.davem@davemloft.net> <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F75CA89.4010709@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiong@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com, kgiori@qca.qualcomm.com,
+	chris.snook@gmail.com, mathieu@qca.qualcomm.com,
+	bryanh@quicinc.com, Jesper Andersen <jespera@diku.dk>,
+	Julia Lawall <julia@diku.dk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:46378 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757054Ab2C3RLQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:11:16 -0400
+In-Reply-To: <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now the helper function from filter.c for negative offsets is exported,
-it can be used it in the jit to handle negative offsets.
+On Wed, Mar 21, 2012 at 6:28 PM, Luis R. Rodriguez
+<rodrigue@qca.qualcomm.com> wrote:
+> On Tue, Feb 28, 2012 at 7:32 PM, David Miller <davem@davemloft.net> w=
+rote:
+>> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+>> Date: Wed, 29 Feb 2012 03:11:14 +0000
+>>
+>>> We understand your concern. =C2=A0To support the new chipset, do yo=
+u
+>>> think it's reasonable to upstream it as a new driver, not a
+>>> replacement ?
+>>
+>> It depends upon how similar the chips are.
+>
+> OK.
+>
+>> To be honest tg3, as one example, supports quite a large array of
+>> different pieces of hardware that use the same logical core.
+>
+> At certain point it becomes a pain in the ass to support older
+> chipsets, and simply easier to leave the older driver to rot.
+>
+>> So that would be my litmus test about how different a chip needs
+>> to be to deserve an entirely new driver.
+>
+> Understood.
+>
+>> I strongly suggest you try to get atl1c working properly.
+>
+> This is what I have recommended since the alx driver was rejected, an=
+d
+> our team has been working on the atl1c driver now but we need to get
+> the legal approval to get contributions out to atl1c (I know this is
+> silly, but hey just letting you know).
+>
+> Anyway, in the meantime another topic has creeped up, and that is to
+> share with BSD and also help kill proprietary drivers [0]. Me and
+> Adrian intend on sharing our thoughts on how we intend on doing this
+> at LF collab but was in hopes we can use alx as a test case. We've
+> gone back to the drawing board for another simple driver to test our
+> work against but... we come back to alx.
+>
+> Would it be worthwhile to consider alx upstream only for the newer
+> chipsets (regardless of the litmus test, which I do agree with on
+> technical grounds) in consideration for helping pave the way on
+> killing proprietary drivers?
+>
+> [0] https://events.linuxfoundation.org/events/collaboration-summit/ro=
+driguez-chadd
 
-First modify the asm load helper functions to handle:
-- know positive offsets
-- know negative offsets
-- any offset
+David, please us know if you think the above reason is worthy for
+consideration of alx upstream, if at least for the newer chipsets. Our
+engineers are ready to work on either approach, and we have a approval
+take either route now. The sharing benefits however would make this a
+great case to work on for the above mentioned project.
 
-then the compiler can be modified to explicitly use these helper
-when appropriate.
-
-This fixes the case of a negative X register and allows to lift
-the restriction that bpf programs with negative offsets can't
-be jited.
-
-Signed-of-by: Jan Seiffert <kaffeemonster@googlemail.com>
-
-diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
-index 6687022..2897d7f 100644
---- a/arch/x86/net/bpf_jit.S
-+++ b/arch/x86/net/bpf_jit.S
-@@ -18,17 +18,17 @@
-  * r9d : hlen = skb->len - skb->data_len
-  */
- #define SKBDATA	%r8
--
--sk_load_word_ind:
--	.globl	sk_load_word_ind
--
--	add	%ebx,%esi	/* offset += X */
--#	test    %esi,%esi	/* if (offset < 0) goto bpf_error; */
--	js	bpf_error
-+#define SKF_MAX_NEG_OFF    $(-0x200000) /* SKF_LL_OFF from filter.h */
- 
- sk_load_word:
- 	.globl	sk_load_word
- 
-+	test	%esi,%esi
-+	js	bpf_slow_path_word_neg
-+
-+sk_load_word_positive_offset:
-+	.globl	sk_load_word_positive_offset
-+
- 	mov	%r9d,%eax		# hlen
- 	sub	%esi,%eax		# hlen - offset
- 	cmp	$3,%eax
-@@ -37,16 +37,15 @@ sk_load_word:
- 	bswap   %eax  			/* ntohl() */
- 	ret
- 
--
--sk_load_half_ind:
--	.globl sk_load_half_ind
--
--	add	%ebx,%esi	/* offset += X */
--	js	bpf_error
--
- sk_load_half:
- 	.globl	sk_load_half
- 
-+	test	%esi,%esi
-+	js	bpf_slow_path_half_neg
-+
-+sk_load_half_positive_offset:
-+	.globl	sk_load_half_positive_offset
-+
- 	mov	%r9d,%eax
- 	sub	%esi,%eax		#	hlen - offset
- 	cmp	$1,%eax
-@@ -55,14 +54,15 @@ sk_load_half:
- 	rol	$8,%ax			# ntohs()
- 	ret
- 
--sk_load_byte_ind:
--	.globl sk_load_byte_ind
--	add	%ebx,%esi	/* offset += X */
--	js	bpf_error
--
- sk_load_byte:
- 	.globl	sk_load_byte
- 
-+	test	%esi,%esi
-+	js	bpf_slow_path_byte_neg
-+
-+sk_load_byte_positive_offset:
-+	.globl	sk_load_byte_positive_offset
-+
- 	cmp	%esi,%r9d   /* if (offset >= hlen) goto bpf_slow_path_byte */
- 	jle	bpf_slow_path_byte
- 	movzbl	(SKBDATA,%rsi),%eax
-@@ -73,25 +73,21 @@ sk_load_byte:
-  *
-  * Implements BPF_S_LDX_B_MSH : ldxb  4*([offset]&0xf)
-  * Must preserve A accumulator (%eax)
-- * Inputs : %esi is the offset value, already known positive
-+ * Inputs : %esi is the offset value
-  */
--ENTRY(sk_load_byte_msh)
--	CFI_STARTPROC
-+sk_load_byte_msh:
-+	.globl	sk_load_byte_msh
-+	test	%esi,%esi
-+	js	bpf_slow_path_byte_msh_neg
-+
-+sk_load_byte_msh_positive_offset:
-+	.globl	sk_load_byte_msh_positive_offset
- 	cmp	%esi,%r9d      /* if (offset >= hlen) goto bpf_slow_path_byte_msh */
- 	jle	bpf_slow_path_byte_msh
- 	movzbl	(SKBDATA,%rsi),%ebx
- 	and	$15,%bl
- 	shl	$2,%bl
- 	ret
--	CFI_ENDPROC
--ENDPROC(sk_load_byte_msh)
--
--bpf_error:
--# force a return 0 from jit handler
--	xor		%eax,%eax
--	mov		-8(%rbp),%rbx
--	leaveq
--	ret
- 
- /* rsi contains offset and can be scratched */
- #define bpf_slow_path_common(LEN)		\
-@@ -138,3 +134,68 @@ bpf_slow_path_byte_msh:
- 	shl	$2,%al
- 	xchg	%eax,%ebx
- 	ret
-+
-+#define sk_negative_common(SIZE)				\
-+	push	%rdi;	/* save skb */				\
-+	push	%r9;						\
-+	push	SKBDATA;					\
-+/* rsi already has offset */					\
-+	mov	$SIZE,%ecx;	/* size */			\
-+	call	bpf_internal_load_pointer_neg_helper;		\
-+	test	%rax,%rax;					\
-+	pop	SKBDATA;					\
-+	pop	%r9;						\
-+	pop	%rdi;						\
-+	jz	bpf_error
-+
-+
-+bpf_slow_path_word_neg:
-+	cmp	SKF_MAX_NEG_OFF, %esi	/* test range */
-+	jl	bpf_error	/* offset lower -> error  */
-+sk_load_word_negative_offset:
-+	.globl	sk_load_word_negative_offset
-+	sk_negative_common(4)
-+	mov	(%rax), %eax
-+	bswap	%eax
-+	ret
-+
-+bpf_slow_path_half_neg:
-+	cmp	SKF_MAX_NEG_OFF, %esi
-+	jl	bpf_error
-+sk_load_half_negative_offset:
-+	.globl	sk_load_half_negative_offset
-+	sk_negative_common(2)
-+	mov	(%rax),%ax
-+	rol	$8,%ax
-+	movzwl	%ax,%eax
-+	ret
-+
-+bpf_slow_path_byte_neg:
-+	cmp	SKF_MAX_NEG_OFF, %esi
-+	jl	bpf_error
-+sk_load_byte_negative_offset:
-+	.globl	sk_load_byte_negative_offset
-+	sk_negative_common(1)
-+	movzbl	(%rax), %eax
-+	ret
-+
-+bpf_slow_path_byte_msh_neg:
-+	cmp	SKF_MAX_NEG_OFF, %esi
-+	jl	bpf_error
-+sk_load_byte_msh_negative_offset:
-+	.globl	sk_load_byte_msh_negative_offset
-+	xchg	%eax,%ebx /* dont lose A , X is about to be scratched */
-+	sk_negative_common(1)
-+	movzbl	(%rax),%eax
-+	and	$15,%al
-+	shl	$2,%al
-+	xchg	%eax,%ebx
-+	ret
-+
-+bpf_error:
-+# force a return 0 from jit handler
-+	xor		%eax,%eax
-+	mov		-8(%rbp),%rbx
-+	leaveq
-+	ret
-+
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 5671752..39a2e2c 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -30,7 +30,10 @@ int bpf_jit_enable __read_mostly;
-  * assembly code in arch/x86/net/bpf_jit.S
-  */
- extern u8 sk_load_word[], sk_load_half[], sk_load_byte[], sk_load_byte_msh[];
--extern u8 sk_load_word_ind[], sk_load_half_ind[], sk_load_byte_ind[];
-+extern u8 sk_load_word_positive_offset[], sk_load_half_positive_offset[];
-+extern u8 sk_load_byte_positive_offset[], sk_load_byte_msh_positive_offset[];
-+extern u8 sk_load_word_negative_offset[], sk_load_half_negative_offset[];
-+extern u8 sk_load_byte_negative_offset[], sk_load_byte_msh_negative_offset[];
- 
- static inline u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
- {
-@@ -117,6 +120,8 @@ static inline void bpf_flush_icache(void *start, void *end)
- 	set_fs(old_fs);
- }
- 
-+#define CHOOSE_LOAD_FUNC(K, func) \
-+	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
- 
- void bpf_jit_compile(struct sk_filter *fp)
- {
-@@ -473,44 +478,46 @@ void bpf_jit_compile(struct sk_filter *fp)
- #endif
- 				break;
- 			case BPF_S_LD_W_ABS:
--				func = sk_load_word;
-+				func = CHOOSE_LOAD_FUNC(K, sk_load_word);
- common_load:			seen |= SEEN_DATAREF;
--				if ((int)K < 0) {
--					/* Abort the JIT because __load_pointer() is needed. */
--					goto out;
--				}
- 				t_offset = func - (image + addrs[i]);
- 				EMIT1_off32(0xbe, K); /* mov imm32,%esi */
- 				EMIT1_off32(0xe8, t_offset); /* call */
- 				break;
- 			case BPF_S_LD_H_ABS:
--				func = sk_load_half;
-+				func = CHOOSE_LOAD_FUNC(K, sk_load_half);
- 				goto common_load;
- 			case BPF_S_LD_B_ABS:
--				func = sk_load_byte;
-+				func = CHOOSE_LOAD_FUNC(K, sk_load_byte);
- 				goto common_load;
- 			case BPF_S_LDX_B_MSH:
--				if ((int)K < 0) {
--					/* Abort the JIT because __load_pointer() is needed. */
--					goto out;
--				}
-+				func = CHOOSE_LOAD_FUNC(K, sk_load_byte_msh);
- 				seen |= SEEN_DATAREF | SEEN_XREG;
--				t_offset = sk_load_byte_msh - (image + addrs[i]);
-+				t_offset = func - (image + addrs[i]);
- 				EMIT1_off32(0xbe, K);	/* mov imm32,%esi */
- 				EMIT1_off32(0xe8, t_offset); /* call sk_load_byte_msh */
- 				break;
- 			case BPF_S_LD_W_IND:
--				func = sk_load_word_ind;
-+				func = sk_load_word;
- common_load_ind:		seen |= SEEN_DATAREF | SEEN_XREG;
- 				t_offset = func - (image + addrs[i]);
--				EMIT1_off32(0xbe, K);	/* mov imm32,%esi   */
-+				if (K) {
-+					if (is_imm8(K)) {
-+						EMIT3(0x8d, 0x73, K); /* lea imm8(%rbx), %esi */
-+					} else {
-+						EMIT2(0x8d, 0xb3); /* lea imm32(%rbx),%esi */
-+						EMIT(K, 4);
-+					}
-+				} else {
-+					EMIT2(0x89,0xde); /* mov %ebx,%esi */
-+				}
- 				EMIT1_off32(0xe8, t_offset);	/* call sk_load_xxx_ind */
- 				break;
- 			case BPF_S_LD_H_IND:
--				func = sk_load_half_ind;
-+				func = sk_load_half;
- 				goto common_load_ind;
- 			case BPF_S_LD_B_IND:
--				func = sk_load_byte_ind;
-+				func = sk_load_byte;
- 				goto common_load_ind;
- 			case BPF_S_JMP_JA:
- 				t_offset = addrs[i + K] - addrs[i];
+  Luis
