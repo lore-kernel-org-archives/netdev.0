@@ -1,48 +1,51 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-Date: Fri, 30 Mar 2012 13:52:34 -0700
-Message-ID: <20120330205234.GD4086@tux>
-References: <20120228.223258.2261979237568571219.davem@davemloft.net>
- <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
- <CAB=NE6WPWmrTZ__JQViqhde-krBsbM5G+ZQgK0pNC+W909u_ew@mail.gmail.com>
- <20120330.164554.2217665316338460995.davem@davemloft.net>
+From: Adishesh M <adisheshsm@gmail.com>
+Subject: adding ipv6 address manually in Linux
+Date: Sat, 31 Mar 2012 02:27:09 +0530
+Message-ID: <CA+f1OFr4_FiKxvSFWWGV1yQ-KPyRfFEnRcYxTZQhWiB0OdqBJQ@mail.gmail.com>
+References: <CA+f1OFri1pvyn2n=L82bip+KEY4QnXEwPxNvy=23UOR4vDTzJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xiong@qca.qualcomm.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <qca-linux-team@qualcomm.com>,
-	<nic-devel@qualcomm.com>, <kgiori@qca.qualcomm.com>,
-	<chris.snook@gmail.com>, <mathieu@qca.qualcomm.com>,
-	<bryanh@quicinc.com>, <jespera@diku.dk>, <julia@diku.dk>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:38074 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755518Ab2C3Uw6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 16:52:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20120330.164554.2217665316338460995.davem@davemloft.net>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:49846 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760006Ab2C3U5L convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Mar 2012 16:57:11 -0400
+Received: by lahj13 with SMTP id j13so1135103lah.19
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 13:57:10 -0700 (PDT)
+In-Reply-To: <CA+f1OFri1pvyn2n=L82bip+KEY4QnXEwPxNvy=23UOR4vDTzJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 30, 2012 at 04:45:54PM -0400, David Miller wrote:
-> From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-> Date: Fri, 30 Mar 2012 10:10:55 -0700
-> 
-> > On Wed, Mar 21, 2012 at 6:28 PM, Luis R. Rodriguez
-> > <rodrigue@qca.qualcomm.com> wrote:
-> >> On Tue, Feb 28, 2012 at 7:32 PM, David Miller <davem@davemloft.net> wrote:
-> >> Would it be worthwhile to consider alx upstream only for the newer
-> >> chipsets (regardless of the litmus test, which I do agree with on
-> >> technical grounds) in consideration for helping pave the way on
-> >> killing proprietary drivers?
->  ...
-> > David, please us know if you think the above reason is worthy for
-> > consideration of alx upstream, if at least for the newer chipsets.
-> 
-> Submitting alx that only supports the newer chipsets is fine.
+Hi,
 
-We will work on this and resubmit, the delta for the other chipsets
-can also be addressed within atl1c, in addition to working on getting
-documentation out to help enable further.
+there some problem in linux if we send 'unsolicited Neighbor
+Advertisement' =A0message for an ipv6 address as explained below.
 
-  Luis
+Manually add a new ipv6 address in to a Linux machine and send
+immediately 'unsolicited Neighbor Advertisement' then newly added
+address is considered as duplicate ipv6 address.
+
+usually if a new ipv6 address is added then Linux is sending '
+Neighbor solicitation message in order to detect duplicate address. By =
+some
+how if i send unsolicited Neighbor advertisement message before linux
+sends 'neighbor solicitation' message then linux is marking this
+address as duplicate.
+
+'ip -6 addr show' command output is
+=A0inet6 2001:3333:5678:ddd1::55/64 scope global tentative dadfailed
+
+
+why Linux is considering ipv6 address as duplicate if we send
+unsolicited message?
+
+if unsolicited message is sent after Linux completes duplicate address
+detection procedure by using neighbor solicitation message then this
+address is not considered as duplicate.
+
+
+Regards,
+Adishesh
