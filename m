@@ -1,75 +1,65 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-        <u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 00/17] mark const init data with __initconst instead of
- __initdata
-Date: Fri, 30 Mar 2012 11:59:00 +0200
-Message-ID: <20120330095859.GT15647@pengutronix.de>
-References: <20120329211131.GA31250@pengutronix.de>
+From: Huajun Li <huajun.li.lee@gmail.com>
+Subject: [PATCH] usb/rtl8150 : Remove duplicated definitions
+Date: Fri, 30 Mar 2012 18:11:05 +0800
+Message-ID: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-        Anatolij Gustschin <agust@denx.de>,
-        Andreas Koensgen <ajk@comnets.uni-bremen.de>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Andrew Victor <linux@maxim.org.za>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Barry Song <baohua.song@csr.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Bryan Huntsman <bryanh@codeaurora.org>,
-        cbe-oss-dev@lists.ozlabs.org,
-        Christoph Lameter <cl@linux-foundation.org>,
-        Daniel Walker <dwalker@fifo99.com>,
-        David Brown <davidb@codeaurora.org>,
-        David Howells <dhowells@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Woodhouse <dwmw2@infradead.org>,
-        davinci-linux-open-source@linux.davincidsp.com,
-        Eric Miao <eric.y.miao@gmail.com>,
-        Fenghua Yu <fenghua.yu@intel.com>,
-        Grant Likely <gran
-To: linux-kernel@vger.kernel.org,
-        Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <20120329211131.GA31250@pengutronix.de>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: petkan@users.sourceforge.net, netdev <netdev@vger.kernel.org>,
+	Huajun Li <huajun.li.lee@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:55354 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759430Ab2C3KLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 06:11:06 -0400
+Received: by wibhj6 with SMTP id hj6so451083wib.1
+        for <netdev@vger.kernel.org>; Fri, 30 Mar 2012 03:11:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 29, 2012 at 11:11:31PM +0200, Uwe Kleine-K=F6nig wrote:
-> Hello,
->=20
-> this series fixes a common error to use __initdata to mark const
-> variables. Most of the time this works well enough to go unnoticed
-> (though I wonder why the linker doesn't warn about that).
-> Just try adding something like
->=20
-> 	int something __initdata;
->=20
-> to one of the patched files and compile to see the error.
->=20
-> While touching these annotations I also corrected the position where =
-it
-> was wrong to go between the variable name and the =3D.
->=20
-> Note this series is not compile tested.
-After a question by Shawn Guo I noticed that my command to do the chang=
-es
-was to lax and changed things that must not be changed (at least not
-with further care). Affected are lines like:
+There exist duplicated macro definitions in rtl8150.c, remove them.
 
-	static const char *at91_dt_board_compat[] __initconst =3D {
+Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+---
+ drivers/net/usb/rtl8150.c |   26 --------------------------
+ 1 files changed, 0 insertions(+), 26 deletions(-)
 
-While at91_dt_board_compat[0] is const, at91_dt_board_compat is not.
+diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+index 6dda2fe..d363b31 100644
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -85,32 +85,6 @@
+ #define INT_CRERR_CNT		0x06
+ #define INT_COL_CNT		0x07
 
-I will send a fixed series later today.
+-/* Transmit status register errors */
+-#define TSR_ECOL		(1<<5)
+-#define TSR_LCOL		(1<<4)
+-#define TSR_LOSS_CRS		(1<<3)
+-#define TSR_JBR			(1<<2)
+-#define TSR_ERRORS		(TSR_ECOL | TSR_LCOL | TSR_LOSS_CRS | TSR_JBR)
+-/* Receive status register errors */
+-#define RSR_CRC			(1<<2)
+-#define RSR_FAE			(1<<1)
+-#define RSR_ERRORS		(RSR_CRC | RSR_FAE)
+-
+-/* Media status register definitions */
+-#define MSR_DUPLEX		(1<<4)
+-#define MSR_SPEED		(1<<3)
+-#define MSR_LINK		(1<<2)
+-
+-/* Interrupt pipe data */
+-#define INT_TSR			0x00
+-#define INT_RSR			0x01
+-#define INT_MSR			0x02
+-#define INT_WAKSR		0x03
+-#define INT_TXOK_CNT		0x04
+-#define INT_RXLOST_CNT		0x05
+-#define INT_CRERR_CNT		0x06
+-#define INT_COL_CNT		0x07
+-
 
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+ #define	RTL8150_MTU		1540
+ #define	RTL8150_TX_TIMEOUT	(HZ)
+-- 
+1.7.4.1
