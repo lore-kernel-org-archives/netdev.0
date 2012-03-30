@@ -1,83 +1,50 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH] net: add QCA alx Ethernet driver
-Date: Fri, 30 Mar 2012 10:10:55 -0700
-Message-ID: <CAB=NE6WPWmrTZ__JQViqhde-krBsbM5G+ZQgK0pNC+W909u_ew@mail.gmail.com>
-References: <157393863283F442885425D2C4542856194154FC@nasanexd02a.na.qualcomm.com>
- <20120228.212857.797446903975232476.davem@davemloft.net> <157393863283F442885425D2C454285619415561@nasanexd02a.na.qualcomm.com>
- <20120228.223258.2261979237568571219.davem@davemloft.net> <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: [PATCH] sky2: dont overwrite settings for PHY Quick link
+Date: Fri, 30 Mar 2012 19:28:59 +0200
+Message-ID: <20120330172859.GB2703@Neptun>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiong@qca.qualcomm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com, kgiori@qca.qualcomm.com,
-	chris.snook@gmail.com, mathieu@qca.qualcomm.com,
-	bryanh@quicinc.com, Jesper Andersen <jespera@diku.dk>,
-	Julia Lawall <julia@diku.dk>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:46378 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757054Ab2C3RLQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:11:16 -0400
-In-Reply-To: <CAB=NE6W-CYjEhbfYOv7XqXFGvdhZxRECqfAmgouaa5_j45gnOQ@mail.gmail.com>
+Received: from mailout-de.gmx.net ([213.165.64.22]:42219 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1758413Ab2C3R25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 13:28:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 21, 2012 at 6:28 PM, Luis R. Rodriguez
-<rodrigue@qca.qualcomm.com> wrote:
-> On Tue, Feb 28, 2012 at 7:32 PM, David Miller <davem@davemloft.net> w=
-rote:
->> From: "Huang, Xiong" <xiong@qca.qualcomm.com>
->> Date: Wed, 29 Feb 2012 03:11:14 +0000
->>
->>> We understand your concern. =C2=A0To support the new chipset, do yo=
-u
->>> think it's reasonable to upstream it as a new driver, not a
->>> replacement ?
->>
->> It depends upon how similar the chips are.
->
-> OK.
->
->> To be honest tg3, as one example, supports quite a large array of
->> different pieces of hardware that use the same logical core.
->
-> At certain point it becomes a pain in the ass to support older
-> chipsets, and simply easier to leave the older driver to rot.
->
->> So that would be my litmus test about how different a chip needs
->> to be to deserve an entirely new driver.
->
-> Understood.
->
->> I strongly suggest you try to get atl1c working properly.
->
-> This is what I have recommended since the alx driver was rejected, an=
-d
-> our team has been working on the atl1c driver now but we need to get
-> the legal approval to get contributions out to atl1c (I know this is
-> silly, but hey just letting you know).
->
-> Anyway, in the meantime another topic has creeped up, and that is to
-> share with BSD and also help kill proprietary drivers [0]. Me and
-> Adrian intend on sharing our thoughts on how we intend on doing this
-> at LF collab but was in hopes we can use alx as a test case. We've
-> gone back to the drawing board for another simple driver to test our
-> work against but... we come back to alx.
->
-> Would it be worthwhile to consider alx upstream only for the newer
-> chipsets (regardless of the litmus test, which I do agree with on
-> technical grounds) in consideration for helping pave the way on
-> killing proprietary drivers?
->
-> [0] https://events.linuxfoundation.org/events/collaboration-summit/ro=
-driguez-chadd
+This patch corrects a bug in function sky2_open() of the Marvell Yukon 2 driver
+in which the settings for PHY quick link are overwritten.
 
-David, please us know if you think the above reason is worthy for
-consideration of alx upstream, if at least for the newer chipsets. Our
-engineers are ready to work on either approach, and we have a approval
-take either route now. The sharing benefits however would make this a
-great case to work on for the above mentioned project.
+Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ This applies against 3.3
 
-  Luis
+ drivers/net/ethernet/marvell/sky2.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 760c2b1..d0132d8 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -1756,13 +1756,14 @@ static int sky2_open(struct net_device *dev)
+ 
+ 	sky2_hw_up(sky2);
+ 
++	/* Enable interrupts from phy/mac for port */
++	imask = sky2_read32(hw, B0_IMSK);
++
+ 	if (hw->chip_id == CHIP_ID_YUKON_OPT ||
+ 	    hw->chip_id == CHIP_ID_YUKON_PRM ||
+ 	    hw->chip_id == CHIP_ID_YUKON_OP_2)
+ 		imask |= Y2_IS_PHY_QLNK;	/* enable PHY Quick Link */
+ 
+-	/* Enable interrupts from phy/mac for port */
+-	imask = sky2_read32(hw, B0_IMSK);
+ 	imask |= portirq_msk[port];
+ 	sky2_write32(hw, B0_IMSK, imask);
+ 	sky2_read32(hw, B0_IMSK);
+-- 
+1.5.6.5
