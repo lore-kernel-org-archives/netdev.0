@@ -1,49 +1,55 @@
-From: "2012 SCAM VICTIMS COMPENSATIONS PAYMENTS."
-	<bmcastro@pontevedra.uned.es>
-Subject: (unknown)
-Date: Fri, 30 Mar 2012 18:40:00 +0200
-Message-ID: <9f2324112ab22f62a33d26429565bf94.squirrel@correo.uned.es>
-Reply-To: scamvictimstransfer_22@yahoo.co.jp
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer
+ helper non-static  for the jits
+Date: Fri, 30 Mar 2012 17:08:19 +0200
+Message-ID: <4F75CC63.10405@googlemail.com>
+References: <4F75CA89.4010709@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	"Matt Evans" <matt@ozlabs.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-cinco.uned.es ([62.204.192.119]:7298 "EHLO
-	smtp-out-cinco.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755178Ab2C3QkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 12:40:06 -0400
-Subject: 
+Received: from uhura.skim.hs-owl.de ([193.174.118.81]:58072 "EHLO
+	uhura.skim.hs-owl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757054Ab2C3QyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Mar 2012 12:54:16 -0400
+In-Reply-To: <4F75CA89.4010709@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012 SCAM VICTIMS COMPENSATIONS PAYMENTS.
-ECOWAS NATIONS STATE/UNITED NATIONS
-YOUR REF/PAYMENTS CODE: ECB/06654 FOR $500,000 USD ONLY.
+The function is renamed to make it a little more clear what it does.
+It is not added to any .h because it is not for general consumption, only for
+bpf internal use (and so by the jits).
 
+Signed-of-by: Jan Seiffert <kaffeemonster@googlemail.com>
 
-Dear Victims of scam,
- This is to bring to your notice that our bank (ECOBANK INTL. PLC) is
-delegated by the ECOWAS/UNITED NATIONS in Central Bank to compensate vi=
-ctims
-of scam $500,000 (Five Hundred Thousand Dollars Only).
-
-Your Name.___________________________
-Address.___________________________
-Phone .___________________________
-Amount Defrauded.___________________________
-Country.________________________
-
-Send a copy of your response with the PAYMENT CODE
-NUMBER(ECB/06654).
-
-NAME: MR.CLEMENT SYLVANIUS
-      SCAMMED VICTIM/REF/PAYMENTS CODE:
-      ECB/06654 $500,000 USD.
-
-Email: scamvictimstransfer_22@yahoo.co.jp
-
-Yours Faithfully,
-Mrs. Rosemary Peter
-PUBLIC RELATIONS OFFICER
-Copyright =A9 2012
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -40,8 +40,12 @@
+ #include <linux/reciprocal_div.h>
+ #include <linux/ratelimit.h>
+ 
+-/* No hurry in this branch */
+-static void *__load_pointer(const struct sk_buff *skb, int k, unsigned int size)
++/*
++ * No hurry in this branch
++ *
++ * Exported for the bpf jit load helper.
++ */
++void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
+ {
+ 	u8 *ptr = NULL;
+ 
+@@ -60,7 +64,7 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
+ {
+ 	if (k >= 0)
+ 		return skb_header_pointer(skb, k, size, buffer);
+-	return __load_pointer(skb, k, size);
++	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+ }
+ 
+ /**
