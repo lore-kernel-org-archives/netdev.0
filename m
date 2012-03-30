@@ -1,60 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 2/2] Ethernet driver for the WIZnet W5100 chip
-Date: Fri, 30 Mar 2012 11:23:51 +0200
-Message-ID: <1333099431.19659.15.camel@edumazet-laptop>
-References: <1332752876-1650-1-git-send-email-msink@permonline.ru>
-	 <1333090806-27988-2-git-send-email-msink@permonline.ru>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+        <u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 00/17] mark const init data with __initconst instead of
+ __initdata
+Date: Fri, 30 Mar 2012 11:59:00 +0200
+Message-ID: <20120330095859.GT15647@pengutronix.de>
+References: <20120329211131.GA31250@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mike Sinkovsky <msink@permonline.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333090806-27988-2-git-send-email-msink@permonline.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+        Anatolij Gustschin <agust@denx.de>,
+        Andreas Koensgen <ajk@comnets.uni-bremen.de>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Andrew Victor <linux@maxim.org.za>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Barry Song <baohua.song@csr.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Bryan Huntsman <bryanh@codeaurora.org>,
+        cbe-oss-dev@lists.ozlabs.org,
+        Christoph Lameter <cl@linux-foundation.org>,
+        Daniel Walker <dwalker@fifo99.com>,
+        David Brown <davidb@codeaurora.org>,
+        David Howells <dhowells@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Woodhouse <dwmw2@infradead.org>,
+        davinci-linux-open-source@linux.davincidsp.com,
+        Eric Miao <eric.y.miao@gmail.com>,
+        Fenghua Yu <fenghua.yu@intel.com>,
+        Grant Likely <gran
+To: linux-kernel@vger.kernel.org,
+        Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20120329211131.GA31250@pengutronix.de>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 30 mars 2012 =C3=A0 13:00 +0600, Mike Sinkovsky a =C3=A9cri=
-t :
-> Tested and used in production with Blackfin BF531 embedded processor.
+On Thu, Mar 29, 2012 at 11:11:31PM +0200, Uwe Kleine-K=F6nig wrote:
+> Hello,
 >=20
-> Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
-> ---
+> this series fixes a common error to use __initdata to mark const
+> variables. Most of the time this works well enough to go unnoticed
+> (though I wonder why the linker doesn't warn about that).
+> Just try adding something like
+>=20
+> 	int something __initdata;
+>=20
+> to one of the patched files and compile to see the error.
+>=20
+> While touching these annotations I also corrected the position where =
+it
+> was wrong to go between the variable name and the =3D.
+>=20
+> Note this series is not compile tested.
+After a question by Shawn Guo I noticed that my command to do the chang=
+es
+was to lax and changed things that must not be changed (at least not
+with further care). Affected are lines like:
 
-> +
-> +static int w5100_start_tx(struct sk_buff *skb, struct net_device *nd=
-ev)
-> +{
-> +	struct w5100_priv *priv =3D netdev_priv(ndev);
-> +	u16 offset;
-> +
-> +	if (w5100_read16(priv, W5100_S0_TX_FSR) < skb->len) {
+	static const char *at91_dt_board_compat[] __initconst =3D {
 
-There is a race here.
+While at91_dt_board_compat[0] is const, at91_dt_board_compat is not.
 
-Interrupt came come right here before you set the stop_queue()
+I will send a fixed series later today.
 
+Best regards
+Uwe
 
-> +		netif_stop_queue(ndev);
-
-So Here I suggest adding a test again
-=09
-	if (w5100_read16(priv, W5100_S0_TX_FSR) >=3D skb->len)
-		netif_wake_queue(ndev);
-	else
-		return NETDEV_TX_BUSY;
-
-> +		return NETDEV_TX_BUSY;
-> +	}
-> +
-> +	offset =3D w5100_read16(priv, W5100_S0_TX_WR);
-> +	w5100_writebuf(priv, offset, skb->data, skb->len);
-> +	w5100_write16(priv, W5100_S0_TX_WR, offset + skb->len);
-> +	w5100_command(priv, S0_CR_SEND);
-> +	ndev->stats.tx_bytes +=3D skb->len;
-> +	ndev->stats.tx_packets++;
-> +	dev_kfree_skb(skb);
-> +
-> +	return NETDEV_TX_OK;
-> +}
-> +
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
