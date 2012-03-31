@@ -1,133 +1,34 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 1/4] filter: Allow to create sk-unattached filters
-Date: Sat, 31 Mar 2012 23:01:19 +0200
-Message-ID: <1333227682-10235-2-git-send-email-jpirko@redhat.com>
-References: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 0/4] Introduce BPF-based TX port selecting for Team device
+Date: Sat, 31 Mar 2012 23:01:18 +0200
+Message-ID: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com, shemminger@vyatta.com,
 	raise.sail@gmail.com, nuno.martins@caixamagica.pt, matt@ozlabs.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63674 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:8255 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752849Ab2CaVBg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Mar 2012 17:01:36 -0400
-In-Reply-To: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
+	id S1752838Ab2CaVBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Mar 2012 17:01:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today, BPF filters are bind to sockets. Since BPF machine becomes handy
-for other purposes, this patch allows to create unattached filter.
+Jiri Pirko (4):
+  filter: Allow to create sk-unattached filters
+  filter: add XOR operation
+  team: add binary option type
+  team: add loadbalance mode
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- include/linux/filter.h |    3 ++
- net/core/filter.c      |   66 +++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 65 insertions(+), 4 deletions(-)
+ drivers/net/team/Kconfig                 |   11 ++
+ drivers/net/team/Makefile                |    1 +
+ drivers/net/team/team.c                  |   28 ++++-
+ drivers/net/team/team_mode_loadbalance.c |  188 ++++++++++++++++++++++++++++++
+ include/linux/filter.h                   |    7 +-
+ include/linux/if_team.h                  |    8 ++
+ net/core/filter.c                        |   70 +++++++++++-
+ 7 files changed, 304 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/team/team_mode_loadbalance.c
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 8eeb205..92dd993 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -153,6 +153,9 @@ static inline unsigned int sk_filter_len(const struct sk_filter *fp)
- extern int sk_filter(struct sock *sk, struct sk_buff *skb);
- extern unsigned int sk_run_filter(const struct sk_buff *skb,
- 				  const struct sock_filter *filter);
-+extern int sk_unattached_filter_create(struct sk_filter **pfp,
-+				       struct sock_fprog *fprog);
-+extern void sk_unattached_filter_destroy(struct sk_filter *fp);
- extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- extern int sk_detach_filter(struct sock *sk);
- extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5dea452..cfbea88 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -587,6 +587,67 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
- }
- EXPORT_SYMBOL(sk_filter_release_rcu);
- 
-+static int __sk_prepare_filter(struct sk_filter *fp)
-+{
-+	int err;
-+
-+	fp->bpf_func = sk_run_filter;
-+
-+	err = sk_chk_filter(fp->insns, fp->len);
-+	if (err)
-+		return err;
-+
-+	bpf_jit_compile(fp);
-+	return 0;
-+}
-+
-+/**
-+ *	sk_unattached_filter_create - create an unattached filter
-+ *	@fprog: the filter program
-+ *	@sk: the socket to use
-+ *
-+ * Create a filter independent ofr any socket. We first run some
-+ * sanity checks on it to make sure it does not explode on us later.
-+ * If an error occurs or there is insufficient memory for the filter
-+ * a negative errno code is returned. On success the return is zero.
-+ */
-+int sk_unattached_filter_create(struct sk_filter **pfp,
-+				struct sock_fprog *fprog)
-+{
-+	struct sk_filter *fp;
-+	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
-+	int err;
-+
-+	/* Make sure new filter is there and in the right amounts. */
-+	if (fprog->filter == NULL)
-+		return -EINVAL;
-+
-+	fp = kmalloc(fsize + sizeof(*fp), GFP_KERNEL);
-+	if (!fp)
-+		return -ENOMEM;
-+	memcpy(fp->insns, fprog->filter, fsize);
-+
-+	atomic_set(&fp->refcnt, 1);
-+	fp->len = fprog->len;
-+
-+	err = __sk_prepare_filter(fp);
-+	if (err)
-+		goto free_mem;
-+
-+	*pfp = fp;
-+	return 0;
-+free_mem:
-+	kfree(fp);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(sk_unattached_filter_create);
-+
-+void sk_unattached_filter_destroy(struct sk_filter *fp)
-+{
-+	sk_filter_release(fp);
-+}
-+EXPORT_SYMBOL_GPL(sk_unattached_filter_destroy);
-+
- /**
-  *	sk_attach_filter - attach a socket filter
-  *	@fprog: the filter program
-@@ -617,16 +678,13 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 
- 	atomic_set(&fp->refcnt, 1);
- 	fp->len = fprog->len;
--	fp->bpf_func = sk_run_filter;
- 
--	err = sk_chk_filter(fp->insns, fp->len);
-+	err = __sk_prepare_filter(fp);
- 	if (err) {
- 		sk_filter_uncharge(sk, fp);
- 		return err;
- 	}
- 
--	bpf_jit_compile(fp);
--
- 	old_fp = rcu_dereference_protected(sk->sk_filter,
- 					   sock_owned_by_user(sk));
- 	rcu_assign_pointer(sk->sk_filter, fp);
 -- 
 1.7.9.1
