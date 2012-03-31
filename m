@@ -1,47 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix NULL pointer dereference on firmware name for
-	early calls to get_drvinfo.
-Date: Fri, 30 Mar 2012 20:51:54 -0400 (EDT)
-Message-ID: <20120330.205154.1612043960353576031.davem@davemloft.net>
-References: <1333139045-18170-1-git-send-email-notting@redhat.com>
+Subject: Re: sendmmsg: put_user vs __put_user
+Date: Fri, 30 Mar 2012 20:51:20 -0400 (EDT)
+Message-ID: <20120330.205120.2221145622131588797.davem@davemloft.net>
+References: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org,
-	inaky.perez-gonzalez@intel.com
-To: notting@redhat.com
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1333139045-18170-1-git-send-email-notting@redhat.com>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: drepper@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 30 Mar 2012 16:24:05 -0400
+From: Ulrich Drepper <drepper@gmail.com>
+Date: Fri, 30 Mar 2012 09:36:11 -0400
 
-> The driver comments show an initialization sequence of:
->  * i2400m_setup()
->  *   i2400m->bus_setup()
->  *   i2400m_bootrom_init()
->  *   register_netdev()
->  *   wimax_dev_add()
->  *   i2400m_dev_start()
->  *     __i2400m_dev_start()
->  *       i2400m_dev_bootstrap()
-> 
-> dev_bootstrap() is where the firmware is loaded. So, if something calls
-> get_drvinfo() from a register_netdevice_notifier (such as the cnic driver),
-> we won't have a firmware name, and strncpy will crash.
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=808603
-> 
-> Signed-off-by: Bill Nottingham <notting@redhat.com>
+> Shouldn't the compat code in the sendmmsg implementation use the same
+> code as the normal code?  In which case you probably want something
+> like this:
 
-Already fixed in current sources.
+Compat processes are not able to generate virtual addresses anywhere
+near the range where the kernel resides, so the address range
+verification done by put_user() is completely superfluous and
+therefore not necessary.  The normal exception handling done by the
+access is completely sufficient.
