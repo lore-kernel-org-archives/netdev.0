@@ -1,54 +1,85 @@
-From: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>
-Subject: =?UTF-8?Q?=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=5BP?=
-	=?UTF-8?Q?ATCH=5D_set_fake=5Frtable's_dst_to_N?=
-	=?UTF-8?Q?ULL_to_avoid_kernel_Oops.?=
-Date: Sat, 31 Mar 2012 09:26:50 +0800
-Message-ID: <004d01cd0edd$593f3bd0$0bbdb370$%huangpeng@huawei.com>
-References: <002501cd0d74$317fd100$947f7300$%huangpeng@huawei.com>
- <1333002975.2325.82.camel@edumazet-glaptop>
- <002601cd0d76$c4987440$4dc95cc0$%huangpeng@huawei.com>
- <1333011120.2325.354.camel@edumazet-glaptop>
- <004501cd0d8f$c4e133b0$4ea39b10$%huangpeng@huawei.com>
- <1333020682.2325.517.camel@edumazet-glaptop>
+From: Vladimir Murzin <murzin.v@gmail.com>
+Subject: Re: [PATCH v17 08/15] seccomp: add system call filtering using BPF
+Date: Sat, 31 Mar 2012 08:40:33 +0400
+Message-ID: <20120331044030.GB3077@pinguin>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org>
+ <1333051320-30872-9-git-send-email-wad@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, harry.majun@huawei.com,
-	zhoukang7@huawei.com, 'netdev' <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1333020682.2325.517.camel@edumazet-glaptop>
-Content-language: zh-cn
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org, jmorris@namei.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1333051320-30872-9-git-send-email-wad@chromium.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > >Check net/bridge/br_netfilter.c and commits e688a6048076 (net: introduce
-> > >DST_NOPEER dst flag )  4adf0af6818f3ea5 (bridge: send correct MTU value
-> > >in PMTU (revised))
+Hi Will,
 
-Hi, Eric
+On Thu, Mar 29, 2012 at 03:01:53PM -0500, Will Drewry wrote:
 
-I confirmed the patch contents again.
-For our case, NF_INET_PRE_ROUTING is involved, not NF_BR_LOCAL_IN. 
-It seems pre-routing is not included in the patch you mentioned.
-BTW, our pkts are all ipv6 DHCP pkts(with MAC 33 33 00 01 00 02).
+snipped
 
-We verified the patch bellow, and this works fine, no WARN_ON happened. 
+> +
+> +/* Limit any path through the tree to 256KB worth of instructions. */
+> +#define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
+> +
+> +static void seccomp_filter_log_failure(int syscall)
+> +{
+> +	int compat = 0;
+> +#ifdef CONFIG_COMPAT
+> +	compat = is_compat_task();
+> +#endif
+> +	pr_info("%s[%d]: %ssystem call %d blocked at 0x%lx\n",
+> +		current->comm, task_pid_nr(current),
+> +		(compat ? "compat " : ""),
+> +		syscall, KSTK_EIP(current));
+> +}
 
---------------------------------
-Peter Huang(peng)
+snipped
 
-> On Thu, 2012-03-29 at 17:38 +0800, Peter Huang (Peng) wrote:
-> > Thks for your mail.
-> >
-> > >Check net/bridge/br_netfilter.c and commits e688a6048076 (net: introduce
-> > >DST_NOPEER dst flag )  4adf0af6818f3ea5 (bridge: send correct MTU value
-> > >in PMTU (revised))
-> >
-> > This patch already included in kernel-3.3, but for our case, virtual tap device's delayed
-> > Deletion will also cause kernel oops even in kernel3.3.
-> 
-> I was suggesting you take a look at the commit content ;)
-> 
-> Then you can see the code in br_nf_local_in(), a bit cleaner than yours.
-> 
+> +/**
+> + * seccomp_attach_user_filter - attaches a user-supplied sock_fprog
+> + * @user_filter: pointer to the user data containing a sock_fprog.
+> + *
+> + * Returns 0 on success and non-zero otherwise.
+> + */
+> +long seccomp_attach_user_filter(char __user *user_filter)
+> +{
+> +	struct sock_fprog fprog;
+> +	long ret = -EFAULT;
+> +
+> +#ifdef CONFIG_COMPAT
+> +	if (is_compat_task()) {
+> +		struct compat_sock_fprog fprog32;
+> +		if (copy_from_user(&fprog32, user_filter, sizeof(fprog32)))
+> +			goto out;
+> +		fprog.len = fprog32.len;
+> +		fprog.filter = compat_ptr(fprog32.filter);
+> +	} else /* falls through to the if below. */
+> +#endif
+> +	if (copy_from_user(&fprog, user_filter, sizeof(fprog)))
+> +		goto out;
+> +	ret = seccomp_attach_filter(&fprog);
+> +out:
+> +	return ret;
+> +}
+
+Do we really need to surround is_compat_task() with CNFIG_COMPAT?
+It seems that this case has already handled in compat.h [1]
+
+[1] http://lxr.linux.no/#linux+v3.3/include/linux/compat.h#L566
+
+Best wishes
+Vladimir Murzin
