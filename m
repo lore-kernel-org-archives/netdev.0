@@ -1,44 +1,115 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] net: bpf_jit: fix BPF_S_ALU_AND_K compilation
-Date: Sat, 31 Mar 2012 08:13:27 -0700
-Message-ID: <20120331151327.GA25059@kroah.com>
-References: <40f4b91c5200771f223966f368095c63.squirrel@webmail.greenhost.nl>
+From: Sergey Fionov <fionov@gmail.com>
+Subject: [PATCH iputils] ping,ping6: Fallback to numeric addresses while exiting
+Date: Sat, 31 Mar 2012 19:40:23 +0400
+Message-ID: <CAMwn+FRbOQY2uj4QJwsOHOK3iRk8gcQeczfztXLtijpe4SeXog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	stable@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Indan Zupancic <indan@nul.nu>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:35090 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760114Ab2CaPN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2012 11:13:29 -0400
-Received: from compute2.internal (compute2.nyi.mail.srv.osa [10.202.2.42])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 8F2BE20C5D
-	for <netdev@vger.kernel.org>; Sat, 31 Mar 2012 11:13:28 -0400 (EDT)
-Content-Disposition: inline
-In-Reply-To: <40f4b91c5200771f223966f368095c63.squirrel@webmail.greenhost.nl>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:50375 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760178Ab2CaPkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2012 11:40:25 -0400
+Received: by wejx9 with SMTP id x9so911541wej.19
+        for <netdev@vger.kernel.org>; Sat, 31 Mar 2012 08:40:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 31, 2012 at 08:52:09PM +1100, Indan Zupancic wrote:
-> Hello,
-> 
-> Finally, after much searching I found one little bug.
-> 
-> [PATCH] net: bpf_jit: fix BPF_S_ALU_AND_K compilation
-> 
-> Small typo resulted in bad code generation for certain
-> values of K for the BPF_S_ALU_AND_K instruction.
-> 
-> Signed-off-by: Indan Zupancic <indan@nul.nu>
-> ---
-> 
+When user presses Ctrl-C ping waits for pr_addr() to be finished and
+then exits. With poor connection it may result in stuck at
+gethostbyaddr().
 
-<formletter>
+This patch changes handling of exit signals. After setting "exiting"
+flag we longjmp() from gethostbyaddr() and print numeric addresses.
+---
+ ping.c        |    7 ++++++-
+ ping6.c       |    6 +++++-
+ ping_common.c |    4 ++++
+ ping_common.h |    4 ++++
+ 4 files changed, 19 insertions(+), 2 deletions(-)
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
+diff --git a/ping.c b/ping.c
+index eacb29d..ddce1fe 100644
+--- a/ping.c
++++ b/ping.c
+@@ -1160,12 +1160,17 @@ pr_addr(__u32 addr)
+ 	struct hostent *hp;
+ 	static char buf[4096];
 
-</formletter>
+-	if ((options & F_NUMERIC) ||
++	in_pr_addr = !setjmp(pr_addr_jmp);
++
++	if (exiting || (options & F_NUMERIC) ||
+ 	    !(hp = gethostbyaddr((char *)&addr, 4, AF_INET)))
+ 		sprintf(buf, "%s", inet_ntoa(*(struct in_addr *)&addr));
+ 	else
+ 		snprintf(buf, sizeof(buf), "%s (%s)", hp->h_name,
+ 			 inet_ntoa(*(struct in_addr *)&addr));
++
++	in_pr_addr = 0;
++
+ 	return(buf);
+ }
+
+diff --git a/ping6.c b/ping6.c
+index c5ff881..f5beaf2 100644
+--- a/ping6.c
++++ b/ping6.c
+@@ -1538,9 +1538,13 @@ char * pr_addr(struct in6_addr *addr)
+ {
+ 	struct hostent *hp = NULL;
+
+-	if (!(options&F_NUMERIC))
++	in_pr_addr = !setjmp(pr_addr_jmp);
++
++	if (!(exiting || options&F_NUMERIC))
+ 		hp = gethostbyaddr((__u8*)addr, sizeof(struct in6_addr), AF_INET6);
+
++	in_pr_addr = 0;
++
+ 	return hp ? hp->h_name : pr_addr_n(addr);
+ }
+
+diff --git a/ping_common.c b/ping_common.c
+index 82320b1..b45b5c8 100644
+--- a/ping_common.c
++++ b/ping_common.c
+@@ -30,6 +30,8 @@ struct timeval start_time, cur_time;
+ volatile int exiting;
+ volatile int status_snapshot;
+ int confirm = 0;
++int in_pr_addr = 0;		/* pr_addr() is executing */
++jmp_buf pr_addr_jmp;
+
+ /* Stupid workarounds for bugs/missing functionality in older linuces.
+  * confirm_flag fixes refusing service of kernels without MSG_CONFIRM.
+@@ -248,6 +250,8 @@ void common_options(int ch)
+ static void sigexit(int signo)
+ {
+ 	exiting = 1;
++	if (in_pr_addr)
++		longjmp(pr_addr_jmp, 0);
+ }
+
+ static void sigstatus(int signo)
+diff --git a/ping_common.h b/ping_common.h
+index 730cf9b..2262f91 100644
+--- a/ping_common.h
++++ b/ping_common.h
+@@ -16,6 +16,7 @@
+ #include <errno.h>
+ #include <string.h>
+ #include <netdb.h>
++#include <setjmp.h>
+
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+@@ -206,3 +207,6 @@ extern int gather_statistics(__u8 *ptr, int icmplen,
+ 			     int csfailed, struct timeval *tv, char *from,
+ 			     void (*pr_reply)(__u8 *ptr, int cc));
+ extern void print_timestamp(void);
++
++extern int in_pr_addr;
++extern jmp_buf pr_addr_jmp;
+-- 
+1.7.8.5
