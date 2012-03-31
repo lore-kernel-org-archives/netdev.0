@@ -1,215 +1,101 @@
-From: greearb@candelatech.com
-Subject: [RFC] mac80211:  Support on-channel scan option.
-Date: Sat, 31 Mar 2012 15:29:29 -0700
-Message-ID: <1333232969-3190-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
+Date: Sun, 1 Apr 2012 01:26:52 +0200
+Message-ID: <CA+1xoqe1Wc_uifrKsko6hu+py9Ahz3Q0p1tRxup09jmh2NZ1rw@mail.gmail.com>
+References: <CA+1xoqfA9FMowOmAXYHtkXB+D6FqgjCRREKPOk_m2c9ZCyaN4A@mail.gmail.com>
+ <1333227549.2325.4051.camel@edumazet-glaptop> <20120331213423.GA21219@redhat.com>
+ <CA+1xoqcAXyh306=2=QKWyM3BE44=MT+nsuRQn5YLOLgbtZqicA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org List" <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46277 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753716Ab2CaW3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2012 18:29:39 -0400
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:38384 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753870Ab2CaX1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Mar 2012 19:27:13 -0400
+In-Reply-To: <CA+1xoqcAXyh306=2=QKWyM3BE44=MT+nsuRQn5YLOLgbtZqicA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+On Sat, Mar 31, 2012 at 11:43 PM, Sasha Levin <levinsasha928@gmail.com> wrote:
+> On Sat, Mar 31, 2012 at 11:34 PM, Oleg Nesterov <oleg@redhat.com> wrote:
+>> On 03/31, Eric Dumazet wrote:
+>>>
+>>> On Sat, 2012-03-31 at 19:51 +0200, Sasha Levin wrote:
+>>> > Hi all,
+>>> >
+>>> > It appears that a hang may occur when destroying an ipv6 tunnel, which
+>>> > I've reproduced several times in a KVM vm.
+>>
+>> kernel version?
+>
+> latest linux-next
+>
+>>> > [ 1561.564172] INFO: task kworker/u:2:3140 blocked for more than 120 seconds.
+>>
+>> And nobody else?
+>
+> Some more messages follow a bit later which get stuck in vfs related code.
+>
+>> It would be nice to know what sysrq-t says, in particular the trace
+>> of khelper thread is interesting.
+>
+> Sure, I'll get one when it happens again.
 
-This based on an idea posted by Stanislaw Gruszka,
-though I accept full blame for the implementation!
+So here's the stack of the usermode thread:
 
-This is compile-tested only at this point.
+[  336.614015] kworker/u:2     S ffff880062c13000  5176  4539   3031 0x00000000
+[  336.614015]  ffff880062fb38d0 0000000000000082 ffff880062fb3860
+0000000000000001
+[  336.614015]  ffff880062fb3fd8 00000000001d4580 ffff880062fb2010
+00000000001d4580
+[  336.614015]  00000000001d4580 00000000001d4580 ffff880062fb3fd8
+00000000001d4580
+[  336.614015] Call Trace:
+[  336.614015]  [<ffffffff826a8e54>] schedule+0x24/0x70
+[  336.614015]  [<ffffffff825fd66d>] p9_client_rpc+0x13d/0x360
+[  336.614015]  [<ffffffff810d7850>] ? wake_up_bit+0x40/0x40
+[  336.614015]  [<ffffffff810e3671>] ? get_parent_ip+0x11/0x50
+[  336.614015]  [<ffffffff810e399d>] ? sub_preempt_count+0x9d/0xd0
+[  336.614015]  [<ffffffff825ff5ff>] p9_client_walk+0x8f/0x220
+[  336.614015]  [<ffffffff815a8e3b>] v9fs_vfs_lookup+0xab/0x1c0
+[  336.614015]  [<ffffffff811ee0c0>] d_alloc_and_lookup+0x40/0x80
+[  336.614015]  [<ffffffff811fdea0>] ? d_lookup+0x30/0x50
+[  336.614015]  [<ffffffff811f0aea>] do_lookup+0x28a/0x3b0
+[  336.614015]  [<ffffffff817c9117>] ? security_inode_permission+0x17/0x20
+[  336.614015]  [<ffffffff811f1c07>] link_path_walk+0x167/0x420
+[  336.614015]  [<ffffffff811ee630>] ? generic_readlink+0xb0/0xb0
+[  336.614015]  [<ffffffff81896d88>] ? __raw_spin_lock_init+0x38/0x70
+[  336.614015]  [<ffffffff811f24da>] path_openat+0xba/0x500
+[  336.614015]  [<ffffffff81057253>] ? sched_clock+0x13/0x20
+[  336.614015]  [<ffffffff810ed805>] ? sched_clock_local+0x25/0x90
+[  336.614015]  [<ffffffff810ed940>] ? sched_clock_cpu+0xd0/0x120
+[  336.614015]  [<ffffffff811f2a34>] do_filp_open+0x44/0xa0
+[  336.614015]  [<ffffffff81119acd>] ? __lock_release+0x8d/0x1d0
+[  336.614015]  [<ffffffff810e3671>] ? get_parent_ip+0x11/0x50
+[  336.614015]  [<ffffffff810e399d>] ? sub_preempt_count+0x9d/0xd0
+[  336.614015]  [<ffffffff826aa7f0>] ? _raw_spin_unlock+0x30/0x60
+[  336.614015]  [<ffffffff811ea74d>] open_exec+0x2d/0xf0
+[  336.614015]  [<ffffffff811eb888>] do_execve_common+0x128/0x320
+[  336.614015]  [<ffffffff811ebb05>] do_execve+0x35/0x40
+[  336.614015]  [<ffffffff810589e5>] sys_execve+0x45/0x70
+[  336.614015]  [<ffffffff826acc28>] kernel_execve+0x68/0xd0
+[  336.614015]  [<ffffffff810cd6a6>] ? ____call_usermodehelper+0xf6/0x130
+[  336.614015]  [<ffffffff810cd6f9>] call_helper+0x19/0x20
+[  336.614015]  [<ffffffff826acbb4>] kernel_thread_helper+0x4/0x10
+[  336.614015]  [<ffffffff810e3f80>] ? finish_task_switch+0x80/0x110
+[  336.614015]  [<ffffffff826aaeb4>] ? retint_restore_args+0x13/0x13
+[  336.614015]  [<ffffffff810cd6e0>] ? ____call_usermodehelper+0x130/0x130
+[  336.614015]  [<ffffffff826acbb0>] ? gs_change+0x13/0x13
 
-The idea is to let users scan on the current operating
-channel without interrupting normal traffic more than
-absolutely necessary (changing power level might reset
-some hardware, for instance).
-
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 d9798a3... b64d3c3... M	net/mac80211/ieee80211_i.h
-:100644 100644 1633648... 5bee3ea... M	net/mac80211/main.c
-:100644 100644 bcfe8c7... c4d7a50... M	net/mac80211/rx.c
-:100644 100644 c70e176... 591fdea... M	net/mac80211/scan.c
- net/mac80211/ieee80211_i.h |    3 ++
- net/mac80211/main.c        |    4 ++-
- net/mac80211/rx.c          |    2 +
- net/mac80211/scan.c        |   80 ++++++++++++++++++++++++++++++-------------
- 4 files changed, 64 insertions(+), 25 deletions(-)
-
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index d9798a3..b64d3c3 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -785,6 +785,8 @@ struct tpt_led_trigger {
-  *	well be on the operating channel
-  * @SCAN_HW_SCANNING: The hardware is scanning for us, we have no way to
-  *	determine if we are on the operating channel or not
-+ * @SCAN_ONCHANNEL_SCANNING:  Do a software scan on only the current operating
-+ *	channel. This should not interrupt normal traffic.
-  * @SCAN_COMPLETED: Set for our scan work function when the driver reported
-  *	that the scan completed.
-  * @SCAN_ABORTED: Set for our scan work function when the driver reported
-@@ -793,6 +795,7 @@ struct tpt_led_trigger {
- enum {
- 	SCAN_SW_SCANNING,
- 	SCAN_HW_SCANNING,
-+	SCAN_ONCHANNEL_SCANNING,
- 	SCAN_COMPLETED,
- 	SCAN_ABORTED,
- };
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index 1633648..5bee3ea 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -47,7 +47,8 @@ void ieee80211_configure_filter(struct ieee80211_local *local)
- 	if (atomic_read(&local->iff_allmultis))
- 		new_flags |= FIF_ALLMULTI;
- 
--	if (local->monitors || test_bit(SCAN_SW_SCANNING, &local->scanning))
-+	if (local->monitors || test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning))
- 		new_flags |= FIF_BCN_PRBRESP_PROMISC;
- 
- 	if (local->fif_probe_req || local->probe_req_reg)
-@@ -148,6 +149,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
- 	}
- 
- 	if (test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 	    test_bit(SCAN_HW_SCANNING, &local->scanning))
- 		power = chan->max_power;
- 	else
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index bcfe8c7..c4d7a50 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -425,6 +425,7 @@ ieee80211_rx_h_passive_scan(struct ieee80211_rx_data *rx)
- 
- 	if (test_bit(SCAN_HW_SCANNING, &local->scanning) ||
- 	    test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 	    local->sched_scanning)
- 		return ieee80211_scan_rx(rx->sdata, skb);
- 
-@@ -2919,6 +2920,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
- 		local->dot11ReceivedFragmentCount++;
- 
- 	if (unlikely(test_bit(SCAN_HW_SCANNING, &local->scanning) ||
-+		     test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 		     test_bit(SCAN_SW_SCANNING, &local->scanning)))
- 		status->rx_flags |= IEEE80211_RX_IN_SCAN;
- 
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index c70e176..591fdea 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -387,6 +387,29 @@ static int ieee80211_start_sw_scan(struct ieee80211_local *local)
- 	return 0;
- }
- 
-+static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
-+					    unsigned long *next_delay)
-+{
-+	int i;
-+	struct ieee80211_sub_if_data *sdata = local->scan_sdata;
-+	enum ieee80211_band band = local->hw.conf.channel->band;
-+
-+	for (i = 0; i < local->scan_req->n_ssids; i++)
-+		ieee80211_send_probe_req(
-+			sdata, NULL,
-+			local->scan_req->ssids[i].ssid,
-+			local->scan_req->ssids[i].ssid_len,
-+			local->scan_req->ie, local->scan_req->ie_len,
-+			local->scan_req->rates[band], false,
-+			local->scan_req->no_cck);
-+
-+	/*
-+	 * After sending probe requests, wait for probe responses
-+	 * on the channel.
-+	 */
-+	*next_delay = IEEE80211_CHANNEL_TIME;
-+	local->next_scan_state = SCAN_DECISION;
-+}
- 
- static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
- 				  struct cfg80211_scan_request *req)
-@@ -438,6 +461,33 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
- 	local->scan_req = req;
- 	local->scan_sdata = sdata;
- 
-+	/* If we are scanning only on the current channel, then
-+	 * we do not need to stop normal activities
-+	 */
-+	if ((req->n_channels == 1) &&
-+	    (req->channels[0]->center_freq ==
-+	     local->hw.conf.channel->center_freq)) {
-+		unsigned long next_delay;
-+		__set_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning);
-+		ieee80211_recalc_idle(local);
-+		ieee80211_configure_filter(local); /* accept probe-responses */
-+		/* We need to set power level at maximum rate for scanning. */
-+		ieee80211_hw_config(local, 0);
-+
-+		if (req->channels[0]->flags & IEEE80211_CHAN_PASSIVE_SCAN ||
-+		    !local->scan_req->n_ssids) {
-+			next_delay = IEEE80211_PASSIVE_CHANNEL_TIME;
-+		} else {
-+			ieee80211_scan_state_send_probe(local, &next_delay);
-+			next_delay = IEEE80211_CHANNEL_TIME;
-+		}
-+
-+		/* Now, just wait a bit and we are all done! */
-+		ieee80211_queue_delayed_work(&local->hw, &local->scan_work,
-+					     next_delay);
-+		return 0;
-+	}
-+
- 	if (local->ops->hw_scan)
- 		__set_bit(SCAN_HW_SCANNING, &local->scanning);
- 	else
-@@ -598,30 +648,6 @@ static void ieee80211_scan_state_set_channel(struct ieee80211_local *local,
- 	local->next_scan_state = SCAN_SEND_PROBE;
- }
- 
--static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
--					    unsigned long *next_delay)
--{
--	int i;
--	struct ieee80211_sub_if_data *sdata = local->scan_sdata;
--	enum ieee80211_band band = local->hw.conf.channel->band;
--
--	for (i = 0; i < local->scan_req->n_ssids; i++)
--		ieee80211_send_probe_req(
--			sdata, NULL,
--			local->scan_req->ssids[i].ssid,
--			local->scan_req->ssids[i].ssid_len,
--			local->scan_req->ie, local->scan_req->ie_len,
--			local->scan_req->rates[band], false,
--			local->scan_req->no_cck);
--
--	/*
--	 * After sending probe requests, wait for probe responses
--	 * on the channel.
--	 */
--	*next_delay = IEEE80211_CHANNEL_TIME;
--	local->next_scan_state = SCAN_DECISION;
--}
--
- static void ieee80211_scan_state_suspend(struct ieee80211_local *local,
- 					 unsigned long *next_delay)
- {
-@@ -672,6 +698,12 @@ void ieee80211_scan_work(struct work_struct *work)
- 
- 	sdata = local->scan_sdata;
- 
-+	/* When scanning on-channel, the first-callback means completeed. */
-+	if (test_and_clear_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning)) {
-+		aborted = test_and_clear_bit(SCAN_ABORTED, &local->scanning);
-+		goto out_complete;
-+	}
-+
- 	if (test_and_clear_bit(SCAN_COMPLETED, &local->scanning)) {
- 		aborted = test_and_clear_bit(SCAN_ABORTED, &local->scanning);
- 		goto out_complete;
--- 
-1.7.3.4
+While it seems that 9p is the culprit, I have to point out that this
+bug is easily reproducible, and it happens each time due to a
+call_usermode_helper() call. Other than that 9p behaves perfectly and
+I'd assume that I'd be seeing other things break besides
+call_usermode_helper() related ones.
