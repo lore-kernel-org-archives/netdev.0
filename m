@@ -1,86 +1,96 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: ipv6: tunnel: hang when destroying ipv6 tunnel
-Date: Sat, 31 Mar 2012 19:51:19 +0200
-Message-ID: <CA+1xoqfA9FMowOmAXYHtkXB+D6FqgjCRREKPOk_m2c9ZCyaN4A@mail.gmail.com>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v17 08/15] seccomp: add system call filtering using BPF
+Date: Sat, 31 Mar 2012 13:14:25 -0500
+Message-ID: <CABqD9hZu+yVVPWqcrOTo0e2gKuPn-ZKP403WKUMCqVL9zHs4uA@mail.gmail.com>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org>
+	<1333051320-30872-9-git-send-email-wad@chromium.org>
+	<20120331044030.GB3077@pinguin>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org List" <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org, x86@kernel.org,
+	arnd@arndb.de, davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org, jmorris@namei.org
+To: Vladimir Murzin <murzin.v@gmail.com>
+Return-path: <kernel-hardening-return-1194-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20120331044030.GB3077@pinguin>
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+2012/3/30 Vladimir Murzin <murzin.v@gmail.com>:
+> Hi Will,
+>
+> On Thu, Mar 29, 2012 at 03:01:53PM -0500, Will Drewry wrote:
+>
+> snipped
+>
+>> +
+>> +/* Limit any path through the tree to 256KB worth of instructions. */
+>> +#define MAX_INSNS_PER_PATH ((1 << 18) / sizeof(struct sock_filter))
+>> +
+>> +static void seccomp_filter_log_failure(int syscall)
+>> +{
+>> + =A0 =A0 int compat =3D 0;
+>> +#ifdef CONFIG_COMPAT
+>> + =A0 =A0 compat =3D is_compat_task();
+>> +#endif
+>> + =A0 =A0 pr_info("%s[%d]: %ssystem call %d blocked at 0x%lx\n",
+>> + =A0 =A0 =A0 =A0 =A0 =A0 current->comm, task_pid_nr(current),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 (compat ? "compat " : ""),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 syscall, KSTK_EIP(current));
+>> +}
+>
+> snipped
+>
+>> +/**
+>> + * seccomp_attach_user_filter - attaches a user-supplied sock_fprog
+>> + * @user_filter: pointer to the user data containing a sock_fprog.
+>> + *
+>> + * Returns 0 on success and non-zero otherwise.
+>> + */
+>> +long seccomp_attach_user_filter(char __user *user_filter)
+>> +{
+>> + =A0 =A0 struct sock_fprog fprog;
+>> + =A0 =A0 long ret =3D -EFAULT;
+>> +
+>> +#ifdef CONFIG_COMPAT
+>> + =A0 =A0 if (is_compat_task()) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 struct compat_sock_fprog fprog32;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (copy_from_user(&fprog32, user_filter, size=
+of(fprog32)))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 fprog.len =3D fprog32.len;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 fprog.filter =3D compat_ptr(fprog32.filter);
+>> + =A0 =A0 } else /* falls through to the if below. */
+>> +#endif
+>> + =A0 =A0 if (copy_from_user(&fprog, user_filter, sizeof(fprog)))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+>> + =A0 =A0 ret =3D seccomp_attach_filter(&fprog);
+>> +out:
+>> + =A0 =A0 return ret;
+>> +}
+>
+> Do we really need to surround is_compat_task() with CNFIG_COMPAT?
+> It seems that this case has already handled in compat.h [1]
+>
+> [1] http://lxr.linux.no/#linux+v3.3/include/linux/compat.h#L566
 
-It appears that a hang may occur when destroying an ipv6 tunnel, which
-I've reproduced several times in a KVM vm.
+In log_failure, it's not needed at all, but that function disappears
+in a subsequent patch in the series that converts over to using the
+auditing framework.  For the next use of CONFIG_COMPAT, it is more
+important for guarding the compat_sock_fprog struct (which isn't
+doubly defined) rather than the is_compat_task.
 
-The pattern in the stack dump below is consistent with unregistering a
-kobject when holding multiple locks. Unregistering a kobject usually
-leads to an exit back to userspace with call_usermodehelper_exec().
-The userspace code may access sysfs files which in turn will require
-locking within the kernel, leading to a deadlock since those locks are
-already held by kernel.
-
-[ 1561.564172] INFO: task kworker/u:2:3140 blocked for more than 120 seconds.
-[ 1561.566945] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs"
-disables this message.
-[ 1561.570062] kworker/u:2     D ffff88006ee63000  4504  3140      2 0x00000000
-[ 1561.572968]  ffff88006ed9f7e0 0000000000000082 ffff88006ed9f790
-ffffffff8107d346
-[ 1561.575680]  ffff88006ed9ffd8 00000000001d4580 ffff88006ed9e010
-00000000001d4580
-[ 1561.578601]  00000000001d4580 00000000001d4580 ffff88006ed9ffd8
-00000000001d4580
-[ 1561.581697] Call Trace:
-[ 1561.582650]  [<ffffffff8107d346>] ? kvm_clock_read+0x46/0x80
-[ 1561.584543]  [<ffffffff827063d4>] schedule+0x24/0x70
-[ 1561.586231]  [<ffffffff82704025>] schedule_timeout+0x245/0x2c0
-[ 1561.588508]  [<ffffffff81117c9a>] ? mark_held_locks+0x7a/0x120
-[ 1561.590858]  [<ffffffff81119bbd>] ? __lock_release+0x8d/0x1d0
-[ 1561.593162]  [<ffffffff82707e6b>] ? _raw_spin_unlock_irq+0x2b/0x70
-[ 1561.595394]  [<ffffffff810e36d1>] ? get_parent_ip+0x11/0x50
-[ 1561.597403]  [<ffffffff82705919>] wait_for_common+0x119/0x190
-[ 1561.599707]  [<ffffffff810ed1b0>] ? try_to_wake_up+0x2c0/0x2c0
-[ 1561.601758]  [<ffffffff82705a38>] wait_for_completion+0x18/0x20
-[ 1561.603843]  [<ffffffff810cdcd8>] call_usermodehelper_exec+0x228/0x240
-[ 1561.606059]  [<ffffffff82705844>] ? wait_for_common+0x44/0x190
-[ 1561.608352]  [<ffffffff81878445>] kobject_uevent_env+0x615/0x650
-[ 1561.610908]  [<ffffffff810e36d1>] ? get_parent_ip+0x11/0x50
-[ 1561.613146]  [<ffffffff8187848b>] kobject_uevent+0xb/0x10
-[ 1561.615312]  [<ffffffff81876f5a>] kobject_cleanup+0xca/0x1b0
-[ 1561.617509]  [<ffffffff8187704d>] kobject_release+0xd/0x10
-[ 1561.619334]  [<ffffffff81876d9c>] kobject_put+0x2c/0x60
-[ 1561.621117]  [<ffffffff8226ea80>] net_rx_queue_update_kobjects+0xa0/0xf0
-[ 1561.623421]  [<ffffffff8226ec87>] netdev_unregister_kobject+0x37/0x70
-[ 1561.625979]  [<ffffffff82253e26>] rollback_registered_many+0x186/0x260
-[ 1561.628526]  [<ffffffff82253f14>] unregister_netdevice_many+0x14/0x60
-[ 1561.631064]  [<ffffffff8243922e>] ip6_tnl_destroy_tunnels+0xee/0x160
-[ 1561.633549]  [<ffffffff8243b8f3>] ip6_tnl_exit_net+0xd3/0x1c0
-[ 1561.635843]  [<ffffffff8243b820>] ? ip6_tnl_ioctl+0x550/0x550
-[ 1561.637972]  [<ffffffff81259c86>] ? proc_net_remove+0x16/0x20
-[ 1561.639881]  [<ffffffff8224f119>] ops_exit_list+0x39/0x60
-[ 1561.641666]  [<ffffffff8224f72b>] cleanup_net+0xfb/0x1a0
-[ 1561.643528]  [<ffffffff810ce97d>] process_one_work+0x1cd/0x460
-[ 1561.645828]  [<ffffffff810ce91c>] ? process_one_work+0x16c/0x460
-[ 1561.648180]  [<ffffffff8224f630>] ? net_drop_ns+0x40/0x40
-[ 1561.650285]  [<ffffffff810d1e76>] worker_thread+0x176/0x3b0
-[ 1561.652460]  [<ffffffff810d1d00>] ? manage_workers+0x120/0x120
-[ 1561.654734]  [<ffffffff810d727e>] kthread+0xbe/0xd0
-[ 1561.656656]  [<ffffffff8270a134>] kernel_thread_helper+0x4/0x10
-[ 1561.658881]  [<ffffffff810e3fe0>] ? finish_task_switch+0x80/0x110
-[ 1561.660828]  [<ffffffff82708434>] ? retint_restore_args+0x13/0x13
-[ 1561.662795]  [<ffffffff810d71c0>] ? __init_kthread_worker+0x70/0x70
-[ 1561.664932]  [<ffffffff8270a130>] ? gs_change+0x13/0x13
-[ 1561.667001] 4 locks held by kworker/u:2/3140:
-[ 1561.667599]  #0:  (netns){.+.+.+}, at: [<ffffffff810ce91c>]
-process_one_work+0x16c/0x460
-[ 1561.668758]  #1:  (net_cleanup_work){+.+.+.}, at:
-[<ffffffff810ce91c>] process_one_work+0x16c/0x460
-[ 1561.670002]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff8224f6b0>]
-cleanup_net+0x80/0x1a0
-[ 1561.671700]  #3:  (rtnl_mutex){+.+.+.}, at: [<ffffffff82267f02>]
-rtnl_lock+0x12/0x20
+Thanks!
+will
