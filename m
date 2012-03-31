@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sendmmsg: put_user vs __put_user
-Date: Sat, 31 Mar 2012 17:27:10 -0400 (EDT)
-Message-ID: <20120331.172710.540592519617177028.davem@davemloft.net>
-References: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
-	<20120330.205120.2221145622131588797.davem@davemloft.net>
-	<CAOPLpQewA-AduBudgH5FK6Kz_=nHv6eFhGD29TkAosPTdP4ZHg@mail.gmail.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
+Date: Sat, 31 Mar 2012 23:34:23 +0200
+Message-ID: <20120331213423.GA21219@redhat.com>
+References: <CA+1xoqfA9FMowOmAXYHtkXB+D6FqgjCRREKPOk_m2c9ZCyaN4A@mail.gmail.com> <1333227549.2325.4051.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: drepper@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org List" <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOPLpQewA-AduBudgH5FK6Kz_=nHv6eFhGD29TkAosPTdP4ZHg@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1333227549.2325.4051.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Ulrich Drepper <drepper@gmail.com>
-Date: Sat, 31 Mar 2012 08:30:25 -0400
+On 03/31, Eric Dumazet wrote:
+>
+> On Sat, 2012-03-31 at 19:51 +0200, Sasha Levin wrote:
+> > Hi all,
+> >
+> > It appears that a hang may occur when destroying an ipv6 tunnel, which
+> > I've reproduced several times in a KVM vm.
 
-> On Fri, Mar 30, 2012 at 20:51, David Miller <davem@davemloft.net> wro=
-te:
->> Compat processes are not able to generate virtual addresses anywhere
->> near the range where the kernel resides, so the address range
->> verification done by put_user() is completely superfluous and
->> therefore not necessary. =A0The normal exception handling done by th=
-e
->> access is completely sufficient.
->=20
-> I was more thinking about the effects of might_fault() then additiona=
-l tests.
+kernel version?
 
-This is very clearly in a context where locks are not held and sleeping
-would be fine, so I don't see any value in that either.
+> > [ 1561.564172] INFO: task kworker/u:2:3140 blocked for more than 120 seconds.
+
+And nobody else?
+
+It would be nice to know what sysrq-t says, in particular the trace
+of khelper thread is interesting.
+
+> Something is wrong here, call_usermodehelper_exec ( ... UMH_WAIT_EXEC)
+> should not block forever.
+
+Yes, unless it triggers another request_module()...
+
+Tetsuo, could you please take a look? Unlikely, but may be this
+is fixed by your kmod-avoid-deadlock-by-recursive-kmod-call.patch
+in -mm ?
+
+Oleg.
