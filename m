@@ -1,135 +1,72 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 3/4] team: add binary option type
-Date: Sat, 31 Mar 2012 23:01:21 +0200
-Message-ID: <1333227682-10235-4-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 2/4] filter: add XOR operation
+Date: Sat, 31 Mar 2012 23:01:20 +0200
+Message-ID: <1333227682-10235-3-git-send-email-jpirko@redhat.com>
 References: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com, shemminger@vyatta.com,
 	raise.sail@gmail.com, nuno.martins@caixamagica.pt, matt@ozlabs.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51443 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46452 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752933Ab2CaVBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Mar 2012 17:01:38 -0400
+	id S1752876Ab2CaVBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Mar 2012 17:01:36 -0400
 In-Reply-To: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For transfering generic binary data (e.g. BPF code), introduce new
-binary option type.
+Add XOR instruction fo BPF machine. Needed for computing packet hashes.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team.c |   28 ++++++++++++++++++++++++----
- include/linux/if_team.h |    8 ++++++++
- 2 files changed, 32 insertions(+), 4 deletions(-)
+ include/linux/filter.h |    4 +++-
+ net/core/filter.c      |    4 ++++
+ 2 files changed, 7 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 8f81805..9ad52b5b 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1145,10 +1145,7 @@ team_nl_option_policy[TEAM_ATTR_OPTION_MAX + 1] = {
- 	},
- 	[TEAM_ATTR_OPTION_CHANGED]		= { .type = NLA_FLAG },
- 	[TEAM_ATTR_OPTION_TYPE]			= { .type = NLA_U8 },
--	[TEAM_ATTR_OPTION_DATA] = {
--		.type = NLA_BINARY,
--		.len = TEAM_STRING_MAX_LEN,
--	},
-+	[TEAM_ATTR_OPTION_DATA]			= { .type = NLA_BINARY },
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 92dd993..7209099 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -126,7 +126,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_HATYPE	28
+ #define SKF_AD_RXHASH	32
+ #define SKF_AD_CPU	36
+-#define SKF_AD_MAX	40
++#define SKF_AD_ALU_XOR_X	40
++#define SKF_AD_MAX	44
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
+@@ -231,6 +232,7 @@ enum {
+ 	BPF_S_ANC_HATYPE,
+ 	BPF_S_ANC_RXHASH,
+ 	BPF_S_ANC_CPU,
++	BPF_S_ANC_ALU_XOR_X,
  };
  
- static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
-@@ -1256,6 +1253,7 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
- 	list_for_each_entry(option, &team->option_list, list) {
- 		struct nlattr *option_item;
- 		long arg;
-+		struct team_option_binary tbinary;
+ #endif /* __KERNEL__ */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index cfbea88..5099c4b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -315,6 +315,9 @@ load_b:
+ 		case BPF_S_ANC_CPU:
+ 			A = raw_smp_processor_id();
+ 			continue;
++		case BPF_S_ANC_ALU_XOR_X:
++			A ^= X;
++			continue;
+ 		case BPF_S_ANC_NLATTR: {
+ 			struct nlattr *nla;
  
- 		/* Include only changed options if fill all mode is not on */
- 		if (!fillall && !option->changed)
-@@ -1282,6 +1280,13 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
- 			NLA_PUT_STRING(skb, TEAM_ATTR_OPTION_DATA,
- 				       (char *) arg);
- 			break;
-+		case TEAM_OPTION_TYPE_BINARY:
-+			NLA_PUT_U8(skb, TEAM_ATTR_OPTION_TYPE, NLA_BINARY);
-+			arg = (long) &tbinary;
-+			team_option_get(team, option, &arg);
-+			NLA_PUT(skb, TEAM_ATTR_OPTION_DATA,
-+				tbinary.data_len, tbinary.data);
-+			break;
- 		default:
- 			BUG();
- 		}
-@@ -1366,6 +1371,9 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
- 		case NLA_STRING:
- 			opt_type = TEAM_OPTION_TYPE_STRING;
- 			break;
-+		case NLA_BINARY:
-+			opt_type = TEAM_OPTION_TYPE_BINARY;
-+			break;
- 		default:
- 			goto team_put;
- 		}
-@@ -1374,19 +1382,31 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
- 		list_for_each_entry(option, &team->option_list, list) {
- 			long arg;
- 			struct nlattr *opt_data_attr;
-+			struct team_option_binary tbinary;
-+			int data_len;
- 
- 			if (option->type != opt_type ||
- 			    strcmp(option->name, opt_name))
- 				continue;
- 			opt_found = true;
- 			opt_data_attr = mode_attrs[TEAM_ATTR_OPTION_DATA];
-+			data_len = nla_len(opt_data_attr);
- 			switch (opt_type) {
- 			case TEAM_OPTION_TYPE_U32:
- 				arg = nla_get_u32(opt_data_attr);
- 				break;
- 			case TEAM_OPTION_TYPE_STRING:
-+				if (data_len > TEAM_STRING_MAX_LEN) {
-+					err = -EINVAL;
-+					goto team_put;
-+				}
- 				arg = (long) nla_data(opt_data_attr);
- 				break;
-+			case TEAM_OPTION_TYPE_BINARY:
-+				tbinary.data_len = data_len;
-+				tbinary.data = nla_data(opt_data_attr);
-+				arg = (long) &tbinary;
-+				break;
- 			default:
- 				BUG();
+@@ -559,6 +562,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(HATYPE);
+ 			ANCILLARY(RXHASH);
+ 			ANCILLARY(CPU);
++			ANCILLARY(ALU_XOR_X);
  			}
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 58404b0..41163ac 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -68,6 +68,7 @@ struct team_mode_ops {
- enum team_option_type {
- 	TEAM_OPTION_TYPE_U32,
- 	TEAM_OPTION_TYPE_STRING,
-+	TEAM_OPTION_TYPE_BINARY,
- };
- 
- struct team_option {
-@@ -82,6 +83,13 @@ struct team_option {
- 	bool removed;
- };
- 
-+struct team_option_binary {
-+	u32 data_len;
-+	void *data;
-+};
-+
-+#define team_optarg_tbinary(arg) (*((struct team_option_binary **) arg))
-+
- struct team_mode {
- 	struct list_head list;
- 	const char *kind;
+ 		}
+ 		ftest->code = code;
 -- 
 1.7.9.1
