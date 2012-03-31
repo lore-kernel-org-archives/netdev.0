@@ -1,27 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sendmmsg: put_user vs __put_user
-Date: Fri, 30 Mar 2012 20:51:20 -0400 (EDT)
-Message-ID: <20120330.205120.2221145622131588797.davem@davemloft.net>
-References: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
+From: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>
+Subject: =?UTF-8?Q?=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=5BP?=
+	=?UTF-8?Q?ATCH=5D_set_fake=5Frtable's_dst_to_N?=
+	=?UTF-8?Q?ULL_to_avoid_kernel_Oops.?=
+Date: Sat, 31 Mar 2012 09:26:50 +0800
+Message-ID: <004d01cd0edd$593f3bd0$0bbdb370$%huangpeng@huawei.com>
+References: <002501cd0d74$317fd100$947f7300$%huangpeng@huawei.com>
+ <1333002975.2325.82.camel@edumazet-glaptop>
+ <002601cd0d76$c4987440$4dc95cc0$%huangpeng@huawei.com>
+ <1333011120.2325.354.camel@edumazet-glaptop>
+ <004501cd0d8f$c4e133b0$4ea39b10$%huangpeng@huawei.com>
+ <1333020682.2325.517.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: drepper@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, harry.majun@huawei.com,
+	zhoukang7@huawei.com, 'netdev' <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
+In-reply-to: <1333020682.2325.517.camel@edumazet-glaptop>
+Content-language: zh-cn
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@gmail.com>
-Date: Fri, 30 Mar 2012 09:36:11 -0400
+> > >Check net/bridge/br_netfilter.c and commits e688a6048076 (net: introduce
+> > >DST_NOPEER dst flag )  4adf0af6818f3ea5 (bridge: send correct MTU value
+> > >in PMTU (revised))
 
-> Shouldn't the compat code in the sendmmsg implementation use the same
-> code as the normal code?  In which case you probably want something
-> like this:
+Hi, Eric
 
-Compat processes are not able to generate virtual addresses anywhere
-near the range where the kernel resides, so the address range
-verification done by put_user() is completely superfluous and
-therefore not necessary.  The normal exception handling done by the
-access is completely sufficient.
+I confirmed the patch contents again.
+For our case, NF_INET_PRE_ROUTING is involved, not NF_BR_LOCAL_IN. 
+It seems pre-routing is not included in the patch you mentioned.
+BTW, our pkts are all ipv6 DHCP pkts(with MAC 33 33 00 01 00 02).
+
+We verified the patch bellow, and this works fine, no WARN_ON happened. 
+
+--------------------------------
+Peter Huang(peng)
+
+> On Thu, 2012-03-29 at 17:38 +0800, Peter Huang (Peng) wrote:
+> > Thks for your mail.
+> >
+> > >Check net/bridge/br_netfilter.c and commits e688a6048076 (net: introduce
+> > >DST_NOPEER dst flag )  4adf0af6818f3ea5 (bridge: send correct MTU value
+> > >in PMTU (revised))
+> >
+> > This patch already included in kernel-3.3, but for our case, virtual tap device's delayed
+> > Deletion will also cause kernel oops even in kernel3.3.
+> 
+> I was suggesting you take a look at the commit content ;)
+> 
+> Then you can see the code in br_nf_local_in(), a bit cleaner than yours.
+> 
