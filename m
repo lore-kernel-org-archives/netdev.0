@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 16/28] fs_enet: Support the
+Subject: [PATCH V2 net-next 17/28] ll_temac: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:01 +0200
-Message-ID: <fba6174a9296aa0e8e5e2b235fbf9dc13bb06615.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:02 +0200
+Message-ID: <67a685a934e0b544512f81a2a174093308489dc6.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 +
+ drivers/net/ethernet/xilinx/ll_temac_main.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index e4e6cd2..2b7633f 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -963,6 +963,7 @@ static const struct ethtool_ops fs_ethtool_ops = {
- 	.get_msglevel = fs_get_msglevel,
- 	.set_msglevel = fs_set_msglevel,
- 	.get_regs = fs_get_regs,
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index d21591a..1eaf712 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -1000,6 +1000,7 @@ static const struct ethtool_ops temac_ethtool_ops = {
+ 	.set_settings = temac_set_settings,
+ 	.nway_reset = temac_nway_reset,
+ 	.get_link = ethtool_op_get_link,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- static int fs_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ static int __devinit temac_of_probe(struct platform_device *op)
 -- 
 1.7.2.5
 
