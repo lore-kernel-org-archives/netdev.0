@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 17/28] ll_temac: Support the
+Subject: [PATCH V2 net-next 18/28] macb: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:02 +0200
-Message-ID: <67a685a934e0b544512f81a2a174093308489dc6.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:03 +0200
+Message-ID: <5d973821c4d9cb1da6f8e97c52d9a3958795c21c.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/xilinx/ll_temac_main.c |    1 +
+ drivers/net/ethernet/cadence/macb.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index d21591a..1eaf712 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1000,6 +1000,7 @@ static const struct ethtool_ops temac_ethtool_ops = {
- 	.set_settings = temac_set_settings,
- 	.nway_reset = temac_nway_reset,
- 	.get_link = ethtool_op_get_link,
-+	.get_ts_info = ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index c4834c2..1466bc4 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1213,6 +1213,7 @@ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.set_settings		= macb_set_settings,
+ 	.get_drvinfo		= macb_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static int __devinit temac_of_probe(struct platform_device *op)
+ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 -- 
 1.7.2.5
 
