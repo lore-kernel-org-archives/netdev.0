@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 22/28] r8169: Support the
+Subject: [PATCH V2 net-next 25/28] stmmac: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:07 +0200
-Message-ID: <57c529d777e914605871cc0f47a68bc4c83f16c2.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:10 +0200
+Message-ID: <a18d2bc3f8b292d1afcb735228141709e42a052a.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |    1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 27c358c..074a574 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1854,6 +1854,7 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_strings		= rtl8169_get_strings,
- 	.get_sset_count		= rtl8169_get_sset_count,
- 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
-+	.get_ts_info		= ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index f98e151..ce43184 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -481,6 +481,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
+ 	.get_wol = stmmac_get_wol,
+ 	.set_wol = stmmac_set_wol,
+ 	.get_sset_count	= stmmac_get_sset_count,
++	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ void stmmac_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.2.5
 
