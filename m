@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] net/netfilter/nfnetlink_acct.c: use linux/atomic.h
-Date: Sun, 01 Apr 2012 16:17:03 -0400 (EDT)
-Message-ID: <20120401.161703.814745867737769975.davem@davemloft.net>
-References: <20120328221057.9A6DAA001B@akpm.mtv.corp.google.com>
+Subject: Re: [PATCH] net: lpc_eth: Fix rename of dev_hw_addr_random
+Date: Sun, 01 Apr 2012 16:17:14 -0400 (EDT)
+Message-ID: <20120401.161714.1988118567020406881.davem@davemloft.net>
+References: <1332974186-12962-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net, pablo@netfilter.org
-To: akpm@linux-foundation.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120328221057.9A6DAA001B@akpm.mtv.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kevin.wells@nxp.com, linux-arm-kernel@lists.infradead.org
+To: stigge@antcom.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1332974186-12962-1-git-send-email-stigge@antcom.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Wed, 28 Mar 2012 15:10:57 -0700
+From: Roland Stigge <stigge@antcom.de>
+Date: Thu, 29 Mar 2012 00:36:26 +0200
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Subject: net/netfilter/nfnetlink_acct.c: use linux/atomic.h
+> In parallel to the integration of lpc_eth.c, dev_hw_addr_random() has been
+> renamed to eth_hw_addr_random(). This patch fixes it also in the new driver
+> lpc_eth.c.
 > 
-> There's no known problem here, but this is one of only two non-arch files
-> in the kernel which use asm/atomic.h instead of linux/atomic.h.
-> 
-> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Roland Stigge <stigge@antcom.de>
 
-Applied.
+Applied and queued up for -stable.
