@@ -1,30 +1,39 @@
-From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
-Subject: be2net: when can I expect roce support patch will be merged?
-Date: Sun, 1 Apr 2012 01:36:50 -0700
-Message-ID: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: fix array index in ip6_mc_add_src()
+Date: Sun,  1 Apr 2012 16:45:26 +0800
+Message-ID: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:50493 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359Ab2DAIpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 04:45:36 -0400
+Received: by mail-we0-f174.google.com with SMTP id x9so1138449wej.19
+        for <netdev@vger.kernel.org>; Sun, 01 Apr 2012 01:45:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: RongQing.Li <roy.qing.li@gmail.com>
 
-Did you get chance to merge below be2net patch for supporing RoCE driver?
-http://marc.info/?l=linux-rdma&m=133279326217836&w=2
+Convert array index from the loop bound to the loop index.
 
-Once this is done, Roland can merge ocrdma RoCE driver addition to his tree. This NIC driver patch is required to merge ocrdma patch.
-When can I expect this patch to be merged to net-next git tree?
-Let me know if there any issue with the patch that I got to resolve.
+Signed-off-by: RongQing.Li <roy.qing.li@gmail.com> 
+---
+ net/ipv6/mcast.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Regards,
-Parav Pandit
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 16c33e3..c6378de 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2044,7 +2044,7 @@ static int ip6_mc_add_src(struct inet6_dev *idev, const struct in6_addr *pmca,
+ 		if (!delta)
+ 			pmc->mca_sfcount[sfmode]--;
+ 		for (j=0; j<i; j++)
+-			(void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
++			ip6_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+ 	} else if (isexclude != (pmc->mca_sfcount[MCAST_EXCLUDE] != 0)) {
+ 		struct ip6_sf_list *psf;
+ 
+-- 
+1.7.1
