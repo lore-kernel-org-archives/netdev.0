@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: dont overwrite settings for PHY Quick link
-Date: Sun, 01 Apr 2012 16:11:04 -0400 (EDT)
-Message-ID: <20120401.161104.1115073131193072280.davem@davemloft.net>
-References: <20120330172859.GB2703@Neptun>
+Subject: Re: [PATCH] sky2: fix missing register reset on error path in
+ sky2_test_msi()
+Date: Sun, 01 Apr 2012 16:11:11 -0400 (EDT)
+Message-ID: <20120401.161111.373860957994363057.davem@davemloft.net>
+References: <20120330173616.GC2703@Neptun>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: shemminger@vyatta.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 To: LinoSanfilippo@gmx.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44331 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938Ab2DAULJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 16:11:09 -0400
-In-Reply-To: <20120330172859.GB2703@Neptun>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120330173616.GC2703@Neptun>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Fri, 30 Mar 2012 19:28:59 +0200
+Date: Fri, 30 Mar 2012 19:36:16 +0200
 
-> This patch corrects a bug in function sky2_open() of the Marvell Yukon 2 driver
-> in which the settings for PHY quick link are overwritten.
+> In sky2_test_msi() the temporarily set SW IRQ in B0 register is not reset in case
+> that request_irq() fails.
+> With this patch we only set the interrupt mask if request_irq() was successful.
 > 
 > Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
