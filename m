@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 14/28] fec_mpc52xx: Support the
+Subject: [PATCH V2 net-next 16/28] fs_enet: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:59 +0200
-Message-ID: <a6d4980a96f8b2b89cd919fadd4a829bcc6d58da.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:01 +0200
+Message-ID: <fba6174a9296aa0e8e5e2b235fbf9dc13bb06615.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_mpc52xx.c |    1 +
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-index 7b34d8c..97f947b 100644
---- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
-+++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-@@ -811,6 +811,7 @@ static const struct ethtool_ops mpc52xx_fec_ethtool_ops = {
- 	.get_link = ethtool_op_get_link,
- 	.get_msglevel = mpc52xx_fec_get_msglevel,
- 	.set_msglevel = mpc52xx_fec_set_msglevel,
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index e4e6cd2..2b7633f 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -963,6 +963,7 @@ static const struct ethtool_ops fs_ethtool_ops = {
+ 	.get_msglevel = fs_get_msglevel,
+ 	.set_msglevel = fs_set_msglevel,
+ 	.get_regs = fs_get_regs,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- 
+ static int fs_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 -- 
 1.7.2.5
 
