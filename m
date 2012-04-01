@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 04/28] dp83640: Support the
+Subject: [PATCH V2 net-next 06/28] bfin_mac: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:49 +0200
-Message-ID: <e53f572ec948ce3aac3fe8f54f8a104bd0f84fc3.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:51 +0200
+Message-ID: <93a10b7a540f0e0a0b50c56a836ff0103a32b073.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,58 +28,47 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |   31 +++++++++++++++++++++++++++++++
- 1 files changed, 31 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index dd7ae19..940b290 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -1215,6 +1215,36 @@ static void dp83640_txtstamp(struct phy_device *phydev,
- 	}
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index ab4daec..db22278 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -548,6 +548,25 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
+ 	return 0;
  }
  
-+static int dp83640_ts_info(struct phy_device *dev, struct ethtool_ts_info *info)
++static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
++	struct ethtool_ts_info *info);
 +{
-+	struct dp83640_private *dp83640 = dev->priv;
-+
 +	info->so_timestamping =
 +		SOF_TIMESTAMPING_TX_HARDWARE |
 +		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_RAW_HARDWARE;
-+	info->phc_index = ptp_clock_index(dp83640->clock->ptp_clock);
++		SOF_TIMESTAMPING_SYS_HARDWARE;
++	info->phc_index = -1;
 +	info->tx_types =
 +		(1 << HWTSTAMP_TX_OFF) |
-+		(1 << HWTSTAMP_TX_ON) |
-+		(1 << HWTSTAMP_TX_ONESTEP_SYNC);
++		(1 << HWTSTAMP_TX_ON);
 +	info->rx_filters =
 +		(1 << HWTSTAMP_FILTER_NONE) |
 +		(1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
 +		(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ);
++		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
 +	return 0;
 +}
 +
- static struct phy_driver dp83640_driver = {
- 	.phy_id		= DP83640_PHY_ID,
- 	.phy_id_mask	= 0xfffffff0,
-@@ -1225,6 +1255,7 @@ static struct phy_driver dp83640_driver = {
- 	.remove		= dp83640_remove,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.ts_info	= dp83640_ts_info,
- 	.hwtstamp	= dp83640_hwtstamp,
- 	.rxtstamp	= dp83640_rxtstamp,
- 	.txtstamp	= dp83640_txtstamp,
+ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+ 	.get_settings = bfin_mac_ethtool_getsettings,
+ 	.set_settings = bfin_mac_ethtool_setsettings,
+@@ -555,6 +574,7 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+ 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
+ 	.get_wol = bfin_mac_ethtool_getwol,
+ 	.set_wol = bfin_mac_ethtool_setwol,
++	.get_ts_info = bfin_mac_ethtool_get_ts_info,
+ };
+ 
+ /**************************************************************************/
 -- 
 1.7.2.5
 
