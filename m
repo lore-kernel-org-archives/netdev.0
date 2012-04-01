@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 18/28] macb: Support the
+Subject: [PATCH V2 net-next 19/28] mv643xx_eth: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:03 +0200
-Message-ID: <5d973821c4d9cb1da6f8e97c52d9a3958795c21c.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:04 +0200
+Message-ID: <686d7fa6980aa0f88584e507cb951b5449e8fd2d.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/cadence/macb.c |    1 +
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c4834c2..1466bc4 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1213,6 +1213,7 @@ static const struct ethtool_ops macb_ethtool_ops = {
- 	.set_settings		= macb_set_settings,
- 	.get_drvinfo		= macb_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 75af1af..153d332 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1666,6 +1666,7 @@ static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
+ 	.get_strings		= mv643xx_eth_get_strings,
+ 	.get_ethtool_stats	= mv643xx_eth_get_ethtool_stats,
+ 	.get_sset_count		= mv643xx_eth_get_sset_count,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
 -- 
 1.7.2.5
 
