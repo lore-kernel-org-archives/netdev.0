@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 09/28] ax88796: Support the
+Subject: [PATCH V2 net-next 10/28] davinci_emac: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:54 +0200
-Message-ID: <b444c7211a7fe5f30d62d9e24178d339f466eafe.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:55 +0200
+Message-ID: <914754c2c2272116ca6b0551c4fed5f28289a8db.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/8390/ax88796.c |    1 +
+ drivers/net/ethernet/ti/davinci_emac.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
-index c30adcc..211efbf 100644
---- a/drivers/net/ethernet/8390/ax88796.c
-+++ b/drivers/net/ethernet/8390/ax88796.c
-@@ -502,6 +502,7 @@ static const struct ethtool_ops ax_ethtool_ops = {
- 	.get_settings		= ax_get_settings,
- 	.set_settings		= ax_set_settings,
- 	.get_link		= ethtool_op_get_link,
-+	.get_ts_info		= ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 174a334..8aa3332 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -627,6 +627,7 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_link = ethtool_op_get_link,
+ 	.get_coalesce = emac_get_coalesce,
+ 	.set_coalesce =  emac_set_coalesce,
++	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- #ifdef CONFIG_AX88796_93CX6
+ /**
 -- 
 1.7.2.5
 
