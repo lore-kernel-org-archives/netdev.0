@@ -1,60 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1] ipv6: Fix RTM_GETROUTE's interpretation of RTA_IIF
- to be consistent with ipv4
-Date: Sun, 01 Apr 2012 17:30:32 -0400 (EDT)
-Message-ID: <20120401.173032.1881937766187683052.davem@davemloft.net>
-References: <20120401170345.5ed75cab@pixies.home.jungo.com>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: be2net: when can I expect roce support patch will be merged?
+Date: Sun, 1 Apr 2012 14:36:18 -0700
+Message-ID: <CAL1RGDVsXvMJ58Xa8BUoXRnWmnG2=7CVtJ5GF_cdFQAk61ng7g@mail.gmail.com>
+References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com> <20120401.151154.1033862070046707491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: shmulik.ladkani@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120401170345.5ed75cab@pixies.home.jungo.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120401.151154.1033862070046707491.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Sun, 1 Apr 2012 17:03:45 +0300
+On Sun, Apr 1, 2012 at 12:11 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> Did you get chance to merge below be2net patch for supporing RoCE driver?
+>> http://marc.info/?l=linux-rdma&m=133279326217836&w=2
 
-> In IPv4, if an RTA_IIF attribute is specified within an RTM_GETROUTE
-> message, then a route is searched as if a packet was received on the
-> specified 'iif' interface.
-> 
-> However in IPv6, RTA_IIF is not interpreted in the same way:
-> 'inet6_rtm_getroute()' always calls 'ip6_route_output()', regardless the
-> RTA_IIF attribute.
-> 
-> As a result, in IPv6 there's no way to use RTM_GETROUTE in order to look
-> for a route as if a packet was received on a specific interface.
-> 
-> Fix 'inet6_rtm_getroute()' so that RTA_IIF is interpreted as "lookup a
-> route as if a packet was received on the specified interface", similar
-> to IPv4's 'inet_rtm_getroute()' interpretation.
-> 
-> Reported-by: Ami Koren <amikoren@yahoo.com>
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> The net-next tree isn't open, so you'll have to resubmit those
+> patches to netdev once it is.
 
-Applied, thanks.
+Dave, how would you feel about me merging these two prereq patches
+for 3.5, so that I can simply merge the ocrdma itself easily?  That saves
+me having to merge some arbitrary point in net-next history into my tree
+or other inconvenience for you (like merging ocrdma through your tree).
 
-> 1) An alternative: construction of an skb within 'inet6_rtm_getroute()'
->    and then calling 'ip6_route_input()' with the skb as an argument.
->    Thus, no need to split common code of 'ip6_route_input()'.
->    Less elegant IMO.
+Anyway, I don't have a big problem whatever way you want to go, so just
+let me know...
 
-Agreed.
-
-> 2) Better name for the new common function 'ip6_route_input_lookup()'
->    Will happily accept any better suggestions.
-
-No, it's fine.
-
-> 3) In IPv4 the 'ip_route_input()' call within 'inet_rtm_getroute()'is
->    protected by a 'local_bh_disable()' since dawn of history.
->    Not sure if similar protection needed within 'inet6_rtm_getroute()'.
-
-Since all the code paths are shared more than on the ipv4 side, both
-output and input route lookups can be done with and without BH
-disabling.
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
