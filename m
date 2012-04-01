@@ -1,85 +1,45 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 08/28] ethtool: Add a common
-	function for drivers with transmit time stamping.
-Date: Sun,  1 Apr 2012 17:19:53 +0200
-Message-ID: <7eca521e2f9db67dab89a9c2bfd62b8fdff587f3.1333289292.git.richardcochran@gmail.com>
+Subject: [PATCH V2 net-next 12/28] e100: Support the get_ts_info ethtool method.
+Date: Sun,  1 Apr 2012 17:19:57 +0200
+Message-ID: <897c29ffcd27ff698a28b89b8ca9f1217d8e457c.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, Martin Porter <mporter@solarflare.com>,
-	John Ronciak <john.ronciak@intel.com>,
+Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>
+	Martin Porter <mporter@solarflare.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:59467 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728Ab2DAPVS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 11:21:18 -0400
+Received: by wibhr17 with SMTP id hr17so1851393wib.1
+        for <netdev@vger.kernel.org>; Sun, 01 Apr 2012 08:21:17 -0700 (PDT)
 In-Reply-To: <cover.1333289292.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-Currently, most drivers do not support transmit SO_TIMESTAMPING. For those
-that do support it, there is one appropriate response to the get_ts_info
-query. This patch adds a common function providing this response.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- include/linux/ethtool.h |    1 +
- net/core/ethtool.c      |   11 +++++++++++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e100.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 776b3d0..0245d1d 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -806,6 +806,7 @@ struct net_device;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 8a1ba85..eb6b97d 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -2735,6 +2735,7 @@ static const struct ethtool_ops e100_ethtool_ops = {
+ 	.set_phys_id		= e100_set_phys_id,
+ 	.get_ethtool_stats	= e100_get_ethtool_stats,
+ 	.get_sset_count		= e100_get_sset_count,
++	.get_ts_info		= ethtool_op_get_ts_info,
+ };
  
- /* Some generic methods drivers may use in their ethtool_ops */
- u32 ethtool_op_get_link(struct net_device *dev);
-+int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *eti);
- 
- /**
-  * ethtool_rxfh_indir_default - get default value for RX flow hash indirection
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index d6eff4b..14bb8b1 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -38,6 +38,17 @@ u32 ethtool_op_get_link(struct net_device *dev)
- }
- EXPORT_SYMBOL(ethtool_op_get_link);
- 
-+int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
-+{
-+	info->so_timestamping =
-+		SOF_TIMESTAMPING_TX_SOFTWARE |
-+		SOF_TIMESTAMPING_RX_SOFTWARE |
-+		SOF_TIMESTAMPING_SOFTWARE;
-+	info->phc_index = -1;
-+	return 0;
-+}
-+EXPORT_SYMBOL(ethtool_op_get_ts_info);
-+
- /* Handlers for each ethtool command */
- 
- #define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
+ static int e100_do_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 -- 
 1.7.2.5
-
-
-------------------------------------------------------------------------------
-This SF email is sponsosred by:
-Try Windows Azure free for 90 days Click Here 
-http://p.sf.net/sfu/sfd2d-msazure
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
