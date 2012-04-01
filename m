@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 24/28] smsc9420: Support the
+Subject: [PATCH V2 net-next 27/28] ucc_geth: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:09 +0200
-Message-ID: <23cf91c6022a96929e1382221faf64d842e5c458.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:12 +0200
+Message-ID: <962afe100bfee96b019416369fa6beda5320d40f.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/smsc/smsc9420.c |    1 +
+ drivers/net/ethernet/freescale/ucc_geth_ethtool.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
-index 3838647..f80ec68 100644
---- a/drivers/net/ethernet/smsc/smsc9420.c
-+++ b/drivers/net/ethernet/smsc/smsc9420.c
-@@ -469,6 +469,7 @@ static const struct ethtool_ops smsc9420_ethtool_ops = {
- 	.set_eeprom = smsc9420_ethtool_set_eeprom,
- 	.get_regs_len = smsc9420_ethtool_getregslen,
- 	.get_regs = smsc9420_ethtool_getregs,
-+	.get_ts_info = ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+index a97257f..37b0353 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
++++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+@@ -415,6 +415,7 @@ static const struct ethtool_ops uec_ethtool_ops = {
+ 	.get_ethtool_stats      = uec_get_ethtool_stats,
+ 	.get_wol		= uec_get_wol,
+ 	.set_wol		= uec_set_wol,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- /* Sets the device MAC address to dev_addr */
+ void uec_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.2.5
 
