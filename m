@@ -1,40 +1,30 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: ipv6: RTM_GETROUTE inconsistent interpretation of RTA_IIF
-Date: Sun, 1 Apr 2012 10:28:53 +0300
-Message-ID: <20120401102853.3f3901f6@pixies.home.jungo.com>
-References: <20120329150311.51fe0e2d@pixies.home.jungo.com>
-	<20120401091807.2f4614f2@pixies.home.jungo.com>
-	<1333263839.2325.4665.camel@edumazet-glaptop>
+From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
+Subject: be2net: when can I expect roce support patch will be merged?
+Date: Sun, 1 Apr 2012 01:36:50 -0700
+Message-ID: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49850 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751925Ab2DAH3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 03:29:04 -0400
-Received: by wejx9 with SMTP id x9so1118852wej.19
-        for <netdev@vger.kernel.org>; Sun, 01 Apr 2012 00:29:02 -0700 (PDT)
-In-Reply-To: <1333263839.2325.4665.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 01 Apr 2012 09:03:59 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2012-04-01 at 09:18 +0300, Shmulik Ladkani wrote:
-> > (Bump)
-> > 
-> > Any reason not to submit a patch that fixes the below issue?
-> 
-> Hi Shmulik
-> 
-> No reason I can think about. Are you planning to provide this yourself ?
+Hi,
 
-Yes.
+Did you get chance to merge below be2net patch for supporing RoCE driver?
+http://marc.info/?l=linux-rdma&m=133279326217836&w=2
 
-Just wanted to make sure ipv6's RTA_IIF interpretation is not deliberate.
+Once this is done, Roland can merge ocrdma RoCE driver addition to his tree. This NIC driver patch is required to merge ocrdma patch.
+When can I expect this patch to be merged to net-next git tree?
+Let me know if there any issue with the patch that I got to resolve.
 
 Regards,
-Shmulik
+Parav Pandit
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
