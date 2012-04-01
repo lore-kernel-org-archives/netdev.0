@@ -1,30 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] netfilter: don't do window scaling for a picked up connection
-Date: Mon, 2 Apr 2012 00:41:25 +0800
-Message-ID: <CABa6K_FXZiAgfArXky5V_sS-8WtcxiR6JE4pT6n4Ajy0MpbLhw@mail.gmail.com>
-References: <1333292683-31414-1-git-send-email-xiaosuo@gmail.com> <20120401162155.GA10861@1984>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: check the length of the data before
+ dereferencing it
+Date: Sun, 1 Apr 2012 18:43:25 +0200
+Message-ID: <20120401164325.GB10861@1984>
+References: <1333290170-26898-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120401162155.GA10861@1984>
+Content-Disposition: inline
+In-Reply-To: <1333290170-26898-1-git-send-email-xiaosuo@gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 2, 2012 at 12:21 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->
-> This breaks conntrackd and its ability to recover flows by injecting
-> the window scaling via ctnetlink.
+On Sun, Apr 01, 2012 at 10:22:50PM +0800, Changli Gao wrote:
+> We should check the length of the data before dereferencing it when parsing
+> the TCP options.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+>  net/netfilter/nf_conntrack_proto_tcp.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> index 361eade..9e446c5 100644
+> --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> @@ -404,6 +404,8 @@ static void tcp_options(const struct sk_buff *skb,
+>  			length--;
+>  			continue;
+>  		default:
+> +			if (length < 2)
+> +				return;
+>  			opsize=*ptr++;
+>  			if (opsize < 2) /* "silly options" */
+>  				return;
 
-Got it. Thanks.
+length is always multiple of 4:
 
-Just forget this patch. I'll post another patch to fix the duplicate
-window scaling: one is here, and the other is before the state
-updating code.
-
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+int length = (tcph->doff*4) - sizeof(struct tcphdr);
