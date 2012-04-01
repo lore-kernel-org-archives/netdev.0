@@ -1,27 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: be2net: when can I expect roce support patch will be merged?
-Date: Sun, 01 Apr 2012 15:11:54 -0400 (EDT)
-Message-ID: <20120401.151154.1033862070046707491.davem@davemloft.net>
-References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix array index in ip6_mc_add_src()
+Date: Sun, 01 Apr 2012 15:13:18 -0400 (EDT)
+Message-ID: <20120401.151318.984514868716173152.davem@davemloft.net>
+References: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <88B766C272F2C64B944B21AD078333151C965B92D3-/SwythR3zqxVRK6PHKByhFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43931 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918Ab2DATNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 15:13:20 -0400
+In-Reply-To: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
-Date: Sun, 1 Apr 2012 01:36:50 -0700
+From: roy.qing.li@gmail.com
+Date: Sun,  1 Apr 2012 16:45:26 +0800
 
-> Did you get chance to merge below be2net patch for supporing RoCE driver?
-> http://marc.info/?l=linux-rdma&m=133279326217836&w=2
+> From: RongQing.Li <roy.qing.li@gmail.com>
+> 
+> Convert array index from the loop bound to the loop index.
+> 
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com> 
 
-The net-next tree isn't open, so you'll have to resubmit those
-patches to netdev once it is.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That's not all you are doing:
+
+> -			(void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
+> +			ip6_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+
+You absolutely MUST mention and explain this (void) removal.
+It's probably there to elide an unchecked return value
+warning from the compiler.
