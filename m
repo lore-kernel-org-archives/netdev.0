@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 11/28] dnet: Support the
-	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:56 +0200
-Message-ID: <f80b6e6c23ac76f6f8105cd09bf278958e7e7f02.1333289292.git.richardcochran@gmail.com>
+Subject: [PATCH V2 net-next 08/28] ethtool: Add a common
+	function for drivers with transmit time stamping.
+Date: Sun,  1 Apr 2012 17:19:53 +0200
+Message-ID: <7eca521e2f9db67dab89a9c2bfd62b8fdff587f3.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,23 +26,50 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Currently, most drivers do not support transmit SO_TIMESTAMPING. For those
+that do support it, there is one appropriate response to the get_ts_info
+query. This patch adds a common function providing this response.
+
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/dnet.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/ethtool.h |    1 +
+ net/core/ethtool.c      |   11 +++++++++++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
-index b276469..290b26f 100644
---- a/drivers/net/ethernet/dnet.c
-+++ b/drivers/net/ethernet/dnet.c
-@@ -815,6 +815,7 @@ static const struct ethtool_ops dnet_ethtool_ops = {
- 	.set_settings		= dnet_set_settings,
- 	.get_drvinfo		= dnet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-+	.get_ts_info		= ethtool_op_get_ts_info,
- };
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 776b3d0..0245d1d 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -806,6 +806,7 @@ struct net_device;
  
- static const struct net_device_ops dnet_netdev_ops = {
+ /* Some generic methods drivers may use in their ethtool_ops */
+ u32 ethtool_op_get_link(struct net_device *dev);
++int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *eti);
+ 
+ /**
+  * ethtool_rxfh_indir_default - get default value for RX flow hash indirection
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index d6eff4b..14bb8b1 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -38,6 +38,17 @@ u32 ethtool_op_get_link(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(ethtool_op_get_link);
+ 
++int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
++{
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_SOFTWARE |
++		SOF_TIMESTAMPING_RX_SOFTWARE |
++		SOF_TIMESTAMPING_SOFTWARE;
++	info->phc_index = -1;
++	return 0;
++}
++EXPORT_SYMBOL(ethtool_op_get_ts_info);
++
+ /* Handlers for each ethtool command */
+ 
+ #define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
 -- 
 1.7.2.5
 
