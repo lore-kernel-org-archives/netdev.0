@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 10/28] davinci_emac: Support the
+Subject: [PATCH V2 net-next 11/28] dnet: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:55 +0200
-Message-ID: <914754c2c2272116ca6b0551c4fed5f28289a8db.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:56 +0200
+Message-ID: <f80b6e6c23ac76f6f8105cd09bf278958e7e7f02.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c |    1 +
+ drivers/net/ethernet/dnet.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 174a334..8aa3332 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -627,6 +627,7 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_link = ethtool_op_get_link,
- 	.get_coalesce = emac_get_coalesce,
- 	.set_coalesce =  emac_set_coalesce,
-+	.get_ts_info = ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
+index b276469..290b26f 100644
+--- a/drivers/net/ethernet/dnet.c
++++ b/drivers/net/ethernet/dnet.c
+@@ -815,6 +815,7 @@ static const struct ethtool_ops dnet_ethtool_ops = {
+ 	.set_settings		= dnet_set_settings,
+ 	.get_drvinfo		= dnet_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- /**
+ static const struct net_device_ops dnet_netdev_ops = {
 -- 
 1.7.2.5
 
