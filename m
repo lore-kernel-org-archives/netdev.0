@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 15/28] fec: Support the
+Subject: [PATCH V2 net-next 13/28] etherh: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:00 +0200
-Message-ID: <6cac466f432817c9ed7d240ad7ed01dee1ac9d25.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:58 +0200
+Message-ID: <9f509976cd816ee3af7f9f99639a5f50aa0f57ea.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec.c |    1 +
+ drivers/net/ethernet/8390/etherh.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a12b3f5..7fa0227 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1161,6 +1161,7 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-+	.get_ts_info		= ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/8390/etherh.c b/drivers/net/ethernet/8390/etherh.c
+index 48c4948..89cba45 100644
+--- a/drivers/net/ethernet/8390/etherh.c
++++ b/drivers/net/ethernet/8390/etherh.c
+@@ -635,6 +635,7 @@ static const struct ethtool_ops etherh_ethtool_ops = {
+ 	.get_settings	= etherh_get_settings,
+ 	.set_settings	= etherh_set_settings,
+ 	.get_drvinfo	= etherh_get_drvinfo,
++	.get_ts_info	= ethtool_op_get_ts_info,
  };
  
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ static const struct net_device_ops etherh_netdev_ops = {
 -- 
 1.7.2.5
 
