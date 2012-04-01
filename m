@@ -1,39 +1,78 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: be2net: when can I expect roce support patch will be merged?
-Date: Sun, 01 Apr 2012 17:48:52 -0400 (EDT)
-Message-ID: <20120401.174852.1630093843785755332.davem@davemloft.net>
-References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
-	<20120401.151154.1033862070046707491.davem@davemloft.net>
-	<CAL1RGDVsXvMJ58Xa8BUoXRnWmnG2=7CVtJ5GF_cdFQAk61ng7g@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] via-rhine: fix wait-bit inversion.
+Date: Mon, 2 Apr 2012 00:35:00 +0200
+Message-ID: <20120401223500.GA28138@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDVsXvMJ58Xa8BUoXRnWmnG2=7CVtJ5GF_cdFQAk61ng7g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andreas Mohr <andi@lisas.de>,
+	David Lv <DavidLv@viatech.com.cn>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:33401 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752933Ab2DAWiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Apr 2012 18:38:09 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Date: Sun, 1 Apr 2012 14:36:18 -0700
+From: Andreas Mohr <andi@lisas.de>
 
-> On Sun, Apr 1, 2012 at 12:11 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->>> Did you get chance to merge below be2net patch for supporing RoCE driver?
->>> http://marc.info/?l=linux-rdma&m=133279326217836&w=2
-> 
->> The net-next tree isn't open, so you'll have to resubmit those
->> patches to netdev once it is.
-> 
-> Dave, how would you feel about me merging these two prereq patches
-> for 3.5, so that I can simply merge the ocrdma itself easily?
+Bug appeared in a384a33bb1c9ec2d99db2046b41f57023fa7d77b
+("via-rhine: RHINE_WAIT_FOR macro removal). It can be noticed
+during suspend/resume.
 
-No problem, feel free to add:
+Signed-off-by: Andreas Mohr <andi@lisas.de>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: David Lv <DavidLv@viatech.com.cn>
+---
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+ It should be fed to 3.3-stable.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/via/via-rhine.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 39b8cf3..fcfa01f 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -503,30 +503,32 @@ static int rhine_vlan_rx_add_vid(struct net_device *dev, unsigned short vid);
+ static int rhine_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid);
+ static void rhine_restart_tx(struct net_device *dev);
+ 
+-static void rhine_wait_bit(struct rhine_private *rp, u8 reg, u8 mask, bool high)
++static void rhine_wait_bit(struct rhine_private *rp, u8 reg, u8 mask, bool low)
+ {
+ 	void __iomem *ioaddr = rp->base;
+ 	int i;
+ 
+ 	for (i = 0; i < 1024; i++) {
+-		if (high ^ !!(ioread8(ioaddr + reg) & mask))
++		bool has_mask_bits = !!(ioread8(ioaddr + reg) & mask);
++
++		if (low ^ has_mask_bits)
+ 			break;
+ 		udelay(10);
+ 	}
+ 	if (i > 64) {
+ 		netif_dbg(rp, hw, rp->dev, "%s bit wait (%02x/%02x) cycle "
+-			  "count: %04d\n", high ? "high" : "low", reg, mask, i);
++			  "count: %04d\n", low ? "low" : "high", reg, mask, i);
+ 	}
+ }
+ 
+ static void rhine_wait_bit_high(struct rhine_private *rp, u8 reg, u8 mask)
+ {
+-	rhine_wait_bit(rp, reg, mask, true);
++	rhine_wait_bit(rp, reg, mask, false);
+ }
+ 
+ static void rhine_wait_bit_low(struct rhine_private *rp, u8 reg, u8 mask)
+ {
+-	rhine_wait_bit(rp, reg, mask, false);
++	rhine_wait_bit(rp, reg, mask, true);
+ }
+ 
+ static u32 rhine_get_events(struct rhine_private *rp)
+-- 
+1.7.7.6
