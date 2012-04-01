@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 27/28] ucc_geth: Support the
+Subject: [PATCH V2 net-next 26/28] tg3: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:12 +0200
-Message-ID: <962afe100bfee96b019416369fa6beda5320d40f.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:11 +0200
+Message-ID: <b417fa1e245dbb0691d22e1b8ec0954b19bcce43.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c |    1 +
+ drivers/net/ethernet/broadcom/tg3.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-index a97257f..37b0353 100644
---- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-@@ -415,6 +415,7 @@ static const struct ethtool_ops uec_ethtool_ops = {
- 	.get_ethtool_stats      = uec_get_ethtool_stats,
- 	.get_wol		= uec_get_wol,
- 	.set_wol		= uec_set_wol,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 7b71387..8609798 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12233,6 +12233,7 @@ static const struct ethtool_ops tg3_ethtool_ops = {
+ 	.get_rxfh_indir_size    = tg3_get_rxfh_indir_size,
+ 	.get_rxfh_indir		= tg3_get_rxfh_indir,
+ 	.set_rxfh_indir		= tg3_set_rxfh_indir,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- void uec_set_ethtool_ops(struct net_device *netdev)
+ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
 -- 
 1.7.2.5
 
