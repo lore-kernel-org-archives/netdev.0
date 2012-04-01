@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 23/28] smsc911x: Support the
+Subject: [PATCH V2 net-next 24/28] smsc9420: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:08 +0200
-Message-ID: <b4d1ae2c56ad0e568b9bd9d784cc2a8cdccdab39.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:09 +0200
+Message-ID: <23cf91c6022a96929e1382221faf64d842e5c458.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c |    1 +
+ drivers/net/ethernet/smsc/smsc9420.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 4a69710..519ed8e 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2070,6 +2070,7 @@ static const struct ethtool_ops smsc911x_ethtool_ops = {
- 	.get_eeprom_len = smsc911x_ethtool_get_eeprom_len,
- 	.get_eeprom = smsc911x_ethtool_get_eeprom,
- 	.set_eeprom = smsc911x_ethtool_set_eeprom,
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index 3838647..f80ec68 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -469,6 +469,7 @@ static const struct ethtool_ops smsc9420_ethtool_ops = {
+ 	.set_eeprom = smsc9420_ethtool_set_eeprom,
+ 	.get_regs_len = smsc9420_ethtool_getregslen,
+ 	.get_regs = smsc9420_ethtool_getregs,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- static const struct net_device_ops smsc911x_netdev_ops = {
+ /* Sets the device MAC address to dev_addr */
 -- 
 1.7.2.5
 
