@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 13/28] etherh: Support the
+Subject: [PATCH V2 net-next 14/28] fec_mpc52xx: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:58 +0200
-Message-ID: <9f509976cd816ee3af7f9f99639a5f50aa0f57ea.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:59 +0200
+Message-ID: <a6d4980a96f8b2b89cd919fadd4a829bcc6d58da.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/8390/etherh.c |    1 +
+ drivers/net/ethernet/freescale/fec_mpc52xx.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/etherh.c b/drivers/net/ethernet/8390/etherh.c
-index 48c4948..89cba45 100644
---- a/drivers/net/ethernet/8390/etherh.c
-+++ b/drivers/net/ethernet/8390/etherh.c
-@@ -635,6 +635,7 @@ static const struct ethtool_ops etherh_ethtool_ops = {
- 	.get_settings	= etherh_get_settings,
- 	.set_settings	= etherh_set_settings,
- 	.get_drvinfo	= etherh_get_drvinfo,
-+	.get_ts_info	= ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+index 7b34d8c..97f947b 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+@@ -811,6 +811,7 @@ static const struct ethtool_ops mpc52xx_fec_ethtool_ops = {
+ 	.get_link = ethtool_op_get_link,
+ 	.get_msglevel = mpc52xx_fec_get_msglevel,
+ 	.set_msglevel = mpc52xx_fec_set_msglevel,
++	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- static const struct net_device_ops etherh_netdev_ops = {
+ 
 -- 
 1.7.2.5
 
