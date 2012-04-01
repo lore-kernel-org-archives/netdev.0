@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 06/28] bfin_mac: Support the
+Subject: [PATCH V2 net-next 07/28] ixp4xx_eth: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:19:51 +0200
-Message-ID: <93a10b7a540f0e0a0b50c56a836ff0103a32b073.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:52 +0200
+Message-ID: <92cb27d1dabdcb863a3a40bc2e71ccd5bb4ae8ec.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,47 +28,90 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/adi/bfin_mac.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+ arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h |    3 ++
+ drivers/net/ethernet/xscale/ixp4xx_eth.c      |   29 +++++++++++++++++++++++++
+ drivers/ptp/ptp_ixp46x.c                      |    3 ++
+ 3 files changed, 35 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index ab4daec..db22278 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -548,6 +548,25 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
- 	return 0;
+diff --git a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+index 292d55e..cf03614 100644
+--- a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
++++ b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+@@ -75,4 +75,7 @@ struct ixp46x_ts_regs {
+ #define TX_SNAPSHOT_LOCKED (1<<0)
+ #define RX_SNAPSHOT_LOCKED (1<<1)
+ 
++/* The ptp_ixp46x module will set this variable */
++extern int ixp46x_phc_index;
++
+ #endif
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 41a8b5a..482648f 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1002,12 +1002,41 @@ static int ixp4xx_nway_reset(struct net_device *dev)
+ 	return phy_start_aneg(port->phydev);
  }
  
-+static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
-+	struct ethtool_ts_info *info);
++int ixp46x_phc_index = -1;
++
++static int ixp4xx_get_ts_info(struct net_device *dev,
++			      struct ethtool_ts_info *info)
 +{
++	if (!cpu_is_ixp46x()) {
++		info->so_timestamping =
++			SOF_TIMESTAMPING_TX_SOFTWARE |
++			SOF_TIMESTAMPING_RX_SOFTWARE |
++			SOF_TIMESTAMPING_SOFTWARE;
++		info->phc_index = -1;
++		return 0;
++	}
 +	info->so_timestamping =
 +		SOF_TIMESTAMPING_TX_HARDWARE |
 +		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_SYS_HARDWARE;
-+	info->phc_index = -1;
++		SOF_TIMESTAMPING_RAW_HARDWARE;
++	info->phc_index = ixp46x_phc_index;
 +	info->tx_types =
 +		(1 << HWTSTAMP_TX_OFF) |
 +		(1 << HWTSTAMP_TX_ON);
 +	info->rx_filters =
 +		(1 << HWTSTAMP_FILTER_NONE) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ);
 +	return 0;
 +}
 +
- static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_settings = bfin_mac_ethtool_getsettings,
- 	.set_settings = bfin_mac_ethtool_setsettings,
-@@ -555,6 +574,7 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
- 	.get_wol = bfin_mac_ethtool_getwol,
- 	.set_wol = bfin_mac_ethtool_setwol,
-+	.get_ts_info = bfin_mac_ethtool_get_ts_info,
+ static const struct ethtool_ops ixp4xx_ethtool_ops = {
+ 	.get_drvinfo = ixp4xx_get_drvinfo,
+ 	.get_settings = ixp4xx_get_settings,
+ 	.set_settings = ixp4xx_set_settings,
+ 	.nway_reset = ixp4xx_nway_reset,
+ 	.get_link = ethtool_op_get_link,
++	.get_ts_info = ixp4xx_get_ts_info,
  };
  
- /**************************************************************************/
+ 
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index 6f2782b..9d13a71 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -284,6 +284,7 @@ static void __exit ptp_ixp_exit(void)
+ {
+ 	free_irq(MASTER_IRQ, &ixp_clock);
+ 	free_irq(SLAVE_IRQ, &ixp_clock);
++	ixp46x_phc_clock = -1;
+ 	ptp_clock_unregister(ixp_clock.ptp_clock);
+ }
+ 
+@@ -302,6 +303,8 @@ static int __init ptp_ixp_init(void)
+ 	if (IS_ERR(ixp_clock.ptp_clock))
+ 		return PTR_ERR(ixp_clock.ptp_clock);
+ 
++	ixp46x_phc_clock = ptp_clock_index(ixp_clock.ptp_clock);
++
+ 	__raw_writel(DEFAULT_ADDEND, &ixp_clock.regs->addend);
+ 	__raw_writel(1, &ixp_clock.regs->trgt_lo);
+ 	__raw_writel(0, &ixp_clock.regs->trgt_hi);
 -- 
 1.7.2.5
 
