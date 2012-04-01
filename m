@@ -1,73 +1,27 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: [PATCH 3/8] net/ipv6/datagram.c: Checkpatch cleanups
-Date: Sun,  1 Apr 2012 19:49:03 +0200
-Message-ID: <1333302548-9187-3-git-send-email-eldad@fogrefinery.com>
-References: <1333302548-9187-1-git-send-email-eldad@fogrefinery.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eldad Zack <eldad@fogrefinery.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333302548-9187-1-git-send-email-eldad@fogrefinery.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: be2net: when can I expect roce support patch will be merged?
+Date: Sun, 01 Apr 2012 15:11:54 -0400 (EDT)
+Message-ID: <20120401.151154.1033862070046707491.davem@davemloft.net>
+References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <88B766C272F2C64B944B21AD078333151C965B92D3-/SwythR3zqxVRK6PHKByhFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-datagram.c:101: ERROR: "(foo*)" should be "(foo *)"
-datagram.c:521: ERROR: space required before the open parenthesis '('
-datagram.c:830: WARNING: braces {} are not necessary for single statement blocks
-datagram.c:849: WARNING: braces {} are not necessary for single statement blocks
+From: <Parav.Pandit-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>
+Date: Sun, 1 Apr 2012 01:36:50 -0700
 
-Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
----
- net/ipv6/datagram.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+> Did you get chance to merge below be2net patch for supporing RoCE driver?
+> http://marc.info/?l=linux-rdma&m=133279326217836&w=2
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 76832c8..f6210d6 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -98,7 +98,7 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		sin.sin_port = usin->sin6_port;
- 
- 		err = ip4_datagram_connect(sk,
--					   (struct sockaddr*) &sin,
-+					   (struct sockaddr *) &sin,
- 					   sizeof(sin));
- 
- ipv4_connected:
-@@ -518,7 +518,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- 			unsigned len;
- 			u8 *ptr = nh + off;
- 
--			switch(nexthdr) {
-+			switch (nexthdr) {
- 			case IPPROTO_DSTOPTS:
- 				nexthdr = ptr[0];
- 				len = (ptr[1] + 1) << 3;
-@@ -827,9 +827,8 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
- 			int tc;
- 
- 			err = -EINVAL;
--			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
- 				goto exit_f;
--			}
- 
- 			tc = *(int *)CMSG_DATA(cmsg);
- 			if (tc < -1 || tc > 0xff)
-@@ -846,9 +845,8 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
- 			int df;
- 
- 			err = -EINVAL;
--			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
- 				goto exit_f;
--			}
- 
- 			df = *(int *)CMSG_DATA(cmsg);
- 			if (df < 0 || df > 1)
--- 
-1.7.9.5
+The net-next tree isn't open, so you'll have to resubmit those
+patches to netdev once it is.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
