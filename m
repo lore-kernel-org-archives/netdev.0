@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 25/28] stmmac: Support the
+Subject: [PATCH V2 net-next 23/28] smsc911x: Support the
 	get_ts_info ethtool method.
-Date: Sun,  1 Apr 2012 17:20:10 +0200
-Message-ID: <a18d2bc3f8b292d1afcb735228141709e42a052a.1333289292.git.richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:20:08 +0200
+Message-ID: <b4d1ae2c56ad0e568b9bd9d784cc2a8cdccdab39.1333289292.git.richardcochran@gmail.com>
 References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
+ drivers/net/ethernet/smsc/smsc911x.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index f98e151..ce43184 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
- 	.get_sset_count	= stmmac_get_sset_count,
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 4a69710..519ed8e 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2070,6 +2070,7 @@ static const struct ethtool_ops smsc911x_ethtool_ops = {
+ 	.get_eeprom_len = smsc911x_ethtool_get_eeprom_len,
+ 	.get_eeprom = smsc911x_ethtool_get_eeprom,
+ 	.set_eeprom = smsc911x_ethtool_set_eeprom,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- void stmmac_set_ethtool_ops(struct net_device *netdev)
+ static const struct net_device_ops smsc911x_netdev_ops = {
 -- 
 1.7.2.5
 
