@@ -1,35 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-03-30
-Date: Sun, 01 Apr 2012 16:10:31 -0400 (EDT)
-Message-ID: <20120401.161031.886756026206260043.davem@davemloft.net>
-References: <20120330175533.GC8273@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: dont overwrite settings for PHY Quick link
+Date: Sun, 01 Apr 2012 16:11:04 -0400 (EDT)
+Message-ID: <20120401.161104.1115073131193072280.davem@davemloft.net>
+References: <20120330172859.GB2703@Neptun>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120330175533.GC8273-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: LinoSanfilippo@gmx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44331 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938Ab2DAULJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 16:11:09 -0400
+In-Reply-To: <20120330172859.GB2703@Neptun>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 30 Mar 2012 13:55:34 -0400
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Fri, 30 Mar 2012 19:28:59 +0200
 
-> I have a few more small fixes, hopefully still in time for 3.4-rc1...
+> This patch corrects a bug in function sky2_open() of the Marvell Yukon 2 driver
+> in which the settings for PHY quick link are overwritten.
 > 
-> Rajkukmar provides us with a one-line timestamp correction related to
-> scanning in mac80211.  Sujith gives us a small fixup for a regression
-> in the handling of HT capability bits for ath9k.  Stanislav Yakovlev
-> is stepping-up as maintainer for the ipw2x00 drivers, so we'll add
-> him to MAINTAINERS.  Stanislav also gives us a fix for a thinko
-> that registers the wrong band information for ipw2200 and 802.11a.
-> Finally, Santosh Nayak adds some simple error checking to orinoco to
-> avoid some potential NULL pointer dereferences.
+> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Stephen, ping?
