@@ -1,39 +1,33 @@
-From: lin jason <kernel.jason@gmail.com>
-Subject: [RFC] How to enable phy's interrupt correctly using phylib?
-Date: Mon, 2 Apr 2012 16:41:12 +0800
-Message-ID: <CAGCDX1krdFtNF0+AP8EyS58v6+VgQGVXjDJtLeM2ixsO8Ee+Eg@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer helper non-static  for the jits
+Date: Mon, 2 Apr 2012 10:18:02 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6ECE@saturn3.aculab.com>
+References: <4F75CC63.10405@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:54052 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648Ab2DBIlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 04:41:12 -0400
-Received: by iagz16 with SMTP id z16so3817639iag.19
-        for <netdev@vger.kernel.org>; Mon, 02 Apr 2012 01:41:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	"Matt Evans" <matt@ozlabs.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Jan Seiffert" <kaffeemonster@googlemail.com>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4F75CC63.10405@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear:
-Sorry for the previous message with no category.
-------------------------------------------------------------------------------------
+ 
+> The function is renamed to make it a little more clear what it does.
+> It is not added to any .h because it is not for general 
+> consumption, only for bpf internal use (and so by the jits).
 
-The design is a MAC connected to a Marvell phy.
-Phy's interrupt will be triggered for some conditions, like link status changed,
-and then it will trigger MAC's interrupt.
-But phy itself has no direct interrupt connected to CPU.
-I used phylib to implement the network driver (MAC driver).
-When link status changed, I need to do something in MAC's irq.
-In linux 2.6.36, I used phy_enable_interrupts() in MAC driver.
-But after linux 2.6.37, this function is not used directly by any drivers.
+I'd have thought it better to put in into a bfp_internal.h
+(or similar) with a big warning there about the asm users.
 
-Interrupt connection:
-PHY ------> MAC ------> CPU
+Possibly even worth adding some other defs that the asm
+files will need (if there are any).
 
-Maybe you can use phy_start_interrupts().
-But the phy has no interrupt connected to CPU,
-it will failed when request_irq().
-And it will not execute phy_enable_interrupts(phydev).
-
-How to enable phy's interrupt correctly using phylib?
+	David
