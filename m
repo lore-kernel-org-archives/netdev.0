@@ -1,209 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 2/2] net: ethtool: Add capability to retrieve
- plug-in module EEPROM
-Date: Mon, 2 Apr 2012 19:18:18 +0100
-Message-ID: <1333390698.2623.47.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4F71FE15.7060708@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Stuart Hodgson <smhodgson@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F71FE15.7060708@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] phonet: Check input from user before allocating
+Date: Mon,  2 Apr 2012 16:31:00 -0400
+Message-ID: <1333398660-11552-1-git-send-email-levinsasha928@gmail.com>
+Cc: davej@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: remi.denis-courmont@nokia.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:40104 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291Ab2DBSbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 14:31:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-03-27 at 18:51 +0100, Stuart Hodgson wrote:
-> Implementation in sfc driver to return the plugin module eeprom
-> 
-> Currently allows for SFP+ eeprom to be returned using the ethtool API.
-> This can be extended in future to handle different eeprom formats
-> and sizes.
-> 
-> Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
-> ---
->   drivers/net/ethernet/sfc/ethtool.c    |   36 +++++++++++
->   drivers/net/ethernet/sfc/mcdi_phy.c   |  105 
-> +++++++++++++++++++++++++++++++++
->   drivers/net/ethernet/sfc/net_driver.h |    5 ++
->   3 files changed, 146 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/ethtool.c 
-> b/drivers/net/ethernet/sfc/ethtool.c
-> index f22f45f..e77895f 100644
-> --- a/drivers/net/ethernet/sfc/ethtool.c
-> +++ b/drivers/net/ethernet/sfc/ethtool.c
-> @@ -1108,6 +1108,40 @@ static int efx_ethtool_set_rxfh_indir(struct 
-> net_device *net_dev,
->       return 0;
->   }
-> 
-> +static int efx_ethtool_get_module_eeprom(struct net_device *net_dev,
-> +                     struct ethtool_eeprom *ee,
-> +                     u8 *data)
-> +{
-> +    struct efx_nic *efx = netdev_priv(net_dev);
-> +    int ret;
-> +
-> +    if (!efx->phy_op ||
-> +        !efx->phy_op->get_module_eeprom)
+A phonet packet is limited to USHRT_MAX bytes, this is never checked during
+tx which means that the user can specify any size he wishes, and the kernel
+will attempt to allocate that size.
 
-No need to break that line.
+In the good case, it'll lead to the following warning, but it may also cause
+the kernel to kick in the OOM and kill a random task on the server.
 
-[...]
-> --- a/drivers/net/ethernet/sfc/mcdi_phy.c
-> +++ b/drivers/net/ethernet/sfc/mcdi_phy.c
-> @@ -304,6 +304,17 @@ static u32 mcdi_to_ethtool_media(u32 media)
->       }
->   }
-> 
-> +static u32 mcdi_to_module_eeprom_len(u32 media)
-> +{
-> +    switch (media) {
-> +    case MC_CMD_MEDIA_SFP_PLUS:
-> +        return SFF_8079_LEN;
-> +    case MC_CMD_MEDIA_XFP:
+[ 8921.744094] WARNING: at mm/page_alloc.c:2255 __alloc_pages_slowpath+0x65/0x730()
+[ 8921.749770] Pid: 5081, comm: trinity Tainted: G        W    3.4.0-rc1-next-20120402-sasha #46
+[ 8921.756672] Call Trace:
+[ 8921.758185]  [<ffffffff810b2ba7>] warn_slowpath_common+0x87/0xb0
+[ 8921.762868]  [<ffffffff810b2be5>] warn_slowpath_null+0x15/0x20
+[ 8921.765399]  [<ffffffff8117eae5>] __alloc_pages_slowpath+0x65/0x730
+[ 8921.769226]  [<ffffffff81179c8a>] ? zone_watermark_ok+0x1a/0x20
+[ 8921.771686]  [<ffffffff8117d045>] ? get_page_from_freelist+0x625/0x660
+[ 8921.773919]  [<ffffffff8117f3a8>] __alloc_pages_nodemask+0x1f8/0x240
+[ 8921.776248]  [<ffffffff811c03e0>] kmalloc_large_node+0x70/0xc0
+[ 8921.778294]  [<ffffffff811c4bd4>] __kmalloc_node_track_caller+0x34/0x1c0
+[ 8921.780847]  [<ffffffff821b0e3c>] ? sock_alloc_send_pskb+0xbc/0x260
+[ 8921.783179]  [<ffffffff821b3c65>] __alloc_skb+0x75/0x170
+[ 8921.784971]  [<ffffffff821b0e3c>] sock_alloc_send_pskb+0xbc/0x260
+[ 8921.787111]  [<ffffffff821b002e>] ? release_sock+0x7e/0x90
+[ 8921.788973]  [<ffffffff821b0ff0>] sock_alloc_send_skb+0x10/0x20
+[ 8921.791052]  [<ffffffff824cfc20>] pep_sendmsg+0x60/0x380
+[ 8921.792931]  [<ffffffff824cb4a6>] ? pn_socket_bind+0x156/0x180
+[ 8921.794917]  [<ffffffff824cb50f>] ? pn_socket_autobind+0x3f/0x90
+[ 8921.797053]  [<ffffffff824cb63f>] pn_socket_sendmsg+0x4f/0x70
+[ 8921.798992]  [<ffffffff821ab8e7>] sock_aio_write+0x187/0x1b0
+[ 8921.801395]  [<ffffffff810e325e>] ? sub_preempt_count+0xae/0xf0
+[ 8921.803501]  [<ffffffff8111842c>] ? __lock_acquire+0x42c/0x4b0
+[ 8921.805505]  [<ffffffff821ab760>] ? __sock_recv_ts_and_drops+0x140/0x140
+[ 8921.807860]  [<ffffffff811e07cc>] do_sync_readv_writev+0xbc/0x110
+[ 8921.809986]  [<ffffffff811958e7>] ? might_fault+0x97/0xa0
+[ 8921.811998]  [<ffffffff817bd99e>] ? security_file_permission+0x1e/0x90
+[ 8921.814595]  [<ffffffff811e17e2>] do_readv_writev+0xe2/0x1e0
+[ 8921.816702]  [<ffffffff810b8dac>] ? do_setitimer+0x1ac/0x200
+[ 8921.818819]  [<ffffffff810e2ec1>] ? get_parent_ip+0x11/0x50
+[ 8921.820863]  [<ffffffff810e325e>] ? sub_preempt_count+0xae/0xf0
+[ 8921.823318]  [<ffffffff811e1926>] vfs_writev+0x46/0x60
+[ 8921.825219]  [<ffffffff811e1a3f>] sys_writev+0x4f/0xb0
+[ 8921.827127]  [<ffffffff82658039>] system_call_fastpath+0x16/0x1b
+[ 8921.829384] ---[ end trace dffe390f30db9eb7 ]---
 
-Why split out XFP if we're not going to treat it any differently?
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/phonet/pep.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-> +    default:
-> +        return 0;
-> +    }
-> +}
-> +
->   static int efx_mcdi_phy_probe(struct efx_nic *efx)
->   {
->       struct efx_mcdi_phy_data *phy_data;
-> @@ -739,6 +750,98 @@ static const char *efx_mcdi_phy_test_name(struct 
-> efx_nic *efx,
->       return NULL;
->   }
-> 
-> +#define SFP_PAGE_SIZE    128
-> +#define NUM_PAGES    2
-
-SFP_NUM_PAGES?
-
-> +#define OFF_TO_BUFF(x)    (x + MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST)
-
-This is not really worth defining for just the one use.
-
-> +static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
-> +                      struct ethtool_eeprom *ee, u8 *data)
-> +{
-> +    u8 outbuf[MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX];
-> +    u8 inbuf[MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN];
-> +    size_t outlen;
-> +    int rc;
-> +    int payload_len;
-> +    int copied = 0;
-> +    int space_remaining = ee->len;
-> +    int page;
-> +    int page_off;
-> +    int to_copy;
-
-None of payload_len..to_copy should be signed.
-
-> +    u8 *user_data = data;
-> +
-> +    if (!data || !ee)
-> +        return -EINVAL;
-
-Neither of these is allowed to be NULL; don't bother checking.
-
-> +    if (ee->offset > (SFP_PAGE_SIZE * NUM_PAGES)) {
-> +        rc = -EINVAL;
-> +        goto fail;
-> +    }
-> +
-> +    page_off = (ee->offset % SFP_PAGE_SIZE);
-> +    page = (ee->offset > SFP_PAGE_SIZE) ? 1 : 0;
-
-Why not ee->offset / SFP_PAGE_SIZE?
-
-> +    while (space_remaining && (page < NUM_PAGES)) {
-> +
-> +        MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
-> +
-> +        rc = efx_mcdi_rpc(efx, MC_CMD_GET_PHY_MEDIA_INFO,
-> +                  inbuf, sizeof(inbuf),
-> +                  outbuf, sizeof(outbuf),
-> + &outlen);
-> +
-> +        if (rc)
-> +            goto fail;
-> +
-> +        /* Copy as much as we can into data */
-> +        if (outlen < MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMIN ||
-> +            outlen > MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX) {
-> +            rc = -EIO;
-> +            goto fail;
-> +        }
-> +
-> +        payload_len = MCDI_DWORD(outbuf,
-> +                     GET_PHY_MEDIA_INFO_OUT_DATALEN);
-> +
-> +        to_copy = (space_remaining < payload_len) ?
-> +                space_remaining : payload_len;
-> +
-> +        to_copy -= page_off;
-
-page_off is the number of bytes we need to discard from payload_len, but
-we don't want do discard that from space_remaining.  I think the last
-two statements should be changed to:
-
-	payload_len -= page_off;
-	to_copy = (space_remaining < payload_len) ?
-		space_remaining : payload_len;
-
-> +        memcpy(user_data,
-> +               (outbuf + OFF_TO_BUFF(page_off)),
-> +               to_copy);
-> +
-> +        space_remaining -= to_copy;
-> +        user_data += to_copy;
-> +        copied += to_copy;
-> +        page_off = 0;
-> +        page++;
-> +    }
-> +
-> +    ee->len = copied;
-> +
-> +    return 0;
-> +fail:
-> +    return rc;
-
-Nothing to clean up here, so you might as well return errors directly.
-
-> +}
-> +
-> +static int efx_mcdi_phy_get_module_info(struct efx_nic *efx,
-> +                    struct ethtool_modinfo *modinfo)
-> +{
-> +    /* This will return a length of the eeprom
-> +     * type of the module that was detected during the probe,
-> +     * if not modules inserted then phy_data will be NULL */
-> +    struct efx_mcdi_phy_data *phy_cfg;
-> +
-> +    if (!efx || !efx->phy_data)
-> +        return -EOPNOTSUPP;
-
-efx certainly can't be NULL here and I don't believe efx->phy_data can
-either.  (None of the other MCDI PHY operations check it.)
-
-> +    phy_cfg = efx->phy_data;
-> +    modinfo->eeprom_len = mcdi_to_module_eeprom_len(phy_cfg->media);
-> +    modinfo->type = SFF_8079;
-[...]
-
-I don't think this makes sense.  If we're fixing the type as SFF_8079
-then why are we calling a function to get the length?
-
-Ben.
-
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 9f60008..caee99e 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -1130,6 +1130,9 @@ static int pep_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	int flags = msg->msg_flags;
+ 	int err, done;
+ 
++	if (len > USHRT_MAX)
++		return -E2BIG;
++
+ 	if ((msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_NOSIGNAL|
+ 				MSG_CMSG_COMPAT)) ||
+ 			!(msg->msg_flags & MSG_EOR))
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.8.5
