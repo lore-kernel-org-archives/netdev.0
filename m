@@ -1,7 +1,7 @@
 From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH v2 6/8] i2c-pnx.c: Use resources in platforms
-Date: Mon,  2 Apr 2012 20:33:05 +0200
-Message-ID: <1333391587-26290-7-git-send-email-stigge@antcom.de>
+Subject: [PATCH v2 8/8] i2c: Add device tree support to i2c-pnx.c
+Date: Mon,  2 Apr 2012 20:33:07 +0200
+Message-ID: <1333391587-26290-9-git-send-email-stigge@antcom.de>
 References: <1333391587-26290-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,8 +26,16 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-As a precondition for device tree conversion, the platforms using i2c-pnx.c are
-converted to using mem and irq resources instead of platform data.
+This patch adds device tree support to the pnx-i2c driver by using platform
+resources for memory region and irq and removing dependency on mach includes.
+
+The following platforms are affected:
+
+* PNX
+* LPC31xx (WIP)
+* LPC32xx
+
+The patch is based on a patch by Jon Smirl, working on lpc31xx integration
 
 Signed-off-by: Roland Stigge <stigge@antcom.de>
 
@@ -35,342 +43,269 @@ Signed-off-by: Roland Stigge <stigge@antcom.de>
 
  Applies to v3.4-rc1
 
- arch/arm/mach-lpc32xx/common.c |   75 +++++++++++++++++++++++++----------------
- arch/arm/mach-pnx4008/i2c.c    |   64 +++++++++++++++++++++-------------
- drivers/i2c/busses/i2c-pnx.c   |   47 +++++++++++++------------
- include/linux/i2c-pnx.h        |    9 +---
- 4 files changed, 112 insertions(+), 83 deletions(-)
+ Documentation/devicetree/bindings/i2c/pnx.txt |   40 ++++++++++++++++
+ drivers/i2c/busses/i2c-pnx.c                  |   65 +++++++++++++++++++-------
+ include/linux/i2c-pnx.h                       |    1 
+ 3 files changed, 89 insertions(+), 17 deletions(-)
 
---- linux-2.6.orig/arch/arm/mach-lpc32xx/common.c
-+++ linux-2.6/arch/arm/mach-lpc32xx/common.c
-@@ -27,7 +27,6 @@
- 
- #include <asm/mach/map.h>
- 
--#include <mach/i2c.h>
- #include <mach/hardware.h>
- #include <mach/platform.h>
- #include "common.h"
-@@ -53,46 +52,64 @@ struct platform_device lpc32xx_watchdog_
- /*
-  * I2C busses
-  */
--static struct i2c_pnx_data i2c0_data = {
--	.name = I2C_CHIP_NAME "1",
--	.base = LPC32XX_I2C1_BASE,
--	.irq = IRQ_LPC32XX_I2C_1,
--};
--
--static struct i2c_pnx_data i2c1_data = {
--	.name = I2C_CHIP_NAME "2",
--	.base = LPC32XX_I2C2_BASE,
--	.irq = IRQ_LPC32XX_I2C_2,
--};
--
--static struct i2c_pnx_data i2c2_data = {
--	.name = "USB-I2C",
--	.base = LPC32XX_OTG_I2C_BASE,
--	.irq = IRQ_LPC32XX_USB_I2C,
-+static struct resource i2c0_resources[] = {
-+	[0] = {
-+		.start = LPC32XX_I2C1_BASE,
-+		.end = LPC32XX_I2C1_BASE + 0x100 - 1,
-+		.flags = IORESOURCE_MEM,
-+	},
-+	[1] = {
-+		.start = IRQ_LPC32XX_I2C_1,
-+		.end = IRQ_LPC32XX_I2C_1,
-+		.flags = IORESOURCE_IRQ,
-+	},
-+};
+--- /dev/null
++++ linux-2.6/Documentation/devicetree/bindings/i2c/pnx.txt
+@@ -0,0 +1,40 @@
++* NXP PNX I2C Controller
 +
-+static struct resource i2c1_resources[] = {
-+	[0] = {
-+		.start = LPC32XX_I2C2_BASE,
-+		.end = LPC32XX_I2C2_BASE + 0x100 - 1,
-+		.flags = IORESOURCE_MEM,
-+	},
-+	[1] = {
-+		.start = IRQ_LPC32XX_I2C_2,
-+		.end = IRQ_LPC32XX_I2C_2,
-+		.flags = IORESOURCE_IRQ,
-+	},
-+};
++Required properties:
 +
-+static struct resource i2c2_resources[] = {
-+	[0] = {
-+		.start = LPC32XX_OTG_I2C_BASE,
-+		.end = LPC32XX_OTG_I2C_BASE + 0x100 - 1,
-+		.flags = IORESOURCE_MEM,
-+	},
-+	[1] = {
-+		.start = IRQ_LPC32XX_USB_I2C,
-+		.end = IRQ_LPC32XX_USB_I2C,
-+		.flags = IORESOURCE_IRQ,
-+	},
- };
- 
- struct platform_device lpc32xx_i2c0_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.0",
- 	.id = 0,
--	.dev = {
--		.platform_data = &i2c0_data,
--	},
-+	.num_resources = ARRAY_SIZE(i2c0_resources),
-+	.resource = i2c0_resources,
- };
- 
- struct platform_device lpc32xx_i2c1_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.1",
- 	.id = 1,
--	.dev = {
--		.platform_data = &i2c1_data,
--	},
-+	.num_resources = ARRAY_SIZE(i2c1_resources),
-+	.resource = i2c1_resources,
- };
- 
- struct platform_device lpc32xx_i2c2_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.2",
- 	.id = 2,
--	.dev = {
--		.platform_data = &i2c2_data,
--	},
-+	.num_resources = ARRAY_SIZE(i2c2_resources),
-+	.resource = i2c2_resources,
- };
- 
- /* TSC (Touch Screen Controller) */
---- linux-2.6.orig/arch/arm/mach-pnx4008/i2c.c
-+++ linux-2.6/arch/arm/mach-pnx4008/i2c.c
-@@ -16,48 +16,62 @@
- #include <linux/err.h>
- #include <mach/platform.h>
- #include <mach/irqs.h>
--#include <mach/i2c.h>
- 
--static struct i2c_pnx_data i2c0_data = {
--	.name = I2C_CHIP_NAME "0",
--	.base = PNX4008_I2C1_BASE,
--	.irq = I2C_1_INT,
-+static struct resource i2c0_resources[] = {
-+	{
-+		.start = PNX4008_I2C1_BASE,
-+		.end = PNX4008_I2C1_BASE + SZ_4K - 1,
-+		.flags = IORESOURCE_MEM,
-+	}, {
-+		.start = I2C_1_INT,
-+		.end = I2C_1_INT,
-+		.flags = IORESOURCE_IRQ,
-+	},
- };
- 
--static struct i2c_pnx_data i2c1_data = {
--	.name = I2C_CHIP_NAME "1",
--	.base = PNX4008_I2C2_BASE,
--	.irq = I2C_2_INT,
-+static struct resource i2c1_resources[] = {
-+	{
-+		.start = PNX4008_I2C2_BASE,
-+		.end = PNX4008_I2C2_BASE + SZ_4K - 1,
-+		.flags = IORESOURCE_MEM,
-+	}, {
-+		.start = I2C_2_INT,
-+		.end = I2C_2_INT,
-+		.flags = IORESOURCE_IRQ,
-+	},
- };
- 
--static struct i2c_pnx_data i2c2_data = {
--	.name = "USB-I2C",
--	.base = (PNX4008_USB_CONFIG_BASE + 0x300),
--	.irq = USB_I2C_INT,
-+static struct resource i2c2_resources[] = {
-+	{
-+		.start = PNX4008_USB_CONFIG_BASE + 0x300,
-+		.end = PNX4008_USB_CONFIG_BASE + 0x300 + SZ_4K - 1,
-+		.flags = IORESOURCE_MEM,
-+	}, {
-+		.start = USB_I2C_INT,
-+		.end = USB_I2C_INT,
-+		.flags = IORESOURCE_IRQ,
-+	},
- };
- 
- static struct platform_device i2c0_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.0",
- 	.id = 0,
--	.dev = {
--		.platform_data = &i2c0_data,
--	},
-+	.resource = i2c0_resources,
-+	.num_resources = ARRAY_SIZE(i2c0_resources),
- };
- 
- static struct platform_device i2c1_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.1",
- 	.id = 1,
--	.dev = {
--		.platform_data = &i2c1_data,
--	},
-+	.resource = i2c1_resources,
-+	.num_resources = ARRAY_SIZE(i2c1_resources),
- };
- 
- static struct platform_device i2c2_device = {
--	.name = "pnx-i2c",
-+	.name = "pnx-i2c.2",
- 	.id = 2,
--	.dev = {
--		.platform_data = &i2c2_data,
--	},
-+	.resource = i2c2_resources,
-+	.num_resources = ARRAY_SIZE(i2c2_resources),
- };
- 
- static struct platform_device *devices[] __initdata = {
++ - reg: Offset and length of the register set for the device
++ - compatible: should be "nxp,pnx-i2c"
++ - interrupts: configure one interrupt line
++ - #address-cells: always 1 (for i2c addresses)
++ - #size-cells: always 0
++
++Optional properties:
++
++ - interrupt-parent: the phandle for the interrupt controller that
++   services interrupts for this device.
++ - clock-frequency: desired I2C bus clock frequency in Hz, Default: 100000 Hz
++ - pnx,timeout: I2C bus timeout in milliseconds, Default: 10 ms
++ - slave-addr: Address used by the controller, Hardware default: 110
++
++Examples:
++
++	i2c1: i2c@400a0000 {
++		compatible = "nxp,pnx-i2c";
++		reg = <0x400a0000 0x100>;
++		interrupt-parent = <&mic>;
++		interrupts = <51 0>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++
++	i2c2: i2c@400a8000 {
++		compatible = "nxp,pnx-i2c";
++		reg = <0x400a8000 0x100>;
++		interrupt-parent = <&mic>;
++		interrupts = <50 0>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		clock-frequency = <0x186a0>;
++		pnx,timeout = <0x64>;
++		slave-addr = <0x11>;
++	};
 --- linux-2.6.orig/drivers/i2c/busses/i2c-pnx.c
 +++ linux-2.6/drivers/i2c/busses/i2c-pnx.c
-@@ -568,14 +568,7 @@ static int __devinit i2c_pnx_probe(struc
- 	int ret = 0;
+@@ -23,10 +23,11 @@
+ #include <linux/err.h>
+ #include <linux/clk.h>
+ #include <linux/slab.h>
++#include <linux/of_i2c.h>
+ 
+-#define I2C_PNX_TIMEOUT		10 /* msec */
+-#define I2C_PNX_SPEED_KHZ	100
+-#define I2C_PNX_REGION_SIZE	0x100
++#define I2C_PNX_TIMEOUT_DEFAULT		10 /* msec */
++#define I2C_PNX_SPEED_KHZ_DEFAULT	100
++#define I2C_PNX_REGION_SIZE		0x100
+ 
+ enum {
+ 	mstatus_tdi = 0x00000001,
+@@ -74,8 +75,9 @@ enum {
+ #define I2C_REG_TXS(a)	((a)->ioaddr + 0x28)	/* Tx slave FIFO (RO) */
+ #define I2C_REG_STFL(a)	((a)->ioaddr + 0x2c)	/* Tx slave FIFO level (RO) */
+ 
+-static inline int wait_timeout(long timeout, struct i2c_pnx_algo_data *data)
++static inline int wait_timeout(struct i2c_pnx_algo_data *data)
+ {
++	long timeout = data->timeout;
+ 	while (timeout > 0 &&
+ 			(ioread32(I2C_REG_STS(data)) & mstatus_active)) {
+ 		mdelay(1);
+@@ -84,8 +86,9 @@ static inline int wait_timeout(long time
+ 	return (timeout <= 0);
+ }
+ 
+-static inline int wait_reset(long timeout, struct i2c_pnx_algo_data *data)
++static inline int wait_reset(struct i2c_pnx_algo_data *data)
+ {
++	long timeout = data->timeout;
+ 	while (timeout > 0 &&
+ 			(ioread32(I2C_REG_CTL(data)) & mcntrl_reset)) {
+ 		mdelay(1);
+@@ -97,7 +100,7 @@ static inline int wait_reset(long timeou
+ static inline void i2c_pnx_arm_timer(struct i2c_pnx_algo_data *alg_data)
+ {
+ 	struct timer_list *timer = &alg_data->mif.timer;
+-	unsigned long expires = msecs_to_jiffies(I2C_PNX_TIMEOUT);
++	unsigned long expires = msecs_to_jiffies(alg_data->timeout);
+ 
+ 	if (expires <= 1)
+ 		expires = 2;
+@@ -135,7 +138,7 @@ static int i2c_pnx_start(unsigned char s
+ 	}
+ 
+ 	/* First, make sure bus is idle */
+-	if (wait_timeout(I2C_PNX_TIMEOUT, alg_data)) {
++	if (wait_timeout(alg_data)) {
+ 		/* Somebody else is monopolizing the bus */
+ 		dev_err(&alg_data->adapter.dev,
+ 			"%s: Bus busy. Slave addr = %02x, cntrl = %x, stat = %x\n",
+@@ -228,7 +231,7 @@ static int i2c_pnx_master_xmit(struct i2
+ 		if (alg_data->mif.len == 0) {
+ 			if (alg_data->last) {
+ 				/* Wait until the STOP is seen. */
+-				if (wait_timeout(I2C_PNX_TIMEOUT, alg_data))
++				if (wait_timeout(alg_data))
+ 					dev_err(&alg_data->adapter.dev,
+ 						"The bus is still active after timeout\n");
+ 			}
+@@ -326,7 +329,7 @@ static int i2c_pnx_master_rcv(struct i2c
+ 		if (alg_data->mif.len == 0) {
+ 			if (alg_data->last)
+ 				/* Wait until the STOP is seen. */
+-				if (wait_timeout(I2C_PNX_TIMEOUT, alg_data))
++				if (wait_timeout(alg_data))
+ 					dev_err(&alg_data->adapter.dev,
+ 						"The bus is still active after timeout\n");
+ 
+@@ -442,7 +445,7 @@ static void i2c_pnx_timeout(unsigned lon
+ 
+ 	ctl |= mcntrl_reset;
+ 	iowrite32(ctl, I2C_REG_CTL(alg_data));
+-	wait_reset(I2C_PNX_TIMEOUT, alg_data);
++	wait_reset(alg_data);
+ 	alg_data->mif.ret = -EIO;
+ 	complete(&alg_data->mif.complete);
+ }
+@@ -457,18 +460,18 @@ static inline void bus_reset_if_active(s
+ 			alg_data->adapter.name);
+ 		iowrite32(ioread32(I2C_REG_CTL(alg_data)) | mcntrl_reset,
+ 			  I2C_REG_CTL(alg_data));
+-		wait_reset(I2C_PNX_TIMEOUT, alg_data);
++		wait_reset(alg_data);
+ 	} else if (!(stat & mstatus_rfe) || !(stat & mstatus_tfe)) {
+ 		/* If there is data in the fifo's after transfer,
+ 		 * flush fifo's by reset.
+ 		 */
+ 		iowrite32(ioread32(I2C_REG_CTL(alg_data)) | mcntrl_reset,
+ 			  I2C_REG_CTL(alg_data));
+-		wait_reset(I2C_PNX_TIMEOUT, alg_data);
++		wait_reset(alg_data);
+ 	} else if (stat & mstatus_nai) {
+ 		iowrite32(ioread32(I2C_REG_CTL(alg_data)) | mcntrl_reset,
+ 			  I2C_REG_CTL(alg_data));
+-		wait_reset(I2C_PNX_TIMEOUT, alg_data);
++		wait_reset(alg_data);
+ 	}
+ }
+ 
+@@ -612,6 +615,8 @@ static int __devinit i2c_pnx_probe(struc
  	struct i2c_pnx_algo_data *alg_data;
  	unsigned long freq;
--	struct i2c_pnx_data *i2c_pnx = pdev->dev.platform_data;
--
--	if (!i2c_pnx || !i2c_pnx->name) {
--		dev_err(&pdev->dev, "%s: no platform data supplied\n",
--		       __func__);
--		ret = -EINVAL;
--		goto out;
--	}
-+	struct resource *res;
+ 	struct resource *res;
++	u32 speed = I2C_PNX_SPEED_KHZ_DEFAULT * 1000;
++	u32 slave_addr = ~0;
  
  	alg_data = kzalloc(sizeof(*alg_data), GFP_KERNEL);
  	if (!alg_data) {
-@@ -585,13 +578,10 @@ static int __devinit i2c_pnx_probe(struc
- 
- 	platform_set_drvdata(pdev, alg_data);
- 
--	strlcpy(alg_data->adapter.name, i2c_pnx->name,
--		sizeof(alg_data->adapter.name));
- 	alg_data->adapter.dev.parent = &pdev->dev;
- 	alg_data->adapter.algo = &pnx_algorithm;
+@@ -626,6 +631,18 @@ static int __devinit i2c_pnx_probe(struc
  	alg_data->adapter.algo_data = alg_data;
  	alg_data->adapter.nr = pdev->id;
--	alg_data->i2c_pnx = i2c_pnx;
  
++	alg_data->timeout = I2C_PNX_TIMEOUT_DEFAULT;
++#ifdef CONFIG_OF
++	alg_data->adapter.dev.of_node = of_node_get(pdev->dev.of_node);
++	if (pdev->dev.of_node) {
++		of_property_read_u32(pdev->dev.of_node, "pnx,timeout",
++				     &alg_data->timeout);
++		of_property_read_u32(pdev->dev.of_node, "clock-frequency",
++				     &speed);
++		of_property_read_u32(pdev->dev.of_node, "slave-addr",
++				     &slave_addr);
++	}
++#endif
  	alg_data->clk = clk_get(&pdev->dev, NULL);
  	if (IS_ERR(alg_data->clk)) {
-@@ -603,17 +593,27 @@ static int __devinit i2c_pnx_probe(struc
- 	alg_data->mif.timer.function = i2c_pnx_timeout;
- 	alg_data->mif.timer.data = (unsigned long)alg_data;
- 
-+	snprintf(alg_data->adapter.name, sizeof(alg_data->adapter.name),
-+		 "%s", pdev->name);
-+
- 	/* Register I/O resource */
--	if (!request_mem_region(i2c_pnx->base, I2C_PNX_REGION_SIZE,
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!res) {
-+		dev_err(&pdev->dev, "Unable to get mem resource.\n");
-+		ret = -EBUSY;
-+		goto out_clkget;
-+	}
-+	if (!request_mem_region(res->start, I2C_PNX_REGION_SIZE,
- 				pdev->name)) {
+ 		ret = PTR_ERR(alg_data->clk);
+@@ -651,7 +668,7 @@ static int __devinit i2c_pnx_probe(struc
  		dev_err(&pdev->dev,
  		       "I/O region 0x%08x for I2C already in use.\n",
--		       i2c_pnx->base);
-+		       res->start);
- 		ret = -ENODEV;
+ 		       res->start);
+-		ret = -ENODEV;
++		ret = -ENOMEM;
  		goto out_clkget;
  	}
  
--	alg_data->ioaddr = ioremap(i2c_pnx->base, I2C_PNX_REGION_SIZE);
-+	alg_data->base = res->start;
-+	alg_data->ioaddr = ioremap(res->start, I2C_PNX_REGION_SIZE);
- 	if (!alg_data->ioaddr) {
- 		dev_err(&pdev->dev, "Couldn't ioremap I2C I/O region\n");
- 		ret = -ENOMEM;
-@@ -650,7 +650,12 @@ static int __devinit i2c_pnx_probe(struc
- 	}
- 	init_completion(&alg_data->mif.complete);
+@@ -667,6 +684,9 @@ static int __devinit i2c_pnx_probe(struc
+ 	if (ret)
+ 		goto out_unmap;
  
--	ret = request_irq(i2c_pnx->irq, i2c_pnx_interrupt,
-+	alg_data->irq = platform_get_irq(pdev, 0);
-+	if (alg_data->irq < 0) {
-+		dev_err(&pdev->dev, "Failed to get IRQ from platform resource\n");
-+		goto out_irq;
-+	}
-+	ret = request_irq(alg_data->irq, i2c_pnx_interrupt,
- 			0, pdev->name, alg_data);
++	if (slave_addr != ~0)
++		iowrite32(slave_addr, I2C_REG_ADR(alg_data));
++
+ 	freq = clk_get_rate(alg_data->clk);
+ 
+ 	/*
+@@ -680,14 +700,14 @@ static int __devinit i2c_pnx_probe(struc
+ 	 * the deglitching filter length.
+ 	 */
+ 
+-	tmp = ((freq / 1000) / I2C_PNX_SPEED_KHZ) / 2 - 2;
++	tmp = (freq / speed) / 2 - 2;
+ 	if (tmp > 0x3FF)
+ 		tmp = 0x3FF;
+ 	iowrite32(tmp, I2C_REG_CKH(alg_data));
+ 	iowrite32(tmp, I2C_REG_CKL(alg_data));
+ 
+ 	iowrite32(mcntrl_reset, I2C_REG_CTL(alg_data));
+-	if (wait_reset(I2C_PNX_TIMEOUT, alg_data)) {
++	if (wait_reset(alg_data)) {
+ 		ret = -ENODEV;
+ 		goto out_clock;
+ 	}
+@@ -699,7 +719,7 @@ static int __devinit i2c_pnx_probe(struc
+ 		goto out_irq;
+ 	}
+ 	ret = request_irq(alg_data->irq, i2c_pnx_interrupt,
+-			0, pdev->name, alg_data);
++			  0, pdev->name, alg_data);
  	if (ret)
  		goto out_clock;
-@@ -663,38 +668,36 @@ static int __devinit i2c_pnx_probe(struc
+ 
+@@ -710,6 +730,8 @@ static int __devinit i2c_pnx_probe(struc
+ 		goto out_irq;
  	}
  
++	of_i2c_register_devices(&alg_data->adapter);
++
  	dev_dbg(&pdev->dev, "%s: Master at %#8x, irq %d.\n",
--	       alg_data->adapter.name, i2c_pnx->base, i2c_pnx->irq);
-+		alg_data->adapter.name, res->start, alg_data->irq);
+ 		alg_data->adapter.name, res->start, alg_data->irq);
  
+@@ -748,10 +770,19 @@ static int __devexit i2c_pnx_remove(stru
  	return 0;
- 
- out_irq:
--	free_irq(i2c_pnx->irq, alg_data);
-+	free_irq(alg_data->irq, alg_data);
- out_clock:
- 	clk_disable(alg_data->clk);
- out_unmap:
- 	iounmap(alg_data->ioaddr);
- out_release:
--	release_mem_region(i2c_pnx->base, I2C_PNX_REGION_SIZE);
-+	release_mem_region(res->start, I2C_PNX_REGION_SIZE);
- out_clkget:
- 	clk_put(alg_data->clk);
- out_drvdata:
- 	kfree(alg_data);
- err_kzalloc:
- 	platform_set_drvdata(pdev, NULL);
--out:
- 	return ret;
  }
  
- static int __devexit i2c_pnx_remove(struct platform_device *pdev)
- {
- 	struct i2c_pnx_algo_data *alg_data = platform_get_drvdata(pdev);
--	struct i2c_pnx_data *i2c_pnx = alg_data->i2c_pnx;
- 
--	free_irq(i2c_pnx->irq, alg_data);
-+	free_irq(alg_data->irq, alg_data);
- 	i2c_del_adapter(&alg_data->adapter);
- 	clk_disable(alg_data->clk);
- 	iounmap(alg_data->ioaddr);
--	release_mem_region(i2c_pnx->base, I2C_PNX_REGION_SIZE);
-+	release_mem_region(alg_data->base, I2C_PNX_REGION_SIZE);
- 	clk_put(alg_data->clk);
- 	kfree(alg_data);
- 	platform_set_drvdata(pdev, NULL);
++#ifdef CONFIG_OF
++static const struct of_device_id i2c_pnx_of_match[] = {
++	{ .compatible = "nxp,pnx-i2c" },
++	{ },
++};
++MODULE_DEVICE_TABLE(of, i2c_pnx_of_match);
++#endif
++
+ static struct platform_driver i2c_pnx_driver = {
+ 	.driver = {
+ 		.name = "pnx-i2c",
+ 		.owner = THIS_MODULE,
++		.of_match_table = of_match_ptr(i2c_pnx_of_match),
+ 	},
+ 	.probe = i2c_pnx_probe,
+ 	.remove = __devexit_p(i2c_pnx_remove),
 --- linux-2.6.orig/include/linux/i2c-pnx.h
 +++ linux-2.6/include/linux/i2c-pnx.h
-@@ -29,14 +29,9 @@ struct i2c_pnx_algo_data {
- 	struct i2c_pnx_mif	mif;
- 	int			last;
- 	struct clk		*clk;
--	struct i2c_pnx_data	*i2c_pnx;
+@@ -32,6 +32,7 @@ struct i2c_pnx_algo_data {
  	struct i2c_adapter	adapter;
--};
--
--struct i2c_pnx_data {
--	const char *name;
--	u32 base;
--	int irq;
-+	phys_addr_t		base;
-+	int			irq;
+ 	phys_addr_t		base;
+ 	int			irq;
++	u32			timeout;
  };
  
  #endif /* __I2C_PNX_H__ */
