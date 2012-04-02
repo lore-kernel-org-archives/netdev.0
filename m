@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-rhine: fix wait-bit inversion.
-Date: Sun, 01 Apr 2012 23:10:44 -0400 (EDT)
-Message-ID: <20120401.231044.2143460898946854493.davem@davemloft.net>
-References: <20120401223500.GA28138@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 1/8] net/ipv6/sit.c: Checkpatch cleanup
+Date: Sun, 01 Apr 2012 23:07:04 -0400 (EDT)
+Message-ID: <20120401.230704.1907135693272001517.davem@davemloft.net>
+References: <1333302548-9187-1-git-send-email-eldad@fogrefinery.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andi@lisas.de, DavidLv@viatech.com.cn
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47058 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754531Ab2DBDLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:11:53 -0400
-In-Reply-To: <20120401223500.GA28138@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eldad@fogrefinery.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1333302548-9187-1-git-send-email-eldad@fogrefinery.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Mon, 2 Apr 2012 00:35:00 +0200
+From: Eldad Zack <eldad@fogrefinery.com>
+Date: Sun,  1 Apr 2012 19:49:01 +0200
 
-> From: Andreas Mohr <andi@lisas.de>
+> sit.c:118: ERROR: "foo * bar" should be "foo *bar"
+> sit.c:694: ERROR: "(foo*)" should be "(foo *)"
+> sit.c:724: ERROR: "(foo*)" should be "(foo *)"
 > 
-> Bug appeared in a384a33bb1c9ec2d99db2046b41f57023fa7d77b
-> ("via-rhine: RHINE_WAIT_FOR macro removal). It can be noticed
-> during suspend/resume.
-> 
-> Signed-off-by: Andreas Mohr <andi@lisas.de>
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: David Lv <DavidLv@viatech.com.cn>
+> Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
