@@ -1,34 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: check the length of the data before dereferencing
- it
-Date: Sun, 01 Apr 2012 23:19:54 -0400 (EDT)
-Message-ID: <20120401.231954.992963391252108626.davem@davemloft.net>
-References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: sh_eth: fix endian check for architecture
+ independent
+Date: Sun, 01 Apr 2012 23:22:34 -0400 (EDT)
+Message-ID: <20120401.232234.686879895812528970.davem@davemloft.net>
+References: <4F754558.1070001@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, pablo@netfilter.org, eric.dumazet@gmail.com,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4F754558.1070001@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Mon,  2 Apr 2012 11:10:50 +0800
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Date: Fri, 30 Mar 2012 14:32:08 +0900
 
-> We should check the length of the data before dereferencing it when parsing
-> the TCP options.
+> SuperH has the "CONFIG_CPU_LITTLE_ENDIAN" and the "__LITTLE_ENDIAN__".
+> But, other architecture doesn't have them. So, this patch fixes it.
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-Proper Subject prefix here would be "tcp: ", not "net: "
-and maybe adjust the subject line to also mention the
-specific function being fixed, which in this case would
-be tcp_parse_options().  So:
-
-	tcp: Validate length of data before dereference in tcp_parse_options().
-
-and then you can make the commit message just be your signoff.
-
+Applied.
