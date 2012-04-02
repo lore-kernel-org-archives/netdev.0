@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 26/51] neighbour: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:16 -0400
-Message-ID: <1333335521-1348-27-git-send-email-davem@davemloft.net>
+Subject: [PATCH 35/51] team: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:25 -0400
+Message-ID: <1333335521-1348-36-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46760 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46772 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754292Ab2DBDAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:00 -0400
+	with ESMTP id S1754479Ab2DBDAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:10 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,136 +21,102 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/neighbour.c |   75 ++++++++++++++++++++++++++-----------------------
- 1 files changed, 40 insertions(+), 35 deletions(-)
+ drivers/net/team/team.c |   50 +++++++++++++++++++++++++++++-----------------
+ 1 files changed, 31 insertions(+), 19 deletions(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 0a68045..ac71765 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1768,29 +1768,29 @@ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
- 	if (nest == NULL)
- 		return -ENOBUFS;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 8f81805..0db6e66 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1248,7 +1248,8 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
+ 	if (IS_ERR(hdr))
+ 		return PTR_ERR(hdr);
  
--	if (parms->dev)
--		NLA_PUT_U32(skb, NDTPA_IFINDEX, parms->dev->ifindex);
--
--	NLA_PUT_U32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt));
--	NLA_PUT_U32(skb, NDTPA_QUEUE_LENBYTES, parms->queue_len_bytes);
--	/* approximative value for deprecated QUEUE_LEN (in packets) */
--	NLA_PUT_U32(skb, NDTPA_QUEUE_LEN,
--		    DIV_ROUND_UP(parms->queue_len_bytes,
--				 SKB_TRUESIZE(ETH_FRAME_LEN)));
--	NLA_PUT_U32(skb, NDTPA_PROXY_QLEN, parms->proxy_qlen);
--	NLA_PUT_U32(skb, NDTPA_APP_PROBES, parms->app_probes);
--	NLA_PUT_U32(skb, NDTPA_UCAST_PROBES, parms->ucast_probes);
--	NLA_PUT_U32(skb, NDTPA_MCAST_PROBES, parms->mcast_probes);
--	NLA_PUT_MSECS(skb, NDTPA_REACHABLE_TIME, parms->reachable_time);
--	NLA_PUT_MSECS(skb, NDTPA_BASE_REACHABLE_TIME,
--		      parms->base_reachable_time);
--	NLA_PUT_MSECS(skb, NDTPA_GC_STALETIME, parms->gc_staletime);
--	NLA_PUT_MSECS(skb, NDTPA_DELAY_PROBE_TIME, parms->delay_probe_time);
--	NLA_PUT_MSECS(skb, NDTPA_RETRANS_TIME, parms->retrans_time);
--	NLA_PUT_MSECS(skb, NDTPA_ANYCAST_DELAY, parms->anycast_delay);
--	NLA_PUT_MSECS(skb, NDTPA_PROXY_DELAY, parms->proxy_delay);
--	NLA_PUT_MSECS(skb, NDTPA_LOCKTIME, parms->locktime);
--
-+	if ((parms->dev &&
-+	     nla_put_u32(skb, NDTPA_IFINDEX, parms->dev->ifindex)) ||
-+	    nla_put_u32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt)) ||
-+	    nla_put_u32(skb, NDTPA_QUEUE_LENBYTES, parms->queue_len_bytes) ||
-+	    /* approximative value for deprecated QUEUE_LEN (in packets) */
-+	    nla_put_u32(skb, NDTPA_QUEUE_LEN,
-+			DIV_ROUND_UP(parms->queue_len_bytes,
-+				     SKB_TRUESIZE(ETH_FRAME_LEN))) ||
-+	    nla_put_u32(skb, NDTPA_PROXY_QLEN, parms->proxy_qlen) ||
-+	    nla_put_u32(skb, NDTPA_APP_PROBES, parms->app_probes) ||
-+	    nla_put_u32(skb, NDTPA_UCAST_PROBES, parms->ucast_probes) ||
-+	    nla_put_u32(skb, NDTPA_MCAST_PROBES, parms->mcast_probes) ||
-+	    nla_put_msecs(skb, NDTPA_REACHABLE_TIME, parms->reachable_time) ||
-+	    nla_put_msecs(skb, NDTPA_BASE_REACHABLE_TIME,
-+			  parms->base_reachable_time) ||
-+	    nla_put_msecs(skb, NDTPA_GC_STALETIME, parms->gc_staletime) ||
-+	    nla_put_msecs(skb, NDTPA_DELAY_PROBE_TIME,
-+			  parms->delay_probe_time) ||
-+	    nla_put_msecs(skb, NDTPA_RETRANS_TIME, parms->retrans_time) ||
-+	    nla_put_msecs(skb, NDTPA_ANYCAST_DELAY, parms->anycast_delay) ||
-+	    nla_put_msecs(skb, NDTPA_PROXY_DELAY, parms->proxy_delay) ||
-+	    nla_put_msecs(skb, NDTPA_LOCKTIME, parms->locktime))
+-	NLA_PUT_U32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex);
++	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
 +		goto nla_put_failure;
- 	return nla_nest_end(skb, nest);
- 
- nla_put_failure:
-@@ -1815,12 +1815,12 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
- 	ndtmsg->ndtm_pad1   = 0;
- 	ndtmsg->ndtm_pad2   = 0;
- 
--	NLA_PUT_STRING(skb, NDTA_NAME, tbl->id);
--	NLA_PUT_MSECS(skb, NDTA_GC_INTERVAL, tbl->gc_interval);
--	NLA_PUT_U32(skb, NDTA_THRESH1, tbl->gc_thresh1);
--	NLA_PUT_U32(skb, NDTA_THRESH2, tbl->gc_thresh2);
--	NLA_PUT_U32(skb, NDTA_THRESH3, tbl->gc_thresh3);
--
-+	if (nla_put_string(skb, NDTA_NAME, tbl->id) ||
-+	    nla_put_msecs(skb, NDTA_GC_INTERVAL, tbl->gc_interval) ||
-+	    nla_put_u32(skb, NDTA_THRESH1, tbl->gc_thresh1) ||
-+	    nla_put_u32(skb, NDTA_THRESH2, tbl->gc_thresh2) ||
-+	    nla_put_u32(skb, NDTA_THRESH3, tbl->gc_thresh3))
-+		goto nla_put_failure;
- 	{
- 		unsigned long now = jiffies;
- 		unsigned int flush_delta = now - tbl->last_flush;
-@@ -1841,7 +1841,8 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
- 		ndc.ndtc_hash_mask = ((1 << nht->hash_shift) - 1);
- 		rcu_read_unlock_bh();
- 
--		NLA_PUT(skb, NDTA_CONFIG, sizeof(ndc), &ndc);
-+		if (nla_put(skb, NDTA_CONFIG, sizeof(ndc), &ndc))
+ 	option_list = nla_nest_start(skb, TEAM_ATTR_LIST_OPTION);
+ 	if (!option_list)
+ 		return -EMSGSIZE;
+@@ -1263,24 +1264,31 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
+ 		option_item = nla_nest_start(skb, TEAM_ATTR_ITEM_OPTION);
+ 		if (!option_item)
+ 			goto nla_put_failure;
+-		NLA_PUT_STRING(skb, TEAM_ATTR_OPTION_NAME, option->name);
++		if (nla_put_string(skb, TEAM_ATTR_OPTION_NAME, option->name))
 +			goto nla_put_failure;
- 	}
- 
- 	{
-@@ -1866,7 +1867,8 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
- 			ndst.ndts_forced_gc_runs	+= st->forced_gc_runs;
+ 		if (option->changed) {
+-			NLA_PUT_FLAG(skb, TEAM_ATTR_OPTION_CHANGED);
++			if (nla_put_flag(skb, TEAM_ATTR_OPTION_CHANGED))
++				goto nla_put_failure;
+ 			option->changed = false;
  		}
- 
--		NLA_PUT(skb, NDTA_STATS, sizeof(ndst), &ndst);
-+		if (nla_put(skb, NDTA_STATS, sizeof(ndst), &ndst))
+-		if (option->removed)
+-			NLA_PUT_FLAG(skb, TEAM_ATTR_OPTION_REMOVED);
++		if (option->removed &&
++		    nla_put_flag(skb, TEAM_ATTR_OPTION_REMOVED))
 +			goto nla_put_failure;
+ 		switch (option->type) {
+ 		case TEAM_OPTION_TYPE_U32:
+-			NLA_PUT_U8(skb, TEAM_ATTR_OPTION_TYPE, NLA_U32);
++			if (nla_put_u8(skb, TEAM_ATTR_OPTION_TYPE, NLA_U32))
++				goto nla_put_failure;
+ 			team_option_get(team, option, &arg);
+-			NLA_PUT_U32(skb, TEAM_ATTR_OPTION_DATA, arg);
++			if (nla_put_u32(skb, TEAM_ATTR_OPTION_DATA, arg))
++				goto nla_put_failure;
+ 			break;
+ 		case TEAM_OPTION_TYPE_STRING:
+-			NLA_PUT_U8(skb, TEAM_ATTR_OPTION_TYPE, NLA_STRING);
++			if (nla_put_u8(skb, TEAM_ATTR_OPTION_TYPE, NLA_STRING))
++				goto nla_put_failure;
+ 			team_option_get(team, option, &arg);
+-			NLA_PUT_STRING(skb, TEAM_ATTR_OPTION_DATA,
+-				       (char *) arg);
++			if (nla_put_string(skb, TEAM_ATTR_OPTION_DATA,
++					   (char *) arg))
++				goto nla_put_failure;
+ 			break;
+ 		default:
+ 			BUG();
+@@ -1420,7 +1428,8 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
+ 	if (IS_ERR(hdr))
+ 		return PTR_ERR(hdr);
+ 
+-	NLA_PUT_U32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex);
++	if (nla_put_u32(skb, TEAM_ATTR_TEAM_IFINDEX, team->dev->ifindex))
++		goto nla_put_failure;
+ 	port_list = nla_nest_start(skb, TEAM_ATTR_LIST_PORT);
+ 	if (!port_list)
+ 		return -EMSGSIZE;
+@@ -1434,17 +1443,20 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
+ 		port_item = nla_nest_start(skb, TEAM_ATTR_ITEM_PORT);
+ 		if (!port_item)
+ 			goto nla_put_failure;
+-		NLA_PUT_U32(skb, TEAM_ATTR_PORT_IFINDEX, port->dev->ifindex);
++		if (nla_put_u32(skb, TEAM_ATTR_PORT_IFINDEX, port->dev->ifindex))
++			goto nla_put_failure;
+ 		if (port->changed) {
+-			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_CHANGED);
++			if (nla_put_flag(skb, TEAM_ATTR_PORT_CHANGED))
++				goto nla_put_failure;
+ 			port->changed = false;
+ 		}
+-		if (port->removed)
+-			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_REMOVED);
+-		if (port->linkup)
+-			NLA_PUT_FLAG(skb, TEAM_ATTR_PORT_LINKUP);
+-		NLA_PUT_U32(skb, TEAM_ATTR_PORT_SPEED, port->speed);
+-		NLA_PUT_U8(skb, TEAM_ATTR_PORT_DUPLEX, port->duplex);
++		if ((port->removed &&
++		     nla_put_flag(skb, TEAM_ATTR_PORT_REMOVED)) ||
++		    (port->linkup &&
++		     nla_put_flag(skb, TEAM_ATTR_PORT_LINKUP)) ||
++		    nla_put_u32(skb, TEAM_ATTR_PORT_SPEED, port->speed) ||
++		    nla_put_u8(skb, TEAM_ATTR_PORT_DUPLEX, port->duplex))
++			goto nla_put_failure;
+ 		nla_nest_end(skb, port_item);
  	}
- 
- 	BUG_ON(tbl->parms.dev);
-@@ -2137,7 +2139,8 @@ static int neigh_fill_info(struct sk_buff *skb, struct neighbour *neigh,
- 	ndm->ndm_type	 = neigh->type;
- 	ndm->ndm_ifindex = neigh->dev->ifindex;
- 
--	NLA_PUT(skb, NDA_DST, neigh->tbl->key_len, neigh->primary_key);
-+	if (nla_put(skb, NDA_DST, neigh->tbl->key_len, neigh->primary_key))
-+		goto nla_put_failure;
- 
- 	read_lock_bh(&neigh->lock);
- 	ndm->ndm_state	 = neigh->nud_state;
-@@ -2157,8 +2160,9 @@ static int neigh_fill_info(struct sk_buff *skb, struct neighbour *neigh,
- 	ci.ndm_refcnt	 = atomic_read(&neigh->refcnt) - 1;
- 	read_unlock_bh(&neigh->lock);
- 
--	NLA_PUT_U32(skb, NDA_PROBES, atomic_read(&neigh->probes));
--	NLA_PUT(skb, NDA_CACHEINFO, sizeof(ci), &ci);
-+	if (nla_put_u32(skb, NDA_PROBES, atomic_read(&neigh->probes)) ||
-+	    nla_put(skb, NDA_CACHEINFO, sizeof(ci), &ci))
-+		goto nla_put_failure;
- 
- 	return nlmsg_end(skb, nlh);
- 
-@@ -2187,7 +2191,8 @@ static int pneigh_fill_info(struct sk_buff *skb, struct pneigh_entry *pn,
- 	ndm->ndm_ifindex = pn->dev->ifindex;
- 	ndm->ndm_state	 = NUD_NONE;
- 
--	NLA_PUT(skb, NDA_DST, tbl->key_len, pn->key);
-+	if (nla_put(skb, NDA_DST, tbl->key_len, pn->key))
-+		goto nla_put_failure;
- 
- 	return nlmsg_end(skb, nlh);
  
 -- 
 1.7.7.6
