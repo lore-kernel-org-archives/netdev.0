@@ -1,44 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: check the length of the data before dereferencing
- it
-Date: Mon, 02 Apr 2012 05:19:33 +0200
-Message-ID: <1333336773.2325.6531.camel@edumazet-glaptop>
-References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] usb/rtl8150 : Remove duplicated definitions
+Date: Sun, 01 Apr 2012 23:20:54 -0400 (EDT)
+Message-ID: <20120401.232054.815514796348460774.davem@davemloft.net>
+References: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: petkan@users.sourceforge.net, netdev@vger.kernel.org
+To: huajun.li.lee@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47132 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754153Ab2DBDVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:21:03 -0400
+In-Reply-To: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-02 at 11:10 +0800, Changli Gao wrote:
-> We should check the length of the data before dereferencing it when parsing
-> the TCP options.
+From: Huajun Li <huajun.li.lee@gmail.com>
+Date: Fri, 30 Mar 2012 18:11:05 +0800
+
+> There exist duplicated macro definitions in rtl8150.c, remove them.
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
->  net/ipv4/tcp_input.c |    2 ++
->  1 file changed, 2 insertions(+)
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index e886e2f..5099f08 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3845,6 +3845,8 @@ void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *o
->  			length--;
->  			continue;
->  		default:
-> +			if (length < 2)
-> +				return;
->  			opsize = *ptr++;
->  			if (opsize < 2) /* "silly options" */
->  				return;
+> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-
+Applied, thanks.
