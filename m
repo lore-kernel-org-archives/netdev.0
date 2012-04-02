@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 31/51] infiniband: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:21 -0400
-Message-ID: <1333335521-1348-32-git-send-email-davem@davemloft.net>
+Subject: [PATCH 33/51] enic: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:23 -0400
+Message-ID: <1333335521-1348-34-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46757 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46767 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754391Ab2DBC75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:57 -0400
+	with ESMTP id S1754460Ab2DBDAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:06 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,22 +21,41 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/infiniband/core/netlink.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c |   22 ++++++++++------------
+ 1 files changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
-index 396e293..e497dfb 100644
---- a/drivers/infiniband/core/netlink.c
-+++ b/drivers/infiniband/core/netlink.c
-@@ -125,7 +125,8 @@ int ibnl_put_attr(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	unsigned char *prev_tail;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 77b4e87..d7ac6c1 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1193,18 +1193,16 @@ static int enic_get_vf_port(struct net_device *netdev, int vf,
+ 	if (err)
+ 		return err;
  
- 	prev_tail = skb_tail_pointer(skb);
--	NLA_PUT(skb, type, len, data);
-+	if (nla_put(skb, type, len, data))
+-	NLA_PUT_U16(skb, IFLA_PORT_REQUEST, pp->request);
+-	NLA_PUT_U16(skb, IFLA_PORT_RESPONSE, response);
+-	if (pp->set & ENIC_SET_NAME)
+-		NLA_PUT(skb, IFLA_PORT_PROFILE, PORT_PROFILE_MAX,
+-			pp->name);
+-	if (pp->set & ENIC_SET_INSTANCE)
+-		NLA_PUT(skb, IFLA_PORT_INSTANCE_UUID, PORT_UUID_MAX,
+-			pp->instance_uuid);
+-	if (pp->set & ENIC_SET_HOST)
+-		NLA_PUT(skb, IFLA_PORT_HOST_UUID, PORT_UUID_MAX,
+-			pp->host_uuid);
+-
++	if (nla_put_u16(skb, IFLA_PORT_REQUEST, pp->request) ||
++	    nla_put_u16(skb, IFLA_PORT_RESPONSE, response) ||
++	    ((pp->set & ENIC_SET_NAME) &&
++	     nla_put(skb, IFLA_PORT_PROFILE, PORT_PROFILE_MAX, pp->name)) ||
++	    ((pp->set & ENIC_SET_INSTANCE) &&
++	     nla_put(skb, IFLA_PORT_INSTANCE_UUID, PORT_UUID_MAX,
++		     pp->instance_uuid)) ||
++	    ((pp->set & ENIC_SET_HOST) &&
++	     nla_put(skb, IFLA_PORT_HOST_UUID, PORT_UUID_MAX, pp->host_uuid)))
 +		goto nla_put_failure;
- 	nlh->nlmsg_len += skb_tail_pointer(skb) - prev_tail;
  	return 0;
  
+ nla_put_failure:
 -- 
 1.7.7.6
