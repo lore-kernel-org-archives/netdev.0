@@ -1,38 +1,30 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: check the length of the data before dereferencing it
-Date: Mon,  2 Apr 2012 11:10:50 +0800
-Message-ID: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rionet: fix page allocation order of rionet_active
+Date: Sun, 01 Apr 2012 23:17:58 -0400 (EDT)
+Message-ID: <20120401.231758.636936187534240046.davem@davemloft.net>
+References: <1333105306-2601-1-git-send-email-akinobu.mita@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mporter@kernel.crashing.org,
+	alexandre.bounine@idt.com
+To: akinobu.mita@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:36853 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754053Ab2DBDNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:13:31 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:47107 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754034Ab2DBDSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:18:14 -0400
+In-Reply-To: <1333105306-2601-1-git-send-email-akinobu.mita@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should check the length of the data before dereferencing it when parsing
-the TCP options.
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Date: Fri, 30 Mar 2012 20:01:46 +0900
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/ipv4/tcp_input.c |    2 ++
- 1 file changed, 2 insertions(+)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e886e2f..5099f08 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3845,6 +3845,8 @@ void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *o
- 			length--;
- 			continue;
- 		default:
-+			if (length < 2)
-+				return;
- 			opsize = *ptr++;
- 			if (opsize < 2) /* "silly options" */
- 				return;
+> rionet_active is allocated from the page allocator and the allocation
+> order is calculated on the assumption that the page size is 4KB, so it
+> wastes memory on more than 4K page systems.
+> 
+> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+
+Applied, thanks.
