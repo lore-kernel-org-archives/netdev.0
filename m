@@ -1,41 +1,34 @@
-From: Matt Turner <mattst88@gmail.com>
-Subject: Re: [PATCH V1 1/1] NET: add a bpf jit for Alpha
-Date: Mon, 2 Apr 2012 16:43:17 -0400
-Message-ID: <CAEdQ38FnZXLiPM4CtOhT5X9qj9jLt84x=NhcSSbGO1agSNc24w@mail.gmail.com>
-References: <4F75CA89.4010709@googlemail.com> <4F7A033D.4040901@googlemail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: new batman-adv maintainer
+Date: Mon, 02 Apr 2012 16:51:04 -0400 (EDT)
+Message-ID: <20120402.165104.996866668147124253.davem@davemloft.net>
+References: <201204021416.42200.lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Matt Evans <matt@ozlabs.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org,
-	rth@redhat.com
-To: Jan Seiffert <kaffeemonster@googlemail.com>
-Return-path: <linux-alpha-owner@vger.kernel.org>
-In-Reply-To: <4F7A033D.4040901@googlemail.com>
-Sender: linux-alpha-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <201204021416.42200.lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 2, 2012 at 3:51 PM, Jan Seiffert
-<kaffeemonster@googlemail.com> wrote:
-> The weekend was cold and windy, so i wrote a bpf jit for the Alpha architecture.
->
-> Signed-off-by: Jan Seiffert <kaffeemonster@googlemail.com>
->
-> ---
->
-> Patch is against net-next and needs Patch 1 of my "Fix negative offsets" Series
-> (to get bpf_internal_load_pointer_neg_helper)
->
-> The Problem is: i don't have any Alpha machine nor do i really have any clue about
-> the arch.
-> So this is only compile tested.
-> I could really need some Alpha asm guru to give some advice and review this.
-> Are the calls done right, are the asm load helper ok, all the conditional and
-> sign handling is a little brittle in my mind, etc.
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Mon, 2 Apr 2012 14:16:41 +0200
 
-Very cool. I'll try to find some time soon to test this.
+> I'd like to let you know that Antonio is going to replace me as linux kernel 
+> integrator. He has been active in our project for more than 2 years and 
+> closely follows the kernel development. Sven and I are still going to be 
+> around to help whenver there are questions or problems to discuss.
 
-Thanks a lot!
-Matt
+Ok, great.
