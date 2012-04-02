@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 03/51] pkt_sched: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:57:53 -0400
-Message-ID: <1333335521-1348-4-git-send-email-davem@davemloft.net>
+Subject: [PATCH 02/51] wireless: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:57:52 -0400
+Message-ID: <1333335521-1348-3-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46654 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46650 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994Ab2DBC7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:13 -0400
+	with ESMTP id S1754149Ab2DBC7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:10 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,1130 +21,1749 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/act_api.c     |    9 ++++++---
- net/sched/act_csum.c    |    6 ++++--
- net/sched/act_gact.c    |    9 ++++++---
- net/sched/act_ipt.c     |   14 ++++++++------
- net/sched/act_mirred.c  |    6 ++++--
- net/sched/act_nat.c     |    6 ++++--
- net/sched/act_pedit.c   |    6 ++++--
- net/sched/act_police.c  |   13 ++++++++-----
- net/sched/act_simple.c  |    8 +++++---
- net/sched/act_skbedit.c |   27 ++++++++++++++++-----------
- net/sched/cls_api.c     |    3 ++-
- net/sched/cls_basic.c   |    5 +++--
- net/sched/cls_flow.c    |   35 +++++++++++++++++++++--------------
- net/sched/cls_fw.c      |   15 +++++++++------
- net/sched/cls_route.c   |   16 ++++++++++------
- net/sched/cls_rsvp.h    |   16 ++++++++++------
- net/sched/cls_tcindex.c |   14 ++++++++------
- net/sched/cls_u32.c     |   40 ++++++++++++++++++++++++----------------
- net/sched/em_meta.c     |   19 ++++++++++++-------
- net/sched/ematch.c      |    6 ++++--
- net/sched/sch_api.c     |    9 ++++++---
- net/sched/sch_atm.c     |   21 +++++++++++++--------
- net/sched/sch_cbq.c     |   18 ++++++++++++------
- net/sched/sch_choke.c   |    5 +++--
- net/sched/sch_drr.c     |    3 ++-
- net/sched/sch_dsmark.c  |   18 +++++++++++-------
- net/sched/sch_fifo.c    |    3 ++-
- net/sched/sch_generic.c |    3 ++-
- net/sched/sch_gred.c    |    6 ++++--
- net/sched/sch_hfsc.c    |    6 ++++--
- net/sched/sch_htb.c     |    6 ++++--
- net/sched/sch_mqprio.c  |    3 ++-
- net/sched/sch_multiq.c  |    3 ++-
- net/sched/sch_netem.c   |   21 ++++++++++++++-------
- net/sched/sch_prio.c    |    3 ++-
- net/sched/sch_qfq.c     |    5 +++--
- net/sched/sch_red.c     |    5 +++--
- net/sched/sch_sfb.c     |    3 ++-
- net/sched/sch_sfq.c     |    3 ++-
- net/sched/sch_tbf.c     |    3 ++-
- 40 files changed, 263 insertions(+), 157 deletions(-)
+ net/wireless/nl80211.c   | 1204 +++++++++++++++++++++++++---------------------
+ net/wireless/wext-core.c |    3 +-
+ 2 files changed, 662 insertions(+), 545 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 93fdf13..5cfb160 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -127,7 +127,8 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
- 	nest = nla_nest_start(skb, a->order);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	NLA_PUT_STRING(skb, TCA_KIND, a->ops->kind);
-+	if (nla_put_string(skb, TCA_KIND, a->ops->kind))
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index e49da27..a4aab1d 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -356,20 +356,26 @@ static inline void *nl80211hdr_put(struct sk_buff *skb, u32 pid, u32 seq,
+ static int nl80211_msg_put_channel(struct sk_buff *msg,
+ 				   struct ieee80211_channel *chan)
+ {
+-	NLA_PUT_U32(msg, NL80211_FREQUENCY_ATTR_FREQ,
+-		    chan->center_freq);
++	if (nla_put_u32(msg, NL80211_FREQUENCY_ATTR_FREQ,
++			chan->center_freq))
 +		goto nla_put_failure;
- 	for (i = 0; i < (hinfo->hmask + 1); i++) {
- 		p = hinfo->htab[tcf_hash(i, hinfo->hmask)];
  
-@@ -139,7 +140,8 @@ static int tcf_del_walker(struct sk_buff *skb, struct tc_action *a,
- 			p = s_p;
- 		}
+-	if (chan->flags & IEEE80211_CHAN_DISABLED)
+-		NLA_PUT_FLAG(msg, NL80211_FREQUENCY_ATTR_DISABLED);
+-	if (chan->flags & IEEE80211_CHAN_PASSIVE_SCAN)
+-		NLA_PUT_FLAG(msg, NL80211_FREQUENCY_ATTR_PASSIVE_SCAN);
+-	if (chan->flags & IEEE80211_CHAN_NO_IBSS)
+-		NLA_PUT_FLAG(msg, NL80211_FREQUENCY_ATTR_NO_IBSS);
+-	if (chan->flags & IEEE80211_CHAN_RADAR)
+-		NLA_PUT_FLAG(msg, NL80211_FREQUENCY_ATTR_RADAR);
++	if ((chan->flags & IEEE80211_CHAN_DISABLED) &&
++	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_DISABLED))
++		goto nla_put_failure;
++	if ((chan->flags & IEEE80211_CHAN_PASSIVE_SCAN) &&
++	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_PASSIVE_SCAN))
++		goto nla_put_failure;
++	if ((chan->flags & IEEE80211_CHAN_NO_IBSS) &&
++	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_NO_IBSS))
++		goto nla_put_failure;
++	if ((chan->flags & IEEE80211_CHAN_RADAR) &&
++	    nla_put_flag(msg, NL80211_FREQUENCY_ATTR_RADAR))
++		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_FREQUENCY_ATTR_MAX_TX_POWER,
+-		    DBM_TO_MBM(chan->max_power));
++	if (nla_put_u32(msg, NL80211_FREQUENCY_ATTR_MAX_TX_POWER,
++			DBM_TO_MBM(chan->max_power)))
++		goto nla_put_failure;
+ 
+ 	return 0;
+ 
+@@ -621,8 +627,8 @@ static int nl80211_put_iftypes(struct sk_buff *msg, u32 attr, u16 ifmodes)
+ 
+ 	i = 0;
+ 	while (ifmodes) {
+-		if (ifmodes & 1)
+-			NLA_PUT_FLAG(msg, i);
++		if ((ifmodes & 1) && nla_put_flag(msg, i))
++			goto nla_put_failure;
+ 		ifmodes >>= 1;
+ 		i++;
  	}
--	NLA_PUT_U32(skb, TCA_FCNT, n_i);
-+	if (nla_put_u32(skb, TCA_FCNT, n_i))
-+		goto nla_put_failure;
- 	nla_nest_end(skb, nest);
+@@ -665,8 +671,9 @@ static int nl80211_put_iface_combinations(struct wiphy *wiphy,
+ 			nl_limit = nla_nest_start(msg, j + 1);
+ 			if (!nl_limit)
+ 				goto nla_put_failure;
+-			NLA_PUT_U32(msg, NL80211_IFACE_LIMIT_MAX,
+-				    c->limits[j].max);
++			if (nla_put_u32(msg, NL80211_IFACE_LIMIT_MAX,
++					c->limits[j].max))
++				goto nla_put_failure;
+ 			if (nl80211_put_iftypes(msg, NL80211_IFACE_LIMIT_TYPES,
+ 						c->limits[j].types))
+ 				goto nla_put_failure;
+@@ -675,13 +682,14 @@ static int nl80211_put_iface_combinations(struct wiphy *wiphy,
  
- 	return n_i;
-@@ -437,7 +439,8 @@ tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- 	if (a->ops == NULL || a->ops->dump == NULL)
- 		return err;
+ 		nla_nest_end(msg, nl_limits);
  
--	NLA_PUT_STRING(skb, TCA_KIND, a->ops->kind);
-+	if (nla_put_string(skb, TCA_KIND, a->ops->kind))
-+		goto nla_put_failure;
- 	if (tcf_action_copy_stats(skb, a, 0))
- 		goto nla_put_failure;
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index 453a734..882124c 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -550,11 +550,13 @@ static int tcf_csum_dump(struct sk_buff *skb,
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_CSUM_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_CSUM_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(p->tcf_tm.expires);
--	NLA_PUT(skb, TCA_CSUM_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_CSUM_TM, sizeof(t), &t))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- 
-diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index b77f5a0..f10fb82 100644
---- a/net/sched/act_gact.c
-+++ b/net/sched/act_gact.c
-@@ -162,7 +162,8 @@ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_GACT_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_GACT_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- #ifdef CONFIG_GACT_PROB
- 	if (gact->tcfg_ptype) {
- 		struct tc_gact_p p_opt = {
-@@ -171,13 +172,15 @@ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int
- 			.ptype   = gact->tcfg_ptype,
- 		};
- 
--		NLA_PUT(skb, TCA_GACT_PROB, sizeof(p_opt), &p_opt);
-+		if (nla_put(skb, TCA_GACT_PROB, sizeof(p_opt), &p_opt))
+-		if (c->beacon_int_infra_match)
+-			NLA_PUT_FLAG(msg,
+-				NL80211_IFACE_COMB_STA_AP_BI_MATCH);
+-		NLA_PUT_U32(msg, NL80211_IFACE_COMB_NUM_CHANNELS,
+-			    c->num_different_channels);
+-		NLA_PUT_U32(msg, NL80211_IFACE_COMB_MAXNUM,
+-			    c->max_interfaces);
++		if (c->beacon_int_infra_match &&
++		    nla_put_flag(msg, NL80211_IFACE_COMB_STA_AP_BI_MATCH))
 +			goto nla_put_failure;
++		if (nla_put_u32(msg, NL80211_IFACE_COMB_NUM_CHANNELS,
++				c->num_different_channels) ||
++		    nla_put_u32(msg, NL80211_IFACE_COMB_MAXNUM,
++				c->max_interfaces))
++			goto nla_put_failure;
+ 
+ 		nla_nest_end(msg, nl_combi);
  	}
- #endif
- 	t.install = jiffies_to_clock_t(jiffies - gact->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - gact->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(gact->tcf_tm.expires);
--	NLA_PUT(skb, TCA_GACT_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_GACT_TM, sizeof(t), &t))
-+		goto nla_put_failure;
- 	return skb->len;
+@@ -712,64 +720,74 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	if (!hdr)
+ 		return -1;
  
- nla_put_failure:
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 60f8f61..0beba0e 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -267,15 +267,17 @@ static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int
- 	c.refcnt = ipt->tcf_refcnt - ref;
- 	strcpy(t->u.user.name, ipt->tcfi_t->u.kernel.target->name);
- 
--	NLA_PUT(skb, TCA_IPT_TARG, ipt->tcfi_t->u.user.target_size, t);
--	NLA_PUT_U32(skb, TCA_IPT_INDEX, ipt->tcf_index);
--	NLA_PUT_U32(skb, TCA_IPT_HOOK, ipt->tcfi_hook);
--	NLA_PUT(skb, TCA_IPT_CNT, sizeof(struct tc_cnt), &c);
--	NLA_PUT_STRING(skb, TCA_IPT_TABLE, ipt->tcfi_tname);
-+	if (nla_put(skb, TCA_IPT_TARG, ipt->tcfi_t->u.user.target_size, t) ||
-+	    nla_put_u32(skb, TCA_IPT_INDEX, ipt->tcf_index) ||
-+	    nla_put_u32(skb, TCA_IPT_HOOK, ipt->tcfi_hook) ||
-+	    nla_put(skb, TCA_IPT_CNT, sizeof(struct tc_cnt), &c) ||
-+	    nla_put_string(skb, TCA_IPT_TABLE, ipt->tcfi_tname))
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, dev->wiphy_idx);
+-	NLA_PUT_STRING(msg, NL80211_ATTR_WIPHY_NAME, wiphy_name(&dev->wiphy));
+-
+-	NLA_PUT_U32(msg, NL80211_ATTR_GENERATION,
+-		    cfg80211_rdev_list_generation);
+-
+-	NLA_PUT_U8(msg, NL80211_ATTR_WIPHY_RETRY_SHORT,
+-		   dev->wiphy.retry_short);
+-	NLA_PUT_U8(msg, NL80211_ATTR_WIPHY_RETRY_LONG,
+-		   dev->wiphy.retry_long);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FRAG_THRESHOLD,
+-		    dev->wiphy.frag_threshold);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_RTS_THRESHOLD,
+-		    dev->wiphy.rts_threshold);
+-	NLA_PUT_U8(msg, NL80211_ATTR_WIPHY_COVERAGE_CLASS,
+-		    dev->wiphy.coverage_class);
+-	NLA_PUT_U8(msg, NL80211_ATTR_MAX_NUM_SCAN_SSIDS,
+-		   dev->wiphy.max_scan_ssids);
+-	NLA_PUT_U8(msg, NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
+-		   dev->wiphy.max_sched_scan_ssids);
+-	NLA_PUT_U16(msg, NL80211_ATTR_MAX_SCAN_IE_LEN,
+-		    dev->wiphy.max_scan_ie_len);
+-	NLA_PUT_U16(msg, NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN,
+-		    dev->wiphy.max_sched_scan_ie_len);
+-	NLA_PUT_U8(msg, NL80211_ATTR_MAX_MATCH_SETS,
+-		   dev->wiphy.max_match_sets);
+-
+-	if (dev->wiphy.flags & WIPHY_FLAG_IBSS_RSN)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_SUPPORT_IBSS_RSN);
+-	if (dev->wiphy.flags & WIPHY_FLAG_MESH_AUTH)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_SUPPORT_MESH_AUTH);
+-	if (dev->wiphy.flags & WIPHY_FLAG_AP_UAPSD)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_SUPPORT_AP_UAPSD);
+-	if (dev->wiphy.flags & WIPHY_FLAG_SUPPORTS_FW_ROAM)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_ROAM_SUPPORT);
+-	if (dev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_TDLS_SUPPORT);
+-	if (dev->wiphy.flags & WIPHY_FLAG_TDLS_EXTERNAL_SETUP)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_TDLS_EXTERNAL_SETUP);
+-
+-	NLA_PUT(msg, NL80211_ATTR_CIPHER_SUITES,
+-		sizeof(u32) * dev->wiphy.n_cipher_suites,
+-		dev->wiphy.cipher_suites);
+-
+-	NLA_PUT_U8(msg, NL80211_ATTR_MAX_NUM_PMKIDS,
+-		   dev->wiphy.max_num_pmkids);
+-
+-	if (dev->wiphy.flags & WIPHY_FLAG_CONTROL_PORT_PROTOCOL)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_CONTROL_PORT_ETHERTYPE);
+-
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX,
+-		    dev->wiphy.available_antennas_tx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX,
+-		    dev->wiphy.available_antennas_rx);
+-
+-	if (dev->wiphy.flags & WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD)
+-		NLA_PUT_U32(msg, NL80211_ATTR_PROBE_RESP_OFFLOAD,
+-			    dev->wiphy.probe_resp_offload);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, dev->wiphy_idx) ||
++	    nla_put_string(msg, NL80211_ATTR_WIPHY_NAME, wiphy_name(&dev->wiphy)) ||
++	    nla_put_u32(msg, NL80211_ATTR_GENERATION,
++			cfg80211_rdev_list_generation) ||
++	    nla_put_u8(msg, NL80211_ATTR_WIPHY_RETRY_SHORT,
++		       dev->wiphy.retry_short) ||
++	    nla_put_u8(msg, NL80211_ATTR_WIPHY_RETRY_LONG,
++		       dev->wiphy.retry_long) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_FRAG_THRESHOLD,
++			dev->wiphy.frag_threshold) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_RTS_THRESHOLD,
++			dev->wiphy.rts_threshold) ||
++	    nla_put_u8(msg, NL80211_ATTR_WIPHY_COVERAGE_CLASS,
++		       dev->wiphy.coverage_class) ||
++	    nla_put_u8(msg, NL80211_ATTR_MAX_NUM_SCAN_SSIDS,
++		       dev->wiphy.max_scan_ssids) ||
++	    nla_put_u8(msg, NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS,
++		       dev->wiphy.max_sched_scan_ssids) ||
++	    nla_put_u16(msg, NL80211_ATTR_MAX_SCAN_IE_LEN,
++			dev->wiphy.max_scan_ie_len) ||
++	    nla_put_u16(msg, NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN,
++			dev->wiphy.max_sched_scan_ie_len) ||
++	    nla_put_u8(msg, NL80211_ATTR_MAX_MATCH_SETS,
++		       dev->wiphy.max_match_sets))
 +		goto nla_put_failure;
- 	tm.install = jiffies_to_clock_t(jiffies - ipt->tcf_tm.install);
- 	tm.lastuse = jiffies_to_clock_t(jiffies - ipt->tcf_tm.lastuse);
- 	tm.expires = jiffies_to_clock_t(ipt->tcf_tm.expires);
--	NLA_PUT(skb, TCA_IPT_TM, sizeof (tm), &tm);
-+	if (nla_put(skb, TCA_IPT_TM, sizeof (tm), &tm))
++
++	if ((dev->wiphy.flags & WIPHY_FLAG_IBSS_RSN) &&
++	    nla_put_flag(msg, NL80211_ATTR_SUPPORT_IBSS_RSN))
 +		goto nla_put_failure;
- 	kfree(t);
- 	return skb->len;
- 
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index e051398..d583aea 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -227,11 +227,13 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
++	if ((dev->wiphy.flags & WIPHY_FLAG_MESH_AUTH) &&
++	    nla_put_flag(msg, NL80211_ATTR_SUPPORT_MESH_AUTH))
 +		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - m->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - m->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(m->tcf_tm.expires);
--	NLA_PUT(skb, TCA_MIRRED_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_MIRRED_TM, sizeof(t), &t))
++	if ((dev->wiphy.flags & WIPHY_FLAG_AP_UAPSD) &&
++	    nla_put_flag(msg, NL80211_ATTR_SUPPORT_AP_UAPSD))
 +		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index 001d1b3..b5d029e 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -284,11 +284,13 @@ static int tcf_nat_dump(struct sk_buff *skb, struct tc_action *a,
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_NAT_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_NAT_PARMS, sizeof(opt), &opt))
++	if ((dev->wiphy.flags & WIPHY_FLAG_SUPPORTS_FW_ROAM) &&
++	    nla_put_flag(msg, NL80211_ATTR_ROAM_SUPPORT))
 +		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(p->tcf_tm.expires);
--	NLA_PUT(skb, TCA_NAT_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_NAT_TM, sizeof(t), &t))
++	if ((dev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) &&
++	    nla_put_flag(msg, NL80211_ATTR_TDLS_SUPPORT))
 +		goto nla_put_failure;
- 
- 	return skb->len;
- 
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 10d3aed..26aa2f6 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -215,11 +215,13 @@ static int tcf_pedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	opt->refcnt = p->tcf_refcnt - ref;
- 	opt->bindcnt = p->tcf_bindcnt - bind;
- 
--	NLA_PUT(skb, TCA_PEDIT_PARMS, s, opt);
-+	if (nla_put(skb, TCA_PEDIT_PARMS, s, opt))
++	if ((dev->wiphy.flags & WIPHY_FLAG_TDLS_EXTERNAL_SETUP) &&
++	    nla_put_flag(msg, NL80211_ATTR_TDLS_EXTERNAL_SETUP))
 +		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(p->tcf_tm.expires);
--	NLA_PUT(skb, TCA_PEDIT_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_PEDIT_TM, sizeof(t), &t))
++
++	if (nla_put(msg, NL80211_ATTR_CIPHER_SUITES,
++		    sizeof(u32) * dev->wiphy.n_cipher_suites,
++		    dev->wiphy.cipher_suites))
 +		goto nla_put_failure;
- 	kfree(opt);
- 	return skb->len;
- 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 6fb3f5a..a9de232 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -356,11 +356,14 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- 		opt.rate = police->tcfp_R_tab->rate;
- 	if (police->tcfp_P_tab)
- 		opt.peakrate = police->tcfp_P_tab->rate;
--	NLA_PUT(skb, TCA_POLICE_TBF, sizeof(opt), &opt);
--	if (police->tcfp_result)
--		NLA_PUT_U32(skb, TCA_POLICE_RESULT, police->tcfp_result);
--	if (police->tcfp_ewma_rate)
--		NLA_PUT_U32(skb, TCA_POLICE_AVRATE, police->tcfp_ewma_rate);
-+	if (nla_put(skb, TCA_POLICE_TBF, sizeof(opt), &opt))
++
++	if (nla_put_u8(msg, NL80211_ATTR_MAX_NUM_PMKIDS,
++		       dev->wiphy.max_num_pmkids))
 +		goto nla_put_failure;
-+	if (police->tcfp_result &&
-+	    nla_put_u32(skb, TCA_POLICE_RESULT, police->tcfp_result))
++
++	if ((dev->wiphy.flags & WIPHY_FLAG_CONTROL_PORT_PROTOCOL) &&
++	    nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_ETHERTYPE))
 +		goto nla_put_failure;
-+	if (police->tcfp_ewma_rate &&
-+	    nla_put_u32(skb, TCA_POLICE_AVRATE, police->tcfp_ewma_rate))
++
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX,
++			dev->wiphy.available_antennas_tx) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX,
++			dev->wiphy.available_antennas_rx))
 +		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 73e0a3a..3922f2a 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -172,12 +172,14 @@ static int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_DEF_PARMS, sizeof(opt), &opt);
--	NLA_PUT_STRING(skb, TCA_DEF_DATA, d->tcfd_defdata);
-+	if (nla_put(skb, TCA_DEF_PARMS, sizeof(opt), &opt) ||
-+	    nla_put_string(skb, TCA_DEF_DATA, d->tcfd_defdata))
-+		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
--	NLA_PUT(skb, TCA_DEF_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_DEF_TM, sizeof(t), &t))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 35dbbe9..476e0fa 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -166,20 +166,25 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	};
- 	struct tcf_t t;
- 
--	NLA_PUT(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt);
--	if (d->flags & SKBEDIT_F_PRIORITY)
--		NLA_PUT(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
--			&d->priority);
--	if (d->flags & SKBEDIT_F_QUEUE_MAPPING)
--		NLA_PUT(skb, TCA_SKBEDIT_QUEUE_MAPPING,
--			sizeof(d->queue_mapping), &d->queue_mapping);
--	if (d->flags & SKBEDIT_F_MARK)
--		NLA_PUT(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
--			&d->mark);
-+	if (nla_put(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_PRIORITY) &&
-+	    nla_put(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
-+		    &d->priority))
-+		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_QUEUE_MAPPING) &&
-+	    nla_put(skb, TCA_SKBEDIT_QUEUE_MAPPING,
-+		    sizeof(d->queue_mapping), &d->queue_mapping))
-+		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_MARK) &&
-+	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
-+		    &d->mark))
-+		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
--	NLA_PUT(skb, TCA_SKBEDIT_TM, sizeof(t), &t);
-+	if (nla_put(skb, TCA_SKBEDIT_TM, sizeof(t), &t))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index a69d44f..f452f69 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -357,7 +357,8 @@ static int tcf_fill_node(struct sk_buff *skb, struct tcf_proto *tp,
- 	tcm->tcm_ifindex = qdisc_dev(tp->q)->ifindex;
- 	tcm->tcm_parent = tp->classid;
- 	tcm->tcm_info = TC_H_MAKE(tp->prio, tp->protocol);
--	NLA_PUT_STRING(skb, TCA_KIND, tp->ops->kind);
-+	if (nla_put_string(skb, TCA_KIND, tp->ops->kind))
-+		goto nla_put_failure;
- 	tcm->tcm_handle = fh;
- 	if (RTM_DELTFILTER != event) {
- 		tcm->tcm_handle = 0;
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index ea1f70b..590960a 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -257,8 +257,9 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	if (f->res.classid)
--		NLA_PUT_U32(skb, TCA_BASIC_CLASSID, f->res.classid);
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_BASIC_CLASSID, f->res.classid))
++
++	if ((dev->wiphy.flags & WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD) &&
++	    nla_put_u32(msg, NL80211_ATTR_PROBE_RESP_OFFLOAD,
++			dev->wiphy.probe_resp_offload))
 +		goto nla_put_failure;
  
- 	if (tcf_exts_dump(skb, &f->exts, &basic_ext_map) < 0 ||
- 	    tcf_em_tree_dump(skb, &f->ematches, TCA_BASIC_EMATCHES) < 0)
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 1d8bd0d..ccd08c8 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -572,25 +572,32 @@ static int flow_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	NLA_PUT_U32(skb, TCA_FLOW_KEYS, f->keymask);
--	NLA_PUT_U32(skb, TCA_FLOW_MODE, f->mode);
-+	if (nla_put_u32(skb, TCA_FLOW_KEYS, f->keymask) ||
-+	    nla_put_u32(skb, TCA_FLOW_MODE, f->mode))
-+		goto nla_put_failure;
- 
- 	if (f->mask != ~0 || f->xor != 0) {
--		NLA_PUT_U32(skb, TCA_FLOW_MASK, f->mask);
--		NLA_PUT_U32(skb, TCA_FLOW_XOR, f->xor);
-+		if (nla_put_u32(skb, TCA_FLOW_MASK, f->mask) ||
-+		    nla_put_u32(skb, TCA_FLOW_XOR, f->xor))
-+			goto nla_put_failure;
- 	}
--	if (f->rshift)
--		NLA_PUT_U32(skb, TCA_FLOW_RSHIFT, f->rshift);
--	if (f->addend)
--		NLA_PUT_U32(skb, TCA_FLOW_ADDEND, f->addend);
-+	if (f->rshift &&
-+	    nla_put_u32(skb, TCA_FLOW_RSHIFT, f->rshift))
-+		goto nla_put_failure;
-+	if (f->addend &&
-+	    nla_put_u32(skb, TCA_FLOW_ADDEND, f->addend))
-+		goto nla_put_failure;
- 
--	if (f->divisor)
--		NLA_PUT_U32(skb, TCA_FLOW_DIVISOR, f->divisor);
--	if (f->baseclass)
--		NLA_PUT_U32(skb, TCA_FLOW_BASECLASS, f->baseclass);
-+	if (f->divisor &&
-+	    nla_put_u32(skb, TCA_FLOW_DIVISOR, f->divisor))
-+		goto nla_put_failure;
-+	if (f->baseclass &&
-+	    nla_put_u32(skb, TCA_FLOW_BASECLASS, f->baseclass))
-+		goto nla_put_failure;
- 
--	if (f->perturb_period)
--		NLA_PUT_U32(skb, TCA_FLOW_PERTURB, f->perturb_period / HZ);
-+	if (f->perturb_period &&
-+	    nla_put_u32(skb, TCA_FLOW_PERTURB, f->perturb_period / HZ))
-+		goto nla_put_failure;
- 
- 	if (tcf_exts_dump(skb, &f->exts, &flow_ext_map) < 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 389af15..8384a47 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -346,14 +346,17 @@ static int fw_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	if (f->res.classid)
--		NLA_PUT_U32(skb, TCA_FW_CLASSID, f->res.classid);
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_FW_CLASSID, f->res.classid))
-+		goto nla_put_failure;
- #ifdef CONFIG_NET_CLS_IND
--	if (strlen(f->indev))
--		NLA_PUT_STRING(skb, TCA_FW_INDEV, f->indev);
-+	if (strlen(f->indev) &&
-+	    nla_put_string(skb, TCA_FW_INDEV, f->indev))
-+		goto nla_put_failure;
- #endif /* CONFIG_NET_CLS_IND */
--	if (head->mask != 0xFFFFFFFF)
--		NLA_PUT_U32(skb, TCA_FW_MASK, head->mask);
-+	if (head->mask != 0xFFFFFFFF &&
-+	    nla_put_u32(skb, TCA_FW_MASK, head->mask))
-+		goto nla_put_failure;
- 
- 	if (tcf_exts_dump(skb, &f->exts, &fw_ext_map) < 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 13ab66e..36fec42 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -571,17 +571,21 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
- 
- 	if (!(f->handle & 0x8000)) {
- 		id = f->id & 0xFF;
--		NLA_PUT_U32(skb, TCA_ROUTE4_TO, id);
-+		if (nla_put_u32(skb, TCA_ROUTE4_TO, id))
-+			goto nla_put_failure;
- 	}
- 	if (f->handle & 0x80000000) {
--		if ((f->handle >> 16) != 0xFFFF)
--			NLA_PUT_U32(skb, TCA_ROUTE4_IIF, f->iif);
-+		if ((f->handle >> 16) != 0xFFFF &&
-+		    nla_put_u32(skb, TCA_ROUTE4_IIF, f->iif))
-+			goto nla_put_failure;
- 	} else {
- 		id = f->id >> 16;
--		NLA_PUT_U32(skb, TCA_ROUTE4_FROM, id);
-+		if (nla_put_u32(skb, TCA_ROUTE4_FROM, id))
-+			goto nla_put_failure;
- 	}
--	if (f->res.classid)
--		NLA_PUT_U32(skb, TCA_ROUTE4_CLASSID, f->res.classid);
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_ROUTE4_CLASSID, f->res.classid))
-+		goto nla_put_failure;
- 
- 	if (tcf_exts_dump(skb, &f->exts, &route_ext_map) < 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index b014279..18ab93e 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -615,18 +615,22 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	NLA_PUT(skb, TCA_RSVP_DST, sizeof(s->dst), &s->dst);
-+	if (nla_put(skb, TCA_RSVP_DST, sizeof(s->dst), &s->dst))
-+		goto nla_put_failure;
- 	pinfo.dpi = s->dpi;
- 	pinfo.spi = f->spi;
- 	pinfo.protocol = s->protocol;
- 	pinfo.tunnelid = s->tunnelid;
- 	pinfo.tunnelhdr = f->tunnelhdr;
- 	pinfo.pad = 0;
--	NLA_PUT(skb, TCA_RSVP_PINFO, sizeof(pinfo), &pinfo);
--	if (f->res.classid)
--		NLA_PUT_U32(skb, TCA_RSVP_CLASSID, f->res.classid);
--	if (((f->handle >> 8) & 0xFF) != 16)
--		NLA_PUT(skb, TCA_RSVP_SRC, sizeof(f->src), f->src);
-+	if (nla_put(skb, TCA_RSVP_PINFO, sizeof(pinfo), &pinfo))
-+		goto nla_put_failure;
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_RSVP_CLASSID, f->res.classid))
-+		goto nla_put_failure;
-+	if (((f->handle >> 8) & 0xFF) != 16 &&
-+	    nla_put(skb, TCA_RSVP_SRC, sizeof(f->src), f->src))
-+		goto nla_put_failure;
- 
- 	if (tcf_exts_dump(skb, &f->exts, &rsvp_ext_map) < 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index dbe1992..fe29420 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -438,10 +438,11 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
- 
- 	if (!fh) {
- 		t->tcm_handle = ~0; /* whatever ... */
--		NLA_PUT_U32(skb, TCA_TCINDEX_HASH, p->hash);
--		NLA_PUT_U16(skb, TCA_TCINDEX_MASK, p->mask);
--		NLA_PUT_U32(skb, TCA_TCINDEX_SHIFT, p->shift);
--		NLA_PUT_U32(skb, TCA_TCINDEX_FALL_THROUGH, p->fall_through);
-+		if (nla_put_u32(skb, TCA_TCINDEX_HASH, p->hash) ||
-+		    nla_put_u16(skb, TCA_TCINDEX_MASK, p->mask) ||
-+		    nla_put_u32(skb, TCA_TCINDEX_SHIFT, p->shift) ||
-+		    nla_put_u32(skb, TCA_TCINDEX_FALL_THROUGH, p->fall_through))
-+			goto nla_put_failure;
- 		nla_nest_end(skb, nest);
- 	} else {
- 		if (p->perfect) {
-@@ -460,8 +461,9 @@ static int tcindex_dump(struct tcf_proto *tp, unsigned long fh,
- 			}
- 		}
- 		pr_debug("handle = %d\n", t->tcm_handle);
--		if (r->res.class)
--			NLA_PUT_U32(skb, TCA_TCINDEX_CLASSID, r->res.classid);
-+		if (r->res.class &&
-+		    nla_put_u32(skb, TCA_TCINDEX_CLASSID, r->res.classid))
-+			goto nla_put_failure;
- 
- 		if (tcf_exts_dump(skb, &r->exts, &tcindex_ext_map) < 0)
- 			goto nla_put_failure;
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 939b627..591b006 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -733,36 +733,44 @@ static int u32_dump(struct tcf_proto *tp, unsigned long fh,
- 		struct tc_u_hnode *ht = (struct tc_u_hnode *)fh;
- 		u32 divisor = ht->divisor + 1;
- 
--		NLA_PUT_U32(skb, TCA_U32_DIVISOR, divisor);
-+		if (nla_put_u32(skb, TCA_U32_DIVISOR, divisor))
-+			goto nla_put_failure;
- 	} else {
--		NLA_PUT(skb, TCA_U32_SEL,
--			sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
--			&n->sel);
-+		if (nla_put(skb, TCA_U32_SEL,
-+			    sizeof(n->sel) + n->sel.nkeys*sizeof(struct tc_u32_key),
-+			    &n->sel))
-+			goto nla_put_failure;
- 		if (n->ht_up) {
- 			u32 htid = n->handle & 0xFFFFF000;
--			NLA_PUT_U32(skb, TCA_U32_HASH, htid);
-+			if (nla_put_u32(skb, TCA_U32_HASH, htid))
+ 	if ((dev->wiphy.available_antennas_tx ||
+ 	     dev->wiphy.available_antennas_rx) && dev->ops->get_antenna) {
+@@ -777,8 +795,11 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 		int res;
+ 		res = dev->ops->get_antenna(&dev->wiphy, &tx_ant, &rx_ant);
+ 		if (!res) {
+-			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_ANTENNA_TX, tx_ant);
+-			NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_ANTENNA_RX, rx_ant);
++			if (nla_put_u32(msg, NL80211_ATTR_WIPHY_ANTENNA_TX,
++					tx_ant) ||
++			    nla_put_u32(msg, NL80211_ATTR_WIPHY_ANTENNA_RX,
++					rx_ant))
 +				goto nla_put_failure;
  		}
--		if (n->res.classid)
--			NLA_PUT_U32(skb, TCA_U32_CLASSID, n->res.classid);
--		if (n->ht_down)
--			NLA_PUT_U32(skb, TCA_U32_LINK, n->ht_down->handle);
-+		if (n->res.classid &&
-+		    nla_put_u32(skb, TCA_U32_CLASSID, n->res.classid))
-+			goto nla_put_failure;
-+		if (n->ht_down &&
-+		    nla_put_u32(skb, TCA_U32_LINK, n->ht_down->handle))
-+			goto nla_put_failure;
+ 	}
  
- #ifdef CONFIG_CLS_U32_MARK
--		if (n->mark.val || n->mark.mask)
--			NLA_PUT(skb, TCA_U32_MARK, sizeof(n->mark), &n->mark);
-+		if ((n->mark.val || n->mark.mask) &&
-+		    nla_put(skb, TCA_U32_MARK, sizeof(n->mark), &n->mark))
-+			goto nla_put_failure;
- #endif
- 
- 		if (tcf_exts_dump(skb, &n->exts, &u32_ext_map) < 0)
+@@ -799,17 +820,17 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
  			goto nla_put_failure;
  
- #ifdef CONFIG_NET_CLS_IND
--		if (strlen(n->indev))
--			NLA_PUT_STRING(skb, TCA_U32_INDEV, n->indev);
-+		if (strlen(n->indev) &&
-+		    nla_put_string(skb, TCA_U32_INDEV, n->indev))
+ 		/* add HT info */
+-		if (dev->wiphy.bands[band]->ht_cap.ht_supported) {
+-			NLA_PUT(msg, NL80211_BAND_ATTR_HT_MCS_SET,
+-				sizeof(dev->wiphy.bands[band]->ht_cap.mcs),
+-				&dev->wiphy.bands[band]->ht_cap.mcs);
+-			NLA_PUT_U16(msg, NL80211_BAND_ATTR_HT_CAPA,
+-				dev->wiphy.bands[band]->ht_cap.cap);
+-			NLA_PUT_U8(msg, NL80211_BAND_ATTR_HT_AMPDU_FACTOR,
+-				dev->wiphy.bands[band]->ht_cap.ampdu_factor);
+-			NLA_PUT_U8(msg, NL80211_BAND_ATTR_HT_AMPDU_DENSITY,
+-				dev->wiphy.bands[band]->ht_cap.ampdu_density);
+-		}
++		if (dev->wiphy.bands[band]->ht_cap.ht_supported &&
++		    (nla_put(msg, NL80211_BAND_ATTR_HT_MCS_SET,
++			     sizeof(dev->wiphy.bands[band]->ht_cap.mcs),
++			     &dev->wiphy.bands[band]->ht_cap.mcs) ||
++		     nla_put_u16(msg, NL80211_BAND_ATTR_HT_CAPA,
++				 dev->wiphy.bands[band]->ht_cap.cap) ||
++		     nla_put_u8(msg, NL80211_BAND_ATTR_HT_AMPDU_FACTOR,
++				dev->wiphy.bands[band]->ht_cap.ampdu_factor) ||
++		     nla_put_u8(msg, NL80211_BAND_ATTR_HT_AMPDU_DENSITY,
++				dev->wiphy.bands[band]->ht_cap.ampdu_density)))
 +			goto nla_put_failure;
- #endif
- #ifdef CONFIG_CLS_U32_PERF
--		NLA_PUT(skb, TCA_U32_PCNT,
--		sizeof(struct tc_u32_pcnt) + n->sel.nkeys*sizeof(u64),
--			n->pf);
-+		if (nla_put(skb, TCA_U32_PCNT,
-+			    sizeof(struct tc_u32_pcnt) + n->sel.nkeys*sizeof(u64),
-+			    n->pf))
+ 
+ 		/* add frequencies */
+ 		nl_freqs = nla_nest_start(msg, NL80211_BAND_ATTR_FREQS);
+@@ -842,11 +863,13 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 				goto nla_put_failure;
+ 
+ 			rate = &dev->wiphy.bands[band]->bitrates[i];
+-			NLA_PUT_U32(msg, NL80211_BITRATE_ATTR_RATE,
+-				    rate->bitrate);
+-			if (rate->flags & IEEE80211_RATE_SHORT_PREAMBLE)
+-				NLA_PUT_FLAG(msg,
+-					NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE);
++			if (nla_put_u32(msg, NL80211_BITRATE_ATTR_RATE,
++					rate->bitrate))
++				goto nla_put_failure;
++			if ((rate->flags & IEEE80211_RATE_SHORT_PREAMBLE) &&
++			    nla_put_flag(msg,
++					 NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE))
++				goto nla_put_failure;
+ 
+ 			nla_nest_end(msg, nl_rate);
+ 		}
+@@ -866,7 +889,8 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	 do {							\
+ 		if (dev->ops->op) {				\
+ 			i++;					\
+-			NLA_PUT_U32(msg, i, NL80211_CMD_ ## n);	\
++			if (nla_put_u32(msg, i, NL80211_CMD_ ## n)) \
++				goto nla_put_failure;		\
+ 		}						\
+ 	} while (0)
+ 
+@@ -894,7 +918,8 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	CMD(mgmt_tx_cancel_wait, FRAME_WAIT_CANCEL);
+ 	if (dev->wiphy.flags & WIPHY_FLAG_NETNS_OK) {
+ 		i++;
+-		NLA_PUT_U32(msg, i, NL80211_CMD_SET_WIPHY_NETNS);
++		if (nla_put_u32(msg, i, NL80211_CMD_SET_WIPHY_NETNS))
 +			goto nla_put_failure;
- #endif
+ 	}
+ 	CMD(set_channel, SET_CHANNEL);
+ 	CMD(set_wds_peer, SET_WDS_PEER);
+@@ -908,7 +933,8 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	CMD(set_noack_map, SET_NOACK_MAP);
+ 	if (dev->wiphy.flags & WIPHY_FLAG_REPORTS_OBSS) {
+ 		i++;
+-		NLA_PUT_U32(msg, i, NL80211_CMD_REGISTER_BEACONS);
++		if (nla_put_u32(msg, i, NL80211_CMD_REGISTER_BEACONS))
++			goto nla_put_failure;
  	}
  
-diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index 1363bf1..4790c69 100644
---- a/net/sched/em_meta.c
-+++ b/net/sched/em_meta.c
-@@ -585,8 +585,9 @@ static void meta_var_apply_extras(struct meta_value *v,
+ #ifdef CONFIG_NL80211_TESTMODE
+@@ -919,23 +945,27 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
  
- static int meta_var_dump(struct sk_buff *skb, struct meta_value *v, int tlv)
- {
--	if (v->val && v->len)
--		NLA_PUT(skb, tlv, v->len, (void *) v->val);
-+	if (v->val && v->len &&
-+	    nla_put(skb, tlv, v->len, (void *) v->val))
-+		goto nla_put_failure;
- 	return 0;
- 
- nla_put_failure:
-@@ -636,10 +637,13 @@ static void meta_int_apply_extras(struct meta_value *v,
- 
- static int meta_int_dump(struct sk_buff *skb, struct meta_value *v, int tlv)
- {
--	if (v->len == sizeof(unsigned long))
--		NLA_PUT(skb, tlv, sizeof(unsigned long), &v->val);
--	else if (v->len == sizeof(u32))
--		NLA_PUT_U32(skb, tlv, v->val);
-+	if (v->len == sizeof(unsigned long)) {
-+		if (nla_put(skb, tlv, sizeof(unsigned long), &v->val))
+ 	if (dev->ops->connect || dev->ops->auth) {
+ 		i++;
+-		NLA_PUT_U32(msg, i, NL80211_CMD_CONNECT);
++		if (nla_put_u32(msg, i, NL80211_CMD_CONNECT))
 +			goto nla_put_failure;
-+	} else if (v->len == sizeof(u32)) {
-+		if (nla_put_u32(skb, tlv, v->val))
+ 	}
+ 
+ 	if (dev->ops->disconnect || dev->ops->deauth) {
+ 		i++;
+-		NLA_PUT_U32(msg, i, NL80211_CMD_DISCONNECT);
++		if (nla_put_u32(msg, i, NL80211_CMD_DISCONNECT))
++			goto nla_put_failure;
+ 	}
+ 
+ 	nla_nest_end(msg, nl_cmds);
+ 
+ 	if (dev->ops->remain_on_channel &&
+-	    dev->wiphy.flags & WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL)
+-		NLA_PUT_U32(msg, NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION,
+-			    dev->wiphy.max_remain_on_channel_duration);
++	    (dev->wiphy.flags & WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL) &&
++	    nla_put_u32(msg, NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION,
++			dev->wiphy.max_remain_on_channel_duration))
++		goto nla_put_failure;
+ 
+-	if (dev->wiphy.flags & WIPHY_FLAG_OFFCHAN_TX)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_OFFCHANNEL_TX_OK);
++	if ((dev->wiphy.flags & WIPHY_FLAG_OFFCHAN_TX) &&
++	    nla_put_flag(msg, NL80211_ATTR_OFFCHANNEL_TX_OK))
++		goto nla_put_failure;
+ 
+ 	if (mgmt_stypes) {
+ 		u16 stypes;
+@@ -953,9 +983,10 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 			i = 0;
+ 			stypes = mgmt_stypes[ift].tx;
+ 			while (stypes) {
+-				if (stypes & 1)
+-					NLA_PUT_U16(msg, NL80211_ATTR_FRAME_TYPE,
+-						    (i << 4) | IEEE80211_FTYPE_MGMT);
++				if ((stypes & 1) &&
++				    nla_put_u16(msg, NL80211_ATTR_FRAME_TYPE,
++						(i << 4) | IEEE80211_FTYPE_MGMT))
++					goto nla_put_failure;
+ 				stypes >>= 1;
+ 				i++;
+ 			}
+@@ -975,9 +1006,10 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 			i = 0;
+ 			stypes = mgmt_stypes[ift].rx;
+ 			while (stypes) {
+-				if (stypes & 1)
+-					NLA_PUT_U16(msg, NL80211_ATTR_FRAME_TYPE,
+-						    (i << 4) | IEEE80211_FTYPE_MGMT);
++				if ((stypes & 1) &&
++				    nla_put_u16(msg, NL80211_ATTR_FRAME_TYPE,
++						(i << 4) | IEEE80211_FTYPE_MGMT))
++					goto nla_put_failure;
+ 				stypes >>= 1;
+ 				i++;
+ 			}
+@@ -994,22 +1026,23 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 		if (!nl_wowlan)
+ 			goto nla_put_failure;
+ 
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_ANY)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_ANY);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_DISCONNECT)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_DISCONNECT);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_MAGIC_PKT)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_MAGIC_PKT);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_SUPPORTS_GTK_REKEY)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_SUPPORTED);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_GTK_REKEY_FAILURE)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_EAP_IDENTITY_REQ)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_4WAY_HANDSHAKE)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE);
+-		if (dev->wiphy.wowlan.flags & WIPHY_WOWLAN_RFKILL_RELEASE)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_RFKILL_RELEASE);
++		if (((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_ANY) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_ANY)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_DISCONNECT) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_DISCONNECT)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_MAGIC_PKT) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_MAGIC_PKT)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_SUPPORTS_GTK_REKEY) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_SUPPORTED)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_GTK_REKEY_FAILURE) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_EAP_IDENTITY_REQ) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_4WAY_HANDSHAKE) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE)) ||
++		    ((dev->wiphy.wowlan.flags & WIPHY_WOWLAN_RFKILL_RELEASE) &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_RFKILL_RELEASE)))
++		    goto nla_put_failure;
+ 		if (dev->wiphy.wowlan.n_patterns) {
+ 			struct nl80211_wowlan_pattern_support pat = {
+ 				.max_patterns = dev->wiphy.wowlan.n_patterns,
+@@ -1018,8 +1051,9 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 				.max_pattern_len =
+ 					dev->wiphy.wowlan.pattern_max_len,
+ 			};
+-			NLA_PUT(msg, NL80211_WOWLAN_TRIG_PKT_PATTERN,
+-				sizeof(pat), &pat);
++			if (nla_put(msg, NL80211_WOWLAN_TRIG_PKT_PATTERN,
++				    sizeof(pat), &pat))
++				goto nla_put_failure;
+ 		}
+ 
+ 		nla_nest_end(msg, nl_wowlan);
+@@ -1032,16 +1066,20 @@ static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	if (nl80211_put_iface_combinations(&dev->wiphy, msg))
+ 		goto nla_put_failure;
+ 
+-	if (dev->wiphy.flags & WIPHY_FLAG_HAVE_AP_SME)
+-		NLA_PUT_U32(msg, NL80211_ATTR_DEVICE_AP_SME,
+-			    dev->wiphy.ap_sme_capa);
++	if ((dev->wiphy.flags & WIPHY_FLAG_HAVE_AP_SME) &&
++	    nla_put_u32(msg, NL80211_ATTR_DEVICE_AP_SME,
++			dev->wiphy.ap_sme_capa))
++		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_FEATURE_FLAGS, dev->wiphy.features);
++	if (nla_put_u32(msg, NL80211_ATTR_FEATURE_FLAGS,
++			dev->wiphy.features))
++		goto nla_put_failure;
+ 
+-	if (dev->wiphy.ht_capa_mod_mask)
+-		NLA_PUT(msg, NL80211_ATTR_HT_CAPABILITY_MASK,
+-			sizeof(*dev->wiphy.ht_capa_mod_mask),
+-			dev->wiphy.ht_capa_mod_mask);
++	if (dev->wiphy.ht_capa_mod_mask &&
++	    nla_put(msg, NL80211_ATTR_HT_CAPABILITY_MASK,
++		    sizeof(*dev->wiphy.ht_capa_mod_mask),
++		    dev->wiphy.ht_capa_mod_mask))
++		goto nla_put_failure;
+ 
+ 	return genlmsg_end(msg, hdr);
+ 
+@@ -1484,14 +1522,15 @@ static int nl80211_send_iface(struct sk_buff *msg, u32 pid, u32 seq, int flags,
+ 	if (!hdr)
+ 		return -1;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, dev->name);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, dev->ieee80211_ptr->iftype);
+-
+-	NLA_PUT_U32(msg, NL80211_ATTR_GENERATION,
+-		    rdev->devlist_generation ^
+-			(cfg80211_rdev_list_generation << 2));
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_string(msg, NL80211_ATTR_IFNAME, dev->name) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFTYPE,
++			dev->ieee80211_ptr->iftype) ||
++	    nla_put_u32(msg, NL80211_ATTR_GENERATION,
++			rdev->devlist_generation ^
++			(cfg80211_rdev_list_generation << 2)))
++		goto nla_put_failure;
+ 
+ 	return genlmsg_end(msg, hdr);
+ 
+@@ -1789,35 +1828,34 @@ static void get_key_callback(void *c, struct key_params *params)
+ 	struct nlattr *key;
+ 	struct get_key_cookie *cookie = c;
+ 
+-	if (params->key)
+-		NLA_PUT(cookie->msg, NL80211_ATTR_KEY_DATA,
+-			params->key_len, params->key);
+-
+-	if (params->seq)
+-		NLA_PUT(cookie->msg, NL80211_ATTR_KEY_SEQ,
+-			params->seq_len, params->seq);
+-
+-	if (params->cipher)
+-		NLA_PUT_U32(cookie->msg, NL80211_ATTR_KEY_CIPHER,
+-			    params->cipher);
++	if ((params->key &&
++	     nla_put(cookie->msg, NL80211_ATTR_KEY_DATA,
++		     params->key_len, params->key)) ||
++	    (params->seq &&
++	     nla_put(cookie->msg, NL80211_ATTR_KEY_SEQ,
++		     params->seq_len, params->seq)) ||
++	    (params->cipher &&
++	     nla_put_u32(cookie->msg, NL80211_ATTR_KEY_CIPHER,
++			 params->cipher)))
++		goto nla_put_failure;
+ 
+ 	key = nla_nest_start(cookie->msg, NL80211_ATTR_KEY);
+ 	if (!key)
+ 		goto nla_put_failure;
+ 
+-	if (params->key)
+-		NLA_PUT(cookie->msg, NL80211_KEY_DATA,
+-			params->key_len, params->key);
+-
+-	if (params->seq)
+-		NLA_PUT(cookie->msg, NL80211_KEY_SEQ,
+-			params->seq_len, params->seq);
+-
+-	if (params->cipher)
+-		NLA_PUT_U32(cookie->msg, NL80211_KEY_CIPHER,
+-			    params->cipher);
++	if ((params->key &&
++	     nla_put(cookie->msg, NL80211_KEY_DATA,
++		     params->key_len, params->key)) ||
++	    (params->seq &&
++	     nla_put(cookie->msg, NL80211_KEY_SEQ,
++		     params->seq_len, params->seq)) ||
++	    (params->cipher &&
++	     nla_put_u32(cookie->msg, NL80211_KEY_CIPHER,
++			 params->cipher)))
++		goto nla_put_failure;
+ 
+-	NLA_PUT_U8(cookie->msg, NL80211_ATTR_KEY_IDX, cookie->idx);
++	if (nla_put_u8(cookie->msg, NL80211_ATTR_KEY_IDX, cookie->idx))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(cookie->msg, key);
+ 
+@@ -1875,10 +1913,12 @@ static int nl80211_get_key(struct sk_buff *skb, struct genl_info *info)
+ 	cookie.msg = msg;
+ 	cookie.idx = key_idx;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT_U8(msg, NL80211_ATTR_KEY_IDX, key_idx);
+-	if (mac_addr)
+-		NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put_u8(msg, NL80211_ATTR_KEY_IDX, key_idx))
++		goto nla_put_failure;
++	if (mac_addr &&
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr))
++		goto nla_put_failure;
+ 
+ 	if (pairwise && mac_addr &&
+ 	    !(rdev->wiphy.flags & WIPHY_FLAG_IBSS_RSN))
+@@ -2368,15 +2408,15 @@ static bool nl80211_put_sta_rate(struct sk_buff *msg, struct rate_info *info,
+ 
+ 	/* cfg80211_calculate_bitrate will return 0 for mcs >= 32 */
+ 	bitrate = cfg80211_calculate_bitrate(info);
+-	if (bitrate > 0)
+-		NLA_PUT_U16(msg, NL80211_RATE_INFO_BITRATE, bitrate);
+-
+-	if (info->flags & RATE_INFO_FLAGS_MCS)
+-		NLA_PUT_U8(msg, NL80211_RATE_INFO_MCS, info->mcs);
+-	if (info->flags & RATE_INFO_FLAGS_40_MHZ_WIDTH)
+-		NLA_PUT_FLAG(msg, NL80211_RATE_INFO_40_MHZ_WIDTH);
+-	if (info->flags & RATE_INFO_FLAGS_SHORT_GI)
+-		NLA_PUT_FLAG(msg, NL80211_RATE_INFO_SHORT_GI);
++	if ((bitrate > 0 &&
++	     nla_put_u16(msg, NL80211_RATE_INFO_BITRATE, bitrate)) ||
++	    ((info->flags & RATE_INFO_FLAGS_MCS) &&
++	     nla_put_u8(msg, NL80211_RATE_INFO_MCS, info->mcs)) ||
++	    ((info->flags & RATE_INFO_FLAGS_40_MHZ_WIDTH) &&
++	     nla_put_flag(msg, NL80211_RATE_INFO_40_MHZ_WIDTH)) ||
++	    ((info->flags & RATE_INFO_FLAGS_SHORT_GI) &&
++	     nla_put_flag(msg, NL80211_RATE_INFO_SHORT_GI)))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, rate);
+ 	return true;
+@@ -2398,43 +2438,50 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
+ 	if (!hdr)
+ 		return -1;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr);
+-
+-	NLA_PUT_U32(msg, NL80211_ATTR_GENERATION, sinfo->generation);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr) ||
++	    nla_put_u32(msg, NL80211_ATTR_GENERATION, sinfo->generation))
++		goto nla_put_failure;
+ 
+ 	sinfoattr = nla_nest_start(msg, NL80211_ATTR_STA_INFO);
+ 	if (!sinfoattr)
+ 		goto nla_put_failure;
+-	if (sinfo->filled & STATION_INFO_CONNECTED_TIME)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_CONNECTED_TIME,
+-			    sinfo->connected_time);
+-	if (sinfo->filled & STATION_INFO_INACTIVE_TIME)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_INACTIVE_TIME,
+-			    sinfo->inactive_time);
+-	if (sinfo->filled & STATION_INFO_RX_BYTES)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_RX_BYTES,
+-			    sinfo->rx_bytes);
+-	if (sinfo->filled & STATION_INFO_TX_BYTES)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_TX_BYTES,
+-			    sinfo->tx_bytes);
+-	if (sinfo->filled & STATION_INFO_LLID)
+-		NLA_PUT_U16(msg, NL80211_STA_INFO_LLID,
+-			    sinfo->llid);
+-	if (sinfo->filled & STATION_INFO_PLID)
+-		NLA_PUT_U16(msg, NL80211_STA_INFO_PLID,
+-			    sinfo->plid);
+-	if (sinfo->filled & STATION_INFO_PLINK_STATE)
+-		NLA_PUT_U8(msg, NL80211_STA_INFO_PLINK_STATE,
+-			    sinfo->plink_state);
++	if ((sinfo->filled & STATION_INFO_CONNECTED_TIME) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_CONNECTED_TIME,
++			sinfo->connected_time))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_INACTIVE_TIME) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_INACTIVE_TIME,
++			sinfo->inactive_time))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_RX_BYTES) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_RX_BYTES,
++			sinfo->rx_bytes))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_TX_BYTES) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_TX_BYTES,
++			sinfo->tx_bytes))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_LLID) &&
++	    nla_put_u16(msg, NL80211_STA_INFO_LLID, sinfo->llid))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_PLID) &&
++	    nla_put_u16(msg, NL80211_STA_INFO_PLID, sinfo->plid))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_PLINK_STATE) &&
++	    nla_put_u8(msg, NL80211_STA_INFO_PLINK_STATE,
++		       sinfo->plink_state))
++		goto nla_put_failure;
+ 	switch (rdev->wiphy.signal_type) {
+ 	case CFG80211_SIGNAL_TYPE_MBM:
+-		if (sinfo->filled & STATION_INFO_SIGNAL)
+-			NLA_PUT_U8(msg, NL80211_STA_INFO_SIGNAL,
+-				   sinfo->signal);
+-		if (sinfo->filled & STATION_INFO_SIGNAL_AVG)
+-			NLA_PUT_U8(msg, NL80211_STA_INFO_SIGNAL_AVG,
+-				   sinfo->signal_avg);
++		if ((sinfo->filled & STATION_INFO_SIGNAL) &&
++		    nla_put_u8(msg, NL80211_STA_INFO_SIGNAL,
++			       sinfo->signal))
++			goto nla_put_failure;
++		if ((sinfo->filled & STATION_INFO_SIGNAL_AVG) &&
++		    nla_put_u8(msg, NL80211_STA_INFO_SIGNAL_AVG,
++			       sinfo->signal_avg))
++			goto nla_put_failure;
+ 		break;
+ 	default:
+ 		break;
+@@ -2449,49 +2496,56 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
+ 					  NL80211_STA_INFO_RX_BITRATE))
+ 			goto nla_put_failure;
+ 	}
+-	if (sinfo->filled & STATION_INFO_RX_PACKETS)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_RX_PACKETS,
+-			    sinfo->rx_packets);
+-	if (sinfo->filled & STATION_INFO_TX_PACKETS)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_TX_PACKETS,
+-			    sinfo->tx_packets);
+-	if (sinfo->filled & STATION_INFO_TX_RETRIES)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_TX_RETRIES,
+-			    sinfo->tx_retries);
+-	if (sinfo->filled & STATION_INFO_TX_FAILED)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_TX_FAILED,
+-			    sinfo->tx_failed);
+-	if (sinfo->filled & STATION_INFO_BEACON_LOSS_COUNT)
+-		NLA_PUT_U32(msg, NL80211_STA_INFO_BEACON_LOSS,
+-			    sinfo->beacon_loss_count);
++	if ((sinfo->filled & STATION_INFO_RX_PACKETS) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_RX_PACKETS,
++			sinfo->rx_packets))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_TX_PACKETS) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_TX_PACKETS,
++			sinfo->tx_packets))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_TX_RETRIES) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_TX_RETRIES,
++			sinfo->tx_retries))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_TX_FAILED) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_TX_FAILED,
++			sinfo->tx_failed))
++		goto nla_put_failure;
++	if ((sinfo->filled & STATION_INFO_BEACON_LOSS_COUNT) &&
++	    nla_put_u32(msg, NL80211_STA_INFO_BEACON_LOSS,
++			sinfo->beacon_loss_count))
++		goto nla_put_failure;
+ 	if (sinfo->filled & STATION_INFO_BSS_PARAM) {
+ 		bss_param = nla_nest_start(msg, NL80211_STA_INFO_BSS_PARAM);
+ 		if (!bss_param)
+ 			goto nla_put_failure;
+ 
+-		if (sinfo->bss_param.flags & BSS_PARAM_FLAGS_CTS_PROT)
+-			NLA_PUT_FLAG(msg, NL80211_STA_BSS_PARAM_CTS_PROT);
+-		if (sinfo->bss_param.flags & BSS_PARAM_FLAGS_SHORT_PREAMBLE)
+-			NLA_PUT_FLAG(msg, NL80211_STA_BSS_PARAM_SHORT_PREAMBLE);
+-		if (sinfo->bss_param.flags & BSS_PARAM_FLAGS_SHORT_SLOT_TIME)
+-			NLA_PUT_FLAG(msg,
+-				     NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME);
+-		NLA_PUT_U8(msg, NL80211_STA_BSS_PARAM_DTIM_PERIOD,
+-			   sinfo->bss_param.dtim_period);
+-		NLA_PUT_U16(msg, NL80211_STA_BSS_PARAM_BEACON_INTERVAL,
+-			    sinfo->bss_param.beacon_interval);
++		if (((sinfo->bss_param.flags & BSS_PARAM_FLAGS_CTS_PROT) &&
++		     nla_put_flag(msg, NL80211_STA_BSS_PARAM_CTS_PROT)) ||
++		    ((sinfo->bss_param.flags & BSS_PARAM_FLAGS_SHORT_PREAMBLE) &&
++		     nla_put_flag(msg, NL80211_STA_BSS_PARAM_SHORT_PREAMBLE)) ||
++		    ((sinfo->bss_param.flags & BSS_PARAM_FLAGS_SHORT_SLOT_TIME) &&
++		     nla_put_flag(msg, NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME)) ||
++		    nla_put_u8(msg, NL80211_STA_BSS_PARAM_DTIM_PERIOD,
++			       sinfo->bss_param.dtim_period) ||
++		    nla_put_u16(msg, NL80211_STA_BSS_PARAM_BEACON_INTERVAL,
++				sinfo->bss_param.beacon_interval))
++			goto nla_put_failure;
+ 
+ 		nla_nest_end(msg, bss_param);
+ 	}
+-	if (sinfo->filled & STATION_INFO_STA_FLAGS)
+-		NLA_PUT(msg, NL80211_STA_INFO_STA_FLAGS,
+-			sizeof(struct nl80211_sta_flag_update),
+-			&sinfo->sta_flags);
++	if ((sinfo->filled & STATION_INFO_STA_FLAGS) &&
++	    nla_put(msg, NL80211_STA_INFO_STA_FLAGS,
++		    sizeof(struct nl80211_sta_flag_update),
++		    &sinfo->sta_flags))
++		goto nla_put_failure;
+ 	nla_nest_end(msg, sinfoattr);
+ 
+-	if (sinfo->filled & STATION_INFO_ASSOC_REQ_IES)
+-		NLA_PUT(msg, NL80211_ATTR_IE, sinfo->assoc_req_ies_len,
+-			sinfo->assoc_req_ies);
++	if ((sinfo->filled & STATION_INFO_ASSOC_REQ_IES) &&
++	    nla_put(msg, NL80211_ATTR_IE, sinfo->assoc_req_ies_len,
++		    sinfo->assoc_req_ies))
++		goto nla_put_failure;
+ 
+ 	return genlmsg_end(msg, hdr);
+ 
+@@ -2913,36 +2967,37 @@ static int nl80211_send_mpath(struct sk_buff *msg, u32 pid, u32 seq,
+ 	if (!hdr)
+ 		return -1;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, dst);
+-	NLA_PUT(msg, NL80211_ATTR_MPATH_NEXT_HOP, ETH_ALEN, next_hop);
+-
+-	NLA_PUT_U32(msg, NL80211_ATTR_GENERATION, pinfo->generation);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, dst) ||
++	    nla_put(msg, NL80211_ATTR_MPATH_NEXT_HOP, ETH_ALEN, next_hop) ||
++	    nla_put_u32(msg, NL80211_ATTR_GENERATION, pinfo->generation))
++		goto nla_put_failure;
+ 
+ 	pinfoattr = nla_nest_start(msg, NL80211_ATTR_MPATH_INFO);
+ 	if (!pinfoattr)
+ 		goto nla_put_failure;
+-	if (pinfo->filled & MPATH_INFO_FRAME_QLEN)
+-		NLA_PUT_U32(msg, NL80211_MPATH_INFO_FRAME_QLEN,
+-			    pinfo->frame_qlen);
+-	if (pinfo->filled & MPATH_INFO_SN)
+-		NLA_PUT_U32(msg, NL80211_MPATH_INFO_SN,
+-			    pinfo->sn);
+-	if (pinfo->filled & MPATH_INFO_METRIC)
+-		NLA_PUT_U32(msg, NL80211_MPATH_INFO_METRIC,
+-			    pinfo->metric);
+-	if (pinfo->filled & MPATH_INFO_EXPTIME)
+-		NLA_PUT_U32(msg, NL80211_MPATH_INFO_EXPTIME,
+-			    pinfo->exptime);
+-	if (pinfo->filled & MPATH_INFO_FLAGS)
+-		NLA_PUT_U8(msg, NL80211_MPATH_INFO_FLAGS,
+-			    pinfo->flags);
+-	if (pinfo->filled & MPATH_INFO_DISCOVERY_TIMEOUT)
+-		NLA_PUT_U32(msg, NL80211_MPATH_INFO_DISCOVERY_TIMEOUT,
+-			    pinfo->discovery_timeout);
+-	if (pinfo->filled & MPATH_INFO_DISCOVERY_RETRIES)
+-		NLA_PUT_U8(msg, NL80211_MPATH_INFO_DISCOVERY_RETRIES,
+-			    pinfo->discovery_retries);
++	if ((pinfo->filled & MPATH_INFO_FRAME_QLEN) &&
++	    nla_put_u32(msg, NL80211_MPATH_INFO_FRAME_QLEN,
++			pinfo->frame_qlen))
++		goto nla_put_failure;
++	if (((pinfo->filled & MPATH_INFO_SN) &&
++	     nla_put_u32(msg, NL80211_MPATH_INFO_SN, pinfo->sn)) ||
++	    ((pinfo->filled & MPATH_INFO_METRIC) &&
++	     nla_put_u32(msg, NL80211_MPATH_INFO_METRIC,
++			 pinfo->metric)) ||
++	    ((pinfo->filled & MPATH_INFO_EXPTIME) &&
++	     nla_put_u32(msg, NL80211_MPATH_INFO_EXPTIME,
++			 pinfo->exptime)) ||
++	    ((pinfo->filled & MPATH_INFO_FLAGS) &&
++	     nla_put_u8(msg, NL80211_MPATH_INFO_FLAGS,
++			pinfo->flags)) ||
++	    ((pinfo->filled & MPATH_INFO_DISCOVERY_TIMEOUT) &&
++	     nla_put_u32(msg, NL80211_MPATH_INFO_DISCOVERY_TIMEOUT,
++			 pinfo->discovery_timeout)) ||
++	    ((pinfo->filled & MPATH_INFO_DISCOVERY_RETRIES) &&
++	     nla_put_u8(msg, NL80211_MPATH_INFO_DISCOVERY_RETRIES,
++			pinfo->discovery_retries)))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, pinfoattr);
+ 
+@@ -3268,47 +3323,48 @@ static int nl80211_get_mesh_config(struct sk_buff *skb,
+ 	pinfoattr = nla_nest_start(msg, NL80211_ATTR_MESH_CONFIG);
+ 	if (!pinfoattr)
+ 		goto nla_put_failure;
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_RETRY_TIMEOUT,
+-			cur_params.dot11MeshRetryTimeout);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_CONFIRM_TIMEOUT,
+-			cur_params.dot11MeshConfirmTimeout);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_HOLDING_TIMEOUT,
+-			cur_params.dot11MeshHoldingTimeout);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_MAX_PEER_LINKS,
+-			cur_params.dot11MeshMaxPeerLinks);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_MAX_RETRIES,
+-			cur_params.dot11MeshMaxRetries);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_TTL,
+-			cur_params.dot11MeshTTL);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_ELEMENT_TTL,
+-			cur_params.element_ttl);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_AUTO_OPEN_PLINKS,
+-			cur_params.auto_open_plinks);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_HWMP_MAX_PREQ_RETRIES,
+-			cur_params.dot11MeshHWMPmaxPREQretries);
+-	NLA_PUT_U32(msg, NL80211_MESHCONF_PATH_REFRESH_TIME,
+-			cur_params.path_refresh_time);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_MIN_DISCOVERY_TIMEOUT,
+-			cur_params.min_discovery_timeout);
+-	NLA_PUT_U32(msg, NL80211_MESHCONF_HWMP_ACTIVE_PATH_TIMEOUT,
+-			cur_params.dot11MeshHWMPactivePathTimeout);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL,
+-			cur_params.dot11MeshHWMPpreqMinInterval);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_PERR_MIN_INTERVAL,
+-			cur_params.dot11MeshHWMPperrMinInterval);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME,
+-			cur_params.dot11MeshHWMPnetDiameterTraversalTime);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_HWMP_ROOTMODE,
+-			cur_params.dot11MeshHWMPRootMode);
+-	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_RANN_INTERVAL,
+-			cur_params.dot11MeshHWMPRannInterval);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_GATE_ANNOUNCEMENTS,
+-			cur_params.dot11MeshGateAnnouncementProtocol);
+-	NLA_PUT_U8(msg, NL80211_MESHCONF_FORWARDING,
+-			cur_params.dot11MeshForwarding);
+-	NLA_PUT_U32(msg, NL80211_MESHCONF_RSSI_THRESHOLD,
+-			cur_params.rssi_threshold);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_RETRY_TIMEOUT,
++			cur_params.dot11MeshRetryTimeout) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_CONFIRM_TIMEOUT,
++			cur_params.dot11MeshConfirmTimeout) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_HOLDING_TIMEOUT,
++			cur_params.dot11MeshHoldingTimeout) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_MAX_PEER_LINKS,
++			cur_params.dot11MeshMaxPeerLinks) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_MAX_RETRIES,
++		       cur_params.dot11MeshMaxRetries) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_TTL,
++		       cur_params.dot11MeshTTL) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_ELEMENT_TTL,
++		       cur_params.element_ttl) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_AUTO_OPEN_PLINKS,
++		       cur_params.auto_open_plinks) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_HWMP_MAX_PREQ_RETRIES,
++		       cur_params.dot11MeshHWMPmaxPREQretries) ||
++	    nla_put_u32(msg, NL80211_MESHCONF_PATH_REFRESH_TIME,
++			cur_params.path_refresh_time) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_MIN_DISCOVERY_TIMEOUT,
++			cur_params.min_discovery_timeout) ||
++	    nla_put_u32(msg, NL80211_MESHCONF_HWMP_ACTIVE_PATH_TIMEOUT,
++			cur_params.dot11MeshHWMPactivePathTimeout) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL,
++			cur_params.dot11MeshHWMPpreqMinInterval) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_PERR_MIN_INTERVAL,
++			cur_params.dot11MeshHWMPperrMinInterval) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME,
++			cur_params.dot11MeshHWMPnetDiameterTraversalTime) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_HWMP_ROOTMODE,
++		       cur_params.dot11MeshHWMPRootMode) ||
++	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_RANN_INTERVAL,
++			cur_params.dot11MeshHWMPRannInterval) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_GATE_ANNOUNCEMENTS,
++		       cur_params.dot11MeshGateAnnouncementProtocol) ||
++	    nla_put_u8(msg, NL80211_MESHCONF_FORWARDING,
++		       cur_params.dot11MeshForwarding) ||
++	    nla_put_u32(msg, NL80211_MESHCONF_RSSI_THRESHOLD,
++			cur_params.rssi_threshold))
++		goto nla_put_failure;
+ 	nla_nest_end(msg, pinfoattr);
+ 	genlmsg_end(msg, hdr);
+ 	return genlmsg_reply(msg, info);
+@@ -3539,11 +3595,12 @@ static int nl80211_get_reg(struct sk_buff *skb, struct genl_info *info)
+ 	if (!hdr)
+ 		goto put_failure;
+ 
+-	NLA_PUT_STRING(msg, NL80211_ATTR_REG_ALPHA2,
+-		cfg80211_regdomain->alpha2);
+-	if (cfg80211_regdomain->dfs_region)
+-		NLA_PUT_U8(msg, NL80211_ATTR_DFS_REGION,
+-			   cfg80211_regdomain->dfs_region);
++	if (nla_put_string(msg, NL80211_ATTR_REG_ALPHA2,
++			   cfg80211_regdomain->alpha2) ||
++	    (cfg80211_regdomain->dfs_region &&
++	     nla_put_u8(msg, NL80211_ATTR_DFS_REGION,
++			cfg80211_regdomain->dfs_region)))
++		goto nla_put_failure;
+ 
+ 	nl_reg_rules = nla_nest_start(msg, NL80211_ATTR_REG_RULES);
+ 	if (!nl_reg_rules)
+@@ -3563,18 +3620,19 @@ static int nl80211_get_reg(struct sk_buff *skb, struct genl_info *info)
+ 		if (!nl_reg_rule)
+ 			goto nla_put_failure;
+ 
+-		NLA_PUT_U32(msg, NL80211_ATTR_REG_RULE_FLAGS,
+-			reg_rule->flags);
+-		NLA_PUT_U32(msg, NL80211_ATTR_FREQ_RANGE_START,
+-			freq_range->start_freq_khz);
+-		NLA_PUT_U32(msg, NL80211_ATTR_FREQ_RANGE_END,
+-			freq_range->end_freq_khz);
+-		NLA_PUT_U32(msg, NL80211_ATTR_FREQ_RANGE_MAX_BW,
+-			freq_range->max_bandwidth_khz);
+-		NLA_PUT_U32(msg, NL80211_ATTR_POWER_RULE_MAX_ANT_GAIN,
+-			power_rule->max_antenna_gain);
+-		NLA_PUT_U32(msg, NL80211_ATTR_POWER_RULE_MAX_EIRP,
+-			power_rule->max_eirp);
++		if (nla_put_u32(msg, NL80211_ATTR_REG_RULE_FLAGS,
++				reg_rule->flags) ||
++		    nla_put_u32(msg, NL80211_ATTR_FREQ_RANGE_START,
++				freq_range->start_freq_khz) ||
++		    nla_put_u32(msg, NL80211_ATTR_FREQ_RANGE_END,
++				freq_range->end_freq_khz) ||
++		    nla_put_u32(msg, NL80211_ATTR_FREQ_RANGE_MAX_BW,
++				freq_range->max_bandwidth_khz) ||
++		    nla_put_u32(msg, NL80211_ATTR_POWER_RULE_MAX_ANT_GAIN,
++				power_rule->max_antenna_gain) ||
++		    nla_put_u32(msg, NL80211_ATTR_POWER_RULE_MAX_EIRP,
++				power_rule->max_eirp))
++			goto nla_put_failure;
+ 
+ 		nla_nest_end(msg, nl_reg_rule);
+ 	}
+@@ -4145,37 +4203,44 @@ static int nl80211_send_bss(struct sk_buff *msg, struct netlink_callback *cb,
+ 
+ 	genl_dump_check_consistent(cb, hdr, &nl80211_fam);
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_GENERATION, rdev->bss_generation);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, wdev->netdev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_GENERATION, rdev->bss_generation) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, wdev->netdev->ifindex))
++		goto nla_put_failure;
+ 
+ 	bss = nla_nest_start(msg, NL80211_ATTR_BSS);
+ 	if (!bss)
+ 		goto nla_put_failure;
+-	if (!is_zero_ether_addr(res->bssid))
+-		NLA_PUT(msg, NL80211_BSS_BSSID, ETH_ALEN, res->bssid);
+-	if (res->information_elements && res->len_information_elements)
+-		NLA_PUT(msg, NL80211_BSS_INFORMATION_ELEMENTS,
+-			res->len_information_elements,
+-			res->information_elements);
+-	if (res->beacon_ies && res->len_beacon_ies &&
+-	    res->beacon_ies != res->information_elements)
+-		NLA_PUT(msg, NL80211_BSS_BEACON_IES,
+-			res->len_beacon_ies, res->beacon_ies);
+-	if (res->tsf)
+-		NLA_PUT_U64(msg, NL80211_BSS_TSF, res->tsf);
+-	if (res->beacon_interval)
+-		NLA_PUT_U16(msg, NL80211_BSS_BEACON_INTERVAL, res->beacon_interval);
+-	NLA_PUT_U16(msg, NL80211_BSS_CAPABILITY, res->capability);
+-	NLA_PUT_U32(msg, NL80211_BSS_FREQUENCY, res->channel->center_freq);
+-	NLA_PUT_U32(msg, NL80211_BSS_SEEN_MS_AGO,
+-		jiffies_to_msecs(jiffies - intbss->ts));
++	if ((!is_zero_ether_addr(res->bssid) &&
++	     nla_put(msg, NL80211_BSS_BSSID, ETH_ALEN, res->bssid)) ||
++	    (res->information_elements && res->len_information_elements &&
++	     nla_put(msg, NL80211_BSS_INFORMATION_ELEMENTS,
++		     res->len_information_elements,
++		     res->information_elements)) ||
++	    (res->beacon_ies && res->len_beacon_ies &&
++	     res->beacon_ies != res->information_elements &&
++	     nla_put(msg, NL80211_BSS_BEACON_IES,
++		     res->len_beacon_ies, res->beacon_ies)))
++		goto nla_put_failure;
++	if (res->tsf &&
++	    nla_put_u64(msg, NL80211_BSS_TSF, res->tsf))
++		goto nla_put_failure;
++	if (res->beacon_interval &&
++	    nla_put_u16(msg, NL80211_BSS_BEACON_INTERVAL, res->beacon_interval))
++		goto nla_put_failure;
++	if (nla_put_u16(msg, NL80211_BSS_CAPABILITY, res->capability) ||
++	    nla_put_u32(msg, NL80211_BSS_FREQUENCY, res->channel->center_freq) ||
++	    nla_put_u32(msg, NL80211_BSS_SEEN_MS_AGO,
++			jiffies_to_msecs(jiffies - intbss->ts)))
++		goto nla_put_failure;
+ 
+ 	switch (rdev->wiphy.signal_type) {
+ 	case CFG80211_SIGNAL_TYPE_MBM:
+-		NLA_PUT_U32(msg, NL80211_BSS_SIGNAL_MBM, res->signal);
++		if (nla_put_u32(msg, NL80211_BSS_SIGNAL_MBM, res->signal))
++			goto nla_put_failure;
+ 		break;
+ 	case CFG80211_SIGNAL_TYPE_UNSPEC:
+-		NLA_PUT_U8(msg, NL80211_BSS_SIGNAL_UNSPEC, res->signal);
++		if (nla_put_u8(msg, NL80211_BSS_SIGNAL_UNSPEC, res->signal))
++			goto nla_put_failure;
+ 		break;
+ 	default:
+ 		break;
+@@ -4184,14 +4249,16 @@ static int nl80211_send_bss(struct sk_buff *msg, struct netlink_callback *cb,
+ 	switch (wdev->iftype) {
+ 	case NL80211_IFTYPE_P2P_CLIENT:
+ 	case NL80211_IFTYPE_STATION:
+-		if (intbss == wdev->current_bss)
+-			NLA_PUT_U32(msg, NL80211_BSS_STATUS,
+-				    NL80211_BSS_STATUS_ASSOCIATED);
++		if (intbss == wdev->current_bss &&
++		    nla_put_u32(msg, NL80211_BSS_STATUS,
++				NL80211_BSS_STATUS_ASSOCIATED))
++			goto nla_put_failure;
+ 		break;
+ 	case NL80211_IFTYPE_ADHOC:
+-		if (intbss == wdev->current_bss)
+-			NLA_PUT_U32(msg, NL80211_BSS_STATUS,
+-				    NL80211_BSS_STATUS_IBSS_JOINED);
++		if (intbss == wdev->current_bss &&
++		    nla_put_u32(msg, NL80211_BSS_STATUS,
++				NL80211_BSS_STATUS_IBSS_JOINED))
++			goto nla_put_failure;
+ 		break;
+ 	default:
+ 		break;
+@@ -4260,34 +4327,43 @@ static int nl80211_send_survey(struct sk_buff *msg, u32 pid, u32 seq,
+ 	if (!hdr)
+ 		return -ENOMEM;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex))
++		goto nla_put_failure;
+ 
+ 	infoattr = nla_nest_start(msg, NL80211_ATTR_SURVEY_INFO);
+ 	if (!infoattr)
+ 		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_SURVEY_INFO_FREQUENCY,
+-		    survey->channel->center_freq);
+-	if (survey->filled & SURVEY_INFO_NOISE_DBM)
+-		NLA_PUT_U8(msg, NL80211_SURVEY_INFO_NOISE,
+-			    survey->noise);
+-	if (survey->filled & SURVEY_INFO_IN_USE)
+-		NLA_PUT_FLAG(msg, NL80211_SURVEY_INFO_IN_USE);
+-	if (survey->filled & SURVEY_INFO_CHANNEL_TIME)
+-		NLA_PUT_U64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME,
+-			    survey->channel_time);
+-	if (survey->filled & SURVEY_INFO_CHANNEL_TIME_BUSY)
+-		NLA_PUT_U64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_BUSY,
+-			    survey->channel_time_busy);
+-	if (survey->filled & SURVEY_INFO_CHANNEL_TIME_EXT_BUSY)
+-		NLA_PUT_U64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_EXT_BUSY,
+-			    survey->channel_time_ext_busy);
+-	if (survey->filled & SURVEY_INFO_CHANNEL_TIME_RX)
+-		NLA_PUT_U64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_RX,
+-			    survey->channel_time_rx);
+-	if (survey->filled & SURVEY_INFO_CHANNEL_TIME_TX)
+-		NLA_PUT_U64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_TX,
+-			    survey->channel_time_tx);
++	if (nla_put_u32(msg, NL80211_SURVEY_INFO_FREQUENCY,
++			survey->channel->center_freq))
++		goto nla_put_failure;
++
++	if ((survey->filled & SURVEY_INFO_NOISE_DBM) &&
++	    nla_put_u8(msg, NL80211_SURVEY_INFO_NOISE, survey->noise))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_IN_USE) &&
++	    nla_put_flag(msg, NL80211_SURVEY_INFO_IN_USE))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_CHANNEL_TIME) &&
++	    nla_put_u64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME,
++			survey->channel_time))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_CHANNEL_TIME_BUSY) &&
++	    nla_put_u64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_BUSY,
++			survey->channel_time_busy))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_CHANNEL_TIME_EXT_BUSY) &&
++	    nla_put_u64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_EXT_BUSY,
++			survey->channel_time_ext_busy))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_CHANNEL_TIME_RX) &&
++	    nla_put_u64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_RX,
++			survey->channel_time_rx))
++		goto nla_put_failure;
++	if ((survey->filled & SURVEY_INFO_CHANNEL_TIME_TX) &&
++	    nla_put_u64(msg, NL80211_SURVEY_INFO_CHANNEL_TIME_TX,
++			survey->channel_time_tx))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, infoattr);
+ 
+@@ -4968,7 +5044,7 @@ static int nl80211_testmode_dump(struct sk_buff *skb,
+ 					   NL80211_CMD_TESTMODE);
+ 		struct nlattr *tmdata;
+ 
+-		if (nla_put_u32(skb, NL80211_ATTR_WIPHY, phy_idx) < 0) {
++		if (nla_put_u32(skb, NL80211_ATTR_WIPHY, phy_idx)) {
+ 			genlmsg_cancel(skb, hdr);
+ 			break;
+ 		}
+@@ -5019,7 +5095,8 @@ __cfg80211_testmode_alloc_skb(struct cfg80211_registered_device *rdev,
+ 		return NULL;
+ 	}
+ 
+-	NLA_PUT_U32(skb, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
++	if (nla_put_u32(skb, NL80211_ATTR_WIPHY, rdev->wiphy_idx))
++		goto nla_put_failure;
+ 	data = nla_nest_start(skb, NL80211_ATTR_TESTDATA);
+ 
+ 	((void **)skb->cb)[0] = rdev;
+@@ -5398,7 +5475,8 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
+ 	if (err)
+ 		goto free_msg;
+ 
+-	NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
++	if (nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -5685,7 +5763,8 @@ static int nl80211_tx_mgmt(struct sk_buff *skb, struct genl_info *info)
+ 		goto free_msg;
+ 
+ 	if (msg) {
+-		NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
++		if (nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie))
++			goto nla_put_failure;
+ 
+ 		genlmsg_end(msg, hdr);
+ 		return genlmsg_reply(msg, info);
+@@ -5790,7 +5869,8 @@ static int nl80211_get_power_save(struct sk_buff *skb, struct genl_info *info)
+ 	else
+ 		ps_state = NL80211_PS_DISABLED;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_PS_STATE, ps_state);
++	if (nla_put_u32(msg, NL80211_ATTR_PS_STATE, ps_state))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 	return genlmsg_reply(msg, info);
+@@ -5937,20 +6017,21 @@ static int nl80211_get_wowlan(struct sk_buff *skb, struct genl_info *info)
+ 		if (!nl_wowlan)
+ 			goto nla_put_failure;
+ 
+-		if (rdev->wowlan->any)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_ANY);
+-		if (rdev->wowlan->disconnect)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_DISCONNECT);
+-		if (rdev->wowlan->magic_pkt)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_MAGIC_PKT);
+-		if (rdev->wowlan->gtk_rekey_failure)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE);
+-		if (rdev->wowlan->eap_identity_req)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST);
+-		if (rdev->wowlan->four_way_handshake)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE);
+-		if (rdev->wowlan->rfkill_release)
+-			NLA_PUT_FLAG(msg, NL80211_WOWLAN_TRIG_RFKILL_RELEASE);
++		if ((rdev->wowlan->any &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_ANY)) ||
++		    (rdev->wowlan->disconnect &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_DISCONNECT)) ||
++		    (rdev->wowlan->magic_pkt &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_MAGIC_PKT)) ||
++		    (rdev->wowlan->gtk_rekey_failure &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE)) ||
++		    (rdev->wowlan->eap_identity_req &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST)) ||
++		    (rdev->wowlan->four_way_handshake &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE)) ||
++		    (rdev->wowlan->rfkill_release &&
++		     nla_put_flag(msg, NL80211_WOWLAN_TRIG_RFKILL_RELEASE)))
++			goto nla_put_failure;
+ 		if (rdev->wowlan->n_patterns) {
+ 			struct nlattr *nl_pats, *nl_pat;
+ 			int i, pat_len;
+@@ -5965,12 +6046,13 @@ static int nl80211_get_wowlan(struct sk_buff *skb, struct genl_info *info)
+ 				if (!nl_pat)
+ 					goto nla_put_failure;
+ 				pat_len = rdev->wowlan->patterns[i].pattern_len;
+-				NLA_PUT(msg, NL80211_WOWLAN_PKTPAT_MASK,
+-					DIV_ROUND_UP(pat_len, 8),
+-					rdev->wowlan->patterns[i].mask);
+-				NLA_PUT(msg, NL80211_WOWLAN_PKTPAT_PATTERN,
+-					pat_len,
+-					rdev->wowlan->patterns[i].pattern);
++				if (nla_put(msg, NL80211_WOWLAN_PKTPAT_MASK,
++					    DIV_ROUND_UP(pat_len, 8),
++					    rdev->wowlan->patterns[i].mask) ||
++				    nla_put(msg, NL80211_WOWLAN_PKTPAT_PATTERN,
++					    pat_len,
++					    rdev->wowlan->patterns[i].pattern))
++					goto nla_put_failure;
+ 				nla_nest_end(msg, nl_pat);
+ 			}
+ 			nla_nest_end(msg, nl_pats);
+@@ -6243,7 +6325,8 @@ static int nl80211_probe_client(struct sk_buff *skb,
+ 	if (err)
+ 		goto free_msg;
+ 
+-	NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
++	if (nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -6911,19 +6994,24 @@ static int nl80211_add_scan_req(struct sk_buff *msg,
+ 	nest = nla_nest_start(msg, NL80211_ATTR_SCAN_SSIDS);
+ 	if (!nest)
+ 		goto nla_put_failure;
+-	for (i = 0; i < req->n_ssids; i++)
+-		NLA_PUT(msg, i, req->ssids[i].ssid_len, req->ssids[i].ssid);
++	for (i = 0; i < req->n_ssids; i++) {
++		if (nla_put(msg, i, req->ssids[i].ssid_len, req->ssids[i].ssid))
 +			goto nla_put_failure;
 +	}
+ 	nla_nest_end(msg, nest);
  
- 	return 0;
- 
-@@ -831,7 +835,8 @@ static int em_meta_dump(struct sk_buff *skb, struct tcf_ematch *em)
- 	memcpy(&hdr.left, &meta->lvalue.hdr, sizeof(hdr.left));
- 	memcpy(&hdr.right, &meta->rvalue.hdr, sizeof(hdr.right));
- 
--	NLA_PUT(skb, TCA_EM_META_HDR, sizeof(hdr), &hdr);
-+	if (nla_put(skb, TCA_EM_META_HDR, sizeof(hdr), &hdr))
-+		goto nla_put_failure;
- 
- 	ops = meta_type_ops(&meta->lvalue);
- 	if (ops->dump(skb, &meta->lvalue, TCA_EM_META_LVALUE) < 0 ||
-diff --git a/net/sched/ematch.c b/net/sched/ematch.c
-index 88d93eb..aca233c 100644
---- a/net/sched/ematch.c
-+++ b/net/sched/ematch.c
-@@ -441,7 +441,8 @@ int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
- 	if (top_start == NULL)
+ 	nest = nla_nest_start(msg, NL80211_ATTR_SCAN_FREQUENCIES);
+ 	if (!nest)
  		goto nla_put_failure;
- 
--	NLA_PUT(skb, TCA_EMATCH_TREE_HDR, sizeof(tree->hdr), &tree->hdr);
-+	if (nla_put(skb, TCA_EMATCH_TREE_HDR, sizeof(tree->hdr), &tree->hdr))
-+		goto nla_put_failure;
- 
- 	list_start = nla_nest_start(skb, TCA_EMATCH_TREE_LIST);
- 	if (list_start == NULL)
-@@ -457,7 +458,8 @@ int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
- 			.flags = em->flags
- 		};
- 
--		NLA_PUT(skb, i + 1, sizeof(em_hdr), &em_hdr);
-+		if (nla_put(skb, i + 1, sizeof(em_hdr), &em_hdr))
-+			goto nla_put_failure;
- 
- 		if (em->ops && em->ops->dump) {
- 			if (em->ops->dump(skb, em) < 0)
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 3d8981f..d2daefc 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -426,7 +426,8 @@ static int qdisc_dump_stab(struct sk_buff *skb, struct qdisc_size_table *stab)
- 	nest = nla_nest_start(skb, TCA_STAB);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	NLA_PUT(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts);
-+	if (nla_put(skb, TCA_STAB_BASE, sizeof(stab->szopts), &stab->szopts))
-+		goto nla_put_failure;
- 	nla_nest_end(skb, nest);
- 
- 	return skb->len;
-@@ -1201,7 +1202,8 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
- 	tcm->tcm_parent = clid;
- 	tcm->tcm_handle = q->handle;
- 	tcm->tcm_info = atomic_read(&q->refcnt);
--	NLA_PUT_STRING(skb, TCA_KIND, q->ops->id);
-+	if (nla_put_string(skb, TCA_KIND, q->ops->id))
-+		goto nla_put_failure;
- 	if (q->ops->dump && q->ops->dump(q, skb) < 0)
- 		goto nla_put_failure;
- 	q->qstats.qlen = q->q.qlen;
-@@ -1505,7 +1507,8 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
- 	tcm->tcm_parent = q->handle;
- 	tcm->tcm_handle = q->handle;
- 	tcm->tcm_info = 0;
--	NLA_PUT_STRING(skb, TCA_KIND, q->ops->id);
-+	if (nla_put_string(skb, TCA_KIND, q->ops->id))
-+		goto nla_put_failure;
- 	if (cl_ops->dump && cl_ops->dump(q, cl, skb, tcm) < 0)
- 		goto nla_put_failure;
- 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index e25e490..a77a4fb 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -601,7 +601,8 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
- 	if (nest == NULL)
- 		goto nla_put_failure;
- 
--	NLA_PUT(skb, TCA_ATM_HDR, flow->hdr_len, flow->hdr);
-+	if (nla_put(skb, TCA_ATM_HDR, flow->hdr_len, flow->hdr))
-+		goto nla_put_failure;
- 	if (flow->vcc) {
- 		struct sockaddr_atmpvc pvc;
- 		int state;
-@@ -610,15 +611,19 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
- 		pvc.sap_addr.itf = flow->vcc->dev ? flow->vcc->dev->number : -1;
- 		pvc.sap_addr.vpi = flow->vcc->vpi;
- 		pvc.sap_addr.vci = flow->vcc->vci;
--		NLA_PUT(skb, TCA_ATM_ADDR, sizeof(pvc), &pvc);
-+		if (nla_put(skb, TCA_ATM_ADDR, sizeof(pvc), &pvc))
-+			goto nla_put_failure;
- 		state = ATM_VF2VS(flow->vcc->flags);
--		NLA_PUT_U32(skb, TCA_ATM_STATE, state);
-+		if (nla_put_u32(skb, TCA_ATM_STATE, state))
+-	for (i = 0; i < req->n_channels; i++)
+-		NLA_PUT_U32(msg, i, req->channels[i]->center_freq);
++	for (i = 0; i < req->n_channels; i++) {
++		if (nla_put_u32(msg, i, req->channels[i]->center_freq))
 +			goto nla_put_failure;
 +	}
-+	if (flow->excess) {
-+		if (nla_put_u32(skb, TCA_ATM_EXCESS, flow->classid))
+ 	nla_nest_end(msg, nest);
+ 
+-	if (req->ie)
+-		NLA_PUT(msg, NL80211_ATTR_IE, req->ie_len, req->ie);
++	if (req->ie &&
++	    nla_put(msg, NL80211_ATTR_IE, req->ie_len, req->ie))
++		goto nla_put_failure;
+ 
+ 	return 0;
+  nla_put_failure:
+@@ -6942,8 +7030,9 @@ static int nl80211_send_scan_msg(struct sk_buff *msg,
+ 	if (!hdr)
+ 		return -1;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex))
++		goto nla_put_failure;
+ 
+ 	/* ignore errors and send incomplete event anyway */
+ 	nl80211_add_scan_req(msg, rdev);
+@@ -6967,8 +7056,9 @@ nl80211_send_sched_scan_msg(struct sk_buff *msg,
+ 	if (!hdr)
+ 		return -1;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex))
++		goto nla_put_failure;
+ 
+ 	return genlmsg_end(msg, hdr);
+ 
+@@ -7091,26 +7181,33 @@ void nl80211_send_reg_change_event(struct regulatory_request *request)
+ 	}
+ 
+ 	/* Userspace can always count this one always being set */
+-	NLA_PUT_U8(msg, NL80211_ATTR_REG_INITIATOR, request->initiator);
+-
+-	if (request->alpha2[0] == '0' && request->alpha2[1] == '0')
+-		NLA_PUT_U8(msg, NL80211_ATTR_REG_TYPE,
+-			   NL80211_REGDOM_TYPE_WORLD);
+-	else if (request->alpha2[0] == '9' && request->alpha2[1] == '9')
+-		NLA_PUT_U8(msg, NL80211_ATTR_REG_TYPE,
+-			   NL80211_REGDOM_TYPE_CUSTOM_WORLD);
+-	else if ((request->alpha2[0] == '9' && request->alpha2[1] == '8') ||
+-		 request->intersect)
+-		NLA_PUT_U8(msg, NL80211_ATTR_REG_TYPE,
+-			   NL80211_REGDOM_TYPE_INTERSECTION);
+-	else {
+-		NLA_PUT_U8(msg, NL80211_ATTR_REG_TYPE,
+-			   NL80211_REGDOM_TYPE_COUNTRY);
+-		NLA_PUT_STRING(msg, NL80211_ATTR_REG_ALPHA2, request->alpha2);
+-	}
+-
+-	if (wiphy_idx_valid(request->wiphy_idx))
+-		NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, request->wiphy_idx);
++	if (nla_put_u8(msg, NL80211_ATTR_REG_INITIATOR, request->initiator))
++		goto nla_put_failure;
++
++	if (request->alpha2[0] == '0' && request->alpha2[1] == '0') {
++		if (nla_put_u8(msg, NL80211_ATTR_REG_TYPE,
++			       NL80211_REGDOM_TYPE_WORLD))
++			goto nla_put_failure;
++	} else if (request->alpha2[0] == '9' && request->alpha2[1] == '9') {
++		if (nla_put_u8(msg, NL80211_ATTR_REG_TYPE,
++			       NL80211_REGDOM_TYPE_CUSTOM_WORLD))
++			goto nla_put_failure;
++	} else if ((request->alpha2[0] == '9' && request->alpha2[1] == '8') ||
++		   request->intersect) {
++		if (nla_put_u8(msg, NL80211_ATTR_REG_TYPE,
++			       NL80211_REGDOM_TYPE_INTERSECTION))
 +			goto nla_put_failure;
 +	} else {
-+		if (nla_put_u32(skb, TCA_ATM_EXCESS, 0))
++		if (nla_put_u8(msg, NL80211_ATTR_REG_TYPE,
++			       NL80211_REGDOM_TYPE_COUNTRY) ||
++		    nla_put_string(msg, NL80211_ATTR_REG_ALPHA2,
++				   request->alpha2))
 +			goto nla_put_failure;
- 	}
--	if (flow->excess)
--		NLA_PUT_U32(skb, TCA_ATM_EXCESS, flow->classid);
--	else
--		NLA_PUT_U32(skb, TCA_ATM_EXCESS, 0);
--
- 	nla_nest_end(skb, nest);
- 	return skb->len;
- 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 24d94c0..6aabd77 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1425,7 +1425,8 @@ static int cbq_dump_rate(struct sk_buff *skb, struct cbq_class *cl)
- {
- 	unsigned char *b = skb_tail_pointer(skb);
- 
--	NLA_PUT(skb, TCA_CBQ_RATE, sizeof(cl->R_tab->rate), &cl->R_tab->rate);
-+	if (nla_put(skb, TCA_CBQ_RATE, sizeof(cl->R_tab->rate), &cl->R_tab->rate))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-@@ -1450,7 +1451,8 @@ static int cbq_dump_lss(struct sk_buff *skb, struct cbq_class *cl)
- 	opt.minidle = (u32)(-cl->minidle);
- 	opt.offtime = cl->offtime;
- 	opt.change = ~0;
--	NLA_PUT(skb, TCA_CBQ_LSSOPT, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_CBQ_LSSOPT, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-@@ -1468,7 +1470,8 @@ static int cbq_dump_wrr(struct sk_buff *skb, struct cbq_class *cl)
- 	opt.priority = cl->priority + 1;
- 	opt.cpriority = cl->cpriority + 1;
- 	opt.weight = cl->weight;
--	NLA_PUT(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_CBQ_WRROPT, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-@@ -1485,7 +1488,8 @@ static int cbq_dump_ovl(struct sk_buff *skb, struct cbq_class *cl)
- 	opt.priority2 = cl->priority2 + 1;
- 	opt.pad = 0;
- 	opt.penalty = cl->penalty;
--	NLA_PUT(skb, TCA_CBQ_OVL_STRATEGY, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_CBQ_OVL_STRATEGY, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-@@ -1502,7 +1506,8 @@ static int cbq_dump_fopt(struct sk_buff *skb, struct cbq_class *cl)
- 		opt.split = cl->split ? cl->split->common.classid : 0;
- 		opt.defmap = cl->defmap;
- 		opt.defchange = ~0;
--		NLA_PUT(skb, TCA_CBQ_FOPT, sizeof(opt), &opt);
-+		if (nla_put(skb, TCA_CBQ_FOPT, sizeof(opt), &opt))
-+			goto nla_put_failure;
- 	}
- 	return skb->len;
- 
-@@ -1521,7 +1526,8 @@ static int cbq_dump_police(struct sk_buff *skb, struct cbq_class *cl)
- 		opt.police = cl->police;
- 		opt.__res1 = 0;
- 		opt.__res2 = 0;
--		NLA_PUT(skb, TCA_CBQ_POLICE, sizeof(opt), &opt);
-+		if (nla_put(skb, TCA_CBQ_POLICE, sizeof(opt), &opt))
-+			goto nla_put_failure;
- 	}
- 	return skb->len;
- 
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index 7e267d7..81445cc 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -515,8 +515,9 @@ static int choke_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	if (opts == NULL)
- 		goto nla_put_failure;
- 
--	NLA_PUT(skb, TCA_CHOKE_PARMS, sizeof(opt), &opt);
--	NLA_PUT_U32(skb, TCA_CHOKE_MAX_P, q->parms.max_P);
-+	if (nla_put(skb, TCA_CHOKE_PARMS, sizeof(opt), &opt) ||
-+	    nla_put_u32(skb, TCA_CHOKE_MAX_P, q->parms.max_P))
-+		goto nla_put_failure;
- 	return nla_nest_end(skb, opts);
- 
- nla_put_failure:
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 6b7fe4a..c218987 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -260,7 +260,8 @@ static int drr_dump_class(struct Qdisc *sch, unsigned long arg,
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	NLA_PUT_U32(skb, TCA_DRR_QUANTUM, cl->quantum);
-+	if (nla_put_u32(skb, TCA_DRR_QUANTUM, cl->quantum))
-+		goto nla_put_failure;
- 	return nla_nest_end(skb, nest);
- 
- nla_put_failure:
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 2c79020..389b856 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -429,8 +429,9 @@ static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
--	NLA_PUT_U8(skb, TCA_DSMARK_MASK, p->mask[cl - 1]);
--	NLA_PUT_U8(skb, TCA_DSMARK_VALUE, p->value[cl - 1]);
-+	if (nla_put_u8(skb, TCA_DSMARK_MASK, p->mask[cl - 1]) ||
-+	    nla_put_u8(skb, TCA_DSMARK_VALUE, p->value[cl - 1]))
++	}
++
++	if (wiphy_idx_valid(request->wiphy_idx) &&
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY, request->wiphy_idx))
 +		goto nla_put_failure;
  
- 	return nla_nest_end(skb, opts);
+ 	genlmsg_end(msg, hdr);
  
-@@ -447,13 +448,16 @@ static int dsmark_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
--	NLA_PUT_U16(skb, TCA_DSMARK_INDICES, p->indices);
-+	if (nla_put_u16(skb, TCA_DSMARK_INDICES, p->indices))
-+		goto nla_put_failure;
- 
--	if (p->default_index != NO_DEFAULT_INDEX)
--		NLA_PUT_U16(skb, TCA_DSMARK_DEFAULT_INDEX, p->default_index);
-+	if (p->default_index != NO_DEFAULT_INDEX &&
-+	    nla_put_u16(skb, TCA_DSMARK_DEFAULT_INDEX, p->default_index))
-+		goto nla_put_failure;
- 
--	if (p->set_tc_index)
--		NLA_PUT_FLAG(skb, TCA_DSMARK_SET_TC_INDEX);
-+	if (p->set_tc_index &&
-+	    nla_put_flag(skb, TCA_DSMARK_SET_TC_INDEX))
-+		goto nla_put_failure;
- 
- 	return nla_nest_end(skb, opts);
- 
-diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
-index 66effe2..e15a9eb 100644
---- a/net/sched/sch_fifo.c
-+++ b/net/sched/sch_fifo.c
-@@ -85,7 +85,8 @@ static int fifo_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
- 	struct tc_fifo_qopt opt = { .limit = sch->limit };
- 
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 67fc573..0eb1202 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -512,7 +512,8 @@ static int pfifo_fast_dump(struct Qdisc *qdisc, struct sk_buff *skb)
- 	struct tc_prio_qopt opt = { .bands = PFIFO_FAST_BANDS };
- 
- 	memcpy(&opt.priomap, prio2band, TC_PRIO_MAX + 1);
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return skb->len;
- 
- nla_put_failure:
-diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-index 0b15236..55e3310 100644
---- a/net/sched/sch_gred.c
-+++ b/net/sched/sch_gred.c
-@@ -521,14 +521,16 @@ static int gred_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
--	NLA_PUT(skb, TCA_GRED_DPS, sizeof(sopt), &sopt);
-+	if (nla_put(skb, TCA_GRED_DPS, sizeof(sopt), &sopt))
-+		goto nla_put_failure;
- 
- 	for (i = 0; i < MAX_DPs; i++) {
- 		struct gred_sched_data *q = table->tab[i];
- 
- 		max_p[i] = q ? q->parms.max_P : 0;
- 	}
--	NLA_PUT(skb, TCA_GRED_MAX_P, sizeof(max_p), max_p);
-+	if (nla_put(skb, TCA_GRED_MAX_P, sizeof(max_p), max_p))
-+		goto nla_put_failure;
- 
- 	parms = nla_nest_start(skb, TCA_GRED_PARMS);
- 	if (parms == NULL)
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 9bdca2e..8db3e2c 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1305,7 +1305,8 @@ hfsc_dump_sc(struct sk_buff *skb, int attr, struct internal_sc *sc)
- 	tsc.m1 = sm2m(sc->sm1);
- 	tsc.d  = dx2d(sc->dx);
- 	tsc.m2 = sm2m(sc->sm2);
--	NLA_PUT(skb, attr, sizeof(tsc), &tsc);
-+	if (nla_put(skb, attr, sizeof(tsc), &tsc))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- 
-@@ -1573,7 +1574,8 @@ hfsc_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
+@@ -7144,9 +7241,10 @@ static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
+ 		return;
  	}
  
- 	qopt.defcls = q->defcls;
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(qopt), &qopt))
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_FRAME, len, buf);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_FRAME, len, buf))
 +		goto nla_put_failure;
- 	return skb->len;
  
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7224,10 +7322,11 @@ static void nl80211_send_mlme_timeout(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT_FLAG(msg, NL80211_ATTR_TIMED_OUT);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put_flag(msg, NL80211_ATTR_TIMED_OUT) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7275,15 +7374,15 @@ void nl80211_send_connect_result(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	if (bssid)
+-		NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid);
+-	NLA_PUT_U16(msg, NL80211_ATTR_STATUS_CODE, status);
+-	if (req_ie)
+-		NLA_PUT(msg, NL80211_ATTR_REQ_IE, req_ie_len, req_ie);
+-	if (resp_ie)
+-		NLA_PUT(msg, NL80211_ATTR_RESP_IE, resp_ie_len, resp_ie);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    (bssid && nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid)) ||
++	    nla_put_u16(msg, NL80211_ATTR_STATUS_CODE, status) ||
++	    (req_ie &&
++	     nla_put(msg, NL80211_ATTR_REQ_IE, req_ie_len, req_ie)) ||
++	    (resp_ie &&
++	     nla_put(msg, NL80211_ATTR_RESP_IE, resp_ie_len, resp_ie)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7315,13 +7414,14 @@ void nl80211_send_roamed(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid);
+-	if (req_ie)
+-		NLA_PUT(msg, NL80211_ATTR_REQ_IE, req_ie_len, req_ie);
+-	if (resp_ie)
+-		NLA_PUT(msg, NL80211_ATTR_RESP_IE, resp_ie_len, resp_ie);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid) ||
++	    (req_ie &&
++	     nla_put(msg, NL80211_ATTR_REQ_IE, req_ie_len, req_ie)) ||
++	    (resp_ie &&
++	     nla_put(msg, NL80211_ATTR_RESP_IE, resp_ie_len, resp_ie)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7352,14 +7452,14 @@ void nl80211_send_disconnected(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	if (from_ap && reason)
+-		NLA_PUT_U16(msg, NL80211_ATTR_REASON_CODE, reason);
+-	if (from_ap)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_DISCONNECTED_BY_AP);
+-	if (ie)
+-		NLA_PUT(msg, NL80211_ATTR_IE, ie_len, ie);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    (from_ap && reason &&
++	     nla_put_u16(msg, NL80211_ATTR_REASON_CODE, reason)) ||
++	    (from_ap &&
++	     nla_put_flag(msg, NL80211_ATTR_DISCONNECTED_BY_AP)) ||
++	    (ie && nla_put(msg, NL80211_ATTR_IE, ie_len, ie)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7390,9 +7490,10 @@ void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7423,11 +7524,12 @@ void nl80211_send_new_peer_candidate(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, macaddr);
+-	if (ie_len && ie)
+-		NLA_PUT(msg, NL80211_ATTR_IE, ie_len , ie);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, macaddr) ||
++	    (ie_len && ie &&
++	     nla_put(msg, NL80211_ATTR_IE, ie_len , ie)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7458,15 +7560,14 @@ void nl80211_michael_mic_failure(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	if (addr)
+-		NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+-	NLA_PUT_U32(msg, NL80211_ATTR_KEY_TYPE, key_type);
+-	if (key_id != -1)
+-		NLA_PUT_U8(msg, NL80211_ATTR_KEY_IDX, key_id);
+-	if (tsc)
+-		NLA_PUT(msg, NL80211_ATTR_KEY_SEQ, 6, tsc);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    (addr && nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr)) ||
++	    nla_put_u32(msg, NL80211_ATTR_KEY_TYPE, key_type) ||
++	    (key_id != -1 &&
++	     nla_put_u8(msg, NL80211_ATTR_KEY_IDX, key_id)) ||
++	    (tsc && nla_put(msg, NL80211_ATTR_KEY_SEQ, 6, tsc)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7501,7 +7602,8 @@ void nl80211_send_beacon_hint_event(struct wiphy *wiphy,
+ 	 * Since we are applying the beacon hint to a wiphy we know its
+ 	 * wiphy_idx is valid
+ 	 */
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, get_wiphy_idx(wiphy));
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, get_wiphy_idx(wiphy)))
++		goto nla_put_failure;
+ 
+ 	/* Before */
+ 	nl_freq = nla_nest_start(msg, NL80211_ATTR_FREQ_BEFORE);
+@@ -7553,14 +7655,16 @@ static void nl80211_send_remain_on_chan_event(
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, chan->center_freq);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, channel_type);
+-	NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, chan->center_freq) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, channel_type) ||
++	    nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie))
++		goto nla_put_failure;
+ 
+-	if (cmd == NL80211_CMD_REMAIN_ON_CHANNEL)
+-		NLA_PUT_U32(msg, NL80211_ATTR_DURATION, duration);
++	if (cmd == NL80211_CMD_REMAIN_ON_CHANNEL &&
++	    nla_put_u32(msg, NL80211_ATTR_DURATION, duration))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7631,8 +7735,9 @@ void nl80211_send_sta_del_event(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr);
++	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, mac_addr))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7668,9 +7773,10 @@ static bool __nl80211_unexpected_frame(struct net_device *dev, u8 cmd,
+ 		return true;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr))
++		goto nla_put_failure;
+ 
+ 	err = genlmsg_end(msg, hdr);
+ 	if (err < 0) {
+@@ -7719,12 +7825,13 @@ int nl80211_send_mgmt(struct cfg80211_registered_device *rdev,
+ 		return -ENOMEM;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, freq);
+-	if (sig_dbm)
+-		NLA_PUT_U32(msg, NL80211_ATTR_RX_SIGNAL_DBM, sig_dbm);
+-	NLA_PUT(msg, NL80211_ATTR_FRAME, len, buf);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, freq) ||
++	    (sig_dbm &&
++	     nla_put_u32(msg, NL80211_ATTR_RX_SIGNAL_DBM, sig_dbm)) ||
++	    nla_put(msg, NL80211_ATTR_FRAME, len, buf))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7754,12 +7861,12 @@ void nl80211_send_mgmt_tx_status(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_FRAME, len, buf);
+-	NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
+-	if (ack)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_ACK);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_FRAME, len, buf) ||
++	    nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie) ||
++	    (ack && nla_put_flag(msg, NL80211_ATTR_ACK)))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+@@ -7791,15 +7898,17 @@ nl80211_send_cqm_rssi_notify(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex))
++		goto nla_put_failure;
+ 
+ 	pinfoattr = nla_nest_start(msg, NL80211_ATTR_CQM);
+ 	if (!pinfoattr)
+ 		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT,
+-		    rssi_event);
++	if (nla_put_u32(msg, NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT,
++			rssi_event))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, pinfoattr);
+ 
+@@ -7832,16 +7941,18 @@ void nl80211_gtk_rekey_notify(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, bssid))
++		goto nla_put_failure;
+ 
+ 	rekey_attr = nla_nest_start(msg, NL80211_ATTR_REKEY_DATA);
+ 	if (!rekey_attr)
+ 		goto nla_put_failure;
+ 
+-	NLA_PUT(msg, NL80211_REKEY_DATA_REPLAY_CTR,
+-		NL80211_REPLAY_CTR_LEN, replay_ctr);
++	if (nla_put(msg, NL80211_REKEY_DATA_REPLAY_CTR,
++		    NL80211_REPLAY_CTR_LEN, replay_ctr))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, rekey_attr);
+ 
+@@ -7874,17 +7985,19 @@ void nl80211_pmksa_candidate_notify(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex))
++		goto nla_put_failure;
+ 
+ 	attr = nla_nest_start(msg, NL80211_ATTR_PMKSA_CANDIDATE);
+ 	if (!attr)
+ 		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_PMKSA_CANDIDATE_INDEX, index);
+-	NLA_PUT(msg, NL80211_PMKSA_CANDIDATE_BSSID, ETH_ALEN, bssid);
+-	if (preauth)
+-		NLA_PUT_FLAG(msg, NL80211_PMKSA_CANDIDATE_PREAUTH);
++	if (nla_put_u32(msg, NL80211_PMKSA_CANDIDATE_INDEX, index) ||
++	    nla_put(msg, NL80211_PMKSA_CANDIDATE_BSSID, ETH_ALEN, bssid) ||
++	    (preauth &&
++	     nla_put_flag(msg, NL80211_PMKSA_CANDIDATE_PREAUTH)))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, attr);
+ 
+@@ -7918,15 +8031,17 @@ nl80211_send_cqm_pktloss_notify(struct cfg80211_registered_device *rdev,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, peer);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, peer))
++		goto nla_put_failure;
+ 
+ 	pinfoattr = nla_nest_start(msg, NL80211_ATTR_CQM);
+ 	if (!pinfoattr)
+ 		goto nla_put_failure;
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_CQM_PKT_LOSS_EVENT, num_packets);
++	if (nla_put_u32(msg, NL80211_ATTR_CQM_PKT_LOSS_EVENT, num_packets))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(msg, pinfoattr);
+ 
+@@ -7960,12 +8075,12 @@ void cfg80211_probe_status(struct net_device *dev, const u8 *addr,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+-	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+-	NLA_PUT_U64(msg, NL80211_ATTR_COOKIE, cookie);
+-	if (acked)
+-		NLA_PUT_FLAG(msg, NL80211_ATTR_ACK);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
++	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr) ||
++	    nla_put_u64(msg, NL80211_ATTR_COOKIE, cookie) ||
++	    (acked && nla_put_flag(msg, NL80211_ATTR_ACK)))
++		goto nla_put_failure;
+ 
+ 	err = genlmsg_end(msg, hdr);
+ 	if (err < 0) {
+@@ -8005,12 +8120,13 @@ void cfg80211_report_obss_beacon(struct wiphy *wiphy,
+ 		return;
+ 	}
+ 
+-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx);
+-	if (freq)
+-		NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, freq);
+-	if (sig_dbm)
+-		NLA_PUT_U32(msg, NL80211_ATTR_RX_SIGNAL_DBM, sig_dbm);
+-	NLA_PUT(msg, NL80211_ATTR_FRAME, len, frame);
++	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
++	    (freq &&
++	     nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, freq)) ||
++	    (sig_dbm &&
++	     nla_put_u32(msg, NL80211_ATTR_RX_SIGNAL_DBM, sig_dbm)) ||
++	    nla_put(msg, NL80211_ATTR_FRAME, len, frame))
++		goto nla_put_failure;
+ 
+ 	genlmsg_end(msg, hdr);
+ 
+diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
+index 0af7f54..9f544c9 100644
+--- a/net/wireless/wext-core.c
++++ b/net/wireless/wext-core.c
+@@ -402,7 +402,8 @@ static struct nlmsghdr *rtnetlink_ifinfo_prep(struct net_device *dev,
+ 	r->ifi_flags = dev_get_flags(dev);
+ 	r->ifi_change = 0;	/* Wireless changes don't affect those flags */
+ 
+-	NLA_PUT_STRING(skb, IFLA_IFNAME, dev->name);
++	if (nla_put_string(skb, IFLA_IFNAME, dev->name))
++		goto nla_put_failure;
+ 
+ 	return nlh;
   nla_put_failure:
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 29b942c..2ea6f19 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1051,7 +1051,8 @@ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	NLA_PUT(skb, TCA_HTB_INIT, sizeof(gopt), &gopt);
-+	if (nla_put(skb, TCA_HTB_INIT, sizeof(gopt), &gopt))
-+		goto nla_put_failure;
- 	nla_nest_end(skb, nest);
- 
- 	spin_unlock_bh(root_lock);
-@@ -1090,7 +1091,8 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
- 	opt.quantum = cl->quantum;
- 	opt.prio = cl->prio;
- 	opt.level = cl->level;
--	NLA_PUT(skb, TCA_HTB_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_HTB_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 	spin_unlock_bh(root_lock);
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 28de430..d1831ca 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -247,7 +247,8 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 		opt.offset[i] = dev->tc_to_txq[i].offset;
- 	}
- 
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- nla_put_failure:
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index 49131d7..2a2b096 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -284,7 +284,8 @@ static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opt.bands = q->bands;
- 	opt.max_bands = q->max_bands;
- 
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 5da548f..1109731 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -834,7 +834,8 @@ static int dump_loss_model(const struct netem_sched_data *q,
- 			.p23 = q->clg.a5,
- 		};
- 
--		NLA_PUT(skb, NETEM_LOSS_GI, sizeof(gi), &gi);
-+		if (nla_put(skb, NETEM_LOSS_GI, sizeof(gi), &gi))
-+			goto nla_put_failure;
- 		break;
- 	}
- 	case CLG_GILB_ELL: {
-@@ -845,7 +846,8 @@ static int dump_loss_model(const struct netem_sched_data *q,
- 			.k1 = q->clg.a4,
- 		};
- 
--		NLA_PUT(skb, NETEM_LOSS_GE, sizeof(ge), &ge);
-+		if (nla_put(skb, NETEM_LOSS_GE, sizeof(ge), &ge))
-+			goto nla_put_failure;
- 		break;
- 	}
- 	}
-@@ -874,26 +876,31 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	qopt.loss = q->loss;
- 	qopt.gap = q->gap;
- 	qopt.duplicate = q->duplicate;
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(qopt), &qopt))
-+		goto nla_put_failure;
- 
- 	cor.delay_corr = q->delay_cor.rho;
- 	cor.loss_corr = q->loss_cor.rho;
- 	cor.dup_corr = q->dup_cor.rho;
--	NLA_PUT(skb, TCA_NETEM_CORR, sizeof(cor), &cor);
-+	if (nla_put(skb, TCA_NETEM_CORR, sizeof(cor), &cor))
-+		goto nla_put_failure;
- 
- 	reorder.probability = q->reorder;
- 	reorder.correlation = q->reorder_cor.rho;
--	NLA_PUT(skb, TCA_NETEM_REORDER, sizeof(reorder), &reorder);
-+	if (nla_put(skb, TCA_NETEM_REORDER, sizeof(reorder), &reorder))
-+		goto nla_put_failure;
- 
- 	corrupt.probability = q->corrupt;
- 	corrupt.correlation = q->corrupt_cor.rho;
--	NLA_PUT(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt);
-+	if (nla_put(skb, TCA_NETEM_CORRUPT, sizeof(corrupt), &corrupt))
-+		goto nla_put_failure;
- 
- 	rate.rate = q->rate;
- 	rate.packet_overhead = q->packet_overhead;
- 	rate.cell_size = q->cell_size;
- 	rate.cell_overhead = q->cell_overhead;
--	NLA_PUT(skb, TCA_NETEM_RATE, sizeof(rate), &rate);
-+	if (nla_put(skb, TCA_NETEM_RATE, sizeof(rate), &rate))
-+		goto nla_put_failure;
- 
- 	if (dump_loss_model(q, skb) != 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index b5d56a2..79359b6 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -247,7 +247,8 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opt.bands = q->bands;
- 	memcpy(&opt.priomap, q->prio2band, TC_PRIO_MAX + 1);
- 
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index e68cb44..9af01f3 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -429,8 +429,9 @@ static int qfq_dump_class(struct Qdisc *sch, unsigned long arg,
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	NLA_PUT_U32(skb, TCA_QFQ_WEIGHT, ONE_FP/cl->inv_w);
--	NLA_PUT_U32(skb, TCA_QFQ_LMAX, cl->lmax);
-+	if (nla_put_u32(skb, TCA_QFQ_WEIGHT, ONE_FP/cl->inv_w) ||
-+	    nla_put_u32(skb, TCA_QFQ_LMAX, cl->lmax))
-+		goto nla_put_failure;
- 	return nla_nest_end(skb, nest);
- 
- nla_put_failure:
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index a5cc301..633e32d 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -272,8 +272,9 @@ static int red_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
--	NLA_PUT(skb, TCA_RED_PARMS, sizeof(opt), &opt);
--	NLA_PUT_U32(skb, TCA_RED_MAX_P, q->parms.max_P);
-+	if (nla_put(skb, TCA_RED_PARMS, sizeof(opt), &opt) ||
-+	    nla_put_u32(skb, TCA_RED_MAX_P, q->parms.max_P))
-+		goto nla_put_failure;
- 	return nla_nest_end(skb, opts);
- 
- nla_put_failure:
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index d7eea99..74305c8 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -570,7 +570,8 @@ static int sfb_dump(struct Qdisc *sch, struct sk_buff *skb)
- 
- 	sch->qstats.backlog = q->qdisc->qstats.backlog;
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
--	NLA_PUT(skb, TCA_SFB_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_SFB_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 	return nla_nest_end(skb, opts);
- 
- nla_put_failure:
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 02a21ab..d3a1bc2 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -812,7 +812,8 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	memcpy(&opt.stats, &q->stats, sizeof(opt.stats));
- 	opt.flags	= q->flags;
- 
--	NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	return skb->len;
- 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index b8e1563..4b056c15 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -359,7 +359,8 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 		memset(&opt.peakrate, 0, sizeof(opt.peakrate));
- 	opt.mtu = q->mtu;
- 	opt.buffer = q->buffer;
--	NLA_PUT(skb, TCA_TBF_PARMS, sizeof(opt), &opt);
-+	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 	return skb->len;
 -- 
 1.7.7.6
