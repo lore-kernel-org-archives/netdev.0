@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rionet: fix page allocation order of rionet_active
-Date: Sun, 01 Apr 2012 23:17:58 -0400 (EDT)
-Message-ID: <20120401.231758.636936187534240046.davem@davemloft.net>
-References: <1333105306-2601-1-git-send-email-akinobu.mita@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: check the length of the data before dereferencing
+ it
+Date: Mon, 02 Apr 2012 05:19:33 +0200
+Message-ID: <1333336773.2325.6531.camel@edumazet-glaptop>
+References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mporter@kernel.crashing.org,
-	alexandre.bounine@idt.com
-To: akinobu.mita@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47107 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034Ab2DBDSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:18:14 -0400
-In-Reply-To: <1333105306-2601-1-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Fri, 30 Mar 2012 20:01:46 +0900
-
-> rionet_active is allocated from the page allocator and the allocation
-> order is calculated on the assumption that the page size is 4KB, so it
-> wastes memory on more than 4K page systems.
+On Mon, 2012-04-02 at 11:10 +0800, Changli Gao wrote:
+> We should check the length of the data before dereferencing it when parsing
+> the TCP options.
 > 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+>  net/ipv4/tcp_input.c |    2 ++
+>  1 file changed, 2 insertions(+)
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index e886e2f..5099f08 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3845,6 +3845,8 @@ void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *o
+>  			length--;
+>  			continue;
+>  		default:
+> +			if (length < 2)
+> +				return;
+>  			opsize = *ptr++;
+>  			if (opsize < 2) /* "silly options" */
+>  				return;
 
-Applied, thanks.
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
