@@ -1,25 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: fix endian check for architecture
- independent
-Date: Sun, 01 Apr 2012 23:22:34 -0400 (EDT)
-Message-ID: <20120401.232234.686879895812528970.davem@davemloft.net>
-References: <4F754558.1070001@renesas.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4F754558.1070001@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] netfilter: don't scale the size of the window up twice
+Date: Mon,  2 Apr 2012 11:25:06 +0800
+Message-ID: <1333337106-8279-1-git-send-email-xiaosuo@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Date: Fri, 30 Mar 2012 14:32:08 +0900
+For a picked up connection, the window win is scaled twice: one is by the
+initialization code, and the other is by the sender updating code.
 
-> SuperH has the "CONFIG_CPU_LITTLE_ENDIAN" and the "__LITTLE_ENDIAN__".
-> But, other architecture doesn't have them. So, this patch fixes it.
-> 
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+I use the temporary variable swin instead of modifying the variable win.
 
-Applied.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 361eade..0d07a1d 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -584,8 +584,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 			 * Let's try to use the data from the packet.
+ 			 */
+ 			sender->td_end = end;
+-			win <<= sender->td_scale;
+-			sender->td_maxwin = (win == 0 ? 1 : win);
++			swin = win << sender->td_scale;
++			sender->td_maxwin = (swin == 0 ? 1 : swin);
+ 			sender->td_maxend = end + sender->td_maxwin;
+ 			/*
+ 			 * We haven't seen traffic in the other direction yet
