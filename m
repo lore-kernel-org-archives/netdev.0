@@ -1,167 +1,124 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 5/9] ipvs: use adaptive pause in master thread
-Date: Mon, 2 Apr 2012 13:11:45 +0200
-Message-ID: <20120402111145.GA15181@1984>
-References: <1332320185-27157-1-git-send-email-horms@verge.net.au>
- <1332320185-27157-6-git-send-email-horms@verge.net.au>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 09/10] stmmac: MDC clock dynamically based on the csr
+ clock input
+Date: Mon, 02 Apr 2012 13:17:22 +0200
+Message-ID: <4F798AC2.4090909@st.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EB8@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1332320185-27157-6-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	srinivas.kandagatla@st.com, deepak.sikri@st.com,
+	spear-devel@list.st.com, shiraz.hashim@st.com, viresh.kumar@st.com,
+	bhutchings@solarflare.com
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:54254 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752541Ab2DBLSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 07:18:38 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EB8@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Simon et al.
-
-On Wed, Mar 21, 2012 at 05:56:20PM +0900, Simon Horman wrote:
-> From: Julian Anastasov <ja@ssi.bg>
+On 3/23/2012 10:53 AM, David Laight wrote:
+>  
 > 
-> 	High rate of sync messages in master can lead to
-> overflowing the socket buffer and dropping the messages.
-> Instead of using fixed pause try to adapt to the sync
-> rate, so that we do not wakeup too often while at the same
-> time staying below the socket buffer limit.
-
-I see. You are avoiding the congestion in the socket queue by putting
-the pressure in your sync_buff queue  (I don't find any limit in
-the code for the amount of memory that it may consume btw).
-
-Please, correct me if I'm wrong, but from this I can se you're
-assuming that there's always room in the syn_buff queue to store
-messages. This is valid if the high peak of traffic lasts for short
-time. However, if it lasts long, the worker thread may not be able to
-consume all the messages in time under high stress situation that
-lasts long and the sync_buffer may keep growing more and more.
-
-Moreover, the backup may receive sync messages talking about old
-states that are not useful anymore to recover the load-balancing in
-case of failover.
-
-One more concern, please see below.
-
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c |   60 +++++++++++++++++++++++++++++---------
->  1 files changed, 46 insertions(+), 14 deletions(-)
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org 
+>> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Giuseppe CAVALLARO
+>> Sent: 23 March 2012 09:09
+>> To: netdev@vger.kernel.org
+>> Cc: davem@davemloft.net; srinivas.kandagatla@st.com; 
+>> deepak.sikri@st.com; spear-devel@list.st.com; 
+>> shiraz.hashim@st.com; viresh.kumar@st.com; 
+>> bhutchings@solarflare.com; Giuseppe Cavallaro
+>> Subject: [PATCH 09/10] stmmac: MDC clock dynamically based on 
+>> the csr clock input
+>>
+>> If a specific clk_csr value is passed from the platform
+>> this means that the CSR Clock Range selection cannot be
+>> changed at run-time and it is fixed (as reported in the driver
+>> documentation). Viceversa the driver will try to set the MDC
+>> clock dynamically according to the actual clock input.
+>>
+>> Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
+>> Reviewed-by: Francesco Virlinzi <francesco.virlinzi@st.com>
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> ---
+>>  Documentation/networking/stmmac.txt               |    2 +-
+>>  drivers/net/ethernet/stmicro/stmmac/common.h      |   10 +++++
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   40 
+>> +++++++++++++++++++++
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
+>>  5 files changed, 54 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/Documentation/networking/stmmac.txt 
+>> b/Documentation/networking/stmmac.txt
+>> index eacb640..ab1e8d7 100644
+>> --- a/Documentation/networking/stmmac.txt
+>> +++ b/Documentation/networking/stmmac.txt
+>> @@ -137,7 +137,7 @@ Where:
+>>   o pbl: the Programmable Burst Length is maximum number of beats to
+>>         be transferred in one DMA transaction.
+>>         GMAC also enables the 4xPBL by default.
+>> - o clk_csr: CSR Clock range selection.
+>> + o clk_csr: fixed CSR Clock range selection.
+>>   o has_gmac: uses the GMAC core.
+>>   o enh_desc: if sets the MAC will use the enhanced 
+>> descriptor structure.
+>>   o tx_coe: core is able to perform the tx csum in HW.
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h 
+>> b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> index f4df1eb..312e3f1 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> @@ -97,6 +97,16 @@ struct stmmac_extra_stats {
+>>  	unsigned long normal_irq_n;
+>>  };
+>>  
+>> +/* CSR Frequency Access Defines*/
+>> +#define CSR_F_35M	35000000
+>> +#define CSR_F_60M	60000000
+>> +#define CSR_F_100M	100000000
+>> +#define CSR_F_150M	150000000
+>> +#define CSR_F_250M	50000000
+>> +#define CSR_F_300M	300000000
 > 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index 0e36679..9201c43 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -1392,18 +1392,22 @@ ip_vs_send_async(struct socket *sock, const char *buffer, const size_t length)
->  	return len;
->  }
->  
-> -static void
-> +static int
->  ip_vs_send_sync_msg(struct socket *sock, struct ip_vs_sync_mesg *msg)
->  {
->  	int msize;
-> +	int ret;
->  
->  	msize = msg->size;
->  
->  	/* Put size in network byte order */
->  	msg->size = htons(msg->size);
->  
-> -	if (ip_vs_send_async(sock, (char *)msg, msize) != msize)
-> -		pr_err("ip_vs_send_async error\n");
-> +	ret = ip_vs_send_async(sock, (char *)msg, msize);
-> +	if (ret >= 0 || ret == -EAGAIN)
-> +		return ret;
-> +	pr_err("ip_vs_send_async error %d\n", ret);
-> +	return 0;
->  }
->  
->  static int
-> @@ -1428,33 +1432,61 @@ ip_vs_receive(struct socket *sock, char *buffer, const size_t buflen)
->  	return len;
->  }
->  
-> +/* Get next buffer to send */
-> +static inline struct ip_vs_sync_buff *
-> +next_sync_buff(struct netns_ipvs *ipvs)
-> +{
-> +	struct ip_vs_sync_buff *sb;
-> +
-> +	sb = sb_dequeue(ipvs);
-> +	if (sb)
-> +		return sb;
-> +	/* Do not delay entries in buffer for more than 2 seconds */
-> +	return get_curr_sync_buff(ipvs, 2 * HZ);
-> +}
->  
->  static int sync_thread_master(void *data)
->  {
->  	struct ip_vs_sync_thread_data *tinfo = data;
->  	struct netns_ipvs *ipvs = net_ipvs(tinfo->net);
-> -	struct ip_vs_sync_buff *sb;
-> +	struct ip_vs_sync_buff *sb = NULL;
-> +	int pause = HZ / 10;
->  
->  	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
->  		"syncid = %d\n",
->  		ipvs->master_mcast_ifn, ipvs->master_syncid);
->  
->  	while (!kthread_should_stop()) {
-> -		while ((sb = sb_dequeue(ipvs))) {
-> -			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
-> -			ip_vs_sync_buff_release(sb);
-> -		}
-> +		int count = 0;
->  
-> -		/* check if entries stay in ipvs->sync_buff for 2 seconds */
-> -		sb = get_curr_sync_buff(ipvs, 2 * HZ);
-> -		if (sb) {
-> -			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
-> -			ip_vs_sync_buff_release(sb);
-> +		for (;;) {
-> +			if (!sb) {
-> +				sb = next_sync_buff(ipvs);
-> +				if (!sb)
-> +					break;
-> +			}
-> +			if (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) >= 0 ||
-> +			    pause == 1) {
-> +				ip_vs_sync_buff_release(sb);
-> +				sb = NULL;
-> +				count++;
-> +			} else {
-> +				pause = max(1, (pause >> 1));
-> +				break;
-> +			}
->  		}
->  
-> -		schedule_timeout_interruptible(HZ);
-> +		/* Max packets to send at once */
-> +		if (count > 200)
-> +			pause = max(1, (pause - HZ / 20));
-> +		else if (count < 20)
-> +			pause = min(HZ / 4, (pause + HZ / 20));
-> +		schedule_timeout_interruptible(sb ? 1 : pause);
+> The value of CSR_F_250M looks like a typo.
 
-This rate-limits the amount of times the worker is woken up.
+yes you are right, I'll fix it and re-send the all patches.
 
-Still, this seems to me like an ad-hoc congestion solution. There's no
-justification why those numbers has been chosed, eg. why do we assume
-that we're congested if we've reached 200 packets in one single loop?
+> These defines look rather pointless to me though!
+> 
+> Another patch has:
+>> -----------------------------------------
+>> 	Selection	MDC Clock
+>> -----------------------------------------
+>> 	1000 		clk_csr_i/4
+>> 	1001 		clk_csr_i/6
+>> 	1010 		clk_csr_i/8
+>> 	1011 		clk_csr_i/10
+>> 	1100 		clk_csr_i/12
+>> 	1101	 	clk_csr_i/14
+>> 	1110 		clk_csr_i/16
+>> 	1111 		clk_csr_i/18
+> I detect a pattern ...
 
-To me, congestion control is a complicated thing (there is plenty of
-literature for TCP avoid it). I'm not sure how many patches will
-follow after this one to try to improve your congestion control
-solution.
+On this mac, the MDC clock can be set by user in several ways.
+if the bit Reg4 bit 5 is 0 so the clock divisor will be driven according
+to a fixed range of frq (CSR_F_35M & CO).
+If the bit 5 is set then "custom" divisors can be used.
+I know it's quite tricky but these patches (from SPEAr) that I reviewed,
+indeed, added an useful fix to  dynamically set the MDC clock according
+to the actual clock source. This also helped somebody on custom boards.
 
-So, my question is, are you sure you want to enter this domain?
+Peppe
 
-IMO, better to stick to some simple solution, ie. just drop messages
-if the worker thread receives a high peak of work, than trying to
-define some sort of rate-limit solution based on assumptions that are
-not generic enough for every setup.
+> 
+> 	David
+> 
+> 
+> 
+> 
