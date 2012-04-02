@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: cdc_eem: fix mtu
-Date: Sun, 01 Apr 2012 23:33:08 -0400 (EDT)
-Message-ID: <20120401.233308.282185514386145568.davem@davemloft.net>
-References: <1333041315-4303-1-git-send-email-rabin@rab.in>
+Subject: Re: [PATCH] net: Report dev->promiscuity in netlink reports.
+Date: Sun, 01 Apr 2012 23:35:00 -0400 (EDT)
+Message-ID: <20120401.233500.1228632795205982039.davem@davemloft.net>
+References: <1333061490-4484-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.name, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: rabin@rab.in
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47208 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47218 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091Ab2DBDdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:33:12 -0400
-In-Reply-To: <1333041315-4303-1-git-send-email-rabin@rab.in>
+	with ESMTP id S1754196Ab2DBDfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:35:03 -0400
+In-Reply-To: <1333061490-4484-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rabin Vincent <rabin@rab.in>
-Date: Thu, 29 Mar 2012 22:45:15 +0530
+From: greearb@candelatech.com
+Date: Thu, 29 Mar 2012 15:51:30 -0700
 
-> Make CDC EEM recalculate the hard_mtu after adjusting the
-> hard_header_len.
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> Without this, usbnet adjusts the MTU down to 1494 bytes, and the host is
-> unable to receive standard 1500-byte frames from the device.
+> The standard ways of probing a device's promiscuity
+> (ifi_flags, for instance) does not report the actual
+> state of the device.  This patch adds dev->promiscuity
+> to the netlink netdevice report so that users can know
+> for certain if the device is acting PROMISC or not.
 > 
-> Tested with the Linux USB Ethernet gadget.
-> 
-> Cc: Oliver Neukum <oliver@neukum.name>
-> Signed-off-by: Rabin Vincent <rabin@rab.in>
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Applied and queued up for -stable, thanks.
+Ok, applied to net-next, thanks.
