@@ -1,32 +1,60 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 21/51] ipvs: Stop using NLA_PUT*().
-Date: Mon, 2 Apr 2012 15:22:45 +0900
-Message-ID: <20120402062240.GA27344@verge.net.au>
-References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
- <1333335521-1348-22-git-send-email-davem@davemloft.net>
- <20120402050142.GA20454@verge.net.au>
- <20120402.010302.1302861329843358875.davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: check the length of the data before dereferencing it
+Date: Mon, 2 Apr 2012 14:27:27 +0800
+Message-ID: <CABa6K_GUMGC-cWPJyG_EcX_J3+w3cq4eZhuYqZYFgbcHHaXCNQ@mail.gmail.com>
+References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+ <1333336773.2325.6531.camel@edumazet-glaptop> <20120401.232942.1829187970291547571.davem@davemloft.net>
+ <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
+ <1333338797.2325.6610.camel@edumazet-glaptop> <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
+ <1333342467.2325.6739.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:40902 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947Ab2DBGWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 02:22:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20120402.010302.1302861329843358875.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1333342467.2325.6739.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 02, 2012 at 01:03:02AM -0400, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Mon, 2 Apr 2012 14:01:49 +0900
-> 
-> > do you want me to take this patch or do you plan to take it directly?
-> 
-> I plan to take the whole series, otherwise I can't put the
-> commit in at the end that deletes these interfaces.
+On Mon, Apr 2, 2012 at 12:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2012-04-02 at 12:47 +0800, Changli Gao wrote:
+>
+>> Got it. Thanks. FYI, the tcp options are copied to the stack before
+>> being parsed.
+>>
+>
+> What do you mean ?
+>
+> code looks like :
+>
+> const struct tcphdr *th = tcp_hdr(skb);
+> int length = (th->doff * 4) - sizeof(struct tcphdr);
+>
+> ptr = (const unsigned char *)(th + 1);
+>
+>
+>
+> Therefore ptr points somewhere in skb->head ...
+>
+>
+>
 
-Thanks, got it.
+Oh, sorry. I forgot to add the condition when I wrote it down. I mean
+the code in netfilter.
+
+        unsigned char buff[(15 * 4) - sizeof(struct tcphdr)];
+        const unsigned char *ptr;
+        int length = (tcph->doff*4) - sizeof(struct tcphdr);
+
+        if (!length)
+                return;
+
+        ptr = skb_header_pointer(skb, dataoff + sizeof(struct tcphdr),
+                                 length, buff);
+        BUG_ON(ptr == NULL);
+
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
