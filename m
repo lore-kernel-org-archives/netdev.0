@@ -1,47 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 3/8] net: Add device tree support to LPC32xx
-Date: Mon, 2 Apr 2012 19:37:54 +0000
-Message-ID: <201204021937.54567.arnd@arndb.de>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v2 0/8]: arm: lpc32xx: Device tree support
+Date: Mon, 2 Apr 2012 19:39:12 +0000
+Message-ID: <201204021939.12731.arnd@arndb.de>
 References: <1333391587-26290-1-git-send-email-stigge@antcom.de>
- <1333391587-26290-4-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: a.zummo@towertech.it, srinivas.bakki@nxp.com,
- linux-watchdog@vger.kernel.org, rtc-linux@googlegroups.com,
- gregkh@linuxfoundation.org, w.sang@pengutronix.de, kevin.wells@nxp.com,
- linux-kernel@vger.kernel.org, wim@iguana.be, arm@kernel.org,
- linux-i2c@vger.kernel.org, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, jonsmirl@gmail.com
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1333391587-26290-4-git-send-email-stigge@antcom.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, srinivas.bakki-3arQi8VN3Tc@public.gmane.org, kevin.wells-3arQi8VN3Tc@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org,
+	linux-watchdog-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org, jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1333391587-26290-1-git-send-email-stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On Monday 02 April 2012, Roland Stigge wrote:
+> This is the first series of patches to introduce device tree support for the
+> LPC32xx SoC. This series includes patches for the various subsystems to support
+> device tree to be used later by the machine's initialization.
 > 
-> +       if (pdev->dev.of_node && of_get_property(pdev->dev.of_node,
-> +                                                "use-iram", NULL))
-> +               pldat->use_iram = true;
-> +       else
-> +               pldat->use_iram = false;
-> +
+> The patches apply to various subsystems:
+> 
+>  * staging/iio/adc (1)
+>  * rtc (1)
+>  * net (1)
+>  * wdt (1)
+>  * i2c (4)
+>  * arm-soc (i2c related in the former, to be merged via i2c, as suggested by
+>             Arnd Bergmann)
 
-One more thing I just noticed:
+Looks good, please add
 
-this is equivalent to the much shorter 
+Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 
-	pldat->use_iram = of_property_read_bool(pdev->dev.of_node, "use-iram");
-
-Everything else looks good here.
+for the entire series.
 
 	Arnd
