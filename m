@@ -1,77 +1,41 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: [PATCH 3.3.0 3/3] net:phy:marvell: remove unnecessary code
-Date: Mon,  2 Apr 2012 17:25:24 +0100
-Message-ID: <1333383924-24353-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: davem@davemloft.net, srinivas.kandagatla@st.com
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3.3.0 1/3] net:phy:bcm63xx: remove unnecessary code
+Date: Mon, 02 Apr 2012 09:42:25 -0700
+Message-ID: <1333384945.15422.14.camel@joe2Laptop>
+References: <1333383895-23889-1-git-send-email-srinivas.kandagatla@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:51022 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753115Ab2DBQ1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 12:27:10 -0400
+Received: from perches-mx.perches.com ([206.117.179.246]:46745 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752942Ab2DBQm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2012 12:42:27 -0400
+In-Reply-To: <1333383895-23889-1-git-send-email-srinivas.kandagatla@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On Mon, 2012-04-02 at 17:24 +0100, Srinivas KANDAGATLA wrote:
+> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> 
+> Compile tested.
+> remove unnecessary code that matches this coccinelle pattern
+> 
+> 	ret = phy_write(x, y , z)
+> 	if (ret < 0)
+> 		return ret;
+> 	return 0;
+> 
+> As phy_write returns error code, we dont need to do not need extra check
+> before returning.
 
-Compile tested.
-remove unnecessary code that matches this coccinelle pattern
+Do these really make any functional difference?
+Doesn't the compiler generate the same output?
 
-	ret = phy_write(x, y , z)
-	if (ret < 0)
-	       	return ret;
-	return 0;
-
-As phy_write returns error code, we dont need to do not need extra check
-before returning.
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- drivers/net/phy/marvell.c |   18 +++---------------
- 1 files changed, 3 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index e8b9c53..418928d 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -455,11 +455,7 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
--	if (err < 0)
--		return err;
--
--	return 0;
-+	return phy_write(phydev, MII_BMCR, BMCR_RESET);
- }
- 
- static int m88e1118_config_aneg(struct phy_device *phydev)
-@@ -515,11 +511,7 @@ static int m88e1118_config_init(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
--	if (err < 0)
--		return err;
--
--	return 0;
-+	return phy_write(phydev, MII_BMCR, BMCR_RESET);
- }
- 
- static int m88e1149_config_init(struct phy_device *phydev)
-@@ -545,11 +537,7 @@ static int m88e1149_config_init(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
--	if (err < 0)
--		return err;
--
--	return 0;
-+	return phy_write(phydev, MII_BMCR, BMCR_RESET);
- }
- 
- static int m88e1145_config_init(struct phy_device *phydev)
--- 
-1.7.0.4
+Many times, there's a code pattern that precedes these
+calls has a similar pattern and changing the pattern
+for the last call in a sequence can be jarring to a
+reader and changing the pattern can sometimes introduce
+errors as well.
