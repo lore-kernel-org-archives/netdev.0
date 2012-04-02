@@ -1,44 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: check the length of the data before dereferencing
- it
-Date: Mon, 02 Apr 2012 06:54:27 +0200
-Message-ID: <1333342467.2325.6739.camel@edumazet-glaptop>
-References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
-	 <1333336773.2325.6531.camel@edumazet-glaptop>
-	 <20120401.232942.1829187970291547571.davem@davemloft.net>
-	 <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
-	 <1333338797.2325.6610.camel@edumazet-glaptop>
-	 <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next 00/28] ethtool: support time
+ stamping and phc clocks
+Date: Mon, 02 Apr 2012 00:55:08 -0400 (EDT)
+Message-ID: <20120402.005508.810320049567209896.davem@davemloft.net>
+References: <cover.1333289292.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: mporter@solarflare.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jacob.e.keller@intel.com,
+	john.ronciak@intel.com, bhutchings@solarflare.com
+To: richardcochran@gmail.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1333289292.git.richardcochran@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-04-02 at 12:47 +0800, Changli Gao wrote:
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Sun,  1 Apr 2012 17:19:45 +0200
 
-> Got it. Thanks. FYI, the tcp options are copied to the stack before
-> being parsed.
+> Support for SO_TIMESTAMPING of network packets and PTP Hardware Clocks
+> has been expanding over the last year or two. In an ideal world, every
+> host would have exactly one PTP hardware clock, and every Ethernet MAC
+> would support SO_TIMESTAMPING on both the transmit and receive paths.
+> However, since we do not yet have full coverage for these features,
+> user space programs need a way to discover what a given interface
+> supports in these two areas.
+ ...
+> This series exposes the hardware and driver capabilities known to user
+> space via ethtool. 
 > 
+> Since the PHC code was first merged, this has become the number one
+> requested new feature.
+> 
+> Patch number  3 applies on top of my recent two igb/phc patches.
+> Patch number 12 applies on top of my recent e100 patch.
+> 
+> The new feature has been tested on the following hardware:
+> 
+> igb       Hardware time stamping in the MAC
+> dp83640   Hardware time stamping in the PHY
+> r8169     Software Tx time stamping in the MAC
 
-What do you mean ?
+No real objections from me, Ben?
 
-code looks like :
-
-const struct tcphdr *th = tcp_hdr(skb);
-int length = (th->doff * 4) - sizeof(struct tcphdr);
-
-ptr = (const unsigned char *)(th + 1);
-
-
-
-Therefore ptr points somewhere in skb->head ... 
-
-
-
+------------------------------------------------------------------------------
+This SF email is sponsosred by:
+Try Windows Azure free for 90 days Click Here 
+http://p.sf.net/sfu/sfd2d-msazure
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
