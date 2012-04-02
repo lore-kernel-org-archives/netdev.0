@@ -1,56 +1,99 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 1/2] net/bonding: emit address change event in more places
-Date: Mon,  2 Apr 2012 19:17:09 +0300
-Message-ID: <1333383430-17456-2-git-send-email-ogerlitz@mellanox.com>
-References: <1333383430-17456-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, fubar@us.ibm.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: davem@davemloft.net
+From: deepaksi <deepak.sikri@st.com>
+Subject: Re: [PATCH 03/10] stmmac: sanitize the rx coe and add the type-1
+ csum
+Date: Mon, 2 Apr 2012 21:48:07 +0530
+Message-ID: <4F79D13F.6020609@st.com>
+References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com> <1332493721-28309-4-git-send-email-peppe.cavallaro@st.com> <4F6D921F.10400@st.com> <4F79887A.50804@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
+	spear-devel <spear-devel@list.st.com>,
+	Shiraz HASHIM <shiraz.hashim@st.com>,
+	Viresh KUMAR <viresh.kumar@st.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:39632 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752243Ab2DBQRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 12:17:22 -0400
-In-Reply-To: <1333383430-17456-1-git-send-email-ogerlitz@mellanox.com>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:50508 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751403Ab2DBQT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 12:19:29 -0400
+In-Reply-To: <4F79887A.50804@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shlomo Pongratz <shlomop@mellanox.com>
+On 4/2/2012 4:37 PM, Giuseppe CAVALLARO wrote:
+> On 3/24/2012 10:21 AM, Deepak SIKRI wrote:
+>>
+>>
+>> On 3/23/2012 2:38 PM, Giuseppe CAVALLARO wrote:
+>>> [snip]
+>>>
+>>>
+>>> -    priv->rx_coe = priv->hw->mac->rx_coe(priv->ioaddr);
+>>> -    if (priv->rx_coe)
+>>> -        pr_info(" RX Checksum Offload Engine supported\n");
+>>> +    if (priv->plat->rx_coe)
+>>> +        pr_info(" RX Checksum Offload Engine supported (type %d)\n",
+>>> +            priv->plat->rx_coe);
+>>>        if (priv->plat->tx_coe)
+>>>            pr_info(" TX Checksum insertion supported\n");
+>>>
+>> rx_coe needs to be enabled. Earlier it was being done. Any specific
+>> reasons to remove this.
+>> Instead this code needs to be moved post mac reset has been done.
+> Hello Deepak
+>
+> sorry for this delay.
+>
+> I've not clear at all your question.
+> The driver well uses the rx_coe as briefly described below:
+>
+> probe funct
+>    |__ hw_init
+>           |_ check the RX type from HW cap reg
+>                   |__ Override the rx_coe if required
+>
+> After that the rx_coe is used and passed to the core as expected.
+> In case of there is no HW cap register so the rx_coe from platform will
+> be used.
+>
+> Peppe
 
-commit 7d26bb103c4 "bonding: emit event when bonding changes MAC" didn't
-take care to emit the NETDEV_CHANGEADDR event in other places where bonding
-actually changes the mac address (to all zeroes), in bond_release, and
-bond_release_all. As a result the neighbours aren't deleted by the core
-networking code (which does so upon getting that event).
+In the same patch, this portion of the code has been removed.
 
-Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
----
- drivers/net/bonding/bond_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+-static int dwmac1000_rx_coe_supported(void __iomem *ioaddr)
+-{
+-	u32 value = readl(ioaddr + GMAC_CONTROL);
+-
+-	value |= GMAC_CONTROL_IPC;
+-	writel(value, ioaddr + GMAC_CONTROL);
+-
+-	value = readl(ioaddr + GMAC_CONTROL);
+-
+-	return !!(value&  GMAC_CONTROL_IPC);
+-}
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a20b585..b0a278d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2035,6 +2035,9 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
- 
-+	if (bond->slave_cnt == 0)
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-+
- 	bond_compute_features(bond);
- 	if (!(bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
- 	    (old_features & NETIF_F_VLAN_CHALLENGED))
-@@ -2218,6 +2221,8 @@ static int bond_release_all(struct net_device *bond_dev)
- out:
- 	write_unlock_bh(&bond->lock);
- 
-+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-+
- 	bond_compute_features(bond);
- 
- 	return 0;
--- 
-1.7.1
+Earlier this was taking care of setting the IP Checksum offloading feature
+in case its available. This code has to be present, as I do not see any
+other location where the IPC bit is being programmed.
+
+Also, the location of setting the IPC should be post the mac has been reset.
+
+I hope this clears the things a bit. Sorry for the miscommunication.
+
+Rgds
+Deepak
+
+
+
+
+
+
+>> Regards
+>> Deepak
+>>
+> .
+>
