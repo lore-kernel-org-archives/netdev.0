@@ -1,59 +1,39 @@
-From: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 0/7]: arm: lpc32xx: Device tree support
-Date: Mon, 02 Apr 2012 16:02:17 +0200
-Message-ID: <4F79B169.5010909@antcom.de>
-References: <1333371364-21347-1-git-send-email-stigge@antcom.de> <201204021345.04512.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, srinivas.bakki-3arQi8VN3Tc@public.gmane.org, kevin.wells-3arQi8VN3Tc@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org,
-	linux-watchdog-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201204021345.04512.arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] net/bonding: fixes related to neigh
+Date: Mon,  2 Apr 2012 19:17:08 +0300
+Message-ID: <1333383430-17456-1-git-send-email-ogerlitz@mellanox.com>
+Cc: roland@kernel.org, netdev@vger.kernel.org, fubar@us.ibm.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:49534 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751566Ab2DBQRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 12:17:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+From: Shlomo Pongratz <shlomop@mellanox.com>
 
-On 04/02/2012 03:45 PM, Arnd Bergmann wrote:
->> Signed-off-by: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
->
-> Looks good overall.
+Dave, 
 
-Thanks for your mails, I'm just integrating your suggestions.
+This small patch set fixes some issues we stepped on when preparing 
+for some IPoIB changes. 
 
-> I notice that you are missing the bindings for irq and gpio, which
-> tend to be
-> quite important. Do you have another tree that has all the lpc32xx
-> specific
-> parts or are these still under heavy development?
+With the 1st patch, the kernel networking code of arp_netdev_event calls 
+neigh_changeaddr which further flashes the boding neighbours in some more 
+cases which weren't covered by commit 7d26bb103 "bonding: emit event when 
+bonding changes MAC"
 
-Yes, still under development. GPIO is subject to an open minor issue
-(will post an RFC later), and irq is part of the main mach-lpc32xx dt
-switch - I have DT-irq already working, but I need to OF'ize lcd and usb
-to complete.
+The 2nd patch fixes a bug where under bonding, the IPoIB neigh cleanup
+function wasn't called.
 
-> Do you plan to add DT support in parallel to the ATAGS based board you
-> already have, or do you plan to move everything over quickly?
+Or.
 
-For the LPC32xx specific things, including arch/arm/mach-lpc32xx, I will
-switch over to DT quickly, eliminating phy3250.c by replacing with a
-respective dts file.
 
-The other subsystems changes (pnx*) can and should be dual DT/non-DT to
-support other platforms and users who still use it in a non-DT way.
+Shlomo Pongratz (2):
+  net/bonding: emit address change event in more places
+  net/bonding: correctly proxy slave neigh param setup ndo function
 
-> In the latter case, it might be helpful to get Acks from the subsystem
-> maintainers and merge everything through arm-soc.
-
-Yes, sounds reasonable regarding the LPC32xx specific bits like wdt and
-adc. Is there sth. I can do about it?
-
-Thanks all,
-
-Roland
+ drivers/net/bonding/bond_main.c |   56 +++++++++++++++++++++++++++++++++-----
+ 1 files changed, 48 insertions(+), 8 deletions(-)
