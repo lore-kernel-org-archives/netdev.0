@@ -1,190 +1,85 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 25/51] dcbnl: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:15 -0400
-Message-ID: <1333335521-1348-26-git-send-email-davem@davemloft.net>
+Subject: [PATCH 05/51] netlink: Add nla_put_be{16,32,64}() helpers.
+Date: Sun,  1 Apr 2012 22:57:55 -0400
+Message-ID: <1333335521-1348-6-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46749 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46706 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374Ab2DBC7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:52 -0400
+	with ESMTP id S1754053Ab2DBC7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:34 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "David S. Miller" <davem@davemloft.net>
 
-These macros contain a hidden goto, and are thus extremely error
-prone and make code hard to audit.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/dcb/dcbnl.c |   72 ++++++++++++++++++++++++++++++++-----------------------
- 1 files changed, 42 insertions(+), 30 deletions(-)
+ include/net/netlink.h |   35 ++++++++++++++++++++++++++++++++++-
+ 1 files changed, 34 insertions(+), 1 deletions(-)
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index d860530..36f37af 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -1205,13 +1205,15 @@ static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb,
- 		if (!app)
- 			goto nla_put_failure;
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index f394fe5..fce17f6 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -772,6 +772,17 @@ static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
+ }
  
--		if (app_info_type)
--			NLA_PUT(skb, app_info_type, sizeof(info), &info);
--
--		for (i = 0; i < app_count; i++)
--			NLA_PUT(skb, app_entry_type, sizeof(struct dcb_app),
--				&table[i]);
-+		if (app_info_type &&
-+		    nla_put(skb, app_info_type, sizeof(info), &info))
-+			goto nla_put_failure;
+ /**
++ * nla_put_be16 - Add a __be16 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_be16(struct sk_buff *skb, int attrtype, __be16 value)
++{
++	return nla_put(skb, attrtype, sizeof(__be16), &value);
++}
++
++/**
+  * nla_put_u32 - Add a u32 netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+@@ -783,7 +794,18 @@ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
+ }
  
-+		for (i = 0; i < app_count; i++) {
-+			if (nla_put(skb, app_entry_type, sizeof(struct dcb_app),
-+				    &table[i]))
-+				goto nla_put_failure;
-+		}
- 		nla_nest_end(skb, app);
- 	}
- 	err = 0;
-@@ -1230,8 +1232,8 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	int dcbx;
- 	int err = -EMSGSIZE;
+ /**
+- * nla_put_64 - Add a u64 netlink attribute to a socket buffer
++ * nla_put_be32 - Add a __be32 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_be32(struct sk_buff *skb, int attrtype, __be32 value)
++{
++	return nla_put(skb, attrtype, sizeof(__be32), &value);
++}
++
++/**
++ * nla_put_u64 - Add a u64 netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+  * @value: numeric value
+@@ -794,6 +816,17 @@ static inline int nla_put_u64(struct sk_buff *skb, int attrtype, u64 value)
+ }
  
--	NLA_PUT_STRING(skb, DCB_ATTR_IFNAME, netdev->name);
--
-+	if (nla_put_string(skb, DCB_ATTR_IFNAME, netdev->name))
-+		goto nla_put_failure;
- 	ieee = nla_nest_start(skb, DCB_ATTR_IEEE);
- 	if (!ieee)
- 		goto nla_put_failure;
-@@ -1239,15 +1241,17 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	if (ops->ieee_getets) {
- 		struct ieee_ets ets;
- 		err = ops->ieee_getets(netdev, &ets);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_IEEE_ETS, sizeof(ets), &ets);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_IEEE_ETS, sizeof(ets), &ets))
-+			goto nla_put_failure;
- 	}
- 
- 	if (ops->ieee_getpfc) {
- 		struct ieee_pfc pfc;
- 		err = ops->ieee_getpfc(netdev, &pfc);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_IEEE_PFC, sizeof(pfc), &pfc);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_IEEE_PFC, sizeof(pfc), &pfc))
-+			goto nla_put_failure;
- 	}
- 
- 	app = nla_nest_start(skb, DCB_ATTR_IEEE_APP_TABLE);
-@@ -1278,15 +1282,17 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	if (ops->ieee_peer_getets) {
- 		struct ieee_ets ets;
- 		err = ops->ieee_peer_getets(netdev, &ets);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_IEEE_PEER_ETS, sizeof(ets), &ets);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_IEEE_PEER_ETS, sizeof(ets), &ets))
-+			goto nla_put_failure;
- 	}
- 
- 	if (ops->ieee_peer_getpfc) {
- 		struct ieee_pfc pfc;
- 		err = ops->ieee_peer_getpfc(netdev, &pfc);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_IEEE_PEER_PFC, sizeof(pfc), &pfc);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_IEEE_PEER_PFC, sizeof(pfc), &pfc))
-+			goto nla_put_failure;
- 	}
- 
- 	if (ops->peer_getappinfo && ops->peer_getapptable) {
-@@ -1340,10 +1346,11 @@ static int dcbnl_cee_pg_fill(struct sk_buff *skb, struct net_device *dev,
- 			ops->getpgtccfgtx(dev, i - DCB_PG_ATTR_TC_0,
- 					  &prio, &pgid, &tc_pct, &up_map);
- 
--		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_PGID, pgid);
--		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_UP_MAPPING, up_map);
--		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_STRICT_PRIO, prio);
--		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_BW_PCT, tc_pct);
-+		if (nla_put_u8(skb, DCB_TC_ATTR_PARAM_PGID, pgid) ||
-+		    nla_put_u8(skb, DCB_TC_ATTR_PARAM_UP_MAPPING, up_map) ||
-+		    nla_put_u8(skb, DCB_TC_ATTR_PARAM_STRICT_PRIO, prio) ||
-+		    nla_put_u8(skb, DCB_TC_ATTR_PARAM_BW_PCT, tc_pct))
-+			goto nla_put_failure;
- 		nla_nest_end(skb, tc_nest);
- 	}
- 
-@@ -1356,7 +1363,8 @@ static int dcbnl_cee_pg_fill(struct sk_buff *skb, struct net_device *dev,
- 		else
- 			ops->getpgbwgcfgtx(dev, i - DCB_PG_ATTR_BW_ID_0,
- 					   &tc_pct);
--		NLA_PUT_U8(skb, i, tc_pct);
-+		if (nla_put_u8(skb, i, tc_pct))
-+			goto nla_put_failure;
- 	}
- 	nla_nest_end(skb, pg);
- 	return 0;
-@@ -1373,8 +1381,8 @@ static int dcbnl_cee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	int dcbx, i, err = -EMSGSIZE;
- 	u8 value;
- 
--	NLA_PUT_STRING(skb, DCB_ATTR_IFNAME, netdev->name);
--
-+	if (nla_put_string(skb, DCB_ATTR_IFNAME, netdev->name))
-+		goto nla_put_failure;
- 	cee = nla_nest_start(skb, DCB_ATTR_CEE);
- 	if (!cee)
- 		goto nla_put_failure;
-@@ -1401,7 +1409,8 @@ static int dcbnl_cee_fill(struct sk_buff *skb, struct net_device *netdev)
- 
- 		for (i = DCB_PFC_UP_ATTR_0; i <= DCB_PFC_UP_ATTR_7; i++) {
- 			ops->getpfccfg(netdev, i - DCB_PFC_UP_ATTR_0, &value);
--			NLA_PUT_U8(skb, i, value);
-+			if (nla_put_u8(skb, i, value))
-+				goto nla_put_failure;
- 		}
- 		nla_nest_end(skb, pfc_nest);
- 	}
-@@ -1454,8 +1463,9 @@ static int dcbnl_cee_fill(struct sk_buff *skb, struct net_device *netdev)
- 
- 		for (i = DCB_FEATCFG_ATTR_ALL + 1; i <= DCB_FEATCFG_ATTR_MAX;
- 		     i++)
--			if (!ops->getfeatcfg(netdev, i, &value))
--				NLA_PUT_U8(skb, i, value);
-+			if (!ops->getfeatcfg(netdev, i, &value) &&
-+			    nla_put_u8(skb, i, value))
-+				goto nla_put_failure;
- 
- 		nla_nest_end(skb, feat);
- 	}
-@@ -1464,15 +1474,17 @@ static int dcbnl_cee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	if (ops->cee_peer_getpg) {
- 		struct cee_pg pg;
- 		err = ops->cee_peer_getpg(netdev, &pg);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_CEE_PEER_PG, sizeof(pg), &pg);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_CEE_PEER_PG, sizeof(pg), &pg))
-+			goto nla_put_failure;
- 	}
- 
- 	if (ops->cee_peer_getpfc) {
- 		struct cee_pfc pfc;
- 		err = ops->cee_peer_getpfc(netdev, &pfc);
--		if (!err)
--			NLA_PUT(skb, DCB_ATTR_CEE_PEER_PFC, sizeof(pfc), &pfc);
-+		if (!err &&
-+		    nla_put(skb, DCB_ATTR_CEE_PEER_PFC, sizeof(pfc), &pfc))
-+			goto nla_put_failure;
- 	}
- 
- 	if (ops->peer_getappinfo && ops->peer_getapptable) {
+ /**
++ * nla_put_be64 - Add a __be64 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value)
++{
++	return nla_put(skb, attrtype, sizeof(__be64), &value);
++}
++
++/**
+  * nla_put_string - Add a string netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
 -- 
 1.7.7.6
