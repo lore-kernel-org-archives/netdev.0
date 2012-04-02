@@ -1,12 +1,12 @@
 From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH 1/7] iio: Add device tree support to LPC32xx ADC
-Date: Mon,  2 Apr 2012 14:55:58 +0200
-Message-ID: <1333371364-21347-2-git-send-email-stigge@antcom.de>
+Subject: [PATCH 6/7] i2c-pnx.c: Fix suspend
+Date: Mon,  2 Apr 2012 14:56:03 +0200
+Message-ID: <1333371364-21347-7-git-send-email-stigge@antcom.de>
 References: <1333371364-21347-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>
+Cc: Roland Stigge <stigge@antcom.de>, stable@vger.kernel.org
 To: arm@kernel.org, linux-arm-kernel@lists.infradead.org,
  linux-i2c@vger.kernel.org, linux-kernel@vger.kernel.org,
  w.sang@pengutronix.de, srinivas.bakki@nxp.com, kevin.wells@nxp.com,
@@ -26,65 +26,28 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds device tree support to the LPC32xx's ADC.
+In the driver's suspend function, clk_enable() was used instead of
+clk_disable(). This is corrected with this patch.
 
 Signed-off-by: Roland Stigge <stigge@antcom.de>
+CC: stable@vger.kernel.org
 
 ---
 
  Applies to v3.4-rc1
 
- Documentation/devicetree/bindings/staging/iio/adc/lpc32xx-adc.txt |   16 ++++++++++
- drivers/staging/iio/adc/lpc32xx_adc.c                             |   10 ++++++
- 2 files changed, 26 insertions(+)
+ drivers/i2c/busses/i2c-pnx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
---- /dev/null
-+++ linux-2.6/Documentation/devicetree/bindings/staging/iio/adc/lpc32xx-adc.txt
-@@ -0,0 +1,16 @@
-+* NXP LPC32xx SoC ADC controller
-+
-+Required properties:
-+- compatible: must be "nxp,lpc32xx-adc"
-+- reg: physical base address of the controller and length of memory mapped
-+  region.
-+- interrupts: The ADC interrupt
-+
-+Example:
-+
-+	adc@40048000 {
-+		compatible = "nxp,lpc32xx-adc";
-+		reg = <0x40048000 0x1000>;
-+		interrupt-parent = <&mic>;
-+		interrupts = <39 0>;
-+	};
---- linux-2.6.orig/drivers/staging/iio/adc/lpc32xx_adc.c
-+++ linux-2.6/drivers/staging/iio/adc/lpc32xx_adc.c
-@@ -30,6 +30,7 @@
- #include <linux/clk.h>
- #include <linux/err.h>
- #include <linux/completion.h>
-+#include <linux/of.h>
+--- linux-2.6.orig/drivers/i2c/busses/i2c-pnx.c
++++ linux-2.6/drivers/i2c/busses/i2c-pnx.c
+@@ -592,8 +592,7 @@ static int i2c_pnx_controller_suspend(st
+ {
+ 	struct i2c_pnx_algo_data *alg_data = platform_get_drvdata(pdev);
  
- #include "../iio.h"
- #include "../sysfs.h"
-@@ -221,12 +222,21 @@ static int __devexit lpc32xx_adc_remove(
+-	/* FIXME: shouldn't this be clk_disable? */
+-	clk_enable(alg_data->clk);
++	clk_disable(alg_data->clk);
+ 
  	return 0;
  }
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id lpc32xx_adc_match[] = {
-+	{ .compatible = "nxp,lpc32xx-adc" },
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, lpc32xx_adc_match);
-+#endif
-+
- static struct platform_driver lpc32xx_adc_driver = {
- 	.probe		= lpc32xx_adc_probe,
- 	.remove		= __devexit_p(lpc32xx_adc_remove),
- 	.driver		= {
- 		.name	= MOD_NAME,
- 		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(lpc32xx_adc_match),
- 	},
- };
