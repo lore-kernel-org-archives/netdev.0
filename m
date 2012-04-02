@@ -1,33 +1,33 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer helper non-static  for the jits
-Date: Mon, 2 Apr 2012 10:18:02 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6ECE@saturn3.aculab.com>
-References: <4F75CC63.10405@googlemail.com>
+Subject: RE: [RFC] net: bpf_jit: Two pass JIT and other changes
+Date: Mon, 2 Apr 2012 10:28:07 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6ECF@saturn3.aculab.com>
+References: <5185e05a69d88b5f12b5656358745b1a.squirrel@webmail.greenhost.nl>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	"Matt Evans" <matt@ozlabs.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Jan Seiffert" <kaffeemonster@googlemail.com>,
-	<netdev@vger.kernel.org>
+To: "Indan Zupancic" <indan@nul.nu>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <4F75CC63.10405@googlemail.com>
+In-Reply-To: <5185e05a69d88b5f12b5656358745b1a.squirrel@webmail.greenhost.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
  
-> The function is renamed to make it a little more clear what it does.
-> It is not added to any .h because it is not for general 
-> consumption, only for bpf internal use (and so by the jits).
+> 1) Sadly, gcc isn't always smart enough to inline emit_code().
+>    So turn it into a macro to force gcc to inline it. This saves
+>    about 500 bytes. Tested with gcc 4.6.0. An alternative to the
+>    macro would be to create inline emit_code1(), emit_code2() etc.
 
-I'd have thought it better to put in into a bfp_internal.h
-(or similar) with a big warning there about the asm users.
+Does giving it the __attribute__((always_inline)) help?
+I had to mark a load of small static functions that way
+after a minor change (possibly to the overall size)
+stopped gcc inlining everything.
 
-Possibly even worth adding some other defs that the asm
-files will need (if there are any).
+I have also noticed in the past that gcc tends to generate
+better code for #define than when inlining functions.
 
 	David
