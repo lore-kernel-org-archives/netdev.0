@@ -1,44 +1,104 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 50/51] xfrm: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:40 -0400
-Message-ID: <1333335521-1348-51-git-send-email-davem@davemloft.net>
-References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Subject: [PATCH 1/2 v2] pch_gbe: Do not abort probe on bad MAC
+Date: Mon,  2 Apr 2012 12:00:44 +0900
+Message-ID: <1333335645-14413-1-git-send-email-tomoya.rohm@gmail.com>
+Cc: Tomoya MORINAGA <tomoya.rohm@gmail.com>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Joe Perches <joe@perches.com>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46831 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754568Ab2DBDA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:56 -0400
-In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:47359 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754568Ab2DBDBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:01:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David S. Miller" <davem@davemloft.net>
+If the MAC is invalid or not implemented, do not abort the probe. Issue
+a warning and prevent bringing the interface up until a MAC is set manually
+(via ifconfig $IFACE hw ether $MAC).
 
-These macros contain a hidden goto, and are thus extremely error
-prone and make code hard to audit.
+Tested on two platforms, one with a valid MAC, the other without a MAC. The real
+MAC is used if present, the interface fails to come up until the MAC is set on
+the other. They successfully get an IP over DHCP and pass a simple ping and
+login over ssh test.
 
+This is meant to allow the Inforce SYS940X development board:
+http://www.inforcecomputing.com/SYS940X_ECX.html
+(and others suffering from a missing MAC) to work with the mainline kernel.
+Without this patch, the probe will fail and the interface will not be created,
+preventing the user from configuring the MAC manually.
+
+This does not make any attempt to address a missing or invalid MAC for the
+pch_phub driver.
+
+commit: 2b53d07891630dead46d65c8f896955fd3ae0302
+kernel version: 3.0, 3.2
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Darren Hart <dvhart@linux.intel.com>
+CC: Arjan van de Ven <arjan@linux.intel.com>
+CC: Alan Cox <alan@linux.intel.com>
+CC: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Paul Gortmaker <paul.gortmaker@windriver.com>
+CC: Jon Mason <jdmason@kudzu.us>
+CC: netdev@vger.kernel.org
+CC: Mark Brown <broonie@opensource.wolfsonmicro.com>
+CC: David Laight <David.Laight@ACULAB.COM>
+CC: Joe Perches <joe@perches.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
 ---
- include/net/xfrm.h |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+v2:
+  Retrieve change log and cc-/Signed-off lists.
+---
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 96239e7..1cb32bf 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1682,8 +1682,9 @@ static inline int xfrm_mark_get(struct nlattr **attrs, struct xfrm_mark *m)
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 48406ca..43c7b25 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1745,6 +1745,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+ 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
+ 	int err;
  
- static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
- {
--	if (m->m | m->v)
--		NLA_PUT(skb, XFRMA_MARK, sizeof(struct xfrm_mark), m);
-+	if ((m->m | m->v) &&
-+	    nla_put(skb, XFRMA_MARK, sizeof(struct xfrm_mark), m))
-+		goto nla_put_failure;
- 	return 0;
++	/* Ensure we have a valid MAC */
++	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
++		pr_err("Error: Invalid MAC address\n");
++		return -EINVAL;
++	}
++
+ 	/* hardware has been reset, we need to reload some things */
+ 	pch_gbe_set_multi(netdev);
  
- nla_put_failure:
+@@ -2467,9 +2473,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		dev_err(&pdev->dev, "Invalid MAC Address\n");
+-		ret = -EIO;
+-		goto err_free_adapter;
++		/*
++		 * If the MAC is invalid (or just missing), display a warning
++		 * but do not abort setting up the device. pch_gbe_up will
++		 * prevent the interface from being brought up until a valid MAC
++		 * is set.
++		 */
++		dev_err(&pdev->dev, "Invalid MAC address, "
++		                    "interface disabled.\n");
+ 	}
+ 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
+ 		    (unsigned long)adapter);
 -- 
 1.7.7.6
