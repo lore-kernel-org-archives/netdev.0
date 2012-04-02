@@ -1,63 +1,48 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 00/51] Get rid of NLA_PUT*()
-Date: Sun,  1 Apr 2012 22:57:50 -0400
-Message-ID: <1333335521-1348-1-git-send-email-davem@davemloft.net>
+Subject: [PATCH 16/51] nf_conntrack_proto_gre: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:06 -0400
+Message-ID: <1333335521-1348-17-git-send-email-davem@davemloft.net>
+References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46625 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46691 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753850Ab2DBC6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:58:53 -0400
-Received: from davemloft.net (cpe-66-108-118-54.nyc.res.rr.com [66.108.118.54])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q322whmk022214
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 1 Apr 2012 19:58:52 -0700
+	with ESMTP id S1754196Ab2DBC72 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:28 -0400
+In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series gets rid of all uses of NLA_PUT*() and then kills
-the definitions of those macros from netlink.h
+From: "David S. Miller" <davem@davemloft.net>
 
-For the most part, I've tried to do just a straight conversion of:
+These macros contain a hidden goto, and are thus extremely error
+prone and make code hard to audit.
 
-	NLA_PUT*(...);
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/netfilter/nf_conntrack_proto_gre.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-to
-
-	if (nla_put*(...))
-		goto nla_put_failure;
-
-However in several cases I've tried to make things look more
-reasonable, for example:
-
-	if (val)
-		NLA_PUT*();
-
-becomes:
-
-	if (val &&
-	    nla_put*())
-		goto nla_put_failure;
-
-multiple consequetive puts get combined into one if() statement, like:
-
-	if (nla_put_u32(...) ||
-	    nla_put_string(...))
-		goto nla_put_failure;
-
-One thing I have not done is try to get rid of the nla_put_failure
-label, even in the really simply cases.  That's another cleanup
-altogether, but I will not that some cases can be reduced down to
-nothing more than:
-
-	return nla_put*(...);
-
-Throughout the series, as new (lowercase) nla_put*() intefaces were
-needed, I added them, right before the first commit to make use of
-them.
-
-Examples are nla_put_be*(), nlaa_put_net*(), and nla_put_le*().
-
-These are the first commits that will show up in net-next when I open
-it up.
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 659648c..4bf6b4e 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -321,10 +321,11 @@ gre_timeout_obj_to_nlattr(struct sk_buff *skb, const void *data)
+ {
+ 	const unsigned int *timeouts = data;
+ 
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_GRE_UNREPLIED,
+-			htonl(timeouts[GRE_CT_UNREPLIED] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_GRE_REPLIED,
+-			htonl(timeouts[GRE_CT_REPLIED] / HZ));
++	if (nla_put_be32(skb, CTA_TIMEOUT_GRE_UNREPLIED,
++			 htonl(timeouts[GRE_CT_UNREPLIED] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_GRE_REPLIED,
++			 htonl(timeouts[GRE_CT_REPLIED] / HZ)))
++		goto nla_put_failure;
+ 	return 0;
+ 
+ nla_put_failure:
+-- 
+1.7.7.6
