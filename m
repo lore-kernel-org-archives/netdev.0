@@ -1,37 +1,29 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] netfilter: don't scale the size of the window up twice
-Date: Mon,  2 Apr 2012 11:25:06 +0800
-Message-ID: <1333337106-8279-1-git-send-email-xiaosuo@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: remove unused icmp_ioctl()
+ definition.
+Date: Sun, 01 Apr 2012 23:31:10 -0400 (EDT)
+Message-ID: <20120401.233110.1636994410899166380.davem@davemloft.net>
+References: <CAHLOa7RZFQHLtsYE2VeS7Fmhcr+O9guEFYYVoGTPJQos48Eo1w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47191 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754259Ab2DBDbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:31:13 -0400
+In-Reply-To: <CAHLOa7RZFQHLtsYE2VeS7Fmhcr+O9guEFYYVoGTPJQos48Eo1w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For a picked up connection, the window win is scaled twice: one is by the
-initialization code, and the other is by the sender updating code.
+From: Rami Rosen <ramirose@gmail.com>
+Date: Thu, 29 Mar 2012 20:49:01 +0200
 
-I use the temporary variable swin instead of modifying the variable win.
+> The patch removes unused icmp_ioctl() method definition in
+> include/net/icmp.h.
+> 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 361eade..0d07a1d 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -584,8 +584,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
- 			 * Let's try to use the data from the packet.
- 			 */
- 			sender->td_end = end;
--			win <<= sender->td_scale;
--			sender->td_maxwin = (win == 0 ? 1 : win);
-+			swin = win << sender->td_scale;
-+			sender->td_maxwin = (swin == 0 ? 1 : swin);
- 			sender->td_maxend = end + sender->td_maxwin;
- 			/*
- 			 * We haven't seen traffic in the other direction yet
+Applied.
