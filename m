@@ -1,7 +1,7 @@
 From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH 3/7] net: Add device tree support to LPC32xx
-Date: Mon,  2 Apr 2012 14:56:00 +0200
-Message-ID: <1333371364-21347-4-git-send-email-stigge@antcom.de>
+Subject: [PATCH 4/7] arm: mach-pnx4008: Adjust i2c.c to updated i2c-pnx.c
+Date: Mon,  2 Apr 2012 14:56:01 +0200
+Message-ID: <1333371364-21347-5-git-send-email-stigge@antcom.de>
 References: <1333371364-21347-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,10 +26,15 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds device tree support for lpc_eth.c.
+The i2c bus driver i2c-pnx.c (used by mach-pnx4008 and mach-lpc32xx) was
+updated to support device tree. In this process, the struct i2c_pnx_data was
+eliminated. Therefore, the platform data of pnx4008 is adjusted with this patch
+to use default resources for mem and irq. DT support for pnx4008 is still not
+available, but i2c-pnx.c now supports both DT and non-DT.
 
-The runtime option for MII/RMII is solved via the "phy-mode" property, SRAM
-("IRAM") usage for DMA can be chosen via "use-iram".
+arch/arm/mach-pnx4008/include/mach/i2c.h can safely be removed now since its
+contents is integrated in the updated i2c-pnx.c driver and was duplicated
+between platforms pnx4008 and lpc32xx.
 
 Signed-off-by: Roland Stigge <stigge@antcom.de>
 
@@ -37,219 +42,161 @@ Signed-off-by: Roland Stigge <stigge@antcom.de>
 
  Applies to v3.4-rc1
 
- Documentation/devicetree/bindings/net/lpc-eth.txt |   24 ++++++
- drivers/net/ethernet/nxp/lpc_eth.c                |   77 +++++++++++++---------
- 2 files changed, 70 insertions(+), 31 deletions(-)
+ arch/arm/mach-pnx4008/i2c.c              |   58 +++++++++++++++++-----------
+ arch/arm/mach-pnx4008/include/mach/i2c.h |   64 -------------------------------
+ 2 files changed, 36 insertions(+), 86 deletions(-)
 
---- /dev/null
-+++ linux-2.6/Documentation/devicetree/bindings/net/lpc-eth.txt
-@@ -0,0 +1,24 @@
-+* NXP LPC32xx SoC Ethernet Controller
-+
-+Required properties:
-+- compatible: Should be "nxp,lpc-eth"
-+- reg: Address and length of the register set for the device
-+- interrupts: Should contain ethernet controller interrupt
-+
-+Optional properties:
-+- phy-mode: String, operation mode of the PHY interface.
-+  Supported values are: "mii" (default), "rmii"
-+- use-iram: Use LPC32xx internal SRAM (IRAM) for DMA buffering
-+- local-mac-address : 6 bytes, mac address
-+
-+Example:
-+
-+	mac: ethernet@31060000 {
-+		compatible = "nxp,lpc-eth";
-+		reg = <0x31060000 0x1000>;
-+		interrupt-parent = <&mic>;
-+		interrupts = <29 0>;
-+
-+		phy-mode = "rmii";
-+		use-iram;
-+	};
---- linux-2.6.orig/drivers/net/ethernet/nxp/lpc_eth.c
-+++ linux-2.6/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -340,27 +340,15 @@
-  */
- #define LPC_POWERDOWN_MACAHB			(1 << 31)
+--- linux-2.6.orig/arch/arm/mach-pnx4008/i2c.c
++++ linux-2.6/arch/arm/mach-pnx4008/i2c.c
+@@ -16,48 +16,62 @@
+ #include <linux/err.h>
+ #include <mach/platform.h>
+ #include <mach/irqs.h>
+-#include <mach/i2c.h>
  
--/* Upon the upcoming introduction of device tree usage in LPC32xx,
-- * lpc_phy_interface_mode() and use_iram_for_net() will be extended with a
-- * device parameter for access to device tree information at runtime, instead
-- * of defining the values at compile time
+-static struct i2c_pnx_data i2c0_data = {
+-	.name = I2C_CHIP_NAME "0",
+-	.base = PNX4008_I2C1_BASE,
+-	.irq = I2C_1_INT,
++static struct resource i2c0_resources[] = {
++	{
++		.start = PNX4008_I2C1_BASE,
++		.end = PNX4008_I2C1_BASE + SZ_4K - 1,
++		.flags = IORESOURCE_MEM,
++	}, {
++		.start = I2C_1_INT,
++		.end = I2C_1_INT,
++		.flags = IORESOURCE_IRQ,
++	},
+ };
+ 
+-static struct i2c_pnx_data i2c1_data = {
+-	.name = I2C_CHIP_NAME "1",
+-	.base = PNX4008_I2C2_BASE,
+-	.irq = I2C_2_INT,
++static struct resource i2c1_resources[] = {
++	{
++		.start = PNX4008_I2C2_BASE,
++		.end = PNX4008_I2C2_BASE + SZ_4K - 1,
++		.flags = IORESOURCE_MEM,
++	}, {
++		.start = I2C_2_INT,
++		.end = I2C_2_INT,
++		.flags = IORESOURCE_IRQ,
++	},
+ };
+ 
+-static struct i2c_pnx_data i2c2_data = {
+-	.name = "USB-I2C",
+-	.base = (PNX4008_USB_CONFIG_BASE + 0x300),
+-	.irq = USB_I2C_INT,
++static struct resource i2c2_resources[] = {
++	{
++		.start = PNX4008_USB_CONFIG_BASE + 0x300,
++		.end = PNX4008_USB_CONFIG_BASE + 0x300 + SZ_4K - 1,
++		.flags = IORESOURCE_MEM,
++	}, {
++		.start = USB_I2C_INT,
++		.end = USB_I2C_INT,
++		.flags = IORESOURCE_IRQ,
++	},
+ };
+ 
+ static struct platform_device i2c0_device = {
+ 	.name = "pnx-i2c",
+ 	.id = 0,
+-	.dev = {
+-		.platform_data = &i2c0_data,
+-	},
++	.resource = i2c0_resources,
++	.num_resources = ARRAY_SIZE(i2c0_resources),
+ };
+ 
+ static struct platform_device i2c1_device = {
+ 	.name = "pnx-i2c",
+ 	.id = 1,
+-	.dev = {
+-		.platform_data = &i2c1_data,
+-	},
++	.resource = i2c1_resources,
++	.num_resources = ARRAY_SIZE(i2c1_resources),
+ };
+ 
+ static struct platform_device i2c2_device = {
+ 	.name = "pnx-i2c",
+ 	.id = 2,
+-	.dev = {
+-		.platform_data = &i2c2_data,
+-	},
++	.resource = i2c2_resources,
++	.num_resources = ARRAY_SIZE(i2c2_resources),
+ };
+ 
+ static struct platform_device *devices[] __initdata = {
+--- linux-2.6.orig/arch/arm/mach-pnx4008/include/mach/i2c.h
++++ /dev/null
+@@ -1,64 +0,0 @@
+-/*
+- * PNX4008-specific tweaks for I2C IP3204 block
+- *
+- * Author: Vitaly Wool <vwool@ru.mvista.com>
+- *
+- * 2005 (c) MontaVista Software, Inc. This file is licensed under
+- * the terms of the GNU General Public License version 2. This program
+- * is licensed "as is" without any warranty of any kind, whether express
+- * or implied.
 - */
--static inline phy_interface_t lpc_phy_interface_mode(void)
-+static phy_interface_t lpc_phy_interface_mode(struct device *dev)
- {
--#ifdef CONFIG_ARCH_LPC32XX_MII_SUPPORT
-+	if (dev && dev->of_node) {
-+		const char *mode = of_get_property(dev->of_node,
-+						   "phy-mode", NULL);
-+		if (mode && !strcmp(mode, "rmii"))
-+			return PHY_INTERFACE_MODE_RMII;
-+	}
- 	return PHY_INTERFACE_MODE_MII;
--#else
--	return PHY_INTERFACE_MODE_RMII;
--#endif
--}
 -
--static inline int use_iram_for_net(void)
--{
--#ifdef CONFIG_ARCH_LPC32XX_IRAM_FOR_NET
--	return 1;
--#else
--	return 0;
--#endif
- }
- 
- /* Receive Status information word */
-@@ -450,6 +438,7 @@ struct netdata_local {
- 	int			speed;
- 	int			duplex;
- 	struct napi_struct	napi;
-+	bool			use_iram;
- };
- 
- /*
-@@ -664,7 +653,7 @@ static void __lpc_eth_init(struct netdat
- 	       LPC_ENET_CLRT(pldat->net_base));
- 	writel(LPC_IPGR_LOAD_PART2(0x12), LPC_ENET_IPGR(pldat->net_base));
- 
--	if (lpc_phy_interface_mode() == PHY_INTERFACE_MODE_MII)
-+	if (lpc_phy_interface_mode(&pldat->pdev->dev) == PHY_INTERFACE_MODE_MII)
- 		writel(LPC_COMMAND_PASSRUNTFRAME,
- 		       LPC_ENET_COMMAND(pldat->net_base));
- 	else {
-@@ -804,12 +793,13 @@ static int lpc_mii_probe(struct net_devi
- 	}
- 
- 	/* Attach to the PHY */
--	if (lpc_phy_interface_mode() == PHY_INTERFACE_MODE_MII)
-+	if (lpc_phy_interface_mode(&pldat->pdev->dev) == PHY_INTERFACE_MODE_MII)
- 		netdev_info(ndev, "using MII interface\n");
- 	else
- 		netdev_info(ndev, "using RMII interface\n");
- 	phydev = phy_connect(ndev, dev_name(&phydev->dev),
--		&lpc_handle_link_change, 0, lpc_phy_interface_mode());
-+			     &lpc_handle_link_change, 0,
-+			     lpc_phy_interface_mode(&pldat->pdev->dev));
- 
- 	if (IS_ERR(phydev)) {
- 		netdev_err(ndev, "Could not attach to PHY\n");
-@@ -843,7 +833,7 @@ static int lpc_mii_init(struct netdata_l
- 	}
- 
- 	/* Setup MII mode */
--	if (lpc_phy_interface_mode() == PHY_INTERFACE_MODE_MII)
-+	if (lpc_phy_interface_mode(&pldat->pdev->dev) == PHY_INTERFACE_MODE_MII)
- 		writel(LPC_COMMAND_PASSRUNTFRAME,
- 		       LPC_ENET_COMMAND(pldat->net_base));
- 	else {
-@@ -1315,18 +1305,26 @@ static const struct net_device_ops lpc_n
- static int lpc_eth_drv_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
--	struct resource *dma_res;
- 	struct net_device *ndev;
- 	struct netdata_local *pldat;
- 	struct phy_device *phydev;
- 	dma_addr_t dma_handle;
- 	int irq, ret;
-+	u32 tmp;
-+
-+	/* Setup network interface for RMII mode */
-+	tmp = __raw_readl(LPC32XX_CLKPWR_MACCLK_CTRL);
-+	tmp &= ~LPC32XX_CLKPWR_MACCTRL_PINS_MSK;
-+	if (lpc_phy_interface_mode(&pdev->dev) == PHY_INTERFACE_MODE_MII)
-+		tmp |= LPC32XX_CLKPWR_MACCTRL_USE_MII_PINS;
-+	else
-+		tmp |= LPC32XX_CLKPWR_MACCTRL_USE_RMII_PINS;
-+	__raw_writel(tmp, LPC32XX_CLKPWR_MACCLK_CTRL);
- 
- 	/* Get platform resources */
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	dma_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	irq = platform_get_irq(pdev, 0);
--	if ((!res) || (!dma_res) || (irq < 0) || (irq >= NR_IRQS)) {
-+	if ((!res) || (irq < 0) || (irq >= NR_IRQS)) {
- 		dev_err(&pdev->dev, "error getting resources.\n");
- 		ret = -ENXIO;
- 		goto err_exit;
-@@ -1348,6 +1346,12 @@ static int lpc_eth_drv_probe(struct plat
- 
- 	spin_lock_init(&pldat->lock);
- 
-+	if (pdev->dev.of_node && of_get_property(pdev->dev.of_node,
-+						 "use-iram", NULL))
-+		pldat->use_iram = true;
-+	else
-+		pldat->use_iram = false;
-+
- 	/* Save resources */
- 	ndev->irq = irq;
- 
-@@ -1389,17 +1393,19 @@ static int lpc_eth_drv_probe(struct plat
- 		sizeof(struct txrx_desc_t) + sizeof(struct rx_status_t));
- 	pldat->dma_buff_base_v = 0;
- 
--	if (use_iram_for_net()) {
--		dma_handle = dma_res->start;
-+	if (pldat->use_iram) {
-+		dma_handle = LPC32XX_IRAM_BASE;
- 		if (pldat->dma_buff_size <= lpc32xx_return_iram_size())
- 			pldat->dma_buff_base_v =
--				io_p2v(dma_res->start);
-+				io_p2v(LPC32XX_IRAM_BASE);
- 		else
- 			netdev_err(ndev,
- 				"IRAM not big enough for net buffers, using SDRAM instead.\n");
- 	}
- 
- 	if (pldat->dma_buff_base_v == 0) {
-+		pldat->pdev->dev.coherent_dma_mask = 0xFFFFFFFF;
-+		pldat->pdev->dev.dma_mask = &pldat->pdev->dev.coherent_dma_mask;
- 		pldat->dma_buff_size = PAGE_ALIGN(pldat->dma_buff_size);
- 
- 		/* Allocate a chunk of memory for the DMA ethernet buffers
-@@ -1488,7 +1494,7 @@ err_out_unregister_netdev:
- 	platform_set_drvdata(pdev, NULL);
- 	unregister_netdev(ndev);
- err_out_dma_unmap:
--	if (!use_iram_for_net() ||
-+	if (!pldat->use_iram ||
- 	    pldat->dma_buff_size > lpc32xx_return_iram_size())
- 		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
- 				  pldat->dma_buff_base_v,
-@@ -1515,7 +1521,7 @@ static int lpc_eth_drv_remove(struct pla
- 	unregister_netdev(ndev);
- 	platform_set_drvdata(pdev, NULL);
- 
--	if (!use_iram_for_net() ||
-+	if (!pldat->use_iram ||
- 	    pldat->dma_buff_size > lpc32xx_return_iram_size())
- 		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
- 				  pldat->dma_buff_base_v,
-@@ -1584,6 +1590,14 @@ static int lpc_eth_drv_resume(struct pla
- }
- #endif
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id lpc_eth_match[] = {
-+	{ .compatible = "nxp,lpc-eth" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, lpc_eth_match);
-+#endif
-+
- static struct platform_driver lpc_eth_driver = {
- 	.probe		= lpc_eth_drv_probe,
- 	.remove		= __devexit_p(lpc_eth_drv_remove),
-@@ -1593,6 +1607,7 @@ static struct platform_driver lpc_eth_dr
- #endif
- 	.driver		= {
- 		.name	= MODNAME,
-+		.of_match_table = of_match_ptr(lpc_eth_match),
- 	},
- };
+-#ifndef __ASM_ARCH_I2C_H__
+-#define __ASM_ARCH_I2C_H__
+-
+-enum {
+-	mstatus_tdi = 0x00000001,
+-	mstatus_afi = 0x00000002,
+-	mstatus_nai = 0x00000004,
+-	mstatus_drmi = 0x00000008,
+-	mstatus_active = 0x00000020,
+-	mstatus_scl = 0x00000040,
+-	mstatus_sda = 0x00000080,
+-	mstatus_rff = 0x00000100,
+-	mstatus_rfe = 0x00000200,
+-	mstatus_tff = 0x00000400,
+-	mstatus_tfe = 0x00000800,
+-};
+-
+-enum {
+-	mcntrl_tdie = 0x00000001,
+-	mcntrl_afie = 0x00000002,
+-	mcntrl_naie = 0x00000004,
+-	mcntrl_drmie = 0x00000008,
+-	mcntrl_daie = 0x00000020,
+-	mcntrl_rffie = 0x00000040,
+-	mcntrl_tffie = 0x00000080,
+-	mcntrl_reset = 0x00000100,
+-	mcntrl_cdbmode = 0x00000400,
+-};
+-
+-enum {
+-	rw_bit = 1 << 0,
+-	start_bit = 1 << 8,
+-	stop_bit = 1 << 9,
+-};
+-
+-#define I2C_REG_RX(a)	((a)->ioaddr)		/* Rx FIFO reg (RO) */
+-#define I2C_REG_TX(a)	((a)->ioaddr)		/* Tx FIFO reg (WO) */
+-#define I2C_REG_STS(a)	((a)->ioaddr + 0x04)	/* Status reg (RO) */
+-#define I2C_REG_CTL(a)	((a)->ioaddr + 0x08)	/* Ctl reg */
+-#define I2C_REG_CKL(a)	((a)->ioaddr + 0x0c)	/* Clock divider low */
+-#define I2C_REG_CKH(a)	((a)->ioaddr + 0x10)	/* Clock divider high */
+-#define I2C_REG_ADR(a)	((a)->ioaddr + 0x14)	/* I2C address */
+-#define I2C_REG_RFL(a)	((a)->ioaddr + 0x18)	/* Rx FIFO level (RO) */
+-#define I2C_REG_TFL(a)	((a)->ioaddr + 0x1c)	/* Tx FIFO level (RO) */
+-#define I2C_REG_RXB(a)	((a)->ioaddr + 0x20)	/* Num of bytes Rx-ed (RO) */
+-#define I2C_REG_TXB(a)	((a)->ioaddr + 0x24)	/* Num of bytes Tx-ed (RO) */
+-#define I2C_REG_TXS(a)	((a)->ioaddr + 0x28)	/* Tx slave FIFO (RO) */
+-#define I2C_REG_STFL(a)	((a)->ioaddr + 0x2c)	/* Tx slave FIFO level (RO) */
+-
+-#define HCLK_MHZ		13
+-#define I2C_CHIP_NAME		"PNX4008-I2C"
+-
+-#endif				/* __ASM_ARCH_I2C_H___ */
