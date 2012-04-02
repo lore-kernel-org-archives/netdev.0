@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 21/51] ipvs: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:11 -0400
-Message-ID: <1333335521-1348-22-git-send-email-davem@davemloft.net>
+Subject: [PATCH 24/51] l2tp: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:14 -0400
+Message-ID: <1333335521-1348-25-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46730 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46733 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754316Ab2DBC7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:44 -0400
+	with ESMTP id S1754316Ab2DBC7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:45 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,167 +21,159 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |  108 +++++++++++++++++++++------------------
- 1 files changed, 58 insertions(+), 50 deletions(-)
+ net/l2tp/l2tp_netlink.c |  114 ++++++++++++++++++++++++++--------------------
+ 1 files changed, 64 insertions(+), 50 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index b3afe18..964d426 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2816,17 +2816,17 @@ static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 93a41a0..bc8c334 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -231,24 +231,28 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 pid, u32 seq, int flags,
+ 	if (IS_ERR(hdr))
+ 		return PTR_ERR(hdr);
  
- 	ip_vs_copy_stats(&ustats, stats);
- 
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CONNS, ustats.conns);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPKTS, ustats.inpkts);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPKTS, ustats.outpkts);
--	NLA_PUT_U64(skb, IPVS_STATS_ATTR_INBYTES, ustats.inbytes);
--	NLA_PUT_U64(skb, IPVS_STATS_ATTR_OUTBYTES, ustats.outbytes);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_CPS, ustats.cps);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INPPS, ustats.inpps);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTPPS, ustats.outpps);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_INBPS, ustats.inbps);
--	NLA_PUT_U32(skb, IPVS_STATS_ATTR_OUTBPS, ustats.outbps);
--
-+	if (nla_put_u32(skb, IPVS_STATS_ATTR_CONNS, ustats.conns) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_INPKTS, ustats.inpkts) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_OUTPKTS, ustats.outpkts) ||
-+	    nla_put_u64(skb, IPVS_STATS_ATTR_INBYTES, ustats.inbytes) ||
-+	    nla_put_u64(skb, IPVS_STATS_ATTR_OUTBYTES, ustats.outbytes) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_CPS, ustats.cps) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_INPPS, ustats.inpps) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_OUTPPS, ustats.outpps) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_INBPS, ustats.inbps) ||
-+	    nla_put_u32(skb, IPVS_STATS_ATTR_OUTBPS, ustats.outbps))
+-	NLA_PUT_U8(skb, L2TP_ATTR_PROTO_VERSION, tunnel->version);
+-	NLA_PUT_U32(skb, L2TP_ATTR_CONN_ID, tunnel->tunnel_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_PEER_CONN_ID, tunnel->peer_tunnel_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_DEBUG, tunnel->debug);
+-	NLA_PUT_U16(skb, L2TP_ATTR_ENCAP_TYPE, tunnel->encap);
++	if (nla_put_u8(skb, L2TP_ATTR_PROTO_VERSION, tunnel->version) ||
++	    nla_put_u32(skb, L2TP_ATTR_CONN_ID, tunnel->tunnel_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_PEER_CONN_ID, tunnel->peer_tunnel_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_DEBUG, tunnel->debug) ||
++	    nla_put_u16(skb, L2TP_ATTR_ENCAP_TYPE, tunnel->encap))
 +		goto nla_put_failure;
- 	nla_nest_end(skb, nl_stats);
  
- 	return 0;
-@@ -2847,23 +2847,25 @@ static int ip_vs_genl_fill_service(struct sk_buff *skb,
- 	if (!nl_service)
- 		return -EMSGSIZE;
- 
--	NLA_PUT_U16(skb, IPVS_SVC_ATTR_AF, svc->af);
--
-+	if (nla_put_u16(skb, IPVS_SVC_ATTR_AF, svc->af))
-+		goto nla_put_failure;
- 	if (svc->fwmark) {
--		NLA_PUT_U32(skb, IPVS_SVC_ATTR_FWMARK, svc->fwmark);
-+		if (nla_put_u32(skb, IPVS_SVC_ATTR_FWMARK, svc->fwmark))
-+			goto nla_put_failure;
- 	} else {
--		NLA_PUT_U16(skb, IPVS_SVC_ATTR_PROTOCOL, svc->protocol);
--		NLA_PUT(skb, IPVS_SVC_ATTR_ADDR, sizeof(svc->addr), &svc->addr);
--		NLA_PUT_U16(skb, IPVS_SVC_ATTR_PORT, svc->port);
-+		if (nla_put_u16(skb, IPVS_SVC_ATTR_PROTOCOL, svc->protocol) ||
-+		    nla_put(skb, IPVS_SVC_ATTR_ADDR, sizeof(svc->addr), &svc->addr) ||
-+		    nla_put_u16(skb, IPVS_SVC_ATTR_PORT, svc->port))
-+			goto nla_put_failure;
- 	}
- 
--	NLA_PUT_STRING(skb, IPVS_SVC_ATTR_SCHED_NAME, svc->scheduler->name);
--	if (svc->pe)
--		NLA_PUT_STRING(skb, IPVS_SVC_ATTR_PE_NAME, svc->pe->name);
--	NLA_PUT(skb, IPVS_SVC_ATTR_FLAGS, sizeof(flags), &flags);
--	NLA_PUT_U32(skb, IPVS_SVC_ATTR_TIMEOUT, svc->timeout / HZ);
--	NLA_PUT_U32(skb, IPVS_SVC_ATTR_NETMASK, svc->netmask);
--
-+	if (nla_put_string(skb, IPVS_SVC_ATTR_SCHED_NAME, svc->scheduler->name) ||
-+	    (svc->pe &&
-+	     nla_put_string(skb, IPVS_SVC_ATTR_PE_NAME, svc->pe->name)) ||
-+	    nla_put(skb, IPVS_SVC_ATTR_FLAGS, sizeof(flags), &flags) ||
-+	    nla_put_u32(skb, IPVS_SVC_ATTR_TIMEOUT, svc->timeout / HZ) ||
-+	    nla_put_u32(skb, IPVS_SVC_ATTR_NETMASK, svc->netmask))
-+		goto nla_put_failure;
- 	if (ip_vs_genl_fill_stats(skb, IPVS_SVC_ATTR_STATS, &svc->stats))
+ 	nest = nla_nest_start(skb, L2TP_ATTR_STATS);
+ 	if (nest == NULL)
  		goto nla_put_failure;
  
-@@ -3038,21 +3040,22 @@ static int ip_vs_genl_fill_dest(struct sk_buff *skb, struct ip_vs_dest *dest)
- 	if (!nl_dest)
- 		return -EMSGSIZE;
- 
--	NLA_PUT(skb, IPVS_DEST_ATTR_ADDR, sizeof(dest->addr), &dest->addr);
--	NLA_PUT_U16(skb, IPVS_DEST_ATTR_PORT, dest->port);
--
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_FWD_METHOD,
--		    atomic_read(&dest->conn_flags) & IP_VS_CONN_F_FWD_MASK);
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_WEIGHT, atomic_read(&dest->weight));
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_U_THRESH, dest->u_threshold);
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_L_THRESH, dest->l_threshold);
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_ACTIVE_CONNS,
--		    atomic_read(&dest->activeconns));
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_INACT_CONNS,
--		    atomic_read(&dest->inactconns));
--	NLA_PUT_U32(skb, IPVS_DEST_ATTR_PERSIST_CONNS,
--		    atomic_read(&dest->persistconns));
--
-+	if (nla_put(skb, IPVS_DEST_ATTR_ADDR, sizeof(dest->addr), &dest->addr) ||
-+	    nla_put_u16(skb, IPVS_DEST_ATTR_PORT, dest->port) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_FWD_METHOD,
-+			(atomic_read(&dest->conn_flags) &
-+			 IP_VS_CONN_F_FWD_MASK)) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_WEIGHT,
-+			atomic_read(&dest->weight)) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_U_THRESH, dest->u_threshold) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_L_THRESH, dest->l_threshold) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_ACTIVE_CONNS,
-+			atomic_read(&dest->activeconns)) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_INACT_CONNS,
-+			atomic_read(&dest->inactconns)) ||
-+	    nla_put_u32(skb, IPVS_DEST_ATTR_PERSIST_CONNS,
-+			atomic_read(&dest->persistconns)))
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_PACKETS, tunnel->stats.tx_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_BYTES, tunnel->stats.tx_bytes);
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_ERRORS, tunnel->stats.tx_errors);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_PACKETS, tunnel->stats.rx_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_BYTES, tunnel->stats.rx_bytes);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_SEQ_DISCARDS, tunnel->stats.rx_seq_discards);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_OOS_PACKETS, tunnel->stats.rx_oos_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_ERRORS, tunnel->stats.rx_errors);
++	if (nla_put_u64(skb, L2TP_ATTR_TX_PACKETS, tunnel->stats.tx_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_TX_BYTES, tunnel->stats.tx_bytes) ||
++	    nla_put_u64(skb, L2TP_ATTR_TX_ERRORS, tunnel->stats.tx_errors) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_PACKETS, tunnel->stats.rx_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_BYTES, tunnel->stats.rx_bytes) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_SEQ_DISCARDS,
++			tunnel->stats.rx_seq_discards) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_OOS_PACKETS,
++			tunnel->stats.rx_oos_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_ERRORS, tunnel->stats.rx_errors))
 +		goto nla_put_failure;
- 	if (ip_vs_genl_fill_stats(skb, IPVS_DEST_ATTR_STATS, &dest->stats))
- 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest);
  
-@@ -3181,10 +3184,10 @@ static int ip_vs_genl_fill_daemon(struct sk_buff *skb, __be32 state,
- 	if (!nl_daemon)
- 		return -EMSGSIZE;
+ 	sk = tunnel->sock;
+@@ -259,13 +263,16 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 pid, u32 seq, int flags,
  
--	NLA_PUT_U32(skb, IPVS_DAEMON_ATTR_STATE, state);
--	NLA_PUT_STRING(skb, IPVS_DAEMON_ATTR_MCAST_IFN, mcast_ifn);
--	NLA_PUT_U32(skb, IPVS_DAEMON_ATTR_SYNC_ID, syncid);
--
-+	if (nla_put_u32(skb, IPVS_DAEMON_ATTR_STATE, state) ||
-+	    nla_put_string(skb, IPVS_DAEMON_ATTR_MCAST_IFN, mcast_ifn) ||
-+	    nla_put_u32(skb, IPVS_DAEMON_ATTR_SYNC_ID, syncid))
-+		goto nla_put_failure;
- 	nla_nest_end(skb, nl_daemon);
- 
- 	return 0;
-@@ -3473,21 +3476,26 @@ static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
- 
- 		__ip_vs_get_timeouts(net, &t);
- #ifdef CONFIG_IP_VS_PROTO_TCP
--		NLA_PUT_U32(msg, IPVS_CMD_ATTR_TIMEOUT_TCP, t.tcp_timeout);
--		NLA_PUT_U32(msg, IPVS_CMD_ATTR_TIMEOUT_TCP_FIN,
--			    t.tcp_fin_timeout);
-+		if (nla_put_u32(msg, IPVS_CMD_ATTR_TIMEOUT_TCP,
-+				t.tcp_timeout) ||
-+		    nla_put_u32(msg, IPVS_CMD_ATTR_TIMEOUT_TCP_FIN,
-+				t.tcp_fin_timeout))
+ 	switch (tunnel->encap) {
+ 	case L2TP_ENCAPTYPE_UDP:
+-		NLA_PUT_U16(skb, L2TP_ATTR_UDP_SPORT, ntohs(inet->inet_sport));
+-		NLA_PUT_U16(skb, L2TP_ATTR_UDP_DPORT, ntohs(inet->inet_dport));
+-		NLA_PUT_U8(skb, L2TP_ATTR_UDP_CSUM, (sk->sk_no_check != UDP_CSUM_NOXMIT));
++		if (nla_put_u16(skb, L2TP_ATTR_UDP_SPORT, ntohs(inet->inet_sport)) ||
++		    nla_put_u16(skb, L2TP_ATTR_UDP_DPORT, ntohs(inet->inet_dport)) ||
++		    nla_put_u8(skb, L2TP_ATTR_UDP_CSUM,
++			       (sk->sk_no_check != UDP_CSUM_NOXMIT)))
 +			goto nla_put_failure;
- #endif
- #ifdef CONFIG_IP_VS_PROTO_UDP
--		NLA_PUT_U32(msg, IPVS_CMD_ATTR_TIMEOUT_UDP, t.udp_timeout);
-+		if (nla_put_u32(msg, IPVS_CMD_ATTR_TIMEOUT_UDP, t.udp_timeout))
-+			goto nla_put_failure;
- #endif
- 
- 		break;
- 	}
- 
- 	case IPVS_CMD_GET_INFO:
--		NLA_PUT_U32(msg, IPVS_INFO_ATTR_VERSION, IP_VS_VERSION_CODE);
--		NLA_PUT_U32(msg, IPVS_INFO_ATTR_CONN_TAB_SIZE,
--			    ip_vs_conn_tab_size);
-+		if (nla_put_u32(msg, IPVS_INFO_ATTR_VERSION,
-+				IP_VS_VERSION_CODE) ||
-+		    nla_put_u32(msg, IPVS_INFO_ATTR_CONN_TAB_SIZE,
-+				ip_vs_conn_tab_size))
+ 		/* NOBREAK */
+ 	case L2TP_ENCAPTYPE_IP:
+-		NLA_PUT_BE32(skb, L2TP_ATTR_IP_SADDR, inet->inet_saddr);
+-		NLA_PUT_BE32(skb, L2TP_ATTR_IP_DADDR, inet->inet_daddr);
++		if (nla_put_be32(skb, L2TP_ATTR_IP_SADDR, inet->inet_saddr) ||
++		    nla_put_be32(skb, L2TP_ATTR_IP_DADDR, inet->inet_daddr))
 +			goto nla_put_failure;
  		break;
  	}
  
+@@ -563,43 +570,50 @@ static int l2tp_nl_session_send(struct sk_buff *skb, u32 pid, u32 seq, int flags
+ 	if (IS_ERR(hdr))
+ 		return PTR_ERR(hdr);
+ 
+-	NLA_PUT_U32(skb, L2TP_ATTR_CONN_ID, tunnel->tunnel_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_SESSION_ID, session->session_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_PEER_CONN_ID, tunnel->peer_tunnel_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_PEER_SESSION_ID, session->peer_session_id);
+-	NLA_PUT_U32(skb, L2TP_ATTR_DEBUG, session->debug);
+-	NLA_PUT_U16(skb, L2TP_ATTR_PW_TYPE, session->pwtype);
+-	NLA_PUT_U16(skb, L2TP_ATTR_MTU, session->mtu);
+-	if (session->mru)
+-		NLA_PUT_U16(skb, L2TP_ATTR_MRU, session->mru);
+-
+-	if (session->ifname && session->ifname[0])
+-		NLA_PUT_STRING(skb, L2TP_ATTR_IFNAME, session->ifname);
+-	if (session->cookie_len)
+-		NLA_PUT(skb, L2TP_ATTR_COOKIE, session->cookie_len, &session->cookie[0]);
+-	if (session->peer_cookie_len)
+-		NLA_PUT(skb, L2TP_ATTR_PEER_COOKIE, session->peer_cookie_len, &session->peer_cookie[0]);
+-	NLA_PUT_U8(skb, L2TP_ATTR_RECV_SEQ, session->recv_seq);
+-	NLA_PUT_U8(skb, L2TP_ATTR_SEND_SEQ, session->send_seq);
+-	NLA_PUT_U8(skb, L2TP_ATTR_LNS_MODE, session->lns_mode);
++	if (nla_put_u32(skb, L2TP_ATTR_CONN_ID, tunnel->tunnel_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_SESSION_ID, session->session_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_PEER_CONN_ID, tunnel->peer_tunnel_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_PEER_SESSION_ID,
++			session->peer_session_id) ||
++	    nla_put_u32(skb, L2TP_ATTR_DEBUG, session->debug) ||
++	    nla_put_u16(skb, L2TP_ATTR_PW_TYPE, session->pwtype) ||
++	    nla_put_u16(skb, L2TP_ATTR_MTU, session->mtu) ||
++	    (session->mru &&
++	     nla_put_u16(skb, L2TP_ATTR_MRU, session->mru)))
++		goto nla_put_failure;
++
++	if ((session->ifname && session->ifname[0] &&
++	     nla_put_string(skb, L2TP_ATTR_IFNAME, session->ifname)) ||
++	    (session->cookie_len &&
++	     nla_put(skb, L2TP_ATTR_COOKIE, session->cookie_len,
++		     &session->cookie[0])) ||
++	    (session->peer_cookie_len &&
++	     nla_put(skb, L2TP_ATTR_PEER_COOKIE, session->peer_cookie_len,
++		     &session->peer_cookie[0])) ||
++	    nla_put_u8(skb, L2TP_ATTR_RECV_SEQ, session->recv_seq) ||
++	    nla_put_u8(skb, L2TP_ATTR_SEND_SEQ, session->send_seq) ||
++	    nla_put_u8(skb, L2TP_ATTR_LNS_MODE, session->lns_mode) ||
+ #ifdef CONFIG_XFRM
+-	if ((sk) && (sk->sk_policy[0] || sk->sk_policy[1]))
+-		NLA_PUT_U8(skb, L2TP_ATTR_USING_IPSEC, 1);
++	    (((sk) && (sk->sk_policy[0] || sk->sk_policy[1])) &&
++	     nla_put_u8(skb, L2TP_ATTR_USING_IPSEC, 1)) ||
+ #endif
+-	if (session->reorder_timeout)
+-		NLA_PUT_MSECS(skb, L2TP_ATTR_RECV_TIMEOUT, session->reorder_timeout);
+-
++	    (session->reorder_timeout &&
++	     nla_put_msecs(skb, L2TP_ATTR_RECV_TIMEOUT, session->reorder_timeout)))
++		goto nla_put_failure;
+ 	nest = nla_nest_start(skb, L2TP_ATTR_STATS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_PACKETS, session->stats.tx_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_BYTES, session->stats.tx_bytes);
+-	NLA_PUT_U64(skb, L2TP_ATTR_TX_ERRORS, session->stats.tx_errors);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_PACKETS, session->stats.rx_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_BYTES, session->stats.rx_bytes);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_SEQ_DISCARDS, session->stats.rx_seq_discards);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_OOS_PACKETS, session->stats.rx_oos_packets);
+-	NLA_PUT_U64(skb, L2TP_ATTR_RX_ERRORS, session->stats.rx_errors);
++	if (nla_put_u64(skb, L2TP_ATTR_TX_PACKETS, session->stats.tx_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_TX_BYTES, session->stats.tx_bytes) ||
++	    nla_put_u64(skb, L2TP_ATTR_TX_ERRORS, session->stats.tx_errors) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_PACKETS, session->stats.rx_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_BYTES, session->stats.rx_bytes) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_SEQ_DISCARDS,
++			session->stats.rx_seq_discards) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_OOS_PACKETS,
++			session->stats.rx_oos_packets) ||
++	    nla_put_u64(skb, L2TP_ATTR_RX_ERRORS, session->stats.rx_errors))
++		goto nla_put_failure;
+ 	nla_nest_end(skb, nest);
+ 
+ 	return genlmsg_end(skb, hdr);
 -- 
 1.7.7.6
