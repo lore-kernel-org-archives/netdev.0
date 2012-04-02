@@ -1,12 +1,12 @@
 From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH v2 4/8] wdt: Device tree support for pnx4008-wdt
-Date: Mon,  2 Apr 2012 20:33:03 +0200
-Message-ID: <1333391587-26290-5-git-send-email-stigge@antcom.de>
+Subject: [PATCH v2 5/8] i2c-pnx.c: Fix suspend
+Date: Mon,  2 Apr 2012 20:33:04 +0200
+Message-ID: <1333391587-26290-6-git-send-email-stigge@antcom.de>
 References: <1333391587-26290-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>
+Cc: Roland Stigge <stigge@antcom.de>, stable@vger.kernel.org
 To: arm@kernel.org, linux-arm-kernel@lists.infradead.org,
  linux-i2c@vger.kernel.org, linux-kernel@vger.kernel.org,
  w.sang@pengutronix.de, srinivas.bakki@nxp.com, kevin.wells@nxp.com,
@@ -26,61 +26,28 @@ Sender: linux-arm-kernel-bounces@lists.infradead.org
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds watchdog support to pnx4008-wdt.c
+In the driver's suspend function, clk_enable() was used instead of
+clk_disable(). This is corrected with this patch.
 
 Signed-off-by: Roland Stigge <stigge@antcom.de>
+CC: stable@vger.kernel.org
 
 ---
 
  Applies to v3.4-rc1
 
- Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt |   13 +++++++++++++
- drivers/watchdog/pnx4008_wdt.c                             |   10 ++++++++++
- 2 files changed, 23 insertions(+)
+ drivers/i2c/busses/i2c-pnx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
---- /dev/null
-+++ linux-2.6/Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt
-@@ -0,0 +1,13 @@
-+* NXP PNX watchdog timer
-+
-+Required properties:
-+- compatible: must be "nxp,pnx4008-wdt"
-+- reg: physical base address of the controller and length of memory mapped
-+  region.
-+
-+Example:
-+
-+	watchdog@4003C000 {
-+		compatible = "nxp,pnx4008-wdt";
-+		reg = <0x4003C000 0x1000>;
-+	};
---- linux-2.6.orig/drivers/watchdog/pnx4008_wdt.c
-+++ linux-2.6/drivers/watchdog/pnx4008_wdt.c
-@@ -32,6 +32,7 @@
- #include <linux/io.h>
- #include <linux/slab.h>
- #include <linux/err.h>
-+#include <linux/of.h>
- #include <mach/hardware.h>
+--- linux-2.6.orig/drivers/i2c/busses/i2c-pnx.c
++++ linux-2.6/drivers/i2c/busses/i2c-pnx.c
+@@ -546,8 +546,7 @@ static int i2c_pnx_controller_suspend(st
+ {
+ 	struct i2c_pnx_algo_data *alg_data = platform_get_drvdata(pdev);
  
- /* WatchDog Timer - Chapter 23 Page 207 */
-@@ -201,10 +202,19 @@ static int __devexit pnx4008_wdt_remove(
+-	/* FIXME: shouldn't this be clk_disable? */
+-	clk_enable(alg_data->clk);
++	clk_disable(alg_data->clk);
+ 
  	return 0;
  }
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id pnx4008_wdt_match[] = {
-+	{ .compatible = "nxp,pnx4008-wdt" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, pnx4008_wdt_match);
-+#endif
-+
- static struct platform_driver platform_wdt_driver = {
- 	.driver = {
- 		.name = "pnx4008-watchdog",
- 		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(pnx4008_wdt_match),
- 	},
- 	.probe = pnx4008_wdt_probe,
- 	.remove = __devexit_p(pnx4008_wdt_remove),
