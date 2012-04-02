@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 29/51] decnet: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:58:19 -0400
-Message-ID: <1333335521-1348-30-git-send-email-davem@davemloft.net>
+Subject: [PATCH 32/51] can: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:22 -0400
+Message-ID: <1333335521-1348-33-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46761 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46763 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754418Ab2DBDAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:01 -0400
+	with ESMTP id S1754458Ab2DBDAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:00:03 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,52 +21,54 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/decnet/dn_dev.c   |   14 +++++++-------
- net/decnet/dn_rules.c |   10 +++++-----
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/can/dev.c |   31 ++++++++++++++++---------------
+ 1 files changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 74d321a..16efcda 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -695,13 +695,13 @@ static int dn_nl_fill_ifaddr(struct sk_buff *skb, struct dn_ifaddr *ifa,
- 	ifm->ifa_scope = ifa->ifa_scope;
- 	ifm->ifa_index = ifa->ifa_dev->dev->ifindex;
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index c5fe3a3..f03d7a4 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -687,18 +687,19 @@ static int can_fill_info(struct sk_buff *skb, const struct net_device *dev)
  
--	if (ifa->ifa_address)
--		NLA_PUT_LE16(skb, IFA_ADDRESS, ifa->ifa_address);
--	if (ifa->ifa_local)
--		NLA_PUT_LE16(skb, IFA_LOCAL, ifa->ifa_local);
--	if (ifa->ifa_label[0])
--		NLA_PUT_STRING(skb, IFA_LABEL, ifa->ifa_label);
+ 	if (priv->do_get_state)
+ 		priv->do_get_state(dev, &state);
+-	NLA_PUT_U32(skb, IFLA_CAN_STATE, state);
+-	NLA_PUT(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm);
+-	NLA_PUT_U32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms);
+-	NLA_PUT(skb, IFLA_CAN_BITTIMING,
+-		sizeof(priv->bittiming), &priv->bittiming);
+-	NLA_PUT(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock);
+-	if (priv->do_get_berr_counter && !priv->do_get_berr_counter(dev, &bec))
+-		NLA_PUT(skb, IFLA_CAN_BERR_COUNTER, sizeof(bec), &bec);
+-	if (priv->bittiming_const)
+-		NLA_PUT(skb, IFLA_CAN_BITTIMING_CONST,
+-			sizeof(*priv->bittiming_const), priv->bittiming_const);
 -
-+	if ((ifa->ifa_address &&
-+	     nla_put_le16(skb, IFA_ADDRESS, ifa->ifa_address)) ||
-+	    (ifa->ifa_local &&
-+	     nla_put_le16(skb, IFA_LOCAL, ifa->ifa_local)) ||
-+	    (ifa->ifa_label[0] &&
-+	     nla_put_string(skb, IFA_LABEL, ifa->ifa_label)))
++	if (nla_put_u32(skb, IFLA_CAN_STATE, state) ||
++	    nla_put(skb, IFLA_CAN_CTRLMODE, sizeof(cm), &cm) ||
++	    nla_put_u32(skb, IFLA_CAN_RESTART_MS, priv->restart_ms) ||
++	    nla_put(skb, IFLA_CAN_BITTIMING,
++		    sizeof(priv->bittiming), &priv->bittiming) ||
++	    nla_put(skb, IFLA_CAN_CLOCK, sizeof(cm), &priv->clock) ||
++	    (priv->do_get_berr_counter &&
++	     !priv->do_get_berr_counter(dev, &bec) &&
++	     nla_put(skb, IFLA_CAN_BERR_COUNTER, sizeof(bec), &bec)) ||
++	    (priv->bittiming_const &&
++	     nla_put(skb, IFLA_CAN_BITTIMING_CONST,
++		     sizeof(*priv->bittiming_const), priv->bittiming_const)))
 +		goto nla_put_failure;
- 	return nlmsg_end(skb, nlh);
+ 	return 0;
  
  nla_put_failure:
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index f65c9dd..7399e3d 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -204,11 +204,11 @@ static int dn_fib_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
- 	frh->src_len = r->src_len;
- 	frh->tos = 0;
+@@ -714,9 +715,9 @@ static int can_fill_xstats(struct sk_buff *skb, const struct net_device *dev)
+ {
+ 	struct can_priv *priv = netdev_priv(dev);
  
--	if (r->dst_len)
--		NLA_PUT_LE16(skb, FRA_DST, r->dst);
--	if (r->src_len)
--		NLA_PUT_LE16(skb, FRA_SRC, r->src);
+-	NLA_PUT(skb, IFLA_INFO_XSTATS,
+-		sizeof(priv->can_stats), &priv->can_stats);
 -
-+	if ((r->dst_len &&
-+	     nla_put_le16(skb, FRA_DST, r->dst)) ||
-+	    (r->src_len &&
-+	     nla_put_le16(skb, FRA_SRC, r->src)))
++	if (nla_put(skb, IFLA_INFO_XSTATS,
++		    sizeof(priv->can_stats), &priv->can_stats))
 +		goto nla_put_failure;
  	return 0;
  
