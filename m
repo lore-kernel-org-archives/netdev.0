@@ -1,58 +1,52 @@
-From: boris@cloudluca.com
-Subject: Server Rental Service in HK
-Date: Mon,  2 Apr 2012 17:47:48 +0800 (HKT)
-Message-ID: <715slNdbsCE1V96@gcn.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH] ipv6: fix array index in ip6_mc_add_src()
+Date: Mon, 2 Apr 2012 18:16:14 +0800
+Message-ID: <CAJFZqHwAFao9En4LRBST3YSufbrjbtsV09_h9fOVTSsCHtsT_w@mail.gmail.com>
+References: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
+	<20120401.151318.984514868716173152.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-70.sunnyvision.com ([124.248.200.70]:45072 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485Ab2DBKH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 06:07:56 -0400
-Received: from smtp1.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id 14C5050C82
-	for <netdev@vger.kernel.org>; Mon,  2 Apr 2012 17:47:49 +0800 (HKT)
-Received: from sample (unknown [124.248.200.17])
-	by smtp1.edmhongkong.com (Postfix) with SMTP id 59A2B4FB27
-	for <netdev@vger.kernel.org>; Mon,  2 Apr 2012 17:47:48 +0800 (HKT)
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:58224 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658Ab2DBKQP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 06:16:15 -0400
+Received: by obbtb18 with SMTP id tb18so1878738obb.19
+        for <netdev@vger.kernel.org>; Mon, 02 Apr 2012 03:16:14 -0700 (PDT)
+In-Reply-To: <20120401.151318.984514868716173152.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
+2012/4/2 David Miller <davem@davemloft.net>:
+> From: roy.qing.li@gmail.com
+> Date: Sun, =A01 Apr 2012 16:45:26 +0800
+>
+>> From: RongQing.Li <roy.qing.li@gmail.com>
+>>
+>> Convert array index from the loop bound to the loop index.
+>>
+>> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+>
+> That's not all you are doing:
+>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (void) ip6_mc_del1_src(pmc=
+, sfmode, &psfsrc[i]);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ip6_mc_del1_src(pmc, sfmod=
+e, &psfsrc[j]);
+>
+> You absolutely MUST mention and explain this (void) removal.
+> It's probably there to elide an unchecked return value
+> warning from the compiler.
 
-We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
+since ip6_mc_del1_src() does not use __must_check likely attribute.
+I try to compile with several gcc warning options, but do not
+find which options can report the unchecked return value.
 
-Dell=3F PowerEdge=3F EnterpriseRack Mount Server
--Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
--8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
--500GB, 3.5", 6Gbps SAS x 2
--Raid 1 Mirroring Protection
--Remote KVM (iDRAC6 Enterprise)
+Maybe other tools will complain the unchecked return value.
 
-Dell(TM) PowerEdge(TM) R410 Rack Mount Server
--Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
--4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
--500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
--iDRAC6 Enterprise or Express (Remote KVM Management)
+So I will keep the void.
 
-Every Dedicated Server Hosting Solution Also Includes: 
- 
-Software Specification 
-- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
-- Full root-level access 
-- Data Center Facilities 
-- Shared Local & International Bandwidth 
-- 2 IP Addresses Allocation 
-- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
-- FM200=A1=A7based fire suppression system 
-- 24x7 CRAC Air Conditioning and Humidity Control 
-- 24x7 Security Control 
-- 24x7 Remote Hand Service 
-
-Pls send us email for further information.Thanks,
-
-Boris 
-boris@cloudluca.com
-
-If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
+-R
