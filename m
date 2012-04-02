@@ -1,53 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix array index in ip6_mc_add_src()
-Date: Mon, 02 Apr 2012 16:19:50 -0400 (EDT)
-Message-ID: <20120402.161950.1558486977364492163.davem@davemloft.net>
-References: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
-	<20120401.151318.984514868716173152.davem@davemloft.net>
-	<CAJFZqHwAFao9En4LRBST3YSufbrjbtsV09_h9fOVTSsCHtsT_w@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH ethtool] Add the command to show the time stamping
+ capabilities.
+Date: Mon, 2 Apr 2012 21:23:32 +0100
+Message-ID: <1333398212.5356.29.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1333293808-7729-1-git-send-email-richardcochran@gmail.com>
+	 <1333394758.5356.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Martin Porter <mporter@solarflare.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	<e1000-devel@lists.sourceforge.net>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54917 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751686Ab2DBUT4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 16:19:56 -0400
-In-Reply-To: <CAJFZqHwAFao9En4LRBST3YSufbrjbtsV09_h9fOVTSsCHtsT_w@mail.gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:27059 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751212Ab2DBUXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 16:23:36 -0400
+In-Reply-To: <1333394758.5356.28.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: RongQing Li <roy.qing.li@gmail.com>
-Date: Mon, 2 Apr 2012 18:16:14 +0800
+On Mon, 2012-04-02 at 20:25 +0100, Ben Hutchings wrote:
+> On Sun, 2012-04-01 at 17:23 +0200, Richard Cochran wrote:
+[...]
+> > +	if (info->tx_types & (1 << HWTSTAMP_TX_OFF))
+> > +		fprintf(stdout, "HWTSTAMP_TX_OFF\n");
+> > +
+> > +	if (info->tx_types & (1 << HWTSTAMP_TX_ON))
+> > +		fprintf(stdout, "HWTSTAMP_TX_ON\n");
+> > +
+> > +	if (info->tx_types & (1 << HWTSTAMP_TX_ONESTEP_SYNC))
+> > +		fprintf(stdout, "HWTSTAMP_TX_ONESTEP_SYNC\n");
+> 
+> If there is no hardware timestamping available then shouldn't we see
+> HWTSTAMP_TX_OFF reported here?  But that's going to be the case.  Not
+                                            +not
 
-> 2012/4/2 David Miller <davem@davemloft.net>:
->> From: roy.qing.li@gmail.com
->> Date: Sun, =A01 Apr 2012 16:45:26 +0800
->>
->>> From: RongQing.Li <roy.qing.li@gmail.com>
->>>
->>> Convert array index from the loop bound to the loop index.
->>>
->>> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
->>
->> That's not all you are doing:
->>
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (void) ip6_mc_del1_src(pm=
-c, sfmode, &psfsrc[i]);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ip6_mc_del1_src(pmc, sfmo=
-de, &psfsrc[j]);
->>
->> You absolutely MUST mention and explain this (void) removal.
->> It's probably there to elide an unchecked return value
->> warning from the compiler.
->=20
-> since ip6_mc_del1_src() does not use __must_check likely attribute.
-> I try to compile with several gcc warning options, but do not
-> find which options can report the unchecked return value.
+> sure whether the kernel or the ethtool utility should deal with that,
+> but don't assume the ethtool utility is the only consumer.
+[...]
 
-I said "probably", I didn't check myself.
-
-The issue I had was that you didn't mention the void removal in the
-commit message.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
