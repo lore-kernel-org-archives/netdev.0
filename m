@@ -1,62 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 00/28] ethtool: support time
- stamping and phc clocks
-Date: Mon, 02 Apr 2012 00:55:08 -0400 (EDT)
-Message-ID: <20120402.005508.810320049567209896.davem@davemloft.net>
-References: <cover.1333289292.git.richardcochran@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 21/51] ipvs: Stop using NLA_PUT*().
+Date: Mon, 2 Apr 2012 14:01:49 +0900
+Message-ID: <20120402050142.GA20454@verge.net.au>
+References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
+ <1333335521-1348-22-git-send-email-davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mporter@solarflare.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, jacob.e.keller@intel.com,
-	john.ronciak@intel.com, bhutchings@solarflare.com
-To: richardcochran@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1333289292.git.richardcochran@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:34961 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764Ab2DBFBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 01:01:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1333335521-1348-22-git-send-email-davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sun,  1 Apr 2012 17:19:45 +0200
+On Sun, Apr 01, 2012 at 10:58:11PM -0400, David S. Miller wrote:
+> From: "David S. Miller" <davem@davemloft.net>
+> 
+> These macros contain a hidden goto, and are thus extremely error
+> prone and make code hard to audit.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> Support for SO_TIMESTAMPING of network packets and PTP Hardware Clocks
-> has been expanding over the last year or two. In an ideal world, every
-> host would have exactly one PTP hardware clock, and every Ethernet MAC
-> would support SO_TIMESTAMPING on both the transmit and receive paths.
-> However, since we do not yet have full coverage for these features,
-> user space programs need a way to discover what a given interface
-> supports in these two areas.
- ...
-> This series exposes the hardware and driver capabilities known to user
-> space via ethtool. 
-> 
-> Since the PHC code was first merged, this has become the number one
-> requested new feature.
-> 
-> Patch number  3 applies on top of my recent two igb/phc patches.
-> Patch number 12 applies on top of my recent e100 patch.
-> 
-> The new feature has been tested on the following hardware:
-> 
-> igb       Hardware time stamping in the MAC
-> dp83640   Hardware time stamping in the PHY
-> r8169     Software Tx time stamping in the MAC
+Hi Dave,
 
-No real objections from me, Ben?
+do you want me to take this patch or do you plan to take it directly?
 
-------------------------------------------------------------------------------
-This SF email is sponsosred by:
-Try Windows Azure free for 90 days Click Here 
-http://p.sf.net/sfu/sfd2d-msazure
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+In any case
+
+Acked-by: Simon Horman <horms@verge.net.au>
