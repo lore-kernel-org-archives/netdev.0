@@ -1,35 +1,32 @@
-From: Simon Horman <horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 21/51] ipvs: Stop using NLA_PUT*().
-Date: Mon, 2 Apr 2012 14:01:49 +0900
-Message-ID: <20120402050142.GA20454@verge.net.au>
+Date: Mon, 02 Apr 2012 01:03:02 -0400 (EDT)
+Message-ID: <20120402.010302.1302861329843358875.davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
- <1333335521-1348-22-git-send-email-davem@davemloft.net>
+	<1333335521-1348-22-git-send-email-davem@davemloft.net>
+	<20120402050142.GA20454@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:34961 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764Ab2DBFBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 01:01:55 -0400
-Content-Disposition: inline
-In-Reply-To: <1333335521-1348-22-git-send-email-davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750960Ab2DBFDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 01:03:08 -0400
+In-Reply-To: <20120402050142.GA20454@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 01, 2012 at 10:58:11PM -0400, David S. Miller wrote:
-> From: "David S. Miller" <davem@davemloft.net>
-> 
-> These macros contain a hidden goto, and are thus extremely error
-> prone and make code hard to audit.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 2 Apr 2012 14:01:49 +0900
 
-Hi Dave,
+> do you want me to take this patch or do you plan to take it directly?
 
-do you want me to take this patch or do you plan to take it directly?
+I plan to take the whole series, otherwise I can't put the
+commit in at the end that deletes these interfaces.
 
-In any case
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-Acked-by: Simon Horman <horms@verge.net.au>
+Thanks.
