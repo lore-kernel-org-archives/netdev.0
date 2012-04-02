@@ -1,55 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUGFIX][PATCH 3/3] memcg/tcp: ignore tcp usage before
- accounting started
-Date: Sun, 01 Apr 2012 23:41:13 -0400 (EDT)
-Message-ID: <20120401.234113.1505269982606203786.davem@davemloft.net>
-References: <4F7408B7.9090706@jp.fujitsu.com>
-	<4F740AEF.7090900@jp.fujitsu.com>
-	<4F742983.1080402@parallels.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: check the length of the data before dereferencing it
+Date: Mon, 2 Apr 2012 11:45:05 +0800
+Message-ID: <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
+References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+ <1333336773.2325.6531.camel@edumazet-glaptop> <20120401.232942.1829187970291547571.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kamezawa.hiroyu@jp.fujitsu.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: glommer@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47251 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753783Ab2DBDlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:41:23 -0400
-In-Reply-To: <4F742983.1080402@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, kaber@trash.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120401.232942.1829187970291547571.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Glauber Costa <glommer@parallels.com>
-Date: Thu, 29 Mar 2012 11:21:07 +0200
+On Mon, Apr 2, 2012 at 11:29 AM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> Tag Eric, you're it.
+>
+> You ACK'd this patch, so you get to show how this is actually able
+> to cause some kind of problem.
+>
+> I assert that this is adding a useless test, that doesn't fix any kin=
+d
+> of possible crash or misbehavior. =A0If length =3D=3D 1 at the defaul=
+t:, the
+> code will absolutely do the right thing.
+>
+> Prove me wrong.
 
-> On 03/29/2012 09:10 AM, KAMEZAWA Hiroyuki wrote:
->> tcp memcontrol starts accouting after res->limit is set. So, if a sockets
->> starts before setting res->limit, there are already used resource.
->> After setting res->limit, the resource (already used) will be uncharged and
->> make res_counter below 0 because they are not charged. This causes warning.
->> 
->> This patch fixes that by adding res_counter_uncharge_nowarn().
->> (*) We cannot avoid this while we have 'account start' switch.
->> 
->> Signed-off-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
-> 
-> Fine by me.
-> 
-> Acked-by: Glauber Costa <glommer@parallels.com>
+Thinking about a malformed tcp segment, which has no data but silly
+options, and whose last byte is neither TCPOPT_EOL or TCPOPT_NOP, we
+will try to dereference one byte over the boundary when parsing the
+options. I know we have skb_shared_info at the end and it won't cause
+any crash, but should we rely on this fact?
 
-I'm not applying patches that simply ignore accounting counter
-underflows.
-
-You must either:
-
-1) Integrate the socket's existing usage when the limit is set.
-
-2) Avoid accounting completely for a socket that started before
-   the limit was set.
-
-No half-way solutions, please.  Otherwise it is impossible to design
-validations of the resource usage for a particular socket or group of
-sockets, because they can always be potentially "wrong" and over the
-limit.  That's a design for a buggy system.
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
