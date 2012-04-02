@@ -1,58 +1,35 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] net: check the length of the data before dereferencing
  it
-Date: Mon, 02 Apr 2012 05:45:45 +0200
-Message-ID: <1333338345.2325.6591.camel@edumazet-glaptop>
+Date: Mon, 02 Apr 2012 05:53:17 +0200
+Message-ID: <1333338797.2325.6610.camel@edumazet-glaptop>
 References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
 	 <1333336773.2325.6531.camel@edumazet-glaptop>
 	 <20120401.232942.1829187970291547571.davem@davemloft.net>
+	 <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, kaber@trash.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120401.232942.1829187970291547571.davem@davemloft.net>
+In-Reply-To: <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-04-01 at 23:29 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 02 Apr 2012 05:19:33 +0200
+On Mon, 2012-04-02 at 11:45 +0800, Changli Gao wrote:
+
+> Thinking about a malformed tcp segment, which has no data but silly
+> options, and whose last byte is neither TCPOPT_EOL or TCPOPT_NOP, we
+> will try to dereference one byte over the boundary when parsing the
+> options. I know we have skb_shared_info at the end and it won't cause
+> any crash, but should we rely on this fact?
 > 
-> >> @@ -3845,6 +3845,8 @@ void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *o
-> >>  			length--;
-> >>  			continue;
-> >>  		default:
-> >> +			if (length < 2)
-> >> +				return;
-> >>  			opsize = *ptr++;
-> >>  			if (opsize < 2) /* "silly options" */
-> >>  				return;
-> > 
-> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Tag Eric, you're it.
-> 
-> You ACK'd this patch, so you get to show how this is actually able
-> to cause some kind of problem.
-> 
-> I assert that this is adding a useless test, that doesn't fix any kind
-> of possible crash or misbehavior.  If length == 1 at the default:, the
-> code will absolutely do the right thing.
-> 
-> Prove me wrong.
 
-No problem.
+No we cant rely on this, kmemcheck might barf on us.
 
-You can have NOP,NOP,NOP,EVIL-OPTION
-
-initial length=4  (multiple of 4)
-
-We can read 5 bytes, and access 'out of bound' memory.
-
-Usually not a problem since we have many bytes after our head.
-
+Your patch (and the netfilter one) is fine.
 
 
