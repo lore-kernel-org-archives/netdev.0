@@ -1,32 +1,44 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: check the length of the data before dereferencing it
-Date: Mon, 2 Apr 2012 12:47:36 +0800
-Message-ID: <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: check the length of the data before dereferencing
+ it
+Date: Mon, 02 Apr 2012 06:54:27 +0200
+Message-ID: <1333342467.2325.6739.camel@edumazet-glaptop>
 References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
- <1333336773.2325.6531.camel@edumazet-glaptop> <20120401.232942.1829187970291547571.davem@davemloft.net>
- <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com> <1333338797.2325.6610.camel@edumazet-glaptop>
+	 <1333336773.2325.6531.camel@edumazet-glaptop>
+	 <20120401.232942.1829187970291547571.davem@davemloft.net>
+	 <CABa6K_HfWckb=sv7oQatv2ZJm3EKJE0mutQQ-OiddXiR6E7eHg@mail.gmail.com>
+	 <1333338797.2325.6610.camel@edumazet-glaptop>
+	 <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
 	pablo@netfilter.org, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1333338797.2325.6610.camel@edumazet-glaptop>
+In-Reply-To: <CABa6K_Hc7ZVVR6XvhEXKHNf_YNnrMNQLBTbxksvAJwAV9fer6w@mail.gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 2, 2012 at 11:53 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> No we cant rely on this, kmemcheck might barf on us.
->
-> Your patch (and the netfilter one) is fine.
->
->
+On Mon, 2012-04-02 at 12:47 +0800, Changli Gao wrote:
 
-Got it. Thanks. FYI, the tcp options are copied to the stack before
-being parsed.
+> Got it. Thanks. FYI, the tcp options are copied to the stack before
+> being parsed.
+> 
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+What do you mean ?
+
+code looks like :
+
+const struct tcphdr *th = tcp_hdr(skb);
+int length = (th->doff * 4) - sizeof(struct tcphdr);
+
+ptr = (const unsigned char *)(th + 1);
+
+
+
+Therefore ptr points somewhere in skb->head ... 
+
+
+
