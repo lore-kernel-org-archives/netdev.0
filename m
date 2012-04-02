@@ -1,37 +1,54 @@
-From: Martin Lucina <martin@lucina.net>
-Subject: Re: [PATCH] Implement IP_EVIL socket option (RFC 3514)
-Date: Mon, 2 Apr 2012 11:42:49 +0200
-Message-ID: <20120402094249.GB7601@dezo.moloch.sk>
-References: <1333284791-5363-1-git-send-email-martin@lucina.net>
- <20120401.152048.267766557618433051.davem@davemloft.net>
- <20120402092410.GA7601@dezo.moloch.sk>
- <20120402.053544.1502825597915995582.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120402.053544.1502825597915995582.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH 3.3.0] phy:icplus:fix Auto Power Saving in ip101a_config_init.
+Date: Mon,  2 Apr 2012 11:02:09 +0100
+Message-ID: <1333360929-31506-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: davem@davemloft.net, peppe.cavallaro@st.com,
+	srinivas.kandagatla@st.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:47496 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751465Ab2DBKD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 06:03:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-davem@davemloft.net said:
-> It wasn't the blurb it was simply that you're at least the third
-> person to submit a patch like this over the years, here's one:
-> 
-> http://www.version6.net/patches/linux-2.4.20-rfc3514.dif
-> 
-> Someone did a netfilter iptables module too:
-> 
-> http://www.gossamer-threads.com/lists/linux/kernel/431645
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-I missed the former patch completely, sorry about that. Googling for "evil
-bit implementation" did turn up the ipt_evil patch but no corresponding
-patch to actually let an application *set* the bit.
+This patch fixes Auto Power Saving configuration in ip101a_config_init
+which was broken as there is no phy register write followed after
+setting IP101A_APS_ON flag.
 
+This patch also fixes the return value of ip101a_config_init.
+
+Without this patch ip101a_config_init returns 2 which is not an error
+accroding to IS_ERR and the mac driver will continue accessing 2 as
+valid pointer to phy_dev resulting in memory fault.
+
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+Hi All, 
+This patch fixes broken ip101a_config_init in icplus.c.
+
+Thanks,
+srini
+
+ drivers/net/phy/icplus.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+index 0856e1b..f08c85a 100644
+--- a/drivers/net/phy/icplus.c
++++ b/drivers/net/phy/icplus.c
+@@ -162,7 +162,8 @@ static int ip101a_g_config_init(struct phy_device *phydev)
+ 	/* Enable Auto Power Saving mode */
+ 	c = phy_read(phydev, IP10XX_SPEC_CTRL_STATUS);
+ 	c |= IP101A_G_APS_ON;
+-	return c;
++
++	return phy_write(phydev, IP10XX_SPEC_CTRL_STATUS, c);
+ }
+ 
+ static int ip175c_read_status(struct phy_device *phydev)
 -- 
-Martin Lucina
-http://lucina.net/ (interwebs/blogs/rants/consulting)
-martin@lucina.net  (smtp/xmpp/jabber/gtalk)
-@matolucina        (twitter)
+1.7.0.4
