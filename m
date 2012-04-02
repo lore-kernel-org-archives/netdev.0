@@ -1,70 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] MAINTAINERS: update for Marvell Ethernet drivers
-Date: Mon, 2 Apr 2012 15:59:47 -0700
-Message-ID: <20120402155947.7167ef2d@s6510.linuxnetplumber.net>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: be2net: when can I expect roce support patch will be merged?
+Date: Mon, 2 Apr 2012 16:26:02 -0700
+Message-ID: <CAL1RGDUJTE4vjr6+XiBogbE3xigShkDasovnDBC+ZSCvw6kt=g@mail.gmail.com>
+References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
+ <20120401.151154.1033862070046707491.davem@davemloft.net> <CAL1RGDVsXvMJ58Xa8BUoXRnWmnG2=7CVtJ5GF_cdFQAk61ng7g@mail.gmail.com>
+ <20120401.174852.1630093843785755332.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Mirko Lindner <mlindner@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40475 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725Ab2DBXAG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Apr 2012 19:00:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120401.174852.1630093843785755332.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Marvell has agreed to do maintenance on the sky2 driver.
-   * Add the developer to the maintainers file
-   * Remove the old reference to the long gone (sk98lin) driver
-   * Rearrange to fit current topic organization
+On Sun, Apr 1, 2012 at 2:48 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> No problem, feel free to add:
+>
+> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Great, I pulled in these two patches, and I'll add the full ocrdma
+driver soon and push it out for -next coverage (with the plan being
+a merge to 3.5).
 
----
-Please hold this patch until ack'd by Mirko.
-
---- a/MAINTAINERS	2012-04-02 15:51:44.458919901 -0700
-+++ b/MAINTAINERS	2012-04-02 15:55:08.311443594 -0700
-@@ -4311,6 +4311,13 @@ W:	http://www.kernel.org/doc/man-pages
- L:	linux-man@vger.kernel.org
- S:	Maintained
- 
-+MARVELL GIGABIT ETHERNET DRIVERS (skge/sky2)
-+M:	Mirko Lindner <mlindner@marvell.com>
-+M:	Stephen Hemminger <shemminger@vyatta.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/marvell/sk*
-+
- MARVELL LIBERTAS WIRELESS DRIVER
- M:	Dan Williams <dcbw@redhat.com>
- L:	libertas-dev@lists.infradead.org
-@@ -4341,12 +4348,6 @@ M:	Nicolas Pitre <nico@fluxnic.net>
- S:	Odd Fixes
- F:	drivers/mmc/host/mvsdio.*
- 
--MARVELL YUKON / SYSKONNECT DRIVER
--M:	Mirko Lindner <mlindner@syskonnect.de>
--M:	Ralph Roesler <rroesler@syskonnect.de>
--W:	http://www.syskonnect.com
--S:	Supported
--
- MATROX FRAMEBUFFER DRIVER
- L:	linux-fbdev@vger.kernel.org
- S:	Orphan
-@@ -6112,12 +6113,6 @@ W:	http://www.winischhofer.at/linuxsisus
- S:	Maintained
- F:	drivers/usb/misc/sisusbvga/
- 
--SKGE, SKY2 10/100/1000 GIGABIT ETHERNET DRIVERS
--M:	Stephen Hemminger <shemminger@vyatta.com>
--L:	netdev@vger.kernel.org
--S:	Maintained
--F:	drivers/net/ethernet/marvell/sk*
--
- SLAB ALLOCATOR
- M:	Christoph Lameter <cl@linux-foundation.org>
- M:	Pekka Enberg <penberg@kernel.org>
+Thanks!
+  Roland
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
