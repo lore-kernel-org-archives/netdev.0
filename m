@@ -1,15 +1,15 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 07/51] nfc: Stop using NLA_PUT*().
-Date: Sun,  1 Apr 2012 22:57:57 -0400
-Message-ID: <1333335521-1348-8-git-send-email-davem@davemloft.net>
+Subject: [PATCH 14/51] nf_conntrack_proto_tcp: Stop using NLA_PUT*().
+Date: Sun,  1 Apr 2012 22:58:04 -0400
+Message-ID: <1333335521-1348-15-git-send-email-davem@davemloft.net>
 References: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46655 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46684 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018Ab2DBC7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:14 -0400
+	with ESMTP id S1754220Ab2DBC70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 22:59:26 -0400
 In-Reply-To: <1333335521-1348-1-git-send-email-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,131 +21,98 @@ prone and make code hard to audit.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/nfc/netlink.c |   70 +++++++++++++++++++++++++++++++----------------------
- 1 files changed, 41 insertions(+), 29 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |   68 ++++++++++++++++---------------
+ 1 files changed, 35 insertions(+), 33 deletions(-)
 
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 6404052..8937664 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -63,19 +63,23 @@ static int nfc_genl_send_target(struct sk_buff *msg, struct nfc_target *target,
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 361eade..cc55816 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1147,21 +1147,22 @@ static int tcp_to_nlattr(struct sk_buff *skb, struct nlattr *nla,
+ 	if (!nest_parms)
+ 		goto nla_put_failure;
  
- 	genl_dump_check_consistent(cb, hdr, &nfc_genl_family);
- 
--	NLA_PUT_U32(msg, NFC_ATTR_TARGET_INDEX, target->idx);
--	NLA_PUT_U32(msg, NFC_ATTR_PROTOCOLS, target->supported_protocols);
--	NLA_PUT_U16(msg, NFC_ATTR_TARGET_SENS_RES, target->sens_res);
--	NLA_PUT_U8(msg, NFC_ATTR_TARGET_SEL_RES, target->sel_res);
--	if (target->nfcid1_len > 0)
--		NLA_PUT(msg, NFC_ATTR_TARGET_NFCID1, target->nfcid1_len,
--			target->nfcid1);
--	if (target->sensb_res_len > 0)
--		NLA_PUT(msg, NFC_ATTR_TARGET_SENSB_RES, target->sensb_res_len,
--			target->sensb_res);
--	if (target->sensf_res_len > 0)
--		NLA_PUT(msg, NFC_ATTR_TARGET_SENSF_RES, target->sensf_res_len,
--			target->sensf_res);
-+	if (nla_put_u32(msg, NFC_ATTR_TARGET_INDEX, target->idx) ||
-+	    nla_put_u32(msg, NFC_ATTR_PROTOCOLS, target->supported_protocols) ||
-+	    nla_put_u16(msg, NFC_ATTR_TARGET_SENS_RES, target->sens_res) ||
-+	    nla_put_u8(msg, NFC_ATTR_TARGET_SEL_RES, target->sel_res))
-+		goto nla_put_failure;
-+	if (target->nfcid1_len > 0 &&
-+	    nla_put(msg, NFC_ATTR_TARGET_NFCID1, target->nfcid1_len,
-+		    target->nfcid1))
-+		goto nla_put_failure;
-+	if (target->sensb_res_len > 0 &&
-+	    nla_put(msg, NFC_ATTR_TARGET_SENSB_RES, target->sensb_res_len,
-+		    target->sensb_res))
-+		goto nla_put_failure;
-+	if (target->sensf_res_len > 0 &&
-+	    nla_put(msg, NFC_ATTR_TARGET_SENSF_RES, target->sensf_res_len,
-+		    target->sensf_res))
+-	NLA_PUT_U8(skb, CTA_PROTOINFO_TCP_STATE, ct->proto.tcp.state);
+-
+-	NLA_PUT_U8(skb, CTA_PROTOINFO_TCP_WSCALE_ORIGINAL,
+-		   ct->proto.tcp.seen[0].td_scale);
+-
+-	NLA_PUT_U8(skb, CTA_PROTOINFO_TCP_WSCALE_REPLY,
+-		   ct->proto.tcp.seen[1].td_scale);
++	if (nla_put_u8(skb, CTA_PROTOINFO_TCP_STATE, ct->proto.tcp.state) ||
++	    nla_put_u8(skb, CTA_PROTOINFO_TCP_WSCALE_ORIGINAL,
++		       ct->proto.tcp.seen[0].td_scale) ||
++	    nla_put_u8(skb, CTA_PROTOINFO_TCP_WSCALE_REPLY,
++		       ct->proto.tcp.seen[1].td_scale))
 +		goto nla_put_failure;
  
- 	return genlmsg_end(msg, hdr);
- 
-@@ -170,7 +174,8 @@ int nfc_genl_targets_found(struct nfc_dev *dev)
- 	if (!hdr)
- 		goto free_msg;
- 
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
-+	if (nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx))
+ 	tmp.flags = ct->proto.tcp.seen[0].flags;
+-	NLA_PUT(skb, CTA_PROTOINFO_TCP_FLAGS_ORIGINAL,
+-		sizeof(struct nf_ct_tcp_flags), &tmp);
++	if (nla_put(skb, CTA_PROTOINFO_TCP_FLAGS_ORIGINAL,
++		    sizeof(struct nf_ct_tcp_flags), &tmp))
 +		goto nla_put_failure;
  
- 	genlmsg_end(msg, hdr);
- 
-@@ -197,10 +202,11 @@ int nfc_genl_device_added(struct nfc_dev *dev)
- 	if (!hdr)
- 		goto free_msg;
- 
--	NLA_PUT_STRING(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev));
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
--	NLA_PUT_U32(msg, NFC_ATTR_PROTOCOLS, dev->supported_protocols);
--	NLA_PUT_U8(msg, NFC_ATTR_DEVICE_POWERED, dev->dev_up);
-+	if (nla_put_string(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev)) ||
-+	    nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx) ||
-+	    nla_put_u32(msg, NFC_ATTR_PROTOCOLS, dev->supported_protocols) ||
-+	    nla_put_u8(msg, NFC_ATTR_DEVICE_POWERED, dev->dev_up))
+ 	tmp.flags = ct->proto.tcp.seen[1].flags;
+-	NLA_PUT(skb, CTA_PROTOINFO_TCP_FLAGS_REPLY,
+-		sizeof(struct nf_ct_tcp_flags), &tmp);
++	if (nla_put(skb, CTA_PROTOINFO_TCP_FLAGS_REPLY,
++		    sizeof(struct nf_ct_tcp_flags), &tmp))
 +		goto nla_put_failure;
+ 	spin_unlock_bh(&ct->lock);
  
- 	genlmsg_end(msg, hdr);
+ 	nla_nest_end(skb, nest_parms);
+@@ -1310,28 +1311,29 @@ tcp_timeout_obj_to_nlattr(struct sk_buff *skb, const void *data)
+ {
+ 	const unsigned int *timeouts = data;
  
-@@ -229,7 +235,8 @@ int nfc_genl_device_removed(struct nfc_dev *dev)
- 	if (!hdr)
- 		goto free_msg;
- 
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
-+	if (nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx))
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_SYN_SENT,
+-			htonl(timeouts[TCP_CONNTRACK_SYN_SENT] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_SYN_RECV,
+-			htonl(timeouts[TCP_CONNTRACK_SYN_RECV] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_ESTABLISHED,
+-			htonl(timeouts[TCP_CONNTRACK_ESTABLISHED] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_FIN_WAIT,
+-			htonl(timeouts[TCP_CONNTRACK_FIN_WAIT] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_CLOSE_WAIT,
+-			htonl(timeouts[TCP_CONNTRACK_CLOSE_WAIT] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_LAST_ACK,
+-			htonl(timeouts[TCP_CONNTRACK_LAST_ACK] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_TIME_WAIT,
+-			htonl(timeouts[TCP_CONNTRACK_TIME_WAIT] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_CLOSE,
+-			htonl(timeouts[TCP_CONNTRACK_CLOSE] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_SYN_SENT2,
+-			htonl(timeouts[TCP_CONNTRACK_SYN_SENT2] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_RETRANS,
+-			htonl(timeouts[TCP_CONNTRACK_RETRANS] / HZ));
+-	NLA_PUT_BE32(skb, CTA_TIMEOUT_TCP_UNACK,
+-			htonl(timeouts[TCP_CONNTRACK_UNACK] / HZ));
++	if (nla_put_be32(skb, CTA_TIMEOUT_TCP_SYN_SENT,
++			htonl(timeouts[TCP_CONNTRACK_SYN_SENT] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_SYN_RECV,
++			 htonl(timeouts[TCP_CONNTRACK_SYN_RECV] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_ESTABLISHED,
++			 htonl(timeouts[TCP_CONNTRACK_ESTABLISHED] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_FIN_WAIT,
++			 htonl(timeouts[TCP_CONNTRACK_FIN_WAIT] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_CLOSE_WAIT,
++			 htonl(timeouts[TCP_CONNTRACK_CLOSE_WAIT] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_LAST_ACK,
++			 htonl(timeouts[TCP_CONNTRACK_LAST_ACK] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_TIME_WAIT,
++			 htonl(timeouts[TCP_CONNTRACK_TIME_WAIT] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_CLOSE,
++			 htonl(timeouts[TCP_CONNTRACK_CLOSE] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_SYN_SENT2,
++			 htonl(timeouts[TCP_CONNTRACK_SYN_SENT2] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_RETRANS,
++			 htonl(timeouts[TCP_CONNTRACK_RETRANS] / HZ)) ||
++	    nla_put_be32(skb, CTA_TIMEOUT_TCP_UNACK,
++			 htonl(timeouts[TCP_CONNTRACK_UNACK] / HZ)))
 +		goto nla_put_failure;
+ 	return 0;
  
- 	genlmsg_end(msg, hdr);
- 
-@@ -259,10 +266,11 @@ static int nfc_genl_send_device(struct sk_buff *msg, struct nfc_dev *dev,
- 	if (cb)
- 		genl_dump_check_consistent(cb, hdr, &nfc_genl_family);
- 
--	NLA_PUT_STRING(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev));
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
--	NLA_PUT_U32(msg, NFC_ATTR_PROTOCOLS, dev->supported_protocols);
--	NLA_PUT_U8(msg, NFC_ATTR_DEVICE_POWERED, dev->dev_up);
-+	if (nla_put_string(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev)) ||
-+	    nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx) ||
-+	    nla_put_u32(msg, NFC_ATTR_PROTOCOLS, dev->supported_protocols) ||
-+	    nla_put_u8(msg, NFC_ATTR_DEVICE_POWERED, dev->dev_up))
-+		goto nla_put_failure;
- 
- 	return genlmsg_end(msg, hdr);
- 
-@@ -339,11 +347,14 @@ int nfc_genl_dep_link_up_event(struct nfc_dev *dev, u32 target_idx,
- 	if (!hdr)
- 		goto free_msg;
- 
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
--	if (rf_mode == NFC_RF_INITIATOR)
--		NLA_PUT_U32(msg, NFC_ATTR_TARGET_INDEX, target_idx);
--	NLA_PUT_U8(msg, NFC_ATTR_COMM_MODE, comm_mode);
--	NLA_PUT_U8(msg, NFC_ATTR_RF_MODE, rf_mode);
-+	if (nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx))
-+		goto nla_put_failure;
-+	if (rf_mode == NFC_RF_INITIATOR &&
-+	    nla_put_u32(msg, NFC_ATTR_TARGET_INDEX, target_idx))
-+		goto nla_put_failure;
-+	if (nla_put_u8(msg, NFC_ATTR_COMM_MODE, comm_mode) ||
-+	    nla_put_u8(msg, NFC_ATTR_RF_MODE, rf_mode))
-+		goto nla_put_failure;
- 
- 	genlmsg_end(msg, hdr);
- 
-@@ -376,7 +387,8 @@ int nfc_genl_dep_link_down_event(struct nfc_dev *dev)
- 	if (!hdr)
- 		goto free_msg;
- 
--	NLA_PUT_U32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx);
-+	if (nla_put_u32(msg, NFC_ATTR_DEVICE_INDEX, dev->idx))
-+		goto nla_put_failure;
- 
- 	genlmsg_end(msg, hdr);
- 
+ nla_put_failure:
 -- 
 1.7.7.6
