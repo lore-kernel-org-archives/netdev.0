@@ -1,86 +1,49 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH 7/7] wdt: Device tree support for pnx4008-wdt
-Date: Mon,  2 Apr 2012 14:56:04 +0200
-Message-ID: <1333371364-21347-8-git-send-email-stigge@antcom.de>
-References: <1333371364-21347-1-git-send-email-stigge@antcom.de>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: Re: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer
+ helper non-static  for the jits
+Date: Mon, 2 Apr 2012 15:02:53 +0200
+Message-ID: <4F79A37D.5010605@googlemail.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6ECE@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>
-To: arm@kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-i2c@vger.kernel.org, linux-kernel@vger.kernel.org,
- w.sang@pengutronix.de, srinivas.bakki@nxp.com, kevin.wells@nxp.com,
- gregkh@linuxfoundation.org, netdev@vger.kernel.org,
- rtc-linux@googlegroups.com, a.zummo@towertech.it,
- linux-watchdog@vger.kernel.org, wim@iguana.be
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1333371364-21347-1-git-send-email-stigge@antcom.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, Matt Evans <matt@ozlabs.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6ECE@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds watchdog support to pnx4008-wdt.c
+David Laight schrieb:
+>  
+>> The function is renamed to make it a little more clear what it does.
+>> It is not added to any .h because it is not for general 
+>> consumption, only for bpf internal use (and so by the jits).
+> 
+> I'd have thought it better to put in into a bfp_internal.h
+> (or similar) with a big warning there about the asm users.
+> 
 
-Signed-off-by: Roland Stigge <stigge@antcom.de>
+Hmmm, OK, where would i put the .h? Right there under ./include/linux/?
 
----
+> Possibly even worth adding some other defs that the asm
+> files will need (if there are any).
+> 
 
- Applies to v3.4-rc1
+There is at least one other define, the lowest negative address range,
+but it would be a copy of the same define in filter.h, or i would have
+to massage filter.h to make it fit for inclusion by assembly.
+So I'm unsure how to proceed.
 
- Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt |   13 +++++++++++++
- drivers/watchdog/pnx4008_wdt.c                             |   10 ++++++++++
- 2 files changed, 23 insertions(+)
+> 	David
+> 
 
---- /dev/null
-+++ linux-2.6/Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt
-@@ -0,0 +1,13 @@
-+* NXP PNX watchdog timer
-+
-+Required properties:
-+- compatible: must be "nxp,pnx4008-wdt"
-+- reg: physical base address of the controller and length of memory mapped
-+  region.
-+
-+Example:
-+
-+	watchdog@4003C000 {
-+		compatible = "nxp,pnx4008-wdt";
-+		reg = <0x4003C000 0x1000>;
-+	};
---- linux-2.6.orig/drivers/watchdog/pnx4008_wdt.c
-+++ linux-2.6/drivers/watchdog/pnx4008_wdt.c
-@@ -32,6 +32,7 @@
- #include <linux/io.h>
- #include <linux/slab.h>
- #include <linux/err.h>
-+#include <linux/of.h>
- #include <mach/hardware.h>
- 
- /* WatchDog Timer - Chapter 23 Page 207 */
-@@ -201,10 +202,19 @@ static int __devexit pnx4008_wdt_remove(
- 	return 0;
- }
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id pnx4008_wdt_match[] = {
-+	{ .compatible = "nxp,pnx4008-wdt" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, pnx4008_wdt_match);
-+#endif
-+
- static struct platform_driver platform_wdt_driver = {
- 	.driver = {
- 		.name = "pnx4008-watchdog",
- 		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(pnx4008_wdt_match),
- 	},
- 	.probe = pnx4008_wdt_probe,
- 	.remove = __devexit_p(pnx4008_wdt_remove),
+Greetings
+	Jan
+
+-- 
+An IPv4 address space walks into a bar: "A strong CIDR please. I'm
+exhausted."
