@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb/rtl8150 : Remove duplicated definitions
-Date: Sun, 01 Apr 2012 23:20:54 -0400 (EDT)
-Message-ID: <20120401.232054.815514796348460774.davem@davemloft.net>
-References: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
+Subject: Re: [PATCH] net: check the length of the data before dereferencing
+ it
+Date: Sun, 01 Apr 2012 23:19:54 -0400 (EDT)
+Message-ID: <20120401.231954.992963391252108626.davem@davemloft.net>
+References: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: petkan@users.sourceforge.net, netdev@vger.kernel.org
-To: huajun.li.lee@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47132 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754153Ab2DBDVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Apr 2012 23:21:03 -0400
-In-Reply-To: <CA+v9cxYHCNTmPagMBMM6quco2EexCobZrF-bpvhKVP40OWjNhA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, pablo@netfilter.org, eric.dumazet@gmail.com,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1333336250-4110-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Huajun Li <huajun.li.lee@gmail.com>
-Date: Fri, 30 Mar 2012 18:11:05 +0800
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Mon,  2 Apr 2012 11:10:50 +0800
 
-> There exist duplicated macro definitions in rtl8150.c, remove them.
+> We should check the length of the data before dereferencing it when parsing
+> the TCP options.
 > 
-> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Applied, thanks.
+Proper Subject prefix here would be "tcp: ", not "net: "
+and maybe adjust the subject line to also mention the
+specific function being fixed, which in this case would
+be tcp_parse_options().  So:
+
+	tcp: Validate length of data before dereference in tcp_parse_options().
+
+and then you can make the commit message just be your signoff.
+
