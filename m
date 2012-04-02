@@ -1,70 +1,167 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 03/10] stmmac: sanitize the rx coe and add the type-1
- csum
-Date: Mon, 02 Apr 2012 13:07:38 +0200
-Message-ID: <4F79887A.50804@st.com>
-References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com> <1332493721-28309-4-git-send-email-peppe.cavallaro@st.com> <4F6D921F.10400@st.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 5/9] ipvs: use adaptive pause in master thread
+Date: Mon, 2 Apr 2012 13:11:45 +0200
+Message-ID: <20120402111145.GA15181@1984>
+References: <1332320185-27157-1-git-send-email-horms@verge.net.au>
+ <1332320185-27157-6-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
-	spear-devel <spear-devel@list.st.com>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Viresh KUMAR <viresh.kumar@st.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Deepak SIKRI <deepak.sikri@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:47225 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752184Ab2DBLJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 07:09:10 -0400
-In-Reply-To: <4F6D921F.10400@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1332320185-27157-6-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/24/2012 10:21 AM, Deepak SIKRI wrote:
+Hi Simon et al.
+
+On Wed, Mar 21, 2012 at 05:56:20PM +0900, Simon Horman wrote:
+> From: Julian Anastasov <ja@ssi.bg>
 > 
+> 	High rate of sync messages in master can lead to
+> overflowing the socket buffer and dropping the messages.
+> Instead of using fixed pause try to adapt to the sync
+> rate, so that we do not wakeup too often while at the same
+> time staying below the socket buffer limit.
+
+I see. You are avoiding the congestion in the socket queue by putting
+the pressure in your sync_buff queue  (I don't find any limit in
+the code for the amount of memory that it may consume btw).
+
+Please, correct me if I'm wrong, but from this I can se you're
+assuming that there's always room in the syn_buff queue to store
+messages. This is valid if the high peak of traffic lasts for short
+time. However, if it lasts long, the worker thread may not be able to
+consume all the messages in time under high stress situation that
+lasts long and the sync_buffer may keep growing more and more.
+
+Moreover, the backup may receive sync messages talking about old
+states that are not useful anymore to recover the load-balancing in
+case of failover.
+
+One more concern, please see below.
+
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/ip_vs_sync.c |   60 +++++++++++++++++++++++++++++---------
+>  1 files changed, 46 insertions(+), 14 deletions(-)
 > 
-> 
-> On 3/23/2012 2:38 PM, Giuseppe CAVALLARO wrote:
->> [snip]
->>
->>
->> -    priv->rx_coe = priv->hw->mac->rx_coe(priv->ioaddr);
->> -    if (priv->rx_coe)
->> -        pr_info(" RX Checksum Offload Engine supported\n");
->> +    if (priv->plat->rx_coe)
->> +        pr_info(" RX Checksum Offload Engine supported (type %d)\n",
->> +            priv->plat->rx_coe);
->>       if (priv->plat->tx_coe)
->>           pr_info(" TX Checksum insertion supported\n");
->>
-> 
-> rx_coe needs to be enabled. Earlier it was being done. Any specific
-> reasons to remove this.
-> Instead this code needs to be moved post mac reset has been done.
+> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> index 0e36679..9201c43 100644
+> --- a/net/netfilter/ipvs/ip_vs_sync.c
+> +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> @@ -1392,18 +1392,22 @@ ip_vs_send_async(struct socket *sock, const char *buffer, const size_t length)
+>  	return len;
+>  }
+>  
+> -static void
+> +static int
+>  ip_vs_send_sync_msg(struct socket *sock, struct ip_vs_sync_mesg *msg)
+>  {
+>  	int msize;
+> +	int ret;
+>  
+>  	msize = msg->size;
+>  
+>  	/* Put size in network byte order */
+>  	msg->size = htons(msg->size);
+>  
+> -	if (ip_vs_send_async(sock, (char *)msg, msize) != msize)
+> -		pr_err("ip_vs_send_async error\n");
+> +	ret = ip_vs_send_async(sock, (char *)msg, msize);
+> +	if (ret >= 0 || ret == -EAGAIN)
+> +		return ret;
+> +	pr_err("ip_vs_send_async error %d\n", ret);
+> +	return 0;
+>  }
+>  
+>  static int
+> @@ -1428,33 +1432,61 @@ ip_vs_receive(struct socket *sock, char *buffer, const size_t buflen)
+>  	return len;
+>  }
+>  
+> +/* Get next buffer to send */
+> +static inline struct ip_vs_sync_buff *
+> +next_sync_buff(struct netns_ipvs *ipvs)
+> +{
+> +	struct ip_vs_sync_buff *sb;
+> +
+> +	sb = sb_dequeue(ipvs);
+> +	if (sb)
+> +		return sb;
+> +	/* Do not delay entries in buffer for more than 2 seconds */
+> +	return get_curr_sync_buff(ipvs, 2 * HZ);
+> +}
+>  
+>  static int sync_thread_master(void *data)
+>  {
+>  	struct ip_vs_sync_thread_data *tinfo = data;
+>  	struct netns_ipvs *ipvs = net_ipvs(tinfo->net);
+> -	struct ip_vs_sync_buff *sb;
+> +	struct ip_vs_sync_buff *sb = NULL;
+> +	int pause = HZ / 10;
+>  
+>  	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
+>  		"syncid = %d\n",
+>  		ipvs->master_mcast_ifn, ipvs->master_syncid);
+>  
+>  	while (!kthread_should_stop()) {
+> -		while ((sb = sb_dequeue(ipvs))) {
+> -			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
+> -			ip_vs_sync_buff_release(sb);
+> -		}
+> +		int count = 0;
+>  
+> -		/* check if entries stay in ipvs->sync_buff for 2 seconds */
+> -		sb = get_curr_sync_buff(ipvs, 2 * HZ);
+> -		if (sb) {
+> -			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
+> -			ip_vs_sync_buff_release(sb);
+> +		for (;;) {
+> +			if (!sb) {
+> +				sb = next_sync_buff(ipvs);
+> +				if (!sb)
+> +					break;
+> +			}
+> +			if (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) >= 0 ||
+> +			    pause == 1) {
+> +				ip_vs_sync_buff_release(sb);
+> +				sb = NULL;
+> +				count++;
+> +			} else {
+> +				pause = max(1, (pause >> 1));
+> +				break;
+> +			}
+>  		}
+>  
+> -		schedule_timeout_interruptible(HZ);
+> +		/* Max packets to send at once */
+> +		if (count > 200)
+> +			pause = max(1, (pause - HZ / 20));
+> +		else if (count < 20)
+> +			pause = min(HZ / 4, (pause + HZ / 20));
+> +		schedule_timeout_interruptible(sb ? 1 : pause);
 
-Hello Deepak
+This rate-limits the amount of times the worker is woken up.
 
-sorry for this delay.
+Still, this seems to me like an ad-hoc congestion solution. There's no
+justification why those numbers has been chosed, eg. why do we assume
+that we're congested if we've reached 200 packets in one single loop?
 
-I've not clear at all your question.
-The driver well uses the rx_coe as briefly described below:
+To me, congestion control is a complicated thing (there is plenty of
+literature for TCP avoid it). I'm not sure how many patches will
+follow after this one to try to improve your congestion control
+solution.
 
-probe funct
-  |__ hw_init
-         |_ check the RX type from HW cap reg
-                 |__ Override the rx_coe if required
+So, my question is, are you sure you want to enter this domain?
 
-After that the rx_coe is used and passed to the core as expected.
-In case of there is no HW cap register so the rx_coe from platform will
-be used.
-
-Peppe
-
-> 
-> Regards
-> Deepak
-> 
+IMO, better to stick to some simple solution, ie. just drop messages
+if the worker thread receives a high peak of work, than trying to
+define some sort of rate-limit solution based on assumptions that are
+not generic enough for every setup.
