@@ -1,65 +1,72 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH 3/3] netfilter: xt_CT: remove a compile warning
-Date: Tue, 3 Apr 2012 20:48:21 +0900
-Message-ID: <201204032048.GFH51564.QSOVLMOOJHtFFF@I-love.SAKURA.ne.jp>
-References: <1333448001-2507-1-git-send-email-pablo@netfilter.org>
-	<1333448001-2507-4-git-send-email-pablo@netfilter.org>
-	<201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: pablo@netfilter.org
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH] Driver: Atm:  Remove 'break' after 'return' statement.
+Date: Tue,  3 Apr 2012 17:17:18 +0530
+Message-ID: <1333453638-6235-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:65497 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751974Ab2DCLs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:48:26 -0400
-In-Reply-To: <201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:54715 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753248Ab2DCLtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:49:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One more question.
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-Tetsuo Handa wrote:
-> 216 #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
-> 217         if (info->timeout) {
-> 218                 typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
-> 219                 struct ctnl_timeout *timeout;
-> 220                 struct nf_conn_timeout *timeout_ext;
-> 221 
-> 222                 rcu_read_lock();
-> 223                 timeout_find_get =
-> 224                         rcu_dereference(nf_ct_timeout_find_get_hook);
-> 225 
-> 226                 if (timeout_find_get) {
+'break' is unnecessary after 'return' statement.
+Remove all such 'break' as clean up.
 
-I assume timeout_find_get points to e.g. ctnl_timeout_find_get in
-net/netfilter/nfnetlink_cttimeout.c . If yes,
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/atm/horizon.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-> 227                         const struct ipt_entry *e = par->entryinfo;
-> 228                         struct nf_conntrack_l4proto *l4proto;
-> 229 
-> 230                         if (e->ip.invflags & IPT_INV_PROTO) {
-> 231                                 ret = -EINVAL;
-> 232                                 pr_info("You cannot use inversion on "
-> 233                                          "L4 protocol\n");
-> 234                                 goto err4;
-> 235                         }
-> 236                         timeout = timeout_find_get(info->timeout);
-> 237                         if (timeout == NULL) {
-> 238                                 ret = -ENOENT;
-> 239                                 pr_info("No such timeout policy \"%s\"\n",
-> 240                                         info->timeout);
-> 241                                 goto err4;
-> 242                         }
-
-I think "goto err4;" after successful timeout_find_get() wants e.g.
-nf_ct_timeout_put_hook call (e.g. ctnl_timeout_put()).
-
-> 243                         if (timeout->l3num != par->family) {
-> 244                                 ret = -EINVAL;
-> 245                                 pr_info("Timeout policy `%s' can only be "
-> 246                                         "used by L3 protocol number %d\n",
-> 247                                         info->timeout, timeout->l3num);
-> 248                                 goto err4;
-> 249                         }
+diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
+index b812103..71c801b 100644
+--- a/drivers/atm/horizon.c
++++ b/drivers/atm/horizon.c
+@@ -2183,7 +2183,6 @@ static int hrz_open (struct atm_vcc *atm_vcc)
+     default:
+       PRINTD (DBG_QOS|DBG_VCC, "Bad AAL!");
+       return -EINVAL;
+-      break;
+   }
+   
+   // TX traffic parameters
+@@ -2358,7 +2357,6 @@ static int hrz_open (struct atm_vcc *atm_vcc)
+       default: {
+ 	PRINTD (DBG_QOS, "unsupported TX traffic class");
+ 	return -EINVAL;
+-	break;
+       }
+     }
+   }
+@@ -2434,7 +2432,6 @@ static int hrz_open (struct atm_vcc *atm_vcc)
+       default: {
+ 	PRINTD (DBG_QOS, "unsupported RX traffic class");
+ 	return -EINVAL;
+-	break;
+       }
+     }
+   }
+@@ -2582,7 +2579,6 @@ static int hrz_getsockopt (struct atm_vcc * atm_vcc, int level, int optname,
+ //	  break;
+ 	default:
+ 	  return -ENOPROTOOPT;
+-	  break;
+       };
+       break;
+   }
+@@ -2602,7 +2598,6 @@ static int hrz_setsockopt (struct atm_vcc * atm_vcc, int level, int optname,
+ //	  break;
+ 	default:
+ 	  return -ENOPROTOOPT;
+-	  break;
+       };
+       break;
+   }
+-- 
+1.7.4.4
