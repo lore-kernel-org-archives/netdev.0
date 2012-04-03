@@ -1,67 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 4/5] e1000e: Guarantee descriptor writeback flush success.
-Date: Tue,  3 Apr 2012 15:18:08 -0700
-Message-ID: <1333491489-29933-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/5] e1000: Support RX-ALL flag.
+Date: Tue,  3 Apr 2012 15:18:06 -0700
+Message-ID: <1333491489-29933-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1333491489-29933-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:33957 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754866Ab2DCWSN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 18:18:13 -0400
+	id S1754675Ab2DCWSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2012 18:18:12 -0400
 In-Reply-To: <1333491489-29933-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Ben Greear <greearb@candelatech.com>
 
-In rare circumstances, a descriptor writeback flush may not work if it
-arrives on a specific clock cycle as a writeback request is going out.
+This allows the NIC to receive errored frames (bad FCS, etc)
+and pass them up the stack.  This can be useful when using
+sniffers.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |   17 +++++++++++++++++
- 1 files changed, 17 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   26 ++++++++++++++++++++++++-
+ 1 files changed, 25 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6878601..19ab215 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1059,6 +1059,13 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
- 		/* execute the writes immediately */
- 		e1e_flush();
-+		/*
-+		 * Due to rare timing issues, write to TIDV again to ensure
-+		 * the write is successful
-+		 */
-+		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+		/* execute the writes immediately */
-+		e1e_flush();
- 		adapter->tx_hang_recheck = true;
- 		return;
- 	}
-@@ -3616,6 +3623,16 @@ static void e1000e_flush_descriptors(struct e1000_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 4348b6f..3d712f2 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -827,9 +827,10 @@ static int e1000_set_features(struct net_device *netdev,
+ 	if (changed & NETIF_F_HW_VLAN_RX)
+ 		e1000_vlan_mode(netdev, features);
  
- 	/* execute the writes immediately */
- 	e1e_flush();
+-	if (!(changed & NETIF_F_RXCSUM))
++	if (!(changed & (NETIF_F_RXCSUM | NETIF_F_RXALL)))
+ 		return 0;
+ 
++	netdev->features = features;
+ 	adapter->rx_csum = !!(features & NETIF_F_RXCSUM);
+ 
+ 	if (netif_running(netdev))
+@@ -1074,6 +1075,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	netdev->features |= netdev->hw_features;
+ 	netdev->hw_features |= NETIF_F_RXCSUM;
++	netdev->hw_features |= NETIF_F_RXALL;
+ 	netdev->hw_features |= NETIF_F_RXFCS;
+ 
+ 	if (pci_using_dac) {
+@@ -1841,6 +1843,22 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 			break;
+ 	}
+ 
++	/* This is useful for sniffing bad packets. */
++	if (adapter->netdev->features & NETIF_F_RXALL) {
++		/* UPE and MPE will be handled by normal PROMISC logic
++		 * in e1000e_set_rx_mode */
++		rctl |= (E1000_RCTL_SBP | /* Receive bad packets */
++			 E1000_RCTL_BAM | /* RX All Bcast Pkts */
++			 E1000_RCTL_PMCF); /* RX All MAC Ctrl Pkts */
 +
-+	/*
-+	 * due to rare timing issues, write to TIDV/RDTR again to ensure the
-+	 * write is successful
-+	 */
-+	ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+	ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
++		rctl &= ~(E1000_RCTL_VFE | /* Disable VLAN filter */
++			  E1000_RCTL_DPF | /* Allow filtered pause */
++			  E1000_RCTL_CFIEN); /* Dis VLAN CFIEN Filter */
++		/* Do not mess with E1000_CTRL_VME, it affects transmit as well,
++		 * and that breaks VLANs.
++		 */
++	}
 +
-+	/* execute the writes immediately */
-+	e1e_flush();
+ 	ew32(RCTL, rctl);
  }
  
- static void e1000e_update_stats(struct e1000_adapter *adapter);
+@@ -4057,6 +4075,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 				                       irq_flags);
+ 				length--;
+ 			} else {
++				if (netdev->features & NETIF_F_RXALL)
++					goto process_skb;
+ 				/* recycle both page and skb */
+ 				buffer_info->skb = skb;
+ 				/* an error means any chain goes out the window
+@@ -4069,6 +4089,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 		}
+ 
+ #define rxtop rx_ring->rx_skb_top
++process_skb:
+ 		if (!(status & E1000_RXD_STAT_EOP)) {
+ 			/* this descriptor is only the beginning (or middle) */
+ 			if (!rxtop) {
+@@ -4276,12 +4297,15 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
+ 				                       flags);
+ 				length--;
+ 			} else {
++				if (netdev->features & NETIF_F_RXALL)
++					goto process_skb;
+ 				/* recycle */
+ 				buffer_info->skb = skb;
+ 				goto next_desc;
+ 			}
+ 		}
+ 
++process_skb:
+ 		total_rx_bytes += (length - 4); /* don't count FCS */
+ 		total_rx_packets++;
+ 
 -- 
 1.7.7.6
