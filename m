@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 21/28] r6040: Support the
+Subject: [PATCH V3 net-next 22/28] r8169: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:45 +0200
-Message-ID: <2617f2d35b9d1cb31bc6bb687b92edec3978641f.1333474524.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:46 +0200
+Message-ID: <16d26504704e7b9af2a4d3fd5c4ef829e45bfd33.1333474524.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/rdc/r6040.c |    1 +
+ drivers/net/ethernet/realtek/r8169.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index b96e192..a26307f 100644
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -973,6 +973,7 @@ static const struct ethtool_ops netdev_ethtool_ops = {
- 	.get_settings		= netdev_get_settings,
- 	.set_settings		= netdev_set_settings,
- 	.get_link		= ethtool_op_get_link,
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 27c358c..074a574 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1854,6 +1854,7 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_strings		= rtl8169_get_strings,
+ 	.get_sset_count		= rtl8169_get_sset_count,
+ 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static const struct net_device_ops r6040_netdev_ops = {
+ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
 -- 
 1.7.2.5
 
