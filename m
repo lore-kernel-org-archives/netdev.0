@@ -1,34 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] TCP: Use 32768-65535 outgoing port range by default
-Date: Tue, 03 Apr 2012 02:28:37 -0400 (EDT)
-Message-ID: <20120403.022837.1830755903242379322.davem@davemloft.net>
-References: <20120403095018.rm7gil9xz0gsgccs@webmail.int.intellilink.co.jp>
-	<20120403.005027.988304181797945160.davem@davemloft.net>
-	<20120403141827.sakagdugg04os8w8@webmail.int.intellilink.co.jp>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: [PATCH] phonet: Check input from user before allocating
+Date: Tue, 03 Apr 2012 08:36:20 +0200
+Message-ID: <dc6e3bc8b96d91bd7ce44639b60cfec2@chewa.net>
+References: <1333398660-11552-1-git-send-email-levinsasha928@gmail.com> <201204022201.41808.remi@remlab.net> <20120402.174006.70116829696492189.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: fernando@intellilink.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58774 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751215Ab2DCG2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 02:28:51 -0400
-In-Reply-To: <20120403141827.sakagdugg04os8w8@webmail.int.intellilink.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <levinsasha928@gmail.com>, <davej@redhat.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120402.174006.70116829696492189.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: fernando@intellilink.co.jp
-Date: Tue,  3 Apr 2012 14:18:27 +0900
-
-> The thing is that certain non-linux hosts already use a superset of
-> the 61000-65095 range and 61000 looks like a magic number to most
-> users.
-
-Who cares what other systems usage, it's only an issue about local
-port allocations and locally performed masquerading.
-
-> Do you want me to document where 61000 comes from instead?
-
-I think the current documentation on this is adequate.
+On Mon, 02 Apr 2012 17:40:06 -0400 (EDT), David Miller=0D
+<davem@davemloft.net> wrote:=0D
+> UDP generates a fragment list of MTU sized SKBs.=0D
+> =0D
+> Phonet could avoid the large allocations by building page based=0D
+> SKBs.=0D
+=0D
+Oh right. And Phonet devices don't support scatter/gather, so that I gu=
+ess=0D
+that would merely delay the problem.=0D
+=0D
+Also sendmsg() code would need to be reectored to look up the output=0D
+device and then the MTU before allocating the socket buffer. This will =
+only=0D
+work if the default MTU is reduced first :/=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+Sent from my collocated server
