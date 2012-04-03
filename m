@@ -1,76 +1,40 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH ethtool] Add the command to show the time
- stamping capabilities.
-Date: Tue, 3 Apr 2012 07:37:17 +0200
-Message-ID: <20120403053717.GA2155@netboy.at.omicron.at>
-References: <1333293808-7729-1-git-send-email-richardcochran@gmail.com>
-	<1333394758.5356.28.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: /proc/net/dev is funky in 3.3.0
+Date: Tue, 03 Apr 2012 07:43:30 +0200
+Message-ID: <1333431810.18626.37.camel@edumazet-glaptop>
+References: <4F7A7C98.1030103@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Martin Porter <mporter@solarflare.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jacob Keller <jacob.e.keller@intel.com>, David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1333394758.5356.28.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:63081 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950Ab2DCFnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 01:43:35 -0400
+Received: by wibhq7 with SMTP id hq7so3335156wib.1
+        for <netdev@vger.kernel.org>; Mon, 02 Apr 2012 22:43:34 -0700 (PDT)
+In-Reply-To: <4F7A7C98.1030103@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 02, 2012 at 08:25:58PM +0100, Ben Hutchings wrote:
-> On Sun, 2012-04-01 at 17:23 +0200, Richard Cochran wrote:
-
-> > +	if (info->tx_types & (1 << HWTSTAMP_TX_OFF))
-> > +		fprintf(stdout, "HWTSTAMP_TX_OFF\n");
-> > +
-> > +	if (info->tx_types & (1 << HWTSTAMP_TX_ON))
-> > +		fprintf(stdout, "HWTSTAMP_TX_ON\n");
-> > +
-> > +	if (info->tx_types & (1 << HWTSTAMP_TX_ONESTEP_SYNC))
-> > +		fprintf(stdout, "HWTSTAMP_TX_ONESTEP_SYNC\n");
+On Mon, 2012-04-02 at 21:29 -0700, Ben Greear wrote:
+> Not all entries are shown!
 > 
-> If there is no hardware timestamping available then shouldn't we see
-> HWTSTAMP_TX_OFF reported here?  But that's going to be the case.  Not
-> sure whether the kernel or the ethtool utility should deal with that,
-> but don't assume the ethtool utility is the only consumer.
-
-Actually, if the device does not support hardware time stamping at
-all, then ioctl SIOCSHWTSTAMP returns EOPNOTSUPP. So, HWTSTAMP_TX_ON
-means you can turn Tx time stamping on, and HWTSTAMP_TX_OFF means you
-can turn it off again. It might not seem too logical, but that is how
-the interface works.
-
-So (tx_types == 0) means no hardware timestamping available. We can
-print that as a special case, if you think it best.
-
-> Hardware Receive Filter Modes:
-> 	none (HWTSTAMP_FILTER_NONE)
-> 	ptpv2-l4-event (HWTSTAMP_FILTER_PTP_V2_L4_EVENT)
-> 	ptpv2-l4-sync (HWTSTAMP_FILTER_PTP_V2_L4_SYNC)
+> [root@lanner-i7 lanforge]# cat /proc/net/dev|grep sta59
+> [root@lanner-i7 lanforge]# ifconfig sta59
+> sta59     Link encap:Ethernet  HWaddr 00:95:95:00:00:3C
+>            inet addr:10.111.9.39  Bcast:10.111.255.255  Mask:255.255.0.0
+>            inet6 addr: fe80::295:95ff:fe00:3c/64 Scope:Link
+>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>            RX packets:58103 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:26167 errors:0 dropped:0 overruns:0 carrier:0
+>            collisions:0 txqueuelen:1000
+>            RX bytes:39494634 (37.6 MiB)  TX bytes:37095540 (35.3 MiB)
 > 
-> (Maybe you can think of better names.)
+> Thanks,
+> Ben
+> 
 
-Okay, I get the idea.
-
-Thanks,
-Richard
-
-------------------------------------------------------------------------------
-Better than sec? Nothing is better than sec when it comes to
-monitoring Big Data applications. Try Boundary one-second 
-resolution app monitoring today. Free.
-http://p.sf.net/sfu/Boundary-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Could you post "ip link" result ?
