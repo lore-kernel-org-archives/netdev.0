@@ -1,105 +1,146 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 03/10] stmmac: sanitize the rx coe and add the type-1
- csum
-Date: Tue, 03 Apr 2012 08:49:34 +0200
-Message-ID: <4F7A9D7E.8080007@st.com>
-References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com> <1332493721-28309-4-git-send-email-peppe.cavallaro@st.com> <4F6D921F.10400@st.com> <4F79887A.50804@st.com> <4F79D13F.6020609@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: /proc/net/dev is funky in 3.3.0
+Date: Tue, 03 Apr 2012 09:06:29 +0200
+Message-ID: <1333436789.18626.43.camel@edumazet-glaptop>
+References: <4F7A7C98.1030103@candelatech.com>
+	 <1333431810.18626.37.camel@edumazet-glaptop>
+	 <4F7A905B.3080107@candelatech.com>
+	 <1333434995.18626.39.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
-	spear-devel <spear-devel@list.st.com>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Viresh KUMAR <viresh.kumar@st.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: Deepak SIKRI <deepak.sikri@st.com>
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:33346 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751353Ab2DCGvB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 02:51:01 -0400
-In-Reply-To: <4F79D13F.6020609@st.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:37283 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010Ab2DCHGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 03:06:36 -0400
+Received: by bkcik5 with SMTP id ik5so3265356bkc.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 00:06:35 -0700 (PDT)
+In-Reply-To: <1333434995.18626.39.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Deepak,
+On Tue, 2012-04-03 at 08:36 +0200, Eric Dumazet wrote:
 
-On 4/2/2012 6:18 PM, Deepak SIKRI wrote:
-> On 4/2/2012 4:37 PM, Giuseppe CAVALLARO wrote:
-[snip]
->> I've not clear at all your question.
->> The driver well uses the rx_coe as briefly described below:
->>
->> probe funct
->>    |__ hw_init
->>           |_ check the RX type from HW cap reg
->>                   |__ Override the rx_coe if required
->>
->> After that the rx_coe is used and passed to the core as expected.
->> In case of there is no HW cap register so the rx_coe from platform will
->> be used.
->>
->> Peppe
+> Hmm, I think I understand, commit f04565ddf52 added a regression here, I
+> will send a fix.
 > 
-> In the same patch, this portion of the code has been removed.
-> 
-> -static int dwmac1000_rx_coe_supported(void __iomem *ioaddr)
-> -{
-> -    u32 value = readl(ioaddr + GMAC_CONTROL);
-> -
-> -    value |= GMAC_CONTROL_IPC;
-> -    writel(value, ioaddr + GMAC_CONTROL);
-> -
-> -    value = readl(ioaddr + GMAC_CONTROL);
-> -
-> -    return !!(value&  GMAC_CONTROL_IPC);
-> -}
-> 
-> Earlier this was taking care of setting the IP Checksum offloading feature
-> in case its available. This code has to be present, as I do not see any
-> other location where the IPC bit is being programmed.
-> 
-> Also, the location of setting the IPC should be post the mac has been
-> reset.
 
-Previously, the stmmac called the dwmac1000_rx_coe_supported to verify
-it could do the CSUM in Hw. If true the driver used the type 2 by default.
+If you want to try following patch, please do so, I cant try it right
+now...
 
-I've voluntarily removed this function because not necessary anymore.
-In fact, YOU improved the rx_coe from the platform. If it is passed as
-STMMAC_RX_COE_NONE then it means the driver is not able to perform any
-csum for the incoming frames. This is actually used on old gmac/mac
-cores. In new cores, the HW cap register will be used to manage and fix
-this logic.
-I could restore the core you are mentioning  but just to do another
-safety check at run-time in case of the user provided a broken setting
-from the platform and there is not the HW cap register. Hmm, I do not
-know if this actually could help indeed... just an extra check IMHO.
+I'll provide a proper changelog/attributions in a couple of hours, and
+make tests myself of course.
 
-> 
-> I hope this clears the things a bit. Sorry for the miscommunication.
+Thanks
 
-No problem for the miscommunication ;-)
+ net/core/dev.c |   46 ++++++++++++----------------------------------
+ 1 file changed, 12 insertions(+), 34 deletions(-)
 
-Let me know
-Ciao
-Peppe
-
-> 
-> Rgds
-> Deepak
-> 
-> 
-> 
-> 
-> 
-> 
->>> Regards
->>> Deepak
->>>
->> .
->>
-> 
-> 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6c7dc9d..f7e7de3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4028,54 +4028,45 @@ static int dev_ifconf(struct net *net, char __user *arg)
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+-#define BUCKET_SPACE (32 - NETDEV_HASHBITS)
++#define BUCKET_SPACE (32 - NETDEV_HASHBITS - 1)
+ 
+ struct dev_iter_state {
+ 	struct seq_net_private p;
+-	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
+ };
+ 
+ #define get_bucket(x) ((x) >> BUCKET_SPACE)
+ #define get_offset(x) ((x) & ((1 << BUCKET_SPACE) - 1))
+ #define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
+ 
+-static inline struct net_device *dev_from_same_bucket(struct seq_file *seq)
++static inline struct net_device *dev_from_same_bucket(struct seq_file *seq, loff_t *pos)
+ {
+-	struct dev_iter_state *state = seq->private;
+ 	struct net *net = seq_file_net(seq);
+ 	struct net_device *dev;
+ 	struct hlist_node *p;
+ 	struct hlist_head *h;
+-	unsigned int count, bucket, offset;
++	unsigned int count = 0, offset = get_offset(*pos);
+ 
+-	bucket = get_bucket(state->pos);
+-	offset = get_offset(state->pos);
+-	h = &net->dev_name_head[bucket];
+-	count = 0;
++	h = &net->dev_name_head[get_bucket(*pos)];
+ 	hlist_for_each_entry_rcu(dev, p, h, name_hlist) {
+-		if (count++ == offset) {
+-			state->pos = set_bucket_offset(bucket, count);
++		if (++count == offset)
+ 			return dev;
+-		}
+ 	}
+ 
+ 	return NULL;
+ }
+ 
+-static inline struct net_device *dev_from_new_bucket(struct seq_file *seq)
++static inline struct net_device *dev_from_bucket(struct seq_file *seq, loff_t *pos)
+ {
+-	struct dev_iter_state *state = seq->private;
+ 	struct net_device *dev;
+ 	unsigned int bucket;
+ 
+-	bucket = get_bucket(state->pos);
+ 	do {
+-		dev = dev_from_same_bucket(seq);
++		dev = dev_from_same_bucket(seq, pos);
+ 		if (dev)
+ 			return dev;
+ 
+-		bucket++;
+-		state->pos = set_bucket_offset(bucket, 0);
++		bucket = get_bucket(*pos);
++		*pos = set_bucket_offset(bucket + 1, 1);
+ 	} while (bucket < NETDEV_HASHENTRIES);
+ 
+ 	return NULL;
+@@ -4088,33 +4079,20 @@ static inline struct net_device *dev_from_new_bucket(struct seq_file *seq)
+ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(RCU)
+ {
+-	struct dev_iter_state *state = seq->private;
+-
+ 	rcu_read_lock();
+ 	if (!*pos)
+ 		return SEQ_START_TOKEN;
+ 
+-	/* check for end of the hash */
+-	if (state->pos == 0 && *pos > 1)
++	if (get_bucket(*pos) >= NETDEV_HASHENTRIES)
+ 		return NULL;
+ 
+-	return dev_from_new_bucket(seq);
++	return dev_from_bucket(seq, pos);
+ }
+ 
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net_device *dev;
+-
+ 	++*pos;
+-
+-	if (v == SEQ_START_TOKEN)
+-		return dev_from_new_bucket(seq);
+-
+-	dev = dev_from_same_bucket(seq);
+-	if (dev)
+-		return dev;
+-
+-	return dev_from_new_bucket(seq);
++	return dev_from_bucket(seq, pos);
+ }
+ 
+ void dev_seq_stop(struct seq_file *seq, void *v)
