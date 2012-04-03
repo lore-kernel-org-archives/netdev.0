@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 25/28] stmmac: Support the
+Subject: [PATCH V3 net-next 26/28] tg3: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:49 +0200
-Message-ID: <e8f2b42fb0c2c03b4b39361e222e84baa9740d54.1333474525.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:50 +0200
+Message-ID: <f7cdbfc96edbcbdba84c946d65a608ac70ba5ad0.1333474525.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
+ drivers/net/ethernet/broadcom/tg3.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index f98e151..ce43184 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
- 	.get_sset_count	= stmmac_get_sset_count,
-+	.get_ts_info = ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 7b71387..8609798 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12233,6 +12233,7 @@ static const struct ethtool_ops tg3_ethtool_ops = {
+ 	.get_rxfh_indir_size    = tg3_get_rxfh_indir_size,
+ 	.get_rxfh_indir		= tg3_get_rxfh_indir,
+ 	.set_rxfh_indir		= tg3_set_rxfh_indir,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- void stmmac_set_ethtool_ops(struct net_device *netdev)
+ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
 -- 
 1.7.2.5
 
