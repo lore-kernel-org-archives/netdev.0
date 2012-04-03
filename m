@@ -1,119 +1,151 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 03/10] stmmac: sanitize the rx coe and add the type-1
- csum
-Date: Tue, 03 Apr 2012 15:03:07 +0200
-Message-ID: <4F7AF50B.3030708@st.com>
-References: <1332493721-28309-1-git-send-email-peppe.cavallaro@st.com> <1332493721-28309-4-git-send-email-peppe.cavallaro@st.com> <4F6D921F.10400@st.com> <4F79887A.50804@st.com> <4F79D13F.6020609@st.com> <4F7A9D7E.8080007@st.com> <4F7AAD4B.1010606@st.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 3/3] netfilter: xt_CT: remove a compile warning
+Date: Tue, 3 Apr 2012 15:06:20 +0200
+Message-ID: <20120403130620.GA15385@1984>
+References: <1333448001-2507-1-git-send-email-pablo@netfilter.org>
+ <1333448001-2507-4-git-send-email-pablo@netfilter.org>
+ <201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
+ <201204032048.GFH51564.QSOVLMOOJHtFFF@I-love.SAKURA.ne.jp>
+ <20120403120900.GB6010@1984>
+ <201204032128.JEG78136.JStMOHQOVFFFLO@I-love.SAKURA.ne.jp>
+ <20120403125755.GA15339@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
-	spear-devel <spear-devel@list.st.com>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Viresh KUMAR <viresh.kumar@st.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: deepaksi <deepak.sikri@st.com>
+Content-Type: multipart/mixed; boundary="cNdxnHkX5QqsyA0e"
+Cc: netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:59941 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753203Ab2DCNEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 09:04:32 -0400
-In-Reply-To: <4F7AAD4B.1010606@st.com>
+Received: from mail.us.es ([193.147.175.20]:39746 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754177Ab2DCNG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2012 09:06:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20120403125755.GA15339@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/3/2012 9:56 AM, deepaksi wrote:
-> Ciao Peppe,
-> 
-> On 4/3/2012 12:19 PM, Giuseppe CAVALLARO wrote:
->>
->> [snip]
->>> reset.
->> Previously, the stmmac called the dwmac1000_rx_coe_supported to verify
->> it could do the CSUM in Hw. If true the driver used the type 2 by
->> default.
->>
->> I've voluntarily removed this function because not necessary anymore.
->> In fact, YOU improved the rx_coe from the platform. If it is passed as
->> STMMAC_RX_COE_NONE then it means the driver is not able to perform any
->> csum for the incoming frames. This is actually used on old gmac/mac
->> cores. In new cores, the HW cap register will be used to manage and fix
->> this logic.
->> I could restore the core you are mentioning  but just to do another
->> safety check at run-time in case of the user provided a broken setting
->> from the platform and there is not the HW cap register. Hmm, I do not
->> know if this actually could help indeed... just an extra check IMHO.
-> 
-> These are the updates required in the code.
-> 
-> In function dwmac1000_core_init(), you may need to set the IPC bit based
-> on the fact that
-> if rx_coe has been setup through the platform code.
-> This bit set is a must for the checksum offload to be enabled. Rest of
-> the code looks good.
-> 
 
-Great Deepak,
-sorry I had not understood your good question and thx for you call.
-I was wrong and the IPC Checksum Offload has to be set in the MAC
-Configuration Register (*).
+--cNdxnHkX5QqsyA0e
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-static int dwmac1000_rx_coe_supported(void __iomem *ioaddr)
-{
-    u32 value = readl(ioaddr + GMAC_CONTROL);  |
-                                               |==> :-) (*)
-    value |= GMAC_CONTROL_IPC;                 |
-    writel(value, ioaddr + GMAC_CONTROL);      |
-
-    NOTE ===>>> I'm going to remove the extra check below because
-                useless as I had told in my previous email.
-                Is it ok for you? Let me know.
-
-    value = readl(ioaddr + GMAC_CONTROL);
-
-    return !!(value&  GMAC_CONTROL_IPC);
-}
-
-
-I'll rework it and re-send all the patches with this fix soon.
-
-ciao
-Peppe
-
-> Deepak
+On Tue, Apr 03, 2012 at 02:57:55PM +0200, Pablo Neira Ayuso wrote:
+> On Tue, Apr 03, 2012 at 09:28:38PM +0900, Tetsuo Handa wrote:
+> > Pablo Neira Ayuso wrote:
+> > > Indeed. The patch attached should fix this problem. Thanks.
+> > 
+> > It seems to me that the timeout object is associated with the "ct"
+> > by successful nf_ct_timeout_ext_add() call. If yes,
+> > 
+> >  +err5:
+> >  +	xt_ct_tg_timeout_put(ct);
+> > 
+> > will not be able to find the timeout object.
 > 
-> 
-> 
-> 
-> 
->>> I hope this clears the things a bit. Sorry for the miscommunication.
->> No problem for the miscommunication ;-)
->>
->> Let me know
->> Ciao
->> Peppe
->>
->>> Rgds
->>> Deepak
->>>
->>>
->>>
->>>
->>>
->>>
->>>>> Regards
->>>>> Deepak
->>>>>
->>>> .
->>>>
->>>
->> .
->>
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> You're right again. New patch attached.
+
+> From 6b9599e7a092a241e86e376d14bb1b45902f19b5 Mon Sep 17 00:00:00 2001
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Tue, 3 Apr 2012 14:50:07 +0200
+> Subject: [PATCH] netfilter: xt_CT: fix missing put timeout object in error path
+
+A bit better patch, no need to hold rcu_read_lock again in
+xt_ct_tg_timeout_put (even if that doesn't harm).
+
+--cNdxnHkX5QqsyA0e
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-xt_CT-fix-missing-put-timeout-object-in-er.patch"
+
+>From 96a1ee814eef63a917e2a0af7a70bbf85511d285 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 3 Apr 2012 14:50:07 +0200
+Subject: [PATCH] netfilter: xt_CT: fix missing put timeout object in error path
+
+The error path misses putting the timeout object. This patch adds
+new function xt_ct_tg_timeout_put() to put the timeout object.
+
+Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_CT.c |   24 +++++++++++++++++++-----
+ 1 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 4babb27..59530e9 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -150,6 +150,17 @@ err1:
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++static void __xt_ct_tg_timeout_put(struct ctnl_timeout *timeout)
++{
++	typeof(nf_ct_timeout_put_hook) timeout_put;
++
++	timeout_put = rcu_dereference(nf_ct_timeout_put_hook);
++	if (timeout_put)
++		timeout_put(timeout);
++}
++#endif
++
+ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ {
+ 	struct xt_ct_target_info_v1 *info = par->targinfo;
+@@ -158,7 +169,9 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ 	struct nf_conn *ct;
+ 	int ret = 0;
+ 	u8 proto;
+-
++#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++	struct ctnl_timeout *timeout;
++#endif
+ 	if (info->flags & ~XT_CT_NOTRACK)
+ 		return -EINVAL;
+ 
+@@ -216,7 +229,6 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
+ 	if (info->timeout) {
+ 		typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
+-		struct ctnl_timeout *timeout;
+ 		struct nf_conn_timeout *timeout_ext;
+ 
+ 		rcu_read_lock();
+@@ -245,7 +257,7 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ 				pr_info("Timeout policy `%s' can only be "
+ 					"used by L3 protocol number %d\n",
+ 					info->timeout, timeout->l3num);
+-				goto err4;
++				goto err5;
+ 			}
+ 			/* Make sure the timeout policy matches any existing
+ 			 * protocol tracker, otherwise default to generic.
+@@ -258,13 +270,13 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ 					"used by L4 protocol number %d\n",
+ 					info->timeout,
+ 					timeout->l4proto->l4proto);
+-				goto err4;
++				goto err5;
+ 			}
+ 			timeout_ext = nf_ct_timeout_ext_add(ct, timeout,
+ 							    GFP_ATOMIC);
+ 			if (timeout_ext == NULL) {
+ 				ret = -ENOMEM;
+-				goto err4;
++				goto err5;
+ 			}
+ 		} else {
+ 			ret = -ENOENT;
+@@ -282,6 +294,8 @@ out:
+ 	return 0;
+ 
+ #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
++err5:
++	__xt_ct_tg_timeout_put(timeout);
+ err4:
+ 	rcu_read_unlock();
+ #endif
+-- 
+1.7.2.5
+
+
+--cNdxnHkX5QqsyA0e--
