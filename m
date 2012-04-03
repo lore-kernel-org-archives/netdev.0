@@ -1,47 +1,49 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 05/12] Add dummy smsc911x regulators to cm-t35.
-Date: Tue, 3 Apr 2012 10:26:12 -0700
-Message-ID: <20120403172611.GD8240@atomide.com>
-References: <1332494504-10251-1-git-send-email-Russ.Dill@ti.com>
- <1332494504-10251-6-git-send-email-Russ.Dill@ti.com>
- <4F71E290.2050403@compulab.co.il>
- <20120327172819.GQ9859@atomide.com>
- <4F72B0D0.70703@compulab.co.il>
- <20120328170316.GR9859@atomide.com>
- <4F75CFD8.7050809@compulab.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russ Dill <Russ.Dill@ti.com>, linux-omap@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	Matt Porter <mporter@ti.com>, robert.marklund@stericsson.com,
-	linus.walleij@linaro.org,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Igor Grinberg <grinberg@compulab.co.il>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] stmmac: re-add IFF_UNICAST_FLT for dwmac1000
+Date: Tue,  3 Apr 2012 19:44:17 +0200
+Message-ID: <1333475057-3752-1-git-send-email-mkl@pengutronix.de>
+Cc: rayagond@vayavyalabs.com, netdev@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-01-ewr.mailhop.org ([204.13.248.71]:36446 "EHLO
-	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715Ab2DCR0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 13:26:18 -0400
-Content-Disposition: inline
-In-Reply-To: <4F75CFD8.7050809@compulab.co.il>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52291 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684Ab2DCRoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 13:44:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Igor Grinberg <grinberg@compulab.co.il> [120330 08:26]:
-> On 03/28/12 19:03, Tony Lindgren wrote:
-> > 
-> > ..care to see if you have OMAP_GPIO_IRQ entry for your board? If so, we're
-> > still waiting for the cleanup-fixes branch to get merged that changes
-> > things to use gpio_to_irq() instead.
-> 
-> Nope, no OMAP_GPIO_IRQ in the board code.
-> Also, the GPIO -> IRQ mapping for the smsc911x is done in gpmc-smsc911x.c
-> and it uses gpio_to_irq() already.
+In commit (bfab27a stmmac: add the experimental PCI support) the
+IFF_UNICAST_FLT flag has been removed from the stmmac_mac_device_setup()
+function. This patch re-adds the flag.
 
-OK, maybe it's caused by spurious interrupts? Have you
-checked the GPIO interrupt edge/level setup is correct?
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
 
-Regards,
+Just compile time tested, since I don't have the hardware.
+Applies to net-next/master (and v3.3).
 
-Tony
+regards, Marc
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index e85ffbd..07e0c78 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1737,9 +1737,10 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	struct mac_device_info *mac;
+ 
+ 	/* Identify the MAC HW device */
+-	if (priv->plat->has_gmac)
++	if (priv->plat->has_gmac) {
++		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+ 		mac = dwmac1000_setup(priv->ioaddr);
+-	else
++	} else
+ 		mac = dwmac100_setup(priv->ioaddr);
+ 	if (!mac)
+ 		return -ENOMEM;
+-- 
+1.7.4.1
