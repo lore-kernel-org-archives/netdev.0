@@ -1,23 +1,50 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] sky2: fix missing register reset on error path in
- sky2_test_msi()
-Date: Tue, 3 Apr 2012 22:09:32 +0200
-Message-ID: <20120403200932.GA2383@Neptun>
-References: <20120330173616.GC2703@Neptun>
- <20120403115547.799fcc1f@s6510.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 00/28] ethtool: support time
+ stamping and phc clocks
+Date: Tue, 03 Apr 2012 16:25:42 -0400 (EDT)
+Message-ID: <20120403.162542.2077088434639546515.davem@davemloft.net>
+References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120403115547.799fcc1f@s6510.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-7"
+Content-Transfer-Encoding: base64
+Cc: mporter@solarflare.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jacob.e.keller@intel.com,
+	john.ronciak@intel.com, bhutchings@solarflare.com
+To: richardcochran@gmail.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 03, 2012 at 11:55:47AM -0700, Stephen Hemminger wrote:
-> Ok, but this is a non-serious error case. If request_irq() fails here,
-> the driver is going to fail to load and on the failure path of
-> sky2_probe will reset the chip on the way out.
-> 
-Youre right, this is more a cosmetic change than a fix for a real bug. 
+RnJvbTogUmljaGFyZCBDb2NocmFuIDxyaWNoYXJkY29jaHJhbkBnbWFpbC5jb20+DQpEYXRlOiBU
+dWUsICAzIEFwciAyMDEyIDE5OjQ3OjI0ICswMjAwDQoNCj4gVGhlIG5ldyBmZWF0dXJlIGhhcyBi
+ZWVuIHRlc3RlZCBvbiB0aGUgZm9sbG93aW5nIGhhcmR3YXJlOg0KPiANCj4gaWdiICAgICAgIEhh
+cmR3YXJlIHRpbWUgc3RhbXBpbmcgaW4gdGhlIE1BQw0KDQpJIGRvbid0IGtub3cgaG93LCBpdCBk
+b2Vzbid0IGV2ZW4gYnVpbGQuDQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2Jf
+ZXRodG9vbC5jOiBJbiBmdW5jdGlvbiChaWdiX2V0aHRvb2xfZ2V0X3RzX2luZm+iOg0KZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9ldGh0b29sLmM6MjE5NToxMzogZXJyb3I6IKFz
+dHJ1Y3QgaWdiX2FkYXB0ZXKiIGhhcyBubyBtZW1iZXIgbmFtZWQgoXB0cF9jbG9ja6INCmRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfZXRodG9vbC5jOjIxOTY6MzogZXJyb3I6IGlt
+cGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFwdHBfY2xvY2tfaW5kZXiiIFstV2Vycm9y
+PWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvaWdiL2lnYl9ldGh0b29sLmM6MjE5Njo0NDogZXJyb3I6IKFzdHJ1Y3QgaWdiX2FkYXB0ZXKi
+IGhhcyBubyBtZW1iZXIgbmFtZWQgoXB0cF9jbG9ja6INCg0KSWYgdGhlc2UgcGF0Y2hlcyBkZXBl
+bmQgdXBvbiBjaGFuZ2VzIG5vdCBpbiBteSB0cmVlLCBhbmQgeW91IGhhdmVuJ3QNCmV2ZW4gbWVu
+dGlvbmVkIHRoaXMsIEknbSBnb2luZyB0byBiZSBfZXh0cmVtZWx5XyBpcnJpdGF0ZWQuDQotLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0KQmV0dGVyIHRoYW4gc2VjPyBOb3RoaW5nIGlzIGJldHRlciB0aGFu
+IHNlYyB3aGVuIGl0IGNvbWVzIHRvCm1vbml0b3JpbmcgQmlnIERhdGEgYXBwbGljYXRpb25zLiBU
+cnkgQm91bmRhcnkgb25lLXNlY29uZCAKcmVzb2x1dGlvbiBhcHAgbW9uaXRvcmluZyB0b2RheS4g
+RnJlZS4KaHR0cDovL3Auc2YubmV0L3NmdS9Cb3VuZGFyeS1kZXYyZGV2Cl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlz
+dApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vm
+b3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJ
+bnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9j
+b21tdW5pdHkvd2lyZWQK
