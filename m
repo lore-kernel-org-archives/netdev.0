@@ -1,103 +1,55 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] ARM: OMAP: AM33XX: CAN: d_can: Add support for Bosch
- D_CAN controller
-Date: Tue, 03 Apr 2012 17:33:40 +0200
-Message-ID: <4F7B1854.90106@pengutronix.de>
-References: <1333456339-9372-1-git-send-email-anilkumar@ti.com> <4F7AF0C7.7020506@grandegger.com> <331ABD5ECB02734CA317220B2BBEABC1317D85D0@DBDE01.ent.ti.com> <4F7AFFEC.1010805@pengutronix.de> <331ABD5ECB02734CA317220B2BBEABC1317D86F7@DBDE01.ent.ti.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH net: fix /proc/net/dev regression
+Date: Tue, 03 Apr 2012 08:36:48 -0700
+Message-ID: <4F7B1910.3010701@candelatech.com>
+References: <4F7A7C98.1030103@candelatech.com>  <1333431810.18626.37.camel@edumazet-glaptop>  <4F7A905B.3080107@candelatech.com>  <1333434995.18626.39.camel@edumazet-glaptop>  <1333436789.18626.43.camel@edumazet-glaptop> <1333441982.18626.62.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig39D5EC57251C2350EAE5D01F"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
-	"m.kleine-budde@pengutronix.de" <m.kleine-budde@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Gole, Anant" <anantgole@ti.com>, "Nori, Sekhar" <nsekhar@ti.com>
-To: "AnilKumar, Chimata" <anilkumar@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <331ABD5ECB02734CA317220B2BBEABC1317D86F7@DBDE01.ent.ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Mihai Maruseac <mmaruseac@ixiacom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:36075 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751769Ab2DCPgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 11:36:53 -0400
+In-Reply-To: <1333441982.18626.62.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig39D5EC57251C2350EAE5D01F
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 04/03/2012 01:33 AM, Eric Dumazet wrote:
+> Commit f04565ddf52 (dev: use name hash for dev_seq_ops) added a second
+> regression, as some devices are missing from /proc/net/dev if many
+> devices are defined.
+>
+> When seq_file buffer is filled, the last ->next/show() method is
+> canceled (pos value is reverted to value prior ->next() call)
+>
+> Problem is after above commit, we dont restart the lookup at right
+> position in ->start() method.
+>
+> Fix this by removing the internal 'pos' pointer added in commit, since
+> we need to use the 'loff_t *pos' provided by seq_file layer.
+>
+> This also reverts commit 5cac98dd0 (net: Fix corruption
+> in /proc/*/net/dev_mcast), since its not needed anymore.
+>
+> Reported-by: Ben Greear<greearb@candelatech.com>
+> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> Cc: Mihai Maruseac<mmaruseac@ixiacom.com>
 
-On 04/03/2012 04:29 PM, AnilKumar, Chimata wrote:
->>>> Please explain why this CAN controller cannot be handled by the exis=
-ting
->>>> C_CAN driver, eventually with some extensions. The register layout s=
-eems
->>>> almost identical, at least.
->>>>
->>>> Wolfgang.
->>>>
->>>
->>> These are the some of the pointers I can say, why I had gone for sepa=
-rate
->>> file instead of existing driver:
->>> * In case of D_CAN driver we can see all the registers are 32bit leng=
-th
->>>   but in case of C_CAN registers are in 16bit length.
->>
->> How many bits in these 32 bit registers are used?
->=20
-> In some cases (D_CAN_TXRQ, D_CAN_INTPND, D_CAN_MSGVAL) I have used all =
-the
-> bits, in some cases used few bits.
->=20
-> Roughly I can say that its (higher 16bits) % of usages is similar as co=
-mpare
-> to 16bits=20
->=20
-> While checking the status of TXRequest registers and INT pending regist=
-er,
-> which is a hot code path, we have to put if checks for register access.=
+This appears to fix the problem.  I do find it mildly irritating
+that the ordering is now random in /proc/net/dev, but I guess
+that is the price of progress.
 
+Tested-by:  Ben Greear <greearb@candelatech.com>
 
-The c_can already has a c_can_read_reg32() function. It's for example
-used in the rx_poll function. You can make it a function pointer (i.e.
-pric->read_reg32()) for easy abstraction.
+Thanks for the quick fix!
 
->>> * Some of the registers, bit masks are different, so we have to add
->>>   checks on every API for differentiating the kind of device
->>
->> Which registers are this? Can you give us an example?
->=20
-> I am pointing out some of the resisters
-> * Single registers in case of D_CAN but multiple register in case of C_=
-CAN
->   So masks will change MASK, ARB, INTPND
-> * D_CAN_IFCMD is the combination of COMM request and COMM mask register=
-s
+Ben
 
-Maybe you can use the read_reg32 function on both c_can and d_can.
-
-regards, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig39D5EC57251C2350EAE5D01F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk97GFgACgkQjTAFq1RaXHOV6QCeMM8f8o6v9akR5R3pAYshVXiZ
-fjoAn1ipJ/AAbCzgB60NVQ8AbOqcoc40
-=oOjd
------END PGP SIGNATURE-----
-
---------------enig39D5EC57251C2350EAE5D01F--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
