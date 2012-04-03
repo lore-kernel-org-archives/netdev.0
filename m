@@ -1,54 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: Don't stop and restart queue on every TX packet
-Date: Tue, 03 Apr 2012 17:29:58 -0400 (EDT)
-Message-ID: <20120403.172958.144419545310336164.davem@davemloft.net>
-References: <1332672230.32446.160.camel@shinybook.infradead.org>
-	<20120325.173635.1909319488008466320.davem@davemloft.net>
-	<1332756222.2379.66.camel@shinybook.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: allow splice() to build full TSO packets
+Date: Tue, 03 Apr 2012 23:31:29 +0200
+Message-ID: <1333488689.18626.331.camel@edumazet-glaptop>
+References: <1333481821.18626.322.camel@edumazet-glaptop>
+	 <20120403.172126.672236532461758456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, netdev@vger.kernel.org
-To: dwmw2@infradead.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
+	ycheng@google.com, hkchu@google.com, maze@google.com,
+	maheshb@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38434 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753502Ab2DCVbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 17:31:12 -0400
-In-Reply-To: <1332756222.2379.66.camel@shinybook.infradead.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:58340 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754866Ab2DCVbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 17:31:35 -0400
+Received: by wejx9 with SMTP id x9so102913wej.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 14:31:34 -0700 (PDT)
+In-Reply-To: <20120403.172126.672236532461758456.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Mon, 26 Mar 2012 11:03:42 +0100
-
-> For every transmitted packet, ppp_start_xmit() will stop the netdev
-> queue and then, if appropriate, restart it. This causes the TX softirq
-> to run, entirely gratuitously.
+On Tue, 2012-04-03 at 17:21 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 03 Apr 2012 21:37:01 +0200
 > 
-> This is "only" a waste of CPU time in the normal case, but it's actively
-> harmful when the PPP device is a TEQL slave ― the wakeup will cause the
-> offending device to receive the next TX packet from the TEQL queue, when
-> it *should* have gone to the next slave in the list. We end up seeing
-> large bursts of packets on just *one* slave device, rather than using
-> the full available bandwidth over all slaves.
+> > vmsplice()/splice(pipe, socket) call do_tcp_sendpages() one page at a
+> > time, adding at most 4096 bytes to an skb. (assuming PAGE_SIZE=4096)
+> > 
+> > The call to tcp_push() at the end of do_tcp_sendpages() forces an
+> > immediate xmit when pipe is not already filled, and tso_fragment() try
+> > to split these skb to MSS multiples.
+> > 
+> > 4096 bytes are usually split in a skb with 2 MSS, and a remaining
+> > sub-mss skb (assuming MTU=1500)
 > 
-> This patch fixes the problem by *not* unconditionally stopping the queue
-> in ppp_start_xmit(). It adds a return value from ppp_xmit_process()
-> which indicates whether the queue should be stopped or not.
+> Interesting.
 > 
-> It *doesn't* remove the call to netif_wake_queue() from
-> ppp_xmit_process(), because other code paths (especially from
-> ppp_output_wakeup()) need it there and it's messy to push it out to the
-> other callers to do it based on the return value. So we leave it in
-> place ― it's a no-op in the case where the queue wasn't stopped, so it's
-> harmless in the TX path.
+> But why doesn't TCP_NAGLE_CORK save us?  That gets passed down into
+> the push pending frames logic when MSG_MORE is specified.
 > 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> As far as I can tell, the combination of TCP_NAGLE_CORK and the TSO
+> deferral logic should do the right thing here.
+> 
+> Obviously you see different behavior, but why?
+> 
+> Also, by eliding the tcp_push() call you are introducing other side
+> effects:
+> 
+> 1) we won't do the tcp_mark_push logic
+> 
+> 2) we don't set the URG seq
+> 
+> I think #2 can never happen in the vmsplice/splice path, but #1 might
+> matter.
+> 
+> That's why I want to concentrate on why the tcp_push() path doesn't
+> behave properly when MSG_MORE is set.
 
-Applied, thanks.  But:
+It behaves properly I think, but in the tcp_sendmsg() perspective only.
 
-> --- drivers/net/ppp/ppp_generic.c~	2012-01-26 00:39:32.000000000 +0000
-> +++ drivers/net/ppp/ppp_generic.c	2012-03-26 10:32:31.286744147 +0100
+The code in tcp_sendmsg() and do_tcp_sendpages() is similar (actually
+probably copy/pasted) but the thing is tcp_sendmsg() is called once per
+sendmsg() call (and the push logic is OK at the end of it), while a
+single splice() system call can call do_tcp_sendpages() 16 times (or
+even more if pipe buffer was extended by fcntl(F_SETPIPE_SZ))
 
-Please -p1 root your patches in the future.
+Maybe a real fix would be to call do_tcp_sendpages() exactly once, but I
+tried this today and found needed surgery was complex). Also this would
+lock socket for a long period and could add latencies because of backlog
+processing.
