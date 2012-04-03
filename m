@@ -1,80 +1,78 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] vxge: Convert macro to inline function
-Date: Tue, 03 Apr 2012 15:14:31 -0700
-Message-ID: <1333491271.2695.20.camel@joe2Laptop>
-References: <1333489992.2695.17.camel@joe2Laptop>
-	 <20120403.175837.1897033408784057713.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 3/5] e1000e: prevent oops when adapter is being closed and reset simultaneously
+Date: Tue,  3 Apr 2012 15:18:07 -0700
+Message-ID: <1333491489-29933-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1333491489-29933-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41618 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754953Ab2DCWOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 18:14:33 -0400
-In-Reply-To: <20120403.175837.1897033408784057713.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:49249 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753502Ab2DCWSN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2012 18:18:13 -0400
+In-Reply-To: <1333491489-29933-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the macro to inline function to check the arguments.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Signed-off-by: Joe Perches <joe@perches.com>
+When the adapter is closed while it is simultaneously going through a
+reset, it can cause a null-pointer dereference when the two different code
+paths simultaneously cleanup up the Tx/Rx resources.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-> Longer term I'd much rather see this turned into an inline
-> function with proper type checking etc.
+ drivers/net/ethernet/intel/e1000e/e1000.h  |    6 ++++++
+ drivers/net/ethernet/intel/e1000e/netdev.c |    9 +++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
 
-Something like this?
-
- drivers/net/ethernet/neterion/vxge/vxge-main.c |    6 +++---
- drivers/net/ethernet/neterion/vxge/vxge-main.h |   15 +++++++++------
- 2 files changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index ef76725..95fb611 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -2860,12 +2860,12 @@ static int vxge_open(struct net_device *dev)
- 		vdev->config.rx_pause_enable);
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 86cdd47..b83897f 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -161,6 +161,12 @@ struct e1000_info;
+ /* Time to wait before putting the device into D3 if there's no link (in ms). */
+ #define LINK_TIMEOUT		100
  
- 	if (vdev->vp_reset_timer.function == NULL)
--		vxge_os_timer(vdev->vp_reset_timer,
--			vxge_poll_vp_reset, vdev, (HZ/2));
-+		vxge_os_timer(&vdev->vp_reset_timer, vxge_poll_vp_reset, vdev,
-+			      HZ / 2);
++/*
++ * Count for polling __E1000_RESET condition every 10-20msec.
++ * Experimentation has shown the reset can take approximately 210msec.
++ */
++#define E1000_CHECK_RESET_COUNT		25
++
+ #define DEFAULT_RDTR			0
+ #define DEFAULT_RADV			8
+ #define BURST_RDTR			0x20
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 2c38a65..6878601 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3968,6 +3968,10 @@ static int e1000_close(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct pci_dev *pdev = adapter->pdev;
++	int count = E1000_CHECK_RESET_COUNT;
++
++	while (test_bit(__E1000_RESETTING, &adapter->state) && count--)
++		usleep_range(10000, 20000);
  
- 	/* There is no need to check for RxD leak and RxD lookup on Titan1A */
- 	if (vdev->titan1 && vdev->vp_lockup_timer.function == NULL)
--		vxge_os_timer(vdev->vp_lockup_timer, vxge_poll_vp_lockup, vdev,
-+		vxge_os_timer(&vdev->vp_lockup_timer, vxge_poll_vp_lockup, vdev,
- 			      HZ / 2);
+ 	WARN_ON(test_bit(__E1000_RESETTING, &adapter->state));
  
- 	set_bit(__VXGE_STATE_CARD_UP, &vdev->state);
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
-index f52a42d..35f3e75 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.h
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.h
-@@ -416,12 +416,15 @@ struct vxge_tx_priv {
- 	static int p = val; \
- 	module_param(p, int, 0)
+@@ -5472,6 +5476,11 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 	netif_device_detach(netdev);
  
--#define vxge_os_timer(timer, handle, arg, exp) do { \
--		init_timer(&timer); \
--		timer.function = handle; \
--		timer.data = (unsigned long) arg; \
--		mod_timer(&timer, (jiffies + exp)); \
--	} while (0)
-+static inline
-+void vxge_os_timer(struct timer_list *timer, void (*func)(unsigned long data),
-+		   struct vxgedev *vdev, unsigned long timeout)
-+{
-+	init_timer(timer);
-+	timer->function = func;
-+	timer->data = (unsigned long)vdev;
-+	mod_timer(timer, jiffies + timeout);
-+}
- 
- void vxge_initialize_ethtool_ops(struct net_device *ndev);
- enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
+ 	if (netif_running(netdev)) {
++		int count = E1000_CHECK_RESET_COUNT;
++
++		while (test_bit(__E1000_RESETTING, &adapter->state) && count--)
++			usleep_range(10000, 20000);
++
+ 		WARN_ON(test_bit(__E1000_RESETTING, &adapter->state));
+ 		e1000e_down(adapter);
+ 		e1000_free_irq(adapter);
+-- 
+1.7.7.6
