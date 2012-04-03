@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: enable napi on resume.
-Date: Tue, 03 Apr 2012 19:09:14 -0400 (EDT)
-Message-ID: <20120403.190914.538968019741351033.davem@davemloft.net>
-References: <1333484951-5432-1-git-send-email-artem.savkov@gmail.com>
-	<20120403230317.GA6165@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 3/3] netfilter: xt_CT: remove a compile warning
+Date: Tue, 03 Apr 2012 19:17:09 -0400 (EDT)
+Message-ID: <20120403.191709.1232575113074905660.davem@davemloft.net>
+References: <1333448001-2507-4-git-send-email-pablo@netfilter.org>
+	<201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
+	<20120403103903.GA20689@1984>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: artem.savkov@gmail.com, nic_swsd@realtek.com,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39414 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39477 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693Ab2DCXKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 19:10:24 -0400
-In-Reply-To: <20120403230317.GA6165@electric-eye.fr.zoreil.com>
+	with ESMTP id S1755057Ab2DCXSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 19:18:17 -0400
+In-Reply-To: <20120403103903.GA20689@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 4 Apr 2012 01:03:17 +0200
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 3 Apr 2012 12:39:03 +0200
 
-> Artem Savkov <artem.savkov@gmail.com> :
->> NAPI is disabled during suspend and needs to be enabled on resume. Without
->> this the driver locks up during resume in rtl_reset_work() trying to disable
->> NAPI again.
->> 
->> Signed-off-by: Artem Savkov <artem.savkov@gmail.com>
+>>From e21e9622a46a60bd2b8dfb9791bb63dfdd4940d7 Mon Sep 17 00:00:00 2001
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Tue, 3 Apr 2012 12:32:15 +0200
+> Subject: [PATCH] netfilter: xt_CT: allocation has to be GFP_ATOMIC under rcu_read_lock section
 > 
-> :o(
-> 
-> It fixes runtime_{suspend / resume} as well.
-> 
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Applied and queued up for -stable, thanks.
+Applied.
