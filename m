@@ -1,38 +1,50 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Tue, 3 Apr 2012 11:37:51 -0700
-Message-ID: <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
-References: <4F71BEAD.5080605@enea.com>
+Subject: Re: [PATCH] ipl2tp: allow setting session interface name
+Date: Tue, 3 Apr 2012 11:39:31 -0700
+Message-ID: <20120403113931.2dc759af@s6510.linuxnetplumber.net>
+References: <4F70CAC8.10900@ist.utl.pt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Bruno Ferreira <balferreira@googlemail.com>
-To: Arvid Brodin <arvid.brodin@enea.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "=?UTF-8?B?Sm/Do28=?= Valverde" <jpv950@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55767 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:55836 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754544Ab2DCSh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 14:37:57 -0400
-In-Reply-To: <4F71BEAD.5080605@enea.com>
+	id S1751841Ab2DCSjj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 14:39:39 -0400
+In-Reply-To: <4F70CAC8.10900@ist.utl.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Mar 2012 15:20:45 +0200
-Arvid Brodin <arvid.brodin@enea.com> wrote:
+On Mon, 26 Mar 2012 21:00:08 +0100
+"Jo=C3=A3o Valverde" <jpv950@gmail.com> wrote:
 
-> +config NONSTANDARD_HSR
-> +	bool "HSR: Use efficient tag (breaks HSR standard, read help!)"
-> +	depends on HSR
-> +	---help---
-> +	  The HSR standard specifies a 6-byte HSR tag to be inserted into the
-> +	  transmitted network frames. This breaks the 32-bit alignment that the
-> +	  Linux network stack relies on, and would cause kernel panics on
-> +	  certain architectures. To avoid this, the whole frame payload is
-> +	  memmoved 2 bytes on reception on these architectures - which is very
-> +	  inefficient!
+> Hi,
+>=20
+> I've attached a trivial patch for iproute2 to allow naming interfaces=
+=20
+> created with "ip l2tp add session".
+>=20
+> I believe patches should go through the netdev mailing list but this=20
+> patch is so small I figured that would just add noise. Hope that's OK=
+=2E
+>=20
+> Originally I thought I would need a bigger patch and was going to tak=
+e a=20
+> stab at implementing something like
+>=20
+> ip l2tp add tunnel L2TP_TUNNEL_ARGS
+> ip link add name NAME  [ LINK_OPTS ] type l2tp L2TP_SESSION_ARGS
+>=20
+> (a better interface IMHO) but all the code was there already, all tha=
+t I=20
+> needed to add was option parsing.
+>=20
+> Thanks,
+>=20
+> Jo=C3=A3o Valverde
+>=20
+>=20
 
-This option won't fly. Don't do it.
-If you need to copy/realign packets on some architecture the stack
-should be changed to handle it.
+Applied thanks.
