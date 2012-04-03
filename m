@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 05/28] gianfar: Support the
+Subject: [PATCH V3 net-next 07/28] ixp4xx_eth: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:29 +0200
-Message-ID: <26ed0c79ccfc1037f0a8ba8caf577e8308e6d67b.1333474522.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:31 +0200
+Message-ID: <2a9fdd3a9166a603922f3a5b082e7bb0610fcb44.1333474523.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,40 +28,39 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/freescale/gianfar.h         |    3 ++
- drivers/net/ethernet/freescale/gianfar_ethtool.c |   29 ++++++++++++++++++++++
- drivers/net/ethernet/freescale/gianfar_ptp.c     |    2 +
- 3 files changed, 34 insertions(+), 0 deletions(-)
+ arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h |    3 ++
+ drivers/net/ethernet/xscale/ixp4xx_eth.c      |   29 +++++++++++++++++++++++++
+ drivers/ptp/ptp_ixp46x.c                      |    3 ++
+ 3 files changed, 35 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 4c9f8d4..2136c7f 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1210,4 +1210,7 @@ struct filer_table {
- 	struct gfar_filer_entry fe[MAX_FILER_CACHE_IDX + 20];
- };
+diff --git a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+index 292d55e..cf03614 100644
+--- a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
++++ b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+@@ -75,4 +75,7 @@ struct ixp46x_ts_regs {
+ #define TX_SNAPSHOT_LOCKED (1<<0)
+ #define RX_SNAPSHOT_LOCKED (1<<1)
  
-+/* The gianfar_ptp module will set this variable */
-+extern int gfar_phc_index;
++/* The ptp_ixp46x module will set this variable */
++extern int ixp46x_phc_index;
 +
- #endif /* __GIANFAR_H */
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 8d74efd..27f49c7 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -1739,6 +1739,34 @@ static int gfar_get_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 	return ret;
+ #endif
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 41a8b5a..482648f 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1002,12 +1002,41 @@ static int ixp4xx_nway_reset(struct net_device *dev)
+ 	return phy_start_aneg(port->phydev);
  }
  
-+int gfar_phc_index = -1;
++int ixp46x_phc_index = -1;
 +
-+static int gfar_get_ts_info(struct net_device *dev,
-+			    struct ethtool_ts_info *info)
++static int ixp4xx_get_ts_info(struct net_device *dev,
++			      struct ethtool_ts_info *info)
 +{
-+	struct gfar_private *priv = netdev_priv(dev);
-+
-+	if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)) {
++	if (!cpu_is_ixp46x()) {
 +		info->so_timestamping =
++			SOF_TIMESTAMPING_TX_SOFTWARE |
 +			SOF_TIMESTAMPING_RX_SOFTWARE |
 +			SOF_TIMESTAMPING_SOFTWARE;
 +		info->phc_index = -1;
@@ -71,45 +70,48 @@ index 8d74efd..27f49c7 100644
 +		SOF_TIMESTAMPING_TX_HARDWARE |
 +		SOF_TIMESTAMPING_RX_HARDWARE |
 +		SOF_TIMESTAMPING_RAW_HARDWARE;
-+	info->phc_index = gfar_phc_index;
++	info->phc_index = ixp46x_phc_index;
 +	info->tx_types =
 +		(1 << HWTSTAMP_TX_OFF) |
 +		(1 << HWTSTAMP_TX_ON);
 +	info->rx_filters =
 +		(1 << HWTSTAMP_FILTER_NONE) |
-+		(1 << HWTSTAMP_FILTER_ALL);
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++		(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ);
 +	return 0;
 +}
 +
- const struct ethtool_ops gfar_ethtool_ops = {
- 	.get_settings = gfar_gsettings,
- 	.set_settings = gfar_ssettings,
-@@ -1761,4 +1789,5 @@ const struct ethtool_ops gfar_ethtool_ops = {
- #endif
- 	.set_rxnfc = gfar_set_nfc,
- 	.get_rxnfc = gfar_get_nfc,
-+	.get_ts_info = gfar_get_ts_info,
+ static const struct ethtool_ops ixp4xx_ethtool_ops = {
+ 	.get_drvinfo = ixp4xx_get_drvinfo,
+ 	.get_settings = ixp4xx_get_settings,
+ 	.set_settings = ixp4xx_set_settings,
+ 	.nway_reset = ixp4xx_nway_reset,
+ 	.get_link = ethtool_op_get_link,
++	.get_ts_info = ixp4xx_get_ts_info,
  };
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index 5fd620b..c08e5d4 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -515,6 +515,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- 		err = PTR_ERR(etsects->clock);
- 		goto no_clock;
- 	}
-+	gfar_phc_clock = ptp_clock_index(etsects->clock);
  
- 	dev_set_drvdata(&dev->dev, etsects);
  
-@@ -538,6 +539,7 @@ static int gianfar_ptp_remove(struct platform_device *dev)
- 	gfar_write(&etsects->regs->tmr_temask, 0);
- 	gfar_write(&etsects->regs->tmr_ctrl,   0);
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index 6f2782b..9d13a71 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -284,6 +284,7 @@ static void __exit ptp_ixp_exit(void)
+ {
+ 	free_irq(MASTER_IRQ, &ixp_clock);
+ 	free_irq(SLAVE_IRQ, &ixp_clock);
++	ixp46x_phc_clock = -1;
+ 	ptp_clock_unregister(ixp_clock.ptp_clock);
+ }
  
-+	gfar_phc_clock = -1;
- 	ptp_clock_unregister(etsects->clock);
- 	iounmap(etsects->regs);
- 	release_resource(etsects->rsrc);
+@@ -302,6 +303,8 @@ static int __init ptp_ixp_init(void)
+ 	if (IS_ERR(ixp_clock.ptp_clock))
+ 		return PTR_ERR(ixp_clock.ptp_clock);
+ 
++	ixp46x_phc_clock = ptp_clock_index(ixp_clock.ptp_clock);
++
+ 	__raw_writel(DEFAULT_ADDEND, &ixp_clock.regs->addend);
+ 	__raw_writel(1, &ixp_clock.regs->trgt_lo);
+ 	__raw_writel(0, &ixp_clock.regs->trgt_hi);
 -- 
 1.7.2.5
 
