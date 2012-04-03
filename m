@@ -1,89 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] marvell sky2 driver: fix so it works without unaligned
- accesses
-Date: Tue, 03 Apr 2012 18:18:36 +0200
-Message-ID: <1333469916.18626.284.camel@edumazet-glaptop>
-References: <201204031527.q33FR04i031747@farm-0027.internal.tilera.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 05/12] Add dummy smsc911x regulators to cm-t35.
+Date: Tue, 3 Apr 2012 10:26:12 -0700
+Message-ID: <20120403172611.GD8240@atomide.com>
+References: <1332494504-10251-1-git-send-email-Russ.Dill@ti.com>
+ <1332494504-10251-6-git-send-email-Russ.Dill@ti.com>
+ <4F71E290.2050403@compulab.co.il>
+ <20120327172819.GQ9859@atomide.com>
+ <4F72B0D0.70703@compulab.co.il>
+ <20120328170316.GR9859@atomide.com>
+ <4F75CFD8.7050809@compulab.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204031527.q33FR04i031747@farm-0027.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Russ Dill <Russ.Dill@ti.com>, linux-omap@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Matt Porter <mporter@ti.com>, robert.marklund@stericsson.com,
+	linus.walleij@linaro.org,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Igor Grinberg <grinberg@compulab.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-01-ewr.mailhop.org ([204.13.248.71]:36446 "EHLO
+	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754715Ab2DCR0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 13:26:18 -0400
+Content-Disposition: inline
+In-Reply-To: <4F75CFD8.7050809@compulab.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-03 at 11:13 -0400, Chris Metcalf wrote:
-> The driver uses a receive_new() routine that ends up requiring unaligned
-> accesses in IP header processing.  If the architecture doesn't support
-> efficient unaligned accesses, just copy all ingress packets to the bounce
-> buffers instead.
+* Igor Grinberg <grinberg@compulab.co.il> [120330 08:26]:
+> On 03/28/12 19:03, Tony Lindgren wrote:
+> > 
+> > ..care to see if you have OMAP_GPIO_IRQ entry for your board? If so, we're
+> > still waiting for the cleanup-fixes branch to get merged that changes
+> > things to use gpio_to_irq() instead.
 > 
-> This allows the driver to be used on the Tilera TILEmpower-Gx, since
-> the tile architecture doesn't currently handle kernel unaligned accesses,
-> just userspace.
-> 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
->  drivers/net/ethernet/marvell/sky2.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index 879b0a4..7a15482 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -2490,6 +2490,7 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
->  	return skb;
->  }
->  
-> +#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
->  /* Adjust length of skb with fragments to match received data */
->  static void skb_put_frags(struct sk_buff *skb, unsigned int hdr_space,
->  			  unsigned int length)
-> @@ -2555,6 +2556,7 @@ nomap:
->  nobuf:
->  	return NULL;
->  }
-> +#endif /* CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS */
->  
->  /*
->   * Receive one packet.
-> @@ -2598,10 +2600,12 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
->  		goto error;
->  
->  okay:
-> -	if (length < copybreak)
-> -		skb = receive_copy(sky2, re, length);
-> -	else
-> +#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-> +	if (length >= copybreak)
->  		skb = receive_new(sky2, re, length);
-> +	else
-> +#endif
-> +		skb = receive_copy(sky2, re, length);
->  
->  	dev->stats.rx_dropped += (skb == NULL);
->  
+> Nope, no OMAP_GPIO_IRQ in the board code.
+> Also, the GPIO -> IRQ mapping for the smsc911x is done in gpmc-smsc911x.c
+> and it uses gpio_to_irq() already.
 
-The (expensive ?) copy should be done only if (sky2->hw->flags &
-SKY2_HW_RAM_BUFFER)
+OK, maybe it's caused by spurious interrupts? Have you
+checked the GPIO interrupt edge/level setup is correct?
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index b806d9b..3da3cdc 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2599,7 +2599,11 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
- 		goto error;
- 
- okay:
--	if (length < copybreak)
-+	if ((length < copybreak) 
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+		|| (sky2->hw->flags & SKY2_HW_RAM_BUFFER)
-+#endif
-+		)
- 		skb = receive_copy(sky2, re, length);
- 	else
- 		skb = receive_new(sky2, re, length);
+Regards,
+
+Tony
