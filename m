@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V5 7/8] net/dcb: Add an optional max rate attribute
-Date: Tue,  3 Apr 2012 14:10:06 +0300
-Message-ID: <1333451407-5293-8-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V5 2/8] net/mlx4_core: set port QoS attributes
+Date: Tue,  3 Apr 2012 14:10:01 +0300
+Message-ID: <1333451407-5293-3-git-send-email-amirv@mellanox.com>
 References: <1333451407-5293-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,106 +10,172 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:48353 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752234Ab2DCLKY (ORCPT
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:49716 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752230Ab2DCLKY (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:10:24 -0400
 In-Reply-To: <1333451407-5293-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although not specified in 8021Qaz spec, it could be useful to enable drivers
-whose HW supports setting a rate limit for an ETS TC. This patch adds this
-optional attribute to DCB netlink. To use it, drivers should implement and
-register the callbacks ieee_setmaxrate and ieee_getmaxrate. The units are 64
-bits long and specified in Kbps to enable usage over both slow and very fast
-networks.
+Adding QoS firmware commands:
+- mlx4_en_SET_PORT_PRIO2TC - set UP <=> TC
+- mlx4_en_SET_PORT_SCHEDULER - set promised BW, max BW and PG number
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- include/linux/dcbnl.h |    5 +++++
- include/net/dcbnl.h   |    2 ++
- net/dcb/dcbnl.c       |   18 ++++++++++++++++++
- 3 files changed, 25 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_port.h |    2 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h    |   20 ++++++++
+ drivers/net/ethernet/mellanox/mlx4/port.c    |   62 ++++++++++++++++++++++++++
+ include/linux/mlx4/cmd.h                     |    4 ++
+ include/linux/mlx4/device.h                  |    3 +
+ 5 files changed, 91 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index 65a2562..ec8e372 100644
---- a/include/linux/dcbnl.h
-+++ b/include/linux/dcbnl.h
-@@ -67,6 +67,10 @@ struct ieee_ets {
- 	__u8	reco_prio_tc[IEEE_8021QAZ_MAX_TCS];
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+index 6934fd7..745090b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+@@ -39,6 +39,8 @@
+ #define SET_PORT_PROMISC_SHIFT	31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
  
-+struct ieee_maxrate {
-+	__u64	tc_maxrate[IEEE_8021QAZ_MAX_TCS];
++#define MLX4_EN_NUM_TC		8
++
+ #define VLAN_FLTR_SIZE	128
+ struct mlx4_set_vlan_fltr_mbox {
+ 	__be32 entry[VLAN_FLTR_SIZE];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 2a0ff2c..cd56f1a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -53,6 +53,26 @@
+ #define DRV_VERSION	"1.1"
+ #define DRV_RELDATE	"Dec, 2011"
+ 
++#define MLX4_NUM_UP		8
++#define MLX4_NUM_TC		8
++#define MLX4_RATELIMIT_UNITS 3 /* 100 Mbps */
++#define MLX4_RATELIMIT_DEFAULT 0xffff
++
++struct mlx4_set_port_prio2tc_context {
++	u8 prio2tc[4];
 +};
 +
- /* This structure contains the IEEE 802.1Qaz PFC managed object
-  *
-  * @pfc_cap: Indicates the number of traffic classes on the local device
-@@ -321,6 +325,7 @@ enum ieee_attrs {
- 	DCB_ATTR_IEEE_PEER_ETS,
- 	DCB_ATTR_IEEE_PEER_PFC,
- 	DCB_ATTR_IEEE_PEER_APP,
-+	DCB_ATTR_IEEE_MAXRATE,
- 	__DCB_ATTR_IEEE_MAX
- };
- #define DCB_ATTR_IEEE_MAX (__DCB_ATTR_IEEE_MAX - 1)
-diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index f55c980..fc5d5dc 100644
---- a/include/net/dcbnl.h
-+++ b/include/net/dcbnl.h
-@@ -48,6 +48,8 @@ struct dcbnl_rtnl_ops {
- 	/* IEEE 802.1Qaz std */
- 	int (*ieee_getets) (struct net_device *, struct ieee_ets *);
- 	int (*ieee_setets) (struct net_device *, struct ieee_ets *);
-+	int (*ieee_getmaxrate) (struct net_device *, struct ieee_maxrate *);
-+	int (*ieee_setmaxrate) (struct net_device *, struct ieee_maxrate *);
- 	int (*ieee_getpfc) (struct net_device *, struct ieee_pfc *);
- 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
- 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index d860530..77dbc1d 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -178,6 +178,8 @@ static const struct nla_policy dcbnl_ieee_policy[DCB_ATTR_IEEE_MAX + 1] = {
- 	[DCB_ATTR_IEEE_ETS]	    = {.len = sizeof(struct ieee_ets)},
- 	[DCB_ATTR_IEEE_PFC]	    = {.len = sizeof(struct ieee_pfc)},
- 	[DCB_ATTR_IEEE_APP_TABLE]   = {.type = NLA_NESTED},
-+	[DCB_ATTR_IEEE_MAXRATE]   = {.len = sizeof(struct ieee_maxrate)},
++struct mlx4_port_scheduler_tc_cfg_be {
++	__be16 pg;
++	__be16 bw_precentage;
++	__be16 max_bw_units; /* 3-100Mbps, 4-1Gbps, other values - reserved */
++	__be16 max_bw_value;
++};
 +
- };
++struct mlx4_set_port_scheduler_context {
++	struct mlx4_port_scheduler_tc_cfg_be tc[MLX4_NUM_TC];
++};
++
+ enum {
+ 	MLX4_HCR_BASE		= 0x80680,
+ 	MLX4_HCR_SIZE		= 0x0001c,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 77535ff..55b12e6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -834,6 +834,68 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ }
+ EXPORT_SYMBOL(mlx4_SET_PORT_qpn_calc);
  
- static const struct nla_policy dcbnl_ieee_app[DCB_ATTR_IEEE_APP_MAX + 1] = {
-@@ -1243,6 +1245,14 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- 			NLA_PUT(skb, DCB_ATTR_IEEE_ETS, sizeof(ets), &ets);
- 	}
- 
-+	if (ops->ieee_getmaxrate) {
-+		struct ieee_maxrate maxrate;
-+		err = ops->ieee_getmaxrate(netdev, &maxrate);
-+		if (!err)
-+			NLA_PUT(skb, DCB_ATTR_IEEE_MAXRATE, sizeof(maxrate),
-+					&maxrate);
++int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_prio2tc_context *context;
++	int err;
++	u32 in_mod;
++	int i;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
++
++	for (i = 0; i < MLX4_NUM_UP; i += 2)
++		context->prio2tc[i >> 1] = prio2tc[i] << 4 | prio2tc[i + 1];
++
++	in_mod = MLX4_SET_PORT_PRIO2TC << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_SET_PORT_PRIO2TC);
++
++int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
++		u8 *pg, u16 *ratelimit)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_set_port_scheduler_context *context;
++	int err;
++	u32 in_mod;
++	int i;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++	context = mailbox->buf;
++	memset(context, 0, sizeof *context);
++
++	for (i = 0; i < MLX4_NUM_TC; i++) {
++		struct mlx4_port_scheduler_tc_cfg_be *tc = &context->tc[i];
++		u16 r = ratelimit && ratelimit[i] ? ratelimit[i] :
++			MLX4_RATELIMIT_DEFAULT;
++
++		tc->pg = htons(pg[i]);
++		tc->bw_precentage = htons(tc_tx_bw[i]);
++
++		tc->max_bw_units = htons(MLX4_RATELIMIT_UNITS);
++		tc->max_bw_value = htons(r);
 +	}
 +
- 	if (ops->ieee_getpfc) {
- 		struct ieee_pfc pfc;
- 		err = ops->ieee_getpfc(netdev, &pfc);
-@@ -1589,6 +1599,14 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
- 			goto err;
- 	}
- 
-+	if (ieee[DCB_ATTR_IEEE_MAXRATE] && ops->ieee_setmaxrate) {
-+		struct ieee_maxrate *maxrate =
-+			nla_data(ieee[DCB_ATTR_IEEE_MAXRATE]);
-+		err = ops->ieee_setmaxrate(netdev, maxrate);
-+		if (err)
-+			goto err;
-+	}
++	in_mod = MLX4_SET_PORT_SCHEDULER << 8 | port;
++	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
 +
- 	if (ieee[DCB_ATTR_IEEE_PFC] && ops->ieee_setpfc) {
- 		struct ieee_pfc *pfc = nla_data(ieee[DCB_ATTR_IEEE_PFC]);
- 		err = ops->ieee_setpfc(netdev, pfc);
++	mlx4_free_cmd_mailbox(dev, mailbox);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
++
+ int mlx4_SET_MCAST_FLTR_wrapper(struct mlx4_dev *dev, int slave,
+ 				struct mlx4_vhcr *vhcr,
+ 				struct mlx4_cmd_mailbox *inbox,
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 9958ff2..1f3860a 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -150,6 +150,10 @@ enum {
+ 	/* statistics commands */
+ 	MLX4_CMD_QUERY_IF_STAT	 = 0X54,
+ 	MLX4_CMD_SET_IF_STAT	 = 0X55,
++
++	/* set port opcode modifiers */
++	MLX4_SET_PORT_PRIO2TC = 0x8,
++	MLX4_SET_PORT_SCHEDULER  = 0x9,
+ };
+ 
+ enum {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 834c96c..6d02824 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -628,6 +628,9 @@ int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
+ 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
+ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ 			   u8 promisc);
++int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
++int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
++		u8 *pg, u16 *ratelimit);
+ int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+ void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
 -- 
 1.7.8.2
