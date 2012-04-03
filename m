@@ -1,34 +1,44 @@
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Subject: Re: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer
- helper non-static for the jits
-Date: Wed, 4 Apr 2012 00:41:25 +0200
-Message-ID: <4F7B7C95.6050406@googlemail.com>
-References: <4F75CC63.10405@googlemail.com> <20120403.180212.1644422418766062447.davem@davemloft.net> <4F7B7911.5090307@googlemail.com> <20120403.182822.530336438141782843.davem@davemloft.net>
-Reply-To: <kaffeemonster@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tilepro ethernet driver: fix a few minor issues
+Date: Tue, 03 Apr 2012 18:40:04 -0400 (EDT)
+Message-ID: <20120403.184004.2056266545823149252.davem@davemloft.net>
+References: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com>
+	<20120403.182335.782073108961783777.davem@davemloft.net>
+	<20120404083738.0b0f09ffc1f8c5a105c240eb@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: cmetcalf@tilera.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120403.182822.530336438141782843.davem@davemloft.net>
+In-Reply-To: <20120404083738.0b0f09ffc1f8c5a105c240eb@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller schrieb:
-> From: Jan Seiffert <kaffeemonster@googlemail.com>
-> Date: Wed, 4 Apr 2012 00:26:25 +0200
-> 
->> Is that the preferred comment style in net/ ? Coding style says
->> first line empty. Or just to match the rest of the file?
-> 
-> I'm not getting into this discussion right now, sorry.
-> 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 4 Apr 2012 08:37:38 +1000
 
-Oh, sorry, i guess you misunderstood me.
-I didn't want to discuss anything, I'm fine either way,
-i just wanted to know what's the rule, so i can take notes and
-prevent the same error in the future.
+> Hi Dave,
+> 
+> On Tue, 03 Apr 2012 18:23:35 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>>
+>> Format the comment:
+>> 
+>> 	/* Like
+>> 	 * this.
+>> 	 */
+>> 
+>> not:
+>> 
+>> 	/*
+>> 	 * Like
+>> 	 * this.
+>> 	 */
+> 
+> People may be confused because Documentation/CodingStyle says to use the
+> latter ...
 
-Greetings
-	Jan
+I refuse to be dragged into this conversation, I'm completely aware
+of the exact situation and I've stated my peace on this time and time
+again.
