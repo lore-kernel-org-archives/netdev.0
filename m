@@ -1,37 +1,61 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V3 net-next 00/28] ethtool: support time stamping and
- phc clocks
-Date: Tue, 3 Apr 2012 20:02:13 +0200
-Message-ID: <20120403180213.GA8226@netboy.at.omicron.at>
-References: <cover.1333474520.git.richardcochran@gmail.com>
+From: "AnilKumar, Chimata" <anilkumar@ti.com>
+Subject: RE: [PATCH] ARM: OMAP: AM33XX: CAN: d_can: Add support for Bosch
+ D_CAN controller
+Date: Tue, 3 Apr 2012 18:07:22 +0000
+Message-ID: <331ABD5ECB02734CA317220B2BBEABC1317D8A38@DBDE01.ent.ti.com>
+References: <1333456339-9372-1-git-send-email-anilkumar@ti.com>
+ <331ABD5ECB02734CA317220B2BBEABC1317D84CC@DBDE01.ent.ti.com>
+ <4F7B1D2F.40409@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Martin Porter <mporter@solarflare.com>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59023 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644Ab2DCSCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 14:02:23 -0400
-Received: by wejx9 with SMTP id x9so2529159wej.19
-        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 11:02:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "m.kleine-budde@pengutronix.de" <m.kleine-budde@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Gole, Anant" <anantgole@ti.com>, "Nori, Sekhar" <nsekhar@ti.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4F7B1D2F.40409@hartkopp.net>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 03, 2012 at 07:47:24PM +0200, Richard Cochran wrote:
-> Changes in V3:
-> - works without ethtool_ops
-> - does not require special privileges
-> - neated user space tool output
+Hi Oliver,
 
-    neaten (it looks neater now, and more like what Ben was asking for)
+Thanks for the comments,
 
-Richard
+On Tue, Apr 03, 2012 at 21:24:23, Oliver Hartkopp wrote:
+> On 03.04.2012 14:39, AnilKumar, Chimata wrote:
+>
+> > Hi All,
+> >
+> > Subject line of this patch should be
+> > "ARM: CAN: d_can: Add support for Bosch D_CAN controller"
+>
+>
+> No, the d_can IP core is generally not limited to ARM.
+>
+>       "can: Add support for Bosch D_CAN controller"
+>
+> would be perfectly fine.
+
+Agree, I will change the subject line in my next version of patch
+
+>
+> The correct way is:
+>
+> 1. post your new CAN driver to linux-can ML
+> 2. When the major reviews & style fixes are done and the driver is fit for
+> mainline you can post it on ti-omap ML too
+>
+> But an initial cross-posting of this CAN driver to netdev ML and linux-kernel
+> ML does not help anyone - it only increases traffic & confusion
+>
+
+It's true, I will take care from next time onwards
+
+Thanks
+AnilKumar
