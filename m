@@ -1,32 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: fix missing register reset on error path in
- sky2_test_msi()
-Date: Tue, 3 Apr 2012 11:55:47 -0700
-Message-ID: <20120403115547.799fcc1f@s6510.linuxnetplumber.net>
-References: <20120330173616.GC2703@Neptun>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net 0/2] net/bonding: fixes related to neigh
+Date: Tue, 3 Apr 2012 21:58:41 +0300
+Message-ID: <CAJZOPZLttowLPfjd3Q6+v2XeYijzc-byu-+URWWoVf6Xaxq4xg@mail.gmail.com>
+References: <1333383430-17456-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47055 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755245Ab2DCSzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 14:55:51 -0400
-In-Reply-To: <20120330173616.GC2703@Neptun>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:56300 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754516Ab2DCS6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 14:58:43 -0400
+Received: by lahj13 with SMTP id j13so35577lah.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 11:58:42 -0700 (PDT)
+In-Reply-To: <1333383430-17456-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Mar 2012 19:36:16 +0200
-Lino Sanfilippo <LinoSanfilippo@gmx.de> wrote:
+On Mon, Apr 2, 2012 at 7:17 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> This small patch set fixes some issues we stepped on when preparing
+> for some IPoIB changes.
+>
+> With the 1st patch, the kernel networking code of arp_netdev_event calls
+> neigh_changeaddr which further flashes the boding neighbours in some more
+> cases which weren't covered by commit 7d26bb103 "bonding: emit event when
+> bonding changes MAC"
+>
+> The 2nd patch fixes a bug where under bonding, the IPoIB neigh cleanup
+> function wasn't called.
 
-> In sky2_test_msi() the temporarily set SW IRQ in B0 register is not reset in case
-> that request_irq() fails.
-> With this patch we only set the interrupt mask if request_irq() was successful.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Hi Jay,
 
-Ok, but this is a non-serious error case. If request_irq() fails here,
-the driver is going to fail to load and on the failure path of
-sky2_probe will reset the chip on the way out.
+Could you have a look on these patches, its important for us to know
+if we're on the right direction.
+
+Or.
