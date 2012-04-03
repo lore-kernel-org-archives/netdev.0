@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 18/28] macb: Support the
+Subject: [PATCH V3 net-next 21/28] r6040: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:42 +0200
-Message-ID: <deb3d92b6a72c5871b2fa9f00c5818c178488b4b.1333474524.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:45 +0200
+Message-ID: <2617f2d35b9d1cb31bc6bb687b92edec3978641f.1333474524.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/cadence/macb.c |    1 +
+ drivers/net/ethernet/rdc/r6040.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c4834c2..1466bc4 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1213,6 +1213,7 @@ static const struct ethtool_ops macb_ethtool_ops = {
- 	.set_settings		= macb_set_settings,
- 	.get_drvinfo		= macb_get_drvinfo,
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index b96e192..a26307f 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -973,6 +973,7 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_settings		= netdev_get_settings,
+ 	.set_settings		= netdev_set_settings,
  	.get_link		= ethtool_op_get_link,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ static const struct net_device_ops r6040_netdev_ops = {
 -- 
 1.7.2.5
 
