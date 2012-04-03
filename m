@@ -1,32 +1,62 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: be2net: when can I expect roce support patch will be merged?
-Date: Mon, 2 Apr 2012 16:26:02 -0700
-Message-ID: <CAL1RGDUJTE4vjr6+XiBogbE3xigShkDasovnDBC+ZSCvw6kt=g@mail.gmail.com>
-References: <88B766C272F2C64B944B21AD078333151C965B92D3@EXMAIL.ad.emulex.com>
- <20120401.151154.1033862070046707491.davem@davemloft.net> <CAL1RGDVsXvMJ58Xa8BUoXRnWmnG2=7CVtJ5GF_cdFQAk61ng7g@mail.gmail.com>
- <20120401.174852.1630093843785755332.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NULL pointer dereference at __ip_route_output_key
+Date: Mon, 02 Apr 2012 20:07:11 -0400 (EDT)
+Message-ID: <20120402.200711.2234324385609269937.davem@davemloft.net>
+References: <20120402194056.GA1002@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Parav.Pandit-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120401.174852.1630093843785755332.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fedoraproject.org
+To: davej@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566Ab2DCAHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 20:07:15 -0400
+In-Reply-To: <20120402194056.GA1002@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 1, 2012 at 2:48 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> No problem, feel free to add:
->
-> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 2 Apr 2012 15:40:56 -0400
 
-Great, I pulled in these two patches, and I'll add the full ocrdma
-driver soon and push it out for -next coverage (with the plan being
-a merge to 3.5).
+> We just had this reported. Look familiar to anyone ?
 
-Thanks!
-  Roland
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you could unravel the source file and line the OOPS occurs at, I
+can look at these kinds of reports much faster.  As it stands, when I
+see a Fedora OOPS, it's a long process for me:
+
+1) Edit /boot/vmlinuz-3.3.0-8, stip image until gzip header and
+   store in x.gz, gzip -d x.gz
+
+2) gdb ./x and try to match up symbols in System.map, which BTW
+   I have to become root to even friggin' _READ_, and oh yes
+   doubly stupid because there's a readable copy under /usr/src
+
+3) Try to bisect where it's OOPS'ing in the source code, and given
+   GCC's optimizations where it moves basic blocks all over the
+   place, this is error prone and time consuming.
+
+etc. etc.
+
+Anyways in this case dev_out is NULL when we read it around line
+2798 of net/ipv4/route.c:
+
+	dev_out = FIB_RES_DEV(res);
+	fl4->flowi4_oif = dev_out->ifindex;
+
+and we are thus OOPS'ing on the dev_out->ifindex.
+
+Unfortunately I've never seen a report like this.  If the reporter can
+reproduce, you can try to extract more information by doing something
+like this right after the dev_out assignment:
+
+	if (!dev_out) {
+		pr_crit("ipv4: FIB_RES_DEV() is NULL, nh_sel=%d\n",
+			res.nh_sel);
+		rth = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
+This debugging will also avoid the NULL pointer crash at least for
+that particular invocation.
