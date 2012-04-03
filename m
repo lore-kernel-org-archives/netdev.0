@@ -1,61 +1,84 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] ipv6: fix array index in ip6_mc_add_src()
-Date: Tue, 3 Apr 2012 08:58:56 +0800
-Message-ID: <CAJFZqHyz_F1bOkx3GnmhhQVUtr+gCJP-fPbPOEb37u7=Lr6EHw@mail.gmail.com>
-References: <1333269926-24681-1-git-send-email-roy.qing.li@gmail.com>
-	<20120401.151318.984514868716173152.davem@davemloft.net>
-	<CAJFZqHwAFao9En4LRBST3YSufbrjbtsV09_h9fOVTSsCHtsT_w@mail.gmail.com>
-	<20120402.161950.1558486977364492163.davem@davemloft.net>
+From: fernando@intellilink.co.jp
+Subject: [PATCH 2/2] TCP: Use 32768-65535 outgoing port range by default
+Date: Tue,  3 Apr 2012 09:50:18 +0900
+Message-ID: <20120403095018.rm7gil9xz0gsgccs@webmail.int.intellilink.co.jp>
+References: <20120403094840.ftxlwztl40gwcg4s@webmail.int.intellilink.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="=_nmq9e3psui"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:44865 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878Ab2DCA65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 20:58:57 -0400
-Received: by obbtb18 with SMTP id tb18so2833452obb.19
-        for <netdev@vger.kernel.org>; Mon, 02 Apr 2012 17:58:56 -0700 (PDT)
-In-Reply-To: <20120402.161950.1558486977364492163.davem@davemloft.net>
+Received: from ils-mail01.intellilink.co.jp ([61.115.36.70]:50403 "EHLO
+	ils-mail01.intellilink.co.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751691Ab2DCBLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 21:11:03 -0400
+In-Reply-To: <20120403094840.ftxlwztl40gwcg4s@webmail.int.intellilink.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OK, I see, thanks
+This message is in MIME format.
 
-BR
+--=_nmq9e3psui
+Content-Type: text/plain;
+	charset=ISO-2022-JP;
+	format="flowed"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
--Roy
 
-2012/4/3, David Miller <davem@davemloft.net>:
-> From: RongQing Li <roy.qing.li@gmail.com>
-> Date: Mon, 2 Apr 2012 18:16:14 +0800
->
->> 2012/4/2 David Miller <davem@davemloft.net>:
->>> From: roy.qing.li@gmail.com
->>> Date: Sun,  1 Apr 2012 16:45:26 +0800
->>>
->>>> From: RongQing.Li <roy.qing.li@gmail.com>
->>>>
->>>> Convert array index from the loop bound to the loop index.
->>>>
->>>> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
->>>
->>> That's not all you are doing:
->>>
->>>> -                     (void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
->>>> +                     ip6_mc_del1_src(pmc, sfmode, &psfsrc[j]);
->>>
->>> You absolutely MUST mention and explain this (void) removal.
->>> It's probably there to elide an unchecked return value
->>> warning from the compiler.
->>
->> since ip6_mc_del1_src() does not use __must_check likely attribute.
->> I try to compile with several gcc warning options, but do not
->> find which options can report the unchecked return value.
->
-> I said "probably", I didn't check myself.
->
-> The issue I had was that you didn't mention the void removal in the
-> commit message.
->
+
+--=_nmq9e3psui
+Content-Type: text/plain;
+	charset=ISO-2022-JP;
+	name="sysctl-ip_local_port_range-change-default.patch"
+Content-Disposition: attachment;
+	filename="sysctl-ip_local_port_range-change-default.patch"
+Content-Transfer-Encoding: 7bit
+
+Subject: [PATCH] TCP: Use 32768-65535 outgoing port range by default
+
+From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+
+There was a time when the ip masquerading code reserved the 61000-65095
+port range, which is the reason why the current default upper limit in
+ip_local_port_range is 61000. However, the current iptables-based
+masquerading and SNAT implementation does not have that restriction;
+ipchains and the compatibilty mode that used the range over 61000
+exclusively is lone gone.
+
+Bump up the last local port number used by default to the maximum, i.e.
+65535, so that we can have more connections in the system without
+eating deeper into IANA assigned range.
+
+Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+---
+
+diff -urNp linux-3.4-rc1-orig/Documentation/networking/ip-sysctl.txt linux-3.4-rc1/Documentation/networking/ip-sysctl.txt
+--- linux-3.4-rc1-orig/Documentation/networking/ip-sysctl.txt	2012-04-03 08:51:37.325983165 +0900
++++ linux-3.4-rc1/Documentation/networking/ip-sysctl.txt	2012-04-03 08:53:52.282652377 +0900
+@@ -605,7 +605,7 @@ ip_local_port_range - 2 INTEGERS
+ 	Defines the local port range that is used by TCP and UDP to
+ 	choose the local port. The first number is the first, the
+ 	second the last local port number. The default values are 
+-	32768 and 61000 respectively.
++	32768 and 65535 respectively.
+ 
+ 	These two numbers determine the number of active connections
+ 	which this system can issue simultaneously to systems not
+diff -urNp linux-3.4-rc1-orig/net/ipv4/inet_connection_sock.c linux-3.4-rc1/net/ipv4/inet_connection_sock.c
+--- linux-3.4-rc1-orig/net/ipv4/inet_connection_sock.c	2012-03-19 08:15:34.000000000 +0900
++++ linux-3.4-rc1/net/ipv4/inet_connection_sock.c	2012-04-03 08:52:15.350171717 +0900
+@@ -34,7 +34,7 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
+  */
+ struct local_ports sysctl_local_ports __read_mostly = {
+ 	.lock = __SEQLOCK_UNLOCKED(sysctl_local_ports.lock),
+-	.range = { 32768, 61000 },
++	.range = { 32768, 65535 },
+ };
+ 
+ unsigned long *sysctl_local_reserved_ports;
+
+--=_nmq9e3psui--
