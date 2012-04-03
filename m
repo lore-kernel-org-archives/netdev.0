@@ -1,43 +1,50 @@
-From: Artem Savkov <artem.savkov@gmail.com>
-Subject: [PATCH] r8169: enable napi on resume.
-Date: Wed,  4 Apr 2012 00:29:11 +0400
-Message-ID: <1333484951-5432-1-git-send-email-artem.savkov@gmail.com>
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-	Artem Savkov <artem.savkov@gmail.com>
-To: romieu@fr.zoreil.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] af_unix: reduce high order page allocations
+Date: Tue, 03 Apr 2012 16:43:52 -0400 (EDT)
+Message-ID: <20120403.164352.1515177068122185516.davem@davemloft.net>
+References: <20120402.215911.1929019308299701014.davem@davemloft.net>
+	<1333419304.18626.5.camel@edumazet-glaptop>
+	<1333466908.18626.274.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54973 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755164Ab2DCUaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 16:30:35 -0400
-Received: by bkcik5 with SMTP id ik5so131991bkc.19
-        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 13:30:33 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:38113 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684Ab2DCUnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 16:43:55 -0400
+In-Reply-To: <1333466908.18626.274.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NAPI is disabled during suspend and needs to be enabled on resume. Without
-this the driver locks up during resume in rtl_reset_work() trying to disable
-NAPI again.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 03 Apr 2012 17:28:28 +0200
 
-Signed-off-by: Artem Savkov <artem.savkov@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c |    3 +++
- 1 file changed, 3 insertions(+)
+> unix_dgram_sendmsg() currently builds linear skbs, and this can stress
+> page allocator with high order page allocations. When memory gets
+> fragmented, this can eventually fail.
+> 
+> We can try to use order-2 allocations for skb head (SKB_MAX_ALLOC) plus
+> up to 16 page fragments to lower pressure on buddy allocator.
+> 
+> This patch has no effect on messages of less than 16064 bytes.
+> (on 64bit arches with PAGE_SIZE=4096)
+> 
+> For bigger messages (from 16065 to 81600 bytes), this patch brings
+> reliability at the expense of performance penalty because of extra pages
+> allocations.
+> 
+> netperf -t DG_STREAM -T 0,2 -- -m 16064 -s 200000
+> ->4086040 Messages / 10s
+> 
+> netperf -t DG_STREAM -T 0,2 -- -m 16068 -s 200000
+> ->3901747 Messages / 10s
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> v2: use SKB_MAX_ALLOC instead of SKB_MAX_ORDER(0, 0) to not slow down
+>     applications using up to 16000 bytes messages.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index d2ec075..e259c88 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5810,7 +5810,10 @@ static void __rtl8169_resume(struct net_device *dev)
- 
- 	rtl_pll_power_up(tp);
- 
-+	rtl_lock_work(tp);
-+	napi_enable(&tp->napi);
- 	set_bit(RTL_FLAG_TASK_ENABLED, tp->wk.flags);
-+	rtl_unlock_work(tp);
- 
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- }
--- 
-1.7.9.5
+Looks good, applied to net-next, thanks Eric!
