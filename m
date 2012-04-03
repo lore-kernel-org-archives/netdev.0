@@ -1,42 +1,68 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net] bnx2x: correction to firmware interface
-Date: Tue, 3 Apr 2012 16:06:51 -0700
-Message-ID: <1333494411.12280.19.camel@nseg_linux_HP1.broadcom.com>
-References: <1333447631-18536-1-git-send-email-yuvalmin@broadcom.com>
- <20120403.190408.54610555291057345.davem@davemloft.net>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH] tilepro ethernet driver: fix a few minor issues
+Date: Tue, 3 Apr 2012 19:32:20 -0400
+Message-ID: <4F7B8884.7070901@tilera.com>
+References: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com>  <20120403.182335.782073108961783777.davem@davemloft.net>  <20120404083738.0b0f09ffc1f8c5a105c240eb@canb.auug.org.au>  <20120403.184004.2056266545823149252.davem@davemloft.net> <1333494088.2695.29.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com,
-	eilong@broadcom.com, bprakash@broadcom.com
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3515 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754946Ab2DCXWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 19:22:21 -0400
-In-Reply-To: <20120403.190408.54610555291057345.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <sfr@canb.auug.org.au>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1333494088.2695.29.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 4/3/2012 7:01 PM, Joe Perches wrote:
+> On Tue, 2012-04-03 at 18:40 -0400, David Miller wrote:
+>> From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Date: Wed, 4 Apr 2012 08:37:38 +1000
+>>> On Tue, 03 Apr 2012 18:23:35 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>>>> Format the comment:
+>>>> 	/* Like
+>>>> 	 * this.
+>>>> 	 */
+>>>> not:
+>>>> 	/*
+>>>> 	 * Like
+>>>> 	 * this.
+>>>> 	 */
+>>> People may be confused because Documentation/CodingStyle says to use the
+>>> latter ...
+>> I refuse to be dragged into this conversation, I'm completely aware
+>> of the exact situation and I've stated my peace on this time and time
+>> again.
+> I think you'd have less overall upset in yourself and in
+> other people if you would do more than repeat yourself
+> on patch submissions via mailing lists.
+>
+> To my knowledge when the comment block style was added to
+> CodingStyle in 2006, you didn't mention anything about it.
+>
+> https://lkml.org/lkml/2006/12/7/41
+>
+> and I don't see any other mentions from you.
+>
+> When I suggested adding something specifically for net
+> and drivers/net, you were at least dispraising.
+>
+> http://lists.openwall.net/netdev/2012/02/04/59
+>
+> I think it'd be useful to have this preference you have
+> for block comment style written out somewhere other than
+> the email archives.
 
-On Tue, 2012-04-03 at 19:04 -0400, David Miller wrote:
-> From: "Yuval Mintz" <yuvalmin@broadcom.com>
-> Date: Tue, 3 Apr 2012 13:07:11 +0300
-> 
-> > Commit 621b4d6 updated the bnx2x driver to a new FW version, but lacked
-> > a commit to a header file with changes to the firmware's interface. 
-> > The missing interface change causes iscsi and fcoe to misbehave with the 
-> > updated firmware.
-> > 
-> > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > CC: Michael Chan <mchan@broadcom.com>
-> > CC: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-> 
-> Applied, how far back do -stable releases need this fix?
-> 
+Interesting back-story.  Obviously it's the various sub-maintainers'
+perquisite to request specific comment style, and if Linus doesn't push
+back on the sub-maintainers, that's how it is.
 
-No need to submit to any -stable release.  This problem is present in
-the current net tree and Linux tree only.  Thanks.
+David, I concur that it would be useful to make this canonical somewhere,
+since folks who are not aware of your preferences will obviously follow the
+CodingStyle document until corrected by you, which seems like a pain for
+you.  I suspect a modified version of Joe's original CodingStyle change,
+along with a comparable change in checkpatch, is the most "scalable" solution.
+
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
