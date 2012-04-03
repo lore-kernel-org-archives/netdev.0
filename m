@@ -1,62 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NULL pointer dereference at __ip_route_output_key
-Date: Mon, 02 Apr 2012 20:07:11 -0400 (EDT)
-Message-ID: <20120402.200711.2234324385609269937.davem@davemloft.net>
-References: <20120402194056.GA1002@redhat.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: sky2: in free_buffers() do proper checks before call of rx_clean()
+Date: Tue, 3 Apr 2012 02:13:27 +0200
+Message-ID: <20120403001327.GB10227@Neptun>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fedoraproject.org
-To: davej@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56559 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566Ab2DCAHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Apr 2012 20:07:15 -0400
-In-Reply-To: <20120402194056.GA1002@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com, mlindner@marvell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Mon, 2 Apr 2012 15:40:56 -0400
+In sky2_open() free_buffers() is called in case that alloc_buffers() failed.
+Here we do the check for sky2->rx_le too late, since we already called
+rx_clean() which accessed rx_le. Furthermore we lack a check for sky2->rx_ring
+which is also accessed by rx_clean().
 
-> We just had this reported. Look familiar to anyone ?
+With this patch both sky2->rx_le and sky2->rx_ring are checked before
+alloc_buffers() is called.
 
-If you could unravel the source file and line the OOPS occurs at, I
-can look at these kinds of reports much faster.  As it stands, when I
-see a Fedora OOPS, it's a long process for me:
+Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ This applies against 3.3
 
-1) Edit /boot/vmlinuz-3.3.0-8, stip image until gzip header and
-   store in x.gz, gzip -d x.gz
+ drivers/net/ethernet/marvell/sky2.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-2) gdb ./x and try to match up symbols in System.map, which BTW
-   I have to become root to even friggin' _READ_, and oh yes
-   doubly stupid because there's a readable copy under /usr/src
-
-3) Try to bisect where it's OOPS'ing in the source code, and given
-   GCC's optimizations where it moves basic blocks all over the
-   place, this is error prone and time consuming.
-
-etc. etc.
-
-Anyways in this case dev_out is NULL when we read it around line
-2798 of net/ipv4/route.c:
-
-	dev_out = FIB_RES_DEV(res);
-	fl4->flowi4_oif = dev_out->ifindex;
-
-and we are thus OOPS'ing on the dev_out->ifindex.
-
-Unfortunately I've never seen a report like this.  If the reporter can
-reproduce, you can try to extract more information by doing something
-like this right after the dev_out assignment:
-
-	if (!dev_out) {
-		pr_crit("ipv4: FIB_RES_DEV() is NULL, nh_sel=%d\n",
-			res.nh_sel);
-		rth = ERR_PTR(-EINVAL);
-		goto out;
-	}
-
-This debugging will also avoid the NULL pointer crash at least for
-that particular invocation.
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 760c2b1..3e3eda6 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -1628,9 +1628,10 @@ static void sky2_free_buffers(struct sky2_port *sky2)
+ {
+ 	struct sky2_hw *hw = sky2->hw;
+ 
+-	sky2_rx_clean(sky2);
+-
+ 	if (sky2->rx_le) {
++		if (sky2->rx_ring)
++			sky2_rx_clean(sky2);
++
+ 		pci_free_consistent(hw->pdev, RX_LE_BYTES,
+ 				    sky2->rx_le, sky2->rx_le_map);
+ 		sky2->rx_le = NULL;
+-- 
+1.7.2.5
