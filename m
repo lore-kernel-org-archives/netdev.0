@@ -1,128 +1,72 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 07/28] ixp4xx_eth: Support the
-	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:31 +0200
-Message-ID: <2a9fdd3a9166a603922f3a5b082e7bb0610fcb44.1333474523.git.richardcochran@gmail.com>
+Subject: [PATCH V3 net-next 08/28] ethtool: Add a common function for drivers with transmit time stamping.
+Date: Tue,  3 Apr 2012 19:47:32 +0200
+Message-ID: <a7ec1893167462243c5657d7ad9a8ef4b20d5e97.1333474523.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, Martin Porter <mporter@solarflare.com>,
-	John Ronciak <john.ronciak@intel.com>,
+Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>
+	Martin Porter <mporter@solarflare.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:60989 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754481Ab2DCRsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 13:48:39 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so3975805wgb.1
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 10:48:38 -0700 (PDT)
 In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Currently, most drivers do not support transmit SO_TIMESTAMPING. For those
+that do support it, there is one appropriate response to the get_ts_info
+query. This patch adds a common function providing this response.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h |    3 ++
- drivers/net/ethernet/xscale/ixp4xx_eth.c      |   29 +++++++++++++++++++++++++
- drivers/ptp/ptp_ixp46x.c                      |    3 ++
- 3 files changed, 35 insertions(+), 0 deletions(-)
+ include/linux/ethtool.h |    1 +
+ net/core/ethtool.c      |   11 +++++++++++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
-index 292d55e..cf03614 100644
---- a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
-+++ b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
-@@ -75,4 +75,7 @@ struct ixp46x_ts_regs {
- #define TX_SNAPSHOT_LOCKED (1<<0)
- #define RX_SNAPSHOT_LOCKED (1<<1)
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 1769714..560a247 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -811,6 +811,7 @@ struct net_device;
  
-+/* The ptp_ixp46x module will set this variable */
-+extern int ixp46x_phc_index;
-+
- #endif
-diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-index 41a8b5a..482648f 100644
---- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-+++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-@@ -1002,12 +1002,41 @@ static int ixp4xx_nway_reset(struct net_device *dev)
- 	return phy_start_aneg(port->phydev);
+ /* Some generic methods drivers may use in their ethtool_ops */
+ u32 ethtool_op_get_link(struct net_device *dev);
++int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *eti);
+ 
+ /**
+  * ethtool_rxfh_indir_default - get default value for RX flow hash indirection
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index a723b13..beacdd9 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -38,6 +38,17 @@ u32 ethtool_op_get_link(struct net_device *dev)
  }
+ EXPORT_SYMBOL(ethtool_op_get_link);
  
-+int ixp46x_phc_index = -1;
-+
-+static int ixp4xx_get_ts_info(struct net_device *dev,
-+			      struct ethtool_ts_info *info)
++int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
 +{
-+	if (!cpu_is_ixp46x()) {
-+		info->so_timestamping =
-+			SOF_TIMESTAMPING_TX_SOFTWARE |
-+			SOF_TIMESTAMPING_RX_SOFTWARE |
-+			SOF_TIMESTAMPING_SOFTWARE;
-+		info->phc_index = -1;
-+		return 0;
-+	}
 +	info->so_timestamping =
-+		SOF_TIMESTAMPING_TX_HARDWARE |
-+		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_RAW_HARDWARE;
-+	info->phc_index = ixp46x_phc_index;
-+	info->tx_types =
-+		(1 << HWTSTAMP_TX_OFF) |
-+		(1 << HWTSTAMP_TX_ON);
-+	info->rx_filters =
-+		(1 << HWTSTAMP_FILTER_NONE) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ);
++		SOF_TIMESTAMPING_TX_SOFTWARE |
++		SOF_TIMESTAMPING_RX_SOFTWARE |
++		SOF_TIMESTAMPING_SOFTWARE;
++	info->phc_index = -1;
 +	return 0;
 +}
++EXPORT_SYMBOL(ethtool_op_get_ts_info);
 +
- static const struct ethtool_ops ixp4xx_ethtool_ops = {
- 	.get_drvinfo = ixp4xx_get_drvinfo,
- 	.get_settings = ixp4xx_get_settings,
- 	.set_settings = ixp4xx_set_settings,
- 	.nway_reset = ixp4xx_nway_reset,
- 	.get_link = ethtool_op_get_link,
-+	.get_ts_info = ixp4xx_get_ts_info,
- };
+ /* Handlers for each ethtool command */
  
- 
-diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
-index 6f2782b..9d13a71 100644
---- a/drivers/ptp/ptp_ixp46x.c
-+++ b/drivers/ptp/ptp_ixp46x.c
-@@ -284,6 +284,7 @@ static void __exit ptp_ixp_exit(void)
- {
- 	free_irq(MASTER_IRQ, &ixp_clock);
- 	free_irq(SLAVE_IRQ, &ixp_clock);
-+	ixp46x_phc_clock = -1;
- 	ptp_clock_unregister(ixp_clock.ptp_clock);
- }
- 
-@@ -302,6 +303,8 @@ static int __init ptp_ixp_init(void)
- 	if (IS_ERR(ixp_clock.ptp_clock))
- 		return PTR_ERR(ixp_clock.ptp_clock);
- 
-+	ixp46x_phc_clock = ptp_clock_index(ixp_clock.ptp_clock);
-+
- 	__raw_writel(DEFAULT_ADDEND, &ixp_clock.regs->addend);
- 	__raw_writel(1, &ixp_clock.regs->trgt_lo);
- 	__raw_writel(0, &ixp_clock.regs->trgt_hi);
+ #define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
 -- 
 1.7.2.5
-
-
-------------------------------------------------------------------------------
-Better than sec? Nothing is better than sec when it comes to
-monitoring Big Data applications. Try Boundary one-second 
-resolution app monitoring today. Free.
-http://p.sf.net/sfu/Boundary-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
