@@ -1,40 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: /proc/net/dev is funky in 3.3.0
-Date: Mon, 02 Apr 2012 21:29:12 -0700
-Message-ID: <4F7A7C98.1030103@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] TCP: Use 32768-65535 outgoing port range by default
+Date: Tue, 03 Apr 2012 00:50:27 -0400 (EDT)
+Message-ID: <20120403.005027.988304181797945160.davem@davemloft.net>
+References: <20120403094840.ftxlwztl40gwcg4s@webmail.int.intellilink.co.jp>
+	<20120403095018.rm7gil9xz0gsgccs@webmail.int.intellilink.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: fernando@intellilink.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:43925 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756Ab2DCE3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 00:29:13 -0400
-Received: from [50.47.233.138] (50-47-233-138.evrt.wa.frontiernet.net [50.47.233.138])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id q334TCkk018926
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 2 Apr 2012 21:29:13 -0700
+Received: from shards.monkeyblade.net ([198.137.202.13]:58175 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751Ab2DCEum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 00:50:42 -0400
+In-Reply-To: <20120403095018.rm7gil9xz0gsgccs@webmail.int.intellilink.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not all entries are shown!
+From: fernando@intellilink.co.jp
+Date: Tue,  3 Apr 2012 09:50:18 +0900
 
-[root@lanner-i7 lanforge]# cat /proc/net/dev|grep sta59
-[root@lanner-i7 lanforge]# ifconfig sta59
-sta59     Link encap:Ethernet  HWaddr 00:95:95:00:00:3C
-           inet addr:10.111.9.39  Bcast:10.111.255.255  Mask:255.255.0.0
-           inet6 addr: fe80::295:95ff:fe00:3c/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:58103 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:26167 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:39494634 (37.6 MiB)  TX bytes:37095540 (35.3 MiB)
+> There was a time when the ip masquerading code reserved the
+> 61000-65095 port range, which is the reason why the current default
+> upper limit in ip_local_port_range is 61000. However, the current
+> iptables-based masquerading and SNAT implementation does not have
+> that restriction; ipchains and the compatibilty mode that used the
+> range over 61000 exclusively is lone gone.
 
-Thanks,
-Ben
+I don't think so, anyone out there using "--to-port 61000-65095"
+or similar in their firewall setup will suddenly break with
+your change.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I'm not applying this patch.
