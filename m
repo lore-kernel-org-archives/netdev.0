@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 4/4] team: add loadbalance mode
-Date: Tue, 03 Apr 2012 18:38:27 -0400 (EDT)
-Message-ID: <20120403.183827.537974416471429606.davem@davemloft.net>
-References: <1333227682-10235-1-git-send-email-jpirko@redhat.com>
-	<1333227682-10235-5-git-send-email-jpirko@redhat.com>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: Re: [REGRESSION][PATCH V4 1/3] bpf jit: Make the filter.c::__load_pointer
+ helper non-static for the jits
+Date: Wed, 4 Apr 2012 00:41:25 +0200
+Message-ID: <4F7B7C95.6050406@googlemail.com>
+References: <4F75CC63.10405@googlemail.com> <20120403.180212.1644422418766062447.davem@davemloft.net> <4F7B7911.5090307@googlemail.com> <20120403.182822.530336438141782843.davem@davemloft.net>
+Reply-To: <kaffeemonster@googlemail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	raise.sail@gmail.com, nuno.martins@caixamagica.pt, matt@ozlabs.org
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39112 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753765Ab2DCWjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 18:39:37 -0400
-In-Reply-To: <1333227682-10235-5-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120403.182822.530336438141782843.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 31 Mar 2012 23:01:22 +0200
-
-> This patch introduces new team mode. It's TX port is selected by
-> user-set BPF hash function.
+David Miller schrieb:
+> From: Jan Seiffert <kaffeemonster@googlemail.com>
+> Date: Wed, 4 Apr 2012 00:26:25 +0200
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> Is that the preferred comment style in net/ ? Coding style says
+>> first line empty. Or just to match the rest of the file?
+> 
+> I'm not getting into this discussion right now, sorry.
+> 
 
-Please resubmit this once you've fixed up patch #3.
+Oh, sorry, i guess you misunderstood me.
+I didn't want to discuss anything, I'm fine either way,
+i just wanted to know what's the rule, so i can take notes and
+prevent the same error in the future.
+
+Greetings
+	Jan
