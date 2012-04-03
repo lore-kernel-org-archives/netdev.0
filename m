@@ -1,48 +1,59 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: sky2: in free_buffers() do proper checks before call of rx_clean()
-Date: Tue, 3 Apr 2012 02:13:27 +0200
-Message-ID: <20120403001327.GB10227@Neptun>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: NULL pointer dereference at __ip_route_output_key
+Date: Mon, 2 Apr 2012 20:22:00 -0400
+Message-ID: <20120403002200.GA21262@redhat.com>
+References: <20120402194056.GA1002@redhat.com>
+ <20120402.200711.2234324385609269937.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com, mlindner@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, kernel-team@fedoraproject.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15606 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750962Ab2DCAWE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Apr 2012 20:22:04 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120402.200711.2234324385609269937.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In sky2_open() free_buffers() is called in case that alloc_buffers() failed.
-Here we do the check for sky2->rx_le too late, since we already called
-rx_clean() which accessed rx_le. Furthermore we lack a check for sky2->rx_ring
-which is also accessed by rx_clean().
+On Mon, Apr 02, 2012 at 08:07:11PM -0400, David Miller wrote:
 
-With this patch both sky2->rx_le and sky2->rx_ring are checked before
-alloc_buffers() is called.
+ > > We just had this reported. Look familiar to anyone ?
+ > 
+ > If you could unravel the source file and line the OOPS occurs at, I
+ > can look at these kinds of reports much faster.  As it stands, when I
+ > see a Fedora OOPS, it's a long process for me:
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- This applies against 3.3
+Ok, I'll try and pull these apart for you in future, as I usually
+have the bits for the most recent builds around. 
 
- drivers/net/ethernet/marvell/sky2.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ > Anyways in this case dev_out is NULL when we read it around line
+ > 2798 of net/ipv4/route.c:
+ > 
+ > 	dev_out = FIB_RES_DEV(res);
+ > 	fl4->flowi4_oif = dev_out->ifindex;
+ > 
+ > and we are thus OOPS'ing on the dev_out->ifindex.
+ > 
+ > Unfortunately I've never seen a report like this.  If the reporter can
+ > reproduce, you can try to extract more information by doing something
+ > like this right after the dev_out assignment:
+ > 
+ > 	if (!dev_out) {
+ > 		pr_crit("ipv4: FIB_RES_DEV() is NULL, nh_sel=%d\n",
+ > 			res.nh_sel);
+ > 		rth = ERR_PTR(-EINVAL);
+ > 		goto out;
+ > 	}
+ > 
+ > This debugging will also avoid the NULL pointer crash at least for
+ > that particular invocation.
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 760c2b1..3e3eda6 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -1628,9 +1628,10 @@ static void sky2_free_buffers(struct sky2_port *sky2)
- {
- 	struct sky2_hw *hw = sky2->hw;
- 
--	sky2_rx_clean(sky2);
--
- 	if (sky2->rx_le) {
-+		if (sky2->rx_ring)
-+			sky2_rx_clean(sky2);
-+
- 		pci_free_consistent(hw->pdev, RX_LE_BYTES,
- 				    sky2->rx_le, sky2->rx_le_map);
- 		sky2->rx_le = NULL;
--- 
-1.7.2.5
+ok, I'll do a test build with this change for the user to try out.
+Hopefully he can retrigger it.
+
+thanks,
+
+	Dave
