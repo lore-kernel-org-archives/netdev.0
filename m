@@ -1,84 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] netfilter: xt_CT: remove a compile warning
-Date: Tue, 3 Apr 2012 10:17:28 +0200
-Message-ID: <20120403081728.GA19753@1984>
+Date: Tue, 03 Apr 2012 10:31:23 +0200
+Message-ID: <1333441883.18626.60.camel@edumazet-glaptop>
 References: <1333424902.18626.36.camel@edumazet-glaptop>
+	 <20120403081728.GA19753@1984>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ZoaI/ZTpAVc4A5k6"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54942 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751212Ab2DCIRf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 04:17:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1333424902.18626.36.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46342 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751429Ab2DCIb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 04:31:28 -0400
+Received: by bkcik5 with SMTP id ik5so3331077bkc.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 01:31:27 -0700 (PDT)
+In-Reply-To: <20120403081728.GA19753@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2012-04-03 at 10:17 +0200, Pablo Neira Ayuso wrote:
+> On Tue, Apr 03, 2012 at 05:48:22AM +0200, Eric Dumazet wrote:
+> > If CONFIG_NF_CONNTRACK_TIMEOUT=3Dn we have following warning :
+> >=20
+> >   CC [M]  net/netfilter/xt_CT.o
+> > net/netfilter/xt_CT.c: In function =E2=80=98xt_ct_tg_check_v1=E2=80=
+=99:
+> > net/netfilter/xt_CT.c:284: warning: label =E2=80=98err4=E2=80=99 de=
+fined but not used
+>=20
+> Thanks Eric.
+>=20
+> I think I prefer the one attached.
+>=20
+> I 'll pass it to davem with a couple of other minor fixes anytime soo=
+n.
 
---ZoaI/ZTpAVc4A5k6
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
+Its your call, but you should move the whole
 
-On Tue, Apr 03, 2012 at 05:48:22AM +0200, Eric Dumazet wrote:
-> If CONFIG_NF_CONNTRACK_TIMEOUT=n we have following warning :
-> 
->   CC [M]  net/netfilter/xt_CT.o
-> net/netfilter/xt_CT.c: In function ‘xt_ct_tg_check_v1’:
-> net/netfilter/xt_CT.c:284: warning: label ‘err4’ defined but not used
+#if CONFIG_NF_CONNTRACK_TIMEOUT
+	... lot of lines ...
+#endif
 
-Thanks Eric.
-
-I think I prefer the one attached.
-
-I 'll pass it to davem with a couple of other minor fixes anytime soon.
-
---ZoaI/ZTpAVc4A5k6
-Content-Type: text/x-diff; charset=utf-8
-Content-Disposition: attachment; filename="0001-netfilter-xt_CT-remove-a-compile-warning.patch"
-Content-Transfer-Encoding: 8bit
-
->From 44b52bccf855b0706de624c29fc3d82ca954bb4e Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 3 Apr 2012 10:08:48 +0200
-Subject: [PATCH] netfilter: xt_CT: remove a compile warning
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-If CONFIG_NF_CONNTRACK_TIMEOUT=n we have following warning :
-
-  CC [M]  net/netfilter/xt_CT.o
-net/netfilter/xt_CT.c: In function ‘xt_ct_tg_check_v1’:
-net/netfilter/xt_CT.c:284: warning: label ‘err4’ defined but not used
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_CT.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index 0c8e438..138b75e 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -281,8 +281,10 @@ out:
- 	info->ct = ct;
- 	return 0;
- 
-+#ifdef CONFIG_NF_CONNTRACK_TIMEOUT
- err4:
- 	rcu_read_unlock();
-+#endif
- err3:
- 	nf_conntrack_free(ct);
- err2:
--- 
-1.7.2.5
-
-
---ZoaI/ZTpAVc4A5k6--
+in a helper function to make things a bit more maintainable
