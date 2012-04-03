@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 17/28] ll_temac: Support the
+Subject: [PATCH V3 net-next 20/28] pxa168_eth: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:41 +0200
-Message-ID: <0cfa6071c3a044817ed88e154441ef8571386a82.1333474524.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:44 +0200
+Message-ID: <0f46b95d36a5d765cb08cc4d800f713239d8e8d6.1333474524.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/xilinx/ll_temac_main.c |    1 +
+ drivers/net/ethernet/marvell/pxa168_eth.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index d21591a..1eaf712 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1000,6 +1000,7 @@ static const struct ethtool_ops temac_ethtool_ops = {
- 	.set_settings = temac_set_settings,
- 	.nway_reset = temac_nway_reset,
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index 45a6333..44bad60 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -1457,6 +1457,7 @@ static const struct ethtool_ops pxa168_ethtool_ops = {
+ 	.set_settings = pxa168_set_settings,
+ 	.get_drvinfo = pxa168_get_drvinfo,
  	.get_link = ethtool_op_get_link,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- static int __devinit temac_of_probe(struct platform_device *op)
+ static const struct net_device_ops pxa168_eth_netdev_ops = {
 -- 
 1.7.2.5
 
