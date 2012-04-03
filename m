@@ -1,52 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] marvell sky2 driver: fix irq number assignment bug
-Date: Tue, 3 Apr 2012 16:47:04 +0100
-Message-ID: <1333468024.2577.21.camel@bwh-desktop.uk.solarflarecom.com>
-References: <201204031526.q33FQvFO031746@farm-0027.internal.tilera.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] ARM: OMAP: AM33XX: CAN: d_can: Add support for Bosch
+ D_CAN controller
+Date: Tue, 03 Apr 2012 17:54:23 +0200
+Message-ID: <4F7B1D2F.40409@hartkopp.net>
+References: <1333456339-9372-1-git-send-email-anilkumar@ti.com> <331ABD5ECB02734CA317220B2BBEABC1317D84CC@DBDE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204031526.q33FQvFO031746@farm-0027.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "m.kleine-budde@pengutronix.de" <m.kleine-budde@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Gole, Anant" <anantgole@ti.com>, "Nori, Sekhar" <nsekhar@ti.com>
+To: "AnilKumar, Chimata" <anilkumar@ti.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <331ABD5ECB02734CA317220B2BBEABC1317D84CC@DBDE01.ent.ti.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-04-03 at 11:10 -0400, Chris Metcalf wrote:
-> Fix a minor bug that will display wrong IRQ number in ifconfig output.
+On 03.04.2012 14:39, AnilKumar, Chimata wrote:
+
+> Hi All,
 > 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
->  drivers/net/ethernet/marvell/sky2.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index 423a1a2..879b0a4 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -4978,6 +4978,13 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
->  			goto err_out_free_netdev;
->   	}
->  
-> +	/*
-> +	 * Need to set the IRQ # for the net_device here again after
-> +	 * setting it in sky2_init_netdev() initially, because MSI
-> +	 * will assign a new IRQ # to this PCI device.
-> +	 */
-> +	dev->irq = hw->pdev->irq;
-> +
->  	err = register_netdev(dev);
->  	if (err) {
->  		dev_err(&pdev->dev, "cannot register net device\n");
+> Subject line of this patch should be
+> "ARM: CAN: d_can: Add support for Bosch D_CAN controller"
 
-I think the consensus now is that net_device::irq should be left at 0
-for devices that don't support manual configuration (ISA and the like).
 
-Ben.
+No, the d_can IP core is generally not limited to ARM.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+	"can: Add support for Bosch D_CAN controller"
+
+would be perfectly fine.
+
+The correct way is:
+
+1. post your new CAN driver to linux-can ML
+2. When the major reviews & style fixes are done and the driver is fit for
+mainline you can post it on ti-omap ML too
+
+But an initial cross-posting of this CAN driver to netdev ML and linux-kernel
+ML does not help anyone - it only increases traffic & confusion.
+
+See MAINTAINERS:
+
+http://lxr.linux.no/#linux+v3.3.1/MAINTAINERS#L1710
+
+Thanks for following these hints,
+Oliver
