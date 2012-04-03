@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 20/28] pxa168_eth: Support the
+Subject: [PATCH V3 net-next 18/28] macb: Support the
 	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:44 +0200
-Message-ID: <0f46b95d36a5d765cb08cc4d800f713239d8e8d6.1333474524.git.richardcochran@gmail.com>
+Date: Tue,  3 Apr 2012 19:47:42 +0200
+Message-ID: <deb3d92b6a72c5871b2fa9f00c5818c178488b4b.1333474524.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/marvell/pxa168_eth.c |    1 +
+ drivers/net/ethernet/cadence/macb.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 45a6333..44bad60 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1457,6 +1457,7 @@ static const struct ethtool_ops pxa168_ethtool_ops = {
- 	.set_settings = pxa168_set_settings,
- 	.get_drvinfo = pxa168_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
-+	.get_ts_info = ethtool_op_get_ts_info,
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index c4834c2..1466bc4 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1213,6 +1213,7 @@ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.set_settings		= macb_set_settings,
+ 	.get_drvinfo		= macb_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static const struct net_device_ops pxa168_eth_netdev_ops = {
+ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 -- 
 1.7.2.5
 
