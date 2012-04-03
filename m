@@ -1,67 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] e1000e: Guarantee descriptor writeback flush success.
-Date: Tue,  3 Apr 2012 15:28:59 -0700
-Message-ID: <1333492139-32697-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1333492139-32697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28712 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755629Ab2DCW3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Apr 2012 18:29:04 -0400
-In-Reply-To: <1333492139-32697-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
+ negative offsets
+Date: Wed, 4 Apr 2012 00:31:53 +0200
+Message-ID: <4F7B7A59.2090904@googlemail.com>
+References: <4F75CA89.4010709@googlemail.com> <4F75D2A5.7060407@googlemail.com> <20120403.180302.342779808900865443.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120403.180302.342779808900865443.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Vick <matthew.vick@intel.com>
+David Miller schrieb:
+[snip - my patch description]
+>=20
+> I'm not applying this until a powerpc person tests it.
+>=20
 
-In rare circumstances, a descriptor writeback flush may not work if it
-arrives on a specific clock cycle as a writeback request is going out.
+As Benjamin already said, Matt is having a look, so i expected nothing =
+else.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |   17 +++++++++++++++++
- 1 files changed, 17 insertions(+), 0 deletions(-)
+> Also, we have an ARM JIT in the tree which probably needs to
+> be fixed similarly.
+>=20
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 6878601..19ab215 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1059,6 +1059,13 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
- 		/* execute the writes immediately */
- 		e1e_flush();
-+		/*
-+		 * Due to rare timing issues, write to TIDV again to ensure
-+		 * the write is successful
-+		 */
-+		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+		/* execute the writes immediately */
-+		e1e_flush();
- 		adapter->tx_hang_recheck = true;
- 		return;
- 	}
-@@ -3616,6 +3623,16 @@ static void e1000e_flush_descriptors(struct e1000_adapter *adapter)
- 
- 	/* execute the writes immediately */
- 	e1e_flush();
-+
-+	/*
-+	 * due to rare timing issues, write to TIDV/RDTR again to ensure the
-+	 * write is successful
-+	 */
-+	ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+	ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
-+
-+	/* execute the writes immediately */
-+	e1e_flush();
- }
- 
- static void e1000e_update_stats(struct e1000_adapter *adapter);
--- 
-1.7.7.6
+???
+Oh, in which tree is it?
+I was working against net-next.
+
+Greetings
+	Jan
+
+
+--=20
+=CB=99q=C9=90=C9=A5 =CA=87=C9=9Fn=C9=90=CA=9E=C7=9D=C6=83 =CA=8E=C9=90q=
+=C7=9D =C4=B1=C7=9Dq =C9=B9n=CA=87=C9=90=CA=87s=C9=90=CA=87 =C7=9Du=C4=B1=
+=C7=9D =C9=B9=C4=B1=C9=AF =C9=A5=C9=94=C4=B1 s=C9=90p l=C9=90=C9=AF =C7=
+=9D=CA=87z=CA=87=C7=9Dl s=C9=90p =CA=87s=C4=B1 s=C9=90p=20
+'=CA=87=C9=AF=C9=AF=C9=90p=C9=B9=C7=9D=CA=8C
