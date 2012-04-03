@@ -1,33 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 5/5] e1000e: Minor comment clean-up.
-Date: Tue, 03 Apr 2012 18:19:42 -0400 (EDT)
-Message-ID: <20120403.181942.2084547612332967433.davem@davemloft.net>
-References: <1333491489-29933-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1333491489-29933-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] tilepro ethernet driver: fix a few minor issues
+Date: Tue, 03 Apr 2012 18:23:35 -0400 (EDT)
+Message-ID: <20120403.182335.782073108961783777.davem@davemloft.net>
+References: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: matthew.vick@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755187Ab2DCWTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 18:19:46 -0400
-In-Reply-To: <1333491489-29933-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  3 Apr 2012 15:18:09 -0700
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Fri, 30 Mar 2012 19:23:35 -0400
 
-> From: Matthew Vick <matthew.vick@intel.com>
+> This commit fixes a number of issues seen with the driver:
 > 
-> Move the first phrase of a multi-line comment to the second line.
+> - Improve handling of return credits to the hardware shim
+> - Use skb_frag_size() appropriately
+> - Add netpoll support to run console over UDP
 > 
-> Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 
-Also not appropriate for 'net'
+Please do not mix pure bug fixes and new features.
+
+Submit the pure bug fixes separately for 'net' tree submission
+and then submit feature additions like netpoll support in
+a patch targetting the 'net-next' tree.
+
+> +	/* Handle completions if needed to make room. */
+> +	/* NOTE: Return NETDEV_TX_BUSY if there is still no room. */
+
+Do not format comments like this, use something like this instead:
+
+	/* Handle completions if needed to make room.
+	 * NOTE: Return NETDEV_TX_BUSY if there is still no room.
+	 */
+
+>  	/* Prepare to advance, detecting full queue. */
+> +	/* NOTE: Return NETDEV_TX_BUSY if the queue is full. */
+
+Similarly, combine them up into a single comment.
+
+> +	/* Handle completions if needed to make room. */
+> +	/* NOTE: Return NETDEV_TX_BUSY if there is still no room. */
+
+Same here.
+
+>  	/* Copy the commands, or fail. */
+> +	/* NOTE: Return NETDEV_TX_BUSY if the queue is full. */
+
+Again.
+
+> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> +/*
+> + * Polling 'interrupt' - used by things like netconsole to send skbs
+
+Format the comment:
+
+	/* Like
+	 * this.
+	 */
+
+not:
+
+	/*
+	 * Like
+	 * this.
+	 */
