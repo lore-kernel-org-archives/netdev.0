@@ -1,25 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION][PATCH V4 1/3] bpf jit: Make the
- filter.c::__load_pointer helper non-static for the jits
-Date: Tue, 03 Apr 2012 18:28:22 -0400 (EDT)
-Message-ID: <20120403.182822.530336438141782843.davem@davemloft.net>
-References: <4F75CC63.10405@googlemail.com>
-	<20120403.180212.1644422418766062447.davem@davemloft.net>
-	<4F7B7911.5090307@googlemail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kaffeemonster@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F7B7911.5090307@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Tue,  3 Apr 2012 15:28:56 -0700
+Message-ID: <1333492139-32697-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:28712 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754516Ab2DCW3C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Apr 2012 18:29:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Date: Wed, 4 Apr 2012 00:26:25 +0200
+This series of patches contains fixes for ixgbe and e1000e.
 
-> Is that the preferred comment style in net/ ? Coding style says
-> first line empty. Or just to match the rest of the file?
+The following are changes since commit 01627d968c8b5e2810fe8c417b406b968297c236:
+  Merge branch 'drm-fixes-intel' of git://people.freedesktop.org/~airlied/linux
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-I'm not getting into this discussion right now, sorry.
+Bruce Allan (1):
+  e1000e: prevent oops when adapter is being closed and reset
+    simultaneously
+
+Matthew Vick (1):
+  e1000e: Guarantee descriptor writeback flush success.
+
+Multanen, Eric W (1):
+  ixgbe: driver fix for link flap
+
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    6 +
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   26 ++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |  164 +++++++++++------------
+ 3 files changed, 112 insertions(+), 84 deletions(-)
+
+-- 
+1.7.7.6
