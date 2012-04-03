@@ -1,32 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6 0/2] Ethernet drivers for WIZnet chips
-Date: Tue, 03 Apr 2012 13:39:30 +0200
-Message-ID: <1333453170.18626.65.camel@edumazet-glaptop>
-References: <1332752876-1650-1-git-send-email-msink@permonline.ru>
-	 <1333450726-24455-1-git-send-email-msink@permonline.ru>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH 3/3] netfilter: xt_CT: remove a compile warning
+Date: Tue, 3 Apr 2012 20:48:21 +0900
+Message-ID: <201204032048.GFH51564.QSOVLMOOJHtFFF@I-love.SAKURA.ne.jp>
+References: <1333448001-2507-1-git-send-email-pablo@netfilter.org>
+	<1333448001-2507-4-git-send-email-pablo@netfilter.org>
+	<201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mike Sinkovsky <msink@permonline.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333450726-24455-1-git-send-email-msink@permonline.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:65497 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974Ab2DCLs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:48:26 -0400
+In-Reply-To: <201204031927.AIJ09351.FQFMJOOVFSOtHL@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-03 at 16:58 +0600, Mike Sinkovsky wrote:
-> Based on original driver from chip manufacturer, but nearly full rewite.
-> Tested and used in production with Blackfin BF531 embedded processor.
-> 
-> Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
-> ---
-> v6:
->  - remove (S0_TX_FSR < skb->len) check in TX handler, it doesn't work
->    anyway. Chip can transmit only one frame with MTU 1500 at a time,
->    and tx buffer size is bigger.
+One more question.
 
-So what happens if XXX frames are given to start_xmit() in a flood ?
+Tetsuo Handa wrote:
+> 216 #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
+> 217         if (info->timeout) {
+> 218                 typeof(nf_ct_timeout_find_get_hook) timeout_find_get;
+> 219                 struct ctnl_timeout *timeout;
+> 220                 struct nf_conn_timeout *timeout_ext;
+> 221 
+> 222                 rcu_read_lock();
+> 223                 timeout_find_get =
+> 224                         rcu_dereference(nf_ct_timeout_find_get_hook);
+> 225 
+> 226                 if (timeout_find_get) {
 
-You removed any flow control, how can this work ?
+I assume timeout_find_get points to e.g. ctnl_timeout_find_get in
+net/netfilter/nfnetlink_cttimeout.c . If yes,
 
-Device has an infinite queue ?
+> 227                         const struct ipt_entry *e = par->entryinfo;
+> 228                         struct nf_conntrack_l4proto *l4proto;
+> 229 
+> 230                         if (e->ip.invflags & IPT_INV_PROTO) {
+> 231                                 ret = -EINVAL;
+> 232                                 pr_info("You cannot use inversion on "
+> 233                                          "L4 protocol\n");
+> 234                                 goto err4;
+> 235                         }
+> 236                         timeout = timeout_find_get(info->timeout);
+> 237                         if (timeout == NULL) {
+> 238                                 ret = -ENOENT;
+> 239                                 pr_info("No such timeout policy \"%s\"\n",
+> 240                                         info->timeout);
+> 241                                 goto err4;
+> 242                         }
+
+I think "goto err4;" after successful timeout_find_get() wants e.g.
+nf_ct_timeout_put_hook call (e.g. ctnl_timeout_put()).
+
+> 243                         if (timeout->l3num != par->family) {
+> 244                                 ret = -EINVAL;
+> 245                                 pr_info("Timeout policy `%s' can only be "
+> 246                                         "used by L3 protocol number %d\n",
+> 247                                         info->timeout, timeout->l3num);
+> 248                                 goto err4;
+> 249                         }
