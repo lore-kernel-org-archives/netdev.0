@@ -1,40 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] TCP: update ip_local_port_range documentation
-Date: Tue, 03 Apr 2012 17:40:37 -0400 (EDT)
-Message-ID: <20120403.174037.1557770873488371175.davem@davemloft.net>
-References: <20120403200834.witdp0frwwo48occ@webmail.int.intellilink.co.jp>
-	<20120403201221.ovff4aabtwwcoco0@webmail.int.intellilink.co.jp>
-	<20120404034140.9qatex0wg8ccok4o@webmail.int.intellilink.co.jp>
+Subject: Re: [PATCH] marvell sky2 driver: fix irq number assignment bug
+Date: Tue, 03 Apr 2012 17:41:39 -0400 (EDT)
+Message-ID: <20120403.174139.1088270699067881012.davem@davemloft.net>
+References: <201204031526.q33FQvFO031746@farm-0027.internal.tilera.com>
+	<1333468024.2577.21.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: fernando@intellilink.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38558 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755073Ab2DCVkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 17:40:45 -0400
-In-Reply-To: <20120404034140.9qatex0wg8ccok4o@webmail.int.intellilink.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cmetcalf@tilera.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1333468024.2577.21.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: fernando@intellilink.co.jp
-Date: Wed,  4 Apr 2012 03:41:40 +0900
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 3 Apr 2012 16:47:04 +0100
 
-> I forgot to add my Signed-off-by and the patch explanation.
-> I am aosrry for the noise. Updated patch attached.
+> On Tue, 2012-04-03 at 11:10 -0400, Chris Metcalf wrote:
+>> Fix a minor bug that will display wrong IRQ number in ifconfig output.
+>> 
+>> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+>> ---
+>>  drivers/net/ethernet/marvell/sky2.c |    7 +++++++
+>>  1 files changed, 7 insertions(+), 0 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+>> index 423a1a2..879b0a4 100644
+>> --- a/drivers/net/ethernet/marvell/sky2.c
+>> +++ b/drivers/net/ethernet/marvell/sky2.c
+>> @@ -4978,6 +4978,13 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
+>>  			goto err_out_free_netdev;
+>>   	}
+>>  
+>> +	/*
+>> +	 * Need to set the IRQ # for the net_device here again after
+>> +	 * setting it in sky2_init_netdev() initially, because MSI
+>> +	 * will assign a new IRQ # to this PCI device.
+>> +	 */
+>> +	dev->irq = hw->pdev->irq;
+>> +
+>>  	err = register_netdev(dev);
+>>  	if (err) {
+>>  		dev_err(&pdev->dev, "cannot register net device\n");
+> 
+> I think the consensus now is that net_device::irq should be left at 0
+> for devices that don't support manual configuration (ISA and the like).
 
-Since you put this at the top of the message body, I had to
-edit it out of the patch submission by hand.
-
-Your commit message proper needed to be edited by hand as well
-because there were missing spaces between the Documentation
-file path and the word that came right afterwards.
-
-Furthermore, you had trailing whitespace in your patch, which I also
-had to fix up by hand.
-
-You know, this wasn't exactly a rocket-science patch, I spent more
-time fixing up your patch than I would have spend implementing
-the patch myself.  That is _never_ a good sign.
+Agreed.
