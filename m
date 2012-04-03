@@ -1,201 +1,124 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V5 1/8] net/mlx4_en: Force user priority by QP attribute
-Date: Tue,  3 Apr 2012 14:10:00 +0300
-Message-ID: <1333451407-5293-2-git-send-email-amirv@mellanox.com>
-References: <1333451407-5293-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V5 0/8] net/mlx4_en: DCB QoS support
+Date: Tue,  3 Apr 2012 14:09:59 +0300
+Message-ID: <1333451407-5293-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@dev.mellanox.co.il>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:54174 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751552Ab2DCLKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:10:24 -0400
-In-Reply-To: <1333451407-5293-1-git-send-email-amirv@mellanox.com>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:38628 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752437Ab2DCLKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 07:10:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of relying on HW to change schedule queue by UP, schedule
-queue is fixed for a tx_ring, and UP in WQE is ignored in this aspect.  This
-resolves two issues with untagged traffic:
-1. untagged traffic has no UP in packet which is needed for QoS. The change
-   above allows setting the schedule queue (and by that the UP) of such a stream.
-2. BlueFlame uses the same field used by vlan tag. So forcing UP from QPC
-   allows using BF for untagged but prioritized traffic.
+DCBX version 802.1qaz is supported.
+User Priority (UP) is set in QP context instead of in WQE (QP Work Queue
+Element), which means that all traffic from a queue will have the same UP.
+UP is also set for untagged traffic to be able to classify such traffic too.
 
-In old firmware that force UP is not supported, untagged traffic will not subject to
-QoS.
+Mapping from sk_prio to User Priority is done by sch_mqprio mapping. Although
+confusingly sch_mqprio maps sk_prio to something called TC, it is not related
+to DCBX's TC, and is interpreted by mlx4_en driver as UP.
 
-Because UP is set by QP, need to always have a tx ring per UP, even if pfcrx
-module paramter is false.
+User can set maximal BW for an ETS TC. This could be done by a new optional
+attribute added to DCB_ATTR_IEEE called DCBNL DCB_ATTR_IEEE_MAXRATE. It accept
+an array of 8 64 bits values, 1 for every ETS TC. Units are in Kbps.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+
 ---
- drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   12 ++++--------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |    6 +++---
- include/linux/mlx4/qp.h                           |    3 ++-
- 7 files changed, 19 insertions(+), 17 deletions(-)
+Changes from V4:
+- Patch 2/8 - set port QoS attributes
+  - HW commands are using HW ratelimit units (100Mbps)
+- Patch 3/8 - DCB QoS support
+  - ets attributes are stored inline mlx4_en_priv and not alloced separately
+  - Changed variable name: priv->mlx4_en_ieee_ets into priv->ets
+- Patch 8/8 - Set max rate-limit for a TC in mlx4 driver using the
+  - ratelimit is stored inline mlx4_en_priv and not allocated separately
+  - ratelimit values are converted from Kbps into HW units (100Mbps) in the
+    netlink callback instead of in the HW access function.
+  - ratelimit values are rounded up. 0 is used for unlimited.  
+  - moving ratelimit to be inline mlx4_en_priv also addresses Eric D. comments
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index 2097a7d..346fdb2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -114,7 +114,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
- 		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
- 		params->prof[i].tx_ring_num = MLX4_EN_NUM_TX_RINGS +
--			(!!pfcrx) * MLX4_EN_NUM_PPP_RINGS;
-+			MLX4_EN_NUM_PPP_RINGS;
- 		params->prof[i].rss_rings = 0;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 31b455a..2322622 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -650,7 +650,8 @@ int mlx4_en_start_port(struct net_device *dev)
- 
- 		/* Configure ring */
- 		tx_ring = &priv->tx_ring[i];
--		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn);
-+		err = mlx4_en_activate_tx_ring(priv, tx_ring, cq->mcq.cqn,
-+				max(0, i - MLX4_EN_NUM_TX_RINGS));
- 		if (err) {
- 			en_err(priv, "Failed allocating Tx ring\n");
- 			mlx4_en_deactivate_cq(priv, cq);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index bcbc54c..10c24c7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -39,7 +39,7 @@
- 
- void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 			     int is_tx, int rss, int qpn, int cqn,
--			     struct mlx4_qp_context *context)
-+			     int user_prio, struct mlx4_qp_context *context)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 
-@@ -57,6 +57,10 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 	context->local_qpn = cpu_to_be32(qpn);
- 	context->pri_path.ackto = 1 & 0x07;
- 	context->pri_path.sched_queue = 0x83 | (priv->port - 1) << 6;
-+	if (user_prio >= 0) {
-+		context->pri_path.sched_queue |= user_prio << 3;
-+		context->pri_path.feup = 1 << 6;
-+	}
- 	context->pri_path.counter_index = 0xff;
- 	context->cqn_send = cpu_to_be32(cqn);
- 	context->cqn_recv = cpu_to_be32(cqn);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 9adbd53..d49a7ac 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -823,7 +823,7 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
- 
- 	memset(context, 0, sizeof *context);
- 	mlx4_en_fill_qp_context(priv, ring->actual_size, ring->stride, 0, 0,
--				qpn, ring->cqn, context);
-+				qpn, ring->cqn, -1, context);
- 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
- 
- 	/* Cancel FCS removal if FW allows */
-@@ -890,7 +890,7 @@ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
- 	}
- 	rss_map->indir_qp.event = mlx4_en_sqp_event;
- 	mlx4_en_fill_qp_context(priv, 0, 0, 0, 1, priv->base_qpn,
--				priv->rx_ring[0].cqn, &context);
-+				priv->rx_ring[0].cqn, -1, &context);
- 
- 	if (!priv->prof->rss_rings || priv->prof->rss_rings > priv->rx_ring_num)
- 		rss_rings = priv->rx_ring_num;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 1796824..94a605a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -156,7 +156,7 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 
- int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_tx_ring *ring,
--			     int cq)
-+			     int cq, int user_prio)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	int err;
-@@ -174,7 +174,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 	ring->doorbell_qpn = ring->qp.qpn << 8;
- 
- 	mlx4_en_fill_qp_context(priv, ring->size, ring->stride, 1, 0, ring->qpn,
--				ring->cqn, &ring->context);
-+				ring->cqn, user_prio, &ring->context);
- 	if (ring->bf_enabled)
- 		ring->context.usr_page = cpu_to_be32(ring->bf.uar->index);
- 
-@@ -570,18 +570,14 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
- 
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
--	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	u16 vlan_tag = 0;
- 
--	/* If we support per priority flow control and the packet contains
--	 * a vlan tag, send the packet to the TX ring assigned to that priority
--	 */
--	if (priv->prof->rx_ppp && vlan_tx_tag_present(skb)) {
-+	if (vlan_tx_tag_present(skb)) {
- 		vlan_tag = vlan_tx_tag_get(skb);
- 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
- 	}
- 
--	return skb_tx_hash(dev, skb);
-+	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
- }
- 
- static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9e2b911..5bd7c2a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -521,7 +521,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ri
- void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv, struct mlx4_en_tx_ring *ring);
- int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_tx_ring *ring,
--			     int cq);
-+			     int cq, int user_prio);
- void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring);
- 
-@@ -539,8 +539,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
- 			  int budget);
- int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
- void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
--			     int is_tx, int rss, int qpn, int cqn,
--			     struct mlx4_qp_context *context);
-+		int is_tx, int rss, int qpn, int cqn, int user_prio,
-+		struct mlx4_qp_context *context);
- void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event);
- int mlx4_en_map_buffer(struct mlx4_buf *buf);
- void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
-diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-index 091f9e7..96005d7 100644
---- a/include/linux/mlx4/qp.h
-+++ b/include/linux/mlx4/qp.h
-@@ -139,7 +139,8 @@ struct mlx4_qp_path {
- 	u8			rgid[16];
- 	u8			sched_queue;
- 	u8			vlan_index;
--	u8			reserved3[2];
-+	u8			feup;
-+	u8			reserved3;
- 	u8			reserved4[2];
- 	u8			dmac[6];
- };
+Changes from V3:
+After having a discussion about the API to set/get rate limit of an ETS TC,
+decided to extend DCBNL with an optional attribute for that:
+- new patch 7/8 Add an optional max rate attribute to DCBNL
+- new patch 8/8 Set max rate-limit for a TC in mlx4 driver using the
+  infrastructure from patch 7/8
+
+Changes from V2:
+- Removed patch 4 who deal with setting ratelimit through sysfs - Still under discussion
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Kbps instead of Mbps units.
+
+Changes from V1:
+- Patch 1/7 - Force user priority by QP attribute
+  - removed unneeded comment
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Mbps instead of 100Mbps units.
+- Patch 3/7 - DCB QoS support
+  - Split mlx4_en_config_port_scheduler from mlx4_en_dcbnl_ieee_setets - enable
+    setting ratelimit only, without setting up to tc mapping
+- Patch 4/7 - Set max rate-limit for a TC
+  - Rewritten patch according to comment from Eric D.
+  - setting ratelimit is through sysfs files:
+    /sys/class/net/<intf>/ratelimit/tc0
+    /sys/class/net/<intf>/ratelimit/tc1
+    ...
+    /sys/class/net/<intf>/ratelimit/tc7
+- Patch 5/7 - sk_prio <=> UP for untagged traffic  
+  - Using skb_tx_hash for queue selection of untagged traffic
+- Added Patch 6/7 - export symbol ip_tos2prio
+  - Fixed patch according to comment from Eric D.
+- Patch 7/7 - TOS <=> UP mapping for IBoE
+  - No need to clone code from route.c anymore - removed it
+    
+Changes from V0:
+- Removed patches 6 and 7 who deal with the interaction between the kernel HW
+  QoS constructs to the queue selection logic are still under discussion with
+  John and some changes might be needed there.
+
+Amir Vadai (8):
+  net/mlx4_en: Force user priority by QP attribute
+  net/mlx4_core: set port QoS attributes
+  net/mlx4_en: DCB QoS support
+  net/mlx4_en: sk_prio <=> UP for untagged traffic
+  net/route: export symbol ip_tos2prio
+  IB/rdma_cm: TOS <=> UP mapping for IBoE
+  net/dcb: Add an optional max rate attribute
+  net/mlx4_en: Set max rate-limit for a TC
+
+ drivers/infiniband/core/cma.c                     |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/Kconfig        |   12 +
+ drivers/net/ethernet/mellanox/mlx4/Makefile       |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  254 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   26 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h      |    2 +
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   10 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |   20 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   28 ++-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   62 +++++
+ include/linux/dcbnl.h                             |    5 +
+ include/linux/mlx4/cmd.h                          |    4 +
+ include/linux/mlx4/device.h                       |    3 +
+ include/linux/mlx4/qp.h                           |    3 +-
+ include/net/dcbnl.h                               |    2 +
+ net/dcb/dcbnl.c                                   |   18 ++
+ net/ipv4/route.c                                  |    2 +-
+ 20 files changed, 452 insertions(+), 18 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+
 -- 
 1.7.8.2
