@@ -1,59 +1,45 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 net-next 22/28] r8169: Support the
-	get_ts_info ethtool method.
-Date: Tue,  3 Apr 2012 19:47:46 +0200
-Message-ID: <16d26504704e7b9af2a4d3fd5c4ef829e45bfd33.1333474524.git.richardcochran@gmail.com>
+Subject: [PATCH V3 net-next 19/28] mv643xx_eth: Support the get_ts_info ethtool method.
+Date: Tue,  3 Apr 2012 19:47:43 +0200
+Message-ID: <50016870dd63c9df2dc66855275ee410bce39500.1333474524.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, Martin Porter <mporter@solarflare.com>,
-	John Ronciak <john.ronciak@intel.com>,
+Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>
+	Martin Porter <mporter@solarflare.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:60390 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755376Ab2DCRt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 13:49:29 -0400
+Received: by mail-we0-f174.google.com with SMTP id x9so2519946wej.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 10:49:28 -0700 (PDT)
 In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1333474520.git.richardcochran@gmail.com>
 References: <cover.1333474520.git.richardcochran@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |    1 +
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 27c358c..074a574 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1854,6 +1854,7 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_strings		= rtl8169_get_strings,
- 	.get_sset_count		= rtl8169_get_sset_count,
- 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 75af1af..153d332 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1666,6 +1666,7 @@ static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
+ 	.get_strings		= mv643xx_eth_get_strings,
+ 	.get_ethtool_stats	= mv643xx_eth_get_ethtool_stats,
+ 	.get_sset_count		= mv643xx_eth_get_sset_count,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 
 -- 
 1.7.2.5
-
-
-------------------------------------------------------------------------------
-Better than sec? Nothing is better than sec when it comes to
-monitoring Big Data applications. Try Boundary one-second 
-resolution app monitoring today. Free.
-http://p.sf.net/sfu/Boundary-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
