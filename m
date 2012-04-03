@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: allow splice() to build full TSO packets
-Date: Tue, 03 Apr 2012 17:36:14 -0400 (EDT)
-Message-ID: <20120403.173614.962252876842659412.davem@davemloft.net>
-References: <1333481821.18626.322.camel@edumazet-glaptop>
-	<20120403.172126.672236532461758456.davem@davemloft.net>
-	<1333488689.18626.331.camel@edumazet-glaptop>
+Subject: Re: [PATCH v3] TCP: update ip_local_port_range documentation
+Date: Tue, 03 Apr 2012 17:40:37 -0400 (EDT)
+Message-ID: <20120403.174037.1557770873488371175.davem@davemloft.net>
+References: <20120403200834.witdp0frwwo48occ@webmail.int.intellilink.co.jp>
+	<20120403201221.ovff4aabtwwcoco0@webmail.int.intellilink.co.jp>
+	<20120404034140.9qatex0wg8ccok4o@webmail.int.intellilink.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	ycheng@google.com, hkchu@google.com, maze@google.com,
-	maheshb@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com
-To: eric.dumazet@gmail.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: fernando@intellilink.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38530 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38558 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753690Ab2DCVg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 17:36:28 -0400
-In-Reply-To: <1333488689.18626.331.camel@edumazet-glaptop>
+	with ESMTP id S1755073Ab2DCVkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 17:40:45 -0400
+In-Reply-To: <20120404034140.9qatex0wg8ccok4o@webmail.int.intellilink.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Apr 2012 23:31:29 +0200
+From: fernando@intellilink.co.jp
+Date: Wed,  4 Apr 2012 03:41:40 +0900
 
-> The code in tcp_sendmsg() and do_tcp_sendpages() is similar (actually
-> probably copy/pasted) but the thing is tcp_sendmsg() is called once per
-> sendmsg() call (and the push logic is OK at the end of it), while a
-> single splice() system call can call do_tcp_sendpages() 16 times (or
-> even more if pipe buffer was extended by fcntl(F_SETPIPE_SZ))
+> I forgot to add my Signed-off-by and the patch explanation.
+> I am aosrry for the noise. Updated patch attached.
 
-Ok, so this means that in essence the tcp_mark_push should also only
-be done in the final sendpage call.
+Since you put this at the top of the message body, I had to
+edit it out of the patch submission by hand.
 
-And since I'm wholly convinced that the URG stuff is a complete
-"don't care" for this path, I'm convinced your patch is the right
-thing to do.
+Your commit message proper needed to be edited by hand as well
+because there were missing spaces between the Documentation
+file path and the word that came right afterwards.
 
-Applied to 'net' and queued up for -stable, thanks Eric.
+Furthermore, you had trailing whitespace in your patch, which I also
+had to fix up by hand.
 
-> Maybe a real fix would be to call do_tcp_sendpages() exactly once, but I
-> tried this today and found needed surgery was complex). Also this would
-> lock socket for a long period and could add latencies because of backlog
-> processing.
-
-I don't think this is a good idea.  Maybe we can do some level of
-batching at some point, but it would need to have a limit.
+You know, this wasn't exactly a rocket-science patch, I spent more
+time fixing up your patch than I would have spend implementing
+the patch myself.  That is _never_ a good sign.
