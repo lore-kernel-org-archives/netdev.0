@@ -1,71 +1,59 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V4 net-next 05/26] bfin_mac: Support the get_ts_info ethtool method.
-Date: Wed,  4 Apr 2012 10:59:20 +0200
-Message-ID: <88e5b2cfcabda03826bb576b21e2e1d990f07117.1333529506.git.richardcochran@gmail.com>
+Subject: [PATCH V4 net-next 08/26] ax88796: Support the
+	get_ts_info ethtool method.
+Date: Wed,  4 Apr 2012 10:59:23 +0200
+Message-ID: <29a0a5c6a4099dcbc51bf13fca2754f1c5428d14.1333529506.git.richardcochran@gmail.com>
 References: <cover.1333529504.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Martin Porter <mporter@solarflare.com>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, Martin Porter <mporter@solarflare.com>,
 	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56171 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077Ab2DDJAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 05:00:16 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so46815wgb.1
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 02:00:15 -0700 (PDT)
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <cover.1333529504.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1333529504.git.richardcochran@gmail.com>
 References: <cover.1333529504.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/adi/bfin_mac.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/8390/ax88796.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index ab4daec..db22278 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -548,6 +548,25 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
- 	return 0;
- }
- 
-+static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
-+	struct ethtool_ts_info *info);
-+{
-+	info->so_timestamping =
-+		SOF_TIMESTAMPING_TX_HARDWARE |
-+		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_SYS_HARDWARE;
-+	info->phc_index = -1;
-+	info->tx_types =
-+		(1 << HWTSTAMP_TX_OFF) |
-+		(1 << HWTSTAMP_TX_ON);
-+	info->rx_filters =
-+		(1 << HWTSTAMP_FILTER_NONE) |
-+		(1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
-+	return 0;
-+}
-+
- static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_settings = bfin_mac_ethtool_getsettings,
- 	.set_settings = bfin_mac_ethtool_setsettings,
-@@ -555,6 +574,7 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
- 	.get_wol = bfin_mac_ethtool_getwol,
- 	.set_wol = bfin_mac_ethtool_setwol,
-+	.get_ts_info = bfin_mac_ethtool_get_ts_info,
+diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
+index c30adcc..211efbf 100644
+--- a/drivers/net/ethernet/8390/ax88796.c
++++ b/drivers/net/ethernet/8390/ax88796.c
+@@ -502,6 +502,7 @@ static const struct ethtool_ops ax_ethtool_ops = {
+ 	.get_settings		= ax_get_settings,
+ 	.set_settings		= ax_set_settings,
+ 	.get_link		= ethtool_op_get_link,
++	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- /**************************************************************************/
+ #ifdef CONFIG_AX88796_93CX6
 -- 
 1.7.2.5
+
+
+------------------------------------------------------------------------------
+Better than sec? Nothing is better than sec when it comes to
+monitoring Big Data applications. Try Boundary one-second 
+resolution app monitoring today. Free.
+http://p.sf.net/sfu/Boundary-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
