@@ -1,48 +1,68 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 0/7] bna: Update driver version to 3.0.23.0
-Date: Wed, 4 Apr 2012 10:15:35 -0700
-Message-ID: <20120404101535.0b739155@s6510.linuxnetplumber.net>
-References: <1332790673-9562-1-git-send-email-huangj@brocade.com>
+Subject: Re: [PATCH v2] marvell sky2 driver: fix so it works without
+ unaligned accesses
+Date: Wed, 4 Apr 2012 11:42:53 -0700
+Message-ID: <20120404114253.5f84d4c8@s6510.linuxnetplumber.net>
+References: <20120403.174610.2089715131687430500.davem@davemloft.net>
+	<1333469916.18626.284.camel@edumazet-glaptop>
+	<201204031527.q33FR04i031747@farm-0027.internal.tilera.com>
+	<201204041419.q34EJ49H025297@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<adapter_linux_open_src_team@brocade.com>
-To: Jing Huang <huangj@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60515 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756327Ab2DDRPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 13:15:39 -0400
-In-Reply-To: <1332790673-9562-1-git-send-email-huangj@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201204041419.q34EJ49H025297@farm-0012.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Mar 2012 12:37:53 -0700
-Jing Huang <huangj@brocade.com> wrote:
+On Wed, 4 Apr 2012 10:13:32 -0400
+Chris Metcalf <cmetcalf@tilera.com> wrote:
 
-> This patch set contains fixes in adapter initialization and tx/rx cleanup path.
-> It also include code cleanups by removing and renaming some functions.
+> The driver uses a receive_new() routine that ends up requiring unaligned
+> accesses in IP header processing.  If the architecture doesn't support
+> efficient unaligned accesses, and SKY2_HW_RAM_BUFFER is set,
+> just copy all ingress packets to the bounce buffers instead.
+> Thanks to Eric Dumazet for pointing out the SKY2_HW_RAM_BUFFER issue.
 > 
-> The driver version has been updated to 3.0.23.0 to reflect the changes.
+> This allows the driver to be used on the Tilera TILEmpower-Gx, since
+> the tile architecture doesn't currently handle kernel unaligned accesses,
+> just userspace.
 > 
-> Jing Huang (7):
->   bna: Serialize smem access during adapter initialization
->   bna: Flash controller ioc pll init fixes
->   bna: ioc cleanups
->   bfa: tx rx cleanup fix
->   bna: Remove tx tasklet
->   bfa: Function name changes and cleanups
->   bfa: Update driver version to 3.0.23.0
-> 
->  drivers/net/ethernet/brocade/bna/bfa_ioc.c      |   61 +++--
->  drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  142 +++++++----
->  drivers/net/ethernet/brocade/bna/bfi_reg.h      |    6 +
->  drivers/net/ethernet/brocade/bna/bnad.c         |  316 +++++++++++------------
->  drivers/net/ethernet/brocade/bna/bnad.h         |   11 +-
->  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    6 +-
->  6 files changed, 300 insertions(+), 242 deletions(-)
-> 
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> ---
+>  drivers/net/ethernet/marvell/sky2.c |    6 +++++-
+>  1 files changed, 5 insertions(+), 1 deletions(-)
 
-When are you going to integrate multi-queue support which is already
-available in your out of tree driver?
+What about the following (compile tested only)
+--- a/drivers/net/ethernet/marvell/sky2.c	2012-04-04 08:49:05.954853108 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-04 11:30:54.201432707 -0700
+@@ -2468,6 +2468,17 @@ static int sky2_change_mtu(struct net_de
+ 	return err;
+ }
+ 
++static inline bool needs_copy(const struct rx_ring_info *re,
++			      unsigned length)
++{
++#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
++	/* Some architectures need the IP header to be aligned */
++	if (!IS_ALIGNED(re->data_addr + ETH_HLEN, sizeof(u32)))
++		return 1;
++#endif
++	return length < copybreak;
++}
++
+ /* For small just reuse existing skb for next receive */
+ static struct sk_buff *receive_copy(struct sky2_port *sky2,
+ 				    const struct rx_ring_info *re,
+@@ -2605,7 +2616,7 @@ static struct sk_buff *sky2_receive(stru
+ 		goto error;
+ 
+ okay:
+-	if (length < copybreak)
++	if (needs_copy(re, length))
+ 		skb = receive_copy(sky2, re, length);
+ 	else
+ 		skb = receive_new(sky2, re, length);
