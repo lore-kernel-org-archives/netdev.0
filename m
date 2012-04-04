@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 06/10] bnx2x: Fix link issue for BCM8727 boards.
-Date: Wed, 4 Apr 2012 14:28:59 +0300
-Message-ID: <1333538942-9904-7-git-send-email-yanivr@broadcom.com>
+Subject: [net 05/10] bnx2x: Restore 1G LED on BCM57712+BCM8727 designs.
+Date: Wed, 4 Apr 2012 14:28:58 +0300
+Message-ID: <1333538942-9904-6-git-send-email-yanivr@broadcom.com>
 References: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,71 +11,82 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2061 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2740 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109Ab2DDJ3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 05:29:39 -0400
+	id S1756109Ab2DDJ3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 05:29:37 -0400
 In-Reply-To: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a link problem on BCM57712 + BCM8727 designs in which the TX
-laser is controller by GPIO, after 1.60.xx drivers were previously loaded.
-On these designs the TX_LASER is enabled by logic AND between the PHY
-(through MDIO), and the GPIO. When an old driver is used, it disables the
-MDIO part, hence the GPIO control had no affect de facto.
+Fix no-LED problem when link speed is 1G on BCM57712 + BCM8727 designs, by
+removing a logic error checking for a different PHY.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   33 ++++++++++++----------
+ 1 files changed, 18 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 1438da8..732b4c8 100644
+index 1e2fea3..1438da8 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -8089,7 +8089,9 @@ static int bnx2x_verify_sfp_module(struct bnx2x_phy *phy,
- 	netdev_err(bp->dev,  "Warning: Unqualified SFP+ module detected,"
- 			      " Port %d from %s part number %s\n",
- 			 params->port, vendor_name, vendor_pn);
--	phy->flags |= FLAGS_SFP_NOT_APPROVED;
-+	if ((val & PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_MASK) !=
-+	    PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_WARNING_MSG)
-+		phy->flags |= FLAGS_SFP_NOT_APPROVED;
- 	return -EINVAL;
- }
+@@ -6216,12 +6216,14 @@ int bnx2x_set_led(struct link_params *params,
  
-@@ -9149,6 +9151,12 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
- 		tmp2 &= 0xFFEF;
- 		bnx2x_cl45_write(bp, phy,
- 			MDIO_PMA_DEVAD, MDIO_PMA_REG_8727_OPT_CFG_REG, tmp2);
-+		bnx2x_cl45_read(bp, phy,
-+				MDIO_PMA_DEVAD, MDIO_PMA_REG_PHY_IDENTIFIER,
-+				&tmp2);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_PHY_IDENTIFIER,
-+				 (tmp2 & 0x7fff));
- 	}
- 
- 	return 0;
-@@ -9329,12 +9337,11 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
- 				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
- 				 ((1<<5) | (1<<2)));
- 	}
--	DP(NETIF_MSG_LINK, "Enabling 8727 TX laser if SFP is approved\n");
--	bnx2x_8727_specific_func(phy, params, ENABLE_TX);
--	/* If transmitter is disabled, ignore false link up indication */
--	bnx2x_cl45_read(bp, phy,
--			MDIO_PMA_DEVAD, MDIO_PMA_REG_PHY_IDENTIFIER, &val1);
--	if (val1 & (1<<15)) {
+ 		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
+ 		if (params->phy[EXT_PHY1].type ==
+-			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
+-			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp & 0xfff1);
+-		else {
+-			EMAC_WR(bp, EMAC_REG_EMAC_LED,
+-				(tmp | EMAC_LED_OVERRIDE));
+-		}
++			PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
++			tmp &= ~(EMAC_LED_1000MB_OVERRIDE |
++				EMAC_LED_100MB_OVERRIDE |
++				EMAC_LED_10MB_OVERRIDE);
++		else
++			tmp |= EMAC_LED_OVERRIDE;
 +
-+	if (!(phy->flags & FLAGS_SFP_NOT_APPROVED)) {
-+		DP(NETIF_MSG_LINK, "Enabling 8727 TX laser\n");
-+		bnx2x_sfp_set_transmitter(params, phy, 1);
-+	} else {
- 		DP(NETIF_MSG_LINK, "Tx is disabled\n");
- 		return 0;
- 	}
++		EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp);
+ 		break;
+ 
+ 	case LED_MODE_OPER:
+@@ -6276,10 +6278,15 @@ int bnx2x_set_led(struct link_params *params,
+ 				       hw_led_mode);
+ 		} else if ((params->phy[EXT_PHY1].type ==
+ 			    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
+-			   (mode != LED_MODE_OPER)) {
++			   (mode == LED_MODE_ON)) {
+ 			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, 0);
+ 			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
+-			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp | 0x3);
++			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp |
++				EMAC_LED_OVERRIDE | EMAC_LED_1000MB_OVERRIDE);
++			/* Break here; otherwise, it'll disable the
++			 * intended override.
++			 */
++			break;
+ 		} else
+ 			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
+ 			       hw_led_mode);
+@@ -6294,13 +6301,9 @@ int bnx2x_set_led(struct link_params *params,
+ 			       LED_BLINK_RATE_VAL_E1X_E2);
+ 		REG_WR(bp, NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 +
+ 		       port*4, 1);
+-		if ((params->phy[EXT_PHY1].type !=
+-		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
+-		    (mode != LED_MODE_OPER)) {
+-			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
+-			EMAC_WR(bp, EMAC_REG_EMAC_LED,
+-				(tmp & (~EMAC_LED_OVERRIDE)));
+-		}
++		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
++		EMAC_WR(bp, EMAC_REG_EMAC_LED,
++			(tmp & (~EMAC_LED_OVERRIDE)));
+ 
+ 		if (CHIP_IS_E1(bp) &&
+ 		    ((speed == SPEED_2500) ||
 -- 
 1.7.7.1
