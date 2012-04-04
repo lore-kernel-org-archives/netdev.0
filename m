@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V4 net-next 23/26] stmmac: Support the
+Subject: [PATCH V4 net-next 22/26] smsc9420: Support the
 	get_ts_info ethtool method.
-Date: Wed,  4 Apr 2012 10:59:38 +0200
-Message-ID: <00a88ffa65067bba2dda78badf97ef3f23dfe0d4.1333529506.git.richardcochran@gmail.com>
+Date: Wed,  4 Apr 2012 10:59:37 +0200
+Message-ID: <9be82f2667faa9569386618c3851d5c4e5de1e31.1333529506.git.richardcochran@gmail.com>
 References: <cover.1333529504.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
+ drivers/net/ethernet/smsc/smsc9420.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index f98e151..ce43184 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -481,6 +481,7 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
- 	.get_sset_count	= stmmac_get_sset_count,
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index 3838647..f80ec68 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -469,6 +469,7 @@ static const struct ethtool_ops smsc9420_ethtool_ops = {
+ 	.set_eeprom = smsc9420_ethtool_set_eeprom,
+ 	.get_regs_len = smsc9420_ethtool_getregslen,
+ 	.get_regs = smsc9420_ethtool_getregs,
 +	.get_ts_info = ethtool_op_get_ts_info,
  };
  
- void stmmac_set_ethtool_ops(struct net_device *netdev)
+ /* Sets the device MAC address to dev_addr */
 -- 
 1.7.2.5
 
